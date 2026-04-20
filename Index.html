@@ -213,25 +213,26 @@ const JPN_MAP = {
 
 async function loadDict() {
     try {
-        // ファイル名は実際のTSVファイル名（dictionary.tsvなど）に書き換えてください
-        const res = await fetch('./data/macula-greek-japanese-SBLGNT.tsv'); 
-        const text = await res.text();
+        // 同じ階層にあるTSVファイルを読み込む
+        const res = await fetch('./macula-greek-japanese-SBLGNT.tsv'); 
+        if (!res.ok) throw new Error("辞書ファイルが見つかりません");
         
+        const text = await res.text();
         const rows = text.split(/\r?\n/);
         abbottSmithDict = {};
         
         rows.forEach((row, index) => {
-            if (index === 0 || !row.trim()) return; // ヘッダーと空行をスキップ
+            if (index === 0 || !row.trim()) return; // ヘッダーをスキップ
             
-            const cols = row.split('\t'); // タブで分割
+            const cols = row.split('\t'); // タブ区切り
             
-            // 13列目（インデックス12）にStrong番号の数字がある
+            // 構造確認: 7列目(index 6)=日本語, 13列目(index 12)=Strong番号
             if (cols.length >= 13) {
-                const strongNumber = cols[12].trim(); // "976" など
-                
+                const strongNumber = String(cols[12]).trim();
                 abbottSmithDict[strongNumber] = {
-                    english: cols[5] ? cols[5].trim() : "",   // 6列目: english (book)
-                    japanese: cols[6] ? cols[6].trim() : ""  // 7列目: japanese (図)
+                    english: cols[5] ? cols[5].trim() : "",
+                    japanese: cols[6] ? cols[6].trim() : "", // ここが「図」など
+                    content: cols[7] ? cols[7].trim() : ""
                 };
             }
         });
@@ -271,18 +272,19 @@ function decorate(wordText, wordData) {
         jpMorph = `${label}:${p}${c}${n}${g}`;
     } else { jpMorph = JPN_MAP.pos[pos] || morph; }
 
+    // Strong番号の照合（Gなしの数字のみで比較）
+    const strong = String(m.strong || "").trim(); 
+    const info = abbottSmithDict ? abbottSmithDict[strong] : null;
+    
+    // 日本語訳があれば ［ ］ で囲む
+    const jpGloss = info && info.japanese ? `［${info.japanese}］` : ""; 
+
+    // クラス名生成
     const tenseClass = (pos === 'V' && parts[1]) ? { 'P': 'present', 'A': 'aorist', 'X': 'perfect' }[parts[1][0]] : "";
     const voiceClass = (pos === 'V' && parts[1]) ? { 'P': 'passive', 'M': 'middle', 'D': 'passive' }[parts[1][1]] : "";
     const moodClass  = (pos === 'V' && parts[1]) ? { 'I': 'indicative', 'M': 'imperative' }[parts[1][2]] : "";
     const classes = ["verb-hit", tenseClass, voiceClass, moodClass].filter(Boolean).join(" ");
     
-    const strong = m.strong || ""; // ここに "976" が入っていると仮定
-    
-    // Gを付けずに辞書を引く
-    const info = abbottSmithDict ? abbottSmithDict[strong] : null;
-    
-    const jpGloss = info && info.japanese ? `［${info.japanese}］` : ""; 
-
     return `<div class="word-card ${classes}" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}')">
                 <div>
                     <span class="greek-word">${wordText}</span>
@@ -293,18 +295,21 @@ function decorate(wordText, wordData) {
             </div>`;
 }
 
+// 詳細パネルの修正
 function showDetail(greek, strong, morph) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
     document.getElementById('detail-greek').innerText = greek;
     document.getElementById('detail-strong').innerText = `G${strong}`;
     
-    const info = abbottSmithDict ? abbottSmithDict[`G${strong}`] : null;
+    const info = abbottSmithDict ? abbottSmithDict[strong] : null;
     document.getElementById('detail-body').innerHTML = info ? 
-        `<div style="color:var(--highlight); margin-bottom:8px; font-weight:bold; font-size:0.85rem;">${morph}</div><div>${info.content}</div>` :
-        `<div style="color:var(--highlight); font-size:0.85rem;">${morph}</div><p style="font-size:0.8rem; color:var(--text-sub);">No local data. <a href="https://biblehub.com/greek/${strong}.htm" target="_blank" style="color:var(--highlight);">Bible Hub</a></p>`;
+        `<div style="color:var(--highlight); margin-bottom:8px; font-weight:bold; font-size:0.85rem;">${morph}</div>
+         <div style="font-weight:bold; margin-bottom:5px;">${info.japanese}</div>
+         <div style="font-size:0.85rem; color:var(--text-sub); border-top:1px solid #eee; pt-5">${info.english}</div>` :
+        `<div style="color:var(--highlight); font-size:0.85rem;">${morph}</div>
+         <p style="font-size:0.8rem; color:var(--text-sub);">No local data.</p>`;
 }
-
 function toggleNav() {
     const nav = document.getElementById('nav-panel');
     nav.style.display = (nav.style.display === 'flex') ? 'none' : 'flex';
