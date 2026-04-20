@@ -135,7 +135,7 @@
     .tag-jp { color: #5f6a6a; font-size: 0.8rem; margin-left: 10px; }
     .strong-num { font-size: 0.65rem; color: #b2babb; font-family: monospace; }
 
-    /* 詳細表示：パネル下部に馴染む表示 */
+    /* 詳細表示：スクロールと凡例のベース */
     #word-detail-view {
         background: var(--bg-card); 
         border: 1px solid var(--highlight); 
@@ -145,6 +145,32 @@
         margin-top: 15px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         animation: slideUp 0.3s ease-out;
+        max-height: 450px;    /* 高さを制限 */
+        overflow-y: auto;     /* 縦スクロール */
+        position: relative;
+    }
+
+    /* 時制別の下線装飾 */
+    .present-text { border-bottom: 2px solid var(--highlight); padding-bottom: 1px; }     /* 現在形：下線 */
+    .aorist-text  { border-bottom: 2px dotted var(--highlight); padding-bottom: 1px; }    /* アオリスト：点線 */
+    .perfect-text { border-bottom: 2px double var(--highlight); padding-bottom: 1px; }    /* 完了形：二重線（または波線代用） */
+    
+    /* 法の装飾（背景色で区別） */
+    .indicative-text { /* 法による装飾を背景色などに分ける場合に使用 */ }
+    .imperative-text { background: rgba(211, 84, 0, 0.1); border-radius: 2px; }
+
+    /* 凡例のレイアウト */
+    .grammar-legend {
+        font-size: 0.65rem;
+        color: var(--text-sub);
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        border-top: 1px solid var(--border-soft);
+        padding-top: 5px;
+        line-height: 1.4;
+    }
         
         /* スクロール機能の追加 */
         max-height: 400px;    /* 高さを固定（必要に応じて調整してください） */
@@ -302,7 +328,6 @@ function decorate(wordText, wordData) {
         jpMorph = `${label}:${p}${c}${n}${g}`;
     } else { jpMorph = JPN_MAP.pos[pos] || morph; }
 
-    // Strong番号の照合（Gなしの数字のみで比較）
     // Strong番号の照合（数字のみにクリーンアップ）
     const strong = String(m.strong || "").replace(/[^0-9]/g, ""); 
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
@@ -337,30 +362,54 @@ function decorate(wordText, wordData) {
 function showDetail(greek, strong, morph) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
-    
-    // パネルを表示した際に、一番上までスクロールを戻す
     view.scrollTop = 0;
 
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
     
-    // 日本語訳の判定
+    // 装飾と凡例の判定
+    let classes = [];
+    let legends = [];
+
+    // 時制の判定
+    if (morph.includes("現在")) {
+        classes.push("present-text");
+        legends.push(`<span class="present-text">実線:現在</span>`);
+    } else if (morph.includes("アオリスト")) {
+        classes.push("aorist-text");
+        legends.push(`<span class="aorist-text">点線:アオリスト</span>`);
+    } else if (morph.includes("完了")) {
+        classes.push("perfect-text");
+        legends.push(`<span class="perfect-text">二重線:完了</span>`);
+    }
+
+    // 法の判定
+    if (morph.includes("命令")) {
+        classes.push("imperative-text");
+        legends.push(`<span class="imperative-text">背景:命令</span>`);
+    }
+
+    const classString = classes.join(" ");
+    const legendHtml = legends.join(" ");
     const displayJp = (info && info.japanese && info.japanese !== "読み込んでいます...") 
                       ? info.japanese 
                       : "（未登録）";
 
-    // 閉じるボタン付きのHTML構造
     document.getElementById('word-detail-view').innerHTML = `
         <div style="font-weight:bold; border-bottom:1px solid var(--border-soft); margin-bottom:12px; display:flex; justify-content:space-between; padding-bottom:5px; position: sticky; top: 0; background: var(--bg-card); z-index: 10;">
             <div>
-                <span style="font-size:1.4rem; color:#000;">${greek}</span>
+                <span class="${classString}" style="font-size:1.4rem; color:#000;">${greek}</span>
                 <span style="color:var(--text-sub); font-size:0.75rem; margin-left:8px;">G${strong}</span>
             </div>
             <button onclick="closeDetail()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-sub); line-height:1;">&times;</button>
         </div>
         
-        <div id="detail-body" class="detail-body">
-            <div style="color:var(--highlight); margin-bottom:8px; font-weight:bold; font-size:0.85rem;">${morph}</div>
-            <div style="font-size:1.1rem; font-weight:bold; margin-bottom:10px;">${displayJp}</div>
+        <div class="detail-body">
+            <div style="color:var(--highlight); margin-bottom:2px; font-weight:bold; font-size:0.85rem;">${morph}</div>
+            
+            <div class="grammar-legend">${legendHtml}</div>
+
+            <div style="font-size:1.1rem; font-weight:bold; margin-top:10px; margin-bottom:10px;">${displayJp}</div>
+            
             <div style="font-size:0.9rem; line-height:1.6; border-top:1px solid var(--border-soft); padding-top:10px;">
                 <p><strong>Definition:</strong> ${info?.gloss || '---'}</p>
                 <div style="color:var(--text-main); background:rgba(0,0,0,0.03); padding:12px; border-radius:6px; white-space: pre-wrap; margin-top:10px;">
@@ -371,7 +420,7 @@ function showDetail(greek, strong, morph) {
     `;
 }
 
-// パネルを閉じる関数
+// 閉じる関数（変更なし）
 function closeDetail() {
     document.getElementById('word-detail-view').style.display = 'none';
 }
