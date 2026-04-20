@@ -237,20 +237,25 @@ function decorate(wordText, wordData) {
     let styleClass = "";
 
     if (pos === 'V' && parts[1]) {
-        const t = JPN_MAP.tense[parts[1][0]] || "";
-        const v = JPN_MAP.voice[parts[1][1]] || "";
-        const md = JPN_MAP.mood[parts[1][2]] || "";
+        const tenseCode = parts[1][0];
+        const moodCode = parts[1][2];
         
-        // 時制の装飾
-        if (parts[1][0] === 'P') styleClass = "present-text";
-        else if (parts[1][0] === 'A') styleClass = "aorist-text";
-        else if (parts[1][0] === 'X') styleClass = "perfect-text";
-        
-        // 法の装飾（厳密に直説法 I と 命令法 M のみ）
-        if (parts[1][2] === 'I') styleClass += " indicative-text";
-        else if (parts[1][2] === 'M') styleClass += " imperative-text";
+        // 【修正】直接法(I)または命令法(M)の場合のみ、時制と法の装飾を適用する
+        if (moodCode === 'I' || moodCode === 'M') {
+            // 時制の装飾
+            if (tenseCode === 'P') styleClass = "present-text";
+            else if (tenseCode === 'A') styleClass = "aorist-text";
+            else if (tenseCode === 'X') styleClass = "perfect-text";
+            
+            // 法の装飾
+            if (moodCode === 'I') styleClass += " indicative-text";
+            else if (moodCode === 'M') styleClass += " imperative-text";
+        }
 
-        let detail = (parts[1][2] === 'P' && parts[2]) ? `(${JPN_MAP.case[parts[2][0]] || ""}${JPN_MAP.number[parts[2][1]] || ""}${JPN_MAP.gender[parts[2][2]] || ""})` : (parts[1].length >= 5 ? (JPN_MAP.person[parts[1][3]] || "") + (JPN_MAP.number[parts[1][4]] || "") : "");
+        const t = JPN_MAP.tense[tenseCode] || "";
+        const v = JPN_MAP.voice[parts[1][1]] || "";
+        const md = JPN_MAP.mood[moodCode] || "";
+        let detail = (moodCode === 'P' && parts[2]) ? `(${JPN_MAP.case[parts[2][0]] || ""}${JPN_MAP.number[parts[2][1]] || ""}${JPN_MAP.gender[parts[2][2]] || ""})` : (parts[1].length >= 5 ? (JPN_MAP.person[parts[1][3]] || "") + (JPN_MAP.number[parts[1][4]] || "") : "");
         jpMorph = `${t}${v}${md}${detail}`;
     } else if (['N', 'A', 'R', 'P', 'T', 'D'].includes(pos) && parts[1]) {
         const label = JPN_MAP.pos[pos] || pos;
@@ -274,16 +279,21 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
     let classes = [], legends = [];
     
-    // rawMorphから正確な判定を行う
     const parts = rawMorph.split('-');
     if (parts[0] === 'V' && parts[1]) {
-        // 時制
-        if (parts[1][0] === 'P') { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
-        else if (parts[1][0] === 'A') { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
-        else if (parts[1][0] === 'X') { classes.push("perfect-text"); legends.push(`<span class="perfect-text">二重線:完了</span>`); }
-        // 法
-        if (parts[1][2] === 'I') { classes.push("indicative-text"); legends.push(`<span class="indicative-text">左線:直説</span>`); }
-        else if (parts[1][2] === 'M') { classes.push("imperative-text"); legends.push(`<span class="imperative-text">背景:命令</span>`); }
+        const tenseCode = parts[1][0];
+        const moodCode = parts[1][2];
+
+        // 【修正】詳細パネルでも、直接法(I)または命令法(M)の場合のみ装飾凡例を表示する
+        if (moodCode === 'I' || moodCode === 'M') {
+            // 時制
+            if (tenseCode === 'P') { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
+            else if (tenseCode === 'A') { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
+            else if (tenseCode === 'X') { classes.push("perfect-text"); legends.push(`<span class="perfect-text">二重線:完了</span>`); }
+            // 法
+            if (moodCode === 'I') { classes.push("indicative-text"); legends.push(`<span class="indicative-text">左線:直説</span>`); }
+            else if (moodCode === 'M') { classes.push("imperative-text"); legends.push(`<span class="imperative-text">背景:命令</span>`); }
+        }
     }
     
     view.innerHTML = `
