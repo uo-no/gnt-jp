@@ -120,8 +120,8 @@
     .aorist-text  { border-bottom: 2px dotted var(--highlight); }
     .perfect-text { border-bottom: 2px double var(--highlight); }
     
-    .indicative-text { border-left: 3px solid var(--highlight); padding-left: 4px; } /* 直接法の例 */
-    .imperative-text { background: rgba(211, 84, 0, 0.1); border-radius: 2px; padding: 0 4px; } /* 命令法の例 */
+    .indicative-text { border-left: 3px solid var(--highlight); padding-left: 4px; }
+    .imperative-text { background: rgba(211, 84, 0, 0.1); border-radius: 2px; padding: 0 4px; }
 
     .grammar-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; font-size: 0.65rem; color: var(--text-sub); border-top: 1px solid var(--border-soft); padding-top: 5px; }
     .tag-jp { color: #5f6a6a; font-size: 0.8rem; margin-left: 10px; }
@@ -246,7 +246,7 @@ function decorate(wordText, wordData) {
         else if (parts[1][0] === 'A') styleClass = "aorist-text";
         else if (parts[1][0] === 'X') styleClass = "perfect-text";
         
-        // 法の装飾（直接法と命令法のみ）
+        // 法の装飾（厳密に直説法 I と 命令法 M のみ）
         if (parts[1][2] === 'I') styleClass += " indicative-text";
         else if (parts[1][2] === 'M') styleClass += " imperative-text";
 
@@ -262,26 +262,29 @@ function decorate(wordText, wordData) {
 
     const strong = String(m.strong || "").replace(/[^0-9]/g, ""); 
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
-    return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}')">
+    return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}')">
                 <div><span class="greek-word ${styleClass}">${wordText}</span><span style="color:var(--highlight); font-weight:bold; margin-left:5px; font-size:0.9rem;">［${info?.japanese || "？"}］</span><span class="tag-jp">${jpMorph}</span></div>
                 <span class="strong-num">G${strong}</span>
             </div>`;
 }
 
-function showDetail(greek, strong, morph) {
+function showDetail(greek, strong, jpMorph, rawMorph) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
     let classes = [], legends = [];
     
-    // 時制凡例
-    if (morph.includes("現在")) { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
-    else if (morph.includes("アオリスト")) { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
-    else if (morph.includes("完了")) { classes.push("perfect-text"); legends.push(`<span class="perfect-text">二重線:完了</span>`); }
-    
-    // 法凡例 (直接法と命令法のみ)
-    if (morph.includes("直説")) { classes.push("indicative-text"); legends.push(`<span class="indicative-text">左線:直説</span>`); }
-    if (morph.includes("命令")) { classes.push("imperative-text"); legends.push(`<span class="imperative-text">背景:命令</span>`); }
+    // rawMorphから正確な判定を行う
+    const parts = rawMorph.split('-');
+    if (parts[0] === 'V' && parts[1]) {
+        // 時制
+        if (parts[1][0] === 'P') { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
+        else if (parts[1][0] === 'A') { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
+        else if (parts[1][0] === 'X') { classes.push("perfect-text"); legends.push(`<span class="perfect-text">二重線:完了</span>`); }
+        // 法
+        if (parts[1][2] === 'I') { classes.push("indicative-text"); legends.push(`<span class="indicative-text">左線:直説</span>`); }
+        else if (parts[1][2] === 'M') { classes.push("imperative-text"); legends.push(`<span class="imperative-text">背景:命令</span>`); }
+    }
     
     view.innerHTML = `
         <div style="font-weight:bold; border-bottom:1px solid var(--border-soft); margin-bottom:12px; display:flex; justify-content:space-between; padding-bottom:10px; position: sticky; top:0; background:var(--bg-card);">
@@ -289,7 +292,7 @@ function showDetail(greek, strong, morph) {
             <button onclick="closeDetail()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-sub);">&times;</button>
         </div>
         <div class="detail-body">
-            <div style="color:var(--highlight); font-weight:bold; font-size:0.85rem;">${morph}</div>
+            <div style="color:var(--highlight); font-weight:bold; font-size:0.85rem;">${jpMorph}</div>
             <div class="grammar-legend">${legends.join(" ")}</div>
             <div style="font-size:1.1rem; font-weight:bold; margin-top:12px;">${info?.japanese || "（未登録）"}</div>
             <p><strong>定義:</strong> ${info?.gloss || '---'}</p>
