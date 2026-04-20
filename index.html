@@ -213,51 +213,55 @@ const JPN_MAP = {
 
 async function loadDict() {
     try {
-        // 日本語辞書の読み込み
+        abbottSmithDict = {}; // 辞書を初期化
+
+        // 1. 日本語辞書の読み込み
         const resJp = await fetch('./macula-greek-japanese-SBLGNT.tsv');
+        if (!resJp.ok) throw new Error("日本語TSVが見つかりません");
         const textJp = await resJp.text();
 
-        // Abbott-Smith辞書（新しく作ったTSV）の読み込み
-        const resAbbott = await fetch('./abbott-smith.tsv');
-        const textAbbott = await resAbbott.text();
-
-        abbottSmithDict = {};
-
-        // 日本語データをハッシュマップに格納
         textJp.split(/\r?\n/).forEach((row, index) => {
             if (index === 0 || !row.trim()) return;
             const cols = row.split('\t');
+            // 列の数が足りているか、Strong番号(cols[12])があるか確認
             if (cols.length >= 13) {
                 const strong = String(cols[12]).trim();
                 abbottSmithDict[strong] = { 
-                    japanese: cols[6]?.trim(), 
-                    gloss: cols[5]?.trim() 
+                    japanese: cols[6] ? cols[6].trim() : "（訳なし）", 
+                    gloss: cols[5] ? cols[5].trim() : "" 
                 };
             }
         });
 
-        // Abbott-Smithデータを統合
-        // Abbott-Smithデータを統合
+        // 2. Abbott-Smithの読み込み
+        const resAbbott = await fetch('./abbott-smith.tsv');
+        if (!resAbbott.ok) throw new Error("Abbott-Smith TSVが見つかりません");
+        const textAbbott = await resAbbott.text();
+
         textAbbott.split(/\r?\n/).forEach((row, index) => {
             if (index === 0 || !row.trim()) return;
             const cols = row.split('\t');
-            if (cols.length < 3) return; // 列が足りない場合は飛ばす
+            if (cols.length < 3) return;
 
-            const strong = String(cols[0]).trim(); // 1列目がStrong番号
+            const strong = String(cols[0]).trim();
             const description = cols[2] ? cols[2].trim() : "";
 
-            // 辞書にまだこの番号がない場合は新しく枠を作る
-            if (!abbottSmithDict[strong]) {
-                abbottSmithDict[strong] = { japanese: "", gloss: "" };
+            if (abbottSmithDict[strong]) {
+                // すでに日本語データがある場合は description を追加
+                abbottSmithDict[strong].description = description;
+            } else {
+                // 日本語データがなくても Abbott-Smith 単体で登録
+                abbottSmithDict[strong] = { 
+                    japanese: "（日本語訳データなし）", 
+                    gloss: "", 
+                    description: description 
+                };
             }
-            
-            // 既存の日本語訳などはそのままに、解説文（description）だけをしっかり格納する
-            abbottSmithDict[strong].description = description;
         });
 
-        console.log("辞書データの統合に成功しました！");
+        console.log("辞書の全統合が完了しました。総単語数:", Object.keys(abbottSmithDict).length);
     } catch (e) {
-        console.error("辞書の読み込み中にエラーが発生しました:", e);
+        console.error("辞書の読み込み中に重大なエラーが発生しました:", e);
     }
 }
 
