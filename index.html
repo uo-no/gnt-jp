@@ -223,13 +223,17 @@ async function loadDict() {
         textJp.split(/\r?\n/).forEach((row, index) => {
             if (index === 0 || !row.trim()) return;
             const cols = row.split('\t');
-            // 列の数が足りているか、Strong番号(cols[12])があるか確認
+
+            // 【重要】Strong番号が13列目（index 12）にあるか再確認してください
+            // もしズレている場合は、以下の cols[12] の数字を調整します
             if (cols.length >= 13) {
                 const strong = String(cols[12]).trim();
-                abbottSmithDict[strong] = { 
-                    japanese: cols[6] ? cols[6].trim() : "（訳なし）", 
-                    gloss: cols[5] ? cols[5].trim() : "" 
-                };
+                if (strong) {
+                    abbottSmithDict[strong] = { 
+                        japanese: cols[6] ? cols[6].trim() : "---", // 7列目(index 6)が日本語
+                        gloss: cols[5] ? cols[5].trim() : ""        // 6列目(index 5)が英語短縮訳
+                    };
+                }
             }
         });
 
@@ -243,25 +247,25 @@ async function loadDict() {
             const cols = row.split('\t');
             if (cols.length < 3) return;
 
-            const strong = String(cols[0]).trim();
-            const description = cols[2] ? cols[2].trim() : "";
+            const strong = String(cols[0]).trim(); // Strong番号
+            const description = cols[2] ? cols[2].trim() : ""; // 解説文
 
             if (abbottSmithDict[strong]) {
-                // すでに日本語データがある場合は description を追加
+                // 日本語データがある場合は、そこに解説文を追加
                 abbottSmithDict[strong].description = description;
             } else {
-                // 日本語データがなくても Abbott-Smith 単体で登録
+                // 日本語データがない場合でも、新規登録
                 abbottSmithDict[strong] = { 
-                    japanese: "（日本語訳データなし）", 
+                    japanese: "（日本語データなし）", 
                     gloss: "", 
                     description: description 
                 };
             }
         });
 
-        console.log("辞書の全統合が完了しました。総単語数:", Object.keys(abbottSmithDict).length);
+        console.log("辞書の全統合が完了しました！");
     } catch (e) {
-        console.error("辞書の読み込み中に重大なエラーが発生しました:", e);
+        console.error("辞書の読み込みエラー:", e);
     }
 }
 
