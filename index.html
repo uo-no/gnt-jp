@@ -149,8 +149,15 @@
     }
     
     /* 凡例や形態論などのテキスト */
-    .grammar-legend, .detail-body {
-        font-family: 'Noto Sans JP', 'Gentium Plus', sans-serif;
+    .grammar-legend {
+        display: flex;       /* 横並びにする */
+        flex-wrap: wrap;     /* 折り返し許可 */
+        gap: 12px;           /* 間隔をあける */
+        margin-bottom: 12px; /* 下に余白を作る */
+        padding: 5px 0;
+        border-bottom: 1px solid var(--border-soft); /* 凡例の下に細い線を入れる */
+        font-size: 0.7rem;
+        color: var(--text-sub);
     }
 
     .tag-jp { color: #5f6a6a; font-size: 0.8rem; margin-left: 10px; }
@@ -387,30 +394,34 @@ function showDetail(greek, strong, morph) {
 
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
     
-    // 装飾と凡例の判定
+    // 装飾と凡例の判定ロジック
     let classes = [];
     let legends = [];
 
     // 時制の判定
     if (morph.includes("現在")) {
         classes.push("present-text");
-        legends.push(`<span class="present-text">実線:現在</span>`);
+        legends.push(`<span class="present-text" style="border-bottom: 2px solid var(--highlight);">実線:現在</span>`);
     } else if (morph.includes("アオリスト")) {
         classes.push("aorist-text");
-        legends.push(`<span class="aorist-text">点線:アオリスト</span>`);
+        legends.push(`<span class="aorist-text" style="border-bottom: 2px dotted var(--highlight);">点線:アオリスト</span>`);
     } else if (morph.includes("完了")) {
         classes.push("perfect-text");
-        legends.push(`<span class="perfect-text">二重線:完了</span>`);
+        legends.push(`<span class="perfect-text" style="border-bottom: 2px double var(--highlight);">二重線:完了</span>`);
     }
 
     // 法の判定
     if (morph.includes("命令")) {
         classes.push("imperative-text");
-        legends.push(`<span class="imperative-text">背景:命令</span>`);
+        legends.push(`<span class="imperative-text" style="background: rgba(211, 84, 0, 0.1); padding: 0 4px;">背景:命令</span>`);
     }
 
     const classString = classes.join(" ");
-    const legendHtml = legends.join(" ");
+    // 凡例がある場合のみHTMLを作成
+    const legendHtml = legends.length > 0 
+        ? `<div class="grammar-legend">${legends.join(" ")}</div>` 
+        : "";
+
     const displayJp = (info && info.japanese && info.japanese !== "読み込んでいます...") 
                       ? info.japanese 
                       : "（未登録）";
@@ -421,15 +432,15 @@ function showDetail(greek, strong, morph) {
                 <span id="detail-greek" class="${classString}">${greek}</span>
                 <span style="color:var(--text-sub); font-size:0.8rem; margin-left:12px; font-family: monospace;">G${strong}</span>
             </div>
-            <button onclick="closeDetail()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-sub); line-height:1;">&times;</button>
+            <button onclick="closeDetail()" style="background:none; border:none; font-size:1.8rem; cursor:pointer; color:var(--text-sub); line-height:1;">&times;</button>
         </div>
         
         <div class="detail-body">
-            <div style="color:var(--highlight); margin-bottom:2px; font-weight:bold; font-size:0.85rem;">${morph}</div>
+            <div style="color:var(--highlight); margin-bottom:4px; font-weight:bold; font-size:0.85rem;">${morph}</div>
             
-            <div class="grammar-legend">${legendHtml}</div>
+            ${legendHtml}
 
-            <div style="font-size:1.1rem; font-weight:bold; margin-top:10px; margin-bottom:10px;">${displayJp}</div>
+            <div style="font-size:1.1rem; font-weight:bold; margin-top:12px; margin-bottom:10px;">${displayJp}</div>
             
             <div style="font-size:0.9rem; line-height:1.6; border-top:1px solid var(--border-soft); padding-top:10px;">
                 <p><strong>Definition:</strong> ${info?.gloss || '---'}</p>
