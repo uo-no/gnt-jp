@@ -213,43 +213,43 @@ const JPN_MAP = {
 
 async function loadDict() {
     try {
-        // 1. 日本語訳TSVの読み込み
+        // 日本語辞書の読み込み
         const resJp = await fetch('./macula-greek-japanese-SBLGNT.tsv');
         const textJp = await resJp.text();
-        
-        // 2. Abbott-Smith辞書の読み込み（ファイル名は実際のものに合わせてください）
-        const resAbbott = await fetch('./abbott-smith.tsv'); 
+
+        // Abbott-Smith辞書（新しく作ったTSV）の読み込み
+        const resAbbott = await fetch('./abbott-smith.tsv');
         const textAbbott = await resAbbott.text();
 
         abbottSmithDict = {};
 
-        // 日本語データの解析
+        // 日本語データをハッシュマップに格納
         textJp.split(/\r?\n/).forEach((row, index) => {
             if (index === 0 || !row.trim()) return;
             const cols = row.split('\t');
             if (cols.length >= 13) {
                 const strong = String(cols[12]).trim();
-                abbottSmithDict[strong] = {
-                    japanese: cols[6] ? cols[6].trim() : "",
-                    gloss: cols[5] ? cols[5].trim() : ""
+                abbottSmithDict[strong] = { 
+                    japanese: cols[6]?.trim(), 
+                    gloss: cols[5]?.trim() 
                 };
             }
         });
 
-        // Abbott-Smithデータの統合（Strong番号が1列目にあると仮定）
+        // Abbott-Smithデータを統合
         textAbbott.split(/\r?\n/).forEach((row, index) => {
             if (index === 0 || !row.trim()) return;
             const cols = row.split('\t');
-            const strong = String(cols[0]).trim(); // Strong番号の列を指定
+            const strong = String(cols[0]).trim(); // 1列目がStrong番号の場合
             if (abbottSmithDict[strong]) {
-                // 既存のデータに詳細説明（例：2列目）を追加
-                abbottSmithDict[strong].description = cols[1] ? cols[1].trim() : "";
+                // 3列目（index 2）に解説文が入っている場合
+                abbottSmithDict[strong].description = cols[2] ? cols[2].trim() : "";
             }
         });
 
-        console.log("辞書統合完了");
+        console.log("辞書データの統合に成功しました！");
     } catch (e) {
-        console.error("辞書エラー:", e);
+        console.error("辞書の読み込み中にエラーが発生しました:", e);
     }
 }
 
