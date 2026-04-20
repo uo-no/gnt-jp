@@ -15,7 +15,7 @@
         --text-main: #2c2c2c;       /* 深いチャコール */
         --text-sub: #8e8e8e;
         --accent-dark: #3d3d3d;     
-        --highlight: #b2bec3;        /* 落ち着いた薄いグレーに変更 */
+        --highlight: #b2bec3;        /* 落ち着いた薄いグレー */
         --border-soft: rgba(0,0,0,0.06);
     }
 
@@ -90,6 +90,9 @@
     .menu-item.active { background: rgba(0,0,0,0.08); font-weight: bold; }
     .collapsed .menu-text, .collapsed .section-label { display: none; }
 
+    /* 章ナビゲーション：デザインを維持 */
+    .chapter-control { display: flex; align-items: center; gap: 5px; flex: 1; }
+    
     .sidebar-select, .sidebar-input {
         background: transparent;
         border: 1px solid transparent;
@@ -99,6 +102,25 @@
         font-family: inherit;
         font-size: 0.9rem;
     }
+
+    .sidebar-input {
+        width: 50px;
+        text-align: center;
+        -moz-appearance: textfield; /* ブラウザ標準の矢印を消す */
+    }
+    .sidebar-input::-webkit-outer-spin-button,
+    .sidebar-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    .nav-arrow {
+        background: none;
+        border: none;
+        color: var(--text-sub);
+        cursor: pointer;
+        padding: 2px 5px;
+        font-size: 0.8rem;
+        transition: color 0.2s;
+    }
+    .nav-arrow:hover { color: var(--text-main); }
 
     /* --- 2. 中央メインエリア --- */
     .container { 
@@ -142,21 +164,21 @@
     }
 
     /* --- 3. 右サイドパネル --- */
-#open-panel-btn {
-    background: transparent;     /* 背景を透明に */
-    border: none;                /* 枠線を消す */
-    padding: 0 10px;             /* 横の余白だけ残す */
-    cursor: pointer;
-    color: var(--highlight); 
-    font-size: 1.3rem;           /* アイコンの大きさを調整 */
-    transition: transform 0.2s, opacity 0.2s; /* アニメーションを追加 */
-    line-height: 1;              /* 高さをアイコンに合わせる */
-}
+    #open-panel-btn {
+        background: transparent;
+        border: none;
+        padding: 0 10px;
+        cursor: pointer;
+        color: var(--highlight); 
+        font-size: 1.3rem;
+        transition: transform 0.2s, opacity 0.2s;
+        line-height: 1;
+    }
 
-#open-panel-btn:hover {
-    color: #636e72;              /* ホバーしたときは少し濃いグレーにして反応を示す */
-    transform: scale(1.1);
-}
+    #open-panel-btn:hover {
+        color: #636e72;
+        transform: scale(1.1);
+    }
 
     #side-panel {
         width: 380px;
@@ -242,14 +264,18 @@
                     <span class="icon">📖</span>
                     <select id="bookSelect" onchange="changePage()" class="sidebar-select menu-text">
                         <option value="ROM">ローマ</option>
-                        <option value="1CO">第一コリント一</option>
+                        <option value="1CO">第一コリント</option>
                         <option value="2CO">第二コリント</option>
                         <option value="GAL">ガラテヤ</option>
                     </select>
                 </div>
                 <div class="menu-item">
                     <span class="icon">#</span>
-                    <input type="number" id="chInput" value="1" onchange="changePage()" class="sidebar-input menu-text">
+                    <div class="chapter-control menu-text">
+                        <button class="nav-arrow" onclick="stepChapter(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                        <input type="number" id="chInput" value="1" min="1" onchange="validateAndChange()" class="sidebar-input">
+                        <button class="nav-arrow" onclick="stepChapter(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
                 </div>
             </div>
 
@@ -304,6 +330,14 @@ const BOOK_NAMES_JP = {
     'GAL': 'ガラテヤ人への手紙'
 };
 
+// 各書物の章数を定義
+const BOOK_CHAPTERS = {
+    'ROM': 16,
+    '1CO': 16,
+    '2CO': 13,
+    'GAL': 6
+};
+
 const JPN_MAP = {
     pos: { 'V': '動詞', 'N': '名詞', 'A': '形容詞', 'R': '関係代名詞', 'P': '人称代名詞', 'D': '指示代名詞', 'T': '冠詞', 'ADV': '副詞', 'PREP': '前置詞', 'CONJ': '接続詞', 'PRT': '添語' },
     tense: { 'P': '現在', 'I': '未完了', 'F': '未来', 'A': 'アオリスト', 'X': '完了' },
@@ -314,6 +348,27 @@ const JPN_MAP = {
     number: { 'S': '単数', 'P': '複数' },
     person: { '1': '1人称', '2': '2人称', '3': '3人称' }
 };
+
+// バリデーション機能：存在する章番号に補正する
+function validateAndChange() {
+    const book = document.getElementById('bookSelect').value;
+    const input = document.getElementById('chInput');
+    const maxCh = BOOK_CHAPTERS[book] || 1;
+    
+    let val = parseInt(input.value);
+    if (isNaN(val) || val < 1) val = 1;
+    if (val > maxCh) val = maxCh;
+    
+    input.value = val;
+    changePage();
+}
+
+// 左右ボタンでの移動
+function stepChapter(n) {
+    const input = document.getElementById('chInput');
+    input.value = parseInt(input.value) + n;
+    validateAndChange();
+}
 
 async function loadDict() {
     try {
@@ -410,7 +465,6 @@ function toggleSidebar() { document.getElementById('nav-sidebar').classList.togg
 function toggleSidePanel() {
     const panel = document.getElementById('side-panel');
     const openBtn = document.getElementById('open-panel-btn');
-    
     if (panel.style.display === 'none') {
         panel.style.display = 'flex';
         openBtn.style.display = 'none';
@@ -457,13 +511,11 @@ function render(jpData, elData) {
         block.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
         block.onclick = () => {
             const panel = document.getElementById('side-panel');
-            if (panel.style.display === 'none') {
-                toggleSidePanel();
-            }
+            if (panel.style.display === 'none') { toggleSidePanel(); }
             document.querySelectorAll('.verse-block').forEach(b => b.style.background = 'transparent');
             block.style.background = 'rgba(0,0,0,0.03)';
             vLabel.innerText = `${vNum} 節`;
-            panelContent.innerHTML = ''; // ヘッダーを壊さず中身だけ消去
+            panelContent.innerHTML = ''; 
             if (elByVerse[vNum]) elByVerse[vNum].forEach(w => { panelContent.innerHTML += decorate(w.text, w); });
             closeDetail();
         };
