@@ -145,6 +145,11 @@
         margin-top: 15px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         animation: slideUp 0.3s ease-out;
+        
+        /* スクロール機能の追加 */
+        max-height: 400px;    /* 高さを固定（必要に応じて調整してください） */
+        overflow-y: auto;     /* 縦方向にスクロール可能にする */
+        position: relative;   /* 閉じるボタンの基準にする */
     }
     @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .detail-body { font-size: 0.95rem; line-height: 1.6; color: var(--text-main); }
@@ -332,32 +337,43 @@ function decorate(wordText, wordData) {
 function showDetail(greek, strong, morph) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
-    document.getElementById('detail-greek').innerText = greek;
-    document.getElementById('detail-strong').innerText = `G${strong}`;
     
+    // パネルを表示した際に、一番上までスクロールを戻す
+    view.scrollTop = 0;
+
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
     
-    if (info) {
-        const displayJp = (info.japanese && info.japanese !== "読み込んでいます...") 
-                          ? info.japanese 
-                          : "（日本語訳 未登録）";
+    // 日本語訳の判定
+    const displayJp = (info && info.japanese && info.japanese !== "読み込んでいます...") 
+                      ? info.japanese 
+                      : "（未登録）";
 
-        document.getElementById('detail-body').innerHTML = `
+    // 閉じるボタン付きのHTML構造
+    document.getElementById('word-detail-view').innerHTML = `
+        <div style="font-weight:bold; border-bottom:1px solid var(--border-soft); margin-bottom:12px; display:flex; justify-content:space-between; padding-bottom:5px; position: sticky; top: 0; background: var(--bg-card); z-index: 10;">
+            <div>
+                <span style="font-size:1.4rem; color:#000;">${greek}</span>
+                <span style="color:var(--text-sub); font-size:0.75rem; margin-left:8px;">G${strong}</span>
+            </div>
+            <button onclick="closeDetail()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-sub); line-height:1;">&times;</button>
+        </div>
+        
+        <div id="detail-body" class="detail-body">
             <div style="color:var(--highlight); margin-bottom:8px; font-weight:bold; font-size:0.85rem;">${morph}</div>
             <div style="font-size:1.1rem; font-weight:bold; margin-bottom:10px;">${displayJp}</div>
             <div style="font-size:0.9rem; line-height:1.6; border-top:1px solid var(--border-soft); padding-top:10px;">
-                <p><strong>Definition:</strong> ${info.gloss || '---'}</p>
+                <p><strong>Definition:</strong> ${info?.gloss || '---'}</p>
                 <div style="color:var(--text-main); background:rgba(0,0,0,0.03); padding:12px; border-radius:6px; white-space: pre-wrap; margin-top:10px;">
-                    ${info.description || "No detailed description available."}
+                    ${info?.description || "詳細な解説データはありません。"}
                 </div>
             </div>
-        `;
-    } else {
-        document.getElementById('detail-body').innerHTML = `
-            <div style="color:var(--highlight); font-size:0.85rem;">${morph}</div>
-            <p style="font-size:0.8rem; color:var(--text-sub);">詳細データが見つかりません (G${strong})</p>
-        `;
-    }
+        </div>
+    `;
+}
+
+// パネルを閉じる関数
+function closeDetail() {
+    document.getElementById('word-detail-view').style.display = 'none';
 }
     
 function toggleNav() {
