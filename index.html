@@ -240,16 +240,17 @@ function decorate(wordText, wordData) {
         const tenseCode = parts[1][0];
         const moodCode = parts[1][2];
         
-        // 【修正】直接法(I)または命令法(M)の場合のみ、時制と法の装飾を適用する
+        // 【修正：装飾判定】直接法(I)または命令法(M)の場合のみ styleClass を設定
         if (moodCode === 'I' || moodCode === 'M') {
-            // 時制の装飾
             if (tenseCode === 'P') styleClass = "present-text";
             else if (tenseCode === 'A') styleClass = "aorist-text";
             else if (tenseCode === 'X') styleClass = "perfect-text";
             
-            // 法の装飾
             if (moodCode === 'I') styleClass += " indicative-text";
             else if (moodCode === 'M') styleClass += " imperative-text";
+        } else {
+            // それ以外（接続法、不定詞、分詞等）は強制的に空にする
+            styleClass = "";
         }
 
         const t = JPN_MAP.tense[tenseCode] || "";
@@ -284,13 +285,11 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
         const tenseCode = parts[1][0];
         const moodCode = parts[1][2];
 
-        // 【修正】詳細パネルでも、直接法(I)または命令法(M)の場合のみ装飾凡例を表示する
+        // 【修正】詳細パネルでも、直接法(I)または命令法(M)の場合のみ装飾凡例を表示
         if (moodCode === 'I' || moodCode === 'M') {
-            // 時制
             if (tenseCode === 'P') { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
             else if (tenseCode === 'A') { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
             else if (tenseCode === 'X') { classes.push("perfect-text"); legends.push(`<span class="perfect-text">二重線:完了</span>`); }
-            // 法
             if (moodCode === 'I') { classes.push("indicative-text"); legends.push(`<span class="indicative-text">左線:直説</span>`); }
             else if (moodCode === 'M') { classes.push("imperative-text"); legends.push(`<span class="imperative-text">背景:命令</span>`); }
         }
