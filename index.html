@@ -223,15 +223,13 @@ async function loadDict() {
         textJp.split(/\r?\n/).forEach((row, index) => {
             if (index === 0 || !row.trim()) return;
             const cols = row.split('\t');
-
-            // 【重要】Strong番号が13列目（index 12）にあるか再確認してください
-            // もしズレている場合は、以下の cols[12] の数字を調整します
             if (cols.length >= 13) {
-                const strong = String(cols[12]).trim();
+                // Strong番号から数字以外（Gなど）を完全に除去
+                const strong = String(cols[12]).replace(/[^0-9]/g, "");
                 if (strong) {
                     abbottSmithDict[strong] = { 
-                        japanese: cols[6] ? cols[6].trim() : "---", // 7列目(index 6)が日本語
-                        gloss: cols[5] ? cols[5].trim() : ""        // 6列目(index 5)が英語短縮訳
+                        japanese: cols[6] ? cols[6].trim() : "（未登録）", 
+                        gloss: cols[5] ? cols[5].trim() : "" 
                     };
                 }
             }
@@ -300,11 +298,19 @@ function decorate(wordText, wordData) {
     } else { jpMorph = JPN_MAP.pos[pos] || morph; }
 
     // Strong番号の照合（Gなしの数字のみで比較）
-    const strong = String(m.strong || "").trim(); 
+    // Strong番号の照合（数字のみにクリーンアップ）
+    const strong = String(m.strong || "").replace(/[^0-9]/g, ""); 
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
     
-    // 日本語訳があれば ［ ］ で囲む
-    const jpGloss = info && info.japanese ? `［${info.japanese}］` : ""; 
+    // 日本語訳の取得（データがない、または「読み込んでいます...」の場合は「（未登録）」にする）
+    let jpGlossText = "";
+    if (info && info.japanese && info.japanese !== "読み込んでいます...") {
+        jpGlossText = info.japanese;
+    } else {
+        jpGlossText = "（未登録）";
+    }
+    
+    const jpGloss = `［${jpGlossText}］`;
 
     // クラス名生成
     const tenseClass = (pos === 'V' && parts[1]) ? { 'P': 'present', 'A': 'aorist', 'X': 'perfect' }[parts[1][0]] : "";
@@ -332,12 +338,13 @@ function showDetail(greek, strong, morph) {
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
     
     if (info) {
-        // コンソールでデータが正しく読み込まれているか確認できるようにします
-        console.log(`G${strong} のデータ:`, info);
+        const displayJp = (info.japanese && info.japanese !== "読み込んでいます...") 
+                          ? info.japanese 
+                          : "（日本語訳 未登録）";
 
         document.getElementById('detail-body').innerHTML = `
             <div style="color:var(--highlight); margin-bottom:8px; font-weight:bold; font-size:0.85rem;">${morph}</div>
-            <div style="font-size:1.1rem; font-weight:bold; margin-bottom:10px;">${info.japanese || '（日本語訳なし）'}</div>
+            <div style="font-size:1.1rem; font-weight:bold; margin-bottom:10px;">${displayJp}</div>
             <div style="font-size:0.9rem; line-height:1.6; border-top:1px solid var(--border-soft); padding-top:10px;">
                 <p><strong>Definition:</strong> ${info.gloss || '---'}</p>
                 <div style="color:var(--text-main); background:rgba(0,0,0,0.03); padding:12px; border-radius:6px; white-space: pre-wrap; margin-top:10px;">
