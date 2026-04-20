@@ -237,14 +237,22 @@ async function loadDict() {
         });
 
         // Abbott-Smithデータを統合
+        // Abbott-Smithデータを統合
         textAbbott.split(/\r?\n/).forEach((row, index) => {
             if (index === 0 || !row.trim()) return;
             const cols = row.split('\t');
-            const strong = String(cols[0]).trim(); // 1列目がStrong番号の場合
-            if (abbottSmithDict[strong]) {
-                // 3列目（index 2）に解説文が入っている場合
-                abbottSmithDict[strong].description = cols[2] ? cols[2].trim() : "";
+            if (cols.length < 3) return; // 列が足りない場合は飛ばす
+
+            const strong = String(cols[0]).trim(); // 1列目がStrong番号
+            const description = cols[2] ? cols[2].trim() : "";
+
+            // 辞書にまだこの番号がない場合は新しく枠を作る
+            if (!abbottSmithDict[strong]) {
+                abbottSmithDict[strong] = { japanese: "", gloss: "" };
             }
+            
+            // 既存の日本語訳などはそのままに、解説文（description）だけをしっかり格納する
+            abbottSmithDict[strong].description = description;
         });
 
         console.log("辞書データの統合に成功しました！");
@@ -316,20 +324,23 @@ function showDetail(greek, strong, morph) {
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
     
     if (info) {
+        // コンソールでデータが正しく読み込まれているか確認できるようにします
+        console.log(`G${strong} のデータ:`, info);
+
         document.getElementById('detail-body').innerHTML = `
             <div style="color:var(--highlight); margin-bottom:8px; font-weight:bold; font-size:0.85rem;">${morph}</div>
-            <div style="font-size:1.1rem; font-weight:bold; margin-bottom:10px;">${info.japanese}</div>
-            <div style="font-size:0.9rem; line-height:1.6; border-top:1px solid var(--border-soft); pt-10;">
-                <p><strong>Definition:</strong> ${info.gloss}</p>
-                <p style="color:var(--text-main); background:rgba(0,0,0,0.02); padding:10px; border-radius:4px;">
+            <div style="font-size:1.1rem; font-weight:bold; margin-bottom:10px;">${info.japanese || '（日本語訳なし）'}</div>
+            <div style="font-size:0.9rem; line-height:1.6; border-top:1px solid var(--border-soft); padding-top:10px;">
+                <p><strong>Definition:</strong> ${info.gloss || '---'}</p>
+                <div style="color:var(--text-main); background:rgba(0,0,0,0.03); padding:12px; border-radius:6px; white-space: pre-wrap; margin-top:10px;">
                     ${info.description || "No detailed description available."}
-                </p>
+                </div>
             </div>
         `;
     } else {
         document.getElementById('detail-body').innerHTML = `
             <div style="color:var(--highlight); font-size:0.85rem;">${morph}</div>
-            <p style="font-size:0.8rem; color:var(--text-sub);">No local data.</p>
+            <p style="font-size:0.8rem; color:var(--text-sub);">詳細データが見つかりません (G${strong})</p>
         `;
     }
 }
