@@ -213,32 +213,43 @@ const JPN_MAP = {
 
 async function loadDict() {
     try {
-        // 同じ階層にあるTSVファイルを読み込む
-        const res = await fetch('./macula-greek-japanese-SBLGNT.tsv'); 
-        if (!res.ok) throw new Error("辞書ファイルが見つかりません");
+        // 1. 日本語訳TSVの読み込み
+        const resJp = await fetch('./macula-greek-japanese-SBLGNT.tsv');
+        const textJp = await resJp.text();
         
-        const text = await res.text();
-        const rows = text.split(/\r?\n/);
+        // 2. Abbott-Smith辞書の読み込み（ファイル名は実際のものに合わせてください）
+        const resAbbott = await fetch('./abbott-smith.tsv'); 
+        const textAbbott = await resAbbott.text();
+
         abbottSmithDict = {};
-        
-        rows.forEach((row, index) => {
-            if (index === 0 || !row.trim()) return; // ヘッダーをスキップ
-            
-            const cols = row.split('\t'); // タブ区切り
-            
-            // 構造確認: 7列目(index 6)=日本語, 13列目(index 12)=Strong番号
+
+        // 日本語データの解析
+        textJp.split(/\r?\n/).forEach((row, index) => {
+            if (index === 0 || !row.trim()) return;
+            const cols = row.split('\t');
             if (cols.length >= 13) {
-                const strongNumber = String(cols[12]).trim();
-                abbottSmithDict[strongNumber] = {
-                    english: cols[5] ? cols[5].trim() : "",
-                    japanese: cols[6] ? cols[6].trim() : "", // ここが「図」など
-                    content: cols[7] ? cols[7].trim() : ""
+                const strong = String(cols[12]).trim();
+                abbottSmithDict[strong] = {
+                    japanese: cols[6] ? cols[6].trim() : "",
+                    gloss: cols[5] ? cols[5].trim() : ""
                 };
             }
         });
-        console.log("辞書ロード完了。件数:", Object.keys(abbottSmithDict).length);
-    } catch (e) { 
-        console.error("辞書エラー:", e); 
+
+        // Abbott-Smithデータの統合（Strong番号が1列目にあると仮定）
+        textAbbott.split(/\r?\n/).forEach((row, index) => {
+            if (index === 0 || !row.trim()) return;
+            const cols = row.split('\t');
+            const strong = String(cols[0]).trim(); // Strong番号の列を指定
+            if (abbottSmithDict[strong]) {
+                // 既存のデータに詳細説明（例：2列目）を追加
+                abbottSmithDict[strong].description = cols[1] ? cols[1].trim() : "";
+            }
+        });
+
+        console.log("辞書統合完了");
+    } catch (e) {
+        console.error("辞書エラー:", e);
     }
 }
 
@@ -303,13 +314,26 @@ function showDetail(greek, strong, morph) {
     document.getElementById('detail-strong').innerText = `G${strong}`;
     
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
-    document.getElementById('detail-body').innerHTML = info ? 
-        `<div style="color:var(--highlight); margin-bottom:8px; font-weight:bold; font-size:0.85rem;">${morph}</div>
-         <div style="font-weight:bold; margin-bottom:5px;">${info.japanese}</div>
-         <div style="font-size:0.85rem; color:var(--text-sub); border-top:1px solid #eee; pt-5">${info.english}</div>` :
-        `<div style="color:var(--highlight); font-size:0.85rem;">${morph}</div>
-         <p style="font-size:0.8rem; color:var(--text-sub);">No local data.</p>`;
+    
+    if (info) {
+        document.getElementById('detail-body').innerHTML = `
+            <div style="color:var(--highlight); margin-bottom:8px; font-weight:bold; font-size:0.85rem;">${morph}</div>
+            <div style="font-size:1.1rem; font-weight:bold; margin-bottom:10px;">${info.japanese}</div>
+            <div style="font-size:0.9rem; line-height:1.6; border-top:1px solid var(--border-soft); pt-10;">
+                <p><strong>Definition:</strong> ${info.gloss}</p>
+                <p style="color:var(--text-main); background:rgba(0,0,0,0.02); padding:10px; border-radius:4px;">
+                    ${info.description || "No detailed description available."}
+                </p>
+            </div>
+        `;
+    } else {
+        document.getElementById('detail-body').innerHTML = `
+            <div style="color:var(--highlight); font-size:0.85rem;">${morph}</div>
+            <p style="font-size:0.8rem; color:var(--text-sub);">No local data.</p>
+        `;
+    }
 }
+    
 function toggleNav() {
     const nav = document.getElementById('nav-panel');
     nav.style.display = (nav.style.display === 'flex') ? 'none' : 'flex';
