@@ -98,7 +98,7 @@
     .panel-header { font-weight: bold; font-size: 1.1rem; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft); display: flex; justify-content: space-between; color: var(--accent-dark); }
     #panel-content { flex: 1; overflow-y: auto; }
 
-    /* --- 装飾 (復活分) --- */
+    /* --- 装飾 --- */
     .verse-block { border-bottom: 1px solid var(--border-soft); transition: background 0.2s; }
     .jp-section { padding: 12px 15px; cursor: pointer; display: flex; align-items: baseline; }
     .jp-section:hover { background: rgba(0,0,0,0.02); }
@@ -119,7 +119,10 @@
     .present-text { border-bottom: 2px solid var(--highlight); }
     .aorist-text  { border-bottom: 2px dotted var(--highlight); }
     .perfect-text { border-bottom: 2px double var(--highlight); }
-    .imperative-text { background: rgba(211, 84, 0, 0.1); border-radius: 2px; padding: 0 4px; }
+    
+    .indicative-text { border-left: 3px solid var(--highlight); padding-left: 4px; } /* 直接法の例 */
+    .imperative-text { background: rgba(211, 84, 0, 0.1); border-radius: 2px; padding: 0 4px; } /* 命令法の例 */
+
     .grammar-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; font-size: 0.65rem; color: var(--text-sub); border-top: 1px solid var(--border-soft); padding-top: 5px; }
     .tag-jp { color: #5f6a6a; font-size: 0.8rem; margin-left: 10px; }
     .strong-num { font-size: 0.65rem; color: #b2babb; font-family: monospace; }
@@ -238,11 +241,14 @@ function decorate(wordText, wordData) {
         const v = JPN_MAP.voice[parts[1][1]] || "";
         const md = JPN_MAP.mood[parts[1][2]] || "";
         
-        // 装飾クラスの決定
+        // 時制の装飾
         if (parts[1][0] === 'P') styleClass = "present-text";
         else if (parts[1][0] === 'A') styleClass = "aorist-text";
         else if (parts[1][0] === 'X') styleClass = "perfect-text";
-        if (parts[1][2] === 'M') styleClass += " imperative-text";
+        
+        // 法の装飾（直接法と命令法のみ）
+        if (parts[1][2] === 'I') styleClass += " indicative-text";
+        else if (parts[1][2] === 'M') styleClass += " imperative-text";
 
         let detail = (parts[1][2] === 'P' && parts[2]) ? `(${JPN_MAP.case[parts[2][0]] || ""}${JPN_MAP.number[parts[2][1]] || ""}${JPN_MAP.gender[parts[2][2]] || ""})` : (parts[1].length >= 5 ? (JPN_MAP.person[parts[1][3]] || "") + (JPN_MAP.number[parts[1][4]] || "") : "");
         jpMorph = `${t}${v}${md}${detail}`;
@@ -267,10 +273,16 @@ function showDetail(greek, strong, morph) {
     view.style.display = 'block';
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
     let classes = [], legends = [];
+    
+    // 時制凡例
     if (morph.includes("現在")) { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
     else if (morph.includes("アオリスト")) { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
     else if (morph.includes("完了")) { classes.push("perfect-text"); legends.push(`<span class="perfect-text">二重線:完了</span>`); }
+    
+    // 法凡例 (直接法と命令法のみ)
+    if (morph.includes("直説")) { classes.push("indicative-text"); legends.push(`<span class="indicative-text">左線:直説</span>`); }
     if (morph.includes("命令")) { classes.push("imperative-text"); legends.push(`<span class="imperative-text">背景:命令</span>`); }
+    
     view.innerHTML = `
         <div style="font-weight:bold; border-bottom:1px solid var(--border-soft); margin-bottom:12px; display:flex; justify-content:space-between; padding-bottom:10px; position: sticky; top:0; background:var(--bg-card);">
             <div><span style="font-family:'Gentium Plus'; font-size:2rem;" class="${classes.join(' ')}">${greek}</span><span style="color:var(--text-sub); font-size:0.8rem; margin-left:12px;">G${strong}</span></div>
