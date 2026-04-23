@@ -83,7 +83,7 @@
     .header-content { display: flex; align-items: center; justify-content: space-between; }
     .breadcrumb { display: flex; align-items: center; gap: 10px; color: var(--text-sub); font-size: 0.9rem; }
     .breadcrumb h1 { font-size: 1.2rem; margin: 0; color: var(--text-main); font-weight: 700; }
-    .separator { opacity: none; }
+    .separator { opacity: 0.5; }
 
     #app { flex: 1; overflow-y: auto; padding: 20px 40px 60px 40px; }
 
@@ -94,9 +94,47 @@
     }
     #open-panel-btn:hover { color: #636e72; transform: scale(1.1); }
 
-    #side-panel { width: 380px; background: var(--bg-panel); border-left: 1px solid var(--border-soft); padding: 25px; display: flex; flex-direction: column; flex-shrink: 0; height: 100vh; box-sizing: border-box;}
-    .panel-header { font-weight: bold; font-size: 1.1rem; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft); display: flex; justify-content: space-between; color: var(--accent-dark); }
-    #panel-content { flex: 1; overflow-y: auto; }
+    /* 修正：display: flex を初期値に設定 */
+    #side-panel { 
+        width: 380px; 
+        background: var(--bg-panel); 
+        border-left: 1px solid var(--border-soft); 
+        padding: 25px; 
+        display: flex; 
+        flex-direction: column; 
+        flex-shrink: 0; 
+        height: 100vh; 
+        box-sizing: border-box;
+    }
+    .panel-header { 
+        font-weight: bold; 
+        font-size: 1.1rem; 
+        margin-bottom: 20px; 
+        padding-bottom: 12px; 
+        border-bottom: 1px solid var(--border-soft); 
+        display: flex; 
+        justify-content: space-between; 
+        color: var(--accent-dark); 
+        flex-shrink: 0;
+    }
+    #panel-content { flex: 1; overflow-y: auto; min-height: 0; }
+
+    /* 詳細表示エリア */
+    #word-detail-view { 
+        background: var(--bg-card); 
+        border: 1px solid var(--highlight); 
+        border-radius: 8px; 
+        display: none; 
+        margin-top: 15px; 
+        max-height: 55%; 
+        overflow-y: auto; 
+        flex-shrink: 0; 
+        animation: slideUp 0.3s ease-out; 
+    }
+    .detail-header { position: sticky; top: 0; background: var(--bg-card); padding: 15px; border-bottom: 1px solid var(--border-soft); display: flex; justify-content: space-between; align-items: flex-start; z-index: 10; }
+    .detail-body { padding: 15px; }
+
+    @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
     /* --- 装飾 --- */
     .verse-block { border-bottom: 1px solid var(--border-soft); transition: background 0.2s; }
@@ -112,19 +150,11 @@
     .word-card:hover { border-color: var(--highlight); transform: translateY(-1px); }
     .greek-word { font-family: 'Gentium Plus', serif; font-size: 1.5rem; line-height: 1.3; }
     
-    #word-detail-view { background: var(--bg-card); border: 1px solid var(--highlight); border-radius: 8px; padding: 0px; display: none; margin-top: 15px; max-height: 60%; overflow-y: auto; flex-shrink: 0; animation: slideUp 0.3s ease-out; }
-    @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
     /* 文法装飾クラス */
     .present-text { border-bottom: 2px solid var(--highlight); }
     .aorist-text  { border-bottom: 2px dotted var(--highlight); }
-    .perfect-text { 
-        text-decoration: underline wavy var(--highlight); 
-        text-underline-offset: 4px;
-        border-bottom: none; /* 重複を防ぐためborderは消す */
-    }
+    .perfect-text { text-decoration: underline wavy var(--highlight); text-underline-offset: 4px; }
     .future-text { border-bottom: 2px double var(--highlight); }
-    
     .indicative-text { background: rgba(211, 84, 0, 0.1); border-radius: 2px; padding: 0 4px; }
     .imperative-text { background: rgba(211, 84, 0, 0.1); border-radius: 2px; padding: 0 4px; }
 
@@ -171,10 +201,9 @@
 
             <div class="sidebar-section">
                 <div class="section-label">付録</div>
-                <div class="menu-item"><span class="icon">🔍</span> <span class="menu-text">検索</span></div>
                 <div class="menu-item" onclick="showAppInfo()">
-                        <span class="icon">📜</span> <span class="menu-text">出典・ポリシー</span>
-                    </div>
+                    <span class="icon">📜</span> <span class="menu-text">出典・ポリシー</span>
+                </div>
             </div>
         </div>
     </nav>
@@ -255,21 +284,14 @@ function decorate(wordText, wordData) {
     if (pos === 'V' && parts[1]) {
         const tenseCode = parts[1][0];
         const moodCode = parts[1][2];
-        
-        // 【修正：装飾判定】直接法(I)または命令法(M)の場合のみ styleClass を設定
         if (moodCode === 'I' || moodCode === 'M') {
             if (tenseCode === 'P') styleClass = "present-text";
             else if (tenseCode === 'A') styleClass = "aorist-text";
             else if (tenseCode === 'X') styleClass = "perfect-text";
             else if (tenseCode === 'F') styleClass = "future-text";
-            
             if (moodCode === 'I') styleClass += " indicative-text";
             else if (moodCode === 'M') styleClass += " imperative-text";
-        } else {
-            // それ以外（接続法、不定詞、分詞等）は強制的に空にする
-            styleClass = "";
         }
-
         const t = JPN_MAP.tense[tenseCode] || "";
         const v = JPN_MAP.voice[parts[1][1]] || "";
         const md = JPN_MAP.mood[moodCode] || "";
@@ -311,12 +333,11 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
         }
     }
     
-    // 内部を「固定ヘッダー」と「スクロールボディ」に分ける
     view.innerHTML = `
         <div class="detail-header">
             <div>
-                <span style="font-family:'Gentium Plus'; font-size:2rem;" class="${classes.join(' ')}">${greek}</span>
-                <span style="color:var(--text-sub); font-size:0.8rem; margin-left:12px;">G${strong}</span>
+                <span style="font-family:'Gentium Plus'; font-size:1.8rem;" class="${classes.join(' ')}">${greek}</span>
+                <span style="color:var(--text-sub); font-size:0.8rem; margin-left:10px;">G${strong}</span>
             </div>
             <button onclick="closeDetail()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-sub);">&times;</button>
         </div>
@@ -328,16 +349,25 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
             <div style="background:rgba(0,0,0,0.03); padding:12px; border-radius:6px; white-space:pre-wrap; font-size:0.9rem;">${info?.description || "解説なし"}</div>
         </div>`;
     
-    // 毎回一番上にスクロールを戻す
     view.scrollTop = 0;
 }
+
 function closeDetail() { document.getElementById('word-detail-view').style.display = 'none'; }
 function toggleSidebar() { document.getElementById('nav-sidebar').classList.toggle('collapsed'); }
+
 function toggleSidePanel() {
     const panel = document.getElementById('side-panel');
     const openBtn = document.getElementById('open-panel-btn');
-    if (panel.style.display === 'none') { panel.style.display = 'flex'; openBtn.style.display = 'none'; }
-    else { panel.style.display = 'none'; openBtn.style.display = 'block'; }
+    // 計算済みのスタイルを取得して確実に判定
+    const isHidden = window.getComputedStyle(panel).display === 'none';
+    
+    if (isHidden) { 
+        panel.style.display = 'flex'; 
+        openBtn.style.display = 'none'; 
+    } else { 
+        panel.style.display = 'none'; 
+        openBtn.style.display = 'block'; 
+    }
 }
 
 function changePage() {
@@ -353,87 +383,29 @@ function changePage() {
 
 function showAppInfo() {
     const app = document.getElementById('app');
-    
-    // 表示タイトルを更新
     document.getElementById('view-title').innerText = "出典・ポリシー";
-
-    const infoHtml = `
+    app.innerHTML = `
         <div style="max-width: 850px; margin: 0 auto; padding: 40px; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-soft); line-height: 1.8;">
-            <h2 style="border-bottom: 2px solid var(--highlight); padding-bottom: 10px; margin-bottom: 30px;">
-                <i class="fa-solid fa-scroll"></i> 出典・ポリシー
-            </h2>
-            
+            <h2 style="border-bottom: 2px solid var(--highlight); padding-bottom: 10px; margin-bottom: 30px;"><i class="fa-solid fa-scroll"></i> 出典・ポリシー</h2>
             <section style="margin-bottom: 40px;">
-                <h3><i class="fa-solid fa-pen-nib"></i> 設計思想（記号選択の根拠）</h3>
-                <p>本アプリでは、ギリシャ語の「アスペクト（動作態）」と「法的ニュアンス」を直感的に識別できるよう、以下のルールで視覚化しています。</p>
-                
-                <div style="background: rgba(0,0,0,0.02); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h3>設計思想（記号選択の根拠）</h3>
+                <p>ギリシャ語の「アスペクト（動作態）」を視覚化するためのルール：</p>
+                <div style="background: rgba(0,0,0,0.02); padding: 20px; border-radius: 8px;">
                     <ul style="list-style: none; padding-left: 0;">
-                        <li style="margin-bottom: 15px;">
-                            <strong><span style="border-bottom: 2px solid var(--highlight);">実線（現在形）</span></strong><br>
-                            <span style="font-size: 0.9rem; color: var(--text-sub);">「継続・反復」を表現。途切れない線により、動作が時間軸上で進行している状態を示します。</span>
-                        </li>
-                        <li style="margin-bottom: 15px;">
-                            <strong><span style="border-bottom: 2px dotted var(--highlight);">点線（アオリスト）</span></strong><br>
-                            <span style="font-size: 0.9rem; color: var(--text-sub);">「点的・生起」を表現。プロセスの記述ではなく、その事象が「起きた」という事実の点を集中して示します。</span>
-                        </li>
-                        <li style="margin-bottom: 15px;">
-                            <strong><span style="text-decoration: underline wavy var(--highlight); text-underline-offset: 3px;">波線（完了形）</span></strong><br>
-                            <span style="font-size: 0.9rem; color: var(--text-sub);">「過去の動作の結果が今も残っている状態」を表現。単なる事実の点ではなく、現在にまで及ぶ影響の「揺らぎ」を波線で示しています。</span>
-                        </li>
-                        <li style="margin-bottom: 15px;">
-                            <strong><span style="border-bottom: 3px double var(--highlight);">二重線（未来形）</span></strong><br>
-                            <span style="font-size: 0.9rem; color: var(--text-sub);">「意志・確信」を表現。未来に起こる事象への強い焦点化や、避けられない意志の重なりを二重線で強調しています。</span>
-                        </li>
-                        <li>
-                            <strong><span style="background: rgba(211, 84, 0, 0.1); padding: 0 4px; border-radius: 2px;">ハイライト（直接法・命令法）</span></strong><br>
-                            <span style="font-size: 0.9rem; color: var(--text-sub);">「文の主軸」を表現。客観的事実（直接法）や強い意志（命令法）といった、文の骨格をなす要素を強調します。</span>
-                        </li>
+                        <li style="margin-bottom: 10px;"><strong>実線（現在）</strong>: 「継続・反復」を表現</li>
+                        <li style="margin-bottom: 10px;"><strong>点線（アオリスト）</strong>: 「点的・生起」を表現</li>
+                        <li style="margin-bottom: 10px;"><strong>波線（完了形）</strong>: 「過去の結果の残存」を表現</li>
+                        <li><strong>ハイライト</strong>: 「文の主軸（直接法・命令法）」を強調</li>
                     </ul>
                 </div>
-
-                <h4>【補足】接続法・分詞に装飾を行わない理由</h4>
-                <p style="font-size: 0.95rem;">接続法、分詞、不定詞などは、多くの場合において「主動詞（直接法・命令法）」に付随する情報を補う役割を果たします。これらすべてに装飾を施すと視覚的なノイズが増え、「その文で最も言わんとしていること（主動詞の法的ニュアンス）」が埋もれてしまいます。読み手の注意を最も重要な宣言や命令に集中させるため、従属的な要素の装飾は意図的に排しています。</p>
             </section>
-
-            <section style="margin-bottom: 40px;">
-                <h3><i class="fa-solid fa-database"></i> 出典 (Sources)</h3>
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                    <tr style="border-bottom: 1px solid var(--border-soft);">
-                        <th style="text-align: left; padding: 10px; width: 30%;">底本 (Greek Text)</th>
-                        <td style="padding: 10px;">SBL Greek New Testament (SBLGNT)</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid var(--border-soft);">
-                        <th style="text-align: left; padding: 10px;">形態論解析</th>
-                        <td style="padding: 10px;">Macula Greek Project / MorphGNT</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid var(--border-soft);">
-                        <th style="text-align: left; padding: 10px;">辞書データ</th>
-                        <td style="padding: 10px;">Abbott-Smith A Manual Greek Lexicon of the NT</td>
-                    </tr>
-                    <tr>
-                        <th style="text-align: left; padding: 10px;">日本語訳聖書</th>
-                        <td style="padding: 10px;">"聖書 新改訳2017©2017新日本聖書刊行会</td>
-                    </tr>
-                </table>
-            </section>
-
-            <section style="margin-bottom: 30px;">
-                <h3><i class="fa-solid fa-shield-halved"></i> 運営ポリシー</h3>
-                <p><strong>学術的客観性の保持:</strong> 特定の教義に依存せず、公開された標準的な形態論データに忠実な解析を提供します。</p>
-                <p><strong>オープンソースの尊重:</strong> 優れた学術リソースを開発された先達に敬意を表し、ライセンスを遵守してデータを活用します。</p>
-            </section>
-
             <div style="text-align: center; margin-top: 40px;">
-                <button onclick="location.reload()" style="background: var(--highlight); color: white; border: none; padding: 10px 30px; border-radius: 5px; cursor: pointer; font-weight: bold;">
-                    本文に戻る
-                </button>
+                <button onclick="location.reload()" style="background: var(--highlight); color: white; border: none; padding: 10px 30px; border-radius: 5px; cursor: pointer; font-weight: bold;">本文に戻る</button>
             </div>
         </div>
     `;
-    app.innerHTML = infoHtml;
 }
-    
+
 async function init() {
     const urlParams = new URLSearchParams(window.location.search);
     const book = urlParams.get('book') || 'ROM';
@@ -465,7 +437,7 @@ function render(jpData, elData) {
         block.className = 'verse-block';
         block.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
         block.onclick = () => {
-            if (document.getElementById('side-panel').style.display === 'none') toggleSidePanel();
+            if (window.getComputedStyle(document.getElementById('side-panel')).display === 'none') toggleSidePanel();
             document.querySelectorAll('.verse-block').forEach(b => b.style.background = 'transparent');
             block.style.background = 'rgba(0,0,0,0.03)';
             vLabel.innerText = `${vNum} 節`;
