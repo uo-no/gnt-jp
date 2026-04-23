@@ -83,7 +83,7 @@
     .header-content { display: flex; align-items: center; justify-content: space-between; }
     .breadcrumb { display: flex; align-items: center; gap: 10px; color: var(--text-sub); font-size: 0.9rem; }
     .breadcrumb h1 { font-size: 1.2rem; margin: 0; color: var(--text-main); font-weight: 700; }
-    .separator { opacity: 1; }
+    .separator { opacity: none; }
 
     #app { flex: 1; overflow-y: auto; padding: 20px 40px 60px 40px; }
 
@@ -94,48 +94,25 @@
     }
     #open-panel-btn:hover { color: #636e72; transform: scale(1.1); }
 
-    #side-panel { 
-        width: 380px; 
-        background: var(--bg-panel); 
-        border-left: 1px solid var(--border-soft); 
-        padding: 25px; 
-        display: flex; 
-        flex-direction: column; 
-        flex-shrink: 0;
-        height: 100vh; /* 高さ固定 */
-        box-sizing: border-box;
-    }
-    .panel-header { font-weight: bold; font-size: 1.1rem; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft); display: flex; justify-content: space-between; color: var(--accent-dark); flex-shrink: 0; }
-    #panel-content { flex: 1; overflow-y: auto; min-height: 0; }
+    #side-panel { width: 380px; background: var(--bg-panel); border-left: 1px solid var(--border-soft); padding: 25px; display: flex; flex-direction: column; flex-shrink: 0; }
+    .panel-header { font-weight: bold; font-size: 1.1rem; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft); display: flex; justify-content: space-between; color: var(--accent-dark); }
+    #panel-content { flex: 1; overflow-y: auto; }
 
-    /* --- 単語詳細ビューの修正 --- */
-    #word-detail-view { 
-        background: var(--bg-card); 
-        border: 1px solid var(--highlight); 
-        border-radius: 8px; 
-        padding: 0; /* paddingを内部要素へ移動 */
-        display: none; 
-        margin-top: 15px; 
-        max-height: 60%; /* パネル全体の60%を上限にする */
-        overflow-y: auto; /* スクロール有効化 */
-        animation: slideUp 0.3s ease-out;
-        flex-shrink: 0;
+    /* --- 装飾 --- */
+    .verse-block { border-bottom: 1px solid var(--border-soft); transition: background 0.2s; }
+    .jp-section { padding: 12px 15px; cursor: pointer; display: flex; align-items: baseline; }
+    .jp-section:hover { background: rgba(0,0,0,0.02); }
+    .v-num { color: #b2bec3; margin-right: 15px; font-size: 0.8rem; font-weight: bold; }
+    .jp-text { font-size: 1.1rem; }
+
+    .word-card { 
+        background: var(--bg-card); padding: 10px 15px; border-radius: 6px; display: flex; justify-content: space-between; 
+        align-items: baseline; margin-bottom: 10px; border: 1px solid var(--border-soft); cursor: pointer; transition: all 0.2s;
     }
-    .detail-header {
-        position: sticky;
-        top: 0;
-        background: var(--bg-card);
-        z-index: 10;
-        padding: 18px 18px 10px 18px;
-        border-bottom: 1px solid var(--border-soft);
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-    }
-    .detail-body {
-        padding: 0 18px 18px 18px;
-    }
+    .word-card:hover { border-color: var(--highlight); transform: translateY(-1px); }
+    .greek-word { font-family: 'Gentium Plus', serif; font-size: 1.5rem; line-height: 1.3; }
     
+    #word-detail-view { background: var(--bg-card); border: 1px solid var(--highlight); border-radius: 8px; padding: 18px; display: none; margin-top: 15px; animation: slideUp 0.3s ease-out; }
     @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
     /* 文法装飾クラス */
@@ -144,7 +121,7 @@
     .perfect-text { 
         text-decoration: underline wavy var(--highlight); 
         text-underline-offset: 4px;
-        border-bottom: none; 
+        border-bottom: none; /* 重複を防ぐためborderは消す */
     }
     .future-text { border-bottom: 2px double var(--highlight); }
     
@@ -164,6 +141,7 @@
             <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
             <span class="menu-text sidebar-logo">ウオノ門</span>
         </div>
+        
         <div class="sidebar-menu">
             <div class="sidebar-section">
                 <div class="section-label">聖書</div>
@@ -190,6 +168,7 @@
                     <input type="number" id="chInput" value="1" min="1" onchange="changePage()" class="sidebar-input menu-text">
                 </div>
             </div>
+
             <div class="sidebar-section">
                 <div class="section-label">付録</div>
                 <div class="menu-item"><span class="icon">🔍</span> <span class="menu-text">検索</span></div>
@@ -230,7 +209,6 @@
 </div>
 
 <script>
-// --- ロジック部分は変更なし（showDetailのみ修正） ---
 let abbottSmithDict = null;
 const BOOK_NAMES_JP = { 'ROM': 'ローマ人への手紙', '1CO': 'コリント人への手紙 第一', '2CO': 'コリント人への手紙 第二', 'GAL': 'ガラテヤ人への手紙', 'EPH': 'エペソ人への手紙', 'PHP': 'ピリピ人への手紙', 'COL': 'コロサイ人への手紙', '1TH': 'テサロニケ人への手紙 第一', '2TH': 'テサロニケ人への手紙 第二', '1TI': 'テモテへの手紙 第一', '2TI': 'テモテへの手紙 第二', 'TIT': 'テトスへの手紙', 'PHM': 'ピレモンへの手紙' };
 const BOOK_CHAPTERS = { 'ROM': 16, '1CO': 16, '2CO': 13, 'GAL': 6, 'EPH': 6, 'PHP': 4, 'COL': 4, '1TH': 5, '2TH': 3, '1TI': 6, '2TI': 4, 'TIT': 3, 'PHM': 1 };
@@ -277,14 +255,20 @@ function decorate(wordText, wordData) {
     if (pos === 'V' && parts[1]) {
         const tenseCode = parts[1][0];
         const moodCode = parts[1][2];
+        
+        // 【修正：装飾判定】直接法(I)または命令法(M)の場合のみ styleClass を設定
         if (moodCode === 'I' || moodCode === 'M') {
             if (tenseCode === 'P') styleClass = "present-text";
             else if (tenseCode === 'A') styleClass = "aorist-text";
             else if (tenseCode === 'X') styleClass = "perfect-text";
             else if (tenseCode === 'F') styleClass = "future-text";
+            
             if (moodCode === 'I') styleClass += " indicative-text";
             else if (moodCode === 'M') styleClass += " imperative-text";
-        } else { styleClass = ""; }
+        } else {
+            // それ以外（接続法、不定詞、分詞等）は強制的に空にする
+            styleClass = "";
+        }
 
         const t = JPN_MAP.tense[tenseCode] || "";
         const v = JPN_MAP.voice[parts[1][1]] || "";
@@ -307,7 +291,6 @@ function decorate(wordText, wordData) {
             </div>`;
 }
 
-// 【修正：詳細表示関数】スクロール対応とヘッダー固定
 function showDetail(greek, strong, jpMorph, rawMorph) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
@@ -318,6 +301,8 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
     if (parts[0] === 'V' && parts[1]) {
         const tenseCode = parts[1][0];
         const moodCode = parts[1][2];
+
+        // 【修正】詳細パネルでも、直接法(I)または命令法(M)の場合のみ装飾凡例を表示
         if (moodCode === 'I' || moodCode === 'M') {
             if (tenseCode === 'P') { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
             else if (tenseCode === 'A') { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
@@ -329,23 +314,17 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
     }
     
     view.innerHTML = `
-        <div class="detail-header">
-            <div>
-                <span style="font-family:'Gentium Plus'; font-size:2rem;" class="${classes.join(' ')}">${greek}</span>
-                <span style="color:var(--text-sub); font-size:0.8rem; margin-left:12px;">G${strong}</span>
-            </div>
+        <div style="font-weight:bold; border-bottom:1px solid var(--border-soft); margin-bottom:12px; display:flex; justify-content:space-between; padding-bottom:10px; position: sticky; top:0; background:var(--bg-card);">
+            <div><span style="font-family:'Gentium Plus'; font-size:2rem;" class="${classes.join(' ')}">${greek}</span><span style="color:var(--text-sub); font-size:0.8rem; margin-left:12px;">G${strong}</span></div>
             <button onclick="closeDetail()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-sub);">&times;</button>
         </div>
         <div class="detail-body">
-            <div style="color:var(--highlight); font-weight:bold; font-size:0.85rem; margin-top:10px;">${jpMorph}</div>
+            <div style="color:var(--highlight); font-weight:bold; font-size:0.85rem;">${jpMorph}</div>
             <div class="grammar-legend">${legends.join(" ")}</div>
             <div style="font-size:1.1rem; font-weight:bold; margin-top:12px;">${info?.japanese || "（未登録）"}</div>
             <p><strong>定義:</strong> ${info?.gloss || '---'}</p>
-            <div style="background:rgba(0,0,0,0.03); padding:12px; border-radius:6px; white-space:pre-wrap; font-size:0.9rem; line-height:1.6;">${info?.description || "解説なし"}</div>
+            <div style="background:rgba(0,0,0,0.03); padding:12px; border-radius:6px; white-space:pre-wrap;">${info?.description || "解説なし"}</div>
         </div>`;
-    
-    // 表示されたら一番上にスクロール
-    view.scrollTop = 0;
 }
 
 function closeDetail() { document.getElementById('word-detail-view').style.display = 'none'; }
@@ -370,15 +349,20 @@ function changePage() {
 
 function showAppInfo() {
     const app = document.getElementById('app');
+    
+    // 表示タイトルを更新
     document.getElementById('view-title').innerText = "出典・ポリシー";
+
     const infoHtml = `
         <div style="max-width: 850px; margin: 0 auto; padding: 40px; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-soft); line-height: 1.8;">
             <h2 style="border-bottom: 2px solid var(--highlight); padding-bottom: 10px; margin-bottom: 30px;">
                 <i class="fa-solid fa-scroll"></i> 出典・ポリシー
             </h2>
+            
             <section style="margin-bottom: 40px;">
                 <h3><i class="fa-solid fa-pen-nib"></i> 設計思想（記号選択の根拠）</h3>
                 <p>本アプリでは、ギリシャ語の「アスペクト（動作態）」と「法的ニュアンス」を直感的に識別できるよう、以下のルールで視覚化しています。</p>
+                
                 <div style="background: rgba(0,0,0,0.02); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <ul style="list-style: none; padding-left: 0;">
                         <li style="margin-bottom: 15px;">
@@ -403,20 +387,43 @@ function showAppInfo() {
                         </li>
                     </ul>
                 </div>
+
                 <h4>【補足】接続法・分詞に装飾を行わない理由</h4>
                 <p style="font-size: 0.95rem;">接続法、分詞、不定詞などは、多くの場合において「主動詞（直接法・命令法）」に付随する情報を補う役割を果たします。これらすべてに装飾を施すと視覚的なノイズが増え、「その文で最も言わんとしていること（主動詞の法的ニュアンス）」が埋もれてしまいます。読み手の注意を最も重要な宣言や命令に集中させるため、従属的な要素の装飾は意図的に排しています。</p>
             </section>
+
             <section style="margin-bottom: 40px;">
                 <h3><i class="fa-solid fa-database"></i> 出典 (Sources)</h3>
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                    <tr style="border-bottom: 1px solid var(--border-soft);"><th style="text-align: left; padding: 10px; width: 30%;">底本</th><td style="padding: 10px;">SBL Greek New Testament (SBLGNT)</td></tr>
-                    <tr style="border-bottom: 1px solid var(--border-soft);"><th style="text-align: left; padding: 10px;">形態論解析</th><td style="padding: 10px;">Macula Greek Project / MorphGNT</td></tr>
-                    <tr style="border-bottom: 1px solid var(--border-soft);"><th style="text-align: left; padding: 10px;">辞書データ</th><td style="padding: 10px;">Abbott-Smith A Manual Greek Lexicon of the NT</td></tr>
-                    <tr><th style="text-align: left; padding: 10px;">日本語訳聖書</th><td style="padding: 10px;">聖書 新改訳2017 ©2017 新日本聖書刊行会</td></tr>
+                    <tr style="border-bottom: 1px solid var(--border-soft);">
+                        <th style="text-align: left; padding: 10px; width: 30%;">底本 (Greek Text)</th>
+                        <td style="padding: 10px;">SBL Greek New Testament (SBLGNT)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--border-soft);">
+                        <th style="text-align: left; padding: 10px;">形態論解析</th>
+                        <td style="padding: 10px;">Macula Greek Project / MorphGNT</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--border-soft);">
+                        <th style="text-align: left; padding: 10px;">辞書データ</th>
+                        <td style="padding: 10px;">Abbott-Smith A Manual Greek Lexicon of the NT</td>
+                    </tr>
+                    <tr>
+                        <th style="text-align: left; padding: 10px;">日本語訳聖書</th>
+                        <td style="padding: 10px;">"聖書 新改訳2017©2017新日本聖書刊行会</td>
+                    </tr>
                 </table>
             </section>
+
+            <section style="margin-bottom: 30px;">
+                <h3><i class="fa-solid fa-shield-halved"></i> 運営ポリシー</h3>
+                <p><strong>学術的客観性の保持:</strong> 特定の教義に依存せず、公開された標準的な形態論データに忠実な解析を提供します。</p>
+                <p><strong>オープンソースの尊重:</strong> 優れた学術リソースを開発された先達に敬意を表し、ライセンスを遵守してデータを活用します。</p>
+            </section>
+
             <div style="text-align: center; margin-top: 40px;">
-                <button onclick="location.reload()" style="background: var(--highlight); color: white; border: none; padding: 10px 30px; border-radius: 5px; cursor: pointer; font-weight: bold;">本文に戻る</button>
+                <button onclick="location.reload()" style="background: var(--highlight); color: white; border: none; padding: 10px 30px; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                    本文に戻る
+                </button>
             </div>
         </div>
     `;
