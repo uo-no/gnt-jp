@@ -121,7 +121,7 @@
     .perfect-text { 
         text-decoration: underline wavy var(--highlight); 
         text-underline-offset: 4px;
-        border-bottom: none; /* 重複を防ぐためborderは消す */
+        border-bottom: none; 
     }
     .future-text { border-bottom: 2px double var(--highlight); }
     
@@ -131,6 +131,49 @@
     .grammar-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; font-size: 0.65rem; color: var(--text-sub); border-top: 1px solid var(--border-soft); padding-top: 5px; }
     .tag-jp { color: #5f6a6a; font-size: 0.8rem; margin-left: 10px; }
     .strong-num { font-size: 0.65rem; color: #b2babb; font-family: monospace; }
+
+    /* ツールチップ（文法ガイド用） */
+    .grammar-help {
+        display: inline-block;
+        margin-left: 8px;
+        cursor: help;
+        color: var(--highlight);
+        font-size: 0.9rem;
+        position: relative;
+    }
+    .tooltip-text {
+        visibility: hidden;
+        width: 260px;
+        background-color: var(--accent-dark);
+        color: #fff;
+        text-align: left;
+        border-radius: 6px;
+        padding: 12px;
+        position: absolute;
+        z-index: 100;
+        bottom: 130%; 
+        left: 50%;
+        transform: translateX(-80%);
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 0.75rem;
+        line-height: 1.6;
+        font-weight: normal;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .tooltip-text::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 80%;
+        border-width: 6px;
+        border-style: solid;
+        border-color: var(--accent-dark) transparent transparent transparent;
+    }
+    .grammar-help:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
     </style>
 </head>
 <body>
@@ -173,8 +216,8 @@
                 <div class="section-label">付録</div>
                 <div class="menu-item"><span class="icon">🔍</span> <span class="menu-text">検索</span></div>
                 <div class="menu-item" onclick="showAppInfo()">
-                        <span class="icon">📜</span> <span class="menu-text">出典・ポリシー</span>
-                    </div>
+                    <span class="icon">📜</span> <span class="menu-text">出典・ポリシー</span>
+                </div>
             </div>
         </div>
     </nav>
@@ -223,6 +266,32 @@ const JPN_MAP = {
     person: { '1': '1人称', '2': '2人称', '3': '3人称' }
 };
 
+// 文法ガイドデータ
+const GRAMMAR_GUIDES = {
+    article: {
+        title: "💡 冠詞の読み方",
+        content: `ギリシャ語の冠詞は「正体」を示す装置です。<br>
+                  ・<strong>冠詞あり</strong>：特定されている（Identity）<br>
+                  ・<strong>冠詞なし</strong>：性質・本質が強調されている（Quality）<br><br>
+                  「AはBである」の構文では、冠詞がある方が主語になります。`
+    },
+    case: {
+        title: "💡 格の特徴",
+        content: `・<strong>主格</strong>：主体・同一性。主語や述語主格に使用。<br>
+                  ・<strong>属格</strong>：制限・関係（〜の）。分離（〜から）も。<br>
+                  ・<strong>与格</strong>：関わり（〜に）。場所・手段・利益を示す。<br>
+                  ・<strong>対格</strong>：到達点（〜を）。不定詞の主語にもなる。<br>
+                  ・<strong>呼格</strong>：呼びかけ（〜よ）。`
+    },
+    infinitive: {
+        title: "💡 不定詞の読み方",
+        content: `「〜すること」という動詞的名詞です。<br>
+                  ・<strong>現在不定詞</strong>：し続ける（継続）<br>
+                  ・<strong>アオリスト不定詞</strong>：〜する（生起・事実）<br>
+                  前置詞＋不定詞は時間関係（〜の後で、〜の間、〜の前）を明示します。`
+    }
+};
+
 async function loadDict() {
     try {
         abbottSmithDict = {};
@@ -255,21 +324,14 @@ function decorate(wordText, wordData) {
     if (pos === 'V' && parts[1]) {
         const tenseCode = parts[1][0];
         const moodCode = parts[1][2];
-        
-        // 【修正：装飾判定】直接法(I)または命令法(M)の場合のみ styleClass を設定
         if (moodCode === 'I' || moodCode === 'M') {
             if (tenseCode === 'P') styleClass = "present-text";
             else if (tenseCode === 'A') styleClass = "aorist-text";
             else if (tenseCode === 'X') styleClass = "perfect-text";
             else if (tenseCode === 'F') styleClass = "future-text";
-            
             if (moodCode === 'I') styleClass += " indicative-text";
             else if (moodCode === 'M') styleClass += " imperative-text";
-        } else {
-            // それ以外（接続法、不定詞、分詞等）は強制的に空にする
-            styleClass = "";
-        }
-
+        } else { styleClass = ""; }
         const t = JPN_MAP.tense[tenseCode] || "";
         const v = JPN_MAP.voice[parts[1][1]] || "";
         const md = JPN_MAP.mood[moodCode] || "";
@@ -291,6 +353,19 @@ function decorate(wordText, wordData) {
             </div>`;
 }
 
+// ツールチップアイコン生成
+function createHelpTag(guide) {
+    return `
+        <div class="grammar-help">
+            <i class="fa-regular fa-circle-question"></i>
+            <span class="tooltip-text">
+                <strong style="display:block; border-bottom:1px solid rgba(255,255,255,0.2); padding-bottom:5px; margin-bottom:8px;">${guide.title}</strong>
+                ${guide.content}
+            </span>
+        </div>
+    `;
+}
+
 function showDetail(greek, strong, jpMorph, rawMorph) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
@@ -298,11 +373,17 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
     let classes = [], legends = [];
     
     const parts = rawMorph.split('-');
-    if (parts[0] === 'V' && parts[1]) {
+    const pos = parts[0];
+
+    // ガイドアイコン判定
+    let helpIcon = "";
+    if (pos === 'T') helpIcon = createHelpTag(GRAMMAR_GUIDES.article);
+    else if (['N', 'A', 'R', 'P', 'D'].includes(pos)) helpIcon = createHelpTag(GRAMMAR_GUIDES.case);
+    else if (pos === 'V' && parts[1] && parts[1][2] === 'N') helpIcon = createHelpTag(GRAMMAR_GUIDES.infinitive);
+
+    if (pos === 'V' && parts[1]) {
         const tenseCode = parts[1][0];
         const moodCode = parts[1][2];
-
-        // 【修正】詳細パネルでも、直接法(I)または命令法(M)の場合のみ装飾凡例を表示
         if (moodCode === 'I' || moodCode === 'M') {
             if (tenseCode === 'P') { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
             else if (tenseCode === 'A') { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
@@ -314,16 +395,19 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
     }
     
     view.innerHTML = `
-        <div style="font-weight:bold; border-bottom:1px solid var(--border-soft); margin-bottom:12px; display:flex; justify-content:space-between; padding-bottom:10px; position: sticky; top:0; background:var(--bg-card);">
+        <div style="font-weight:bold; border-bottom:1px solid var(--border-soft); margin-bottom:12px; display:flex; justify-content:space-between; padding-bottom:10px; position: sticky; top:0; background:var(--bg-card); z-index:10;">
             <div><span style="font-family:'Gentium Plus'; font-size:2rem;" class="${classes.join(' ')}">${greek}</span><span style="color:var(--text-sub); font-size:0.8rem; margin-left:12px;">G${strong}</span></div>
             <button onclick="closeDetail()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-sub);">&times;</button>
         </div>
         <div class="detail-body">
-            <div style="color:var(--highlight); font-weight:bold; font-size:0.85rem;">${jpMorph}</div>
+            <div style="display:flex; align-items:center; margin-bottom:5px;">
+                <div style="color:var(--highlight); font-weight:bold; font-size:0.85rem;">${jpMorph}</div>
+                ${helpIcon}
+            </div>
             <div class="grammar-legend">${legends.join(" ")}</div>
             <div style="font-size:1.1rem; font-weight:bold; margin-top:12px;">${info?.japanese || "（未登録）"}</div>
             <p><strong>定義:</strong> ${info?.gloss || '---'}</p>
-            <div style="background:rgba(0,0,0,0.03); padding:12px; border-radius:6px; white-space:pre-wrap;">${info?.description || "解説なし"}</div>
+            <div style="background:rgba(0,0,0,0.03); padding:12px; border-radius:6px; white-space:pre-wrap; font-size:0.9rem;">${info?.description || "解説なし"}</div>
         </div>`;
 }
 
@@ -349,82 +433,31 @@ function changePage() {
 
 function showAppInfo() {
     const app = document.getElementById('app');
-    
-    // 表示タイトルを更新
     document.getElementById('view-title').innerText = "出典・ポリシー";
-
     const infoHtml = `
         <div style="max-width: 850px; margin: 0 auto; padding: 40px; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-soft); line-height: 1.8;">
-            <h2 style="border-bottom: 2px solid var(--highlight); padding-bottom: 10px; margin-bottom: 30px;">
-                <i class="fa-solid fa-scroll"></i> 出典・ポリシー
-            </h2>
-            
+            <h2 style="border-bottom: 2px solid var(--highlight); padding-bottom: 10px; margin-bottom: 30px;"><i class="fa-solid fa-scroll"></i> 出典・ポリシー</h2>
             <section style="margin-bottom: 40px;">
-                <h3><i class="fa-solid fa-pen-nib"></i> 設計思想（記号選択の根拠）</h3>
-                <p>本アプリでは、ギリシャ語の「アスペクト（動作態）」と「法的ニュアンス」を直感的に識別できるよう、以下のルールで視覚化しています。</p>
-                
-                <div style="background: rgba(0,0,0,0.02); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h3><i class="fa-solid fa-pen-nib"></i> 設計思想</h3>
+                <div style="background: rgba(0,0,0,0.02); padding: 20px; border-radius: 8px;">
                     <ul style="list-style: none; padding-left: 0;">
-                        <li style="margin-bottom: 15px;">
-                            <strong><span style="border-bottom: 2px solid var(--highlight);">実線（現在形）</span></strong><br>
-                            <span style="font-size: 0.9rem; color: var(--text-sub);">「継続・反復」を表現。途切れない線により、動作が時間軸上で進行している状態を示します。</span>
-                        </li>
-                        <li style="margin-bottom: 15px;">
-                            <strong><span style="border-bottom: 2px dotted var(--highlight);">点線（アオリスト）</span></strong><br>
-                            <span style="font-size: 0.9rem; color: var(--text-sub);">「点的・生起」を表現。プロセスの記述ではなく、その事象が「起きた」という事実の点を集中して示します。</span>
-                        </li>
-                        <li style="margin-bottom: 15px;">
-                            <strong><span style="text-decoration: underline wavy var(--highlight); text-underline-offset: 3px;">波線（完了形）</span></strong><br>
-                            <span style="font-size: 0.9rem; color: var(--text-sub);">「過去の動作の結果が今も残っている状態」を表現。単なる事実の点ではなく、現在にまで及ぶ影響の「揺らぎ」を波線で示しています。</span>
-                        </li>
-                        <li style="margin-bottom: 15px;">
-                            <strong><span style="border-bottom: 3px double var(--highlight);">二重線（未来形）</span></strong><br>
-                            <span style="font-size: 0.9rem; color: var(--text-sub);">「意志・確信」を表現。未来に起こる事象への強い焦点化や、避けられない意志の重なりを二重線で強調しています。</span>
-                        </li>
-                        <li>
-                            <strong><span style="background: rgba(211, 84, 0, 0.1); padding: 0 4px; border-radius: 2px;">ハイライト（直接法・命令法）</span></strong><br>
-                            <span style="font-size: 0.9rem; color: var(--text-sub);">「文の主軸」を表現。客観的事実（直接法）や強い意志（命令法）といった、文の骨格をなす要素を強調します。</span>
-                        </li>
+                        <li style="margin-bottom: 15px;"><strong><span style="border-bottom: 2px solid var(--highlight);">実線（現在形）</span></strong><br>継続・反復。</li>
+                        <li style="margin-bottom: 15px;"><strong><span style="border-bottom: 2px dotted var(--highlight);">点線（アオリスト）</span></strong><br>点的・生起。</li>
+                        <li style="margin-bottom: 15px;"><strong><span style="text-decoration: underline wavy var(--highlight); text-underline-offset: 3px;">波線（完了形）</span></strong><br>結果の残存。</li>
+                        <li style="margin-bottom: 15px;"><strong><span style="border-bottom: 3px double var(--highlight);">二重線（未来形）</span></strong><br>意志・確信。</li>
+                        <li><strong><span style="background: rgba(211, 84, 0, 0.1); padding: 0 4px; border-radius: 2px;">ハイライト</span></strong><br>直接法・命令法（文の主軸）。</li>
                     </ul>
                 </div>
-
-                <h4>【補足】接続法・分詞に装飾を行わない理由</h4>
-                <p style="font-size: 0.95rem;">接続法、分詞、不定詞などは、多くの場合において「主動詞（直接法・命令法）」に付随する情報を補う役割を果たします。これらすべてに装飾を施すと視覚的なノイズが増え、「その文で最も言わんとしていること（主動詞の法的ニュアンス）」が埋もれてしまいます。読み手の注意を最も重要な宣言や命令に集中させるため、従属的な要素の装飾は意図的に排しています。</p>
             </section>
-
             <section style="margin-bottom: 40px;">
                 <h3><i class="fa-solid fa-database"></i> 出典 (Sources)</h3>
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                    <tr style="border-bottom: 1px solid var(--border-soft);">
-                        <th style="text-align: left; padding: 10px; width: 30%;">底本 (Greek Text)</th>
-                        <td style="padding: 10px;">SBL Greek New Testament (SBLGNT)</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid var(--border-soft);">
-                        <th style="text-align: left; padding: 10px;">形態論解析</th>
-                        <td style="padding: 10px;">Macula Greek Project / MorphGNT</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid var(--border-soft);">
-                        <th style="text-align: left; padding: 10px;">辞書データ</th>
-                        <td style="padding: 10px;">Abbott-Smith A Manual Greek Lexicon of the NT</td>
-                    </tr>
-                    <tr>
-                        <th style="text-align: left; padding: 10px;">日本語訳聖書</th>
-                        <td style="padding: 10px;">"聖書 新改訳2017©2017新日本聖書刊行会</td>
-                    </tr>
+                    <tr style="border-bottom: 1px solid var(--border-soft);"><th style="text-align: left; padding: 10px;">底本</th><td style="padding: 10px;">SBLGNT</td></tr>
+                    <tr style="border-bottom: 1px solid var(--border-soft);"><th style="text-align: left; padding: 10px;">形態論解析</th><td style="padding: 10px;">Macula Greek Project</td></tr>
+                    <tr style="border-bottom: 1px solid var(--border-soft);"><th style="text-align: left; padding: 10px;">辞書データ</th><td style="padding: 10px;">Abbott-Smith Lexicon</td></tr>
                 </table>
             </section>
-
-            <section style="margin-bottom: 30px;">
-                <h3><i class="fa-solid fa-shield-halved"></i> 運営ポリシー</h3>
-                <p><strong>学術的客観性の保持:</strong> 特定の教義に依存せず、公開された標準的な形態論データに忠実な解析を提供します。</p>
-                <p><strong>オープンソースの尊重:</strong> 優れた学術リソースを開発された先達に敬意を表し、ライセンスを遵守してデータを活用します。</p>
-            </section>
-
-            <div style="text-align: center; margin-top: 40px;">
-                <button onclick="location.reload()" style="background: var(--highlight); color: white; border: none; padding: 10px 30px; border-radius: 5px; cursor: pointer; font-weight: bold;">
-                    本文に戻る
-                </button>
-            </div>
+            <div style="text-align: center;"><button onclick="location.reload()" style="background: var(--highlight); color: white; border: none; padding: 10px 30px; border-radius: 5px; cursor: pointer;">本文に戻る</button></div>
         </div>
     `;
     app.innerHTML = infoHtml;
