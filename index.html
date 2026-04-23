@@ -94,7 +94,7 @@
     }
     #open-panel-btn:hover { color: #636e72; transform: scale(1.1); }
 
-    #side-panel { width: 380px; background: var(--bg-panel); border-left: 1px solid var(--border-soft); padding: 25px; display: flex; flex-direction: column; flex-shrink: 0; }
+    #side-panel { width: 380px; background: var(--bg-panel); border-left: 1px solid var(--border-soft); padding: 25px; display: flex; flex-direction: column; flex-shrink: 0; height: 100vh; box-sizing: border-box;}
     .panel-header { font-weight: bold; font-size: 1.1rem; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft); display: flex; justify-content: space-between; color: var(--accent-dark); }
     #panel-content { flex: 1; overflow-y: auto; }
 
@@ -112,7 +112,7 @@
     .word-card:hover { border-color: var(--highlight); transform: translateY(-1px); }
     .greek-word { font-family: 'Gentium Plus', serif; font-size: 1.5rem; line-height: 1.3; }
     
-    #word-detail-view { background: var(--bg-card); border: 1px solid var(--highlight); border-radius: 8px; padding: 18px; display: none; margin-top: 15px; animation: slideUp 0.3s ease-out; }
+    #word-detail-view { background: var(--bg-card); border: 1px solid var(--highlight); border-radius: 8px; padding: 0px; display: none; margin-top: 15px; max-height: 60%; overflow-y: auto; flex-shrink: 0; animation: slideUp 0.3s ease-out; }
     @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
     /* 文法装飾クラス */
@@ -301,8 +301,6 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
     if (parts[0] === 'V' && parts[1]) {
         const tenseCode = parts[1][0];
         const moodCode = parts[1][2];
-
-        // 【修正】詳細パネルでも、直接法(I)または命令法(M)の場合のみ装飾凡例を表示
         if (moodCode === 'I' || moodCode === 'M') {
             if (tenseCode === 'P') { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
             else if (tenseCode === 'A') { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
@@ -313,9 +311,13 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
         }
     }
     
+    // 内部を「固定ヘッダー」と「スクロールボディ」に分ける
     view.innerHTML = `
-        <div style="font-weight:bold; border-bottom:1px solid var(--border-soft); margin-bottom:12px; display:flex; justify-content:space-between; padding-bottom:10px; position: sticky; top:0; background:var(--bg-card);">
-            <div><span style="font-family:'Gentium Plus'; font-size:2rem;" class="${classes.join(' ')}">${greek}</span><span style="color:var(--text-sub); font-size:0.8rem; margin-left:12px;">G${strong}</span></div>
+        <div class="detail-header">
+            <div>
+                <span style="font-family:'Gentium Plus'; font-size:2rem;" class="${classes.join(' ')}">${greek}</span>
+                <span style="color:var(--text-sub); font-size:0.8rem; margin-left:12px;">G${strong}</span>
+            </div>
             <button onclick="closeDetail()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-sub);">&times;</button>
         </div>
         <div class="detail-body">
@@ -323,10 +325,12 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
             <div class="grammar-legend">${legends.join(" ")}</div>
             <div style="font-size:1.1rem; font-weight:bold; margin-top:12px;">${info?.japanese || "（未登録）"}</div>
             <p><strong>定義:</strong> ${info?.gloss || '---'}</p>
-            <div style="background:rgba(0,0,0,0.03); padding:12px; border-radius:6px; white-space:pre-wrap;">${info?.description || "解説なし"}</div>
+            <div style="background:rgba(0,0,0,0.03); padding:12px; border-radius:6px; white-space:pre-wrap; font-size:0.9rem;">${info?.description || "解説なし"}</div>
         </div>`;
+    
+    // 毎回一番上にスクロールを戻す
+    view.scrollTop = 0;
 }
-
 function closeDetail() { document.getElementById('word-detail-view').style.display = 'none'; }
 function toggleSidebar() { document.getElementById('nav-sidebar').classList.toggle('collapsed'); }
 function toggleSidePanel() {
