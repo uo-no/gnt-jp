@@ -83,7 +83,6 @@
     .header-content { display: flex; align-items: center; justify-content: space-between; }
     .breadcrumb { display: flex; align-items: center; gap: 10px; color: var(--text-sub); font-size: 0.9rem; }
     .breadcrumb h1 { font-size: 1.2rem; margin: 0; color: var(--text-main); font-weight: 700; }
-    .separator { opacity: none; }
 
     #app { flex: 1; overflow-y: auto; padding: 20px 40px 60px 40px; }
 
@@ -266,7 +265,7 @@ const JPN_MAP = {
     person: { '1': '1人称', '2': '2人称', '3': '3人称' }
 };
 
-// 文法ガイドデータ
+// 文法ガイドデータ（ツールチップ用）
 const GRAMMAR_GUIDES = {
     article: {
         title: "💡 冠詞の読み方",
@@ -353,7 +352,7 @@ function decorate(wordText, wordData) {
             </div>`;
 }
 
-// ツールチップアイコン生成
+// ツールチップタグ生成
 function createHelpTag(guide) {
     return `
         <div class="grammar-help">
@@ -375,7 +374,7 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
     const parts = rawMorph.split('-');
     const pos = parts[0];
 
-    // ガイドアイコン判定
+    // ガイド判定
     let helpIcon = "";
     if (pos === 'T') helpIcon = createHelpTag(GRAMMAR_GUIDES.article);
     else if (['N', 'A', 'R', 'P', 'D'].includes(pos)) helpIcon = createHelpTag(GRAMMAR_GUIDES.case);
@@ -436,28 +435,56 @@ function showAppInfo() {
     document.getElementById('view-title').innerText = "出典・ポリシー";
     const infoHtml = `
         <div style="max-width: 850px; margin: 0 auto; padding: 40px; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-soft); line-height: 1.8;">
-            <h2 style="border-bottom: 2px solid var(--highlight); padding-bottom: 10px; margin-bottom: 30px;"><i class="fa-solid fa-scroll"></i> 出典・ポリシー</h2>
+            <h2 style="border-bottom: 2px solid var(--highlight); padding-bottom: 10px; margin-bottom: 30px;">
+                <i class="fa-solid fa-scroll"></i> 出典・ポリシー
+            </h2>
+            
             <section style="margin-bottom: 40px;">
-                <h3><i class="fa-solid fa-pen-nib"></i> 設計思想</h3>
-                <div style="background: rgba(0,0,0,0.02); padding: 20px; border-radius: 8px;">
+                <h3><i class="fa-solid fa-pen-nib"></i> 設計思想（記号選択の根拠）</h3>
+                <p>本アプリでは、ギリシャ語の「アスペクト（動作態）」と「法的ニュアンス」を直感的に識別できるよう、以下のルールで視覚化しています。</p>
+                
+                <div style="background: rgba(0,0,0,0.02); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <ul style="list-style: none; padding-left: 0;">
-                        <li style="margin-bottom: 15px;"><strong><span style="border-bottom: 2px solid var(--highlight);">実線（現在形）</span></strong><br>継続・反復。</li>
-                        <li style="margin-bottom: 15px;"><strong><span style="border-bottom: 2px dotted var(--highlight);">点線（アオリスト）</span></strong><br>点的・生起。</li>
-                        <li style="margin-bottom: 15px;"><strong><span style="text-decoration: underline wavy var(--highlight); text-underline-offset: 3px;">波線（完了形）</span></strong><br>結果の残存。</li>
-                        <li style="margin-bottom: 15px;"><strong><span style="border-bottom: 3px double var(--highlight);">二重線（未来形）</span></strong><br>意志・確信。</li>
-                        <li><strong><span style="background: rgba(211, 84, 0, 0.1); padding: 0 4px; border-radius: 2px;">ハイライト</span></strong><br>直接法・命令法（文の主軸）。</li>
+                        <li style="margin-bottom: 15px;">
+                            <strong><span style="border-bottom: 2px solid var(--highlight);">実線（現在形）</span></strong><br>
+                            <span style="font-size: 0.9rem; color: var(--text-sub);">「継続・反復」を表現。途切れない線により、動作が時間軸上で進行している状態を示します。</span>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <strong><span style="border-bottom: 2px dotted var(--highlight);">点線（アオリスト）</span></strong><br>
+                            <span style="font-size: 0.9rem; color: var(--text-sub);">「点的・生起」を表現。プロセスの記述ではなく、その事象が「起きた」という事実の点を集中して示します。</span>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <strong><span style="text-decoration: underline wavy var(--highlight); text-underline-offset: 3px;">波線（完了形）</span></strong><br>
+                            <span style="font-size: 0.9rem; color: var(--text-sub);">「過去の動作の結果が今も残っている状態」を表現。単なる事実の点ではなく、現在にまで及ぶ影響の「揺らぎ」を波線で示しています。</span>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <strong><span style="border-bottom: 3px double var(--highlight);">二重線（未来形）</span></strong><br>
+                            <span style="font-size: 0.9rem; color: var(--text-sub);">「意志・確信」を表現。未来に起こる事象への強い焦点化や、避けられない意志の重なりを二重線で強調しています。</span>
+                        </li>
+                        <li>
+                            <strong><span style="background: rgba(211, 84, 0, 0.1); padding: 0 4px; border-radius: 2px;">ハイライト（直接法・命令法）</span></strong><br>
+                            <span style="font-size: 0.9rem; color: var(--text-sub);">「文の主軸」を表現。客観的事実（直接法）や強い意志（命令法）といった、文の骨格をなす要素を強調します。</span>
+                        </li>
                     </ul>
                 </div>
+
+                <h4>【補足】接続法・分詞に装飾を行わない理由</h4>
+                <p style="font-size: 0.95rem;">接続法、分詞、不定詞などは、多くの場合において「主動詞（直接法・命令法）」に付随する情報を補う役割を果たします。これらすべてに装飾を施すと視覚的なノイズが増え、「その文で最も言わんとしていること（主動詞の法的ニュアンス）」が埋もれてしまいます。読み手の注意を最も重要な宣言や命令に集中させるため、従属的な要素の装飾は意図的に排しています。</p>
             </section>
+
             <section style="margin-bottom: 40px;">
                 <h3><i class="fa-solid fa-database"></i> 出典 (Sources)</h3>
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                    <tr style="border-bottom: 1px solid var(--border-soft);"><th style="text-align: left; padding: 10px;">底本</th><td style="padding: 10px;">SBLGNT</td></tr>
-                    <tr style="border-bottom: 1px solid var(--border-soft);"><th style="text-align: left; padding: 10px;">形態論解析</th><td style="padding: 10px;">Macula Greek Project</td></tr>
-                    <tr style="border-bottom: 1px solid var(--border-soft);"><th style="text-align: left; padding: 10px;">辞書データ</th><td style="padding: 10px;">Abbott-Smith Lexicon</td></tr>
+                    <tr style="border-bottom: 1px solid var(--border-soft);"><th style="text-align: left; padding: 10px;">底本</th><td style="padding: 10px;">SBL Greek New Testament (SBLGNT)</td></tr>
+                    <tr style="border-bottom: 1px solid var(--border-soft);"><th style="text-align: left; padding: 10px;">形態論解析</th><td style="padding: 10px;">Macula Greek Project / MorphGNT</td></tr>
+                    <tr style="border-bottom: 1px solid var(--border-soft);"><th style="text-align: left; padding: 10px;">辞書データ</th><td style="padding: 10px;">Abbott-Smith A Manual Greek Lexicon of the NT</td></tr>
+                    <tr><th style="text-align: left; padding: 10px;">日本語訳聖書</th><td style="padding: 10px;">聖書 新改訳2017 ©2017 新日本聖書刊行会</td></tr>
                 </table>
             </section>
-            <div style="text-align: center;"><button onclick="location.reload()" style="background: var(--highlight); color: white; border: none; padding: 10px 30px; border-radius: 5px; cursor: pointer;">本文に戻る</button></div>
+
+            <div style="text-align: center; margin-top: 40px;">
+                <button onclick="location.reload()" style="background: var(--highlight); color: white; border: none; padding: 10px 30px; border-radius: 5px; cursor: pointer; font-weight: bold;">本文に戻る</button>
+            </div>
         </div>
     `;
     app.innerHTML = infoHtml;
