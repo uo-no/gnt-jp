@@ -204,7 +204,7 @@
                 <div class="menu-item">
                     <span class="icon">🔍</span> <span class="menu-text">検索</span>
                 </div>
-                <div class="menu-item">
+                <div class="menu-item" onclick="showMameKnowledge()">
                     <span class="icon">💡</span> <span class="menu-text">まめ知識</span>
                 </div>
                 <div class="menu-item" onclick="showAppInfo()">
@@ -506,6 +506,105 @@ function render(jpData, elData) {
     });
 }
 init();
+
+function showMameKnowledge() {
+    const app = document.getElementById('app');
+    document.getElementById('view-title').innerText = "まめ知識";
+
+    const contentHtml = `
+        <style>
+            .tabs { display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid var(--border-soft); }
+            .tab-btn { 
+                padding: 10px 20px; cursor: pointer; border: none; background: none; 
+                color: var(--text-sub); font-weight: bold; font-family: inherit;
+                border-bottom: 3px solid transparent; transition: 0.2s;
+            }
+            .tab-btn.active { color: var(--accent-dark); border-bottom-color: var(--highlight); background: rgba(0,0,0,0.02); }
+            .tab-content { display: none; animation: fadeIn 0.3s ease; line-height: 1.8; }
+            .tab-content.active { display: block; }
+            .knowledge-card { background: var(--bg-card); padding: 30px; border-radius: 12px; border: 1px solid var(--border-soft); }
+            .knowledge-card h2 { border-left: 4px solid var(--highlight); padding-left: 15px; margin-bottom: 20px; font-size: 1.4rem; }
+            .knowledge-card h3 { color: var(--accent-dark); margin-top: 25px; border-bottom: 1px solid var(--border-soft); padding-bottom: 5px; }
+            .knowledge-card b { color: #d35400; }
+            .knowledge-card ul { padding-left: 20px; }
+            .knowledge-card li { margin-bottom: 8px; }
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        </style>
+
+        <div class="knowledge-card">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab(event, 'kanji')">冠詞</button>
+                <button class="tab-btn" onclick="switchTab(event, 'kaku')">格の特徴</button>
+                <button class="tab-btn" onclick="switchTab(event, 'futei')">不定詞</button>
+            </div>
+
+            <div id="kanji" class="tab-content active">
+                <h2>ギリシャ語の冠詞</h2>
+                <p>ギリシャ語の冠詞は英語の「the」とは異なり、<b>「それが何であるか（正体）」</b>を示す装置である。基本は次の対比で整理する。</p>
+                <ul>
+                    <li><b>冠詞あり</b> → 正体が特定されている</li>
+                    <li><b>冠詞なし</b> → 性質・本質が強調されている</li>
+                </ul>
+                <h3>①：基本機能（最重要）</h3>
+                <p>冠詞は対象を特定し、読者に「これである」と指し示す働きを持つ。一方、無冠詞は対象の性質や特徴に焦点を当てる。</p>
+                <h3>②：冠詞ありの主な用法</h3>
+                <ul>
+                    <li>既出の対象 / 文脈上明らかな対象</li>
+                    <li>唯一の存在（神、太陽など）</li>
+                    <li>クラスを代表するもの（一般論としての人間など）</li>
+                </ul>
+                <h3>④：主語と述語主格（重要構文）</h3>
+                <p>「AはBである」の構文では、<b>冠詞が付いている名詞が主語</b>であり、無冠詞の名詞が述語主格となる。</p>
+                <h3>⑤：重要な文法規則</h3>
+                <p><b>コルウェルの規則:</b> 述語主格が動詞の前にある場合、定であっても無冠詞になることがある。<br>
+                <b>グランヴィル・シャープの規則:</b> 「冠詞＋A＋και＋B」で、両者が同一人物を指す。特にキリスト論で重要。</p>
+            </div>
+
+            <div id="kaku" class="tab-content">
+                <h2>格の特徴</h2>
+                <p>基本は5格。実際の意味は「誰が・誰の・誰に・何を・呼びかけ」を軸に考える。</p>
+                <h3>①：主格（主体・同一性）</h3>
+                <p>主語や述語主格に使われる。判断順序：代名詞 ＞ 冠詞あり名詞 ＞ 固有名詞 の順に主語になりやすい。</p>
+                <h3>②：属格（制限・関係）</h3>
+                <p>ある名詞の意味を別の名詞で限定する（〜の）。特に「神の愛」が「神が愛する（主格的）」か「神を愛する（目的格的）」かの判断が重要。</p>
+                <h3>③：与格（関わり・影響）</h3>
+                <p>「人への影響」「場所や領域」「手段」の3つに分けると理解しやすい。</p>
+                <h3>④：対格（到達点・範囲）</h3>
+                <p>直接目的語（何を）や、時間の長さを示す。<b>不定詞の主語が対格で表される</b>点に注意。</p>
+            </div>
+
+            <div id="futei" class="tab-content">
+                <h2>不定詞（動詞的名詞）</h2>
+                <p>「〜すること」という意味。動詞の性質（相）と名詞の性質をあわせ持つ。</p>
+                <h3>①：相（アスペクト）の役割</h3>
+                <ul>
+                    <li><b>現在不定詞:</b> 動作の継続（〜し続ける）</li>
+                    <li><b>アオリスト不定詞:</b> 単純な出来事（〜する）。※過去ではない。</li>
+                    <li><b>完了不定詞:</b> 動作の結果の状態。</li>
+                </ul>
+                <h3>④：前置詞＋不定詞（時間関係）</h3>
+                <ul>
+                    <li><b>μετὰ + 不定詞:</b> 〜した後で</li>
+                    <li><b>ἐν + 不定詞:</b> 〜している最中に</li>
+                    <li><b>πρὸ + 不定詞:</b> 〜する前に</li>
+                </ul>
+            </div>
+        </div>
+    `;
+    app.innerHTML = contentHtml;
+}
+
+// タブ切り替え用スクリプト
+function switchTab(event, tabId) {
+    const contents = document.querySelectorAll('.tab-content');
+    const buttons = document.querySelectorAll('.tab-btn');
+    
+    contents.forEach(content => content.classList.remove('active'));
+    buttons.forEach(btn => btn.classList.remove('active'));
+    
+    document.getElementById(tabId).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
 </script>
 </body>
 </html>
