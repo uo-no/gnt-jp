@@ -627,7 +627,7 @@ function showAppInfo() {
             </section>
 
             <div style="text-align: center; margin-top: 40px;">
-                <button onclick="location.reload()" style="background: var(--highlight); color: white; border: none; padding: 12px 40px; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                <button onclick="renderCurrentPage()" style="background: var(--highlight); color: white; border: none; padding: 12px 40px; border-radius: 5px; cursor: pointer; font-weight: bold;">
                     本文に戻る
                 </button>
             </div>
@@ -691,6 +691,28 @@ function render(jpData, elData) {
 }
 init();
 
+// タブを切り替える関数
+function switchTab(evt, tabName) {
+    // すべてのコンテンツを非表示にする
+    const tabContents = document.getElementsByClassName("tab-content");
+    for (let i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    // すべてのボタンの active クラスを削除する
+    const tabBtns = document.getElementsByClassName("tab-btn");
+    for (let i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    // 指定されたタブを表示し、ボタンをアクティブにする
+    document.getElementById(tabName).classList.add("active");
+    evt.currentTarget.classList.add("active");
+    
+    // スクロール位置を上に戻す
+    document.getElementById('app').scrollTop = 0;
+}
+
 function showMameKnowledge() {
     const app = document.getElementById('app');
     document.getElementById('view-title').innerText = "まめ知識";
@@ -733,7 +755,7 @@ function showMameKnowledge() {
         <div class="knowledge-container">
             <div class="tabs">
                 <button class="tab-btn active" onclick="switchTab(event, 'kanji')">冠詞</button>
-                <button class="tab-btn" onclick="switchTab(event, 'kaku')">格の特徴</button>
+                <button class="tab-btn" onclick="switchTab(event, 'kaku')">格</button>
                 <button class="tab-btn" onclick="switchTab(event, 'futei')">不定詞</button>
             </div>
 
@@ -775,7 +797,7 @@ function showMameKnowledge() {
                         1. 冠詞の有無確認 → 2. 正体か性質か判定 → 3. 特定可能か検討 → 4. 主語述語関係確認 → 5. 文法規則適用検討 → 6. 性質強調の可能性検討
                     </div>
                     <div class="back-button-container">
-                        <button class="back-btn" onclick="location.reload()">本文に戻る</button>
+                        <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
                     </div>
                 </div>
             </div>
@@ -797,7 +819,7 @@ function showMameKnowledge() {
                     <h3>⑤：呼格</h3>
                     <p>コアイメージは「呼びかけ」。主格が代用される場合は、より強調されたニュアンスを持つ。</p>
                     <div class="back-button-container">
-                        <button class="back-btn" onclick="location.reload()">本文に戻る</button>
+                        <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
                     </div>
                 </div>
             </div>
@@ -827,7 +849,7 @@ function showMameKnowledge() {
                         1. 前の動詞確認 → 2. 前置詞確認 → 3. 「〜すること」代入 → 4. 理由・目的検討 → 5. 不定詞の主語（対格）確認
                     </div>
                     <div class="back-button-container">
-                        <button class="back-btn" onclick="location.reload()">本文に戻る</button>
+                        <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
                     </div>
                 </div>
             </div>
@@ -835,6 +857,32 @@ function showMameKnowledge() {
     `;
     app.innerHTML = contentHtml;
 }
+
+async function renderCurrentPage() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const book = urlParams.get('book') || 'ROM';
+    const ch   = urlParams.get('ch')   || '1';
+    
+    // タイトルを復元
+    const allBooks = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
+    const found = allBooks.find(b => b.key === book);
+    document.getElementById('view-title').innerText = found ? `${found.name} ${ch}章` : `${book} ${ch}章`;
+
+    // データを再描画
+    try {
+        const [jpRes, elRes] = await Promise.all([
+            fetch(`./bible_jp/${book}/${ch}.json`),
+            fetch(`./bible_data/${book}/${ch}.json`)
+        ]);
+        render(await jpRes.json(), await elRes.json());
+        // パネルのリセット
+        document.getElementById('active-v').innerText = "";
+        document.getElementById('panel-content').innerHTML = '<p style="color: var(--text-sub); font-size: 0.82rem; letter-spacing: 0.01em;">節を選択して解析を表示</p>';
+    } catch (err) {
+        document.getElementById('app').innerHTML = `<p style="color:red">Data not found.</p>`;
+    }
+}
+
 </script>
 </body>
 </html>
