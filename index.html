@@ -67,18 +67,35 @@
     .menu-item.active { background: rgba(90,110,130,0.10); color: var(--highlight); font-weight: 700; }
     .collapsed .menu-text, .collapsed .section-label { display: none; }
 
-    .sidebar-select, .sidebar-input {
-        background: transparent;
-        border: 1px solid transparent;
-        color: var(--text-main);
-        width: 100%;
-        cursor: pointer;
-        font-family: inherit;
-        font-size: 0.9rem;
-        outline: none;
+    /* --- サイドバー ドリルダウン --- */
+    .sb-layer { display: none; }
+    .sb-layer.active { display: block; }
+    .sb-layer-header {
+        display: flex; align-items: center; gap: 6px;
+        padding: 8px 12px 6px; cursor: pointer; border-radius: 6px; margin: 0 4px 2px;
+        transition: background 0.12s;
     }
-    .sidebar-input { width: 60px; border-bottom: 1px solid transparent; transition: border 0.2s; }
-    .sidebar-input:focus { border-bottom-color: var(--highlight); cursor: text; }
+    .sb-layer-header:hover { background: rgba(0,0,0,0.04); }
+    .sb-back-arrow { font-size: 11px; color: var(--highlight); font-weight: 700; }
+    .sb-layer-title { font-size: 0.65rem; font-weight: 700; color: var(--highlight); letter-spacing: 0.1em; text-transform: uppercase; }
+    .sb-row {
+        padding: 7px 12px; font-size: 0.88rem; color: var(--text-main);
+        cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+        border-radius: 8px; margin: 0 4px 1px; transition: background 0.12s;
+    }
+    .sb-row:hover { background: rgba(0,0,0,0.04); }
+    .sb-row.active { background: var(--highlight-light); color: var(--highlight); font-weight: 700; }
+    .sb-row-arrow { font-size: 10px; color: #ccc; }
+    .sb-row.active .sb-row-arrow { color: var(--highlight); }
+    .sb-ch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 6px 10px 10px; }
+    .sb-ch-btn {
+        aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+        font-size: 0.8rem; font-weight: 500; color: var(--text-sub);
+        background: #fff; border: 1px solid var(--border-soft);
+        border-radius: 7px; cursor: pointer; transition: all 0.12s;
+    }
+    .sb-ch-btn:hover { background: var(--highlight-light); border-color: var(--highlight); color: var(--highlight); }
+    .sb-ch-btn.active { background: var(--highlight); color: #fff; border-color: var(--highlight); font-weight: 700; }
 
     /* --- 中央メインエリア --- */
     .container { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--bg-paper); }
@@ -215,33 +232,40 @@
             <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
             <span class="menu-text sidebar-logo">ウオノ門</span>
         </div>
-        
         <div class="sidebar-menu">
-            <div class="sidebar-section">
-                <div class="section-label">聖書</div>
-                <div class="menu-item active">
-                    <span class="icon">📖</span>
-                    <select id="bookSelect" onchange="changePage()" class="sidebar-select menu-text">
-                        <option value="ROM">ローマ</option>
-                        <option value="1CO">第一コリント</option>
-                        <option value="2CO">第二コリント</option>
-                        <option value="GAL">ガラテヤ</option>
-                        <option value="EPH">エペソ</option>
-                        <option value="PHP">ピリピ</option>
-                        <option value="COL">コロサイ</option>
-                        <option value="1TH">第一テサロニケ</option>
-                        <option value="2TH">第二テサロニケ</option>
-                        <option value="1TI">第一テモテ</option>
-                        <option value="2TI">第二テモテ</option>
-                        <option value="TIT">テトス</option>
-                        <option value="PHM">ピレモン</option>
-                    </select>
+
+            <!-- Layer 0: 旧約 / 新約 -->
+            <div class="sb-layer active" id="sb-layer0">
+                <div class="section-label" style="padding: 10px 12px 4px;">聖書</div>
+                <div class="sb-row" id="sb-ot-row" onclick="sbGoTo(1,'ot')">
+                    <span class="menu-text">旧約聖書</span>
+                    <span class="sb-row-arrow menu-text">›</span>
                 </div>
-                <div class="menu-item">
-                    <span class="icon">#</span>
-                    <input type="number" id="chInput" value="1" min="1" onchange="changePage()" class="sidebar-input menu-text">
+                <div class="sb-row active" id="sb-nt-row" onclick="sbGoTo(1,'nt')">
+                    <span class="menu-text">新約聖書</span>
+                    <span class="sb-row-arrow menu-text">›</span>
                 </div>
             </div>
+
+            <!-- Layer 1: 書物リスト -->
+            <div class="sb-layer" id="sb-layer1">
+                <div class="sb-layer-header menu-text" onclick="sbGoBack(0)">
+                    <span class="sb-back-arrow">‹</span>
+                    <span class="sb-layer-title" id="sb-l1-title">新約聖書</span>
+                </div>
+                <div id="sb-book-list"></div>
+            </div>
+
+            <!-- Layer 2: 章グリッド -->
+            <div class="sb-layer" id="sb-layer2">
+                <div class="sb-layer-header menu-text" onclick="sbGoBack(1)">
+                    <span class="sb-back-arrow">‹</span>
+                    <span class="sb-layer-title" id="sb-l2-title"></span>
+                </div>
+                <div class="section-label" style="padding: 8px 12px 4px;">章を選ぶ</div>
+                <div class="sb-ch-grid menu-text" id="sb-ch-grid"></div>
+            </div>
+
         </div>
     </nav>
 
@@ -259,7 +283,7 @@
         </header>
         <div id="app"></div>
         <footer class="app-footer">
-            <span class="footer-copy">Copyright © 2026 ウオノ. All rights reserved.</span>
+            <span class="footer-copy">新約聖書 © SBL / Macula / Abbott-Smith / 新改訳2017</span>
             <div class="footer-links">
                 <button onclick="showMameKnowledge()">まめ知識</button>
                 <button onclick="showAppInfo()">出典・ポリシー</button>
