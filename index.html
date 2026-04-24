@@ -347,10 +347,18 @@ function decorate(wordText, wordData) {
     const pos = parts[0]; 
     let jpMorph = "";
     let styleClass = "";
+    let middleStar = ""; // アスタリスク用変数
 
     if (pos === 'V' && parts[1]) {
         const tenseCode = parts[1][0];
+        const voiceCode = parts[1][1]; // 態のコード
         const moodCode = parts[1][2];
+
+        // 中動態(M)または受動態(P, D)の場合にアスタリスクを付与
+        if (['M', 'P', 'D'].includes(voiceCode)) {
+            middleStar = '<span style="color:var(--highlight); margin-left:2px;">*</span>';
+        }
+
         if (moodCode === 'I' || moodCode === 'M') {
             if (tenseCode === 'P') styleClass = "present-text";
             else if (tenseCode === 'A') styleClass = "aorist-text";
@@ -360,7 +368,7 @@ function decorate(wordText, wordData) {
             else if (moodCode === 'M') styleClass += " imperative-text";
         }
         const t = JPN_MAP.tense[tenseCode] || "";
-        const v = JPN_MAP.voice[parts[1][1]] || "";
+        const v = JPN_MAP.voice[voiceCode] || "";
         const md = JPN_MAP.mood[moodCode] || "";
         let detail = (moodCode === 'P' && parts[2]) ? `(${JPN_MAP.case[parts[2][0]] || ""}${JPN_MAP.number[parts[2][1]] || ""}${JPN_MAP.gender[parts[2][2]] || ""})` : (parts[1].length >= 5 ? (JPN_MAP.person[parts[1][3]] || "") + (JPN_MAP.number[parts[1][4]] || "") : "");
         jpMorph = `${t}${v}${md}${detail}`;
@@ -374,12 +382,17 @@ function decorate(wordText, wordData) {
 
     const strong = String(m.strong || "").replace(/[^0-9]/g, ""); 
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
+    
+    // middleStar をギリシャ語の直後に挿入
     return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}')">
-                <div><span class="greek-word ${styleClass}">${wordText}</span><span style="font-weight:bold; margin-left:5px; font-size:0.9rem;">［${info?.japanese || "？"}］</span><span class="tag-jp">${jpMorph}</span></div>
+                <div>
+                    <span class="greek-word ${styleClass}">${wordText}</span>${middleStar}
+                    <span style="font-weight:bold; margin-left:5px; font-size:0.9rem;">［${info?.japanese || "？"}］</span>
+                    <span class="tag-jp">${jpMorph}</span>
+                </div>
                 <span class="strong-num">G${strong}</span>
             </div>`;
 }
-
 function showDetail(greek, strong, jpMorph, rawMorph) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
