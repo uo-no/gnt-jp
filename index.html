@@ -148,8 +148,8 @@
 
     #side-panel { 
         width: 360px; 
-        min-width: 250px;      /* 最小の幅 */
-        max-width: 600px;      /* 最大の幅（必要に応じて） */
+        min-width: 250px;
+        max-width: 600px;
         background: var(--bg-panel); 
         border-left: 1px solid var(--border-soft); 
         padding: 24px 22px; 
@@ -159,8 +159,8 @@
         height: 100vh; 
         box-sizing: border-box;
         position: relative; 
-        resize: horizontal;    /* 横方向にリサイズ可能にする */
-        direction: rtl;        /* リサイズハンドルを左側に持ってくるためのトリック */
+        resize: horizontal;
+        direction: rtl;
         overflow: auto;
     }
         
@@ -369,31 +369,54 @@ function decorate(wordText, wordData) {
     const pos = parts[0]; 
     let jpMorph = "";
     let styleClass = "";
-    let middleStar = ""; // アスタリスク用変数
+    let middleStar = "";
 
     if (pos === 'V' && parts[1]) {
-        const tenseCode = parts[1][0];
-        const voiceCode = parts[1][1]; // 態のコード
-        const moodCode = parts[1][2];
+        // ▼ 修正: 先頭が数字（語幹タイプ: 2, 3 など）の場合はオフセット+1
+        const off = /^[0-9]/.test(parts[1]) ? 1 : 0;
+        const tenseCode = parts[1][off + 0];
+        const voiceCode = parts[1][off + 1];
+        const moodCode  = parts[1][off + 2];
 
         // 中動態(M)または受動態(P, D)の場合にアスタリスクを付与
         if (['M', 'P', 'D'].includes(voiceCode)) {
             middleStar = '<span style="color:var(--highlight); margin-left:2px;">*</span>';
         }
 
-        if (moodCode === 'I' || moodCode === 'M') {
+        const t  = JPN_MAP.tense[tenseCode] || "";
+        const v  = JPN_MAP.voice[voiceCode] || "";
+        const md = JPN_MAP.mood[moodCode]   || "";
+
+        if (moodCode === 'P') {
+            // ▼ 修正: 分詞の処理（格・数・性は parts[2] に格納）
+            if (tenseCode === 'P') styleClass = "present-text";
+            else if (tenseCode === 'A') styleClass = "aorist-text";
+            else if (tenseCode === 'X') styleClass = "perfect-text";
+            else if (tenseCode === 'F') styleClass = "future-text";
+            const cng = parts[2]
+                ? (JPN_MAP.case[parts[2][0]] || "") +
+                  (JPN_MAP.number[parts[2][1]] || "") +
+                  (JPN_MAP.gender[parts[2][2]] || "")
+                : "";
+            jpMorph = `${t}${v}分詞${cng ? "(" + cng + ")" : ""}`;
+        } else if (moodCode === 'I' || moodCode === 'M') {
             if (tenseCode === 'P') styleClass = "present-text";
             else if (tenseCode === 'A') styleClass = "aorist-text";
             else if (tenseCode === 'X') styleClass = "perfect-text";
             else if (tenseCode === 'F') styleClass = "future-text";
             if (moodCode === 'I') styleClass += " indicative-text";
             else if (moodCode === 'M') styleClass += " imperative-text";
+            const detail = parts[1].length >= (off + 5)
+                ? (JPN_MAP.person[parts[1][off + 3]] || "") + (JPN_MAP.number[parts[1][off + 4]] || "")
+                : "";
+            jpMorph = `${t}${v}${md}${detail}`;
+        } else {
+            // 接続法(S)・希求法(O)・不定詞(N) など
+            const detail = parts[1].length >= (off + 5)
+                ? (JPN_MAP.person[parts[1][off + 3]] || "") + (JPN_MAP.number[parts[1][off + 4]] || "")
+                : "";
+            jpMorph = `${t}${v}${md}${detail}`;
         }
-        const t = JPN_MAP.tense[tenseCode] || "";
-        const v = JPN_MAP.voice[voiceCode] || "";
-        const md = JPN_MAP.mood[moodCode] || "";
-        let detail = (moodCode === 'P' && parts[2]) ? `(${JPN_MAP.case[parts[2][0]] || ""}${JPN_MAP.number[parts[2][1]] || ""}${JPN_MAP.gender[parts[2][2]] || ""})` : (parts[1].length >= 5 ? (JPN_MAP.person[parts[1][3]] || "") + (JPN_MAP.number[parts[1][4]] || "") : "");
-        jpMorph = `${t}${v}${md}${detail}`;
     } else if (['N', 'A', 'R', 'P', 'T', 'D'].includes(pos) && parts[1]) {
         const label = JPN_MAP.pos[pos] || pos;
         let p = "", c = "", n = "", g = "";
@@ -405,7 +428,6 @@ function decorate(wordText, wordData) {
     const strong = String(m.strong || "").replace(/[^0-9]/g, ""); 
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
     
-    // middleStar をギリシャ語の直後に挿入
     return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}')">
                 <div>
                     <span class="greek-word ${styleClass}">${wordText}</span>${middleStar}
@@ -415,6 +437,7 @@ function decorate(wordText, wordData) {
                 <span class="strong-num">G${strong}</span>
             </div>`;
 }
+
 function showDetail(greek, strong, jpMorph, rawMorph) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
@@ -423,9 +446,19 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
     
     const parts = rawMorph.split('-');
     if (parts[0] === 'V' && parts[1]) {
-        const tenseCode = parts[1][0];
-        const moodCode = parts[1][2];
-        if (moodCode === 'I' || moodCode === 'M') {
+        // ▼ 修正: 先頭が数字の場合はオフセット+1
+        const off = /^[0-9]/.test(parts[1]) ? 1 : 0;
+        const tenseCode = parts[1][off + 0];
+        const moodCode  = parts[1][off + 2];
+
+        if (moodCode === 'P') {
+            // ▼ 修正: 分詞の凡例表示
+            if (tenseCode === 'P') { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
+            else if (tenseCode === 'A') { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
+            else if (tenseCode === 'X') { classes.push("perfect-text"); legends.push(`<span class="perfect-text">波線:完了</span>`); }
+            else if (tenseCode === 'F') { classes.push("future-text"); legends.push(`<span class="future-text">二重線:未来</span>`); }
+            legends.push(`<span>分詞</span>`);
+        } else if (moodCode === 'I' || moodCode === 'M') {
             if (tenseCode === 'P') { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
             else if (tenseCode === 'A') { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
             else if (tenseCode === 'X') { classes.push("perfect-text"); legends.push(`<span class="perfect-text">波線:完了</span>`); }
@@ -520,7 +553,6 @@ function sbGoTo(layer, section) {
     document.getElementById('sb-layer' + layer).classList.add('active');
 
     if (layer === 0) {
-        // 旧約/新約の選択状態を反映
         document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
         document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
     }
@@ -529,7 +561,6 @@ function sbGoTo(layer, section) {
         if (section) sbSection = section;
         const label = sbSection === 'nt' ? '新約聖書' : '旧約聖書';
         document.getElementById('sb-l1-title').textContent = label;
-        // 旧約/新約の選択状態も更新
         document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
         document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
         sbRenderBooks();
@@ -579,7 +610,6 @@ function sbRenderChapters() {
 }
 
 function sbInitState(bookKey, ch) {
-    // URLの書物がどちらのセクションか判定
     const inNt = SB_BOOKS.nt.some(b => b.key === bookKey);
     sbSection = inNt ? 'nt' : 'ot';
     const books = SB_BOOKS[sbSection];
@@ -589,12 +619,9 @@ function sbInitState(bookKey, ch) {
         sbBookName = found.name;
         sbMaxCh    = found.ch;
     }
-    // 書物リストを表示した状態で起動
     sbGoTo(1);
-    // 書物が既知なら章グリッドまで開く
     if (found) sbGoTo(2);
 }
-// ── ここまでドリルダウン ──────────────────────────
 
 function showAppInfo() {
     const app = document.getElementById('app');
@@ -680,19 +707,16 @@ async function init() {
     const book = urlParams.get('book') || 'ROM';
     const ch   = urlParams.get('ch')   || '1';
 
-    // 書物がどちらのセクションか判定して「新約/旧約」を更新
     const isNt = SB_BOOKS.nt.some(b => b.key === book);
     const rootName = isNt ? "新約聖書" : "旧約聖書";
     document.querySelector('.root-name').innerText = rootName;
 
-    // ヘッダータイトル更新
     const allBooks = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
     const found = allBooks.find(b => b.key === book);
     document.getElementById('view-title').innerText = found
         ? `${found.name} ${ch}章`
         : `${book} ${ch}章`;
 
-    // サイドバーをドリルダウンで初期化
     sbInitState(book, parseInt(ch));
 
     await loadDict();
@@ -735,25 +759,17 @@ function render(jpData, elData) {
 }
 init();
 
-// タブを切り替える関数
 function switchTab(evt, tabName) {
-    // すべてのコンテンツを非表示にする
     const tabContents = document.getElementsByClassName("tab-content");
     for (let i = 0; i < tabContents.length; i++) {
         tabContents[i].classList.remove("active");
     }
-
-    // すべてのボタンの active クラスを削除する
     const tabBtns = document.getElementsByClassName("tab-btn");
     for (let i = 0; i < tabBtns.length; i++) {
         tabBtns[i].classList.remove("active");
     }
-
-    // 指定されたタブを表示し、ボタンをアクティブにする
     document.getElementById(tabName).classList.add("active");
     evt.currentTarget.classList.add("active");
-    
-    // スクロール位置を上に戻す
     document.getElementById('app').scrollTop = 0;
 }
 
@@ -907,24 +923,20 @@ async function renderCurrentPage() {
     const book = urlParams.get('book') || 'ROM';
     const ch   = urlParams.get('ch')   || '1';
     
-    // 書物がどちらのセクションか判定して「新約/旧約」を更新
     const isNt = SB_BOOKS.nt.some(b => b.key === book);
     const rootName = isNt ? "新約聖書" : "旧約聖書";
     document.querySelector('.root-name').innerText = rootName;
 
-    // タイトルを復元
     const allBooks = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
     const found = allBooks.find(b => b.key === book);
     document.getElementById('view-title').innerText = found ? `${found.name} ${ch}章` : `${book} ${ch}章`;
 
-    // データを再描画
     try {
         const [jpRes, elRes] = await Promise.all([
             fetch(`./bible_jp/${book}/${ch}.json`),
             fetch(`./bible_data/${book}/${ch}.json`)
         ]);
         render(await jpRes.json(), await elRes.json());
-        // パネルのリセット
         document.getElementById('active-v').innerText = "";
         document.getElementById('panel-content').innerHTML = '<p style="color: var(--text-sub); font-size: 0.82rem; letter-spacing: 0.01em;">節を選択して解析を表示</p>';
     } catch (err) {
