@@ -148,8 +148,6 @@
 
     #side-panel { 
         width: 360px; 
-        min-width: 250px;
-        max-width: 600px;
         background: var(--bg-panel); 
         border-left: 1px solid var(--border-soft); 
         padding: 24px 22px; 
@@ -158,15 +156,7 @@
         flex-shrink: 0; 
         height: 100vh; 
         box-sizing: border-box;
-        position: relative; 
-        resize: horizontal;
-        direction: rtl;
-        overflow: auto;
     }
-        
-    #side-panel > * {
-    direction: ltr;
-}
     .panel-header { 
         font-weight: 700; 
         font-size: 0.95rem;
@@ -179,18 +169,6 @@
         color: var(--accent-dark); 
         flex-shrink: 0;
     }
-
-    .resizer {
-        width: 10px;
-        height: 100%;
-        background: transparent;
-        position: absolute;
-        left: 0;
-        top: 0;
-        cursor: col-resize;
-        z-index: 20;
-}
-        
     #panel-content { flex: 1; overflow-y: auto; min-height: 0; }
 
     /* 詳細表示エリア */
@@ -305,7 +283,7 @@
         </header>
         <div id="app"></div>
         <footer class="app-footer">
-            <span class="footer-copy">Copyright © 2026 ウオノ All rights reserved. </span>
+            <span class="footer-copy">新約聖書 © SBL / Macula / Abbott-Smith / 新改訳2017</span>
             <div class="footer-links">
                 <button onclick="showMameKnowledge()">まめ知識</button>
                 <button onclick="showAppInfo()">出典・ポリシー</button>
@@ -372,33 +350,30 @@ function decorate(wordText, wordData) {
     let middleStar = "";
 
     if (pos === 'V' && parts[1]) {
-        // ▼ 修正: 先頭が数字（語幹タイプ: 2, 3 など）の場合はオフセット+1
+        // 先頭が数字（語幹タイプ）の場合はオフセット+1
         const off = /^[0-9]/.test(parts[1]) ? 1 : 0;
         const tenseCode = parts[1][off + 0];
         const voiceCode = parts[1][off + 1];
         const moodCode  = parts[1][off + 2];
 
-        // 中動態(M)または受動態(P, D)の場合にアスタリスクを付与
+        // 中動態・受動態にアスタリスク
         if (['M', 'P', 'D'].includes(voiceCode)) {
             middleStar = '<span style="color:var(--highlight); margin-left:2px;">*</span>';
         }
 
         const t  = JPN_MAP.tense[tenseCode] || "";
-        const v  = JPN_MAP.voice[voiceCode] || "";
-        const md = JPN_MAP.mood[moodCode]   || "";
+        const v  = JPN_MAP.voice[voiceCode]  || "";
+        const md = JPN_MAP.mood[moodCode]    || "";
 
         if (moodCode === 'P') {
-            // ▼ 修正: 分詞の処理（格・数・性は parts[2] に格納）
-            if (tenseCode === 'P') styleClass = "present-text";
-            else if (tenseCode === 'A') styleClass = "aorist-text";
-            else if (tenseCode === 'X') styleClass = "perfect-text";
-            else if (tenseCode === 'F') styleClass = "future-text";
+            // 分詞：装飾なし（直説・命令のみ装飾）
             const cng = parts[2]
-                ? (JPN_MAP.case[parts[2][0]] || "") +
+                ? (JPN_MAP.case[parts[2][0]]   || "") +
                   (JPN_MAP.number[parts[2][1]] || "") +
                   (JPN_MAP.gender[parts[2][2]] || "")
                 : "";
-            jpMorph = `${t}${v}分詞${cng ? "(" + cng + ")" : ""}`;
+            // 語順：動詞:分詞(時制・態・格数性)
+            jpMorph = `動詞:分詞${t}${v}${cng ? "(" + cng + ")" : ""}`;
         } else if (moodCode === 'I' || moodCode === 'M') {
             if (tenseCode === 'P') styleClass = "present-text";
             else if (tenseCode === 'A') styleClass = "aorist-text";
@@ -406,28 +381,36 @@ function decorate(wordText, wordData) {
             else if (tenseCode === 'F') styleClass = "future-text";
             if (moodCode === 'I') styleClass += " indicative-text";
             else if (moodCode === 'M') styleClass += " imperative-text";
-            const detail = parts[1].length >= (off + 5)
-                ? (JPN_MAP.person[parts[1][off + 3]] || "") + (JPN_MAP.number[parts[1][off + 4]] || "")
-                : "";
-            jpMorph = `${t}${v}${md}${detail}`;
+            const person = parts[1].length >= (off + 4) ? (JPN_MAP.person[parts[1][off + 3]] || "") : "";
+            const number = parts[1].length >= (off + 5) ? (JPN_MAP.number[parts[1][off + 4]] || "") : "";
+            // 語順：動詞:法・時制・態・人称数
+            jpMorph = `動詞:${md}${t}${v}${person}${number}`;
         } else {
             // 接続法(S)・希求法(O)・不定詞(N) など
-            const detail = parts[1].length >= (off + 5)
-                ? (JPN_MAP.person[parts[1][off + 3]] || "") + (JPN_MAP.number[parts[1][off + 4]] || "")
-                : "";
-            jpMorph = `${t}${v}${md}${detail}`;
+            const person = parts[1].length >= (off + 4) ? (JPN_MAP.person[parts[1][off + 3]] || "") : "";
+            const number = parts[1].length >= (off + 5) ? (JPN_MAP.number[parts[1][off + 4]] || "") : "";
+            jpMorph = `動詞:${md}${t}${v}${person}${number}`;
         }
     } else if (['N', 'A', 'R', 'P', 'T', 'D'].includes(pos) && parts[1]) {
         const label = JPN_MAP.pos[pos] || pos;
         let p = "", c = "", n = "", g = "";
-        if (['1', '2', '3'].includes(parts[1][0])) { p = parts[1][0] + "人称"; c = JPN_MAP.case[parts[1][1]] || ""; n = JPN_MAP.number[parts[1][2]] || ""; }
-        else { c = JPN_MAP.case[parts[1][0]] || ""; n = JPN_MAP.number[parts[1][1]] || ""; g = JPN_MAP.gender[parts[1][2]] || ""; }
+        if (['1', '2', '3'].includes(parts[1][0])) {
+            p = parts[1][0] + "人称";
+            c = JPN_MAP.case[parts[1][1]]   || "";
+            n = JPN_MAP.number[parts[1][2]] || "";
+        } else {
+            c = JPN_MAP.case[parts[1][0]]   || "";
+            n = JPN_MAP.number[parts[1][1]] || "";
+            g = JPN_MAP.gender[parts[1][2]] || "";
+        }
+        // 語順：品詞:格・数・性（名詞系）
         jpMorph = `${label}:${p}${c}${n}${g}`;
-    } else { jpMorph = JPN_MAP.pos[pos] || morph; }
+    } else {
+        jpMorph = JPN_MAP.pos[pos] || morph;
+    }
 
     const strong = String(m.strong || "").replace(/[^0-9]/g, ""); 
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
-    
     return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}')">
                 <div>
                     <span class="greek-word ${styleClass}">${wordText}</span>${middleStar}
@@ -446,25 +429,18 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
     
     const parts = rawMorph.split('-');
     if (parts[0] === 'V' && parts[1]) {
-        // ▼ 修正: 先頭が数字の場合はオフセット+1
         const off = /^[0-9]/.test(parts[1]) ? 1 : 0;
         const tenseCode = parts[1][off + 0];
         const moodCode  = parts[1][off + 2];
 
-        if (moodCode === 'P') {
-            // ▼ 修正: 分詞の凡例表示
-            if (tenseCode === 'P') { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
-            else if (tenseCode === 'A') { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
-            else if (tenseCode === 'X') { classes.push("perfect-text"); legends.push(`<span class="perfect-text">波線:完了</span>`); }
-            else if (tenseCode === 'F') { classes.push("future-text"); legends.push(`<span class="future-text">二重線:未来</span>`); }
-            legends.push(`<span>分詞</span>`);
-        } else if (moodCode === 'I' || moodCode === 'M') {
-            if (tenseCode === 'P') { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
-            else if (tenseCode === 'A') { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
-            else if (tenseCode === 'X') { classes.push("perfect-text"); legends.push(`<span class="perfect-text">波線:完了</span>`); }
-            else if (tenseCode === 'F') { classes.push("future-text"); legends.push(`<span class="future-text">二重線:未来</span>`); }
+        // 直説・命令の場合のみ装飾凡例を表示（語順：法→時制）
+        if (moodCode === 'I' || moodCode === 'M') {
             if (moodCode === 'I') { classes.push("indicative-text"); legends.push(`<span class="indicative-text">背景:直説</span>`); }
             else if (moodCode === 'M') { classes.push("imperative-text"); legends.push(`<span class="imperative-text">背景:命令</span>`); }
+            if (tenseCode === 'P') { classes.push("present-text"); legends.push(`<span class="present-text">実線:現在</span>`); }
+            else if (tenseCode === 'A') { classes.push("aorist-text"); legends.push(`<span class="aorist-text">点線:アオリスト</span>`); }
+            else if (tenseCode === 'X') { classes.push("perfect-text"); legends.push(`<span class="perfect-text">波線:完了</span>`); }
+            else if (tenseCode === 'F') { classes.push("future-text"); legends.push(`<span class="future-text">二重線:未来</span>`); }
         }
     }
     
@@ -553,6 +529,7 @@ function sbGoTo(layer, section) {
     document.getElementById('sb-layer' + layer).classList.add('active');
 
     if (layer === 0) {
+        // 旧約/新約の選択状態を反映
         document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
         document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
     }
@@ -561,6 +538,7 @@ function sbGoTo(layer, section) {
         if (section) sbSection = section;
         const label = sbSection === 'nt' ? '新約聖書' : '旧約聖書';
         document.getElementById('sb-l1-title').textContent = label;
+        // 旧約/新約の選択状態も更新
         document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
         document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
         sbRenderBooks();
@@ -610,6 +588,7 @@ function sbRenderChapters() {
 }
 
 function sbInitState(bookKey, ch) {
+    // URLの書物がどちらのセクションか判定
     const inNt = SB_BOOKS.nt.some(b => b.key === bookKey);
     sbSection = inNt ? 'nt' : 'ot';
     const books = SB_BOOKS[sbSection];
@@ -619,9 +598,12 @@ function sbInitState(bookKey, ch) {
         sbBookName = found.name;
         sbMaxCh    = found.ch;
     }
+    // 書物リストを表示した状態で起動
     sbGoTo(1);
+    // 書物が既知なら章グリッドまで開く
     if (found) sbGoTo(2);
 }
+// ── ここまでドリルダウン ──────────────────────────
 
 function showAppInfo() {
     const app = document.getElementById('app');
@@ -701,22 +683,24 @@ function showAppInfo() {
     `;
     app.innerHTML = infoHtml;
 }
-
+    
 async function init() {
     const urlParams = new URLSearchParams(window.location.search);
     const book = urlParams.get('book') || 'ROM';
     const ch   = urlParams.get('ch')   || '1';
 
+    // 旧約/新約に応じてヘッダーのroot-nameを更新
     const isNt = SB_BOOKS.nt.some(b => b.key === book);
-    const rootName = isNt ? "新約聖書" : "旧約聖書";
-    document.querySelector('.root-name').innerText = rootName;
+    document.querySelector('.root-name').innerText = isNt ? '新約聖書' : '旧約聖書';
 
+    // ヘッダータイトル更新
     const allBooks = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
     const found = allBooks.find(b => b.key === book);
     document.getElementById('view-title').innerText = found
         ? `${found.name} ${ch}章`
         : `${book} ${ch}章`;
 
+    // サイドバーをドリルダウンで初期化
     sbInitState(book, parseInt(ch));
 
     await loadDict();
@@ -761,16 +745,37 @@ init();
 
 function switchTab(evt, tabName) {
     const tabContents = document.getElementsByClassName("tab-content");
-    for (let i = 0; i < tabContents.length; i++) {
-        tabContents[i].classList.remove("active");
-    }
+    for (let i = 0; i < tabContents.length; i++) tabContents[i].classList.remove("active");
     const tabBtns = document.getElementsByClassName("tab-btn");
-    for (let i = 0; i < tabBtns.length; i++) {
-        tabBtns[i].classList.remove("active");
-    }
+    for (let i = 0; i < tabBtns.length; i++) tabBtns[i].classList.remove("active");
     document.getElementById(tabName).classList.add("active");
     evt.currentTarget.classList.add("active");
     document.getElementById('app').scrollTop = 0;
+}
+
+async function renderCurrentPage() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const book = urlParams.get('book') || 'ROM';
+    const ch   = urlParams.get('ch')   || '1';
+
+    const isNt = SB_BOOKS.nt.some(b => b.key === book);
+    document.querySelector('.root-name').innerText = isNt ? '新約聖書' : '旧約聖書';
+
+    const allBooks = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
+    const found = allBooks.find(b => b.key === book);
+    document.getElementById('view-title').innerText = found ? `${found.name} ${ch}章` : `${book} ${ch}章`;
+
+    try {
+        const [jpRes, elRes] = await Promise.all([
+            fetch(`./bible_jp/${book}/${ch}.json`),
+            fetch(`./bible_data/${book}/${ch}.json`)
+        ]);
+        render(await jpRes.json(), await elRes.json());
+        document.getElementById('active-v').innerText = "";
+        document.getElementById('panel-content').innerHTML = '<p style="color: var(--text-sub); font-size: 0.82rem; letter-spacing: 0.01em;">節を選択して解析を表示</p>';
+    } catch (err) {
+        document.getElementById('app').innerHTML = `<p style="color:red">Data not found.</p>`;
+    }
 }
 
 function showMameKnowledge() {
@@ -815,7 +820,7 @@ function showMameKnowledge() {
         <div class="knowledge-container">
             <div class="tabs">
                 <button class="tab-btn active" onclick="switchTab(event, 'kanji')">冠詞</button>
-                <button class="tab-btn" onclick="switchTab(event, 'kaku')">格</button>
+                <button class="tab-btn" onclick="switchTab(event, 'kaku')">格の特徴</button>
                 <button class="tab-btn" onclick="switchTab(event, 'futei')">不定詞</button>
             </div>
 
@@ -917,33 +922,6 @@ function showMameKnowledge() {
     `;
     app.innerHTML = contentHtml;
 }
-
-async function renderCurrentPage() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const book = urlParams.get('book') || 'ROM';
-    const ch   = urlParams.get('ch')   || '1';
-    
-    const isNt = SB_BOOKS.nt.some(b => b.key === book);
-    const rootName = isNt ? "新約聖書" : "旧約聖書";
-    document.querySelector('.root-name').innerText = rootName;
-
-    const allBooks = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
-    const found = allBooks.find(b => b.key === book);
-    document.getElementById('view-title').innerText = found ? `${found.name} ${ch}章` : `${book} ${ch}章`;
-
-    try {
-        const [jpRes, elRes] = await Promise.all([
-            fetch(`./bible_jp/${book}/${ch}.json`),
-            fetch(`./bible_data/${book}/${ch}.json`)
-        ]);
-        render(await jpRes.json(), await elRes.json());
-        document.getElementById('active-v').innerText = "";
-        document.getElementById('panel-content').innerHTML = '<p style="color: var(--text-sub); font-size: 0.82rem; letter-spacing: 0.01em;">節を選択して解析を表示</p>';
-    } catch (err) {
-        document.getElementById('app').innerHTML = `<p style="color:red">Data not found.</p>`;
-    }
-}
-
 </script>
 </body>
 </html>
