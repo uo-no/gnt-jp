@@ -427,38 +427,104 @@ function syncURL() {
 }
 
 /* =====================================================
+   形態素コード文字列 → オブジェクト変換
+   bible_data/{book}/{ch}.json の morph フィールドは
+   "V-AAI3S" のような文字列コードになっている
+   ===================================================== */
+const TENSE_CODE  = { P:'present', I:'imperfect', F:'future', A:'aorist', X:'perfect', Z:'pluperfect' };
+const VOICE_CODE  = { A:'active', M:'middle', P:'passive', D:'middle deponent', E:'middle or passive', N:'middle or passive' };
+const MOOD_CODE   = { I:'indicative', S:'subjunctive', O:'optative', M:'imperative', N:'infinitive', P:'participle' };
+const CASE_CODE   = { N:'nominative', G:'genitive', D:'dative', A:'accusative', V:'vocative' };
+const NUMBER_CODE = { S:'singular', P:'plural' };
+const GENDER_CODE = { M:'masculine', F:'feminine', N:'neuter' };
+const PERSON_CODE = { '1':'1', '2':'2', '3':'3' };
+
+function decodeMorph(entry) {
+    // morphがオブジェクトならそのまま返す（morphgnt.json形式）
+    if (entry.morph && typeof entry.morph === 'object') {
+        const m = entry.morph;
+        // オブジェクト形式でも値が "-" のものは空に正規化
+        return {
+            pos:    (entry.pos  || '').replace(/-$/, ''),
+            tense:  m.tense  === '-' ? '' : (m.tense  || ''),
+            voice:  m.voice  === '-' ? '' : (m.voice  || ''),
+            mood:   m.mood   === '-' ? '' : (m.mood   || ''),
+            case:   m.case   === '-' ? '' : (m.case   || ''),
+            number: m.number === '-' ? '' : (m.number || ''),
+            gender: m.gender === '-' ? '' : (m.gender || ''),
+            person: m.person === '-' ? '' : (m.person || ''),
+        };
+    }
+
+    // morphが文字列コードの場合（bible_data/{book}/{ch}.json 形式）
+    // 例: "V-AAI3S"  "N-NSM" "A-NSM"
+    const raw   = typeof entry.morph === 'string' ? entry.morph : '';
+    const parts = raw.split('-');
+    const pos   = (entry.pos || parts[0] || '').replace(/-$/, '');
+
+    if ((pos === 'V' || pos === 'v') && parts[1]) {
+        // 動詞コード: parts[1] = "AAI3S" など
+        // 先頭が数字（語幹タイプ番号）の場合は+1オフセット
+        const seg = parts[1];
+        const off = /^[0-9]/.test(seg) ? 1 : 0;
+        return {
+            pos,
+            tense:  TENSE_CODE[seg[off + 0]] || '',
+            voice:  VOICE_CODE[seg[off + 1]] || '',
+            mood:   MOOD_CODE[seg[off + 2]]  || '',
+            person: seg[off + 3] || '',
+            number: NUMBER_CODE[seg[off + 4]] || '',
+            gender: '',  // 動詞本体に性は不要
+            case:   '',
+        };
+    }
+
+    // 名詞・形容詞・代名詞・冠詞系: parts[1] = "NSM" など
+    if (parts[1]) {
+        const seg = parts[1];
+        const hasPerson = ['1','2','3'].includes(seg[0]);
+        return {
+            pos,
+            tense:  '',
+            voice:  '',
+            mood:   '',
+            person: hasPerson ? seg[0] : '',
+            case:   CASE_CODE[hasPerson ? seg[1] : seg[0]]   || '',
+            number: NUMBER_CODE[hasPerson ? seg[2] : seg[1]] || '',
+            gender: GENDER_CODE[hasPerson ? seg[3] : seg[2]] || '',
+        };
+    }
+
+    return { pos, tense:'', voice:'', mood:'', case:'', number:'', gender:'', person:'' };
+}
+
+/* =====================================================
    形態素マッチング
    ===================================================== */
 function matchEntry(entry) {
-    const m = entry.morph;
+    const m = decodeMorph(entry);
 
-    // pos コード正規化（"V-" と "V" 両対応）
+    // pos（"V-" と "V" 両対応）
     if (params.pos) {
-        const entryPos = (entry.pos || '').replace(/-$/, '');
         const searchPos = params.pos.replace(/-$/, '');
-        if (entryPos !== searchPos) return false;
+        if (m.pos.toUpperCase() !== searchPos.toUpperCase()) return false;
     }
-
-    // tense: morphgntの値は文字列("present"等)またはコード("P"等)
-    if (params.tense) {
-        const t = m.tense || '';
-        // 完全一致または先頭文字コード一致
-        if (t !== params.tense && t.charAt(0).toUpperCase() !== params.tense.charAt(0).toUpperCase()) return false;
-    }
-    if (params.mood) {
-        const md = m.mood || '';
-        if (md !== params.mood) return false;
-    }
+    // tense
+    if (params.tense && m.tense !== params.tense) return false;
+    // mood
+    if (params.mood  && m.mood  !== params.mood)  return false;
+    // voice（"middle deponent" は "middle" にも反応させる）
     if (params.voice) {
-        const v = m.voice || '';
-        if (v !== params.voice && !v.startsWith(params.voice.charAt(0))) return false;
+        if (m.voice !== params.voice) {
+            // "middle deponent" → params.voice="middle" なら通す
+            if (!(params.voice === 'middle' && m.voice === 'middle deponent')) return false;
+        }
     }
 
     // 拡張条件
     for (const f of extState) {
         if (!f.enabled || !f.value) continue;
-        const val = (m[f.key] || '');
-        if (val !== f.value) return false;
+        if ((m[f.key] || '') !== f.value) return false;
     }
     return true;
 }
@@ -594,8 +660,8 @@ function renderResults(allData) {
     }).slice(0, 200);
 
     el.innerHTML = unique.map((entry, idx) => {
-        const m = entry.morph;
-        const displayWord = entry.word || entry.normalized || '';
+        const m = decodeMorph(entry);  // 文字列・オブジェクト両対応
+        const displayWord = entry.word || entry.normalized || entry.text || '';
 
         // 形態タグ
         const coreParts = [
@@ -605,7 +671,7 @@ function renderResults(allData) {
         ].filter(Boolean);
         const extParts = [
             GENDER_JP[m.gender],
-            NUMBER_JP[m.number] || NUMBER_JP[(m.number||'').charAt(0)],
+            NUMBER_JP[m.number],
             CASE_JP[m.case],
         ].filter(Boolean);
 
