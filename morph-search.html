@@ -656,6 +656,60 @@ function goToWord(ref, wordEncoded) {
 }
 
 /* =====================================================
+   書物リスト（index.html の SB_BOOKS と同期）
+   bible_data/{key}/{chapter}.json の構造に対応
+   ===================================================== */
+const ALL_BOOKS = [
+    // 新約
+    {key:'ROM', ch:16}, {key:'1CO', ch:16}, {key:'2CO', ch:13},
+    {key:'GAL', ch:6},  {key:'EPH', ch:6},  {key:'PHP', ch:4},
+    {key:'COL', ch:4},  {key:'1TH', ch:5},  {key:'2TH', ch:3},
+    {key:'1TI', ch:6},  {key:'2TI', ch:4},  {key:'TIT', ch:3},
+    {key:'PHM', ch:1},
+    // 旧約
+    {key:'GEN', ch:50}, {key:'EXO', ch:40}, {key:'LEV', ch:27},
+    {key:'NUM', ch:36}, {key:'DEU', ch:34}, {key:'JOS', ch:24},
+    {key:'JDG', ch:21}, {key:'RUT', ch:4},  {key:'1SA', ch:31},
+    {key:'2SA', ch:24}, {key:'1KI', ch:22}, {key:'2KI', ch:25},
+    {key:'PSA', ch:150},{key:'PRO', ch:31}, {key:'ECC', ch:12},
+    {key:'ISA', ch:66}, {key:'JER', ch:52}, {key:'EZK', ch:48},
+    {key:'DAN', ch:12},
+];
+
+// 全 (book, chapter) ペアを展開
+function buildAllChapterPaths() {
+    const paths = [];
+    for (const book of ALL_BOOKS) {
+        for (let c = 1; c <= book.ch; c++) {
+            paths.push({ key: book.key, ch: c, path: `./bible_data/${book.key}/${c}.json` });
+        }
+    }
+    return paths; // 約796件
+}
+
+// N件ずつ並列フェッチするバッチ処理
+async function fetchInBatches(tasks, batchSize, onProgress) {
+    let allData = [];
+    for (let i = 0; i < tasks.length; i += batchSize) {
+        const batch = tasks.slice(i, i + batchSize);
+        const results = await Promise.allSettled(
+            batch.map(t =>
+                fetch(t.path)
+                    .then(r => r.ok ? r.json() : null)
+                    .catch(() => null)
+            )
+        );
+        results.forEach(r => {
+            if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+                allData = allData.concat(r.value);
+            }
+        });
+        onProgress(Math.min(i + batchSize, tasks.length), tasks.length);
+    }
+    return allData;
+}
+
+/* =====================================================
    初期化
    ===================================================== */
 renderBreadcrumb();
@@ -663,21 +717,50 @@ renderCoreChips();
 renderExtChips();
 renderMeaning();
 
-fetch('morphgnt.json')
-    .then(r => {
-        if (!r.ok) throw new Error('not found');
-        return r.json();
-    })
-    .then(data => {
-        window._morphData = data;
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('result-list').style.display = 'flex';
-        renderResults(data);
-    })
-    .catch(() => {
-        document.getElementById('loading').innerHTML =
-            '<p style="color:#c00; font-size:0.82rem;">morphgnt.json が見つかりません。<br>index.html と同じフォルダに配置してください。</p>';
+(async function loadAllChapters() {
+    const loadingEl = document.getElementById('loading');
+    const listEl    = document.getElementById('result-list');
+
+    const allPaths  = buildAllChapterPaths(); // ~796ファイル
+    const total     = allPaths.length;
+
+    loadingEl.innerHTML = `
+        <div style="margin-bottom:10px; font-family:'Gentium Plus',serif; font-size:1.3rem; color:#ccc;">ἀναζητεῖ</div>
+        <div style="width:100%; max-width:280px; margin:0 auto 8px; height:3px;
+                    background:#eee; border-radius:2px; overflow:hidden;">
+            <div id="load-fill" style="height:100%; width:0%;
+                 background:var(--highlight); transition:width 0.25s ease; border-radius:2px;"></div>
+        </div>
+        <div id="load-status" style="font-size:0.72rem; color:#bbb;">
+            章データを読み込み中 (0 / ${total})...
+        </div>`;
+
+    const allData = await fetchInBatches(allPaths, 20, (done, ttl) => {
+        const pct = Math.round(done / ttl * 100);
+        const fill = document.getElementById('load-fill');
+        const stat = document.getElementById('load-status');
+        if (fill) fill.style.width = pct + '%';
+        if (stat) stat.textContent = `章データを読み込み中 (${done} / ${ttl}) ${pct}%`;
     });
+
+    if (allData.length === 0) {
+        loadingEl.innerHTML = `
+            <p style="color:#c00; font-size:0.82rem; line-height:2.2;">
+                データが見つかりませんでした。<br>
+                以下の形式でファイルを配置してください：<br>
+                <code style="background:#f5f5f7; padding:2px 8px; border-radius:4px; font-size:0.78rem;">
+                    bible_data/ROM/1.json<br>
+                    bible_data/ROM/2.json ...
+                </code>
+            </p>`;
+        return;
+    }
+
+    window._morphData = allData;
+    loadingEl.style.display = 'none';
+    listEl.style.display    = 'flex';
+    renderResults(allData);
+})();
 </script>
 </body>
 </html>
