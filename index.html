@@ -222,6 +222,56 @@
     .grammar-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; font-size: 0.65rem; color: var(--text-sub); border-top: 1px solid var(--border-soft); padding-top: 6px; }
     .tag-jp { color: var(--text-sub); font-size: 0.75rem; margin-left: 8px; }
     .strong-num { font-size: 0.62rem; color: #c0c0c5; font-family: monospace; }
+
+    /* ---- 形態論検索ボタン ---- */
+    .morph-search-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 12px;
+        padding: 7px 14px;
+        font-size: 0.78rem;
+        font-family: inherit;
+        font-weight: 500;
+        color: var(--highlight);
+        background: var(--highlight-light);
+        border: 1px solid rgba(90,110,130,0.25);
+        border-radius: 20px;
+        cursor: pointer;
+        letter-spacing: 0.01em;
+        transition: background 0.15s, border-color 0.15s, transform 0.1s;
+        text-decoration: none;
+    }
+    .morph-search-btn:hover {
+        background: rgba(90,110,130,0.18);
+        border-color: rgba(90,110,130,0.4);
+        transform: translateY(-1px);
+    }
+    .morph-search-btn:active { transform: scale(0.97); }
+    .morph-search-btn .btn-icon { font-size: 0.85rem; opacity: 0.8; }
+
+    /* 形態タグ一覧（詳細パネル内） */
+    .morph-tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin: 8px 0 4px;
+    }
+    .morph-tag-pill {
+        font-size: 0.7rem;
+        padding: 2px 9px;
+        border-radius: 20px;
+        background: var(--bg-panel);
+        color: var(--text-sub);
+        border: 1px solid var(--border-soft);
+        letter-spacing: 0.01em;
+    }
+    .morph-tag-pill.core {
+        background: rgba(90,110,130,0.10);
+        color: var(--highlight);
+        border-color: rgba(90,110,130,0.2);
+        font-weight: 600;
+    }
     </style>
 </head>
 <body>
@@ -421,6 +471,102 @@ function decorate(wordText, wordData) {
             </div>`;
 }
 
+/* =====================================================
+   形態素コード → 検索パラメータ変換
+   ===================================================== */
+function parseMorphForSearch(rawMorph) {
+    const parts = rawMorph.split('-');
+    const pos = parts[0];
+    const result = { pos };
+
+    if (pos === 'V' && parts[1]) {
+        const off = /^[0-9]/.test(parts[1]) ? 1 : 0;
+        const tenseCode = parts[1][off + 0];
+        const voiceCode = parts[1][off + 1];
+        const moodCode  = parts[1][off + 2];
+
+        const TENSE_MAP = { P:'present', I:'imperfect', F:'future', A:'aorist', X:'perfect' };
+        const VOICE_MAP = { A:'active', M:'middle', P:'passive', D:'middle deponent' };
+        const MOOD_MAP  = { I:'indicative', S:'subjunctive', O:'optative',
+                            M:'imperative', N:'infinitive', P:'participle' };
+
+        if (tenseCode) result.tense = TENSE_MAP[tenseCode] || '';
+        if (voiceCode) result.voice = VOICE_MAP[voiceCode] || '';
+        if (moodCode)  result.mood  = MOOD_MAP[moodCode]   || '';
+
+        // 分詞の場合は格・数・性も取得
+        if (moodCode === 'P' && parts[2]) {
+            const CASE_MAP   = { N:'nominative', G:'genitive', D:'dative', A:'accusative', V:'vocative' };
+            const NUMBER_MAP = { S:'singular', P:'plural' };
+            const GENDER_MAP = { M:'masculine', F:'feminine', N:'neuter' };
+            result.case   = CASE_MAP[parts[2][0]]   || '';
+            result.number = NUMBER_MAP[parts[2][1]] || '';
+            result.gender = GENDER_MAP[parts[2][2]] || '';
+        }
+    } else if (['N','A','R','P','T','D'].includes(pos) && parts[1]) {
+        const CASE_MAP   = { N:'nominative', G:'genitive', D:'dative', A:'accusative', V:'vocative' };
+        const NUMBER_MAP = { S:'singular', P:'plural' };
+        const GENDER_MAP = { M:'masculine', F:'feminine', N:'neuter' };
+        const base = ['1','2','3'].includes(parts[1][0]) ? parts[1].slice(1) : parts[1];
+        result.case   = CASE_MAP[base[0]]   || '';
+        result.number = NUMBER_MAP[base[1]] || '';
+        result.gender = GENDER_MAP[base[2]] || '';
+    }
+    return result;
+}
+
+/* 形態論検索ページへ遷移 */
+function goMorphSearch(greek, rawMorph, ref) {
+    const m = parseMorphForSearch(rawMorph);
+    const p = new URLSearchParams();
+
+    // コア条件（動詞：pos + tense + mood + voice）
+    if (m.pos)   p.set('pos',   m.pos);
+    if (m.tense) p.set('tense', m.tense);
+    if (m.mood)  p.set('mood',  m.mood);
+    if (m.voice) p.set('voice', m.voice);
+
+    // 拡張条件（ON状態で渡す）
+    if (m.gender) p.set('gender', m.gender);
+    if (m.number) p.set('number', m.number);
+    if (m.case)   p.set('case',   m.case);
+
+    // メタ（パンくず用）
+    if (ref)   p.set('ref',  ref);
+    if (greek) p.set('word', greek);
+
+    window.open(`morph-search.html?${p.toString()}`, '_blank');
+}
+
+/* 形態タグ HTML 生成 */
+function buildMorphTagsHTML(rawMorph) {
+    const m = parseMorphForSearch(rawMorph);
+    const JPN = {
+        pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞' },
+        tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了' },
+        voice:  { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動' },
+        mood:   { indicative:'直説法', subjunctive:'接続法', optative:'希求法',
+                  imperative:'命令法', infinitive:'不定詞', participle:'分詞' },
+        gender: { masculine:'男性', feminine:'女性', neuter:'中性' },
+        number: { singular:'単数', plural:'複数' },
+        case:   { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' },
+    };
+
+    const tags = [];
+    if (m.pos)    tags.push({ label: JPN.pos[m.pos]    || m.pos,    core: true });
+    if (m.tense)  tags.push({ label: JPN.tense[m.tense]|| m.tense,  core: true });
+    if (m.voice)  tags.push({ label: JPN.voice[m.voice]|| m.voice,  core: false });
+    if (m.mood)   tags.push({ label: JPN.mood[m.mood]  || m.mood,   core: true });
+    if (m.gender) tags.push({ label: JPN.gender[m.gender]|| m.gender, core: false });
+    if (m.number) tags.push({ label: JPN.number[m.number]|| m.number, core: false });
+    if (m.case)   tags.push({ label: JPN.case[m.case]  || m.case,   core: false });
+
+    if (tags.length === 0) return '';
+    return `<div class="morph-tag-row">
+        ${tags.map(t => `<span class="morph-tag-pill${t.core ? ' core' : ''}">${t.label}</span>`).join('')}
+    </div>`;
+}
+
 function showDetail(greek, strong, jpMorph, rawMorph) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
@@ -443,6 +589,16 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
             else if (tenseCode === 'F') { classes.push("future-text"); legends.push(`<span class="future-text">二重線:未来</span>`); }
         }
     }
+
+    // 形態タグと検索ボタン（動詞・名詞・形容詞系すべてに表示）
+    const morphTagsHTML = buildMorphTagsHTML(rawMorph);
+    const canSearch = ['V','N','A','R','P','T','D'].includes(parts[0]);
+    const currentRef = document.getElementById('active-v')?.innerText?.replace(' 節','') || '';
+    const searchBtnHTML = canSearch ? `
+        <button class="morph-search-btn" onclick="goMorphSearch('${greek.replace(/'/g,"\\'")}', '${rawMorph}', '${currentRef}')">
+            <span class="btn-icon">⊕</span>
+            形態で検索
+        </button>` : '';
     
     view.innerHTML = `
         <div class="detail-header">
@@ -454,9 +610,11 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
         </div>
         <div class="detail-body">
             <div style="font-weight:700; font-size:0.82rem; color:var(--text-main);">${jpMorph}</div>
+            ${morphTagsHTML}
             <div class="grammar-legend">${legends.join(" ")}</div>
             <p style="margin:10px 0 6px;"><strong style="color:var(--highlight);">基本義</strong>　${info?.japanese || '---'}</p>
             <div style="background:var(--bg-panel); padding:12px; border-radius:8px; white-space:pre-wrap; font-size:0.85rem; color:var(--text-main); line-height:1.8;">${info?.description || "解説なし"}</div>
+            ${searchBtnHTML}
         </div>`;
     
     view.scrollTop = 0;
