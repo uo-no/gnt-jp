@@ -124,6 +124,51 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
         <span class="loading-dot">・</span><span class="loading-dot">・</span><span class="loading-dot">・</span>
     </div>
     <div class="result-list" id="result-list"></div>
+    <footer class="app-footer">
+        <span class="footer-copy">© 2026 ウオノ All rights reserved.</span>
+        <div class="footer-links">
+            <button onclick="showAppInfo()">出典・ポリシー</button>
+        </div>
+    </footer>
+</div> ```
+
+### 3. JavaScriptの追加
+`<script>` タグ内、一番下（`})();` の直後）に追加してください。メインアプリの「出典・ポリシー」画面を呼び出す関数です。
+
+```javascript
+/* --- フッター用関数 --- */
+function showAppInfo() {
+    // 検索結果リストを隠してポリシーを表示
+    const listEl = document.getElementById('result-list');
+    const loadEl = document.getElementById('loading');
+    
+    // 既存のメインコンテンツを隠す
+    listEl.style.display = 'none';
+    loadEl.style.display = 'none';
+    
+    document.getElementById('meaning-title').innerText = "出典・ポリシー";
+    document.getElementById('meaning-sub').innerText = "本アプリの設計思想とデータソースについて";
+
+    const infoHtml = `
+        <div class="animate-in" style="line-height: 1.8; color: var(--text-main);">
+            <section style="margin-bottom: 30px;">
+                <h3 style="font-size: 1rem; margin-bottom: 10px; color: var(--highlight);">出典</h3>
+                <p style="font-size: 0.85rem;">
+                    底本: SBLGNT<br>
+                    形態論解析: Macula Greek Project / MorphGNT<br>
+                    辞書: Abbott-Smith Manual Greek Lexicon
+                </p>
+            </section>
+            <div style="text-align: center;">
+                <button onclick="location.reload()" style="padding: 8px 24px; border-radius: 20px; border: 1px solid var(--highlight); background: var(--highlight); color: white; cursor: pointer;">
+                    検索結果に戻る
+                </button>
+            </div>
+        </div>
+    `;
+    listEl.insertAdjacentHTML('beforebegin', '<div id="info-content">' + infoHtml + '</div>');
+    // 注意: 簡易的な実装のため、戻る際はリロードさせています
+}
 </div>
 
 <script>
@@ -521,6 +566,53 @@ renderBreadcrumb(); renderCoreChips(); renderExtChips(); renderBookChips(); rend
     listEl.style.display = 'flex';
     renderResults(allData);
 })();
+
+/* --- フッター（共通デザイン） --- */
+.app-footer {
+    border-top: 1px solid var(--border-soft);
+    padding: 24px 24px;
+    margin-top: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-paper);
+}
+
+.footer-copy {
+    font-size: 0.7rem;
+    color: var(--text-sub);
+    letter-spacing: 0.01em;
+}
+
+.footer-links {
+    display: flex;
+    gap: 18px;
+}
+
+.footer-links button {
+    font-size: 0.7rem;
+    color: var(--text-sub);
+    background: none;
+    border: none;
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+    cursor: pointer;
+    padding-bottom: 1px;
+    font-family: inherit;
+    transition: color 0.15s;
+}
+
+.footer-links button:hover {
+    color: var(--text-main);
+}
+
+/* モバイル対応：フッターを縦並びに */
+@media (max-width: 480px) {
+    .app-footer {
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+    }
+}
 </script>
 </body>
 </html>
