@@ -293,14 +293,19 @@ function decodeMorph(entry) {
     if (pos.toUpperCase() === 'V' && parts[1]) {
         const seg = parts[1];
         const off = /^[0-9]/.test(seg) ? 1 : 0;
+        const mood = MOOD_CODE[seg[off+2]] || '';
+        // 分詞は parts[2] に格・数・性が入る（例: V-2AAP-NSM）
+        const isParticiple = mood === 'participle';
+        const seg2 = parts[2] || '';
         return {
             pos,
-            tense:  TENSE_CODE[seg[off]]     || '',
-            voice:  VOICE_CODE[seg[off+1]]   || '',
-            mood:   MOOD_CODE[seg[off+2]]    || '',
-            person: seg[off+3]               || '',
-            number: NUMBER_CODE[seg[off+4]]  || '',
-            gender: '', case: '',
+            tense:  TENSE_CODE[seg[off]]    || '',
+            voice:  VOICE_CODE[seg[off+1]]  || '',
+            mood,
+            person: isParticiple ? ''                   : (seg[off+3] || ''),
+            number: isParticiple ? NUMBER_CODE[seg2[1]] || '' : NUMBER_CODE[seg[off+4]] || '',
+            case:   isParticiple ? CASE_CODE[seg2[0]]   || '' : '',
+            gender: isParticiple ? GENDER_CODE[seg2[2]] || '' : '',
         };
     }
     if (parts[1]) {
