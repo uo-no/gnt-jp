@@ -155,14 +155,16 @@ const BOOK_MAP = {
     '26':'JUD','27':'REV'
 };
 
-/* ── ★ BOOK_GROUPS: BOOK_MAP のキーと完全一致 ────────── */
+/* ── ★ BOOK_GROUPS: ALL_BOOKS のキーと完全一致させる ──── */
+// ALL_BOOKSに存在しないキーを含めると getBookKey が null を返して
+// フィルターが素通りするため、実在する書物だけで構成する
 const BOOK_GROUPS = [
-    { key:'gospels',    label:'福音書',     books:['MAT','MRK','LUK','JHN'] },
-    { key:'acts',       label:'使徒の働き', books:['ACT'] },
-    { key:'pauline',    label:'パウロ書簡', books:['ROM','1CO','2CO','GAL','EPH','PHP','COL','1TH','2TH'] },
-    { key:'pastoral',   label:'牧会書簡',   books:['1TI','2TI','TIT','PHM'] },
-    { key:'general',    label:'一般書簡',   books:['HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD'] },
-    { key:'revelation', label:'黙示録',     books:['REV'] },
+    { key:'pauline',  label:'パウロ書簡', books:['ROM','1CO','2CO','GAL','EPH','PHP','COL','1TH','2TH'] },
+    { key:'pastoral', label:'牧会書簡',   books:['1TI','2TI','TIT','PHM'] },
+    { key:'ot_law',   label:'律法書',     books:['GEN','EXO','LEV','NUM','DEU'] },
+    { key:'ot_hist',  label:'歴史書',     books:['JOS','JDG','RUT','1SA','2SA','1KI','2KI'] },
+    { key:'ot_poet',  label:'詩歌・知恵', books:['PSA','PRO','ECC'] },
+    { key:'ot_proph', label:'預言書',     books:['ISA','JER','EZK','DAN'] },
 ];
 
 /* ── ★ エントリの書物キーを3段階で解決 ─────────────── */
@@ -270,11 +272,13 @@ function decodeMorph(entry) {
 
 /* ── マッチング ──────────────────────────────────────── */
 function matchEntry(entry) {
-    /* 書物フィルター（全ONならスキップ） */
+    /* 書物フィルター */
     if (!bookState.every(g => g.enabled)) {
-        const enabled = new Set(bookState.filter(g=>g.enabled).flatMap(g=>g.books));
+        // 有効な書物キーのSetを作成
+        const enabled = new Set(bookState.filter(g => g.enabled).flatMap(g => g.books));
         const bk = getBookKey(entry);
-        if (bk && !enabled.has(bk)) return false;
+        // bookKeyが取れない場合も含めて、enabledに入っていなければ除外
+        if (!bk || !enabled.has(bk)) return false;
     }
 
     const m = decodeMorph(entry);
