@@ -130,6 +130,7 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
         <div class="meaning-label">この検索の意味</div>
         <div class="meaning-title" id="meaning-title">読み込み中...</div>
         <div class="meaning-sub"  id="meaning-sub"></div>
+    <div id="meaning-lemma" style="margin-top:6px;font-size:0.72rem;color:var(--text-sub);font-family:'Gentium Plus',serif;"></div>
     </div>
 
     <div class="filter-panel">
@@ -246,6 +247,7 @@ function getSearchParams() {
         case:   { value: p.get('case')  ||'', enabled: !dis.has('case')   },
         ref:    p.get('ref')   || '',
         word:   p.get('word')  || '',
+        lemma:  p.get('lemma') || '',
     };
 }
 const params = getSearchParams();
@@ -336,6 +338,12 @@ function matchEntry(entry) {
         if (!bk || !enabledBooks.has(bk)) return false;
     }
 
+    // lemmaフィルター（同語根に絞る）
+    if (params.lemma) {
+        const entryLemma = entry.lemma || '';
+        if (entryLemma !== params.lemma) return false;
+    }
+
     const m = decodeMorph(entry);
     const sp = params.pos.replace(/-$/,'');
     if (sp && m.pos.toUpperCase() !== sp.toUpperCase()) return false;
@@ -381,6 +389,8 @@ function renderMeaning() {
     const {title,sub} = buildDescription();
     document.getElementById('meaning-title').textContent = title;
     document.getElementById('meaning-sub').textContent   = sub;
+    const lemmaEl = document.getElementById('meaning-lemma');
+    if (lemmaEl) lemmaEl.textContent = params.lemma ? `語根: ${params.lemma}` : '';
 }
 function renderCoreChips() {
     const defs = [
