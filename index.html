@@ -461,7 +461,7 @@ function decorate(wordText, wordData) {
 
     const strong = String(m.strong || "").replace(/[^0-9]/g, ""); 
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
-    return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}')">
+    return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}', '${m.lemma||''}')">
                 <div>
                     <span class="greek-word ${styleClass}">${wordText}</span>${middleStar}
                     <span style="font-weight:bold; margin-left:5px; font-size:0.9rem;">［${info?.japanese || "？"}］</span>
@@ -516,7 +516,7 @@ function parseMorphForSearch(rawMorph) {
 }
 
 /* 形態論検索ページへ遷移 */
-function goMorphSearch(greek, rawMorph, ref) {
+function goMorphSearch(greek, rawMorph, ref, lemma) {
     const m = parseMorphForSearch(rawMorph);
     const p = new URLSearchParams();
 
@@ -534,6 +534,7 @@ function goMorphSearch(greek, rawMorph, ref) {
     // メタ（パンくず用）
     if (ref)   p.set('ref',  ref);
     if (greek) p.set('word', greek);
+    if (lemma) p.set('lemma', lemma);
 
     window.open(`morph-search.html?${p.toString()}`, '_blank');
 }
@@ -568,7 +569,7 @@ function buildMorphTagsHTML(rawMorph) {
     </div>`;
 }
 
-function showDetail(greek, strong, jpMorph, rawMorph) {
+function showDetail(greek, strong, jpMorph, rawMorph, lemma) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
@@ -596,7 +597,7 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
     const canSearch = ['V','N','A','R','P','T','D'].includes(parts[0]);
     const currentRef = document.getElementById('active-v')?.innerText?.replace(' 節','') || '';
     const searchBtnHTML = canSearch ? `
-        <button class="morph-search-btn" onclick="goMorphSearch('${greek.replace(/'/g,"\\'")}', '${rawMorph}', '${currentRef}')">
+        <button class="morph-search-btn" onclick="goMorphSearch('${greek.replace(/'/g,"\\'")}', '${rawMorph}', '${currentRef}', '${(lemma||'').replace(/'/g,"\\'")}')">
             <span class="btn-icon">⊕</span>
             形態で検索
         </button>` : '';
