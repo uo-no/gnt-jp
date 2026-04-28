@@ -7,14 +7,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root {
-    --bg-paper:        #ffffff;
-    --bg-panel:        #f5f5f7;
-    --bg-sidebar:      #fafafa;
-    --text-main:       #1d1d1f;
-    --text-sub:        #6e6e73;
-    --highlight:       #5a6e82;
-    --highlight-light: rgba(90,110,130,0.10);
-    --border-soft:     rgba(0,0,0,0.08);
+    --bg-paper:        #ffffff;
+    --bg-panel:        #f5f5f7;
+    --bg-sidebar:      #fafafa;
+    --text-main:       #1d1d1f;
+    --text-sub:        #6e6e73;
+    --highlight:       #5a6e82;
+    --highlight-light: rgba(90,110,130,0.10);
+    --border-soft:     rgba(0,0,0,0.08);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(--bg-paper); color: var(--text-main); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
@@ -42,9 +42,9 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
 .chip-core { background: rgba(90,110,130,0.08); border: 1px solid rgba(90,110,130,0.15); color: var(--highlight); font-weight: 600; }
 .chip-core .chip-key { font-size: 0.62rem; color: var(--text-sub); font-weight: 400; }
 .chip-ext { border: 1px solid var(--border-soft); cursor: pointer; user-select: none; transition: all 0.12s; }
-.chip-ext.on  { background: rgba(90,110,130,0.10); border-color: rgba(90,110,130,0.3); color: var(--highlight); font-weight: 600; }
+.chip-ext.on  { background: rgba(90,110,130,0.10); border-color: rgba(90,110,130,0.3); color: var(--highlight); font-weight: 600; }
 .chip-ext.off { background: var(--bg-paper); border-color: var(--border-soft); color: #bbb; text-decoration: line-through; }
-.chip-ext:hover.on  { background: rgba(90,110,130,0.17); }
+.chip-ext:hover.on  { background: rgba(90,110,130,0.17); }
 .chip-ext:hover.off { background: var(--bg-panel); text-decoration: none; }
 .chip-toggle-dot { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid currentColor; display: flex; align-items: center; justify-content: center; font-size: 9px; flex-shrink: 0; }
 .chip-ext.on .chip-toggle-dot { background: var(--highlight); border-color: var(--highlight); color: #fff; }
@@ -73,8 +73,8 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
 .loading-dot:nth-child(2) { animation-delay: 0.2s; }
 .loading-dot:nth-child(3) { animation-delay: 0.4s; }
 
-@keyframes fadeIn  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-@keyframes pulse   { 0%,80%,100% { opacity:0.3; } 40% { opacity:1; } }
+@keyframes fadeIn  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+@keyframes pulse   { 0%,80%,100% { opacity:0.3; } 40% { opacity:1; } }
 @keyframes slideIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
 .animate-in { animation: slideIn 0.2s ease forwards; }
 </style>
@@ -82,336 +82,291 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
 <body>
 <div class="page">
 
-    <div class="nav-bar">
-        <button class="btn-back" onclick="window.close(); if(!window.opener) history.back();">← 戻る</button>
-        <div class="breadcrumb">
-            <span class="crumb" id="bc-ref">—</span>
-            <span class="sep">›</span>
-            <span class="crumb" id="bc-word" style="font-family:'Gentium Plus',serif;font-size:1rem;">—</span>
-            <span class="sep">›</span>
-            <span style="color:var(--text-sub)">形態論検索</span>
-        </div>
-    </div>
+    <div class="nav-bar">
+        <button class="btn-back" onclick="window.close(); if(!window.opener) history.back();">← 戻る</button>
+        <div class="breadcrumb">
+            <span class="crumb" id="bc-ref">—</span>
+            <span class="sep">›</span>
+            <span class="crumb" id="bc-word" style="font-family:'Gentium Plus',serif;font-size:1rem;">—</span>
+            <span class="sep">›</span>
+            <span style="color:var(--text-sub)">形態論検索</span>
+        </div>
+    </div>
 
-    <div class="meaning-card">
-        <div class="meaning-label">この検索の意味</div>
-        <div class="meaning-title" id="meaning-title">読み込み中...</div>
-        <div class="meaning-sub"  id="meaning-sub"></div>
-    </div>
+    <div class="meaning-card">
+        <div class="meaning-label">この検索の意味</div>
+        <div class="meaning-title" id="meaning-title">読み込み中...</div>
+        <div class="meaning-sub"  id="meaning-sub"></div>
+    </div>
 
-    <div class="filter-panel">
-        <div class="filter-section">
-            <div class="filter-section-label">コア条件（必須）</div>
-            <div class="chips" id="core-chips"></div>
-        </div>
-        <div class="filter-section">
-            <div class="filter-section-label">拡張条件 — タップで ON / OFF</div>
-            <div class="chips" id="ext-chips"></div>
-        </div>
-        <div class="filter-section">
-            <div class="filter-section-label">書物範囲 — タップで ON / OFF</div>
-            <div class="chips" id="book-chips"></div>
-        </div>
-    </div>
+    <div class="filter-panel">
+        <div class="filter-section">
+            <div class="filter-section-label">コア条件（必須）</div>
+            <div class="chips" id="core-chips"></div>
+        </div>
+        <div class="filter-section">
+            <div class="filter-section-label">拡張条件 — タップで ON / OFF</div>
+            <div class="chips" id="ext-chips"></div>
+        </div>
+        <div class="filter-section">
+            <div class="filter-section-label">書物範囲 — タップで ON / OFF</div>
+            <div class="chips" id="book-chips"></div>
+        </div>
+    </div>
 
-    <div class="result-meta">
-        <div class="result-count"><strong id="count">0</strong> 件ヒット</div>
-        <div class="result-pct" id="result-pct"></div>
-    </div>
+    <div class="result-meta">
+        <div class="result-count"><strong id="count">0</strong> 件ヒット</div>
+        <div class="result-pct" id="result-pct"></div>
+    </div>
 
-    <div id="loading" class="loading">
-        <div style="margin-bottom:8px;font-family:'Gentium Plus',serif;font-size:1.4rem;color:#ccc;">ἀναζητεῖ</div>
-        <span class="loading-dot">・</span><span class="loading-dot">・</span><span class="loading-dot">・</span>
-    </div>
-    <div class="result-list" id="result-list"></div>
-    <footer class="app-footer">
-        <span class="footer-copy">© 2026 ウオノ All rights reserved.</span>
-        <div class="footer-links">
-            <button onclick="showAppInfo()">出典・ポリシー</button>
-        </div>
-    </footer>
-</div> ```
-
-### 3. JavaScriptの追加
-`<script>` タグ内、一番下（`})();` の直後）に追加してください。メインアプリの「出典・ポリシー」画面を呼び出す関数です。
-
-```javascript
-/* --- フッター用関数 --- */
-function showAppInfo() {
-    // 検索結果リストを隠してポリシーを表示
-    const listEl = document.getElementById('result-list');
-    const loadEl = document.getElementById('loading');
-    
-    // 既存のメインコンテンツを隠す
-    listEl.style.display = 'none';
-    loadEl.style.display = 'none';
-    
-    document.getElementById('meaning-title').innerText = "出典・ポリシー";
-    document.getElementById('meaning-sub').innerText = "本アプリの設計思想とデータソースについて";
-
-    const infoHtml = `
-        <div class="animate-in" style="line-height: 1.8; color: var(--text-main);">
-            <section style="margin-bottom: 30px;">
-                <h3 style="font-size: 1rem; margin-bottom: 10px; color: var(--highlight);">出典</h3>
-                <p style="font-size: 0.85rem;">
-                    底本: SBLGNT<br>
-                    形態論解析: Macula Greek Project / MorphGNT<br>
-                    辞書: Abbott-Smith Manual Greek Lexicon
-                </p>
-            </section>
-            <div style="text-align: center;">
-                <button onclick="location.reload()" style="padding: 8px 24px; border-radius: 20px; border: 1px solid var(--highlight); background: var(--highlight); color: white; cursor: pointer;">
-                    検索結果に戻る
-                </button>
-            </div>
-        </div>
-    `;
-    listEl.insertAdjacentHTML('beforebegin', '<div id="info-content">' + infoHtml + '</div>');
-    // 注意: 簡易的な実装のため、戻る際はリロードさせています
-}
+    <div id="loading" class="loading">
+        <div style="margin-bottom:8px;font-family:'Gentium Plus',serif;font-size:1.4rem;color:#ccc;">ἀναζητεῖ</div>
+        <span class="loading-dot">・</span><span class="loading-dot">・</span><span class="loading-dot">・</span>
+    </div>
+    <div class="result-list" id="result-list"></div>
 </div>
 
 <script>
 /* ── ラベルマップ ─────────────────────────────────────── */
-const TENSE_JP  = { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'過去完了' };
-const VOICE_JP  = { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' };
-const MOOD_JP   = { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' };
+const TENSE_JP  = { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'過去完了' };
+const VOICE_JP  = { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' };
+const MOOD_JP   = { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' };
 const GENDER_JP = { masculine:'男性', feminine:'女性', neuter:'中性' };
 const NUMBER_JP = { singular:'単数', plural:'複数' };
-const CASE_JP   = { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' };
-const POS_JP    = { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞' };
+const CASE_JP   = { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' };
+const POS_JP    = { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞' };
 const MOOD_DESC = {
-    participle:'継続・進行中の動作を表す分詞形。「〜している者」という含意を持ちます。',
-    indicative:'事実として起きていることを述べる直説法。文の主軸となる形式です。',
-    imperative:'命令・要求を表す命令法。現在命令は反復継続の命令を表します。',
-    subjunctive:'可能性・目的を表す接続法。条件節や目的節で使われます。',
-    infinitive:'動詞の不定詞形。「〜すること」と訳せます。',
-    optative:'願望・婉曲を表す希求法。新約ではやや稀な形式です。',
+    participle:'継続・進行中の動作を表す分詞形。「〜している者」という含意を持ちます。',
+    indicative:'事実として起きていることを述べる直説法。文の主軸となる形式です。',
+    imperative:'命令・要求を表す命令法。現在命令は反復継続の命令を表します。',
+    subjunctive:'可能性・目的を表す接続法。条件節や目的節で使われます。',
+    infinitive:'動詞の不定詞形。「〜すること」と訳せます。',
+    optative:'願望・婉曲を表す希求法。新約ではやや稀な形式です。',
 };
 
 /* ── ★ BOOK_MAP: MorphGNT 標準番号（ref 先頭2桁と対応） ─ */
 // ref:"071440" → 先頭"07" = 1CO（コリント一）14章40節
 const BOOK_MAP = {
-    '01':'MAT','02':'MRK','03':'LUK','04':'JHN','05':'ACT',
-    '06':'ROM','07':'1CO','08':'2CO','09':'GAL','10':'EPH',
-    '11':'PHP','12':'COL','13':'1TH','14':'2TH','15':'1TI',
-    '16':'2TI','17':'TIT','18':'PHM','19':'HEB','20':'JAS',
-    '21':'1PE','22':'2PE','23':'1JN','24':'2JN','25':'3JN',
-    '26':'JUD','27':'REV'
+    '01':'MAT','02':'MRK','03':'LUK','04':'JHN','05':'ACT',
+    '06':'ROM','07':'1CO','08':'2CO','09':'GAL','10':'EPH',
+    '11':'PHP','12':'COL','13':'1TH','14':'2TH','15':'1TI',
+    '16':'2TI','17':'TIT','18':'PHM','19':'HEB','20':'JAS',
+    '21':'1PE','22':'2PE','23':'1JN','24':'2JN','25':'3JN',
+    '26':'JUD','27':'REV'
 };
 
 /* ── ★ BOOK_GROUPS: ALL_BOOKS のキーと完全一致させる ──── */
 // ALL_BOOKSに存在しないキーを含めると getBookKey が null を返して
 // フィルターが素通りするため、実在する書物だけで構成する
 const BOOK_GROUPS = [
-    { key:'pauline',  label:'パウロ書簡', books:['ROM','1CO','2CO','GAL','1TH','2TH'] },
-    { key:'prison',   label:'獄中書簡',   books:['EPH','PHP','COL','PHM'] },
-    { key:'pastoral', label:'牧会書簡',   books:['1TI','2TI','TIT'] },
+    { key:'pauline',  label:'パウロ書簡', books:['ROM','1CO','2CO','GAL','1TH','2TH'] },
+    { key:'prison',   label:'獄中書簡',   books:['EPH','PHP','COL','PHM'] },
+    { key:'pastoral', label:'牧会書簡',   books:['1TI','2TI','TIT'] },
 ];
 
 /* ── ★ エントリの書物キーを3段階で解決 ─────────────── */
 /* ── ★ エントリの書物キーを解決（デバッグ付き） ────── */
-let _bookKeyDebugDone = false;  // 初回1件だけログ出力
+let _bookKeyDebugDone = false;  // 初回1件だけログ出力
 
 function getBookKey(entry) {
-    let result = null;
+    let result = null;
 
-    // ① entry.book_key / entry.bookKey など直接キーのフィールド
-    if (entry.book_key && isNaN(entry.book_key)) { result = String(entry.book_key); }
-    // ② entry.book が文字列キー（"ROM", "1CO" など）
-    else if (entry.book && isNaN(entry.book)) { result = String(entry.book); }
-    // ③ entry.book が数値/数字文字列 → BOOK_MAP で変換
-    else if (entry.book != null && entry.book !== '') {
-        result = BOOK_MAP[String(entry.book).padStart(2,'0')] || null;
-    }
-    // ④ entry.ref 先頭2桁 → BOOK_MAP で変換
-    else if (entry.ref) {
-        result = BOOK_MAP[String(entry.ref).slice(0,2)] || null;
-    }
+    // ① entry.book_key / entry.bookKey など直接キーのフィールド
+    if (entry.book_key && isNaN(entry.book_key)) { result = String(entry.book_key); }
+    // ② entry.book が文字列キー（"ROM", "1CO" など）
+    else if (entry.book && isNaN(entry.book)) { result = String(entry.book); }
+    // ③ entry.book が数値/数字文字列 → BOOK_MAP で変換
+    else if (entry.book != null && entry.book !== '') {
+        result = BOOK_MAP[String(entry.book).padStart(2,'0')] || null;
+    }
+    // ④ entry.ref 先頭2桁 → BOOK_MAP で変換
+    else if (entry.ref) {
+        result = BOOK_MAP[String(entry.ref).slice(0,2)] || null;
+    }
 
-    // デバッグ：初回1件だけコンソールに出力
-    if (!_bookKeyDebugDone) {
-        console.log('[BookKey Debug] entry sample:', JSON.stringify(entry).slice(0,200));
-        console.log('[BookKey Debug] resolved key:', result);
-        _bookKeyDebugDone = true;
-    }
+    // デバッグ：初回1件だけコンソールに出力
+    if (!_bookKeyDebugDone) {
+        console.log('[BookKey Debug] entry sample:', JSON.stringify(entry).slice(0,200));
+        console.log('[BookKey Debug] resolved key:', result);
+        _bookKeyDebugDone = true;
+    }
 
-    return result;
+    return result;
 }
 
 /* ── URLパラメータ ───────────────────────────────────── */
 function getSearchParams() {
-    const p = new URLSearchParams(location.search);
-    const dis = new Set((p.get('_disabled')||'').split(',').filter(Boolean));
-    return {
-        pos:    p.get('pos')   || '',
-        tense:  p.get('tense') || '',
-        mood:   p.get('mood')  || '',
-        voice:  p.get('voice') || '',
-        gender: { value: p.get('gender')||'', enabled: !dis.has('gender') },
-        number: { value: p.get('number')||'', enabled: !dis.has('number') },
-        case:   { value: p.get('case')  ||'', enabled: !dis.has('case')   },
-        ref:    p.get('ref')   || '',
-        word:   p.get('word')  || '',
-    };
+    const p = new URLSearchParams(location.search);
+    const dis = new Set((p.get('_disabled')||'').split(',').filter(Boolean));
+    return {
+        pos:    p.get('pos')   || '',
+        tense:  p.get('tense') || '',
+        mood:   p.get('mood')  || '',
+        voice:  p.get('voice') || '',
+        gender: { value: p.get('gender')||'', enabled: !dis.has('gender') },
+        number: { value: p.get('number')||'', enabled: !dis.has('number') },
+        case:   { value: p.get('case')  ||'', enabled: !dis.has('case')   },
+        ref:    p.get('ref')   || '',
+        word:   p.get('word')  || '',
+    };
 }
 const params = getSearchParams();
 
 let extState = [
-    { key:'gender', label:'性', value: params.gender.value, enabled: params.gender.enabled },
-    { key:'number', label:'数', value: params.number.value, enabled: params.number.enabled },
-    { key:'case',   label:'格', value: params.case.value,   enabled: params.case.enabled   },
+    { key:'gender', label:'性', value: params.gender.value, enabled: params.gender.enabled },
+    { key:'number', label:'数', value: params.number.value, enabled: params.number.enabled },
+    { key:'case',   label:'格', value: params.case.value,   enabled: params.case.enabled   },
 ].filter(f => f.value);
 
 let bookState = BOOK_GROUPS.map(g => ({ ...g, enabled: true }));
 
 function syncURL() {
-    const p = new URLSearchParams(location.search);
-    const dis = extState.filter(f=>!f.enabled).map(f=>f.key);
-    if (dis.length) p.set('_disabled', dis.join(','));
-    else p.delete('_disabled');
-    history.replaceState(null,'','?'+p.toString());
+    const p = new URLSearchParams(location.search);
+    const dis = extState.filter(f=>!f.enabled).map(f=>f.key);
+    if (dis.length) p.set('_disabled', dis.join(','));
+    else p.delete('_disabled');
+    history.replaceState(null,'','?'+p.toString());
 }
 
 /* ── 形態素コード → オブジェクト変換 ─────────────────── */
-const TENSE_CODE  = { P:'present',I:'imperfect',F:'future',A:'aorist',X:'perfect',Z:'pluperfect' };
-const VOICE_CODE  = { A:'active',M:'middle',P:'passive',D:'middle deponent',E:'middle or passive',N:'middle or passive' };
-const MOOD_CODE   = { I:'indicative',S:'subjunctive',O:'optative',M:'imperative',N:'infinitive',P:'participle' };
-const CASE_CODE   = { N:'nominative',G:'genitive',D:'dative',A:'accusative',V:'vocative' };
+const TENSE_CODE  = { P:'present',I:'imperfect',F:'future',A:'aorist',X:'perfect',Z:'pluperfect' };
+const VOICE_CODE  = { A:'active',M:'middle',P:'passive',D:'middle deponent',E:'middle or passive',N:'middle or passive' };
+const MOOD_CODE   = { I:'indicative',S:'subjunctive',O:'optative',M:'imperative',N:'infinitive',P:'participle' };
+const CASE_CODE   = { N:'nominative',G:'genitive',D:'dative',A:'accusative',V:'vocative' };
 const NUMBER_CODE = { S:'singular',P:'plural' };
 const GENDER_CODE = { M:'masculine',F:'feminine',N:'neuter' };
 
 function decodeMorph(entry) {
-    /* オブジェクト形式 */
-    if (entry.morph && typeof entry.morph === 'object') {
-        const m = entry.morph;
-        const n = v => (!v || v==='-') ? '' : v;
-        return {
-            pos:    (entry.pos||'').replace(/-$/,''),
-            tense:  n(m.tense), voice: n(m.voice), mood: n(m.mood),
-            case:   n(m.case),  number:n(m.number),gender:n(m.gender), person:n(m.person),
-        };
-    }
-    /* 文字列コード形式 "V-AAI3S" / "N-NSM" */
-    const raw   = typeof entry.morph === 'string' ? entry.morph : '';
-    const parts = raw.split('-');
-    const pos   = (entry.pos || parts[0] || '').replace(/-$/,'');
+    /* オブジェクト形式 */
+    if (entry.morph && typeof entry.morph === 'object') {
+        const m = entry.morph;
+        const n = v => (!v || v==='-') ? '' : v;
+        return {
+            pos:    (entry.pos||'').replace(/-$/,''),
+            tense:  n(m.tense), voice: n(m.voice), mood: n(m.mood),
+            case:   n(m.case),  number:n(m.number),gender:n(m.gender), person:n(m.person),
+        };
+    }
+    /* 文字列コード形式 "V-AAI3S" / "N-NSM" */
+    const raw   = typeof entry.morph === 'string' ? entry.morph : '';
+    const parts = raw.split('-');
+    const pos   = (entry.pos || parts[0] || '').replace(/-$/,'');
 
-    if (pos.toUpperCase() === 'V' && parts[1]) {
-        const seg = parts[1];
-        const off = /^[0-9]/.test(seg) ? 1 : 0;
-        return {
-            pos,
-            tense:  TENSE_CODE[seg[off]]     || '',
-            voice:  VOICE_CODE[seg[off+1]]   || '',
-            mood:   MOOD_CODE[seg[off+2]]    || '',
-            person: seg[off+3]               || '',
-            number: NUMBER_CODE[seg[off+4]]  || '',
-            gender: '', case: '',
-        };
-    }
-    if (parts[1]) {
-        const seg = parts[1];
-        const hp  = ['1','2','3'].includes(seg[0]);
-        const b   = hp ? seg.slice(1) : seg;
-        return {
-            pos, tense:'', voice:'', mood:'',
-            person: hp ? seg[0] : '',
-            case:   CASE_CODE[b[0]]   || '',
-            number: NUMBER_CODE[b[1]] || '',
-            gender: GENDER_CODE[b[2]] || '',
-        };
-    }
-    return { pos, tense:'',voice:'',mood:'',case:'',number:'',gender:'',person:'' };
+    if (pos.toUpperCase() === 'V' && parts[1]) {
+        const seg = parts[1];
+        const off = /^[0-9]/.test(seg) ? 1 : 0;
+        return {
+            pos,
+            tense:  TENSE_CODE[seg[off]]     || '',
+            voice:  VOICE_CODE[seg[off+1]]   || '',
+            mood:   MOOD_CODE[seg[off+2]]    || '',
+            person: seg[off+3]               || '',
+            number: NUMBER_CODE[seg[off+4]]  || '',
+            gender: '', case: '',
+        };
+    }
+    if (parts[1]) {
+        const seg = parts[1];
+        const hp  = ['1','2','3'].includes(seg[0]);
+        const b   = hp ? seg.slice(1) : seg;
+        return {
+            pos, tense:'', voice:'', mood:'',
+            person: hp ? seg[0] : '',
+            case:   CASE_CODE[b[0]]   || '',
+            number: NUMBER_CODE[b[1]] || '',
+            gender: GENDER_CODE[b[2]] || '',
+        };
+    }
+    return { pos, tense:'',voice:'',mood:'',case:'',number:'',gender:'',person:'' };
 }
 
 /* ── マッチング ──────────────────────────────────────── */
 function matchEntry(entry) {
-    /* ── 書物フィルター ── */
-    if (!bookState.every(g => g.enabled)) {
-        const enabledBooks = new Set(
-            bookState.filter(g => g.enabled).flatMap(g => g.books)
-        );
-        // _bookKey はフェッチ時にフォルダ名（"ROM","1CO"等）を付与済み
-        // BOOK_MAP経由の解決も併用してどちらかにヒットすればOK
-        const bk = entry._bookKey || getBookKey(entry);
-        if (!bk || !enabledBooks.has(bk)) return false;
-    }
+    /* ── 書物フィルター ── */
+    if (!bookState.every(g => g.enabled)) {
+        const enabledBooks = new Set(
+            bookState.filter(g => g.enabled).flatMap(g => g.books)
+        );
+        // _bookKey はフェッチ時にフォルダ名（"ROM","1CO"等）を付与済み
+        // BOOK_MAP経由の解決も併用してどちらかにヒットすればOK
+        const bk = entry._bookKey || getBookKey(entry);
+        if (!bk || !enabledBooks.has(bk)) return false;
+    }
 
-    const m = decodeMorph(entry);
-    const sp = params.pos.replace(/-$/,'');
-    if (sp && m.pos.toUpperCase() !== sp.toUpperCase()) return false;
-    if (params.tense && m.tense !== params.tense) return false;
-    if (params.mood  && m.mood  !== params.mood)  return false;
-    if (params.voice) {
-        const ok = m.voice === params.voice
-            || (params.voice==='middle'  && (m.voice==='middle deponent'||m.voice==='middle or passive'))
-            || (params.voice==='passive' && m.voice==='middle or passive');
-        if (!ok) return false;
-    }
-    for (const f of extState) {
-        if (!f.enabled || !f.value) continue;
-        if ((m[f.key]||'') !== f.value) return false;
-    }
-    return true;
+    const m = decodeMorph(entry);
+    const sp = params.pos.replace(/-$/,'');
+    if (sp && m.pos.toUpperCase() !== sp.toUpperCase()) return false;
+    if (params.tense && m.tense !== params.tense) return false;
+    if (params.mood  && m.mood  !== params.mood)  return false;
+    if (params.voice) {
+        const ok = m.voice === params.voice
+            || (params.voice==='middle'  && (m.voice==='middle deponent'||m.voice==='middle or passive'))
+            || (params.voice==='passive' && m.voice==='middle or passive');
+        if (!ok) return false;
+    }
+    for (const f of extState) {
+        if (!f.enabled || !f.value) continue;
+        if ((m[f.key]||'') !== f.value) return false;
+    }
+    return true;
 }
 
 /* ── 説明文 ──────────────────────────────────────────── */
 function buildDescription() {
-    const tense = TENSE_JP[params.tense]||params.tense;
-    const voice = VOICE_JP[params.voice]||params.voice;
-    const mood  = MOOD_JP[params.mood]  ||params.mood;
-    const pos   = POS_JP[params.pos.replace(/-$/,'')]||params.pos;
-    const MAP   = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
-    const extP  = extState.filter(f=>f.enabled&&f.value).map(f=>MAP[f.key]?.[f.value]||f.value);
-    const isMO  = ['participle','infinitive'].includes(params.mood);
-    const core  = isMO ? [tense,voice,mood].filter(Boolean).join('')
-                       : [pos,tense,voice,mood].filter(Boolean).join('');
-    const ext   = extP.length ? `（${extP.join('・')}）` : '';
-    const relaxed = extState.some(f=>!f.enabled);
-    const sub   = relaxed ? '拡張条件を一部解除中 — より広い分布を表示しています。'
-                          : (MOOD_DESC[params.mood]||'選択された形態素に完全一致する語形を検索しています。');
-    return { title:`${core}${ext}を抽出しています`, sub };
+    const tense = TENSE_JP[params.tense]||params.tense;
+    const voice = VOICE_JP[params.voice]||params.voice;
+    const mood  = MOOD_JP[params.mood]  ||params.mood;
+    const pos   = POS_JP[params.pos.replace(/-$/,'')]||params.pos;
+    const MAP   = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
+    const extP  = extState.filter(f=>f.enabled&&f.value).map(f=>MAP[f.key]?.[f.value]||f.value);
+    const isMO  = ['participle','infinitive'].includes(params.mood);
+    const core  = isMO ? [tense,voice,mood].filter(Boolean).join('')
+                       : [pos,tense,voice,mood].filter(Boolean).join('');
+    const ext   = extP.length ? `（${extP.join('・')}）` : '';
+    const relaxed = extState.some(f=>!f.enabled);
+    const sub   = relaxed ? '拡張条件を一部解除中 — より広い分布を表示しています。'
+                          : (MOOD_DESC[params.mood]||'選択された形態素に完全一致する語形を検索しています。');
+    return { title:`${core}${ext}を抽出しています`, sub };
 }
 
 /* ── レンダリング ────────────────────────────────────── */
 function renderBreadcrumb() {
-    document.getElementById('bc-ref').textContent  = params.ref  || '詳細';
-    document.getElementById('bc-word').textContent = params.word || '—';
+    document.getElementById('bc-ref').textContent  = params.ref  || '詳細';
+    document.getElementById('bc-word').textContent = params.word || '—';
 }
 function renderMeaning() {
-    const {title,sub} = buildDescription();
-    document.getElementById('meaning-title').textContent = title;
-    document.getElementById('meaning-sub').textContent   = sub;
+    const {title,sub} = buildDescription();
+    document.getElementById('meaning-title').textContent = title;
+    document.getElementById('meaning-sub').textContent   = sub;
 }
 function renderCoreChips() {
-    const defs = [
-        { label:'品詞', val: POS_JP[params.pos.replace(/-$/,'')]||params.pos },
-        { label:'法',   val: MOOD_JP[params.mood]  ||params.mood  },
-        { label:'時制', val: TENSE_JP[params.tense]||params.tense },
-        { label:'態',   val: VOICE_JP[params.voice]||params.voice },
-    ].filter(d=>d.val);
-    document.getElementById('core-chips').innerHTML = defs.map(d=>
-        `<div class="chip chip-core"><span class="chip-key">${d.label}</span><span>${d.val}</span></div>`
-    ).join('');
+    const defs = [
+        { label:'品詞', val: POS_JP[params.pos.replace(/-$/,'')]||params.pos },
+        { label:'法',   val: MOOD_JP[params.mood]  ||params.mood  },
+        { label:'時制', val: TENSE_JP[params.tense]||params.tense },
+        { label:'態',   val: VOICE_JP[params.voice]||params.voice },
+    ].filter(d=>d.val);
+    document.getElementById('core-chips').innerHTML = defs.map(d=>
+        `<div class="chip chip-core"><span class="chip-key">${d.label}</span><span>${d.val}</span></div>`
+    ).join('');
 }
 function renderExtChips() {
-    const el = document.getElementById('ext-chips');
-    if (!extState.length) { el.innerHTML='<span style="font-size:0.72rem;color:#bbb;">拡張条件なし</span>'; return; }
-    const MAP = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
-    el.innerHTML = extState.map((f,i)=>`
-        <div class="chip chip-ext ${f.enabled?'on':'off'}" onclick="toggleExt(${i})">
-            <div class="chip-toggle-dot">${f.enabled?'✓':''}</div>
-            <span style="font-size:0.65rem;opacity:0.7">${f.label}</span>
-            <span>${MAP[f.key]?.[f.value]||f.value}</span>
-        </div>`).join('');
+    const el = document.getElementById('ext-chips');
+    if (!extState.length) { el.innerHTML='<span style="font-size:0.72rem;color:#bbb;">拡張条件なし</span>'; return; }
+    const MAP = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
+    el.innerHTML = extState.map((f,i)=>`
+        <div class="chip chip-ext ${f.enabled?'on':'off'}" onclick="toggleExt(${i})">
+            <div class="chip-toggle-dot">${f.enabled?'✓':''}</div>
+            <span style="font-size:0.65rem;opacity:0.7">${f.label}</span>
+            <span>${MAP[f.key]?.[f.value]||f.value}</span>
+        </div>`).join('');
 }
 function renderBookChips() {
-    document.getElementById('book-chips').innerHTML = bookState.map((g,i)=>`
-        <div class="chip chip-ext ${g.enabled?'on':'off'}" onclick="toggleBook(${i})">
-            <div class="chip-toggle-dot">${g.enabled?'✓':''}</div>
-            <span>${g.label}</span>
-        </div>`).join('');
+    document.getElementById('book-chips').innerHTML = bookState.map((g,i)=>`
+        <div class="chip chip-ext ${g.enabled?'on':'off'}" onclick="toggleBook(${i})">
+            <div class="chip-toggle-dot">${g.enabled?'✓':''}</div>
+            <span>${g.label}</span>
+        </div>`).join('');
 }
 
 /* ── ページネーション状態 ────────────────────────────── */
@@ -420,199 +375,152 @@ let _displayCount = 100;
 const PAGE_SIZE = 100;
 
 function renderResults(allData) {
-    const matched = allData.filter(matchEntry);
-    const sp      = params.pos.replace(/-$/,'');
-    const samePos = allData.filter(e=>(e.pos||'').replace(/-$/,'').toUpperCase()===sp.toUpperCase()).length;
-    document.getElementById('count').textContent      = matched.length.toLocaleString();
-    document.getElementById('result-pct').textContent = samePos>0 ? `同品詞 ${samePos.toLocaleString()} 件中` : '';
+    const matched = allData.filter(matchEntry);
+    const sp      = params.pos.replace(/-$/,'');
+    const samePos = allData.filter(e=>(e.pos||'').replace(/-$/,'').toUpperCase()===sp.toUpperCase()).length;
+    document.getElementById('count').textContent      = matched.length.toLocaleString();
+    document.getElementById('result-pct').textContent = samePos>0 ? `同品詞 ${samePos.toLocaleString()} 件中` : '';
 
-    // フィルター変更のたびに先頭から表示しなおす
-    _currentRows  = matched;  // 重複排除なし・上限なし
-    _displayCount = PAGE_SIZE;
-    renderPage();
+    // フィルター変更のたびに先頭から表示しなおす
+    _currentRows  = matched;  // 重複排除なし・上限なし
+    _displayCount = PAGE_SIZE;
+    renderPage();
 }
 
 function renderPage() {
-    const el   = document.getElementById('result-list');
-    const rows = _currentRows;
+    const el   = document.getElementById('result-list');
+    const rows = _currentRows;
 
-    if (!rows.length) {
-        el.innerHTML = `<div class="empty-state"><div class="empty-icon">∅</div>条件に一致する語形が見つかりませんでした。<br>拡張条件をOFFにするか、書物範囲を広げてみてください。</div>`;
-        return;
-    }
+    if (!rows.length) {
+        el.innerHTML = `<div class="empty-state"><div class="empty-icon">∅</div>条件に一致する語形が見つかりませんでした。<br>拡張条件をOFFにするか、書物範囲を広げてみてください。</div>`;
+        return;
+    }
 
-    const slice = rows.slice(0, _displayCount);
-    const more  = rows.length - _displayCount;
+    const slice = rows.slice(0, _displayCount);
+    const more  = rows.length - _displayCount;
 
-    el.innerHTML = slice.map((entry, idx) => {
-        const m    = decodeMorph(entry);
-        const word = entry.word || entry.normalized || entry.text || '';
-        const core = [MOOD_JP[m.mood],TENSE_JP[m.tense],VOICE_JP[m.voice]].filter(Boolean).map(t=>`<span class="mtag core">${t}</span>`).join('');
-        const ext  = [CASE_JP[m.case],NUMBER_JP[m.number],GENDER_JP[m.gender]].filter(Boolean).map(t=>`<span class="mtag">${t}</span>`).join('');
+    el.innerHTML = slice.map((entry, idx) => {
+        const m    = decodeMorph(entry);
+        const word = entry.word || entry.normalized || entry.text || '';
+        const core = [MOOD_JP[m.mood],TENSE_JP[m.tense],VOICE_JP[m.voice]].filter(Boolean).map(t=>`<span class="mtag core">${t}</span>`).join('');
+        const ext  = [CASE_JP[m.case],NUMBER_JP[m.number],GENDER_JP[m.gender]].filter(Boolean).map(t=>`<span class="mtag">${t}</span>`).join('');
 
-        const refLabel = (()=>{
-            const r = String(entry.ref||'');
-            if (r.length===6) {
-                const key = BOOK_MAP[r.slice(0,2)] || parseInt(r.slice(0,2));
-                return `${key} ${parseInt(r.slice(2,4))}:${parseInt(r.slice(4,6))}`;
-            }
-            return r;
-        })();
+        const refLabel = (()=>{
+            const r = String(entry.ref||'');
+            if (r.length===6) {
+                const key = BOOK_MAP[r.slice(0,2)] || parseInt(r.slice(0,2));
+                return `${key} ${parseInt(r.slice(2,4))}:${parseInt(r.slice(4,6))}`;
+            }
+            return r;
+        })();
 
-        return `<div class="result-card animate-in" style="animation-delay:${Math.min(idx*10,300)}ms"
-            onclick="goToWord('${entry.ref||''}','${encodeURIComponent(word)}')">
-            <div class="result-top">
-                <div><span class="result-word">${word}</span><span class="result-lemma">${entry.lemma||''}</span></div>
-                <span class="result-ref">${refLabel}</span>
-            </div>
-            <div class="morph-tags">${core}${ext}</div>
-        </div>`;
-    }).join('');
+        return `<div class="result-card animate-in" style="animation-delay:${Math.min(idx*10,300)}ms"
+            onclick="goToWord('${entry.ref||''}','${encodeURIComponent(word)}')">
+            <div class="result-top">
+                <div><span class="result-word">${word}</span><span class="result-lemma">${entry.lemma||''}</span></div>
+                <span class="result-ref">${refLabel}</span>
+            </div>
+            <div class="morph-tags">${core}${ext}</div>
+        </div>`;
+    }).join('');
 
-    // 「さらに表示」ボタン
-    if (more > 0) {
-        el.innerHTML += `
-            <div style="text-align:center;padding:20px 0;">
-                <button onclick="loadMore()" style="
-                    padding:8px 24px; font-size:0.8rem; font-family:inherit;
-                    border:1px solid var(--border-soft); border-radius:20px;
-                    background:transparent; cursor:pointer; color:var(--text-sub);
-                    transition:background 0.12s;">
-                    さらに表示（残り ${more.toLocaleString()} 件）
-                </button>
-            </div>`;
-    }
+    // 「さらに表示」ボタン
+    if (more > 0) {
+        el.innerHTML += `
+            <div style="text-align:center;padding:20px 0;">
+                <button onclick="loadMore()" style="
+                    padding:8px 24px; font-size:0.8rem; font-family:inherit;
+                    border:1px solid var(--border-soft); border-radius:20px;
+                    background:transparent; cursor:pointer; color:var(--text-sub);
+                    transition:background 0.12s;">
+                    さらに表示（残り ${more.toLocaleString()} 件）
+                </button>
+            </div>`;
+    }
 }
 
 function loadMore() {
-    _displayCount += PAGE_SIZE;
-    renderPage();
-    // スクロール位置を維持
+    _displayCount += PAGE_SIZE;
+    renderPage();
+    // スクロール位置を維持
 }
 
 /* ── インタラクション ────────────────────────────────── */
-function toggleExt(i)  { extState[i].enabled=!extState[i].enabled;  renderExtChips();  renderMeaning(); syncURL(); if(window._morphData)renderResults(window._morphData); }
+function toggleExt(i)  { extState[i].enabled=!extState[i].enabled;  renderExtChips();  renderMeaning(); syncURL(); if(window._morphData)renderResults(window._morphData); }
 function toggleBook(i) { bookState[i].enabled=!bookState[i].enabled; renderBookChips(); if(window._morphData)renderResults(window._morphData); }
 function goToWord(ref,enc) {
-    const word=decodeURIComponent(enc);
-    if(window.opener&&!window.opener.closed) window.opener.postMessage({type:'GO_TO_REF',ref,word},'*');
+    const word=decodeURIComponent(enc);
+    if(window.opener&&!window.opener.closed) window.opener.postMessage({type:'GO_TO_REF',ref,word},'*');
 }
 
 /* ── 書物リスト + フェッチ ───────────────────────────── */
 const ALL_BOOKS = [
-    {key:'ROM',ch:16},{key:'1CO',ch:16},{key:'2CO',ch:13},{key:'GAL',ch:6},
-    {key:'EPH',ch:6}, {key:'PHP',ch:4}, {key:'COL',ch:4}, {key:'1TH',ch:5},
-    {key:'2TH',ch:3}, {key:'1TI',ch:6}, {key:'2TI',ch:4}, {key:'TIT',ch:3},
-    {key:'PHM',ch:1}, {key:'GEN',ch:50},{key:'EXO',ch:40},{key:'LEV',ch:27},
-    {key:'NUM',ch:36},{key:'DEU',ch:34},{key:'JOS',ch:24},{key:'JDG',ch:21},
-    {key:'RUT',ch:4}, {key:'1SA',ch:31},{key:'2SA',ch:24},{key:'1KI',ch:22},
-    {key:'2KI',ch:25},{key:'PSA',ch:150},{key:'PRO',ch:31},{key:'ECC',ch:12},
-    {key:'ISA',ch:66},{key:'JER',ch:52},{key:'EZK',ch:48},{key:'DAN',ch:12},
+    {key:'ROM',ch:16},{key:'1CO',ch:16},{key:'2CO',ch:13},{key:'GAL',ch:6},
+    {key:'EPH',ch:6}, {key:'PHP',ch:4}, {key:'COL',ch:4}, {key:'1TH',ch:5},
+    {key:'2TH',ch:3}, {key:'1TI',ch:6}, {key:'2TI',ch:4}, {key:'TIT',ch:3},
+    {key:'PHM',ch:1}, {key:'GEN',ch:50},{key:'EXO',ch:40},{key:'LEV',ch:27},
+    {key:'NUM',ch:36},{key:'DEU',ch:34},{key:'JOS',ch:24},{key:'JDG',ch:21},
+    {key:'RUT',ch:4}, {key:'1SA',ch:31},{key:'2SA',ch:24},{key:'1KI',ch:22},
+    {key:'2KI',ch:25},{key:'PSA',ch:150},{key:'PRO',ch:31},{key:'ECC',ch:12},
+    {key:'ISA',ch:66},{key:'JER',ch:52},{key:'EZK',ch:48},{key:'DAN',ch:12},
 ];
 function buildAllChapterPaths() {
-    const p=[];
-    for (const b of ALL_BOOKS) for (let c=1;c<=b.ch;c++) p.push({key:b.key,ch:c,path:`./bible_data/${b.key}/${c}.json`});
-    return p;
+    const p=[];
+    for (const b of ALL_BOOKS) for (let c=1;c<=b.ch;c++) p.push({key:b.key,ch:c,path:`./bible_data/${b.key}/${c}.json`});
+    return p;
 }
 async function fetchInBatches(tasks,sz,onProg) {
-    let all=[];
-    for (let i=0;i<tasks.length;i+=sz) {
-        const results = await Promise.allSettled(
-            tasks.slice(i,i+sz).map(t=>
-                fetch(t.path).then(r=>r.ok?r.json():null).catch(()=>null)
-                .then(data => {
-                    if (!Array.isArray(data)) return null;
-                    // ★ フォルダキー（"ROM","1CO"等）を各エントリに付与
-                    data.forEach(entry => { entry._bookKey = t.key; });
-                    return data;
-                })
-            )
-        );
-        results.forEach(r=>{ if(r.status==='fulfilled'&&Array.isArray(r.value)) all=all.concat(r.value); });
-        onProg(Math.min(i+sz,tasks.length),tasks.length);
-    }
-    return all;
+    let all=[];
+    for (let i=0;i<tasks.length;i+=sz) {
+        const results = await Promise.allSettled(
+            tasks.slice(i,i+sz).map(t=>
+                fetch(t.path).then(r=>r.ok?r.json():null).catch(()=>null)
+                .then(data => {
+                    if (!Array.isArray(data)) return null;
+                    // ★ フォルダキー（"ROM","1CO"等）を各エントリに付与
+                    data.forEach(entry => { entry._bookKey = t.key; });
+                    return data;
+                })
+            )
+        );
+        results.forEach(r=>{ if(r.status==='fulfilled'&&Array.isArray(r.value)) all=all.concat(r.value); });
+        onProg(Math.min(i+sz,tasks.length),tasks.length);
+    }
+    return all;
 }
 
 /* ── 初期化 ──────────────────────────────────────────── */
 renderBreadcrumb(); renderCoreChips(); renderExtChips(); renderBookChips(); renderMeaning();
 
 (async function() {
-    const loadEl = document.getElementById('loading');
-    const listEl = document.getElementById('result-list');
-    const paths  = buildAllChapterPaths();
-    const total  = paths.length;
+    const loadEl = document.getElementById('loading');
+    const listEl = document.getElementById('result-list');
+    const paths  = buildAllChapterPaths();
+    const total  = paths.length;
 
-    loadEl.innerHTML = `
-        <div style="margin-bottom:10px;font-family:'Gentium Plus',serif;font-size:1.3rem;color:#ccc;">ἀναζητεῖ</div>
-        <div style="width:100%;max-width:280px;margin:0 auto 8px;height:3px;background:#eee;border-radius:2px;overflow:hidden;">
-            <div id="load-fill" style="height:100%;width:0%;background:var(--highlight);transition:width 0.25s ease;border-radius:2px;"></div>
-        </div>
-        <div id="load-status" style="font-size:0.72rem;color:#bbb;">章データを読み込み中 (0 / ${total})...</div>`;
+    loadEl.innerHTML = `
+        <div style="margin-bottom:10px;font-family:'Gentium Plus',serif;font-size:1.3rem;color:#ccc;">ἀναζητεῖ</div>
+        <div style="width:100%;max-width:280px;margin:0 auto 8px;height:3px;background:#eee;border-radius:2px;overflow:hidden;">
+            <div id="load-fill" style="height:100%;width:0%;background:var(--highlight);transition:width 0.25s ease;border-radius:2px;"></div>
+        </div>
+        <div id="load-status" style="font-size:0.72rem;color:#bbb;">章データを読み込み中 (0 / ${total})...</div>`;
 
-    const allData = await fetchInBatches(paths, 20, (done,ttl)=>{
-        const pct=Math.round(done/ttl*100);
-        const f=document.getElementById('load-fill'), s=document.getElementById('load-status');
-        if(f) f.style.width=pct+'%';
-        if(s) s.textContent=`章データを読み込み中 (${done} / ${ttl}) ${pct}%`;
-    });
+    const allData = await fetchInBatches(paths, 20, (done,ttl)=>{
+        const pct=Math.round(done/ttl*100);
+        const f=document.getElementById('load-fill'), s=document.getElementById('load-status');
+        if(f) f.style.width=pct+'%';
+        if(s) s.textContent=`章データを読み込み中 (${done} / ${ttl}) ${pct}%`;
+    });
 
-    if (!allData.length) {
-        loadEl.innerHTML=`<p style="color:#c00;font-size:0.82rem;line-height:2.2;">データが見つかりませんでした。<br><code style="background:#f5f5f7;padding:2px 8px;border-radius:4px;">bible_data/ROM/1.json の形式で配置してください</code></p>`;
-        return;
-    }
-    window._morphData = allData;
-    loadEl.style.display = 'none';
-    listEl.style.display = 'flex';
-    renderResults(allData);
+    if (!allData.length) {
+        loadEl.innerHTML=`<p style="color:#c00;font-size:0.82rem;line-height:2.2;">データが見つかりませんでした。<br><code style="background:#f5f5f7;padding:2px 8px;border-radius:4px;">bible_data/ROM/1.json の形式で配置してください</code></p>`;
+        return;
+    }
+    window._morphData = allData;
+    loadEl.style.display = 'none';
+    listEl.style.display = 'flex';
+    renderResults(allData);
 })();
-
-/* --- フッター（共通デザイン） --- */
-.app-footer {
-    border-top: 1px solid var(--border-soft);
-    padding: 24px 24px;
-    margin-top: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--bg-paper);
-}
-
-.footer-copy {
-    font-size: 0.7rem;
-    color: var(--text-sub);
-    letter-spacing: 0.01em;
-}
-
-.footer-links {
-    display: flex;
-    gap: 18px;
-}
-
-.footer-links button {
-    font-size: 0.7rem;
-    color: var(--text-sub);
-    background: none;
-    border: none;
-    border-bottom: 1px solid rgba(0,0,0,0.12);
-    cursor: pointer;
-    padding-bottom: 1px;
-    font-family: inherit;
-    transition: color 0.15s;
-}
-
-.footer-links button:hover {
-    color: var(--text-main);
-}
-
-/* モバイル対応：フッターを縦並びに */
-@media (max-width: 480px) {
-    .app-footer {
-        flex-direction: column;
-        gap: 12px;
-        text-align: center;
-    }
-}
 </script>
 </body>
 </html>
