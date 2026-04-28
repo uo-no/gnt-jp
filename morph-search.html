@@ -353,6 +353,12 @@ function renderBookChips() {
             <span>${g.label}</span>
         </div>`).join('');
 }
+
+/* ── ページネーション状態 ────────────────────────────── */
+let _currentRows = [];
+let _displayCount = 100;
+const PAGE_SIZE = 100;
+
 function renderResults(allData) {
     const matched = allData.filter(matchEntry);
     const sp      = params.pos.replace(/-$/,'');
@@ -360,21 +366,30 @@ function renderResults(allData) {
     document.getElementById('count').textContent      = matched.length.toLocaleString();
     document.getElementById('result-pct').textContent = samePos>0 ? `同品詞 ${samePos.toLocaleString()} 件中` : '';
 
-    const el = document.getElementById('result-list');
-    if (!matched.length) {
+    // フィルター変更のたびに先頭から表示しなおす
+    _currentRows  = matched;  // 重複排除なし・上限なし
+    _displayCount = PAGE_SIZE;
+    renderPage();
+}
+
+function renderPage() {
+    const el   = document.getElementById('result-list');
+    const rows = _currentRows;
+
+    if (!rows.length) {
         el.innerHTML = `<div class="empty-state"><div class="empty-icon">∅</div>条件に一致する語形が見つかりませんでした。<br>拡張条件をOFFにするか、書物範囲を広げてみてください。</div>`;
         return;
     }
-    const seen = new Set();
-    const rows = matched.filter(e=>{ const k=`${e.ref}|${e.word||e.normalized}`; if(seen.has(k))return false; seen.add(k);return true; }).slice(0,200);
 
-    el.innerHTML = rows.map((entry,idx)=>{
+    const slice = rows.slice(0, _displayCount);
+    const more  = rows.length - _displayCount;
+
+    el.innerHTML = slice.map((entry, idx) => {
         const m    = decodeMorph(entry);
-        const word = entry.word||entry.normalized||entry.text||'';
+        const word = entry.word || entry.normalized || entry.text || '';
         const core = [MOOD_JP[m.mood],TENSE_JP[m.tense],VOICE_JP[m.voice]].filter(Boolean).map(t=>`<span class="mtag core">${t}</span>`).join('');
         const ext  = [CASE_JP[m.case],NUMBER_JP[m.number],GENDER_JP[m.gender]].filter(Boolean).map(t=>`<span class="mtag">${t}</span>`).join('');
 
-        // ref "071440" → "1CO 14:40"
         const refLabel = (()=>{
             const r = String(entry.ref||'');
             if (r.length===6) {
@@ -384,7 +399,7 @@ function renderResults(allData) {
             return r;
         })();
 
-        return `<div class="result-card animate-in" style="animation-delay:${Math.min(idx*20,400)}ms"
+        return `<div class="result-card animate-in" style="animation-delay:${Math.min(idx*10,300)}ms"
             onclick="goToWord('${entry.ref||''}','${encodeURIComponent(word)}')">
             <div class="result-top">
                 <div><span class="result-word">${word}</span><span class="result-lemma">${entry.lemma||''}</span></div>
@@ -393,6 +408,26 @@ function renderResults(allData) {
             <div class="morph-tags">${core}${ext}</div>
         </div>`;
     }).join('');
+
+    // 「さらに表示」ボタン
+    if (more > 0) {
+        el.innerHTML += `
+            <div style="text-align:center;padding:20px 0;">
+                <button onclick="loadMore()" style="
+                    padding:8px 24px; font-size:0.8rem; font-family:inherit;
+                    border:1px solid var(--border-soft); border-radius:20px;
+                    background:transparent; cursor:pointer; color:var(--text-sub);
+                    transition:background 0.12s;">
+                    さらに表示（残り ${more.toLocaleString()} 件）
+                </button>
+            </div>`;
+    }
+}
+
+function loadMore() {
+    _displayCount += PAGE_SIZE;
+    renderPage();
+    // スクロール位置を維持
 }
 
 /* ── インタラクション ────────────────────────────────── */
