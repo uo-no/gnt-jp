@@ -248,6 +248,7 @@ function getSearchParams() {
         ref:    p.get('ref')   || '',
         word:   p.get('word')  || '',
         lemma:  p.get('lemma') || '',
+        strong: p.get('strong') || '',
     };
 }
 const params = getSearchParams();
@@ -338,10 +339,14 @@ function matchEntry(entry) {
         if (!bk || !enabledBooks.has(bk)) return false;
     }
 
-    // lemmaフィルター（同語根に絞る）
-    if (params.lemma) {
-        const entryLemma = entry.lemma || '';
-        if (entryLemma !== params.lemma) return false;
+    // lemma / strongフィルター（同語根に絞る）
+    if (params.lemma || params.strong) {
+        const entryLemma  = entry.lemma  || '';
+        const entryStrong = String(entry.strong || '').replace(/[^0-9]/g, '');
+        const matchLemma  = params.lemma  && entryLemma  === params.lemma;
+        const matchStrong = params.strong && entryStrong === params.strong;
+        // lemmaが一致、またはstrongが一致（lemmaが空/不一致の補完）
+        if (!matchLemma && !matchStrong) return false;
     }
 
     const m = decodeMorph(entry);
@@ -390,7 +395,7 @@ function renderMeaning() {
     document.getElementById('meaning-title').textContent = title;
     document.getElementById('meaning-sub').textContent   = sub;
     const lemmaEl = document.getElementById('meaning-lemma');
-    if (lemmaEl) lemmaEl.textContent = params.lemma ? `語根: ${params.lemma}` : '';
+    if (lemmaEl) lemmaEl.textContent = params.lemma ? `語根: ${params.lemma}` : (params.strong ? `G${params.strong}` : '');
 }
 function renderCoreChips() {
     const defs = [
