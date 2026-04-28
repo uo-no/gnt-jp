@@ -335,6 +335,10 @@ body {
             <div class="filter-section-label">拡張条件 — タップで絞り込みON / OFF</div>
             <div class="chips" id="ext-chips"></div>
         </div>
+        <div class="filter-section">
+            <div class="filter-section-label">書物範囲</div>
+            <div class="chips" id="book-chips"></div>
+        </div>
     </div>
 
     <!-- 将来：意味プリセットバナー（非表示） -->
@@ -385,6 +389,29 @@ const MOOD_DESC = {
     optative:   '願望・婉曲を表す希求法。新約ではやや稀な形式です。',
 };
 
+const BOOK_GROUPS = [
+    { key:'gospels', label:'福音書', books:['MAT','MRK','LUK','JHN'] },
+    { key:'acts', label:'使徒の働き', books:['ACT'] },
+    { key:'pauline', label:'パウロ書簡', books:[
+        'ROM','1CO','2CO','GAL','EPH','PHP','COL','1TH','2TH'
+    ]},
+    { key:'pastoral', label:'牧会書簡', books:['1TI','2TI','TIT'] },
+    { key:'general', label:'一般書簡', books:[
+        'HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD'
+    ]},
+    { key:'revelation', label:'黙示録', books:['REV'] },
+];
+
+const BOOK_MAP = {
+    '01':'MAT','02':'MRK','03':'LUK','04':'JHN',
+    '05':'ACT','06':'ROM','07':'1CO','08':'2CO',
+    '09':'GAL','10':'EPH','11':'PHP','12':'COL',
+    '13':'1TH','14':'2TH','15':'1TI','16':'2TI',
+    '17':'TIT','18':'PHM','19':'HEB','20':'JAS',
+    '21':'1PE','22':'2PE','23':'1JN','24':'2JN',
+    '25':'3JN','26':'JUD','27':'REV'
+};
+    
 /* =====================================================
    URLパラメータ解析
    ===================================================== */
@@ -415,6 +442,13 @@ let extState = [
     { key:'case',   label:'格', value: params.case.value,   enabled: params.case.enabled   },
 ].filter(f => f.value); // 値がない項目は表示しない
 
+let bookState = BOOK_GROUPS.map(g => ({
+    key: g.key,
+    label: g.label,
+    books: g.books,
+    enabled: true
+}));
+    
 /* =====================================================
    URLを拡張条件の状態に同期
    ===================================================== */
@@ -502,6 +536,19 @@ function decodeMorph(entry) {
    形態素マッチング
    ===================================================== */
 function matchEntry(entry) {
+    const m = decodeMorph(entry);
+
+    // 書物フィルター
+    const enabledBooks = bookState
+        .filter(g => g.enabled)
+        .flatMap(g => g.books);
+
+    if (enabledBooks.length > 0) {
+        const bookCode = (entry.ref || '').slice(0, 2);
+        const bookKey  = BOOK_MAP[bookCode];
+        if (!enabledBooks.includes(bookKey)) return false;
+    }
+
     const m = decodeMorph(entry);
 
     // pos（"V-" と "V" 両対応）
@@ -710,6 +757,31 @@ function toggleExt(i) {
     if (window._morphData) renderResults(window._morphData);
 }
 
+function renderBookChips() {
+    const el = document.getElementById('book-chips');
+
+    el.innerHTML = bookState.map((g, i) => `
+        <div class="chip chip-ext ${g.enabled ? 'on' : 'off'}"
+             onclick="toggleBook(${i})">
+            <div class="chip-toggle-dot">${g.enabled ? '✓' : ''}</div>
+            <span>${g.label}</span>
+        </div>
+    `).join('');
+}
+
+function toggleBook(i) {
+    bookState[i].enabled = !bookState[i].enabled;
+    renderBreadcrumb();
+    renderCoreChips();
+    renderExtChips();
+    renderBookChips();
+    renderMeaning();
+        
+    if (window._morphData) {
+        renderResults(window._morphData);
+    }
+}
+    
 function goToWord(ref, wordEncoded) {
     // opener（index.html）が生きていれば通知、なければ単純にクローズ
     const word = decodeURIComponent(wordEncoded);
