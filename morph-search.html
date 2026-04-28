@@ -165,20 +165,33 @@ const BOOK_GROUPS = [
 ];
 
 /* ── ★ エントリの書物キーを3段階で解決 ─────────────── */
+/* ── ★ エントリの書物キーを解決（デバッグ付き） ────── */
+let _bookKeyDebugDone = false;  // 初回1件だけログ出力
+
 function getBookKey(entry) {
-    // ① entry.book が文字列キー（"1CO" など）
-    if (entry.book && isNaN(entry.book)) return String(entry.book);
-    // ② entry.book が数値 or 数字文字列 → BOOK_MAP で変換
-    if (entry.book != null) {
-        const k = BOOK_MAP[String(entry.book).padStart(2,'0')];
-        if (k) return k;
+    let result = null;
+
+    // ① entry.book_key / entry.bookKey など直接キーのフィールド
+    if (entry.book_key && isNaN(entry.book_key)) { result = String(entry.book_key); }
+    // ② entry.book が文字列キー（"ROM", "1CO" など）
+    else if (entry.book && isNaN(entry.book)) { result = String(entry.book); }
+    // ③ entry.book が数値/数字文字列 → BOOK_MAP で変換
+    else if (entry.book != null && entry.book !== '') {
+        result = BOOK_MAP[String(entry.book).padStart(2,'0')] || null;
     }
-    // ③ entry.ref 先頭2桁（MorphGNT 標準）
-    if (entry.ref) {
-        const k = BOOK_MAP[String(entry.ref).slice(0,2)];
-        if (k) return k;
+    // ④ entry.ref 先頭2桁 → BOOK_MAP で変換
+    else if (entry.ref) {
+        result = BOOK_MAP[String(entry.ref).slice(0,2)] || null;
     }
-    return null;
+
+    // デバッグ：初回1件だけコンソールに出力
+    if (!_bookKeyDebugDone) {
+        console.log('[BookKey Debug] entry sample:', JSON.stringify(entry).slice(0,200));
+        console.log('[BookKey Debug] resolved key:', result);
+        _bookKeyDebugDone = true;
+    }
+
+    return result;
 }
 
 /* ── URLパラメータ ───────────────────────────────────── */
@@ -269,13 +282,15 @@ function decodeMorph(entry) {
 
 /* ── マッチング ──────────────────────────────────────── */
 function matchEntry(entry) {
-    /* 書物フィルター */
+    /* ── 書物フィルター ── */
     if (!bookState.every(g => g.enabled)) {
-        // 有効な書物キーのSetを作成
-        const enabled = new Set(bookState.filter(g => g.enabled).flatMap(g => g.books));
-        const bk = getBookKey(entry);
-        // bookKeyが取れない場合も含めて、enabledに入っていなければ除外
-        if (!bk || !enabled.has(bk)) return false;
+        const enabledBooks = new Set(
+            bookState.filter(g => g.enabled).flatMap(g => g.books)
+        );
+        // _bookKey はフェッチ時にフォルダ名（"ROM","1CO"等）を付与済み
+        // BOOK_MAP経由の解決も併用してどちらかにヒットすればOK
+        const bk = entry._bookKey || getBookKey(entry);
+        if (!bk || !enabledBooks.has(bk)) return false;
     }
 
     const m = decodeMorph(entry);
@@ -305,8 +320,8 @@ function buildDescription() {
     const MAP   = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
     const extP  = extState.filter(f=>f.enabled&&f.value).map(f=>MAP[f.key]?.[f.value]||f.value);
     const isMO  = ['participle','infinitive'].includes(params.mood);
-    const core  = isMO ? [mood,tense,voice].filter(Boolean).join('')
-                       : [pos,mood,tense,voice].filter(Boolean).join('');
+    const core  = isMO ? [tense,voice,mood].filter(Boolean).join('')
+                       : [pos,tense,voice,mood].filter(Boolean).join('');
     const ext   = extP.length ? `（${extP.join('・')}）` : '';
     const relaxed = extState.some(f=>!f.enabled);
     const sub   = relaxed ? '拡張条件を一部解除中 — より広い分布を表示しています。'
@@ -457,8 +472,18 @@ function buildAllChapterPaths() {
 async function fetchInBatches(tasks,sz,onProg) {
     let all=[];
     for (let i=0;i<tasks.length;i+=sz) {
-        const res = await Promise.allSettled(tasks.slice(i,i+sz).map(t=>fetch(t.path).then(r=>r.ok?r.json():null).catch(()=>null)));
-        res.forEach(r=>{ if(r.status==='fulfilled'&&Array.isArray(r.value)) all=all.concat(r.value); });
+        const results = await Promise.allSettled(
+            tasks.slice(i,i+sz).map(t=>
+                fetch(t.path).then(r=>r.ok?r.json():null).catch(()=>null)
+                .then(data => {
+                    if (!Array.isArray(data)) return null;
+                    // ★ フォルダキー（"ROM","1CO"等）を各エントリに付与
+                    data.forEach(entry => { entry._bookKey = t.key; });
+                    return data;
+                })
+            )
+        );
+        results.forEach(r=>{ if(r.status==='fulfilled'&&Array.isArray(r.value)) all=all.concat(r.value); });
         onProg(Math.min(i+sz,tasks.length),tasks.length);
     }
     return all;
