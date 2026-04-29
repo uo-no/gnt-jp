@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>形態論検索 — 聖書ノ門</title>
+<title>形態論検索 — ウオノ門</title>
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -291,8 +291,20 @@ const NUMBER_CODE = { S:'singular',P:'plural' };
 const GENDER_CODE = { M:'masculine',F:'feminine',N:'neuter' };
 
 function decodeMorph(entry) {
-    /* オブジェクト形式 */
-    if (entry.morph && typeof entry.morph === 'object') {
+    // ★ entry に tense/voice/mood 等が直接フィールドとして存在する場合（最優先）
+    if (entry.tense || entry.mood || entry.voice) {
+        const norm = v => (!v || v === '-') ? '' : v;
+        return {
+            pos:    norm(entry.pos || entry.class || '').replace(/-$/,''),
+            tense:  norm(entry.tense),
+            voice:  norm(entry.voice),
+            mood:   norm(entry.mood),
+            case:   norm(entry.case),
+            number: norm(entry.number),
+            gender: norm(entry.gender),
+            person: norm(entry.person),
+        };
+    }
         const m = entry.morph;
         const n = v => (!v || v==='-') ? '' : v;
         return {
@@ -349,7 +361,8 @@ function matchEntry(entry) {
 
     const m = decodeMorph(entry);
     const sp = params.pos.replace(/-$/,'');
-    if (sp && m.pos.toUpperCase() !== sp.toUpperCase()) return false;
+    const entryPos = (entry.pos || entry.class || m.pos || '').replace(/-$/,'');
+    if (sp && entryPos.toUpperCase() !== sp.toUpperCase()) return false;
     if (params.tense && m.tense !== params.tense) return false;
     if (params.mood  && m.mood  !== params.mood)  return false;
     if (params.voice) {
@@ -454,7 +467,8 @@ function renderPage() {
     el.innerHTML = slice.map((entry, idx) => {
         const word     = entry.word || entry.normalized || entry.text || '';
         const refLabel = buildRefLabel(entry.ref);
-        const jaText   = _jaMap.get(String(entry.ref||'')) || '';
+        // entry.japanese が直接節の日本語訳を持っている
+        const jaText   = entry.japanese || '';
         // 日本語訳があれば本文表示、なければ見出し語にフォールバック
         const mainHTML = jaText
             ? `<span class="result-ja">${jaText}</span>`
@@ -480,12 +494,18 @@ function renderPage() {
 
 function buildRefLabel(ref) {
     const r = String(ref||'');
-    if (r.length === 6) {
-        const bookKey = BOOK_MAP[r.slice(0,2)];
-        const bookName = (bookKey && BOOK_JP[bookKey]) || bookKey || parseInt(r.slice(0,2));
-        const ch = parseInt(r.slice(2,4));
-        const vs = parseInt(r.slice(4,6));
-        return `${bookName} ${ch}:${vs}`;
+
+    // 形式① "ROM 1:1!1" → "ローマ 1:1"
+    const m = r.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+    if (m) {
+        const bookName = BOOK_JP[m[1]] || m[1];
+        return `${bookName} ${m[2]}:${m[3]}`;
+    }
+    // 形式② "060101"（6桁数字）
+    if (r.length === 6 && /^\d+$/.test(r)) {
+        const bookKey  = BOOK_MAP[r.slice(0,2)];
+        const bookName = (bookKey && BOOK_JP[bookKey]) || bookKey || r.slice(0,2);
+        return `${bookName} ${parseInt(r.slice(2,4))}:${parseInt(r.slice(4,6))}`;
     }
     return r;
 }
@@ -505,10 +525,14 @@ function goToWord(ref,enc) {
 
 /* ── 文脈＋構造パネル（タップで展開） ──────────────── */
 
-// 節の全トークンをrefで取得
+// 同じ節のトークンを取得 — ref "ROM 1:5!1" の章:節部分で照合
 function getVerseTokens(ref) {
     if (!window._morphData || !ref) return [];
-    return window._morphData.filter(e => String(e.ref) === String(ref));
+    // "ROM 1:5!1" → "ROM 1:5" をプレフィックスとして同節の全語を取得
+    const prefix = String(ref).replace(/!.*$/, '').trim();
+    return window._morphData.filter(e =>
+        String(e.ref||'').replace(/!.*$/, '').trim() === prefix
+    );
 }
 
 // 表示テキスト（句読点除去）
@@ -734,23 +758,6 @@ renderBreadcrumb(); renderCoreChips(); renderExtChips(); renderBookChips(); rend
 
     // ③ 両方揃ってから描画
     window._morphData = allData;
-
-    // ★ デバッグ: ref形式と_jaMapのキーを照合確認
-    const sampleEntry = allData[0];
-    console.log('[Debug] sample entry.ref:', JSON.stringify(sampleEntry?.ref));
-    console.log('[Debug] sample entry keys:', Object.keys(sampleEntry||{}));
-    console.log('[Debug] _jaMap size:', _jaMap.size);
-    if (_jaMap.size > 0) {
-        const firstKey = _jaMap.keys().next().value;
-        console.log('[Debug] _jaMap first key:', firstKey, '→', _jaMap.get(firstKey)?.slice(0,30));
-    }
-    // ROM 1:5 のrefを直接確認
-    const romSample = allData.find(e => String(e.ref||'').startsWith('06'));
-    if (romSample) {
-        console.log('[Debug] ROM sample ref:', JSON.stringify(romSample.ref));
-        console.log('[Debug] _jaMap.get(romSample.ref):', _jaMap.get(String(romSample.ref)));
-    }
-
     loadEl.style.display = 'none';
     listEl.style.display = 'flex';
     renderResults(allData);
