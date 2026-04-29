@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>形態論検索 — ウオノ門</title>
+<title>形態論検索 — 聖書ノ門</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -458,18 +458,30 @@ function renderResults(allData) {
     renderPage();
 }
 
+// entry.ref "ROM 1:5!3" → _jaMapキー "060105"
+const _refToJaKey = (() => {
+    const KEY_TO_CODE = {};
+    Object.entries(BOOK_MAP).forEach(([code, key]) => { KEY_TO_CODE[key] = code; });
+    return function(ref) {
+        const m = String(ref||'').match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+        if (!m) return null;
+        const code = KEY_TO_CODE[m[1]];
+        if (!code) return null;
+        return `${code}${String(m[2]).padStart(2,'0')}${String(m[3]).padStart(2,'0')}`;
+    };
+})();
+
+function getJaVerse(entry) {
+    // ① _jaMap から節全体の訳を取得
+    const key = _refToJaKey(entry.ref);
+    if (key && _jaMap.has(key)) return _jaMap.get(key);
+    // ② フォールバック：gloss（語の意味）
+    return entry.gloss || entry.english || '';
+}
+
 function renderPage() {
     const el   = document.getElementById('result-list');
     const rows = _currentRows;
-
-    // デバッグ：最初の1件のjapaneseフィールドを確認
-    if (rows.length > 0 && !window._jaDebugDone) {
-        window._jaDebugDone = true;
-        const e = rows[0];
-        console.log('[JA Debug] japanese:', JSON.stringify(e.japanese));
-        console.log('[JA Debug] english:', JSON.stringify(e.english));
-        console.log('[JA Debug] gloss:', JSON.stringify(e.gloss));
-    }
 
     if (!rows.length) {
         el.innerHTML = `<div class="empty-state"><div class="empty-icon">∅</div>条件に一致する語形が見つかりませんでした。<br>拡張条件をOFFにするか、書物範囲を広げてみてください。</div>`;
@@ -482,8 +494,7 @@ function renderPage() {
     el.innerHTML = slice.map((entry, idx) => {
         const word     = entry.word || entry.normalized || entry.text || '';
         const refLabel = buildRefLabel(entry.ref);
-        // entry.japanese が直接節の日本語訳を持っている
-        const jaText   = entry.japanese || '';
+        const jaText   = getJaVerse(entry);
         // 日本語訳があれば本文表示、なければ見出し語にフォールバック
         const mainHTML = jaText
             ? `<span class="result-ja">${jaText}</span>`
