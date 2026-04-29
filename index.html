@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>聖書ノ門｜言語の壁を超える</title>
+    <title>ウオノ門</title>
+    <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -280,7 +281,7 @@
     <nav id="nav-sidebar" class="nav-sidebar">
         <div class="sidebar-top">
             <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
-            <span class="menu-text sidebar-logo">聖書ノ門</span>
+            <span class="menu-text sidebar-logo">ウオノ門</span>
         </div>
         <div class="sidebar-menu">
 
@@ -461,8 +462,7 @@ function decorate(wordText, wordData) {
 
     const strong = String(m.strong || "").replace(/[^0-9]/g, ""); 
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
-    const lemmaAttr = (m.lemma||'').replace(/"/g,'&quot;');
-    return `<div class="word-card" data-lemma="${lemmaAttr}" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}', this.dataset.lemma)">
+    return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}')">
                 <div>
                     <span class="greek-word ${styleClass}">${wordText}</span>${middleStar}
                     <span style="font-weight:bold; margin-left:5px; font-size:0.9rem;">［${info?.japanese || "？"}］</span>
@@ -517,7 +517,7 @@ function parseMorphForSearch(rawMorph) {
 }
 
 /* 形態論検索ページへ遷移 */
-function goMorphSearch(greek, rawMorph, ref, lemma, strong) {
+function goMorphSearch(greek, rawMorph, ref) {
     const m = parseMorphForSearch(rawMorph);
     const p = new URLSearchParams();
 
@@ -535,8 +535,6 @@ function goMorphSearch(greek, rawMorph, ref, lemma, strong) {
     // メタ（パンくず用）
     if (ref)   p.set('ref',  ref);
     if (greek) p.set('word', greek);
-    if (lemma) p.set('lemma', lemma);
-    if (strong) p.set('strong', strong);
 
     window.open(`morph-search.html?${p.toString()}`, '_blank');
 }
@@ -556,14 +554,13 @@ function buildMorphTagsHTML(rawMorph) {
     };
 
     const tags = [];
-    if (m.pos)    tags.push({ label: JPN.pos[m.pos], core: true });
-    if (m.mood)   tags.push({ label: JPN.mood[m.mood], core: true });
-    if (m.tense)  tags.push({ label: JPN.tense[m.tense], core: true });
-    if (m.voice)  tags.push({ label: JPN.voice[m.voice], core: false });
-    if (m.person) tags.push({ label: JPN.person[m.person], core: false });
-    if (m.number) tags.push({ label: JPN.number[m.number], core: false });
-    if (m.case)   tags.push({ label: JPN.case[m.case], core: false });
-    if (m.gender) tags.push({ label: JPN.gender[m.gender], core: false });
+    if (m.pos)    tags.push({ label: JPN.pos[m.pos]    || m.pos,    core: true });
+    if (m.tense)  tags.push({ label: JPN.tense[m.tense]|| m.tense,  core: true });
+    if (m.voice)  tags.push({ label: JPN.voice[m.voice]|| m.voice,  core: false });
+    if (m.mood)   tags.push({ label: JPN.mood[m.mood]  || m.mood,   core: true });
+    if (m.gender) tags.push({ label: JPN.gender[m.gender]|| m.gender, core: false });
+    if (m.number) tags.push({ label: JPN.number[m.number]|| m.number, core: false });
+    if (m.case)   tags.push({ label: JPN.case[m.case]  || m.case,   core: false });
 
     if (tags.length === 0) return '';
     return `<div class="morph-tag-row">
@@ -571,7 +568,7 @@ function buildMorphTagsHTML(rawMorph) {
     </div>`;
 }
 
-function showDetail(greek, strong, jpMorph, rawMorph, lemma) {
+function showDetail(greek, strong, jpMorph, rawMorph) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
@@ -598,9 +595,8 @@ function showDetail(greek, strong, jpMorph, rawMorph, lemma) {
     const morphTagsHTML = buildMorphTagsHTML(rawMorph);
     const canSearch = ['V','N','A','R','P','T','D'].includes(parts[0]);
     const currentRef = document.getElementById('active-v')?.innerText?.replace(' 節','') || '';
-    const lemmaEscaped = (lemma||'').replace(/"/g,'&quot;');
     const searchBtnHTML = canSearch ? `
-        <button class="morph-search-btn" data-lemma="${lemmaEscaped}" data-strong="${strong}" data-greek="${greek.replace(/"/g,'&quot;')}" data-morph="${rawMorph}" data-ref="${currentRef}" onclick="goMorphSearch(this.dataset.greek, this.dataset.morph, this.dataset.ref, this.dataset.lemma, this.dataset.strong)">
+        <button class="morph-search-btn" onclick="goMorphSearch('${greek.replace(/'/g,"\\'")}', '${rawMorph}', '${currentRef}')">
             <span class="btn-icon">⊕</span>
             形態で検索
         </button>` : '';
@@ -614,6 +610,7 @@ function showDetail(greek, strong, jpMorph, rawMorph, lemma) {
             <button onclick="closeDetail()" style="background:none; border:none; font-size:1.4rem; cursor:pointer; color:var(--text-sub); line-height:1;">&times;</button>
         </div>
         <div class="detail-body">
+            <div style="font-weight:700; font-size:0.82rem; color:var(--text-main);">${jpMorph}</div>
             ${morphTagsHTML}
             <div class="grammar-legend">${legends.join(" ")}</div>
             <p style="margin:10px 0 6px;"><strong style="color:var(--highlight);">基本義</strong>　${info?.japanese || '---'}</p>
