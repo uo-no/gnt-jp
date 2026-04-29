@@ -291,9 +291,10 @@ const NUMBER_CODE = { S:'singular',P:'plural' };
 const GENDER_CODE = { M:'masculine',F:'feminine',N:'neuter' };
 
 function decodeMorph(entry) {
-    // ★ entry に tense/voice/mood 等が直接フィールドとして存在する場合（最優先）
+    const norm = v => (!v || v === '-') ? '' : v;
+
+    // ① entry に形態素が直接フィールドとして存在する（最優先）
     if (entry.tense || entry.mood || entry.voice) {
-        const norm = v => (!v || v === '-') ? '' : v;
         return {
             pos:    norm(entry.pos || entry.class || '').replace(/-$/,''),
             tense:  norm(entry.tense),
@@ -305,29 +306,33 @@ function decodeMorph(entry) {
             person: norm(entry.person),
         };
     }
+
+    // ② morph がオブジェクト形式
+    if (entry.morph && typeof entry.morph === 'object') {
         const m = entry.morph;
-        const n = v => (!v || v==='-') ? '' : v;
         return {
-            pos:    (entry.pos||'').replace(/-$/,''),
-            tense:  n(m.tense), voice: n(m.voice), mood: n(m.mood),
-            case:   n(m.case),  number:n(m.number),gender:n(m.gender), person:n(m.person),
+            pos:    norm(entry.pos || '').replace(/-$/,''),
+            tense:  norm(m.tense),  voice:  norm(m.voice),  mood:   norm(m.mood),
+            case:   norm(m.case),   number: norm(m.number), gender: norm(m.gender),
+            person: norm(m.person),
         };
     }
-    /* 文字列コード形式 "V-AAI3S" / "N-NSM" */
+
+    // ③ morph が文字列コード "V-AAI3S" / "N-NSM"
     const raw   = typeof entry.morph === 'string' ? entry.morph : '';
     const parts = raw.split('-');
-    const pos   = (entry.pos || parts[0] || '').replace(/-$/,'');
+    const pos   = norm(entry.pos || parts[0] || '').replace(/-$/,'');
 
     if (pos.toUpperCase() === 'V' && parts[1]) {
         const seg = parts[1];
         const off = /^[0-9]/.test(seg) ? 1 : 0;
         return {
             pos,
-            tense:  TENSE_CODE[seg[off]]     || '',
-            voice:  VOICE_CODE[seg[off+1]]   || '',
-            mood:   MOOD_CODE[seg[off+2]]    || '',
-            person: seg[off+3]               || '',
-            number: NUMBER_CODE[seg[off+4]]  || '',
+            tense:  TENSE_CODE[seg[off]]    || '',
+            voice:  VOICE_CODE[seg[off+1]]  || '',
+            mood:   MOOD_CODE[seg[off+2]]   || '',
+            person: seg[off+3]              || '',
+            number: NUMBER_CODE[seg[off+4]] || '',
             gender: '', case: '',
         };
     }
@@ -343,7 +348,7 @@ function decodeMorph(entry) {
             gender: GENDER_CODE[b[2]] || '',
         };
     }
-    return { pos, tense:'',voice:'',mood:'',case:'',number:'',gender:'',person:'' };
+    return { pos, tense:'', voice:'', mood:'', case:'', number:'', gender:'', person:'' };
 }
 
 /* ── マッチング ──────────────────────────────────────── */
