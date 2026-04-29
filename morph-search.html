@@ -267,6 +267,20 @@ function syncURL() {
     history.replaceState(null,'','?'+p.toString());
 }
 
+/* ── entry.class フルネーム → 1文字コード変換 ────────── */
+const CLASS_TO_POS = {
+    'verb':'V', 'noun':'N', 'adjective':'A',
+    'article':'T', 'preposition':'P', 'conjunction':'C',
+    'adverb':'D', 'particle':'X', 'interjection':'I',
+    'pronoun':'P', 'relative pronoun':'R',
+    'personal pronoun':'P', 'demonstrative pronoun':'D',
+};
+function entryPosCode(entry) {
+    if (entry.pos) return String(entry.pos).replace(/-$/,'').toUpperCase();
+    if (entry.class) return CLASS_TO_POS[String(entry.class).toLowerCase()] || '';
+    return '';
+}
+
 /* ── 形態素コード → オブジェクト変換 ─────────────────── */
 const TENSE_CODE  = { P:'present',I:'imperfect',F:'future',A:'aorist',X:'perfect',Z:'pluperfect' };
 const VOICE_CODE  = { A:'active',M:'middle',P:'passive',D:'middle deponent',E:'middle or passive',N:'middle or passive' };
@@ -281,7 +295,7 @@ function decodeMorph(entry) {
     // ① entry に形態素が直接フィールドとして存在する（最優先）
     if (entry.tense || entry.mood || entry.voice) {
         return {
-            pos:    norm(entry.pos || entry.class || '').replace(/-$/,''),
+            pos:    entryPosCode(entry),
             tense:  norm(entry.tense),
             voice:  norm(entry.voice),
             mood:   norm(entry.mood),
@@ -337,37 +351,22 @@ function decodeMorph(entry) {
 }
 
 /* ── マッチング ──────────────────────────────────────── */
-let _matchDebugDone = false;
 function matchEntry(entry) {
-    if (!_matchDebugDone) {
-        _matchDebugDone = true;
-        const m = decodeMorph(entry);
-        console.log('[Match Debug]',
-            'pos:', entry.pos,
-            'class:', entry.class,
-            'tense:', entry.tense,
-            'mood:', entry.mood,
-            'voice:', entry.voice,
-            'decoded:', JSON.stringify(m),
-            'params.pos:', params.pos,
-            'params.tense:', params.tense,
-            'params.mood:', params.mood
-        );
-    }
     /* ── 書物フィルター ── */
     if (!bookState.every(g => g.enabled)) {
         const enabledBooks = new Set(
             bookState.filter(g => g.enabled).flatMap(g => g.books)
         );
-        // _bookKey（フォルダ名）またはref先頭の書物コード（"ROM"等）で照合
         const bk = entry._bookKey || getBookKey(entry);
         if (!bk || !enabledBooks.has(bk)) return false;
     }
 
+    /* ── 品詞フィルター ── */
+    const sp = params.pos.replace(/-$/,'').toUpperCase();
+    if (sp && entryPosCode(entry) !== sp) return false;
+
+    /* ── 形態素フィルター ── */
     const m = decodeMorph(entry);
-    const sp = params.pos.replace(/-$/,'');
-    const entryPos = (entry.pos || entry.class || m.pos || '').replace(/-$/,'');
-    if (sp && entryPos.toUpperCase() !== sp.toUpperCase()) return false;
     if (params.tense && m.tense !== params.tense) return false;
     if (params.mood  && m.mood  !== params.mood)  return false;
     if (params.voice) {
@@ -376,6 +375,8 @@ function matchEntry(entry) {
             || (params.voice==='passive' && m.voice==='middle or passive');
         if (!ok) return false;
     }
+
+    /* ── 拡張条件 ── */
     for (const f of extState) {
         if (!f.enabled || !f.value) continue;
         if ((m[f.key]||'') !== f.value) return false;
