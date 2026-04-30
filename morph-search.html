@@ -17,10 +17,10 @@
     --highlight-light: rgba(90,110,130,0.10);
     --border-soft:     rgba(0,0,0,0.08);
 }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(--bg-paper); color: var(--text-main); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
 .page { max-width: 720px; margin: 0 auto; padding: 28px 24px 80px; }
-
 .nav-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
 .btn-back { display: inline-flex; align-items: center; gap: 5px; padding: 5px 13px; font-size: 0.8rem; font-family: inherit; border: 1px solid var(--border-soft); border-radius: 20px; background: transparent; cursor: pointer; color: var(--text-sub); transition: background 0.12s; }
 .btn-back:hover { background: var(--bg-panel); }
@@ -37,8 +37,8 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
 .filter-section { padding: 12px 16px; }
 .filter-section + .filter-section { border-top: 1px solid var(--border-soft); }
 .filter-section-label { font-size: 0.62rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; }
 .chip-core { background: rgba(90,110,130,0.08); border: 1px solid rgba(90,110,130,0.15); color: var(--highlight); font-weight: 600; }
 .chip-core .chip-key { font-size: 0.62rem; color: var(--text-sub); font-weight: 400; }
@@ -110,6 +110,7 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
     gap: 10px;
     min-height: 24px;
 }
+
 .ctx-role {
     flex-shrink: 0;
     width: 48px;
@@ -120,18 +121,27 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
     opacity: 0.75;
     padding-top: 2px;
 }
+
 .ctx-tokens {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
     gap: 4px;
 }
+
 .ctx-token {
     font-family: 'Gentium Plus', serif;
     font-size: 1.05rem;
     line-height: 1.6;
 }
+
 .ctx-sep { color: #ccc; font-size: 0.7rem; }
+
+/* ── 構文ツリー追加CSS ── */
+.ctx-structure { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ctx-node { display: flex; flex-direction: column; align-items: center; background: var(--bg-panel); padding: 6px 10px; border-radius: 8px; min-width: 48px; }
+.ctx-arrow { font-size: 0.9rem; color: var(--text-sub); opacity: 0.6; flex-shrink: 0; }
+.ctx-ja { font-size: 0.72rem; color: var(--text-sub); margin-top: 2px; }
 
 /* ── フッター ── */
 .app-footer {
@@ -142,6 +152,7 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
     align-items: center;
     justify-content: space-between;
 }
+
 .footer-copy { font-size: 0.7rem; color: var(--text-sub); letter-spacing: 0.01em; }
 .footer-links { display: flex; gap: 18px; }
 .footer-links a {
@@ -151,12 +162,13 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
     padding-bottom: 1px;
     transition: color 0.15s;
 }
+
 .footer-links a:hover { color: var(--text-main); }
 </style>
 </head>
+
 <body>
 <div class="page">
-
     <div class="nav-bar">
         <button class="btn-back" onclick="window.close(); if(!window.opener) history.back();">← 戻る</button>
         <div class="breadcrumb">
@@ -179,10 +191,12 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
             <div class="filter-section-label">コア条件（必須）</div>
             <div class="chips" id="core-chips"></div>
         </div>
+
         <div class="filter-section">
             <div class="filter-section-label">拡張条件 — タップで ON / OFF</div>
             <div class="chips" id="ext-chips"></div>
         </div>
+
         <div class="filter-section">
             <div class="filter-section-label">書物範囲 — タップで ON / OFF</div>
             <div class="chips" id="book-chips"></div>
@@ -198,6 +212,7 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
         <div style="margin-bottom:8px;font-family:'Gentium Plus',serif;font-size:1.4rem;color:#ccc;">ἀναζητεῖ</div>
         <span class="loading-dot">・</span><span class="loading-dot">・</span><span class="loading-dot">・</span>
     </div>
+
     <div class="result-list" id="result-list"></div>
 
     <footer class="app-footer">
@@ -207,8 +222,9 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
         </div>
     </footer>
 </div>
-
+   
 <script>
+
 /* ── ラベルマップ ─────────────────────────────────────── */
 const TENSE_JP  = { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'過去完了' };
 const VOICE_JP  = { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' };
@@ -253,6 +269,7 @@ function getBookKey(entry) {
     if (entry.book != null && entry.book !== '') {
         return BOOK_MAP[String(entry.book).padStart(2,'0')] || null;
     }
+
     if (entry.ref) {
         const m = String(entry.ref).match(/^([A-Z0-9]+)/);
         if (m) return m[1];
@@ -276,6 +293,7 @@ function getSearchParams() {
         word:   p.get('word')  || '',
     };
 }
+
 const params = getSearchParams();
 
 let extState = [
@@ -302,6 +320,7 @@ const CLASS_TO_POS = {
     'pronoun':'P', 'relative pronoun':'R',
     'personal pronoun':'P', 'demonstrative pronoun':'D',
 };
+
 function entryPosCode(entry) {
     if (entry.pos) return String(entry.pos).replace(/-$/,'').toUpperCase();
     if (entry.class) return CLASS_TO_POS[String(entry.class).toLowerCase()] || '';
@@ -362,6 +381,7 @@ function decodeMorph(entry) {
             gender: '', case: '',
         };
     }
+
     if (parts[1]) {
         const seg = parts[1];
         const hp  = ['1','2','3'].includes(seg[0]);
@@ -434,11 +454,13 @@ function renderBreadcrumb() {
     document.getElementById('bc-ref').textContent  = params.ref  || '詳細';
     document.getElementById('bc-word').textContent = params.word || '—';
 }
+
 function renderMeaning() {
     const {title,sub} = buildDescription();
     document.getElementById('meaning-title').textContent = title;
     document.getElementById('meaning-sub').textContent   = sub;
 }
+
 function renderCoreChips() {
     const defs = [
         { label:'品詞', val: POS_JP[params.pos.replace(/-$/,'')]||params.pos },
@@ -450,6 +472,7 @@ function renderCoreChips() {
         `<div class="chip chip-core"><span class="chip-key">${d.label}</span><span>${d.val}</span></div>`
     ).join('');
 }
+
 function renderExtChips() {
     const el = document.getElementById('ext-chips');
     if (!extState.length) { el.innerHTML='<span style="font-size:0.72rem;color:#bbb;">拡張条件なし</span>'; return; }
@@ -461,6 +484,7 @@ function renderExtChips() {
             <span>${MAP[f.key]?.[f.value]||f.value}</span>
         </div>`).join('');
 }
+
 function renderBookChips() {
     document.getElementById('book-chips').innerHTML = bookState.map((g,i)=>`
         <div class="chip chip-ext ${g.enabled?'on':'off'}" onclick="toggleBook(${i})">
@@ -522,6 +546,7 @@ function renderPage() {
         const word     = entry.word || entry.normalized || entry.text || '';
         const refLabel = buildRefLabel(entry.ref);
         const jaText   = getJaVerse(entry);
+
         // 日本語訳があれば本文表示、なければ見出し語にフォールバック
         const mainHTML = jaText
             ? `<span class="result-ja">${jaText}</span>`
@@ -554,6 +579,7 @@ function buildRefLabel(ref) {
         const bookName = BOOK_JP[m[1]] || m[1];
         return `${bookName} ${m[2]}:${m[3]}`;
     }
+
     // 形式② "060101"（6桁数字）
     if (r.length === 6 && /^\d+$/.test(r)) {
         const bookKey  = BOOK_MAP[r.slice(0,2)];
@@ -577,7 +603,6 @@ function goToWord(ref,enc) {
 }
 
 /* ── 文脈＋構造パネル（タップで展開） ──────────────── */
-
 // 同じ節のトークンを取得 — ref "ROM 1:5!1" の章:節部分で照合
 function getVerseTokens(ref) {
     if (!window._morphData || !ref) return [];
@@ -601,6 +626,7 @@ function getRole(entry) {
         if (!m.mood || m.mood==='infinitive'||m.mood==='participle') return 'mod';
         return 'verb';
     }
+
     if (pos === 'P') return 'prep';   // 前置詞（句の先頭）
     if (['N','T','A','D','R'].includes(pos)) {
         if (m.case==='nominative') return 'subj';
@@ -616,6 +642,7 @@ const ROLE_LABEL = {
     verb:'動詞', subj:'主語', obj:'目的語',
     phr:'修飾', prep:'前置詞句', mod:'準動詞', other:''
 };
+
 // 役割カラー（CSS変数ではなく直値で安定させる）
 const ROLE_COLOR = {
     verb:'#4a7fa5', subj:'#5a8a6e', obj:'#9a6040',
@@ -677,6 +704,7 @@ function toggleContext(cardEl, ref, wordEnc) {
     groups.forEach(g => {
         const text = g.members.map(cleanText).filter(Boolean).join(' ');
         if (!text) return;
+
         // ヒット語を含むグループは強調フラグ
         const isHit = g.members.some(m => cleanText(m) === hitWord ||
             (m.word||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'') === hitWord);
@@ -684,21 +712,23 @@ function toggleContext(cardEl, ref, wordEnc) {
     });
 
     // ── HTML生成 ──────────────────────────────────────
-    const rows = ORDER.filter(r => buckets[r].length > 0 && ROLE_LABEL[r]).map(role => {
-        const color = ROLE_COLOR[role];
-        const items = buckets[role].map(item => {
-            const hit = item.isHit
-                ? `style="color:${color};font-weight:700;border-bottom:2px solid ${color};"`
-                : `style="color:var(--text-main);"`;
-            return `<span class="ctx-token" ${hit}>${item.text}</span>`;
-        }).join('<span class="ctx-sep">・</span>');
-
-        return `<div class="ctx-row">
-            <span class="ctx-role" style="color:${color};">${ROLE_LABEL[role]}</span>
-            <span class="ctx-tokens">${items}</span>
-        </div>`;
-    }).join('');
-
+// ── HTML生成（構文ツリー：ノード＋矢印） ──────────
+const visibleRoles = ORDER.filter(r => buckets[r].length > 0 && ROLE_LABEL[r]);
+const nodeHTMLs = visibleRoles.map(role => {
+const color = ROLE_COLOR[role];
+const items = buckets[role].map(item => {
+const hit = item.isHit
+? `style="color:${color};font-weight:700;border-bottom:2px solid ${color};"`
+: `style="color:var(--text-main);"`;
+return `<span class="ctx-token" ${hit}>${item.text}</span>`;
+}).join('<span class="ctx-sep">・</span>');
+return `<div class="ctx-node"><span class="ctx-role" style="color:${color};">${ROLE_LABEL[role]}</span><span class="ctx-tokens">${items}</span></div>`;
+});
+const rows = nodeHTMLs.reduce((acc, node, i) => {
+acc += node;
+if (i < nodeHTMLs.length - 1) acc += '<div class="ctx-arrow">→</div>';
+return acc;
+}, '');
     // 原文一行（全語を順序どおり、ヒット語を色付け）
     const rawLine = tokens.map(e => {
         const t = cleanText(e);
@@ -714,7 +744,6 @@ function toggleContext(cardEl, ref, wordEnc) {
     panel.innerHTML = `
         <div class="ctx-raw">${rawLine}</div>
         <div class="ctx-structure">${rows}</div>`;
-
     cardEl.appendChild(panel);
     cardEl.classList.add('card-open');
 }
@@ -739,17 +768,20 @@ const BOOK_JP = {
     '1KI':'Ⅰ列王', '2KI':'Ⅱ列王', PSA:'詩篇', PRO:'箴言', ECC:'伝道',
     ISA:'イザヤ', JER:'エレミヤ', EZK:'エゼキエル', DAN:'ダニエル',
 };
+
 const ALL_BOOKS = [
     {key:'ROM',ch:16},{key:'1CO',ch:16},{key:'2CO',ch:13},{key:'GAL',ch:6},
     {key:'EPH',ch:6}, {key:'PHP',ch:4}, {key:'COL',ch:4}, {key:'1TH',ch:5},
     {key:'2TH',ch:3}, {key:'1TI',ch:6}, {key:'2TI',ch:4}, {key:'TIT',ch:3},
     {key:'PHM',ch:1},
 ];
+
 function buildAllChapterPaths() {
     const p=[];
     for (const b of ALL_BOOKS) for (let c=1;c<=b.ch;c++) p.push({key:b.key,ch:c,path:`./bible_data/${b.key}/${c}.json`});
     return p;
 }
+
 async function fetchInBatches(tasks,sz,onProg) {
     let all=[];
     for (let i=0;i<tasks.length;i+=sz) {
@@ -764,6 +796,7 @@ async function fetchInBatches(tasks,sz,onProg) {
                 })
             )
         );
+
         results.forEach(r=>{ if(r.status==='fulfilled'&&Array.isArray(r.value)) all=all.concat(r.value); });
         onProg(Math.min(i+sz,tasks.length),tasks.length);
     }
@@ -771,6 +804,7 @@ async function fetchInBatches(tasks,sz,onProg) {
 }
 
 /* ── 初期化 ──────────────────────────────────────────── */
+
 renderBreadcrumb(); renderCoreChips(); renderExtChips(); renderBookChips(); renderMeaning();
 
 (async function() {
@@ -817,6 +851,7 @@ renderBreadcrumb(); renderCoreChips(); renderExtChips(); renderBookChips(); rend
    { "book":"1CO", "chapter":1, "verses":{"1":"〜","2":"〜"} }
    → _jaMap に "070101" → "〜" の形で格納
    ===================================================== */
+
 async function fetchJaData(morphPaths) {
     const jaPaths = morphPaths.map(t => ({
         key:  t.key,
