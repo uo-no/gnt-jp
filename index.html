@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>011312｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05011702｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -281,7 +281,7 @@
     <nav id="nav-sidebar" class="nav-sidebar">
         <div class="sidebar-top">
             <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
-            <span class="menu-text sidebar-logo">ウオノ門</span>
+            <span class="menu-text sidebar-logo">コトバト</span>
         </div>
         <div class="sidebar-menu">
 
@@ -371,22 +371,17 @@ const JPN_MAP = {
 async function loadDict() {
     try {
         abbottSmithDict = {};
-        const resJp = await fetch('./macula-greek-SBLGNT.tsv');
-        const buffer = await resJp.arrayBuffer();
-        const decoder = new TextDecoder('utf-8');
-        const textJp = decoder.decode(buffer);
-        textJp.split(/\r?\n/).forEach((row, index) => {
-            if (index === 0 || !row.trim()) return;
-            const cols = row.split('\t');
-            const strong = String(cols[12]).replace(/[^0-9]/g, "");
-            if (strong) abbottSmithDict[strong] = { japanese: cols[6]?.trim() || "（未登録）", gloss: cols[5]?.trim() || "" };
-        });
+        // macula-greek-SBLGNT.tsv は不要（bible_data JSONに japanese/gloss が含まれるため）
+        // abbott-smith.tsv のみ読み込む（詳細解説文はJSONに含まれていないため）
         const resAbbott = await fetch('./abbott-smith.tsv');
+        if (!resAbbott.ok) return;
         const textAbbott = await resAbbott.text();
         textAbbott.split(/\r?\n/).forEach(row => {
             const cols = row.split('\t');
             const strong = String(cols[0]).trim();
-            if (abbottSmithDict[strong]) abbottSmithDict[strong].description = cols[2]?.trim() || "";
+            if (strong) {
+                abbottSmithDict[strong] = { description: cols[2]?.trim() || "" };
+            }
         });
     } catch (e) { console.error("Dict Error:", e); }
 }
@@ -461,12 +456,17 @@ function decorate(wordText, wordData) {
     }
 
     const strong = String(m.strong || "").replace(/[^0-9]/g, ""); 
-    const info = abbottSmithDict ? abbottSmithDict[strong] : null;
-    const lemma = String(m.lemma || "").replace(/'/g, "\\'");
-    return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}', '${lemma}')">
+    // JSONの各エントリに japanese / gloss フィールドが直接含まれているため
+    // abbottSmithDict（TSV由来）ではなくエントリ直接参照に切り替え
+    const jaWord  = m.japanese || m.gloss || (abbottSmithDict && abbottSmithDict[strong]?.japanese) || "？";
+    const desc    = m.description || (abbottSmithDict && abbottSmithDict[strong]?.description) || "解説なし";
+    const lemma   = String(m.lemma || "").replace(/'/g, "\\'");
+    const jaWordE = jaWord.replace(/'/g, "\\'");
+    const descE   = desc.replace(/'/g, "\\'").replace(/\n/g, '\\n');
+    return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}', '${lemma}', '${jaWordE}', '${descE}')">
                 <div>
                     <span class="greek-word ${styleClass}">${wordText}</span>${middleStar}
-                    <span style="font-weight:bold; margin-left:5px; font-size:0.9rem;">［${info?.japanese || "？"}］</span>
+                    <span style="font-weight:bold; margin-left:5px; font-size:0.9rem;">［${jaWord}］</span>
                     <span class="tag-jp">${jpMorph}</span>
                 </div>
                 <span class="strong-num">G${strong}</span>
@@ -570,10 +570,12 @@ function buildMorphTagsHTML(rawMorph) {
     </div>`;
 }
 
-function showDetail(greek, strong, jpMorph, rawMorph, lemma) {
+function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
-    const info = abbottSmithDict ? abbottSmithDict[strong] : null;
+    // jaWord / desc は decorate() から直接渡されるため abbottSmithDict 不要
+    const jaText  = jaWord || (abbottSmithDict?.[strong]?.japanese) || '---';
+    const descText = desc  || (abbottSmithDict?.[strong]?.description) || '解説なし';
     let classes = [], legends = [];
     
     const parts = rawMorph.split('-');
@@ -614,8 +616,8 @@ function showDetail(greek, strong, jpMorph, rawMorph, lemma) {
         <div class="detail-body">
             ${morphTagsHTML}
             <div class="grammar-legend">${legends.join(" ")}</div>
-            <p style="margin:10px 0 6px;"><strong style="color:var(--highlight);">基本義</strong>　${info?.japanese || '---'}</p>
-            <div style="background:var(--bg-panel); padding:12px; border-radius:8px; white-space:pre-wrap; font-size:0.85rem; color:var(--text-main); line-height:1.8;">${info?.description || "解説なし"}</div>
+            <p style="margin:10px 0 6px;"><strong style="color:var(--highlight);">基本義</strong>　${jaText}</p>
+            <div style="background:var(--bg-panel); padding:12px; border-radius:8px; white-space:pre-wrap; font-size:0.85rem; color:var(--text-main); line-height:1.8;">${descText}</div>
             ${searchBtnHTML}
         </div>`;
     
