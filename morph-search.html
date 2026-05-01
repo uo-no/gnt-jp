@@ -813,22 +813,34 @@ function selectBestExamples(matchedEntries, morphData, limit = 4) {
         candidates.push({ entry, tokens, score, type, ja });
     }
 
+    const typeCounts = {};
+    for (const c of candidates) {
+        typeCounts[c.type] = (typeCounts[c.type] || 0) + 1;
+    }
+    
+    // 最多パターン順にタイプをソート
+    const typesByFreq = Object.entries(typeCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([type]) => type);
+    
+    // スコア降順でソート
     candidates.sort((a, b) => b.score - a.score);
-
-    const TYPE_PRIORITY = ['basic', 'prep', 'ellipsis', 'other'];
+    
     const selected = [];
-
-    for (const type of TYPE_PRIORITY) {
+    
+    // 最多パターンから順に1件ずつ選出
+    for (const type of typesByFreq) {
         if (selected.length >= limit) break;
         const best = candidates.find(c => c.type === type && !selected.includes(c));
         if (best) selected.push(best);
     }
-
+    
+    // 残り枠をスコア順で埋める
     for (const c of candidates) {
         if (selected.length >= limit) break;
         if (!selected.includes(c)) selected.push(c);
     }
-
+    
     return selected;
 }
 
