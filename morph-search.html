@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>2605011313形態論検索 — コトバト</title>
+<title>2605011330形態論検索 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -725,32 +725,141 @@ function analyzePatterns(matched) {
 }
 
 /* ③ 代表用例を選出（節が短い＋ヒット語を含む） */
-function selectTopExamples(matched, n = 4) {
-    if (!matched.length || !window._morphData) return [];
+/* ═══════════════════════════════════════════════════════════════
+   用例選出モジュール — コイネーギリシャ語形態論検索
+   既存のグローバル関数 decodeMorph / entryPosCode / cleanText に依存
+   ═══════════════════════════════════════════════════════════════ */
 
-    const seen = new Set();
+function scoreVerse(tokens, hitWord) {
+    let score = 0;
+    const wordCount = tokens.length;
+    let hasVerb = false;
+    let hasSubj = false;
+    let hasObj  = false;
+    let hasPrep = false;
+    let hasHit  = false;
+
+    for (const t of tokens) {
+        const m   = decodeMorph(t);
+        const pos = (m.pos || '').toUpperCase();
+        const w   = cleanText(t);
+
+        if (w && normalizeGreek(w) === normalizeGreek(hitWord)) hasHit = true;
+        if (pos === 'V' && m.mood && m.mood !== 'participle' && m.mood !== 'infinitive') hasVerb = true;
+        if (pos === 'P') hasPrep = true;
+        if (['N','T','A','D','R'].includes(pos)) {
+            if (m.case === 'nominative') hasSubj = true;
+            if (m.case === 'accusative') hasObj  = true;
+        }
+    }
+
+    if (hasHit)  score += 30;
+    if (hasVerb) score += 20;
+    if (hasSubj) score += 15;
+    if (hasObj)  score += 12;
+    if (hasPrep) score +=  8;
+
+    if      (wordCount >= 4  && wordCount <= 7)  score += 15;
+    else if (wordCount >= 8  && wordCount <= 12) score +=  8;
+    else if (wordCount >= 13 && wordCount <= 18) score +=  2;
+    else if (wordCount > 18)  score -= 10;
+    else if (wordCount <= 3)  score -=  5;
+
+    score += [hasVerb, hasSubj, hasObj].filter(Boolean).length * 3;
+
+    return score;
+}
+
+function classifyVerseType(tokens) {
+    let hasVerb = false;
+    let hasSubj = false;
+    let hasPrep = false;
+
+    for (const t of tokens) {
+        const m   = decodeMorph(t);
+        const pos = (m.pos || '').toUpperCase();
+        if (pos === 'V' && m.mood && m.mood !== 'participle' && m.mood !== 'infinitive') hasVerb = true;
+        if (pos === 'P') hasPrep = true;
+        if (['N','T','A','D','R'].includes(pos) && m.case === 'nominative') hasSubj = true;
+    }
+
+    if (!hasVerb) return 'other';
+    if (hasPrep)  return 'prep';
+    if (hasSubj)  return 'basic';
+    return 'ellipsis';
+}
+
+function selectBestExamples(matchedEntries, morphData, limit = 4) {
+    if (!matchedEntries.length || !morphData) return [];
+
+    const seenVerses = new Set();
     const candidates = [];
 
-    for (const entry of matched) {
-        const prefix = String(entry.ref||'').replace(/!.*$/,'').trim();
-        if (seen.has(prefix)) continue;
-        seen.add(prefix);
+    for (const entry of matchedEntries) {
+        const verseId = String(entry.ref || '').replace(/!.*$/, '').trim();
+        if (!verseId || seenVerses.has(verseId)) continue;
+        seenVerses.add(verseId);
 
-        const tokens = window._morphData.filter(t =>
-            String(t.ref||'').replace(/!.*$/,'').trim() === prefix
+        const tokens = morphData.filter(t =>
+            String(t.ref || '').replace(/!.*$/, '').trim() === verseId
         );
         if (!tokens.length) continue;
 
-        const wordCount = tokens.length;
-        const hasVerb   = tokens.some(t => entryPosCode(t) === 'V');
-        const ja = getJaVerse(entry);
+        const hitWord = entry.word || entry.normalized || entry.text || '';
+        const score   = scoreVerse(tokens, hitWord);
+        const type    = classifyVerseType(tokens);
+        const ja      = (typeof getJaVerse === 'function') ? getJaVerse(entry) : '';
 
-        // スコア：短い節ほど高く、動詞があると+ボーナス
-        const score = (hasVerb ? 20 : 0) - wordCount + (ja ? 5 : 0);
-        candidates.push({ entry, tokens, score, ja });
+        candidates.push({ entry, tokens, score, type, ja });
     }
 
-    return candidates.sort((a,b) => b.score - a.score).slice(0, n);
+    candidates.sort((a, b) => b.score - a.score);
+
+    const TYPE_PRIORITY = ['basic', 'prep', 'ellipsis', 'other'];
+    const selected = [];
+
+    for (const type of TYPE_PRIORITY) {
+        if (selected.length >= limit) break;
+        const best = candidates.find(c => c.type === type && !selected.includes(c));
+        if (best) selected.push(best);
+    }
+
+    for (const c of candidates) {
+        if (selected.length >= limit) break;
+        if (!selected.includes(c)) selected.push(c);
+    }
+
+    return selected;
+}
+
+function selectTopExample(matchedEntries, morphData) {
+    const results = selectBestExamples(matchedEntries, morphData, 1);
+    return results.length ? results[0] : null;
+}
+
+function getExampleDescription(example) {
+    if (!example) return '';
+    const { type, tokens } = example;
+    let hasObj = false;
+    let verbMood = '';
+
+    for (const t of tokens) {
+        const m   = decodeMorph(t);
+        const pos = (m.pos || '').toUpperCase();
+        if (['N','T','A','D','R'].includes(pos) && m.case === 'accusative') hasObj = true;
+        if (pos === 'V' && m.mood && m.mood !== 'participle' && m.mood !== 'infinitive') verbMood = m.mood || '';
+    }
+
+    switch (type) {
+        case 'basic':
+            return hasObj ? '主語・動詞・目的語が揃った典型的な構文です' : '主語と動詞が明示された基本構文です';
+        case 'prep':
+            return hasObj ? '目的語と前置詞句を伴う、関係性が明確な構文です' : '前置詞句を伴う用法を示しています';
+        case 'ellipsis':
+            return verbMood === 'imperative' ? '主語が省略された命令形の用例です（動詞中心の構造）' : '主語が省略され、動詞を中心として展開する構文です';
+        default:
+            return 'この形の用法を示す用例です';
+    }
 }
 
 /* ④ インサイトパネルをレンダリング */
@@ -760,7 +869,7 @@ function renderInsight(matched, totalSamePos) {
 
     const dist     = calcDistribution(matched);
     const patterns = analyzePatterns(matched);
-    const examples = selectTopExamples(matched);
+    const examples = selectBestExamples(matched, window._morphData);
     const total    = matched.length;
 
     // バー幅の基準：全体件数（totalSamePos）があればそれを使い、
