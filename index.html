@@ -256,7 +256,7 @@
         display: flex;
         flex-wrap: wrap;
         gap: 5px;
-        margin: 0px 0 4px;
+        margin: 8px 0 4px;
     }
     .morph-tag-pill {
         font-size: 0.7rem;
@@ -281,7 +281,7 @@
     <nav id="nav-sidebar" class="nav-sidebar">
         <div class="sidebar-top">
             <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
-            <span class="menu-text sidebar-logo">コトバト</span>
+            <span class="menu-text sidebar-logo">ウオノ門</span>
         </div>
         <div class="sidebar-menu">
 
@@ -462,7 +462,8 @@ function decorate(wordText, wordData) {
 
     const strong = String(m.strong || "").replace(/[^0-9]/g, ""); 
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
-    return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}')">
+    const lemma = String(m.lemma || "").replace(/'/g, "\\'");
+    return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}', '${lemma}')">
                 <div>
                     <span class="greek-word ${styleClass}">${wordText}</span>${middleStar}
                     <span style="font-weight:bold; margin-left:5px; font-size:0.9rem;">［${info?.japanese || "？"}］</span>
@@ -517,7 +518,7 @@ function parseMorphForSearch(rawMorph) {
 }
 
 /* 形態論検索ページへ遷移 */
-function goMorphSearch(greek, rawMorph, ref) {
+function goMorphSearch(greek, rawMorph, ref, lemma) {
     const m = parseMorphForSearch(rawMorph);
     const p = new URLSearchParams();
 
@@ -533,8 +534,9 @@ function goMorphSearch(greek, rawMorph, ref) {
     if (m.case)   p.set('case',   m.case);
 
     // メタ（パンくず用）
-    if (ref)   p.set('ref',  ref);
-    if (greek) p.set('word', greek);
+    if (ref)   p.set('ref',   ref);
+    if (greek) p.set('word',  greek);
+    if (lemma) p.set('lemma', lemma);
 
     window.open(`morph-search.html?${p.toString()}`, '_blank');
 }
@@ -568,7 +570,7 @@ function buildMorphTagsHTML(rawMorph) {
     </div>`;
 }
 
-function showDetail(greek, strong, jpMorph, rawMorph) {
+function showDetail(greek, strong, jpMorph, rawMorph, lemma) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
     const info = abbottSmithDict ? abbottSmithDict[strong] : null;
@@ -596,7 +598,7 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
     const canSearch = ['V','N','A','R','P','T','D'].includes(parts[0]);
     const currentRef = document.getElementById('active-v')?.innerText?.replace(' 節','') || '';
     const searchBtnHTML = canSearch ? `
-        <button class="morph-search-btn" onclick="goMorphSearch('${greek.replace(/'/g,"\\'")}', '${rawMorph}', '${currentRef}')">
+        <button class="morph-search-btn" onclick="goMorphSearch('${greek.replace(/'/g,"\\'")}', '${rawMorph}', '${currentRef}', '${(lemma||'').replace(/'/g,"\\'")}')">
             <span class="btn-icon">⊕</span>
             形態で検索
         </button>` : '';
@@ -610,6 +612,7 @@ function showDetail(greek, strong, jpMorph, rawMorph) {
             <button onclick="closeDetail()" style="background:none; border:none; font-size:1.4rem; cursor:pointer; color:var(--text-sub); line-height:1;">&times;</button>
         </div>
         <div class="detail-body">
+            <div style="font-weight:700; font-size:0.82rem; color:var(--text-main);">${jpMorph}</div>
             ${morphTagsHTML}
             <div class="grammar-legend">${legends.join(" ")}</div>
             <p style="margin:10px 0 6px;"><strong style="color:var(--highlight);">基本義</strong>　${info?.japanese || '---'}</p>
