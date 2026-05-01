@@ -1047,6 +1047,13 @@ function getRole(entry) {
     }
     return 'other';
 }
+
+function getJapanese(entry) {
+    if (entry.japanese) return entry.japanese;
+    const norm = entry.normalized || entry.word || entry.text || '';
+    return _japaneseMap.get(norm) || '';
+}
+    
 function groupTokens(tokens) {
     const groups=[]; let i=0;
     while (i<tokens.length) {
@@ -1090,7 +1097,7 @@ function toggleContext(cardEl, ref, wordEnc) {
 
     groups.forEach(g => {
     const text  = g.members.map(cleanText).filter(Boolean).join(' ');
-    const gloss = g.members.map(m => m.japanese || '').filter(Boolean).join('・');
+    const gloss = g.members.map(m => getJapanese(m)).filter(Boolean).join('・');
     if (!text) return;
     const isHit = g.members.some(m => cleanText(m) === hitWord ||
         (m.word||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'') === hitWord);
@@ -1229,6 +1236,7 @@ renderBreadcrumb(); renderCoreChips(); renderExtChips(); renderBookChips(); rend
     const s=document.getElementById('load-status');
     if(s)s.textContent='日本語訳を読み込み中...';
     await fetchJaData(paths);
+    await fetchJapaneseTSV();
 
     window._morphData=allData;
     loadEl.style.display='none';
@@ -1257,6 +1265,28 @@ async function fetchJaData(morphPaths) {
             })
         )
     );
+}
+
+const _japaneseMap = new Map();
+
+async function fetchJapaneseTSV() {
+    try {
+        const res = await fetch('./macula-greek-SBLGNT.tsv');
+        if (!res.ok) return;
+        const text = await res.text();
+        const lines = text.split('\n');
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split('\t');
+            if (cols.length < 12) continue;
+            const normalized = (cols[11] || '').trim();
+            const japanese   = (cols[6]  || '').trim();
+            if (normalized && japanese && !_japaneseMap.has(normalized)) {
+                _japaneseMap.set(normalized, japanese);
+            }
+        }
+    } catch(e) {
+        console.warn('TSV読み込み失敗:', e);
+    }
 }
 </script>
 </body>
