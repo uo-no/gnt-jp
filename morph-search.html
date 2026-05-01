@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>2605011330形態論検索 — コトバト</title>
+<title>2605011342形態論検索 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -1089,20 +1089,24 @@ function toggleContext(cardEl, ref, wordEnc) {
     ORDER.forEach(r => buckets[r] = []);
 
     groups.forEach(g => {
-        const text  = g.members.map(cleanText).filter(Boolean).join(' ');
-        if (!text) return;
-        const isHit = g.members.some(m => cleanText(m) === hitWord ||
-            (m.word||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'') === hitWord);
-        if (ORDER.includes(g.role)) buckets[g.role].push({ text, isHit });
+    const text  = g.members.map(cleanText).filter(Boolean).join(' ');
+    const gloss = g.members.map(m => m.japanese || '').filter(Boolean).join('・');
+    if (!text) return;
+    const isHit = g.members.some(m => cleanText(m) === hitWord ||
+        (m.word||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'') === hitWord);
+    if (ORDER.includes(g.role)) buckets[g.role].push({ text, gloss, isHit });
     });
 
     /* ── 階層ツリーHTML生成 ── */
     // 動詞ノード（ルート）
     const verbItems = buckets['verb'];
     const verbHTML = verbItems.length
-        ? verbItems.map(item => `
-            <span class="ctx-greek${item.isHit?' hit':''}">${item.text}</span>`).join(' ')
-        : '<span style="color:#ccc;font-size:0.8rem;">（動詞なし）</span>';
+    ? verbItems.map(item => `
+        <span class="ctx-greek${item.isHit?' hit':''}">
+            ${item.text}
+            ${item.gloss ? `<span style="font-family:'Noto Sans JP',sans-serif;font-size:0.62rem;color:var(--text-sub);margin-left:4px;">［${item.gloss}］</span>` : ''}
+        </span>`).join(' ')
+    : '<span style="color:#ccc;font-size:0.8rem;">（動詞なし）</span>';
 
     // 原文行（非表示・データ保持用）
     const rawLine = tokens.map(e => {
@@ -1118,7 +1122,10 @@ function toggleContext(cardEl, ref, wordEnc) {
         .map(role => {
             const color = ROLE_COLOR[role];
             const items = buckets[role].map(item =>
-                `<span class="ctx-greek${item.isHit?' hit':''}">${item.text}</span>`
+                `<span class="ctx-greek${item.isHit?' hit':''}">
+                    ${item.text}
+                    ${item.gloss ? `<span style="font-family:'Noto Sans JP',sans-serif;font-size:0.62rem;color:var(--text-sub);margin-left:4px;">［${item.gloss}］</span>` : ''}
+                </span>`
             ).join('　');
             return `<div class="ctx-tree-node" data-role="${role}">
                 <span class="ctx-role-tag" style="color:${color}">${ROLE_LABEL[role]}</span>
