@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>05011703｜形態論検索 — コトバト</title>
+<title>011353｜形態論検索 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -267,6 +267,18 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
 @keyframes pulse   { 0%,80%,100% { opacity:0.3; } 40% { opacity:1; } }
 @keyframes slideIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
 .animate-in { animation: slideIn 0.2s ease forwards; }
+
+/* ── 専門用語補足 ── */
+abbr.term-hint {
+    text-decoration: none;
+    cursor: default;
+}
+.term-hint-paren {
+    font-size: 0.78em;
+    color: var(--text-sub);
+    opacity: 0.75;
+    margin-left: 1px;
+}
 </style>
 </head>
 <body>
@@ -335,6 +347,43 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
 const TENSE_JP  = { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'過去完了' };
 const VOICE_JP  = { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' };
 const MOOD_JP   = { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' };
+
+/* ── 専門用語補足説明 ────────────────────────────────
+   用語が画面に表示される際に（）で補足を付ける
+   ===================================================== */
+const TERM_HINT = {
+    'アオリスト':   '点的完結・一回的な出来事',
+    '完了':         '過去の動作が今も影響している状態',
+    '過去完了':     '過去のある時点より前に完了した状態',
+    '未完了':       '過去における継続・反復の動作',
+    '中動':         '主語が動作の影響を自ら受ける',
+    '中動自動':     '自動詞的に使われる中動態',
+    '中動/受動':    '中動または受動の区別が形の上で不明',
+    '受動':         '主語が動作を受ける',
+    '分詞':         '動詞由来の形容詞的語形',
+    '不定詞':       '「〜すること」を表す動詞名詞形',
+    '接続法':       '可能性・目的・条件を表す法',
+    '希求法':       '願望・婉曲を表す法（新約では稀）',
+    '直説法':       '事実として述べる法',
+    '命令法':       '命令・要求を表す法',
+    '属格':         '所有・関係を示す格（〜の）',
+    '与格':         '間接目的・手段を示す格（〜に）',
+    '対格':         '直接目的・方向を示す格（〜を）',
+    '呼格':         '呼びかけを示す格',
+    '主格':         '主語を示す格',
+};
+
+// 用語を <abbr title="補足"> 用語（補足）</abbr> でラップする
+function wrapTerm(text) {
+    if (!text) return text;
+    return Object.entries(TERM_HINT).reduce((str, [term, hint]) => {
+        // すでにラップ済みの箇所は二重処理しない
+        if (!str.includes(term)) return str;
+        return str.split(term).join(
+            `<abbr class="term-hint" title="${hint}">${term}<span class="term-hint-paren">（${hint}）</span></abbr>`
+        );
+    }, text);
+}
 const GENDER_JP = { masculine:'男性', feminine:'女性', neuter:'中性' };
 const NUMBER_JP = { singular:'単数', plural:'複数' };
 const CASE_JP   = { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' };
@@ -542,8 +591,8 @@ function renderBreadcrumb() {
 }
 function renderMeaning() {
     const {title,sub}=buildDescription();
-    document.getElementById('meaning-title').textContent=title;
-    document.getElementById('meaning-sub').textContent=sub;
+    document.getElementById('meaning-title').innerHTML = wrapTerm(title);
+    document.getElementById('meaning-sub').innerHTML   = wrapTerm(sub);
 }
 function renderCoreChips() {
     const defs=[
@@ -553,7 +602,7 @@ function renderCoreChips() {
         {label:'態',  val:VOICE_JP[params.voice]||params.voice},
     ].filter(d=>d.val);
     document.getElementById('core-chips').innerHTML=defs.map(d=>
-        `<div class="chip chip-core"><span class="chip-key">${d.label}</span><span>${d.val}</span></div>`
+        `<div class="chip chip-core"><span class="chip-key">${d.label}</span><span>${wrapTerm(d.val)}</span></div>`
     ).join('');
 }
 function renderExtChips() {
@@ -564,7 +613,7 @@ function renderExtChips() {
         <div class="chip chip-ext ${f.enabled?'on':'off'}" onclick="toggleExt(${i})">
             <div class="chip-toggle-dot">${f.enabled?'✓':''}</div>
             <span style="font-size:0.65rem;opacity:0.7">${f.label}</span>
-            <span>${MAP[f.key]?.[f.value]||f.value}</span>
+            <span>${wrapTerm(MAP[f.key]?.[f.value]||f.value)}</span>
         </div>`).join('');
 }
 function renderBookChips() {
@@ -926,7 +975,7 @@ function renderInsight(matched, totalSamePos) {
                 ${patterns.map(p => `
                     <div class="pattern-item">
                         <div class="pattern-dot"></div>
-                        <span>${p}</span>
+                        <span>${wrapTerm(p)}</span>
                     </div>`).join('')}
             </div>
         </div>` : '';
@@ -1061,8 +1110,9 @@ function getRole(entry) {
 }
 
 function getJapanese(entry) {
-    // JSONエントリに japanese / gloss が直接含まれているため直接参照
-    return entry.japanese || entry.gloss || '';
+    if (entry.japanese) return entry.japanese;
+    const norm = entry.normalized || entry.word || entry.text || '';
+    return _japaneseMap.get(norm) || '';
 }
     
 function groupTokens(tokens) {
@@ -1247,7 +1297,7 @@ renderBreadcrumb(); renderCoreChips(); renderExtChips(); renderBookChips(); rend
     const s=document.getElementById('load-status');
     if(s)s.textContent='日本語訳を読み込み中...';
     await fetchJaData(paths);
-    // TSV不要：各エントリの entry.japanese / entry.gloss を直接使用
+    await fetchJapaneseTSV();
 
     window._morphData=allData;
     loadEl.style.display='none';
@@ -1278,7 +1328,27 @@ async function fetchJaData(morphPaths) {
     );
 }
 
-// _japaneseMap / fetchJapaneseTSV は不要（JSONに直接含まれるため削除）
+const _japaneseMap = new Map();
+
+async function fetchJapaneseTSV() {
+    try {
+        const res = await fetch('./macula-greek-SBLGNT.tsv');
+        if (!res.ok) return;
+        const text = await res.text();
+        const lines = text.split('\n');
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split('\t');
+            if (cols.length < 12) continue;
+            const normalized = (cols[11] || '').trim();
+            const japanese   = (cols[6]  || '').trim();
+            if (normalized && japanese && !_japaneseMap.has(normalized)) {
+                _japaneseMap.set(normalized, japanese);
+            }
+        }
+    } catch(e) {
+        console.warn('TSV読み込み失敗:', e);
+    }
+}
 </script>
 </body>
 </html>
