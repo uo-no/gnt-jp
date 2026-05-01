@@ -302,6 +302,10 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
             <div class="filter-section-label">書物範囲 — タップで ON / OFF</div>
             <div class="chips" id="book-chips"></div>
         </div>
+        <div class="filter-section" id="word-filter-section">
+            <div class="filter-section-label">語形の絞り込み</div>
+            <div class="chips" id="word-filter-chips"></div>
+        </div>
     </div>
 
     <!-- インサイトパネル（データ読み込み後に表示） -->
@@ -387,6 +391,7 @@ function getSearchParams() {
         case:   { value: p.get('case')  ||'', enabled: !dis.has('case')   },
         ref:    p.get('ref')   || '',
         word:   p.get('word')  || '',
+        lemma:  p.get('lemma') || '',
     };
 }
 const params = getSearchParams();
@@ -398,6 +403,24 @@ let extState = [
 ].filter(f => f.value);
 
 let bookState = BOOK_GROUPS.map(g => ({ ...g, enabled: true }));
+
+/* ── 語形フィルター状態 ──────────────────────────────
+   'none'  : フィルターなし（全件）
+   'lemma' : lemma一致（同じ原形の全変化形）
+   'word'  : 語形完全一致（表示形が同じものだけ）
+   ===================================================== */
+let wordFilterMode = params.word ? 'word' : 'none';
+
+// アクセント・気息符号を除去して比較用に正規化
+function normalizeGreek(str) {
+    return (str || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')   // 結合文字（アクセント等）除去
+        .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g, '')
+        .replace(/ς/g, 'σ')               // 語末シグマを統一
+        .toLowerCase()
+        .trim();
+}
 
 function syncURL() {
     const p = new URLSearchParams(location.search);
@@ -465,6 +488,16 @@ function decodeMorph(entry) {
 
 /* ── マッチング ─────────────────────────────────────── */
 function matchEntry(entry) {
+    /* ── 語形フィルター ── */
+    if (wordFilterMode === 'lemma' && params.lemma) {
+        const entryLemma = normalizeGreek(entry.lemma || '');
+        const targetLemma = normalizeGreek(params.lemma);
+        if (entryLemma !== targetLemma) return false;
+    } else if (wordFilterMode === 'word' && params.word) {
+        const entryWord = normalizeGreek(entry.word || entry.normalized || entry.text || '');
+        const targetWord = normalizeGreek(params.word);
+        if (entryWord !== targetWord) return false;
+    }
     if (!bookState.every(g => g.enabled)) {
         const enabledBooks = new Set(bookState.filter(g=>g.enabled).flatMap(g=>g.books));
         const bk = entry._bookKey || getBookKey(entry);
@@ -540,6 +573,33 @@ function renderBookChips() {
             <div class="chip-toggle-dot">${g.enabled?'✓':''}</div>
             <span>${g.label}</span>
         </div>`).join('');
+}
+
+function renderWordFilterChips() {
+    const sec = document.getElementById('word-filter-section');
+    // lemmaもwordもない場合はセクション自体を非表示
+    if (!params.lemma && !params.word) { sec.style.display = 'none'; return; }
+    sec.style.display = 'block';
+
+    const modes = [
+        { key:'none',  label:'絞り込みなし' },
+        params.lemma ? { key:'lemma', label:`原形一致　${params.lemma}` } : null,
+        params.word  ? { key:'word',  label:`語形一致　${params.word}` }  : null,
+    ].filter(Boolean);
+
+    document.getElementById('word-filter-chips').innerHTML = modes.map(mode => `
+        <div class="chip chip-ext ${wordFilterMode===mode.key?'on':'off'}"
+             onclick="toggleWordFilter('${mode.key}')"
+             style="font-family:${mode.key!=='none'?'\'Gentium Plus\',serif':'inherit'}">
+            <div class="chip-toggle-dot">${wordFilterMode===mode.key?'✓':''}</div>
+            <span>${mode.label}</span>
+        </div>`).join('');
+}
+
+function toggleWordFilter(mode) {
+    wordFilterMode = mode;
+    renderWordFilterChips();
+    if (window._morphData) renderResults(window._morphData);
 }
 
 /* ── 日本語訳 ───────────────────────────────────────── */
@@ -695,16 +755,20 @@ function selectTopExamples(matched, n = 4) {
 }
 
 /* ④ インサイトパネルをレンダリング */
-function renderInsight(matched) {
+function renderInsight(matched, totalSamePos) {
     const panel = document.getElementById('insight-panel');
     if (!matched.length) { panel.style.display = 'none'; return; }
 
     const dist     = calcDistribution(matched);
     const patterns = analyzePatterns(matched);
     const examples = selectTopExamples(matched);
-    const maxCount = dist[0]?.count || 1;
+    const total    = matched.length;
 
-    // ① 分布バー
+    // バー幅の基準：全体件数（totalSamePos）があればそれを使い、
+    // 書物間の相対比較と全体比較を同じスケールで見せる
+    const barBase  = totalSamePos > 0 ? totalSamePos : (dist[0]?.count || 1);
+
+    // ① 分布バー（先頭に「全体」行を追加）
     const distHTML = `
         <div class="dist-card">
             <div class="dist-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
@@ -712,11 +776,22 @@ function renderInsight(matched) {
                 <span class="dist-toggle">▾</span>
             </div>
             <div class="dist-body">
+                <!-- 全体行 -->
+                <div class="dist-row dist-row-total">
+                    <span class="dist-book" style="font-weight:700;color:var(--text-main);">全体</span>
+                    <div class="dist-bar-wrap">
+                        <div class="dist-bar-fill" style="width:${Math.round(total/barBase*100)}%;background:var(--highlight);opacity:0.45;"></div>
+                    </div>
+                    <span class="dist-count" style="font-weight:700;color:var(--text-main);">${total}</span>
+                </div>
+                <!-- 区切り線 -->
+                <div style="border-top:1px solid var(--border-soft);margin:5px 0 5px 80px;"></div>
+                <!-- 書物別行 -->
                 ${dist.map(d => `
                     <div class="dist-row">
                         <span class="dist-book">${d.label}</span>
                         <div class="dist-bar-wrap">
-                            <div class="dist-bar-fill" style="width:${Math.round(d.count/maxCount*100)}%"></div>
+                            <div class="dist-bar-fill" style="width:${Math.round(d.count/barBase*100)}%"></div>
                         </div>
                         <span class="dist-count">${d.count}</span>
                     </div>`).join('')}
@@ -777,7 +852,7 @@ function renderResults(allData) {
     document.getElementById('result-pct').textContent = samePos>0 ? `同品詞 ${samePos.toLocaleString()} 件中` : '';
     _currentRows  = matched;
     _displayCount = PAGE_SIZE;
-    renderInsight(matched);  // ← インサイト更新
+    renderInsight(matched, samePos);  // ← インサイト更新
     renderPage();
 }
 
@@ -1009,7 +1084,7 @@ async function fetchInBatches(tasks,sz,onProg) {
     return all;
 }
 
-renderBreadcrumb(); renderCoreChips(); renderExtChips(); renderBookChips(); renderMeaning();
+renderBreadcrumb(); renderCoreChips(); renderExtChips(); renderBookChips(); renderWordFilterChips(); renderMeaning();
 
 (async function() {
     const loadEl=document.getElementById('loading');
