@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>011353｜形態論検索 — コトバト</title>
+<title>05011703｜形態論検索 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -1061,9 +1061,8 @@ function getRole(entry) {
 }
 
 function getJapanese(entry) {
-    if (entry.japanese) return entry.japanese;
-    const norm = entry.normalized || entry.word || entry.text || '';
-    return _japaneseMap.get(norm) || '';
+    // JSONエントリに japanese / gloss が直接含まれているため直接参照
+    return entry.japanese || entry.gloss || '';
 }
     
 function groupTokens(tokens) {
@@ -1248,7 +1247,7 @@ renderBreadcrumb(); renderCoreChips(); renderExtChips(); renderBookChips(); rend
     const s=document.getElementById('load-status');
     if(s)s.textContent='日本語訳を読み込み中...';
     await fetchJaData(paths);
-    await fetchJapaneseTSV();
+    // TSV不要：各エントリの entry.japanese / entry.gloss を直接使用
 
     window._morphData=allData;
     loadEl.style.display='none';
@@ -1279,27 +1278,7 @@ async function fetchJaData(morphPaths) {
     );
 }
 
-const _japaneseMap = new Map();
-
-async function fetchJapaneseTSV() {
-    try {
-        const res = await fetch('./macula-greek-SBLGNT.tsv');
-        if (!res.ok) return;
-        const text = await res.text();
-        const lines = text.split('\n');
-        for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split('\t');
-            if (cols.length < 12) continue;
-            const normalized = (cols[11] || '').trim();
-            const japanese   = (cols[6]  || '').trim();
-            if (normalized && japanese && !_japaneseMap.has(normalized)) {
-                _japaneseMap.set(normalized, japanese);
-            }
-        }
-    } catch(e) {
-        console.warn('TSV読み込み失敗:', e);
-    }
-}
+// _japaneseMap / fetchJapaneseTSV は不要（JSONに直接含まれるため削除）
 </script>
 </body>
 </html>
