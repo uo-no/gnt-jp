@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>021700｜形態論検索 — コトバト</title>
+<title>021800｜形態論検索 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -28,10 +28,32 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
 .breadcrumb .crumb { color: var(--highlight); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
 .breadcrumb .sep { color: var(--text-sub); opacity: 0.4; flex-shrink: 0; }
 
-.meaning-card { background: var(--highlight-light); border: 1px solid rgba(90,110,130,0.2); border-left: 3px solid var(--highlight); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; }
-.meaning-label { font-size: 0.62rem; font-weight: 700; color: var(--highlight); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
-.meaning-title { font-size: 0.95rem; font-weight: 700; color: var(--text-main); line-height: 1.5; margin-bottom: 3px; }
-.meaning-sub { font-size: 0.75rem; color: var(--text-sub); line-height: 1.8; }
+.meaning-card { background: var(--highlight-light); border: 1px solid rgba(90,110,130,0.2); border-left: 3px solid var(--highlight); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; transition: padding 0.25s ease, border-radius 0.25s ease, box-shadow 0.25s ease; }
+.meaning-label { font-size: 0.62rem; font-weight: 700; color: var(--highlight); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; transition: opacity 0.2s, max-height 0.25s; }
+.meaning-title { font-size: 0.95rem; font-weight: 700; color: var(--text-main); line-height: 1.5; margin-bottom: 3px; transition: font-size 0.2s; }
+.meaning-sub { font-size: 0.75rem; color: var(--text-sub); line-height: 1.8; transition: opacity 0.2s, max-height 0.25s; }
+
+/* sticky 状態 */
+.meaning-card.sticky {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-radius: 0 0 8px 8px;
+    border-top: none;
+    padding: 8px 18px;
+    margin-left: -24px;
+    margin-right: -24px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+.meaning-card.sticky .meaning-label,
+.meaning-card.sticky .meaning-sub {
+    display: none;
+}
+.meaning-card.sticky .meaning-title {
+    font-size: 0.85rem;
+    margin-bottom: 0;
+}
 
 .filter-panel { border: 1px solid var(--border-soft); border-radius: 12px; background: var(--bg-sidebar); margin-bottom: 16px; overflow: hidden; }
 .filter-section { padding: 12px 16px; }
@@ -327,7 +349,7 @@ abbr.term-hint {
         </div>
     </div>
 
-    <div class="meaning-card">
+    <div class="meaning-card" id="meaning-card">
         <div class="meaning-label">この検索の意味</div>
         <div class="meaning-title" id="meaning-title">読み込み中...</div>
         <div class="meaning-sub"  id="meaning-sub"></div>
@@ -1572,6 +1594,25 @@ async function fetchJapaneseTSV() {
         console.warn('TSV読み込み失敗:', e);
     }
 }
+/* ── meaning-card スティッキー化 ────────────────────────
+   meaning-card がスクロールでビュー外に消えたら .sticky を付与
+   ===================================================== */
+(function () {
+    // センチネル要素：meaning-cardの直前に置き、これが消えたらstickyに
+    const sentinel = document.createElement('div');
+    sentinel.style.cssText = 'height:1px;margin-top:-1px;pointer-events:none;';
+    const card = document.getElementById('meaning-card');
+    card.parentNode.insertBefore(sentinel, card);
+
+    const observer = new IntersectionObserver(
+        ([entry]) => {
+            // sentinelが見えなくなった = cardがスクロールで画面外に
+            card.classList.toggle('sticky', !entry.isIntersecting);
+        },
+        { threshold: 0 }
+    );
+    observer.observe(sentinel);
+})();
 </script>
 </body>
 </html>
