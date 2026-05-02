@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>05020705｜形態論検索 — コトバト</title>
+<title>021153｜形態論検索 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -31,7 +31,7 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
 .meaning-card { background: var(--highlight-light); border: 1px solid rgba(90,110,130,0.2); border-left: 3px solid var(--highlight); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; }
 .meaning-label { font-size: 0.62rem; font-weight: 700; color: var(--highlight); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
 .meaning-title { font-size: 0.95rem; font-weight: 700; color: var(--text-main); line-height: 1.5; margin-bottom: 3px; }
-.meaning-sub { font-size: 0.75rem; color: var(--text-sub); line-height: 1.6; }
+.meaning-sub { font-size: 0.75rem; color: var(--text-sub); line-height: 1.8; }
 
 .filter-panel { border: 1px solid var(--border-soft); border-radius: 12px; background: var(--bg-sidebar); margin-bottom: 16px; overflow: hidden; }
 .filter-section { padding: 12px 16px; }
@@ -389,12 +389,29 @@ const NUMBER_JP = { singular:'単数', plural:'複数' };
 const CASE_JP   = { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' };
 const POS_JP    = { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞' };
 const MOOD_DESC = {
-    participle:'継続・進行中の動作を表す分詞形。「〜している者」という含意を持ちます。',
-    indicative:'事実として起きていることを述べる直説法。文の主軸となる形式です。',
-    imperative:'命令・要求を表す命令法。現在命令は反復継続の命令を表します。',
-    subjunctive:'可能性・目的を表す接続法。条件節や目的節で使われます。',
-    infinitive:'動詞の不定詞形。「〜すること」と訳せます。',
-    optative:'願望・婉曲を表す希求法。新約ではやや稀な形式です。',
+    participle: '分詞 — 動詞が形容詞的に使われる形。主動詞に対して補助的な動作や状態を表します。',
+    indicative: '直説法 — 動作・状態を「事実」として述べる法。文の主軸となる最も基本的な形式です。',
+    imperative: '命令法 — 聞き手に動作を求める法。現在命令は継続的・反復的な行為を、アオリスト命令は即時的な行為を促します。',
+    subjunctive:'接続法 — 動作の実現が未確定な場合に使う法。目的・条件・願望を表す節でよく使われます。',
+    infinitive: '不定詞 — 「〜すること」と訳せる動詞の名詞化形。人称・数を持たず、主語や目的語として機能します。',
+    optative:   '希求法 — 願望・婉曲・遠い可能性を表す法。新約ではやや稀で、丁寧な表現に使われます。',
+};
+
+const VOICE_DESC = {
+    active:            '能動態 — 主語が動作を行う。最も基本的な態。',
+    middle:            '中動態 — 主語が動作の影響を自ら受ける、または自己利益のために行う態。「〜してもらう」「自分のために〜する」というニュアンスを持つことが多い。',
+    passive:           '受動態 — 主語が動作を受ける態。「〜される」と訳せる。',
+    'middle deponent': '中動自動詞 — 形は中動・受動だが意味は能動として使われる動詞。新約に多く見られる。',
+    'middle or passive':'中動/受動 — この時制では中動と受動の語形が同一のため、文脈で判断する。',
+};
+
+const TENSE_DESC = {
+    present:    '現在時制 — 動作の継続・反復・進行を表すアスペクト。必ずしも「今この瞬間」を意味するわけではない。',
+    aorist:     'アオリスト — 動作を「点」として捉えるアスペクト。「〜した」という出来事の生起そのものに焦点を当てる。過去の一時点とは限らない。',
+    perfect:    '完了時制 — 過去に完了した動作の結果が現在も継続している状態を表す。「〜してしまっている」。',
+    imperfect:  '未完了過去 — 過去における継続・反復・試みを表す。「〜していた」「〜しようとしていた」。',
+    future:     '未来時制 — 未来の動作・状態を表す。',
+    pluperfect: '過去完了 — 過去のある時点より前に完了していた状態を表す。',
 };
 
 /* ── BOOK_MAP ───────────────────────────────────────── */
@@ -580,7 +597,16 @@ function buildDescription() {
     const core=isMO?[mood,tense,voice].filter(Boolean).join(''):[pos,mood,tense,voice].filter(Boolean).join('');
     const ext=extP.length?`（${extP.join('・')}）`:'';
     const relaxed=extState.some(f=>!f.enabled);
-    const sub=relaxed?'拡張条件を一部解除中 — より広い分布を表示しています。':(MOOD_DESC[params.mood]||'選択された形態素に完全一致する語形を検索しています。');
+    let sub;
+    if (relaxed) {
+        sub = '拡張条件を一部解除中 — より広い分布を表示しています。';
+    } else {
+        const parts = [];
+        if (params.mood  && MOOD_DESC[params.mood])  parts.push(MOOD_DESC[params.mood]);
+        if (params.voice && VOICE_DESC[params.voice]) parts.push(VOICE_DESC[params.voice]);
+        if (params.tense && TENSE_DESC[params.tense]) parts.push(TENSE_DESC[params.tense]);
+        sub = parts.join('<br>') || '選択された形態素に完全一致する語形を検索しています。';
+    }
     return { title:`${core}${ext}を抽出しています`, sub };
 }
 
@@ -591,7 +617,7 @@ function renderBreadcrumb() {
 }
 function renderMeaning() {
     const {title,sub}=buildDescription();
-    document.getElementById('meaning-title').innerHTML = wrapTerm(title);
+    document.getElementById('meaning-title').textContent = title;
     document.getElementById('meaning-sub').innerHTML   = wrapTerm(sub);
 }
 function renderCoreChips() {
