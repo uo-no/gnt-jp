@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>021348｜形態論検索 — コトバト</title>
+<title>021700｜形態論検索 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -256,6 +256,38 @@ body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(-
     padding: 0 3px;
 }
 
+/* ── 分詞用法パネル ── */
+.ptc-panel {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: rgba(160,140,80,0.06);
+    border: 1px solid rgba(160,140,80,0.2);
+    border-radius: 8px;
+    font-size: 0.78rem;
+    line-height: 1.7;
+}
+.ptc-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: rgba(140,120,50,0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+}
+.ptc-class { font-weight: 700; color: var(--text-main); font-size: 0.88rem; margin-bottom: 3px; }
+.ptc-reason { color: var(--text-sub); font-size: 0.75rem; margin-bottom: 6px; }
+.ptc-conf { display: inline-flex; align-items: center; gap: 5px; font-size: 0.68rem; color: var(--text-sub); margin-bottom: 8px; }
+.ptc-conf-bar { width: 56px; height: 3px; background: #e8e8e8; border-radius: 2px; overflow: hidden; }
+.ptc-conf-fill { height: 100%; border-radius: 2px; }
+.ptc-candidates { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(160,140,80,0.15); }
+.ptc-cand-label { font-size: 0.62rem; color: var(--text-sub); opacity: 0.7; margin-bottom: 3px; }
+.ptc-cand { display: flex; align-items: center; gap: 8px; }
+.ptc-cand-name { min-width: 64px; font-size: 0.75rem; color: var(--text-main); font-weight: 600; }
+.ptc-cand-ja { flex: 1; font-size: 0.72rem; color: var(--text-sub); }
+.ptc-cand-bar-wrap { width: 44px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+.ptc-cand-bar-fill { height: 100%; border-radius: 2px; background: rgba(160,140,80,0.5); }
+.ptc-cand-pct { font-size: 0.65rem; color: #bbb; width: 28px; text-align: right; flex-shrink: 0; }
+
 /* ── フッター ── */
 .app-footer { margin-top: 48px; border-top: 1px solid var(--border-soft); padding: 12px 0; display: flex; align-items: center; justify-content: space-between; }
 .footer-copy { font-size: 0.7rem; color: var(--text-sub); letter-spacing: 0.01em; }
@@ -389,29 +421,29 @@ const NUMBER_JP = { singular:'単数', plural:'複数' };
 const CASE_JP   = { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' };
 const POS_JP    = { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞' };
 const MOOD_DESC = {
-    participle: '分詞 — 動詞が形容詞的に使われる形。主動詞に対して補助的な動作や状態を表す。',
-    indicative: '直説法 — 動作・状態を「事実」として述べる法。文の主軸となる最も基本的な形式。',
-    imperative: '命令法 — 聞き手に動作を求める法。現在命令は継続的・反復的な行為を、アオリスト命令は即時的な行為を促す。',
-    subjunctive:'接続法 — 動作の実現が未確定な場合に使う法。目的・条件・願望を表す節でよく使われる。',
-    infinitive: '不定詞 — 「〜すること」と訳せる動詞の名詞化形。人称・数を持たず、主語や目的語として機能する。',
-    optative:   '希求法 — 願望・婉曲・遠い可能性を表す法。新約ではやや稀で、丁寧な表現に使われる。',
+    participle: '分詞 — 動詞が形容詞的に使われる形。主動詞に対して補助的な動作や状態を表します。',
+    indicative: '直説法 — 動作・状態を「事実」として述べる法。文の主軸となる最も基本的な形式です。',
+    imperative: '命令法 — 聞き手に動作を求める法。現在命令は継続的・反復的な行為を、アオリスト命令は即時的な行為を促します。',
+    subjunctive:'接続法 — 動作の実現が未確定な場合に使う法。目的・条件・願望を表す節でよく使われます。',
+    infinitive: '不定詞 — 「〜すること」と訳せる動詞の名詞化形。人称・数を持たず、主語や目的語として機能します。',
+    optative:   '希求法 — 願望・婉曲・遠い可能性を表す法。新約ではやや稀で、丁寧な表現に使われます。',
 };
 
 const VOICE_DESC = {
-    active:            '能動態 — 主語が動作を行う。最も基本的な態。「〜する」。',
+    active:            '能動態 — 主語が動作を行う。最も基本的な態。',
     middle:            '中動態 — 主語が動作の影響を自ら受ける、または自己利益のために行う態。「〜してもらう」「自分のために〜する」というニュアンスを持つことが多い。',
-    passive:           '受動態 — 主語が動作を受ける態。「〜される」。',
-    'middle deponent': '中動自動詞 — 形は中動・受動だが意味は能動として使われる動詞。来る・行く系は中動形でも「来る」「行く」。',
+    passive:           '受動態 — 主語が動作を受ける態。「〜される」と訳せる。',
+    'middle deponent': '中動自動詞 — 形は中動・受動だが意味は能動として使われる動詞。新約に多く見られる。',
     'middle or passive':'中動/受動 — この時制では中動と受動の語形が同一のため、文脈で判断する。',
 };
 
 const TENSE_DESC = {
-    present:    '現在時制 — 続いている・くり返している動作・状態。「〜している」。※今だけでなく、習慣や一般的なことにも使う',
-    aorist:     'アオリスト — 動作・状態を一つの出来事として見る。「〜した」。※過去の時間より一回のまとまった行動に注目',
-    perfect:    '完了時制 — 終わっていて、その結果が今も続く動作・状態。「〜してしまっている」。',
-    imperfect:  '未完了過去 — 過去に続いていた・くり返していた動作・状態。「〜していた」。',
-    future:     '未来時制 — これから起こる未来の動作・状態。「〜するだろう」。',
-    pluperfect: '過去完了 — 過去のある時点までにすでに終わっていた動作・状態。「〜してしまっていた」。',
+    present:    '現在時制 — 動作の継続・反復・進行を表すアスペクト。必ずしも「今この瞬間」を意味するわけではない。',
+    aorist:     'アオリスト — 動作を「点」として捉えるアスペクト。「〜した」という出来事の生起そのものに焦点を当てる。過去の一時点とは限らない。',
+    perfect:    '完了時制 — 過去に完了した動作の結果が現在も継続している状態を表す。「〜してしまっている」。',
+    imperfect:  '未完了過去 — 過去における継続・反復・試みを表す。「〜していた」「〜しようとしていた」。',
+    future:     '未来時制 — 未来の動作・状態を表す。',
+    pluperfect: '過去完了 — 過去のある時点より前に完了していた状態を表す。',
 };
 
 /* ── BOOK_MAP ───────────────────────────────────────── */
@@ -1164,6 +1196,159 @@ function groupTokens(tokens) {
 const ROLE_LABEL = { verb:'動詞', subj:'主語', obj:'目的語', phr:'修飾', prep:'前置詞句', mod:'準動詞', other:'' };
 const ROLE_COLOR = { verb:'#4a7fa5', subj:'#5a8a6e', obj:'#9a6040', phr:'#888', prep:'#7a6aa0', mod:'#a09050', other:'' };
 
+/* ══════════════════════════════════════════════════════
+   分詞用法判定（5ステップ）
+   ══════════════════════════════════════════════════════ */
+
+// 補語動詞リスト（STEP4）
+const COMPLEMENTARY_VERBS = [
+    'βλέπω','ἀκούω','οἶδα','γινώσκω','ὁράω','θεάομαι','εὑρίσκω'
+];
+
+function classifyParticiple(hitEntry, tokens) {
+    const hm = decodeMorph(hitEntry);
+    const ptcCase   = hm.case;
+    const ptcGender = hm.gender;
+    const ptcNumber = hm.number;
+    const ptcTense  = hm.tense;
+
+    // ── STEP 1: 実体用法 ────────────────────────────────
+    // ヒット語の直前トークンが冠詞（T）かチェック
+    const hitIdx = tokens.findIndex(t =>
+        cleanText(t) === cleanText(hitEntry) ||
+        String(t.ref) === String(hitEntry.ref)
+    );
+    const prevToken = hitIdx > 0 ? tokens[hitIdx - 1] : null;
+    const prevPos   = prevToken ? entryPosCode(prevToken) : '';
+    if (prevPos === 'T') {
+        const pm = decodeMorph(prevToken);
+        if (pm.case === ptcCase && pm.gender === ptcGender && pm.number === ptcNumber) {
+            return {
+                classification: 'substantival',
+                label: '実体用法（名詞的分詞）',
+                reason: '直前に一致する格・性・数の冠詞がある。分詞が名詞として機能している。',
+                confidence: 0.95,
+                candidates: null,
+            };
+        }
+    }
+
+    // ── STEP 2: 形容詞用法 ──────────────────────────────
+    // 同節内に格・性・数が一致する名詞・代名詞があるか
+    const matchingNoun = tokens.find(t => {
+        if (cleanText(t) === cleanText(hitEntry)) return false;
+        const pos = entryPosCode(t);
+        if (!['N','T','A','D','R'].includes(pos)) return false;
+        const tm = decodeMorph(t);
+        return tm.case === ptcCase && tm.gender === ptcGender && tm.number === ptcNumber;
+    });
+    if (matchingNoun) {
+        return {
+            classification: 'attributive',
+            label: '形容詞用法',
+            reason: `同節内の「${cleanText(matchingNoun)}」と格（${CASE_JP[ptcCase]||ptcCase}）・性・数が一致している。`,
+            confidence: 0.9,
+            candidates: null,
+        };
+    }
+
+    // ── STEP 3: 属格絶対 ────────────────────────────────
+    if (ptcCase === 'genitive') {
+        const genNoun = tokens.find(t => {
+            if (cleanText(t) === cleanText(hitEntry)) return false;
+            const pos = entryPosCode(t);
+            if (!['N','T','A','D','R'].includes(pos)) return false;
+            const tm = decodeMorph(t);
+            return tm.case === 'genitive';
+        });
+        if (genNoun) {
+            return {
+                classification: 'genitive_absolute',
+                label: '属格絶対分詞',
+                reason: `主節と独立した属格節。「${cleanText(genNoun)}」と共に属格を形成している。`,
+                confidence: 0.9,
+                candidates: null,
+            };
+        }
+    }
+
+    // ── STEP 4: 補語用法 ────────────────────────────────
+    const mainVerb = tokens.find(t => {
+        const pos = entryPosCode(t);
+        if (pos !== 'V') return false;
+        const tm = decodeMorph(t);
+        if (!tm.mood || tm.mood === 'participle' || tm.mood === 'infinitive') return false;
+        const lemma = (t.lemma || '').replace(/[ʼ']/g, '');
+        return COMPLEMENTARY_VERBS.some(v => v === lemma || lemma.startsWith(v.slice(0,4)));
+    });
+    if (mainVerb) {
+        return {
+            classification: 'complementary',
+            label: '補語用法',
+            reason: `知覚・認識動詞「${cleanText(mainVerb)}」の補語として機能している。`,
+            confidence: 0.85,
+            candidates: null,
+        };
+    }
+
+    // ── STEP 5: 副詞用法（推定）────────────────────────
+    const adverbialCandidates = (() => {
+        const cands = [];
+        if (ptcTense === 'present') {
+            cands.push({ key:'simultaneous', label:'同時（〜しながら）', conf: 0.80 });
+        } else if (ptcTense === 'aorist') {
+            cands.push({ key:'antecedent',   label:'先行（〜してから）', conf: 0.80 });
+        } else if (ptcTense === 'perfect') {
+            cands.push({ key:'resultant',    label:'結果（〜した状態で）', conf: 0.75 });
+        }
+        // 常に低確率で追加
+        cands.push({ key:'cause',      label:'原因（〜なので）',  conf: 0.40 });
+        cands.push({ key:'condition',  label:'条件（〜なら）',    conf: 0.30 });
+        cands.push({ key:'concession', label:'譲歩（〜なのに）',  conf: 0.30 });
+        return cands;
+    })();
+
+    return {
+        classification: 'adverbial',
+        label: '副詞用法（推定）',
+        reason: '冠詞・格一致名詞・属格独立・補語動詞のいずれも確認できないため副詞用法と推定。文脈で判断してください。',
+        confidence: 0.70,
+        candidates: adverbialCandidates,
+    };
+}
+
+function renderParticiplePanel(result) {
+    const conf    = result.confidence;
+    const confPct = Math.round(conf * 100);
+    const confColor = conf >= 0.9 ? '#5a8a6e' : conf >= 0.7 ? '#a09050' : '#b06050';
+
+    const candidatesHTML = result.candidates ? `
+        <div class="ptc-candidates">
+            <div class="ptc-cand-label">副詞用法の意味候補</div>
+            ${result.candidates.map(c => `
+                <div class="ptc-cand">
+                    <span class="ptc-cand-name">${c.label}</span>
+                    <div class="ptc-cand-bar-wrap">
+                        <div class="ptc-cand-bar-fill" style="width:${Math.round(c.conf*100)}%"></div>
+                    </div>
+                    <span class="ptc-cand-pct">${Math.round(c.conf*100)}%</span>
+                </div>`).join('')}
+        </div>` : '';
+
+    return `<div class="ptc-panel">
+        <div class="ptc-label">分詞用法</div>
+        <div class="ptc-class">${result.label}</div>
+        <div class="ptc-reason">${result.reason}</div>
+        <div class="ptc-conf">
+            <div class="ptc-conf-bar">
+                <div class="ptc-conf-fill" style="width:${confPct}%;background:${confColor};"></div>
+            </div>
+            <span>推定確信度 ${confPct}%</span>
+        </div>
+        ${candidatesHTML}
+    </div>`;
+}
+
 function toggleContext(cardEl, ref, wordEnc) {
     const hitWord = decodeURIComponent(wordEnc);
     const existing = cardEl.querySelector('.ctx-panel');
@@ -1229,6 +1414,17 @@ function toggleContext(cardEl, ref, wordEnc) {
 
     const panel = document.createElement('div');
     panel.className = 'ctx-panel';
+
+    // 分詞検索のとき用法判定パネルを生成
+    const hitEntry   = tokens.find(t =>
+        cleanText(t) === hitWord ||
+        (t.word||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'') === hitWord
+    );
+    const isPtcSearch = params.mood === 'participle';
+    const ptcHTML = (isPtcSearch && hitEntry)
+        ? renderParticiplePanel(classifyParticiple(hitEntry, tokens))
+        : '';
+
     panel.innerHTML = `
         <div class="ctx-raw" style="display:none">${rawLine}</div>
         <div class="ctx-label">構文分解</div>
@@ -1238,7 +1434,8 @@ function toggleContext(cardEl, ref, wordEnc) {
                 ${verbHTML}
             </div>
             ${branchHTML ? `<div class="ctx-tree-branch">${branchHTML}</div>` : ''}
-        </div>`;
+        </div>
+        ${ptcHTML}`;
 
     cardEl.appendChild(panel);
     cardEl.classList.add('card-open');
