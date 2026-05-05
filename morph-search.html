@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>05051430｜形態論検索 — コトバト</title>
+<title>05051500｜形態論検索 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -451,6 +451,198 @@ abbr.term-hint {
     color: var(--text-sub);
     opacity: 0.75;
     margin-left: 1px;
+}
+
+/* ══════════════════════════════════════════════════════
+   Explainable Scoring — スコア内訳パネル
+   ══════════════════════════════════════════════════════ */
+
+/* 上位候補リスト */
+.xsc-candidates {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+/* 各候補ブロック */
+.xsc-candidate {
+    border: 1px solid var(--border-soft);
+    border-radius: 9px;
+    overflow: hidden;
+    background: var(--bg-paper);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.xsc-candidate.active {
+    border-color: rgba(90,110,130,0.45);
+    box-shadow: 0 0 0 2px rgba(90,110,130,0.10);
+}
+.xsc-candidate:hover { border-color: rgba(90,110,130,0.3); }
+
+/* 候補ヘッダー（クリックで切り替え） */
+.xsc-cand-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px 8px;
+    background: var(--bg-sidebar);
+}
+.xsc-cand-rank {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--text-sub);
+    opacity: 0.55;
+    flex-shrink: 0;
+    width: 14px;
+}
+.xsc-cand-rank.top { color: var(--highlight); opacity: 1; }
+.xsc-cand-name {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-main);
+    flex: 1;
+}
+.xsc-cand-pct-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.xsc-cand-bar-wrap {
+    width: 50px;
+    height: 4px;
+    background: #e8e8e8;
+    border-radius: 2px;
+    overflow: hidden;
+}
+.xsc-cand-bar {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.4s ease;
+}
+.xsc-cand-pct {
+    font-size: 0.72rem;
+    font-weight: 700;
+    min-width: 28px;
+    text-align: right;
+}
+.xsc-cand-arrow {
+    font-size: 0.68rem;
+    color: var(--text-sub);
+    opacity: 0.4;
+    margin-left: 2px;
+    transition: transform 0.15s;
+    flex-shrink: 0;
+}
+.xsc-candidate.active .xsc-cand-arrow { transform: rotate(180deg); opacity: 0.7; }
+
+/* スコア内訳ボディ */
+.xsc-breakdown {
+    display: none;
+    padding: 10px 12px 12px;
+    border-top: 1px solid var(--border-soft);
+    animation: fadeIn 0.18s ease;
+}
+.xsc-candidate.active .xsc-breakdown { display: block; }
+
+.xsc-breakdown-title {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--text-sub);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    margin-bottom: 8px;
+    opacity: 0.6;
+}
+
+/* 各スコア行 */
+.xsc-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+.xsc-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+}
+.xsc-delta {
+    font-size: 0.7rem;
+    font-weight: 700;
+    min-width: 36px;
+    text-align: right;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+.xsc-delta.pos { color: #4a7a5a; }
+.xsc-delta.neg { color: #b05050; }
+.xsc-delta.neu { color: #aaa; }
+.xsc-row-bar-wrap {
+    width: 80px;
+    height: 3px;
+    background: #eee;
+    border-radius: 2px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.xsc-row-bar {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.35s ease;
+}
+.xsc-row-label {
+    flex: 1;
+    color: var(--text-main);
+    line-height: 1.4;
+}
+.xsc-row-note {
+    font-size: 0.68rem;
+    color: var(--text-sub);
+    opacity: 0.8;
+}
+
+/* 合計スコア表示 */
+.xsc-total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-soft);
+    font-size: 0.72rem;
+    color: var(--text-sub);
+}
+.xsc-total-num {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+/* なぜこの候補か：理由文 */
+.xsc-why {
+    margin-top: 8px;
+    font-size: 0.73rem;
+    color: var(--text-sub);
+    line-height: 1.6;
+    background: var(--bg-panel);
+    border-radius: 6px;
+    padding: 7px 10px;
+}
+
+/* 用例クリック通知 */
+.xsc-update-badge {
+    display: inline-block;
+    font-size: 0.6rem;
+    background: rgba(90,110,130,0.12);
+    color: var(--highlight);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+    font-weight: 600;
 }
 </style>
 </head>
@@ -1540,10 +1732,11 @@ function renderInsight(matched, totalSamePos) {
                     return isHit ? `<span class="hit-word">${w}</span>` : `<span>${w}</span>`;
                 }).filter(Boolean).join(' ');
                 const ref = buildRefLabel(entry.ref);
-                return `<div class="example-item" onclick="goToWord('${entry.ref||''}','${encodeURIComponent(hitWord)}')">
+                return `<div class="example-item" onclick="params.mood==='participle'?updateXscFromExample('${entry.ref||''}','${encodeURIComponent(hitWord)}'):goToWord('${entry.ref||''}','${encodeURIComponent(hitWord)}')">
                     <span class="example-ref">${ref}</span>
                     <div class="example-greek">${greekLine}</div>
                     ${ja ? `<div class="example-ja">${ja}</div>` : ''}
+                    ${params.mood === 'participle' ? '<span class="xsc-update-badge">スコア更新</span>' : ''}
                 </div>`;
             }).join('')}
         </div>` : '';
@@ -1903,7 +2096,7 @@ function buildRepExample(classified, color) {
         `<span class="cat-tag${tag.includes('⚠')?' warn':''}">${tag}</span>`
     ).join('');
 
-    return `<div class="cat-rep" onclick="goToWord('${entry.ref||''}','${encodeURIComponent(hitWord)}')">
+    return `<div class="cat-rep" onclick="updateXscFromExample('${entry.ref||''}','${encodeURIComponent(hitWord)}')">
         <div class="cat-rep-label">★ 代表例</div>
         <span class="cat-rep-ref">${ref}</span>
         <div class="cat-rep-greek">${greekLine}</div>
@@ -1929,7 +2122,7 @@ function buildExampleRow(classified, color) {
             : `<span>${w}</span>`;
     }).filter(Boolean).join(' ');
 
-    return `<div class="cat-example" onclick="goToWord('${entry.ref||''}','${encodeURIComponent(hitWord)}')">
+    return `<div class="cat-example" onclick="updateXscFromExample('${entry.ref||''}','${encodeURIComponent(hitWord)}')">
         <span class="cat-example-ref">${ref}</span>
         <div class="cat-example-greek">${greekLine}</div>
         ${jaText ? `<div class="cat-example-ja">${jaText}</div>` : ''}
@@ -1973,6 +2166,62 @@ function toggleBook(i) { bookState[i].enabled=!bookState[i].enabled; renderBookC
 function goToWord(ref,enc) {
     const word=decodeURIComponent(enc);
     if(window.opener&&!window.opener.closed) window.opener.postMessage({type:'GO_TO_REF',ref,word},'*');
+}
+
+/* ── 用例クリック → スコアパネルを更新（Explainable Scoring） ── */
+function updateXscFromExample(ref, wordEnc) {
+    // まずgoToWordで本体アプリに通知
+    goToWord(ref, wordEnc);
+
+    if (params.mood !== 'participle' || !window._morphData) return;
+
+    const hitWord = decodeURIComponent(wordEnc);
+    const tokens  = getVerseTokens(ref);
+    if (!tokens.length) return;
+
+    const hitEntry = tokens.find(t =>
+        cleanText(t) === hitWord ||
+        (t.word||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'') === hitWord
+    );
+    if (!hitEntry) return;
+
+    // インサイトパネルに動的スコアパネルを更新または挿入
+    const panel = document.getElementById('insight-panel');
+    if (!panel) return;
+
+    // 既存の xsc-live パネルを更新
+    let livePanel = document.getElementById('xsc-live-panel');
+    const result = classifyParticiple(hitEntry, tokens);
+    const html   = renderParticiplePanel(result, hitEntry, tokens);
+
+    const ref2 = buildRefLabel(ref);
+    const jaText = getJaVerse(hitEntry);
+
+    if (!livePanel) {
+        livePanel = document.createElement('div');
+        livePanel.id = 'xsc-live-panel';
+        livePanel.style.cssText = 'animation:fadeIn 0.25s ease;';
+        panel.insertBefore(livePanel, panel.firstChild);
+    }
+
+    const greekLine = tokens.map(t => {
+        const w = cleanText(t);
+        return w === hitWord
+            ? `<span style="color:var(--highlight);font-weight:700;border-bottom:2px solid var(--highlight);">${w}</span>`
+            : `<span>${w}</span>`;
+    }).filter(Boolean).join(' ');
+
+    livePanel.innerHTML = `
+        <div style="border:1px solid rgba(90,110,130,0.25);border-radius:10px;overflow:hidden;margin-bottom:10px;">
+            <div style="padding:8px 14px;background:rgba(90,110,130,0.06);font-size:0.62rem;font-weight:700;color:var(--highlight);text-transform:uppercase;letter-spacing:0.10em;display:flex;align-items:center;justify-content:space-between;">
+                <span>選択用例のスコア分析</span>
+                <span style="font-size:0.68rem;color:var(--text-sub);font-weight:400;">${ref2}</span>
+            </div>
+            <div style="padding:8px 14px 4px;font-family:'Gentium Plus',serif;font-size:0.95rem;line-height:1.9;">${greekLine}</div>
+            ${jaText ? `<div style="padding:0 14px 8px;font-size:0.73rem;color:var(--text-sub);">${jaText}</div>` : ''}
+            <div style="padding:0 14px 10px;">${html}</div>
+        </div>`;
+    livePanel.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
 /* ── 構文ツリー（階層表示） ─────────────────────────── */
@@ -2147,24 +2396,176 @@ function classifyParticiple(hitEntry, tokens) {
     };
 }
 
-function renderParticiplePanel(result) {
+/* ── Explainable Scoring レンダリング ──────────────── */
+
+function xscRankChar(rank) {
+    const chars = ['①','②','③','④','⑤'];
+    return chars[rank-1] || String(rank);
+}
+
+// スコア内訳の1行をHTMLに変換
+function xscRowHTML(item, maxAbsDelta) {
+    const isPos = item.delta > 0;
+    const isNeg = item.delta < 0;
+    const cls   = isPos ? 'pos' : isNeg ? 'neg' : 'neu';
+    const sign  = isPos ? '+' : '';
+    const barW  = maxAbsDelta > 0 ? Math.round(Math.abs(item.delta) / maxAbsDelta * 100) : 0;
+    const barColor = isPos ? 'rgba(74,122,90,0.55)' : isNeg ? 'rgba(176,80,80,0.45)' : '#ddd';
+    return `<div class="xsc-row">
+        <span class="xsc-delta ${cls}">${sign}${item.delta}</span>
+        <div class="xsc-row-bar-wrap">
+            <div class="xsc-row-bar" style="width:${barW}%;background:${barColor};"></div>
+        </div>
+        <span class="xsc-row-label">${item.label}${item.note ? `<span class="xsc-row-note"> — ${item.note}</span>` : ''}</span>
+    </div>`;
+}
+
+// 1候補ブロックのHTML
+function xscCandidateHTML(cand, rank, isActive, panelId) {
+    const max   = 100;
+    const pct   = Math.round(cand.score);
+    const color = pct >= 65 ? '#4a7a5a' : pct >= 45 ? '#a09050' : '#b06050';
+    const maxDelta = Math.max(...cand.items.map(i => Math.abs(i.delta)), 1);
+
+    // 上位3〜5要因だけ表示（delta絶対値の大きい順）
+    const topItems = [...cand.items]
+        .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+        .slice(0, 5);
+
+    const total = topItems.reduce((s, i) => s + i.delta, 0);
+
+    return `<div class="xsc-candidate${isActive?' active':''}" id="${panelId}-cand-${cand.key}"
+        onclick="xscToggle('${panelId}','${cand.key}')">
+        <div class="xsc-cand-header">
+            <span class="xsc-cand-rank${rank===1?' top':''}">${xscRankChar(rank)}</span>
+            <span class="xsc-cand-name">${cand.label}</span>
+            <div class="xsc-cand-pct-wrap">
+                <div class="xsc-cand-bar-wrap">
+                    <div class="xsc-cand-bar" style="width:${pct}%;background:${color};"></div>
+                </div>
+                <span class="xsc-cand-pct" style="color:${color}">${pct}%</span>
+            </div>
+            <span class="xsc-cand-arrow">▾</span>
+        </div>
+        <div class="xsc-breakdown">
+            <div class="xsc-breakdown-title">スコア内訳（上位${topItems.length}要因）</div>
+            <div class="xsc-rows">
+                ${topItems.map(i => xscRowHTML(i, maxDelta)).join('')}
+            </div>
+            <div class="xsc-total">
+                <span>主要因の合計</span>
+                <span class="xsc-total-num">${total >= 0 ? '+' : ''}${total}</span>
+            </div>
+            <div class="xsc-why">${cand.why}</div>
+        </div>
+    </div>`;
+}
+
+// 候補切り替え（アコーディオン）
+function xscToggle(panelId, key) {
+    const allCands = document.querySelectorAll(`#${panelId} .xsc-candidate`);
+    allCands.forEach(el => {
+        const isTarget = el.id === `${panelId}-cand-${key}`;
+        const wasActive = el.classList.contains('active');
+        // 同じ候補をクリックした場合は閉じる、違うものは開く
+        el.classList.toggle('active', isTarget && !wasActive);
+    });
+}
+
+function renderParticiplePanel(result, hitEntry, tokens) {
     const conf    = result.confidence;
     const confPct = Math.round(conf * 100);
     const confColor = conf >= 0.9 ? '#5a8a6e' : conf >= 0.7 ? '#a09050' : '#b06050';
+    const panelId = 'xsc-' + Math.random().toString(36).slice(2, 7);
 
-    const candidatesHTML = result.candidates ? `
-        <div class="ptc-candidates">
-            <div class="ptc-cand-label">副詞用法の意味候補</div>
-            ${result.candidates.map(c => `
-                <div class="ptc-cand">
-                    <span class="ptc-cand-name">${c.label}</span>
-                    <div class="ptc-cand-bar-wrap">
-                        <div class="ptc-cand-bar-fill" style="width:${Math.round(c.conf*100)}%"></div>
-                    </div>
-                    <span class="ptc-cand-pct">${Math.round(c.conf*100)}%</span>
-                </div>`).join('')}
-        </div>` : '';
+    // ── 副詞用法（推定）の場合：Explainable Scoring を表示 ──
+    if (result.classification === 'adverbial' && hitEntry && tokens) {
+        const hm = decodeMorph(hitEntry);
+        const hitIdx = tokens.findIndex(t =>
+            cleanText(t) === cleanText(hitEntry) ||
+            String(t.ref) === String(hitEntry.ref)
+        );
+        const prevToken = hitIdx > 0 ? tokens[hitIdx - 1] : null;
+        const prevPos   = prevToken ? entryPosCode(prevToken) : '';
 
+        const scored = buildAdverbialBreakdown(hm, tokens, hitIdx, prevPos);
+
+        return `<div class="ptc-panel" id="${panelId}">
+            <div class="ptc-label">分詞用法 — スコア根拠を表示</div>
+            <div class="ptc-class">${result.label}</div>
+            <div class="ptc-reason">${result.reason}</div>
+            <div class="ptc-conf">
+                <div class="ptc-conf-bar">
+                    <div class="ptc-conf-fill" style="width:${confPct}%;background:${confColor};"></div>
+                </div>
+                <span>推定確信度 ${confPct}%</span>
+            </div>
+            <div style="margin-top:10px;">
+                <div style="font-size:0.62rem;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">
+                    推定候補（上位${scored.length}件）— タップで内訳を確認
+                </div>
+                <div class="xsc-candidates">
+                    ${scored.map((c, i) => xscCandidateHTML(c, i+1, i===0, panelId)).join('')}
+                </div>
+                <div style="font-size:0.65rem;color:var(--text-sub);margin-top:8px;opacity:0.7;">
+                    ※ スコアは形態素・文脈シグナルから計算。絶対的な判定ではありません。
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // ── 確定的用法（実体・形容・属格絶対・補語）の場合 ──
+    if (hitEntry && tokens) {
+        const hm = decodeMorph(hitEntry);
+        const hitIdx = tokens.findIndex(t =>
+            cleanText(t) === cleanText(hitEntry) ||
+            String(t.ref) === String(hitEntry.ref)
+        );
+        const prevToken = hitIdx > 0 ? tokens[hitIdx - 1] : null;
+        const prevPos   = prevToken ? entryPosCode(prevToken) : '';
+
+        // 形容詞用法の場合、一致名詞を特定
+        let matchingNoun = null;
+        if (result.classification === 'attributive') {
+            const ptcCase = hm.case, ptcGender = hm.gender, ptcNumber = hm.number;
+            matchingNoun = tokens.find(t => {
+                if (cleanText(t) === cleanText(hitEntry)) return false;
+                const pos = entryPosCode(t);
+                if (!['N','T','A','D','R'].includes(pos)) return false;
+                const tm = decodeMorph(t);
+                return tm.case === ptcCase && tm.gender === ptcGender && tm.number === ptcNumber;
+            });
+        }
+
+        const bd = buildDecisiveBreakdown(result.classification, hm, tokens, hitIdx, prevToken, matchingNoun);
+        const maxDelta = Math.max(...bd.items.map(i => Math.abs(i.delta)), 1);
+
+        const breakdownHTML = bd.items.length ? `
+            <div style="margin-top:10px;">
+                <div style="font-size:0.62rem;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">
+                    判定根拠（スコア内訳）
+                </div>
+                <div class="xsc-rows">
+                    ${bd.items.map(i => xscRowHTML(i, maxDelta)).join('')}
+                </div>
+                <div class="xsc-why">${bd.why}</div>
+            </div>` : '';
+
+        return `<div class="ptc-panel" id="${panelId}">
+            <div class="ptc-label">分詞用法 — 判定根拠あり</div>
+            <div class="ptc-class">${result.label}</div>
+            <div class="ptc-reason">${result.reason}</div>
+            <div class="ptc-conf">
+                <div class="ptc-conf-bar">
+                    <div class="ptc-conf-fill" style="width:${confPct}%;background:${confColor};"></div>
+                </div>
+                <span>推定確信度 ${confPct}%</span>
+            </div>
+            ${breakdownHTML}
+        </div>`;
+    }
+
+    // フォールバック（hitEntry なし）
     return `<div class="ptc-panel">
         <div class="ptc-label">分詞用法</div>
         <div class="ptc-class">${result.label}</div>
@@ -2175,7 +2576,6 @@ function renderParticiplePanel(result) {
             </div>
             <span>推定確信度 ${confPct}%</span>
         </div>
-        ${candidatesHTML}
     </div>`;
 }
 
@@ -2253,7 +2653,7 @@ function toggleContext(cardEl, ref, wordEnc) {
     );
     const isPtcSearch = params.mood === 'participle';
     const ptcHTML = (isPtcSearch && hitEntry)
-        ? renderParticiplePanel(classifyParticiple(hitEntry, tokens))
+        ? renderParticiplePanel(classifyParticiple(hitEntry, tokens), hitEntry, tokens)
         : '';
 
     panel.innerHTML = `
