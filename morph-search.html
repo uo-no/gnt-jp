@@ -1,13 +1,15 @@
 <!DOCTYPE html>
-
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>05051000｜形態論検索 — コトバト</title>
+<title>05050900｜形態論検索 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
+/* ══════════════════════════════════════════════════════
+   デザイントークン
+   ══════════════════════════════════════════════════════ */
 :root {
     --bg-paper:        #ffffff;
     --bg-panel:        #f5f5f7;
@@ -18,555 +20,394 @@
     --highlight-light: rgba(90,110,130,0.10);
     --border-soft:     rgba(0,0,0,0.08);
 }
+
+/* ── リセット & ベース ── */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Noto Sans JP', -apple-system, sans-serif; background: var(--bg-paper); color: var(--text-main); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+body {
+    font-family: 'Noto Sans JP', -apple-system, sans-serif;
+    background: var(--bg-paper);
+    color: var(--text-main);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
 .page { max-width: 720px; margin: 0 auto; padding: 28px 24px 80px; }
 
+/* ── ナビゲーション ── */
 .nav-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
-.btn-back { display: inline-flex; align-items: center; gap: 5px; padding: 5px 13px; font-size: 0.8rem; font-family: inherit; border: 1px solid var(--border-soft); border-radius: 20px; background: transparent; cursor: pointer; color: var(--text-sub); transition: background 0.12s; }
+.btn-back {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 13px; font-size: 0.8rem; font-family: inherit;
+    border: 1px solid var(--border-soft); border-radius: 20px;
+    background: transparent; cursor: pointer; color: var(--text-sub);
+    transition: background 0.12s;
+}
 .btn-back:hover { background: var(--bg-panel); }
-.breadcrumb { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: var(--text-sub); flex: 1; overflow: hidden; }
-.breadcrumb .crumb { color: var(--highlight); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.breadcrumb {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.78rem; color: var(--text-sub); flex: 1; overflow: hidden;
+}
+.breadcrumb .crumb {
+    color: var(--highlight); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; max-width: 120px;
+}
 .breadcrumb .sep { color: var(--text-sub); opacity: 0.4; flex-shrink: 0; }
 
-.meaning-card { background: var(--highlight-light); border: 1px solid rgba(90,110,130,0.2); border-left: 3px solid var(--highlight); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; }
+/* ── 意味カード ── */
+.meaning-card {
+    background: var(--highlight-light);
+    border: 1px solid rgba(90,110,130,0.2);
+    border-left: 3px solid var(--highlight);
+    border-radius: 10px; padding: 14px 18px; margin-bottom: 16px;
+}
 .meaning-label { font-size: 0.62rem; font-weight: 700; color: var(--highlight); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
 .meaning-title { font-size: 0.95rem; font-weight: 700; color: var(--text-main); line-height: 1.5; margin-bottom: 3px; }
-.meaning-sub { font-size: 0.75rem; color: var(--text-sub); line-height: 1.8; }
+.meaning-sub   { font-size: 0.75rem; color: var(--text-sub); line-height: 1.8; }
 
-/* sticky バー（meaning-cardとは独立した固定要素） */
+/* ── 固定ステッキーバー（meaning-card がスクロールアウトしたとき表示） ── */
 #meaning-sticky {
-display: none;
-position: fixed;
-top: 0;
-left: 0;
-right: 0;
-z-index: 200;
-background: var(--highlight-light);
-border-bottom: 1px solid rgba(90,110,130,0.25);
-border-left: 3px solid var(--highlight);
-padding: 8px 24px;
-font-size: 0.85rem;
-font-weight: 700;
-color: var(--text-main);
-backdrop-filter: blur(8px);
--webkit-backdrop-filter: blur(8px);
-box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+    background: var(--highlight-light);
+    border-bottom: 1px solid rgba(90,110,130,0.25);
+    border-left: 3px solid var(--highlight);
+    padding: 8px 24px;
+    font-size: 0.85rem; font-weight: 700; color: var(--text-main);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
 }
 #meaning-sticky.visible { display: block; }
-
-/* sticky バーが表示中はページ上部に余白を確保 */
 body.has-sticky-bar .page { padding-top: 0; }
 body.has-sticky-bar #meaning-sticky + * { margin-top: 36px; }
 
-.filter-panel { border: 1px solid var(--border-soft); border-radius: 12px; background: var(--bg-sidebar); margin-bottom: 16px; overflow: hidden; }
+/* ── フィルターパネル ── */
+.filter-panel  { border: 1px solid var(--border-soft); border-radius: 12px; background: var(--bg-sidebar); margin-bottom: 16px; overflow: hidden; }
 .filter-section { padding: 12px 16px; }
 .filter-section + .filter-section { border-top: 1px solid var(--border-soft); }
 .filter-section-label { font-size: 0.62rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
-.chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; }
+/* ── チップ ── */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip  { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; }
+
 .chip-core { background: rgba(90,110,130,0.08); border: 1px solid rgba(90,110,130,0.15); color: var(--highlight); font-weight: 600; }
 .chip-core .chip-key { font-size: 0.62rem; color: var(--text-sub); font-weight: 400; }
-.chip-ext { border: 1px solid var(--border-soft); cursor: pointer; user-select: none; transition: all 0.12s; }
-.chip-ext.on  { background: rgba(90,110,130,0.10); border-color: rgba(90,110,130,0.3); color: var(--highlight); font-weight: 600; }
-.chip-ext.off { background: var(--bg-paper); border-color: var(--border-soft); color: #bbb; text-decoration: line-through; }
+
+.chip-ext          { border: 1px solid var(--border-soft); cursor: pointer; user-select: none; transition: all 0.12s; }
+.chip-ext.on       { background: rgba(90,110,130,0.10); border-color: rgba(90,110,130,0.3); color: var(--highlight); font-weight: 600; }
+.chip-ext.off      { background: var(--bg-paper); border-color: var(--border-soft); color: #bbb; text-decoration: line-through; }
 .chip-ext:hover.on  { background: rgba(90,110,130,0.17); }
 .chip-ext:hover.off { background: var(--bg-panel); text-decoration: none; }
-.chip-toggle-dot { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid currentColor; display: flex; align-items: center; justify-content: center; font-size: 9px; flex-shrink: 0; }
-.chip-ext.on .chip-toggle-dot { background: var(--highlight); border-color: var(--highlight); color: #fff; }
+
+.chip-toggle-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 1.5px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; flex-shrink: 0;
+}
+.chip-ext.on  .chip-toggle-dot { background: var(--highlight); border-color: var(--highlight); color: #fff; }
 .chip-ext.off .chip-toggle-dot { background: transparent; color: #ccc; }
 
-/* ── インサイトパネル ── */
+/* ══════════════════════════════════════════════════════
+   インサイトパネル
+   ══════════════════════════════════════════════════════ */
 .insight-panel {
-margin-bottom: 16px;
-display: flex;
-flex-direction: column;
-gap: 10px;
-animation: fadeIn 0.3s ease;
+    margin-bottom: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+    animation: fadeIn 0.3s ease;
 }
 
-/* ① 分布バー */
-.dist-card {
-border: 1px solid var(--border-soft);
-border-radius: 10px;
-background: var(--bg-paper);
-overflow: hidden;
-}
+/* ① 書物別分布バー */
+.dist-card { border: 1px solid var(--border-soft); border-radius: 10px; background: var(--bg-paper); overflow: hidden; }
 .dist-header {
-display: flex;
-align-items: center;
-justify-content: space-between;
-padding: 10px 14px 6px;
-cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px 6px; cursor: pointer;
 }
-.dist-title { font-size: 0.65rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.08em; }
+.dist-title  { font-size: 0.65rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.08em; }
 .dist-toggle { font-size: 0.7rem; color: var(--text-sub); opacity: 0.5; }
-.dist-body { padding: 0 14px 10px; }
-.dist-row {
-display: flex;
-align-items: center;
-gap: 8px;
-margin-bottom: 5px;
-}
-.dist-book {
-width: 72px;
-font-size: 0.7rem;
-color: var(--text-sub);
-text-align: right;
-flex-shrink: 0;
-}
-.dist-bar-wrap {
-flex: 1;
-height: 6px;
-background: var(--bg-panel);
-border-radius: 3px;
-overflow: hidden;
-}
-.dist-bar-fill {
-height: 100%;
-border-radius: 3px;
-background: var(--highlight);
-transition: width 0.4s ease;
-}
-.dist-count {
-width: 36px;
-font-size: 0.68rem;
-color: var(--text-sub);
-text-align: right;
-flex-shrink: 0;
-}
+.dist-body   { padding: 0 14px 10px; }
+.dist-row    { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.dist-book   { width: 72px; font-size: 0.7rem; color: var(--text-sub); text-align: right; flex-shrink: 0; }
+.dist-bar-wrap  { flex: 1; height: 6px; background: var(--bg-panel); border-radius: 3px; overflow: hidden; }
+.dist-bar-fill  { height: 100%; border-radius: 3px; background: var(--highlight); transition: width 0.4s ease; }
+.dist-count  { width: 36px; font-size: 0.68rem; color: var(--text-sub); text-align: right; flex-shrink: 0; }
 
-/* ② 用法パターン */
-.pattern-card {
-border: 1px solid var(--border-soft);
-border-radius: 10px;
-background: var(--bg-paper);
-padding: 10px 14px;
-}
+/* ② 用法パターンカード */
+.pattern-card { border: 1px solid var(--border-soft); border-radius: 10px; background: var(--bg-paper); padding: 10px 14px; }
 .pattern-title { font-size: 0.65rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 7px; }
-.pattern-list { display: flex; flex-direction: column; gap: 4px; }
-.pattern-item {
-display: flex;
-align-items: flex-start;
-gap: 7px;
-font-size: 0.78rem;
-color: var(--text-main);
-line-height: 1.5;
-}
-.pattern-dot {
-width: 5px;
-height: 5px;
-border-radius: 50%;
-background: var(--highlight);
-margin-top: 7px;
-flex-shrink: 0;
-opacity: 0.5;
-}
+.pattern-list  { display: flex; flex-direction: column; gap: 4px; }
+.pattern-item  { display: flex; align-items: flex-start; gap: 7px; font-size: 0.78rem; color: var(--text-main); line-height: 1.5; }
+.pattern-dot   { width: 5px; height: 5px; border-radius: 50%; background: var(--highlight); margin-top: 7px; flex-shrink: 0; opacity: 0.5; }
+
 /* ── 読解意思決定カード ── */
-.reading-card { border: 1px solid var(--border-soft); border-radius: 10px; background: var(--bg-paper); overflow: hidden; }
+.reading-card        { border: 1px solid var(--border-soft); border-radius: 10px; background: var(--bg-paper); overflow: hidden; }
 .reading-card-header { padding: 10px 14px 6px; font-size: 0.65rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.08em; }
-.reading-block { border-top: 1px solid var(--border-soft); padding: 10px 14px; }
-.reading-block-type { font-size: 0.62rem; font-weight: 700; color: var(--highlight); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
-.reading-row { display: flex; gap: 6px; margin-bottom: 5px; font-size: 0.75rem; line-height: 1.55; }
-.reading-row-label { flex-shrink: 0; width: 36px; font-size: 0.6rem; font-weight: 700; color: var(--text-sub); opacity: 0.6; text-transform: uppercase; padding-top: 2px; }
-.reading-row-body { flex: 1; color: var(--text-main); }
+.reading-block       { border-top: 1px solid var(--border-soft); padding: 10px 14px; }
+.reading-block-type  { font-size: 0.62rem; font-weight: 700; color: var(--highlight); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+.reading-row         { display: flex; gap: 6px; margin-bottom: 5px; font-size: 0.75rem; line-height: 1.55; }
+.reading-row-label   { flex-shrink: 0; width: 36px; font-size: 0.6rem; font-weight: 700; color: var(--text-sub); opacity: 0.6; text-transform: uppercase; padding-top: 2px; }
+.reading-row-body    { flex: 1; color: var(--text-main); }
 .reading-row.caution .reading-row-label { color: #b06050; opacity: 0.8; }
-.reading-row.caution .reading-row-body { color: #b06050; }
-.rank-list { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
-.rank-item { padding: 5px 8px; background: var(--bg-panel); border-radius: 6px; }
-.rank-item-top { display: flex; align-items: baseline; gap: 8px; font-size: 0.75rem; }
-.rank-num { font-size: 0.65rem; font-weight: 700; color: var(--text-sub); opacity: 0.6; flex-shrink: 0; width: 14px; }
-.rank-candidate { font-weight: 700; color: var(--text-main); min-width: 60px; flex-shrink: 0; }
-.rank-score-bar-wrap { flex: 1; height: 4px; background: #e8e8e8; border-radius: 2px; overflow: hidden; align-self: center; }
-.rank-score-bar { height: 100%; border-radius: 2px; background: var(--highlight); opacity: 0.6; }
-.rank-score-num { font-size: 0.65rem; color: var(--text-sub); flex-shrink: 0; width: 28px; text-align: right; }
-.rank-reasons { font-size: 0.68rem; color: var(--text-sub); padding: 3px 0 0 22px; line-height: 1.5; }
-.rank-ambiguous { font-size: 0.65rem; color: #a09050; padding: 2px 8px; background: rgba(160,140,80,0.08); border-radius: 4px; margin-top: 2px; display: inline-block; }
+.reading-row.caution .reading-row-body  { color: #b06050; }
 
-/* ③ 代表用例 */
-.examples-card {
-border: 1px solid var(--border-soft);
-border-radius: 10px;
-background: var(--bg-paper);
-overflow: hidden;
-}
-.examples-title { font-size: 0.65rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.08em; padding: 10px 14px 6px; }
-.example-item {
-padding: 8px 14px;
-border-top: 1px solid var(--border-soft);
-cursor: pointer;
-transition: background 0.1s;
-}
+/* ランキングリスト */
+.rank-list          { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+.rank-item          { padding: 5px 8px; background: var(--bg-panel); border-radius: 6px; }
+.rank-item-top      { display: flex; align-items: baseline; gap: 8px; font-size: 0.75rem; }
+.rank-num           { font-size: 0.65rem; font-weight: 700; color: var(--text-sub); opacity: 0.6; flex-shrink: 0; width: 14px; }
+.rank-candidate     { font-weight: 700; color: var(--text-main); min-width: 60px; flex-shrink: 0; }
+.rank-score-bar-wrap{ flex: 1; height: 4px; background: #e8e8e8; border-radius: 2px; overflow: hidden; align-self: center; }
+.rank-score-bar     { height: 100%; border-radius: 2px; background: var(--highlight); opacity: 0.6; }
+.rank-score-num     { font-size: 0.65rem; color: var(--text-sub); flex-shrink: 0; width: 28px; text-align: right; }
+.rank-reasons       { font-size: 0.68rem; color: var(--text-sub); padding: 3px 0 0 22px; line-height: 1.5; }
+.rank-ambiguous     { font-size: 0.65rem; color: #a09050; padding: 2px 8px; background: rgba(160,140,80,0.08); border-radius: 4px; margin-top: 2px; display: inline-block; }
+
+/* ③ 代表用例カード */
+.examples-card   { border: 1px solid var(--border-soft); border-radius: 10px; background: var(--bg-paper); overflow: hidden; }
+.examples-title  { font-size: 0.65rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.08em; padding: 10px 14px 6px; }
+.example-item    { padding: 8px 14px; border-top: 1px solid var(--border-soft); cursor: pointer; transition: background 0.1s; }
 .example-item:hover { background: var(--highlight-light); }
-.example-greek {
-font-family: ‘Gentium Plus’, serif;
-font-size: 1rem;
-color: var(--text-main);
-line-height: 1.8;
-}
-.example-greek .hit-word {
-color: var(--highlight);
-font-weight: 700;
-border-bottom: 2px solid var(--highlight);
-padding-bottom: 1px;
-}
-.example-ja {
-font-size: 0.75rem;
-color: var(--text-sub);
-margin-top: 1px;
-line-height: 1.5;
-}
-.example-ref { font-size: 0.68rem; color: #c0c0c5; font-family: monospace; float: right; margin-top: 2px; }
+.example-greek   { font-family: 'Gentium Plus', serif; font-size: 1rem; color: var(--text-main); line-height: 1.8; }
+.example-greek .hit-word { color: var(--highlight); font-weight: 700; border-bottom: 2px solid var(--highlight); padding-bottom: 1px; }
+.example-ja      { font-size: 0.75rem; color: var(--text-sub); margin-top: 1px; line-height: 1.5; }
+.example-ref     { font-size: 0.68rem; color: #c0c0c5; font-family: monospace; float: right; margin-top: 2px; }
 
-/* ── 結果メタ ── */
-.result-meta { display: flex; align-items: baseline; justify-content: space-between; padding: 0 2px; margin-bottom: 12px; }
+/* ══════════════════════════════════════════════════════
+   検索結果
+   ══════════════════════════════════════════════════════ */
+.result-meta  { display: flex; align-items: baseline; justify-content: space-between; padding: 0 2px; margin-bottom: 12px; }
 .result-count { font-size: 0.82rem; color: var(--text-sub); }
 .result-count strong { font-size: 1rem; font-weight: 700; color: var(--text-main); }
-.result-pct { font-size: 0.72rem; color: #c0c0c5; }
+.result-pct   { font-size: 0.72rem; color: #c0c0c5; }
 
-.result-list { display: flex; flex-direction: column; gap: 6px; }
-.result-card { border: 1px solid var(--border-soft); border-radius: 10px; padding: 12px 14px; background: var(--bg-paper); cursor: pointer; transition: border-color 0.12s, background 0.12s, transform 0.1s; }
-.result-card:hover { background: var(--highlight-light); border-color: rgba(90,110,130,0.3); transform: translateY(-1px); }
-.result-card.card-open { border-color: rgba(90,110,130,0.35); background: var(--highlight-light); }
-.result-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 5px; }
-.result-word { font-family: ‘Gentium Plus’, serif; font-size: 1.4rem; line-height: 1.3; color: var(--text-main); }
-.result-lemma { font-family: ‘Gentium Plus’, serif; font-size: 0.78rem; color: var(--text-sub); margin-left: 6px; }
-.result-ja { font-size: 0.88rem; color: var(--text-main); line-height: 1.6; display: block; }
-.result-main { flex: 1; min-width: 0; padding-right: 8px; }
-.result-ref { font-size: 0.72rem; color: #c0c0c5; font-family: monospace; white-space: nowrap; flex-shrink: 0; }
+.result-list  { display: flex; flex-direction: column; gap: 6px; }
+.result-card  {
+    border: 1px solid var(--border-soft); border-radius: 10px;
+    padding: 12px 14px; background: var(--bg-paper);
+    cursor: pointer; transition: border-color 0.12s, background 0.12s, transform 0.1s;
+}
+.result-card:hover    { background: var(--highlight-light); border-color: rgba(90,110,130,0.3); transform: translateY(-1px); }
+.result-card.card-open{ border-color: rgba(90,110,130,0.35); background: var(--highlight-light); }
+.result-top   { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 5px; }
+.result-word  { font-family: 'Gentium Plus', serif; font-size: 1.4rem; line-height: 1.3; color: var(--text-main); }
+.result-lemma { font-family: 'Gentium Plus', serif; font-size: 0.78rem; color: var(--text-sub); margin-left: 6px; }
+.result-ja    { font-size: 0.88rem; color: var(--text-main); line-height: 1.6; display: block; }
+.result-main  { flex: 1; min-width: 0; padding-right: 8px; }
+.result-ref   { font-size: 0.72rem; color: #c0c0c5; font-family: monospace; white-space: nowrap; flex-shrink: 0; }
 
 .empty-state { text-align: center; padding: 40px 16px; color: var(--text-sub); font-size: 0.82rem; line-height: 2.2; }
-.empty-icon { font-family: ‘Gentium Plus’, serif; font-size: 2rem; color: #d0d0d8; margin-bottom: 8px; }
-.loading { text-align: center; padding: 48px 16px; font-size: 0.82rem; color: var(--text-sub); }
+.empty-icon  { font-family: 'Gentium Plus', serif; font-size: 2rem; color: #d0d0d8; margin-bottom: 8px; }
+.loading     { text-align: center; padding: 48px 16px; font-size: 0.82rem; color: var(--text-sub); }
 .loading-dot { display: inline-block; animation: pulse 1.4s ease-in-out infinite; }
 .loading-dot:nth-child(2) { animation-delay: 0.2s; }
 .loading-dot:nth-child(3) { animation-delay: 0.4s; }
 
-/* ── 展開パネル（構文） ── */
+/* ── 展開パネル（構文ツリー） ── */
 .ctx-panel { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-soft); animation: fadeIn 0.18s ease; }
-.ctx-raw { font-family: ‘Gentium Plus’, serif; font-size: 1.05rem; line-height: 2; color: var(--text-sub); margin-bottom: 8px; letter-spacing: 0.02em; }
+.ctx-raw   { font-family: 'Gentium Plus', serif; font-size: 1.05rem; line-height: 2; color: var(--text-sub); margin-bottom: 8px; letter-spacing: 0.02em; }
 .ctx-label { font-size: 0.65rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; opacity: 0.6; }
 
-/* 構文ツリー（階層インデント） */
-.ctx-tree { display: flex; flex-direction: column; gap: 4px; }
+.ctx-tree      { display: flex; flex-direction: column; gap: 4px; }
 .ctx-tree-verb {
-display: flex;
-align-items: center;
-gap: 8px;
-padding: 5px 10px;
-background: rgba(74,127,165,0.10);
-border-radius: 7px;
-border-left: 3px solid rgba(74,127,165,0.5);
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 10px;
+    background: rgba(74,127,165,0.10);
+    border-radius: 7px; border-left: 3px solid rgba(74,127,165,0.5);
 }
 .ctx-tree-branch {
-display: flex;
-flex-direction: column;
-gap: 3px;
-margin-left: 14px;
-padding-left: 10px;
-border-left: 1.5px solid var(--border-soft);
+    display: flex; flex-direction: column; gap: 3px;
+    margin-left: 14px; padding-left: 10px;
+    border-left: 1.5px solid var(--border-soft);
 }
-.ctx-tree-node {
-display: flex;
-align-items: center;
-gap: 8px;
-padding: 4px 10px;
-border-radius: 6px;
-font-size: 0.92rem;
-}
-.ctx-tree-node[data-role=“subj”] { background: rgba(90,138,110,0.10); border-left: 2px solid rgba(90,138,110,0.4); }
-.ctx-tree-node[data-role=“obj”]  { background: rgba(154,96,64,0.10);  border-left: 2px solid rgba(154,96,64,0.4); }
-.ctx-tree-node[data-role=“prep”] { background: rgba(122,106,160,0.10); border-left: 2px solid rgba(122,106,160,0.35); }
-.ctx-tree-node[data-role=“phr”]  { background: rgba(120,120,120,0.06); border-left: 2px solid rgba(120,120,120,0.25); }
-.ctx-tree-node[data-role=“mod”]  { background: rgba(160,140,80,0.08);  border-left: 2px solid rgba(160,140,80,0.3); }
+.ctx-tree-node         { display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 6px; font-size: 0.92rem; }
+.ctx-tree-node[data-role="subj"] { background: rgba(90,138,110,0.10); border-left: 2px solid rgba(90,138,110,0.4); }
+.ctx-tree-node[data-role="obj"]  { background: rgba(154,96,64,0.10);  border-left: 2px solid rgba(154,96,64,0.4); }
+.ctx-tree-node[data-role="prep"] { background: rgba(122,106,160,0.10); border-left: 2px solid rgba(122,106,160,0.35); }
+.ctx-tree-node[data-role="phr"]  { background: rgba(120,120,120,0.06); border-left: 2px solid rgba(120,120,120,0.25); }
+.ctx-tree-node[data-role="mod"]  { background: rgba(160,140,80,0.08);  border-left: 2px solid rgba(160,140,80,0.3); }
+
 .ctx-role-tag {
-font-size: 0.6rem;
-font-weight: 700;
-text-transform: uppercase;
-letter-spacing: 0.07em;
-opacity: 0.65;
-flex-shrink: 0;
-min-width: 42px;
+    font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; opacity: 0.65; flex-shrink: 0; min-width: 42px;
 }
-.ctx-greek {
-font-family: ‘Gentium Plus’, serif;
-font-size: 1.05rem;
-line-height: 1.5;
-}
-.ctx-greek.hit {
-color: var(--highlight);
-font-weight: 700;
-background: rgba(90,110,130,0.12);
-border-radius: 4px;
-padding: 0 3px;
-}
+.ctx-greek      { font-family: 'Gentium Plus', serif; font-size: 1.05rem; line-height: 1.5; }
+.ctx-greek.hit  { color: var(--highlight); font-weight: 700; background: rgba(90,110,130,0.12); border-radius: 4px; padding: 0 3px; }
 
 /* ── 分詞用法パネル ── */
-.ptc-panel {
-margin-top: 10px;
-padding: 10px 12px;
-background: rgba(160,140,80,0.06);
-border: 1px solid rgba(160,140,80,0.2);
-border-radius: 8px;
-font-size: 0.78rem;
-line-height: 1.7;
-}
-.ptc-label {
-font-size: 0.62rem;
-font-weight: 700;
-color: rgba(140,120,50,0.8);
-text-transform: uppercase;
-letter-spacing: 0.08em;
-margin-bottom: 6px;
-}
-.ptc-class { font-weight: 700; color: var(--text-main); font-size: 0.88rem; margin-bottom: 3px; }
+.ptc-panel { margin-top: 10px; padding: 10px 12px; background: rgba(160,140,80,0.06); border: 1px solid rgba(160,140,80,0.2); border-radius: 8px; font-size: 0.78rem; line-height: 1.7; }
+.ptc-label { font-size: 0.62rem; font-weight: 700; color: rgba(140,120,50,0.8); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+.ptc-class  { font-weight: 700; color: var(--text-main); font-size: 0.88rem; margin-bottom: 3px; }
 .ptc-reason { color: var(--text-sub); font-size: 0.75rem; margin-bottom: 6px; }
-.ptc-conf { display: inline-flex; align-items: center; gap: 5px; font-size: 0.68rem; color: var(--text-sub); margin-bottom: 8px; }
-.ptc-conf-bar { width: 56px; height: 3px; background: #e8e8e8; border-radius: 2px; overflow: hidden; }
+.ptc-conf   { display: inline-flex; align-items: center; gap: 5px; font-size: 0.68rem; color: var(--text-sub); margin-bottom: 8px; }
+.ptc-conf-bar  { width: 56px; height: 3px; background: #e8e8e8; border-radius: 2px; overflow: hidden; }
 .ptc-conf-fill { height: 100%; border-radius: 2px; }
-.ptc-candidates { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(160,140,80,0.15); }
-.ptc-cand-label { font-size: 0.62rem; color: var(--text-sub); opacity: 0.7; margin-bottom: 3px; }
-.ptc-cand { display: flex; align-items: center; gap: 8px; }
-.ptc-cand-name { min-width: 64px; font-size: 0.75rem; color: var(--text-main); font-weight: 600; }
-.ptc-cand-ja { flex: 1; font-size: 0.72rem; color: var(--text-sub); }
-.ptc-cand-bar-wrap { width: 44px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; flex-shrink: 0; }
-.ptc-cand-bar-fill { height: 100%; border-radius: 2px; background: rgba(160,140,80,0.5); }
-.ptc-cand-pct { font-size: 0.65rem; color: #bbb; width: 28px; text-align: right; flex-shrink: 0; }
+.ptc-candidates   { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(160,140,80,0.15); }
+.ptc-cand-label   { font-size: 0.62rem; color: var(--text-sub); opacity: 0.7; margin-bottom: 3px; }
+.ptc-cand         { display: flex; align-items: center; gap: 8px; }
+.ptc-cand-name    { min-width: 64px; font-size: 0.75rem; color: var(--text-main); font-weight: 600; }
+.ptc-cand-ja      { flex: 1; font-size: 0.72rem; color: var(--text-sub); }
+.ptc-cand-bar-wrap{ width: 44px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+.ptc-cand-bar-fill{ height: 100%; border-radius: 2px; background: rgba(160,140,80,0.5); }
+.ptc-cand-pct     { font-size: 0.65rem; color: #bbb; width: 28px; text-align: right; flex-shrink: 0; }
 
 /* ── フッター ── */
-.app-footer { margin-top: 48px; border-top: 1px solid var(--border-soft); padding: 12px 0; display: flex; align-items: center; justify-content: space-between; }
+.app-footer  { margin-top: 48px; border-top: 1px solid var(--border-soft); padding: 12px 0; display: flex; align-items: center; justify-content: space-between; }
 .footer-copy { font-size: 0.7rem; color: var(--text-sub); letter-spacing: 0.01em; }
+.footer-links     { display: flex; gap: 18px; }
+.footer-links a   { font-size: 0.7rem; color: var(--text-sub); text-decoration: none; border-bottom: 1px solid rgba(0,0,0,0.12); padding-bottom: 1px; transition: color 0.15s; }
+.footer-links a:hover { color: var(--text-main); }
 
-/* ── 用法分類ビュー ── */
-.cat-view { display: flex; flex-direction: column; gap: 10px; }
-
+/* ══════════════════════════════════════════════════════
+   用法分類ビュー（分詞検索専用）
+   ══════════════════════════════════════════════════════ */
+.cat-view  { display: flex; flex-direction: column; gap: 10px; }
 .cat-block { border: 1px solid var(--border-soft); border-radius: 12px; background: var(--bg-paper); overflow: hidden; }
-.cat-block-header {
-display: flex; align-items: center; justify-content: space-between;
-padding: 10px 14px; cursor: pointer;
-transition: background 0.12s;
-}
+.cat-block-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; cursor: pointer; transition: background 0.12s; }
 .cat-block-header:hover { background: var(--highlight-light); }
-.cat-header-left { display: flex; align-items: center; gap: 8px; }
-.cat-label {
-font-size: 0.8rem; font-weight: 700; color: var(--text-main);
-}
-.cat-count {
-font-size: 0.7rem; color: var(--text-sub);
-background: var(--bg-panel);
-padding: 1px 7px; border-radius: 10px;
-}
-.cat-conf-wrap { display: flex; align-items: center; gap: 6px; }
-.cat-conf-bar-wrap {
-width: 60px; height: 4px;
-background: #eee; border-radius: 2px; overflow: hidden;
-}
-.cat-conf-bar { height: 100%; border-radius: 2px; }
-.cat-conf-pct { font-size: 0.65rem; color: var(--text-sub); width: 28px; text-align: right; }
-.cat-toggle { font-size: 0.7rem; color: var(--text-sub); opacity: 0.5; margin-left: 4px; }
-
-.cat-body { border-top: 1px solid var(--border-soft); }
+.cat-header-left  { display: flex; align-items: center; gap: 8px; }
+.cat-label        { font-size: 0.8rem; font-weight: 700; color: var(--text-main); }
+.cat-count        { font-size: 0.7rem; color: var(--text-sub); background: var(--bg-panel); padding: 1px 7px; border-radius: 10px; }
+.cat-conf-wrap    { display: flex; align-items: center; gap: 6px; }
+.cat-conf-bar-wrap{ width: 60px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; }
+.cat-conf-bar     { height: 100%; border-radius: 2px; }
+.cat-conf-pct     { font-size: 0.65rem; color: var(--text-sub); width: 28px; text-align: right; }
+.cat-toggle       { font-size: 0.7rem; color: var(--text-sub); opacity: 0.5; margin-left: 4px; }
+.cat-body         { border-top: 1px solid var(--border-soft); }
 
 /* 代表例 */
-.cat-rep {
-padding: 10px 14px;
-background: rgba(90,110,130,0.05);
-border-bottom: 1px solid var(--border-soft);
-}
-.cat-rep-label {
-font-size: 0.58rem; font-weight: 700;
-color: var(--highlight); text-transform: uppercase;
-letter-spacing: 0.08em; margin-bottom: 5px;
-}
-.cat-rep-greek {
-font-family: ‘Gentium Plus’, serif;
-font-size: 1rem; line-height: 1.8;
-color: var(--text-main);
-margin-bottom: 3px;
-}
-.cat-rep-ja { font-size: 0.75rem; color: var(--text-sub); }
-.cat-rep-ref { font-size: 0.65rem; color: #c0c0c5; font-family: monospace; float: right; }
-.cat-rep-score {
-display: inline-flex; align-items: center; gap: 4px;
-margin-top: 5px; font-size: 0.62rem; color: var(--text-sub);
-}
-.cat-rep-score-bar-wrap { width: 40px; height: 3px; background: #eee; border-radius: 2px; overflow: hidden; }
-.cat-rep-score-bar { height: 100%; border-radius: 2px; background: var(--highlight); opacity: 0.7; }
+.cat-rep        { padding: 10px 14px; background: rgba(90,110,130,0.05); border-bottom: 1px solid var(--border-soft); }
+.cat-rep-label  { font-size: 0.58rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.cat-rep-ref    { font-size: 0.65rem; color: #c0c0c5; font-family: monospace; float: right; }
+.cat-rep-greek  { font-family: 'Gentium Plus', serif; font-size: 1rem; color: var(--text-main); line-height: 1.8; }
+.cat-rep-ja     { font-size: 0.73rem; color: var(--text-sub); margin-top: 1px; }
+.cat-rep-score  { display: flex; align-items: center; gap: 8px; margin-top: 5px; font-size: 0.65rem; color: var(--text-sub); }
+.cat-rep-score-bar-wrap { flex: 1; height: 3px; background: #eee; border-radius: 2px; overflow: hidden; }
+.cat-rep-score-bar      { height: 100%; border-radius: 2px; background: var(--highlight); opacity: 0.5; }
 
-/* 一般用例リスト */
-.cat-examples { display: flex; flex-direction: column; }
-.cat-example {
-padding: 8px 14px;
-border-bottom: 1px solid var(--border-soft);
-cursor: pointer; transition: background 0.1s;
-}
-.cat-example:last-child { border-bottom: none; }
-.cat-example:hover { background: var(--highlight-light); }
-.cat-example-greek {
-font-family: ‘Gentium Plus’, serif;
-font-size: 0.95rem; line-height: 1.8; color: var(--text-main);
-}
-.cat-example-greek .hit-word {
-color: var(--highlight); font-weight: 700;
-border-bottom: 2px solid var(--highlight); padding-bottom: 1px;
-}
-.cat-example-ja { font-size: 0.72rem; color: var(--text-sub); margin-top: 1px; }
-.cat-example-ref { font-size: 0.65rem; color: #c0c0c5; font-family: monospace; float: right; }
+/* 通常用例行 */
+.cat-example        { padding: 6px 14px; border-top: 1px solid var(--border-soft); cursor: pointer; transition: background 0.1s; }
+.cat-example:hover  { background: var(--highlight-light); }
+.cat-example-greek  { font-family: 'Gentium Plus', serif; font-size: 0.95rem; color: var(--text-main); line-height: 1.8; }
+.cat-example-greek .hit-word { color: var(--highlight); font-weight: 700; border-bottom: 2px solid var(--highlight); padding-bottom: 1px; }
+.cat-example-ja     { font-size: 0.72rem; color: var(--text-sub); margin-top: 1px; }
+.cat-example-ref    { font-size: 0.65rem; color: #c0c0c5; font-family: monospace; float: right; }
 
 /* タグ */
 .cat-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
-.cat-tag {
-font-size: 0.62rem; padding: 1px 7px; border-radius: 10px;
-background: var(--bg-panel); color: var(--text-sub);
-border: 1px solid var(--border-soft);
-}
+.cat-tag  { font-size: 0.62rem; padding: 1px 7px; border-radius: 10px; background: var(--bg-panel); color: var(--text-sub); border: 1px solid var(--border-soft); }
 .cat-tag.warn { background: rgba(176,96,80,0.08); color: #b06050; border-color: rgba(176,96,80,0.2); }
 
-/* 曖昧性ブロック */
+/* 曖昧ブロック */
 .cat-block.ambiguous .cat-block-header { border-left: 3px solid #d4a04a; }
 .cat-block.unknown   .cat-block-header { border-left: 3px solid #bbb; }
 
 .cat-more-btn {
-width: 100%; padding: 8px; font-size: 0.75rem; font-family: inherit;
-background: transparent; border: none; border-top: 1px solid var(--border-soft);
-cursor: pointer; color: var(--text-sub); transition: background 0.12s;
+    width: 100%; padding: 8px; font-size: 0.75rem; font-family: inherit;
+    background: transparent; border: none; border-top: 1px solid var(--border-soft);
+    cursor: pointer; color: var(--text-sub); transition: background 0.12s;
 }
 .cat-more-btn:hover { background: var(--bg-panel); }
-.footer-links { display: flex; gap: 18px; }
-.footer-links a { font-size: 0.7rem; color: var(--text-sub); text-decoration: none; border-bottom: 1px solid rgba(0,0,0,0.12); padding-bottom: 1px; transition: color 0.15s; }
-.footer-links a:hover { color: var(--text-main); }
 
+/* ── 専門用語補足 ── */
+abbr.term-hint { text-decoration: none; cursor: default; }
+.term-hint-paren { font-size: 0.78em; color: var(--text-sub); opacity: 0.75; margin-left: 1px; }
+
+/* ── アニメーション ── */
 @keyframes fadeIn  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
 @keyframes pulse   { 0%,80%,100% { opacity:0.3; } 40% { opacity:1; } }
 @keyframes slideIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
 .animate-in { animation: slideIn 0.2s ease forwards; }
-
-/* ── 専門用語補足 ── */
-abbr.term-hint {
-text-decoration: none;
-cursor: default;
-}
-.term-hint-paren {
-font-size: 0.78em;
-color: var(--text-sub);
-opacity: 0.75;
-margin-left: 1px;
-}
 </style>
-
 </head>
+
 <body>
-<!-- meaning-cardがスクロールで消えたときに表示される固定バー -->
+<!-- meaning-card がスクロールアウトしたときに表示される固定バー -->
 <div id="meaning-sticky"></div>
 
 <div class="page">
 
-<div class="nav-bar">
-    <button class="btn-back" onclick="window.close(); if(!window.opener) history.back();">← 戻る</button>
-    <div class="breadcrumb">
-        <span class="crumb" id="bc-ref">—</span>
-        <span class="sep">›</span>
-        <span class="crumb" id="bc-word" style="font-family:'Gentium Plus',serif;font-size:1rem;">—</span>
-        <span class="sep">›</span>
-        <span style="color:var(--text-sub)">形態論検索</span>
+    <div class="nav-bar">
+        <button class="btn-back" onclick="window.close(); if(!window.opener) history.back();">← 戻る</button>
+        <div class="breadcrumb">
+            <span class="crumb" id="bc-ref">—</span>
+            <span class="sep">›</span>
+            <span class="crumb" id="bc-word" style="font-family:'Gentium Plus',serif;font-size:1rem;">—</span>
+            <span class="sep">›</span>
+            <span style="color:var(--text-sub)">形態論検索</span>
+        </div>
     </div>
-</div>
 
-<div class="meaning-card" id="meaning-card">
-    <div class="meaning-label">この検索の意味</div>
-    <div class="meaning-title" id="meaning-title">読み込み中...</div>
-    <div class="meaning-sub"  id="meaning-sub"></div>
-</div>
-
-<div class="filter-panel">
-    <div class="filter-section">
-        <div class="filter-section-label">コア条件（必須）</div>
-        <div class="chips" id="core-chips"></div>
+    <div class="meaning-card" id="meaning-card">
+        <div class="meaning-label">この検索の意味</div>
+        <div class="meaning-title" id="meaning-title">読み込み中...</div>
+        <div class="meaning-sub"  id="meaning-sub"></div>
     </div>
-    <div class="filter-section">
-        <div class="filter-section-label">拡張条件 — タップで ON / OFF</div>
-        <div class="chips" id="ext-chips"></div>
-    </div>
-    <div class="filter-section">
-        <div class="filter-section-label">書物範囲 — タップで ON / OFF</div>
-        <div class="chips" id="book-chips"></div>
-    </div>
-    <div class="filter-section" id="word-filter-section">
-        <div class="filter-section-label">語形の絞り込み</div>
-        <div class="chips" id="word-filter-chips"></div>
-    </div>
-</div>
 
-<!-- インサイトパネル（データ読み込み後に表示） -->
-<div id="insight-panel" class="insight-panel" style="display:none;"></div>
-
-<div class="result-meta">
-    <div class="result-count"><strong id="count">0</strong> 件ヒット</div>
-    <div class="result-pct" id="result-pct"></div>
-</div>
-
-<div id="loading" class="loading">
-    <div style="margin-bottom:8px;font-family:'Gentium Plus',serif;font-size:1.4rem;color:#ccc;">ἀναζητεῖ</div>
-    <span class="loading-dot">・</span><span class="loading-dot">・</span><span class="loading-dot">・</span>
-</div>
-<div class="result-list" id="result-list"></div>
-
-<footer class="app-footer">
-    <span class="footer-copy">© 2026 ウオノ All rights reserved.</span>
-    <div class="footer-links">
-        <a href="index.html">ホーム</a>
+    <div class="filter-panel">
+        <div class="filter-section">
+            <div class="filter-section-label">コア条件（必須）</div>
+            <div class="chips" id="core-chips"></div>
+        </div>
+        <div class="filter-section">
+            <div class="filter-section-label">拡張条件 — タップで ON / OFF</div>
+            <div class="chips" id="ext-chips"></div>
+        </div>
+        <div class="filter-section">
+            <div class="filter-section-label">書物範囲 — タップで ON / OFF</div>
+            <div class="chips" id="book-chips"></div>
+        </div>
+        <div class="filter-section" id="word-filter-section">
+            <div class="filter-section-label">語形の絞り込み</div>
+            <div class="chips" id="word-filter-chips"></div>
+        </div>
     </div>
-</footer>
+
+    <!-- インサイトパネル（データ読み込み後に表示） -->
+    <div id="insight-panel" class="insight-panel" style="display:none;"></div>
+
+    <div class="result-meta">
+        <div class="result-count"><strong id="count">0</strong> 件ヒット</div>
+        <div class="result-pct" id="result-pct"></div>
+    </div>
+
+    <div id="loading" class="loading">
+        <div style="margin-bottom:8px;font-family:'Gentium Plus',serif;font-size:1.4rem;color:#ccc;">ἀναζητεῖ</div>
+        <span class="loading-dot">・</span><span class="loading-dot">・</span><span class="loading-dot">・</span>
+    </div>
+    <div class="result-list" id="result-list"></div>
+
+    <footer class="app-footer">
+        <span class="footer-copy">© 2026 ウオノ All rights reserved.</span>
+        <div class="footer-links">
+            <a href="index.html">ホーム</a>
+        </div>
+    </footer>
 
 </div>
 
 <script>
-/* ── ラベルマップ ─────────────────────────────────────── */
-const TENSE_JP  = { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'過去完了' };
-const VOICE_JP  = { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' };
-const MOOD_JP   = { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' };
+/* ══════════════════════════════════════════════════════
+   §1  ラベルマップ — 形態素コード → 日本語表示
+   ══════════════════════════════════════════════════════ */
 
-/* ── 専門用語補足説明 ────────────────────────────────
-   用語が画面に表示される際に（）で補足を付ける
-   ===================================================== */
-const TERM_HINT = {
-    'アオリスト':   '点的完結・一回的な出来事',
-    '完了':         '過去の動作が今も影響している状態',
-    '過去完了':     '過去のある時点より前に完了した状態',
-    '未完了':       '過去における継続・反復の動作',
-    '中動':         '主語が動作の影響を自ら受ける',
-    '中動自動':     '自動詞的に使われる中動態',
-    '中動/受動':    '中動または受動の区別が形の上で不明',
-    '受動':         '主語が動作を受ける',
-    '分詞':         '動詞由来の形容詞的語形',
-    '不定詞':       '「〜すること」を表す動詞名詞形',
-    '接続法':       '可能性・目的・条件を表す法',
-    '希求法':       '願望・婉曲を表す法（新約では稀）',
-    '直説法':       '事実として述べる法',
-    '命令法':       '命令・要求を表す法',
-    '属格':         '所有・関係を示す格（〜の）',
-    '与格':         '間接目的・手段を示す格（〜に）',
-    '対格':         '直接目的・方向を示す格（〜を）',
-    '呼格':         '呼びかけを示す格',
-    '主格':         '主語を示す格',
+const TENSE_JP = {
+    present:'現在', imperfect:'未完了', future:'未来',
+    aorist:'アオリスト', perfect:'完了', pluperfect:'過去完了',
 };
-
-// 用語を <abbr title="補足"> 用語（補足）</abbr> でラップする
-function wrapTerm(text) {
-    if (!text) return text;
-    return Object.entries(TERM_HINT).reduce((str, [term, hint]) => {
-        // すでにラップ済みの箇所は二重処理しない
-        if (!str.includes(term)) return str;
-        return str.split(term).join(
-            `<abbr class="term-hint" title="${hint}">${term}<span class="term-hint-paren">（${hint}）</span></abbr>`
-        );
-    }, text);
-}
+const VOICE_JP = {
+    active:'能動', middle:'中動', passive:'受動',
+    'middle deponent':'中動自動', 'middle or passive':'中動/受動',
+};
+const MOOD_JP = {
+    indicative:'直説法', subjunctive:'接続法', optative:'希求法',
+    imperative:'命令法', infinitive:'不定詞', participle:'分詞',
+};
 const GENDER_JP = { masculine:'男性', feminine:'女性', neuter:'中性' };
 const NUMBER_JP = { singular:'単数', plural:'複数' };
 const CASE_JP   = { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' };
 const POS_JP    = { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞' };
+
+// 法・態・時制の詳細説明文
 const MOOD_DESC = {
     participle: '分詞 — 動詞が形容詞的に使われる形。主動詞に対して補助的な動作や状態を表します。',
     indicative: '直説法 — 動作・状態を「事実」として述べる法。文の主軸となる最も基本的な形式です。',
@@ -575,15 +416,13 @@ const MOOD_DESC = {
     infinitive: '不定詞 — 「〜すること」と訳せる動詞の名詞化形。人称・数を持たず、主語や目的語として機能します。',
     optative:   '希求法 — 願望・婉曲・遠い可能性を表す法。新約ではやや稀で、丁寧な表現に使われます。',
 };
-
 const VOICE_DESC = {
-    active:            '能動態 — 主語が動作を行う。最も基本的な態。',
-    middle:            '中動態 — 主語が動作の影響を自ら受ける、または自己利益のために行う態。「〜してもらう」「自分のために〜する」というニュアンスを持つことが多い。',
-    passive:           '受動態 — 主語が動作を受ける態。「〜される」と訳せる。',
-    'middle deponent': '中動自動詞 — 形は中動・受動だが意味は能動として使われる動詞。新約に多く見られる。',
+    active:             '能動態 — 主語が動作を行う。最も基本的な態。',
+    middle:             '中動態 — 主語が動作の影響を自ら受ける、または自己利益のために行う態。「〜してもらう」「自分のために〜する」というニュアンスを持つことが多い。',
+    passive:            '受動態 — 主語が動作を受ける態。「〜される」と訳せる。',
+    'middle deponent':  '中動自動詞 — 形は中動・受動だが意味は能動として使われる動詞。新約に多く見られる。',
     'middle or passive':'中動/受動 — この時制では中動と受動の語形が同一のため、文脈で判断する。',
 };
-
 const TENSE_DESC = {
     present:    '現在時制 — 動作の継続・反復・進行を表すアスペクト。必ずしも「今この瞬間」を意味するわけではない。',
     aorist:     'アオリスト — 動作を「点」として捉えるアスペクト。「〜した」という出来事の生起そのものに焦点を当てる。過去の一時点とは限らない。',
@@ -593,260 +432,497 @@ const TENSE_DESC = {
     pluperfect: '過去完了 — 過去のある時点より前に完了していた状態を表す。',
 };
 
-/* ── BOOK_MAP ───────────────────────────────────────── */
+/* ── 専門用語インラインヒント ── */
+const TERM_HINT = {
+    'アオリスト':  '点的完結・一回的な出来事',
+    '完了':        '過去の動作が今も影響している状態',
+    '過去完了':    '過去のある時点より前に完了した状態',
+    '未完了':      '過去における継続・反復の動作',
+    '中動':        '主語が動作の影響を自ら受ける',
+    '中動自動':    '自動詞的に使われる中動態',
+    '中動/受動':   '中動または受動の区別が形の上で不明',
+    '受動':        '主語が動作を受ける',
+    '分詞':        '動詞由来の形容詞的語形',
+    '不定詞':      '「〜すること」を表す動詞名詞形',
+    '接続法':      '可能性・目的・条件を表す法',
+    '希求法':      '願望・婉曲を表す法（新約では稀）',
+    '直説法':      '事実として述べる法',
+    '命令法':      '命令・要求を表す法',
+    '属格':        '所有・関係を示す格（〜の）',
+    '与格':        '間接目的・手段を示す格（〜に）',
+    '対格':        '直接目的・方向を示す格（〜を）',
+    '呼格':        '呼びかけを示す格',
+    '主格':        '主語を示す格',
+};
+
+/** 専門用語を <abbr> ＋ 補足テキストでラップして返す */
+function wrapTerm(text) {
+    if (!text) return text;
+    return Object.entries(TERM_HINT).reduce((str, [term, hint]) => {
+        if (!str.includes(term)) return str;
+        return str.split(term).join(
+            `<abbr class="term-hint" title="${hint}">${term}<span class="term-hint-paren">（${hint}）</span></abbr>`
+        );
+    }, text);
+}
+
+/* ══════════════════════════════════════════════════════
+   §2  書物マップ・グループ定義
+   ══════════════════════════════════════════════════════ */
+
+/** 書籍番号コード（2桁） → 書籍キー */
 const BOOK_MAP = {
     '01':'MAT','02':'MRK','03':'LUK','04':'JHN','05':'ACT',
     '06':'ROM','07':'1CO','08':'2CO','09':'GAL','10':'EPH',
     '11':'PHP','12':'COL','13':'1TH','14':'2TH','15':'1TI',
     '16':'2TI','17':'TIT','18':'PHM','19':'HEB','20':'JAS',
     '21':'1PE','22':'2PE','23':'1JN','24':'2JN','25':'3JN',
-    '26':'JUD','27':'REV'
+    '26':'JUD','27':'REV',
 };
 
+/** 書籍キー → 日本語名 */
+const BOOK_JP = {
+    MAT:'マタイ', MRK:'マルコ', LUK:'ルカ',   JHN:'ヨハネ', ACT:'使徒',
+    ROM:'ローマ', '1CO':'Ⅰコリント', '2CO':'Ⅱコリント',
+    GAL:'ガラテヤ', EPH:'エペソ', PHP:'ピリピ', COL:'コロサイ',
+    '1TH':'Ⅰテサロニケ', '2TH':'Ⅱテサロニケ',
+    '1TI':'Ⅰテモテ',     '2TI':'Ⅱテモテ',     TIT:'テトス',  PHM:'ピレモン',
+    HEB:'ヘブル', JAS:'ヤコブ', '1PE':'Ⅰペテロ', '2PE':'Ⅱペテロ',
+    '1JN':'Ⅰヨハネ', '2JN':'Ⅱヨハネ', '3JN':'Ⅲヨハネ', JUD:'ユダ', REV:'黙示録',
+    GEN:'創世記', EXO:'出エジプト', LEV:'レビ', NUM:'民数', DEU:'申命',
+    JOS:'ヨシュア', JDG:'士師', RUT:'ルツ', '1SA':'Ⅰサムエル', '2SA':'Ⅱサムエル',
+    '1KI':'Ⅰ列王', '2KI':'Ⅱ列王', PSA:'詩篇', PRO:'箴言', ECC:'伝道',
+    ISA:'イザヤ', JER:'エレミヤ', EZK:'エゼキエル', DAN:'ダニエル',
+};
+
+/** フィルター用書物グループ */
 const BOOK_GROUPS = [
     { key:'pauline',  label:'パウロ書簡', books:['ROM','1CO','2CO','GAL','1TH','2TH'] },
     { key:'prison',   label:'獄中書簡',   books:['EPH','PHP','COL','PHM'] },
     { key:'pastoral', label:'牧会書簡',   books:['1TI','2TI','TIT'] },
 ];
 
+/** データエントリから書籍キーを返す */
 function getBookKey(entry) {
     if (entry._bookKey) return entry._bookKey;
     if (entry.book && isNaN(entry.book)) return String(entry.book);
     if (entry.book != null && entry.book !== '') {
-        return BOOK_MAP[String(entry.book).padStart(2,'0')] || null;
+        return BOOK_MAP[String(entry.book).padStart(2, '0')] || null;
     }
     if (entry.ref) {
-        const m = String(entry.ref).match(/^([A-Z0-9]+)/);
-        if (m) return m[1];
+        const match = String(entry.ref).match(/^([A-Z0-9]+)/);
+        if (match) return match[1];
     }
     return null;
 }
 
-/* ── URLパラメータ ───────────────────────────────────── */
+/* ══════════════════════════════════════════════════════
+   §3  URLパラメータ・フィルター状態
+   ══════════════════════════════════════════════════════ */
+
 function getSearchParams() {
-    const p = new URLSearchParams(location.search);
-    const dis = new Set((p.get('_disabled')||'').split(',').filter(Boolean));
+    const urlParams = new URLSearchParams(location.search);
+    const disabled  = new Set((urlParams.get('_disabled') || '').split(',').filter(Boolean));
     return {
-        pos:    p.get('pos')   || '',
-        tense:  p.get('tense') || '',
-        mood:   p.get('mood')  || '',
-        voice:  p.get('voice') || '',
-        gender: { value: p.get('gender')||'', enabled: !dis.has('gender') },
-        number: { value: p.get('number')||'', enabled: !dis.has('number') },
-        case:   { value: p.get('case')  ||'', enabled: !dis.has('case')   },
-        ref:    p.get('ref')   || '',
-        word:   p.get('word')  || '',
-        lemma:  p.get('lemma') || '',
+        pos:    urlParams.get('pos')   || '',
+        tense:  urlParams.get('tense') || '',
+        mood:   urlParams.get('mood')  || '',
+        voice:  urlParams.get('voice') || '',
+        gender: { value: urlParams.get('gender') || '', enabled: !disabled.has('gender') },
+        number: { value: urlParams.get('number') || '', enabled: !disabled.has('number') },
+        case:   { value: urlParams.get('case')   || '', enabled: !disabled.has('case')   },
+        ref:    urlParams.get('ref')   || '',
+        word:   urlParams.get('word')  || '',
+        lemma:  urlParams.get('lemma') || '',
     };
 }
+
 const params = getSearchParams();
 
+/** 拡張条件の ON/OFF 状態（gender / number / case） */
 let extState = [
     { key:'gender', label:'性', value: params.gender.value, enabled: params.gender.enabled },
     { key:'number', label:'数', value: params.number.value, enabled: params.number.enabled },
     { key:'case',   label:'格', value: params.case.value,   enabled: params.case.enabled   },
-].filter(f => f.value);
+].filter(filter => filter.value);
 
-let bookState = BOOK_GROUPS.map(g => ({ ...g, enabled: true }));
+/** 書物グループの ON/OFF 状態 */
+let bookState = BOOK_GROUPS.map(group => ({ ...group, enabled: true }));
 
-/* ── 語形フィルター状態 ──────────────────────────────
-   'none'  : フィルターなし（全件）
-   'lemma' : lemma一致（同じ原形の全変化形）
-   'word'  : 語形完全一致（表示形が同じものだけ）
-   ===================================================== */
+/**
+ * 語形フィルターモード
+ *   'none'  : フィルターなし（全件）
+ *   'lemma' : 原形（lemma）一致
+ *   'word'  : 表示語形（word）完全一致
+ */
 let wordFilterMode = params.word ? 'word' : (params.lemma ? 'lemma' : 'none');
 
-// アクセント・気息符号を除去して比較用に正規化
-function normalizeGreek(str) {
-    return (str || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')   // 結合文字（アクセント等）除去
-        .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g, '')
-        .replace(/ς/g, 'σ')               // 語末シグマを統一
-        .toLowerCase()
-        .trim();
-}
-
+/** URL の _disabled パラメータを現在の extState に同期する */
 function syncURL() {
-    const p = new URLSearchParams(location.search);
-    const dis = extState.filter(f=>!f.enabled).map(f=>f.key);
-    if (dis.length) p.set('_disabled', dis.join(','));
-    else p.delete('_disabled');
-    history.replaceState(null,'','?'+p.toString());
+    const urlParams = new URLSearchParams(location.search);
+    const disabledKeys = extState.filter(f => !f.enabled).map(f => f.key);
+    if (disabledKeys.length) {
+        urlParams.set('_disabled', disabledKeys.join(','));
+    } else {
+        urlParams.delete('_disabled');
+    }
+    history.replaceState(null, '', '?' + urlParams.toString());
 }
 
-/* ── 品詞コード変換 ─────────────────────────────────── */
+/* ══════════════════════════════════════════════════════
+   §4  形態素デコード
+   ══════════════════════════════════════════════════════ */
+
+/** class 文字列 → POS コード */
 const CLASS_TO_POS = {
-    'verb':'V','noun':'N','adjective':'A','article':'T',
-    'preposition':'P','conjunction':'C','adverb':'D',
-    'particle':'X','pronoun':'P','relative pronoun':'R',
-    'personal pronoun':'P','demonstrative pronoun':'D',
+    'verb':'V', 'noun':'N', 'adjective':'A', 'article':'T',
+    'preposition':'P', 'conjunction':'C', 'adverb':'D',
+    'particle':'X', 'pronoun':'P', 'relative pronoun':'R',
+    'personal pronoun':'P', 'demonstrative pronoun':'D',
 };
+
+/** エントリの品詞コードを返す（例: "V", "N"） */
 function entryPosCode(entry) {
-    if (entry.pos) return String(entry.pos).replace(/-$/,'').toUpperCase();
+    if (entry.pos)   return String(entry.pos).replace(/-$/, '').toUpperCase();
     if (entry.class) return CLASS_TO_POS[String(entry.class).toLowerCase()] || '';
     return '';
 }
 
-/* ── 形態素デコード ─────────────────────────────────── */
-const TENSE_CODE  = { P:'present',I:'imperfect',F:'future',A:'aorist',X:'perfect',Z:'pluperfect' };
-const VOICE_CODE  = { A:'active',M:'middle',P:'passive',D:'middle deponent',E:'middle or passive',N:'middle or passive' };
-const MOOD_CODE   = { I:'indicative',S:'subjunctive',O:'optative',M:'imperative',N:'infinitive',P:'participle' };
-const CASE_CODE   = { N:'nominative',G:'genitive',D:'dative',A:'accusative',V:'vocative' };
-const NUMBER_CODE = { S:'singular',P:'plural' };
-const GENDER_CODE = { M:'masculine',F:'feminine',N:'neuter' };
+// 形態素文字列用コードテーブル
+const TENSE_CODE  = { P:'present', I:'imperfect', F:'future', A:'aorist', X:'perfect', Z:'pluperfect' };
+const VOICE_CODE  = { A:'active', M:'middle', P:'passive', D:'middle deponent', E:'middle or passive', N:'middle or passive' };
+const MOOD_CODE   = { I:'indicative', S:'subjunctive', O:'optative', M:'imperative', N:'infinitive', P:'participle' };
+const CASE_CODE   = { N:'nominative', G:'genitive', D:'dative', A:'accusative', V:'vocative' };
+const NUMBER_CODE = { S:'singular', P:'plural' };
+const GENDER_CODE = { M:'masculine', F:'feminine', N:'neuter' };
 
+/**
+ * エントリから形態素情報オブジェクトを返す。
+ * データ形式に応じて3パターンを処理する。
+ */
 function decodeMorph(entry) {
-    const norm = v => (!v || v === '-') ? '' : v;
+    const normalize = value => (!value || value === '-') ? '' : value;
+
+    // パターン①: 展開済みプロパティ（tense / mood / voice が直接ある）
     if (entry.tense || entry.mood || entry.voice) {
         return {
             pos:    entryPosCode(entry),
-            tense:  norm(entry.tense), voice: norm(entry.voice), mood:   norm(entry.mood),
-            case:   norm(entry.case),  number:norm(entry.number),gender: norm(entry.gender),
-            person: norm(entry.person),
+            tense:  normalize(entry.tense),
+            voice:  normalize(entry.voice),
+            mood:   normalize(entry.mood),
+            case:   normalize(entry.case),
+            number: normalize(entry.number),
+            gender: normalize(entry.gender),
+            person: normalize(entry.person),
         };
     }
+
+    // パターン②: morph がオブジェクトの場合
     if (entry.morph && typeof entry.morph === 'object') {
-        const m = entry.morph;
+        const morph = entry.morph;
         return {
-            pos: norm(entry.pos||'').replace(/-$/,''),
-            tense:norm(m.tense),voice:norm(m.voice),mood:norm(m.mood),
-            case:norm(m.case),number:norm(m.number),gender:norm(m.gender),person:norm(m.person),
+            pos:    normalize(entry.pos || '').replace(/-$/, ''),
+            tense:  normalize(morph.tense),
+            voice:  normalize(morph.voice),
+            mood:   normalize(morph.mood),
+            case:   normalize(morph.case),
+            number: normalize(morph.number),
+            gender: normalize(morph.gender),
+            person: normalize(morph.person),
         };
     }
-    const raw = typeof entry.morph === 'string' ? entry.morph : '';
-    const parts = raw.split('-');
-    const pos = norm(entry.pos||parts[0]||'').replace(/-$/,'');
+
+    // パターン③: morph が文字列コードの場合（例: "V-AAI-3S"）
+    const rawMorph = typeof entry.morph === 'string' ? entry.morph : '';
+    const parts    = rawMorph.split('-');
+    const pos      = normalize(entry.pos || parts[0] || '').replace(/-$/, '');
+
     if (pos.toUpperCase() === 'V' && parts[1]) {
-        const seg = parts[1], off = /^[0-9]/.test(seg) ? 1 : 0;
-        return { pos, tense:TENSE_CODE[seg[off]]||'', voice:VOICE_CODE[seg[off+1]]||'',
-                 mood:MOOD_CODE[seg[off+2]]||'', person:seg[off+3]||'',
-                 number:NUMBER_CODE[seg[off+4]]||'', gender:'', case:'' };
+        const seg    = parts[1];
+        const offset = /^[0-9]/.test(seg) ? 1 : 0; // 人称が先頭にある場合
+        return {
+            pos,
+            tense:  TENSE_CODE[seg[offset]]     || '',
+            voice:  VOICE_CODE[seg[offset + 1]] || '',
+            mood:   MOOD_CODE[seg[offset + 2]]  || '',
+            person: seg[offset + 3] || '',
+            number: NUMBER_CODE[seg[offset + 4]] || '',
+            gender: '',
+            case:   '',
+        };
     }
+
     if (parts[1]) {
-        const seg=parts[1], hp=['1','2','3'].includes(seg[0]), b=hp?seg.slice(1):seg;
-        return { pos, tense:'',voice:'',mood:'', person:hp?seg[0]:'',
-                 case:CASE_CODE[b[0]]||'', number:NUMBER_CODE[b[1]]||'', gender:GENDER_CODE[b[2]]||'' };
+        const seg          = parts[1];
+        const hasPersonPrefix = ['1','2','3'].includes(seg[0]);
+        const morphBody    = hasPersonPrefix ? seg.slice(1) : seg;
+        return {
+            pos,
+            tense: '', voice: '', mood: '',
+            person: hasPersonPrefix ? seg[0] : '',
+            case:   CASE_CODE[morphBody[0]]   || '',
+            number: NUMBER_CODE[morphBody[1]] || '',
+            gender: GENDER_CODE[morphBody[2]] || '',
+        };
     }
-    return { pos, tense:'',voice:'',mood:'',case:'',number:'',gender:'',person:'' };
+
+    return { pos, tense:'', voice:'', mood:'', case:'', number:'', gender:'', person:'' };
 }
 
-/* ── マッチング ─────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════
+   §5  ユーティリティ
+   ══════════════════════════════════════════════════════ */
+
+/** アクセント・気息符号を除去してギリシャ語テキストを正規化する */
+function normalizeGreek(str) {
+    return (str || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')        // 結合文字（アクセント等）除去
+        .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g, '')
+        .replace(/ς/g, 'σ')                     // 語末シグマを統一
+        .toLowerCase()
+        .trim();
+}
+
+/** エントリから表示テキストを取得し、記号を除去する */
+function cleanText(entry) {
+    return (entry.word || entry.normalized || entry.text || '')
+        .replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g, '')
+        .trim();
+}
+
+/** 書籍参照文字列を日本語形式（例: "ローマ 1:1"）に変換する */
+function buildRefLabel(ref) {
+    const refStr = String(ref || '');
+    const match  = refStr.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+    if (match) return `${BOOK_JP[match[1]] || match[1]} ${match[2]}:${match[3]}`;
+
+    // 6桁数値形式（例: "060101"）
+    if (refStr.length === 6 && /^\d+$/.test(refStr)) {
+        const bookKey = BOOK_MAP[refStr.slice(0, 2)];
+        const bookLabel = (bookKey && BOOK_JP[bookKey]) || bookKey || refStr.slice(0, 2);
+        return `${bookLabel} ${parseInt(refStr.slice(2, 4))}:${parseInt(refStr.slice(4, 6))}`;
+    }
+    return refStr;
+}
+
+/* ══════════════════════════════════════════════════════
+   §6  日本語訳の取得
+   ══════════════════════════════════════════════════════ */
+
+const _jaVerseMap = new Map();     // ref キー → 日本語節テキスト
+const _japaneseWordMap = new Map();// normalized 単語 → 日本語グロス
+
+/** ref 文字列を _jaVerseMap のキー形式（例: "060101"）に変換する */
+const refToJaKey = (() => {
+    const keyToCode = {};
+    Object.entries(BOOK_MAP).forEach(([code, key]) => { keyToCode[key] = code; });
+
+    return function(ref) {
+        const match = String(ref || '').match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+        if (!match) return null;
+        const code = keyToCode[match[1]];
+        if (!code) return null;
+        return `${code}${String(match[2]).padStart(2, '0')}${String(match[3]).padStart(2, '0')}`;
+    };
+})();
+
+/** エントリに対応する日本語訳テキストを返す */
+function getJaVerse(entry) {
+    const key = refToJaKey(entry.ref);
+    if (key && _jaVerseMap.has(key)) return _jaVerseMap.get(key);
+    return entry.gloss || entry.english || '';
+}
+
+/** エントリに対応する日本語グロス（単語レベル）を返す */
+function getJapaneseGloss(entry) {
+    if (entry.japanese) return entry.japanese;
+    const normalized = entry.normalized || entry.word || entry.text || '';
+    return _japaneseWordMap.get(normalized) || '';
+}
+
+/* ══════════════════════════════════════════════════════
+   §7  マッチング
+   ══════════════════════════════════════════════════════ */
+
+/** エントリが現在のフィルター条件にすべて一致するか返す */
 function matchEntry(entry) {
-    /* ── 語形フィルター ── */
+    // 語形フィルター
     if (wordFilterMode === 'lemma' && params.lemma) {
-        const entryLemma = normalizeGreek(entry.lemma || '');
-        const targetLemma = normalizeGreek(params.lemma);
-        if (entryLemma !== targetLemma) return false;
+        if (normalizeGreek(entry.lemma || '') !== normalizeGreek(params.lemma)) return false;
     } else if (wordFilterMode === 'word' && params.word) {
-        const entryWord = normalizeGreek(entry.word || entry.normalized || entry.text || '');
-        const targetWord = normalizeGreek(params.word);
-        if (entryWord !== targetWord) return false;
+        const entryWord  = normalizeGreek(entry.word || entry.normalized || entry.text || '');
+        if (entryWord !== normalizeGreek(params.word)) return false;
     }
-    if (!bookState.every(g => g.enabled)) {
-        const enabledBooks = new Set(bookState.filter(g=>g.enabled).flatMap(g=>g.books));
-        const bk = entry._bookKey || getBookKey(entry);
-        if (!bk || !enabledBooks.has(bk)) return false;
+
+    // 書物範囲フィルター（一部グループが無効の場合のみ）
+    if (!bookState.every(group => group.enabled)) {
+        const enabledBooks = new Set(bookState.filter(g => g.enabled).flatMap(g => g.books));
+        const bookKey = entry._bookKey || getBookKey(entry);
+        if (!bookKey || !enabledBooks.has(bookKey)) return false;
     }
-    const sp = params.pos.replace(/-$/,'').toUpperCase();
-    if (sp && entryPosCode(entry) !== sp) return false;
-    const m = decodeMorph(entry);
-    if (params.tense && m.tense !== params.tense) return false;
-    if (params.mood  && m.mood  !== params.mood)  return false;
+
+    // 品詞フィルター
+    const targetPos = params.pos.replace(/-$/, '').toUpperCase();
+    if (targetPos && entryPosCode(entry) !== targetPos) return false;
+
+    // 形態素フィルター
+    const morph = decodeMorph(entry);
+    if (params.tense && morph.tense !== params.tense) return false;
+    if (params.mood  && morph.mood  !== params.mood)  return false;
+
     if (params.voice) {
-        const ok = m.voice === params.voice
-            || (params.voice==='middle'  && (m.voice==='middle deponent'||m.voice==='middle or passive'))
-            || (params.voice==='passive' && m.voice==='middle or passive');
-        if (!ok) return false;
+        const voiceMatch =
+            morph.voice === params.voice
+            || (params.voice === 'middle'  && (morph.voice === 'middle deponent' || morph.voice === 'middle or passive'))
+            || (params.voice === 'passive' && morph.voice === 'middle or passive');
+        if (!voiceMatch) return false;
     }
-    for (const f of extState) {
-        if (!f.enabled || !f.value) continue;
-        if ((m[f.key]||'') !== f.value) return false;
+
+    // 拡張条件フィルター（gender / number / case）
+    for (const filter of extState) {
+        if (!filter.enabled || !filter.value) continue;
+        if ((morph[filter.key] || '') !== filter.value) return false;
     }
+
     return true;
 }
 
-/* ── 説明文 ─────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════
+   §8  説明文生成
+   ══════════════════════════════════════════════════════ */
+
+/** フィルター条件から「この検索の意味」テキストを生成する */
 function buildDescription() {
-    const tense=TENSE_JP[params.tense]||params.tense, voice=VOICE_JP[params.voice]||params.voice;
-    const mood=MOOD_JP[params.mood]||params.mood, pos=POS_JP[params.pos.replace(/-$/,'')]||params.pos;
-    const MAP={gender:GENDER_JP,number:NUMBER_JP,case:CASE_JP};
-    const extP=extState.filter(f=>f.enabled&&f.value).map(f=>MAP[f.key]?.[f.value]||f.value);
-    const isMO=['participle','infinitive'].includes(params.mood);
-    const core=isMO?[mood,tense,voice].filter(Boolean).join(''):[pos,mood,tense,voice].filter(Boolean).join('');
-    const ext=extP.length?`（${extP.join('・')}）`:'';
-    const relaxed=extState.some(f=>!f.enabled);
-    let sub;
-    if (relaxed) {
-        sub = '拡張条件を一部解除中 — より広い分布を表示しています。';
+    const tense = TENSE_JP[params.tense] || params.tense;
+    const voice = VOICE_JP[params.voice] || params.voice;
+    const mood  = MOOD_JP[params.mood]   || params.mood;
+    const pos   = POS_JP[params.pos.replace(/-$/, '')] || params.pos;
+
+    const labelMap = { gender: GENDER_JP, number: NUMBER_JP, case: CASE_JP };
+    const extLabels = extState
+        .filter(f => f.enabled && f.value)
+        .map(f => labelMap[f.key]?.[f.value] || f.value);
+
+    const isMoodOnly = ['participle', 'infinitive'].includes(params.mood);
+    const coreParts  = isMoodOnly
+        ? [mood, tense, voice].filter(Boolean)
+        : [pos, mood, tense, voice].filter(Boolean);
+    const extSuffix  = extLabels.length ? `（${extLabels.join('・')}）` : '';
+
+    const isRelaxed = extState.some(f => !f.enabled);
+    let subText;
+    if (isRelaxed) {
+        subText = '拡張条件を一部解除中 — より広い分布を表示しています。';
     } else {
-        const parts = [];
-        if (params.mood  && MOOD_DESC[params.mood])  parts.push(MOOD_DESC[params.mood]);
-        if (params.voice && VOICE_DESC[params.voice]) parts.push(VOICE_DESC[params.voice]);
-        if (params.tense && TENSE_DESC[params.tense]) parts.push(TENSE_DESC[params.tense]);
-        sub = parts.join('<br>') || '選択された形態素に完全一致する語形を検索しています。';
+        const descParts = [];
+        if (params.mood  && MOOD_DESC[params.mood])  descParts.push(MOOD_DESC[params.mood]);
+        if (params.voice && VOICE_DESC[params.voice]) descParts.push(VOICE_DESC[params.voice]);
+        if (params.tense && TENSE_DESC[params.tense]) descParts.push(TENSE_DESC[params.tense]);
+        subText = descParts.join('<br>') || '選択された形態素に完全一致する語形を検索しています。';
     }
-    return { title:`${core}${ext}を抽出しています`, sub };
+
+    return {
+        title: `${coreParts.join('')}${extSuffix}を抽出しています`,
+        sub:   subText,
+    };
 }
 
-/* ── レンダリング基本 ───────────────────────────────── */
+/* ══════════════════════════════════════════════════════
+   §9  UIレンダリング（フィルターパネル）
+   ══════════════════════════════════════════════════════ */
+
 function renderBreadcrumb() {
     document.getElementById('bc-ref').textContent  = params.ref  || '詳細';
     document.getElementById('bc-word').textContent = params.word || '—';
 }
+
 function renderMeaning() {
-    const {title,sub}=buildDescription();
+    const { title, sub } = buildDescription();
     document.getElementById('meaning-title').textContent = title;
-    document.getElementById('meaning-sub').innerHTML   = wrapTerm(sub);
+    document.getElementById('meaning-sub').innerHTML     = wrapTerm(sub);
 }
+
 function renderCoreChips() {
-    const defs=[
-        {label:'品詞',val:POS_JP[params.pos.replace(/-$/,'')]||params.pos},
-        {label:'法',  val:MOOD_JP[params.mood]  ||params.mood},
-        {label:'時制',val:TENSE_JP[params.tense]||params.tense},
-        {label:'態',  val:VOICE_JP[params.voice]||params.voice},
-    ].filter(d=>d.val);
-    document.getElementById('core-chips').innerHTML=defs.map(d=>
-        `<div class="chip chip-core"><span class="chip-key">${d.label}</span><span>${wrapTerm(d.val)}</span></div>`
+    const chips = [
+        { label:'品詞', val: POS_JP[params.pos.replace(/-$/, '')] || params.pos },
+        { label:'法',   val: MOOD_JP[params.mood]   || params.mood  },
+        { label:'時制', val: TENSE_JP[params.tense] || params.tense },
+        { label:'態',   val: VOICE_JP[params.voice] || params.voice },
+    ].filter(chip => chip.val);
+
+    document.getElementById('core-chips').innerHTML = chips.map(chip =>
+        `<div class="chip chip-core">
+            <span class="chip-key">${chip.label}</span>
+            <span>${wrapTerm(chip.val)}</span>
+        </div>`
     ).join('');
 }
+
 function renderExtChips() {
-    const el=document.getElementById('ext-chips');
-    if(!extState.length){el.innerHTML='<span style="font-size:0.72rem;color:#bbb;">拡張条件なし</span>';return;}
-    const MAP={gender:GENDER_JP,number:NUMBER_JP,case:CASE_JP};
-    el.innerHTML=extState.map((f,i)=>`
-        <div class="chip chip-ext ${f.enabled?'on':'off'}" onclick="toggleExt(${i})">
-            <div class="chip-toggle-dot">${f.enabled?'✓':''}</div>
-            <span style="font-size:0.65rem;opacity:0.7">${f.label}</span>
-            <span>${wrapTerm(MAP[f.key]?.[f.value]||f.value)}</span>
-        </div>`).join('');
+    const el = document.getElementById('ext-chips');
+    if (!extState.length) {
+        el.innerHTML = '<span style="font-size:0.72rem;color:#bbb;">拡張条件なし</span>';
+        return;
+    }
+    const labelMap = { gender: GENDER_JP, number: NUMBER_JP, case: CASE_JP };
+    el.innerHTML = extState.map((filter, index) => `
+        <div class="chip chip-ext ${filter.enabled ? 'on' : 'off'}" onclick="toggleExt(${index})">
+            <div class="chip-toggle-dot">${filter.enabled ? '✓' : ''}</div>
+            <span style="font-size:0.65rem;opacity:0.7">${filter.label}</span>
+            <span>${wrapTerm(labelMap[filter.key]?.[filter.value] || filter.value)}</span>
+        </div>`
+    ).join('');
 }
+
 function renderBookChips() {
-    document.getElementById('book-chips').innerHTML=bookState.map((g,i)=>`
-        <div class="chip chip-ext ${g.enabled?'on':'off'}" onclick="toggleBook(${i})">
-            <div class="chip-toggle-dot">${g.enabled?'✓':''}</div>
-            <span>${g.label}</span>
-        </div>`).join('');
+    document.getElementById('book-chips').innerHTML = bookState.map((group, index) => `
+        <div class="chip chip-ext ${group.enabled ? 'on' : 'off'}" onclick="toggleBook(${index})">
+            <div class="chip-toggle-dot">${group.enabled ? '✓' : ''}</div>
+            <span>${group.label}</span>
+        </div>`
+    ).join('');
 }
 
 function renderWordFilterChips() {
-    const sec = document.getElementById('word-filter-section');
-    // lemmaもwordもない場合はセクション自体を非表示
-    if (!params.lemma && !params.word) { sec.style.display = 'none'; return; }
-    sec.style.display = 'block';
+    const section = document.getElementById('word-filter-section');
+    if (!params.lemma && !params.word) {
+        section.style.display = 'none';
+        return;
+    }
+    section.style.display = 'block';
 
     const modes = [
         params.lemma ? { key:'lemma', label:`原形一致　${params.lemma}` } : null,
-        params.word  ? { key:'word',  label:`語形一致　${params.word}` }  : null,
+        params.word  ? { key:'word',  label:`語形一致　${params.word}`  } : null,
     ].filter(Boolean);
 
     document.getElementById('word-filter-chips').innerHTML = modes.map(mode => `
-        <div class="chip chip-ext ${wordFilterMode===mode.key?'on':'off'}"
+        <div class="chip chip-ext ${wordFilterMode === mode.key ? 'on' : 'off'}"
              onclick="toggleWordFilter('${mode.key}')"
-             style="font-family:${mode.key!=='none'?'\'Gentium Plus\',serif':'inherit'}">
-            <div class="chip-toggle-dot">${wordFilterMode===mode.key?'✓':''}</div>
+             style="font-family:${mode.key !== 'none' ? "'Gentium Plus',serif" : 'inherit'}">
+            <div class="chip-toggle-dot">${wordFilterMode === mode.key ? '✓' : ''}</div>
             <span>${mode.label}</span>
-        </div>`).join('');
+        </div>`
+    ).join('');
+}
+
+/* ══════════════════════════════════════════════════════
+   §10  インタラクション（フィルタートグル）
+   ══════════════════════════════════════════════════════ */
+
+function toggleExt(index) {
+    extState[index].enabled = !extState[index].enabled;
+    renderExtChips();
+    renderMeaning();
+    syncURL();
+    if (window._morphData) renderResults(window._morphData);
+}
+
+function toggleBook(index) {
+    bookState[index].enabled = !bookState[index].enabled;
+    renderBookChips();
+    if (window._morphData) renderResults(window._morphData);
 }
 
 function toggleWordFilter(mode) {
@@ -855,258 +931,139 @@ function toggleWordFilter(mode) {
     if (window._morphData) renderResults(window._morphData);
 }
 
-/* ── 日本語訳 ───────────────────────────────────────── */
-const _refToJaKey = (() => {
-    const KEY_TO_CODE = {};
-    Object.entries(BOOK_MAP).forEach(([code,key])=>{KEY_TO_CODE[key]=code;});
-    return function(ref) {
-        const m=String(ref||'').match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
-        if(!m) return null;
-        const code=KEY_TO_CODE[m[1]];
-        if(!code) return null;
-        return `${code}${String(m[2]).padStart(2,'0')}${String(m[3]).padStart(2,'0')}`;
-    };
-})();
-function getJaVerse(entry) {
-    const key=_refToJaKey(entry.ref);
-    if(key&&_jaMap.has(key)) return _jaMap.get(key);
-    return entry.gloss||entry.english||'';
+function goToWord(ref, encodedWord) {
+    const word = decodeURIComponent(encodedWord);
+    if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type:'GO_TO_REF', ref, word }, '*');
+    }
 }
 
 /* ══════════════════════════════════════════════════════
-   ▼▼▼ インサイト機能 ▼▼▼
+   §11  インサイト — 書物別分布
    ══════════════════════════════════════════════════════ */
 
-/* ① 書物別分布を集計 */
-function calcDistribution(matched) {
+/** マッチエントリを書物ごとに集計し、件数降順のリストを返す */
+function calcDistribution(matchedEntries) {
     const counts = {};
-    matched.forEach(e => {
-        const bk = e._bookKey || getBookKey(e) || '?';
-        counts[bk] = (counts[bk] || 0) + 1;
+    matchedEntries.forEach(entry => {
+        const bookKey = entry._bookKey || getBookKey(entry) || '?';
+        counts[bookKey] = (counts[bookKey] || 0) + 1;
     });
     return Object.entries(counts)
-        .sort((a,b) => b[1] - a[1])
+        .sort((a, b) => b[1] - a[1])
         .map(([key, count]) => ({ key, count, label: BOOK_JP[key] || key }));
 }
 
-/* ② 用法パターンを分析（ルールベース） */
 /* ══════════════════════════════════════════════════════
-   読解意思決定エンジン
-   観察→注目→分岐→判断→注意 の構造でパターンを出力
+   §12  インサイト — 用法パターン分析
    ══════════════════════════════════════════════════════ */
 
-// ── スコアリングユーティリティ ──────────────────────────
-function scoreCandidate(candidate, tokens, hitEntry) {
-    let score = 0;
-    const hm = decodeMorph(hitEntry);
-
-    // grammarScore: 人称・数・格の一致（最大40点）
-    const cm = decodeMorph(candidate);
-    if (cm.number === hm.number) score += 15;
-    if (cm.gender === hm.gender) score += 10;
-    if (cm.person && cm.person === hm.person) score += 15;
-
-    // proximityScore: 距離が近いほど高い（最大20点）
-    const hitIdx  = tokens.findIndex(t => cleanText(t) === cleanText(hitEntry));
-    const candIdx = tokens.findIndex(t => cleanText(t) === cleanText(candidate));
-    const dist = Math.abs(hitIdx - candIdx);
-    score += Math.max(0, 20 - dist * 4);
-
-    // semanticScore: 意味的適合（名詞は+5、代名詞+8）
-    const cp = entryPosCode(candidate);
-    if (cp === 'N') score += 5;
-    if (cp === 'P') score += 8;
-
-    // frequencyBias: 省略主語の頻度補正
-    if (!candidate) score += 10; // 省略候補
-
-    return Math.min(100, score);
-}
-
-function buildSubjectCandidates(tokens, hitEntry) {
-    const candidates = [];
-    const hm = decodeMorph(hitEntry);
-
-    // 明示的主語候補（主格名詞・代名詞）
-    tokens.forEach(t => {
-        const m = decodeMorph(t);
-        const pos = entryPosCode(t);
-        if (m.case === 'nominative' && ['N','A','R','D'].includes(pos)) {
-            const text = cleanText(t);
-            if (!text) return;
-            const grammarOk = (!hm.number || m.number === hm.number);
-            const gs = grammarOk ? 35 : 10;
-            const hitIdx  = tokens.findIndex(tt => cleanText(tt) === cleanText(hitEntry));
-            const candIdx = tokens.findIndex(tt => cleanText(tt) === text);
-            const ps = Math.max(0, 20 - Math.abs(hitIdx - candIdx) * 4);
-            const ss = pos === 'N' ? 5 : 8;
-            const score = Math.min(100, gs + ps + ss);
-            candidates.push({
-                candidate: text,
-                score,
-                reasons: [
-                    grammarOk ? `${NUMBER_JP[m.number]||m.number}・${GENDER_JP[m.gender]||m.gender}が一致` : '数・性が不一致（要確認）',
-                    ps >= 16 ? '語順が近い' : '語順が離れている',
-                    '主格の明示的名詞',
-                ]
-            });
+/** マッチエントリを節単位にグループ化し、各節のトークンリストも返す */
+function groupEntriesByVerse(entries) {
+    const verseMap = {};
+    entries.forEach(entry => {
+        const verseId = String(entry.ref || '').replace(/!.*$/, '').trim();
+        if (!verseMap[verseId]) {
+            verseMap[verseId] = {
+                entry,
+                tokens: window._morphData
+                    ? window._morphData.filter(t => String(t.ref || '').replace(/!.*$/, '').trim() === verseId)
+                    : [],
+            };
         }
     });
-
-    // 省略主語候補（文脈から補う）
-    const ellipsisCandidates = [
-        { candidate: '（文脈の主題）', score: 55, reasons: ['省略主語', '前節の話題継続', '要文脈確認'] },
-        { candidate: '（不定：人々）', score: 30, reasons: ['省略主語', '不定用法の可能性', 'スコア低'] },
-    ];
-    candidates.push(...ellipsisCandidates);
-
-    return candidates.sort((a, b) => b.score - a.score).slice(0, 4);
+    return Object.values(verseMap);
 }
 
-function buildObjectCandidates(tokens, hitEntry) {
-    const candidates = [];
-    tokens.forEach(t => {
-        const m = decodeMorph(t);
-        const pos = entryPosCode(t);
-        if (m.case === 'accusative' && ['N','A','R','D'].includes(pos)) {
-            const text = cleanText(t);
-            if (!text) return;
-            const hitIdx  = tokens.findIndex(tt => cleanText(tt) === cleanText(hitEntry));
-            const candIdx = tokens.findIndex(tt => cleanText(tt) === text);
-            const ps = Math.max(0, 20 - Math.abs(hitIdx - candIdx) * 4);
-            candidates.push({
-                candidate: text,
-                score: Math.min(100, 40 + ps),
-                interpretation: [
-                    { label: '直接目的語', score: 75, reason: '最も一般的な対格用法' },
-                    { label: '範囲（時間・距離）', score: 35, reason: '副詞的対格の可能性' },
-                    { label: '副詞的用法', score: 25, reason: '文脈依存' },
-                ],
-                reasons: ['対格名詞', ps >= 16 ? '近接' : '遠位'],
-            });
-        }
-    });
-    return candidates.sort((a, b) => b.score - a.score).slice(0, 3);
-}
+/** 前置詞共起パターンを分析し、patternオブジェクトを返す（該当なければ null） */
+function analyzePrepositions(versesData, total) {
+    let withPrep = 0;
+    const prepCounts = {};
 
-function buildParticipleRanking(tense) {
-    const base = [
-        { label: '時間', score: tense === 'present' ? 65 : tense === 'aorist' ? 70 : 55, reason: '最も基本的な副詞用法' },
-        { label: '理由', score: 55, reason: '動詞との因果関係で判断' },
-        { label: '条件', score: 35, reason: 'εἰ節がない場合の代替' },
-        { label: '付帯状況', score: tense === 'present' ? 70 : 45, reason: '現在分詞に多い' },
-    ];
-    if (tense === 'present') {
-        base.find(b => b.label === '付帯状況').score = 70;
-    }
-    return base.sort((a, b) => b.score - a.score);
-}
-
-function analyzePatterns(matched) {
-    const total = matched.length;
-    if (!total) return [];
-    const patterns = [];
-
-    // 節トークンを収集するヘルパー
-    function getVerseTokensList(entries) {
-        const map = {};
-        entries.forEach(e => {
-            const prefix = String(e.ref||'').replace(/!.*$/,'').trim();
-            if (!map[prefix]) {
-                map[prefix] = {
-                    entry: e,
-                    tokens: window._morphData
-                        ? window._morphData.filter(t => String(t.ref||'').replace(/!.*$/,'').trim() === prefix)
-                        : []
-                };
-            }
-        });
-        return Object.values(map);
-    }
-
-    const versesData = getVerseTokensList(matched);
-
-    // ── A. 前置詞共起パターン ────────────────────────────
-    let withPrep = 0, withoutPrep = 0;
-    const prepTypes = {};
     versesData.forEach(({ tokens }) => {
-        const hasPrep = tokens.some(t => entryPosCode(t) === 'P');
-        if (hasPrep) {
+        const prepTokens = tokens.filter(t => entryPosCode(t) === 'P');
+        if (prepTokens.length > 0) {
             withPrep++;
-            tokens.filter(t => entryPosCode(t) === 'P').forEach(t => {
-                const w = cleanText(t);
-                prepTypes[w] = (prepTypes[w] || 0) + 1;
+            prepTokens.forEach(t => {
+                const word = cleanText(t);
+                prepCounts[word] = (prepCounts[word] || 0) + 1;
             });
-        } else {
-            withoutPrep++;
         }
     });
-    const prepPct = Math.round(withPrep / total * 100);
-    const topPreps = Object.entries(prepTypes).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([p])=>p).join('・');
 
-    if (prepPct >= 40) {
-        patterns.push({
-            type: '前置詞共起',
-            observation: `${prepPct}%の用例に前置詞句が共起（主要: ${topPreps || '—'}）`,
-            focus: [
-                '前置詞の種類によって動作の方向・場所・手段が変わる',
-                `前置詞なし用例が${100-prepPct}%存在する点も重要`,
-            ],
-            branches: [
-                `前置詞句が補語として機能している可能性（${prepPct >= 70 ? '高' : '中'}）`,
-                '前置詞なし用例では動詞が自動詞的に使われている可能性',
-            ],
-            decision: [
-                '前置詞の格支配（対格・属格・与格）を確認する',
-                '前置詞なし用例と意味の違いを比較する',
-            ],
-            caution: [
-                '前置詞句を動詞の固定的な「支配語」と決めつけない',
-                '同じ動詞でも前置詞によって意味が大きく変わりうる',
-            ],
-        });
-    }
+    const prepPct  = Math.round(withPrep / total * 100);
+    const topPreps = Object.entries(prepCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([p]) => p).join('・');
 
-    // ── B. 主語パターン ──────────────────────────────────
-    let withExplicitSubj = 0;
-    const subjCandidatesAll = [];
-    versesData.forEach(({ entry, tokens }) => {
-        const nomTokens = tokens.filter(t => {
-            const m = decodeMorph(t);
-            return m.case === 'nominative' && ['N','A','R','D'].includes(entryPosCode(t));
+    if (prepPct < 40) return null;
+
+    return {
+        type: '前置詞共起',
+        observation: `${prepPct}%の用例に前置詞句が共起（主要: ${topPreps || '—'}）`,
+        focus: [
+            '前置詞の種類によって動作の方向・場所・手段が変わる',
+            `前置詞なし用例が${100 - prepPct}%存在する点も重要`,
+        ],
+        branches: [
+            `前置詞句が補語として機能している可能性（${prepPct >= 70 ? '高' : '中'}）`,
+            '前置詞なし用例では動詞が自動詞的に使われている可能性',
+        ],
+        decision: [
+            '前置詞の格支配（対格・属格・与格）を確認する',
+            '前置詞なし用例と意味の違いを比較する',
+        ],
+        caution: [
+            '前置詞句を動詞の固定的な「支配語」と決めつけない',
+            '同じ動詞でも前置詞によって意味が大きく変わりうる',
+        ],
+    };
+}
+
+/** 主語パターンを分析し、patternオブジェクトを返す */
+function analyzeSubjects(versesData, total, matched) {
+    let withExplicitSubject = 0;
+    const allSubjectTexts   = [];
+
+    versesData.forEach(({ tokens }) => {
+        const nominativeTokens = tokens.filter(token => {
+            const morph = decodeMorph(token);
+            return morph.case === 'nominative' && ['N','A','R','D'].includes(entryPosCode(token));
         });
-        if (nomTokens.length > 0) {
-            withExplicitSubj++;
-            subjCandidatesAll.push(...nomTokens.map(cleanText).filter(Boolean));
+        if (nominativeTokens.length > 0) {
+            withExplicitSubject++;
+            allSubjectTexts.push(...nominativeTokens.map(cleanText).filter(Boolean));
         }
     });
-    const subjPct = Math.round(withExplicitSubj / total * 100);
-    const topSubjs = [...new Set(subjCandidatesAll)]
-        .map(s => ({ s, n: subjCandidatesAll.filter(x=>x===s).length }))
-        .sort((a,b)=>b.n-a.n).slice(0,3).map(x=>x.s).join('・');
 
-    // 省略主語の場合はランキングを生成
-    const firstMatchEntry = matched[0];
+    const subjectPct  = Math.round(withExplicitSubject / total * 100);
+    const topSubjects = [...new Set(allSubjectTexts)]
+        .map(text => ({ text, count: allSubjectTexts.filter(x => x === text).length }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3)
+        .map(x => x.text)
+        .join('・');
+
+    // 主語省略が多い場合、最初の節で候補ランキングを生成
+    const firstEntry  = matched[0];
     const firstTokens = versesData[0]?.tokens || [];
-    const subjectRanking = subjPct < 50
-        ? buildSubjectCandidates(firstTokens, firstMatchEntry)
+    const subjectRanking = subjectPct < 50
+        ? buildCandidates(firstTokens, firstEntry, 'nominative', '主語')
         : null;
 
-    patterns.push({
+    return {
         type: '主語',
-        observation: `明示的主語あり: ${subjPct}%（頻出: ${topSubjs || '—'}）/ 省略: ${100-subjPct}%`,
+        observation: `明示的主語あり: ${subjectPct}%（頻出: ${topSubjects || '—'}）/ 省略: ${100 - subjectPct}%`,
         focus: [
-            subjPct >= 60
+            subjectPct >= 60
                 ? `主語が明示されるケースが多い — 数・性の一致を必ず確認`
                 : `主語省略が多い — 文脈・前節・話題の主体から補う必要がある`,
             '語順が主語を決定するわけではない点に注意',
         ],
-        branches: subjPct < 50 ? [
+        branches: subjectPct < 50 ? [
             '直前の名詞句が主語（最も近接）',
             '前節・段落の話題人物が継続して主語',
             '不定主語（「人々が」「一般に」）',
         ] : [
-            `明示主語「${topSubjs}」が動詞と格一致しているか確認`,
+            `明示主語「${topSubjects}」が動詞と格一致しているか確認`,
             '複数の主語候補がある場合は動詞の数・性で絞る',
         ],
         decision: [
@@ -1118,210 +1075,339 @@ function analyzePatterns(matched) {
             '動詞の語尾から人称・数は読み取れる',
         ],
         subjectRanking,
-    });
+    };
+}
 
-    // ── C. 対格パターン ──────────────────────────────────
-    let withObj = 0;
+/** 対格（目的語）パターンを分析し、patternオブジェクトを返す（該当なければ null） */
+function analyzeObjects(versesData, total, matched) {
+    let withObject = 0;
     versesData.forEach(({ tokens }) => {
-        const hasAcc = tokens.some(t => {
-            const m = decodeMorph(t);
-            return m.case === 'accusative' && ['N','T'].includes(entryPosCode(t));
+        const hasAccusative = tokens.some(t => {
+            const morph = decodeMorph(t);
+            return morph.case === 'accusative' && ['N','T'].includes(entryPosCode(t));
         });
-        if (hasAcc) withObj++;
+        if (hasAccusative) withObject++;
     });
-    const objPct = Math.round(withObj / total * 100);
 
-    if (objPct >= 40) {
-        const objCandidates = buildObjectCandidates(firstTokens, firstMatchEntry);
-        patterns.push({
-            type: '対格（目的語候補）',
-            observation: `${objPct}%の用例に対格名詞が存在`,
-            focus: [
-                '対格は「直接目的語」が最多だが副詞的用法も存在する',
-                '前置詞に続く対格は目的語ではなく前置詞の支配語',
-            ],
-            branches: [
-                `直接目的語（${objPct >= 60 ? '最有力' : '有力'}）`,
-                '範囲・時間の副詞的対格',
-                '前置詞支配の対格（前置詞句内の場合）',
-            ],
-            decision: [
-                '動詞が他動詞かどうかを辞書で確認する',
-                '前置詞が先行していれば前置詞支配の対格と判断',
-            ],
-            caution: [
-                '対格＝目的語と機械的に決めつけない',
-                '時間の長さや距離を表す副詞的対格は訳し方が異なる',
-            ],
-            objectCandidates: objCandidates,
-        });
-    }
+    const objectPct = Math.round(withObject / total * 100);
+    if (objectPct < 40) return null;
 
-    // ── D. 書物分布パターン ──────────────────────────────
+    const firstTokens   = versesData[0]?.tokens || [];
+    const objectCandidates = buildCandidates(firstTokens, matched[0], 'accusative', '目的語');
+
+    return {
+        type: '対格（目的語候補）',
+        observation: `${objectPct}%の用例に対格名詞が存在`,
+        focus: [
+            '対格は「直接目的語」が最多だが副詞的用法も存在する',
+            '前置詞に続く対格は目的語ではなく前置詞の支配語',
+        ],
+        branches: [
+            `直接目的語（${objectPct >= 60 ? '最有力' : '有力'}）`,
+            '範囲・時間の副詞的対格',
+            '前置詞支配の対格（前置詞句内の場合）',
+        ],
+        decision: [
+            '動詞が他動詞かどうかを辞書で確認する',
+            '前置詞が先行していれば前置詞支配の対格と判断',
+        ],
+        caution: [
+            '対格＝目的語と機械的に決めつけない',
+            '時間の長さや距離を表す副詞的対格は訳し方が異なる',
+        ],
+        objectCandidates,
+    };
+}
+
+/** 書物分布パターンを分析し、patternオブジェクトを返す */
+function analyzeDistribution(matched, total) {
     const dist = calcDistribution(matched);
-    if (dist.length > 0) {
-        const topBook = dist[0];
-        const topPct  = Math.round(topBook.count / total * 100);
-        const isConcentrated = topPct >= 35 && dist.length > 2;
-        const isRare         = dist.length <= 2;
-        patterns.push({
-            type: '書物分布',
-            observation: isConcentrated
-                ? `${topBook.label}に集中（${topPct}%）/ ${dist.length}書物に分布`
-                : isRare
-                    ? `${dist.map(d=>d.label).join('・')}のみに登場（限定的）`
-                    : `${dist.length}書物に比較的均等に分布`,
-            focus: [
-                isConcentrated
-                    ? `${topBook.label}の神学・文脈を優先的に参照する`
-                    : '広く分布する場合は一般用法として扱える可能性が高い',
-            ],
+    if (!dist.length) return null;
+
+    const topBook       = dist[0];
+    const topPct        = Math.round(topBook.count / total * 100);
+    const isConcentrated = topPct >= 35 && dist.length > 2;
+    const isRare         = dist.length <= 2;
+
+    return {
+        type: '書物分布',
+        observation: isConcentrated
+            ? `${topBook.label}に集中（${topPct}%）/ ${dist.length}書物に分布`
+            : isRare
+                ? `${dist.map(d => d.label).join('・')}のみに登場（限定的）`
+                : `${dist.length}書物に比較的均等に分布`,
+        focus: [
+            isConcentrated
+                ? `${topBook.label}の神学・文脈を優先的に参照する`
+                : '広く分布する場合は一般用法として扱える可能性が高い',
+        ],
+        branches: [
+            isConcentrated ? `${topBook.label}固有の神学的文脈が意味に影響している可能性` : '書物を超えた共通の文法用法',
+            '著者のスタイル・語彙選択の偏りの可能性',
+        ],
+        decision: [
+            isConcentrated ? `まず${topBook.label}内の用例を中心に分析する` : '複数書物の用例を横断的に比較する',
+            'スコアが似た用例では書物の神学背景を参照する',
+        ],
+        caution: [
+            '分布の偏り＝意味の偏りとは限らない',
+            isRare ? 'サンプルが少ないため一般化に注意' : '安易に「この形の典型用法」と断定しない',
+        ],
+    };
+}
+
+/** 法・時制パターンを分析し、patternオブジェクトを返す（該当なければ null） */
+function analyzeMoodTense() {
+    if (!params.mood || !params.tense) return null;
+
+    const moodLabel  = MOOD_JP[params.mood]  || params.mood;
+    const tenseLabel = TENSE_JP[params.tense] || params.tense;
+
+    if (params.mood === 'imperative' && params.tense === 'present') {
+        return {
+            type: '法・時制（現在命令）',
+            observation: `現在命令形 — 継続・反復的な行為を要求`,
+            focus: ['アオリスト命令との違いが読解の鍵', '行為の継続性が強調される'],
+            branches: ['反復的行為の継続命令（最有力）', '現在進行中の行為の停止命令（否定形の場合）'],
+            decision: ['否定形μή+現在命令は「〜し続けるな」', '肯定形は「〜し続けよ」'],
+            caution:  ['アオリスト命令と混同しない', '否定命令は時制によって意味が逆転する場合がある'],
+        };
+    }
+
+    if (params.mood === 'imperative' && params.tense === 'aorist') {
+        return {
+            type: '法・時制（アオリスト命令）',
+            observation: `アオリスト命令形 — 一回的・即時的行為を要求`,
+            focus: ['点的アスペクト — 行為の開始・完結を促す', '現在命令との使い分けが重要'],
+            branches: ['即時的行為の開始命令（最有力）', '一回的出来事として完結させることを求める'],
+            decision: ['否定形μή+アオリスト接続法は「〜するな」（禁止）', '肯定アオリスト命令は「今すぐ〜せよ」'],
+            caution:  ['継続的行為には通常現在命令が使われる', 'アオリスト命令は継続性を含意しない'],
+        };
+    }
+
+    if (params.mood === 'subjunctive') {
+        return {
+            type: '法（接続法）',
+            observation: `接続法 — 動作の実現が未確定・仮想的`,
+            focus: ['接続詞（ἵνα・ἐάν・ὅταン等）との共起を確認する', '目的・条件・願望のどの節かを識別する'],
             branches: [
-                isConcentrated ? `${topBook.label}固有の神学的文脈が意味に影響している可能性` : '書物を超えた共通の文法用法',
-                '著者のスタイル・語彙選択の偏りの可能性',
+                '目的節（ἵνα + 接続法）— 「〜するために」',
+                '条件節（ἐάν + 接続法）— 「もし〜ならば」',
+                '時間節（ὅταν + 接続法）— 「〜するとき」',
+                '禁止（μή + アオリスト接続法）— 「〜するな」',
             ],
+            decision: ['先行する接続詞を必ず確認する', '接続詞がなければ独立用法（勧告・願望）'],
+            caution:  ['接続法は「かもしれない」という不確実性だけを表すわけではない', '節の機能は接続詞によって決まる'],
+        };
+    }
+
+    if (params.mood === 'participle') {
+        const ptcRanking = buildParticipleRanking(params.tense);
+        return {
+            type: `法・時制（${tenseLabel}分詞）`,
+            observation: `${tenseLabel}分詞 — 主動詞との時間的関係と機能の両面から判断が必要`,
+            focus: [
+                params.tense === 'aorist'   ? 'アオリスト分詞は主動詞より前の動作を示すことが多い'
+                : params.tense === 'present' ? '現在分詞は主動詞と同時進行の動作を示すことが多い'
+                :                              '完了分詞は先行動作の結果状態を示す',
+                '時間関係だけでなく論理関係（理由・条件・付帯状況）も候補に入れる',
+            ],
+            branches: ptcRanking.map(r => `${r.label}（推定スコア: ${r.score}）— ${r.reason}`),
             decision: [
-                isConcentrated ? `まず${topBook.label}内の用例を中心に分析する` : '複数書物の用例を横断的に比較する',
-                'スコアが似た用例では書物の神学背景を参照する',
+                '冠詞の有無で実体用法か副詞用法かを先に判断する',
+                '主節との論理関係（「〜なので」か「〜しながら」か）を文脈で確認',
             ],
             caution: [
-                '分布の偏り＝意味の偏りとは限らない',
-                isRare ? 'サンプルが少ないため一般化に注意' : '安易に「この形の典型用法」と断定しない',
+                '時制アスペクトと用法は別の問題',
+                '単純に「〜してから」と訳すだけでは不十分な場合がある',
             ],
-        });
+            participleRanking: ptcRanking,
+        };
     }
 
-    // ── E. 法・時制パターン ──────────────────────────────
-    if (params.mood && params.tense) {
-        const moodLabel  = MOOD_JP[params.mood]  || params.mood;
-        const tenseLabel = TENSE_JP[params.tense] || params.tense;
-        let moodPattern = null;
+    return null;
+}
 
-        if (params.mood === 'imperative' && params.tense === 'present') {
-            moodPattern = {
-                type: '法・時制（現在命令）',
-                observation: `現在命令形 — 継続・反復的な行為を要求`,
-                focus: ['アオリスト命令との違いが読解の鍵', '行為の継続性が強調される'],
-                branches: ['反復的行為の継続命令（最有力）', '現在進行中の行為の停止命令（否定形の場合）'],
-                decision: ['否定形μή+現在命令は「〜し続けるな」', '肯定形は「〜し続けよ」'],
-                caution: ['アオリスト命令と混同しない', '否定命令は時制によって意味が逆転する場合がある'],
-            };
-        } else if (params.mood === 'imperative' && params.tense === 'aorist') {
-            moodPattern = {
-                type: '法・時制（アオリスト命令）',
-                observation: `アオリスト命令形 — 一回的・即時的行為を要求`,
-                focus: ['点的アスペクト — 行為の開始・完結を促す', '現在命令との使い分けが重要'],
-                branches: ['即時的行為の開始命令（最有力）', '一回的出来事として完結させることを求める'],
-                decision: ['否定形μή+アオリスト接続法は「〜するな」（禁止）', '肯定アオリスト命令は「今すぐ〜せよ」'],
-                caution: ['継続的行為には通常現在命令が使われる', 'アオリスト命令は継続性を含意しない'],
-            };
-        } else if (params.mood === 'subjunctive') {
-            moodPattern = {
-                type: '法（接続法）',
-                observation: `接続法 — 動作の実現が未確定・仮想的`,
-                focus: ['接続詞（ἵνα・ἐάν・ὅταん等）との共起を確認する', '目的・条件・願望のどの節かを識別する'],
-                branches: [
-                    '目的節（ἵνα + 接続法）— 「〜するために」',
-                    '条件節（ἐάν + 接続法）— 「もし〜ならば」',
-                    '時間節（ὅταν + 接続法）— 「〜するとき」',
-                    '禁止（μή + アオリスト接続法）— 「〜するな」',
-                ],
-                decision: ['先行する接続詞を必ず確認する', '接続詞がなければ独立用法（勧告・願望）'],
-                caution: ['接続法は「かもしれない」という不確実性だけを表すわけではない', '節の機能は接続詞によって決まる'],
-            };
-        } else if (params.mood === 'participle') {
-            const ptcRanking = buildParticipleRanking(params.tense);
-            moodPattern = {
-                type: `法・時制（${tenseLabel}分詞）`,
-                observation: `${tenseLabel}分詞 — 主動詞との時間的関係と機能の両面から判断が必要`,
-                focus: [
-                    `${params.tense === 'aorist' ? 'アオリスト分詞は主動詞より前の動作を示すことが多い' : params.tense === 'present' ? '現在分詞は主動詞と同時進行の動作を示すことが多い' : '完了分詞は先行動作の結果状態を示す'}`,
-                    '時間関係だけでなく論理関係（理由・条件・付帯状況）も候補に入れる',
-                ],
-                branches: ptcRanking.map(r => `${r.label}（推定スコア: ${r.score}）— ${r.reason}`),
-                decision: [
-                    '冠詞の有無で実体用法か副詞用法かを先に判断する',
-                    '主節との論理関係（「〜なので」か「〜しながら」か）を文脈で確認',
-                ],
-                caution: [
-                    '時制アスペクトと用法は別の問題',
-                    '単純に「〜してから」と訳すだけでは不十分な場合がある',
-                ],
-                participleRanking: ptcRanking,
-            };
-        }
-        if (moodPattern) patterns.push(moodPattern);
-    }
+/**
+ * マッチエントリ全体から用法パターンのリストを返す（メイン分析エントリポイント）
+ */
+function analyzePatterns(matched) {
+    const total = matched.length;
+    if (!total) return [];
+
+    const versesData = groupEntriesByVerse(matched);
+    const patterns   = [];
+
+    const prepPattern  = analyzePrepositions(versesData, total);
+    const subjPattern  = analyzeSubjects(versesData, total, matched);
+    const objPattern   = analyzeObjects(versesData, total, matched);
+    const distPattern  = analyzeDistribution(matched, total);
+    const moodPattern  = analyzeMoodTense();
+
+    if (prepPattern) patterns.push(prepPattern);
+    patterns.push(subjPattern);
+    if (objPattern)  patterns.push(objPattern);
+    if (distPattern) patterns.push(distPattern);
+    if (moodPattern) patterns.push(moodPattern);
 
     return patterns;
 }
 
+/* ══════════════════════════════════════════════════════
+   §13  候補ランキング生成（主語・目的語 共通）
+   ══════════════════════════════════════════════════════ */
 
-/* ③ 代表用例を選出（節が短い＋ヒット語を含む） */
-/* ═══════════════════════════════════════════════════════════════
-   用例選出モジュール — コイネーギリシャ語形態論検索
-   既存のグローバル関数 decodeMorph / entryPosCode / cleanText に依存
-   ═══════════════════════════════════════════════════════════════ */
+// スコア定数
+const SCORE = {
+    GRAMMAR_MATCH:    35,   // 数・性が一致
+    GRAMMAR_MISMATCH: 10,   // 数・性が不一致
+    PROXIMITY_MAX:    20,   // 近接ボーナス最大値
+    PROXIMITY_STEP:    4,   // 1トークン離れるごとの減点
+    NOUN_SEMANTIC:     5,   // 名詞の意味的加点
+    PRONOUN_SEMANTIC:  8,   // 代名詞の意味的加点
+    ACCUSATIVE_BASE:  40,   // 対格候補のベーススコア
+    SCORE_MAX:       100,
+    AMBIGUITY_THRESHOLD: 12, // この差以下なら「曖昧」と判定
+};
 
+/**
+ * 指定した格（nominative / accusative）に一致するトークンを候補として返す。
+ * 主語・目的語どちらにも使える汎用関数。
+ */
+function buildCandidates(tokens, hitEntry, targetCase, roleLabel) {
+    const hitMorph   = decodeMorph(hitEntry);
+    const hitText    = cleanText(hitEntry);
+    const hitIdx     = tokens.findIndex(t => cleanText(t) === hitText);
+
+    const candidates = [];
+
+    tokens.forEach(token => {
+        const morph = decodeMorph(token);
+        const pos   = entryPosCode(token);
+
+        if (morph.case !== targetCase) return;
+        if (!['N','A','R','D'].includes(pos)) return;
+
+        const text = cleanText(token);
+        if (!text) return;
+
+        const tokenIdx    = tokens.findIndex(t => cleanText(t) === text);
+        const proximityScore = Math.max(0, SCORE.PROXIMITY_MAX - Math.abs(hitIdx - tokenIdx) * SCORE.PROXIMITY_STEP);
+        const semanticScore  = pos === 'N' ? SCORE.NOUN_SEMANTIC : SCORE.PRONOUN_SEMANTIC;
+
+        let grammarScore;
+        let grammarNote;
+
+        if (targetCase === 'nominative') {
+            const grammarMatch = !hitMorph.number || morph.number === hitMorph.number;
+            grammarScore = grammarMatch ? SCORE.GRAMMAR_MATCH : SCORE.GRAMMAR_MISMATCH;
+            grammarNote  = grammarMatch
+                ? `${NUMBER_JP[morph.number] || morph.number}・${GENDER_JP[morph.gender] || morph.gender}が一致`
+                : '数・性が不一致（要確認）';
+        } else {
+            // 対格：文法一致チェックは省略してベーススコア固定
+            grammarScore = SCORE.ACCUSATIVE_BASE;
+            grammarNote  = '対格名詞';
+        }
+
+        const totalScore = Math.min(SCORE.SCORE_MAX, grammarScore + proximityScore + semanticScore);
+
+        candidates.push({
+            candidate: text,
+            score: totalScore,
+            reasons: [
+                grammarNote,
+                proximityScore >= 16 ? '語順が近い' : '語順が離れている',
+                `${CASE_JP[targetCase] || targetCase}の明示的名詞`,
+            ],
+        });
+    });
+
+    // 主語のみ省略候補を追加
+    if (targetCase === 'nominative') {
+        candidates.push(
+            { candidate: '（文脈の主題）', score: 55, reasons: ['省略主語', '前節の話題継続', '要文脈確認'] },
+            { candidate: '（不定：人々）', score: 30, reasons: ['省略主語', '不定用法の可能性', 'スコア低'] },
+        );
+    }
+
+    return candidates.sort((a, b) => b.score - a.score).slice(0, 4);
+}
+
+/* ══════════════════════════════════════════════════════
+   §14  分詞用法ランキング
+   ══════════════════════════════════════════════════════ */
+
+/** 分詞の時制に基づいて副詞用法の候補ランキングを返す */
+function buildParticipleRanking(tense) {
+    const ranking = [
+        { label: '時間',     score: tense === 'aorist' ? 70 : tense === 'present' ? 65 : 55, reason: '最も基本的な副詞用法' },
+        { label: '理由',     score: 55, reason: '動詞との因果関係で判断' },
+        { label: '条件',     score: 35, reason: 'εἰ節がない場合の代替' },
+        { label: '付帯状況', score: tense === 'present' ? 70 : 45, reason: '現在分詞に多い' },
+    ];
+    return ranking.sort((a, b) => b.score - a.score);
+}
+
+/* ══════════════════════════════════════════════════════
+   §15  インサイト — 代表用例選出
+   ══════════════════════════════════════════════════════ */
+
+/** 節のトークンリストに対して構文スコアを計算する */
 function scoreVerse(tokens, hitWord) {
     let score = 0;
-    const wordCount = tokens.length;
-    let hasVerb = false;
-    let hasSubj = false;
-    let hasObj  = false;
-    let hasPrep = false;
-    let hasHit  = false;
+    let hasVerb = false, hasSubject = false, hasObject = false, hasPrep = false, hasHit = false;
 
-    for (const t of tokens) {
-        const m   = decodeMorph(t);
-        const pos = (m.pos || '').toUpperCase();
-        const w   = cleanText(t);
+    for (const token of tokens) {
+        const morph = decodeMorph(token);
+        const pos   = (morph.pos || '').toUpperCase();
+        const text  = cleanText(token);
 
-        if (w && normalizeGreek(w) === normalizeGreek(hitWord)) hasHit = true;
-        if (pos === 'V' && m.mood && m.mood !== 'participle' && m.mood !== 'infinitive') hasVerb = true;
+        if (text && normalizeGreek(text) === normalizeGreek(hitWord)) hasHit = true;
+        if (pos === 'V' && morph.mood && morph.mood !== 'participle' && morph.mood !== 'infinitive') hasVerb = true;
         if (pos === 'P') hasPrep = true;
         if (['N','T','A','D','R'].includes(pos)) {
-            if (m.case === 'nominative') hasSubj = true;
-            if (m.case === 'accusative') hasObj  = true;
+            if (morph.case === 'nominative') hasSubject = true;
+            if (morph.case === 'accusative') hasObject  = true;
         }
     }
 
-    if (hasHit)  score += 30;
-    if (hasVerb) score += 20;
-    if (hasSubj) score += 15;
-    if (hasObj)  score += 12;
-    if (hasPrep) score +=  8;
+    if (hasHit)     score += 30;
+    if (hasVerb)    score += 20;
+    if (hasSubject) score += 15;
+    if (hasObject)  score += 12;
+    if (hasPrep)    score +=  8;
 
+    const wordCount = tokens.length;
     if      (wordCount >= 4  && wordCount <= 7)  score += 15;
     else if (wordCount >= 8  && wordCount <= 12) score +=  8;
     else if (wordCount >= 13 && wordCount <= 18) score +=  2;
-    else if (wordCount > 18)  score -= 10;
-    else if (wordCount <= 3)  score -=  5;
+    else if (wordCount > 18)                     score -= 10;
+    else if (wordCount <= 3)                     score -=  5;
 
-    score += [hasVerb, hasSubj, hasObj].filter(Boolean).length * 3;
-
+    score += [hasVerb, hasSubject, hasObject].filter(Boolean).length * 3;
     return score;
 }
 
+/** 節の構文タイプを分類する（basic / prep / ellipsis / other） */
 function classifyVerseType(tokens) {
-    let hasVerb = false;
-    let hasSubj = false;
-    let hasPrep = false;
+    let hasVerb = false, hasSubject = false, hasPrep = false;
 
-    for (const t of tokens) {
-        const m   = decodeMorph(t);
-        const pos = (m.pos || '').toUpperCase();
-        if (pos === 'V' && m.mood && m.mood !== 'participle' && m.mood !== 'infinitive') hasVerb = true;
+    for (const token of tokens) {
+        const morph = decodeMorph(token);
+        const pos   = (morph.pos || '').toUpperCase();
+        if (pos === 'V' && morph.mood && morph.mood !== 'participle' && morph.mood !== 'infinitive') hasVerb = true;
         if (pos === 'P') hasPrep = true;
-        if (['N','T','A','D','R'].includes(pos) && m.case === 'nominative') hasSubj = true;
+        if (['N','T','A','D','R'].includes(pos) && morph.case === 'nominative') hasSubject = true;
     }
 
-    if (!hasVerb) return 'other';
-    if (hasPrep)  return 'prep';
-    if (hasSubj)  return 'basic';
+    if (!hasVerb)   return 'other';
+    if (hasPrep)    return 'prep';
+    if (hasSubject) return 'basic';
     return 'ellipsis';
 }
 
+/** マッチエントリから代表用例を最大 limit 件選出する */
 function selectBestExamples(matchedEntries, morphData, limit = 4) {
     if (!matchedEntries.length || !morphData) return [];
 
@@ -1333,145 +1419,130 @@ function selectBestExamples(matchedEntries, morphData, limit = 4) {
         if (!verseId || seenVerses.has(verseId)) continue;
         seenVerses.add(verseId);
 
-        const tokens = morphData.filter(t =>
-            String(t.ref || '').replace(/!.*$/, '').trim() === verseId
-        );
+        const tokens  = morphData.filter(t => String(t.ref || '').replace(/!.*$/, '').trim() === verseId);
         if (!tokens.length) continue;
 
         const hitWord = entry.word || entry.normalized || entry.text || '';
-        const score   = scoreVerse(tokens, hitWord);
-        const type    = classifyVerseType(tokens);
-        const ja      = (typeof getJaVerse === 'function') ? getJaVerse(entry) : '';
-
-        candidates.push({ entry, tokens, score, type, ja });
+        candidates.push({
+            entry, tokens,
+            score: scoreVerse(tokens, hitWord),
+            type:  classifyVerseType(tokens),
+            ja:    (typeof getJaVerse === 'function') ? getJaVerse(entry) : '',
+        });
     }
 
+    // タイプ別に最頻パターン順で1件ずつ選出し、残りをスコア順で補充
     const typeCounts = {};
-    for (const c of candidates) {
-        typeCounts[c.type] = (typeCounts[c.type] || 0) + 1;
-    }
-    
-    // 最多パターン順にタイプをソート
-    const typesByFreq = Object.entries(typeCounts)
+    for (const c of candidates) typeCounts[c.type] = (typeCounts[c.type] || 0) + 1;
+
+    const typesByFrequency = Object.entries(typeCounts)
         .sort((a, b) => b[1] - a[1])
         .map(([type]) => type);
-    
-    // スコア降順でソート
+
     candidates.sort((a, b) => b.score - a.score);
-    
+
     const selected = [];
-    
-    // 最多パターンから順に1件ずつ選出
-    for (const type of typesByFreq) {
+    for (const type of typesByFrequency) {
         if (selected.length >= limit) break;
         const best = candidates.find(c => c.type === type && !selected.includes(c));
         if (best) selected.push(best);
     }
-    
-    // 残り枠をスコア順で埋める
     for (const c of candidates) {
         if (selected.length >= limit) break;
         if (!selected.includes(c)) selected.push(c);
     }
-    
+
     return selected;
 }
 
-function selectTopExample(matchedEntries, morphData) {
-    const results = selectBestExamples(matchedEntries, morphData, 1);
-    return results.length ? results[0] : null;
-}
-
+/** 用例の構文タイプから説明文を返す */
 function getExampleDescription(example) {
     if (!example) return '';
     const { type, tokens } = example;
-    let hasObj = false;
-    let verbMood = '';
+    let hasObject  = false;
+    let verbMood   = '';
 
-    for (const t of tokens) {
-        const m   = decodeMorph(t);
-        const pos = (m.pos || '').toUpperCase();
-        if (['N','T','A','D','R'].includes(pos) && m.case === 'accusative') hasObj = true;
-        if (pos === 'V' && m.mood && m.mood !== 'participle' && m.mood !== 'infinitive') verbMood = m.mood || '';
+    for (const token of tokens) {
+        const morph = decodeMorph(token);
+        const pos   = (morph.pos || '').toUpperCase();
+        if (['N','T','A','D','R'].includes(pos) && morph.case === 'accusative') hasObject = true;
+        if (pos === 'V' && morph.mood && morph.mood !== 'participle' && morph.mood !== 'infinitive') verbMood = morph.mood;
     }
 
     switch (type) {
-        case 'basic':
-            return hasObj ? '主語・動詞・目的語が揃った典型的な構文です' : '主語と動詞が明示された基本構文です';
-        case 'prep':
-            return hasObj ? '目的語と前置詞句を伴う、関係性が明確な構文です' : '前置詞句を伴う用法を示しています';
-        case 'ellipsis':
-            return verbMood === 'imperative' ? '主語が省略された命令形の用例です（動詞中心の構造）' : '主語が省略され、動詞を中心として展開する構文です';
-        default:
-            return 'この形の用法を示す用例です';
+        case 'basic':    return hasObject ? '主語・動詞・目的語が揃った典型的な構文です' : '主語と動詞が明示された基本構文です';
+        case 'prep':     return hasObject ? '目的語と前置詞句を伴う、関係性が明確な構文です' : '前置詞句を伴う用法を示しています';
+        case 'ellipsis': return verbMood === 'imperative' ? '主語が省略された命令形の用例です（動詞中心の構造）' : '主語が省略され、動詞を中心として展開する構文です';
+        default:         return 'この形の用法を示す用例です';
     }
 }
 
-/* ── 読解意思決定パネルのHTML生成 ────────────────────── */
-function renderReadingEngine(patterns) {
-    // ランキングHTMLのヘルパー
-    function rankHTML(items, labelKey, scoreKey, reasonKey) {
-        if (!items || !items.length) return '';
-        const max = Math.max(...items.map(i => i[scoreKey]));
-        const isAmbiguous = items.length >= 2 && (items[0][scoreKey] - items[1][scoreKey]) <= 12;
-        return `
-            <div class="rank-list">
-                ${items.map((item, idx) => `
-                    <div class="rank-item">
-                        <div class="rank-item-top">
-                            <span class="rank-num">${idx + 1}</span>
-                            <span class="rank-candidate">${item[labelKey]}</span>
-                            <div class="rank-score-bar-wrap">
-                                <div class="rank-score-bar" style="width:${Math.round(item[scoreKey]/max*100)}%"></div>
-                            </div>
-                            <span class="rank-score-num">${item[scoreKey]}</span>
+/* ══════════════════════════════════════════════════════
+   §16  インサイト — HTMLレンダリング
+   ══════════════════════════════════════════════════════ */
+
+/** ランキングリストの HTML を生成する汎用関数 */
+function buildRankListHTML(items, labelKey, scoreKey, reasonKey) {
+    if (!items || !items.length) return '';
+    const maxScore = Math.max(...items.map(item => item[scoreKey]));
+    const isAmbiguous = items.length >= 2 && (items[0][scoreKey] - items[1][scoreKey]) <= SCORE.AMBIGUITY_THRESHOLD;
+
+    return `
+        <div class="rank-list">
+            ${items.map((item, index) => `
+                <div class="rank-item">
+                    <div class="rank-item-top">
+                        <span class="rank-num">${index + 1}</span>
+                        <span class="rank-candidate">${item[labelKey]}</span>
+                        <div class="rank-score-bar-wrap">
+                            <div class="rank-score-bar" style="width:${Math.round(item[scoreKey] / maxScore * 100)}%"></div>
                         </div>
-                        ${item[reasonKey] ? `<div class="rank-reasons">${Array.isArray(item[reasonKey]) ? item[reasonKey].join('・') : item[reasonKey]}</div>` : ''}
-                    </div>`).join('')}
-                ${isAmbiguous ? '<div class="rank-ambiguous">⚠ スコア差が小さく解釈が曖昧 — 文脈で判断してください</div>' : ''}
-            </div>`;
-    }
-
-    function rowHTML(label, items, cls='') {
-        const body = Array.isArray(items) ? items.join('<br>') : (items || '');
-        if (!body) return '';
-        return `<div class="reading-row ${cls}">
-            <span class="reading-row-label">${label}</span>
-            <span class="reading-row-body">${wrapTerm(body)}</span>
+                        <span class="rank-score-num">${item[scoreKey]}</span>
+                    </div>
+                    ${item[reasonKey]
+                        ? `<div class="rank-reasons">${Array.isArray(item[reasonKey]) ? item[reasonKey].join('・') : item[reasonKey]}</div>`
+                        : ''}
+                </div>`
+            ).join('')}
+            ${isAmbiguous ? '<div class="rank-ambiguous">⚠ スコア差が小さく解釈が曖昧 — 文脈で判断してください</div>' : ''}
         </div>`;
-    }
+}
 
-    const blocksHTML = patterns.map(p => {
-        const focusRow    = rowHTML('注目', p.focus);
-        const branchRow   = rowHTML('分岐', p.branches);
-        const decisionRow = rowHTML('判断', p.decision);
-        const cautionRow  = rowHTML('注意', p.caution, 'caution');
+/** 読解行（ラベル + 本文）の HTML を生成する */
+function buildReadingRowHTML(label, items, cssClass = '') {
+    const body = Array.isArray(items) ? items.join('<br>') : (items || '');
+    if (!body) return '';
+    return `<div class="reading-row ${cssClass}">
+        <span class="reading-row-label">${label}</span>
+        <span class="reading-row-body">${wrapTerm(body)}</span>
+    </div>`;
+}
 
-        // 主語ランキング
-        const subjRankHTML = p.subjectRanking
+/** 読解意思決定パネルの HTML を生成する */
+function renderReadingEngine(patterns) {
+    const blocksHTML = patterns.map(pattern => {
+        const subjRankHTML = pattern.subjectRanking
             ? `<div style="margin-top:6px;font-size:0.68rem;color:var(--text-sub);font-weight:700;margin-bottom:3px;">主語候補ランキング</div>
-               ${rankHTML(p.subjectRanking, 'candidate', 'score', 'reasons')}`
+               ${buildRankListHTML(pattern.subjectRanking, 'candidate', 'score', 'reasons')}`
             : '';
 
-        // 対格候補ランキング
-        const objRankHTML = p.objectCandidates
+        const objRankHTML = pattern.objectCandidates
             ? `<div style="margin-top:6px;font-size:0.68rem;color:var(--text-sub);font-weight:700;margin-bottom:3px;">対格候補</div>
-               ${rankHTML(p.objectCandidates, 'candidate', 'score', 'reasons')}`
+               ${buildRankListHTML(pattern.objectCandidates, 'candidate', 'score', 'reasons')}`
             : '';
 
-        // 分詞用法ランキング
-        const ptcRankHTML = p.participleRanking
+        const ptcRankHTML = pattern.participleRanking
             ? `<div style="margin-top:6px;font-size:0.68rem;color:var(--text-sub);font-weight:700;margin-bottom:3px;">副詞用法の機能候補</div>
-               ${rankHTML(p.participleRanking, 'label', 'score', 'reason')}`
+               ${buildRankListHTML(pattern.participleRanking, 'label', 'score', 'reason')}`
             : '';
 
         return `<div class="reading-block">
-            <div class="reading-block-type">${p.type}</div>
-            <div style="font-size:0.73rem;color:var(--text-sub);margin-bottom:6px;line-height:1.5;">${wrapTerm(p.observation)}</div>
-            ${focusRow}
-            ${branchRow}
-            ${decisionRow}
-            ${cautionRow}
+            <div class="reading-block-type">${pattern.type}</div>
+            <div style="font-size:0.73rem;color:var(--text-sub);margin-bottom:6px;line-height:1.5;">${wrapTerm(pattern.observation)}</div>
+            ${buildReadingRowHTML('注目', pattern.focus)}
+            ${buildReadingRowHTML('分岐', pattern.branches)}
+            ${buildReadingRowHTML('判断', pattern.decision)}
+            ${buildReadingRowHTML('注意', pattern.caution, 'caution')}
             ${subjRankHTML}
             ${objRankHTML}
             ${ptcRankHTML}
@@ -1484,7 +1555,7 @@ function renderReadingEngine(patterns) {
     </div>`;
 }
 
-/* ④ インサイトパネルをレンダリング */
+/** インサイトパネル全体（分布 + 読解ガイド + 代表用例）をレンダリングする */
 function renderInsight(matched, totalSamePos) {
     const panel = document.getElementById('insight-panel');
     if (!matched.length) { panel.style.display = 'none'; return; }
@@ -1493,12 +1564,8 @@ function renderInsight(matched, totalSamePos) {
     const patterns = analyzePatterns(matched);
     const examples = selectBestExamples(matched, window._morphData);
     const total    = matched.length;
-
-    // バー幅の基準：全体件数（totalSamePos）があればそれを使い、
-    // 書物間の相対比較と全体比較を同じスケールで見せる
     const barBase  = totalSamePos > 0 ? totalSamePos : (dist[0]?.count || 1);
 
-    // ① 分布バー（先頭に「全体」行を追加）
     const distHTML = `
         <div class="dist-card">
             <div class="dist-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
@@ -1506,44 +1573,40 @@ function renderInsight(matched, totalSamePos) {
                 <span class="dist-toggle">▾</span>
             </div>
             <div class="dist-body">
-                <!-- 全体行 -->
                 <div class="dist-row dist-row-total">
                     <span class="dist-book" style="font-weight:700;color:var(--text-main);">全体</span>
                     <div class="dist-bar-wrap">
-                        <div class="dist-bar-fill" style="width:${Math.round(total/barBase*100)}%;background:var(--highlight);opacity:0.45;"></div>
+                        <div class="dist-bar-fill" style="width:${Math.round(total / barBase * 100)}%;background:var(--highlight);opacity:0.45;"></div>
                     </div>
                     <span class="dist-count" style="font-weight:700;color:var(--text-main);">${total}</span>
                 </div>
-                <!-- 区切り線 -->
                 <div style="border-top:1px solid var(--border-soft);margin:5px 0 5px 80px;"></div>
-                <!-- 書物別行 -->
                 ${dist.map(d => `
                     <div class="dist-row">
                         <span class="dist-book">${d.label}</span>
                         <div class="dist-bar-wrap">
-                            <div class="dist-bar-fill" style="width:${Math.round(d.count/barBase*100)}%"></div>
+                            <div class="dist-bar-fill" style="width:${Math.round(d.count / barBase * 100)}%"></div>
                         </div>
                         <span class="dist-count">${d.count}</span>
-                    </div>`).join('')}
+                    </div>`
+                ).join('')}
             </div>
         </div>`;
 
-    // ② 読解意思決定パネル
     const patternHTML = patterns.length ? renderReadingEngine(patterns) : '';
 
-    // ③ 代表用例
     const examplesHTML = examples.length ? `
         <div class="examples-card">
             <div class="examples-title">代表的な用例</div>
-            ${examples.map(({entry, tokens, ja}) => {
-                const hitWord = entry.word || entry.normalized || entry.text || '';
+            ${examples.map(({ entry, tokens, ja }) => {
+                const hitWord   = entry.word || entry.normalized || entry.text || '';
                 const greekLine = tokens.map(t => {
-                    const w = (t.word||t.normalized||t.text||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'');
-                    const isHit = w === hitWord.replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'');
-                    return isHit ? `<span class="hit-word">${w}</span>` : `<span>${w}</span>`;
+                    const word  = (t.word || t.normalized || t.text || '').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g, '');
+                    const isHit = word === hitWord.replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g, '');
+                    return isHit ? `<span class="hit-word">${word}</span>` : `<span>${word}</span>`;
                 }).filter(Boolean).join(' ');
                 const ref = buildRefLabel(entry.ref);
-                return `<div class="example-item" onclick="goToWord('${entry.ref||''}','${encodeURIComponent(hitWord)}')">
+                return `<div class="example-item" onclick="goToWord('${entry.ref || ''}','${encodeURIComponent(hitWord)}')">
                     <span class="example-ref">${ref}</span>
                     <div class="example-greek">${greekLine}</div>
                     ${ja ? `<div class="example-ja">${ja}</div>` : ''}
@@ -1556,32 +1619,37 @@ function renderInsight(matched, totalSamePos) {
 }
 
 /* ══════════════════════════════════════════════════════
-   ▲▲▲ インサイト機能 ▲▲▲
+   §17  検索結果レンダリング
    ══════════════════════════════════════════════════════ */
 
-/* ── ページネーション ───────────────────────────────── */
-let _currentRows = [];
+let _currentRows  = [];
 let _displayCount = 100;
-const PAGE_SIZE = 100;
+const PAGE_SIZE   = 100;
 
 function renderResults(allData) {
-    const matched = allData.filter(matchEntry);
-    const sp      = params.pos.replace(/-$/,'');
-    const samePos = allData.filter(e=>(e.pos||'').replace(/-$/,'').toUpperCase()===sp.toUpperCase()).length;
+    const matched  = allData.filter(matchEntry);
+    const targetPos = params.pos.replace(/-$/, '');
+    const samePos  = allData.filter(e => (e.pos || '').replace(/-$/, '').toUpperCase() === targetPos.toUpperCase()).length;
+
     document.getElementById('count').textContent      = matched.length.toLocaleString();
-    document.getElementById('result-pct').textContent = samePos>0 ? `同品詞 ${samePos.toLocaleString()} 件中` : '';
+    document.getElementById('result-pct').textContent = samePos > 0 ? `同品詞 ${samePos.toLocaleString()} 件中` : '';
+
     _currentRows  = matched;
     _displayCount = PAGE_SIZE;
-    renderInsight(matched, samePos);  // ← インサイト更新
+    renderInsight(matched, samePos);
     renderPage();
 }
 
 function renderPage() {
-    const el   = document.getElementById('result-list');
-    const rows = _currentRows;
+    const listEl = document.getElementById('result-list');
+    const rows   = _currentRows;
 
     if (!rows.length) {
-        el.innerHTML = `<div class="empty-state"><div class="empty-icon">∅</div>条件に一致する語形が見つかりませんでした。<br>拡張条件をOFFにするか、書物範囲を広げてみてください。</div>`;
+        listEl.innerHTML = `<div class="empty-state">
+            <div class="empty-icon">∅</div>
+            条件に一致する語形が見つかりませんでした。<br>
+            拡張条件をOFFにするか、書物範囲を広げてみてください。
+        </div>`;
         return;
     }
 
@@ -1589,25 +1657,26 @@ function renderPage() {
     if (params.mood === 'participle' && window._morphData) {
         const groups = classifyAll(rows);
         if (groups && Object.keys(groups).length) {
-            el.innerHTML = buildCategoryUI(groups);
+            listEl.innerHTML = buildCategoryUI(groups);
             return;
         }
     }
 
-    // 通常ビュー（分詞以外 or データ未準備）
+    // 通常ビュー
     const slice = rows.slice(0, _displayCount);
     const more  = rows.length - _displayCount;
 
-    el.innerHTML = slice.map((entry, idx) => {
+    listEl.innerHTML = slice.map((entry, index) => {
         const word     = entry.word || entry.normalized || entry.text || '';
         const refLabel = buildRefLabel(entry.ref);
         const jaText   = getJaVerse(entry);
         const mainHTML = jaText
             ? `<span class="result-ja">${jaText}</span>`
-            : `<span class="result-word">${word}</span><span class="result-lemma">${entry.lemma||''}</span>`;
-        return `<div class="result-card animate-in" style="animation-delay:${Math.min(idx*10,300)}ms">
+            : `<span class="result-word">${word}</span><span class="result-lemma">${entry.lemma || ''}</span>`;
+
+        return `<div class="result-card animate-in" style="animation-delay:${Math.min(index * 10, 300)}ms">
             <div class="result-top" style="cursor:pointer;"
-                onclick="toggleContext(this.closest('.result-card'), '${entry.ref||''}', '${encodeURIComponent(word)}')">
+                onclick="toggleContext(this.closest('.result-card'), '${entry.ref || ''}', '${encodeURIComponent(word)}')">
                 <div class="result-main">${mainHTML}</div>
                 <span class="result-ref">${refLabel}</span>
             </div>
@@ -1615,7 +1684,7 @@ function renderPage() {
     }).join('');
 
     if (more > 0) {
-        el.innerHTML += `<div style="text-align:center;padding:20px 0;">
+        listEl.innerHTML += `<div style="text-align:center;padding:20px 0;">
             <button onclick="loadMore()" style="padding:8px 24px;font-size:0.8rem;font-family:inherit;
                 border:1px solid var(--border-soft);border-radius:20px;background:transparent;
                 cursor:pointer;color:var(--text-sub);transition:background 0.12s;">
@@ -1624,178 +1693,16 @@ function renderPage() {
     }
 }
 
-function buildRefLabel(ref) {
-    const r = String(ref||'');
-    const m = r.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
-    if (m) return `${BOOK_JP[m[1]]||m[1]} ${m[2]}:${m[3]}`;
-    if (r.length===6 && /^\d+$/.test(r)) {
-        const bk=BOOK_MAP[r.slice(0,2)];
-        return `${(bk&&BOOK_JP[bk])||bk||r.slice(0,2)} ${parseInt(r.slice(2,4))}:${parseInt(r.slice(4,6))}`;
-    }
-    return r;
-}
-
 function loadMore() {
     _displayCount += PAGE_SIZE;
     renderPage();
 }
 
 /* ══════════════════════════════════════════════════════
-   用法分類エンジン（分詞検索専用）
+   §18  用法分類エンジン（分詞検索専用）
    ══════════════════════════════════════════════════════ */
 
-/* ── 1. 1エントリを分類 ──────────────────────────────── */
-function classifyExample(entry) {
-    const tokens = getVerseTokens(entry.ref);
-    if (!tokens.length) return { category:'unknown', confidence:0, ambiguity:1, tags:[], scores:{} };
-
-    const hm      = decodeMorph(entry);
-    const hitText = cleanText(entry);
-
-    // ヒット語の位置
-    const hitIdx = tokens.findIndex(t =>
-        cleanText(t) === hitText ||
-        (t.word||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'') === hitText
-    );
-    const prevToken = hitIdx > 0 ? tokens[hitIdx - 1] : null;
-    const prevPos   = prevToken ? entryPosCode(prevToken) : '';
-
-    // ── スコア計算 ────────────────────────────────────
-    const scores = scoreCategories(hm, tokens, hitIdx, prevToken, prevPos);
-    const { category, confidence, ambiguity } = computeConfidence(scores);
-    const tags = buildTags(hm, tokens, hitIdx, prevToken, prevPos, category);
-
-    return { entry, tokens, category, confidence, ambiguity, tags, scores };
-}
-
-/* ── 2. カテゴリスコア計算 ──────────────────────────── */
-function scoreCategories(hm, tokens, hitIdx, prevToken, prevPos) {
-    const ptcCase   = hm.case;
-    const ptcGender = hm.gender;
-    const ptcNumber = hm.number;
-
-    // ① 実体用法スコア
-    let substantival = 0;
-    if (prevPos === 'T') {
-        const pm = decodeMorph(prevToken);
-        if (pm.case === ptcCase && pm.gender === ptcGender && pm.number === ptcNumber) {
-            substantival = 3; // 完全一致冠詞
-        } else {
-            substantival = 1; // 冠詞はあるが一致しない
-        }
-    }
-
-    // ② 形容詞用法スコア
-    let attributive = 0;
-    const matchNoun = tokens.find((t, i) => {
-        if (i === hitIdx) return false;
-        const pos = entryPosCode(t);
-        if (!['N','T','A','D','R'].includes(pos)) return false;
-        const tm = decodeMorph(t);
-        let s = 0;
-        if (tm.case === ptcCase)   s++;
-        if (tm.gender === ptcGender) s++;
-        if (tm.number === ptcNumber) s++;
-        // 近接ボーナス
-        if (Math.abs(i - hitIdx) <= 2) s++;
-        if (s >= 3) { attributive = s; return true; }
-        return false;
-    });
-
-    // ③ 属格絶対スコア
-    let genitiveAbsolute = 0;
-    if (ptcCase === 'genitive') {
-        const genNoun = tokens.find((t, i) => {
-            if (i === hitIdx) return false;
-            const pos = entryPosCode(t);
-            if (!['N','T','A','D','R'].includes(pos)) return false;
-            return decodeMorph(t).case === 'genitive';
-        });
-        genitiveAbsolute = genNoun ? 3 : 1;
-    }
-
-    // ④ 補語用法スコア
-    let complementary = 0;
-    const COMP_VERBS = ['βλέπω','ἀκούω','οἶδα','γινώσκω','ὁράω','θεάομαι','εὑρίσκω'];
-    const compVerb = tokens.find(t => {
-        if (entryPosCode(t) !== 'V') return false;
-        const tm = decodeMorph(t);
-        if (tm.mood === 'participle' || tm.mood === 'infinitive') return false;
-        const lemma = (t.lemma||'').replace(/[ʼ']/g,'');
-        return COMP_VERBS.some(v => v === lemma || lemma.startsWith(v.slice(0,4)));
-    });
-    if (compVerb) complementary = 3;
-
-    // ⑤ 副詞用法スコア（デフォルト）
-    const adverbial = 2; // ベースライン
-
-    return { substantival, attributive, genitiveAbsolute, complementary, adverbial };
-}
-
-/* ── 3. 確信度・カテゴリ確定 ────────────────────────── */
-function computeConfidence(scores) {
-    const entries = Object.entries(scores).sort((a,b) => b[1] - a[1]);
-    const best    = entries[0];
-    const second  = entries[1];
-
-    const bVal = best[1];
-    const sVal = second ? second[1] : 0;
-    const confidence = bVal / (bVal + sVal + 0.001);
-    const ambiguity  = 1 - confidence;
-
-    // 確信度が低すぎる場合はunknown
-    const category = confidence < 0.55 ? 'unknown' : best[0];
-
-    return { category, confidence: Math.round(confidence * 100) / 100, ambiguity: Math.round(ambiguity * 100) / 100 };
-}
-
-/* ── 4. タグ生成 ─────────────────────────────────────── */
-function buildTags(hm, tokens, hitIdx, prevToken, prevPos, category) {
-    const tags = [];
-    if (prevPos === 'T')   tags.push('冠詞あり');
-    else                   tags.push('冠詞なし');
-    if (hm.case)   tags.push(CASE_JP[hm.case]   || hm.case);
-    if (hm.tense)  tags.push(TENSE_JP[hm.tense] || hm.tense);
-    if (hm.gender) tags.push(GENDER_JP[hm.gender]|| hm.gender);
-    if (hm.number) tags.push(NUMBER_JP[hm.number]|| hm.number);
-    if (category === 'unknown') tags.push('⚠ 判定困難');
-    return tags;
-}
-
-/* ── 5. カテゴリ内代表例スコア ──────────────────────── */
-function scoreExample(classified) {
-    const { tokens, entry, scores, category } = classified;
-    const wordCount = tokens.length;
-
-    // 構文純度：動詞・主語・目的語が揃っているか
-    const hasVerb  = tokens.some(t => { const m=decodeMorph(t); return m.mood && m.mood!=='participle'&&m.mood!=='infinitive'&&entryPosCode(t)==='V'; });
-    const hasSubj  = tokens.some(t => { const m=decodeMorph(t); return m.case==='nominative'&&['N','A','D','R'].includes(entryPosCode(t)); });
-    const hasObj   = tokens.some(t => { const m=decodeMorph(t); return m.case==='accusative'&&['N','T'].includes(entryPosCode(t)); });
-    const syntaxPurity = (hasVerb?1:0)*0.4 + (hasSubj?1:0)*0.3 + (hasObj?1:0)*0.3;
-
-    // 係り受けの明確さ：カテゴリスコアの高さ
-    const dependencyClarity = Math.min(1, (scores[category]||0) / 4);
-
-    // 形態的一致：高スコアほど高い
-    const morphologicalFit = Math.min(1, (scores[category]||0) / 3);
-
-    // 語彙の基本度：lemmaが短いほど基本語傾向
-    const lemmaLen = (entry.lemma||'').length;
-    const lexicalBasicness = lemmaLen > 0 ? Math.max(0.2, 1 - lemmaLen * 0.05) : 0.5;
-
-    // 文の単純さ：語数が少ないほど高い
-    const simplicity = wordCount <= 6 ? 1.0 : wordCount <= 10 ? 0.7 : wordCount <= 15 ? 0.4 : 0.2;
-
-    const total = syntaxPurity * 0.30
-                + dependencyClarity * 0.20
-                + morphologicalFit * 0.20
-                + lexicalBasicness * 0.15
-                + simplicity * 0.15;
-
-    return Math.round(total * 100);
-}
-
-/* ── 6. 全件分類してグループ化 ──────────────────────── */
+/** カテゴリの表示定義 */
 const CAT_META = {
     substantival:    { label:'実体用法',   color:'#4a7fa5', desc:'分詞が名詞として機能（冠詞＋分詞）' },
     attributive:     { label:'形容詞用法', color:'#5a8a6e', desc:'名詞を修飾する形容詞的用法' },
@@ -1805,68 +1712,191 @@ const CAT_META = {
     unknown:         { label:'判定困難',   color:'#aaa',    desc:'複数の解釈が競合する用例' },
 };
 
+/** 補語動詞リスト（知覚・認識動詞） */
+const COMPLEMENTARY_VERBS = ['βλέπω','ἀκούω','οἶδα','γινώσκω','ὁράω','θεάομαι','εὑρίσκω'];
+
+/** 1エントリを分詞用法に分類する */
+function classifyExample(entry) {
+    const tokens  = getVerseTokens(entry.ref);
+    if (!tokens.length) return { category:'unknown', confidence:0, ambiguity:1, tags:[], scores:{} };
+
+    const hitMorph = decodeMorph(entry);
+    const hitText  = cleanText(entry);
+    const hitIdx   = tokens.findIndex(t =>
+        cleanText(t) === hitText ||
+        (t.word || '').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g, '') === hitText
+    );
+    const prevToken = hitIdx > 0 ? tokens[hitIdx - 1] : null;
+    const prevPos   = prevToken ? entryPosCode(prevToken) : '';
+
+    const scores       = scoreCategories(hitMorph, tokens, hitIdx, prevToken, prevPos);
+    const { category, confidence, ambiguity } = computeConfidence(scores);
+    const tags         = buildTags(hitMorph, prevPos, category);
+
+    return { entry, tokens, category, confidence, ambiguity, tags, scores };
+}
+
+/** 各分詞用法カテゴリのスコアを計算する */
+function scoreCategories(hitMorph, tokens, hitIdx, prevToken, prevPos) {
+    const { case: ptcCase, gender: ptcGender, number: ptcNumber } = hitMorph;
+
+    // ① 実体用法: 直前トークンが一致する格・性・数の冠詞か
+    let substantival = 0;
+    if (prevPos === 'T') {
+        const prevMorph = decodeMorph(prevToken);
+        substantival = (prevMorph.case === ptcCase && prevMorph.gender === ptcGender && prevMorph.number === ptcNumber)
+            ? 3  // 完全一致
+            : 1; // 冠詞はあるが不一致
+    }
+
+    // ② 形容詞用法: 同節内に格・性・数が一致する名詞があるか
+    let attributive = 0;
+    tokens.find((token, index) => {
+        if (index === hitIdx) return false;
+        if (!['N','T','A','D','R'].includes(entryPosCode(token))) return false;
+        const morph = decodeMorph(token);
+        let matchCount = 0;
+        if (morph.case   === ptcCase)   matchCount++;
+        if (morph.gender === ptcGender) matchCount++;
+        if (morph.number === ptcNumber) matchCount++;
+        if (Math.abs(index - hitIdx) <= 2) matchCount++; // 近接ボーナス
+        if (matchCount >= 3) { attributive = matchCount; return true; }
+        return false;
+    });
+
+    // ③ 属格絶対: 属格の場合に同節内に別の属格名詞があるか
+    let genitiveAbsolute = 0;
+    if (ptcCase === 'genitive') {
+        const genNoun = tokens.find((t, i) => {
+            if (i === hitIdx) return false;
+            return ['N','T','A','D','R'].includes(entryPosCode(t)) && decodeMorph(t).case === 'genitive';
+        });
+        genitiveAbsolute = genNoun ? 3 : 1;
+    }
+
+    // ④ 補語用法: 知覚・認識動詞が同節にあるか
+    let complementary = 0;
+    const hasCompVerb = tokens.some(t => {
+        if (entryPosCode(t) !== 'V') return false;
+        const morph = decodeMorph(t);
+        if (morph.mood === 'participle' || morph.mood === 'infinitive') return false;
+        const lemma = (t.lemma || '').replace(/[ʼ']/g, '');
+        return COMPLEMENTARY_VERBS.some(v => v === lemma || lemma.startsWith(v.slice(0, 4)));
+    });
+    if (hasCompVerb) complementary = 3;
+
+    // ⑤ 副詞用法: ベースライン
+    const adverbial = 2;
+
+    return { substantival, attributive, genitiveAbsolute, complementary, adverbial };
+}
+
+/** スコアから最有力カテゴリと確信度を計算する */
+function computeConfidence(scores) {
+    const sorted   = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+    const bestScore   = sorted[0][1];
+    const secondScore = sorted[1] ? sorted[1][1] : 0;
+    const confidence  = bestScore / (bestScore + secondScore + 0.001);
+    const ambiguity   = 1 - confidence;
+
+    return {
+        category:   confidence < 0.55 ? 'unknown' : sorted[0][0],
+        confidence: Math.round(confidence * 100) / 100,
+        ambiguity:  Math.round(ambiguity  * 100) / 100,
+    };
+}
+
+/** 分詞エントリのタグリストを生成する */
+function buildTags(hitMorph, prevPos, category) {
+    const tags = [];
+    tags.push(prevPos === 'T' ? '冠詞あり' : '冠詞なし');
+    if (hitMorph.case)   tags.push(CASE_JP[hitMorph.case]    || hitMorph.case);
+    if (hitMorph.tense)  tags.push(TENSE_JP[hitMorph.tense]  || hitMorph.tense);
+    if (hitMorph.gender) tags.push(GENDER_JP[hitMorph.gender] || hitMorph.gender);
+    if (hitMorph.number) tags.push(NUMBER_JP[hitMorph.number] || hitMorph.number);
+    if (category === 'unknown') tags.push('⚠ 判定困難');
+    return tags;
+}
+
+/** カテゴリ内の代表例スコアを計算する */
+function scoreExample(classified) {
+    const { tokens, entry, scores, category } = classified;
+    const wordCount = tokens.length;
+
+    const hasVerb    = tokens.some(t => { const m = decodeMorph(t); return m.mood && m.mood !== 'participle' && m.mood !== 'infinitive' && entryPosCode(t) === 'V'; });
+    const hasSubject = tokens.some(t => { const m = decodeMorph(t); return m.case === 'nominative' && ['N','A','D','R'].includes(entryPosCode(t)); });
+    const hasObject  = tokens.some(t => { const m = decodeMorph(t); return m.case === 'accusative' && ['N','T'].includes(entryPosCode(t)); });
+
+    const syntaxPurity      = (hasVerb ? 1 : 0) * 0.4 + (hasSubject ? 1 : 0) * 0.3 + (hasObject ? 1 : 0) * 0.3;
+    const dependencyClarity = Math.min(1, (scores[category] || 0) / 4);
+    const morphologicalFit  = Math.min(1, (scores[category] || 0) / 3);
+    const lemmaLength       = (entry.lemma || '').length;
+    const lexicalBasicness  = lemmaLength > 0 ? Math.max(0.2, 1 - lemmaLength * 0.05) : 0.5;
+    const simplicity        = wordCount <= 6 ? 1.0 : wordCount <= 10 ? 0.7 : wordCount <= 15 ? 0.4 : 0.2;
+
+    const total = syntaxPurity      * 0.30
+                + dependencyClarity * 0.20
+                + morphologicalFit  * 0.20
+                + lexicalBasicness  * 0.15
+                + simplicity        * 0.15;
+
+    return Math.round(total * 100);
+}
+
+/** マッチエントリ全件を分類してカテゴリ別にグループ化する */
 function classifyAll(matched) {
-    // データが揃っていない場合はスキップ
-    if (!window._morphData) return null;
-    // 分詞検索のみ対象
-    if (params.mood !== 'participle') return null;
+    if (!window._morphData || params.mood !== 'participle') return null;
 
     const classified = matched.map(classifyExample);
-
-    // カテゴリ別にグループ化
     const groups = {};
+
     classified.forEach(c => {
         if (!groups[c.category]) groups[c.category] = [];
         groups[c.category].push(c);
     });
 
-    // 各グループ内をスコア順にソートし代表例を選出
     const result = {};
     Object.entries(groups).forEach(([cat, items]) => {
-        const scored = items.map(c => ({ ...c, exScore: scoreExample(c) }))
-                            .sort((a, b) => b.exScore - a.exScore);
+        const scored = items
+            .map(c => ({ ...c, exScore: scoreExample(c) }))
+            .sort((a, b) => b.exScore - a.exScore);
         result[cat] = {
             category: cat,
-            items: scored,
+            items:    scored,
             representative: scored[0],
-            avgConfidence: Math.round(scored.reduce((s,c)=>s+c.confidence,0) / scored.length * 100) / 100,
+            avgConfidence:  Math.round(scored.reduce((sum, c) => sum + c.confidence, 0) / scored.length * 100) / 100,
         };
     });
 
     return result;
 }
 
-/* ── 7. カテゴリビューのHTML生成 ────────────────────── */
-function buildCategoryUI(groups) {
-    const ORDER = ['substantival','attributive','genitiveAbsolute','complementary','adverbial','unknown'];
-    const present = ORDER.filter(k => groups[k]);
+/* ══════════════════════════════════════════════════════
+   §19  カテゴリビューHTML生成
+   ══════════════════════════════════════════════════════ */
 
+function buildCategoryUI(groups) {
+    const ORDER   = ['substantival','attributive','genitiveAbsolute','complementary','adverbial','unknown'];
+    const present = ORDER.filter(k => groups[k]);
     return `<div class="cat-view">${present.map(cat => buildCategoryBlock(cat, groups[cat])).join('')}</div>`;
 }
 
 function buildCategoryBlock(cat, group) {
-    const meta  = CAT_META[cat] || { label: cat, color:'#888', desc:'' };
-    const items = group.items;
-    const rep   = group.representative;
-    const conf  = group.avgConfidence;
-    const confPct = Math.round(conf * 100);
+    const meta      = CAT_META[cat] || { label: cat, color:'#888', desc:'' };
+    const items     = group.items;
+    const confPct   = Math.round(group.avgConfidence * 100);
     const confColor = confPct >= 75 ? '#5a8a6e' : confPct >= 55 ? '#a09050' : '#b06050';
-    const isUnknown = cat === 'unknown';
-    const blockId = `cat-block-${cat}`;
+    const blockId   = `cat-block-${cat}`;
 
-    // 代表例HTML
-    const repHTML = rep ? buildRepExample(rep, meta.color) : '';
-
-    // 残り用例（代表例以外、最大5件）
-    const restItems = items.slice(1, 6);
-    const moreCount = items.length - 1 - restItems.length;
-
-    const restHTML = restItems.map(c => buildExampleRow(c, meta.color)).join('');
-    const moreBtn = moreCount > 0
-        ? `<button class="cat-more-btn" onclick="expandCatBlock('${cat}', ${JSON.stringify(items.slice(6).map(c=>c.entry?.ref||''))})">さらに ${moreCount} 件を表示</button>`
+    const repHTML      = group.representative ? buildRepExample(group.representative, meta.color) : '';
+    const restItems    = items.slice(1, 6);
+    const moreCount    = items.length - 1 - restItems.length;
+    const restHTML     = restItems.map(c => buildExampleRow(c, meta.color)).join('');
+    const moreBtn      = moreCount > 0
+        ? `<button class="cat-more-btn" onclick="expandCatBlock('${cat}', ${JSON.stringify(items.slice(6).map(c => c.entry?.ref || ''))})">さらに ${moreCount} 件を表示</button>`
         : '';
 
-    return `<div class="cat-block ${isUnknown ? 'unknown' : ''}" id="${blockId}">
+    return `<div class="cat-block ${cat === 'unknown' ? 'unknown' : ''}" id="${blockId}">
         <div class="cat-block-header" onclick="toggleCatBody('${blockId}')">
             <div class="cat-header-left">
                 <span class="cat-label" style="color:${meta.color}">${meta.label}</span>
@@ -1882,34 +1912,36 @@ function buildCategoryBlock(cat, group) {
         </div>
         <div class="cat-body" id="${blockId}-body">
             ${repHTML}
-            <div class="cat-examples" id="${blockId}-list">
-                ${restHTML}
-            </div>
+            <div class="cat-examples" id="${blockId}-list">${restHTML}</div>
             ${moreBtn}
         </div>
     </div>`;
 }
 
+/** ヒット語をハイライトしたギリシャ語行HTMLを返す */
+function buildGreekLineHTML(tokens, hitWord, color) {
+    return tokens.map(t => {
+        const text  = cleanText(t);
+        const isHit = text === hitWord;
+        return isHit
+            ? `<span class="hit-word" style="color:${color};border-bottom-color:${color};">${text}</span>`
+            : `<span>${text}</span>`;
+    }).filter(Boolean).join(' ');
+}
+
 function buildRepExample(classified, color) {
     const { entry, tokens, tags, exScore } = classified;
-    const hitWord = cleanText(entry);
-    const jaText  = getJaVerse(entry);
-    const ref     = buildRefLabel(entry.ref);
-
-    const greekLine = tokens.map(t => {
-        const w = cleanText(t);
-        const isHit = w === hitWord;
-        return isHit ? `<span class="hit-word" style="color:${color};border-bottom-color:${color};">${w}</span>` : `<span>${w}</span>`;
-    }).filter(Boolean).join(' ');
-
+    const hitWord  = cleanText(entry);
+    const jaText   = getJaVerse(entry);
+    const ref      = buildRefLabel(entry.ref);
     const tagsHTML = tags.map(tag =>
-        `<span class="cat-tag${tag.includes('⚠')?' warn':''}">${tag}</span>`
+        `<span class="cat-tag${tag.includes('⚠') ? ' warn' : ''}">${tag}</span>`
     ).join('');
 
-    return `<div class="cat-rep" onclick="goToWord('${entry.ref||''}','${encodeURIComponent(hitWord)}')">
+    return `<div class="cat-rep" onclick="goToWord('${entry.ref || ''}','${encodeURIComponent(hitWord)}')">
         <div class="cat-rep-label">★ 代表例</div>
         <span class="cat-rep-ref">${ref}</span>
-        <div class="cat-rep-greek">${greekLine}</div>
+        <div class="cat-rep-greek">${buildGreekLineHTML(tokens, hitWord, color)}</div>
         ${jaText ? `<div class="cat-rep-ja">${jaText}</div>` : ''}
         <div class="cat-tags">${tagsHTML}</div>
         <div class="cat-rep-score">
@@ -1920,342 +1952,173 @@ function buildRepExample(classified, color) {
 }
 
 function buildExampleRow(classified, color) {
-    const { entry, tokens, tags } = classified;
+    const { entry, tokens } = classified;
     const hitWord = cleanText(entry);
     const jaText  = getJaVerse(entry);
     const ref     = buildRefLabel(entry.ref);
 
-    const greekLine = tokens.map(t => {
-        const w = cleanText(t);
-        return w === hitWord
-            ? `<span class="hit-word" style="color:${color};border-bottom-color:${color};">${w}</span>`
-            : `<span>${w}</span>`;
-    }).filter(Boolean).join(' ');
-
-    return `<div class="cat-example" onclick="goToWord('${entry.ref||''}','${encodeURIComponent(hitWord)}')">
+    return `<div class="cat-example" onclick="goToWord('${entry.ref || ''}','${encodeURIComponent(hitWord)}')">
         <span class="cat-example-ref">${ref}</span>
-        <div class="cat-example-greek">${greekLine}</div>
+        <div class="cat-example-greek">${buildGreekLineHTML(tokens, hitWord, color)}</div>
         ${jaText ? `<div class="cat-example-ja">${jaText}</div>` : ''}
     </div>`;
-}
-
-function buildAmbiguityUI(group) {
-    // unknownカテゴリの詳細説明
-    if (!group) return '';
-    return ''; // cat-blockとして既に描画されているため追加不要
 }
 
 function toggleCatBody(blockId) {
     const body = document.getElementById(`${blockId}-body`);
     if (!body) return;
-    const tog = document.querySelector(`#${blockId} .cat-toggle`);
-    const hidden = body.style.display === 'none';
-    body.style.display = hidden ? 'block' : 'none';
-    if (tog) tog.textContent = hidden ? '▾' : '▸';
+    const toggle = document.querySelector(`#${blockId} .cat-toggle`);
+    const isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? 'block' : 'none';
+    if (toggle) toggle.textContent = isHidden ? '▾' : '▸';
 }
 
 function expandCatBlock(cat, refs) {
-    // 追加表示（将来拡張ポイント）
     const listEl = document.getElementById(`cat-block-${cat}-list`);
     if (!listEl || !window._morphData) return;
-    // 対象エントリを探してレンダリング
-    const entries = window._morphData.filter(e => refs.includes(e.ref||''));
-    const meta = CAT_META[cat] || { color:'#888' };
+
+    const entries = window._morphData.filter(e => refs.includes(e.ref || ''));
+    const color   = (CAT_META[cat] || { color:'#888' }).color;
     entries.forEach(entry => {
         const classified = classifyExample(entry);
-        listEl.insertAdjacentHTML('beforeend', buildExampleRow(classified, meta.color));
+        listEl.insertAdjacentHTML('beforeend', buildExampleRow(classified, color));
     });
-    // ボタンを削除
-    const btn = listEl.nextElementSibling;
-    if (btn && btn.classList.contains('cat-more-btn')) btn.remove();
+
+    const moreBtn = listEl.nextElementSibling;
+    if (moreBtn && moreBtn.classList.contains('cat-more-btn')) moreBtn.remove();
 }
 
-/* ── インタラクション ───────────────────────────────── */
-function toggleExt(i)  { extState[i].enabled=!extState[i].enabled;  renderExtChips();  renderMeaning(); syncURL(); if(window._morphData)renderResults(window._morphData); }
-function toggleBook(i) { bookState[i].enabled=!bookState[i].enabled; renderBookChips(); if(window._morphData)renderResults(window._morphData); }
-function goToWord(ref,enc) {
-    const word=decodeURIComponent(enc);
-    if(window.opener&&!window.opener.closed) window.opener.postMessage({type:'GO_TO_REF',ref,word},'*');
-}
+/* ══════════════════════════════════════════════════════
+   §20  構文ツリー（展開パネル）
+   ══════════════════════════════════════════════════════ */
 
-/* ── 構文ツリー（階層表示） ─────────────────────────── */
+const ROLE_LABEL = { verb:'動詞', subj:'主語', obj:'目的語', phr:'修飾', prep:'前置詞句', mod:'準動詞', other:'' };
+const ROLE_COLOR = { verb:'#4a7fa5', subj:'#5a8a6e', obj:'#9a6040', phr:'#888', prep:'#7a6aa0', mod:'#a09050', other:'' };
+
+/** 節の全トークンを返す */
 function getVerseTokens(ref) {
     if (!window._morphData || !ref) return [];
-    const prefix = String(ref).replace(/!.*$/,'').trim();
-    return window._morphData.filter(e => String(e.ref||'').replace(/!.*$/,'').trim() === prefix);
+    const verseId = String(ref).replace(/!.*$/, '').trim();
+    return window._morphData.filter(e => String(e.ref || '').replace(/!.*$/, '').trim() === verseId);
 }
-function cleanText(e) {
-    return (e.word||e.normalized||e.text||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim();
-}
+
+/** エントリから構文上の役割を返す */
 function getRole(entry) {
-    const m=decodeMorph(entry), pos=m.pos.toUpperCase();
-    if (pos==='V') return (!m.mood||m.mood==='infinitive'||m.mood==='participle')?'mod':'verb';
-    if (pos==='P') return 'prep';
+    const morph = decodeMorph(entry);
+    const pos   = morph.pos.toUpperCase();
+
+    if (pos === 'V') return (!morph.mood || morph.mood === 'infinitive' || morph.mood === 'participle') ? 'mod' : 'verb';
+    if (pos === 'P') return 'prep';
     if (['N','T','A','D','R'].includes(pos)) {
-        if (m.case==='nominative') return 'subj';
-        if (m.case==='accusative') return 'obj';
-        if (m.case==='genitive'||m.case==='dative') return 'phr';
+        if (morph.case === 'nominative') return 'subj';
+        if (morph.case === 'accusative') return 'obj';
+        if (morph.case === 'genitive' || morph.case === 'dative') return 'phr';
         return 'other';
     }
     return 'other';
 }
 
-function getJapanese(entry) {
-    if (entry.japanese) return entry.japanese;
-    const norm = entry.normalized || entry.word || entry.text || '';
-    return _japaneseMap.get(norm) || '';
-}
-    
+/** トークンを構文役割ごとにグループ化する（前置詞句は次のトークンを取り込む） */
 function groupTokens(tokens) {
-    const groups=[]; let i=0;
-    while (i<tokens.length) {
-        const e=tokens[i], role=getRole(e);
-        if (role==='prep') {
-            const members=[e]; let j=i+1;
-            while (j<tokens.length) {
-                const nr=getRole(tokens[j]);
-                if (['subj','obj','phr','other'].includes(nr)&&decodeMorph(tokens[j]).pos.toUpperCase()!=='P') {
-                    members.push(tokens[j]); j++;
-                } else break;
+    const groups = [];
+    let i = 0;
+    while (i < tokens.length) {
+        const token = tokens[i];
+        const role  = getRole(token);
+        if (role === 'prep') {
+            const members = [token];
+            let j = i + 1;
+            while (j < tokens.length) {
+                const nextRole = getRole(tokens[j]);
+                if (['subj','obj','phr','other'].includes(nextRole) && decodeMorph(tokens[j]).pos.toUpperCase() !== 'P') {
+                    members.push(tokens[j]);
+                    j++;
+                } else {
+                    break;
+                }
             }
-            groups.push({role:'prep',members}); i=j;
+            groups.push({ role:'prep', members });
+            i = j;
         } else {
-            groups.push({role,members:[e]}); i++;
+            groups.push({ role, members:[token] });
+            i++;
         }
     }
     return groups;
 }
 
-const ROLE_LABEL = { verb:'動詞', subj:'主語', obj:'目的語', phr:'修飾', prep:'前置詞句', mod:'準動詞', other:'' };
-const ROLE_COLOR = { verb:'#4a7fa5', subj:'#5a8a6e', obj:'#9a6040', phr:'#888', prep:'#7a6aa0', mod:'#a09050', other:'' };
-
-/* ══════════════════════════════════════════════════════
-   分詞用法判定（5ステップ）
-   ══════════════════════════════════════════════════════ */
-
-// 補語動詞リスト（STEP4）
-const COMPLEMENTARY_VERBS = [
-    'βλέπω','ἀκούω','οἶδα','γινώσκω','ὁράω','θεάομαι','εὑρίσκω'
-];
-
-function classifyParticiple(hitEntry, tokens) {
-    const hm = decodeMorph(hitEntry);
-    const ptcCase   = hm.case;
-    const ptcGender = hm.gender;
-    const ptcNumber = hm.number;
-    const ptcTense  = hm.tense;
-
-    // ── STEP 1: 実体用法 ────────────────────────────────
-    // ヒット語の直前トークンが冠詞（T）かチェック
-    const hitIdx = tokens.findIndex(t =>
-        cleanText(t) === cleanText(hitEntry) ||
-        String(t.ref) === String(hitEntry.ref)
-    );
-    const prevToken = hitIdx > 0 ? tokens[hitIdx - 1] : null;
-    const prevPos   = prevToken ? entryPosCode(prevToken) : '';
-    if (prevPos === 'T') {
-        const pm = decodeMorph(prevToken);
-        if (pm.case === ptcCase && pm.gender === ptcGender && pm.number === ptcNumber) {
-            return {
-                classification: 'substantival',
-                label: '実体用法（名詞的分詞）',
-                reason: '直前に一致する格・性・数の冠詞がある。分詞が名詞として機能している。',
-                confidence: 0.95,
-                candidates: null,
-            };
-        }
-    }
-
-    // ── STEP 2: 形容詞用法 ──────────────────────────────
-    // 同節内に格・性・数が一致する名詞・代名詞があるか
-    const matchingNoun = tokens.find(t => {
-        if (cleanText(t) === cleanText(hitEntry)) return false;
-        const pos = entryPosCode(t);
-        if (!['N','T','A','D','R'].includes(pos)) return false;
-        const tm = decodeMorph(t);
-        return tm.case === ptcCase && tm.gender === ptcGender && tm.number === ptcNumber;
-    });
-    if (matchingNoun) {
-        return {
-            classification: 'attributive',
-            label: '形容詞用法',
-            reason: `同節内の「${cleanText(matchingNoun)}」と格（${CASE_JP[ptcCase]||ptcCase}）・性・数が一致している。`,
-            confidence: 0.9,
-            candidates: null,
-        };
-    }
-
-    // ── STEP 3: 属格絶対 ────────────────────────────────
-    if (ptcCase === 'genitive') {
-        const genNoun = tokens.find(t => {
-            if (cleanText(t) === cleanText(hitEntry)) return false;
-            const pos = entryPosCode(t);
-            if (!['N','T','A','D','R'].includes(pos)) return false;
-            const tm = decodeMorph(t);
-            return tm.case === 'genitive';
-        });
-        if (genNoun) {
-            return {
-                classification: 'genitive_absolute',
-                label: '属格絶対分詞',
-                reason: `主節と独立した属格節。「${cleanText(genNoun)}」と共に属格を形成している。`,
-                confidence: 0.9,
-                candidates: null,
-            };
-        }
-    }
-
-    // ── STEP 4: 補語用法 ────────────────────────────────
-    const mainVerb = tokens.find(t => {
-        const pos = entryPosCode(t);
-        if (pos !== 'V') return false;
-        const tm = decodeMorph(t);
-        if (!tm.mood || tm.mood === 'participle' || tm.mood === 'infinitive') return false;
-        const lemma = (t.lemma || '').replace(/[ʼ']/g, '');
-        return COMPLEMENTARY_VERBS.some(v => v === lemma || lemma.startsWith(v.slice(0,4)));
-    });
-    if (mainVerb) {
-        return {
-            classification: 'complementary',
-            label: '補語用法',
-            reason: `知覚・認識動詞「${cleanText(mainVerb)}」の補語として機能している。`,
-            confidence: 0.85,
-            candidates: null,
-        };
-    }
-
-    // ── STEP 5: 副詞用法（推定）────────────────────────
-    const adverbialCandidates = (() => {
-        const cands = [];
-        if (ptcTense === 'present') {
-            cands.push({ key:'simultaneous', label:'同時（〜しながら）', conf: 0.80 });
-        } else if (ptcTense === 'aorist') {
-            cands.push({ key:'antecedent',   label:'先行（〜してから）', conf: 0.80 });
-        } else if (ptcTense === 'perfect') {
-            cands.push({ key:'resultant',    label:'結果（〜した状態で）', conf: 0.75 });
-        }
-        // 常に低確率で追加
-        cands.push({ key:'cause',      label:'原因（〜なので）',  conf: 0.40 });
-        cands.push({ key:'condition',  label:'条件（〜なら）',    conf: 0.30 });
-        cands.push({ key:'concession', label:'譲歩（〜なのに）',  conf: 0.30 });
-        return cands;
-    })();
-
-    return {
-        classification: 'adverbial',
-        label: '副詞用法（推定）',
-        reason: '冠詞・格一致名詞・属格独立・補語動詞のいずれも確認できないため副詞用法と推定。文脈で判断してください。',
-        confidence: 0.70,
-        candidates: adverbialCandidates,
-    };
-}
-
-function renderParticiplePanel(result) {
-    const conf    = result.confidence;
-    const confPct = Math.round(conf * 100);
-    const confColor = conf >= 0.9 ? '#5a8a6e' : conf >= 0.7 ? '#a09050' : '#b06050';
-
-    const candidatesHTML = result.candidates ? `
-        <div class="ptc-candidates">
-            <div class="ptc-cand-label">副詞用法の意味候補</div>
-            ${result.candidates.map(c => `
-                <div class="ptc-cand">
-                    <span class="ptc-cand-name">${c.label}</span>
-                    <div class="ptc-cand-bar-wrap">
-                        <div class="ptc-cand-bar-fill" style="width:${Math.round(c.conf*100)}%"></div>
-                    </div>
-                    <span class="ptc-cand-pct">${Math.round(c.conf*100)}%</span>
-                </div>`).join('')}
-        </div>` : '';
-
-    return `<div class="ptc-panel">
-        <div class="ptc-label">分詞用法</div>
-        <div class="ptc-class">${result.label}</div>
-        <div class="ptc-reason">${result.reason}</div>
-        <div class="ptc-conf">
-            <div class="ptc-conf-bar">
-                <div class="ptc-conf-fill" style="width:${confPct}%;background:${confColor};"></div>
-            </div>
-            <span>推定確信度 ${confPct}%</span>
-        </div>
-        ${candidatesHTML}
-    </div>`;
-}
-
-function toggleContext(cardEl, ref, wordEnc) {
-    const hitWord = decodeURIComponent(wordEnc);
+/** 構文ツリーパネルのトグル（初回は生成、2回目以降は表示/非表示切り替え） */
+function toggleContext(cardEl, ref, encodedWord) {
+    const hitWord  = decodeURIComponent(encodedWord);
     const existing = cardEl.querySelector('.ctx-panel');
+
     if (existing) {
-        const open = existing.style.display !== 'none';
-        existing.style.display = open ? 'none' : 'block';
-        cardEl.classList.toggle('card-open', !open);
+        const isOpen = existing.style.display !== 'none';
+        existing.style.display = isOpen ? 'none' : 'block';
+        cardEl.classList.toggle('card-open', !isOpen);
         return;
     }
 
     const tokens = getVerseTokens(ref);
     if (!tokens.length) return;
 
-    const groups = groupTokens(tokens);
-    const ORDER  = ['verb','subj','obj','prep','phr','mod'];
+    // トークンを役割別バケツに振り分け
+    const ORDER   = ['verb','subj','obj','prep','phr','mod'];
     const buckets = {};
-    ORDER.forEach(r => buckets[r] = []);
+    ORDER.forEach(role => buckets[role] = []);
 
-    groups.forEach(g => {
-    const text  = g.members.map(cleanText).filter(Boolean).join(' ');
-    const gloss = g.members.map(m => getJapanese(m)).filter(Boolean).join('・');
-    if (!text) return;
-    const isHit = g.members.some(m => cleanText(m) === hitWord ||
-        (m.word||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'') === hitWord);
-    if (ORDER.includes(g.role)) buckets[g.role].push({ text, gloss, isHit });
+    groupTokens(tokens).forEach(group => {
+        const text  = group.members.map(cleanText).filter(Boolean).join(' ');
+        const gloss = group.members.map(getJapaneseGloss).filter(Boolean).join('・');
+        if (!text) return;
+        const isHit = group.members.some(m =>
+            cleanText(m) === hitWord ||
+            (m.word || '').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g, '') === hitWord
+        );
+        if (ORDER.includes(group.role)) buckets[group.role].push({ text, gloss, isHit });
     });
 
-    /* ── 階層ツリーHTML生成 ── */
-    // 動詞ノード（ルート）
-    const verbItems = buckets['verb'];
-    const verbHTML = verbItems.length
-    ? verbItems.map(item => `
-        <span class="ctx-greek${item.isHit?' hit':''}">
+    // 動詞ノード（ルート）HTML
+    const glossStyle = `font-family:'Noto Sans JP',sans-serif;font-size:0.62rem;color:var(--text-sub);margin-left:4px;`;
+    const buildNodeHTML = item => `
+        <span class="ctx-greek${item.isHit ? ' hit' : ''}">
             ${item.text}
-            ${item.gloss ? `<span style="font-family:'Noto Sans JP',sans-serif;font-size:0.62rem;color:var(--text-sub);margin-left:4px;">［${item.gloss}］</span>` : ''}
-        </span>`).join(' ')
-    : '<span style="color:#ccc;font-size:0.8rem;">（動詞なし）</span>';
+            ${item.gloss ? `<span style="${glossStyle}">［${item.gloss}］</span>` : ''}
+        </span>`;
+
+    const verbHTML = buckets['verb'].length
+        ? buckets['verb'].map(buildNodeHTML).join(' ')
+        : '<span style="color:#ccc;font-size:0.8rem;">（動詞なし）</span>';
 
     // 原文行（非表示・データ保持用）
-    const rawLine = tokens.map(e => {
-        const t = cleanText(e); if (!t) return '';
-        const isHit = t === hitWord || (e.word||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'') === hitWord;
-        return isHit ? `<span style="color:var(--highlight);font-weight:700;">${t}</span>` : `<span>${t}</span>`;
+    const rawLine = tokens.map(entry => {
+        const text  = cleanText(entry);
+        if (!text) return '';
+        const isHit = text === hitWord || (entry.word || '').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g, '') === hitWord;
+        return isHit
+            ? `<span style="color:var(--highlight);font-weight:700;">${text}</span>`
+            : `<span>${text}</span>`;
     }).filter(Boolean).join(' ');
 
-    // 枝ノード（主語・目的語・前置詞句・修飾）
-    const branchRoles = ['subj','obj','prep','phr','mod'];
-    const branchHTML = branchRoles
-        .filter(r => buckets[r].length > 0 && ROLE_LABEL[r])
-        .map(role => {
-            const color = ROLE_COLOR[role];
-            const items = buckets[role].map(item =>
-                `<span class="ctx-greek${item.isHit?' hit':''}">
-                    ${item.text}
-                    ${item.gloss ? `<span style="font-family:'Noto Sans JP',sans-serif;font-size:0.62rem;color:var(--text-sub);margin-left:4px;">［${item.gloss}］</span>` : ''}
-                </span>`
-            ).join('　');
-            return `<div class="ctx-tree-node" data-role="${role}">
-                <span class="ctx-role-tag" style="color:${color}">${ROLE_LABEL[role]}</span>
-                <span>${items}</span>
-            </div>`;
-        }).join('');
+    // 枝ノード（主語・目的語・前置詞句・修飾）HTML
+    const branchHTML = ['subj','obj','prep','phr','mod']
+        .filter(role => buckets[role].length > 0 && ROLE_LABEL[role])
+        .map(role => `<div class="ctx-tree-node" data-role="${role}">
+            <span class="ctx-role-tag" style="color:${ROLE_COLOR[role]}">${ROLE_LABEL[role]}</span>
+            <span>${buckets[role].map(buildNodeHTML).join('　')}</span>
+        </div>`)
+        .join('');
 
     const panel = document.createElement('div');
     panel.className = 'ctx-panel';
-    panel.onclick = e => e.stopPropagation(); // パネル内クリックはカードに伝播しない
+    panel.onclick   = e => e.stopPropagation(); // パネル内クリックはカードに伝播しない
 
     // 分詞検索のとき用法判定パネルを生成
-    const hitEntry   = tokens.find(t =>
+    const hitEntry = tokens.find(t =>
         cleanText(t) === hitWord ||
-        (t.word||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'') === hitWord
+        (t.word || '').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g, '') === hitWord
     );
-    const isPtcSearch = params.mood === 'participle';
-    const ptcHTML = (isPtcSearch && hitEntry)
+    const ptcHTML = (params.mood === 'participle' && hitEntry)
         ? renderParticiplePanel(classifyParticiple(hitEntry, tokens))
         : '';
 
@@ -2275,161 +2138,306 @@ function toggleContext(cardEl, ref, wordEnc) {
     cardEl.classList.add('card-open');
 }
 
-/* ── 書物日本語名 ───────────────────────────────────── */
-const BOOK_JP = {
-    MAT:'マタイ',MRK:'マルコ',LUK:'ルカ',JHN:'ヨハネ',ACT:'使徒',
-    ROM:'ローマ','1CO':'Ⅰコリント','2CO':'Ⅱコリント',
-    GAL:'ガラテヤ',EPH:'エペソ',PHP:'ピリピ',COL:'コロサイ',
-    '1TH':'Ⅰテサロニケ','2TH':'Ⅱテサロニケ',
-    '1TI':'Ⅰテモテ','2TI':'Ⅱテモテ',TIT:'テトス',PHM:'ピレモン',
-    HEB:'ヘブル',JAS:'ヤコブ','1PE':'Ⅰペテロ','2PE':'Ⅱペテロ',
-    '1JN':'Ⅰヨハネ','2JN':'Ⅱヨハネ','3JN':'Ⅲヨハネ',JUD:'ユダ',REV:'黙示録',
-    GEN:'創世記',EXO:'出エジプト',LEV:'レビ',NUM:'民数',DEU:'申命',
-    JOS:'ヨシュア',JDG:'士師',RUT:'ルツ','1SA':'Ⅰサムエル','2SA':'Ⅱサムエル',
-    '1KI':'Ⅰ列王','2KI':'Ⅱ列王',PSA:'詩篇',PRO:'箴言',ECC:'伝道',
-    ISA:'イザヤ',JER:'エレミヤ',EZK:'エゼキエル',DAN:'ダニエル',
-};
+/* ══════════════════════════════════════════════════════
+   §21  分詞用法判定（5ステップ）
+   ══════════════════════════════════════════════════════ */
 
-/* ── データ読み込み ─────────────────────────────────── */
+/** ヒット分詞エントリを5ステップで用法分類し、結果オブジェクトを返す */
+function classifyParticiple(hitEntry, tokens) {
+    const hitMorph  = decodeMorph(hitEntry);
+    const ptcCase   = hitMorph.case;
+    const ptcGender = hitMorph.gender;
+    const ptcNumber = hitMorph.number;
+    const ptcTense  = hitMorph.tense;
+
+    const hitIdx    = tokens.findIndex(t =>
+        cleanText(t) === cleanText(hitEntry) ||
+        String(t.ref) === String(hitEntry.ref)
+    );
+    const prevToken = hitIdx > 0 ? tokens[hitIdx - 1] : null;
+    const prevPos   = prevToken ? entryPosCode(prevToken) : '';
+
+    // STEP 1: 実体用法 — 直前が格・性・数の一致する冠詞か
+    if (prevPos === 'T') {
+        const prevMorph = decodeMorph(prevToken);
+        if (prevMorph.case === ptcCase && prevMorph.gender === ptcGender && prevMorph.number === ptcNumber) {
+            return {
+                classification: 'substantival',
+                label:    '実体用法（名詞的分詞）',
+                reason:   '直前に一致する格・性・数の冠詞がある。分詞が名詞として機能している。',
+                confidence: 0.95,
+                candidates: null,
+            };
+        }
+    }
+
+    // STEP 2: 形容詞用法 — 同節内に格・性・数が一致する名詞があるか
+    const matchingNoun = tokens.find(t => {
+        if (cleanText(t) === cleanText(hitEntry)) return false;
+        if (!['N','T','A','D','R'].includes(entryPosCode(t))) return false;
+        const morph = decodeMorph(t);
+        return morph.case === ptcCase && morph.gender === ptcGender && morph.number === ptcNumber;
+    });
+    if (matchingNoun) {
+        return {
+            classification: 'attributive',
+            label:    '形容詞用法',
+            reason:   `同節内の「${cleanText(matchingNoun)}」と格（${CASE_JP[ptcCase] || ptcCase}）・性・数が一致している。`,
+            confidence: 0.9,
+            candidates: null,
+        };
+    }
+
+    // STEP 3: 属格絶対 — 属格で同節内に別の属格名詞があるか
+    if (ptcCase === 'genitive') {
+        const genNoun = tokens.find(t => {
+            if (cleanText(t) === cleanText(hitEntry)) return false;
+            if (!['N','T','A','D','R'].includes(entryPosCode(t))) return false;
+            return decodeMorph(t).case === 'genitive';
+        });
+        if (genNoun) {
+            return {
+                classification: 'genitive_absolute',
+                label:    '属格絶対分詞',
+                reason:   `主節と独立した属格節。「${cleanText(genNoun)}」と共に属格を形成している。`,
+                confidence: 0.9,
+                candidates: null,
+            };
+        }
+    }
+
+    // STEP 4: 補語用法 — 知覚・認識動詞が同節にあるか
+    const mainVerb = tokens.find(t => {
+        if (entryPosCode(t) !== 'V') return false;
+        const morph = decodeMorph(t);
+        if (!morph.mood || morph.mood === 'participle' || morph.mood === 'infinitive') return false;
+        const lemma = (t.lemma || '').replace(/[ʼ']/g, '');
+        return COMPLEMENTARY_VERBS.some(v => v === lemma || lemma.startsWith(v.slice(0, 4)));
+    });
+    if (mainVerb) {
+        return {
+            classification: 'complementary',
+            label:    '補語用法',
+            reason:   `知覚・認識動詞「${cleanText(mainVerb)}」の補語として機能している。`,
+            confidence: 0.85,
+            candidates: null,
+        };
+    }
+
+    // STEP 5: 副詞用法（推定）— 意味候補を時制から生成
+    const adverbialCandidates = [];
+    if (ptcTense === 'present')  adverbialCandidates.push({ key:'simultaneous', label:'同時（〜しながら）', conf: 0.80 });
+    if (ptcTense === 'aorist')   adverbialCandidates.push({ key:'antecedent',   label:'先行（〜してから）', conf: 0.80 });
+    if (ptcTense === 'perfect')  adverbialCandidates.push({ key:'resultant',    label:'結果（〜した状態で）', conf: 0.75 });
+    adverbialCandidates.push(
+        { key:'cause',      label:'原因（〜なので）',  conf: 0.40 },
+        { key:'condition',  label:'条件（〜なら）',    conf: 0.30 },
+        { key:'concession', label:'譲歩（〜なのに）',  conf: 0.30 },
+    );
+
+    return {
+        classification: 'adverbial',
+        label:    '副詞用法（推定）',
+        reason:   '冠詞・格一致名詞・属格独立・補語動詞のいずれも確認できないため副詞用法と推定。文脈で判断してください。',
+        confidence: 0.70,
+        candidates: adverbialCandidates,
+    };
+}
+
+/** 分詞用法パネルの HTML を生成する */
+function renderParticiplePanel(result) {
+    const conf      = result.confidence;
+    const confPct   = Math.round(conf * 100);
+    const confColor = conf >= 0.9 ? '#5a8a6e' : conf >= 0.7 ? '#a09050' : '#b06050';
+
+    const candidatesHTML = result.candidates ? `
+        <div class="ptc-candidates">
+            <div class="ptc-cand-label">副詞用法の意味候補</div>
+            ${result.candidates.map(c => `
+                <div class="ptc-cand">
+                    <span class="ptc-cand-name">${c.label}</span>
+                    <div class="ptc-cand-bar-wrap">
+                        <div class="ptc-cand-bar-fill" style="width:${Math.round(c.conf * 100)}%"></div>
+                    </div>
+                    <span class="ptc-cand-pct">${Math.round(c.conf * 100)}%</span>
+                </div>`
+            ).join('')}
+        </div>` : '';
+
+    return `<div class="ptc-panel">
+        <div class="ptc-label">分詞用法</div>
+        <div class="ptc-class">${result.label}</div>
+        <div class="ptc-reason">${result.reason}</div>
+        <div class="ptc-conf">
+            <div class="ptc-conf-bar">
+                <div class="ptc-conf-fill" style="width:${confPct}%;background:${confColor};"></div>
+            </div>
+            <span>推定確信度 ${confPct}%</span>
+        </div>
+        ${candidatesHTML}
+    </div>`;
+}
+
+/* ══════════════════════════════════════════════════════
+   §22  データ読み込み
+   ══════════════════════════════════════════════════════ */
+
 const JA_FOLDER = 'bible_jp';
-const _jaMap = new Map();
 
+/** 検索対象の書物と章のリスト */
 const ALL_BOOKS = [
     {key:'ROM',ch:16},{key:'1CO',ch:16},{key:'2CO',ch:13},{key:'GAL',ch:6},
     {key:'EPH',ch:6}, {key:'PHP',ch:4}, {key:'COL',ch:4}, {key:'1TH',ch:5},
     {key:'2TH',ch:3}, {key:'1TI',ch:6}, {key:'2TI',ch:4}, {key:'TIT',ch:3},
     {key:'PHM',ch:1},
 ];
+
+/** ALL_BOOKS から全章のパス一覧を生成する */
 function buildAllChapterPaths() {
-    const p=[];
-    for(const b of ALL_BOOKS) for(let c=1;c<=b.ch;c++) p.push({key:b.key,ch:c,path:`./bible_data/${b.key}/${c}.json`});
-    return p;
+    const paths = [];
+    for (const book of ALL_BOOKS) {
+        for (let ch = 1; ch <= book.ch; ch++) {
+            paths.push({ key: book.key, ch, path: `./bible_data/${book.key}/${ch}.json` });
+        }
+    }
+    return paths;
 }
-async function fetchInBatches(tasks,sz,onProg) {
-    let all=[];
-    for(let i=0;i<tasks.length;i+=sz) {
-        const results=await Promise.allSettled(
-            tasks.slice(i,i+sz).map(t=>
-                fetch(t.path).then(r=>r.ok?r.json():null).catch(()=>null)
-                .then(data=>{
-                    if(!Array.isArray(data)) return null;
-                    data.forEach(entry=>{entry._bookKey=t.key;});
-                    return data;
-                })
+
+/** タスク配列を size 件ずつバッチ処理し、進捗コールバックを呼ぶ */
+async function fetchInBatches(tasks, size, onProgress) {
+    let allData = [];
+    for (let i = 0; i < tasks.length; i += size) {
+        const batch   = tasks.slice(i, i + size);
+        const results = await Promise.allSettled(
+            batch.map(task =>
+                fetch(task.path)
+                    .then(r => r.ok ? r.json() : null)
+                    .catch(() => null)
+                    .then(data => {
+                        if (!Array.isArray(data)) return null;
+                        data.forEach(entry => { entry._bookKey = task.key; });
+                        return data;
+                    })
             )
         );
-        results.forEach(r=>{if(r.status==='fulfilled'&&Array.isArray(r.value))all=all.concat(r.value);});
-        onProg(Math.min(i+sz,tasks.length),tasks.length);
+        results.forEach(r => {
+            if (r.status === 'fulfilled' && Array.isArray(r.value)) allData = allData.concat(r.value);
+        });
+        onProgress(Math.min(i + size, tasks.length), tasks.length);
     }
-    return all;
+    return allData;
 }
 
-renderBreadcrumb(); renderCoreChips(); renderExtChips(); renderBookChips(); renderWordFilterChips(); renderMeaning();
-
-(async function() {
-    const loadEl=document.getElementById('loading');
-    const listEl=document.getElementById('result-list');
-    const paths=buildAllChapterPaths();
-    const total=paths.length;
-
-    loadEl.innerHTML=`
-        <div style="margin-bottom:10px;font-family:'Gentium Plus',serif;font-size:1.3rem;color:#ccc;">ἀναζητεῖ</div>
-        <div style="width:100%;max-width:280px;margin:0 auto 8px;height:3px;background:#eee;border-radius:2px;overflow:hidden;">
-            <div id="load-fill" style="height:100%;width:0%;background:var(--highlight);transition:width 0.25s ease;border-radius:2px;"></div>
-        </div>
-        <div id="load-status" style="font-size:0.72rem;color:#bbb;">データを読み込み中 (0 / ${total})...</div>`;
-
-    const allData=await fetchInBatches(paths,20,(done,ttl)=>{
-        const pct=Math.round(done/ttl*100);
-        const f=document.getElementById('load-fill'),s=document.getElementById('load-status');
-        if(f)f.style.width=pct+'%';
-        if(s)s.textContent=`形態素データ読み込み中 (${done} / ${ttl}) ${pct}%`;
-    });
-
-    if(!allData.length){
-        loadEl.innerHTML=`<p style="color:#c00;font-size:0.82rem;line-height:2.2;">データが見つかりませんでした。<br><code style="background:#f5f5f7;padding:2px 8px;border-radius:4px;">bible_data/ROM/1.json の形式で配置してください</code></p>`;
-        return;
-    }
-
-    const s=document.getElementById('load-status');
-    if(s)s.textContent='日本語訳を読み込み中...';
-    await fetchJaData(paths);
-    await fetchJapaneseTSV();
-
-    window._morphData=allData;
-    loadEl.style.display='none';
-    listEl.style.display='flex';
-    renderResults(allData);
-})();
-
+/** 日本語訳JSONを読み込み _jaVerseMap に格納する */
 async function fetchJaData(morphPaths) {
-    const jaPaths=morphPaths.map(t=>({key:t.key,ch:t.ch,path:`./${JA_FOLDER}/${t.key}/${t.ch}.json`}));
-    const KEY_TO_CODE={};
-    Object.entries(BOOK_MAP).forEach(([code,key])=>{KEY_TO_CODE[key]=code;});
+    const keyToCode = {};
+    Object.entries(BOOK_MAP).forEach(([code, key]) => { keyToCode[key] = code; });
+
+    const jaPaths = morphPaths.map(t => ({
+        key:  t.key,
+        ch:   t.ch,
+        path: `./${JA_FOLDER}/${t.key}/${t.ch}.json`,
+    }));
+
     return Promise.allSettled(
-        jaPaths.map(t=>
-            fetch(t.path).then(r=>r.ok?r.json():null).catch(()=>null)
-            .then(data=>{
-                if(!data) return;
-                const verses=data.verses;
-                if(!verses||typeof verses!=='object') return;
-                const bookCode=KEY_TO_CODE[t.key];
-                if(!bookCode) return;
-                const chStr=String(t.ch).padStart(2,'0');
-                Object.entries(verses).forEach(([vNum,text])=>{
-                    const vStr=String(parseInt(vNum)).padStart(2,'0');
-                    _jaMap.set(`${bookCode}${chStr}${vStr}`,String(text));
+        jaPaths.map(task =>
+            fetch(task.path).then(r => r.ok ? r.json() : null).catch(() => null)
+            .then(data => {
+                if (!data || typeof data.verses !== 'object') return;
+                const code = keyToCode[task.key];
+                if (!code) return;
+                const chStr = String(task.ch).padStart(2, '0');
+                Object.entries(data.verses).forEach(([verseNum, text]) => {
+                    const verseStr = String(parseInt(verseNum)).padStart(2, '0');
+                    _jaVerseMap.set(`${code}${chStr}${verseStr}`, String(text));
                 });
             })
         )
     );
 }
 
-const _japaneseMap = new Map();
-
+/** TSVファイルから単語レベルの日本語グロスを読み込み _japaneseWordMap に格納する */
 async function fetchJapaneseTSV() {
     try {
         const res = await fetch('./macula-greek-SBLGNT.tsv');
         if (!res.ok) return;
-        const text = await res.text();
-        const lines = text.split('\n');
+        const lines = (await res.text()).split('\n');
         for (let i = 1; i < lines.length; i++) {
             const cols = lines[i].split('\t');
             if (cols.length < 12) continue;
             const normalized = (cols[11] || '').trim();
             const japanese   = (cols[6]  || '').trim();
-            if (normalized && japanese && !_japaneseMap.has(normalized)) {
-                _japaneseMap.set(normalized, japanese);
+            if (normalized && japanese && !_japaneseWordMap.has(normalized)) {
+                _japaneseWordMap.set(normalized, japanese);
             }
         }
-    } catch(e) {
+    } catch (e) {
         console.warn('TSV読み込み失敗:', e);
     }
 }
-/* ── meaning-card スクロールアウト → 固定バー表示 ────────
-   カード自体は一切動かさず、独立した #meaning-sticky を
-   固定表示することでレイアウトのガタつきをゼロにする
-   ===================================================== */
-(function () {
+
+/* ── 初期化 ── */
+renderBreadcrumb();
+renderCoreChips();
+renderExtChips();
+renderBookChips();
+renderWordFilterChips();
+renderMeaning();
+
+(async function initApp() {
+    const loadEl = document.getElementById('loading');
+    const listEl = document.getElementById('result-list');
+    const paths  = buildAllChapterPaths();
+    const total  = paths.length;
+
+    loadEl.innerHTML = `
+        <div style="margin-bottom:10px;font-family:'Gentium Plus',serif;font-size:1.3rem;color:#ccc;">ἀναζητεῖ</div>
+        <div style="width:100%;max-width:280px;margin:0 auto 8px;height:3px;background:#eee;border-radius:2px;overflow:hidden;">
+            <div id="load-fill" style="height:100%;width:0%;background:var(--highlight);transition:width 0.25s ease;border-radius:2px;"></div>
+        </div>
+        <div id="load-status" style="font-size:0.72rem;color:#bbb;">データを読み込み中 (0 / ${total})...</div>`;
+
+    const allData = await fetchInBatches(paths, 20, (done, total) => {
+        const pct        = Math.round(done / total * 100);
+        const fillEl     = document.getElementById('load-fill');
+        const statusEl   = document.getElementById('load-status');
+        if (fillEl)   fillEl.style.width  = pct + '%';
+        if (statusEl) statusEl.textContent = `形態素データ読み込み中 (${done} / ${total}) ${pct}%`;
+    });
+
+    if (!allData.length) {
+        loadEl.innerHTML = `<p style="color:#c00;font-size:0.82rem;line-height:2.2;">データが見つかりませんでした。<br>
+            <code style="background:#f5f5f7;padding:2px 8px;border-radius:4px;">bible_data/ROM/1.json の形式で配置してください</code></p>`;
+        return;
+    }
+
+    const statusEl = document.getElementById('load-status');
+    if (statusEl) statusEl.textContent = '日本語訳を読み込み中...';
+    await fetchJaData(paths);
+    await fetchJapaneseTSV();
+
+    window._morphData = allData;
+    loadEl.style.display  = 'none';
+    listEl.style.display  = 'flex';
+    renderResults(allData);
+})();
+
+/* ── meaning-card がスクロールアウトしたら固定バーを表示 ── */
+(function initStickyBar() {
     const card   = document.getElementById('meaning-card');
     const sticky = document.getElementById('meaning-sticky');
 
-    const observer = new IntersectionObserver(
-        ([entry]) => {
-            if (!entry.isIntersecting) {
-                // カードが画面外 → 固定バーを表示
-                sticky.textContent = document.getElementById('meaning-title').textContent;
-                sticky.classList.add('visible');
-            } else {
-                // カードが画面内 → 固定バーを非表示
-                sticky.classList.remove('visible');
-            }
-        },
-        { threshold: 0, rootMargin: '0px 0px 0px 0px' }
-    );
+    const observer = new IntersectionObserver(([entry]) => {
+        if (!entry.isIntersecting) {
+            sticky.textContent = document.getElementById('meaning-title').textContent;
+            sticky.classList.add('visible');
+        } else {
+            sticky.classList.remove('visible');
+        }
+    }, { threshold: 0, rootMargin: '0px 0px 0px 0px' });
+
     observer.observe(card);
 })();
 </script>
-
 </body>
 </html>
