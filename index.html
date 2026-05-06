@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05062000｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05062102｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -559,6 +559,7 @@
 
 <script>
 let abbottSmithDict = null;
+let _proximityTokens = []; // 近接検索用トークンキャッシュ
 const JPN_MAP = {
     pos: { 'V': '動詞', 'N': '名詞', 'A': '形容詞', 'R': '関係代名詞', 'P': '人称代名詞', 'D': '指示代名詞', 'T': '冠詞', 'ADV': '副詞', 'PREP': '前置詞', 'CONJ': '接続詞', 'PRT': '添語' },
     tense: { 'P': '現在', 'I': '未完了', 'F': '未来', 'A': 'アオリスト', 'X': '完了' },
@@ -1104,26 +1105,14 @@ function render(jpData, elData) {
         };
         app.appendChild(block);
     });
+    // ▼ 近接検索用：全トークンをキャッシュ
+    _proximityTokens = elData.map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
 }
 init();
 
 /* =====================================================
    近接検索（簡易共起確認）
    ===================================================== */
-
-// 現在ページのギリシャ語全トークン（render時にキャッシュ）
-let _proximityTokens = [];
-
-// render()後にトークン列を保存するためrender関数を拡張
-const _origRender = render;
-function render(jpData, elData) {
-    _origRender(jpData, elData);
-    // lemmaベースのトークン列を構築（テキスト優先、lemmaでも可）
-    _proximityTokens = elData.map(w => ({
-        text:  w.text  || '',
-        lemma: w.lemma || w.text || ''
-    }));
-}
 
 function toggleProximityPanel() {
     const panel = document.getElementById('panel-proximity');
