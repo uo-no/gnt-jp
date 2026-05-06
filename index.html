@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05062055｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05062100｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -534,33 +534,11 @@
         <div id="panel-content"><p style="color: var(--text-sub); font-size: 0.82rem; letter-spacing: 0.01em;">節を選択して解析を表示</p></div>
         <div id="word-detail-view"></div>
 
-        <!-- ▼ 近くの語を見る（近接検索）追加 -->
-        <button id="btn-proximity" onclick="toggleProximityPanel()">
+        <!-- ▼ 近くの語を見る → proximity.htmlへ直接遷移 -->
+        <button id="btn-proximity" onclick="goProximityPage()">
             <span class="prox-icon">⟺</span>
             <span>近くの語を見る</span>
         </button>
-
-        <div id="panel-proximity">
-            <div>
-                <div class="prox-label">対象語</div>
-                <input id="prox-word1" class="prox-input" type="text" placeholder="例：θεός" autocomplete="off" spellcheck="false">
-            </div>
-            <div>
-                <div class="prox-label">距離（前後±N語）</div>
-                <div class="prox-distance-row">
-                    <button class="prox-dist-btn selected" data-dist="3" onclick="selectDist(this)">±3語</button>
-                    <button class="prox-dist-btn" data-dist="5" onclick="selectDist(this)">±5語</button>
-                    <button class="prox-dist-btn" data-dist="10" onclick="selectDist(this)">±10語</button>
-                </div>
-            </div>
-            <button class="prox-search-btn" onclick="runProximitySearch()">🔍 共起語を確認</button>
-
-            <div id="prox-results">
-                <div class="prox-result-header" id="prox-result-label">共起語（上位5語）</div>
-                <div id="prox-result-list"></div>
-                <a id="prox-detail-link" class="prox-goto-btn" href="#" target="_blank">📖 詳しく調べる →</a>
-            </div>
-        </div>
         <!-- ▲ 近接検索ここまで -->
     </aside>
 </div>
@@ -1162,118 +1140,6 @@ function goProximityPage() {
 /* =====================================================
    近接検索（簡易共起確認）
    ===================================================== */
-
-function toggleProximityPanel() {
-    const panel = document.getElementById('panel-proximity');
-    panel.classList.toggle('active');
-    // 開くときは入力欄にフォーカス
-    if (panel.classList.contains('active')) {
-        // 現在のアクティブ語が単語詳細に出ていたら自動入力
-        const detailView = document.getElementById('word-detail-view');
-        if (detailView.style.display !== 'none') {
-            const greekEl = detailView.querySelector('.detail-header span[style*="Gentium"]');
-            if (greekEl) {
-                document.getElementById('prox-word1').value = greekEl.textContent.trim();
-            }
-        }
-        setTimeout(() => document.getElementById('prox-word1').focus(), 50);
-    }
-}
-
-function selectDist(btn) {
-    document.querySelectorAll('.prox-dist-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-}
-
-function runProximitySearch() {
-    const word1 = document.getElementById('prox-word1').value.trim();
-    if (!word1) {
-        document.getElementById('prox-word1').focus();
-        return;
-    }
-
-    const distBtn = document.querySelector('.prox-dist-btn.selected');
-    const N = distBtn ? parseInt(distBtn.dataset.dist) : 3;
-
-    const tokens = _proximityTokens;
-    if (tokens.length === 0) {
-        showProxEmpty('節を選択してから検索してください');
-        return;
-    }
-
-    // word1に一致するインデックスを全取得（テキスト完全一致 or lemma完全一致）
-    const stopWords = new Set(['ὁ','ἡ','τό','τοῦ','τῆς','τῷ','τήν','τόν','τά','τοῖς','ταῖς','τάς','τούς',
-        'καί','δέ','εἰς','ἐν','οὐ','οὐκ','οὐχ','μή','ἀλλά','γάρ','ὅτι','ἐκ','ἐξ','διά','κατά','περί',
-        'ὑπό','παρά','πρός','ἀπό','σύν','μετά','ἐπί','αὐτός','αὐτοῦ','αὐτῷ','αὐτόν','αὐτή','αὐτῆς',
-        'αὐτήν','αὐτοί','αὐτῶν','αὐτοῖς','αὐτούς','αὐταί','αὐτάς']);
-
-    const freq = {};
-    let found = 0;
-    tokens.forEach((tok, i) => {
-        if (tok.text === word1 || tok.lemma === word1) {
-            found++;
-            const start = Math.max(0, i - N);
-            const end   = Math.min(tokens.length - 1, i + N);
-            for (let j = start; j <= end; j++) {
-                if (j === i) continue;
-                const w = tokens[j].text;
-                if (!w || w.length < 2) continue;
-                if (stopWords.has(w)) continue;
-                freq[w] = (freq[w] || 0) + 1;
-            }
-        }
-    });
-
-    if (found === 0) {
-        showProxEmpty(`「${word1}」は現在のページに見つかりませんでした`);
-        return;
-    }
-
-    const sorted = Object.entries(freq)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5);
-
-    renderProxResults(word1, N, found, sorted);
-
-    // 詳細リンク更新
-    const urlParams = new URLSearchParams(window.location.search);
-    const ref = `${urlParams.get('book')||'ROM'}${urlParams.get('ch')||'1'}`;
-    const link = document.getElementById('prox-detail-link');
-    link.href = `proximity.html?word1=${encodeURIComponent(word1)}&distance=${N}&ref=${encodeURIComponent(ref)}`;
-}
-
-function showProxEmpty(msg) {
-    const results = document.getElementById('prox-results');
-    const list    = document.getElementById('prox-result-list');
-    results.classList.add('visible');
-    document.getElementById('prox-result-label').textContent = '共起語（上位5語）';
-    list.innerHTML = `<div class="prox-empty">${msg}</div>`;
-    document.getElementById('prox-detail-link').style.display = 'none';
-}
-
-function renderProxResults(word1, N, found, sorted) {
-    const results = document.getElementById('prox-results');
-    const list    = document.getElementById('prox-result-list');
-    results.classList.add('visible');
-
-    const label = document.getElementById('prox-result-label');
-    label.textContent = `共起語 ±${N}語 ／ 「${word1}」×${found}箇所`;
-
-    const link = document.getElementById('prox-detail-link');
-    link.style.display = 'block';
-
-    if (sorted.length === 0) {
-        list.innerHTML = `<div class="prox-empty">共起語が見つかりませんでした</div>`;
-        return;
-    }
-
-    list.innerHTML = sorted.map(([word, cnt], idx) =>
-        `<div class="prox-word-row" style="animation-delay:${idx * 0.04}s">
-            <span class="prox-word-greek">${word}</span>
-            <span class="prox-word-count">${cnt}</span>
-         </div>`
-    ).join('');
-}
 
 /* =====================================================
    end 近接検索
