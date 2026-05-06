@@ -224,59 +224,35 @@
     .tag-jp { color: var(--text-sub); font-size: 0.75rem; margin-left: 8px; }
     .strong-num { font-size: 0.62rem; color: #c0c0c5; font-family: monospace; }
 
-    /* ---- 形態論検索ボタン ---- */
+    /* ---- アクションボタン共通（形態検索・近接検索） ---- */
     .morph-search-btn {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        margin-top: 12px;
-        padding: 7px 14px;
-        font-size: 0.78rem;
+        justify-content: center;
+        padding: 6px 16px;
+        font-size: 0.75rem;
         font-family: inherit;
-        font-weight: 500;
-        color: var(--highlight);
-        background: var(--highlight-light);
-        border: 1px solid rgba(90,110,130,0.25);
-        border-radius: 20px;
-        cursor: pointer;
-        letter-spacing: 0.01em;
-        transition: background 0.15s, border-color 0.15s, transform 0.1s;
-        text-decoration: none;
-    }
-    .morph-search-btn:hover {
-        background: rgba(90,110,130,0.18);
-        border-color: rgba(90,110,130,0.4);
-        transform: translateY(-1px);
-    }
-    .morph-search-btn:active { transform: scale(0.97); }
-    .morph-search-btn .btn-icon { font-size: 0.85rem; opacity: 0.8; }
-
-    /* ---- 近接検索パネル ---- */
-    #btn-proximity {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        width: 100%;
-        margin-top: 6px;
-        padding: 8px 12px;
-        font-size: 0.85rem;
-        font-family: inherit;
-        font-weight: 500;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
         color: var(--text-sub);
         background: transparent;
-        border: 1px dashed var(--border-soft);
-        border-radius: 8px;
+        border: 1px solid rgba(0,0,0,0.13);
+        border-radius: 6px;
         cursor: pointer;
-        transition: all 0.15s;
-        text-align: left;
-        letter-spacing: 0.01em;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+        text-decoration: none;
+        white-space: nowrap;
     }
-    #btn-proximity:hover {
-        background: var(--highlight-light);
-        border-color: var(--highlight);
+    .morph-search-btn:hover {
         color: var(--highlight);
+        border-color: var(--highlight);
+        background: var(--highlight-light);
     }
-    #btn-proximity .prox-icon { font-size: 0.9rem; opacity: 0.75; }
+    .morph-search-btn:active { opacity: 0.7; }
+    .morph-search-btn .btn-icon { display: none; }
+
+
 
     #panel-proximity {
         display: none;
@@ -778,20 +754,28 @@ function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc) {
     }
 
     // 形態タグと検索ボタン（動詞・名詞・形容詞系すべてに表示）
-    const morphTagsHTML = buildMorphTagsHTML(rawMorph);
-    const canSearch = ['V','N','A','R','P','T','D'].includes(rawMorph.split('-')[0]);
-    const searchBtnHTML = canSearch ? `
-        <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
-            <button class="morph-search-btn" id="btn-morph-search">
-                <span class="btn-icon">🔍</span>
-                形態で検索
-            </button>
-            <button class="morph-search-btn" id="btn-proximity">
-                <span class="btn-icon">⟺</span>
-                近くの語を見る
-            </button>
-        </div>
-    ` : '';
+	const searchBtnHTML = canSearch ? `
+	    <div style="display:flex; gap:6px; margin-top:12px;">
+	        <button class="morph-search-btn" id="btn-morph-search">形態で検索</button>
+	        <button class="morph-search-btn" id="btn-proximity">近くの語を見る</button>
+	    </div>
+	` : '';
+   
+setTimeout(() => {
+    const btn1 = document.getElementById('btn-morph-search');
+    if (btn1) {
+        btn1.onclick = () => {
+            goMorphSearch(greek, rawMorph, currentRef, lemma);
+        };
+    }
+
+    const btn2 = document.getElementById('btn-proximity');
+    if (btn2) {
+        btn2.onclick = () => {
+            goProximityPage();
+        };
+    }
+}, 0);
 
     view.innerHTML = `
         <div class="detail-header">
@@ -809,13 +793,6 @@ function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc) {
             ${searchBtnHTML}
         </div>`;
     
-    // innerHTML設定後にイベントをバインド
-    const btn1 = document.getElementById('btn-morph-search');
-    if (btn1) btn1.onclick = () => goMorphSearch(greek, rawMorph, currentRef, lemma);
-
-    const btn2 = document.getElementById('btn-proximity');
-    if (btn2) btn2.onclick = () => goProximityPage();
-
     view.scrollTop = 0;
 }
 
