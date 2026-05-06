@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>05061200｜形態論検索 — コトバト</title>
+<title>05061300｜形態論検索 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -3136,56 +3136,101 @@ function simplify(text) {
         .trim();
 }
 
-/* ⑦⑧⑨ 初学者UIに結果を描画 */
+/* ⑦⑧⑨ 初学者UIに結果を描画
+   — 分詞検索のとき: analyzeParticipleStrict で意味候補を表示
+   — 分詞以外のとき: 形態論情報（法・時制・態）をわかりやすく表示
+   — データなし/0件: フォールバックメッセージを表示 */
 function renderBeginnerUI(matchedData) {
-    if (!matchedData || !matchedData.length) return;
 
-    const entry  = matchedData[0];
-    const tokens = getVerseTokens(entry.ref);
-    if (!tokens.length) return;
-
-    const hm  = decodeMorph(entry);
-    const ctx = { hitEntry: entry, tokens, hm };
-
-    // ⑦ 分析実行・表示
-    const results = analyzeParticipleStrict(ctx);
-    const top     = results.slice(0, 2);
-
-    if (top.length > 0) {
-        document.getElementById('b-main').textContent = top[0].label;
-
-        // ⑧ 曖昧時の表示
-        if (results.length === 0 || top[0].confidence === 'low') {
-            document.getElementById('b-sub').textContent = 'この文だけでは判断できません';
-        } else {
-            document.getElementById('b-sub').textContent = 'この読みが有力です';
-        }
-
-        // 他候補
-        const altEl = document.getElementById('b-alt-list');
-        if (top[1]) {
-            altEl.innerHTML = `<li>${top[1].label}</li>`;
-        } else {
-            altEl.innerHTML = '<li>—（候補なし）</li>';
-        }
-
-        // 理由
-        const reasons  = pickReasonsForBeginner(top[0].reasons);
-        const reasonEl = document.getElementById('b-reason-list');
-        if (reasons.length) {
-            reasonEl.innerHTML = reasons.map(r => `<li>${simplify(r.text)}から</li>`).join('');
-        } else {
-            reasonEl.innerHTML = '<li>文脈から複数の読みが考えられます</li>';
-        }
-    } else {
-        // ⑧ 分析結果がゼロの場合
-        document.getElementById('b-main').textContent = '—';
-        document.getElementById('b-sub').textContent  = 'この文だけでは判断できません';
-        document.getElementById('b-alt-list').innerHTML = '';
-        document.getElementById('b-reason-list').innerHTML = '<li>手がかりとなる情報が不足しています</li>';
+    // ── データなし・0件 フォールバック ──
+    if (!matchedData || !matchedData.length) {
+        document.getElementById('b-main').textContent    = '—';
+        document.getElementById('b-sub').textContent     = 'データが読み込まれると結果が表示されます';
+        document.getElementById('b-alt-list').innerHTML  = '';
+        document.getElementById('b-reason-list').innerHTML = '<li>データファイルが必要です（bible_data/）</li>';
+        return;
     }
 
-    // ⑨ 例文表示
+    // ── 分詞検索の場合 ── ⑦⑧⑨
+    if (params.mood === 'participle') {
+        const entry  = matchedData[0];
+        const tokens = getVerseTokens(entry.ref);
+
+        // トークンが取れない場合（データロード直後など）は形態論フォールバックへ
+        if (tokens.length > 0) {
+            const hm  = decodeMorph(entry);
+            const ctx = { hitEntry: entry, tokens, hm };
+
+            // ⑦ 分析実行
+            const results = analyzeParticipleStrict(ctx);
+            const top     = results.slice(0, 2);
+
+            if (top.length > 0) {
+                document.getElementById('b-main').textContent = top[0].label;
+
+                // ⑧ 曖昧時の表示
+                if (top[0].confidence === 'low') {
+                    document.getElementById('b-sub').textContent = 'この文だけでは判断できません';
+                } else {
+                    document.getElementById('b-sub').textContent = 'この読みが有力です';
+                }
+
+                // 他候補
+                const altEl = document.getElementById('b-alt-list');
+                altEl.innerHTML = top[1] ? `<li>${top[1].label}</li>` : '<li>他の候補はありません</li>';
+
+                // 理由
+                const reasons  = pickReasonsForBeginner(top[0].reasons);
+                const reasonEl = document.getElementById('b-reason-list');
+                reasonEl.innerHTML = reasons.length
+                    ? reasons.map(r => `<li>${simplify(r.text)}から</li>`).join('')
+                    : '<li>文脈から複数の読みが考えられます</li>';
+            } else {
+                // ⑧ 結果ゼロ
+                document.getElementById('b-main').textContent         = '—';
+                document.getElementById('b-sub').textContent          = 'この文だけでは判断できません';
+                document.getElementById('b-alt-list').innerHTML       = '';
+                document.getElementById('b-reason-list').innerHTML    = '<li>手がかりとなる情報が不足しています</li>';
+            }
+
+            // ⑨ 例文表示（分詞）
+            renderBeginnerExample(matchedData);
+            return;
+        }
+        // tokens が空の場合は下の形態論フォールバックへ続行
+    }
+
+    // ── 分詞以外（または tokens 未取得）のフォールバック表示 ──
+    // URLパラメータから法・時制・態をわかりやすく表示する
+    const tenseLabel = TENSE_JP[params.tense] || params.tense || '';
+    const moodLabel  = MOOD_JP[params.mood]   || params.mood  || '';
+    const voiceLabel = VOICE_JP[params.voice] || params.voice || '';
+    const moodDesc   = MOOD_DESC[params.mood]  || '';
+    const tenseDesc  = TENSE_DESC[params.tense] || '';
+
+    // メイン: 最も目立つ情報（法 or 時制）
+    const mainLabel = [tenseLabel, moodLabel].filter(Boolean).join('・') || '—';
+    document.getElementById('b-main').textContent = mainLabel;
+
+    // サブ: 件数
+    const cnt = matchedData.length;
+    document.getElementById('b-sub').textContent =
+        cnt > 0 ? `${cnt.toLocaleString()} 件見つかりました` : '該当なし';
+
+    // 他の可能性: 態
+    const altEl = document.getElementById('b-alt-list');
+    altEl.innerHTML = voiceLabel ? `<li>${voiceLabel}</li>` : '';
+
+    // 理由: 法・時制の説明を初学者向けに表示
+    const reasonEl = document.getElementById('b-reason-list');
+    const descs = [moodDesc, tenseDesc].filter(Boolean);
+    if (descs.length) {
+        reasonEl.innerHTML = descs.map(d => `<li>${d}</li>`).join('');
+    } else {
+        reasonEl.innerHTML = '<li>URLパラメータから詳細を確認してください</li>';
+    }
+
+    // ⑨ 例文表示（分詞以外）
     renderBeginnerExample(matchedData);
 }
 
@@ -3198,12 +3243,48 @@ function renderBeginnerExample(data) {
 }
 
 /* [追加] renderBeginnerUIFromAll: データロード完了後に呼び出す
-   既存の renderResults には手を加えない */
+   既存の renderResults には手を加えない
+   — 分詞以外の検索でも初学者UIを更新する */
 function renderBeginnerUIFromAll(allData) {
-    if (!isBeginner || params.mood !== 'participle') return;
+    if (!isBeginner) return;
     const matched = allData.filter(matchEntry);
     renderBeginnerUI(matched);
 }
+
+/* [追加] 初学者モード: isBeginner かつ beginner クラスがある場合、
+   DOMContentLoaded 直後（データ未ロード）にも空状態を防ぐため
+   URLパラメータだけで描画できる最小表示を行う */
+(function renderBeginnerStatic() {
+    if (!isBeginner) return;
+    const tenseLabel = TENSE_JP[params.tense] || params.tense || '';
+    const moodLabel  = MOOD_JP[params.mood]   || params.mood  || '';
+    const voiceLabel = VOICE_JP[params.voice] || params.voice || '';
+    const moodDesc   = MOOD_DESC[params.mood]  || '';
+    const tenseDesc  = TENSE_DESC[params.tense] || '';
+
+    // 分詞検索の場合は「データ読込後に更新されます」を表示
+    if (params.mood === 'participle') {
+        const mainLabel = [tenseLabel, moodLabel].filter(Boolean).join('・') || '分詞';
+        document.getElementById('b-main').textContent = mainLabel;
+        document.getElementById('b-sub').textContent  = 'データ読み込み後に意味解析が更新されます…';
+        document.getElementById('b-alt-list').innerHTML = voiceLabel ? `<li>${voiceLabel}</li>` : '';
+        const descs = [moodDesc, tenseDesc].filter(Boolean);
+        document.getElementById('b-reason-list').innerHTML = descs.length
+            ? descs.map(d => `<li>${d}</li>`).join('')
+            : '';
+        return;
+    }
+
+    // 分詞以外はそのまま法・時制・態を表示
+    const mainLabel = [tenseLabel, moodLabel].filter(Boolean).join('・') || '—';
+    document.getElementById('b-main').textContent = mainLabel;
+    document.getElementById('b-sub').textContent  = 'データを読み込んでいます…';
+    document.getElementById('b-alt-list').innerHTML = voiceLabel ? `<li>${voiceLabel}</li>` : '';
+    const descs = [moodDesc, tenseDesc].filter(Boolean);
+    document.getElementById('b-reason-list').innerHTML = descs.length
+        ? descs.map(d => `<li>${d}</li>`).join('')
+        : '';
+})();
 
 /* ══════════════════════════════════════════════════════
    [追加] /初学者モード
@@ -3233,6 +3314,8 @@ renderBreadcrumb(); renderCoreChips(); renderExtChips(); renderBookChips(); rend
 
     if(!allData.length){
         loadEl.innerHTML=`<p style="color:#c00;font-size:0.82rem;line-height:2.2;">データが見つかりませんでした。<br><code style="background:#f5f5f7;padding:2px 8px;border-radius:4px;">bible_data/ROM/1.json の形式で配置してください</code></p>`;
+        /* [追加] 初学者モード: データなしでも件数0で描画を更新 */
+        if (isBeginner) renderBeginnerUI([]);
         return;
     }
 
