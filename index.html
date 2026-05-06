@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05062102｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05011702｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -469,6 +469,14 @@
                     <span class="menu-text">新約聖書</span>
                     <span class="sb-row-arrow menu-text">›</span>
                 </div>
+
+                <!-- ▼ ツールセクション追加 -->
+                <div class="section-label menu-text" style="padding: 16px 12px 4px;">ツール</div>
+                <div class="sb-row" id="nav-proximity" onclick="goProximityPage()">
+                    <span class="menu-text">近接検索（詳細）</span>
+                    <span class="sb-row-arrow menu-text">↗</span>
+                </div>
+                <!-- ▲ ツールセクションここまで -->
             </div>
 
             <!-- Layer 1: 書物リスト -->
@@ -1109,6 +1117,47 @@ function render(jpData, elData) {
     _proximityTokens = elData.map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
 }
 init();
+
+/* =====================================================
+   近接検索ページへの文脈付き遷移
+   ===================================================== */
+function goProximityPage() {
+    const p = new URLSearchParams();
+
+    // 現在の節情報（例："3 節" → "3"）
+    const activeVEl = document.getElementById('active-v');
+    const activeVText = activeVEl ? activeVEl.innerText.replace(/\s*節\s*$/, '').trim() : '';
+
+    // 現在表示中の書物・章（URLから取得）
+    const urlParams = new URLSearchParams(window.location.search);
+    const book = urlParams.get('book') || '';
+    const ch   = urlParams.get('ch')   || '';
+
+    // 単語詳細パネルから語を取得
+    const detailView = document.getElementById('word-detail-view');
+    let word1 = '';
+    if (detailView && detailView.style.display !== 'none') {
+        const greekEl = detailView.querySelector('.detail-header span[style*="Gentium"]');
+        if (greekEl) word1 = greekEl.textContent.trim();
+    }
+    // 詳細パネルになければ近接パネルの入力欄を確認
+    if (!word1) {
+        const proxInput = document.getElementById('prox-word1');
+        if (proxInput) word1 = proxInput.value.trim();
+    }
+
+    if (word1) p.set('word1', word1);
+
+    // ref：書物＋章＋節（節があればscope=verse）
+    if (book && ch) {
+        const ref = activeVText ? `${book}${ch}:${activeVText}` : `${book}${ch}`;
+        p.set('ref', ref);
+        if (activeVText) p.set('scope', 'verse');
+    }
+
+    const qs = p.toString();
+    window.location.href = qs ? `proximity.html?${qs}` : 'proximity.html';
+}
 
 /* =====================================================
    近接検索（簡易共起確認）
