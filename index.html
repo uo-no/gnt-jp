@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05062100｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05062200｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -778,37 +778,20 @@ function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc) {
     }
 
     // 形態タグと検索ボタン（動詞・名詞・形容詞系すべてに表示）
-	const searchBtnHTML = canSearch ? `
-	    <div style="display:flex; gap:8px; margin-top:10px;">
-	
-	        <button class="morph-search-btn" id="btn-morph-search">
-	            <span class="btn-icon">🔍</span>
-	            形態で検索
-	        </button>
-	
-	        <button class="morph-search-btn" id="btn-proximity">
-	            <span class="btn-icon">⟺</span>
-	            近くの語
-	        </button>
-	
-	    </div>
-	` : '';
-   
-setTimeout(() => {
-    const btn1 = document.getElementById('btn-morph-search');
-    if (btn1) {
-        btn1.onclick = () => {
-            goMorphSearch(greek, rawMorph, currentRef, lemma);
-        };
-    }
-
-    const btn2 = document.getElementById('btn-proximity');
-    if (btn2) {
-        btn2.onclick = () => {
-            goProximityPage();
-        };
-    }
-}, 0);
+    const morphTagsHTML = buildMorphTagsHTML(rawMorph);
+    const canSearch = ['V','N','A','R','P','T','D'].includes(rawMorph.split('-')[0]);
+    const searchBtnHTML = canSearch ? `
+        <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+            <button class="morph-search-btn" id="btn-morph-search">
+                <span class="btn-icon">🔍</span>
+                形態で検索
+            </button>
+            <button class="morph-search-btn" id="btn-proximity">
+                <span class="btn-icon">⟺</span>
+                近くの語を見る
+            </button>
+        </div>
+    ` : '';
 
     view.innerHTML = `
         <div class="detail-header">
@@ -826,6 +809,13 @@ setTimeout(() => {
             ${searchBtnHTML}
         </div>`;
     
+    // innerHTML設定後にイベントをバインド
+    const btn1 = document.getElementById('btn-morph-search');
+    if (btn1) btn1.onclick = () => goMorphSearch(greek, rawMorph, currentRef, lemma);
+
+    const btn2 = document.getElementById('btn-proximity');
+    if (btn2) btn2.onclick = () => goProximityPage();
+
     view.scrollTop = 0;
 }
 
