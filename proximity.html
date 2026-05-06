@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>近接検索｜コトバト</title>
+    <link rel="icon" href="data:,">
+    <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+    :root {
+        --bg-paper:       #ffffff;
+        --bg-panel:       #f5f5f7;
+        --bg-sidebar:     #fafafa;
+        --bg-card:        #f5f5f7;
+        --text-main:      #1d1d1f;
+        --text-sub:       #6e6e73;
+        --accent-dark:    #1d1d1f;
+        --highlight:      #5a6e82;
+        --highlight-light:rgba(90,110,130,0.10);
+        --highlight-mid:  rgba(90,110,130,0.22);
+        --border-soft:    rgba(0,0,0,0.08);
+        --border-mid:     rgba(0,0,0,0.13);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+        font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+        background: var(--bg-paper);
+        color: var(--text-main);
+        margin: 0; padding: 0;
+        -webkit-font-smoothing: antialiased;
+        min-height: 100vh;
+    }
+
+    /* ─── レイアウト ─── */
+    .page-shell {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+    /* ─── ヘッダー ─── */
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 40px;
+        border-bottom: 1px solid var(--border-soft);
+        background: var(--bg-paper);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.82rem;
+        color: var(--text-sub);
+        text-decoration: none;
+        padding: 5px 12px;
+        border: 1px solid var(--border-soft);
+        border-radius: 20px;
+        transition: all 0.15s;
+        white-space: nowrap;
+    }
+    .back-link:hover { color: var(--highlight); border-color: var(--highlight); background: var(--highlight-light); }
+    .page-title {
+        font-family: 'Noto Serif JP', serif;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--accent-dark);
+        letter-spacing: -0.01em;
+    }
+    .page-subtitle {
+        font-size: 0.72rem;
+        color: var(--text-sub);
+        letter-spacing: 0.06em;
+    }
+    .logo-badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: var(--highlight);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        opacity: 0.6;
+    }
+
+    /* ─── メイン2カラム ─── */
+    .page-body {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        align-items: start;
+        gap: 0;
+        max-width: 1280px;
+        margin: 0 auto;
+        width: 100%;
+        padding: 0;
+    }
+
+    /* ─── 左：検索フォーム ─── */
+    .search-sidebar {
+        border-right: 1px solid var(--border-soft);
+        padding: 32px 28px 60px;
+        position: sticky;
+        top: 57px;
+        max-height: calc(100vh - 57px);
+        overflow-y: auto;
+    }
+
+    .form-section {
+        margin-bottom: 24px;
+    }
+    .form-label {
+        display: block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: var(--text-sub);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 7px;
+    }
+    .form-label .required {
+        color: var(--highlight);
+        margin-left: 3px;
+    }
+    .form-label .optional {
+        font-weight: 400;
+        letter-spacing: 0;
+        text-transform: none;
+        font-size: 0.65rem;
+        color: var(--text-sub);
+        opacity: 0.7;
+        margin-left: 4px;
+    }
+
+    .greek-input {
+        width: 100%;
+        padding: 9px 13px;
+        font-family: 'Gentium Plus', serif;
+        font-size: 1.1rem;
+        border: 1px solid var(--border-mid);
+        border-radius: 9px;
+        background: #fff;
+        color: var(--text-main);
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+        line-height: 1.4;
+    }
+    .greek-input:focus {
+        border-color: var(--highlight);
+        box-shadow: 0 0 0 3px var(--highlight-light);
+    }
+    .greek-input::placeholder { color: #c5c5c7; font-size: 0.95rem; }
+
+    .dist-row {
+        display: flex;
+        gap: 6px;
+    }
+    .dist-btn {
+        flex: 1;
+        padding: 7px 0;
+        font-size: 0.8rem;
+        font-family: inherit;
+        font-weight: 600;
+        border: 1px solid var(--border-mid);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--text-sub);
+        cursor: pointer;
+        transition: all 0.13s;
+    }
+    .dist-btn:hover { border-color: var(--highlight); color: var(--highlight); }
+    .dist-btn.active {
+        background: var(--highlight);
+        border-color: var(--highlight);
+        color: #fff;
+    }
+
+    .scope-row {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .scope-btn {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 12px;
+        font-size: 0.85rem;
+        font-family: inherit;
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--text-sub);
+        cursor: pointer;
+        transition: all 0.13s;
+        text-align: left;
+    }
+    .scope-btn:hover { border-color: var(--highlight); color: var(--highlight); background: var(--highlight-light); }
+    .scope-btn.active {
+        border-color: var(--highlight);
+        background: var(--highlight-light);
+        color: var(--highlight);
+        font-weight: 700;
+    }
+    .scope-btn .scope-dot {
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        border: 2px solid var(--border-mid);
+        flex-shrink: 0;
+        transition: all 0.13s;
+    }
+    .scope-btn.active .scope-dot {
+        background: var(--highlight);
+        border-color: var(--highlight);
+    }
+    .scope-note {
+        font-size: 0.68rem;
+        color: var(--text-sub);
+        opacity: 0.7;
+        margin-left: auto;
+    }
+
+    .run-btn {
+        width: 100%;
+        padding: 11px 0;
+        font-size: 0.88rem;
+        font-family: inherit;
+        font-weight: 700;
+        color: #fff;
+        background: var(--highlight);
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        letter-spacing: 0.03em;
+        transition: opacity 0.15s, transform 0.1s;
+        margin-top: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    .run-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+    .run-btn:active { transform: scale(0.98); }
+    .run-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    .form-divider {
+        border: none;
+        border-top: 1px solid var(--border-soft);
+        margin: 20px 0;
+    }
+
+    /* ─── 右：結果エリア ─── */
+    .result-main {
+        padding: 32px 40px 60px;
+        min-height: calc(100vh - 57px);
+    }
+
+    /* 待機状態 */
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 320px;
+        color: var(--text-sub);
+        gap: 12px;
+        text-align: center;
+    }
+    .empty-icon { font-size: 2rem; opacity: 0.3; }
+    .empty-title { font-size: 1rem; font-weight: 700; color: var(--text-sub); opacity: 0.5; }
+    .empty-desc { font-size: 0.82rem; opacity: 0.5; line-height: 1.7; }
+
+    /* ローディング */
+    .loading-state {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 320px;
+        gap: 16px;
+        color: var(--text-sub);
+    }
+    .loading-state.visible { display: flex; }
+    .spinner {
+        width: 28px; height: 28px;
+        border: 2.5px solid var(--border-mid);
+        border-top-color: var(--highlight);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-label { font-size: 0.82rem; letter-spacing: 0.04em; }
+
+    /* 結果ヘッダー */
+    .result-header {
+        display: none;
+        align-items: baseline;
+        gap: 16px;
+        margin-bottom: 28px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--border-soft);
+    }
+    .result-header.visible { display: flex; }
+    .result-query {
+        font-family: 'Gentium Plus', serif;
+        font-size: 1.5rem;
+        color: var(--accent-dark);
+        font-weight: 700;
+    }
+    .result-meta {
+        font-size: 0.78rem;
+        color: var(--text-sub);
+        letter-spacing: 0.01em;
+    }
+
+    /* 2パネル：ランキング＋一覧 */
+    .result-panels {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 32px;
+        align-items: start;
+    }
+
+    /* ─── ランキングパネル ─── */
+    .ranking-panel {}
+    .panel-title {
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: var(--text-sub);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+    }
+    .rank-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .rank-item {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        cursor: pointer;
+        padding: 7px 10px;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        transition: all 0.13s;
+        animation: fadeIn 0.25s ease-out both;
+    }
+    .rank-item:hover { background: var(--highlight-light); border-color: rgba(90,110,130,0.18); }
+    .rank-item.highlighted { background: var(--highlight-light); border-color: rgba(90,110,130,0.25); }
+
+    .rank-top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    .rank-word {
+        font-family: 'Gentium Plus', serif;
+        font-size: 1.05rem;
+        color: var(--text-main);
+        font-weight: 700;
+    }
+    .rank-score {
+        font-size: 0.7rem;
+        color: var(--text-sub);
+        white-space: nowrap;
+    }
+    .rank-bar-track {
+        height: 3px;
+        background: var(--border-soft);
+        border-radius: 2px;
+        overflow: hidden;
+    }
+    .rank-bar-fill {
+        height: 100%;
+        background: var(--highlight);
+        border-radius: 2px;
+        transition: width 0.5s cubic-bezier(0.22,1,0.36,1);
+    }
+
+    /* ─── 結果一覧パネル ─── */
+    .hits-panel {}
+    .hits-count {
+        font-size: 0.72rem;
+        color: var(--text-sub);
+        margin-bottom: 12px;
+        letter-spacing: 0.02em;
+    }
+    .hits-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .hit-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-radius: 10px;
+        padding: 13px 16px;
+        cursor: default;
+        transition: border-color 0.13s;
+        animation: fadeIn 0.2s ease-out both;
+    }
+    .hit-card:hover { border-color: var(--border-mid); }
+
+    .hit-ref {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--highlight);
+        letter-spacing: 0.04em;
+        margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .hit-ref-link {
+        color: var(--highlight);
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+        transition: border-color 0.13s;
+    }
+    .hit-ref-link:hover { border-bottom-color: var(--highlight); }
+
+    .hit-snippet {
+        font-family: 'Gentium Plus', serif;
+        font-size: 1.05rem;
+        line-height: 1.8;
+        color: var(--text-main);
+        word-break: break-word;
+    }
+    .hit-snippet .w1 {
+        color: var(--highlight);
+        font-weight: 700;
+        border-bottom: 2px solid var(--highlight);
+        padding-bottom: 1px;
+    }
+    .hit-snippet .w2 {
+        color: #c0392b;
+        font-weight: 700;
+        border-bottom: 2px dashed #c0392b;
+        padding-bottom: 1px;
+    }
+    .hit-ellipsis {
+        color: var(--text-sub);
+        font-size: 0.85rem;
+        margin: 0 3px;
+    }
+
+    /* ゼロ件 */
+    .zero-hits {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 200px;
+        color: var(--text-sub);
+        gap: 8px;
+        text-align: center;
+    }
+    .zero-hits-icon { font-size: 1.6rem; opacity: 0.25; }
+    .zero-hits-msg { font-size: 0.9rem; opacity: 0.55; }
+
+    /* 検索ステータス */
+    .scope-progress {
+        display: none;
+        font-size: 0.75rem;
+        color: var(--text-sub);
+        margin-top: 8px;
+        text-align: center;
+        letter-spacing: 0.02em;
+    }
+    .scope-progress.visible { display: block; }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── フッター ─── */
+    .page-footer {
+        border-top: 1px solid var(--border-soft);
+        padding: 12px 40px;
+        font-size: 0.7rem;
+        color: var(--text-sub);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    </style>
+</head>
+<body>
+<div class="page-shell">
+
+    <!-- ヘッダー -->
+    <header class="page-header">
+        <div class="header-left">
+            <a class="back-link" id="back-link" href="index.html">
+                ← 本文に戻る
+            </a>
+            <div>
+                <div class="page-title">近接検索</div>
+                <div class="page-subtitle">Proximity Search</div>
+            </div>
+        </div>
+        <span class="logo-badge">コトバト</span>
+    </header>
+
+    <div class="page-body">
+
+        <!-- 左：検索フォーム -->
+        <aside class="search-sidebar">
+
+            <div class="form-section">
+                <label class="form-label" for="inp-word1">語 1<span class="required">*</span></label>
+                <input class="greek-input" id="inp-word1" type="text"
+                    placeholder="例：πιστεύω" autocomplete="off" spellcheck="false">
+            </div>
+
+            <div class="form-section">
+                <label class="form-label" for="inp-word2">語 2<span class="optional">（任意・共起確認）</span></label>
+                <input class="greek-input" id="inp-word2" type="text"
+                    placeholder="例：θεός" autocomplete="off" spellcheck="false">
+            </div>
+
+            <hr class="form-divider">
+
+            <div class="form-section">
+                <span class="form-label">距離（前後 ±N 語）</span>
+                <div class="dist-row">
+                    <button class="dist-btn" data-dist="3">±3</button>
+                    <button class="dist-btn active" data-dist="5">±5</button>
+                    <button class="dist-btn" data-dist="10">±10</button>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <span class="form-label">スコープ</span>
+                <div class="scope-row">
+                    <button class="scope-btn" data-scope="verse">
+                        <span class="scope-dot"></span>
+                        節単位
+                        <span class="scope-note">現在表示の節</span>
+                    </button>
+                    <button class="scope-btn" data-scope="chapter">
+                        <span class="scope-dot"></span>
+                        章単位
+                        <span class="scope-note">現在の章</span>
+                    </button>
+                    <button class="scope-btn active" data-scope="all">
+                        <span class="scope-dot"></span>
+                        全体
+                        <span class="scope-note">全書物</span>
+                    </button>
+                </div>
+                <div class="scope-progress" id="scope-progress">読み込み中…</div>
+            </div>
+
+            <button class="run-btn" id="run-btn" onclick="startSearch()">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                検索する
+            </button>
+
+        </aside>
+
+        <!-- 右：結果 -->
+        <main class="result-main" id="result-main">
+
+            <!-- 待機 -->
+            <div class="empty-state" id="empty-state">
+                <div class="empty-icon">⟺</div>
+                <div class="empty-title">語を入力して検索</div>
+                <div class="empty-desc">語1を入力して検索ボタンを押すと<br>共起語ランキングと出現箇所が表示されます</div>
+            </div>
+
+            <!-- ローディング -->
+            <div class="loading-state" id="loading-state">
+                <div class="spinner"></div>
+                <div class="loading-label" id="loading-label">データを読み込み中…</div>
+            </div>
+
+            <!-- 結果ヘッダー -->
+            <div class="result-header" id="result-header">
+                <span class="result-query" id="result-query-label"></span>
+                <span class="result-meta" id="result-meta"></span>
+            </div>
+
+            <!-- 結果本体 -->
+            <div class="result-panels" id="result-panels" style="display:none;">
+                <div class="ranking-panel">
+                    <div class="panel-title">共起語ランキング</div>
+                    <div class="rank-list" id="rank-list"></div>
+                </div>
+                <div class="hits-panel">
+                    <div class="hits-count" id="hits-count"></div>
+                    <div class="hits-list" id="hits-list"></div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <footer class="page-footer">
+        <span>© 2026 ウオノ All rights reserved.</span>
+        <span>聖書データ：SBLGNT / Macula Greek / Abbott-Smith</span>
+    </footer>
+</div>
+
+<script>
+/* ============================================================
+   書物マスター（Index.htmlと同一）
+   ============================================================ */
+const ALL_BOOKS = {
+    nt: [
+        {key:'ROM', name:'ローマ人への手紙',         ch:16},
+        {key:'1CO', name:'コリント人への手紙 第一',   ch:16},
+        {key:'2CO', name:'コリント人への手紙 第二',   ch:13},
+        {key:'GAL', name:'ガラテヤ人への手紙',        ch:6},
+        {key:'EPH', name:'エペソ人への手紙',          ch:6},
+        {key:'PHP', name:'ピリピ人への手紙',          ch:4},
+        {key:'COL', name:'コロサイ人への手紙',        ch:4},
+        {key:'1TH', name:'テサロニケ人への手紙 第一', ch:5},
+        {key:'2TH', name:'テサロニケ人への手紙 第二', ch:3},
+        {key:'1TI', name:'テモテへの手紙 第一',       ch:6},
+        {key:'2TI', name:'テモテへの手紙 第二',       ch:4},
+        {key:'TIT', name:'テトスへの手紙',            ch:3},
+        {key:'PHM', name:'ピレモンへの手紙',          ch:1},
+    ],
+    ot: [
+        {key:'GEN', name:'創世記',          ch:50},
+        {key:'EXO', name:'出エジプト記',    ch:40},
+        {key:'LEV', name:'レビ記',          ch:27},
+        {key:'NUM', name:'民数記',          ch:36},
+        {key:'DEU', name:'申命記',          ch:34},
+        {key:'JOS', name:'ヨシュア記',      ch:24},
+        {key:'JDG', name:'士師記',          ch:21},
+        {key:'RUT', name:'ルツ記',          ch:4},
+        {key:'1SA', name:'サムエル記 第一', ch:31},
+        {key:'2SA', name:'サムエル記 第二', ch:24},
+        {key:'1KI', name:'列王記 第一',     ch:22},
+        {key:'2KI', name:'列王記 第二',     ch:25},
+        {key:'PSA', name:'詩篇',            ch:150},
+        {key:'PRO', name:'箴言',            ch:31},
+        {key:'ECC', name:'伝道者の書',      ch:12},
+        {key:'ISA', name:'イザヤ書',        ch:66},
+        {key:'JER', name:'エレミヤ書',      ch:52},
+        {key:'EZK', name:'エゼキエル書',    ch:48},
+        {key:'DAN', name:'ダニエル書',      ch:12},
+    ]
+};
+const FLAT_BOOKS = [...ALL_BOOKS.nt, ...ALL_BOOKS.ot];
+
+/* ============================================================
+   ストップワード
+   ============================================================ */
+const STOP_WORDS = new Set([
+    'ὁ','ἡ','τό','τοῦ','τῆς','τῷ','τήν','τόν','τά','τοῖς','ταῖς','τάς','τούς',
+    'καί','δέ','εἰς','ἐν','οὐ','οὐκ','οὐχ','μή','ἀλλά','γάρ','ὅτι','ἐκ','ἐξ',
+    'διά','κατά','περί','ὑπό','παρά','πρός','ἀπό','σύν','μετά','ἐπί',
+    'αὐτός','αὐτοῦ','αὐτῷ','αὐτόν','αὐτή','αὐτῆς','αὐτήν',
+    'αὐτοί','αὐτῶν','αὐτοῖς','αὐτούς','αὐταί','αὐτάς',
+    'ὅς','ἥ','οἵ','αἵ','ὅ',
+    'τις','τι','τινός','τινί','τινά',
+    'οὗτος','αὕτη','τοῦτο','τούτου','τούτῳ','τούτους','ταύτης','ταύτῃ','ταύτην',
+    'πᾶς','πᾶν','πάντα','πάντες','πάντων','πᾶσιν',
+]);
+
+/* ============================================================
+   URL・状態管理
+   ============================================================ */
+let currentParams = {};   // { word1, word2, distance, scope, ref }
+let currentScope = 'all'; // 選択中スコープ
+let currentDist  = 5;
+let isSearching  = false;
+
+function readURL() {
+    const p = new URLSearchParams(window.location.search);
+    return {
+        word1:    p.get('word1')    || '',
+        word2:    p.get('word2')    || '',
+        distance: parseInt(p.get('distance') || '5'),
+        scope:    p.get('scope')    || 'all',
+        ref:      p.get('ref')      || '',    // 例 "ROM1"
+    };
+}
+
+function init() {
+    const params = readURL();
+
+    // フォーム初期値
+    document.getElementById('inp-word1').value = params.word1;
+    document.getElementById('inp-word2').value = params.word2;
+
+    // 距離ボタン
+    currentDist = params.distance;
+    document.querySelectorAll('.dist-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.dist) === currentDist);
+    });
+
+    // スコープボタン
+    currentScope = params.scope;
+    document.querySelectorAll('.scope-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.scope === currentScope);
+    });
+
+    // 戻るリンク：refパラメータがあれば対応ページに
+    if (params.ref) {
+        const book = params.ref.replace(/\d+$/, '');
+        const ch   = params.ref.match(/(\d+)$/)?.[1] || '1';
+        document.getElementById('back-link').href = `index.html?book=${book}&ch=${ch}`;
+    }
+
+    // 語1があれば即検索
+    if (params.word1) {
+        startSearch();
+    }
+
+    // インタラクション設定
+    document.querySelectorAll('.dist-btn').forEach(b => {
+        b.addEventListener('click', () => {
+            document.querySelectorAll('.dist-btn').forEach(x => x.classList.remove('active'));
+            b.classList.add('active');
+            currentDist = parseInt(b.dataset.dist);
+        });
+    });
+    document.querySelectorAll('.scope-btn').forEach(b => {
+        b.addEventListener('click', () => {
+            document.querySelectorAll('.scope-btn').forEach(x => x.classList.remove('active'));
+            b.classList.add('active');
+            currentScope = b.dataset.scope;
+        });
+    });
+
+    // Enterキーで検索
+    ['inp-word1','inp-word2'].forEach(id => {
+        document.getElementById(id).addEventListener('keydown', e => {
+            if (e.key === 'Enter') startSearch();
+        });
+    });
+}
+
+/* ============================================================
+   データ取得
+   ============================================================ */
+// fetched cache: key = "BOOK/CH", value = token[]
+const tokenCache = {};
+
+async function fetchChapter(bookKey, ch) {
+    const cacheKey = `${bookKey}/${ch}`;
+    if (tokenCache[cacheKey]) return tokenCache[cacheKey];
+    try {
+        const res = await fetch(`./bible_data/${bookKey}/${ch}.json`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        // 各トークンに bookKey/ch を付加
+        const tokens = data.map(w => ({
+            text:  w.text  || '',
+            lemma: w.lemma || w.text || '',
+            ref:   w.ref   || `${bookKey} ${ch}:?`,
+            bookKey,
+            ch,
+        }));
+        tokenCache[cacheKey] = tokens;
+        return tokens;
+    } catch { return []; }
+}
+
+// スコープに応じてトークン列を取得
+async function loadTokensForScope(scope, ref) {
+    const prog = document.getElementById('scope-progress');
+
+    if (scope === 'verse' || scope === 'chapter') {
+        // refから book/ch を抽出
+        let bookKey = 'ROM', ch = 1;
+        if (ref) {
+            bookKey = ref.replace(/\d+$/, '') || 'ROM';
+            ch = parseInt(ref.match(/(\d+)$/)?.[1] || '1');
+        }
+        prog.classList.remove('visible');
+        return await fetchChapter(bookKey, ch);
+    }
+
+    // scope === 'all' : 全書物を順次読み込み
+    const allTokens = [];
+    let loaded = 0;
+    const totalChapters = FLAT_BOOKS.reduce((s, b) => s + b.ch, 0);
+
+    for (const book of FLAT_BOOKS) {
+        for (let c = 1; c <= book.ch; c++) {
+            const toks = await fetchChapter(book.key, c);
+            allTokens.push(...toks);
+            loaded++;
+            prog.textContent = `読み込み中… ${loaded} / ${totalChapters} 章`;
+            prog.classList.add('visible');
+            // UIをブロックしないよう定期的に yield
+            if (loaded % 10 === 0) await new Promise(r => setTimeout(r, 0));
+        }
+    }
+    prog.classList.remove('visible');
+    return allTokens;
+}
+
+/* ============================================================
+   近接検索コア
+   ============================================================ */
+/**
+ * @param {object} opts
+ * @param {string} opts.word1
+ * @param {string|null} opts.word2
+ * @param {number} opts.distance
+ * @param {string} opts.scope   "verse"|"chapter"|"all"
+ * @param {string} opts.ref
+ * @returns {{ coocMap: Map, hits: Array }}
+ */
+async function runProximitySearch({ word1, word2 = null, distance = 5, scope = 'all', ref = '' }) {
+    const tokens = await loadTokensForScope(scope, ref);
+
+    // 語1にマッチするインデックスを取得
+    const w1Indices = [];
+    tokens.forEach((tok, i) => {
+        if (matchToken(tok, word1)) w1Indices.push(i);
+    });
+
+    // 語2フィルタあり → w2も先に列挙しておく
+    const w2Set = new Set();
+    if (word2) {
+        tokens.forEach((tok, i) => { if (matchToken(tok, word2)) w2Set.add(i); });
+    }
+
+    // 重み付き共起集計
+    // coocMap: word => { weightedScore, rawCount }
+    const coocMap = new Map();
+    const hits = [];  // { ref, window: token[] }
+
+    for (const i of w1Indices) {
+        const start = Math.max(0, i - distance);
+        const end   = Math.min(tokens.length - 1, i + distance);
+        const windowTokens = tokens.slice(start, end + 1);
+
+        // 語2フィルタ：window内に語2が存在しなければスキップ
+        if (word2 && !w2Set.has([...Array(end - start + 1).keys()].find(k => w2Set.has(k + start)))) {
+            // もう少し正確に
+            let w2InWindow = false;
+            for (let j = start; j <= end; j++) {
+                if (j !== i && w2Set.has(j)) { w2InWindow = true; break; }
+            }
+            if (!w2InWindow) continue;
+        }
+
+        // 結果一覧へ
+        hits.push({ anchorIdx: i, start, end, tokens, ref: tokens[i].ref });
+
+        // 共起集計
+        for (let j = start; j <= end; j++) {
+            if (j === i) continue;
+            const t = tokens[j];
+            if (!t.text || t.text.length < 2) continue;
+            if (STOP_WORDS.has(t.text)) continue;
+            if (matchToken(t, word1)) continue; // word1自身は除外
+
+            const dist = Math.abs(j - i);
+            const weight = 1 / (dist + 1);
+
+            const key = t.text;
+            if (!coocMap.has(key)) coocMap.set(key, { weightedScore: 0, rawCount: 0 });
+            const entry = coocMap.get(key);
+            entry.weightedScore += weight;
+            entry.rawCount      += 1;
+        }
+    }
+
+    return { coocMap, hits, totalW1: w1Indices.length };
+}
+
+function matchToken(tok, word) {
+    return tok.text === word || tok.lemma === word;
+}
+
+/* ============================================================
+   UI制御
+   ============================================================ */
+async function startSearch() {
+    if (isSearching) return;
+
+    const word1 = document.getElementById('inp-word1').value.trim();
+    if (!word1) {
+        document.getElementById('inp-word1').focus();
+        return;
+    }
+    const word2 = document.getElementById('inp-word2').value.trim() || null;
+
+    isSearching = true;
+    const btn = document.getElementById('run-btn');
+    btn.disabled = true;
+
+    // UI: ローディング表示
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('result-header').classList.remove('visible');
+    document.getElementById('result-panels').style.display = 'none';
+    document.getElementById('loading-state').classList.add('visible');
+    document.getElementById('loading-label').textContent = 'データを読み込み中…';
+
+    const ref = new URLSearchParams(window.location.search).get('ref') || '';
+
+    try {
+        const { coocMap, hits, totalW1 } = await runProximitySearch({
+            word1, word2,
+            distance: currentDist,
+            scope: currentScope,
+            ref,
+        });
+
+        renderResults({ word1, word2, coocMap, hits, totalW1 });
+    } catch(e) {
+        console.error(e);
+        document.getElementById('loading-state').classList.remove('visible');
+        document.getElementById('empty-state').style.display = 'flex';
+        document.getElementById('empty-state').querySelector('.empty-title').textContent = 'エラーが発生しました';
+        document.getElementById('empty-state').querySelector('.empty-desc').textContent = String(e);
+    }
+
+    isSearching = false;
+    btn.disabled = false;
+}
+
+function renderResults({ word1, word2, coocMap, hits, totalW1 }) {
+    document.getElementById('loading-state').classList.remove('visible');
+
+    // ヘッダー
+    const header = document.getElementById('result-header');
+    header.classList.add('visible');
+    const queryLabel = word2 ? `${word1}  ×  ${word2}` : word1;
+    document.getElementById('result-query-label').textContent = queryLabel;
+
+    const scopeLabel = { verse:'節', chapter:'章', all:'全体' }[currentScope] || '全体';
+    document.getElementById('result-meta').textContent =
+        `±${currentDist}語 ／ スコープ：${scopeLabel} ／ 「${word1}」${totalW1}箇所`;
+
+    // ランキング
+    const ranked = [...coocMap.entries()]
+        .sort((a, b) => b[1].weightedScore - a[1].weightedScore)
+        .slice(0, 10);
+
+    const maxScore = ranked[0]?.[1].weightedScore || 1;
+
+    const rankList = document.getElementById('rank-list');
+    rankList.innerHTML = '';
+
+    if (ranked.length === 0) {
+        rankList.innerHTML = '<div style="font-size:0.8rem;color:var(--text-sub);opacity:0.6;">共起語なし</div>';
+    } else {
+        ranked.forEach(([word, { weightedScore, rawCount }], idx) => {
+            const pct = Math.round((weightedScore / maxScore) * 100);
+            const item = document.createElement('div');
+            item.className = 'rank-item';
+            item.style.animationDelay = `${idx * 0.04}s`;
+            item.innerHTML = `
+                <div class="rank-top">
+                    <span class="rank-word">${word}</span>
+                    <span class="rank-score">${rawCount}回 / ${weightedScore.toFixed(2)}</span>
+                </div>
+                <div class="rank-bar-track">
+                    <div class="rank-bar-fill" style="width:${pct}%"></div>
+                </div>`;
+            item.addEventListener('click', () => filterHitsByWord(word, item));
+            rankList.appendChild(item);
+        });
+    }
+
+    // 結果一覧
+    renderHits(hits, word1, word2, null);
+
+    document.getElementById('result-panels').style.display = 'grid';
+}
+
+let _allHits = [], _word1 = '', _word2 = '';
+
+function renderHits(hits, word1, word2, filterWord) {
+    _allHits = hits; _word1 = word1; _word2 = word2 || '';
+
+    const list = document.getElementById('hits-list');
+    const countEl = document.getElementById('hits-count');
+    list.innerHTML = '';
+
+    const displayHits = filterWord
+        ? hits.filter(h => {
+            for (let j = h.start; j <= h.end; j++) {
+                if (j !== h.anchorIdx && matchToken(h.tokens[j], filterWord)) return true;
+            }
+            return false;
+          })
+        : hits;
+
+    if (filterWord) {
+        countEl.textContent = `「${filterWord}」との共起：${displayHits.length}件 / 全${hits.length}件`;
+    } else {
+        countEl.textContent = `出現箇所：${hits.length}件`;
+    }
+
+    if (displayHits.length === 0) {
+        list.innerHTML = `
+            <div class="zero-hits">
+                <div class="zero-hits-icon">∅</div>
+                <div class="zero-hits-msg">該当する箇所がありませんでした</div>
+            </div>`;
+        return;
+    }
+
+    // 重複ref対策：同じrefを1カードに
+    const byRef = new Map();
+    displayHits.forEach(h => {
+        const key = h.ref;
+        if (!byRef.has(key)) byRef.set(key, h);
+    });
+
+    let rendered = 0;
+    for (const [, h] of byRef) {
+        if (rendered >= 80) break; // 上限
+        const card = buildHitCard(h, word1, word2 || '', filterWord || '');
+        card.style.animationDelay = `${rendered * 0.02}s`;
+        list.appendChild(card);
+        rendered++;
+    }
+
+    if (byRef.size > 80) {
+        const more = document.createElement('div');
+        more.style.cssText = 'text-align:center;padding:12px;font-size:0.8rem;color:var(--text-sub);opacity:0.6;';
+        more.textContent = `…他 ${byRef.size - 80} 件（スコープを絞ると全件表示）`;
+        list.appendChild(more);
+    }
+}
+
+function buildHitCard(h, word1, word2, filterWord) {
+    const card = document.createElement('div');
+    card.className = 'hit-card';
+
+    // ref整形
+    const rawRef = h.ref || '';
+    const refLabel = rawRef;
+
+    // 書物リンク生成
+    const bookKey = h.tokens[h.anchorIdx]?.bookKey || '';
+    const ch      = h.tokens[h.anchorIdx]?.ch      || '';
+    const refLink = bookKey && ch
+        ? `<a class="hit-ref-link" href="index.html?book=${bookKey}&ch=${ch}" target="_blank">${refLabel}</a>`
+        : refLabel;
+
+    // スニペット：window内のトークンを整形
+    const snippetTokens = h.tokens.slice(h.start, h.end + 1);
+    const snippetHtml = snippetTokens.map((tok, localIdx) => {
+        const globalIdx = h.start + localIdx;
+        const isW1 = globalIdx === h.anchorIdx;
+        const isW2 = word2 && matchToken(tok, word2) && !isW1;
+        const isFilter = filterWord && matchToken(tok, filterWord) && !isW1;
+
+        let cls = '';
+        if (isW1)                       cls = 'w1';
+        else if (isW2 || isFilter)      cls = 'w2';
+
+        return cls
+            ? `<span class="${cls}">${tok.text}</span>`
+            : tok.text;
+    }).join(' ');
+
+    card.innerHTML = `
+        <div class="hit-ref">${refLink}</div>
+        <div class="hit-snippet">${snippetHtml}</div>`;
+    return card;
+}
+
+function filterHitsByWord(word, itemEl) {
+    // ランキングアイテムのハイライト
+    document.querySelectorAll('.rank-item').forEach(el => el.classList.remove('highlighted'));
+    if (itemEl.classList.contains('highlighted')) {
+        itemEl.classList.remove('highlighted');
+        renderHits(_allHits, _word1, _word2, null);
+    } else {
+        itemEl.classList.add('highlighted');
+        renderHits(_allHits, _word1, _word2, word);
+    }
+}
+
+/* ============================================================
+   起動
+   ============================================================ */
+init();
+</script>
+</body>
+</html>
