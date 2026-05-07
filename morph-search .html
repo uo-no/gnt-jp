@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>形態論検索 — コトバト</title>
+<title>05071046｜形態論検索 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -873,19 +873,15 @@ function toggleWordFilter(mode) {
    ══════════════════════════════════════════ */
 function navToSyntax(e) {
     e.preventDefault();
-    if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: 'NAV_TO_SYNTAX', ref: params.ref, word: params.word }, '*');
-    } else {
-        alert('統語論ツールへの導線は、メインアプリ経由でご利用ください。');
-    }
+    const msg = { type: 'NAV_TO_SYNTAX', ref: params.ref, word: params.word };
+    if (window.parent && window.parent !== window) window.parent.postMessage(msg, '*');
+    else if (window.opener && !window.opener.closed) window.opener.postMessage(msg, '*');
 }
 function navToSemantics(e) {
     e.preventDefault();
-    if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: 'NAV_TO_SEMANTICS', ref: params.ref, word: params.word }, '*');
-    } else {
-        alert('意味論ツールへの導線は、メインアプリ経由でご利用ください。');
-    }
+    const msg = { type: 'NAV_TO_SEMANTICS', ref: params.ref, word: params.word };
+    if (window.parent && window.parent !== window) window.parent.postMessage(msg, '*');
+    else if (window.opener && !window.opener.closed) window.opener.postMessage(msg, '*');
 }
 
 /* ══════════════════════════════════════════
@@ -1044,20 +1040,8 @@ async function fetchJaData(morphPaths) {
     );
 }
 async function fetchJapaneseTSV() {
-    try {
-        const res = await fetch('./macula-greek-SBLGNT.tsv');
-        if (!res.ok) return;
-        const text = await res.text();
-        const lines = text.split('\n');
-        for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split('\t');
-            if (cols.length < 12) continue;
-            const normalized = (cols[11] || '').trim();
-            const japanese   = (cols[6]  || '').trim();
-            if (normalized && japanese && !_japaneseMap.has(normalized))
-                _japaneseMap.set(normalized, japanese);
-        }
-    } catch(e) { console.warn('TSV読み込み失敗:', e); }
+    // macula-greek-SBLGNT.tsv は不使用（bible_data JSONに日本語が含まれるため）
+    return;
 }
 
 /* ══════════════════════════════════════════
