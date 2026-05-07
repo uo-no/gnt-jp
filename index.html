@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05071046｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05071100｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -148,7 +148,9 @@
     #open-panel-btn:hover { opacity: 0.7; transform: scale(1.1); }
 
     #side-panel { 
-        width: 420px; 
+        width: 50%;
+        min-width: 280px;
+        max-width: 80%;
         background: var(--bg-panel); 
         border-left: 1px solid var(--border-soft); 
         padding: 0;
@@ -157,6 +159,35 @@
         flex-shrink: 0; 
         height: 100vh; 
         box-sizing: border-box;
+        position: relative;
+    }
+
+    /* リサイズハンドル */
+    #panel-resize-handle {
+        position: absolute;
+        left: -4px;
+        top: 0;
+        width: 8px;
+        height: 100%;
+        cursor: col-resize;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    #panel-resize-handle::after {
+        content: '';
+        display: block;
+        width: 3px;
+        height: 40px;
+        border-radius: 2px;
+        background: var(--border-soft);
+        transition: background 0.15s, height 0.15s;
+    }
+    #panel-resize-handle:hover::after,
+    #panel-resize-handle.dragging::after {
+        background: var(--highlight);
+        height: 60px;
     }
     .panel-header { 
         font-weight: 700; 
@@ -579,6 +610,8 @@
     </div>
 
     <aside id="side-panel">
+        <!-- リサイズハンドル -->
+        <div id="panel-resize-handle"></div>
         <!-- パネルヘッダー -->
         <div class="panel-header">
             <span>語形分解　<span id="active-v" style="font-size: 0.78rem; color: var(--text-sub); font-weight: 400;"></span></span>
@@ -1246,6 +1279,70 @@ function render(jpData, elData) {
     // ▼ 近接検索用：全トークンをキャッシュ
     _proximityTokens = elData.map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
 }
+/* =====================================================
+   パネルリサイズ（ドラッグ）
+   ===================================================== */
+(function() {
+    const handle = document.getElementById('panel-resize-handle');
+    const panel  = document.getElementById('side-panel');
+    const layout = document.querySelector('.main-layout');
+    let dragging = false;
+    let startX = 0;
+    let startW = 0;
+
+    handle.addEventListener('mousedown', (e) => {
+        dragging = true;
+        startX = e.clientX;
+        startW = panel.offsetWidth;
+        handle.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const delta = startX - e.clientX; // 左に動かすほど広がる
+        const layoutW = layout.offsetWidth;
+        const minPx = 280;
+        const maxPx = layoutW * 0.80;
+        const newW = Math.min(maxPx, Math.max(minPx, startW + delta));
+        panel.style.width = newW + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+    });
+
+    // タッチ対応
+    handle.addEventListener('touchstart', (e) => {
+        dragging = true;
+        startX = e.touches[0].clientX;
+        startW = panel.offsetWidth;
+        handle.classList.add('dragging');
+        e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+        if (!dragging) return;
+        const delta = startX - e.touches[0].clientX;
+        const layoutW = layout.offsetWidth;
+        const minPx = 280;
+        const maxPx = layoutW * 0.80;
+        const newW = Math.min(maxPx, Math.max(minPx, startW + delta));
+        panel.style.width = newW + 'px';
+    }, { passive: false });
+
+    document.addEventListener('touchend', () => {
+        dragging = false;
+        handle.classList.remove('dragging');
+    });
+})();
+
 init();
 
 /* =====================================================
