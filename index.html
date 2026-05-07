@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05062200｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05062300｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -148,10 +148,10 @@
     #open-panel-btn:hover { opacity: 0.7; transform: scale(1.1); }
 
     #side-panel { 
-        width: 360px; 
+        width: 420px; 
         background: var(--bg-panel); 
         border-left: 1px solid var(--border-soft); 
-        padding: 24px 22px; 
+        padding: 0;
         display: flex; 
         flex-direction: column; 
         flex-shrink: 0; 
@@ -162,24 +162,101 @@
         font-weight: 700; 
         font-size: 0.95rem;
         letter-spacing: -0.01em;
-        margin-bottom: 18px; 
-        padding-bottom: 14px; 
-        border-bottom: 1px solid var(--border-soft); 
+        padding: 18px 22px 0;
         display: flex; 
-        justify-content: space-between; 
+        justify-content: space-between;
+        align-items: center;
         color: var(--accent-dark); 
         flex-shrink: 0;
     }
-    #panel-content { flex: 1; overflow-y: auto; min-height: 0; }
+    #panel-content { 
+        flex: 1; overflow-y: auto; min-height: 0;
+        padding: 14px 22px 22px;
+    }
+
+    /* --- 分析タブバー --- */
+    .analysis-tabs {
+        display: none;
+        align-items: flex-end;
+        gap: 0;
+        padding: 12px 22px 0;
+        border-bottom: 1px solid var(--border-soft);
+        flex-shrink: 0;
+        background: var(--bg-panel);
+    }
+    .analysis-tabs.visible { display: flex; }
+    .atab {
+        padding: 7px 16px 8px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        font-family: inherit;
+        color: var(--text-sub);
+        background: transparent;
+        border: 1px solid transparent;
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        cursor: pointer;
+        transition: color 0.15s, background 0.15s;
+        letter-spacing: 0.01em;
+        position: relative;
+        bottom: -1px;
+    }
+    .atab:hover { color: var(--highlight); background: rgba(90,110,130,0.06); }
+    .atab.active {
+        color: var(--highlight);
+        background: var(--bg-paper);
+        border-color: var(--border-soft);
+        border-bottom-color: var(--bg-paper);
+    }
+    .atab .atab-dot {
+        display: inline-block;
+        width: 5px; height: 5px;
+        border-radius: 50%;
+        background: var(--highlight);
+        margin-right: 5px;
+        vertical-align: middle;
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+    .atab.active .atab-dot { opacity: 1; }
+
+    /* --- 分析 iframe エリア --- */
+    #analysis-frame-wrap {
+        display: none;
+        flex: 1;
+        min-height: 0;
+        background: var(--bg-paper);
+        flex-direction: column;
+    }
+    #analysis-frame-wrap.visible { display: flex; }
+    #analysis-iframe {
+        width: 100%;
+        flex: 1;
+        border: none;
+        display: block;
+        background: var(--bg-paper);
+    }
+
+    /* 語形分解エリア（iframe表示時は縮小） */
+    #panel-words-area {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+    #panel-words-area.shrunk {
+        max-height: 220px;
+        border-bottom: 1px solid var(--border-soft);
+        flex: 0 0 auto;
+    }
 
     /* 詳細表示エリア */
     #word-detail-view { 
         background: #ffffff; 
         border: 1px solid var(--border-soft); 
         border-radius: 12px; 
-        display: none; 
-        margin-top: 14px; 
-        max-height: 55%; 
+        display: none;
         overflow-y: auto; 
         flex-shrink: 0; 
         animation: slideUp 0.25s ease-out; 
@@ -500,15 +577,35 @@
     </div>
 
     <aside id="side-panel">
+        <!-- パネルヘッダー -->
         <div class="panel-header">
-            <span>語形分解</span>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <span id="active-v" style="font-size: 0.8rem; color: var(--text-sub);"></span>
-                <button onclick="toggleSidePanel()" style="background:none; border:none; cursor:pointer; color:var(--text-sub); font-size: 1.2rem;">&times;</button>
-            </div>
+            <span>語形分解　<span id="active-v" style="font-size: 0.78rem; color: var(--text-sub); font-weight: 400;"></span></span>
+            <button onclick="toggleSidePanel()" style="background:none; border:none; cursor:pointer; color:var(--text-sub); font-size: 1.2rem; line-height:1; padding:0;">&times;</button>
         </div>
-        <div id="panel-content"><p style="color: var(--text-sub); font-size: 0.82rem; letter-spacing: 0.01em;">節を選択して解析を表示</p></div>
-        <div id="word-detail-view"></div>
+
+        <!-- 語形リスト + 詳細（常に上部に） -->
+        <div id="panel-words-area">
+            <div id="panel-content" style="padding: 14px 22px 0;"><p style="color: var(--text-sub); font-size: 0.82rem; letter-spacing: 0.01em;">節を選択して解析を表示</p></div>
+            <div id="word-detail-view" style="margin: 8px 22px 14px;"></div>
+        </div>
+
+        <!-- 分析タブバー（語を選んだら表示） -->
+        <div class="analysis-tabs" id="analysis-tabs">
+            <button class="atab active" id="atab-morph"     onclick="switchAnalysisTab('morph')">
+                <span class="atab-dot"></span>形態論
+            </button>
+            <button class="atab"        id="atab-syntax"   onclick="switchAnalysisTab('syntax')">
+                <span class="atab-dot"></span>統語論
+            </button>
+            <button class="atab"        id="atab-semantics" onclick="switchAnalysisTab('semantics')">
+                <span class="atab-dot"></span>意味論
+            </button>
+        </div>
+
+        <!-- iframe エリア -->
+        <div id="analysis-frame-wrap">
+            <iframe id="analysis-iframe" title="分析パネル" allowfullscreen></iframe>
+        </div>
     </aside>
 </div>
 
@@ -676,29 +773,114 @@ function parseMorphForSearch(rawMorph) {
     return result;
 }
 
-/* 形態論検索ページへ遷移 */
+/* =====================================================
+   分析パネル管理
+   ===================================================== */
+let _currentAnalysisParams = null; // { ref, word, lemma, pos, role }
+
+/* 分析パネルを開く（語クリック時） */
+function openAnalysis(greek, rawMorph, ref, lemma) {
+    const m = parseMorphForSearch(rawMorph);
+    _currentAnalysisParams = {
+        ref,
+        word:  greek,
+        lemma: lemma || '',
+        pos:   m.pos  || '',
+    };
+    // タブバー表示
+    document.getElementById('analysis-tabs').classList.add('visible');
+    // 語形リストエリアを縮小
+    document.getElementById('panel-words-area').classList.add('shrunk');
+    // iframe エリア表示
+    document.getElementById('analysis-frame-wrap').classList.add('visible');
+    // 最初は形態論タブ
+    switchAnalysisTab('morph');
+}
+
+/* タブ切替 */
+function switchAnalysisTab(tab) {
+    if (!_currentAnalysisParams) return;
+    const p = _currentAnalysisParams;
+
+    // タブのアクティブ状態
+    ['morph','syntax','semantics'].forEach(t => {
+        document.getElementById(`atab-${t}`).classList.toggle('active', t === tab);
+    });
+
+    // URL 組み立て
+    const qs = new URLSearchParams();
+    qs.set('ref',   p.ref);
+    qs.set('word',  p.word);
+    if (p.lemma) qs.set('lemma', p.lemma);
+    if (p.pos)   qs.set('pos',   p.pos);
+
+    // 形態論タブ：形態論固有のパラメータも追加
+    if (tab === 'morph') {
+        const m = parseMorphForSearch(
+            // rawMorphはparams保持していないので、posから復元
+            _currentAnalysisParams._rawMorph || ''
+        );
+        if (m.tense)  qs.set('tense',  m.tense);
+        if (m.mood)   qs.set('mood',   m.mood);
+        if (m.voice)  qs.set('voice',  m.voice);
+        if (m.gender) qs.set('gender', m.gender);
+        if (m.number) qs.set('number', m.number);
+        if (m.case)   qs.set('case',   m.case);
+    }
+
+    const fileMap = { morph: 'morph-search.html', syntax: 'syntax-search.html', semantics: 'semantic-search.html' };
+    const iframe  = document.getElementById('analysis-iframe');
+    iframe.src    = `${fileMap[tab]}?${qs.toString()}`;
+}
+
+/* 分析パネルを閉じる */
+function closeAnalysis() {
+    document.getElementById('analysis-tabs').classList.remove('visible');
+    document.getElementById('panel-words-area').classList.remove('shrunk');
+    document.getElementById('analysis-frame-wrap').classList.remove('visible');
+    document.getElementById('analysis-iframe').src = '';
+    _currentAnalysisParams = null;
+}
+
+/* =====================================================
+   形態論検索ページへ遷移（後方互換・共有リンク用）
+   ===================================================== */
 function goMorphSearch(greek, rawMorph, ref, lemma) {
     const m = parseMorphForSearch(rawMorph);
     const p = new URLSearchParams();
-
-    // コア条件（動詞：pos + tense + mood + voice）
     if (m.pos)   p.set('pos',   m.pos);
     if (m.tense) p.set('tense', m.tense);
     if (m.mood)  p.set('mood',  m.mood);
     if (m.voice) p.set('voice', m.voice);
-
-    // 拡張条件（ON状態で渡す）
     if (m.gender) p.set('gender', m.gender);
     if (m.number) p.set('number', m.number);
     if (m.case)   p.set('case',   m.case);
-
-    // メタ（パンくず用）
     if (ref)   p.set('ref',   ref);
     if (greek) p.set('word',  greek);
     if (lemma) p.set('lemma', lemma);
-
     window.open(`morph-search.html?${p.toString()}`, '_blank');
 }
+
+/* =====================================================
+   iframe からの postMessage 受信
+   ===================================================== */
+window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || !d.type) return;
+
+    // ref・word を更新してタブ切替
+    if (d.ref)  _currentAnalysisParams = { ...(_currentAnalysisParams || {}), ref: d.ref, word: d.word, lemma: d.lemma || '' };
+
+    if (d.type === 'NAV_TO_MORPH')      switchAnalysisTab('morph');
+    if (d.type === 'NAV_TO_SYNTAX')     switchAnalysisTab('syntax');
+    if (d.type === 'NAV_TO_SEMANTICS')  switchAnalysisTab('semantics');
+
+    // 既存の GO_TO_REF（検索結果からジャンプ）
+    if (d.type === 'GO_TO_REF' && d.ref) {
+        const m = d.ref.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+        if (m) window.location.href = `?book=${m[1]}&ch=${m[2]}`;
+    }
+});
 
 /* 形態タグ HTML 生成 */
 function buildMorphTagsHTML(rawMorph) {
@@ -759,8 +941,8 @@ function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc, ref) 
     const canSearch = ['V','N','A','R','P','T','D'].includes(rawMorph.split('-')[0]);
     const searchBtnHTML = canSearch ? `
         <div style="display:flex; gap:6px; margin-top:12px;">
-            <button class="morph-search-btn" id="btn-morph-search">単語の形を調べる</button>
-            <button class="morph-search-btn" id="btn-proximity">近くの語を調べる</button>
+            <button class="morph-search-btn" id="btn-morph-search">形態で検索</button>
+            <button class="morph-search-btn" id="btn-proximity">近くの語を見る</button>
         </div>
     ` : '';
 
