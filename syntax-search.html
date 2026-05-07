@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>統語論 — コトバト</title>
+<link rel="icon" href="data:,">
+<link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════
+   Design tokens
+   ══════════════════════════════════════════ */
+:root {
+    --bg:           #ffffff;
+    --bg-panel:     #f5f5f7;
+    --bg-inset:     #fafafa;
+    --text:         #1d1d1f;
+    --text-sub:     #6e6e73;
+    --text-hint:    #aeaeb2;
+    --accent:       #5a6e82;
+    --accent-light: rgba(90,110,130,0.09);
+    --accent-mid:   rgba(90,110,130,0.20);
+    --border:       rgba(0,0,0,0.07);
+    --radius-s: 8px;
+    --radius-m: 12px;
+    --radius-l: 16px;
+
+    /* 役割カラー（HSL ベース・彩度を抑える） */
+    --c-verb:   #3d6b9a;
+    --c-subj:   #4a8a62;
+    --c-obj:    #8a5a38;
+    --c-prep:   #6a58a0;
+    --c-mod:    #8a7030;
+    --c-conj:   #888888;
+    --c-ptc:    #c47028;  /* 分詞 */
+    --c-inf:    #5a7a8a;  /* 不定詞 */
+
+    --c-verb-bg:   rgba(61,107,154,0.08);
+    --c-subj-bg:   rgba(74,138,98,0.08);
+    --c-obj-bg:    rgba(138,90,56,0.08);
+    --c-prep-bg:   rgba(106,88,160,0.08);
+    --c-mod-bg:    rgba(138,112,48,0.07);
+    --c-ptc-bg:    rgba(196,112,40,0.08);
+    --c-inf-bg:    rgba(90,122,138,0.08);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: 'Noto Sans JP', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ══════════════════════════════════════════
+   Layout
+   ══════════════════════════════════════════ */
+.page { max-width: 720px; margin: 0 auto; padding: 32px 24px 100px; }
+
+/* Nav */
+.nav { display: flex; align-items: center; gap: 10px; margin-bottom: 36px; }
+.btn-back {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 13px; font-size: 0.78rem; font-family: inherit;
+    border: 1px solid var(--border); border-radius: 20px;
+    background: transparent; cursor: pointer; color: var(--text-sub);
+    transition: background 0.12s;
+}
+.btn-back:hover { background: var(--bg-panel); }
+.breadcrumb {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.75rem; color: var(--text-hint);
+    flex: 1; overflow: hidden;
+}
+.breadcrumb .crumb { color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+.breadcrumb .sep { opacity: 0.35; flex-shrink: 0; }
+
+/* Section label */
+.sec-label {
+    font-size: 0.58rem; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text-hint);
+    margin-bottom: 12px;
+}
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 0 0 32px; }
+
+/* ══════════════════════════════════════════
+   ① 文全体表示
+   ══════════════════════════════════════════ */
+.sentence-block {
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+}
+.sentence-ref {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+}
+.sentence-ref-badge {
+    background: var(--accent-light); border: 1px solid var(--accent-mid);
+    border-radius: 6px; padding: 2px 8px;
+    font-size: 0.6rem; color: var(--accent);
+}
+
+/* トークン列 */
+.token-line {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.45rem; line-height: 2.2;
+    display: flex; flex-wrap: wrap; gap: 4px 10px;
+    margin-bottom: 10px;
+}
+.token {
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 0 4px;
+    transition: background 0.1s, color 0.1s;
+    position: relative;
+    user-select: none;
+}
+.token:hover { background: var(--bg-panel); }
+
+/* 役割インジケーター（下線ドット） */
+.token::after {
+    content: '';
+    position: absolute;
+    bottom: 2px; left: 50%;
+    transform: translateX(-50%);
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.token.has-role::after { opacity: 1; }
+
+/* 役割別スタイル */
+.token[data-role="verb"]  { color: var(--c-verb); }
+.token[data-role="verb"]::after  { background: var(--c-verb); }
+.token[data-role="subj"]  { color: var(--c-subj); }
+.token[data-role="subj"]::after  { background: var(--c-subj); }
+.token[data-role="obj"]   { color: var(--c-obj); }
+.token[data-role="obj"]::after   { background: var(--c-obj); }
+.token[data-role="prep"]  { color: var(--c-prep); }
+.token[data-role="prep"]::after  { background: var(--c-prep); }
+.token[data-role="mod"]   { color: var(--c-mod); }
+.token[data-role="mod"]::after   { background: var(--c-mod); }
+.token[data-role="ptc"]   { color: var(--c-ptc); }
+.token[data-role="ptc"]::after   { background: var(--c-ptc); }
+.token[data-role="inf"]   { color: var(--c-inf); }
+.token[data-role="inf"]::after   { background: var(--c-inf); }
+
+/* 選択状態 */
+.token.selected {
+    background: var(--accent-light) !important;
+    outline: 1.5px solid var(--accent-mid);
+    outline-offset: 1px;
+}
+.token[data-role="verb"].selected  { background: var(--c-verb-bg) !important; outline-color: var(--c-verb); }
+.token[data-role="subj"].selected  { background: var(--c-subj-bg) !important; outline-color: var(--c-subj); }
+.token[data-role="obj"].selected   { background: var(--c-obj-bg)  !important; outline-color: var(--c-obj); }
+.token[data-role="prep"].selected  { background: var(--c-prep-bg) !important; outline-color: var(--c-prep); }
+.token[data-role="mod"].selected   { background: var(--c-mod-bg)  !important; outline-color: var(--c-mod); }
+.token[data-role="ptc"].selected   { background: var(--c-ptc-bg)  !important; outline-color: var(--c-ptc); }
+.token[data-role="inf"].selected   { background: var(--c-inf-bg)  !important; outline-color: var(--c-inf); }
+
+/* 関連語ハイライト */
+.token.related {
+    background: rgba(90,110,130,0.05) !important;
+    outline: 1px dashed var(--accent-mid);
+    outline-offset: 1px;
+}
+
+/* 日本語訳（薄く） */
+.sentence-ja {
+    font-size: 0.8rem; color: var(--text-hint);
+    line-height: 1.7; padding: 8px 12px;
+    background: var(--bg-panel);
+    border-radius: var(--radius-s);
+    border-left: 2px solid var(--border);
+}
+
+/* 凡例 */
+.legend {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 14px;
+}
+.legend-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.65rem; color: var(--text-sub);
+}
+.legend-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════
+   ② 構文ツリー
+   ══════════════════════════════════════════ */
+.tree-block {
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+}
+
+/* ツリーコンテナ */
+.syn-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* 動詞ルートノード */
+.tree-root {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* ノード */
+.tree-node {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    cursor: pointer;
+    border-radius: var(--radius-s);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    transition: border-color 0.12s, box-shadow 0.12s;
+}
+.tree-node:hover { border-color: rgba(0,0,0,0.14); }
+.tree-node.active {
+    box-shadow: 0 0 0 2px var(--accent-mid);
+    border-color: transparent;
+}
+
+/* ロールバー（左端の色帯） */
+.node-bar {
+    width: 4px;
+    flex-shrink: 0;
+    border-radius: 0;
+}
+
+/* ノード内容 */
+.node-inner {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    background: var(--bg);
+    transition: background 0.1s;
+}
+.tree-node:hover .node-inner { background: var(--bg-panel); }
+.tree-node.active .node-inner { background: var(--bg-inset); }
+
+.node-role-tag {
+    font-size: 0.58rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    flex-shrink: 0; width: 52px;
+    opacity: 0.85;
+}
+.node-words {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.05rem;
+    flex: 1;
+    line-height: 1.5;
+}
+.node-words .hit { font-weight: 700; }
+.node-gloss {
+    font-size: 0.68rem; color: var(--text-hint);
+    font-family: 'Noto Sans JP', sans-serif;
+}
+.node-arrow {
+    font-size: 0.7rem; color: var(--text-hint);
+    opacity: 0.4; flex-shrink: 0; transition: transform 0.15s;
+}
+.tree-node.open .node-arrow { transform: rotate(90deg); }
+
+/* 子ノードグループ */
+.tree-children {
+    display: none;
+    margin-left: 20px;
+    padding-left: 14px;
+    border-left: 1.5px solid var(--border);
+    margin-top: 4px;
+    flex-direction: column;
+    gap: 4px;
+}
+.tree-children.open { display: flex; }
+
+/* 前置詞句の入れ子 */
+.prep-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.prep-children {
+    margin-left: 16px;
+    padding-left: 10px;
+    border-left: 1.5px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 3px;
+}
+
+/* 動詞ルートの特別スタイル */
+.tree-node.verb-root {
+    border-color: rgba(61,107,154,0.2);
+}
+.tree-node.verb-root .node-inner {
+    background: rgba(61,107,154,0.04);
+}
+
+/* ══════════════════════════════════════════
+   ③ 関係説明パネル（選択語の詳細）
+   ══════════════════════════════════════════ */
+.detail-panel {
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+}
+.detail-empty {
+    padding: 24px 20px;
+    background: var(--bg-panel);
+    border-radius: var(--radius-m);
+    color: var(--text-hint);
+    font-size: 0.82rem;
+    text-align: center;
+    letter-spacing: 0.01em;
+}
+
+/* 選択語カード */
+.detail-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    overflow: hidden;
+    animation: fadeUp 0.2s ease;
+}
+.detail-card-head {
+    padding: 14px 18px 10px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+.detail-word {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.8rem;
+    line-height: 1.2;
+}
+.detail-role-pill {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 3px 10px;
+    border-radius: 20px; flex-shrink: 0;
+}
+.detail-card-body {
+    padding: 0 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-top: 1px solid var(--border);
+}
+.detail-section { padding-top: 12px; }
+.detail-section-label {
+    font-size: 0.58rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-hint);
+    margin-bottom: 6px;
+}
+.detail-desc {
+    font-size: 0.88rem; color: var(--text);
+    line-height: 1.8;
+}
+.detail-note {
+    font-size: 0.77rem; color: var(--text-sub);
+    line-height: 1.7;
+    padding: 8px 12px;
+    background: var(--bg-panel);
+    border-radius: var(--radius-s);
+    margin-top: 6px;
+}
+
+/* 関係タグ列 */
+.rel-tags {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-top: 6px;
+}
+.rel-tag {
+    font-size: 0.7rem; padding: 3px 10px;
+    border-radius: 20px; border: 1px solid var(--border);
+    color: var(--text-sub); background: var(--bg-panel);
+}
+.rel-tag.highlight {
+    background: var(--accent-light); border-color: var(--accent-mid);
+    color: var(--accent); font-weight: 600;
+}
+
+/* 分詞用法バッジ */
+.usage-block {
+    padding: 10px 14px;
+    border-radius: var(--radius-s);
+    font-size: 0.82rem;
+    line-height: 1.7;
+}
+.usage-block .usage-type {
+    font-weight: 700; margin-bottom: 3px;
+}
+.usage-block.substantival  { background: rgba(61,107,154,0.07); color: var(--c-verb); }
+.usage-block.attributive   { background: rgba(74,138,98,0.07);  color: var(--c-subj); }
+.usage-block.adverbial     { background: rgba(196,112,40,0.07); color: var(--c-ptc); }
+.usage-block.genabs        { background: rgba(106,88,160,0.07); color: var(--c-prep); }
+.usage-block.complementary { background: rgba(138,90,56,0.07);  color: var(--c-obj); }
+.usage-block.inf-subj      { background: rgba(90,122,138,0.08); color: var(--c-inf); }
+.usage-block.inf-obj       { background: rgba(90,122,138,0.08); color: var(--c-inf); }
+
+/* ══════════════════════════════════════════
+   ④ 判断ナビ
+   ══════════════════════════════════════════ */
+.judge-block {
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+}
+.judge-card {
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: 14px 18px;
+    font-size: 0.85rem;
+    color: var(--text);
+    line-height: 1.8;
+}
+.judge-card p + p { margin-top: 8px; }
+.judge-tip {
+    font-size: 0.72rem; color: var(--text-sub);
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--border);
+    line-height: 1.7;
+}
+
+/* ══════════════════════════════════════════
+   ⑤ ナビゲーション
+   ══════════════════════════════════════════ */
+.nav-tools {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    margin-bottom: 32px;
+}
+.nav-tool-btn {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--bg-inset); border: 1px solid var(--border);
+    border-radius: var(--radius-m); cursor: pointer;
+    text-decoration: none; color: var(--text);
+    transition: background 0.12s, border-color 0.12s, transform 0.1s;
+}
+.nav-tool-btn:hover {
+    background: var(--accent-light); border-color: var(--accent-mid);
+    transform: translateY(-1px);
+}
+.nav-tool-icon { font-size: 1.2rem; line-height: 1; margin-bottom: 4px; }
+.nav-tool-main { font-size: 0.82rem; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.nav-tool-sub  { font-size: 0.68rem; color: var(--text-sub); }
+.nav-tool-arrow { font-size: 0.85rem; color: var(--text-hint); flex-shrink: 0; margin-left: 8px; align-self: center; }
+
+/* ══════════════════════════════════════════
+   Loading / Error
+   ══════════════════════════════════════════ */
+.loading {
+    text-align: center; padding: 64px 16px; color: var(--text-hint);
+}
+.loading-greek {
+    font-family: 'Gentium Plus', serif;
+    font-size: 2rem; color: #d8d8dc; margin-bottom: 16px;
+}
+.loading-bar-wrap { width: 200px; margin: 0 auto 10px; height: 2px; background: var(--bg-panel); border-radius: 2px; overflow: hidden; }
+.loading-bar { height: 100%; background: var(--accent); transition: width 0.3s; border-radius: 2px; }
+.loading-text { font-size: 0.72rem; }
+@keyframes pulse { 0%,80%,100%{opacity:0.3} 40%{opacity:1} }
+.dot { display: inline-block; animation: pulse 1.4s ease-in-out infinite; }
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.fade-up { animation: fadeUp 0.25s ease forwards; }
+
+/* Footer */
+.app-footer {
+    margin-top: 48px; padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.68rem; color: var(--text-hint);
+}
+.footer-links { display: flex; gap: 16px; }
+.footer-links a { color: var(--text-hint); text-decoration: none; border-bottom: 1px solid var(--border); padding-bottom: 1px; }
+.footer-links a:hover { color: var(--text-sub); }
+
+/* Responsive */
+@media (max-width: 520px) {
+    .page { padding: 24px 16px 80px; }
+    .token-line { font-size: 1.2rem; gap: 3px 7px; }
+    .nav-tools { grid-template-columns: 1fr; }
+    .tree-children { margin-left: 10px; padding-left: 8px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+    <!-- Nav -->
+    <div class="nav">
+        <button class="btn-back" onclick="window.close(); if(!window.opener) history.back();">← 戻る</button>
+        <div class="breadcrumb">
+            <span class="crumb" id="bc-ref">—</span>
+            <span class="sep">›</span>
+            <span class="crumb" id="bc-word" style="font-family:'Gentium Plus',serif;font-size:0.95rem;">—</span>
+            <span class="sep">›</span>
+            <span>統語論</span>
+        </div>
+    </div>
+
+    <!-- LOADING STATE -->
+    <div id="main-loading" class="loading">
+        <div class="loading-greek">ἀναλύει</div>
+        <div class="loading-bar-wrap"><div id="load-bar" class="loading-bar" style="width:0%"></div></div>
+        <div class="loading-text" id="load-text">
+            <span class="dot">·</span><span class="dot">·</span><span class="dot">·</span>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT (hidden until data loads) -->
+    <div id="main-content" style="display:none">
+
+        <!-- ① 文全体表示 -->
+        <div class="sentence-block fade-up">
+            <div class="sec-label">文の全体</div>
+            <div class="sentence-ref">
+                <span class="sentence-ref-badge" id="sent-ref-badge">—</span>
+                <span id="sent-ref-label" style="font-size:0.65rem;color:var(--text-hint);font-weight:400;">統語論</span>
+            </div>
+            <div class="token-line" id="token-line"></div>
+            <div class="sentence-ja" id="sentence-ja" style="display:none"></div>
+            <div class="legend" id="legend"></div>
+        </div>
+
+        <!-- ② 構文ツリー -->
+        <div class="tree-block fade-up" style="animation-delay:0.06s">
+            <div class="sec-label">構文の構造</div>
+            <div class="syn-tree" id="syn-tree"></div>
+        </div>
+
+        <!-- ③ 関係説明 -->
+        <div class="detail-panel fade-up" style="animation-delay:0.12s">
+            <div class="sec-label">選択した語の役割</div>
+            <div id="detail-body">
+                <div class="detail-empty">上の文中の語をタップすると、その語が文の中でどのように機能しているかが表示されます。</div>
+            </div>
+        </div>
+
+        <!-- ④ 判断ナビ -->
+        <div class="judge-block fade-up" style="animation-delay:0.18s">
+            <div class="sec-label">構造の読み方</div>
+            <div class="judge-card" id="judge-card">
+                <p>語をタップして構造を確認してください。</p>
+            </div>
+        </div>
+
+        <!-- ⑤ ナビゲーション -->
+        <div class="fade-up" style="animation-delay:0.22s">
+            <div class="sec-label" style="margin-bottom:12px;">次のステップ</div>
+            <div class="nav-tools">
+                <a class="nav-tool-btn" href="#" onclick="navTo('morph',event)">
+                    <div>
+                        <div class="nav-tool-icon">◻</div>
+                        <div class="nav-tool-main">形を確認する</div>
+                        <div class="nav-tool-sub">形態論ツールへ</div>
+                    </div>
+                    <span class="nav-tool-arrow">→</span>
+                </a>
+                <a class="nav-tool-btn" href="#" onclick="navTo('semantics',event)">
+                    <div>
+                        <div class="nav-tool-icon">◎</div>
+                        <div class="nav-tool-main">意味を確認する</div>
+                        <div class="nav-tool-sub">意味論ツールへ</div>
+                    </div>
+                    <span class="nav-tool-arrow">→</span>
+                </a>
+            </div>
+        </div>
+
+    </div><!-- /main-content -->
+
+    <footer class="app-footer">
+        <span>© 2026 ウオノ All rights reserved.</span>
+        <div class="footer-links"><a href="index.html">ホーム</a></div>
+    </footer>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   定数・ラベルマップ
+   ══════════════════════════════════════════ */
+const TENSE_JP  = { present:'現在',imperfect:'未完了',future:'未来',aorist:'アオリスト',perfect:'完了',pluperfect:'過去完了' };
+const VOICE_JP  = { active:'能動',middle:'中動',passive:'受動','middle deponent':'中動自動','middle or passive':'中動/受動' };
+const MOOD_JP   = { indicative:'直説法',subjunctive:'接続法',optative:'希求法',imperative:'命令法',infinitive:'不定詞',participle:'分詞' };
+const GENDER_JP = { masculine:'男性',feminine:'女性',neuter:'中性' };
+const NUMBER_JP = { singular:'単数',plural:'複数' };
+const CASE_JP   = { nominative:'主格',genitive:'属格',dative:'与格',accusative:'対格',vocative:'呼格' };
+const POS_JP    = { V:'動詞',N:'名詞',A:'形容詞',R:'関係代名詞',P:'人称代名詞',T:'冠詞',D:'指示代名詞',C:'接続詞',X:'不変化詞' };
+
+/* 役割定義 */
+const ROLE_META = {
+    verb:  { label:'動詞',    color:'var(--c-verb)',  bg:'var(--c-verb-bg)',  barColor:'#3d6b9a' },
+    subj:  { label:'主語',    color:'var(--c-subj)',  bg:'var(--c-subj-bg)',  barColor:'#4a8a62' },
+    obj:   { label:'目的語',  color:'var(--c-obj)',   bg:'var(--c-obj-bg)',   barColor:'#8a5a38' },
+    prep:  { label:'前置詞句', color:'var(--c-prep)', bg:'var(--c-prep-bg)', barColor:'#6a58a0' },
+    mod:   { label:'修飾語',  color:'var(--c-mod)',   bg:'var(--c-mod-bg)',   barColor:'#8a7030' },
+    ptc:   { label:'分詞句',  color:'var(--c-ptc)',   bg:'var(--c-ptc-bg)',   barColor:'#c47028' },
+    inf:   { label:'不定詞',  color:'var(--c-inf)',   bg:'var(--c-inf-bg)',   barColor:'#5a7a8a' },
+    conj:  { label:'接続詞',  color:'var(--c-conj)',  bg:'rgba(136,136,136,0.07)', barColor:'#888' },
+    other: { label:'その他',  color:'var(--text-hint)', bg:'var(--bg-panel)', barColor:'#bbb' },
+};
+
+/* ══════════════════════════════════════════
+   URLパラメータ
+   ══════════════════════════════════════════ */
+function getParams() {
+    const p = new URLSearchParams(location.search);
+    return {
+        ref:   p.get('ref')   || '',
+        word:  p.get('word')  || '',
+        lemma: p.get('lemma') || '',
+        pos:   p.get('pos')   || '',
+    };
+}
+const params = getParams();
+
+/* ══════════════════════════════════════════
+   データ共通ユーティリティ
+   ══════════════════════════════════════════ */
+const BOOK_MAP = {
+    '01':'MAT','02':'MRK','03':'LUK','04':'JHN','05':'ACT',
+    '06':'ROM','07':'1CO','08':'2CO','09':'GAL','10':'EPH',
+    '11':'PHP','12':'COL','13':'1TH','14':'2TH','15':'1TI',
+    '16':'2TI','17':'TIT','18':'PHM','19':'HEB','20':'JAS',
+    '21':'1PE','22':'2PE','23':'1JN','24':'2JN','25':'3JN',
+    '26':'JUD','27':'REV'
+};
+const BOOK_JP = {
+    MAT:'マタイ',MRK:'マルコ',LUK:'ルカ',JHN:'ヨハネ',ACT:'使徒',
+    ROM:'ローマ','1CO':'Ⅰコリント','2CO':'Ⅱコリント',
+    GAL:'ガラテヤ',EPH:'エペソ',PHP:'ピリピ',COL:'コロサイ',
+    '1TH':'Ⅰテサロニケ','2TH':'Ⅱテサロニケ',
+    '1TI':'Ⅰテモテ','2TI':'Ⅱテモテ',TIT:'テトス',PHM:'ピレモン',
+    HEB:'ヘブル',JAS:'ヤコブ','1PE':'Ⅰペテロ','2PE':'Ⅱペテロ',
+    '1JN':'Ⅰヨハネ','2JN':'Ⅱヨハネ','3JN':'Ⅲヨハネ',JUD:'ユダ',REV:'黙示録',
+};
+
+const CLASS_TO_POS = {
+    'verb':'V','noun':'N','adjective':'A','article':'T',
+    'preposition':'P','conjunction':'C','adverb':'D',
+    'particle':'X','pronoun':'P','relative pronoun':'R',
+    'personal pronoun':'P','demonstrative pronoun':'D',
+};
+const TENSE_CODE  = { P:'present',I:'imperfect',F:'future',A:'aorist',X:'perfect',Z:'pluperfect' };
+const VOICE_CODE  = { A:'active',M:'middle',P:'passive',D:'middle deponent',E:'middle or passive',N:'middle or passive' };
+const MOOD_CODE   = { I:'indicative',S:'subjunctive',O:'optative',M:'imperative',N:'infinitive',P:'participle' };
+const CASE_CODE   = { N:'nominative',G:'genitive',D:'dative',A:'accusative',V:'vocative' };
+const NUMBER_CODE = { S:'singular',P:'plural' };
+const GENDER_CODE = { M:'masculine',F:'feminine',N:'neuter' };
+
+function entryPosCode(e) {
+    if (e.pos) return String(e.pos).replace(/-$/,'').toUpperCase();
+    if (e.class) return CLASS_TO_POS[String(e.class).toLowerCase()] || '';
+    return '';
+}
+function decodeMorph(e) {
+    const n = v => (!v||v==='-')?'':v;
+    if (e.tense||e.mood||e.voice) return {
+        pos:entryPosCode(e), tense:n(e.tense), voice:n(e.voice), mood:n(e.mood),
+        case:n(e.case), number:n(e.number), gender:n(e.gender), person:n(e.person),
+    };
+    if (e.morph&&typeof e.morph==='object') { const m=e.morph; return {
+        pos:n(e.pos||'').replace(/-$/,''), tense:n(m.tense), voice:n(m.voice), mood:n(m.mood),
+        case:n(m.case), number:n(m.number), gender:n(m.gender), person:n(m.person),
+    };}
+    const raw = typeof e.morph==='string'?e.morph:'';
+    const parts=raw.split('-');
+    const pos=n(e.pos||parts[0]||'').replace(/-$/,'');
+    if (pos.toUpperCase()==='V'&&parts[1]) {
+        const seg=parts[1],off=/^[0-9]/.test(seg)?1:0;
+        return {pos,tense:TENSE_CODE[seg[off]]||'',voice:VOICE_CODE[seg[off+1]]||'',
+                mood:MOOD_CODE[seg[off+2]]||'',person:seg[off+3]||'',
+                number:NUMBER_CODE[seg[off+4]]||'',gender:'',case:''};
+    }
+    if (parts[1]){const seg=parts[1],hp=['1','2','3'].includes(seg[0]),b=hp?seg.slice(1):seg;
+        return {pos,tense:'',voice:'',mood:'',person:hp?seg[0]:'',
+                case:CASE_CODE[b[0]]||'',number:NUMBER_CODE[b[1]]||'',gender:GENDER_CODE[b[2]]||''};}
+    return {pos,tense:'',voice:'',mood:'',case:'',number:'',gender:'',person:''};
+}
+
+function cleanText(e) {
+    return (e.word||e.normalized||e.text||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim();
+}
+function normalizeGreek(s) {
+    return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g,'').replace(/ς/g,'σ').toLowerCase().trim();
+}
+
+function buildRefLabel(ref) {
+    const r=String(ref||'');
+    const m=r.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+    if (m) return `${BOOK_JP[m[1]]||m[1]} ${m[2]}:${m[3]}`;
+    if (r.length===6&&/^\d+$/.test(r)) {
+        const bk=BOOK_MAP[r.slice(0,2)];
+        return `${(bk&&BOOK_JP[bk])||bk||r.slice(0,2)} ${parseInt(r.slice(2,4))}:${parseInt(r.slice(4,6))}`;
+    }
+    return r;
+}
+
+/* ══════════════════════════════════════════
+   統語的役割判定エンジン
+   ══════════════════════════════════════════ */
+
+/**
+ * 主動詞を特定（分詞・不定詞以外の動詞）
+ */
+function findMainVerb(tokens) {
+    return tokens.find(t => {
+        const m = decodeMorph(t);
+        const pos = entryPosCode(t);
+        return pos === 'V' && m.mood && m.mood !== 'participle' && m.mood !== 'infinitive';
+    }) || null;
+}
+
+/**
+ * 各トークンに統語的役割を割り当てる
+ * returns: Map<token, { role, synLabel, usage, relatedIdx[] }>
+ */
+function assignSyntacticRoles(tokens) {
+    const roles = new Map();
+    const mainVerb = findMainVerb(tokens);
+
+    tokens.forEach((t, idx) => {
+        const m   = decodeMorph(t);
+        const pos = entryPosCode(t);
+        let role = 'other';
+
+        if (pos === 'V') {
+            if (m.mood === 'participle') role = 'ptc';
+            else if (m.mood === 'infinitive') role = 'inf';
+            else role = 'verb';
+        } else if (pos === 'C') {
+            role = 'conj';
+        } else if (pos === 'P') {
+            role = 'prep';
+        } else if (['N','T','A','R','D'].includes(pos) || pos === '') {
+            if (m.case === 'nominative') {
+                role = 'subj';
+            } else if (m.case === 'accusative') {
+                // 前置詞の直後ならprepグループ、そうでなければobj
+                const prev = idx > 0 ? tokens[idx-1] : null;
+                role = (prev && entryPosCode(prev) === 'P') ? 'other' : 'obj';
+            } else if (m.case === 'genitive' || m.case === 'dative') {
+                const prev = idx > 0 ? tokens[idx-1] : null;
+                role = (prev && entryPosCode(prev) === 'P') ? 'other' : 'mod';
+            } else {
+                role = 'mod';
+            }
+        } else if (pos === 'D') {
+            role = 'mod';
+        }
+
+        roles.set(t, { role, idx });
+    });
+
+    return roles;
+}
+
+/**
+ * 分詞の統語的用法を判定
+ */
+function classifyParticiple(ptcEntry, tokens, ptcIdx) {
+    const hm  = decodeMorph(ptcEntry);
+    const ptcCase = hm.case, ptcGender = hm.gender, ptcNumber = hm.number;
+
+    const prevToken = ptcIdx > 0 ? tokens[ptcIdx - 1] : null;
+    const prevPos   = prevToken ? entryPosCode(prevToken) : '';
+
+    // 実体用法：直前に冠詞
+    if (prevPos === 'T') {
+        const pm = decodeMorph(prevToken);
+        if (pm.case === ptcCase && pm.gender === ptcGender && pm.number === ptcNumber) {
+            return {
+                type: 'substantival',
+                label: '実体用法（名詞的）',
+                desc: 'この分詞は冠詞を伴い、名詞として機能しています。「〜する者」「〜するもの」などに相当します。',
+                cls:  'substantival',
+            };
+        }
+    }
+
+    // 形容詞用法：同節内に格・性・数が一致する名詞
+    const matchingNoun = tokens.find((t, i) => {
+        if (i === ptcIdx) return false;
+        const pos = entryPosCode(t);
+        if (!['N','T','A','D','R'].includes(pos)) return false;
+        const tm = decodeMorph(t);
+        return tm.case === ptcCase && tm.gender === ptcGender && tm.number === ptcNumber;
+    });
+    if (matchingNoun) {
+        const nw = cleanText(matchingNoun);
+        return {
+            type: 'attributive',
+            label: '形容詞用法',
+            desc: `この分詞は「${nw}」を修飾する形容詞として機能しています。格・性・数が一致しています。`,
+            cls:  'attributive',
+            relWord: nw,
+        };
+    }
+
+    // 属格絶対：主格でなく属格、かつ同節に属格名詞
+    if (ptcCase === 'genitive') {
+        const genNoun = tokens.find((t, i) => {
+            if (i === ptcIdx) return false;
+            const pos = entryPosCode(t);
+            if (!['N','T','A','D','R'].includes(pos)) return false;
+            return decodeMorph(t).case === 'genitive';
+        });
+        if (genNoun) {
+            return {
+                type: 'genabs',
+                label: '属格絶対分詞',
+                desc: `主節から独立した副詞節を形成しています。「${cleanText(genNoun)}」とともに属格節を構成し、時間・理由・条件などの状況を表します。`,
+                cls:  'genabs',
+            };
+        }
+    }
+
+    // 補語用法：知覚・認識動詞の存在
+    const COMP_VERBS = ['βλέπω','ἀκούω','οἶδα','γινώσκω','ὁράω','θεάομαι','εὑρίσκω'];
+    const compVerb = tokens.find(t => {
+        if (entryPosCode(t) !== 'V') return false;
+        const tm = decodeMorph(t);
+        if (tm.mood === 'participle' || tm.mood === 'infinitive') return false;
+        const lemma = (t.lemma || '').replace(/[ʼ']/g, '');
+        return COMP_VERBS.some(v => v === lemma || lemma.startsWith(v.slice(0,4)));
+    });
+    if (compVerb) {
+        return {
+            type: 'complementary',
+            label: '補語用法',
+            desc: `知覚・認識動詞「${cleanText(compVerb)}」の補語として機能しています。主動詞が表す知覚・認識の対象を補足します。`,
+            cls:  'complementary',
+        };
+    }
+
+    // 副詞用法（デフォルト）
+    const tenseHint = hm.tense === 'aorist' ? '主動詞より先に起きた動作を表します（先行）。'
+                    : hm.tense === 'present' ? '主動詞と同時進行の動作を表します（同時）。'
+                    : hm.tense === 'perfect' ? '先行する動作の結果状態を表します（結果）。'
+                    : '';
+    return {
+        type: 'adverbial',
+        label: '副詞用法',
+        desc: `主動詞を状況的に補足する副詞的分詞です。${tenseHint}時間・理由・条件・付帯状況などのいずれかを表します。`,
+        cls:  'adverbial',
+    };
+}
+
+/**
+ * 不定詞の統語的役割を判定
+ */
+function classifyInfinitive(infEntry, tokens, infIdx) {
+    // 直前動詞がある → 目的語or補語
+    const prevVerb = tokens.slice(0, infIdx).reverse().find(t => {
+        const m = decodeMorph(t), pos = entryPosCode(t);
+        return pos === 'V' && m.mood !== 'infinitive' && m.mood !== 'participle';
+    });
+    const nextVerb = tokens.slice(infIdx + 1).find(t => {
+        const m = decodeMorph(t), pos = entryPosCode(t);
+        return pos === 'V' && m.mood !== 'infinitive' && m.mood !== 'participle';
+    });
+
+    if (prevVerb) {
+        return {
+            label: '目的語（補語）用法',
+            desc: `動詞「${cleanText(prevVerb)}」の補語として機能しています。「〜すること」という動作の名詞化形として目的語の役割を担います。`,
+            cls: 'inf-obj',
+        };
+    }
+    return {
+        label: '主語用法',
+        desc: '文の主語として機能している不定詞です。「〜すること（が）」という意味で、文の主題を示します。',
+        cls: 'inf-subj',
+    };
+}
+
+/* ══════════════════════════════════════════
+   グループ化（前置詞＋補語を1グループに）
+   ══════════════════════════════════════════ */
+function groupTokens(tokens, roleMap) {
+    const groups = [];
+    let i = 0;
+    while (i < tokens.length) {
+        const t   = tokens[i];
+        const pos = entryPosCode(t);
+        if (pos === 'P') {
+            // 前置詞 + 直後の名詞句をまとめる
+            const members = [t];
+            let j = i + 1;
+            while (j < tokens.length) {
+                const np = entryPosCode(tokens[j]);
+                if (['N','T','A','D','R'].includes(np) || np === '') {
+                    members.push(tokens[j]); j++;
+                } else break;
+            }
+            groups.push({ role: 'prep', members, baseIdx: i });
+            i = j;
+        } else {
+            const r = roleMap.get(t);
+            groups.push({ role: r ? r.role : 'other', members: [t], baseIdx: i });
+            i++;
+        }
+    }
+    return groups;
+}
+
+/* ══════════════════════════════════════════
+   日本語訳ユーティリティ
+   ══════════════════════════════════════════ */
+const _jaMap = new Map();
+const _japaneseMap = new Map();
+
+const _refToJaKey = (() => {
+    const K2C = {};
+    Object.entries(BOOK_MAP).forEach(([c,k])=>{ K2C[k]=c; });
+    return function(ref) {
+        const m = String(ref||'').match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+        if (!m) return null;
+        const code = K2C[m[1]]; if (!code) return null;
+        return `${code}${String(m[2]).padStart(2,'0')}${String(m[3]).padStart(2,'0')}`;
+    };
+})();
+
+function getJaVerse(entry) {
+    const key = _refToJaKey(entry.ref);
+    if (key && _jaMap.has(key)) return _jaMap.get(key);
+    return entry.gloss || entry.english || '';
+}
+function getJaWord(entry) {
+    const norm = entry.normalized || entry.word || entry.text || '';
+    return _japaneseMap.get(norm) || '';
+}
+
+/* ══════════════════════════════════════════
+   レンダリング
+   ══════════════════════════════════════════ */
+let _tokens = [];
+let _roleMap = new Map();
+let _selectedIdx = -1;
+let _targetRef  = '';
+
+function renderAll(tokens, targetRef) {
+    _tokens   = tokens;
+    _targetRef = targetRef;
+    _roleMap  = assignSyntacticRoles(tokens);
+    _selectedIdx = -1;
+
+    // ターゲット語を自動選択
+    const targetNorm = normalizeGreek(params.word);
+    let autoIdx = tokens.findIndex(t => normalizeGreek(cleanText(t)) === targetNorm);
+    if (autoIdx < 0) autoIdx = 0;
+
+    renderSentence(tokens);
+    renderTree(tokens);
+    selectToken(autoIdx);
+}
+
+/* ① トークン列 */
+function renderSentence(tokens) {
+    const line = document.getElementById('token-line');
+    line.innerHTML = tokens.map((t, idx) => {
+        const word = cleanText(t);
+        if (!word) return '';
+        const m    = decodeMorph(t);
+        const pos  = entryPosCode(t);
+        const role = _roleMap.get(t)?.role || 'other';
+        const hasRole = role !== 'other';
+        return `<span class="token ${hasRole?'has-role':''}"
+            data-idx="${idx}"
+            data-role="${role}"
+            onclick="selectToken(${idx})">${word}</span>`;
+    }).join('');
+
+    renderLegend(tokens);
+}
+
+function renderLegend(tokens) {
+    const seen = new Set();
+    tokens.forEach(t => {
+        const role = _roleMap.get(t)?.role;
+        if (role && role !== 'other') seen.add(role);
+    });
+    const legend = document.getElementById('legend');
+    legend.innerHTML = [...seen].map(role => {
+        const meta = ROLE_META[role];
+        return `<div class="legend-item">
+            <div class="legend-dot" style="background:${meta.barColor}"></div>
+            <span>${meta.label}</span>
+        </div>`;
+    }).join('');
+}
+
+/* ② 構文ツリー */
+function renderTree(tokens) {
+    const container = document.getElementById('syn-tree');
+    const groups    = groupTokens(tokens, _roleMap);
+
+    // 主動詞グループを先頭に
+    const ORDER = ['verb','subj','obj','ptc','inf','prep','mod','conj','other'];
+    const sorted = [...groups].sort((a,b) => ORDER.indexOf(a.role) - ORDER.indexOf(b.role));
+
+    container.innerHTML = '';
+
+    sorted.forEach((g, gi) => {
+        if (!g.members.some(t => cleanText(t))) return;
+        const meta  = ROLE_META[g.role] || ROLE_META.other;
+        const words = g.members.map(cleanText).filter(Boolean).join(' ');
+        const glosses = g.members.map(t => getJaWord(t)).filter(Boolean);
+        const gloss = glosses.slice(0,2).join('・');
+
+        // ターゲット語を含むか
+        const containsTarget = g.members.some(t => {
+            return normalizeGreek(cleanText(t)) === normalizeGreek(params.word);
+        });
+        const firstIdx = g.baseIdx;
+
+        const isVerb = g.role === 'verb';
+        const node = document.createElement('div');
+        node.className = `tree-node${isVerb?' verb-root':''}`;
+        node.dataset.groupIdx = gi;
+        node.dataset.baseIdx  = firstIdx;
+
+        // 分詞・不定詞は子要素展開可能
+        const isExpandable = g.role === 'ptc' || g.role === 'inf' || g.role === 'prep';
+
+        node.innerHTML = `
+            <div class="node-bar" style="background:${meta.barColor}"></div>
+            <div class="node-inner">
+                <span class="node-role-tag" style="color:${meta.barColor}">${meta.label}</span>
+                <span class="node-words">${words}</span>
+                ${gloss ? `<span class="node-gloss">${gloss}</span>` : ''}
+                ${isExpandable ? '<span class="node-arrow">›</span>' : ''}
+            </div>`;
+
+        node.addEventListener('click', () => {
+            selectToken(firstIdx);
+            if (isExpandable) toggleNodeExpand(node, g);
+        });
+
+        container.appendChild(node);
+
+        // 展開ノード（分詞用法・前置詞句詳細）
+        if (isExpandable) {
+            const childWrap = document.createElement('div');
+            childWrap.className = 'tree-children';
+            childWrap.dataset.forGroup = gi;
+            childWrap.innerHTML = buildExpandContent(g, tokens);
+            container.appendChild(childWrap);
+        }
+    });
+}
+
+function buildExpandContent(g, tokens) {
+    if (g.role === 'prep') {
+        return g.members.map(t => {
+            const pos  = entryPosCode(t);
+            const m    = decodeMorph(t);
+            const word = cleanText(t);
+            if (!word) return '';
+            const roleLabel = pos === 'P' ? '前置詞' :
+                CASE_JP[m.case] ? `${CASE_JP[m.case]}（補語）` : '補語';
+            return `<div class="tree-node" data-idx="${tokens.indexOf(t)}"
+                onclick="selectToken(${tokens.indexOf(t)});event.stopPropagation()">
+                <div class="node-bar" style="background:${ROLE_META.prep.barColor};opacity:0.4;"></div>
+                <div class="node-inner">
+                    <span class="node-role-tag" style="color:${ROLE_META.prep.barColor};opacity:0.7">${roleLabel}</span>
+                    <span class="node-words">${word}</span>
+                    <span class="node-gloss">${getJaWord(t)}</span>
+                </div></div>`;
+        }).filter(Boolean).join('');
+    }
+
+    if (g.role === 'ptc') {
+        const ptcEntry = g.members[0];
+        const ptcIdx   = tokens.indexOf(ptcEntry);
+        const usage    = classifyParticiple(ptcEntry, tokens, ptcIdx);
+        return `<div class="tree-node" style="cursor:default">
+            <div class="node-bar" style="background:${ROLE_META.ptc.barColor};opacity:0.35;"></div>
+            <div class="node-inner">
+                <span class="node-role-tag" style="color:${ROLE_META.ptc.barColor};opacity:0.7">用法</span>
+                <span class="node-words" style="font-family:'Noto Sans JP',sans-serif;font-size:0.8rem;">
+                    ${usage.label}
+                </span>
+            </div></div>`;
+    }
+
+    if (g.role === 'inf') {
+        const infEntry = g.members[0];
+        const infIdx   = tokens.indexOf(infEntry);
+        const usage    = classifyInfinitive(infEntry, tokens, infIdx);
+        return `<div class="tree-node" style="cursor:default">
+            <div class="node-bar" style="background:${ROLE_META.inf.barColor};opacity:0.35;"></div>
+            <div class="node-inner">
+                <span class="node-role-tag" style="color:${ROLE_META.inf.barColor};opacity:0.7">用法</span>
+                <span class="node-words" style="font-family:'Noto Sans JP',sans-serif;font-size:0.8rem;">
+                    ${usage.label}
+                </span>
+            </div></div>`;
+    }
+    return '';
+}
+
+function toggleNodeExpand(node, g) {
+    const gi = node.dataset.groupIdx;
+    const childWrap = document.querySelector(`.tree-children[data-for-group="${gi}"]`);
+    if (!childWrap) return;
+    const isOpen = childWrap.classList.contains('open');
+    childWrap.classList.toggle('open', !isOpen);
+    node.classList.toggle('open', !isOpen);
+}
+
+/* ③ 選択処理 */
+function selectToken(idx) {
+    _selectedIdx = idx;
+    const tokens = _tokens;
+
+    // トークン列のスタイル更新
+    document.querySelectorAll('.token').forEach(el => {
+        el.classList.remove('selected', 'related');
+    });
+    const targetEl = document.querySelector(`.token[data-idx="${idx}"]`);
+    if (targetEl) targetEl.classList.add('selected');
+
+    // ツリーノードのアクティブ更新
+    document.querySelectorAll('.tree-node').forEach(el => {
+        el.classList.remove('active');
+        if (parseInt(el.dataset.baseIdx) === idx ||
+            parseInt(el.dataset.idx)     === idx) {
+            el.classList.add('active');
+        }
+    });
+
+    // 詳細パネル更新
+    if (idx >= 0 && idx < tokens.length) {
+        renderDetail(tokens[idx], tokens, idx);
+        renderJudge(tokens[idx], tokens, idx);
+
+        // 関連語ハイライト
+        highlightRelated(tokens[idx], tokens, idx);
+    }
+}
+
+/* 関連語をハイライト */
+function highlightRelated(entry, tokens, idx) {
+    const m = decodeMorph(entry);
+    const pos = entryPosCode(entry);
+
+    if (pos === 'V' && m.mood === 'participle') {
+        // 格一致する名詞を探す
+        tokens.forEach((t, i) => {
+            if (i === idx) return;
+            const tp = entryPosCode(t), tm = decodeMorph(t);
+            if (['N','T','A','D','R'].includes(tp)) {
+                if (tm.case === m.case && tm.gender === m.gender && tm.number === m.number) {
+                    const el = document.querySelector(`.token[data-idx="${i}"]`);
+                    if (el) el.classList.add('related');
+                }
+            }
+        });
+    } else if (['N','A','D','R'].includes(pos)) {
+        // 一致する冠詞・修飾語
+        tokens.forEach((t, i) => {
+            if (i === idx) return;
+            const tp = entryPosCode(t), tm = decodeMorph(t);
+            if (tp === 'T') {
+                if (tm.case === m.case && tm.gender === m.gender && tm.number === m.number) {
+                    const el = document.querySelector(`.token[data-idx="${i}"]`);
+                    if (el) el.classList.add('related');
+                }
+            }
+        });
+    }
+}
+
+/* ③ 詳細パネル */
+function renderDetail(entry, tokens, idx) {
+    const word = cleanText(entry);
+    const m    = decodeMorph(entry);
+    const pos  = entryPosCode(entry);
+    const role = _roleMap.get(entry)?.role || 'other';
+    const meta = ROLE_META[role] || ROLE_META.other;
+    const jaWord = getJaWord(entry);
+
+    // 役割の文章的説明
+    const roleDesc = buildRoleDesc(entry, tokens, idx, m, pos, role);
+
+    // 分詞・不定詞の用法
+    let usageHTML = '';
+    if (pos === 'V' && m.mood === 'participle') {
+        const usage = classifyParticiple(entry, tokens, idx);
+        usageHTML = `<div class="detail-section">
+            <div class="detail-section-label">統語的用法</div>
+            <div class="usage-block ${usage.cls}">
+                <div class="usage-type">${usage.label}</div>
+                <div>${usage.desc}</div>
+            </div>
+        </div>`;
+    } else if (pos === 'V' && m.mood === 'infinitive') {
+        const usage = classifyInfinitive(entry, tokens, idx);
+        usageHTML = `<div class="detail-section">
+            <div class="detail-section-label">統語的用法</div>
+            <div class="usage-block ${usage.cls}">
+                <div class="usage-type">${usage.label}</div>
+                <div>${usage.desc}</div>
+            </div>
+        </div>`;
+    }
+
+    // 文法タグ（格・数・性のみ — 形態情報は最小限）
+    const tagParts = [];
+    if (m.case)   tagParts.push(CASE_JP[m.case]   || m.case);
+    if (m.number) tagParts.push(NUMBER_JP[m.number]|| m.number);
+    if (m.gender) tagParts.push(GENDER_JP[m.gender]|| m.gender);
+    if (m.person) tagParts.push(`${m.person}人称`);
+    const tagsHTML = tagParts.length ? `
+        <div class="detail-section">
+            <div class="detail-section-label">格・数・性</div>
+            <div class="rel-tags">
+                ${tagParts.map(t=>`<span class="rel-tag">${t}</span>`).join('')}
+            </div>
+        </div>` : '';
+
+    document.getElementById('detail-body').innerHTML = `
+        <div class="detail-card">
+            <div class="detail-card-head">
+                <span class="detail-word">${word}</span>
+                <span class="detail-role-pill"
+                    style="background:${meta.bg};color:${meta.barColor};border:1px solid ${meta.barColor}33">
+                    ${meta.label}
+                </span>
+            </div>
+            <div class="detail-card-body">
+                <div class="detail-section">
+                    <div class="detail-section-label">文中での機能</div>
+                    <div class="detail-desc">${roleDesc}</div>
+                </div>
+                ${usageHTML}
+                ${tagsHTML}
+                ${jaWord ? `<div class="detail-section"><div class="detail-section-label">語彙的意味の手がかり</div><div class="detail-note">${jaWord}</div></div>` : ''}
+            </div>
+        </div>`;
+}
+
+function buildRoleDesc(entry, tokens, idx, m, pos, role) {
+    const word = cleanText(entry);
+    const mainVerb = findMainVerb(tokens);
+    const mvWord   = mainVerb ? cleanText(mainVerb) : null;
+
+    switch (role) {
+        case 'verb': {
+            const moodLabel = MOOD_JP[m.mood] || m.mood || '';
+            const numLabel  = NUMBER_JP[m.number] || '';
+            const persLabel = m.person ? `${m.person}人称` : '';
+            const sub = [persLabel, numLabel, moodLabel].filter(Boolean).join('・');
+            return `「${word}」はこの節の<strong>中心動詞</strong>です。${sub ? `${sub}の形をとっています。` : ''}文全体の述語の核となります。`;
+        }
+        case 'subj':
+            return `「${word}」は<strong>主語</strong>です。${mvWord ? `動詞「${mvWord}」の動作を行う主体` : '文の主体'}を示しています。主格（nominative）の形をとっています。`;
+        case 'obj':
+            return `「${word}」は<strong>直接目的語</strong>です。${mvWord ? `動詞「${mvWord}」の動作が向かう対象` : '動詞の対象'}を示しています。対格（accusative）の形をとっています。`;
+        case 'prep': {
+            return `「${word}」は<strong>前置詞</strong>です。直後の名詞と組み合わさって前置詞句を形成し、動詞や名詞に対して場所・方向・手段・時間などの関係を示します。`;
+        }
+        case 'mod': {
+            const caseLabel = CASE_JP[m.case] || m.case || '';
+            return `「${word}」は<strong>修飾語・補足語</strong>です。${caseLabel ? `${caseLabel}の形をとっています。` : ''}前後の語句に対して状況・所有・関係などを補足します。`;
+        }
+        case 'ptc': {
+            return `「${word}」は<strong>分詞</strong>です。動詞から派生した語形で、形容詞的・副詞的・名詞的のいずれかの用法で機能します。下の「統語的用法」で詳細を確認してください。`;
+        }
+        case 'inf': {
+            return `「${word}」は<strong>不定詞</strong>です。「〜すること」という動詞の名詞化形で、文中で主語・目的語・補語として機能します。下の「統語的用法」で詳細を確認してください。`;
+        }
+        case 'conj':
+            return `「${word}」は<strong>接続詞</strong>です。節と節、または句と句をつなぐ機能を持ちます。接続詞の種類が従属節の意味（目的・条件・時間など）を決定します。`;
+        default:
+            return `「${word}」の文中での統語的機能を分析中です。`;
+    }
+}
+
+/* ④ 判断ナビ */
+function renderJudge(entry, tokens, idx) {
+    const m    = decodeMorph(entry);
+    const pos  = entryPosCode(entry);
+    const role = _roleMap.get(entry)?.role || 'other';
+    const word = cleanText(entry);
+    const mainVerb = findMainVerb(tokens);
+    const mvWord   = mainVerb ? cleanText(mainVerb) : null;
+
+    let primary = '', tip = '';
+
+    switch (role) {
+        case 'verb':
+            primary = `「${word}」はこの節の中心動詞です。文中の他の要素はすべてこの動詞に対してかかっています。`;
+            tip     = '主語・目的語・分詞句など、動詞に集まる他の要素を確認してください。';
+            break;
+        case 'subj':
+            primary = `「${word}」は主語として${mvWord?`動詞「${mvWord}」の`:'動詞の'}主体を示しています。`;
+            tip     = '動詞の人称・数と一致しているか確認することで、正しく主語を特定できます。';
+            break;
+        case 'obj':
+            primary = `「${word}」は目的語として${mvWord?`動詞「${mvWord}」の`:'動詞の'}動作が及ぶ対象を示しています。`;
+            tip     = '対格（accusative）は直接目的語が最も多いですが、前置詞支配の対格もあります。前置詞の有無を確認してください。';
+            break;
+        case 'prep':
+            primary = `「${word}」は前置詞で、直後の名詞と前置詞句を形成しています。`;
+            tip     = '前置詞が支配する格（対格・属格・与格）によって意味の方向性が変わります。';
+            break;
+        case 'mod':
+            primary = `「${word}」は修飾・補足語として文の要素を補完しています。`;
+            tip     = '属格は所有・関係を、与格は間接目的や手段を示すことが多いです。';
+            break;
+        case 'ptc': {
+            const usage = classifyParticiple(entry, tokens, idx);
+            primary = `「${word}」は${usage.label}として機能する分詞です。`;
+            tip     = '分詞の用法は①冠詞の有無、②格一致する名詞の存在、③補語動詞の有無の順に確認します。';
+            break;
+        }
+        case 'inf': {
+            const usage = classifyInfinitive(entry, tokens, idx);
+            primary = `「${word}」は不定詞で、${usage.label}として機能しています。`;
+            tip     = '不定詞は文の主語・目的語・補語として機能します。周囲の動詞との関係で役割が決まります。';
+            break;
+        }
+        case 'conj':
+            primary = `「${word}」は接続詞で、節や句をつないでいます。`;
+            tip     = '接続詞の種類（ἵνα・ἐάν・ὅτι など）が後続する節の意味を決定します。';
+            break;
+        default:
+            primary = `「${word}」の文中での役割を確認中です。`;
+            tip     = '';
+    }
+
+    document.getElementById('judge-card').innerHTML = `
+        <p>${primary}</p>
+        ${tip ? `<p class="judge-tip">🔍 ${tip}</p>` : ''}`;
+}
+
+/* ══════════════════════════════════════════
+   ナビゲーション
+   ══════════════════════════════════════════ */
+function navTo(target, e) {
+    e.preventDefault();
+    if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type: `NAV_TO_${target.toUpperCase()}`, ref: params.ref, word: params.word }, '*');
+    } else {
+        const msg = target === 'morph' ? '形態論ツール' : '意味論ツール';
+        alert(`${msg}への導線は、メインアプリ経由でご利用ください。`);
+    }
+}
+
+/* ══════════════════════════════════════════
+   データ取得
+   ══════════════════════════════════════════ */
+const JA_FOLDER = 'bible_jp';
+const ALL_BOOKS = [
+    {key:'ROM',ch:16},{key:'1CO',ch:16},{key:'2CO',ch:13},{key:'GAL',ch:6},
+    {key:'EPH',ch:6},{key:'PHP',ch:4},{key:'COL',ch:4},{key:'1TH',ch:5},
+    {key:'2TH',ch:3},{key:'1TI',ch:6},{key:'2TI',ch:4},{key:'TIT',ch:3},
+    {key:'PHM',ch:1},
+];
+function buildAllChapterPaths() {
+    const p=[];
+    for(const b of ALL_BOOKS) for(let c=1;c<=b.ch;c++)
+        p.push({key:b.key,ch:c,path:`./bible_data/${b.key}/${c}.json`});
+    return p;
+}
+async function fetchInBatches(tasks,sz,onProg) {
+    let all=[];
+    for(let i=0;i<tasks.length;i+=sz) {
+        const results=await Promise.allSettled(
+            tasks.slice(i,i+sz).map(t=>
+                fetch(t.path).then(r=>r.ok?r.json():null).catch(()=>null)
+                .then(data=>{
+                    if(!Array.isArray(data)) return null;
+                    data.forEach(entry=>{entry._bookKey=t.key;});
+                    return data;
+                })
+            )
+        );
+        results.forEach(r=>{if(r.status==='fulfilled'&&Array.isArray(r.value))all=all.concat(r.value);});
+        onProg(Math.min(i+sz,tasks.length),tasks.length);
+    }
+    return all;
+}
+async function fetchJaData(morphPaths) {
+    const K2C={};
+    Object.entries(BOOK_MAP).forEach(([c,k])=>{ K2C[k]=c; });
+    return Promise.allSettled(
+        morphPaths.map(t=>({...t,path:`./${JA_FOLDER}/${t.key}/${t.ch}.json`}))
+        .map(t=>fetch(t.path).then(r=>r.ok?r.json():null).catch(()=>null)
+            .then(data=>{
+                if(!data) return;
+                const vers=data.verses; if(!vers||typeof vers!=='object') return;
+                const bc=K2C[t.key]; if(!bc) return;
+                const cs=String(t.ch).padStart(2,'0');
+                Object.entries(vers).forEach(([vn,tx])=>{
+                    const vs=String(parseInt(vn)).padStart(2,'0');
+                    _jaMap.set(`${bc}${cs}${vs}`,String(tx));
+                });
+            })
+        )
+    );
+}
+async function fetchJapaneseTSV() {
+    try {
+        const res = await fetch('./macula-greek-SBLGNT.tsv');
+        if (!res.ok) return;
+        const text = await res.text();
+        const lines = text.split('\n');
+        for (let i=1;i<lines.length;i++) {
+            const c=lines[i].split('\t');
+            if(c.length<12) continue;
+            const norm=(c[11]||'').trim(), ja=(c[6]||'').trim();
+            if(norm&&ja&&!_japaneseMap.has(norm)) _japaneseMap.set(norm,ja);
+        }
+    } catch(e) { console.warn('TSV読み込み失敗:',e); }
+}
+
+function getVerseTokens(allData, ref) {
+    const prefix = String(ref).replace(/!.*$/,'').trim();
+    return allData.filter(e => String(e.ref||'').replace(/!.*$/,'').trim() === prefix);
+}
+
+/* ══════════════════════════════════════════
+   初期化
+   ══════════════════════════════════════════ */
+
+// breadcrumb
+document.getElementById('bc-ref').textContent  = params.ref  || '—';
+document.getElementById('bc-word').textContent = params.word || '—';
+
+(async function() {
+    const paths   = buildAllChapterPaths();
+
+    const allData = await fetchInBatches(paths, 20, (done, ttl) => {
+        const pct = Math.round(done/ttl*100);
+        const bar = document.getElementById('load-bar');
+        const txt = document.getElementById('load-text');
+        if (bar) bar.style.width = pct + '%';
+        if (txt) txt.textContent = `読み込み中 ${done} / ${ttl}`;
+    });
+
+    if (!allData.length) {
+        document.getElementById('main-loading').innerHTML =
+            `<p style="color:#c00;font-size:0.82rem;">データが見つかりませんでした。<code>bible_data/ROM/1.json</code> の形式で配置してください。</p>`;
+        return;
+    }
+
+    const txt = document.getElementById('load-text');
+    if (txt) txt.textContent = '訳文を読み込み中…';
+    await fetchJaData(paths);
+    await fetchJapaneseTSV();
+
+    window._morphData = allData;
+
+    // 対象節を特定
+    const ref = params.ref;
+    const tokens = getVerseTokens(allData, ref);
+
+    if (!tokens.length) {
+        document.getElementById('main-loading').innerHTML =
+            `<p style="color:#888;font-size:0.82rem;">節「${ref}」のデータが見つかりませんでした。</p>`;
+        return;
+    }
+
+    // 参照ラベル
+    const refLabel = buildRefLabel(ref);
+    document.getElementById('sent-ref-badge').textContent = refLabel || ref;
+    document.getElementById('bc-ref').textContent = refLabel || ref;
+
+    // 日本語訳
+    const ja = getJaVerse(tokens[0]);
+    if (ja) {
+        const jaEl = document.getElementById('sentence-ja');
+        jaEl.textContent = ja;
+        jaEl.style.display = 'block';
+    }
+
+    // 描画
+    document.getElementById('main-loading').style.display = 'none';
+    document.getElementById('main-content').style.display = 'block';
+
+    renderAll(tokens, ref);
+})();
+</script>
+</body>
+</html>

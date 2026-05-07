@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>形態論検索 — コトバト</title>
+<link rel="icon" href="data:,">
+<link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg:             #ffffff;
+    --bg-panel:       #f5f5f7;
+    --bg-inset:       #fafafa;
+    --text:           #1d1d1f;
+    --text-sub:       #6e6e73;
+    --text-hint:      #aeaeb2;
+    --accent:         #5a6e82;
+    --accent-light:   rgba(90,110,130,0.10);
+    --accent-mid:     rgba(90,110,130,0.20);
+    --border:         rgba(0,0,0,0.07);
+    --radius-s:       8px;
+    --radius-m:       12px;
+    --radius-l:       16px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: 'Noto Sans JP', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layout ── */
+.page { max-width: 680px; margin: 0 auto; padding: 32px 24px 100px; }
+
+/* ── Nav ── */
+.nav { display: flex; align-items: center; gap: 10px; margin-bottom: 36px; }
+.btn-back {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 13px; font-size: 0.78rem; font-family: inherit;
+    border: 1px solid var(--border); border-radius: 20px;
+    background: transparent; cursor: pointer; color: var(--text-sub);
+    transition: background 0.12s;
+}
+.btn-back:hover { background: var(--bg-panel); }
+.breadcrumb {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.75rem; color: var(--text-hint); flex: 1; overflow: hidden;
+}
+.breadcrumb .crumb { color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+.breadcrumb .sep { opacity: 0.35; flex-shrink: 0; }
+
+/* ══════════════════════════════════════════
+   ① HEADER BLOCK — 語形・lemma・品詞
+   ══════════════════════════════════════════ */
+.morph-header {
+    padding: 0 0 36px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 36px;
+}
+.morph-header-pos {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 10px;
+}
+.morph-header-word {
+    font-family: 'Gentium Plus', serif;
+    font-size: 3rem; font-weight: 700;
+    color: var(--text); line-height: 1.15;
+    letter-spacing: 0.01em;
+    margin-bottom: 10px;
+}
+.morph-header-lemma {
+    display: flex; align-items: center; gap: 8px;
+}
+.morph-header-lemma-label {
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-hint);
+}
+.morph-header-lemma-val {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.05rem; color: var(--text-sub);
+}
+
+/* ══════════════════════════════════════════
+   ② CORE MORPH INFO — 形態コアブロック
+   ══════════════════════════════════════════ */
+.morph-core {
+    margin-bottom: 36px;
+}
+.section-label {
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-hint);
+    margin-bottom: 14px;
+}
+
+/* タググリッド */
+.morph-tags {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 16px;
+}
+.morph-tag {
+    display: inline-flex; flex-direction: column;
+    padding: 9px 14px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    min-width: 60px;
+}
+.morph-tag-key {
+    font-size: 0.55rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-hint);
+    margin-bottom: 3px;
+}
+.morph-tag-val {
+    font-size: 0.82rem; font-weight: 500; color: var(--text);
+    line-height: 1.3;
+}
+.morph-tag.accent {
+    background: var(--accent-light);
+    border-color: var(--accent-mid);
+}
+.morph-tag.accent .morph-tag-val { color: var(--accent); font-weight: 700; }
+
+/* 一行サマリ */
+.morph-summary {
+    font-size: 0.88rem; font-weight: 500; color: var(--text);
+    line-height: 1.6; letter-spacing: 0.01em;
+    padding: 12px 16px;
+    background: var(--bg-panel);
+    border-radius: var(--radius-m);
+    border-left: 3px solid var(--accent);
+}
+
+/* ══════════════════════════════════════════
+   ③ EXPLANATION — 形の説明（初学者向け）
+   ══════════════════════════════════════════ */
+.morph-explain {
+    margin-bottom: 36px;
+}
+.explain-body {
+    font-size: 0.9rem; color: var(--text);
+    line-height: 1.85;
+    padding: 18px 20px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+}
+.explain-body p + p { margin-top: 10px; }
+.explain-note {
+    margin-top: 10px; font-size: 0.77rem;
+    color: var(--text-sub); line-height: 1.7;
+    padding: 10px 14px;
+    background: rgba(90,110,130,0.05);
+    border-radius: var(--radius-s);
+    border: 1px solid var(--accent-mid);
+}
+
+/* ══════════════════════════════════════════
+   ④ DISTRIBUTION — 分布（シンプル）
+   ══════════════════════════════════════════ */
+.morph-dist {
+    margin-bottom: 36px;
+}
+.dist-list {
+    display: flex; flex-direction: column; gap: 7px;
+}
+.dist-row {
+    display: flex; align-items: center; gap: 10px;
+}
+.dist-name {
+    width: 72px; font-size: 0.72rem;
+    color: var(--text-sub); text-align: right; flex-shrink: 0;
+}
+.dist-bar-track {
+    flex: 1; height: 5px; background: var(--bg-panel);
+    border-radius: 3px; overflow: hidden;
+}
+.dist-bar-fill {
+    height: 100%; border-radius: 3px;
+    background: var(--accent); transition: width 0.5s ease;
+}
+.dist-num {
+    width: 32px; font-size: 0.68rem; color: var(--text-hint);
+    text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums;
+}
+.dist-total-row {
+    display: flex; align-items: baseline;
+    gap: 8px; margin-bottom: 16px;
+}
+.dist-total-num {
+    font-size: 1.6rem; font-weight: 700; color: var(--text); line-height: 1;
+}
+.dist-total-label { font-size: 0.75rem; color: var(--text-sub); }
+
+/* ══════════════════════════════════════════
+   ⑤ FILTER — チップUI
+   ══════════════════════════════════════════ */
+.morph-filter {
+    margin-bottom: 36px;
+}
+.filter-group {
+    margin-bottom: 16px;
+}
+.filter-group-label {
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-hint);
+    margin-bottom: 10px;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: 20px; font-size: 0.75rem;
+    transition: all 0.12s;
+}
+.chip-fixed {
+    background: var(--accent-light);
+    border: 1px solid var(--accent-mid);
+    color: var(--accent); font-weight: 600;
+}
+.chip-fixed .chip-key {
+    font-size: 0.58rem; color: var(--text-sub);
+    font-weight: 400; margin-right: 1px;
+}
+.chip-toggle {
+    border: 1px solid var(--border); cursor: pointer; user-select: none;
+}
+.chip-toggle.on {
+    background: var(--accent-light); border-color: var(--accent-mid);
+    color: var(--accent); font-weight: 600;
+}
+.chip-toggle.off {
+    background: var(--bg); border-color: var(--border);
+    color: var(--text-hint); text-decoration: line-through;
+}
+.chip-toggle:hover.on  { background: rgba(90,110,130,0.17); }
+.chip-toggle:hover.off { background: var(--bg-panel); text-decoration: none; }
+.chip-dot {
+    width: 13px; height: 13px; border-radius: 50%;
+    border: 1.5px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; flex-shrink: 0;
+}
+.chip-toggle.on .chip-dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip-toggle.off .chip-dot { background: transparent; color: #ccc; }
+
+/* ══════════════════════════════════════════
+   ⑥ NAVIGATION — 別ツールへの導線
+   ══════════════════════════════════════════ */
+.morph-nav {
+    margin-bottom: 48px;
+}
+.nav-tools {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.nav-tool-btn {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--bg-inset); border: 1px solid var(--border);
+    border-radius: var(--radius-m); cursor: pointer;
+    text-decoration: none; color: var(--text);
+    transition: background 0.12s, border-color 0.12s, transform 0.1s;
+}
+.nav-tool-btn:hover {
+    background: var(--accent-light); border-color: var(--accent-mid);
+    transform: translateY(-1px);
+}
+.nav-tool-icon { font-size: 1.2rem; line-height: 1; margin-bottom: 4px; }
+.nav-tool-main { font-size: 0.82rem; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.nav-tool-sub  { font-size: 0.68rem; color: var(--text-sub); }
+.nav-tool-arrow { font-size: 0.85rem; color: var(--text-hint); flex-shrink: 0; margin-left: 8px; align-self: center; }
+
+/* ══════════════════════════════════════════
+   RESULT SECTION
+   ══════════════════════════════════════════ */
+.results-section { margin-bottom: 48px; }
+.results-meta {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 14px;
+}
+.results-count { font-size: 0.82rem; color: var(--text-sub); }
+.results-count strong { font-size: 1rem; font-weight: 700; color: var(--text); }
+.results-pct { font-size: 0.7rem; color: var(--text-hint); }
+
+.result-list { display: flex; flex-direction: column; gap: 5px; }
+.result-card {
+    border: 1px solid var(--border); border-radius: var(--radius-m);
+    padding: 12px 16px; background: var(--bg);
+    cursor: pointer; transition: background 0.1s, border-color 0.1s;
+}
+.result-card:hover { background: var(--bg-panel); border-color: var(--accent-mid); }
+.result-top { display: flex; align-items: baseline; justify-content: space-between; }
+.result-word {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.3rem; color: var(--text); line-height: 1.4;
+}
+.result-lemma {
+    font-family: 'Gentium Plus', serif;
+    font-size: 0.78rem; color: var(--text-hint); margin-left: 7px;
+}
+.result-ref { font-size: 0.7rem; color: var(--text-hint); font-variant-numeric: tabular-nums; }
+.result-ja { font-size: 0.8rem; color: var(--text-sub); margin-top: 3px; line-height: 1.5; }
+
+/* Loading */
+.loading { text-align: center; padding: 56px 16px; color: var(--text-hint); }
+.loading-greek { font-family: 'Gentium Plus', serif; font-size: 1.8rem; color: #d8d8dc; margin-bottom: 14px; }
+.loading-bar-wrap { width: 200px; margin: 0 auto 10px; height: 2px; background: var(--bg-panel); border-radius: 2px; overflow: hidden; }
+.loading-bar { height: 100%; background: var(--accent); transition: width 0.3s; border-radius: 2px; }
+.loading-text { font-size: 0.72rem; }
+@keyframes pulse { 0%,80%,100%{opacity:0.3} 40%{opacity:1} }
+.dot { display: inline-block; animation: pulse 1.4s ease-in-out infinite; }
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+.empty { text-align: center; padding: 48px 16px; color: var(--text-sub); font-size: 0.82rem; line-height: 2.2; }
+.empty-icon { font-family: 'Gentium Plus', serif; font-size: 2.2rem; color: #d8d8dc; margin-bottom: 10px; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.fade-up { animation: fadeUp 0.25s ease forwards; }
+
+/* Footer */
+.app-footer {
+    margin-top: 48px; padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.68rem; color: var(--text-hint);
+}
+.footer-links { display: flex; gap: 16px; }
+.footer-links a { color: var(--text-hint); text-decoration: none; border-bottom: 1px solid var(--border); padding-bottom: 1px; }
+.footer-links a:hover { color: var(--text-sub); }
+
+/* Divider */
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 0 0 36px; }
+
+/* Responsive */
+@media (max-width: 520px) {
+    .page { padding: 24px 16px 80px; }
+    .morph-header-word { font-size: 2.3rem; }
+    .nav-tools { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+    <!-- Nav -->
+    <div class="nav">
+        <button class="btn-back" onclick="window.close(); if(!window.opener) history.back();">← 戻る</button>
+        <div class="breadcrumb">
+            <span class="crumb" id="bc-ref">—</span>
+            <span class="sep">›</span>
+            <span class="crumb" id="bc-word" style="font-family:'Gentium Plus',serif;font-size:0.95rem;">—</span>
+            <span class="sep">›</span>
+            <span>形態論</span>
+        </div>
+    </div>
+
+    <!-- ① HEADER -->
+    <div class="morph-header fade-up">
+        <div class="morph-header-pos" id="hdr-pos">品詞</div>
+        <div class="morph-header-word" id="hdr-word">—</div>
+        <div class="morph-header-lemma">
+            <span class="morph-header-lemma-label">lemma</span>
+            <span class="morph-header-lemma-val" id="hdr-lemma">—</span>
+        </div>
+    </div>
+
+    <!-- ② CORE MORPH INFO -->
+    <div class="morph-core fade-up" style="animation-delay:0.05s">
+        <div class="section-label">コア形態情報</div>
+        <div class="morph-tags" id="core-tags"></div>
+        <div class="morph-summary" id="core-summary"></div>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- ③ EXPLANATION -->
+    <div class="morph-explain fade-up" style="animation-delay:0.1s">
+        <div class="section-label">形の説明</div>
+        <div class="explain-body" id="explain-body">
+            <p>読み込み中です…</p>
+        </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- ④ DISTRIBUTION (populated after data load) -->
+    <div class="morph-dist fade-up" style="animation-delay:0.15s" id="dist-section" style="display:none">
+        <div class="section-label">分布</div>
+        <div class="dist-total-row">
+            <span class="dist-total-num" id="dist-total">—</span>
+            <span class="dist-total-label">件ヒット</span>
+        </div>
+        <div class="dist-list" id="dist-list"></div>
+    </div>
+
+    <hr class="section-divider" id="dist-divider" style="display:none">
+
+    <!-- ⑤ FILTER -->
+    <div class="morph-filter fade-up" style="animation-delay:0.2s">
+        <div class="section-label">条件フィルター</div>
+        <div class="filter-group">
+            <div class="filter-group-label">コア条件（固定）</div>
+            <div class="chips" id="core-chips"></div>
+        </div>
+        <div class="filter-group" id="ext-group">
+            <div class="filter-group-label">拡張条件 — タップで ON / OFF</div>
+            <div class="chips" id="ext-chips"></div>
+        </div>
+        <div class="filter-group">
+            <div class="filter-group-label">書物範囲 — タップで ON / OFF</div>
+            <div class="chips" id="book-chips"></div>
+        </div>
+        <div class="filter-group" id="word-filter-group" style="display:none">
+            <div class="filter-group-label">語形の絞り込み</div>
+            <div class="chips" id="word-filter-chips"></div>
+        </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- ⑥ NAVIGATION -->
+    <div class="morph-nav fade-up" style="animation-delay:0.25s">
+        <div class="section-label">次のステップ</div>
+        <div class="nav-tools">
+            <a class="nav-tool-btn" id="nav-syntax" href="#" onclick="navToSyntax(event)">
+                <div>
+                    <div class="nav-tool-icon">⌥</div>
+                    <div class="nav-tool-main">構造を見る</div>
+                    <div class="nav-tool-sub">統語論ツールへ</div>
+                </div>
+                <span class="nav-tool-arrow">→</span>
+            </a>
+            <a class="nav-tool-btn" id="nav-semantics" href="#" onclick="navToSemantics(event)">
+                <div>
+                    <div class="nav-tool-icon">◎</div>
+                    <div class="nav-tool-main">意味を見る</div>
+                    <div class="nav-tool-sub">意味論ツールへ</div>
+                </div>
+                <span class="nav-tool-arrow">→</span>
+            </a>
+        </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- RESULTS -->
+    <div class="results-section">
+        <div class="results-meta">
+            <div class="results-count"><strong id="count">0</strong> 件ヒット</div>
+            <div class="results-pct" id="result-pct"></div>
+        </div>
+        <div id="loading" class="loading">
+            <div class="loading-greek">ἀναζητεῖ</div>
+            <div class="loading-bar-wrap"><div id="load-bar" class="loading-bar" style="width:0%"></div></div>
+            <div class="loading-text" id="load-text">
+                <span class="dot">·</span><span class="dot">·</span><span class="dot">·</span>
+            </div>
+        </div>
+        <div class="result-list" id="result-list" style="display:none"></div>
+    </div>
+
+    <footer class="app-footer">
+        <span>© 2026 ウオノ All rights reserved.</span>
+        <div class="footer-links">
+            <a href="index.html">ホーム</a>
+        </div>
+    </footer>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   ラベルマップ
+   ══════════════════════════════════════════ */
+const TENSE_JP  = { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'過去完了' };
+const VOICE_JP  = { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' };
+const MOOD_JP   = { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' };
+const GENDER_JP = { masculine:'男性', feminine:'女性', neuter:'中性' };
+const NUMBER_JP = { singular:'単数', plural:'複数' };
+const CASE_JP   = { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' };
+const POS_JP    = { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞' };
+
+/* ══════════════════════════════════════════
+   形の説明データ
+   ══════════════════════════════════════════ */
+const EXPLAIN_DB = {
+    /* ── 動詞直説法 ── */
+    'V+present+indicative+active':   { body:'現在時制・能動態・直説法の形です。主語が「動作をしている、または繰り返している」という事実を述べます。', note:'動詞の語尾が人称・数に応じて変化しています。この形は動作の継続・反復・進行を表すアスペクトを持ちます。' },
+    'V+present+indicative+middle':   { body:'現在時制・中動態・直説法の形です。主語が動作の影響を自ら受けながら行う、または自己利益のために行うことを表します。', note: '形は能動態と異なりますが、日本語では能動的に訳せることも多いです。' },
+    'V+present+indicative+passive':  { body:'現在時制・受動態・直説法の形です。主語が他者から動作を受けている事実を表します。', note:'「〜される」という受け身の形です。誰から受けるかは「ὑπό＋属格」で表されることがあります。' },
+    'V+aorist+indicative+active':    { body:'アオリスト時制・能動態・直説法の形です。動作の「完結・生起」そのものを一点として捉え、事実として述べます。', note:'継続性ではなく、出来事が起きたことに焦点があります。過去の一時点に限らず、完結した行為の生起を示します。' },
+    'V+aorist+indicative+passive':   { body:'アオリスト時制・受動態・直説法の形です。過去に一回的・完結的に動作を受けたことを表します。', note:'アオリスト受動は専用の語尾を持ち、能動・中動とは異なる形をしています。' },
+    'V+perfect+indicative+active':   { body:'完了時制・能動態・直説法の形です。過去に完了した動作の結果が、現在も継続している状態を表します。', note:'「〜してしまっている」という現在への影響が強調されます。単純な過去とは異なります。' },
+    'V+imperfect+indicative+active': { body:'未完了過去時制・能動態・直説法の形です。過去における動作の継続・反復・試みを表します。', note:'「〜していた」という過去の進行状態を示す形です。アオリストが点なら、この形は線のイメージです。' },
+    'V+future+indicative+active':    { body:'未来時制・能動態・直説法の形です。これから起こる動作・状態を事実として述べます。', note:'予言・約束・予測などに使われます。' },
+    /* 命令法 */
+    'V+present+imperative+active':   { body:'現在時制・能動態・命令法の形です。継続的・反復的な動作を求める命令を表します。', note:'「〜し続けなさい」という継続的行為の要求です。アオリスト命令との区別が読解の重要なポイントです。' },
+    'V+aorist+imperative+active':    { body:'アオリスト時制・能動態・命令法の形です。一回的・即時的な動作の開始を求める命令を表します。', note:'「今すぐ〜しなさい」という即時性があります。否定形（μή＋アオリスト接続法）は禁止の意味になります。' },
+    /* 接続法 */
+    'V+aorist+subjunctive+active':   { body:'アオリスト時制・能動態・接続法の形です。動作の実現が未確定・仮想的な場合に使われます。', note:'先行する接続詞（ἵνα・ἐάν・ὅταν など）によって意味が変わります。接続詞を必ず確認してください。' },
+    'V+present+subjunctive+active':  { body:'現在時制・能動態・接続法の形です。継続的な動作の実現が未確定・仮想的な場合に使われます。', note:'接続詞との組み合わせで、目的・条件・時間節などを形成します。' },
+    /* 不定詞 */
+    'V+aorist+infinitive':           { body:'アオリスト時制・不定詞の形です。「〜すること」という動詞の名詞化された形で、一回的な動作の完結を表します。', note:'人称・数を持たず、文中で主語や目的語として機能します。' },
+    'V+present+infinitive':          { body:'現在時制・不定詞の形です。「〜し続けること」という継続的な動作の名詞化形です。', note:'動詞が名詞として使われる形です。文の主語・目的語・補語になります。' },
+    /* 分詞 */
+    'V+present+participle+active':   { body:'現在時制・能動態・分詞の形です。動作を行っている人・ものを形容詞的に表す語形です。', note:'性・数・格の変化があり、修飾する名詞に格一致します。主動詞と同時進行の動作を表すことが多いです。' },
+    'V+aorist+participle+active':    { body:'アオリスト時制・能動態・分詞の形です。完結した動作を形容詞的に表す語形です。', note:'主動詞より先に起きた動作を示すことが多いです。「〜してから（主動詞）した」という先行関係に注目してください。' },
+    'V+perfect+participle+active':   { body:'完了時制・能動態・分詞の形です。完了動作の結果として生じた状態にある人・ものを表します。', note:'「〜してしまっている状態の」という意味合いがあります。' },
+};
+
+/* ポールバック（品詞＋法だけで引く） */
+const EXPLAIN_FALLBACK = {
+    'V+participle': { body:'動詞の分詞形です。動詞から派生し、形容詞的に使われる語形です。性・数・格に応じて変化します。', note:'主語の格・性・数に一致させることで、どの名詞を修飾しているかを示します。時制は主動詞との時間的関係を表します。' },
+    'V+infinitive': { body:'動詞の不定詞形です。「〜すること」という意味を持ち、主語・目的語・目的節などとして機能します。', note:'人称・数・格変化がなく、性別の変化もありません。' },
+    'V+indicative': { body:'動詞の直説法形です。動作・状態を事実として述べる、最も基本的な法です。', note:'人称・数・時制・態によって語尾が変化します。' },
+    'V+imperative': { body:'動詞の命令法形です。聞き手に動作を求める法です。現在命令は継続、アオリスト命令は即時的な行為を表します。', note:'2人称（単数・複数）が最も一般的ですが、3人称命令も存在します。' },
+    'V+subjunctive':{ body:'動詞の接続法形です。動作の実現が未確定・仮想的な場合に使います。', note:'目的・条件・願望などの従属節でよく用いられます。先行する接続詞が意味の鍵を握ります。' },
+    'N':            { body:'名詞の語形です。格（主格・属格・与格・対格・呼格）・数（単数・複数）・性（男性・女性・中性）によって変化します。', note:'格は文中での役割を示します。主格は主語、対格は目的語、属格は所有・関係、与格は間接目的・手段を示すことが多いです。' },
+    'A':            { body:'形容詞の語形です。修飾する名詞の格・数・性に一致して変化します（格一致）。', note:'名詞の前後に置かれるか、叙述的に使われるかで解釈が変わることがあります。' },
+    'T':            { body:'冠詞の語形です。名詞の格・数・性に対応して変化します。', note:'冠詞の有無は名詞の特定性・限定性に関係します。分詞の前に置かれる場合、名詞的用法（実体用法）を示すことがあります。' },
+};
+
+function buildExplain(pos, tense, voice, mood) {
+    const keys = [
+        `${pos}+${tense}+${mood}+${voice}`,
+        `${pos}+${tense}+${mood}`,
+        `${pos}+${mood}`,
+        pos,
+    ].filter(Boolean);
+
+    for (const k of keys) {
+        if (EXPLAIN_DB[k]) return EXPLAIN_DB[k];
+        if (EXPLAIN_FALLBACK[k]) return EXPLAIN_FALLBACK[k];
+    }
+    return { body: 'この語形の詳しい説明は現在準備中です。', note: '' };
+}
+
+/* ══════════════════════════════════════════
+   URLパラメータ
+   ══════════════════════════════════════════ */
+function getSearchParams() {
+    const p = new URLSearchParams(location.search);
+    const dis = new Set((p.get('_disabled')||'').split(',').filter(Boolean));
+    return {
+        pos:    p.get('pos')   || '',
+        tense:  p.get('tense') || '',
+        mood:   p.get('mood')  || '',
+        voice:  p.get('voice') || '',
+        gender: { value: p.get('gender')||'', enabled: !dis.has('gender') },
+        number: { value: p.get('number')||'', enabled: !dis.has('number') },
+        case:   { value: p.get('case')  ||'', enabled: !dis.has('case')   },
+        ref:    p.get('ref')   || '',
+        word:   p.get('word')  || '',
+        lemma:  p.get('lemma') || '',
+    };
+}
+const params = getSearchParams();
+
+let extState = [
+    { key:'gender', label:'性', value: params.gender.value, enabled: params.gender.enabled },
+    { key:'number', label:'数', value: params.number.value, enabled: params.number.enabled },
+    { key:'case',   label:'格', value: params.case.value,   enabled: params.case.enabled   },
+].filter(f => f.value);
+
+/* ══════════════════════════════════════════
+   書物・語形フィルター状態
+   ══════════════════════════════════════════ */
+const BOOK_MAP = {
+    '01':'MAT','02':'MRK','03':'LUK','04':'JHN','05':'ACT',
+    '06':'ROM','07':'1CO','08':'2CO','09':'GAL','10':'EPH',
+    '11':'PHP','12':'COL','13':'1TH','14':'2TH','15':'1TI',
+    '16':'2TI','17':'TIT','18':'PHM','19':'HEB','20':'JAS',
+    '21':'1PE','22':'2PE','23':'1JN','24':'2JN','25':'3JN',
+    '26':'JUD','27':'REV'
+};
+const BOOK_JP = {
+    MAT:'マタイ',MRK:'マルコ',LUK:'ルカ',JHN:'ヨハネ',ACT:'使徒',
+    ROM:'ローマ','1CO':'Ⅰコリント','2CO':'Ⅱコリント',
+    GAL:'ガラテヤ',EPH:'エペソ',PHP:'ピリピ',COL:'コロサイ',
+    '1TH':'Ⅰテサロニケ','2TH':'Ⅱテサロニケ',
+    '1TI':'Ⅰテモテ','2TI':'Ⅱテモテ',TIT:'テトス',PHM:'ピレモン',
+    HEB:'ヘブル',JAS:'ヤコブ','1PE':'Ⅰペテロ','2PE':'Ⅱペテロ',
+    '1JN':'Ⅰヨハネ','2JN':'Ⅱヨハネ','3JN':'Ⅲヨハネ',JUD:'ユダ',REV:'黙示録',
+    GEN:'創世記',EXO:'出エジプト',LEV:'レビ',NUM:'民数',DEU:'申命',
+    JOS:'ヨシュア',JDG:'士師',RUT:'ルツ','1SA':'Ⅰサムエル','2SA':'Ⅱサムエル',
+    '1KI':'Ⅰ列王','2KI':'Ⅱ列王',PSA:'詩篇',PRO:'箴言',ECC:'伝道',
+    ISA:'イザヤ',JER:'エレミヤ',EZK:'エゼキエル',DAN:'ダニエル',
+};
+const BOOK_GROUPS = [
+    { key:'pauline',  label:'パウロ書簡', books:['ROM','1CO','2CO','GAL','1TH','2TH'] },
+    { key:'prison',   label:'獄中書簡',   books:['EPH','PHP','COL','PHM'] },
+    { key:'pastoral', label:'牧会書簡',   books:['1TI','2TI','TIT'] },
+];
+let bookState = BOOK_GROUPS.map(g => ({ ...g, enabled: true }));
+let wordFilterMode = params.word ? 'word' : (params.lemma ? 'lemma' : 'none');
+
+function syncURL() {
+    const p = new URLSearchParams(location.search);
+    const dis = extState.filter(f=>!f.enabled).map(f=>f.key);
+    if (dis.length) p.set('_disabled', dis.join(','));
+    else p.delete('_disabled');
+    history.replaceState(null,'','?'+p.toString());
+}
+
+/* ══════════════════════════════════════════
+   形態素デコード
+   ══════════════════════════════════════════ */
+const CLASS_TO_POS = {
+    'verb':'V','noun':'N','adjective':'A','article':'T',
+    'preposition':'P','conjunction':'C','adverb':'D',
+    'particle':'X','pronoun':'P','relative pronoun':'R',
+    'personal pronoun':'P','demonstrative pronoun':'D',
+};
+const TENSE_CODE  = { P:'present',I:'imperfect',F:'future',A:'aorist',X:'perfect',Z:'pluperfect' };
+const VOICE_CODE  = { A:'active',M:'middle',P:'passive',D:'middle deponent',E:'middle or passive',N:'middle or passive' };
+const MOOD_CODE   = { I:'indicative',S:'subjunctive',O:'optative',M:'imperative',N:'infinitive',P:'participle' };
+const CASE_CODE   = { N:'nominative',G:'genitive',D:'dative',A:'accusative',V:'vocative' };
+const NUMBER_CODE = { S:'singular',P:'plural' };
+const GENDER_CODE = { M:'masculine',F:'feminine',N:'neuter' };
+
+function entryPosCode(entry) {
+    if (entry.pos) return String(entry.pos).replace(/-$/,'').toUpperCase();
+    if (entry.class) return CLASS_TO_POS[String(entry.class).toLowerCase()] || '';
+    return '';
+}
+function decodeMorph(entry) {
+    const norm = v => (!v || v === '-') ? '' : v;
+    if (entry.tense || entry.mood || entry.voice) {
+        return {
+            pos:    entryPosCode(entry),
+            tense:  norm(entry.tense), voice: norm(entry.voice), mood:   norm(entry.mood),
+            case:   norm(entry.case),  number:norm(entry.number),gender: norm(entry.gender),
+            person: norm(entry.person),
+        };
+    }
+    if (entry.morph && typeof entry.morph === 'object') {
+        const m = entry.morph;
+        return {
+            pos: norm(entry.pos||'').replace(/-$/,''),
+            tense:norm(m.tense),voice:norm(m.voice),mood:norm(m.mood),
+            case:norm(m.case),number:norm(m.number),gender:norm(m.gender),person:norm(m.person),
+        };
+    }
+    const raw = typeof entry.morph === 'string' ? entry.morph : '';
+    const parts = raw.split('-');
+    const pos = norm(entry.pos||parts[0]||'').replace(/-$/,'');
+    if (pos.toUpperCase() === 'V' && parts[1]) {
+        const seg = parts[1], off = /^[0-9]/.test(seg) ? 1 : 0;
+        return { pos, tense:TENSE_CODE[seg[off]]||'', voice:VOICE_CODE[seg[off+1]]||'',
+                 mood:MOOD_CODE[seg[off+2]]||'', person:seg[off+3]||'',
+                 number:NUMBER_CODE[seg[off+4]]||'', gender:'', case:'' };
+    }
+    if (parts[1]) {
+        const seg=parts[1], hp=['1','2','3'].includes(seg[0]), b=hp?seg.slice(1):seg;
+        return { pos, tense:'',voice:'',mood:'', person:hp?seg[0]:'',
+                 case:CASE_CODE[b[0]]||'', number:NUMBER_CODE[b[1]]||'', gender:GENDER_CODE[b[2]]||'' };
+    }
+    return { pos, tense:'',voice:'',mood:'',case:'',number:'',gender:'',person:'' };
+}
+
+function getBookKey(entry) {
+    if (entry._bookKey) return entry._bookKey;
+    if (entry.book && isNaN(entry.book)) return String(entry.book);
+    if (entry.book != null && entry.book !== '') {
+        return BOOK_MAP[String(entry.book).padStart(2,'0')] || null;
+    }
+    if (entry.ref) {
+        const m = String(entry.ref).match(/^([A-Z0-9]+)/);
+        if (m) return m[1];
+    }
+    return null;
+}
+
+function normalizeGreek(str) {
+    return (str || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g, '').replace(/ς/g, 'σ')
+        .toLowerCase().trim();
+}
+
+/* ══════════════════════════════════════════
+   マッチング
+   ══════════════════════════════════════════ */
+function matchEntry(entry) {
+    if (wordFilterMode === 'lemma' && params.lemma) {
+        if (normalizeGreek(entry.lemma||'') !== normalizeGreek(params.lemma)) return false;
+    } else if (wordFilterMode === 'word' && params.word) {
+        if (normalizeGreek(entry.word||entry.normalized||entry.text||'') !== normalizeGreek(params.word)) return false;
+    }
+    if (!bookState.every(g => g.enabled)) {
+        const en = new Set(bookState.filter(g=>g.enabled).flatMap(g=>g.books));
+        const bk = entry._bookKey || getBookKey(entry);
+        if (!bk || !en.has(bk)) return false;
+    }
+    const sp = params.pos.replace(/-$/,'').toUpperCase();
+    if (sp && entryPosCode(entry) !== sp) return false;
+    const m = decodeMorph(entry);
+    if (params.tense && m.tense !== params.tense) return false;
+    if (params.mood  && m.mood  !== params.mood)  return false;
+    if (params.voice) {
+        const ok = m.voice === params.voice
+            || (params.voice==='middle'  && (m.voice==='middle deponent'||m.voice==='middle or passive'))
+            || (params.voice==='passive' && m.voice==='middle or passive');
+        if (!ok) return false;
+    }
+    for (const f of extState) {
+        if (!f.enabled || !f.value) continue;
+        if ((m[f.key]||'') !== f.value) return false;
+    }
+    return true;
+}
+
+/* ══════════════════════════════════════════
+   ヘッダー描画
+   ══════════════════════════════════════════ */
+function renderHeader() {
+    const pos   = params.pos.replace(/-$/,'').toUpperCase();
+    const word  = params.word || '—';
+    const lemma = params.lemma || '—';
+
+    document.getElementById('bc-ref').textContent  = params.ref  || '詳細';
+    document.getElementById('bc-word').textContent = word;
+
+    document.getElementById('hdr-pos').textContent  = POS_JP[pos] || pos || '—';
+    document.getElementById('hdr-word').textContent = word;
+    document.getElementById('hdr-lemma').textContent = lemma;
+}
+
+/* ══════════════════════════════════════════
+   コア形態タグ
+   ══════════════════════════════════════════ */
+function renderCoreTags() {
+    const pos   = params.pos.replace(/-$/,'').toUpperCase();
+    const tags  = [];
+
+    const addTag = (key, val, isAccent = false) => {
+        if (val) tags.push({ key, val, accent: isAccent });
+    };
+
+    if (params.mood)  addTag('法',  MOOD_JP[params.mood]   || params.mood,  true);
+    if (params.tense) addTag('時制', TENSE_JP[params.tense] || params.tense, true);
+    if (params.voice) addTag('態',  VOICE_JP[params.voice]  || params.voice);
+
+    const MAP = { gender: GENDER_JP, number: NUMBER_JP, case: CASE_JP };
+    const LABEL = { gender:'性', number:'数', case:'格' };
+    for (const f of extState) {
+        if (f.value) addTag(LABEL[f.key]||f.key, MAP[f.key]?.[f.value]||f.value, f.enabled);
+    }
+
+    const tagsEl = document.getElementById('core-tags');
+    tagsEl.innerHTML = tags.map(t => `
+        <div class="morph-tag ${t.accent ? 'accent' : ''}">
+            <span class="morph-tag-key">${t.key}</span>
+            <span class="morph-tag-val">${t.val}</span>
+        </div>`).join('');
+
+    /* 一行サマリ */
+    const parts = [];
+    if (params.tense) parts.push(TENSE_JP[params.tense]||params.tense);
+    if (params.voice) parts.push(VOICE_JP[params.voice]||params.voice);
+    if (params.mood)  parts.push(MOOD_JP[params.mood]  ||params.mood);
+    const MAP2 = { gender: GENDER_JP, number: NUMBER_JP, case: CASE_JP };
+    const extParts = extState.filter(f=>f.enabled&&f.value).map(f=>MAP2[f.key]?.[f.value]||f.value);
+    if (extParts.length) parts.push(...extParts);
+
+    document.getElementById('core-summary').textContent = parts.join(' · ') || '—';
+}
+
+/* ══════════════════════════════════════════
+   形の説明
+   ══════════════════════════════════════════ */
+function renderExplain() {
+    const pos   = params.pos.replace(/-$/,'').toUpperCase();
+    const data  = buildExplain(pos, params.tense, params.voice, params.mood);
+    const el    = document.getElementById('explain-body');
+    el.innerHTML = `<p>${data.body}</p>` +
+        (data.note ? `<div class="explain-note">${data.note}</div>` : '');
+}
+
+/* ══════════════════════════════════════════
+   分布
+   ══════════════════════════════════════════ */
+function renderDist(matched) {
+    const counts = {};
+    matched.forEach(e => {
+        const bk = e._bookKey || getBookKey(e) || '?';
+        counts[bk] = (counts[bk] || 0) + 1;
+    });
+    const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+    const max    = sorted[0]?.[1] || 1;
+    const total  = matched.length;
+
+    document.getElementById('dist-total').textContent = total.toLocaleString();
+    document.getElementById('dist-list').innerHTML = sorted.slice(0, 12).map(([k, n]) => `
+        <div class="dist-row">
+            <span class="dist-name">${BOOK_JP[k]||k}</span>
+            <div class="dist-bar-track">
+                <div class="dist-bar-fill" style="width:${Math.round(n/max*100)}%"></div>
+            </div>
+            <span class="dist-num">${n}</span>
+        </div>`).join('');
+
+    document.getElementById('dist-section').style.display = 'block';
+    document.getElementById('dist-divider').style.display = 'block';
+}
+
+/* ══════════════════════════════════════════
+   フィルターチップ
+   ══════════════════════════════════════════ */
+function renderCoreChips() {
+    const defs = [
+        {label:'品詞',  val:POS_JP[params.pos.replace(/-$/,'')]||params.pos},
+        {label:'法',    val:MOOD_JP[params.mood]  ||params.mood},
+        {label:'時制',  val:TENSE_JP[params.tense]||params.tense},
+        {label:'態',    val:VOICE_JP[params.voice]||params.voice},
+    ].filter(d=>d.val);
+    document.getElementById('core-chips').innerHTML = defs.map(d=>
+        `<div class="chip chip-fixed"><span class="chip-key">${d.label}</span><span>${d.val}</span></div>`
+    ).join('');
+}
+function renderExtChips() {
+    const el = document.getElementById('ext-chips');
+    if (!extState.length) {
+        document.getElementById('ext-group').style.display = 'none'; return;
+    }
+    document.getElementById('ext-group').style.display = 'block';
+    const MAP = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
+    const LABEL = { gender:'性', number:'数', case:'格' };
+    el.innerHTML = extState.map((f,i) => `
+        <div class="chip chip-toggle ${f.enabled?'on':'off'}" onclick="toggleExt(${i})">
+            <div class="chip-dot">${f.enabled?'✓':''}</div>
+            <span style="font-size:0.6rem;opacity:0.7;margin-right:1px;">${LABEL[f.key]||f.key}</span>
+            <span>${MAP[f.key]?.[f.value]||f.value}</span>
+        </div>`).join('');
+}
+function renderBookChips() {
+    document.getElementById('book-chips').innerHTML = bookState.map((g,i) => `
+        <div class="chip chip-toggle ${g.enabled?'on':'off'}" onclick="toggleBook(${i})">
+            <div class="chip-dot">${g.enabled?'✓':''}</div>
+            <span>${g.label}</span>
+        </div>`).join('');
+}
+function renderWordFilterChips() {
+    const sec = document.getElementById('word-filter-group');
+    if (!params.lemma && !params.word) { sec.style.display = 'none'; return; }
+    sec.style.display = 'block';
+    const modes = [
+        params.lemma ? { key:'lemma', label:`原形一致　${params.lemma}` } : null,
+        params.word  ? { key:'word',  label:`語形一致　${params.word}` }  : null,
+    ].filter(Boolean);
+    document.getElementById('word-filter-chips').innerHTML = modes.map(mode => `
+        <div class="chip chip-toggle ${wordFilterMode===mode.key?'on':'off'}"
+             onclick="toggleWordFilter('${mode.key}')"
+             style="font-family:${mode.key!=='none'?'\'Gentium Plus\',serif':'inherit'}">
+            <div class="chip-dot">${wordFilterMode===mode.key?'✓':''}</div>
+            <span>${mode.label}</span>
+        </div>`).join('');
+}
+
+function toggleExt(i)  { extState[i].enabled=!extState[i].enabled;  renderExtChips(); renderCoreTags(); syncURL(); if(window._morphData)renderResults(window._morphData); }
+function toggleBook(i) { bookState[i].enabled=!bookState[i].enabled; renderBookChips(); if(window._morphData)renderResults(window._morphData); }
+function toggleWordFilter(mode) {
+    wordFilterMode = mode;
+    renderWordFilterChips();
+    if (window._morphData) renderResults(window._morphData);
+}
+
+/* ══════════════════════════════════════════
+   ナビゲーション
+   ══════════════════════════════════════════ */
+function navToSyntax(e) {
+    e.preventDefault();
+    if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type: 'NAV_TO_SYNTAX', ref: params.ref, word: params.word }, '*');
+    } else {
+        alert('統語論ツールへの導線は、メインアプリ経由でご利用ください。');
+    }
+}
+function navToSemantics(e) {
+    e.preventDefault();
+    if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type: 'NAV_TO_SEMANTICS', ref: params.ref, word: params.word }, '*');
+    } else {
+        alert('意味論ツールへの導線は、メインアプリ経由でご利用ください。');
+    }
+}
+
+/* ══════════════════════════════════════════
+   日本語訳
+   ══════════════════════════════════════════ */
+const _jaMap = new Map();
+const _japaneseMap = new Map();
+
+const _refToJaKey = (() => {
+    const KEY_TO_CODE = {};
+    Object.entries(BOOK_MAP).forEach(([code,key])=>{KEY_TO_CODE[key]=code;});
+    return function(ref) {
+        const m = String(ref||'').match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+        if (!m) return null;
+        const code = KEY_TO_CODE[m[1]];
+        if (!code) return null;
+        return `${code}${String(m[2]).padStart(2,'0')}${String(m[3]).padStart(2,'0')}`;
+    };
+})();
+function getJaVerse(entry) {
+    const key = _refToJaKey(entry.ref);
+    if (key && _jaMap.has(key)) return _jaMap.get(key);
+    return entry.gloss || entry.english || '';
+}
+
+function buildRefLabel(ref) {
+    const r = String(ref||'');
+    const m = r.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+    if (m) return `${BOOK_JP[m[1]]||m[1]} ${m[2]}:${m[3]}`;
+    if (r.length===6 && /^\d+$/.test(r)) {
+        const bk = BOOK_MAP[r.slice(0,2)];
+        return `${(bk&&BOOK_JP[bk])||bk||r.slice(0,2)} ${parseInt(r.slice(2,4))}:${parseInt(r.slice(4,6))}`;
+    }
+    return r;
+}
+
+/* ══════════════════════════════════════════
+   結果一覧
+   ══════════════════════════════════════════ */
+let _currentRows = [];
+let _displayCount = 100;
+const PAGE_SIZE = 100;
+
+function renderResults(allData) {
+    const matched = allData.filter(matchEntry);
+    const sp      = params.pos.replace(/-$/,'');
+    const samePos = allData.filter(e=>(e.pos||'').replace(/-$/,'').toUpperCase()===sp.toUpperCase()).length;
+
+    document.getElementById('count').textContent      = matched.length.toLocaleString();
+    document.getElementById('result-pct').textContent = samePos>0 ? `同品詞 ${samePos.toLocaleString()} 件中` : '';
+
+    _currentRows  = matched;
+    _displayCount = PAGE_SIZE;
+
+    renderDist(matched);
+    renderPage();
+}
+
+function renderPage() {
+    const el   = document.getElementById('result-list');
+    const rows = _currentRows;
+
+    if (!rows.length) {
+        el.innerHTML = `<div class="empty"><div class="empty-icon">∅</div>条件に一致する語形が見つかりませんでした。<br>拡張条件をOFFにするか、書物範囲を広げてみてください。</div>`;
+        return;
+    }
+
+    const slice = rows.slice(0, _displayCount);
+    const more  = rows.length - _displayCount;
+
+    el.innerHTML = slice.map((entry, idx) => {
+        const word     = entry.word || entry.normalized || entry.text || '';
+        const refLabel = buildRefLabel(entry.ref);
+        const jaText   = getJaVerse(entry);
+        return `<div class="result-card" style="animation:fadeUp 0.2s ease ${Math.min(idx*8,240)}ms both"
+            onclick="goToWord('${entry.ref||''}','${encodeURIComponent(word)}')">
+            <div class="result-top">
+                <div>
+                    <span class="result-word">${word}</span>
+                    <span class="result-lemma">${entry.lemma||''}</span>
+                </div>
+                <span class="result-ref">${refLabel}</span>
+            </div>
+            ${jaText ? `<div class="result-ja">${jaText}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    if (more > 0) {
+        el.innerHTML += `<div style="text-align:center;padding:24px 0;">
+            <button onclick="loadMore()" style="padding:8px 24px;font-size:0.78rem;font-family:inherit;
+                border:1px solid var(--border);border-radius:20px;background:transparent;
+                cursor:pointer;color:var(--text-sub);transition:background 0.12s;">
+                さらに表示（残り ${more.toLocaleString()} 件）
+            </button></div>`;
+    }
+}
+function loadMore() { _displayCount += PAGE_SIZE; renderPage(); }
+function goToWord(ref,enc) {
+    const word=decodeURIComponent(enc);
+    if(window.opener&&!window.opener.closed) window.opener.postMessage({type:'GO_TO_REF',ref,word},'*');
+}
+
+/* ══════════════════════════════════════════
+   データ読み込み
+   ══════════════════════════════════════════ */
+const JA_FOLDER = 'bible_jp';
+const ALL_BOOKS = [
+    {key:'ROM',ch:16},{key:'1CO',ch:16},{key:'2CO',ch:13},{key:'GAL',ch:6},
+    {key:'EPH',ch:6},{key:'PHP',ch:4},{key:'COL',ch:4},{key:'1TH',ch:5},
+    {key:'2TH',ch:3},{key:'1TI',ch:6},{key:'2TI',ch:4},{key:'TIT',ch:3},
+    {key:'PHM',ch:1},
+];
+function buildAllChapterPaths() {
+    const p=[];
+    for(const b of ALL_BOOKS) for(let c=1;c<=b.ch;c++) p.push({key:b.key,ch:c,path:`./bible_data/${b.key}/${c}.json`});
+    return p;
+}
+async function fetchInBatches(tasks,sz,onProg) {
+    let all=[];
+    for(let i=0;i<tasks.length;i+=sz) {
+        const results=await Promise.allSettled(
+            tasks.slice(i,i+sz).map(t=>
+                fetch(t.path).then(r=>r.ok?r.json():null).catch(()=>null)
+                .then(data=>{
+                    if(!Array.isArray(data)) return null;
+                    data.forEach(entry=>{entry._bookKey=t.key;});
+                    return data;
+                })
+            )
+        );
+        results.forEach(r=>{if(r.status==='fulfilled'&&Array.isArray(r.value))all=all.concat(r.value);});
+        onProg(Math.min(i+sz,tasks.length),tasks.length);
+    }
+    return all;
+}
+async function fetchJaData(morphPaths) {
+    const jaPaths=morphPaths.map(t=>({key:t.key,ch:t.ch,path:`./${JA_FOLDER}/${t.key}/${t.ch}.json`}));
+    const KEY_TO_CODE={};
+    Object.entries(BOOK_MAP).forEach(([code,key])=>{KEY_TO_CODE[key]=code;});
+    return Promise.allSettled(
+        jaPaths.map(t=>
+            fetch(t.path).then(r=>r.ok?r.json():null).catch(()=>null)
+            .then(data=>{
+                if(!data) return;
+                const verses=data.verses;
+                if(!verses||typeof verses!=='object') return;
+                const bookCode=KEY_TO_CODE[t.key];
+                if(!bookCode) return;
+                const chStr=String(t.ch).padStart(2,'0');
+                Object.entries(verses).forEach(([vNum,text])=>{
+                    const vStr=String(parseInt(vNum)).padStart(2,'0');
+                    _jaMap.set(`${bookCode}${chStr}${vStr}`,String(text));
+                });
+            })
+        )
+    );
+}
+async function fetchJapaneseTSV() {
+    try {
+        const res = await fetch('./macula-greek-SBLGNT.tsv');
+        if (!res.ok) return;
+        const text = await res.text();
+        const lines = text.split('\n');
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split('\t');
+            if (cols.length < 12) continue;
+            const normalized = (cols[11] || '').trim();
+            const japanese   = (cols[6]  || '').trim();
+            if (normalized && japanese && !_japaneseMap.has(normalized))
+                _japaneseMap.set(normalized, japanese);
+        }
+    } catch(e) { console.warn('TSV読み込み失敗:', e); }
+}
+
+/* ══════════════════════════════════════════
+   初期化
+   ══════════════════════════════════════════ */
+renderHeader();
+renderCoreTags();
+renderExplain();
+renderCoreChips();
+renderExtChips();
+renderBookChips();
+renderWordFilterChips();
+
+(async function() {
+    const loadEl = document.getElementById('loading');
+    const listEl = document.getElementById('result-list');
+    const paths  = buildAllChapterPaths();
+    const total  = paths.length;
+
+    const allData = await fetchInBatches(paths, 20, (done, ttl) => {
+        const pct = Math.round(done/ttl*100);
+        const bar = document.getElementById('load-bar');
+        const txt = document.getElementById('load-text');
+        if (bar) bar.style.width = pct + '%';
+        if (txt) txt.textContent = `読み込み中 ${done} / ${ttl}`;
+    });
+
+    if (!allData.length) {
+        loadEl.innerHTML = `<p style="color:#c00;font-size:0.82rem;">データが見つかりませんでした。<br><code>bible_data/ROM/1.json</code> の形式で配置してください。</p>`;
+        return;
+    }
+
+    const txt = document.getElementById('load-text');
+    if (txt) txt.textContent = '日本語訳を読み込み中…';
+    await fetchJaData(paths);
+    await fetchJapaneseTSV();
+
+    window._morphData = allData;
+    loadEl.style.display  = 'none';
+    listEl.style.display  = 'flex';
+    renderResults(allData);
+})();
+</script>
+</body>
+</html>

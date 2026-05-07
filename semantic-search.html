@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>意味論 — コトバト</title>
+<link rel="icon" href="data:,">
+<link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════
+   Design tokens（他画面と共通）
+   ══════════════════════════════════════════ */
+:root {
+    --bg:           #ffffff;
+    --bg-panel:     #f5f5f7;
+    --bg-inset:     #fafafa;
+    --text:         #1d1d1f;
+    --text-sub:     #6e6e73;
+    --text-hint:    #aeaeb2;
+    --accent:       #5a6e82;
+    --accent-light: rgba(90,110,130,0.09);
+    --accent-mid:   rgba(90,110,130,0.20);
+    --border:       rgba(0,0,0,0.07);
+    --radius-s: 8px;
+    --radius-m: 12px;
+    --radius-l: 16px;
+
+    /* 意味論専用 — 有力度カラー */
+    --c-top:     #2d6a4f;
+    --c-top-bg:  rgba(45,106,79,0.07);
+    --c-top-mid: rgba(45,106,79,0.20);
+    --c-mid:     #5a6e82;
+    --c-mid-bg:  rgba(90,110,130,0.07);
+    --c-low:     #aeaeb2;
+    --c-low-bg:  rgba(174,174,178,0.06);
+
+    /* スコアバー */
+    --bar-h: 3px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: 'Noto Sans JP', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ══════════════════════════════════════════
+   Layout
+   ══════════════════════════════════════════ */
+.page { max-width: 720px; margin: 0 auto; padding: 32px 24px 100px; }
+
+/* ── Nav ── */
+.nav { display: flex; align-items: center; gap: 10px; margin-bottom: 36px; }
+.btn-back {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 13px; font-size: 0.78rem; font-family: inherit;
+    border: 1px solid var(--border); border-radius: 20px;
+    background: transparent; cursor: pointer; color: var(--text-sub);
+    transition: background 0.12s;
+}
+.btn-back:hover { background: var(--bg-panel); }
+.breadcrumb {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.75rem; color: var(--text-hint);
+    flex: 1; overflow: hidden;
+}
+.breadcrumb .crumb { color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+.breadcrumb .sep { opacity: 0.35; flex-shrink: 0; }
+
+/* Section label */
+.sec-label {
+    font-size: 0.58rem; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text-hint);
+    margin-bottom: 12px;
+}
+
+/* ══════════════════════════════════════════
+   ① 文脈表示ブロック
+   ══════════════════════════════════════════ */
+.context-block {
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+}
+.sentence-ref {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+}
+.sentence-ref-badge {
+    background: var(--accent-light); border: 1px solid var(--accent-mid);
+    border-radius: 6px; padding: 2px 8px;
+    font-size: 0.6rem; color: var(--accent);
+}
+
+/* ギリシャ語全文 */
+.token-line {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.45rem; line-height: 2.2;
+    display: flex; flex-wrap: wrap; gap: 4px 10px;
+    margin-bottom: 10px;
+}
+.token {
+    cursor: default;
+    border-radius: 6px;
+    padding: 0 4px;
+    transition: background 0.1s;
+    position: relative;
+}
+/* 対象語ハイライト */
+.token.target {
+    color: var(--c-top);
+    background: var(--c-top-bg);
+    font-weight: 700;
+    outline: 1.5px solid var(--c-top-mid);
+    outline-offset: 1px;
+}
+/* その他の語はクリッカブルに */
+.token.other {
+    cursor: pointer;
+    color: var(--text);
+}
+.token.other:hover { background: var(--bg-panel); }
+
+/* 日本語訳 */
+.sentence-ja {
+    font-size: 0.8rem; color: var(--text-hint);
+    line-height: 1.7; padding: 8px 12px;
+    background: var(--bg-panel);
+    border-radius: var(--radius-s);
+    border-left: 2px solid var(--border);
+}
+.sentence-ja .target-ja {
+    color: var(--c-top);
+    font-weight: 500;
+}
+
+/* ══════════════════════════════════════════
+   ② 意味候補リスト（最重要セクション）
+   ══════════════════════════════════════════ */
+.candidates-block {
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+}
+
+.candidates-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* 候補カード */
+.cand-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+    animation: fadeUp 0.2s ease both;
+}
+.cand-card:hover {
+    border-color: rgba(0,0,0,0.14);
+    transform: translateY(-1px);
+}
+
+/* 最有力カード */
+.cand-card.rank-1 {
+    border-color: var(--c-top-mid);
+    box-shadow: 0 0 0 0 transparent;
+}
+.cand-card.rank-1:hover {
+    box-shadow: 0 2px 12px rgba(45,106,79,0.10);
+    border-color: rgba(45,106,79,0.35);
+}
+.cand-card.active {
+    box-shadow: 0 0 0 2px var(--c-top-mid);
+    border-color: transparent;
+}
+.cand-card.rank-1.active {
+    box-shadow: 0 0 0 2px rgba(45,106,79,0.30);
+}
+
+/* カード内レイアウト */
+.cand-bar-accent {
+    height: 3px;
+    width: 100%;
+    transition: width 0.4s ease;
+}
+.rank-1 .cand-bar-accent { background: var(--c-top); }
+.rank-2 .cand-bar-accent { background: var(--c-mid); opacity: 0.5; }
+.rank-3 .cand-bar-accent, .rank-4 .cand-bar-accent, .rank-5 .cand-bar-accent { background: var(--c-low); }
+
+.cand-body {
+    padding: 12px 16px 14px;
+    background: var(--bg);
+    transition: background 0.1s;
+}
+.cand-card:hover .cand-body { background: var(--bg-panel); }
+.cand-card.active .cand-body { background: var(--bg-inset); }
+
+.cand-top {
+    display: flex; align-items: baseline;
+    justify-content: space-between; gap: 8px;
+    margin-bottom: 8px;
+}
+
+.cand-rank {
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em;
+    flex-shrink: 0;
+    width: 22px;
+    text-align: right;
+    padding-right: 6px;
+}
+.rank-1 .cand-rank { color: var(--c-top); }
+.rank-2 .cand-rank { color: var(--c-mid); }
+.rank-3 .cand-rank, .rank-4 .cand-rank, .rank-5 .cand-rank { color: var(--c-low); }
+
+.cand-meaning {
+    font-size: 1.05rem; font-weight: 600;
+    color: var(--text); flex: 1; line-height: 1.4;
+}
+.rank-1 .cand-meaning { color: var(--c-top); }
+
+.cand-meaning-sub {
+    font-size: 0.72rem; color: var(--text-sub);
+    font-weight: 400; margin-left: 6px;
+}
+
+/* スコアバー（控えめ） */
+.cand-score-row {
+    display: flex; align-items: center; gap: 8px;
+}
+.cand-score-track {
+    flex: 1; height: var(--bar-h);
+    background: var(--bg-panel);
+    border-radius: 2px; overflow: hidden;
+}
+.cand-score-fill {
+    height: 100%; border-radius: 2px;
+    transition: width 0.5s ease 0.1s;
+}
+.rank-1 .cand-score-fill { background: var(--c-top); }
+.rank-2 .cand-score-fill { background: var(--c-mid); opacity: 0.6; }
+.rank-3 .cand-score-fill, .rank-4 .cand-score-fill, .rank-5 .cand-score-fill { background: var(--c-low); }
+
+.cand-score-pct {
+    font-size: 0.65rem; color: var(--text-hint);
+    font-variant-numeric: tabular-nums;
+    width: 32px; text-align: right; flex-shrink: 0;
+}
+.rank-1 .cand-score-pct { color: var(--c-top); opacity: 0.7; }
+
+/* 最有力バッジ */
+.top-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 20px;
+    font-size: 0.58rem; font-weight: 700; letter-spacing: 0.06em;
+    background: var(--c-top-bg); border: 1px solid var(--c-top-mid);
+    color: var(--c-top); flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════
+   ③ 適合理由パネル（動的）
+   ══════════════════════════════════════════ */
+.reason-block {
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+}
+
+.reason-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    overflow: hidden;
+    animation: fadeUp 0.2s ease;
+}
+
+.reason-card-head {
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline;
+    justify-content: space-between; gap: 10px;
+    background: var(--bg-panel);
+}
+.reason-head-meaning {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 0.92rem; font-weight: 700;
+    color: var(--c-top); flex: 1;
+}
+.reason-head-tag {
+    font-size: 0.6rem; color: var(--text-hint);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.reason-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+.reason-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+}
+.reason-item:last-child { border-bottom: none; }
+.reason-item:hover { background: var(--bg-panel); }
+
+.reason-icon {
+    font-size: 0.7rem;
+    flex-shrink: 0;
+    margin-top: 3px;
+    opacity: 0.7;
+    line-height: 1;
+}
+.reason-text {
+    font-size: 0.85rem; color: var(--text);
+    line-height: 1.7; flex: 1;
+}
+.reason-key {
+    font-weight: 600; color: var(--text);
+}
+.reason-empty {
+    padding: 24px 20px; text-align: center;
+    color: var(--text-hint); font-size: 0.82rem;
+    background: var(--bg-panel);
+    border-radius: var(--radius-m);
+}
+
+/* ══════════════════════════════════════════
+   ⑤ 決定ガイド（画面の結論）
+   ══════════════════════════════════════════ */
+.guide-block {
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+}
+
+.guide-card {
+    border-radius: var(--radius-m);
+    overflow: hidden;
+    background: var(--c-top-bg);
+    border: 1px solid var(--c-top-mid);
+}
+.guide-card-inner {
+    padding: 16px 20px;
+}
+.guide-arrow {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+    color: var(--c-top); opacity: 0.7;
+    margin-bottom: 6px; display: block;
+}
+.guide-sentence {
+    font-size: 0.92rem; color: var(--text);
+    line-height: 1.8; font-weight: 500;
+}
+.guide-sentence strong { color: var(--c-top); }
+
+/* ⑥ 最終訳 */
+.translation-block {
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+}
+.translation-display {
+    padding: 14px 20px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--c-top);
+    border-radius: var(--radius-m);
+}
+.translation-label {
+    font-size: 0.58rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-hint);
+    margin-bottom: 6px;
+}
+.translation-text {
+    font-size: 1.1rem; font-weight: 600;
+    color: var(--text); line-height: 1.6;
+}
+.translation-text .t-target {
+    color: var(--c-top);
+    border-bottom: 1.5px solid var(--c-top-mid);
+    padding-bottom: 1px;
+}
+.translation-note {
+    margin-top: 8px; font-size: 0.75rem;
+    color: var(--text-sub); line-height: 1.7;
+}
+
+/* ══════════════════════════════════════════
+   ⑦ 比較用例（オプション）
+   ══════════════════════════════════════════ */
+.examples-block {
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+}
+.examples-list {
+    display: flex; flex-direction: column; gap: 8px;
+}
+.example-item {
+    padding: 10px 14px;
+    background: var(--bg-panel);
+    border-radius: var(--radius-s);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+}
+.example-item:hover {
+    background: var(--accent-light);
+    border-color: var(--accent-mid);
+}
+.example-greek {
+    font-family: 'Gentium Plus', serif;
+    font-size: 0.95rem; color: var(--text);
+    margin-bottom: 2px;
+}
+.example-greek .ex-target {
+    color: var(--c-top); font-weight: 700;
+}
+.example-ref {
+    font-size: 0.65rem; color: var(--text-hint);
+    letter-spacing: 0.04em;
+    margin-bottom: 3px;
+}
+.example-ja {
+    font-size: 0.75rem; color: var(--text-sub);
+    line-height: 1.6;
+}
+.example-nuance {
+    margin-top: 4px; font-size: 0.68rem;
+    color: var(--accent);
+    padding: 2px 8px; background: var(--accent-light);
+    border-radius: 20px; display: inline-block;
+}
+
+/* ══════════════════════════════════════════
+   ⑧ ナビゲーション
+   ══════════════════════════════════════════ */
+.nav-tools {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    margin-bottom: 32px;
+}
+.nav-tool-btn {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--bg-inset); border: 1px solid var(--border);
+    border-radius: var(--radius-m); cursor: pointer;
+    text-decoration: none; color: var(--text);
+    transition: background 0.12s, border-color 0.12s, transform 0.1s;
+}
+.nav-tool-btn:hover {
+    background: var(--accent-light); border-color: var(--accent-mid);
+    transform: translateY(-1px);
+}
+.nav-tool-icon { font-size: 1.1rem; line-height: 1; margin-bottom: 4px; }
+.nav-tool-main { font-size: 0.82rem; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.nav-tool-sub  { font-size: 0.68rem; color: var(--text-sub); }
+.nav-tool-arrow { font-size: 0.85rem; color: var(--text-hint); flex-shrink: 0; margin-left: 8px; align-self: center; }
+
+/* ══════════════════════════════════════════
+   Loading
+   ══════════════════════════════════════════ */
+.loading {
+    text-align: center; padding: 64px 16px; color: var(--text-hint);
+}
+.loading-greek {
+    font-family: 'Gentium Plus', serif;
+    font-size: 2rem; color: #d8d8dc; margin-bottom: 16px;
+}
+.loading-bar-wrap {
+    width: 200px; margin: 0 auto 10px;
+    height: 2px; background: var(--bg-panel);
+    border-radius: 2px; overflow: hidden;
+}
+.loading-bar { height: 100%; background: var(--accent); transition: width 0.3s; border-radius: 2px; }
+.loading-text { font-size: 0.72rem; }
+
+@keyframes pulse { 0%,80%,100%{opacity:0.3} 40%{opacity:1} }
+.dot { display: inline-block; animation: pulse 1.4s ease-in-out infinite; }
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.fade-up { animation: fadeUp 0.25s ease forwards; }
+
+/* Footer */
+.app-footer {
+    margin-top: 48px; padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.68rem; color: var(--text-hint);
+}
+.footer-links { display: flex; gap: 16px; }
+.footer-links a { color: var(--text-hint); text-decoration: none; border-bottom: 1px solid var(--border); padding-bottom: 1px; }
+.footer-links a:hover { color: var(--text-sub); }
+
+/* Responsive */
+@media (max-width: 520px) {
+    .page { padding: 24px 16px 80px; }
+    .token-line { font-size: 1.2rem; gap: 3px 7px; }
+    .nav-tools { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+    <!-- Nav -->
+    <div class="nav">
+        <button class="btn-back" onclick="window.close(); if(!window.opener) history.back();">← 戻る</button>
+        <div class="breadcrumb">
+            <span class="crumb" id="bc-ref">—</span>
+            <span class="sep">›</span>
+            <span class="crumb" id="bc-word" style="font-family:'Gentium Plus',serif;font-size:0.95rem;">—</span>
+            <span class="sep">›</span>
+            <span>意味論</span>
+        </div>
+    </div>
+
+    <!-- LOADING -->
+    <div id="main-loading" class="loading">
+        <div class="loading-greek">σημαίνει</div>
+        <div class="loading-bar-wrap"><div id="load-bar" class="loading-bar" style="width:0%"></div></div>
+        <div class="loading-text" id="load-text">
+            <span class="dot">·</span><span class="dot">·</span><span class="dot">·</span>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main-content" style="display:none">
+
+        <!-- ① 文脈表示 -->
+        <div class="context-block fade-up">
+            <div class="sec-label">文の文脈</div>
+            <div class="sentence-ref">
+                <span class="sentence-ref-badge" id="sent-ref-badge">—</span>
+                <span style="font-size:0.65rem;color:var(--text-hint);font-weight:400;">意味論</span>
+            </div>
+            <div class="token-line" id="token-line"></div>
+            <div class="sentence-ja" id="sentence-ja" style="display:none"></div>
+        </div>
+
+        <!-- ② 意味候補リスト -->
+        <div class="candidates-block fade-up" style="animation-delay:0.05s">
+            <div class="sec-label">意味の候補</div>
+            <div class="candidates-list" id="candidates-list">
+                <!-- JS で描画 -->
+            </div>
+        </div>
+
+        <!-- ③ 適合理由 -->
+        <div class="reason-block fade-up" style="animation-delay:0.10s">
+            <div class="sec-label">この文での適合理由</div>
+            <div id="reason-body">
+                <div class="reason-empty">上の候補をタップすると、なぜその意味がこの文脈に合うかが表示されます。</div>
+            </div>
+        </div>
+
+        <!-- ⑤ 決定ガイド -->
+        <div class="guide-block fade-up" style="animation-delay:0.15s">
+            <div class="sec-label">意味の判断</div>
+            <div class="guide-card">
+                <div class="guide-card-inner" id="guide-card">
+                    <span class="guide-arrow">👉 結論</span>
+                    <p class="guide-sentence">読み込み中…</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ⑥ 最終訳 -->
+        <div class="translation-block fade-up" style="animation-delay:0.18s">
+            <div class="sec-label">この文での訳</div>
+            <div class="translation-display" id="translation-display">
+                <div class="translation-label">最終訳（文脈適合）</div>
+                <div class="translation-text" id="translation-text">—</div>
+                <div class="translation-note" id="translation-note"></div>
+            </div>
+        </div>
+
+        <!-- ⑦ 比較用例 -->
+        <div class="examples-block fade-up" style="animation-delay:0.21s" id="examples-block">
+            <div class="sec-label">他の文での用法</div>
+            <div class="examples-list" id="examples-list">
+                <!-- JS で描画 -->
+            </div>
+        </div>
+
+        <!-- ⑧ ナビゲーション -->
+        <div class="fade-up" style="animation-delay:0.24s">
+            <div class="sec-label" style="margin-bottom:12px;">次のステップ</div>
+            <div class="nav-tools">
+                <a class="nav-tool-btn" href="#" onclick="navTo('morph',event)">
+                    <div>
+                        <div class="nav-tool-icon">◻</div>
+                        <div class="nav-tool-main">形を確認する</div>
+                        <div class="nav-tool-sub">形態論ツールへ</div>
+                    </div>
+                    <span class="nav-tool-arrow">→</span>
+                </a>
+                <a class="nav-tool-btn" href="#" onclick="navTo('syntax',event)">
+                    <div>
+                        <div class="nav-tool-icon">⋮</div>
+                        <div class="nav-tool-main">構造を確認する</div>
+                        <div class="nav-tool-sub">統語論ツールへ</div>
+                    </div>
+                    <span class="nav-tool-arrow">→</span>
+                </a>
+            </div>
+        </div>
+
+    </div><!-- /main-content -->
+
+    <footer class="app-footer">
+        <span>© 2026 ウオノ All rights reserved.</span>
+        <div class="footer-links"><a href="index.html">ホーム</a></div>
+    </footer>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   URL パラメータ取得
+   ══════════════════════════════════════════ */
+const _sp = new URLSearchParams(location.search);
+const params = {
+    ref:   _sp.get('ref')  || '',
+    word:  decodeURIComponent(_sp.get('word') || ''),
+    lemma: decodeURIComponent(_sp.get('lemma') || ''),
+    pos:   _sp.get('pos')  || '',
+    role:  _sp.get('role') || '',
+};
+
+/* ══════════════════════════════════════════
+   書物マップ
+   ══════════════════════════════════════════ */
+const BOOK_MAP = {
+    '45':'ROM','46':'1CO','47':'2CO','48':'GAL','49':'EPH',
+    '50':'PHP','51':'COL','52':'1TH','53':'2TH','54':'1TI',
+    '55':'2TI','56':'TIT','57':'PHM',
+};
+const BOOK_JP = {
+    'ROM':'ローマ','1CO':'コリントⅠ','2CO':'コリントⅡ','GAL':'ガラテヤ',
+    'EPH':'エペソ','PHP':'ピリピ','COL':'コロサイ','1TH':'テサロニケⅠ',
+    '2TH':'テサロニケⅡ','1TI':'テモテⅠ','2TI':'テモテⅡ','TIT':'テトス','PHM':'ピレモン',
+};
+
+function buildRefLabel(ref) {
+    const r = String(ref||'');
+    const m = r.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+    if (m) return `${BOOK_JP[m[1]]||m[1]} ${m[2]}:${m[3]}`;
+    if (r.length===6 && /^\d+$/.test(r)) {
+        const bk = BOOK_MAP[r.slice(0,2)];
+        return `${(bk&&BOOK_JP[bk])||bk||r.slice(0,2)} ${parseInt(r.slice(2,4))}:${parseInt(r.slice(4,6))}`;
+    }
+    return r;
+}
+
+function cleanText(entry) {
+    return entry.word || entry.normalized || entry.text || '';
+}
+
+/* ══════════════════════════════════════════
+   日本語訳マップ
+   ══════════════════════════════════════════ */
+const _jaMap = new Map();
+const _japaneseMap = new Map();
+
+const _refToJaKey = (() => {
+    const KEY_TO_CODE = {};
+    Object.entries(BOOK_MAP).forEach(([code,key])=>{KEY_TO_CODE[key]=code;});
+    return function(ref) {
+        const m = String(ref||'').match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+        if (!m) return null;
+        const code = KEY_TO_CODE[m[1]];
+        if (!code) return null;
+        return `${code}${String(m[2]).padStart(2,'0')}${String(m[3]).padStart(2,'0')}`;
+    };
+})();
+
+function getJaVerse(entry) {
+    const key = _refToJaKey(entry.ref);
+    if (key && _jaMap.has(key)) return _jaMap.get(key);
+    return entry.gloss || entry.english || '';
+}
+
+/* ══════════════════════════════════════════
+   形態論デコード（他画面と共通）
+   ══════════════════════════════════════════ */
+function decodeMorph(entry) {
+    const raw = entry.morph || entry.morphology || '';
+    const m   = {};
+    // UGNT: e.g. "V-PAI-3S"
+    const vMatch = raw.match(/^V-([PA])([AI])([I-SOPN])-(\d)([SP])/);
+    if (vMatch) {
+        m.pos   = 'verb';
+        m.tense = {P:'現在',A:'アオリスト',I:'未完了',F:'未来',2:'第二アオリスト',R:'完了'}[vMatch[1]]||vMatch[1];
+        m.voice = {A:'能動',M:'中動',P:'受動'}[vMatch[2]]||vMatch[2];
+        m.mood  = {I:'直説法',S:'接続法',O:'希求法',P:'分詞',N:'不定詞',M:'命令法'}[vMatch[3]]||vMatch[3];
+        m.person = vMatch[4]; m.number = vMatch[5]==='S'?'単数':'複数';
+        return m;
+    }
+    // Noun/Adj: "N-NSM" "A-ASN"
+    const nMatch = raw.match(/^[NA]-([NGDA])([SP])([MFN])/);
+    if (nMatch) {
+        m.pos  = raw[0]==='N'?'noun':'adj';
+        m.case = {N:'主格',G:'属格',D:'与格',A:'対格'}[nMatch[1]]||nMatch[1];
+        m.number = nMatch[2]==='S'?'単数':'複数';
+        m.gender = {M:'男性',F:'女性',N:'中性'}[nMatch[3]]||nMatch[3];
+        return m;
+    }
+    m.raw = raw;
+    return m;
+}
+
+function entryPosCode(entry) {
+    const pos = (entry.pos||'').toUpperCase().replace(/-$/,'');
+    return pos || decodeMorph(entry).pos || '';
+}
+
+/* ══════════════════════════════════════════
+   ▌スコアリングエンジン
+   各候補に 0–100 のスコアを付ける。
+   基準:
+     A) 文型との一致（主語・目的語の種類）
+     B) 品詞との適合
+     C) 共起語（コロケーション）
+     D) 新約での使用頻度（候補ごとに内蔵）
+   ══════════════════════════════════════════ */
+
+/**
+ * 動詞 lemma → 意味候補データベース
+ * 各候補: { meaning, sub, base, coocKeys, objType, subjType }
+ *   base     : 頻度ベーススコア（0–60）
+ *   coocKeys : 共起しやすい lemma キーワード
+ *   objType  : 期待する目的語タイプ: 'person'|'thing'|'abstract'|'any'|null
+ *   subjType : 期待する主語タイプ: 'person'|'god'|'any'|null
+ */
+const SEMANTIC_DB = {
+    // πιστεύω
+    'πιστεύω': [
+        { meaning:'信じる・信頼する', sub:'（人を信頼する）', base:58, coocKeys:['θεός','κύριος','Ἰησοῦς','χριστός','εἰς'], objType:'person', subjType:'person', translation:'信じて' },
+        { meaning:'委ねる・信託する', sub:'（心を預ける）',   base:40, coocKeys:['εἰς','αὐτός'],                           objType:'person', subjType:'person', translation:'委ねて' },
+        { meaning:'認める・確信する', sub:'（事柄を真とする）',base:34, coocKeys:['ὅτι','λόγος','εὐαγγέλιον'],             objType:'abstract',subjType:'any',    translation:'確信して' },
+        { meaning:'忠実である',       sub:'（継続的な信頼）',  base:22, coocKeys:['ἐν','κύριος'],                           objType:'any',    subjType:'person', translation:'忠実に' },
+    ],
+    // ἀγαπάω
+    'ἀγαπάω': [
+        { meaning:'愛する・慕う',     sub:'（無条件の愛）',   base:62, coocKeys:['θεός','ἀλλήλων','κύριος'],               objType:'person', subjType:'any',    translation:'愛して' },
+        { meaning:'好む・選ぶ',       sub:'（preference）',   base:28, coocKeys:['μᾶλλον','ἤ'],                            objType:'thing',  subjType:'any',    translation:'好んで' },
+    ],
+    // λέγω
+    'λέγω': [
+        { meaning:'言う・語る',       sub:'（口頭の発言）',   base:65, coocKeys:['αὐτός','ὅτι','πρός'],                   objType:'abstract',subjType:'any',   translation:'言って' },
+        { meaning:'呼ぶ・称する',     sub:'（名づける）',     base:30, coocKeys:['ὄνομα','καλέω'],                         objType:'person', subjType:'any',    translation:'呼んで' },
+        { meaning:'意味する・示す',   sub:'（間接的な意味）', base:20, coocKeys:['τοῦτο','ἐστιν'],                         objType:'abstract',subjType:'any',   translation:'意味して' },
+    ],
+    // γινώσκω
+    'γινώσκω': [
+        { meaning:'知る・理解する',   sub:'（経験的な知識）', base:55, coocKeys:['θεός','κύριος','ἀλήθεια'],               objType:'any',    subjType:'any',    translation:'知って' },
+        { meaning:'認識する',         sub:'（識別する）',     base:38, coocKeys:['ὅτι','ἐν'],                              objType:'abstract',subjType:'any',   translation:'認識して' },
+        { meaning:'親しく知る',       sub:'（親密な関係）',   base:28, coocKeys:['ἀλλήλων','πρόσωπον'],                    objType:'person', subjType:'person', translation:'親しく知って' },
+    ],
+    // ποιέω
+    'ποιέω': [
+        { meaning:'行う・する',       sub:'（行動・実行）',   base:60, coocKeys:['ἔργον','νόμος','θέλημα'],               objType:'any',    subjType:'any',    translation:'行って' },
+        { meaning:'作る・造る',       sub:'（制作・製造）',   base:40, coocKeys:['χείρ','κτίζω'],                         objType:'thing',  subjType:'any',    translation:'作って' },
+        { meaning:'実践する',         sub:'（継続的な実行）', base:32, coocKeys:['ἐντολή','λόγος','θεός'],                objType:'abstract',subjType:'any',   translation:'実践して' },
+    ],
+    // ἔχω
+    'ἔχω': [
+        { meaning:'持つ・有する',     sub:'（所有・保持）',   base:60, coocKeys:['ζωή','ἐλπίς','χάρις'],                  objType:'any',    subjType:'any',    translation:'持って' },
+        { meaning:'〜の状態にある',   sub:'（状態・様態）',   base:38, coocKeys:['καλῶς','κακῶς','οὕτως'],               objType:'abstract',subjType:'any',   translation:'〜の状態で' },
+        { meaning:'保つ・守る',       sub:'（継続的保持）',   base:25, coocKeys:['πίστις','ἀγαθός'],                      objType:'abstract',subjType:'any',   translation:'保って' },
+    ],
+    // λαμβάνω
+    'λαμβάνω': [
+        { meaning:'受け取る・得る',   sub:'（受領）',         base:58, coocKeys:['χάρις','πνεῦμα','δύναμις'],             objType:'thing',  subjType:'person', translation:'受けて' },
+        { meaning:'取る・つかむ',     sub:'（能動的取得）',   base:40, coocKeys:['χείρ','ξύλον'],                         objType:'thing',  subjType:'person', translation:'取って' },
+        { meaning:'引き受ける',       sub:'（責任を取る）',   base:22, coocKeys:['ἐφ᾽','ἑαυτόν'],                        objType:'abstract',subjType:'person', translation:'引き受けて' },
+    ],
+    // δίδωμι
+    'δίδωμι': [
+        { meaning:'与える・授ける',   sub:'（贈与・授与）',   base:62, coocKeys:['θεός','χάρις','ζωή','πνεῦμα'],          objType:'any',    subjType:'any',    translation:'与えて' },
+        { meaning:'渡す・委ねる',     sub:'（引き渡し）',     base:34, coocKeys:['παραδίδωμι','χείρ'],                    objType:'person', subjType:'person', translation:'渡して' },
+        { meaning:'許す・可能にする', sub:'（機会を与える）', base:22, coocKeys:['ἵνα','δύναμαι'],                        objType:'abstract',subjType:'any',   translation:'許して' },
+    ],
+    // εἰμί
+    'εἰμί': [
+        { meaning:'〜である',         sub:'（存在・同定）',   base:65, coocKeys:['θεός','κύριος','χριστός'],              objType:'abstract',subjType:'any',   translation:'である' },
+        { meaning:'存在する・いる',   sub:'（場所・実在）',   base:48, coocKeys:['ἐν','ὧδε','ἐκεῖ'],                     objType:null,     subjType:'any',    translation:'いる' },
+        { meaning:'起こる・生じる',   sub:'（出来事）',       base:20, coocKeys:['γίνομαι','ἐγένετο'],                    objType:null,     subjType:'any',    translation:'起こる' },
+    ],
+    // πιστός
+    'πιστός': [
+        { meaning:'忠実な・誠実な',   sub:'（信頼できる）',   base:58, coocKeys:['θεός','κύριος','δοῦλος'],              objType:null,     subjType:'person', translation:'忠実な' },
+        { meaning:'信じている',       sub:'（信仰者）',       base:40, coocKeys:['ἀδελφός','ἐν','χριστός'],              objType:null,     subjType:'person', translation:'信じている' },
+    ],
+    // χάρις
+    'χάρις': [
+        { meaning:'恵み・恩寵',       sub:'（神からの賜物）', base:62, coocKeys:['θεός','κύριος','εἰρήνη'],              objType:null,     subjType:'god',    translation:'恵み' },
+        { meaning:'感謝',             sub:'（ありがとう）',   base:30, coocKeys:['εὐχαριστέω','δίδωμι'],                 objType:null,     subjType:'person', translation:'感謝' },
+        { meaning:'好意・好感',       sub:'（人の間の好意）', base:20, coocKeys:['ἔχω','εὑρίσκω','ἐνώπιον'],            objType:null,     subjType:'person', translation:'好意' },
+    ],
+    // πνεῦμα
+    'πνεῦμα': [
+        { meaning:'霊・聖霊',         sub:'（神の霊）',       base:58, coocKeys:['ἅγιος','θεός','κύριος'],              objType:null,     subjType:null,     translation:'霊' },
+        { meaning:'精神・心',         sub:'（人の内的生命）', base:35, coocKeys:['ψυχή','νοῦς','σῶμα'],                  objType:null,     subjType:null,     translation:'精神' },
+        { meaning:'風・息',           sub:'（物理的な風）',   base:12, coocKeys:['πνέω','ἄνεμος'],                        objType:null,     subjType:null,     translation:'風' },
+    ],
+    // νόμος
+    'νόμος': [
+        { meaning:'律法・モーセの律法',sub:'（旧約の律法）',  base:60, coocKeys:['Μωϋσῆς','ἔργον','πίστις'],             objType:null,     subjType:null,     translation:'律法' },
+        { meaning:'法律・法則',       sub:'（一般的な規則）', base:30, coocKeys:['ἄνθρωπος','βασιλεύς'],                 objType:null,     subjType:null,     translation:'法律' },
+        { meaning:'原理・規律',       sub:'（内なる法則）',   base:22, coocKeys:['ἐν','μέλος','νοῦς'],                   objType:null,     subjType:null,     translation:'原理' },
+    ],
+};
+
+/* ══════════════════════════════════════════
+   スコア計算
+   ══════════════════════════════════════════ */
+function computeScores(lemma, tokens, targetWord) {
+    const candidates = SEMANTIC_DB[lemma];
+    if (!candidates || !candidates.length) return buildFallback(targetWord);
+
+    // 文内の lemma 一覧
+    const verseLemmas = tokens.map(t => (t.lemma||'').trim());
+    const verseTexts  = tokens.map(t => cleanText(t));
+
+    // 主語・目的語のヒューリスティック
+    const hasPersonObj = verseLemmas.some(l =>
+        ['θεός','κύριος','Ἰησοῦς','χριστός','ἄνθρωπος','αὐτός','ἡμεῖς','σύ'].includes(l));
+    const hasAbstractObj = verseLemmas.some(l =>
+        ['ζωή','λόγος','ἀλήθεια','πίστις','χάρις','ἐλπίς','νόμος','θέλημα'].includes(l));
+    const hasGodSubj = verseLemmas.some(l =>
+        ['θεός','κύριος','Ἰησοῦς','χριστός','πατήρ'].includes(l));
+
+    const scored = candidates.map(c => {
+        let s = c.base;
+
+        // A) 共起語ボーナス
+        const coocHits = c.coocKeys.filter(k =>
+            verseLemmas.includes(k) || verseTexts.some(t => t.includes(k))
+        ).length;
+        s += coocHits * 8;
+
+        // B) 目的語タイプ適合
+        if (c.objType === 'person'   && hasPersonObj)   s += 10;
+        if (c.objType === 'abstract' && hasAbstractObj) s += 8;
+        if (c.objType === 'any') s += 4;
+
+        // C) 主語タイプ適合
+        if (c.subjType === 'god'    && hasGodSubj)  s += 8;
+        if (c.subjType === 'person' && !hasGodSubj) s += 5;
+        if (c.subjType === 'any')    s += 2;
+
+        return { ...c, rawScore: Math.min(s, 100) };
+    });
+
+    // 正規化 0–100
+    const max = Math.max(...scored.map(x => x.rawScore), 1);
+    const out = scored.map(x => ({
+        ...x,
+        score: Math.round((x.rawScore / max) * 100),
+    }));
+
+    // スコア順ソート
+    out.sort((a, b) => b.score - a.score);
+    return out.slice(0, 5); // 最大5件
+}
+
+function buildFallback(word) {
+    // DB になければ gloss から推定
+    const glossCandidates = [
+        { meaning: word + '〔gloss〕', sub: '', base: 50, coocKeys: [], objType: 'any', subjType: 'any', score: 100, rawScore: 50, translation: word },
+    ];
+    return glossCandidates;
+}
+
+/* ══════════════════════════════════════════
+   適合理由テキスト生成
+   ══════════════════════════════════════════ */
+function buildReasons(cand, tokens, lemma) {
+    const verseLemmas = tokens.map(t => (t.lemma||'').trim());
+    const reasons = [];
+
+    // 共起語が見つかった場合
+    const hits = cand.coocKeys.filter(k => verseLemmas.includes(k));
+    if (hits.length > 0) {
+        const hitWords = hits.slice(0, 2).join('・');
+        reasons.push({
+            icon: '◎',
+            text: `文中に <strong>${hitWords}</strong> という語があり、「${cand.meaning}」との共起が新約で多い`,
+        });
+    }
+
+    // 目的語タイプの理由
+    const hasPersonObj = verseLemmas.some(l =>
+        ['θεός','κύριος','Ἰησοῦς','χριστός','ἄνθρωπος','αὐτός'].includes(l));
+    const hasAbstractObj = verseLemmas.some(l =>
+        ['ζωή','λόγος','ἀλήθεια','πίστις','χάρις','ἐλπίς','νόμος'].includes(l));
+
+    if (cand.objType === 'person' && hasPersonObj) {
+        reasons.push({ icon: '◎', text: '動詞の目的語または対象が<strong>人称語</strong>（人・神）であり、「' + cand.meaning + '」が自然' });
+    }
+    if (cand.objType === 'abstract' && hasAbstractObj) {
+        reasons.push({ icon: '◎', text: '目的語・補語が<strong>抽象名詞</strong>（言葉・真理など）であり、「' + cand.meaning + '」の用法と一致' });
+    }
+
+    // 頻度
+    if (cand.base >= 55) {
+        reasons.push({ icon: '📖', text: '新約聖書でのこの意味での使用頻度が<strong>最も高い</strong>' });
+    } else if (cand.base >= 35) {
+        reasons.push({ icon: '📖', text: '新約聖書でのこの意味での使用例が<strong>複数</strong>確認できる' });
+    }
+
+    // 主語タイプ
+    const hasGodSubj = verseLemmas.some(l =>
+        ['θεός','κύριος','Ἰησοῦς','χριστός','πατήρ'].includes(l));
+    if (cand.subjType === 'god' && hasGodSubj) {
+        reasons.push({ icon: '◎', text: '文の主語または主体が<strong>神・キリスト</strong>であり、この意味と整合する' });
+    }
+
+    // デフォルト理由（reasons が空の場合）
+    if (reasons.length === 0) {
+        reasons.push({ icon: '○', text: '文脈の品詞・格構造からみてこの意味が成立する' });
+    }
+
+    return reasons.slice(0, 3);
+}
+
+/* ══════════════════════════════════════════
+   比較用例データ
+   ══════════════════════════════════════════ */
+const EXAMPLE_DB = {
+    'πιστεύω': [
+        { ref:'ROM 10:9', greek:'ἐὰν πιστεύσῃς ἐν τῇ καρδίᾳ σου', target:'πιστεύσῃς', ja:'心の中で信じるなら', nuance:'εἰς（対象への方向）' },
+        { ref:'ROM 4:3',  greek:'ἐπίστευσεν δὲ Ἀβραὰμ τῷ θεῷ',  target:'ἐπίστευσεν', ja:'アブラハムは神を信じた', nuance:'与格支配（神に対して）' },
+    ],
+    'ἀγαπάω': [
+        { ref:'ROM 8:28', greek:'τοῖς ἀγαπῶσιν τὸν θεόν', target:'ἀγαπῶσιν', ja:'神を愛している人々に', nuance:'継続的愛' },
+        { ref:'GAL 2:20', greek:'τοῦ ἀγαπήσαντός με', target:'ἀγαπήσαντός', ja:'私を愛された方の', nuance:'アオリスト（完結した愛）' },
+    ],
+    'χάρις': [
+        { ref:'ROM 3:24', greek:'δικαιούμενοι δωρεὰν τῇ αὐτοῦ χάριτι', target:'χάριτι', ja:'神の恵みによって無償で義とされ', nuance:'神の贈り物としての恵み' },
+        { ref:'2CO 12:9', greek:'ἀρκεῖ σοι ἡ χάρις μου', target:'χάρις', ja:'わたしの恵みはあなたに十分だ', nuance:'支えとしての恵み' },
+    ],
+    'πνεῦμα': [
+        { ref:'ROM 8:14', greek:'ὅσοι πνεύματι θεοῦ ἄγονται', target:'πνεύματι', ja:'神の霊によって導かれる人', nuance:'神の霊（手段の与格）' },
+        { ref:'ROM 8:16', greek:'τὸ πνεῦμα συμμαρτυρεῖ τῷ πνεύματι ἡμῶν', target:'πνεῦμα', ja:'御霊が私たちの霊と共に証言する', nuance:'神の霊 vs 人の霊（対比）' },
+    ],
+};
+
+/* ══════════════════════════════════════════
+   ▌UI 描画
+   ══════════════════════════════════════════ */
+let _candidates = [];
+let _activeIdx  = 0;
+let _tokens     = [];
+let _lemma      = '';
+
+function renderTokenLine(tokens, targetWord) {
+    const container = document.getElementById('token-line');
+    container.innerHTML = tokens.map(t => {
+        const w = cleanText(t);
+        const isTarget = w === targetWord || (t.lemma && t.lemma === _lemma && w === targetWord);
+        return `<span class="token ${isTarget ? 'target' : 'other'}" data-word="${w}">${w}</span>`;
+    }).join('');
+}
+
+/* ── ② 候補リスト描画 ── */
+function renderCandidates(candidates) {
+    const container = document.getElementById('candidates-list');
+    if (!candidates.length) {
+        container.innerHTML = `<div style="padding:20px;color:var(--text-hint);font-size:0.82rem;text-align:center;">候補が見つかりませんでした</div>`;
+        return;
+    }
+
+    container.innerHTML = candidates.map((c, i) => {
+        const rank    = i + 1;
+        const rankCls = `rank-${rank}`;
+        const isTop   = rank === 1;
+        const delay   = i * 40;
+        return `
+        <div class="cand-card ${rankCls} ${isTop ? 'active' : ''}"
+             style="animation-delay:${delay}ms"
+             onclick="selectCandidate(${i})">
+            <div class="cand-bar-accent"></div>
+            <div class="cand-body">
+                <div class="cand-top">
+                    <span class="cand-rank">${rank}</span>
+                    <span class="cand-meaning">
+                        ${c.meaning}
+                        ${c.sub ? `<span class="cand-meaning-sub">${c.sub}</span>` : ''}
+                    </span>
+                    ${isTop ? `<span class="top-badge">▲ 最有力</span>` : ''}
+                </div>
+                <div class="cand-score-row">
+                    <div class="cand-score-track">
+                        <div class="cand-score-fill" style="width:${c.score}%"></div>
+                    </div>
+                    <span class="cand-score-pct">${c.score}%</span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+/* ── ③ 理由パネル描画 ── */
+function renderReasons(cand, tokens, lemma) {
+    const reasons = buildReasons(cand, tokens, lemma);
+    const body = document.getElementById('reason-body');
+    body.innerHTML = `
+        <div class="reason-card">
+            <div class="reason-card-head">
+                <span class="reason-head-meaning">「${cand.meaning}」の適合理由</span>
+                <span class="reason-head-tag">score ${cand.score}%</span>
+            </div>
+            <div class="reason-list">
+                ${reasons.map(r => `
+                    <div class="reason-item">
+                        <span class="reason-icon">${r.icon}</span>
+                        <span class="reason-text">${r.text}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+}
+
+/* ── ⑤ 決定ガイド描画 ── */
+function renderGuide(cand, targetWord) {
+    const card = document.getElementById('guide-card');
+    card.innerHTML = `
+        <span class="guide-arrow">👉 結論</span>
+        <p class="guide-sentence">
+            この文では「<strong>${cand.meaning}</strong>」が最も自然です
+            ${cand.score >= 80 ? '（確度が高い）' : cand.score >= 60 ? '（有力）' : '（他の解釈も検討してください）'}。
+        </p>`;
+}
+
+/* ── ⑥ 最終訳描画 ── */
+function renderTranslation(cand, tokens, targetWord) {
+    const jaEl  = document.getElementById('sentence-ja');
+    const jaRaw = jaEl.dataset.raw || '';
+
+    document.getElementById('translation-text').innerHTML =
+        `→ 「<span class="t-target">${cand.translation || cand.meaning}</span>」`;
+
+    document.getElementById('translation-note').textContent =
+        `「${targetWord}」= ${cand.meaning}${cand.sub ? ' ' + cand.sub : ''}`;
+}
+
+/* ── ⑦ 比較用例描画 ── */
+function renderExamples(lemma) {
+    const examples = EXAMPLE_DB[lemma];
+    const block    = document.getElementById('examples-block');
+    const list     = document.getElementById('examples-list');
+    if (!examples || !examples.length) {
+        block.style.display = 'none';
+        return;
+    }
+    block.style.display = '';
+    list.innerHTML = examples.map(ex => `
+        <div class="example-item">
+            <div class="example-ref">${ex.ref}</div>
+            <div class="example-greek">${ex.greek.replace(ex.target, `<span class="ex-target">${ex.target}</span>`)}</div>
+            <div class="example-ja">${ex.ja}</div>
+            ${ex.nuance ? `<div><span class="example-nuance">${ex.nuance}</span></div>` : ''}
+        </div>
+    `).join('');
+}
+
+/* ── 候補選択 ── */
+function selectCandidate(idx) {
+    _activeIdx = idx;
+    // アクティブ状態切替
+    document.querySelectorAll('.cand-card').forEach((el, i) => {
+        el.classList.toggle('active', i === idx);
+    });
+    const cand = _candidates[idx];
+    renderReasons(cand, _tokens, _lemma);
+    renderGuide(cand, params.word);
+    renderTranslation(cand, _tokens, params.word);
+}
+
+/* ── 全体初期化 ── */
+function renderAll(tokens, targetWord, jaVerse) {
+    _tokens = tokens;
+
+    // lemma 決定
+    const targetEntry = tokens.find(t =>
+        cleanText(t) === targetWord ||
+        (t.lemma && cleanText(t).startsWith(targetWord.slice(0,3)))
+    );
+    _lemma = targetEntry?.lemma || params.lemma || targetWord;
+
+    // ① トークン列
+    renderTokenLine(tokens, targetWord);
+
+    // 日本語訳
+    if (jaVerse) {
+        const jaEl = document.getElementById('sentence-ja');
+        jaEl.dataset.raw = jaVerse;
+        jaEl.textContent = jaVerse;
+        jaEl.style.display = 'block';
+    }
+
+    // スコア計算
+    _candidates = computeScores(_lemma, tokens, targetWord);
+
+    // ② 候補リスト
+    renderCandidates(_candidates);
+
+    // デフォルト：最有力を選択
+    if (_candidates.length) {
+        _activeIdx = 0;
+        renderReasons(_candidates[0], tokens, _lemma);
+        renderGuide(_candidates[0], targetWord);
+        renderTranslation(_candidates[0], tokens, targetWord);
+    }
+
+    // ⑦ 用例
+    renderExamples(_lemma);
+}
+
+/* ══════════════════════════════════════════
+   ナビゲーション
+   ══════════════════════════════════════════ */
+function navTo(target, e) {
+    e.preventDefault();
+    if (window.opener && !window.opener.closed) {
+        window.opener.postMessage(
+            { type: `NAV_TO_${target.toUpperCase()}`, ref: params.ref, word: params.word }, '*'
+        );
+    } else {
+        const msg = target === 'morph' ? '形態論ツール' : '統語論ツール';
+        alert(`${msg}への導線は、メインアプリ経由でご利用ください。`);
+    }
+}
+
+/* ══════════════════════════════════════════
+   データ取得（他画面と共通ロジック）
+   ══════════════════════════════════════════ */
+const JA_FOLDER = 'bible_jp';
+const ALL_BOOKS = [
+    {key:'ROM',ch:16},{key:'1CO',ch:16},{key:'2CO',ch:13},{key:'GAL',ch:6},
+    {key:'EPH',ch:6},{key:'PHP',ch:4},{key:'COL',ch:4},{key:'1TH',ch:5},
+    {key:'2TH',ch:3},{key:'1TI',ch:6},{key:'2TI',ch:4},{key:'TIT',ch:3},
+    {key:'PHM',ch:1},
+];
+
+function buildAllChapterPaths() {
+    const p = [];
+    for (const b of ALL_BOOKS) for (let c = 1; c <= b.ch; c++)
+        p.push({ key: b.key, ch: c, path: `./bible_data/${b.key}/${c}.json` });
+    return p;
+}
+
+async function fetchInBatches(tasks, sz, onProg) {
+    let all = [];
+    for (let i = 0; i < tasks.length; i += sz) {
+        const results = await Promise.allSettled(
+            tasks.slice(i, i + sz).map(t =>
+                fetch(t.path).then(r => r.ok ? r.json() : null).catch(() => null)
+                .then(data => {
+                    if (!Array.isArray(data)) return null;
+                    data.forEach(entry => { entry._bookKey = t.key; });
+                    return data;
+                })
+            )
+        );
+        results.forEach(r => { if (r.status === 'fulfilled' && Array.isArray(r.value)) all = all.concat(r.value); });
+        onProg(Math.min(i + sz, tasks.length), tasks.length);
+    }
+    return all;
+}
+
+async function fetchJaData(morphPaths) {
+    const KEY_TO_CODE = {};
+    Object.entries(BOOK_MAP).forEach(([code, key]) => { KEY_TO_CODE[key] = code; });
+    return Promise.allSettled(
+        morphPaths.map(t => ({ ...t, path: `./${JA_FOLDER}/${t.key}/${t.ch}.json` }))
+        .map(t =>
+            fetch(t.path).then(r => r.ok ? r.json() : null).catch(() => null)
+            .then(data => {
+                if (!data) return;
+                const vers = data.verses; if (!vers || typeof vers !== 'object') return;
+                const bc = KEY_TO_CODE[t.key]; if (!bc) return;
+                const cs = String(t.ch).padStart(2, '0');
+                Object.entries(vers).forEach(([vn, tx]) => {
+                    const vs = String(parseInt(vn)).padStart(2, '0');
+                    _jaMap.set(`${bc}${cs}${vs}`, String(tx));
+                });
+            })
+        )
+    );
+}
+
+async function fetchJapaneseTSV() {
+    try {
+        const res = await fetch('./macula-greek-SBLGNT.tsv');
+        if (!res.ok) return;
+        const text  = await res.text();
+        const lines = text.split('\n');
+        for (let i = 1; i < lines.length; i++) {
+            const c = lines[i].split('\t');
+            if (c.length < 12) continue;
+            const norm = (c[11] || '').trim(), ja = (c[6] || '').trim();
+            if (norm && ja && !_japaneseMap.has(norm)) _japaneseMap.set(norm, ja);
+        }
+    } catch(e) { console.warn('TSV読み込み失敗:', e); }
+}
+
+function getVerseTokens(allData, ref) {
+    const prefix = String(ref).replace(/!.*$/, '').trim();
+    return allData.filter(e => String(e.ref || '').replace(/!.*$/, '').trim() === prefix);
+}
+
+/* ══════════════════════════════════════════
+   初期化
+   ══════════════════════════════════════════ */
+document.getElementById('bc-ref').textContent  = buildRefLabel(params.ref) || params.ref || '—';
+document.getElementById('bc-word').textContent = params.word || '—';
+
+(async function() {
+    const paths = buildAllChapterPaths();
+
+    const allData = await fetchInBatches(paths, 20, (done, ttl) => {
+        const pct = Math.round(done / ttl * 100);
+        const bar = document.getElementById('load-bar');
+        const txt = document.getElementById('load-text');
+        if (bar) bar.style.width = pct + '%';
+        if (txt) txt.textContent = `読み込み中 ${done} / ${ttl}`;
+    });
+
+    if (!allData.length) {
+        document.getElementById('main-loading').innerHTML =
+            `<p style="color:#c00;font-size:0.82rem;">データが見つかりませんでした。<code>bible_data/ROM/1.json</code> の形式で配置してください。</p>`;
+        return;
+    }
+
+    const txt = document.getElementById('load-text');
+    if (txt) txt.textContent = '訳文を読み込み中…';
+    await fetchJaData(paths);
+    await fetchJapaneseTSV();
+
+    window._morphData = allData;
+
+    const ref    = params.ref;
+    const tokens = getVerseTokens(allData, ref);
+
+    if (!tokens.length) {
+        document.getElementById('main-loading').innerHTML =
+            `<p style="color:#888;font-size:0.82rem;">節「${ref}」のデータが見つかりませんでした。</p>`;
+        return;
+    }
+
+    // 参照ラベル
+    const refLabel = buildRefLabel(ref);
+    document.getElementById('sent-ref-badge').textContent = refLabel || ref;
+    document.getElementById('bc-ref').textContent = refLabel || ref;
+
+    // 日本語訳
+    const jaVerse = getJaVerse(tokens[0]);
+
+    // 表示
+    document.getElementById('main-loading').style.display = 'none';
+    document.getElementById('main-content').style.display = 'block';
+
+    renderAll(tokens, params.word, jaVerse);
+})();
+</script>
+</body>
+</html>
