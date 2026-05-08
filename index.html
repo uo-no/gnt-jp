@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05081130｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05081710｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -824,8 +824,16 @@ function openAnalysis(greek, rawMorph, ref, lemma) {
         ref,
         word:      greek,
         lemma:     lemma || '',
-        pos:       m.pos  || '',
+        pos:       m.pos    || '',
+        // rawMorph を保持（デバッグ・将来拡張用）
         _rawMorph: rawMorph,
+        // parse 結果を直接保持（switchAnalysisTab で再解析しない）
+        tense:     m.tense  || '',
+        mood:      m.mood   || '',
+        voice:     m.voice  || '',
+        gender:    m.gender || '',
+        number:    m.number || '',
+        case:      m.case   || '',
     };
     document.getElementById('analysis-tabs').classList.add('visible');
     document.getElementById('panel-words-area').classList.add('shrunk');
@@ -847,20 +855,24 @@ function switchAnalysisTab(tab) {
     if (p.lemma) qs.set('lemma', p.lemma);
     if (p.pos)   qs.set('pos',   p.pos);
 
+    // Morph タブ：openAnalysis で保存済みの値を直接使用（再解析しない）
     if (tab === 'morph') {
-        const m = parseMorphForSearch(_currentAnalysisParams._rawMorph || '');
-        if (m.tense)  qs.set('tense',  m.tense);
-        if (m.mood)   qs.set('mood',   m.mood);
-        if (m.voice)  qs.set('voice',  m.voice);
-        if (m.gender) qs.set('gender', m.gender);
-        if (m.number) qs.set('number', m.number);
-        if (m.case)   qs.set('case',   m.case);
+        if (p.tense)  qs.set('tense',  p.tense);
+        if (p.mood)   qs.set('mood',   p.mood);
+        if (p.voice)  qs.set('voice',  p.voice);
+        if (p.gender) qs.set('gender', p.gender);
+        if (p.number) qs.set('number', p.number);
+        if (p.case)   qs.set('case',   p.case);
     }
 
-    const fileMap = { morph: 'morph-search.html', syntax: 'syntax-search.html', semantics: 'semantic-search.html' };
-    const iframe  = document.getElementById('analysis-iframe');
-    const dir = location.pathname.replace(/\/[^\/]*$/, '/');
-    iframe.src = `${location.origin}${dir}${fileMap[tab]}?${qs.toString()}`;
+    const fileMap = {
+        morph:     'morph-search.html',
+        syntax:    'syntax-search.html',
+        semantics: 'semantic-search.html',
+    };
+    const iframe = document.getElementById('analysis-iframe');
+    const dir    = location.pathname.replace(/\/[^\/]*$/, '/');
+    iframe.src   = `${location.origin}${dir}${fileMap[tab]}?${qs.toString()}`;
 }
 
 function closeAnalysis() {
@@ -920,12 +932,13 @@ function buildMorphTagsHTML(rawMorph) {
 }
 
 function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc, ref) {
+    // ── 詳細カード表示 ─────────────────────────────────
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
     const jaText  = jaWord || (abbottSmithDict?.[strong]?.japanese) || '---';
     const descText = desc  || (abbottSmithDict?.[strong]?.description) || '解説なし';
     let classes = [], legends = [];
-    
+
     const parts = rawMorph.split('-');
     if (parts[0] === 'V' && parts[1]) {
         const off = /^[0-9]/.test(parts[1]) ? 1 : 0;
@@ -943,10 +956,12 @@ function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc, ref) 
     }
 
     const morphTagsHTML = buildMorphTagsHTML(rawMorph);
+
+    // 「形態で検索」ボタンを廃止（openAnalysis 自動呼出しが主導線になるため）
+    // 「近くの語を見る」のみ補助ボタンとして残す
     const canSearch = ['V','N','A','R','P','T','D'].includes(rawMorph.split('-')[0]);
-    const searchBtnHTML = canSearch ? `
+    const subBtnHTML = canSearch ? `
         <div style="display:flex; gap:6px; margin-top:12px;">
-            <button class="morph-search-btn" id="btn-morph-search">形態で検索</button>
             <button class="morph-search-btn" id="btn-proximity">近くの語を見る</button>
         </div>
     ` : '';
@@ -964,15 +979,21 @@ function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc, ref) 
             <div class="grammar-legend">${legends.join(" ")}</div>
             <p style="margin:10px 0 6px;"><strong style="color:var(--highlight);">基本義</strong>　${jaText}</p>
             <div style="background:var(--bg-panel); padding:12px; border-radius:8px; white-space:pre-wrap; font-size:0.85rem; color:var(--text-main); line-height:1.8;">${descText}</div>
-            ${searchBtnHTML}
+            ${subBtnHTML}
         </div>`;
 
-    const btn1 = document.getElementById('btn-morph-search');
-    if (btn1) btn1.onclick = () => openAnalysis(greek, rawMorph, ref, lemma);
+    // 補助ボタンのイベント
     const btn2 = document.getElementById('btn-proximity');
     if (btn2) btn2.onclick = () => goProximityPage();
 
     view.scrollTop = 0;
+
+    // ── 分析タブを自動展開（主導線）──────────────────────
+    // showDetail の責務：詳細表示 ＋ openAnalysis 呼び出し
+    // openAnalysis の責務：state 保存・タブ展開・iframe 起動・Morph 初期表示
+    if (ref && rawMorph) {
+        openAnalysis(greek, rawMorph, ref, lemma);
+    }
 }
 
 function closeDetail() { document.getElementById('word-detail-view').style.display = 'none'; }
