@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05071053｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05081130｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -362,8 +362,6 @@
     .morph-search-btn:active { opacity: 0.7; }
     .morph-search-btn .btn-icon { display: none; }
 
-
-
     #panel-proximity {
         display: none;
         flex-direction: column;
@@ -532,6 +530,20 @@
         border-color: rgba(90,110,130,0.2);
         font-weight: 600;
     }
+
+    /* ギリシャ語なしバッジ */
+    .no-greek-badge {
+        display: inline-block;
+        font-size: 0.65rem;
+        color: var(--text-sub);
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: 4px;
+        padding: 1px 7px;
+        margin-left: 8px;
+        vertical-align: middle;
+        letter-spacing: 0.04em;
+    }
     </style>
 </head>
 <body>
@@ -556,13 +568,11 @@
                     <span class="sb-row-arrow menu-text">›</span>
                 </div>
 
-                <!-- ▼ ツールセクション追加 -->
                 <div class="section-label menu-text" style="padding: 16px 12px 4px;">ツール</div>
                 <div class="sb-row" id="nav-proximity" onclick="goProximityPage()">
                     <span class="menu-text">近接検索（詳細）</span>
                     <span class="sb-row-arrow menu-text">↗</span>
                 </div>
-                <!-- ▲ ツールセクションここまで -->
             </div>
 
             <!-- Layer 1: 書物リスト -->
@@ -592,7 +602,8 @@
             <div class="header-content">
                 <div class="breadcrumb">
                     <span class="root-name">新約聖書</span>
-                    <span class="separator">/</span>                    <h1 id="view-title">読み込み中...</h1>
+                    <span class="separator">/</span>
+                    <h1 id="view-title">読み込み中...</h1>
                 </div>
                 <button id="open-panel-btn" onclick="toggleSidePanel()" style="display:none;" title="語形分解を表示">
                     <i class="fa-solid fa-circle-info"></i>
@@ -647,7 +658,18 @@
 
 <script>
 let abbottSmithDict = null;
-let _proximityTokens = []; // 近接検索用トークンキャッシュ
+let _proximityTokens = [];
+
+// ギリシャ語データが存在する書物のキーセット
+// bible_data フォルダにデータがある書物のみ語形分解パネルを有効化する
+// ※ 実際のファイル存在に応じてこのセットを調整してください
+const GREEK_BOOKS = new Set([
+    'ROM','1CO','2CO','GAL','EPH','PHP','COL',
+    '1TH','2TH','1TI','2TI','TIT','PHM',
+    'MAT','MRK','LUK','JHN','ACT',
+    'HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD','REV'
+]);
+
 const JPN_MAP = {
     pos: { 'V': '動詞', 'N': '名詞', 'A': '形容詞', 'R': '関係代名詞', 'P': '人称代名詞', 'D': '指示代名詞', 'T': '冠詞', 'ADV': '副詞', 'PREP': '前置詞', 'CONJ': '接続詞', 'PRT': '添語' },
     tense: { 'P': '現在', 'I': '未完了', 'F': '未来', 'A': 'アオリスト', 'X': '完了' },
@@ -662,8 +684,6 @@ const JPN_MAP = {
 async function loadDict() {
     try {
         abbottSmithDict = {};
-        // macula-greek-SBLGNT.tsv は不要（bible_data JSONに japanese/gloss が含まれるため）
-        // abbott-smith.tsv のみ読み込む（詳細解説文はJSONに含まれていないため）
         const resAbbott = await fetch('./abbott-smith.tsv');
         if (!resAbbott.ok) return;
         const textAbbott = await resAbbott.text();
@@ -687,13 +707,11 @@ function decorate(wordText, wordData) {
     let middleStar = "";
 
     if (pos === 'V' && parts[1]) {
-        // 先頭が数字（語幹タイプ）の場合はオフセット+1
         const off = /^[0-9]/.test(parts[1]) ? 1 : 0;
         const tenseCode = parts[1][off + 0];
         const voiceCode = parts[1][off + 1];
         const moodCode  = parts[1][off + 2];
 
-        // 中動態・受動態にアスタリスク
         if (['M', 'P', 'D'].includes(voiceCode)) {
             middleStar = '<span style="color:var(--highlight); margin-left:2px;">*</span>';
         }
@@ -703,13 +721,11 @@ function decorate(wordText, wordData) {
         const md = JPN_MAP.mood[moodCode]    || "";
 
         if (moodCode === 'P') {
-            // 分詞：装飾なし（直説・命令のみ装飾）
             const cng = parts[2]
                 ? (JPN_MAP.case[parts[2][0]]   || "") +
                   (JPN_MAP.number[parts[2][1]] || "") +
                   (JPN_MAP.gender[parts[2][2]] || "")
                 : "";
-            // 語順：動詞:分詞(時制・態・格数性)
             jpMorph = `動詞:分詞${t}${v}${cng ? "(" + cng + ")" : ""}`;
         } else if (moodCode === 'I' || moodCode === 'M') {
             if (tenseCode === 'P') styleClass = "present-text";
@@ -720,10 +736,8 @@ function decorate(wordText, wordData) {
             else if (moodCode === 'M') styleClass += " imperative-text";
             const person = parts[1].length >= (off + 4) ? (JPN_MAP.person[parts[1][off + 3]] || "") : "";
             const number = parts[1].length >= (off + 5) ? (JPN_MAP.number[parts[1][off + 4]] || "") : "";
-            // 語順：動詞:法・時制・態・人称数
             jpMorph = `動詞:${md}${t}${v}${person}${number}`;
         } else {
-            // 接続法(S)・希求法(O)・不定詞(N) など
             const person = parts[1].length >= (off + 4) ? (JPN_MAP.person[parts[1][off + 3]] || "") : "";
             const number = parts[1].length >= (off + 5) ? (JPN_MAP.number[parts[1][off + 4]] || "") : "";
             jpMorph = `動詞:${md}${t}${v}${person}${number}`;
@@ -740,22 +754,19 @@ function decorate(wordText, wordData) {
             n = JPN_MAP.number[parts[1][1]] || "";
             g = JPN_MAP.gender[parts[1][2]] || "";
         }
-        // 語順：品詞:格・数・性（名詞系）
         jpMorph = `${label}:${p}${c}${n}${g}`;
     } else {
         jpMorph = JPN_MAP.pos[pos] || morph;
     }
 
     const strong = String(m.strong || "").replace(/[^0-9]/g, ""); 
-    // JSONの各エントリに japanese / gloss フィールドが直接含まれているため
-    // abbottSmithDict（TSV由来）ではなくエントリ直接参照に切り替え
     const jaWord  = m.japanese || m.gloss || (abbottSmithDict && abbottSmithDict[strong]?.japanese) || "？";
     const desc    = m.description || (abbottSmithDict && abbottSmithDict[strong]?.description) || "解説なし";
     const lemma   = String(m.lemma || "").replace(/'/g, "\\'");
     const jaWordE = jaWord.replace(/'/g, "\\'");
     const descE   = desc.replace(/'/g, "\\'").replace(/\n/g, '\\n');
     const ref = m.ref || '';
-return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}', '${lemma}', '${jaWordE}', '${descE}', '${ref}')">
+    return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '${jpMorph}', '${morph}', '${lemma}', '${jaWordE}', '${descE}', '${ref}')">
                 <div>
                     <span class="greek-word ${styleClass}">${wordText}</span>${middleStar}
                     <span style="font-weight:bold; margin-left:5px; font-size:0.9rem;">［${jaWord}］</span>
@@ -765,9 +776,6 @@ return `<div class="word-card" onclick="showDetail('${wordText}', '${strong}', '
             </div>`;
 }
 
-/* =====================================================
-   形態素コード → 検索パラメータ変換
-   ===================================================== */
 function parseMorphForSearch(rawMorph) {
     const parts = rawMorph.split('-');
     const pos = parts[0];
@@ -788,7 +796,6 @@ function parseMorphForSearch(rawMorph) {
         if (voiceCode) result.voice = VOICE_MAP[voiceCode] || '';
         if (moodCode)  result.mood  = MOOD_MAP[moodCode]   || '';
 
-        // 分詞の場合は格・数・性も取得
         if (moodCode === 'P' && parts[2]) {
             const CASE_MAP   = { N:'nominative', G:'genitive', D:'dative', A:'accusative', V:'vocative' };
             const NUMBER_MAP = { S:'singular', P:'plural' };
@@ -809,12 +816,8 @@ function parseMorphForSearch(rawMorph) {
     return result;
 }
 
-/* =====================================================
-   分析パネル管理
-   ===================================================== */
-let _currentAnalysisParams = null; // { ref, word, lemma, pos, role }
+let _currentAnalysisParams = null;
 
-/* 分析パネルを開く（語クリック時） */
 function openAnalysis(greek, rawMorph, ref, lemma) {
     const m = parseMorphForSearch(rawMorph);
     _currentAnalysisParams = {
@@ -824,39 +827,28 @@ function openAnalysis(greek, rawMorph, ref, lemma) {
         pos:       m.pos  || '',
         _rawMorph: rawMorph,
     };
-    // タブバー表示
     document.getElementById('analysis-tabs').classList.add('visible');
-    // 語形リストエリアを縮小
     document.getElementById('panel-words-area').classList.add('shrunk');
-    // iframe エリア表示
     document.getElementById('analysis-frame-wrap').classList.add('visible');
-    // 最初は形態論タブ
     switchAnalysisTab('morph');
 }
 
-/* タブ切替 */
 function switchAnalysisTab(tab) {
     if (!_currentAnalysisParams) return;
     const p = _currentAnalysisParams;
 
-    // タブのアクティブ状態
     ['morph','syntax','semantics'].forEach(t => {
         document.getElementById(`atab-${t}`).classList.toggle('active', t === tab);
     });
 
-    // URL 組み立て
     const qs = new URLSearchParams();
     qs.set('ref',   p.ref);
     qs.set('word',  p.word);
     if (p.lemma) qs.set('lemma', p.lemma);
     if (p.pos)   qs.set('pos',   p.pos);
 
-    // 形態論タブ：形態論固有のパラメータも追加
     if (tab === 'morph') {
-        const m = parseMorphForSearch(
-            // rawMorphはparams保持していないので、posから復元
-            _currentAnalysisParams._rawMorph || ''
-        );
+        const m = parseMorphForSearch(_currentAnalysisParams._rawMorph || '');
         if (m.tense)  qs.set('tense',  m.tense);
         if (m.mood)   qs.set('mood',   m.mood);
         if (m.voice)  qs.set('voice',  m.voice);
@@ -867,12 +859,10 @@ function switchAnalysisTab(tab) {
 
     const fileMap = { morph: 'morph-search.html', syntax: 'syntax-search.html', semantics: 'semantic-search.html' };
     const iframe  = document.getElementById('analysis-iframe');
-    // pathname のディレクトリ部分 + ファイル名で絶対URLを組み立て
     const dir = location.pathname.replace(/\/[^\/]*$/, '/');
     iframe.src = `${location.origin}${dir}${fileMap[tab]}?${qs.toString()}`;
 }
 
-/* 分析パネルを閉じる */
 function closeAnalysis() {
     document.getElementById('analysis-tabs').classList.remove('visible');
     document.getElementById('panel-words-area').classList.remove('shrunk');
@@ -881,35 +871,26 @@ function closeAnalysis() {
     _currentAnalysisParams = null;
 }
 
-/* =====================================================
-   形態論検索ページへ遷移（後方互換・共有リンク用）
-   ===================================================== */
 function goMorphSearch(greek, rawMorph, ref, lemma) {
     openAnalysis(greek, rawMorph, ref, lemma);
 }
 
-/* =====================================================
-   iframe からの postMessage 受信
-   ===================================================== */
 window.addEventListener('message', (e) => {
     const d = e.data;
     if (!d || !d.type) return;
 
-    // ref・word を更新してタブ切替
     if (d.ref)  _currentAnalysisParams = { ...(_currentAnalysisParams || {}), ref: d.ref, word: d.word, lemma: d.lemma || '' };
 
     if (d.type === 'NAV_TO_MORPH')      switchAnalysisTab('morph');
     if (d.type === 'NAV_TO_SYNTAX')     switchAnalysisTab('syntax');
     if (d.type === 'NAV_TO_SEMANTICS')  switchAnalysisTab('semantics');
 
-    // 既存の GO_TO_REF（検索結果からジャンプ）
     if (d.type === 'GO_TO_REF' && d.ref) {
         const m = d.ref.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
         if (m) window.location.href = `?book=${m[1]}&ch=${m[2]}`;
     }
 });
 
-/* 形態タグ HTML 生成 */
 function buildMorphTagsHTML(rawMorph) {
     const m = parseMorphForSearch(rawMorph);
     const JPN = {
@@ -941,7 +922,6 @@ function buildMorphTagsHTML(rawMorph) {
 function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc, ref) {
     const view = document.getElementById('word-detail-view');
     view.style.display = 'block';
-    // jaWord / desc は decorate() から直接渡されるため abbottSmithDict 不要
     const jaText  = jaWord || (abbottSmithDict?.[strong]?.japanese) || '---';
     const descText = desc  || (abbottSmithDict?.[strong]?.description) || '解説なし';
     let classes = [], legends = [];
@@ -952,7 +932,6 @@ function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc, ref) 
         const tenseCode = parts[1][off + 0];
         const moodCode  = parts[1][off + 2];
 
-        // 直説・命令の場合のみ装飾凡例を表示（語順：法→時制）
         if (moodCode === 'I' || moodCode === 'M') {
             if (moodCode === 'I') { classes.push("indicative-text"); legends.push(`<span class="indicative-text">背景:直説</span>`); }
             else if (moodCode === 'M') { classes.push("imperative-text"); legends.push(`<span class="imperative-text">背景:命令</span>`); }
@@ -963,7 +942,6 @@ function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc, ref) 
         }
     }
 
-    // 形態タグと検索ボタン（動詞・名詞・形容詞系すべてに表示）
     const morphTagsHTML = buildMorphTagsHTML(rawMorph);
     const canSearch = ['V','N','A','R','P','T','D'].includes(rawMorph.split('-')[0]);
     const searchBtnHTML = canSearch ? `
@@ -989,7 +967,6 @@ function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc, ref) 
             ${searchBtnHTML}
         </div>`;
 
-    // innerHTML設定後にイベントをバインド
     const btn1 = document.getElementById('btn-morph-search');
     if (btn1) btn1.onclick = () => openAnalysis(greek, rawMorph, ref, lemma);
     const btn2 = document.getElementById('btn-proximity');
@@ -1016,42 +993,85 @@ function toggleSidePanel() {
 }
 
 // ── サイドバー ドリルダウン ──────────────────────────
+// ★ 完全版書物リスト（旧約・新約すべて）
 const SB_BOOKS = {
     nt: [
-        {key:'ROM', name:'ローマ人への手紙',         ch:16},
-        {key:'1CO', name:'コリント人への手紙 第一',   ch:16},
-        {key:'2CO', name:'コリント人への手紙 第二',   ch:13},
-        {key:'GAL', name:'ガラテヤ人への手紙',        ch:6},
-        {key:'EPH', name:'エペソ人への手紙',          ch:6},
-        {key:'PHP', name:'ピリピ人への手紙',          ch:4},
-        {key:'COL', name:'コロサイ人への手紙',        ch:4},
-        {key:'1TH', name:'テサロニケ人への手紙 第一', ch:5},
-        {key:'2TH', name:'テサロニケ人への手紙 第二', ch:3},
-        {key:'1TI', name:'テモテへの手紙 第一',       ch:6},
-        {key:'2TI', name:'テモテへの手紙 第二',       ch:4},
-        {key:'TIT', name:'テトスへの手紙',            ch:3},
-        {key:'PHM', name:'ピレモンへの手紙',          ch:1},
+        // 福音書・歴史書
+        {key:'MAT', name:'マタイの福音書',            ch:28},
+        {key:'MRK', name:'マルコの福音書',            ch:16},
+        {key:'LUK', name:'ルカの福音書',              ch:24},
+        {key:'JHN', name:'ヨハネの福音書',            ch:21},
+        {key:'ACT', name:'使徒の働き',                ch:28},
+        // パウロ書簡
+        {key:'ROM', name:'ローマ人への手紙',           ch:16},
+        {key:'1CO', name:'コリント人への手紙 第一',    ch:16},
+        {key:'2CO', name:'コリント人への手紙 第二',    ch:13},
+        {key:'GAL', name:'ガラテヤ人への手紙',         ch:6},
+        {key:'EPH', name:'エペソ人への手紙',           ch:6},
+        {key:'PHP', name:'ピリピ人への手紙',           ch:4},
+        {key:'COL', name:'コロサイ人への手紙',         ch:4},
+        {key:'1TH', name:'テサロニケ人への手紙 第一',  ch:5},
+        {key:'2TH', name:'テサロニケ人への手紙 第二',  ch:3},
+        {key:'1TI', name:'テモテへの手紙 第一',        ch:6},
+        {key:'2TI', name:'テモテへの手紙 第二',        ch:4},
+        {key:'TIT', name:'テトスへの手紙',             ch:3},
+        {key:'PHM', name:'ピレモンへの手紙',           ch:1},
+        // 公同書簡・その他
+        {key:'HEB', name:'ヘブル人への手紙',           ch:13},
+        {key:'JAS', name:'ヤコブの手紙',               ch:5},
+        {key:'1PE', name:'ペテロの手紙 第一',          ch:5},
+        {key:'2PE', name:'ペテロの手紙 第二',          ch:3},
+        {key:'1JN', name:'ヨハネの手紙 第一',          ch:5},
+        {key:'2JN', name:'ヨハネの手紙 第二',          ch:1},
+        {key:'3JN', name:'ヨハネの手紙 第三',          ch:1},
+        {key:'JUD', name:'ユダの手紙',                 ch:1},
+        {key:'REV', name:'黙示録',                     ch:22},
     ],
     ot: [
-        {key:'GEN', name:'創世記',         ch:50},
-        {key:'EXO', name:'出エジプト記',   ch:40},
-        {key:'LEV', name:'レビ記',         ch:27},
-        {key:'NUM', name:'民数記',         ch:36},
-        {key:'DEU', name:'申命記',         ch:34},
-        {key:'JOS', name:'ヨシュア記',     ch:24},
-        {key:'JDG', name:'士師記',         ch:21},
-        {key:'RUT', name:'ルツ記',         ch:4},
-        {key:'1SA', name:'サムエル記 第一',ch:31},
-        {key:'2SA', name:'サムエル記 第二',ch:24},
-        {key:'1KI', name:'列王記 第一',    ch:22},
-        {key:'2KI', name:'列王記 第二',    ch:25},
-        {key:'PSA', name:'詩篇',           ch:150},
-        {key:'PRO', name:'箴言',           ch:31},
-        {key:'ECC', name:'伝道者の書',     ch:12},
-        {key:'ISA', name:'イザヤ書',       ch:66},
-        {key:'JER', name:'エレミヤ書',     ch:52},
-        {key:'EZK', name:'エゼキエル書',   ch:48},
-        {key:'DAN', name:'ダニエル書',     ch:12},
+        // モーセ五書
+        {key:'GEN', name:'創世記',          ch:50},
+        {key:'EXO', name:'出エジプト記',    ch:40},
+        {key:'LEV', name:'レビ記',          ch:27},
+        {key:'NUM', name:'民数記',          ch:36},
+        {key:'DEU', name:'申命記',          ch:34},
+        // 歴史書
+        {key:'JOS', name:'ヨシュア記',      ch:24},
+        {key:'JDG', name:'士師記',          ch:21},
+        {key:'RUT', name:'ルツ記',          ch:4},
+        {key:'1SA', name:'サムエル記 第一', ch:31},
+        {key:'2SA', name:'サムエル記 第二', ch:24},
+        {key:'1KI', name:'列王記 第一',     ch:22},
+        {key:'2KI', name:'列王記 第二',     ch:25},
+        {key:'1CH', name:'歴代誌 第一',     ch:29},
+        {key:'2CH', name:'歴代誌 第二',     ch:36},
+        {key:'EZR', name:'エズラ記',        ch:10},
+        {key:'NEH', name:'ネヘミヤ記',      ch:13},
+        {key:'EST', name:'エステル記',      ch:10},
+        // 詩文書
+        {key:'JOB', name:'ヨブ記',          ch:42},
+        {key:'PSA', name:'詩篇',            ch:150},
+        {key:'PRO', name:'箴言',            ch:31},
+        {key:'ECC', name:'伝道者の書',      ch:12},
+        {key:'SNG', name:'雅歌',            ch:8},
+        // 大預言書
+        {key:'ISA', name:'イザヤ書',        ch:66},
+        {key:'JER', name:'エレミヤ書',      ch:52},
+        {key:'LAM', name:'哀歌',            ch:5},
+        {key:'EZK', name:'エゼキエル書',    ch:48},
+        {key:'DAN', name:'ダニエル書',      ch:12},
+        // 小預言書
+        {key:'HOS', name:'ホセア書',        ch:14},
+        {key:'JOL', name:'ヨエル書',        ch:3},
+        {key:'AMO', name:'アモス書',        ch:9},
+        {key:'OBA', name:'オバデヤ書',      ch:1},
+        {key:'JON', name:'ヨナ書',          ch:4},
+        {key:'MIC', name:'ミカ書',          ch:7},
+        {key:'NAH', name:'ナホム書',        ch:3},
+        {key:'HAB', name:'ハバクク書',      ch:3},
+        {key:'ZEP', name:'ゼパニヤ書',      ch:3},
+        {key:'HAG', name:'ハガイ書',        ch:2},
+        {key:'ZEC', name:'ゼカリヤ書',      ch:14},
+        {key:'MAL', name:'マラキ書',        ch:4},
     ]
 };
 
@@ -1065,7 +1085,6 @@ function sbGoTo(layer, section) {
     document.getElementById('sb-layer' + layer).classList.add('active');
 
     if (layer === 0) {
-        // 旧約/新約の選択状態を反映
         document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
         document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
     }
@@ -1074,7 +1093,6 @@ function sbGoTo(layer, section) {
         if (section) sbSection = section;
         const label = sbSection === 'nt' ? '新約聖書' : '旧約聖書';
         document.getElementById('sb-l1-title').textContent = label;
-        // 旧約/新約の選択状態も更新
         document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
         document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
         sbRenderBooks();
@@ -1094,7 +1112,13 @@ function sbRenderBooks() {
     SB_BOOKS[sbSection].forEach(b => {
         const div = document.createElement('div');
         div.className = 'sb-row' + (b.key === sbBookKey ? ' active' : '');
+        // ギリシャ語データがない書物はグレー表示
+        const hasGreek = GREEK_BOOKS.has(b.key);
         div.innerHTML = `<span>${b.name}</span><span class="sb-row-arrow">›</span>`;
+        if (!hasGreek) {
+            div.title = '日本語訳のみ';
+            div.querySelector('span').style.color = 'var(--text-sub)';
+        }
         div.onclick = () => {
             sbBookKey  = b.key;
             sbBookName = b.name;
@@ -1124,7 +1148,6 @@ function sbRenderChapters() {
 }
 
 function sbInitState(bookKey, ch) {
-    // URLの書物がどちらのセクションか判定
     const inNt = SB_BOOKS.nt.some(b => b.key === bookKey);
     sbSection = inNt ? 'nt' : 'ot';
     const books = SB_BOOKS[sbSection];
@@ -1134,9 +1157,7 @@ function sbInitState(bookKey, ch) {
         sbBookName = found.name;
         sbMaxCh    = found.ch;
     }
-    // 書物リストを表示した状態で起動
     sbGoTo(1);
-    // 書物が既知なら章グリッドまで開く
     if (found) sbGoTo(2);
 }
 // ── ここまでドリルダウン ──────────────────────────
@@ -1236,49 +1257,86 @@ async function init() {
         ? `${found.name} ${ch}章`
         : `${book} ${ch}章`;
 
-    // サイドバーをドリルダウンで初期化
     sbInitState(book, parseInt(ch));
 
     await loadDict();
+
+    // ★ bible_jp は必須、bible_data はギリシャ語対応書物のみ取得
+    const hasGreek = GREEK_BOOKS.has(book);
+
     try {
-        const [jpRes, elRes] = await Promise.all([
-            fetch(`./bible_jp/${book}/${ch}.json`),
-            fetch(`./bible_data/${book}/${ch}.json`)
-        ]);
-        render(await jpRes.json(), await elRes.json());
+        const jpRes = await fetch(`./bible_jp/${book}/${ch}.json`);
+        if (!jpRes.ok) throw new Error(`bible_jp not found: ${book}/${ch}`);
+        const jpData = await jpRes.json();
+
+        let elData = [];
+        if (hasGreek) {
+            try {
+                const elRes = await fetch(`./bible_data/${book}/${ch}.json`);
+                if (elRes.ok) {
+                    elData = await elRes.json();
+                } else {
+                    console.warn(`bible_data not found for ${book}/${ch} — Greek panel disabled`);
+                }
+            } catch (e) {
+                console.warn(`bible_data fetch error for ${book}/${ch}:`, e);
+            }
+        }
+
+        render(jpData, elData, hasGreek && elData.length > 0);
+
     } catch (err) {
-        document.getElementById('app').innerHTML = `<p style="color:red">Data not found.</p>`;
+        console.error(err);
+        document.getElementById('app').innerHTML = `<p style="color:red">データが見つかりません（${book} ${ch}章）</p>`;
     }
 }
 
-function render(jpData, elData) {
+// ★ render に hasGreek フラグを追加
+function render(jpData, elData, hasGreek) {
     const app = document.getElementById('app');
     const panelContent = document.getElementById('panel-content');
     const vLabel = document.getElementById('active-v');
     app.innerHTML = '';
+
     const elByVerse = {};
-    elData.forEach(w => {
-        const v = w.ref.split(':')[1]?.split('!')[0];
-        if (v) { if (!elByVerse[v]) elByVerse[v] = []; elByVerse[v].push(w); }
-    });
+    if (elData && elData.length > 0) {
+        elData.forEach(w => {
+            const v = w.ref.split(':')[1]?.split('!')[0];
+            if (v) { if (!elByVerse[v]) elByVerse[v] = []; elByVerse[v].push(w); }
+        });
+    }
+
+    // ギリシャ語なしの場合、パネルを非表示にしてボタンも隠す
+    const openBtn = document.getElementById('open-panel-btn');
+    if (!hasGreek) {
+        document.getElementById('side-panel').style.display = 'none';
+        openBtn.style.display = 'none';
+    }
+
     Object.entries(jpData.verses).forEach(([vNum, text]) => {
         const block = document.createElement('div');
         block.className = 'verse-block';
         block.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
-        block.onclick = () => {
-            if (window.getComputedStyle(document.getElementById('side-panel')).display === 'none') toggleSidePanel();
-            document.querySelectorAll('.verse-block').forEach(b => b.style.background = 'transparent');
-            block.style.background = 'rgba(0,0,0,0.03)';
-            vLabel.innerText = `${vNum} 節`;
-            panelContent.innerHTML = ''; 
-            if (elByVerse[vNum]) elByVerse[vNum].forEach(w => { panelContent.innerHTML += decorate(w.text, w); });
-            closeDetail();
-        };
+
+        if (hasGreek) {
+            block.onclick = () => {
+                if (window.getComputedStyle(document.getElementById('side-panel')).display === 'none') toggleSidePanel();
+                document.querySelectorAll('.verse-block').forEach(b => b.style.background = 'transparent');
+                block.style.background = 'rgba(0,0,0,0.03)';
+                vLabel.innerText = `${vNum} 節`;
+                panelContent.innerHTML = ''; 
+                if (elByVerse[vNum]) elByVerse[vNum].forEach(w => { panelContent.innerHTML += decorate(w.text, w); });
+                closeDetail();
+            };
+        }
+
         app.appendChild(block);
     });
+
     // ▼ 近接検索用：全トークンをキャッシュ
-    _proximityTokens = elData.map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
+    _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
 }
+
 /* =====================================================
    パネルリサイズ（ドラッグ）
    ===================================================== */
@@ -1302,7 +1360,7 @@ function render(jpData, elData) {
 
     document.addEventListener('mousemove', (e) => {
         if (!dragging) return;
-        const delta = startX - e.clientX; // 左に動かすほど広がる
+        const delta = startX - e.clientX;
         const layoutW = layout.offsetWidth;
         const minPx = 280;
         const maxPx = layoutW * 0.80;
@@ -1318,7 +1376,6 @@ function render(jpData, elData) {
         document.body.style.userSelect = '';
     });
 
-    // タッチ対応
     handle.addEventListener('touchstart', (e) => {
         dragging = true;
         startX = e.touches[0].clientX;
@@ -1351,23 +1408,19 @@ init();
 function goProximityPage() {
     const p = new URLSearchParams();
 
-    // 現在の節情報（例："3 節" → "3"）
     const activeVEl = document.getElementById('active-v');
     const activeVText = activeVEl ? activeVEl.innerText.replace(/\s*節\s*$/, '').trim() : '';
 
-    // 現在表示中の書物・章（URLから取得）
     const urlParams = new URLSearchParams(window.location.search);
     const book = urlParams.get('book') || '';
     const ch   = urlParams.get('ch')   || '';
 
-    // 単語詳細パネルから語を取得
     const detailView = document.getElementById('word-detail-view');
     let word1 = '';
     if (detailView && detailView.style.display !== 'none') {
         const greekEl = detailView.querySelector('.detail-header span[style*="Gentium"]');
         if (greekEl) word1 = greekEl.textContent.trim();
     }
-    // 詳細パネルになければ近接パネルの入力欄を確認
     if (!word1) {
         const proxInput = document.getElementById('prox-word1');
         if (proxInput) word1 = proxInput.value.trim();
@@ -1375,7 +1428,6 @@ function goProximityPage() {
 
     if (word1) p.set('word1', word1);
 
-    // ref：書物＋章＋節（節があればscope=verse）
     if (book && ch) {
         const ref = activeVText ? `${book}${ch}:${activeVText}` : `${book}${ch}`;
         p.set('ref', ref);
@@ -1385,14 +1437,6 @@ function goProximityPage() {
     const qs = p.toString();
     window.location.href = qs ? `proximity.html?${qs}` : 'proximity.html';
 }
-
-/* =====================================================
-   近接検索（簡易共起確認）
-   ===================================================== */
-
-/* =====================================================
-   end 近接検索
-   ===================================================== */
 
 function switchTab(evt, tabName) {
     const tabContents = document.getElementsByClassName("tab-content");
@@ -1416,16 +1460,26 @@ async function renderCurrentPage() {
     const found = allBooks.find(b => b.key === book);
     document.getElementById('view-title').innerText = found ? `${found.name} ${ch}章` : `${book} ${ch}章`;
 
+    const hasGreek = GREEK_BOOKS.has(book);
+
     try {
-        const [jpRes, elRes] = await Promise.all([
-            fetch(`./bible_jp/${book}/${ch}.json`),
-            fetch(`./bible_data/${book}/${ch}.json`)
-        ]);
-        render(await jpRes.json(), await elRes.json());
+        const jpRes = await fetch(`./bible_jp/${book}/${ch}.json`);
+        if (!jpRes.ok) throw new Error('Not found');
+        const jpData = await jpRes.json();
+
+        let elData = [];
+        if (hasGreek) {
+            try {
+                const elRes = await fetch(`./bible_data/${book}/${ch}.json`);
+                if (elRes.ok) elData = await elRes.json();
+            } catch(e) {}
+        }
+
+        render(jpData, elData, hasGreek && elData.length > 0);
         document.getElementById('active-v').innerText = "";
         document.getElementById('panel-content').innerHTML = '<p style="color: var(--text-sub); font-size: 0.82rem; letter-spacing: 0.01em;">節を選択して解析を表示</p>';
     } catch (err) {
-        document.getElementById('app').innerHTML = `<p style="color:red">Data not found.</p>`;
+        document.getElementById('app').innerHTML = `<p style="color:red">データが見つかりません。</p>`;
     }
 }
 
