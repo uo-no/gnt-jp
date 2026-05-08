@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05090800｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05090900｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -260,12 +260,16 @@
         flex-direction: column;
     }
     #analysis-frame-wrap.visible { display: flex; }
-    #analysis-iframe {
+    /* 状態保持型 workspace: 複数iframe を display 切替で管理 */
+    .analysis-iframe {
         width: 100%;
         flex: 1;
         border: none;
-        display: block;
+        display: none;
         background: var(--bg-paper);
+    }
+    .analysis-iframe.active {
+        display: block;
     }
 
     /* 語形分解エリア（iframe表示時は縮小） */
@@ -649,9 +653,26 @@
             <button onclick="closeAnalysis()" style="margin-left:auto; background:none; border:none; cursor:pointer; color:var(--text-sub); font-size:1.1rem; line-height:1; padding:0 2px 6px; align-self:center;" title="閉じる">&times;</button>
         </div>
 
-        <!-- iframe エリア -->
+        <!-- iframe エリア（状態保持型 workspace） -->
         <div id="analysis-frame-wrap">
-            <iframe id="analysis-iframe" title="分析パネル" allowfullscreen></iframe>
+            <iframe
+                id="iframe-morph"
+                class="analysis-iframe"
+                title="形態論"
+                style="display:none">
+            </iframe>
+            <iframe
+                id="iframe-syntax"
+                class="analysis-iframe"
+                title="統語論"
+                style="display:none">
+            </iframe>
+            <iframe
+                id="iframe-semantics"
+                class="analysis-iframe"
+                title="意味論"
+                style="display:none">
+            </iframe>
         </div>
     </aside>
 </div>
@@ -818,6 +839,24 @@ function parseMorphForSearch(rawMorph) {
 
 let _currentAnalysisParams = null;
 
+// ── 状態保持型 workspace ──────────────────────────────
+// 初回のみ src をセット、以後は display 切替のみ行う
+const _iframeLoaded = {
+    morph:     false,
+    syntax:    false,
+    semantics: false
+};
+const _iframeMap = {
+    morph:     'iframe-morph',
+    syntax:    'iframe-syntax',
+    semantics: 'iframe-semantics'
+};
+const _fileMap = {
+    morph:     'morph-search.html',
+    syntax:    'syntax-search.html',
+    semantics: 'semantic-search.html'
+};
+
 function openAnalysis(greek, rawMorph, ref, lemma) {
     const m = parseMorphForSearch(rawMorph);
     _currentAnalysisParams = {
@@ -835,6 +874,12 @@ function openAnalysis(greek, rawMorph, ref, lemma) {
         number:    m.number || '',
         case:      m.case   || '',
     };
+    // 🔴 新語選択時のみ iframe を初期化（スクロール・フィルター状態をリセット）
+    Object.keys(_iframeLoaded).forEach(k => {
+        _iframeLoaded[k] = false;
+        document.getElementById(_iframeMap[k]).src = '';
+        document.getElementById(_iframeMap[k]).classList.remove('active');
+    });
     document.getElementById('analysis-tabs').classList.add('visible');
     document.getElementById('panel-words-area').classList.add('shrunk');
     document.getElementById('analysis-frame-wrap').classList.add('visible');
@@ -845,41 +890,49 @@ function switchAnalysisTab(tab) {
     if (!_currentAnalysisParams) return;
     const p = _currentAnalysisParams;
 
+    // タブボタン と iframe の active クラスを一括切替
     ['morph','syntax','semantics'].forEach(t => {
-        document.getElementById(`atab-${t}`).classList.toggle('active', t === tab);
+        document.getElementById(`atab-${t}`)
+            .classList.toggle('active', t === tab);
+        document.getElementById(_iframeMap[t])
+            .classList.toggle('active', t === tab);
     });
 
-    const qs = new URLSearchParams();
-    qs.set('ref',   p.ref);
-    qs.set('word',  p.word);
-    if (p.lemma) qs.set('lemma', p.lemma);
-    if (p.pos)   qs.set('pos',   p.pos);
+    // 🔴 初回のみ src をセット（以後はリロードしない）
+    if (!_iframeLoaded[tab]) {
+        const qs = new URLSearchParams();
+        qs.set('ref',  p.ref);
+        qs.set('word', p.word);
+        if (p.lemma) qs.set('lemma', p.lemma);
+        if (p.pos)   qs.set('pos',   p.pos);
 
-    // Morph タブ：openAnalysis で保存済みの値を直接使用（再解析しない）
-    if (tab === 'morph') {
-        if (p.tense)  qs.set('tense',  p.tense);
-        if (p.mood)   qs.set('mood',   p.mood);
-        if (p.voice)  qs.set('voice',  p.voice);
-        if (p.gender) qs.set('gender', p.gender);
-        if (p.number) qs.set('number', p.number);
-        if (p.case)   qs.set('case',   p.case);
+        if (tab === 'morph') {
+            if (p.tense)  qs.set('tense',  p.tense);
+            if (p.mood)   qs.set('mood',   p.mood);
+            if (p.voice)  qs.set('voice',  p.voice);
+            if (p.gender) qs.set('gender', p.gender);
+            if (p.number) qs.set('number', p.number);
+            if (p.case)   qs.set('case',   p.case);
+        }
+
+        const dir = location.pathname.replace(/\/[^\/]*$/, '/');
+        document.getElementById(_iframeMap[tab]).src =
+            `${location.origin}${dir}${_fileMap[tab]}?${qs.toString()}`;
+        _iframeLoaded[tab] = true;
     }
-
-    const fileMap = {
-        morph:     'morph-search.html',
-        syntax:    'syntax-search.html',
-        semantics: 'semantic-search.html',
-    };
-    const iframe = document.getElementById('analysis-iframe');
-    const dir    = location.pathname.replace(/\/[^\/]*$/, '/');
-    iframe.src   = `${location.origin}${dir}${fileMap[tab]}?${qs.toString()}`;
 }
 
 function closeAnalysis() {
     document.getElementById('analysis-tabs').classList.remove('visible');
     document.getElementById('panel-words-area').classList.remove('shrunk');
     document.getElementById('analysis-frame-wrap').classList.remove('visible');
-    document.getElementById('analysis-iframe').src = '';
+    // 全 iframe をリセット
+    Object.keys(_iframeLoaded).forEach(k => {
+        _iframeLoaded[k] = false;
+        const el = document.getElementById(_iframeMap[k]);
+        el.src = '';
+        el.classList.remove('active');
+    });
     _currentAnalysisParams = null;
 }
 
@@ -891,8 +944,7 @@ window.addEventListener('message', (e) => {
     const d = e.data;
     if (!d || !d.type) return;
 
-    if (d.ref)  _currentAnalysisParams = { ...(_currentAnalysisParams || {}), ref: d.ref, word: d.word, lemma: d.lemma || '' };
-
+    // NAV_TO_* はタブ切替のみ（iframe は switchAnalysisTab が管理）
     if (d.type === 'NAV_TO_MORPH')      switchAnalysisTab('morph');
     if (d.type === 'NAV_TO_SYNTAX')     switchAnalysisTab('syntax');
     if (d.type === 'NAV_TO_SEMANTICS')  switchAnalysisTab('semantics');
