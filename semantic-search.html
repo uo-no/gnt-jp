@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>意味論 — コトバト</title>
+<title>意味論検索 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -592,6 +592,64 @@ body {
 .xsc-row-label { flex: 1; color: var(--text); line-height: 1.4; }
 
 /* ══════════════════════════════════════════
+   Semantic Context — 共起語中心表示
+   ══════════════════════════════════════════ */
+.sem-ctx-target {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px;
+    background: var(--c-top-bg);
+    border: 1px solid var(--c-top-mid);
+    border-radius: var(--radius-m);
+    margin-bottom: 8px;
+}
+.sem-ctx-target-word {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.3rem; color: var(--c-top); font-weight: 700;
+}
+.sem-ctx-target-label {
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--c-top); opacity: 0.7;
+}
+.sem-cooc-section { margin-bottom: 4px; }
+.sem-cooc-label {
+    font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-hint);
+    margin-bottom: 5px;
+}
+.sem-cooc-chips {
+    display: flex; flex-wrap: wrap; gap: 5px;
+}
+.sem-cooc-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    color: var(--text-sub);
+    font-family: 'Gentium Plus', serif;
+}
+.sem-cooc-chip.semantic-neighbor {
+    background: rgba(45,106,79,0.06);
+    border-color: rgba(45,106,79,0.2);
+    color: #2d6a4f;
+}
+.sem-cooc-chip .chip-role {
+    font-size: 0.55rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    opacity: 0.6;
+    font-family: 'Noto Sans JP', sans-serif;
+}
+.sem-ja-note {
+    font-size: 0.72rem; color: var(--text-hint);
+    padding: 5px 10px;
+    background: var(--bg-panel);
+    border-radius: var(--radius-s);
+    border-left: 2px solid var(--border);
+    line-height: 1.6;
+}
+
+/* ══════════════════════════════════════════
    iframe compact mode — side-panel 最適化
    standalone では完全無効（body.in-iframe のみ適用）
    ══════════════════════════════════════════ */
@@ -641,7 +699,94 @@ body.in-iframe .cand-body {
 body.in-iframe .nav { margin-bottom: 0; }
 
 /* ══════════════════════════════════════════
-   共有フィルターバー（Morph引継ぎ）
+   iframe mode: fixed/sticky 完全無効化
+   position:fixed は iframe viewport 基準で固定され
+   analysis-tabs と二重ヘッダーを引き起こすため禁止
+   ══════════════════════════════════════════ */
+body.in-iframe #meaning-sticky,
+body.in-iframe .meaning-sticky,
+body.in-iframe .sticky-bar,
+body.in-iframe .sticky-header {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: auto !important;
+    z-index: auto !important;
+    box-shadow: none !important;
+    display: none !important;
+}
+
+/* ── instant comprehension summary card (semantic) ──
+   意味論タブでは「この語の意味的核心」を冒頭に表示する。
+   sticky/fixed は使わず、ページ先頭に静的配置する。
+   ══════════════════════════════════════════════════ */
+.ic-summary-card {
+    display: none;
+    background: linear-gradient(135deg,
+        rgba(90,110,130,0.07) 0%,
+        rgba(90,110,130,0.02) 100%);
+    border: 1px solid rgba(90,110,130,0.20);
+    border-left: 3px solid var(--accent, #5a6e82);
+    border-radius: 10px;
+    padding: 13px 16px 11px;
+    margin-bottom: 14px;
+}
+.ic-summary-card .ic-word {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--text, #1d1d1f);
+    line-height: 1.2;
+    margin-bottom: 3px;
+}
+.ic-summary-card .ic-gloss {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text, #1d1d1f);
+    margin-bottom: 4px;
+}
+.ic-summary-card .ic-domain {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 12px;
+    margin-bottom: 6px;
+    background: var(--accent-light, rgba(90,110,130,0.10));
+    color: var(--accent, #5a6e82);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.ic-summary-card .ic-conf {
+    font-size: 0.68rem;
+    color: var(--text-sub, #6e6e73);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.ic-summary-card .ic-conf::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #4a8a62;
+    flex-shrink: 0;
+}
+.ic-summary-card .ic-divider {
+    height: 1px;
+    background: rgba(90,110,130,0.12);
+    margin: 8px 0;
+}
+.ic-summary-card .ic-note {
+    font-size: 0.72rem;
+    color: var(--text-sub, #6e6e73);
+    line-height: 1.7;
+}
+body.in-iframe .ic-summary-card { display: block; }
    ══════════════════════════════════════════ */
 .shared-filter-bar {
     display: flex; align-items: center; gap: 6px;
@@ -727,6 +872,16 @@ body.in-iframe .nav { margin-bottom: 0; }
         </div>
     </div>
 
+    <!-- instant comprehension summary card (iframe のみ表示・sticky廃止の代替) -->
+    <div class="ic-summary-card" id="ic-summary-card">
+        <div class="ic-word" id="ic-word">—</div>
+        <div class="ic-domain" id="ic-domain"></div>
+        <div class="ic-gloss" id="ic-gloss">—</div>
+        <div class="ic-conf" id="ic-conf"></div>
+        <div class="ic-divider"></div>
+        <div class="ic-note" id="ic-note"></div>
+    </div>
+
     <!-- 共有フィルターバー（Morph引継ぎ） -->
     <div class="shared-filter-bar hidden" id="shared-filter-bar">
         <span class="shared-filter-label">分析対象</span>
@@ -754,14 +909,17 @@ body.in-iframe .nav { margin-bottom: 0; }
     <!-- MAIN CONTENT -->
     <div id="main-content" style="display:none">
 
-        <!-- ① 文脈表示 -->
+        <!-- ① 意味的文脈（Semantic Context — 共起語中心） -->
         <div class="context-block fade-up">
-            <div class="sec-label">文の文脈</div>
+            <div class="sec-label">意味的文脈</div>
             <div class="sentence-ref">
                 <span class="sentence-ref-badge" id="sent-ref-badge">—</span>
                 <span style="font-size:0.65rem;color:var(--text-hint);font-weight:400;">意味論</span>
             </div>
-            <div class="token-line" id="token-line"></div>
+            <!-- 対象語とその意味的近傍語のみ表示（節全文は非表示） -->
+            <div id="sem-context-display" style="margin-bottom:8px;"></div>
+            <!-- 節全文は非表示（構文確認はSyntaxタブで） -->
+            <div class="token-line" id="token-line" style="display:none;"></div>
             <div class="sentence-ja" id="sentence-ja" style="display:none"></div>
         </div>
 
@@ -962,6 +1120,48 @@ function toggleBookFilterPanel() {
 
 renderBookFilterChips();
 renderSharedFilterBar();
+
+/* ── instant comprehension summary card 描画 (iframe のみ) ──
+   semantic タブでは「この語の意味的核心」を冒頭に表示する。
+   position:fixed/sticky は使わず、ページ先頭に静的配置する。
+   ══════════════════════════════════════════════════════════ */
+(function renderICSummaryCard() {
+    if (!document.body.classList.contains('in-iframe')) return;
+
+    const p       = params;
+    const wordEl  = document.getElementById('ic-word');
+    const domainEl = document.getElementById('ic-domain');
+    const glossEl = document.getElementById('ic-gloss');
+    const confEl  = document.getElementById('ic-conf');
+    const noteEl  = document.getElementById('ic-note');
+
+    if (wordEl) wordEl.textContent = p.word || '—';
+
+    // 品詞 → 意味領域ラベル
+    const domainLabel = { V:'動詞', N:'名詞', A:'形容詞', R:'代名詞', P:'人称代名詞', T:'冠詞', D:'指示詞', C:'接続詞', X:'不変化詞' };
+    const pos = p.pos || '';
+    if (domainEl) domainEl.textContent = domainLabel[pos] ? `${domainLabel[pos]}` : '意味検索';
+
+    // lemma から基本訳語（TSVデータが取得前のため暫定）
+    if (glossEl) glossEl.textContent = p.lemma ? `原形: ${p.lemma}` : '意味的文脈を読み込み中…';
+
+    // 確信度メモ
+    const tenseLabel  = { present:'現在形', imperfect:'未完了過去', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'過去完了' };
+    const moodLabel   = { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' };
+    const parts = [tenseLabel[p.tense], moodLabel[p.mood]].filter(Boolean);
+    if (confEl) confEl.textContent = parts.length ? parts.join(' · ') : '意味的な共起関係を分析します';
+
+    // 意味的ヒント
+    if (noteEl) {
+        const notes = [];
+        if (p.tense === 'present')  notes.push('現在の継続的な動作や状態を表します');
+        if (p.tense === 'aorist')   notes.push('点的に完結した出来事を指します');
+        if (p.tense === 'perfect')  notes.push('現在まで影響の続く完了状態を示します');
+        if (p.mood  === 'participle') notes.push('形容詞・副詞的に機能する動詞形です');
+        if (p.mood  === 'infinitive') notes.push('名詞的・目的的に用いられます');
+        noteEl.textContent = notes.join('　') || '共起語・文脈から語の意味的役割を確認できます';
+    }
+})();
 
 /* ══════════════════════════════════════════
    書物マップ
@@ -1845,13 +2045,66 @@ let _activeIdx  = 0;
 let _tokens     = [];
 let _lemma      = '';
 
+/* ── ① 意味的文脈表示（共起語中心・節全文は非表示） ── */
 function renderTokenLine(tokens, targetWord) {
-    const container = document.getElementById('token-line');
-    container.innerHTML = tokens.map(t => {
+    // token-lineは非表示のままにする（構文確認はSyntaxタブの責務）
+    // 代わりに renderSemanticContext を使用
+}
+
+/**
+ * 意味的文脈表示：
+ * - 対象語を強調表示
+ * - 意味的に関連する共起語（名詞・動詞・形容詞）のみ抽出
+ * - 節全文・構文ツリーは表示しない（Syntaxタブの責務）
+ */
+function renderSemanticContext(tokens, targetWord, jaVerse) {
+    const container = document.getElementById('sem-context-display');
+    if (!container) return;
+
+    // 意味的に重要な品詞のみ抽出（前置詞・冠詞・接続詞は除外）
+    const SEMANTIC_POS = new Set(['N','V','A','D','R','P']);
+    const PREP_LEMMAS  = new Set(['εἰς','ἐν','ἐκ','ἀπό','πρός','ὑπό','διά','κατά','περί','ἐπί','μετά','παρά','σύν','ἀντί','ἀνά']);
+
+    const neighbors = tokens.filter(t => {
         const w = cleanText(t);
-        const isTarget = w === targetWord || (t.lemma && t.lemma === _lemma && w === targetWord);
-        return `<span class="token ${isTarget ? 'target' : 'other'}" data-word="${w}">${w}</span>`;
-    }).join('');
+        if (!w || w === targetWord) return false;
+        const pos = (t.pos || '').toUpperCase().replace(/-$/, '');
+        if (!SEMANTIC_POS.has(pos)) return false;
+        // 前置詞の機能語は除外（意味語のみ残す）
+        const lemma = (t.lemma || '').trim();
+        if (PREP_LEMMAS.has(lemma)) return false;
+        return true;
+    }).slice(0, 8); // 最大8語
+
+    // 対象語表示
+    const targetHTML = `
+        <div class="sem-ctx-target">
+            <span class="sem-ctx-target-word">${targetWord}</span>
+            <span class="sem-ctx-target-label">対象語</span>
+        </div>`;
+
+    // 共起語チップ
+    const POS_ROLE = { V:'動詞', N:'名詞', A:'形容詞', D:'副詞', R:'関係', P:'代名詞' };
+    const neighborChips = neighbors.length > 0
+        ? `<div class="sem-cooc-section">
+            <div class="sem-cooc-label">意味的共起語</div>
+            <div class="sem-cooc-chips">
+                ${neighbors.map(t => {
+                    const w   = cleanText(t);
+                    const pos = (t.pos || '').toUpperCase().replace(/-$/, '');
+                    const role = POS_ROLE[pos] || '';
+                    return `<span class="sem-cooc-chip semantic-neighbor">
+                        <span class="chip-role">${role}</span>${w}
+                    </span>`;
+                }).join('')}
+            </div>
+          </div>`
+        : '';
+
+    // 日本語訳（短縮版）
+    const jaShort = jaVerse ? `<div class="sem-ja-note">${jaVerse}</div>` : '';
+
+    container.innerHTML = targetHTML + neighborChips + jaShort;
 }
 
 /* ── ② 候補リスト描画 ── */
@@ -2007,15 +2260,15 @@ function renderAll(tokens, targetWord, jaVerse) {
     );
     _lemma = targetEntry?.lemma || params.lemma || targetWord;
 
-    // ① トークン列
-    renderTokenLine(tokens, targetWord);
+    // ① 意味的文脈表示（共起語中心・節全文は非表示）
+    // 節全文の構文表示は Syntax タブの責務
+    renderSemanticContext(tokens, targetWord, jaVerse);
 
-    // 日本語訳
+    // 日本語訳（sentence-jaは非表示・renderSemanticContext内で処理）
+    // ※ renderTranslation 内で jaEl.dataset.raw を参照するため保持
     if (jaVerse) {
         const jaEl = document.getElementById('sentence-ja');
-        jaEl.dataset.raw = jaVerse;
-        jaEl.textContent = jaVerse;
-        jaEl.style.display = 'block';
+        if (jaEl) { jaEl.dataset.raw = jaVerse; }
     }
 
     // スコア計算
