@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>統語論 — コトバト</title>
+<title>統語論検索 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -562,7 +562,92 @@ body.in-iframe .section-divider {
 body.in-iframe .nav { margin-bottom: 0; }
 
 /* ══════════════════════════════════════════
-   共有フィルターバー（Morph引継ぎ）
+   iframe mode: fixed/sticky 完全無効化
+   position:fixed は iframe viewport 基準で固定され
+   analysis-tabs と二重ヘッダーを引き起こすため禁止
+   ══════════════════════════════════════════ */
+body.in-iframe #meaning-sticky,
+body.in-iframe .meaning-sticky,
+body.in-iframe .sticky-bar,
+body.in-iframe .sticky-header {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: auto !important;
+    z-index: auto !important;
+    box-shadow: none !important;
+    display: none !important;
+}
+
+/* ── instant comprehension summary card (syntax) ──
+   構文タブでは「この語の構文的役割」を冒頭に表示する。
+   sticky/fixed は使わず、ページ先頭に静的配置する。
+   ══════════════════════════════════════════════════ */
+.ic-summary-card {
+    display: none;
+    background: linear-gradient(135deg,
+        rgba(61, 107, 154, 0.08) 0%,
+        rgba(61, 107, 154, 0.03) 100%);
+    border: 1px solid rgba(61, 107, 154, 0.22);
+    border-left: 3px solid var(--c-verb, #3d6b9a);
+    border-radius: 10px;
+    padding: 13px 16px 11px;
+    margin-bottom: 14px;
+}
+.ic-summary-card .ic-word {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--text, #1d1d1f);
+    line-height: 1.2;
+    margin-bottom: 3px;
+}
+.ic-summary-card .ic-role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 12px;
+    margin-bottom: 6px;
+    background: rgba(61,107,154,0.10);
+    color: var(--c-verb, #3d6b9a);
+}
+.ic-summary-card .ic-reading {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text, #1d1d1f);
+    margin-bottom: 4px;
+}
+.ic-summary-card .ic-conf {
+    font-size: 0.68rem;
+    color: var(--text-sub, #6e6e73);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.ic-summary-card .ic-conf::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #4a8a62;
+    flex-shrink: 0;
+}
+.ic-summary-card .ic-divider {
+    height: 1px;
+    background: rgba(61,107,154,0.12);
+    margin: 8px 0;
+}
+.ic-summary-card .ic-context {
+    font-size: 0.72rem;
+    color: var(--text-sub, #6e6e73);
+    line-height: 1.7;
+}
+body.in-iframe .ic-summary-card { display: block; }
    ══════════════════════════════════════════ */
 .shared-filter-bar {
     display: flex; align-items: center; gap: 6px;
@@ -709,6 +794,16 @@ body.in-iframe .nav { margin-bottom: 0; }
             <span class="sep">›</span>
             <span>統語論</span>
         </div>
+    </div>
+
+    <!-- instant comprehension summary card (iframe のみ表示・sticky廃止の代替) -->
+    <div class="ic-summary-card" id="ic-summary-card">
+        <div class="ic-word" id="ic-word">—</div>
+        <div class="ic-role-badge" id="ic-role-badge"></div>
+        <div class="ic-reading" id="ic-reading">—</div>
+        <div class="ic-conf" id="ic-conf"></div>
+        <div class="ic-divider"></div>
+        <div class="ic-context" id="ic-context"></div>
     </div>
 
     <!-- 共有フィルターバー（Morph引継ぎ） -->
@@ -960,6 +1055,51 @@ function toggleBookFilterPanel() {
 // 初期描画
 renderBookFilterChips();
 renderSharedFilterBar();
+
+/* ── instant comprehension summary card 描画 (iframe のみ) ──
+   syntax タブでは「この語の構文的位置づけ」を冒頭に表示する。
+   position:fixed/sticky は使わず、ページ先頭に静的配置する。
+   ══════════════════════════════════════════════════════════ */
+(function renderICSummaryCard() {
+    if (!document.body.classList.contains('in-iframe')) return;
+
+    const p      = params;
+    const wordEl  = document.getElementById('ic-word');
+    const roleEl  = document.getElementById('ic-role-badge');
+    const readEl  = document.getElementById('ic-reading');
+    const confEl  = document.getElementById('ic-conf');
+    const ctxEl   = document.getElementById('ic-context');
+
+    if (wordEl) wordEl.textContent = p.word || '—';
+
+    // 品詞ラベル
+    const posLabel = { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', C:'接続詞', X:'不変化詞' };
+    const pos = p.pos || '';
+    if (roleEl) roleEl.textContent = posLabel[pos] || '構文検索';
+
+    // 時制・法から読み方ヒント
+    const tenseLabel = { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'過去完了' };
+    const moodLabel  = { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' };
+    const voiceLabel = { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' };
+
+    const parts = [tenseLabel[p.tense], moodLabel[p.mood], voiceLabel[p.voice]].filter(Boolean);
+    if (readEl) readEl.textContent = parts.length ? parts.join(' · ') : (p.lemma || '—');
+
+    // 確信度（lemma から）
+    if (confEl) confEl.textContent = p.lemma ? `原形: ${p.lemma}` : '構文的文脈を確認してください';
+
+    // 文脈ヒント
+    if (ctxEl) {
+        const hints = [];
+        if (p.tense === 'present')  hints.push('継続・反復動作を表します');
+        if (p.tense === 'aorist')   hints.push('一度きりの完結した出来事を表します');
+        if (p.tense === 'perfect')  hints.push('過去の動作が現在に影響している状態を表します');
+        if (p.mood  === 'participle') hints.push('分詞：形容詞的・副詞的に主動詞を修飾します');
+        if (p.mood  === 'infinitive') hints.push('不定詞：名詞的・補語的に用いられます');
+        if (p.mood  === 'subjunctive') hints.push('接続法：目的・条件・可能性を表します');
+        ctxEl.textContent = hints.join('　') || '文脈に応じて読み方が変わります';
+    }
+})();
 
 /* ══════════════════════════════════════════
    データ共通ユーティリティ
@@ -1850,20 +1990,35 @@ function navTo(target, e) {
         scope:  enabledGroups.length === 1 ? enabledGroups[0] : '',
     };
     const allOn = bookFilterState.every(g => g.enabled);
+
+    // メッセージ送信先を決定（workspace iframe → parent → opener → URL直接遷移）
     if (window.parent && window.parent !== window) {
+        // iframeモード：親フレームへタブ切替を依頼
         window.parent.postMessage(
             { type: `NAV_TO_${target.toUpperCase()}`, ref: params.ref, word: params.word,
               filters: allOn ? null : filters }, '*'
         );
-    } else if (window.opener && !window.opener.closed) {
+        return;
+    }
+    if (window.opener && !window.opener.closed) {
+        // 別ウィンドウモード
         window.opener.postMessage(
             { type: `NAV_TO_${target.toUpperCase()}`, ref: params.ref, word: params.word,
               filters: allOn ? null : filters }, '*'
         );
-    } else {
-        const msg = target === 'morph' ? '形態論ツール' : '意味論ツール';
-        alert(`${msg}への導線は、メインアプリ経由でご利用ください。`);
+        return;
     }
+    // standaloneモード：直接URLへ遷移（alertを廃止）
+    const fileMap = {
+        morph:     'morph-search.html',
+        semantics: 'semantic-search.html',
+    };
+    const qs = new URLSearchParams();
+    if (params.ref)   qs.set('ref',   params.ref);
+    if (params.word)  qs.set('word',  params.word);
+    if (params.lemma) qs.set('lemma', params.lemma);
+    if (params.pos)   qs.set('pos',   params.pos);
+    location.href = `${fileMap[target]}?${qs.toString()}`;
 }
 
 /* ══════════════════════════════════════════
