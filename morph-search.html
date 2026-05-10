@@ -535,6 +535,91 @@ body:not(.in-iframe) .page.beginner .morph-dist {
 body.in-iframe .b-panel { margin-bottom: 10px; }
 body.in-iframe .mode-bar { margin-bottom: 12px; }
 
+/* ══════════════════════════════════════════
+   iframe mode: fixed/sticky 完全無効化
+   position:fixed は iframe viewport 基準で固定され
+   analysis-tabs と二重ヘッダーを引き起こすため禁止
+   ══════════════════════════════════════════ */
+body.in-iframe #meaning-sticky,
+body.in-iframe .meaning-sticky,
+body.in-iframe .sticky-bar,
+body.in-iframe .sticky-header {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: auto !important;
+    z-index: auto !important;
+    box-shadow: none !important;
+    display: none !important;
+}
+
+/* ── instant comprehension summary card ──
+   iframe内では sticky を廃止し、
+   ページ冒頭に「開いた瞬間に読める」カードを表示
+   ══════════════════════════════════════════ */
+.ic-summary-card {
+    display: none; /* JS で in-iframe 時のみ表示 */
+    background: linear-gradient(135deg,
+        rgba(90,110,130,0.08) 0%,
+        rgba(90,110,130,0.03) 100%);
+    border: 1px solid rgba(90,110,130,0.22);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-l);
+    padding: 14px 16px 12px;
+    margin-bottom: 14px;
+}
+.ic-summary-card .ic-word {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.55rem;
+    color: var(--text);
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 2px;
+}
+.ic-summary-card .ic-reading {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+.ic-summary-card .ic-conf {
+    font-size: 0.68rem;
+    color: var(--text-sub);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.ic-summary-card .ic-conf::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #4a8a62;
+    flex-shrink: 0;
+}
+.ic-summary-card .ic-divider {
+    height: 1px;
+    background: rgba(90,110,130,0.15);
+    margin: 8px 0;
+}
+.ic-summary-card .ic-alt {
+    font-size: 0.72rem;
+    color: var(--text-hint);
+    line-height: 1.6;
+}
+.ic-summary-card .ic-alt-label {
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-hint);
+    margin-bottom: 2px;
+}
+body.in-iframe .ic-summary-card { display: block; }
+
 </style>
 </head>
 <body>
@@ -559,6 +644,21 @@ body.in-iframe .mode-bar { margin-bottom: 12px; }
         <div class="morph-header-lemma">
             <span class="morph-header-lemma-label">lemma</span>
             <span class="morph-header-lemma-val" id="hdr-lemma">—</span>
+        </div>
+    </div>
+
+    <!-- instant comprehension summary card (iframe のみ表示) -->
+    <div class="ic-summary-card" id="ic-summary-card">
+        <div class="ic-word" id="ic-word">—</div>
+        <div class="ic-reading" id="ic-reading">—</div>
+        <div class="ic-conf" id="ic-conf"></div>
+        <div id="ic-alt-wrap" style="display:none">
+            <div class="ic-alt-label">他の可能性</div>
+            <div id="ic-alt"></div>
+        </div>
+        <div class="ic-divider"></div>
+        <div id="ic-reasons"
+             style="font-size:0.72rem;color:var(--text-sub);line-height:1.7;">
         </div>
     </div>
 
@@ -854,6 +954,57 @@ function renderBeginnerPanel() {
             ${data.caution ? `<div class="b-caution">${data.caution}</div>` : ''}
         </div>
         <button class="b-more-btn" onclick="setMode('advanced')">▶ 詳しく見る（文法・用例）</button>`;
+}
+
+/* ── instant comprehension summary card 描画 (iframe のみ) ──
+   sticky ではなく「開いた瞬間に最重要情報を冒頭表示」する設計。
+   ページスクロールに追従しない。読んだらそのまま流れる。
+   ══════════════════════════════════════════════════════════ */
+function renderICSummaryCard() {
+    if (!document.body.classList.contains('in-iframe')) return;
+
+    const key  = [params.tense, params.mood].filter(Boolean).join('+');
+    const data = READING_LABEL[key];
+    const word = params.word || document.getElementById('hdr-word')?.textContent || '—';
+
+    const wordEl   = document.getElementById('ic-word');
+    const readEl   = document.getElementById('ic-reading');
+    const confEl   = document.getElementById('ic-conf');
+    const altWrap  = document.getElementById('ic-alt-wrap');
+    const altEl    = document.getElementById('ic-alt');
+    const reasonEl = document.getElementById('ic-reasons');
+
+    if (wordEl) wordEl.textContent = word;
+
+    if (!data) {
+        const label = [TENSE_JP[params.tense], MOOD_JP[params.mood]].filter(Boolean).join('・') || '—';
+        if (readEl)   readEl.textContent = label;
+        if (confEl)   confEl.textContent = '詳しく見るモードで確認してください';
+        if (altWrap)  altWrap.style.display = 'none';
+        if (reasonEl) reasonEl.textContent = '';
+        return;
+    }
+
+    if (readEl)  readEl.textContent = `「${data.main}」`;
+    if (confEl)  confEl.textContent = confLabel(params.tense, params.mood);
+
+    if (data.alt && altWrap && altEl) {
+        altEl.textContent = data.alt;
+        altWrap.style.display = 'block';
+    } else if (altWrap) {
+        altWrap.style.display = 'none';
+    }
+
+    if (reasonEl) {
+        reasonEl.innerHTML = data.reasons
+            .map(r => `<span style="display:block;padding-left:12px;position:relative;">
+                <span style="position:absolute;left:2px;color:var(--accent);">›</span>${r}
+            </span>`)
+            .join('');
+        if (data.caution) {
+            reasonEl.innerHTML += `<div class="b-caution" style="margin-top:6px;">${data.caution}</div>`;
+        }
+    }
 }
 
 /* ── モード切替 ──────────────────────────────── */
@@ -1470,6 +1621,7 @@ async function fetchJapaneseTSV() {
 // Beginner Mode 自動起動（iframe・standalone 両対応）
 setMode('beginner');
 renderBeginnerPanel();
+renderICSummaryCard(); // iframe内: sticky廃止→冒頭 summary card 表示
 
 renderHeader();
 renderCoreTags();
