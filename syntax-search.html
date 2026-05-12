@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>統語論検索 — コトバト</title>
+<title>統語論 — コトバト</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -25,457 +26,460 @@
     --radius-m: 12px;
     --radius-l: 16px;
 
-    /* 役割カラー（HSL ベース・彩度を抑える） */
-    --c-verb:   #3d6b9a;
-    --c-subj:   #4a8a62;
-    --c-obj:    #8a5a38;
-    --c-prep:   #6a58a0;
-    --c-mod:    #8a7030;
-    --c-conj:   #888888;
-    --c-ptc:    #c47028;  /* 分詞 */
-    --c-inf:    #5a7a8a;  /* 不定詞 */
+```
+/* 役割カラー（HSL ベース・彩度を抑える） */
+--c-verb:   #3d6b9a;
+--c-subj:   #4a8a62;
+--c-obj:    #8a5a38;
+--c-prep:   #6a58a0;
+--c-mod:    #8a7030;
+--c-conj:   #888888;
+--c-ptc:    #c47028;  /* 分詞 */
+--c-inf:    #5a7a8a;  /* 不定詞 */
 
-    --c-verb-bg:   rgba(61,107,154,0.08);
-    --c-subj-bg:   rgba(74,138,98,0.08);
-    --c-obj-bg:    rgba(138,90,56,0.08);
-    --c-prep-bg:   rgba(106,88,160,0.08);
-    --c-mod-bg:    rgba(138,112,48,0.07);
-    --c-ptc-bg:    rgba(196,112,40,0.08);
-    --c-inf-bg:    rgba(90,122,138,0.08);
+--c-verb-bg:   rgba(61,107,154,0.08);
+--c-subj-bg:   rgba(74,138,98,0.08);
+--c-obj-bg:    rgba(138,90,56,0.08);
+--c-prep-bg:   rgba(106,88,160,0.08);
+--c-mod-bg:    rgba(138,112,48,0.07);
+--c-ptc-bg:    rgba(196,112,40,0.08);
+--c-inf-bg:    rgba(90,122,138,0.08);
+```
+
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body {
-    font-family: 'Noto Sans JP', -apple-system, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 14px;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-}
+- { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+  font-family: ‘Noto Sans JP’, -apple-system, sans-serif;
+  background: var(–bg);
+  color: var(–text);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  }
 
 /* ══════════════════════════════════════════
-   Layout
-   ══════════════════════════════════════════ */
+Layout
+══════════════════════════════════════════ */
 .page { max-width: 720px; margin: 0 auto; padding: 32px 24px 100px; }
 
 /* Nav */
 .nav { display: flex; align-items: center; gap: 10px; margin-bottom: 36px; }
 .btn-back {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 5px 13px; font-size: 0.78rem; font-family: inherit;
-    border: 1px solid var(--border); border-radius: 20px;
-    background: transparent; cursor: pointer; color: var(--text-sub);
-    transition: background 0.12s;
+display: inline-flex; align-items: center; gap: 4px;
+padding: 5px 13px; font-size: 0.78rem; font-family: inherit;
+border: 1px solid var(–border); border-radius: 20px;
+background: transparent; cursor: pointer; color: var(–text-sub);
+transition: background 0.12s;
 }
-.btn-back:hover { background: var(--bg-panel); }
+.btn-back:hover { background: var(–bg-panel); }
 .breadcrumb {
-    display: flex; align-items: center; gap: 5px;
-    font-size: 0.75rem; color: var(--text-hint);
-    flex: 1; overflow: hidden;
+display: flex; align-items: center; gap: 5px;
+font-size: 0.75rem; color: var(–text-hint);
+flex: 1; overflow: hidden;
 }
-.breadcrumb .crumb { color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+.breadcrumb .crumb { color: var(–accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
 .breadcrumb .sep { opacity: 0.35; flex-shrink: 0; }
 
 /* Section label */
 .sec-label {
-    font-size: 0.58rem; font-weight: 700; letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--text-hint);
-    margin-bottom: 12px;
+font-size: 0.58rem; font-weight: 700; letter-spacing: 0.14em;
+text-transform: uppercase; color: var(–text-hint);
+margin-bottom: 12px;
 }
-.section-divider { border: none; border-top: 1px solid var(--border); margin: 0 0 32px; }
+.section-divider { border: none; border-top: 1px solid var(–border); margin: 0 0 32px; }
 
 /* ══════════════════════════════════════════
-   ① 文全体表示
-   ══════════════════════════════════════════ */
+① 文全体表示
+══════════════════════════════════════════ */
 .sentence-block {
-    margin-bottom: 32px;
-    padding-bottom: 32px;
-    border-bottom: 1px solid var(--border);
+margin-bottom: 32px;
+padding-bottom: 32px;
+border-bottom: 1px solid var(–border);
 }
 .sentence-ref {
-    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
-    color: var(--accent); text-transform: uppercase; margin-bottom: 12px;
-    display: flex; align-items: center; gap: 8px;
+font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
+color: var(–accent); text-transform: uppercase; margin-bottom: 12px;
+display: flex; align-items: center; gap: 8px;
 }
 .sentence-ref-badge {
-    background: var(--accent-light); border: 1px solid var(--accent-mid);
-    border-radius: 6px; padding: 2px 8px;
-    font-size: 0.6rem; color: var(--accent);
+background: var(–accent-light); border: 1px solid var(–accent-mid);
+border-radius: 6px; padding: 2px 8px;
+font-size: 0.6rem; color: var(–accent);
 }
 
 /* トークン列 */
 .token-line {
-    font-family: 'Gentium Plus', serif;
-    font-size: 1.45rem; line-height: 2.2;
-    display: flex; flex-wrap: wrap; gap: 4px 10px;
-    margin-bottom: 10px;
+font-family: ‘Gentium Plus’, serif;
+font-size: 1.45rem; line-height: 2.2;
+display: flex; flex-wrap: wrap; gap: 4px 10px;
+margin-bottom: 10px;
 }
 .token {
-    cursor: pointer;
-    border-radius: 6px;
-    padding: 0 4px;
-    transition: background 0.1s, color 0.1s;
-    position: relative;
-    user-select: none;
+cursor: pointer;
+border-radius: 6px;
+padding: 0 4px;
+transition: background 0.1s, color 0.1s;
+position: relative;
+user-select: none;
 }
-.token:hover { background: var(--bg-panel); }
+.token:hover { background: var(–bg-panel); }
 
 /* 役割インジケーター（下線ドット） */
 .token::after {
-    content: '';
-    position: absolute;
-    bottom: 2px; left: 50%;
-    transform: translateX(-50%);
-    width: 4px; height: 4px;
-    border-radius: 50%;
-    opacity: 0;
-    transition: opacity 0.15s;
+content: ‘’;
+position: absolute;
+bottom: 2px; left: 50%;
+transform: translateX(-50%);
+width: 4px; height: 4px;
+border-radius: 50%;
+opacity: 0;
+transition: opacity 0.15s;
 }
 .token.has-role::after { opacity: 1; }
 
 /* 役割別スタイル */
-.token[data-role="verb"]  { color: var(--c-verb); }
-.token[data-role="verb"]::after  { background: var(--c-verb); }
-.token[data-role="subj"]  { color: var(--c-subj); }
-.token[data-role="subj"]::after  { background: var(--c-subj); }
-.token[data-role="obj"]   { color: var(--c-obj); }
-.token[data-role="obj"]::after   { background: var(--c-obj); }
-.token[data-role="prep"]  { color: var(--c-prep); }
-.token[data-role="prep"]::after  { background: var(--c-prep); }
-.token[data-role="mod"]   { color: var(--c-mod); }
-.token[data-role="mod"]::after   { background: var(--c-mod); }
-.token[data-role="ptc"]   { color: var(--c-ptc); }
-.token[data-role="ptc"]::after   { background: var(--c-ptc); }
-.token[data-role="inf"]   { color: var(--c-inf); }
-.token[data-role="inf"]::after   { background: var(--c-inf); }
+.token[data-role=“verb”]  { color: var(–c-verb); }
+.token[data-role=“verb”]::after  { background: var(–c-verb); }
+.token[data-role=“subj”]  { color: var(–c-subj); }
+.token[data-role=“subj”]::after  { background: var(–c-subj); }
+.token[data-role=“obj”]   { color: var(–c-obj); }
+.token[data-role=“obj”]::after   { background: var(–c-obj); }
+.token[data-role=“prep”]  { color: var(–c-prep); }
+.token[data-role=“prep”]::after  { background: var(–c-prep); }
+.token[data-role=“mod”]   { color: var(–c-mod); }
+.token[data-role=“mod”]::after   { background: var(–c-mod); }
+.token[data-role=“ptc”]   { color: var(–c-ptc); }
+.token[data-role=“ptc”]::after   { background: var(–c-ptc); }
+.token[data-role=“inf”]   { color: var(–c-inf); }
+.token[data-role=“inf”]::after   { background: var(–c-inf); }
 
 /* 選択状態 */
 .token.selected {
-    background: var(--accent-light) !important;
-    outline: 1.5px solid var(--accent-mid);
-    outline-offset: 1px;
+background: var(–accent-light) !important;
+outline: 1.5px solid var(–accent-mid);
+outline-offset: 1px;
 }
-.token[data-role="verb"].selected  { background: var(--c-verb-bg) !important; outline-color: var(--c-verb); }
-.token[data-role="subj"].selected  { background: var(--c-subj-bg) !important; outline-color: var(--c-subj); }
-.token[data-role="obj"].selected   { background: var(--c-obj-bg)  !important; outline-color: var(--c-obj); }
-.token[data-role="prep"].selected  { background: var(--c-prep-bg) !important; outline-color: var(--c-prep); }
-.token[data-role="mod"].selected   { background: var(--c-mod-bg)  !important; outline-color: var(--c-mod); }
-.token[data-role="ptc"].selected   { background: var(--c-ptc-bg)  !important; outline-color: var(--c-ptc); }
-.token[data-role="inf"].selected   { background: var(--c-inf-bg)  !important; outline-color: var(--c-inf); }
+.token[data-role=“verb”].selected  { background: var(–c-verb-bg) !important; outline-color: var(–c-verb); }
+.token[data-role=“subj”].selected  { background: var(–c-subj-bg) !important; outline-color: var(–c-subj); }
+.token[data-role=“obj”].selected   { background: var(–c-obj-bg)  !important; outline-color: var(–c-obj); }
+.token[data-role=“prep”].selected  { background: var(–c-prep-bg) !important; outline-color: var(–c-prep); }
+.token[data-role=“mod”].selected   { background: var(–c-mod-bg)  !important; outline-color: var(–c-mod); }
+.token[data-role=“ptc”].selected   { background: var(–c-ptc-bg)  !important; outline-color: var(–c-ptc); }
+.token[data-role=“inf”].selected   { background: var(–c-inf-bg)  !important; outline-color: var(–c-inf); }
 
 /* 関連語ハイライト */
 .token.related {
-    background: rgba(90,110,130,0.05) !important;
-    outline: 1px dashed var(--accent-mid);
-    outline-offset: 1px;
+background: rgba(90,110,130,0.05) !important;
+outline: 1px dashed var(–accent-mid);
+outline-offset: 1px;
 }
 
 /* 日本語訳（薄く） */
 .sentence-ja {
-    font-size: 0.8rem; color: var(--text-hint);
-    line-height: 1.7; padding: 8px 12px;
-    background: var(--bg-panel);
-    border-radius: var(--radius-s);
-    border-left: 2px solid var(--border);
+font-size: 0.8rem; color: var(–text-hint);
+line-height: 1.7; padding: 8px 12px;
+background: var(–bg-panel);
+border-radius: var(–radius-s);
+border-left: 2px solid var(–border);
 }
 
 /* 凡例 */
 .legend {
-    display: flex; flex-wrap: wrap; gap: 8px;
-    margin-top: 14px;
+display: flex; flex-wrap: wrap; gap: 8px;
+margin-top: 14px;
 }
 .legend-item {
-    display: flex; align-items: center; gap: 5px;
-    font-size: 0.65rem; color: var(--text-sub);
+display: flex; align-items: center; gap: 5px;
+font-size: 0.65rem; color: var(–text-sub);
 }
 .legend-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    flex-shrink: 0;
+width: 8px; height: 8px; border-radius: 50%;
+flex-shrink: 0;
 }
 
 /* ══════════════════════════════════════════
-   ② 構文ツリー
-   ══════════════════════════════════════════ */
+② 構文ツリー
+══════════════════════════════════════════ */
 .tree-block {
-    margin-bottom: 32px;
-    padding-bottom: 32px;
-    border-bottom: 1px solid var(--border);
+margin-bottom: 32px;
+padding-bottom: 32px;
+border-bottom: 1px solid var(–border);
 }
 
 /* ツリーコンテナ */
 .syn-tree {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+display: flex;
+flex-direction: column;
+gap: 6px;
 }
 
 /* 動詞ルートノード */
 .tree-root {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+display: flex;
+flex-direction: column;
+gap: 4px;
 }
 
 /* ノード */
 .tree-node {
-    display: flex;
-    align-items: stretch;
-    gap: 0;
-    cursor: pointer;
-    border-radius: var(--radius-s);
-    overflow: hidden;
-    border: 1px solid var(--border);
-    transition: border-color 0.12s, box-shadow 0.12s;
+display: flex;
+align-items: stretch;
+gap: 0;
+cursor: pointer;
+border-radius: var(–radius-s);
+overflow: hidden;
+border: 1px solid var(–border);
+transition: border-color 0.12s, box-shadow 0.12s;
 }
 .tree-node:hover { border-color: rgba(0,0,0,0.14); }
 .tree-node.active {
-    box-shadow: 0 0 0 2px var(--accent-mid);
-    border-color: transparent;
+box-shadow: 0 0 0 2px var(–accent-mid);
+border-color: transparent;
 }
 
 /* ロールバー（左端の色帯） */
 .node-bar {
-    width: 4px;
-    flex-shrink: 0;
-    border-radius: 0;
+width: 4px;
+flex-shrink: 0;
+border-radius: 0;
 }
 
 /* ノード内容 */
 .node-inner {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 14px;
-    background: var(--bg);
-    transition: background 0.1s;
+flex: 1;
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 9px 14px;
+background: var(–bg);
+transition: background 0.1s;
 }
-.tree-node:hover .node-inner { background: var(--bg-panel); }
-.tree-node.active .node-inner { background: var(--bg-inset); }
+.tree-node:hover .node-inner { background: var(–bg-panel); }
+.tree-node.active .node-inner { background: var(–bg-inset); }
 
 .node-role-tag {
-    font-size: 0.58rem; font-weight: 700;
-    letter-spacing: 0.08em; text-transform: uppercase;
-    flex-shrink: 0; width: 52px;
-    opacity: 0.85;
+font-size: 0.58rem; font-weight: 700;
+letter-spacing: 0.08em; text-transform: uppercase;
+flex-shrink: 0; width: 52px;
+opacity: 0.85;
 }
 .node-words {
-    font-family: 'Gentium Plus', serif;
-    font-size: 1.05rem;
-    flex: 1;
-    line-height: 1.5;
+font-family: ‘Gentium Plus’, serif;
+font-size: 1.05rem;
+flex: 1;
+line-height: 1.5;
 }
 .node-words .hit { font-weight: 700; }
 .node-gloss {
-    font-size: 0.68rem; color: var(--text-hint);
-    font-family: 'Noto Sans JP', sans-serif;
+font-size: 0.68rem; color: var(–text-hint);
+font-family: ‘Noto Sans JP’, sans-serif;
 }
 .node-arrow {
-    font-size: 0.7rem; color: var(--text-hint);
-    opacity: 0.4; flex-shrink: 0; transition: transform 0.15s;
+font-size: 0.7rem; color: var(–text-hint);
+opacity: 0.4; flex-shrink: 0; transition: transform 0.15s;
 }
 .tree-node.open .node-arrow { transform: rotate(90deg); }
 
 /* 子ノードグループ */
 .tree-children {
-    display: none;
-    margin-left: 20px;
-    padding-left: 14px;
-    border-left: 1.5px solid var(--border);
-    margin-top: 4px;
-    flex-direction: column;
-    gap: 4px;
+display: none;
+margin-left: 20px;
+padding-left: 14px;
+border-left: 1.5px solid var(–border);
+margin-top: 4px;
+flex-direction: column;
+gap: 4px;
 }
 .tree-children.open { display: flex; }
 
 /* 前置詞句の入れ子 */
 .prep-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+display: flex;
+flex-direction: column;
+gap: 4px;
 }
 .prep-children {
-    margin-left: 16px;
-    padding-left: 10px;
-    border-left: 1.5px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-top: 3px;
+margin-left: 16px;
+padding-left: 10px;
+border-left: 1.5px solid var(–border);
+display: flex;
+flex-direction: column;
+gap: 4px;
+margin-top: 3px;
 }
 
 /* 動詞ルートの特別スタイル */
 .tree-node.verb-root {
-    border-color: rgba(61,107,154,0.2);
+border-color: rgba(61,107,154,0.2);
 }
 .tree-node.verb-root .node-inner {
-    background: rgba(61,107,154,0.04);
+background: rgba(61,107,154,0.04);
 }
 
 /* ══════════════════════════════════════════
-   ③ 関係説明パネル（選択語の詳細）
-   ══════════════════════════════════════════ */
+③ 関係説明パネル（選択語の詳細）
+══════════════════════════════════════════ */
 .detail-panel {
-    margin-bottom: 32px;
-    padding-bottom: 32px;
-    border-bottom: 1px solid var(--border);
+margin-bottom: 32px;
+padding-bottom: 32px;
+border-bottom: 1px solid var(–border);
 }
 .detail-empty {
-    padding: 24px 20px;
-    background: var(--bg-panel);
-    border-radius: var(--radius-m);
-    color: var(--text-hint);
-    font-size: 0.82rem;
-    text-align: center;
-    letter-spacing: 0.01em;
+padding: 24px 20px;
+background: var(–bg-panel);
+border-radius: var(–radius-m);
+color: var(–text-hint);
+font-size: 0.82rem;
+text-align: center;
+letter-spacing: 0.01em;
 }
 
 /* 選択語カード */
 .detail-card {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-m);
-    overflow: hidden;
-    animation: fadeUp 0.2s ease;
+border: 1px solid var(–border);
+border-radius: var(–radius-m);
+overflow: hidden;
+animation: fadeUp 0.2s ease;
 }
 .detail-card-head {
-    padding: 14px 18px 10px;
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
+padding: 14px 18px 10px;
+display: flex;
+align-items: baseline;
+justify-content: space-between;
+gap: 12px;
 }
 .detail-word {
-    font-family: 'Gentium Plus', serif;
-    font-size: 1.8rem;
-    line-height: 1.2;
+font-family: ‘Gentium Plus’, serif;
+font-size: 1.8rem;
+line-height: 1.2;
 }
 .detail-role-pill {
-    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
-    text-transform: uppercase; padding: 3px 10px;
-    border-radius: 20px; flex-shrink: 0;
+font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
+text-transform: uppercase; padding: 3px 10px;
+border-radius: 20px; flex-shrink: 0;
 }
 .detail-card-body {
-    padding: 0 18px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    border-top: 1px solid var(--border);
+padding: 0 18px 16px;
+display: flex;
+flex-direction: column;
+gap: 12px;
+border-top: 1px solid var(–border);
 }
 .detail-section { padding-top: 12px; }
 .detail-section-label {
-    font-size: 0.58rem; font-weight: 700; letter-spacing: 0.12em;
-    text-transform: uppercase; color: var(--text-hint);
-    margin-bottom: 6px;
+font-size: 0.58rem; font-weight: 700; letter-spacing: 0.12em;
+text-transform: uppercase; color: var(–text-hint);
+margin-bottom: 6px;
 }
 .detail-desc {
-    font-size: 0.88rem; color: var(--text);
-    line-height: 1.8;
+font-size: 0.88rem; color: var(–text);
+line-height: 1.8;
 }
 .detail-note {
-    font-size: 0.77rem; color: var(--text-sub);
-    line-height: 1.7;
-    padding: 8px 12px;
-    background: var(--bg-panel);
-    border-radius: var(--radius-s);
-    margin-top: 6px;
+font-size: 0.77rem; color: var(–text-sub);
+line-height: 1.7;
+padding: 8px 12px;
+background: var(–bg-panel);
+border-radius: var(–radius-s);
+margin-top: 6px;
 }
 
 /* 関係タグ列 */
 .rel-tags {
-    display: flex; flex-wrap: wrap; gap: 6px;
-    margin-top: 6px;
+display: flex; flex-wrap: wrap; gap: 6px;
+margin-top: 6px;
 }
 .rel-tag {
-    font-size: 0.7rem; padding: 3px 10px;
-    border-radius: 20px; border: 1px solid var(--border);
-    color: var(--text-sub); background: var(--bg-panel);
+font-size: 0.7rem; padding: 3px 10px;
+border-radius: 20px; border: 1px solid var(–border);
+color: var(–text-sub); background: var(–bg-panel);
 }
 .rel-tag.highlight {
-    background: var(--accent-light); border-color: var(--accent-mid);
-    color: var(--accent); font-weight: 600;
+background: var(–accent-light); border-color: var(–accent-mid);
+color: var(–accent); font-weight: 600;
 }
 
 /* 分詞用法バッジ */
 .usage-block {
-    padding: 10px 14px;
-    border-radius: var(--radius-s);
-    font-size: 0.82rem;
-    line-height: 1.7;
+padding: 10px 14px;
+border-radius: var(–radius-s);
+font-size: 0.82rem;
+line-height: 1.7;
 }
 .usage-block .usage-type {
-    font-weight: 700; margin-bottom: 3px;
+font-weight: 700; margin-bottom: 3px;
 }
-.usage-block.substantival  { background: rgba(61,107,154,0.07); color: var(--c-verb); }
-.usage-block.attributive   { background: rgba(74,138,98,0.07);  color: var(--c-subj); }
-.usage-block.adverbial     { background: rgba(196,112,40,0.07); color: var(--c-ptc); }
-.usage-block.genabs        { background: rgba(106,88,160,0.07); color: var(--c-prep); }
-.usage-block.complementary { background: rgba(138,90,56,0.07);  color: var(--c-obj); }
-.usage-block.inf-subj      { background: rgba(90,122,138,0.08); color: var(--c-inf); }
-.usage-block.inf-obj       { background: rgba(90,122,138,0.08); color: var(--c-inf); }
+.usage-block.substantival  { background: rgba(61,107,154,0.07); color: var(–c-verb); }
+.usage-block.attributive   { background: rgba(74,138,98,0.07);  color: var(–c-subj); }
+.usage-block.adverbial     { background: rgba(196,112,40,0.07); color: var(–c-ptc); }
+.usage-block.genabs        { background: rgba(106,88,160,0.07); color: var(–c-prep); }
+.usage-block.complementary { background: rgba(138,90,56,0.07);  color: var(–c-obj); }
+.usage-block.inf-subj      { background: rgba(90,122,138,0.08); color: var(–c-inf); }
+.usage-block.inf-obj       { background: rgba(90,122,138,0.08); color: var(–c-inf); }
 
 /* ══════════════════════════════════════════
-   ④ 判断ナビ
-   ══════════════════════════════════════════ */
+④ 判断ナビ
+══════════════════════════════════════════ */
 .judge-block {
-    margin-bottom: 32px;
-    padding-bottom: 32px;
-    border-bottom: 1px solid var(--border);
+margin-bottom: 32px;
+padding-bottom: 32px;
+border-bottom: 1px solid var(–border);
 }
 .judge-card {
-    background: var(--bg-inset);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-m);
-    padding: 14px 18px;
-    font-size: 0.85rem;
-    color: var(--text);
-    line-height: 1.8;
+background: var(–bg-inset);
+border: 1px solid var(–border);
+border-radius: var(–radius-m);
+padding: 14px 18px;
+font-size: 0.85rem;
+color: var(–text);
+line-height: 1.8;
 }
 .judge-card p + p { margin-top: 8px; }
 .judge-tip {
-    font-size: 0.72rem; color: var(--text-sub);
-    margin-top: 8px; padding-top: 8px;
-    border-top: 1px solid var(--border);
-    line-height: 1.7;
+font-size: 0.72rem; color: var(–text-sub);
+margin-top: 8px; padding-top: 8px;
+border-top: 1px solid var(–border);
+line-height: 1.7;
 }
 
 /* ══════════════════════════════════════════
-   ⑤ ナビゲーション
-   ══════════════════════════════════════════ */
+⑤ ナビゲーション
+══════════════════════════════════════════ */
 .nav-tools {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-    margin-bottom: 32px;
+display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+margin-bottom: 32px;
 }
 .nav-tool-btn {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 16px;
-    background: var(--bg-inset); border: 1px solid var(--border);
-    border-radius: var(--radius-m); cursor: pointer;
-    text-decoration: none; color: var(--text);
-    transition: background 0.12s, border-color 0.12s, transform 0.1s;
+display: flex; align-items: center; justify-content: space-between;
+padding: 14px 16px;
+background: var(–bg-inset); border: 1px solid var(–border);
+border-radius: var(–radius-m); cursor: pointer;
+text-decoration: none; color: var(–text);
+transition: background 0.12s, border-color 0.12s, transform 0.1s;
 }
 .nav-tool-btn:hover {
-    background: var(--accent-light); border-color: var(--accent-mid);
-    transform: translateY(-1px);
+background: var(–accent-light); border-color: var(–accent-mid);
+transform: translateY(-1px);
 }
 .nav-tool-icon { font-size: 1.2rem; line-height: 1; margin-bottom: 4px; }
-.nav-tool-main { font-size: 0.82rem; font-weight: 700; color: var(--text); margin-bottom: 2px; }
-.nav-tool-sub  { font-size: 0.68rem; color: var(--text-sub); }
-.nav-tool-arrow { font-size: 0.85rem; color: var(--text-hint); flex-shrink: 0; margin-left: 8px; align-self: center; }
+.nav-tool-main { font-size: 0.82rem; font-weight: 700; color: var(–text); margin-bottom: 2px; }
+.nav-tool-sub  { font-size: 0.68rem; color: var(–text-sub); }
+.nav-tool-arrow { font-size: 0.85rem; color: var(–text-hint); flex-shrink: 0; margin-left: 8px; align-self: center; }
 
 /* ══════════════════════════════════════════
-   Loading / Error
-   ══════════════════════════════════════════ */
+Loading / Error
+══════════════════════════════════════════ */
 .loading {
-    text-align: center; padding: 64px 16px; color: var(--text-hint);
+text-align: center; padding: 64px 16px; color: var(–text-hint);
 }
 .loading-greek {
-    font-family: 'Gentium Plus', serif;
-    font-size: 2rem; color: #d8d8dc; margin-bottom: 16px;
+font-family: ‘Gentium Plus’, serif;
+font-size: 2rem; color: #d8d8dc; margin-bottom: 16px;
 }
-.loading-bar-wrap { width: 200px; margin: 0 auto 10px; height: 2px; background: var(--bg-panel); border-radius: 2px; overflow: hidden; }
-.loading-bar { height: 100%; background: var(--accent); transition: width 0.3s; border-radius: 2px; }
+.loading-bar-wrap { width: 200px; margin: 0 auto 10px; height: 2px; background: var(–bg-panel); border-radius: 2px; overflow: hidden; }
+.loading-bar { height: 100%; background: var(–accent); transition: width 0.3s; border-radius: 2px; }
 .loading-text { font-size: 0.72rem; }
 @keyframes pulse { 0%,80%,100%{opacity:0.3} 40%{opacity:1} }
 .dot { display: inline-block; animation: pulse 1.4s ease-in-out infinite; }
@@ -487,62 +491,62 @@ body {
 
 /* Footer */
 .app-footer {
-    margin-top: 48px; padding-top: 16px;
-    border-top: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-    font-size: 0.68rem; color: var(--text-hint);
+margin-top: 48px; padding-top: 16px;
+border-top: 1px solid var(–border);
+display: flex; align-items: center; justify-content: space-between;
+font-size: 0.68rem; color: var(–text-hint);
 }
 .footer-links { display: flex; gap: 16px; }
-.footer-links a { color: var(--text-hint); text-decoration: none; border-bottom: 1px solid var(--border); padding-bottom: 1px; }
-.footer-links a:hover { color: var(--text-sub); }
+.footer-links a { color: var(–text-hint); text-decoration: none; border-bottom: 1px solid var(–border); padding-bottom: 1px; }
+.footer-links a:hover { color: var(–text-sub); }
 
 /* Responsive */
 @media (max-width: 520px) {
-    .page { padding: 24px 16px 80px; }
-    .token-line { font-size: 1.2rem; gap: 3px 7px; }
-    .nav-tools { grid-template-columns: 1fr; }
-    .tree-children { margin-left: 10px; padding-left: 8px; }
+.page { padding: 24px 16px 80px; }
+.token-line { font-size: 1.2rem; gap: 3px 7px; }
+.nav-tools { grid-template-columns: 1fr; }
+.tree-children { margin-left: 10px; padding-left: 8px; }
 }
 
 /* ══════════════════════════════════════════
-   iframe compact mode — side-panel 最適化
-   standalone では完全無効（body.in-iframe のみ適用）
-   ══════════════════════════════════════════ */
+iframe compact mode — side-panel 最適化
+standalone では完全無効（body.in-iframe のみ適用）
+══════════════════════════════════════════ */
 body.in-iframe .nav,
 body.in-iframe .btn-back,
 body.in-iframe .breadcrumb,
 body.in-iframe .app-footer,
 body.in-iframe .footer-links {
-    display: none !important;
+display: none !important;
 }
 
 /* 次のステップ導線も不要 */
 body.in-iframe .nav-tools,
 body.in-iframe .morph-nav {
-    display: none !important;
+display: none !important;
 }
 
 /* section-divider: morph-nav 後ろ・最終を非表示 */
 body.in-iframe .morph-nav + .section-divider,
 body.in-iframe .section-divider:last-of-type {
-    display: none !important;
+display: none !important;
 }
 
 /* コンパクト padding */
 body.in-iframe .page {
-    padding: 12px 16px 40px;
-    max-width: 100%;
+padding: 12px 16px 40px;
+max-width: 100%;
 }
 
 /* ギリシャ語ヘッダー縮小 */
 body.in-iframe .morph-header-word {
-    font-size: 2rem;
+font-size: 2rem;
 }
 
 /* morph-header 下余白削減 */
 body.in-iframe .morph-header {
-    padding-bottom: 20px;
-    margin-bottom: 20px;
+padding-bottom: 20px;
+margin-bottom: 20px;
 }
 
 /* セクション間余白削減 */
@@ -550,352 +554,376 @@ body.in-iframe .morph-core,
 body.in-iframe .morph-explain,
 body.in-iframe .morph-dist,
 body.in-iframe .morph-filter {
-    margin-bottom: 20px;
+margin-bottom: 20px;
 }
 
 /* section-divider 余白削減 */
 body.in-iframe .section-divider {
-    margin: 0 0 20px;
+margin: 0 0 20px;
 }
 
 /* syntax / semantic nav margin 削減 */
 body.in-iframe .nav { margin-bottom: 0; }
 
 /* ══════════════════════════════════════════
-   iframe mode: fixed/sticky 完全無効化
-   position:fixed は iframe viewport 基準で固定され
-   analysis-tabs と二重ヘッダーを引き起こすため禁止
-   ══════════════════════════════════════════ */
+iframe mode: fixed/sticky 完全無効化
+position:fixed は iframe viewport 基準になるため
+analysis-tabs との二重ヘッダー化を防ぐ
+══════════════════════════════════════════ */
 body.in-iframe #meaning-sticky,
 body.in-iframe .meaning-sticky,
 body.in-iframe .sticky-bar,
-body.in-iframe .sticky-header {
-    position: static !important;
-    top: auto !important;
-    left: auto !important;
-    right: auto !important;
-    bottom: auto !important;
-    width: auto !important;
-    z-index: auto !important;
-    box-shadow: none !important;
-    display: none !important;
+body.in-iframe .sticky-header,
+body.in-iframe [style*=“position: fixed”],
+body.in-iframe [style*=“position:fixed”] {
+position: static !important;
+top: auto !important;
+left: auto !important;
+right: auto !important;
+bottom: auto !important;
+width: auto !important;
+z-index: auto !important;
+box-shadow: none !important;
+backdrop-filter: none !important;
+-webkit-backdrop-filter: none !important;
+display: none !important; /* sticky bar は iframe 内で非表示 */
 }
 
-/* ── instant comprehension summary card (syntax) ──
-   構文タブでは「この語の構文的役割」を冒頭に表示する。
-   sticky/fixed は使わず、ページ先頭に静的配置する。
-   ══════════════════════════════════════════════════ */
-.ic-summary-card {
-    display: none;
-    background: linear-gradient(135deg,
-        rgba(61, 107, 154, 0.08) 0%,
-        rgba(61, 107, 154, 0.03) 100%);
-    border: 1px solid rgba(61, 107, 154, 0.22);
-    border-left: 3px solid var(--c-verb, #3d6b9a);
-    border-radius: 10px;
-    padding: 13px 16px 11px;
-    margin-bottom: 14px;
-}
-.ic-summary-card .ic-word {
-    font-family: 'Gentium Plus', serif;
-    font-size: 1.45rem;
-    font-weight: 700;
-    color: var(--text, #1d1d1f);
-    line-height: 1.2;
-    margin-bottom: 3px;
-}
-.ic-summary-card .ic-role-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.68rem;
-    font-weight: 700;
-    padding: 2px 9px;
-    border-radius: 12px;
-    margin-bottom: 6px;
-    background: rgba(61,107,154,0.10);
-    color: var(--c-verb, #3d6b9a);
-}
-.ic-summary-card .ic-reading {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text, #1d1d1f);
-    margin-bottom: 4px;
-}
-.ic-summary-card .ic-conf {
-    font-size: 0.68rem;
-    color: var(--text-sub, #6e6e73);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-.ic-summary-card .ic-conf::before {
-    content: '';
-    display: inline-block;
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: #4a8a62;
-    flex-shrink: 0;
-}
-.ic-summary-card .ic-divider {
-    height: 1px;
-    background: rgba(61,107,154,0.12);
-    margin: 8px 0;
-}
-.ic-summary-card .ic-context {
-    font-size: 0.72rem;
-    color: var(--text-sub, #6e6e73);
-    line-height: 1.7;
-}
-body.in-iframe .ic-summary-card { display: block; }
-   ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+共有フィルターバー（Morph引継ぎ）
+══════════════════════════════════════════ */
 .shared-filter-bar {
-    display: flex; align-items: center; gap: 6px;
-    flex-wrap: wrap;
-    padding: 8px 12px;
-    background: var(--bg-inset);
-    border: 1px solid var(--accent-mid);
-    border-radius: var(--radius-m);
-    margin-bottom: 20px;
-    animation: fadeUp 0.2s ease;
+display: flex; align-items: center; gap: 6px;
+flex-wrap: wrap;
+padding: 8px 12px;
+background: var(–bg-inset);
+border: 1px solid var(–accent-mid);
+border-radius: var(–radius-m);
+margin-bottom: 20px;
+animation: fadeUp 0.2s ease;
 }
 .shared-filter-bar.hidden { display: none; }
 .shared-filter-label {
-    font-size: 0.58rem; font-weight: 700; letter-spacing: 0.12em;
-    text-transform: uppercase; color: var(--text-hint);
-    flex-shrink: 0; margin-right: 2px;
+font-size: 0.58rem; font-weight: 700; letter-spacing: 0.12em;
+text-transform: uppercase; color: var(–text-hint);
+flex-shrink: 0; margin-right: 2px;
 }
 .filter-chip {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 3px 10px; border-radius: 20px; font-size: 0.73rem;
-    transition: all 0.12s; cursor: default;
+display: inline-flex; align-items: center; gap: 4px;
+padding: 3px 10px; border-radius: 20px; font-size: 0.73rem;
+transition: all 0.12s; cursor: default;
 }
 .filter-chip-active {
-    background: var(--accent-light); border: 1px solid var(--accent-mid);
-    color: var(--accent); font-weight: 600;
+background: var(–accent-light); border: 1px solid var(–accent-mid);
+color: var(–accent); font-weight: 600;
 }
 .filter-chip-toggle {
-    background: var(--bg-panel); border: 1px solid var(--border);
-    color: var(--text-sub); cursor: pointer;
+background: var(–bg-panel); border: 1px solid var(–border);
+color: var(–text-sub); cursor: pointer;
 }
 .filter-chip-toggle.on {
-    background: var(--accent-light); border-color: var(--accent-mid);
-    color: var(--accent); font-weight: 600;
+background: var(–accent-light); border-color: var(–accent-mid);
+color: var(–accent); font-weight: 600;
 }
 .filter-chip-toggle.off {
-    background: var(--bg); border-color: var(--border);
-    color: var(--text-hint);
+background: var(–bg); border-color: var(–border);
+color: var(–text-hint);
 }
 .filter-chip-dot {
-    width: 12px; height: 12px; border-radius: 50%;
-    border: 1.5px solid currentColor;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 7px; flex-shrink: 0;
+width: 12px; height: 12px; border-radius: 50%;
+border: 1.5px solid currentColor;
+display: flex; align-items: center; justify-content: center;
+font-size: 7px; flex-shrink: 0;
 }
-.filter-chip-toggle.on .filter-chip-dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+.filter-chip-toggle.on .filter-chip-dot { background: var(–accent); border-color: var(–accent); color: #fff; }
 .filter-chip-toggle.off .filter-chip-dot { background: transparent; color: #ccc; }
 
 /* 書物フィルターパネル（折り畳み可） */
 .book-filter-panel {
-    margin-bottom: 20px;
+margin-bottom: 20px;
 }
 .book-filter-toggle-btn {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 0.7rem; font-family: inherit;
-    padding: 4px 12px; border-radius: 20px;
-    border: 1px solid var(--border); background: transparent;
-    color: var(--text-sub); cursor: pointer; transition: background 0.12s;
-    margin-bottom: 8px;
+display: inline-flex; align-items: center; gap: 5px;
+font-size: 0.7rem; font-family: inherit;
+padding: 4px 12px; border-radius: 20px;
+border: 1px solid var(–border); background: transparent;
+color: var(–text-sub); cursor: pointer; transition: background 0.12s;
+margin-bottom: 8px;
 }
-.book-filter-toggle-btn:hover { background: var(--bg-panel); }
+.book-filter-toggle-btn:hover { background: var(–bg-panel); }
 .book-filter-toggle-btn .toggle-arrow { font-size: 0.6rem; transition: transform 0.15s; }
 .book-filter-toggle-btn.open .toggle-arrow { transform: rotate(180deg); }
 .book-filter-chips {
-    display: none; flex-wrap: wrap; gap: 6px;
-    padding: 10px 12px;
-    background: var(--bg-inset);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-m);
+display: none; flex-wrap: wrap; gap: 6px;
+padding: 10px 12px;
+background: var(–bg-inset);
+border: 1px solid var(–border);
+border-radius: var(–radius-m);
 }
 .book-filter-chips.open { display: flex; }
 
 /* ══════════════════════════════════════════
-   XSC — Explainable Scoring パネル
-   ══════════════════════════════════════════ */
+XSC — Explainable Scoring パネル
+══════════════════════════════════════════ */
 .xsc-panel {
-    margin-top: 10px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-s);
-    overflow: hidden;
-    font-size: 0.78rem;
+margin-top: 10px;
+border: 1px solid var(–border);
+border-radius: var(–radius-s);
+overflow: hidden;
+font-size: 0.78rem;
 }
 .xsc-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 7px 11px 6px;
-    background: var(--bg-panel);
-    cursor: pointer;
-    user-select: none;
-    transition: background 0.12s;
+display: flex; align-items: center; justify-content: space-between;
+padding: 7px 11px 6px;
+background: var(–bg-panel);
+cursor: pointer;
+user-select: none;
+transition: background 0.12s;
 }
 .xsc-head:hover { background: rgba(90,110,130,0.10); }
 .xsc-head-label {
-    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
-    text-transform: uppercase; color: var(--text-hint);
+font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
+text-transform: uppercase; color: var(–text-hint);
 }
 .xsc-head-right { display: flex; align-items: center; gap: 8px; }
 .xsc-conf {
-    font-size: 0.7rem; font-weight: 700;
+font-size: 0.7rem; font-weight: 700;
 }
-.xsc-arrow { font-size: 0.68rem; color: var(--text-hint); transition: transform 0.15s; }
+.xsc-arrow { font-size: 0.68rem; color: var(–text-hint); transition: transform 0.15s; }
 .xsc-panel.open .xsc-arrow { transform: rotate(180deg); }
 .xsc-body {
-    display: none;
-    padding: 9px 11px 11px;
-    border-top: 1px solid var(--border);
-    animation: fadeUp 0.18s ease;
+display: none;
+padding: 9px 11px 11px;
+border-top: 1px solid var(–border);
+animation: fadeUp 0.18s ease;
 }
 .xsc-panel.open .xsc-body { display: block; }
 /* デルタ行 */
 .xsc-rows { display: flex; flex-direction: column; gap: 4px; margin-bottom: 9px; }
 .xsc-row  { display: flex; align-items: center; gap: 7px; font-size: 0.73rem; }
 .xsc-delta {
-    font-size: 0.68rem; font-weight: 700; min-width: 32px;
-    text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums;
+font-size: 0.68rem; font-weight: 700; min-width: 32px;
+text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums;
 }
 .xsc-delta.pos { color: #4a7a5a; }
 .xsc-delta.neg { color: #b05050; }
 .xsc-bar-wrap  { width: 56px; height: 3px; background: #eee; border-radius: 2px; overflow: hidden; flex-shrink: 0; }
 .xsc-bar       { height: 100%; border-radius: 2px; }
-.xsc-row-label { flex: 1; color: var(--text); line-height: 1.4; }
+.xsc-row-label { flex: 1; color: var(–text); line-height: 1.4; }
 /* 競合候補 */
-.xsc-alts { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
-.xsc-alts-label { font-size: 0.58rem; font-weight: 700; color: var(--text-hint); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
-.xsc-alt-row { display: flex; align-items: center; gap: 7px; font-size: 0.72rem; color: var(--text-sub); }
+.xsc-alts { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(–border); }
+.xsc-alts-label { font-size: 0.58rem; font-weight: 700; color: var(–text-hint); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+.xsc-alt-row { display: flex; align-items: center; gap: 7px; font-size: 0.72rem; color: var(–text-sub); }
 .xsc-alt-bar-wrap { width: 44px; height: 3px; background: #eee; border-radius: 2px; overflow: hidden; }
 .xsc-alt-bar { height: 100%; border-radius: 2px; background: rgba(90,110,130,0.35); }
-.xsc-alt-pct { font-size: 0.65rem; color: var(--text-hint); min-width: 26px; text-align: right; }
+.xsc-alt-pct { font-size: 0.65rem; color: var(–text-hint); min-width: 26px; text-align: right; }
 /* 理由テキスト */
-.xsc-reasons { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
-.xsc-reason-item { font-size: 0.73rem; color: var(--text-sub); padding: 2px 0 2px 12px; position: relative; line-height: 1.55; }
-.xsc-reason-item::before { content:''; position:absolute; left:3px; top:9px; width:4px; height:4px; border-radius:50%; background:var(--accent); opacity:0.45; }
+.xsc-reasons { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(–border); }
+.xsc-reason-item { font-size: 0.73rem; color: var(–text-sub); padding: 2px 0 2px 12px; position: relative; line-height: 1.55; }
+.xsc-reason-item::before { content:’’; position:absolute; left:3px; top:9px; width:4px; height:4px; border-radius:50%; background:var(–accent); opacity:0.45; }
+
+/* ══════════════════════════════════════════
+Beginner Mode — Syntax 読解パネル
+══════════════════════════════════════════ */
+.syn-mode-bar {
+display: flex; gap: 5px; margin-bottom: 14px;
+padding: 3px; background: var(–bg-panel);
+border-radius: 10px; border: 1px solid var(–border);
+}
+.syn-mode-btn {
+flex: 1; padding: 6px 8px;
+border: none; border-radius: 8px;
+font-family: inherit; font-size: 0.7rem; font-weight: 600;
+cursor: pointer; transition: all 0.15s;
+background: transparent; color: var(–text-sub);
+}
+.syn-mode-btn.active {
+background: #fff; color: var(–accent);
+box-shadow: 0 1px 4px rgba(0,0,0,0.09);
+}
+.syn-b-panel {
+margin-bottom: 14px;
+border: 1px solid var(–accent-mid);
+border-radius: var(–radius-l);
+overflow: hidden;
+background: linear-gradient(135deg, rgba(90,110,130,0.04) 0%, rgba(90,110,130,0.01) 100%);
+}
+.syn-b-head {
+padding: 12px 16px 10px;
+border-bottom: 1px solid var(–border);
+}
+.syn-b-label {
+font-size: 0.57rem; font-weight: 700; letter-spacing: 0.14em;
+text-transform: uppercase; color: var(–accent); margin-bottom: 5px;
+}
+.syn-b-main {
+font-size: 1.05rem; font-weight: 700; color: var(–text);
+line-height: 1.4; margin-bottom: 3px;
+}
+.syn-b-sub { font-size: 0.73rem; color: var(–text-sub); line-height: 1.6; }
+.syn-b-body { padding: 10px 16px; }
+.syn-b-hint-label {
+font-size: 0.57rem; font-weight: 700; letter-spacing: 0.12em;
+text-transform: uppercase; color: var(–text-hint); margin-bottom: 6px;
+}
+.syn-b-hint-item {
+font-size: 0.78rem; color: var(–text);
+padding: 3px 0 3px 13px; position: relative; line-height: 1.6;
+}
+.syn-b-hint-item::before {
+content: ‘’; position: absolute; left: 2px; top: 10px;
+width: 5px; height: 5px; border-radius: 50%;
+background: var(–accent); opacity: 0.45;
+}
+.syn-b-caution {
+margin-top: 8px; font-size: 0.72rem;
+color: #8a5a00; background: rgba(200,160,0,0.07);
+border: 1px solid rgba(200,160,0,0.18);
+border-radius: var(–radius-s);
+padding: 6px 10px; line-height: 1.6;
+}
+.syn-b-caution::before { content: ’⚠ ’; font-size: 0.8em; }
+.syn-b-more {
+display: block; width: 100%; padding: 9px;
+border: none; background: transparent; cursor: pointer;
+font-family: inherit; font-size: 0.72rem; font-weight: 600;
+color: var(–accent); text-align: center;
+transition: background 0.12s; border-top: 1px solid var(–border);
+}
+.syn-b-more:hover { background: var(–accent-light); }
+/* Beginner時: 上級セクション非表示 */
+.page.syn-beginner .tree-block,
+.page.syn-beginner .detail-panel,
+.page.syn-beginner .judge-block {
+display: none !important;
+}
+/* Advanced時: beginnerパネル非表示 */
+.page.syn-advanced .syn-mode-bar,
+.page.syn-advanced .syn-b-panel {
+display: none !important;
+}
+body.in-iframe .syn-b-panel { margin-bottom: 10px; }
 
 </style>
 </head>
 <body>
 <div class="page">
 
-    <!-- Nav -->
-    <div class="nav">
-        <button class="btn-back" onclick="(function(){try{if(window.self!==window.top)return;}catch(e){}window.close();if(!window.opener)history.back();})();">← 戻る</button>
-        <div class="breadcrumb">
-            <span class="crumb" id="bc-ref">—</span>
-            <span class="sep">›</span>
-            <span class="crumb" id="bc-word" style="font-family:'Gentium Plus',serif;font-size:0.95rem;">—</span>
-            <span class="sep">›</span>
-            <span>統語論</span>
+```
+<!-- Nav -->
+<div class="nav">
+    <button class="btn-back" onclick="(function(){try{if(window.self!==window.top)return;}catch(e){}window.close();if(!window.opener)history.back();})();">← 戻る</button>
+    <div class="breadcrumb">
+        <span class="crumb" id="bc-ref">—</span>
+        <span class="sep">›</span>
+        <span class="crumb" id="bc-word" style="font-family:'Gentium Plus',serif;font-size:0.95rem;">—</span>
+        <span class="sep">›</span>
+        <span>統語論</span>
+    </div>
+</div>
+
+<!-- 共有フィルターバー（Morph引継ぎ） -->
+<div class="shared-filter-bar hidden" id="shared-filter-bar">
+    <span class="shared-filter-label">分析対象</span>
+    <div id="shared-filter-chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+</div>
+
+<!-- 書物範囲フィルター -->
+<div class="book-filter-panel" id="book-filter-panel">
+    <button class="book-filter-toggle-btn" id="book-filter-toggle-btn"
+            onclick="toggleBookFilterPanel()">
+        📚 書物範囲 <span class="toggle-arrow">▼</span>
+    </button>
+    <div class="book-filter-chips" id="book-filter-chips"></div>
+</div>
+
+<!-- LOADING STATE -->
+<div id="main-loading" class="loading">
+    <div class="loading-greek">ἀναλύει</div>
+    <div class="loading-bar-wrap"><div id="load-bar" class="loading-bar" style="width:0%"></div></div>
+    <div class="loading-text" id="load-text">
+        <span class="dot">·</span><span class="dot">·</span><span class="dot">·</span>
+    </div>
+</div>
+
+<!-- Beginner モードバー（データロード不要で即時表示） -->
+<div class="syn-mode-bar" id="syn-mode-bar">
+    <button class="syn-mode-btn active" id="syn-btn-beginner"
+            onclick="setSynMode('beginner')">📖 読解モード</button>
+    <button class="syn-mode-btn" id="syn-btn-advanced"
+            onclick="setSynMode('advanced')">🔬 詳細モード</button>
+</div>
+<!-- Beginner パネル（JS で内容を描画） -->
+<div class="syn-b-panel" id="syn-b-panel"><!-- JS描画 --></div>
+
+<!-- MAIN CONTENT (hidden until data loads) -->
+<div id="main-content" style="display:none">
+
+    <!-- ① 文全体表示 -->
+    <div class="sentence-block fade-up">
+        <div class="sec-label">文の全体</div>
+        <div class="sentence-ref">
+            <span class="sentence-ref-badge" id="sent-ref-badge">—</span>
+            <span id="sent-ref-label" style="font-size:0.65rem;color:var(--text-hint);font-weight:400;">統語論</span>
+        </div>
+        <div class="token-line" id="token-line"></div>
+        <div class="sentence-ja" id="sentence-ja" style="display:none"></div>
+        <div class="legend" id="legend"></div>
+    </div>
+
+    <!-- ② 構文ツリー -->
+    <div class="tree-block fade-up" style="animation-delay:0.06s">
+        <div class="sec-label">構文の構造</div>
+        <div class="syn-tree" id="syn-tree"></div>
+    </div>
+
+    <!-- ③ 関係説明 -->
+    <div class="detail-panel fade-up" style="animation-delay:0.12s">
+        <div class="sec-label">選択した語の役割</div>
+        <div id="detail-body">
+            <div class="detail-empty">上の文中の語をタップすると、その語が文の中でどのように機能しているかが表示されます。</div>
         </div>
     </div>
 
-    <!-- instant comprehension summary card (iframe のみ表示・sticky廃止の代替) -->
-    <div class="ic-summary-card" id="ic-summary-card">
-        <div class="ic-word" id="ic-word">—</div>
-        <div class="ic-role-badge" id="ic-role-badge"></div>
-        <div class="ic-reading" id="ic-reading">—</div>
-        <div class="ic-conf" id="ic-conf"></div>
-        <div class="ic-divider"></div>
-        <div class="ic-context" id="ic-context"></div>
-    </div>
-
-    <!-- 共有フィルターバー（Morph引継ぎ） -->
-    <div class="shared-filter-bar hidden" id="shared-filter-bar">
-        <span class="shared-filter-label">分析対象</span>
-        <div id="shared-filter-chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
-    </div>
-
-    <!-- 書物範囲フィルター -->
-    <div class="book-filter-panel" id="book-filter-panel">
-        <button class="book-filter-toggle-btn" id="book-filter-toggle-btn"
-                onclick="toggleBookFilterPanel()">
-            📚 書物範囲 <span class="toggle-arrow">▼</span>
-        </button>
-        <div class="book-filter-chips" id="book-filter-chips"></div>
-    </div>
-
-    <!-- LOADING STATE -->
-    <div id="main-loading" class="loading">
-        <div class="loading-greek">ἀναλύει</div>
-        <div class="loading-bar-wrap"><div id="load-bar" class="loading-bar" style="width:0%"></div></div>
-        <div class="loading-text" id="load-text">
-            <span class="dot">·</span><span class="dot">·</span><span class="dot">·</span>
+    <!-- ④ 判断ナビ -->
+    <div class="judge-block fade-up" style="animation-delay:0.18s">
+        <div class="sec-label">構造の読み方</div>
+        <div class="judge-card" id="judge-card">
+            <p>語をタップして構造を確認してください。</p>
         </div>
     </div>
 
-    <!-- MAIN CONTENT (hidden until data loads) -->
-    <div id="main-content" style="display:none">
-
-        <!-- ① 文全体表示 -->
-        <div class="sentence-block fade-up">
-            <div class="sec-label">文の全体</div>
-            <div class="sentence-ref">
-                <span class="sentence-ref-badge" id="sent-ref-badge">—</span>
-                <span id="sent-ref-label" style="font-size:0.65rem;color:var(--text-hint);font-weight:400;">統語論</span>
-            </div>
-            <div class="token-line" id="token-line"></div>
-            <div class="sentence-ja" id="sentence-ja" style="display:none"></div>
-            <div class="legend" id="legend"></div>
+    <!-- ⑤ ナビゲーション -->
+    <div class="fade-up" style="animation-delay:0.22s">
+        <div class="sec-label" style="margin-bottom:12px;">次のステップ</div>
+        <div class="nav-tools">
+            <a class="nav-tool-btn" href="#" onclick="navTo('morph',event)">
+                <div>
+                    <div class="nav-tool-icon">◻</div>
+                    <div class="nav-tool-main">形を確認する</div>
+                    <div class="nav-tool-sub">形態論ツールへ</div>
+                </div>
+                <span class="nav-tool-arrow">→</span>
+            </a>
+            <a class="nav-tool-btn" href="#" onclick="navTo('semantics',event)">
+                <div>
+                    <div class="nav-tool-icon">◎</div>
+                    <div class="nav-tool-main">意味を確認する</div>
+                    <div class="nav-tool-sub">意味論ツールへ</div>
+                </div>
+                <span class="nav-tool-arrow">→</span>
+            </a>
         </div>
+    </div>
 
-        <!-- ② 構文ツリー -->
-        <div class="tree-block fade-up" style="animation-delay:0.06s">
-            <div class="sec-label">構文の構造</div>
-            <div class="syn-tree" id="syn-tree"></div>
-        </div>
+</div><!-- /main-content -->
 
-        <!-- ③ 関係説明 -->
-        <div class="detail-panel fade-up" style="animation-delay:0.12s">
-            <div class="sec-label">選択した語の役割</div>
-            <div id="detail-body">
-                <div class="detail-empty">上の文中の語をタップすると、その語が文の中でどのように機能しているかが表示されます。</div>
-            </div>
-        </div>
+<footer class="app-footer">
+    <span>© 2026 ウオノ All rights reserved.</span>
+    <div class="footer-links"><a href="index.html">ホーム</a></div>
+</footer>
+```
 
-        <!-- ④ 判断ナビ -->
-        <div class="judge-block fade-up" style="animation-delay:0.18s">
-            <div class="sec-label">構造の読み方</div>
-            <div class="judge-card" id="judge-card">
-                <p>語をタップして構造を確認してください。</p>
-            </div>
-        </div>
-
-        <!-- ⑤ ナビゲーション -->
-        <div class="fade-up" style="animation-delay:0.22s">
-            <div class="sec-label" style="margin-bottom:12px;">次のステップ</div>
-            <div class="nav-tools">
-                <a class="nav-tool-btn" href="#" onclick="navTo('morph',event)">
-                    <div>
-                        <div class="nav-tool-icon">◻</div>
-                        <div class="nav-tool-main">形を確認する</div>
-                        <div class="nav-tool-sub">形態論ツールへ</div>
-                    </div>
-                    <span class="nav-tool-arrow">→</span>
-                </a>
-                <a class="nav-tool-btn" href="#" onclick="navTo('semantics',event)">
-                    <div>
-                        <div class="nav-tool-icon">◎</div>
-                        <div class="nav-tool-main">意味を確認する</div>
-                        <div class="nav-tool-sub">意味論ツールへ</div>
-                    </div>
-                    <span class="nav-tool-arrow">→</span>
-                </a>
-            </div>
-        </div>
-
-    </div><!-- /main-content -->
-
-    <footer class="app-footer">
-        <span>© 2026 ウオノ All rights reserved.</span>
-        <div class="footer-links"><a href="index.html">ホーム</a></div>
-    </footer>
 </div>
 
 <script>
@@ -915,44 +943,6 @@ body.in-iframe .ic-summary-card { display: block; }
    定数・ラベルマップ
    ══════════════════════════════════════════ */
 const TENSE_JP  = { present:'現在',imperfect:'未完了',future:'未来',aorist:'アオリスト',perfect:'完了',pluperfect:'過去完了' };
-const TERM_HINT = {
-    'アオリスト': '点的完結・一回的な出来事',
-    '完了': '過去の動作が今も影響している状態',
-    '未完了': '過去における継続・反復の動作',
-    '中動': '主語が動作の影響を自ら受ける',
-    '受動': '主語が動作を受ける',
-    '分詞': '動詞由来の形容詞的語形',
-    '不定詞': '「〜すること」を表す動詞名詞形',
-    '接続法': '可能性・目的・条件を表す法',
-    '希求法': '願望・婉曲を表す法',
-    '属格': '所有・関係を示す格（〜の）',
-    '与格': '間接目的・手段を示す格（〜に）',
-    '対格': '直接目的・方向を示す格（〜を）',
-};
-function wrapTerm(text) {
-    if (!text || typeof text !== 'string') {
-        return text;
-    }
-    return Object.entries(TERM_HINT).reduce((str, [term, hint]) => {
-        if (!str.includes(term)) {
-            return str;
-        }
-        return str.split(term).join(
-            `<abbr title="${hint}"
-                style="text-decoration:none;cursor:help;">
-                ${term}
-                <span style="
-                    font-size:0.78em;
-                    color:var(--text-sub);
-                    opacity:0.75;
-                    margin-left:1px;
-                ">
-                    （${hint}）
-                </span>
-            </abbr>`
-        );
-    }, text);
-}
 const VOICE_JP  = { active:'能動',middle:'中動',passive:'受動','middle deponent':'中動自動','middle or passive':'中動/受動' };
 const MOOD_JP   = { indicative:'直説法',subjunctive:'接続法',optative:'希求法',imperative:'命令法',infinitive:'不定詞',participle:'分詞' };
 const GENDER_JP = { masculine:'男性',feminine:'女性',neuter:'中性' };
@@ -983,12 +973,128 @@ function getParams() {
         word:     p.get('word')     || '',
         lemma:    p.get('lemma')    || '',
         pos:      p.get('pos')      || '',
-        books:    p.get('books')    || '',   // Morph引継ぎ: カンマ区切り書物キー
-        scope:    p.get('scope')    || '',   // Morph引継ぎ: グループキー
-        category: p.get('category') || '',   // Morph引継ぎ: カテゴリ
+        tense:    p.get('tense')    || '',   // Step1で追加：Morphから引き継ぐ
+        mood:     p.get('mood')     || '',
+        voice:    p.get('voice')    || '',
+        case:     p.get('case')     || '',
+        gender:   p.get('gender')   || '',
+        number:   p.get('number')   || '',
+        books:    p.get('books')    || '',
+        scope:    p.get('scope')    || '',
+        category: p.get('category') || '',
     };
 }
 const params = getParams();
+
+/* ══════════════════════════════════════════
+   Step4: Syntax Beginner Mode
+   ══════════════════════════════════════════ */
+/* tense+mood → 構文的読解ガイド */
+const SYNTAX_BEGINNER = {
+    'aorist+indicative': {
+        main:  '完了した動作の主動詞',
+        sub:   '「〜した」という出来事の核として機能します',
+        hints: ['主語（主格名詞・代名詞）を探してください', '目的語は対格名詞です', 'この動詞が節の骨格です'],
+        caution: 'アオリストは継続ではなく生起に焦点があります',
+    },
+    'present+indicative': {
+        main:  '継続・反復する動作の主動詞',
+        sub:   '「〜している/〜する」として節の中心です',
+        hints: ['主語・目的語の格一致を確認してください', '前置詞句が方向・場所を示します'],
+        caution: '「今この瞬間」だけでなく習慣・真理にも使われます',
+    },
+    'aorist+participle': {
+        main:  '主動詞より先に起きた副詞的動作',
+        sub:   '主動詞との先行関係・理由・条件を確認してください',
+        hints: ['冠詞があれば名詞用法（〜する者）の可能性', '格一致する名詞があれば形容詞用法', '冠詞も格一致名詞もなければ副詞用法'],
+        caution: '構文役割の確定はSyntaxタブのツリーで行ってください',
+    },
+    'present+participle': {
+        main:  '主動詞と同時進行の副詞的動作',
+        sub:   '「〜しながら」として主動詞を修飾します',
+        hints: ['冠詞＋分詞 → 名詞的用法', '格一致する名詞 → 形容詞用法', 'それ以外 → 副詞用法（付帯状況・理由）'],
+        caution: '下のツリーで語の役割をタップして確認してください',
+    },
+    'present+imperative': {
+        main:  '継続的行為を求める命令',
+        sub:   '「〜し続けなさい」という反復命令です',
+        hints: ['2人称単数/複数の命令が大多数', '否定μήを伴えば「〜するのをやめなさい」'],
+        caution: 'アオリスト命令（一回的）との区別が読解の鍵です',
+    },
+    'aorist+imperative': {
+        main:  '即時的行為を求める命令',
+        sub:   '「今すぐ〜しなさい」という一回的命令です',
+        hints: ['否定はμή＋アオリスト接続法（禁止）', '動詞に集まる格要素を確認してください'],
+        caution: '',
+    },
+    'aorist+subjunctive': {
+        main:  '未確定動作の接続法（目的・条件・時間）',
+        sub:   '先行接続詞が節の意味を決定します',
+        hints: ['ἵνα → 目的節「〜するために」', 'ἐάν → 条件節「もし〜なら」', 'ὅταν → 時間節「〜するとき」'],
+        caution: '接続詞を必ず確認してから構造を決めてください',
+    },
+    'present+infinitive': {
+        main:  '継続動作の不定詞',
+        sub:   '「〜し続けること」として名詞的・補語的に機能します',
+        hints: ['直前の動詞の目的語になることが多い', '対格の主語が付くことがある'],
+        caution: '',
+    },
+    'aorist+infinitive': {
+        main:  '完結動作の不定詞',
+        sub:   '「〜すること」として文の目的語・主語になります',
+        hints: ['不定詞の主語は対格で表される', '動詞ごとに不定詞を取るか確認してください'],
+        caution: '',
+    },
+};
+
+function setSynMode(mode) {
+    const page = document.querySelector('.page');
+    if (!page) return;
+    page.classList.remove('syn-beginner', 'syn-advanced');
+    page.classList.add(`syn-${mode}`);
+    document.getElementById('syn-btn-beginner')?.classList.toggle('active', mode === 'beginner');
+    document.getElementById('syn-btn-advanced')?.classList.toggle('active', mode === 'advanced');
+}
+
+function renderSyntaxBeginner() {
+    const panel = document.getElementById('syn-b-panel');
+    if (!panel) return;
+    const key  = [params.tense, params.mood].filter(Boolean).join('+');
+    const data = SYNTAX_BEGINNER[key];
+    const word = params.word || '—';
+
+    if (!data) {
+        // テーブルに未登録：最小ガイドを表示
+        const tLabel = TENSE_JP[params.tense] || params.tense || '';
+        const mLabel = MOOD_JP[params.mood]   || params.mood  || '';
+        panel.innerHTML = `
+            <div class="syn-b-head">
+                <div class="syn-b-label">構文の読み方</div>
+                <div class="syn-b-main" style="font-family:'Gentium Plus',serif;font-size:1.3rem;">${word}</div>
+                <div class="syn-b-sub">${[tLabel, mLabel].filter(Boolean).join('・') || '詳細モードで構文ツリーを確認してください'}</div>
+            </div>
+            <button class="syn-b-more" onclick="setSynMode('advanced')">▶ 構文ツリーを見る</button>`;
+        return;
+    }
+
+    panel.innerHTML = `
+        <div class="syn-b-head">
+            <div class="syn-b-label">構文の読み方</div>
+            <div class="syn-b-main" style="font-family:'Gentium Plus',serif;font-size:1.2rem;">${word}</div>
+            <div class="syn-b-main" style="font-size:0.92rem;margin-top:3px;">${data.main}</div>
+            <div class="syn-b-sub">${data.sub}</div>
+        </div>
+        <div class="syn-b-body">
+            <div class="syn-b-hint-label">確認ポイント</div>
+            ${data.hints.map(h => `<div class="syn-b-hint-item">${h}</div>`).join('')}
+            ${data.caution ? `<div class="syn-b-caution">${data.caution}</div>` : ''}
+        </div>
+        <button class="syn-b-more" onclick="setSynMode('advanced')">▶ 構文ツリーで詳しく見る</button>`;
+}
+
+// 自動起動
+setSynMode('beginner');
+renderSyntaxBeginner();
 
 /* ══════════════════════════════════════════
    共有フィルター状態 (Morph から引き継ぐ)
@@ -1093,51 +1199,6 @@ function toggleBookFilterPanel() {
 // 初期描画
 renderBookFilterChips();
 renderSharedFilterBar();
-
-/* ── instant comprehension summary card 描画 (iframe のみ) ──
-   syntax タブでは「この語の構文的位置づけ」を冒頭に表示する。
-   position:fixed/sticky は使わず、ページ先頭に静的配置する。
-   ══════════════════════════════════════════════════════════ */
-(function renderICSummaryCard() {
-    if (!document.body.classList.contains('in-iframe')) return;
-
-    const p      = params;
-    const wordEl  = document.getElementById('ic-word');
-    const roleEl  = document.getElementById('ic-role-badge');
-    const readEl  = document.getElementById('ic-reading');
-    const confEl  = document.getElementById('ic-conf');
-    const ctxEl   = document.getElementById('ic-context');
-
-    if (wordEl) wordEl.textContent = p.word || '—';
-
-    // 品詞ラベル
-    const posLabel = { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', C:'接続詞', X:'不変化詞' };
-    const pos = p.pos || '';
-    if (roleEl) roleEl.textContent = posLabel[pos] || '構文検索';
-
-    // 時制・法から読み方ヒント
-    const tenseLabel = { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'過去完了' };
-    const moodLabel  = { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' };
-    const voiceLabel = { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' };
-
-    const parts = [tenseLabel[p.tense], moodLabel[p.mood], voiceLabel[p.voice]].filter(Boolean);
-    if (readEl) readEl.textContent = parts.length ? parts.join(' · ') : (p.lemma || '—');
-
-    // 確信度（lemma から）
-    if (confEl) confEl.textContent = p.lemma ? `原形: ${p.lemma}` : '構文的文脈を確認してください';
-
-    // 文脈ヒント
-    if (ctxEl) {
-        const hints = [];
-        if (p.tense === 'present')  hints.push('継続・反復動作を表します');
-        if (p.tense === 'aorist')   hints.push('一度きりの完結した出来事を表します');
-        if (p.tense === 'perfect')  hints.push('過去の動作が現在に影響している状態を表します');
-        if (p.mood  === 'participle') hints.push('分詞：形容詞的・副詞的に主動詞を修飾します');
-        if (p.mood  === 'infinitive') hints.push('不定詞：名詞的・補語的に用いられます');
-        if (p.mood  === 'subjunctive') hints.push('接続法：目的・条件・可能性を表します');
-        ctxEl.textContent = hints.join('　') || '文脈に応じて読み方が変わります';
-    }
-})();
 
 /* ══════════════════════════════════════════
    データ共通ユーティリティ
@@ -2011,8 +2072,8 @@ function renderJudge(entry, tokens, idx) {
     }
 
     document.getElementById('judge-card').innerHTML = `
-        <p>${wrapTerm(primary)}</p>
-        ${tip ? `<p class="judge-tip">🔍 ${wrapTerm(tip)}</p>` : ''}`;
+        <p>${primary}</p>
+        ${tip ? `<p class="judge-tip">🔍 ${tip}</p>` : ''}`;
 }
 
 /* ══════════════════════════════════════════
@@ -2213,5 +2274,6 @@ document.getElementById('bc-word').textContent = params.word || '—';
     renderAll(tokens, ref);
 })();
 </script>
+
 </body>
 </html>
