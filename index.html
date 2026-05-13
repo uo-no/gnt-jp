@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05140600｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05140700｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -728,6 +728,143 @@ opacity: 0.5;
 display: none;
 }
 #reading-hint.visible { display: block; }
+
+/* ══════════════════════════════════════════
+Flow / Meaning / Study タブ 共通スタイル
+══════════════════════════════════════════ */
+
+/* 語形ヘッダー（タブ上部に共通） */
+.flow-word-head {
+display: flex;
+align-items: baseline;
+gap: 0;
+margin-bottom: 4px;
+flex-wrap: wrap;
+}
+.flow-greek {
+font-family: ‘Gentium Plus’, serif;
+font-size: 1.65rem;
+line-height: 1.2;
+color: var(–text-main);
+}
+.flow-ja {
+font-size: 0.82rem;
+color: var(–text-sub);
+font-weight: 400;
+}
+.flow-ref {
+font-size: 0.62rem;
+color: var(–text-sub);
+opacity: 0.6;
+margin-bottom: 14px;
+letter-spacing: 0.02em;
+}
+
+/* ── Flow タブ ── */
+.flow-hints {
+margin-bottom: 12px;
+}
+.flow-hint-row {
+display: flex;
+align-items: baseline;
+gap: 8px;
+padding: 7px 0;
+border-bottom: 1px solid rgba(0,0,0,0.04);
+line-height: 1.65;
+}
+.flow-hint-row:last-child { border-bottom: none; }
+.flow-hint-icon {
+font-size: 0.75rem;
+color: var(–highlight);
+flex-shrink: 0;
+width: 14px;
+text-align: center;
+opacity: 0.7;
+}
+.flow-hint-text {
+font-size: 0.84rem;
+color: var(–text-main);
+line-height: 1.7;
+}
+
+/* ── AI補助共通エリア ── */
+.flow-ai-area {
+margin-top: 10px;
+margin-bottom: 4px;
+}
+.flow-ai-content {
+font-size: 0.84rem;
+color: var(–text-main);
+line-height: 1.8;
+padding: 12px 14px;
+background: rgba(90,110,130,0.04);
+border-left: 2px solid rgba(90,110,130,0.2);
+border-radius: 0 6px 6px 0;
+margin-bottom: 4px;
+}
+.flow-ai-label {
+display: inline-block;
+font-size: 0.6rem;
+font-weight: 700;
+letter-spacing: 0.06em;
+color: var(–text-sub);
+opacity: 0.7;
+margin-right: 4px;
+vertical-align: middle;
+}
+
+/* ── Meaning タブ ── */
+.meaning-strong {
+font-size: 0.6rem;
+color: #c8c8ce;
+font-family: monospace;
+margin-bottom: 10px;
+}
+.meaning-abbott {
+font-size: 0.82rem;
+color: var(–text-sub);
+line-height: 1.75;
+padding: 12px 0 0;
+margin-top: 12px;
+border-top: 1px solid var(–border-soft);
+}
+
+/* ── Study タブ：details 折りたたみ ── */
+.study-details {
+border-bottom: 1px solid var(–border-soft);
+margin-bottom: 0;
+}
+.study-details:last-of-type { border-bottom: none; }
+.study-summary {
+font-size: 0.68rem;
+font-weight: 600;
+letter-spacing: 0.04em;
+color: var(–text-sub);
+padding: 10px 0;
+cursor: pointer;
+list-style: none;
+display: flex;
+align-items: center;
+gap: 6px;
+user-select: none;
+outline: none;
+}
+.study-summary::-webkit-details-marker { display: none; }
+.study-summary::before {
+content: ‘›’;
+font-size: 0.85rem;
+color: var(–text-sub);
+opacity: 0.5;
+transition: transform 0.15s;
+display: inline-block;
+width: 10px;
+}
+details[open] .study-summary::before {
+transform: rotate(90deg);
+}
+.study-details-body {
+padding: 0 0 12px 16px;
+}
 </style>
 
 </head>
@@ -813,8 +950,8 @@ display: none;
                 <h1 id="view-title">読み込み中...</h1>
             </div>
             <!-- open-panel-btn は Study閉じた後の再開ボタン。非表示スタート。 -->
-            <button id="open-panel-btn" onclick="reopenStudyPanel()" style="display:none;" title="前の語の分析に戻る">
-                <i class="fa-solid fa-circle-info"></i><span style="font-size:0.7rem;margin-left:5px;font-family:inherit;color:var(--text-sub);">分析に戻る</span>
+            <button id="open-panel-btn" onclick="reopenStudyPanel()" style="display:none;" title="前の語の読解に戻る">
+                <i class="fa-solid fa-circle-info"></i><span style="font-size:0.7rem;margin-left:5px;font-family:inherit;color:var(--text-sub);">読解に戻る</span>
             </button>
         </div>
     </header>
@@ -864,14 +1001,14 @@ display: none;
 
 <!-- 分析タブバー -->
 <div class="analysis-tabs visible" id="analysis-tabs">
-    <button class="atab active" id="atab-morph"     onclick="switchAnalysisTab('morph')">
-        <span class="atab-dot"></span>形態論
+    <button class="atab active" id="atab-flow"    onclick="switchAnalysisTab('flow')">
+        <span class="atab-dot"></span>流れ
     </button>
-    <button class="atab"        id="atab-syntax"   onclick="switchAnalysisTab('syntax')">
-        <span class="atab-dot"></span>統語論
+    <button class="atab"        id="atab-meaning" onclick="switchAnalysisTab('meaning')">
+        <span class="atab-dot"></span>含み
     </button>
-    <button class="atab"        id="atab-semantics" onclick="switchAnalysisTab('semantics')">
-        <span class="atab-dot"></span>意味論
+    <button class="atab"        id="atab-study"   onclick="switchAnalysisTab('study')">
+        <span class="atab-dot"></span>詳細
     </button>
 </div>
 
@@ -927,7 +1064,7 @@ const AppState = {
     /* Study 情報（タブ・params）*/
     study: {
         params: null,     /* _currentAnalysisParams と同内容 */
-        tab:    'morph',  /* 最後に表示していたタブ。Study閉じても保持。 */
+        tab:    'flow',   /* 最後に表示していたタブ。Study閉じても保持。 */
     },
 
     /* 本文スクロール位置（Study閉じたとき復元する） */
@@ -1288,7 +1425,7 @@ function switchAnalysisTab(tab) {
     /* 選択タブを AppState に記録（reopen時の復元に使う） */
     AppState.study.tab = tab;
 
-    ['morph','syntax','semantics'].forEach(t => {
+    ['flow','meaning','study'].forEach(t => {
         document.getElementById(`atab-${t}`).classList.toggle('active', t === tab);
     });
 
@@ -1296,9 +1433,9 @@ function switchAnalysisTab(tab) {
     if (!area) return;
     area.scrollTop = 0;
 
-    if (tab === 'morph')     _renderMorphTab(area, p);
-    else if (tab === 'syntax')    _renderSyntaxTab(area, p);
-    else if (tab === 'semantics') _renderSemanticsTab(area, p);
+    if (tab === 'flow')        _renderFlowTab(area, p);
+    else if (tab === 'meaning') _renderMeaningTab(area, p);
+    else if (tab === 'study')   _renderStudyTab(area, p);
 }
 
 /* ══════════════════════════════════════════
@@ -1446,6 +1583,368 @@ function _renderSemanticsTab(area, p) {
         <div style="margin-top:14px;">
             <a href="${semanticsURL}" class="morph-search-btn">意味論詳細検索を開く →</a>
         </div>
+    `;
+}
+
+/* ══════════════════════════════════════════
+   Flow / Meaning / Study タブ描画
+   （読解支援を主役にした新タブ体系）
+   ══════════════════════════════════════════ */
+
+/**
+ * Flow タブ：「この語・この節が何をしているか」を読解補助として表示。
+ * AIによるニュアンス補助（Anthropic API）。
+ * データなし時はローカルルールベースフォールバックを表示。
+ */
+function _renderFlowTab(area, p) {
+    const word   = p.word   || '—';
+    const pos    = p.pos    || '';
+    const mood   = p.mood   || '';
+    const tense  = p.tense  || '';
+    const voice  = p.voice  || '';
+    const jaWord = (_inspectData && _inspectData.jaWord) || '';
+    const ref    = p.ref    || '';
+
+    /* ── ローカルフォールバック：品詞・法・時制から読解メモを生成 ── */
+    const hints = [];
+
+    /* 接続詞 */
+    if (pos === 'CONJ') {
+        const CONJ_FLOW = {
+            'γάρ':   '理由・説明。直前の主張の根拠を述べています。',
+            'ἀλλά':  '逆接・転換。議論の方向が変わるポイントです。',
+            'οὖν':   '結論・したがって。ここで議論がまとまります。',
+            'δέ':    '展開・対比。話が次の段階に進んでいます。',
+            'καί':   '並列・追加。内容が積み重なっています。',
+            'ἵνα':   '目的。この節の目的・意図を示しています。',
+            'ὅτι':   '内容・理由。以降が重要な補足です。',
+            'εἰ':    '条件。仮定の上で話が展開されています。',
+            'ὥστε':  '結果。ここに議論の帰結があります。',
+        };
+        const note = CONJ_FLOW[word];
+        if (note) hints.push({ icon: '↳', text: note });
+        else hints.push({ icon: '↳', text: '接続詞。前後の節をつなぐ働きをしています。' });
+    }
+
+    /* 動詞の法・時制ヒント */
+    if (pos === 'V') {
+        if (mood === 'imperative') hints.push({ icon: '!', text: '命令法。強い要請・指示として機能しています。' });
+        if (mood === 'subjunctive') hints.push({ icon: '？', text: '接続法。可能性・目的・願望を表しています。' });
+        if (mood === 'infinitive') hints.push({ icon: '→', text: '不定詞。動作の目的・内容を補足しています。' });
+        if (mood === 'participle') hints.push({ icon: '〜', text: '分詞。主動詞を修飾・補足する役割です。' });
+        if (tense === 'aorist' && mood === 'indicative') hints.push({ icon: '●', text: 'アオリスト直説法。「その出来事が起きた」という事実の提示です。' });
+        if (tense === 'present' && mood === 'indicative') hints.push({ icon: '▶', text: '現在直説法。継続・習慣・普遍的事実を述べています。' });
+        if (tense === 'perfect') hints.push({ icon: '◎', text: '完了形。過去の出来事の結果が今も続いています。' });
+        if (voice === 'passive') hints.push({ icon: '←', text: '受動態。主語は動作を「受けている」側です。' });
+        if (voice === 'middle' || voice === 'middle deponent') hints.push({ icon: '⇄', text: '中動態。主語自身が深く関与している動作です。' });
+    }
+
+    /* 名詞の格ヒント */
+    if (['N','A','R','P','T','D'].includes(pos)) {
+        const CASE_NOTE = {
+            nominative: '主格。文の主語または述語として機能しています。',
+            genitive:   '属格。所有・関係・由来を示しています。',
+            dative:     '与格。動作の間接的な受け手・場所・手段を示しています。',
+            accusative: '対格。動作の直接の対象、または時間・方向の範囲です。',
+        };
+        const note = CASE_NOTE[p.case];
+        if (note) hints.push({ icon: '◇', text: note });
+    }
+
+    /* デフォルトメモ */
+    if (hints.length === 0) {
+        hints.push({ icon: '◦', text: 'この語の文脈的役割を確認するには「含み」タブも参照してください。' });
+    }
+
+    const localHTML = hints.map(h =>
+        `<div class="flow-hint-row">
+            <span class="flow-hint-icon">${h.icon}</span>
+            <span class="flow-hint-text">${h.text}</span>
+        </div>`
+    ).join('');
+
+    area.innerHTML = `
+        <div class="flow-word-head">
+            <span class="flow-greek">${word}</span>${jaWord ? `<span class="flow-ja">　${jaWord}</span>` : ''}
+        </div>
+        ${ref ? `<div class="flow-ref">${ref}</div>` : ''}
+        <div class="flow-hints" id="flow-hints-local">
+            ${localHTML}
+        </div>
+        <div id="flow-ai-area" class="flow-ai-area">
+            <div class="flow-ai-loading" id="flow-ai-loading">
+                <span class="ac-loading">読解補助を生成中…</span>
+            </div>
+            <div id="flow-ai-content" class="flow-ai-content" style="display:none;"></div>
+        </div>
+    `;
+
+    /* AI 読解補助を非同期で呼び出す */
+    _fetchFlowAI(area, p, jaWord);
+}
+
+/**
+ * Flow タブ用 AI 補助。
+ * Anthropic API を呼び出し、読解補助テキストを流し込む。
+ */
+async function _fetchFlowAI(area, p, jaWord) {
+    const loadingEl = document.getElementById('flow-ai-loading');
+    const contentEl = document.getElementById('flow-ai-content');
+    if (!loadingEl || !contentEl) return;
+
+    const JPN_FULL = {
+        pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
+        tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了' },
+        voice:  { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動' },
+        mood:   { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' },
+    };
+
+    const posJa    = JPN_FULL.pos[p.pos]    || p.pos    || '';
+    const tenseJa  = JPN_FULL.tense[p.tense]|| p.tense  || '';
+    const moodJa   = JPN_FULL.mood[p.mood]  || p.mood   || '';
+    const voiceJa  = JPN_FULL.voice[p.voice]|| p.voice  || '';
+    const ref      = p.ref || '';
+
+    const prompt = `あなたは聖書の原語読解を静かに補佐するアシスタントです。
+以下の語について、読者が「著者の意図・流れ・強調」を理解できるよう、短く・静かに補助してください。
+
+語形: ${p.word || '—'}
+訳語: ${jaWord || '不明'}
+箇所: ${ref}
+品詞: ${posJa}
+時制: ${tenseJa}
+法: ${moodJa}
+態: ${voiceJa}
+
+以下の形式で、日本語で答えてください（合計150字以内）:
+
+【流れ】この語が節・段落の中でどんな役割をしているか（1〜2文）
+【注目点】著者の強調・対比・ニュアンスで見落としやすい点（1文）
+
+禁止: 説教・長文講義・神学断言・専門用語の羅列。「理解が深まる」補助に徹してください。`;
+
+    try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'claude-sonnet-4-20250514',
+                max_tokens: 1000,
+                messages: [{ role: 'user', content: prompt }]
+            })
+        });
+        if (!res.ok) throw new Error(`API ${res.status}`);
+        const data = await res.json();
+        const text = (data.content || []).map(b => b.text || '').join('').trim();
+
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (contentEl && text) {
+            /* 【流れ】【注目点】をhtmlに整形 */
+            const formatted = text
+                .replace(/【流れ】/g,    '<span class="flow-ai-label">流れ</span>')
+                .replace(/【注目点】/g,  '<span class="flow-ai-label">注目点</span>')
+                .replace(/\n+/g, '<br>');
+            contentEl.innerHTML = formatted;
+            contentEl.style.display = 'block';
+        }
+    } catch(e) {
+        /* API失敗時はローカルヒントだけで十分なので loading を静かに消す */
+        if (loadingEl) loadingEl.style.display = 'none';
+    }
+}
+
+/**
+ * Meaning タブ：文脈ニュアンス・訳語差・含意を表示。
+ * Abbott-Smith の記述をベースに、AI で「含意コメント」を付加。
+ */
+function _renderMeaningTab(area, p) {
+    const word   = p.word   || '—';
+    const jaWord = (_inspectData && _inspectData.jaWord) || '—';
+    const desc   = (_inspectData && _inspectData.desc)   || '';
+    const strong = (_inspectData && _inspectData.strong)  || '';
+    const ref    = p.ref    || '';
+
+    /* Abbott-Smith テキストから意味・用法を抽出して表示 */
+    const abbottHtml = desc
+        ? `<div class="meaning-abbott">${desc.replace(/\n/g, '<br>')}</div>`
+        : '';
+
+    area.innerHTML = `
+        <div class="flow-word-head">
+            <span class="flow-greek">${word}</span><span class="flow-ja">　${jaWord}</span>
+        </div>
+        ${ref ? `<div class="flow-ref">${ref}</div>` : ''}
+        ${strong ? `<div class="meaning-strong">G${strong}</div>` : ''}
+        <div id="meaning-ai-area" class="flow-ai-area">
+            <div class="flow-ai-loading" id="meaning-ai-loading">
+                <span class="ac-loading">含意を確認中…</span>
+            </div>
+            <div id="meaning-ai-content" class="flow-ai-content" style="display:none;"></div>
+        </div>
+        ${abbottHtml}
+    `;
+
+    _fetchMeaningAI(area, p, jaWord, desc);
+}
+
+/**
+ * Meaning タブ用 AI 補助。
+ * 「文脈ニュアンス・訳語差・含意」を短く補足する。
+ */
+async function _fetchMeaningAI(area, p, jaWord, desc) {
+    const loadingEl = document.getElementById('meaning-ai-loading');
+    const contentEl = document.getElementById('meaning-ai-content');
+    if (!loadingEl || !contentEl) return;
+
+    const descShort = desc ? desc.substring(0, 300) : '';
+    const ref = p.ref || '';
+
+    const prompt = `あなたは聖書の原語読解を静かに補佐するアシスタントです。
+以下の語について、この文脈でのニュアンス・訳語の含意を短く補足してください。
+
+語形: ${p.word || '—'}
+訳語: ${jaWord}
+箇所: ${ref}
+辞書記述（抜粋）: ${descShort}
+
+以下の形式で、日本語で答えてください（合計120字以内）:
+
+【ニュアンス】この文脈での語感・含意（1〜2文）
+【訳語に注意】一般的な訳と原語の間に生じうるズレがあれば（1文。なければ省略）
+
+禁止: 説教・長文・神学断言。「少し理解が深まる」補助に徹してください。`;
+
+    try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'claude-sonnet-4-20250514',
+                max_tokens: 1000,
+                messages: [{ role: 'user', content: prompt }]
+            })
+        });
+        if (!res.ok) throw new Error(`API ${res.status}`);
+        const data = await res.json();
+        const text = (data.content || []).map(b => b.text || '').join('').trim();
+
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (contentEl && text) {
+            const formatted = text
+                .replace(/【ニュアンス】/g,  '<span class="flow-ai-label">ニュアンス</span>')
+                .replace(/【訳語に注意】/g,  '<span class="flow-ai-label">訳語に注意</span>')
+                .replace(/\n+/g, '<br>');
+            contentEl.innerHTML = formatted;
+            contentEl.style.display = 'block';
+        }
+    } catch(e) {
+        if (loadingEl) loadingEl.style.display = 'none';
+    }
+}
+
+/**
+ * Study タブ：形態論・統語論・検索リンクを折りたたみで表示。
+ * 「必要な人だけ深掘りする」位置づけ。
+ */
+function _renderStudyTab(area, p) {
+    const JPN_FULL = {
+        pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
+        tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'大完了' },
+        voice:  { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' },
+        mood:   { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' },
+        gender: { masculine:'男性', feminine:'女性', neuter:'中性' },
+        number: { singular:'単数', plural:'複数' },
+        case:   { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' },
+        person: { '1':'1人称', '2':'2人称', '3':'3人称' },
+    };
+
+    const rows = [];
+    if (p.pos)    rows.push({ k:'品詞',  v: JPN_FULL.pos[p.pos]    || p.pos,    core: true });
+    if (p.tense)  rows.push({ k:'時制',  v: JPN_FULL.tense[p.tense]|| p.tense,  core: true });
+    if (p.mood)   rows.push({ k:'法',    v: JPN_FULL.mood[p.mood]  || p.mood,   core: true });
+    if (p.voice)  rows.push({ k:'態',    v: JPN_FULL.voice[p.voice]|| p.voice,  core: false });
+    if (p.case)   rows.push({ k:'格',    v: JPN_FULL.case[p.case]  || p.case,   core: false });
+    if (p.number) rows.push({ k:'数',    v: JPN_FULL.number[p.number]||p.number,core: false });
+    if (p.gender) rows.push({ k:'性',    v: JPN_FULL.gender[p.gender]||p.gender,core: false });
+
+    const morphGridHTML = rows.length
+        ? `<div class="ac-morph-grid">
+            ${rows.map(r => `
+                <span class="ac-morph-key">${r.k}</span>
+                <span class="ac-morph-val${r.core ? ' core' : ''}">${r.v}</span>
+            `).join('')}
+           </div>`
+        : `<p class="ac-no-data">語形データがありません</p>`;
+
+    const jaWord = (_inspectData && _inspectData.jaWord) || '—';
+    const desc   = (_inspectData && _inspectData.desc)   || '';
+    const strong = (_inspectData && _inspectData.strong)  || '';
+    const ref    = p.ref || '';
+    const lemma  = p.lemma || '';
+
+    /* 検索 URL */
+    const qsMorph = new URLSearchParams();
+    if (ref)      qsMorph.set('ref',   ref);
+    if (p.word)   qsMorph.set('word',  p.word);
+    if (lemma)    qsMorph.set('lemma', lemma);
+    if (p.pos)    qsMorph.set('pos',   p.pos);
+    if (p.tense)  qsMorph.set('tense', p.tense);
+    if (p.mood)   qsMorph.set('mood',  p.mood);
+    if (p.voice)  qsMorph.set('voice', p.voice);
+    if (p.gender) qsMorph.set('gender',p.gender);
+    if (p.number) qsMorph.set('number',p.number);
+    if (p.case)   qsMorph.set('case',  p.case);
+    const morphSearchURL   = `morph-search.html?${qsMorph.toString()}`;
+
+    const qsSyntax = new URLSearchParams(qsMorph);
+    const syntaxURL = `syntax-search.html?${qsSyntax.toString()}`;
+
+    const qsSem = new URLSearchParams();
+    if (ref)    qsSem.set('ref',   ref);
+    if (p.word) qsSem.set('word',  p.word);
+    if (lemma)  qsSem.set('lemma', lemma);
+    if (p.pos)  qsSem.set('pos',   p.pos);
+    const semanticsURL = `semantic-search.html?${qsSem.toString()}`;
+
+    const abbottHtml = desc
+        ? `<div class="ac-abbottsmith">${desc.replace(/\n/g,'<br>')}</div>`
+        : '';
+
+    area.innerHTML = `
+        <div class="flow-word-head">
+            <span class="flow-greek">${p.word || '—'}</span><span class="flow-ja">　${jaWord}</span>
+        </div>
+        ${ref    ? `<div class="flow-ref">${ref}</div>` : ''}
+        ${strong ? `<div class="meaning-strong">G${strong}</div>` : ''}
+
+        <!-- 語形詳細（折りたたみ） -->
+        <details class="study-details" open>
+            <summary class="study-summary">語形・文法</summary>
+            <div class="study-details-body">
+                ${morphGridHTML}
+            </div>
+        </details>
+
+        <!-- 辞書（折りたたみ） -->
+        ${abbottHtml ? `
+        <details class="study-details">
+            <summary class="study-summary">辞書（Abbott-Smith）</summary>
+            <div class="study-details-body">
+                ${abbottHtml}
+            </div>
+        </details>` : ''}
+
+        <!-- 検索リンク -->
+        <details class="study-details">
+            <summary class="study-summary">詳細検索</summary>
+            <div class="study-details-body">
+                <div class="ac-morph-search-row">
+                    <a href="${morphSearchURL}" class="morph-search-btn">同語形を探す →</a>
+                    <a href="${syntaxURL}"      class="morph-search-btn">構文で探す →</a>
+                    <a href="${semanticsURL}"   class="morph-search-btn">意味で探す →</a>
+                </div>
+            </div>
+        </details>
     `;
 }
 
@@ -1904,7 +2403,7 @@ function render(jpData, elData, hasGreek) {
     AppState.selectedVerse       = { vNum: null, elWords: [] };
     AppState.inspect.data        = null;
     AppState.study.params        = null;
-    AppState.study.tab           = 'morph';
+    AppState.study.tab           = 'flow';
     AppState.scrollTop           = 0;
     // reading-hint を保持（なければ再生成）
     let hintEl = document.getElementById('reading-hint');
@@ -2129,7 +2628,7 @@ function openStudyPanel(greek, rawMorph, ref, lemma) {
     AppState.saveScroll();
 
     /* AppState を Study モードへ遷移（tab は記憶されていたものを引き継ぐ） */
-    AppState.toStudy(params, AppState.study.tab || 'morph');
+    AppState.toStudy(params, AppState.study.tab || 'flow');
 
     updateReadingCoreBar(params);
 
@@ -2146,7 +2645,7 @@ function openStudyPanel(greek, rawMorph, ref, lemma) {
     document.getElementById('analysis-tabs').classList.add('visible');
     document.getElementById('analysis-frame-wrap').classList.add('visible');
 
-    switchAnalysisTab(AppState.study.tab || 'morph');
+    switchAnalysisTab(AppState.study.tab || 'flow');
 }
 
 /* ══════════════════════════════════════════
