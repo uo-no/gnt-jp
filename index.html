@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05141400｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05141430｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -2374,95 +2374,14 @@ function _renderFlowTab(area, p) {
         <div class="flow-hints" id="flow-hints-local">
             ${localHTML}
         </div>
-        <div id="flow-ai-area" class="flow-ai-area">
-            <div class="flow-ai-loading" id="flow-ai-loading">
-                <span class="ac-loading">読解補助を生成中…</span>
-            </div>
-            <div id="flow-ai-content" class="flow-ai-prose" style="display:none;"></div>
-        </div>
     `;
-
-    /* AI 読解補助を非同期で呼び出す */
-    _fetchFlowAI(area, p, jaWord);
 }
 
 /**
- * Flow タブ用 AI 補助。
- * Anthropic API を呼び出し、読解補助テキストを流し込む。
+ * Flow タブ用 AI 補助（廃止：ローカルsignalのみ使用）
  */
 async function _fetchFlowAI(area, p, jaWord) {
-    const loadingEl = document.getElementById('flow-ai-loading');
-    const contentEl = document.getElementById('flow-ai-content');
-    if (!loadingEl || !contentEl) return;
-
-    const JPN_FULL = {
-        pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
-        tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了' },
-        voice:  { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動' },
-        mood:   { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' },
-    };
-
-    const posJa    = JPN_FULL.pos[p.pos]    || p.pos    || '';
-    const tenseJa  = JPN_FULL.tense[p.tense]|| p.tense  || '';
-    const moodJa   = JPN_FULL.mood[p.mood]  || p.mood   || '';
-    const voiceJa  = JPN_FULL.voice[p.voice]|| p.voice  || '';
-    const ref      = p.ref || '';
-
-    const prompt = `あなたは聖書の原語読解を静かに補佐するアシスタントです。
-以下の語について、読者が「著者の流れ・強調・意図」を自然に気づけるよう、短く・静かに補助してください。
-
-語形: ${p.word || '—'}
-訳語: ${jaWord || '不明'}
-箇所: ${ref}
-品詞: ${posJa}
-時制: ${tenseJa}
-法: ${moodJa}
-態: ${voiceJa}
-
-以下の観点から、この語が節・段落の中で担う役割を自然な文章で述べてください（合計150字以内）。
-観点（当てはまるもののみ、最大2点）：
-- 論理的展開（結論・理由・転換・目的・推論のどれか）
-- 繰り返し・強調・鍵語としての効果
-- 命令か約束か宣言かの区別
-- 比喩的用法の可能性
-- 語の選択によるニュアンスの効果
-
-形式: 【ひとこと】〜（1〜2文。読書を止めない短さで）
-必要なら: 【注目】〜（見落としやすい点を1文）
-
-禁止: 説教・長文・神学断言・専門用語羅列・チェックリスト化。
-「読書の流れの中の静かな補助」として書いてください。`;
-
-    try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
-                max_tokens: 1000,
-                messages: [{ role: 'user', content: prompt }]
-            })
-        });
-        if (!res.ok) throw new Error(`API ${res.status}`);
-        const data = await res.json();
-        const text = (data.content || []).map(b => b.text || '').join('').trim();
-
-        if (loadingEl) loadingEl.style.display = 'none';
-        if (contentEl && text) {
-            /* 【ひとこと】【注目】をhtmlに整形 */
-            const formatted = text
-                .replace(/【ひとこと】/g, '<span class="flow-ai-prose-label">ひとこと</span>')
-                .replace(/【注目】/g,     '<span class="flow-ai-prose-label">注目</span>')
-                .replace(/【流れ】/g,     '<span class="flow-ai-prose-label">流れ</span>')
-                .replace(/【注目点】/g,   '<span class="flow-ai-prose-label">注目点</span>')
-                .replace(/\n+/g, '<br>');
-            contentEl.innerHTML = formatted;
-            contentEl.style.display = 'block';
-        }
-    } catch(e) {
-        /* API失敗時はローカルヒントだけで十分なので loading を静かに消す */
-        if (loadingEl) loadingEl.style.display = 'none';
-    }
+    /* no-op */
 }
 
 /**
@@ -2473,88 +2392,95 @@ async function _fetchFlowAI(area, p, jaWord) {
 function _renderMeaningTab(area, p) {
     const word   = p.word   || '—';
     const jaWord = (_inspectData && _inspectData.jaWord) || '—';
-    const desc   = (_inspectData && _inspectData.desc)   || '';
     const ref    = p.ref    || '';
+
+    /* ローカルルールベースの Meaning signals */
+    const meaningSignals = _buildMeaningSignals(p);
+    const signalHTML = meaningSignals.length
+        ? meaningSignals.map(s =>
+            `<div class="flow-signal ${s.cls || 'sig-default'}">
+                <span class="flow-signal-kind">${s.kindLabel}</span>
+                <span class="flow-signal-text">${s.text}</span>
+            </div>`).join('')
+        : `<p class="ac-no-data">この語のシグナルデータがありません。</p>`;
 
     area.innerHTML = `
         <div class="flow-word-head">
             <span class="flow-greek">${word}</span><span class="flow-ja">　${jaWord}</span>
         </div>
         ${ref ? `<div class="flow-ref">${ref}</div>` : ''}
-        <div id="meaning-ai-area" class="flow-ai-area">
-            <div class="flow-ai-loading" id="meaning-ai-loading">
-                <span class="ac-loading">含みを確認中…</span>
-            </div>
-            <div id="meaning-ai-content" class="meaning-prose" style="display:none;"></div>
+        <div class="flow-hints">
+            ${signalHTML}
         </div>
     `;
-
-    _fetchMeaningAI(area, p, jaWord, desc);
 }
 
 /**
- * Meaning タブ用 AI 補助。
- * 「この文脈での響き・温度感・relational nuance」を短く補足する。
- * 辞書的説明・semantic range・lexical dump は禁止。
+ * Meaning タブ用ローカルシグナル生成。
+ * AIなし。形態論データからルールベースでシグナルを導出する。
+ */
+function _buildMeaningSignals(p) {
+    const signals = [];
+    const pos   = p.pos   || '';
+    const mood  = p.mood  || '';
+    const tense = p.tense || '';
+    const voice = p.voice || '';
+    const word  = p.word  || '';
+
+    if (pos === 'V') {
+        if (mood === 'imperative') {
+            signals.push({ cls: 'sig-exhort', kindLabel: '行為', text: '命令形。説明ではなく、行動への直接の呼びかけとして機能しています。' });
+        }
+        if (mood === 'subjunctive') {
+            signals.push({ cls: 'sig-logic', kindLabel: '態度', text: '接続法。断定ではなく、目的・願望・可能性の含みをもちます。' });
+        }
+        if (mood === 'participle') {
+            signals.push({ cls: 'sig-logic', kindLabel: '修飾', text: '分詞。主動詞の状況・背景・手段として機能しています。' });
+        }
+        if (tense === 'perfect') {
+            signals.push({ cls: 'sig-promise', kindLabel: '状態', text: '完了形。過去の出来事の結果が現在も有効であることを示します。' });
+        }
+        if (tense === 'aorist' && mood === 'indicative') {
+            signals.push({ cls: 'sig-declare', kindLabel: '宣言', text: 'アオリスト直説法。完結した出来事の事実提示。宣言的な重みがあります。' });
+        }
+        if (tense === 'future') {
+            signals.push({ cls: 'sig-promise', kindLabel: '約束', text: '未来形。確かな約束・確約として機能することがあります。' });
+        }
+        if (voice === 'passive') {
+            signals.push({ cls: 'sig-word', kindLabel: '態', text: '受動態。神学的文脈では「神による行為」を暗示することがあります。' });
+        }
+        if (voice === 'middle' || voice === 'middle deponent') {
+            signals.push({ cls: 'sig-word', kindLabel: '態', text: '中動態。主語が動作に深く関与しています。' });
+        }
+    }
+
+    if (pos === 'CONJ') {
+        const CONJ_MEANING = {
+            'γάρ':  { cls: 'sig-logic',    kindLabel: '論理', text: '理由の接続詞。前の主張への根拠として読みます。' },
+            'ἀλλά': { cls: 'sig-turn',     kindLabel: '転換', text: '強い対比・転換。ここで話の方向が変わります。' },
+            'οὖν':  { cls: 'sig-logic',    kindLabel: '帰結', text: '論理的帰結。前節の議論をここで集約しています。' },
+            'δέ':   { cls: 'sig-turn',     kindLabel: '展開', text: '微妙な転換・進展のサイン。' },
+            'καί':  { cls: 'sig-emphasis', kindLabel: '付加', text: '並列・強調。内容が積み重なっています。' },
+            'ἵνα':  { cls: 'sig-logic',    kindLabel: '目的', text: '目的節。著者の意図がこの語の後に示されます。' },
+            'ὅτι':  { cls: 'sig-logic',    kindLabel: '内容', text: '内容・理由節。主張の根拠か内容補足になります。' },
+        };
+        const cs = CONJ_MEANING[word];
+        if (cs) signals.push(cs);
+        else signals.push({ cls: 'sig-logic', kindLabel: '接続', text: '接続詞。前後の節をつなぎ、議論の流れを形作っています。' });
+    }
+
+    if (signals.length === 0) {
+        signals.push({ cls: 'sig-default', kindLabel: '補足', text: 'この語の特記すべき語用論的特徴はありません。' });
+    }
+
+    return signals;
+}
+
+/**
+ * Meaning タブ用 AI 補助（廃止：ローカルsignalのみ使用）
  */
 async function _fetchMeaningAI(area, p, jaWord, desc) {
-    const loadingEl = document.getElementById('meaning-ai-loading');
-    const contentEl = document.getElementById('meaning-ai-content');
-    if (!loadingEl || !contentEl) return;
-
-    /* desc は Semantics へ渡すため、Meaning では参照しない */
-    const ref = p.ref || '';
-
-    const prompt = `あなたは聖書の原語読解を静かに補佐するアシスタントです。
-以下の語が「今この文脈でどう響くか」を、読者が自然に感じ取れるよう、短く・静かに補助してください。
-
-語形: ${p.word || '—'}
-訳語: ${jaWord}
-箇所: ${ref}
-
-以下の観点から、今この箇所での「響き・温度感・関係的ニュアンス」を述べてください（合計120字以内）。
-観点（最も当てはまるもの、最大2点）：
-- tone（優しい勧め／緊張感を帯びた警告／断定的な宣言 など）
-- relational force（法的関係ではなく親密な関係 など）
-- implied force（直接的な強さ／遠回しな含み など）
-- translation nuance（日本語訳で失われやすいニュアンス）
-- emotional weight（軽さ／重さ／緊迫感 など）
-
-形式: 【含み】〜（1〜2文）
-必要なら: 【訳注】〜（訳語との差を1文。なければ省略）
-
-禁止: 辞書的意味の列挙・semantic range説明・「この語は〜という意味を持つ」という書き出し・長文・神学断言。
-「今ここでどう響くか」だけに集中してください。`;
-
-    try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
-                max_tokens: 1000,
-                messages: [{ role: 'user', content: prompt }]
-            })
-        });
-        if (!res.ok) throw new Error(`API ${res.status}`);
-        const data = await res.json();
-        const text = (data.content || []).map(b => b.text || '').join('').trim();
-
-        if (loadingEl) loadingEl.style.display = 'none';
-        if (contentEl && text) {
-            const formatted = text
-                .replace(/【含み】/g,  '<span class="meaning-prose-label">含み</span>')
-                .replace(/【訳注】/g,  '<span class="meaning-prose-label">訳注</span>')
-                /* 旧ラベル互換 */
-                .replace(/【ニュアンス】/g, '<span class="meaning-prose-label">含み</span>')
-                .replace(/【訳語に注意】/g, '<span class="meaning-prose-label">訳注</span>')
-                .replace(/\n+/g, '<br>');
-            contentEl.innerHTML = formatted;
-            contentEl.style.display = 'block';
-        }
-    } catch(e) {
-        if (loadingEl) loadingEl.style.display = 'none';
-    }
+    /* no-op */
 }
 
 /**
@@ -2651,13 +2577,7 @@ function _renderStudyTab(area, p) {
         <details class="study-details">
             <summary class="study-summary">論理構造</summary>
             <div class="study-details-body">
-                <!-- 1. AI読解説明（先に表示。構文ツリーより前） -->
-                <div class="ac-loading" id="syntax-ai-loading" style="padding:8px 0 6px;">
-                    構造を確認中…
-                </div>
-                <div id="syntax-ai-content" class="syntax-ai-prose" style="display:none;"></div>
-
-                <!-- 2. 構文関係（ローカルルール） -->
+                <!-- 構文関係（ローカルルール） -->
                 ${synRelations.length ? `
                 <div class="syntax-relations" id="syntax-relations">
                     ${synRelations.map(r => `
@@ -2667,7 +2587,7 @@ function _renderStudyTab(area, p) {
                     </div>`).join('')}
                 </div>` : ''}
 
-                <!-- 3. 構文構造（折りたたみ内に収める） -->
+                <!-- 構文構造（折りたたみ内に収める） -->
                 ${synTreeHTML ? `
                 <details class="study-details" style="margin-top:6px;border-top:1px solid rgba(0,0,0,0.04);">
                     <summary class="study-summary" style="font-size:0.62rem;">構文構造を見る</summary>
@@ -2870,9 +2790,6 @@ function _renderStudyTab(area, p) {
             </div>
         </div>
     `;
-
-    /* AI読解説明を非同期で流し込む */
-    _fetchSyntaxAI(p, jaWord);
 
     /* Semantic Search チップのクリック制御を初期化 */
     _rtInitSemChips();
@@ -3083,31 +3000,11 @@ async function _fetchSyntaxAI(p, jaWord) {
 禁止: linguistics用語の羅列・ROOT/NP/VPのような記号・長文説明・神学断言。
 「読解上の意味に翻訳された構文説明」にしてください。`;
 
-    try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
-                max_tokens: 1000,
-                messages: [{ role: 'user', content: prompt }]
-            })
-        });
-        if (!res.ok) throw new Error(`API ${res.status}`);
-        const data = await res.json();
-        const text = (data.content || []).map(b => b.text || '').join('').trim();
-
-        if (loadingEl) loadingEl.style.display = 'none';
-        if (contentEl && text) {
-            const formatted = text
-                .replace(/【構造】/g, '<span class="syntax-ai-label">構造</span>')
-                .replace(/\n+/g, '<br>');
-            contentEl.innerHTML = formatted;
-            contentEl.style.display = 'block';
-        }
-    } catch(e) {
-        if (loadingEl) loadingEl.style.display = 'none';
-    }
+/**
+ * Syntax セクション用 AI 補助（廃止：ローカルルールベースのみ使用）
+ */
+async function _fetchSyntaxAI(p, jaWord) {
+    /* no-op */
 }
 
 /* ══════════════════════════════════════════
@@ -3118,11 +3015,11 @@ async function _fetchSyntaxAI(p, jaWord) {
      _rtToggle()          … Research Tools の開閉
      _rtSwitchTab(name)   … Morph / Syntax / Sem タブ切り替え
      _rtInitSemChips()    … Semantic チップのクリック制御初期化
-     _rtRunMorphSearch()  … Morph Search 実行（Anthropic API）
-     _rtRunSyntaxSearch() … Syntax Search 実行（Anthropic API）
-     _rtRunSemSearch()    … Semantic Search 実行（Anthropic API）
+     _rtRunMorphSearch()  … Morph Search 実行（ローカルフォールバック）
+     _rtRunSyntaxSearch() … Syntax Search 実行（ローカルフォールバック）
+     _rtRunSemSearch()    … Semantic Search 実行（ローカルフォールバック）
      _rtCallAI(prompt, loadingId, resultsId, parser)
-                          … API 共通呼び出し・結果表示
+                          … 将来の拡張用スタブ
 
    設計方針:
      - AIは「読解補助」に限定：用例説明・ニュアンス解説のみ
@@ -3167,39 +3064,13 @@ function _rtInitSemChips() {
 }
 
 /**
- * API 共通呼び出し。
- * @param {string}   prompt      APIに送るプロンプト
- * @param {string}   loadingId   ローディングdivのid
- * @param {string}   resultsId   結果描画divのid
- * @param {Function} renderer    (text: string, resultsEl: HTMLElement) => void
+ * API 共通呼び出し（廃止：AIなし設計に移行）
  */
 async function _rtCallAI(prompt, loadingId, resultsId, renderer) {
     const loadingEl = document.getElementById(loadingId);
     const resultsEl = document.getElementById(resultsId);
-    if (!loadingEl || !resultsEl) return;
-
-    resultsEl.innerHTML = '';
-    loadingEl.classList.add('visible');
-
-    try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
-                max_tokens: 1000,
-                messages: [{ role: 'user', content: prompt }]
-            })
-        });
-        if (!res.ok) throw new Error(`API ${res.status}`);
-        const data = await res.json();
-        const text = (data.content || []).map(b => b.text || '').join('').trim();
-        loadingEl.classList.remove('visible');
-        renderer(text, resultsEl);
-    } catch(e) {
-        loadingEl.classList.remove('visible');
-        resultsEl.innerHTML = `<div class="rt-no-result">検索できませんでした。しばらく後でお試しください。</div>`;
-    }
+    if (loadingEl) loadingEl.classList.remove('visible');
+    if (resultsEl) resultsEl.innerHTML = `<div class="rt-no-result">現在この機能はご利用できません。</div>`;
 }
 
 /**
