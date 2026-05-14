@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05141900｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05142100｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -244,62 +244,199 @@ color: var(–accent-dark);
 flex-shrink: 0;
 }
 
-/* — 分析タブバー — */
-.analysis-tabs {
-display: none;
-align-items: flex-end;
-gap: 0;
-padding: 12px 22px 0;
-border-bottom: 1px solid var(–border-soft);
-flex-shrink: 0;
-background: var(–bg-panel);
-}
-.analysis-tabs.visible { display: flex; }
-.atab {
-padding: 7px 16px 8px;
-font-size: 0.78rem;
-font-weight: 600;
-font-family: inherit;
-color: var(–text-sub);
-background: transparent;
-border: 1px solid transparent;
-border-bottom: none;
-border-radius: 8px 8px 0 0;
-cursor: pointer;
-transition: color 0.15s, background 0.15s;
-letter-spacing: 0.01em;
-position: relative;
-bottom: -1px;
-}
-.atab:hover { color: var(–highlight); background: rgba(90,110,130,0.06); }
-.atab.active {
-color: var(–highlight);
-background: var(–bg-paper);
-border-color: var(–border-soft);
-border-bottom-color: var(–bg-paper);
-}
-.atab .atab-dot {
-display: inline-block;
-width: 5px; height: 5px;
-border-radius: 50%;
-background: var(–highlight);
-margin-right: 5px;
-vertical-align: middle;
-opacity: 0;
-transition: opacity 0.15s;
-}
-.atab.active .atab-dot { opacity: 1; }
-
-/* — 分析コンテンツエリア（iframeから置き換え） — */
-#analysis-frame-wrap {
-display: none;
-flex: 1;
-min-height: 0;
-background: var(–bg-paper);
+/* — 読書メモUI — */
+/* タブなし・単一スクロール・annotation feel */
+#reading-notes-wrap {
+display: flex;
 flex-direction: column;
-overflow: hidden;
 }
-#analysis-frame-wrap.visible { display: flex; }
+#reading-notes-area {
+padding: 0 22px 40px;
+}
+
+/* 語形ヘッダー（Word Head）*/
+.rn-word-head {
+padding: 18px 0 12px;
+border-bottom: 1px solid var(--border-soft);
+margin-bottom: 4px;
+}
+.rn-greek {
+font-family: 'Gentium Plus', serif;
+font-size: 1.7rem;
+line-height: 1.2;
+color: var(--text-main);
+display: block;
+margin-bottom: 2px;
+}
+.rn-ja {
+font-size: 0.85rem;
+color: var(--text-sub);
+font-weight: 400;
+display: block;
+margin-bottom: 2px;
+}
+.rn-ref {
+font-size: 0.62rem;
+color: var(--text-sub);
+opacity: 0.5;
+letter-spacing: 0.02em;
+display: block;
+}
+
+/* 読書メモ本体 */
+.rn-notes {
+margin-top: 6px;
+}
+
+/* 個別メモ行 — annotation feel */
+/* 研究カード禁止・静かな左ボーダーで種別を暗示するのみ */
+.rn-note {
+padding: 9px 0 9px 12px;
+border-left: 2px solid transparent;
+border-bottom: 1px solid rgba(0,0,0,0.03);
+line-height: 1.75;
+transition: border-color 0.15s;
+}
+.rn-note:last-child { border-bottom: none; }
+.rn-note:hover { border-left-color: rgba(90,110,130,0.3); }
+
+/* ボーダー色は signal 種別ごと（極めて控えめに） */
+.rn-note.sig-logic    { border-left-color: rgba(122,143,166,0.4); }
+.rn-note.sig-emphasis { border-left-color: rgba(160, 96, 96,0.35); }
+.rn-note.sig-turn     { border-left-color: rgba(138,122, 90,0.35); }
+.rn-note.sig-exhort   { border-left-color: rgba(122,154,122,0.4); }
+.rn-note.sig-promise  { border-left-color: rgba(122,138,170,0.4); }
+.rn-note.sig-declare  { border-left-color: rgba(154,122,154,0.35); }
+.rn-note.sig-metaphor { border-left-color: rgba(138,154,138,0.35); }
+.rn-note.sig-word     { border-left-color: rgba(154,138,106,0.35); }
+.rn-note.sig-culture  { border-left-color: rgba(122,144,144,0.35); }
+.rn-note.sig-default  { border-left-color: rgba(90,110,130,0.15); }
+
+/* メモテキスト — prose-like */
+.rn-note-text {
+font-size: 0.85rem;
+color: var(--text-main);
+line-height: 1.78;
+}
+
+/* 「原語を深く見る」展開セクション */
+.rn-deep-section {
+margin-top: 18px;
+padding-top: 14px;
+border-top: 1px solid rgba(0,0,0,0.06);
+}
+.rn-deep-toggle {
+display: flex;
+align-items: center;
+gap: 5px;
+width: 100%;
+background: none;
+border: none;
+padding: 6px 0;
+font-size: 0.7rem;
+font-weight: 500;
+letter-spacing: 0.02em;
+color: var(--text-sub);
+cursor: pointer;
+font-family: inherit;
+text-align: left;
+transition: color 0.12s;
+opacity: 0.65;
+}
+.rn-deep-toggle:hover { color: var(--highlight); opacity: 1; }
+.rn-deep-toggle-icon {
+font-size: 0.75rem;
+transition: transform 0.15s;
+display: inline-block;
+width: 10px;
+opacity: 0.6;
+}
+.rn-deep-toggle.open .rn-deep-toggle-icon { transform: rotate(90deg); }
+.rn-deep-toggle.open { color: var(--highlight); opacity: 1; }
+
+/* 原語詳細エリア（初期非表示） */
+.rn-deep-body {
+display: none;
+padding: 10px 0 4px 10px;
+border-left: 1px solid rgba(0,0,0,0.07);
+margin-top: 4px;
+}
+.rn-deep-body.visible { display: block; animation: wlvDrawerIn 0.12s ease; }
+
+/* 詳細内：morphグリッド */
+.rn-morph-grid {
+display: grid;
+grid-template-columns: auto 1fr;
+gap: 3px 14px;
+font-size: 0.78rem;
+margin-bottom: 10px;
+}
+.rn-morph-key {
+color: var(--text-sub);
+font-size: 0.66rem;
+font-weight: 400;
+padding: 2px 0;
+border-bottom: 1px solid rgba(0,0,0,0.03);
+white-space: nowrap;
+}
+.rn-morph-val {
+color: var(--text-main);
+font-weight: 500;
+font-size: 0.78rem;
+padding: 2px 0;
+border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+.rn-morph-val.core { font-weight: 600; }
+
+/* 辞書引用（Abbott-Smith） */
+.rn-lexicon {
+font-size: 0.78rem;
+color: var(--text-sub);
+line-height: 1.75;
+padding: 8px 0 4px 10px;
+border-left: 2px solid rgba(90,110,130,0.12);
+margin-top: 6px;
+}
+.rn-lexicon-label {
+font-size: 0.58rem;
+font-weight: 700;
+letter-spacing: 0.07em;
+text-transform: uppercase;
+color: var(--text-sub);
+opacity: 0.5;
+display: block;
+margin-bottom: 3px;
+}
+
+/* 詳細内：外部検索リンク */
+.rn-search-links {
+display: flex;
+flex-wrap: wrap;
+gap: 6px;
+margin-top: 10px;
+padding-top: 8px;
+border-top: 1px solid rgba(0,0,0,0.05);
+}
+.rn-search-link {
+font-size: 0.68rem;
+color: var(--text-sub);
+background: none;
+border: none;
+padding: 0;
+cursor: pointer;
+text-decoration: underline;
+text-underline-offset: 2px;
+text-decoration-color: rgba(0,0,0,0.2);
+font-family: inherit;
+letter-spacing: 0.01em;
+transition: color 0.12s;
+}
+.rn-search-link:hover { color: var(--highlight); }
+
+/* 後方互換：分析タブバーは完全非表示 */
+.analysis-tabs { display: none !important; }
+#analysis-frame-wrap { display: none !important; }
+
 /* 旧 iframe：非表示にして DOM に残す（外部参照の互換のため） */
 #analysis-iframe {
 display: none;
@@ -647,30 +784,29 @@ font-weight: 600;
 /* reading-core-bar（side-panel ヘッダー固定） */
 .rcb-container {
 display: none;
-align-items: center;
-gap: 6px;
+align-items: baseline;
+gap: 8px;
 flex-wrap: wrap;
-padding: 6px 22px 8px;
-background: var(–bg-panel);
-border-bottom: 1px solid var(–border-soft);
+padding: 8px 22px 10px;
+background: var(--bg-panel);
+border-bottom: 1px solid var(--border-soft);
 font-size: 0.7rem;
 flex-shrink: 0;
 }
 .rcb-container.visible { display: flex; }
 .rcb-chip-sm {
-display: inline-flex; align-items: center;
-padding: 2px 8px; border-radius: 20px;
-font-size: 0.66rem;
-background: var(–highlight-light);
-border: 1px solid rgba(90,110,130,0.2);
-color: var(–highlight); font-weight: 600;
+font-family: 'Gentium Plus', serif;
+font-size: 1.05rem;
+color: var(--text-main);
+font-weight: 400;
 }
 .rcb-label-sm {
-font-size: 0.56rem; font-weight: 700; letter-spacing: 0.1em;
-text-transform: uppercase; color: var(–text-sub);
-flex-shrink: 0;
+font-size: 0.72rem;
+color: var(--text-sub);
+font-weight: 400;
+opacity: 0.7;
 }
-.rcb-sep-sm { color: var(–border-soft); font-size: 0.75rem; }
+.rcb-sep-sm { color: var(--border-soft); font-size: 0.75rem; }
 
 /* ギリシャ語なしバッジ */
 .no-greek-badge {
@@ -1643,35 +1779,21 @@ details[open] .study-summary::before {
         <span id="active-v" style="font-size: 0.78rem; color: var(--text-sub); font-weight: 400;"></span>
     </div>
 
-<!-- reading-core-bar -->
+<!-- reading-core-bar: 語形ヘッダー（Study時のみ） -->
 <div class="rcb-container" id="rcb-container">
-    <span class="rcb-label-sm">語形</span>
     <span class="rcb-chip-sm" id="rcb-main-word">—</span>
-    <span class="rcb-sep-sm">·</span>
-    <span class="rcb-chip-sm" id="rcb-main-tense">—</span>
-    <span class="rcb-chip-sm" id="rcb-main-mood">—</span>
-    <span class="rcb-chip-sm" id="rcb-main-voice">—</span>
+    <span class="rcb-label-sm" id="rcb-main-gloss" style="opacity:0.6;font-weight:400;letter-spacing:0;text-transform:none;font-size:0.72rem;"></span>
 </div>
 
-<!-- 分析タブバー -->
-<div class="analysis-tabs visible" id="analysis-tabs">
-    <button class="atab active" id="atab-flow"    onclick="switchAnalysisTab('flow')">
-        <span class="atab-dot"></span>流れ
-    </button>
-    <button class="atab"        id="atab-meaning" onclick="switchAnalysisTab('meaning')">
-        <span class="atab-dot"></span>含み
-    </button>
-    <button class="atab"        id="atab-study"   onclick="switchAnalysisTab('study')">
-        <span class="atab-dot"></span>詳細
-    </button>
+<!-- メインコンテンツエリア（タブなし・単一スクロール） -->
+<div id="reading-notes-wrap" style="display:none;flex:1;min-height:0;overflow-y:auto;flex-direction:column;">
+    <div id="reading-notes-area"></div>
 </div>
 
-<!-- 分析コンテンツエリア（iframeから置き換え：同一DOM内インライン描画） -->
-<div id="analysis-frame-wrap" class="visible">
-    <!-- 旧iframe：互換のためDOMに残すが非表示 -->
+<!-- 分析コンテンツエリア（後方互換のため保持・非表示） -->
+<div id="analysis-frame-wrap">
     <iframe id="analysis-iframe" title="分析パネル（廃止）" style="display:none;"></iframe>
-    <!-- 新インラインコンテンツエリア -->
-    <div id="analysis-content-area"></div>
+    <div id="analysis-content-area" style="display:none;"></div>
 </div>
 
 </aside>
@@ -2088,25 +2210,218 @@ function closeAnalysis() {
     closeStudyPanel();
 }
 
-function switchAnalysisTab(tab) {
-    if (!_currentAnalysisParams) return;
-    const p = _currentAnalysisParams;
-
-    /* 選択タブを AppState に記録（reopen時の復元に使う） */
-    AppState.study.tab = tab;
-
-    ['flow','meaning','study'].forEach(t => {
-        document.getElementById(`atab-${t}`).classList.toggle('active', t === tab);
-    });
-
-    const area = document.getElementById('analysis-content-area');
+/* ══════════════════════════════════════════
+   _renderReadingNotes
+   タブなし・単一スクロール・読書メモ方式。
+   flow signal → 読書感覚の自然文 → 原語深読み（折りたたみ）
+   ══════════════════════════════════════════ */
+function _renderReadingNotes(p) {
+    const area = document.getElementById('reading-notes-area');
     if (!area) return;
     area.scrollTop = 0;
 
-    if (tab === 'flow')        _renderFlowTab(area, p);
-    else if (tab === 'meaning') _renderMeaningTab(area, p);
-    else if (tab === 'study')   _renderStudyTab(area, p);
+    const word   = p.word   || '—';
+    const pos    = p.pos    || '';
+    const mood   = p.mood   || '';
+    const tense  = p.tense  || '';
+    const voice  = p.voice  || '';
+    const ref    = p.ref    || '';
+    const lemma  = p.lemma  || '';
+    const jaWord = (AppState.inspect.data?.jaWord) || '';
+    const strong = String(AppState.inspect.data?.strong || '').replace(/[^0-9]/g,'');
+    const desc   = (AppState.inspect.data?.desc) || (abbottSmithDict && abbottSmithDict[strong]?.description) || '';
+
+    /* ── 読書メモ生成 ── */
+    const notes = [];
+
+    /* 接続詞：流れの自然文 */
+    if (pos === 'CONJ') {
+        const CONJ_NOTE = {
+            'γάρ':  { cls:'sig-logic',    text:'「なぜなら」と理由の説明に入っています。前の言葉を受けて、その根拠が続いています。' },
+            'ἀλλά': { cls:'sig-turn',     text:'「しかし」と流れが切り替わっています。前との対比が強調されています。' },
+            'οὖν':  { cls:'sig-logic',    text:'「だから」と結論に向かっています。前の内容がここで収束します。' },
+            'δέ':   { cls:'sig-turn',     text:'話が次の段階に進んでいます。静かな展開のつなぎ目です。' },
+            'καί':  { cls:'sig-emphasis', text:'内容が積み重なっています。「さらに」と続いていく感覚があります。' },
+            'ἵνα':  { cls:'sig-logic',    text:'「〜のために」と目的が示されています。この先に意図が語られます。' },
+            'ὅτι':  { cls:'sig-logic',    text:'「〜ということ」と内容が続きます。根拠か補足の節が始まっています。' },
+            'εἰ':   { cls:'sig-logic',    text:'「もし〜なら」と仮定の話が始まっています。' },
+            'ὥστε': { cls:'sig-logic',    text:'「その結果として」と帰結が来ています。ここが議論の着地点です。' },
+        };
+        const cn = CONJ_NOTE[word];
+        if (cn) notes.push(cn);
+        else    notes.push({ cls:'sig-logic', text:'前後をつないでいることばです。文の流れを作る役割を担っています。' });
+    }
+
+    /* 動詞：読書感覚の補助 */
+    if (pos === 'V') {
+        if (mood === 'imperative') {
+            notes.push({ cls:'sig-exhort', text:'強く勧めています。説明ではなく、行動への呼びかけとして語られています。' });
+        } else if (mood === 'subjunctive') {
+            notes.push({ cls:'sig-logic',  text:'願いや目的を込めて語っています。断定ではなく、「〜できるように」「〜するために」という含みです。' });
+        } else if (mood === 'infinitive') {
+            notes.push({ cls:'sig-logic',  text:'動作の目的や内容を補っています。前の動詞の意味を広げる役割です。' });
+        } else if (mood === 'participle') {
+            notes.push({ cls:'sig-logic',  text:'背景説明のように添えられています。主な動作の状況や前提を描いています。' });
+        } else if (mood === 'indicative') {
+            notes.push({ cls:'sig-logic',  text:'事実として語られています。' });
+        }
+
+        /* 時制の流れへの影響 */
+        if (tense === 'aorist' && mood === 'indicative') {
+            notes.push({ cls:'sig-declare', text:'一つの出来事として語られています。その出来事がそのまま提示されている感覚があります。' });
+        } else if (tense === 'perfect') {
+            notes.push({ cls:'sig-promise', text:'過去の出来事の効果が今も続いています。「なった、そして今もそうだ」という深みがあります。' });
+        } else if (tense === 'future' && mood === 'indicative') {
+            notes.push({ cls:'sig-promise', text:'確かに起きることとして語られています。命令というより約束に近い調子です。' });
+        }
+
+        /* 態 */
+        if (voice === 'passive') {
+            notes.push({ cls:'sig-word', text:'受けとめる側に立っています。神学的な文脈では「神による働き」を含むことがあります。' });
+        } else if (voice === 'middle' || voice === 'middle deponent') {
+            notes.push({ cls:'sig-word', text:'主語が深く関わりながら動いています。自分自身に関わる動作として語られています。' });
+        }
+    }
+
+    /* 名詞・形容詞・代名詞 */
+    if (['N','A','R','P','T','D'].includes(pos)) {
+        const CASE_NOTE = {
+            nominative: { cls:'sig-logic',  text:'文の中心にいることばです。主語か述語として機能しています。' },
+            genitive:   { cls:'sig-logic',  text:'「〜の」と結びつけています。所有・関係・特徴などを表しています。' },
+            dative:     { cls:'sig-logic',  text:'動作の向かう先や関わる対象を示しています。' },
+            accusative: { cls:'sig-logic',  text:'動作が直接向かっています。' },
+            vocative:   { cls:'sig-culture','text':'直接呼びかけています。文の主述関係の外に置かれた呼びかけです。' },
+        };
+        const cn = CASE_NOTE[p.case];
+        if (cn) notes.push(cn);
+
+        if (p.number === 'plural') {
+            notes.push({ cls:'sig-logic', text:'複数で語られています。' });
+        }
+    }
+
+    /* 比喩語 */
+    const METAPHOR_WORDS = {
+        'περιπατέω':  '「歩む」は生き方・行動様式の比喩として使われています。',
+        'περιπατεῖν': '「歩む」は生き方の比喩として使われています。',
+        'φωτί':       '「光」は知識・啓示・義などを指す比喩として機能していることがあります。',
+        'σκότος':     '「闇」は罪・無知・神との断絶を示す比喩として使われることがあります。',
+        'σταυρός':    '十字架は当時の読者にとって処刑の道具であると同時に、贖いの象徴として受け取られたことばです。',
+    };
+    if (METAPHOR_WORDS[word]) {
+        notes.push({ cls:'sig-metaphor', text: METAPHOR_WORDS[word] });
+    }
+
+    /* デフォルト */
+    if (notes.length === 0) {
+        notes.push({ cls:'sig-default', text:'この箇所での働きは、原語の詳細から確認できます。' });
+    }
+
+    /* ── HTML構築 ── */
+    const notesHTML = notes.map(n =>
+        `<div class="rn-note ${n.cls}">
+            <span class="rn-note-text">${n.text}</span>
+        </div>`
+    ).join('');
+
+    /* 原語詳細（折りたたみ） */
+    const JPN_FULL = {
+        pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
+        tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'大完了' },
+        voice:  { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' },
+        mood:   { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' },
+        gender: { masculine:'男性', feminine:'女性', neuter:'中性' },
+        number: { singular:'単数', plural:'複数' },
+        case:   { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' },
+        person: { '1':'1人称', '2':'2人称', '3':'3人称' },
+    };
+    const morphRows = [];
+    if (p.pos)    morphRows.push({ k:'品詞',  v: JPN_FULL.pos[p.pos]     || p.pos,    core:true });
+    if (p.tense)  morphRows.push({ k:'時制',  v: JPN_FULL.tense[p.tense] || p.tense,  core:true });
+    if (p.mood)   morphRows.push({ k:'法',    v: JPN_FULL.mood[p.mood]   || p.mood,   core:true });
+    if (p.voice)  morphRows.push({ k:'態',    v: JPN_FULL.voice[p.voice] || p.voice,  core:false });
+    if (p.case)   morphRows.push({ k:'格',    v: JPN_FULL.case[p.case]   || p.case,   core:false });
+    if (p.number) morphRows.push({ k:'数',    v: JPN_FULL.number[p.number]||p.number, core:false });
+    if (p.gender) morphRows.push({ k:'性',    v: JPN_FULL.gender[p.gender]||p.gender, core:false });
+
+    const morphGridHTML = morphRows.length
+        ? `<div class="rn-morph-grid">${morphRows.map(r =>
+            `<span class="rn-morph-key">${r.k}</span><span class="rn-morph-val${r.core?' core':''}">${r.v}</span>`
+          ).join('')}</div>`
+        : '';
+
+    const abbottHTML = desc
+        ? `<div class="rn-lexicon">
+               <span class="rn-lexicon-label">Abbott-Smith${strong ? ' · G'+strong : ''}</span>
+               ${desc.replace(/\n/g,'<br>')}
+           </div>`
+        : '';
+
+    /* 外部リンク */
+    const qsMorph = new URLSearchParams();
+    if (ref)    qsMorph.set('ref',   ref);
+    if (p.word) qsMorph.set('word',  p.word);
+    if (lemma)  qsMorph.set('lemma', lemma);
+    if (p.pos)  qsMorph.set('pos',   p.pos);
+    if (p.tense) qsMorph.set('tense', p.tense);
+    if (p.mood)  qsMorph.set('mood',  p.mood);
+    const morphSearchURL = `morph-search.html?${qsMorph.toString()}`;
+    const syntaxURL      = `syntax-search.html?${qsMorph.toString()}`;
+    const qsSem = new URLSearchParams();
+    if (ref)    qsSem.set('ref',   ref);
+    if (p.word) qsSem.set('word',  p.word);
+    if (lemma)  qsSem.set('lemma', lemma);
+    if (p.pos)  qsSem.set('pos',   p.pos);
+    const semanticsURL = `semantic-search.html?${qsSem.toString()}`;
+
+    area.innerHTML = `
+        <div class="rn-word-head">
+            <span class="rn-greek">${word}</span>
+            ${jaWord ? `<span class="rn-ja">${jaWord}</span>` : ''}
+            ${ref    ? `<span class="rn-ref">${ref}</span>`   : ''}
+        </div>
+        <div class="rn-notes">
+            ${notesHTML}
+        </div>
+        <div class="rn-deep-section">
+            <button class="rn-deep-toggle" id="rn-deep-toggle" onclick="_rnToggleDeep()">
+                <span class="rn-deep-toggle-icon">›</span>原語を見る
+            </button>
+            <div class="rn-deep-body" id="rn-deep-body">
+                ${morphGridHTML}
+                ${abbottHTML}
+                <div class="rn-search-links">
+                    <a href="${morphSearchURL}" class="rn-search-link">同語形を探す</a>
+                    <a href="${syntaxURL}"      class="rn-search-link">構文で探す</a>
+                    <a href="${semanticsURL}"   class="rn-search-link">意味で探す</a>
+                </div>
+            </div>
+        </div>
+    `;
 }
+
+function _rnToggleDeep() {
+    const btn  = document.getElementById('rn-deep-toggle');
+    const body = document.getElementById('rn-deep-body');
+    if (!btn || !body) return;
+    const isOpen = body.classList.contains('visible');
+    body.classList.toggle('visible', !isOpen);
+    btn.classList.toggle('open', !isOpen);
+    btn.querySelector('.rn-deep-toggle-icon').style.transform = isOpen ? '' : 'rotate(90deg)';
+    const label = btn.querySelector('.rn-deep-toggle-icon').nextSibling;
+    if (label) {
+        const span = btn;
+        const nodes = [...span.childNodes];
+        nodes.forEach(n => { if (n.nodeType === 3) n.textContent = isOpen ? '原語を見る' : '原語を閉じる'; });
+    }
+}
+
+/* switchAnalysisTab: 後方互換のため残す（内部ではno-op）*/
+function switchAnalysisTab(tab) {
+    /* タブは廃止されました。読書メモモードで動作します。 */
+    if (_currentAnalysisParams) _renderReadingNotes(_currentAnalysisParams);
+}
+
 
 /* ══════════════════════════════════════════
    インライン分析タブ描画ヘルパー
@@ -3254,25 +3569,7 @@ function _rtRunSemSearch() {
 }
 
 function updateReadingCoreBar(p) {
-    const rcb = document.getElementById('rcb-container');
-    if (!rcb) return;
-
-    const TENSE_SH = { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオ', perfect:'完了', pluperfect:'大完了' };
-    const MOOD_SH  = { indicative:'直説', subjunctive:'接続', optative:'希求', imperative:'命令', infinitive:'不定詞', participle:'分詞' };
-    const VOICE_SH = { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中/受' };
-
-    const setChip = (id, val) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        if (val) { el.textContent = val; el.style.display = ''; }
-        else { el.style.display = 'none'; }
-    };
-    setChip('rcb-main-word',  p.word  || null);
-    setChip('rcb-main-tense', TENSE_SH[p.tense] || p.tense || null);
-    setChip('rcb-main-mood',  MOOD_SH[p.mood]   || p.mood  || null);
-    setChip('rcb-main-voice', VOICE_SH[p.voice] || p.voice || null);
-
-    rcb.classList.add('visible');
+    /* 新しい実装では openStudyPanel 内で直接処理するため no-op */
 }
 
 /* ══════════════════════════════════════════
@@ -3799,21 +4096,18 @@ function openWordListInStudyPanel(vNum, words) {
 
     const sidePanel    = document.getElementById('side-panel');
     const parallelArea = document.getElementById('parallel-text-area');
-    const frameWrap    = document.getElementById('analysis-frame-wrap');
-    const iframe       = document.getElementById('analysis-iframe');
-    const analysisTabs = document.getElementById('analysis-tabs');
 
     /* side-panel を表示 */
     sidePanel.style.display    = 'flex';
     parallelArea.style.display = 'none';
     document.getElementById('open-panel-btn').style.display = 'none';
 
-    /* analysis エリアはクリア・非表示（語形選択前） */
-    const area = document.getElementById('analysis-content-area');
-    if (area) area.innerHTML = '';
-    frameWrap.classList.remove('visible');
-    if (iframe) iframe.src = '';
-    analysisTabs.classList.remove('visible');
+    /* 読書メモエリアを非表示（語形選択前） */
+    const notesWrap = document.getElementById('reading-notes-wrap');
+    if (notesWrap) notesWrap.style.display = 'none';
+    const notesArea = document.getElementById('reading-notes-area');
+    if (notesArea) notesArea.innerHTML = '';
+
     const rcb = document.getElementById('rcb-container');
     if (rcb) rcb.classList.remove('visible');
     _currentAnalysisParams = null;
@@ -4344,9 +4638,12 @@ let _wlvWordCache = [];
      - AppState.toStudy() で状態を Study モードへ遷移
      - study.tab を引き継いで前回開いていたタブを復元
    ══════════════════════════════════════════ */
-// openStudyPanel を再定義して word-list-view を隠す処理を追加
+/* ══════════════════════════════════════════
+   openStudyPanel — 読書メモ版
+   タブを廃止し、単一スクロールの読書メモパネルに表示する。
+   ══════════════════════════════════════════ */
 function openStudyPanel(greek, rawMorph, ref, lemma) {
-    // word-list-view を削除（Study分析エリアと共存させない）
+    // word-list-view を削除
     const listEl = document.getElementById('word-list-view');
     if (listEl) listEl.remove();
 
@@ -4365,28 +4662,32 @@ function openStudyPanel(greek, rawMorph, ref, lemma) {
         case:      m.case   || '',
     };
 
-    /* スクロール位置を保存（Reading に戻るときに復元する） */
     AppState.saveScroll();
-
-    /* AppState を Study モードへ遷移（tab は記憶されていたものを引き継ぐ） */
-    AppState.toStudy(params, AppState.study.tab || 'flow');
-
-    updateReadingCoreBar(params);
+    AppState.toStudy(params, 'notes');
 
     const sidePanel    = document.getElementById('side-panel');
     const parallelArea = document.getElementById('parallel-text-area');
     sidePanel.style.display    = 'flex';
     parallelArea.style.display = 'none';
 
-    // active-v に語形情報を表示
     const activeVEl = document.getElementById('active-v');
     if (activeVEl && greek) activeVEl.textContent = greek;
 
     document.getElementById('open-panel-btn').style.display = 'none';
-    document.getElementById('analysis-tabs').classList.add('visible');
-    document.getElementById('analysis-frame-wrap').classList.add('visible');
 
-    switchAnalysisTab(AppState.study.tab || 'flow');
+    /* rcb-container: 語形のみ表示 */
+    const rcb = document.getElementById('rcb-container');
+    const rcbWord  = document.getElementById('rcb-main-word');
+    const rcbGloss = document.getElementById('rcb-main-gloss');
+    if (rcbWord)  rcbWord.textContent  = greek || '—';
+    if (rcbGloss) rcbGloss.textContent = (AppState.inspect.data?.jaWord) || '';
+    if (rcb) rcb.classList.add('visible');
+
+    /* 読書メモエリアを表示 */
+    const notesWrap = document.getElementById('reading-notes-wrap');
+    if (notesWrap) notesWrap.style.display = 'flex';
+
+    _renderReadingNotes(params);
 }
 
 /* ══════════════════════════════════════════
@@ -4404,35 +4705,29 @@ function closeStudyPanel() {
     sidePanel.style.display    = 'none';
     parallelArea.style.display = '';
 
-    document.getElementById('analysis-frame-wrap').classList.remove('visible');
-    // iframe は使わなくなったが互換のためsrcをクリア
-    const iframe = document.getElementById('analysis-iframe');
-    if (iframe) iframe.src = '';
-    // インラインコンテンツエリアをクリア
+    /* 読書メモエリアをクリア・非表示 */
+    const notesWrap = document.getElementById('reading-notes-wrap');
+    if (notesWrap) { notesWrap.style.display = 'none'; }
+    const notesArea = document.getElementById('reading-notes-area');
+    if (notesArea) notesArea.innerHTML = '';
+
+    /* 後方互換 */
     const area = document.getElementById('analysis-content-area');
     if (area) area.innerHTML = '';
-    document.getElementById('analysis-tabs').classList.remove('visible');
 
-    /* 「分析に戻る」ボタン:
-       study.params が残っていれば表示（再開可能）、なければ非表示 */
     document.getElementById('open-panel-btn').style.display =
         AppState.canReopen() ? 'block' : 'none';
 
     const rcb = document.getElementById('rcb-container');
     if (rcb) rcb.classList.remove('visible');
 
-    // word-list-view も削除
     const listEl = document.getElementById('word-list-view');
     if (listEl) listEl.remove();
 
-    // 節の選択ハイライトも解除
     document.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
     document.getElementById('active-v').innerText = '';
 
-    /* AppState を Reading モードへ遷移（study.params / study.tab は保持） */
     AppState.toReading();
-
-    /* スクロール位置を復元 */
     AppState.restoreScroll();
 }
 
@@ -4446,11 +4741,8 @@ function closeStudyPanel() {
 function reopenStudyPanel() {
     if (!AppState.canReopen()) return;
     const p = AppState.study.params;
-    /* 再開前に現在の scroll 位置を保存（戻るときに復元するため） */
     AppState.saveScroll();
     openStudyPanel(p.word, p._rawMorph, p.ref, p.lemma);
-    /* openStudyPanel 内で switchAnalysisTab(AppState.study.tab) が呼ばれるため
-       タブは自動的に前回のものが復元される */
 }
 
 /* ══════════════════════════════════════════
