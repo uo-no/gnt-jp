@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05141230｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05141400｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -1345,7 +1345,7 @@ details[open] .study-summary::before {
 /* ── 流れUI：ギリシャ語順日本語chip列 ── */
 /* 常時表示。タブで隠さない。読書の延長として機能する。 */
 .wlv-flow-section {
-    padding: 18px 18px 0;
+    padding: 20px 18px 0;
     flex-shrink: 0;
 }
 .wlv-flow-label {
@@ -1363,9 +1363,9 @@ details[open] .study-summary::before {
 .wlv-flow-stream {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 2px;
+    gap: 5px 3px;
     align-items: baseline;
-    line-height: 2.4;
+    line-height: 2.6;
 }
 
 /* 各語のchip：軽量・ボーダー使わない */
@@ -1475,11 +1475,13 @@ details[open] .study-summary::before {
 }
 .wlv-signal-tag {
     font-size: 0.6rem;
-    padding: 2px 7px;
-    border-radius: 20px;
-    border: 1px solid rgba(90,110,130,0.15);
-    color: var(--text-sub);
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(90,110,130,0.06);
+    color: var(--highlight);
     letter-spacing: 0.02em;
+    font-weight: 600;
+    font-family: 'Noto Sans JP', sans-serif;
 }
 /* ドロワー内：「詳しく見る」ボタン */
 .wlv-detail-study-btn {
@@ -3983,48 +3985,17 @@ function openWordListInStudyPanel(vNum, words) {
         return;
     }
 
-    /* ── タブバー ── */
-    const tabBarHTML = `
-        <div class="wlv-tabs" id="wlv-tabs">
-            <button class="wlv-tab active" id="wlv-tab-flow"   onclick="_wlvSwitchTab('flow')">流れ</button>
-            <button class="wlv-tab"        id="wlv-tab-normal" onclick="_wlvSwitchTab('normal')">通常</button>
-            <button class="wlv-tab"        id="wlv-tab-greek"  onclick="_wlvSwitchTab('greek')">原語</button>
-        </div>`;
-
-    /* ── 流れタブコンテンツ ── */
+    /* ── 流れビュー（タブなし・常時表示） ── */
     const flowHTML = _buildFlowTabHTML(words);
 
-    /* ── 通常タブコンテンツ（既存 word-card）── */
-    const normalCardsHTML = words.map(w => decorate(w.text, w)).join('');
-
-    /* ── 原語タブコンテンツ ── */
-    const greekHTML = _buildGreekTabHTML(words);
-
-    listEl.innerHTML = `
-        ${tabBarHTML}
-        <div class="wlv-content visible" id="wlv-content-flow">
-            ${flowHTML}
-        </div>
-        <div class="wlv-content" id="wlv-content-normal">
-            ${normalCardsHTML}
-            <p class="wlv-normal-hint">語をタップ → 基本義を確認 → 詳しく見る</p>
-        </div>
-        <div class="wlv-content" id="wlv-content-greek">
-            ${greekHTML}
-        </div>
-    `;
+    listEl.innerHTML = flowHTML;
 
     sidePanel.appendChild(listEl);
 }
 
-/* ── WLV タブ切り替え ── */
+/* ── WLV タブ切り替え（廃止：タブレス設計へ移行済み） ── */
 function _wlvSwitchTab(name) {
-    ['flow','normal','greek'].forEach(t => {
-        const tab = document.getElementById(`wlv-tab-${t}`);
-        const cnt = document.getElementById(`wlv-content-${t}`);
-        if (tab) tab.classList.toggle('active',  t === name);
-        if (cnt) cnt.classList.toggle('visible', t === name);
-    });
+    /* no-op: タブは廃止されました */
 }
 
 /* ════════════════════════════════════════════════════════
@@ -4070,13 +4041,12 @@ function _buildFlowTabHTML(words) {
         </div>`;
 
     /* グロス補足ラベル（読解の手引き） */
-    const hintHTML = `<p style="font-size:0.62rem;color:var(--text-sub);opacity:0.5;margin-top:14px;letter-spacing:0.02em;">
-        語をタップすると原語と役割を確認できます
+    const hintHTML = `<p style="font-size:0.6rem;color:var(--text-sub);opacity:0.4;margin-top:14px;letter-spacing:0.02em;">
+        語をタップ → 原語と文法シグナルを確認 → 詳しく見る
     </p>`;
 
     return `
         <div class="wlv-flow-section">
-            <span class="wlv-flow-label">ギリシャ語の流れ</span>
             <div class="wlv-flow-stream" id="wlv-flow-stream">
                 ${chipsHTML}
             </div>
@@ -4152,21 +4122,70 @@ function _wordToFlowChip(w, i) {
         const tenCode  = (parts[1] || '')[off]     || '';
         const voiCode  = (parts[1] || '')[off + 1] || '';
 
-        if (moodCode === 'M') signals.push('命令');
-        if (moodCode === 'P') signals.push('修飾（分詞）');
-        if (moodCode === 'N') signals.push('補足（不定詞）');
-        if (moodCode === 'S') signals.push('目的・可能性');
-        if (tenCode  === 'X') signals.push('完了（結果継続）');
-        if (tenCode  === 'A') signals.push('アオリスト（点）');
-        if (voiCode  === 'P') signals.push('受動');
-        if (voiCode  === 'M' || voiCode === 'D') signals.push('中動');
+        /* 法（Mood）シグナル */
+        if (moodCode === 'M') signals.push({ label: '命令', cls: 'sig-exhort' });
+        else if (moodCode === 'P') signals.push({ label: '分詞', cls: 'sig-logic' });
+        else if (moodCode === 'N') signals.push({ label: '不定詞', cls: 'sig-logic' });
+        else if (moodCode === 'S') signals.push({ label: '接続法', cls: 'sig-logic' });
+        else if (moodCode === 'I') signals.push({ label: '直説法', cls: 'sig-logic' });
+        else if (moodCode === 'O') signals.push({ label: '希求法', cls: 'sig-logic' });
+
+        /* 時制シグナル */
+        if (tenCode === 'X') signals.push({ label: '完了', cls: 'sig-promise' });
+        else if (tenCode === 'A') signals.push({ label: 'アオリスト', cls: 'sig-declare' });
+        else if (tenCode === 'F') signals.push({ label: '未来', cls: 'sig-promise' });
+        else if (tenCode === 'I') signals.push({ label: '未完了', cls: 'sig-logic' });
+
+        /* 態シグナル */
+        if (voiCode === 'P') signals.push({ label: '受動', cls: 'sig-word' });
+        else if (voiCode === 'M' || voiCode === 'D') signals.push({ label: '中動', cls: 'sig-word' });
     }
-    else if (pos === 'N')    { roleClass = 'role-noun'; }
-    else if (pos === 'A')    { roleClass = 'role-adj'; }
-    else if (pos === 'CONJ') { roleClass = 'role-conj'; }
-    else if (pos === 'PREP') { roleClass = 'role-prep'; }
-    else if (pos === 'T')    { roleClass = 'role-art'; }
-    else if (['P','R','D'].includes(pos)) { roleClass = 'role-pron'; }
+    else if (pos === 'N')    {
+        roleClass = 'role-noun';
+        const caseParts = parts[1] || '';
+        const base = ['1','2','3'].includes(caseParts[0]) ? caseParts.slice(1) : caseParts;
+        const CASE_SIG = { N: { label: '主格', cls: 'sig-logic' }, G: { label: '属格', cls: 'sig-logic' }, D: { label: '与格', cls: 'sig-logic' }, A: { label: '対格', cls: 'sig-logic' }, V: { label: '呼格', cls: 'sig-logic' } };
+        const cs = CASE_SIG[base[0]];
+        if (cs) signals.push(cs);
+        const NUM_SIG = { P: { label: '複数', cls: 'sig-logic' } };
+        const ns = NUM_SIG[base[1]];
+        if (ns) signals.push(ns);
+    }
+    else if (pos === 'A')    {
+        roleClass = 'role-adj';
+        const caseParts = parts[1] || '';
+        const base = ['1','2','3'].includes(caseParts[0]) ? caseParts.slice(1) : caseParts;
+        const CASE_SIG = { N: { label: '主格', cls: 'sig-logic' }, G: { label: '属格', cls: 'sig-logic' }, D: { label: '与格', cls: 'sig-logic' }, A: { label: '対格', cls: 'sig-logic' } };
+        const cs = CASE_SIG[base[0]];
+        if (cs) signals.push(cs);
+    }
+    else if (pos === 'CONJ') {
+        roleClass = 'role-conj';
+        const CONJ_SIG = {
+            'γάρ':  { label: '理由', cls: 'sig-logic' },
+            'ἀλλά': { label: '転換', cls: 'sig-turn' },
+            'οὖν':  { label: '結論', cls: 'sig-logic' },
+            'δέ':   { label: '展開', cls: 'sig-turn' },
+            'καί':  { label: '継続', cls: 'sig-emphasis' },
+            'ἵνα':  { label: '目的', cls: 'sig-logic' },
+            'ὅτι':  { label: '内容', cls: 'sig-logic' },
+            'εἰ':   { label: '条件', cls: 'sig-logic' },
+            'ὥστε': { label: '結果', cls: 'sig-logic' },
+        };
+        const cs = CONJ_SIG[w.text];
+        if (cs) signals.push(cs);
+        else signals.push({ label: '接続', cls: 'sig-logic' });
+    }
+    else if (pos === 'PREP') { roleClass = 'role-prep'; signals.push({ label: '前置詞', cls: 'sig-logic' }); }
+    else if (pos === 'T')    { roleClass = 'role-art'; signals.push({ label: '冠詞', cls: 'sig-logic' }); }
+    else if (['P','R','D'].includes(pos)) {
+        roleClass = 'role-pron';
+        const caseParts = parts[1] || '';
+        const base = ['1','2','3'].includes(caseParts[0]) ? caseParts.slice(1) : caseParts;
+        const CASE_SIG = { N: { label: '主格', cls: 'sig-logic' }, G: { label: '属格', cls: 'sig-logic' }, D: { label: '与格', cls: 'sig-logic' }, A: { label: '対格', cls: 'sig-logic' } };
+        const cs = CASE_SIG[base[0]];
+        if (cs) signals.push(cs);
+    }
 
     /* 句区切りの判定：接続詞・前置詞の前で区切る */
     const phraseBreakBefore = (pos === 'CONJ' && i > 0) || (pos === 'PREP' && i > 0);
@@ -4303,7 +4322,10 @@ function _wlvChipClick(chipEl, idx) {
     jaEl.textContent     = chip.jaWord;
     morphEl.textContent  = chip.morphText;
     signalEl.innerHTML   = chip.signals.length
-        ? chip.signals.map(s => `<span class="wlv-signal-tag">${s}</span>`).join('')
+        ? chip.signals.map(s => {
+            const label = typeof s === 'object' ? s.label : s;
+            return `<span class="wlv-signal-tag">[${label}]</span>`;
+          }).join('')
         : '';
 
     drawer.classList.add('visible');
