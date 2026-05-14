@@ -1325,6 +1325,216 @@ details[open] .study-summary::before {
     border-color: rgba(90,110,130,0.3);
     font-weight: 600;
 }
+
+/* ══════════════════════════════════════════
+   Word List View — 節語形リスト（タブ付き）
+   通常 / 流れ / 原語  の3タブ
+   ══════════════════════════════════════════ */
+
+/* タブバー */
+.wlv-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-soft);
+    margin-bottom: 0;
+    flex-shrink: 0;
+    background: var(--bg-panel);
+}
+.wlv-tab {
+    padding: 7px 14px 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-sub);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.12s, border-color 0.12s;
+    letter-spacing: 0.01em;
+    position: relative;
+    bottom: -1px;
+}
+.wlv-tab:hover { color: var(--highlight); }
+.wlv-tab.active {
+    color: var(--highlight);
+    border-bottom-color: var(--highlight);
+}
+
+/* タブコンテンツ共通 */
+.wlv-content {
+    display: none;
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 18px 24px;
+}
+.wlv-content.visible { display: block; }
+
+/* ── 流れタブ ── */
+/* ギリシャ語順の日本語chip列。静かで余白多め。Kindle的。 */
+.wlv-flow-section {
+    margin-bottom: 20px;
+}
+.wlv-flow-label {
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--text-sub);
+    opacity: 0.45;
+    display: block;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+/* chip流：横並び・折り返し・prose-like */
+.wlv-flow-stream {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 4px;
+    align-items: baseline;
+    line-height: 2.2;
+}
+
+/* 各語のchip */
+.wlv-chip {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 4px 8px 3px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.12s, box-shadow 0.12s;
+    position: relative;
+    border: 1px solid transparent;
+}
+.wlv-chip:hover {
+    background: rgba(90,110,130,0.06);
+    border-color: rgba(90,110,130,0.15);
+}
+.wlv-chip.active {
+    background: rgba(90,110,130,0.09);
+    border-color: rgba(90,110,130,0.25);
+}
+
+/* chip内：日本語グロス（主役） */
+.wlv-chip-ja {
+    font-size: 1.0rem;
+    font-family: 'Noto Serif JP', serif;
+    color: var(--text-main);
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+}
+
+/* chip内：signal dot（役割の色点）*/
+.wlv-chip-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: transparent;
+    flex-shrink: 0;
+}
+/* signal 種別ごとの dot 色（極小・静かに） */
+.wlv-chip.role-verb      .wlv-chip-dot { background: #7a8fa6; }
+.wlv-chip.role-noun      .wlv-chip-dot { background: #8a9a8a; }
+.wlv-chip.role-conj      .wlv-chip-dot { background: #a09070; }
+.wlv-chip.role-prep      .wlv-chip-dot { background: #9a8a6a; }
+.wlv-chip.role-adj       .wlv-chip-dot { background: #8a7a9a; }
+.wlv-chip.role-pron      .wlv-chip-dot { background: #7a9090; }
+.wlv-chip.role-part      .wlv-chip-dot { background: #7a9a7a; }
+.wlv-chip.role-art       .wlv-chip-dot { background: transparent; } /* 冠詞はdotなし */
+.wlv-chip.role-other     .wlv-chip-dot { background: rgba(90,110,130,0.2); }
+
+/* 句区切り：軽い縦区切り線 */
+.wlv-phrase-sep {
+    display: inline-block;
+    width: 1px;
+    height: 18px;
+    background: rgba(0,0,0,0.08);
+    margin: 0 4px;
+    vertical-align: middle;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+/* ── chip詳細ドロワー（クリックで展開） ── */
+/* 底部固定ではなく、flow-streamの下にinlineで表示する */
+.wlv-detail-drawer {
+    margin-top: 12px;
+    padding: 10px 12px 10px;
+    background: rgba(90,110,130,0.04);
+    border-left: 2px solid rgba(90,110,130,0.2);
+    border-radius: 0 6px 6px 0;
+    display: none;
+    animation: wlvDrawerIn 0.12s ease;
+}
+.wlv-detail-drawer.visible { display: block; }
+@keyframes wlvDrawerIn {
+    from { opacity: 0; transform: translateY(-3px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.wlv-detail-greek {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.35rem;
+    color: var(--text-main);
+    line-height: 1.2;
+    margin-bottom: 3px;
+}
+.wlv-detail-ja {
+    font-size: 0.8rem;
+    color: var(--text-sub);
+    margin-bottom: 6px;
+}
+.wlv-detail-morph {
+    font-size: 0.72rem;
+    color: var(--text-sub);
+    line-height: 1.7;
+    margin-bottom: 4px;
+}
+.wlv-detail-signals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+}
+.wlv-signal-tag {
+    font-size: 0.62rem;
+    padding: 2px 7px;
+    border-radius: 20px;
+    border: 1px solid var(--border-soft);
+    color: var(--text-sub);
+    background: var(--bg-panel);
+    letter-spacing: 0.02em;
+}
+.wlv-detail-study-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--highlight);
+    background: transparent;
+    border: 1px solid rgba(90,110,130,0.25);
+    border-radius: 5px;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.wlv-detail-study-btn:hover { background: var(--highlight-light); }
+
+/* ── 通常タブ ── */
+/* 既存の word-card を収める。スタイルは word-card のまま */
+.wlv-normal-hint {
+    font-size: 0.65rem;
+    color: var(--text-sub);
+    opacity: 0.6;
+    text-align: center;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-soft);
+}
 </style>
 
 </head>
@@ -3737,60 +3947,437 @@ function render(jpData, elData, hasGreek) {
 }
 
 /**
- * 節クリック時に side-panel の iframe エリアを語形カードリストで置き換える。
- * これが Inspect の起点となる。
- * 語形カードをクリックすると showInspectPopover が呼ばれる。
+ * 節クリック時に side-panel を開き、語形リストを3タブで表示する。
+ *
+ * タブ構成:
+ *   流れ（デフォルト） … ギリシャ語順の日本語chip列。「読解UI」のメイン。
+ *   通常               … 既存の word-card リスト。
+ *   原語               … ギリシャ語テキスト + 簡易morph。
+ *
+ * 既存の AppState / openStudyPanel / Inspect popover との接続はそのまま。
+ * word-card の onclick（onWordCardClick）も通常タブでは変わらず動作する。
+ * 流れタブのchipクリックは _wlvChipClick() を経由して同じ AppState を更新する。
  */
 function openWordListInStudyPanel(vNum, words) {
+    /* words をキャッシュ（chip クリック時の詳細参照用） */
+    _wlvWordCache = words || [];
+
     const sidePanel    = document.getElementById('side-panel');
     const parallelArea = document.getElementById('parallel-text-area');
     const frameWrap    = document.getElementById('analysis-frame-wrap');
     const iframe       = document.getElementById('analysis-iframe');
     const analysisTabs = document.getElementById('analysis-tabs');
 
-    // side-panel を表示
-    sidePanel.style.display   = 'flex';
+    /* side-panel を表示 */
+    sidePanel.style.display    = 'flex';
     parallelArea.style.display = 'none';
     document.getElementById('open-panel-btn').style.display = 'none';
 
-    // インラインコンテンツエリアを一旦クリア（語形リストに置き換える）
+    /* analysis エリアはクリア・非表示（語形選択前） */
     const area = document.getElementById('analysis-content-area');
     if (area) area.innerHTML = '';
     frameWrap.classList.remove('visible');
     if (iframe) iframe.src = '';
-
-    // 分析タブは非表示（語形選択前なので）
     analysisTabs.classList.remove('visible');
-
-    // rcb-container も隠す（語選択前）
     const rcb = document.getElementById('rcb-container');
     if (rcb) rcb.classList.remove('visible');
     _currentAnalysisParams = null;
 
-    // 既存の word-list-view があれば削除
+    /* 既存の word-list-view があれば削除 */
     const existing = document.getElementById('word-list-view');
     if (existing) existing.remove();
 
-    // 語形カードリストを動的に生成して side-panel に追加
+    /* ── 外枠 ── */
     const listEl = document.createElement('div');
     listEl.id = 'word-list-view';
-    listEl.style.cssText = 'flex:1;overflow-y:auto;padding:14px 18px;';
+    listEl.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;';
 
     if (!words.length) {
-        listEl.innerHTML = `<p style="color:var(--text-sub);font-size:0.82rem;text-align:center;padding:32px 0;">この節の語形データがありません</p>`;
-    } else {
-        listEl.innerHTML = `
-            <div style="font-size:0.62rem;font-weight:600;letter-spacing:0.06em;color:var(--text-sub);opacity:0.7;margin-bottom:12px;">
-                この節のギリシャ語
-            </div>
-            ${words.map(w => decorate(w.text, w)).join('')}
-            <p style="font-size:0.68rem;color:var(--text-sub);opacity:0.6;text-align:center;margin-top:16px;padding-top:12px;border-top:1px solid var(--border-soft);">
-                語をタップ → 基本義を確認 → 詳しく見る
-            </p>`;
+        listEl.innerHTML = `<p style="color:var(--text-sub);font-size:0.82rem;text-align:center;padding:32px 18px;">この節の語形データがありません</p>`;
+        sidePanel.appendChild(listEl);
+        return;
     }
+
+    /* ── タブバー ── */
+    const tabBarHTML = `
+        <div class="wlv-tabs" id="wlv-tabs">
+            <button class="wlv-tab active" id="wlv-tab-flow"   onclick="_wlvSwitchTab('flow')">流れ</button>
+            <button class="wlv-tab"        id="wlv-tab-normal" onclick="_wlvSwitchTab('normal')">通常</button>
+            <button class="wlv-tab"        id="wlv-tab-greek"  onclick="_wlvSwitchTab('greek')">原語</button>
+        </div>`;
+
+    /* ── 流れタブコンテンツ ── */
+    const flowHTML = _buildFlowTabHTML(words);
+
+    /* ── 通常タブコンテンツ（既存 word-card）── */
+    const normalCardsHTML = words.map(w => decorate(w.text, w)).join('');
+
+    /* ── 原語タブコンテンツ ── */
+    const greekHTML = _buildGreekTabHTML(words);
+
+    listEl.innerHTML = `
+        ${tabBarHTML}
+        <div class="wlv-content visible" id="wlv-content-flow">
+            ${flowHTML}
+        </div>
+        <div class="wlv-content" id="wlv-content-normal">
+            ${normalCardsHTML}
+            <p class="wlv-normal-hint">語をタップ → 基本義を確認 → 詳しく見る</p>
+        </div>
+        <div class="wlv-content" id="wlv-content-greek">
+            ${greekHTML}
+        </div>
+    `;
 
     sidePanel.appendChild(listEl);
 }
+
+/* ── WLV タブ切り替え ── */
+function _wlvSwitchTab(name) {
+    ['flow','normal','greek'].forEach(t => {
+        const tab = document.getElementById(`wlv-tab-${t}`);
+        const cnt = document.getElementById(`wlv-content-${t}`);
+        if (tab) tab.classList.toggle('active',  t === name);
+        if (cnt) cnt.classList.toggle('visible', t === name);
+    });
+}
+
+/* ════════════════════════════════════════════════════════
+   buildFlowTabHTML — 「流れ」タブのメイン描画
+   ════════════════════════════════════════════════════════
+
+   設計：
+   ① ギリシャ語順を保持（並べ替えない）
+   ② 日本語グロスを自然化（品詞・法・時制に応じて接尾語を変換）
+   ③ 冠詞は「その」「この」のみ、接続詞は軽く句区切りを挿入
+   ④ chip内 dot で品詞を静かに色付け（役割ラベルなし）
+   ⑤ クリックで下部ドロワーに詳細を展開（初期非表示）
+   ════════════════════════════════════════════════════════ */
+function _buildFlowTabHTML(words) {
+    /* 各語を「流れchip」データに変換 */
+    const chips = words.map((w, i) => _wordToFlowChip(w, i));
+
+    /* chip HTML */
+    const chipsHTML = chips.map((c, i) => {
+        const sepBefore = c.phraseBreakBefore
+            ? `<span class="wlv-phrase-sep"></span>`
+            : '';
+        return `${sepBefore}<span class="wlv-chip ${c.roleClass}"
+            id="wlv-chip-${i}"
+            data-idx="${i}"
+            onclick="_wlvChipClick(this, ${i})"
+            title="${c.greek}">
+            <span class="wlv-chip-ja">${c.gloss}</span>
+            <span class="wlv-chip-dot"></span>
+        </span>`;
+    }).join('');
+
+    /* 詳細ドロワー（全chip共通。クリックで内容を差し替え） */
+    const drawerHTML = `
+        <div class="wlv-detail-drawer" id="wlv-detail-drawer">
+            <div class="wlv-detail-greek" id="wlv-dd-greek">—</div>
+            <div class="wlv-detail-ja"    id="wlv-dd-ja">—</div>
+            <div class="wlv-detail-morph" id="wlv-dd-morph"></div>
+            <div class="wlv-detail-signals" id="wlv-dd-signals"></div>
+            <button class="wlv-detail-study-btn" id="wlv-dd-study-btn" onclick="_wlvStudyBtnClick()">
+                詳しく見る →
+            </button>
+        </div>`;
+
+    /* グロス補足ラベル（読解の手引き） */
+    const hintHTML = `<p style="font-size:0.62rem;color:var(--text-sub);opacity:0.5;margin-top:14px;letter-spacing:0.02em;">
+        語をタップすると原語と役割を確認できます
+    </p>`;
+
+    return `
+        <div class="wlv-flow-section">
+            <span class="wlv-flow-label">ギリシャ語の流れ</span>
+            <div class="wlv-flow-stream" id="wlv-flow-stream">
+                ${chipsHTML}
+            </div>
+            ${drawerHTML}
+            ${hintHTML}
+        </div>`;
+}
+
+/**
+ * 1語のデータを flow chip 表示用オブジェクトに変換する。
+ *
+ * @param {Object} w   word data（text, morph, lemma, japanese/gloss, ref, strong）
+ * @param {number} i   index
+ * @returns {{ greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong }}
+ */
+function _wordToFlowChip(w, i) {
+    const greek    = w.text   || '—';
+    const rawMorph = w.morph  || '';
+    const lemma    = w.lemma  || '';
+    const ref      = w.ref    || '';
+    const strong   = String(w.strong || '').replace(/[^0-9]/g, '');
+    const jaWord   = w.japanese || w.gloss
+        || (abbottSmithDict && abbottSmithDict[strong]?.japanese)
+        || '？';
+
+    const parts    = rawMorph.split('-');
+    const pos      = parts[0] || '';
+
+    /* ── グロス自然化 ── */
+    let gloss = jaWord;
+
+    /* 動詞の法・時制に応じた接尾調整 */
+    if (pos === 'V' && parts[1]) {
+        const off       = /^[0-9]/.test(parts[1]) ? 1 : 0;
+        const tenseCode = parts[1][off]     || '';
+        const voiceCode = parts[1][off + 1] || '';
+        const moodCode  = parts[1][off + 2] || '';
+
+        /* 分詞：「〜ながら」「〜した（上で）」など */
+        if (moodCode === 'P') {
+            if (tenseCode === 'P') gloss = _naturalize(jaWord, 'part-pres');
+            else if (tenseCode === 'A') gloss = _naturalize(jaWord, 'part-aor');
+            else if (tenseCode === 'X') gloss = _naturalize(jaWord, 'part-perf');
+        }
+        /* 不定詞 */
+        else if (moodCode === 'N') {
+            gloss = _naturalize(jaWord, 'inf');
+        }
+        /* 命令法 */
+        else if (moodCode === 'M') {
+            gloss = _naturalize(jaWord, 'imp');
+        }
+        /* 受動態 */
+        if (voiceCode === 'P') {
+            gloss = _naturalize(gloss, 'pass');
+        }
+    }
+
+    /* 冠詞：「その」「この」または非表示 */
+    if (pos === 'T') {
+        /* 冠詞は目に見える情報を最小化。「の」だけ示す */
+        gloss = 'その';
+    }
+
+    /* roleClass：chip dot の色付けと signal 生成 */
+    let roleClass = 'role-other';
+    const signals = [];
+
+    if (pos === 'V') {
+        roleClass = 'role-verb';
+        const off      = /^[0-9]/.test(parts[1] || '') ? 1 : 0;
+        const moodCode = (parts[1] || '')[off + 2] || '';
+        const tenCode  = (parts[1] || '')[off]     || '';
+        const voiCode  = (parts[1] || '')[off + 1] || '';
+
+        if (moodCode === 'M') signals.push('命令');
+        if (moodCode === 'P') signals.push('修飾（分詞）');
+        if (moodCode === 'N') signals.push('補足（不定詞）');
+        if (moodCode === 'S') signals.push('目的・可能性');
+        if (tenCode  === 'X') signals.push('完了（結果継続）');
+        if (tenCode  === 'A') signals.push('アオリスト（点）');
+        if (voiCode  === 'P') signals.push('受動');
+        if (voiCode  === 'M' || voiCode === 'D') signals.push('中動');
+    }
+    else if (pos === 'N')    { roleClass = 'role-noun'; }
+    else if (pos === 'A')    { roleClass = 'role-adj'; }
+    else if (pos === 'CONJ') { roleClass = 'role-conj'; }
+    else if (pos === 'PREP') { roleClass = 'role-prep'; }
+    else if (pos === 'T')    { roleClass = 'role-art'; }
+    else if (['P','R','D'].includes(pos)) { roleClass = 'role-pron'; }
+
+    /* 句区切りの判定：接続詞・前置詞の前で区切る */
+    const phraseBreakBefore = (pos === 'CONJ' && i > 0) || (pos === 'PREP' && i > 0);
+
+    /* morphText：ドロワーに表示する人が読める文法メモ */
+    const morphText = _buildMorphText(rawMorph, pos, parts);
+
+    return { greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong };
+}
+
+/**
+ * 日本語グロスを品詞・法に応じて自然化する。
+ * グロスの末尾をルールベースで変換する。複雑な形態素分析は行わない。
+ * 変換できなければ元の gloss をそのまま返す。
+ */
+function _naturalize(gloss, kind) {
+    /* 動詞語幹の末尾を変換するルールテーブル */
+    const RULES = {
+        'part-pres': [ /* 現在分詞：〜ながら / 〜つつ → 〜ながら */
+            [/する$/, 'しながら'], [/する$/, 'しながら'],
+            [/いる$/, 'いながら'], [/える$/, 'えながら'],
+            [/くる$/, 'きながら'], [/ある$/, 'ありながら'],
+            [/([^ん])る$/, '$1ながら'],
+            [/つ$/, 'ちながら'],   [/ぬ$/, 'にながら'],
+            [/む$/, 'みながら'],   [/ぶ$/, 'びながら'],
+            [/う$/, 'いながら'],   [/く$/, 'きながら'],
+            [/す$/, 'しながら'],   [/ぐ$/, 'ぎながら'],
+        ],
+        'part-aor': [ /* アオリスト分詞：〜した（後で） */
+            [/する$/, 'した'],     [/いる$/, 'いた'],
+            [/える$/, 'えた'],     [/くる$/, 'きた'],
+            [/([^ん])る$/, '$1た'],
+            [/つ$/, 'った'],       [/ぬ$/, 'んだ'],
+            [/む$/, 'んだ'],       [/ぶ$/, 'んだ'],
+            [/う$/, 'った'],       [/く$/, 'いた'],
+            [/す$/, 'した'],       [/ぐ$/, 'いだ'],
+        ],
+        'part-perf': [ /* 完了分詞：〜した（状態） */
+            [/する$/, 'してきた'], [/いる$/, 'いてきた'],
+            [/([^ん])る$/, '$1てきた'],
+            [/つ$/, 'ってきた'],   [/む$/, 'んできた'],
+        ],
+        'inf': [ /* 不定詞：〜すること */
+            [/する$/, 'すること'], [/いる$/, 'いること'],
+            [/える$/, 'えること'], [/くる$/, 'くること'],
+            [/([^ん])る$/, '$1ること'],
+            [/つ$/, 'つこと'],    [/ぬ$/, 'ぬこと'],
+            [/む$/, 'むこと'],    [/ぶ$/, 'ぶこと'],
+            [/う$/, 'うこと'],    [/く$/, 'くこと'],
+            [/す$/, 'すこと'],
+        ],
+        'imp': [ /* 命令法：そのまま（「〜せよ」は重い）*/
+            [/する$/, 'せよ'],    [/([^ん])る$/, '$1よ'],
+        ],
+        'pass': [ /* 受動：〜される */
+            [/する$/, 'される'],  [/いる$/, 'いられる'],
+            [/([^ん])る$/, '$1られる'],
+            [/つ$/, 'たれる'],    [/む$/, 'まれる'],
+            [/ぶ$/, 'ばれる'],    [/く$/, 'かれる'],
+            [/す$/, 'される'],
+        ],
+    };
+
+    const rules = RULES[kind] || [];
+    for (const [pattern, replacement] of rules) {
+        if (pattern.test(gloss)) {
+            return gloss.replace(pattern, replacement);
+        }
+    }
+    return gloss; /* 変換できなければ元のまま */
+}
+
+/**
+ * rawMorph から人が読める文法メモ（1〜2行）を生成する。
+ * ドロワーに表示するだけなので学術ラベルは避ける。
+ */
+function _buildMorphText(rawMorph, pos, parts) {
+    const JPN = {
+        tense:  { P:'現在', I:'未完了', F:'未来', A:'アオリスト', X:'完了' },
+        mood:   { I:'直説法', S:'接続法', O:'希求法', M:'命令法', N:'不定詞', P:'分詞' },
+        voice:  { A:'能動', M:'中動', P:'受動', D:'中動自動' },
+        case:   { N:'主格', G:'属格', D:'与格', A:'対格', V:'呼格' },
+        number: { S:'単数', P:'複数' },
+        gender: { M:'男性', F:'女性', N:'中性' },
+        pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
+    };
+    const posJpn = JPN.pos[pos] || pos;
+    const notes  = [posJpn];
+
+    if (pos === 'V' && parts[1]) {
+        const off  = /^[0-9]/.test(parts[1]) ? 1 : 0;
+        const t    = JPN.tense[parts[1][off]]     || '';
+        const v    = JPN.voice[parts[1][off + 1]] || '';
+        const m    = JPN.mood[parts[1][off + 2]]  || '';
+        if (t) notes.push(t);
+        if (m) notes.push(m);
+        if (v && v !== '能動') notes.push(v);
+    } else if (['N','A','R','P','T','D'].includes(pos) && parts[1]) {
+        const base = ['1','2','3'].includes(parts[1][0]) ? parts[1].slice(1) : parts[1];
+        const c = JPN.case[base[0]]   || '';
+        const n = JPN.number[base[1]] || '';
+        if (c) notes.push(c);
+        if (n) notes.push(n);
+    }
+
+    return notes.join(' · ');
+}
+
+/* ── chip クリック：詳細ドロワーを展開 ── */
+/* グローバルに現在選択中の chipIdx を保持（ドロワーから「詳しく見る」するため） */
+let _wlvActiveChipIdx = -1;
+let _wlvChipData      = [];   /* _buildFlowTabHTML で生成した chip 配列を保持 */
+
+function _wlvChipClick(chipEl, idx) {
+    const chips = document.querySelectorAll('.wlv-chip');
+    chips.forEach(c => c.classList.remove('active'));
+    chipEl.classList.add('active');
+
+    _wlvActiveChipIdx = idx;
+
+    /* chip データを words から再構築（クロージャを使わず DOM から取得） */
+    const chip = _wlvGetChipData(idx);
+    if (!chip) return;
+
+    /* ドロワーに詳細を流し込む */
+    const drawer   = document.getElementById('wlv-detail-drawer');
+    const greekEl  = document.getElementById('wlv-dd-greek');
+    const jaEl     = document.getElementById('wlv-dd-ja');
+    const morphEl  = document.getElementById('wlv-dd-morph');
+    const signalEl = document.getElementById('wlv-dd-signals');
+    if (!drawer) return;
+
+    greekEl.textContent  = chip.greek;
+    jaEl.textContent     = chip.jaWord;
+    morphEl.textContent  = chip.morphText;
+    signalEl.innerHTML   = chip.signals.length
+        ? chip.signals.map(s => `<span class="wlv-signal-tag">${s}</span>`).join('')
+        : '';
+
+    drawer.classList.add('visible');
+
+    /* AppState の inspect も更新する（「詳しく見る」に対応） */
+    AppState.inspect.data = {
+        greek:    chip.greek,
+        strong:   chip.strong,
+        jpMorph:  chip.morphText,
+        rawMorph: chip.rawMorph,
+        lemma:    chip.lemma,
+        jaWord:   chip.jaWord,
+        desc:     (abbottSmithDict && abbottSmithDict[chip.strong]?.description) || '',
+        ref:      chip.ref,
+    };
+}
+
+/** chip index → chip データを _wlvWordCache から取得 */
+function _wlvGetChipData(idx) {
+    if (_wlvWordCache && _wlvWordCache[idx]) {
+        return _wordToFlowChip(_wlvWordCache[idx], idx);
+    }
+    return null;
+}
+
+/**
+ * 「詳しく見る」ボタン：AppState.inspect.data が設定済みなので escalateToStudy と同じ処理
+ */
+function _wlvStudyBtnClick() {
+    if (!AppState.inspect.data) return;
+    const { greek, rawMorph, ref, lemma } = AppState.inspect.data;
+    openStudyPanel(greek, rawMorph, ref, lemma);
+}
+
+/* ── 原語タブ ── */
+function _buildGreekTabHTML(words) {
+    const JPN_POS = { V:'動詞', N:'名詞', A:'形容詞', R:'関代', P:'代名', T:'冠詞', D:'指代', ADV:'副詞', PREP:'前置', CONJ:'接続', PRT:'添語' };
+    const rows = words.map(w => {
+        const pos     = (w.morph || '').split('-')[0];
+        const posJpn  = JPN_POS[pos] || pos;
+        const strong  = String(w.strong || '').replace(/[^0-9]/g, '');
+        const jaWord  = w.japanese || w.gloss
+            || (abbottSmithDict && abbottSmithDict[strong]?.japanese) || '？';
+        return `<div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,0.04);">
+            <span style="font-family:'Gentium Plus',serif;font-size:1.15rem;color:var(--text-main);min-width:80px;flex-shrink:0;">${w.text || ''}</span>
+            <span style="font-size:0.75rem;color:var(--text-sub);flex:1;">${jaWord}</span>
+            <span style="font-size:0.6rem;color:var(--text-sub);opacity:0.5;flex-shrink:0;">${posJpn}</span>
+        </div>`;
+    }).join('');
+    return `<div style="font-size:0.62rem;font-weight:600;letter-spacing:0.06em;color:var(--text-sub);opacity:0.7;margin-bottom:10px;">原語一覧</div>
+    ${rows}
+    <p style="font-size:0.65rem;color:var(--text-sub);opacity:0.5;margin-top:12px;">語をクリックすると詳細が開きます（通常タブ）</p>`;
+}
+
+/**
+ * words キャッシュ：_wlvGetChipData が呼べるよう節ごとの words 配列を保持する。
+ * openWordListInStudyPanel が呼ばれるたびに上書きされる。
+ */
+let _wlvWordCache = [];
 
 /* ══════════════════════════════════════════
    パネルリサイズ（ドラッグ）
