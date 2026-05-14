@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05150800｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05150900｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -251,14 +251,14 @@ display: flex;
 flex-direction: column;
 }
 #reading-notes-area {
-padding: 0 22px 40px;
+padding: 0 22px 60px;
 }
 
 /* 語形ヘッダー（Word Head）*/
 .rn-word-head {
 padding: 18px 0 12px;
-border-bottom: 1px solid var(--border-soft);
-margin-bottom: 4px;
+border-bottom: 1px solid rgba(0,0,0,0.05);
+margin-bottom: 8px;
 }
 .rn-greek {
 font-family: 'Gentium Plus', serif;
@@ -288,12 +288,24 @@ display: block;
 margin-top: 6px;
 }
 
-/* 読書メモ本文 — prose annotation */
-/* signal card禁止。本の余白メモのような静かな文章として表示する */
+/* ══════════════════════════════════════════
+   Depth reading system
+   rn-prose → rn-deep（深く読む）の縦方向連続体
+   「別パネル」ではなく「本文が深く続く」感覚
+
+   Layer 1: rn-prose      — 表層の読書メモ
+   Layer 2: rn-deep-prose — 橋：表現の深読み
+   Layer 3: rn-grammar    — 最下層：grammar（折りたたみ）
+
+   open時: rn-proseが後景へ静かに沈む
+   ══════════════════════════════════════════ */
+
+/* Layer 1: surface reading prose */
 .rn-prose {
 padding: 14px 0 2px 14px;
 border-left: 2px solid rgba(90,110,130,0.15);
 margin-bottom: 0;
+transition: opacity 0.35s ease, transform 0.35s ease;
 }
 .rn-prose-text {
 font-family: 'Noto Serif JP', serif;
@@ -303,57 +315,105 @@ line-height: 2.0;
 letter-spacing: 0.01em;
 }
 
-/* 「原語を深く見る」展開セクション */
+/* open時：Layer 1 が後景へ沈む */
+.reading-deep-active .rn-prose {
+  opacity: 0.42;
+  transform: translateY(-2px);
+}
+
+/* depth trigger button — 「続きを読む」感覚 */
 .rn-deep-section {
-margin-top: 18px;
-padding-top: 14px;
-border-top: 1px solid rgba(0,0,0,0.06);
+margin-top: 20px;
 }
 .rn-deep-toggle {
 display: flex;
 align-items: center;
-gap: 5px;
+gap: 6px;
 width: 100%;
 background: none;
 border: none;
-padding: 6px 0;
-font-size: 0.7rem;
-font-weight: 500;
+padding: 8px 0 6px 14px;
+font-size: 0.75rem;
+font-weight: 400;
 letter-spacing: 0.02em;
 color: var(--text-sub);
 cursor: pointer;
-font-family: inherit;
+font-family: 'Noto Serif JP', serif;
 text-align: left;
-transition: color 0.12s;
-opacity: 0.65;
+transition: color 0.2s, opacity 0.2s;
+opacity: 0.5;
+border-left: 2px solid rgba(90,110,130,0.08);
 }
-.rn-deep-toggle:hover { color: var(--highlight); opacity: 1; }
+.rn-deep-toggle:hover {
+color: var(--highlight);
+opacity: 0.9;
+border-left-color: rgba(90,110,130,0.25);
+}
 .rn-deep-toggle-icon {
-font-size: 0.75rem;
-transition: transform 0.15s;
+font-size: 0.8rem;
+transition: transform 0.2s;
 display: inline-block;
-width: 10px;
-opacity: 0.6;
+width: 12px;
+opacity: 0.5;
+flex-shrink: 0;
 }
 .rn-deep-toggle.open .rn-deep-toggle-icon { transform: rotate(90deg); }
-.rn-deep-toggle.open { color: var(--highlight); opacity: 1; }
+.rn-deep-toggle.open {
+color: var(--text-sub);
+opacity: 0.75;
+border-left-color: rgba(90,110,130,0.2);
+}
 
-/* 原語詳細エリア（初期非表示） */
+/* Layer 2+3: deep body — prose の垂直延長として展開 */
 .rn-deep-body {
 display: none;
-padding: 10px 0 4px 10px;
-border-left: 1px solid rgba(0,0,0,0.07);
-margin-top: 4px;
+margin-top: 0;
+padding-left: 14px;
+border-left: 2px solid rgba(90,110,130,0.15);
 }
-.rn-deep-body.visible { display: block; animation: wlvDrawerIn 0.12s ease; }
+.rn-deep-body.visible {
+  display: block;
+  animation: depthUnfold 0.28s ease both;
+}
+@keyframes depthUnfold {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
-/* 詳細内：morphグリッド */
+/* Layer 2: deep reading prose — 橋としての自然文 */
+/* 直接 grammar ではなく、読書の延長として入る */
+.rn-deep-prose {
+padding: 12px 0 14px 0;
+border-bottom: 1px solid rgba(0,0,0,0.04);
+margin-bottom: 14px;
+}
+.rn-deep-prose-text {
+font-family: 'Noto Serif JP', serif;
+font-size: 0.83rem;
+color: var(--text-main);
+line-height: 2.05;
+letter-spacing: 0.01em;
+}
+
+/* Layer 3: grammar section label — 最下層の静かなラベル */
+.rn-grammar-label {
+font-size: 0.54rem;
+font-weight: 700;
+letter-spacing: 0.1em;
+color: var(--text-sub);
+opacity: 0.35;
+display: block;
+margin-bottom: 10px;
+text-transform: uppercase;
+}
+
+/* grammar grid: 同温度・同余白 */
 .rn-morph-grid {
 display: grid;
 grid-template-columns: auto 1fr;
 gap: 3px 14px;
 font-size: 0.78rem;
-margin-bottom: 10px;
+margin-bottom: 12px;
 }
 .rn-morph-key {
 color: var(--text-sub);
@@ -362,47 +422,48 @@ font-weight: 400;
 padding: 2px 0;
 border-bottom: 1px solid rgba(0,0,0,0.03);
 white-space: nowrap;
+opacity: 0.7;
 }
 .rn-morph-val {
 color: var(--text-main);
-font-weight: 500;
+font-weight: 400;
 font-size: 0.78rem;
 padding: 2px 0;
 border-bottom: 1px solid rgba(0,0,0,0.03);
 }
 .rn-morph-val.core { font-weight: 600; }
 
-/* 辞書引用（Abbott-Smith） */
+/* 辞書引用（Abbott-Smith）*/
 .rn-lexicon {
-font-size: 0.78rem;
+font-size: 0.77rem;
 color: var(--text-sub);
-line-height: 1.75;
-padding: 8px 0 4px 10px;
-border-left: 2px solid rgba(90,110,130,0.12);
+line-height: 1.8;
+padding: 8px 0 4px;
 margin-top: 6px;
+border-top: 1px solid rgba(0,0,0,0.04);
 }
 .rn-lexicon-label {
-font-size: 0.58rem;
+font-size: 0.54rem;
 font-weight: 700;
-letter-spacing: 0.07em;
+letter-spacing: 0.08em;
 text-transform: uppercase;
 color: var(--text-sub);
-opacity: 0.5;
+opacity: 0.4;
 display: block;
-margin-bottom: 3px;
+margin-bottom: 4px;
 }
 
-/* 詳細内：外部検索リンク */
+/* 外部検索リンク */
 .rn-search-links {
 display: flex;
 flex-wrap: wrap;
 gap: 6px;
-margin-top: 10px;
-padding-top: 8px;
-border-top: 1px solid rgba(0,0,0,0.05);
+margin-top: 14px;
+padding-top: 10px;
+border-top: 1px solid rgba(0,0,0,0.04);
 }
 .rn-search-link {
-font-size: 0.68rem;
+font-size: 0.65rem;
 color: var(--text-sub);
 background: none;
 border: none;
@@ -410,12 +471,13 @@ padding: 0;
 cursor: pointer;
 text-decoration: underline;
 text-underline-offset: 2px;
-text-decoration-color: rgba(0,0,0,0.2);
+text-decoration-color: rgba(0,0,0,0.18);
 font-family: inherit;
 letter-spacing: 0.01em;
 transition: color 0.12s;
+opacity: 0.7;
 }
-.rn-search-link:hover { color: var(--highlight); }
+.rn-search-link:hover { color: var(--highlight); opacity: 1; }
 
 /* 後方互換：分析タブバーは完全非表示 */
 .analysis-tabs { display: none !important; }
@@ -1520,77 +1582,81 @@ details[open] .study-summary::before {
     align-self: center;
 }
 
-/* ── chip詳細ドロワー（クリックで展開・flow-streamの直下） ── */
-/* 底部固定しない。streamの直後にインラインで展開する。 */
+/* ── chip詳細ドロワー — "深く潜る" continuity design ── */
+/* 別パネルではなく、chip streamの下に自然に続く深層として展開する */
 .wlv-detail-drawer {
-    margin: 10px 18px 0;
-    padding: 12px 14px 12px;
-    border-left: 2px solid rgba(90,110,130,0.18);
+    margin: 12px 0 0;
+    padding: 14px 18px 14px 32px;
     display: none;
-    animation: wlvDrawerIn 0.12s ease;
+    border-left: 2px solid rgba(90,110,130,0.15);
+    background: transparent;
+    position: relative;
 }
-.wlv-detail-drawer.visible { display: block; }
+/* 左線の上部に小さな点を打って「ここから潜る」感を出す */
+.wlv-detail-drawer::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 16px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(90,110,130,0.25);
+}
+.wlv-detail-drawer.visible {
+    display: block;
+    animation: depthUnfold 0.28s ease both;
+}
 @keyframes wlvDrawerIn {
     from { opacity: 0; transform: translateY(-3px); }
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ドロワー内：ギリシャ語（主役） */
+/* ドロワー内：ギリシャ語 — 読書温度で */
 .wlv-detail-greek {
     font-family: 'Gentium Plus', serif;
-    font-size: 1.45rem;
+    font-size: 1.3rem;
     color: var(--text-main);
     line-height: 1.2;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
+    opacity: 0.85;
 }
 /* ドロワー内：日本語グロス */
 .wlv-detail-ja {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     color: var(--text-sub);
-    margin-bottom: 5px;
+    margin-bottom: 10px;
+    opacity: 0.7;
 }
-/* ドロワー内：文法メモ（1行・静か） */
+/* ドロワー内：文法メモ（廃止：resonanceに統合） */
 .wlv-detail-morph {
-    font-size: 0.7rem;
-    color: var(--text-sub);
-    opacity: 0.65;
-    line-height: 1.6;
-    margin-bottom: 5px;
+    display: none;
 }
-/* ドロワー内：signalタグ */
+/* ドロワー内：signalタグ（廃止） */
 .wlv-detail-signals {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-bottom: 8px;
+    display: none;
 }
 .wlv-signal-tag {
-    font-size: 0.6rem;
-    padding: 2px 6px;
-    border-radius: 3px;
-    background: rgba(90,110,130,0.06);
-    color: var(--highlight);
-    letter-spacing: 0.02em;
-    font-weight: 600;
-    font-family: 'Noto Sans JP', sans-serif;
+    display: none;
 }
-/* ドロワー内：「詳しく見る」ボタン */
+/* ドロワー内：「深く読む」ボタン */
 .wlv-detail-study-btn {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    font-family: inherit;
-    color: var(--highlight);
+    gap: 5px;
+    font-size: 0.7rem;
+    font-weight: 400;
+    font-family: 'Noto Serif JP', serif;
+    color: var(--text-sub);
     background: transparent;
     border: none;
-    padding: 0;
+    padding: 8px 0 0;
     cursor: pointer;
     letter-spacing: 0.02em;
-    transition: opacity 0.12s;
+    transition: color 0.15s, opacity 0.15s;
+    opacity: 0.5;
 }
-.wlv-detail-study-btn:hover { opacity: 0.7; }
+.wlv-detail-study-btn:hover { color: var(--highlight); opacity: 0.9; }
 
 /* ── ドロワー下のヒントテキスト ── */
 .wlv-flow-hint {
@@ -1678,16 +1744,16 @@ details[open] .study-summary::before {
     font-size: 0.88rem;
 }
 
-/* ドロワー内：signal tagをやめて「この節での響き」1行proseに */
+/* ドロワー内：「この節での響き」prose — 同読書温度で */
 .wlv-detail-resonance {
     font-family: 'Noto Serif JP', serif;
-    font-size: 0.82rem;
-    color: var(--text-sub);
-    line-height: 1.85;
-    padding: 6px 0 2px 10px;
-    border-left: 1px solid rgba(90,110,130,0.15);
-    margin-bottom: 6px;
-    letter-spacing: 0.005em;
+    font-size: 0.83rem;
+    color: var(--text-main);
+    line-height: 1.95;
+    padding: 0 0 10px 0;
+    margin-bottom: 0;
+    letter-spacing: 0.01em;
+    opacity: 0.82;
 }
 </style>
 
@@ -2362,7 +2428,62 @@ function _renderReadingNotes(p) {
     /* ── HTML構築：複数のprosePartを別段落として自然に流す ── */
     const notesHTML = `<div class="rn-prose"><p class="rn-prose-text">${proseParts.join('<br>')}</p></div>`;
 
-    /* 原語詳細（折りたたみ） */
+    /* ── Layer 2: deep reading prose（橋） ── */
+    /* grammar より先に来る。読書の延長として入る。 */
+    const deepProseParts = [];
+
+    /* 動詞の深層：「どう続いているか」「どんな姿勢か」 */
+    if (pos === 'V') {
+        if (mood === 'imperative') {
+            deepProseParts.push('呼びかけとして語られているこの語は、説明や宣言ではなく、相手に向かって直接方向を指し示す言葉です。');
+            if (tense === 'present') {
+                deepProseParts.push('現在形が使われていることで、「一度だけ」ではなく「続けて」という持続の含みが生まれています。');
+            }
+        } else if (mood === 'subjunctive') {
+            deepProseParts.push('断言ではなく、願い・目的・可能性として語る調子がこの語に込められています。');
+        } else if (mood === 'participle') {
+            if (tense === 'aorist') {
+                deepProseParts.push('この語は主な動作の前に起きていることとして描かれています。背景から主な出来事を支える位置にあります。');
+            } else {
+                deepProseParts.push('主な動作と同時に進んでいる状況として描かれています。情景を添えながら、主語の動作を支えています。');
+            }
+        } else if (mood === 'infinitive') {
+            deepProseParts.push('目的や内容として添えられた語です。「何のために」あるいは「何を」という方向を補っています。');
+        } else if (tense === 'perfect') {
+            deepProseParts.push('完了の語は、過去に起きた出来事が「今もそうである」という状態を含んでいます。かつての出来事の余韻が、この節の今につながっています。');
+        } else if (tense === 'aorist' && mood === 'indicative') {
+            deepProseParts.push('その出来事を「ひとつの事実」として提示しています。時間の流れの中で点として刻まれた、静かな宣言です。');
+        }
+    }
+
+    /* 名詞・接続詞の深層 */
+    if (pos === 'CONJ') {
+        const DEEP_CONJ = {
+            'γάρ':  'この語が置かれることで、前に語られたことへの「なぜ」が始まります。議論の骨格が見えてくる箇所です。',
+            'ἀλλά': 'ここで著者は方向を変えています。前に語られたことへの対抗や補正として、この語が流れの転換点になっています。',
+            'οὖν':  '前の節で積み上げられた議論が、ここで結論へと収束します。「だから」という言葉が、全体の流れに着地点を与えています。',
+            'ἵνα':  '著者の意図がここに現れています。「何のために」という問いへの答えが、この語の後に続きます。',
+        };
+        const dc = DEEP_CONJ[word];
+        if (dc) deepProseParts.push(dc);
+    }
+
+    if (['N','A'].includes(pos) && p.case) {
+        if (p.case === 'genitive' && jaWord) {
+            deepProseParts.push(`「${jaWord}」が属格で置かれています。所有・関係・性質など、前後の語との結びつきを深く読む余地があります。`);
+        } else if (p.case === 'nominative' && jaWord) {
+            deepProseParts.push(`「${jaWord}」が文の中心に置かれています。この節で何が主語として機能しているかを確認するポイントです。`);
+        }
+    }
+
+    /* deep prose がなければ表示しない */
+    const deepProseHTML = deepProseParts.length > 0
+        ? `<div class="rn-deep-prose">
+               <p class="rn-deep-prose-text">${deepProseParts.join('<br>')}</p>
+           </div>`
+        : '';
+
+    /* ── Layer 3: grammar（最下層） ── */
     const JPN_FULL = {
         pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
         tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'大完了' },
@@ -2421,11 +2542,11 @@ function _renderReadingNotes(p) {
         ${notesHTML}
         <div class="rn-deep-section">
             <button class="rn-deep-toggle" id="rn-deep-toggle" onclick="_rnToggleDeep()">
-                <span class="rn-deep-toggle-icon">›</span>深く読む
+                <span class="rn-deep-toggle-icon">›</span>もう少し奥まで読む
             </button>
             <div class="rn-deep-body" id="rn-deep-body">
-                ${morphGridHTML}
-                ${abbottHTML}
+                ${deepProseHTML}
+                ${(morphGridHTML || abbottHTML) ? `<span class="rn-grammar-label">原語メモ</span>${morphGridHTML}${abbottHTML}` : ''}
                 <div class="rn-search-links">
                     <a href="${morphSearchURL}" class="rn-search-link">同語形を探す</a>
                     <a href="${syntaxURL}"      class="rn-search-link">構文で探す</a>
@@ -2437,19 +2558,28 @@ function _renderReadingNotes(p) {
 }
 
 function _rnToggleDeep() {
-    const btn  = document.getElementById('rn-deep-toggle');
-    const body = document.getElementById('rn-deep-body');
+    const btn   = document.getElementById('rn-deep-toggle');
+    const body  = document.getElementById('rn-deep-body');
+    const area  = document.getElementById('reading-notes-area');
     if (!btn || !body) return;
     const isOpen = body.classList.contains('visible');
+
     body.classList.toggle('visible', !isOpen);
     btn.classList.toggle('open', !isOpen);
+
+    /* Layer 1 prose を後景化（reading-deep-active で rn-prose が沈む） */
+    if (area) area.classList.toggle('reading-deep-active', !isOpen);
+
+    /* アイコン回転 */
     btn.querySelector('.rn-deep-toggle-icon').style.transform = isOpen ? '' : 'rotate(90deg)';
-    const label = btn.querySelector('.rn-deep-toggle-icon').nextSibling;
-    if (label) {
-        const span = btn;
-        const nodes = [...span.childNodes];
-        nodes.forEach(n => { if (n.nodeType === 3) n.textContent = isOpen ? '深く読む' : '深く読む（閉じる）'; });
-    }
+
+    /* テキスト更新 */
+    const nodes = [...btn.childNodes];
+    nodes.forEach(n => {
+        if (n.nodeType === 3) {
+            n.textContent = isOpen ? 'もう少し奥まで読む' : '表層に戻る';
+        }
+    });
 }
 
 /* switchAnalysisTab: 後方互換のため残す（内部ではno-op）*/
@@ -4197,14 +4327,14 @@ function _buildFlowTabHTML(words) {
         </span>`;
     }).join('');
 
-    /* ── 詳細ドロワー：signal tag列挙をやめ「この節での響き」1行proseへ ── */
+    /* ── 詳細ドロワー：prosecontinuity design ── */
     const drawerHTML = `
         <div class="wlv-detail-drawer" id="wlv-detail-drawer">
             <div class="wlv-detail-greek" id="wlv-dd-greek">—</div>
             <div class="wlv-detail-ja"    id="wlv-dd-ja">—</div>
             <div class="wlv-detail-resonance" id="wlv-dd-resonance"></div>
             <button class="wlv-detail-study-btn" id="wlv-dd-study-btn" onclick="_wlvStudyBtnClick()">
-                深く読む →
+                もう少し奥まで読む →
             </button>
         </div>`;
 
@@ -4956,7 +5086,10 @@ function closeStudyPanel() {
     const notesWrap = document.getElementById('reading-notes-wrap');
     if (notesWrap) { notesWrap.style.display = 'none'; }
     const notesArea = document.getElementById('reading-notes-area');
-    if (notesArea) notesArea.innerHTML = '';
+    if (notesArea) {
+        notesArea.innerHTML = '';
+        notesArea.classList.remove('reading-deep-active');
+    }
 
     /* 後方互換 */
     const area = document.getElementById('analysis-content-area');
