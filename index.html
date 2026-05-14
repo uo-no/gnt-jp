@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05140930｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05141130｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -1102,6 +1102,228 @@ details[open] .study-summary::before {
 }
 .study-details-body {
     padding: 0 0 12px 16px;
+}
+
+/* ══════════════════════════════════════════
+   Research Tools — Study タブ内の静かな探索補助
+   ══════════════════════════════════════════
+
+   設計思想：
+   - Reading Evidence（語形・論理構造・意味論的根拠）の下に配置
+   - 初期状態は折りたたみ。「研究ツールを開く」で展開
+   - card乱立禁止・dense search UI禁止・analytics感禁止
+   - filter controls は compact・expandable
+   - 読書空間を壊さない quiet な外観を維持
+   ══════════════════════════════════════════ */
+
+/* Research Tools 全体ラッパー */
+.rt-section {
+    margin-top: 8px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+    padding-top: 8px;
+}
+.rt-open-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 8px 0;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text-sub);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: color 0.12s;
+}
+.rt-open-btn:hover { color: var(--highlight); }
+.rt-open-btn-icon {
+    font-size: 0.7rem;
+    opacity: 0.5;
+    transition: transform 0.15s;
+    display: inline-block;
+    width: 10px;
+}
+.rt-open-btn.expanded .rt-open-btn-icon { transform: rotate(90deg); }
+
+/* Research Tools 本体 */
+.rt-body {
+    display: none;
+}
+.rt-body.visible { display: block; }
+
+/* 各 Research Tool（Morph / Syntax / Semantic）の切り替えタブ */
+.rt-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-soft);
+    margin-bottom: 12px;
+}
+.rt-tab {
+    padding: 5px 12px 6px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-sub);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.12s, border-color 0.12s;
+    letter-spacing: 0.02em;
+    position: relative;
+    bottom: -1px;
+}
+.rt-tab:hover { color: var(--highlight); }
+.rt-tab.active {
+    color: var(--highlight);
+    border-bottom-color: var(--highlight);
+}
+
+/* 各 Research Tool のコンテンツエリア */
+.rt-content { display: none; }
+.rt-content.visible { display: block; }
+
+/* フィルター行：label + control をコンパクトに並べる */
+.rt-filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    margin-bottom: 10px;
+    align-items: baseline;
+}
+.rt-filter-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--text-sub);
+    opacity: 0.6;
+    min-width: 24px;
+    flex-shrink: 0;
+}
+/* select コントロール：quiet & compact */
+.rt-select {
+    font-size: 0.72rem;
+    font-family: inherit;
+    color: var(--text-main);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-soft);
+    border-radius: 5px;
+    padding: 3px 6px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.12s;
+    max-width: 110px;
+}
+.rt-select:focus { border-color: rgba(90,110,130,0.4); }
+
+/* 実行ボタン */
+.rt-run-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 14px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: inherit;
+    letter-spacing: 0.03em;
+    color: var(--highlight);
+    background: transparent;
+    border: 1px solid rgba(90,110,130,0.25);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+    margin-top: 4px;
+}
+.rt-run-btn:hover {
+    background: var(--highlight-light);
+    border-color: rgba(90,110,130,0.4);
+}
+.rt-run-btn:active { opacity: 0.7; }
+
+/* 検索結果エリア */
+.rt-results {
+    margin-top: 10px;
+    min-height: 0;
+}
+/* ローディング（ac-loading と同じアニメーションを流用） */
+.rt-loading {
+    font-size: 0.75rem;
+    color: var(--text-sub);
+    padding: 10px 0;
+    text-align: center;
+    animation: ac-blink 1.2s ease-in-out infinite;
+    display: none;
+}
+.rt-loading.visible { display: block; }
+
+/* 結果ブロック：静かな paper-like カード。乱立禁止・1項目ずつ縦積み */
+.rt-result-block {
+    border-left: 2px solid rgba(90,110,130,0.15);
+    padding: 6px 0 6px 10px;
+    margin-bottom: 8px;
+    font-size: 0.82rem;
+    color: var(--text-main);
+    line-height: 1.75;
+}
+.rt-result-block:last-child { margin-bottom: 0; }
+.rt-result-kind {
+    font-size: 0.56rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--text-sub);
+    opacity: 0.5;
+    display: block;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+}
+.rt-result-text {
+    font-size: 0.82rem;
+    color: var(--text-main);
+    line-height: 1.75;
+}
+.rt-result-ref {
+    font-size: 0.65rem;
+    color: var(--text-sub);
+    opacity: 0.65;
+    margin-top: 2px;
+    display: block;
+}
+/* 空結果メッセージ */
+.rt-no-result {
+    font-size: 0.78rem;
+    color: var(--text-sub);
+    text-align: center;
+    padding: 16px 0;
+    opacity: 0.7;
+}
+/* Semantic Search：concept チップ選択 */
+.rt-concept-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+.rt-concept-chip {
+    font-size: 0.68rem;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: var(--bg-panel);
+    color: var(--text-sub);
+    border: 1px solid var(--border-soft);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+    letter-spacing: 0.01em;
+    user-select: none;
+}
+.rt-concept-chip.selected {
+    background: var(--highlight-light);
+    color: var(--highlight);
+    border-color: rgba(90,110,130,0.3);
+    font-weight: 600;
 }
 </style>
 
@@ -2290,10 +2512,173 @@ function _renderStudyTab(area, p) {
                 </div>
             </div>
         </details>
+
+        <!-- Research Tools（折りたたみ。初期状態は閉じている） -->
+        <div class="rt-section" id="rt-section">
+            <button class="rt-open-btn" id="rt-open-btn" onclick="_rtToggle()">
+                <span class="rt-open-btn-icon">›</span>研究ツールを開く
+            </button>
+            <div class="rt-body" id="rt-body">
+                <!-- Research Tools 内タブ: 語形検索 / 構文検索 / 意味検索 -->
+                <div class="rt-tabs">
+                    <button class="rt-tab active" id="rt-tab-morph"   onclick="_rtSwitchTab('morph')">語形検索</button>
+                    <button class="rt-tab"        id="rt-tab-syntax"  onclick="_rtSwitchTab('syntax')">構文検索</button>
+                    <button class="rt-tab"        id="rt-tab-sem"     onclick="_rtSwitchTab('sem')">意味検索</button>
+                </div>
+
+                <!-- 語形検索 -->
+                <div class="rt-content visible" id="rt-content-morph">
+                    <div class="rt-filter-group">
+                        <span class="rt-filter-label">品詞</span>
+                        <select class="rt-select" id="rt-m-pos">
+                            <option value="">指定なし</option>
+                            <option value="V" ${p.pos==='V'?'selected':''}>動詞</option>
+                            <option value="N" ${p.pos==='N'?'selected':''}>名詞</option>
+                            <option value="A" ${p.pos==='A'?'selected':''}>形容詞</option>
+                            <option value="P" ${p.pos==='P'?'selected':''}>人称代名詞</option>
+                            <option value="R" ${p.pos==='R'?'selected':''}>関係代名詞</option>
+                            <option value="T" ${p.pos==='T'?'selected':''}>冠詞</option>
+                            <option value="CONJ" ${p.pos==='CONJ'?'selected':''}>接続詞</option>
+                            <option value="PREP" ${p.pos==='PREP'?'selected':''}>前置詞</option>
+                        </select>
+                    </div>
+                    <div class="rt-filter-group">
+                        <span class="rt-filter-label">時制</span>
+                        <select class="rt-select" id="rt-m-tense">
+                            <option value="">指定なし</option>
+                            <option value="present"    ${p.tense==='present'?'selected':''}>現在</option>
+                            <option value="imperfect"  ${p.tense==='imperfect'?'selected':''}>未完了</option>
+                            <option value="aorist"     ${p.tense==='aorist'?'selected':''}>アオリスト</option>
+                            <option value="perfect"    ${p.tense==='perfect'?'selected':''}>完了</option>
+                            <option value="future"     ${p.tense==='future'?'selected':''}>未来</option>
+                        </select>
+                        <span class="rt-filter-label">法</span>
+                        <select class="rt-select" id="rt-m-mood">
+                            <option value="">指定なし</option>
+                            <option value="indicative"  ${p.mood==='indicative'?'selected':''}>直説法</option>
+                            <option value="imperative"  ${p.mood==='imperative'?'selected':''}>命令法</option>
+                            <option value="subjunctive" ${p.mood==='subjunctive'?'selected':''}>接続法</option>
+                            <option value="participle"  ${p.mood==='participle'?'selected':''}>分詞</option>
+                            <option value="infinitive"  ${p.mood==='infinitive'?'selected':''}>不定詞</option>
+                        </select>
+                    </div>
+                    <div class="rt-filter-group">
+                        <span class="rt-filter-label">態</span>
+                        <select class="rt-select" id="rt-m-voice">
+                            <option value="">指定なし</option>
+                            <option value="active"  ${p.voice==='active'?'selected':''}>能動</option>
+                            <option value="middle"  ${p.voice==='middle'?'selected':''}>中動</option>
+                            <option value="passive" ${p.voice==='passive'?'selected':''}>受動</option>
+                        </select>
+                        <span class="rt-filter-label">格</span>
+                        <select class="rt-select" id="rt-m-case">
+                            <option value="">指定なし</option>
+                            <option value="nominative" ${p.case==='nominative'?'selected':''}>主格</option>
+                            <option value="genitive"   ${p.case==='genitive'?'selected':''}>属格</option>
+                            <option value="dative"     ${p.case==='dative'?'selected':''}>与格</option>
+                            <option value="accusative" ${p.case==='accusative'?'selected':''}>対格</option>
+                        </select>
+                    </div>
+                    <div class="rt-filter-group">
+                        <span class="rt-filter-label">数</span>
+                        <select class="rt-select" id="rt-m-number">
+                            <option value="">指定なし</option>
+                            <option value="singular" ${p.number==='singular'?'selected':''}>単数</option>
+                            <option value="plural"   ${p.number==='plural'?'selected':''}>複数</option>
+                        </select>
+                        <span class="rt-filter-label">性</span>
+                        <select class="rt-select" id="rt-m-gender">
+                            <option value="">指定なし</option>
+                            <option value="masculine" ${p.gender==='masculine'?'selected':''}>男性</option>
+                            <option value="feminine"  ${p.gender==='feminine'?'selected':''}>女性</option>
+                            <option value="neuter"    ${p.gender==='neuter'?'selected':''}>中性</option>
+                        </select>
+                    </div>
+                    <button class="rt-run-btn" onclick="_rtRunMorphSearch()">この条件で探す</button>
+                    <div class="rt-loading" id="rt-m-loading">検索中…</div>
+                    <div class="rt-results" id="rt-m-results"></div>
+                </div>
+
+                <!-- 構文検索 -->
+                <div class="rt-content" id="rt-content-syntax">
+                    <div style="font-size:0.78rem;color:var(--text-sub);line-height:1.7;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(0,0,0,0.04);">
+                        論理構造・節関係で探します。「〜が主語で〜が述語の箇所」のように、文法記号ではなく読解の言葉で検索します。
+                    </div>
+                    <div class="rt-filter-group">
+                        <span class="rt-filter-label">節の種類</span>
+                        <select class="rt-select" id="rt-s-clause">
+                            <option value="">指定なし</option>
+                            <option value="purpose">目的節（ἵνα）</option>
+                            <option value="result">結果節（ὥστε）</option>
+                            <option value="reason">理由節（γάρ）</option>
+                            <option value="condition">条件節（εἰ）</option>
+                            <option value="contrast">対比（ἀλλά）</option>
+                            <option value="conclusion">結論節（οὖν）</option>
+                        </select>
+                    </div>
+                    <div class="rt-filter-group">
+                        <span class="rt-filter-label">動詞の法</span>
+                        <select class="rt-select" id="rt-s-mood">
+                            <option value="">指定なし</option>
+                            <option value="imperative">命令法（指示）</option>
+                            <option value="subjunctive">接続法（目的・願望）</option>
+                            <option value="indicative">直説法（事実）</option>
+                            <option value="participle">分詞（修飾）</option>
+                        </select>
+                        <span class="rt-filter-label">態</span>
+                        <select class="rt-select" id="rt-s-voice">
+                            <option value="">指定なし</option>
+                            <option value="passive">受動（神的受動）</option>
+                            <option value="middle">中動（関与）</option>
+                            <option value="active">能動</option>
+                        </select>
+                    </div>
+                    <div class="rt-filter-group">
+                        <span class="rt-filter-label">並列構造</span>
+                        <select class="rt-select" id="rt-s-parallel">
+                            <option value="">指定なし</option>
+                            <option value="coordinate">等位接続（καί）</option>
+                            <option value="antithesis">対照構造</option>
+                            <option value="chiasm">交差配列</option>
+                        </select>
+                    </div>
+                    <button class="rt-run-btn" onclick="_rtRunSyntaxSearch()">構文で探す</button>
+                    <div class="rt-loading" id="rt-s-loading">構文を確認中…</div>
+                    <div class="rt-results" id="rt-s-results"></div>
+                </div>
+
+                <!-- 意味検索 -->
+                <div class="rt-content" id="rt-content-sem">
+                    <div style="font-size:0.78rem;color:var(--text-sub);line-height:1.7;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(0,0,0,0.04);">
+                        意味カテゴリ・概念で探します。「契約的な関係を示す語」「移動を伴う動詞」のように、意味の側面から探索します。
+                    </div>
+                    <div class="rt-concept-grid" id="rt-sem-chips">
+                        <span class="rt-concept-chip" data-concept="covenant">契約・忠実</span>
+                        <span class="rt-concept-chip" data-concept="grace">恵み・赦し</span>
+                        <span class="rt-concept-chip" data-concept="faith">信仰・信頼</span>
+                        <span class="rt-concept-chip" data-concept="love">愛・自己犠牲</span>
+                        <span class="rt-concept-chip" data-concept="law">律法・戒め</span>
+                        <span class="rt-concept-chip" data-concept="spirit">御霊・息吹</span>
+                        <span class="rt-concept-chip" data-concept="flesh">肉・欲</span>
+                        <span class="rt-concept-chip" data-concept="light">光・啓示</span>
+                        <span class="rt-concept-chip" data-concept="darkness">闇・罪</span>
+                        <span class="rt-concept-chip" data-concept="movement">移動・歩み</span>
+                        <span class="rt-concept-chip" data-concept="speech">語る・告げる</span>
+                        <span class="rt-concept-chip" data-concept="referent">人称追跡</span>
+                    </div>
+                    <button class="rt-run-btn" onclick="_rtRunSemSearch()">意味で探す</button>
+                    <div class="rt-loading" id="rt-sem-loading">意味を探索中…</div>
+                    <div class="rt-results" id="rt-sem-results"></div>
+                </div>
+            </div>
+        </div>
     `;
 
     /* AI読解説明を非同期で流し込む */
     _fetchSyntaxAI(p, jaWord);
+
+    /* Semantic Search チップのクリック制御を初期化 */
+    _rtInitSemChips();
 }
 
 /**
@@ -2526,6 +2911,301 @@ async function _fetchSyntaxAI(p, jaWord) {
     } catch(e) {
         if (loadingEl) loadingEl.style.display = 'none';
     }
+}
+
+/* ══════════════════════════════════════════
+   Research Tools — Study タブ内の静かな探索補助
+   ══════════════════════════════════════════
+
+   責務分離:
+     _rtToggle()          … Research Tools の開閉
+     _rtSwitchTab(name)   … Morph / Syntax / Sem タブ切り替え
+     _rtInitSemChips()    … Semantic チップのクリック制御初期化
+     _rtRunMorphSearch()  … Morph Search 実行（Anthropic API）
+     _rtRunSyntaxSearch() … Syntax Search 実行（Anthropic API）
+     _rtRunSemSearch()    … Semantic Search 実行（Anthropic API）
+     _rtCallAI(prompt, loadingId, resultsId, parser)
+                          … API 共通呼び出し・結果表示
+
+   設計方針:
+     - AIは「読解補助」に限定：用例説明・ニュアンス解説のみ
+     - 長文講義・神学断定・辞書dump禁止
+     - エラー時は静かに失敗（読書UXを壊さない）
+   ══════════════════════════════════════════ */
+
+/** Research Tools の開閉トグル */
+function _rtToggle() {
+    const btn  = document.getElementById('rt-open-btn');
+    const body = document.getElementById('rt-body');
+    if (!btn || !body) return;
+    const isOpen = body.classList.contains('visible');
+    body.classList.toggle('visible', !isOpen);
+    btn.classList.toggle('expanded', !isOpen);
+    btn.querySelector('.rt-open-btn-icon').textContent = isOpen ? '›' : '›';
+    /* ラベルも切り替え */
+    const label = btn.childNodes[1];
+    if (label) label.textContent = isOpen ? '研究ツールを開く' : '研究ツールを閉じる';
+}
+
+/** Research Tools 内タブ切り替え（morph / syntax / sem） */
+function _rtSwitchTab(name) {
+    ['morph','syntax','sem'].forEach(t => {
+        const tab = document.getElementById(`rt-tab-${t}`);
+        const cnt = document.getElementById(`rt-content-${t}`);
+        if (tab) tab.classList.toggle('active', t === name);
+        if (cnt) cnt.classList.toggle('visible', t === name);
+    });
+}
+
+/** Semantic Search チップの単一選択制御を初期化 */
+function _rtInitSemChips() {
+    const chips = document.querySelectorAll('.rt-concept-chip');
+    chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            const wasSelected = chip.classList.contains('selected');
+            chips.forEach(c => c.classList.remove('selected'));
+            if (!wasSelected) chip.classList.add('selected');
+        });
+    });
+}
+
+/**
+ * API 共通呼び出し。
+ * @param {string}   prompt      APIに送るプロンプト
+ * @param {string}   loadingId   ローディングdivのid
+ * @param {string}   resultsId   結果描画divのid
+ * @param {Function} renderer    (text: string, resultsEl: HTMLElement) => void
+ */
+async function _rtCallAI(prompt, loadingId, resultsId, renderer) {
+    const loadingEl = document.getElementById(loadingId);
+    const resultsEl = document.getElementById(resultsId);
+    if (!loadingEl || !resultsEl) return;
+
+    resultsEl.innerHTML = '';
+    loadingEl.classList.add('visible');
+
+    try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'claude-sonnet-4-20250514',
+                max_tokens: 1000,
+                messages: [{ role: 'user', content: prompt }]
+            })
+        });
+        if (!res.ok) throw new Error(`API ${res.status}`);
+        const data = await res.json();
+        const text = (data.content || []).map(b => b.text || '').join('').trim();
+        loadingEl.classList.remove('visible');
+        renderer(text, resultsEl);
+    } catch(e) {
+        loadingEl.classList.remove('visible');
+        resultsEl.innerHTML = `<div class="rt-no-result">検索できませんでした。しばらく後でお試しください。</div>`;
+    }
+}
+
+/**
+ * 結果テキストを rt-result-block 群に変換して描画。
+ * AIには「---」区切りで複数結果を返すよう指示する。
+ * 各ブロックは「種別: / 内容: / 参照:」の3行構成（なければ省略）。
+ */
+function _rtRenderResults(text, resultsEl) {
+    if (!text) {
+        resultsEl.innerHTML = `<div class="rt-no-result">該当する用例が見つかりませんでした。</div>`;
+        return;
+    }
+    /* ブロック分割（--- 区切り）*/
+    const blocks = text.split(/---+/).map(b => b.trim()).filter(Boolean);
+    if (blocks.length === 0) {
+        resultsEl.innerHTML = `<div class="rt-result-block"><span class="rt-result-text">${text.replace(/\n/g,'<br>')}</span></div>`;
+        return;
+    }
+    resultsEl.innerHTML = blocks.map(block => {
+        /* 各ブロックからラベル・本文・参照を抽出 */
+        const kindMatch = block.match(/^種別[:：]\s*(.+)/m);
+        const textMatch = block.match(/^内容[:：]\s*([\s\S]+?)(?=参照[:：]|$)/m);
+        const refMatch  = block.match(/^参照[:：]\s*(.+)/m);
+        const kind   = kindMatch ? kindMatch[1].trim() : '';
+        const body   = textMatch ? textMatch[1].trim() : block.replace(/^種別.+\n?/m,'').trim();
+        const ref    = refMatch  ? refMatch[1].trim()  : '';
+        return `<div class="rt-result-block">
+            ${kind ? `<span class="rt-result-kind">${kind}</span>` : ''}
+            <span class="rt-result-text">${body.replace(/\n/g,'<br>')}</span>
+            ${ref  ? `<span class="rt-result-ref">📍 ${ref}</span>` : ''}
+        </div>`;
+    }).join('');
+}
+
+/** Morph Search 実行 */
+function _rtRunMorphSearch() {
+    const posEl    = document.getElementById('rt-m-pos');
+    const tenseEl  = document.getElementById('rt-m-tense');
+    const moodEl   = document.getElementById('rt-m-mood');
+    const voiceEl  = document.getElementById('rt-m-voice');
+    const caseEl   = document.getElementById('rt-m-case');
+    const numberEl = document.getElementById('rt-m-number');
+    const genderEl = document.getElementById('rt-m-gender');
+    if (!posEl) return;
+
+    const JPN = {
+        pos:    {V:'動詞',N:'名詞',A:'形容詞',P:'人称代名詞',R:'関係代名詞',T:'冠詞',CONJ:'接続詞',PREP:'前置詞'},
+        tense:  {present:'現在',imperfect:'未完了',aorist:'アオリスト',perfect:'完了',future:'未来'},
+        mood:   {indicative:'直説法',imperative:'命令法',subjunctive:'接続法',participle:'分詞',infinitive:'不定詞'},
+        voice:  {active:'能動',middle:'中動',passive:'受動'},
+        case:   {nominative:'主格',genitive:'属格',dative:'与格',accusative:'対格'},
+        number: {singular:'単数',plural:'複数'},
+        gender: {masculine:'男性',feminine:'女性',neuter:'中性'},
+    };
+
+    const conditions = [];
+    const posV  = posEl.value;    if (posV)    conditions.push(`品詞：${JPN.pos[posV]    || posV}`);
+    const tenV  = tenseEl.value;  if (tenV)    conditions.push(`時制：${JPN.tense[tenV]  || tenV}`);
+    const moodV = moodEl.value;   if (moodV)   conditions.push(`法：${JPN.mood[moodV]    || moodV}`);
+    const voiV  = voiceEl.value;  if (voiV)    conditions.push(`態：${JPN.voice[voiV]    || voiV}`);
+    const casV  = caseEl.value;   if (casV)    conditions.push(`格：${JPN.case[casV]     || casV}`);
+    const numV  = numberEl.value; if (numV)    conditions.push(`数：${JPN.number[numV]   || numV}`);
+    const genV  = genderEl.value; if (genV)    conditions.push(`性：${JPN.gender[genV]   || genV}`);
+
+    if (conditions.length === 0) {
+        document.getElementById('rt-m-results').innerHTML =
+            `<div class="rt-no-result">条件を1つ以上選んでください。</div>`;
+        return;
+    }
+
+    const p = _currentAnalysisParams || {};
+    const word = p.word || '';
+    const ref  = p.ref  || '';
+
+    const prompt = `あなたは聖書の原語読解を静かに補佐するアシスタントです。
+以下の語形条件に一致する新約聖書の用例を、読解補助として3例まで示してください。
+
+現在参照している語: ${word}（${ref}）
+検索条件:
+${conditions.join('\n')}
+
+各結果を以下の形式で、「---」で区切って出力してください（最大3件）:
+種別: [この用例の読解上の特徴（1〜5語）]
+内容: [この用例が読解上どのように機能しているか、読者が理解できる自然な文で（1〜2文。150字以内）]
+参照: [書名 章:節（例：ローマ 8:3）]
+---
+
+禁止: 専門用語羅列・長文講義・神学断言。
+「この用例ではこういう読み方ができる」という読解補助に徹してください。
+条件に合う用例がなければ「該当例なし」と一言だけ返してください。`;
+
+    _rtCallAI(prompt, 'rt-m-loading', 'rt-m-results', _rtRenderResults);
+}
+
+/** Syntax Search 実行 */
+function _rtRunSyntaxSearch() {
+    const clauseEl   = document.getElementById('rt-s-clause');
+    const moodEl     = document.getElementById('rt-s-mood');
+    const voiceEl    = document.getElementById('rt-s-voice');
+    const parallelEl = document.getElementById('rt-s-parallel');
+    if (!clauseEl) return;
+
+    const CLAUSE_JPN = {
+        purpose:'目的節（ἵνα系）', result:'結果節（ὥστε系）', reason:'理由節（γάρ系）',
+        condition:'条件節（εἰ系）', contrast:'対比（ἀλλά）', conclusion:'結論節（οὖν系）',
+    };
+    const MOOD_JPN = {
+        imperative:'命令法（指示）', subjunctive:'接続法（目的・願望）',
+        indicative:'直説法（事実）', participle:'分詞（修飾）',
+    };
+    const VOICE_JPN = {
+        passive:'受動（神的受動を含む）', middle:'中動（主語の深い関与）', active:'能動',
+    };
+    const PARALLEL_JPN = {
+        coordinate:'等位接続（καί）', antithesis:'対照構造', chiasm:'交差配列',
+    };
+
+    const conditions = [];
+    const cV = clauseEl.value;   if (cV) conditions.push(`節の種類：${CLAUSE_JPN[cV]   || cV}`);
+    const mV = moodEl.value;     if (mV) conditions.push(`動詞の法：${MOOD_JPN[mV]     || mV}`);
+    const vV = voiceEl.value;    if (vV) conditions.push(`態：${VOICE_JPN[vV]           || vV}`);
+    const pV = parallelEl.value; if (pV) conditions.push(`並列構造：${PARALLEL_JPN[pV] || pV}`);
+
+    if (conditions.length === 0) {
+        document.getElementById('rt-s-results').innerHTML =
+            `<div class="rt-no-result">条件を1つ以上選んでください。</div>`;
+        return;
+    }
+
+    const p   = _currentAnalysisParams || {};
+    const word = p.word || '';
+    const ref  = p.ref  || '';
+
+    const prompt = `あなたは聖書の原語読解を静かに補佐するアシスタントです。
+以下の構文・論理条件に一致する新約聖書の箇所を、読解補助として3例まで示してください。
+
+現在参照している語: ${word}（${ref}）
+検索条件:
+${conditions.join('\n')}
+
+各結果を以下の形式で、「---」で区切って出力してください（最大3件）:
+種別: [この構文の論理的役割（1〜5語。学術ラベル禁止・読解言葉で）]
+内容: [この箇所でこの構造がどう機能しているか。著者の論理の流れを読者が理解できる自然な文で（1〜2文・150字以内）]
+参照: [書名 章:節]
+---
+
+禁止: 「NP」「VP」「ROOT」などの言語学ラベル・構文ツリー・長文・神学断言。
+「著者がここでどういう論理を展開しているか」という読解補助として書いてください。
+条件に合う用例がなければ「該当例なし」と返してください。`;
+
+    _rtCallAI(prompt, 'rt-s-loading', 'rt-s-results', _rtRenderResults);
+}
+
+/** Semantic Search 実行 */
+function _rtRunSemSearch() {
+    const selected = document.querySelector('.rt-concept-chip.selected');
+    if (!selected) {
+        document.getElementById('rt-sem-results').innerHTML =
+            `<div class="rt-no-result">概念を1つ選んでください。</div>`;
+        return;
+    }
+
+    const concept    = selected.dataset.concept || '';
+    const conceptJpn = selected.textContent.trim();
+
+    const CONCEPT_GUIDE = {
+        covenant:  '契約・誓い・誠実さ（διαθήκη, πιστός, ἀγάπη 契約的用法など）に関連する語・用例',
+        grace:     '恵み・赦し・無償の贈り物（χάρις, ἀφίημι など）に関連する語・用例',
+        faith:     '信仰・信頼・忠実さ（πίστις, πιστεύω など）に関連する語・用例',
+        love:      '愛・自己犠牲・無条件の愛（ἀγαπάω, φιλέω など）の用例と差異',
+        law:       '律法・戒め・規則（νόμος, ἐντολή など）に関連する用例',
+        spirit:    '御霊・霊・息吹（πνεῦμα）の多義的用法と文脈による差異',
+        flesh:     '肉・欲・人間的側面（σάρξ）の文脈ごとのニュアンス差',
+        light:     '光・啓示・理解（φῶς, φαίνω など）の比喩的用法',
+        darkness:  '闇・罪・無知（σκότος, σκοτία など）の比喩的用法',
+        movement:  '移動・歩み・方向（ἔρχομαι, περιπατέω, ἄγω など）の比喩的・文字通りの用法',
+        speech:    '語る・告げる・宣言する（λέγω, λαλέω, κηρύσσω など）の動詞選択の差異',
+        referent:  '人称代名詞・指示代名詞が誰を指しているかの追跡（αὐτός, οὗτος, ἐκεῖνος など）',
+    };
+
+    const guide = CONCEPT_GUIDE[concept] || conceptJpn;
+    const p    = _currentAnalysisParams || {};
+    const word = p.word || '';
+    const ref  = p.ref  || '';
+
+    const prompt = `あなたは聖書の原語読解を静かに補佐するアシスタントです。
+以下の意味概念カテゴリについて、新約聖書の代表的な用例を読解補助として3例まで示してください。
+
+現在参照している語: ${word}（${ref}）
+検索概念: 【${conceptJpn}】
+概念ガイド: ${guide}
+
+各結果を以下の形式で、「---」で区切って出力してください（最大3件）:
+種別: [この用例での意味・ニュアンスの特徴（1〜5語）]
+内容: [この箇所でこの語・概念がどう機能しているか。読者が「なるほど」と思える静かな補助として（1〜2文・150字以内）]
+参照: [書名 章:節]
+---
+
+禁止: 辞書的意味の列挙・semantic domain theory・長文・神学断言。
+「今この文脈でどう読めるか」という静かな読解補助として書いてください。
+用例がなければ「該当例なし」と返してください。`;
+
+    _rtCallAI(prompt, 'rt-sem-loading', 'rt-sem-results', _rtRenderResults);
 }
 
 function updateReadingCoreBar(p) {
