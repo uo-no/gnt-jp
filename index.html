@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05141500｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05141900｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -1540,7 +1540,7 @@ details[open] .study-summary::before {
     <div class="inspect-tags" id="insp-tags"></div>
     <div class="inspect-footer">
         <button class="inspect-study-btn" id="insp-study-btn" onclick="escalateToStudy()">
-            <span>詳しく見る</span>
+            <span>この語の流れを見る</span>
             <span class="inspect-study-arrow">→</span>
         </button>
     </div>
@@ -1613,7 +1613,7 @@ details[open] .study-summary::before {
     <div id="app">
         <div id="main-reading-area">
             <div id="bible-text-area">
-                <div id="reading-hint">語をタップすると基本義を確認できます</div>
+                <div id="reading-hint">節をタップすると、ことばの流れが見えてきます</div>
             </div>
             <div id="parallel-text-area"></div>
         </div>
@@ -1996,31 +1996,48 @@ function escalateToStudy() {
 }
 
 /**
- * Inspect用の品詞タグHTMLを生成（最大3つ）。
- * morph-tag-pill と同じ情報だが、inspect-tag クラスを使う。
+ * Inspect用のヒントHTMLを生成（最大2つ）。
+ * 文法用語ではなく「この語がここで何をしているか」を読書感覚で表示。
  */
 function buildInspectTagsHTML(rawMorph) {
     const m = parseMorphForSearch(rawMorph);
-    const JPN = {
-        pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞' },
-        tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了' },
-        voice:  { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動' },
-        mood:   { indicative:'直説法', subjunctive:'接続法', optative:'希求法',
-                  imperative:'命令法', infinitive:'不定詞', participle:'分詞' },
-        gender: { masculine:'男性', feminine:'女性', neuter:'中性' },
-        number: { singular:'単数', plural:'複数' },
-        case:   { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' },
-    };
+    const hints = [];
 
-    // 優先度順に最大3つ選ぶ：品詞 > 時制/法 > 格/数
-    const picks = [];
-    if (m.pos)   picks.push({ label: JPN.pos[m.pos]     || m.pos,    core: true });
-    if (m.tense && picks.length < 3) picks.push({ label: JPN.tense[m.tense] || m.tense, core: true });
-    if (m.mood  && picks.length < 3) picks.push({ label: JPN.mood[m.mood]   || m.mood,  core: true });
-    if (m.case  && picks.length < 3) picks.push({ label: JPN.case[m.case]   || m.case,  core: false });
-    if (m.voice && picks.length < 3) picks.push({ label: JPN.voice[m.voice] || m.voice, core: false });
+    if (m.pos === 'V') {
+        // 法による読書ヒント
+        if (m.mood === 'imperative')  hints.push({ label: '強く勧めている', core: true });
+        else if (m.mood === 'infinitive') hints.push({ label: '目的・内容を補っている', core: true });
+        else if (m.mood === 'participle') hints.push({ label: '背景を描き添えている', core: true });
+        else if (m.mood === 'subjunctive') hints.push({ label: '願いや目的を示している', core: true });
+        else if (m.mood === 'indicative') hints.push({ label: '事実として語っている', core: true });
+        // 時制による読書ヒント
+        if (m.tense === 'perfect')    hints.push({ label: '今も続いている', core: false });
+        else if (m.tense === 'aorist' && m.mood === 'indicative') hints.push({ label: '一つの出来事として', core: false });
+        else if (m.tense === 'future') hints.push({ label: '確かに起きると語っている', core: false });
+        // 態による読書ヒント
+        if (m.voice === 'passive')    hints.push({ label: '受けとめる側に立っている', core: false });
+        else if (m.voice === 'middle' || m.voice === 'middle deponent') hints.push({ label: '深く関わりながら動いている', core: false });
+    } else if (m.pos === 'CONJ') {
+        const CONJ_HINT = {
+            imperative: '強く勧めている',
+        };
+        hints.push({ label: '流れをつないでいる', core: true });
+    } else if (m.pos === 'N' || m.pos === 'A') {
+        const CASE_HINT = {
+            nominative: '中心にいる',
+            genitive:   '結びついている',
+            dative:     '関わりを受けている',
+            accusative: '動作の向かう先',
+            vocative:   '呼びかけられている',
+        };
+        if (m.case && CASE_HINT[m.case]) hints.push({ label: CASE_HINT[m.case], core: true });
+    } else if (['P','R','D'].includes(m.pos)) {
+        hints.push({ label: '誰かを指し示している', core: true });
+    } else if (m.pos === 'PREP') {
+        hints.push({ label: '関係の方向を示している', core: true });
+    }
 
-    return picks.slice(0, 3).map(t =>
+    return hints.slice(0, 2).map(t =>
         `<span class="inspect-tag${t.core ? ' core' : ''}">${t.label}</span>`
     ).join('');
 }
@@ -2289,57 +2306,54 @@ function _renderFlowTab(area, p) {
     if (pos === 'V') {
         /* #2 命令・勧め */
         if (mood === 'imperative') {
-            signals.push({ cls: 'sig-exhort', kindLabel: '勧め', text: 'ここは説明ではなく、行動への呼びかけです。' });
+            signals.push({ cls: 'sig-exhort', kindLabel: '呼びかけ', text: 'ここは説明ではなく、行動への呼びかけです。' });
         }
         /* 接続法：目的・願望 */
         if (mood === 'subjunctive') {
-            signals.push({ cls: 'sig-logic', kindLabel: '目的', text: '接続法。目的・条件・願望を表しています。断定ではなく「〜するために」「〜であれば」という含みです。' });
+            signals.push({ cls: 'sig-logic', kindLabel: '願い', text: '目的・条件・願望を表しています。断定ではなく「〜するために」「〜であれば」という含みです。' });
         }
         /* 不定詞：補足・目的 */
         if (mood === 'infinitive') {
-            signals.push({ cls: 'sig-logic', kindLabel: '補足', text: '不定詞。動作の目的か内容を補足する役割です。' });
+            signals.push({ cls: 'sig-logic', kindLabel: '補足', text: '動作の目的か内容を補足する役割です。' });
         }
         /* 分詞：修飾・同時進行 */
         if (mood === 'participle') {
-            signals.push({ cls: 'sig-logic', kindLabel: '修飾', text: '分詞。主動詞の状況・背景を描写しています。' });
+            signals.push({ cls: 'sig-logic', kindLabel: '背景', text: '主動詞の状況・背景を描写しています。' });
         }
 
         /* 時制による流れへの影響 */
         if (tense === 'aorist' && mood === 'indicative') {
-            /* #4 宣言との区別：アオリスト直説は事実・宣言として機能することが多い */
-            signals.push({ cls: 'sig-declare', kindLabel: '宣言', text: 'アオリスト直説法。「その出来事が起きた」という完結した事実の提示です。命令でも約束でもなく、宣言的な重みがあります。' });
+            signals.push({ cls: 'sig-declare', kindLabel: '出来事', text: '「その出来事が起きた」という完結した事実の提示です。命令でも約束でもなく、宣言的な重みがあります。' });
         }
         if (tense === 'present' && mood === 'indicative') {
-            signals.push({ cls: 'sig-logic', kindLabel: '流れ', text: '現在直説法。継続・習慣・普遍的な事実として述べています。' });
+            signals.push({ cls: 'sig-logic', kindLabel: '継続', text: '継続・習慣・普遍的な事実として述べています。' });
         }
         if (tense === 'perfect') {
-            /* #3 約束・完了の状態：完了形は「今も続く結果」 */
-            signals.push({ cls: 'sig-promise', kindLabel: '状態', text: '完了形。過去の出来事の結果が今も有効です。単なる過去の話ではなく、現在の状態を含む表現です。' });
+            signals.push({ cls: 'sig-promise', kindLabel: '今も続く', text: '過去の出来事の結果が今も有効です。単なる過去の話ではなく、現在の状態を含む表現です。' });
         }
         if (tense === 'future' && mood === 'indicative') {
-            /* 未来直説法はしばしば約束・確約として機能 */
-            signals.push({ cls: 'sig-promise', kindLabel: '約束', text: '未来直説法。これは命令というより、確かな約束・確約として機能していることがあります。' });
+            signals.push({ cls: 'sig-promise', kindLabel: '約束', text: 'これは命令というより、確かな約束・確約として機能していることがあります。' });
         }
 
         /* #7 語の選択：態のニュアンス */
         if (voice === 'passive') {
-            signals.push({ cls: 'sig-word', kindLabel: '語感', text: '受動態。主語は動作を受ける側に置かれています。神学的文脈では「神による行為」を暗示することがあります。' });
+            signals.push({ cls: 'sig-word', kindLabel: '受けとめる', text: '主語は動作を受ける側に置かれています。神学的文脈では「神による行為」を暗示することがあります。' });
         }
         if (voice === 'middle' || voice === 'middle deponent') {
-            signals.push({ cls: 'sig-word', kindLabel: '語感', text: '中動態。主語が動作に深く関与しています。単なる能動でも受動でもない、自身が関わる動作です。' });
+            signals.push({ cls: 'sig-word', kindLabel: '深く関わる', text: '主語が動作に深く関与しています。単なる能動でも受動でもない、自身が関わる動作です。' });
         }
     }
 
     /* ── 名詞系の格：論理的役割を「流れ」として表示 ── */
     if (['N','A','R','P','T','D'].includes(pos)) {
         const CASE_SIGNAL = {
-            nominative: { cls: 'sig-logic',   text: '主格。この語が文の中心にいます。主語または述語として機能しています。' },
-            genitive:   { cls: 'sig-logic',   text: '属格。「〜の」という関係を示します。所有・由来・特徴などのニュアンスがあります。' },
-            dative:     { cls: 'sig-logic',   text: '与格。動作の間接的な受け手・場所・手段を示します。' },
-            accusative: { cls: 'sig-logic',   text: '対格。動作の直接の対象です。' },
+            nominative: { cls: 'sig-logic',   text: 'この語が文の中心にいます。主語または述語として機能しています。' },
+            genitive:   { cls: 'sig-logic',   text: '「〜の」という関係を示します。所有・由来・特徴などのニュアンスがあります。' },
+            dative:     { cls: 'sig-logic',   text: '動作の間接的な受け手・場所・手段を示します。' },
+            accusative: { cls: 'sig-logic',   text: '動作の直接の対象です。' },
         };
-        const s = CASE_SIGNAL[p.case];
-        if (s) signals.push({ cls: s.cls, kindLabel: '構造', text: s.text });
+        const caseSig = CASE_SIGNAL[p.case];
+        if (caseSig) signals.push({ cls: caseSig.cls, kindLabel: '役割', text: caseSig.text });
     }
 
     /* ── #5 比喩表現：特定語の比喩的使用に注意を促す ── */
@@ -2354,9 +2368,8 @@ function _renderFlowTab(area, p) {
         signals.push({ cls: 'sig-metaphor', kindLabel: '比喩', text: METAPHOR_WORDS[word] });
     }
 
-    /* ── デフォルト：signal がない場合 ── */
     if (signals.length === 0) {
-        signals.push({ cls: 'sig-default', kindLabel: '補助', text: 'この語の文脈的な役割は「含み」タブでさらに確認できます。' });
+        signals.push({ cls: 'sig-default', kindLabel: '補足', text: 'この語の文脈的な役割は「含み」タブでさらに確認できます。' });
     }
 
     const localHTML = signals.map(s =>
@@ -2402,7 +2415,7 @@ function _renderMeaningTab(area, p) {
                 <span class="flow-signal-kind">${s.kindLabel}</span>
                 <span class="flow-signal-text">${s.text}</span>
             </div>`).join('')
-        : `<p class="ac-no-data">この語のシグナルデータがありません。</p>`;
+        : `<p class="ac-no-data">この語の補助情報がありません。「詳細」タブでさらに確認できます。</p>`;
 
     area.innerHTML = `
         <div class="flow-word-head">
@@ -3702,7 +3715,7 @@ function render(jpData, elData, hasGreek) {
     if (!hintEl) {
         hintEl = document.createElement('div');
         hintEl.id = 'reading-hint';
-        hintEl.textContent = '語をタップすると基本義を確認できます';
+        hintEl.textContent = '節をタップすると、ことばの流れが見えてきます';
     }
     app.innerHTML = '';
     app.appendChild(hintEl);
@@ -3871,13 +3884,13 @@ function _buildFlowTabHTML(words) {
             <div class="wlv-detail-morph" id="wlv-dd-morph"></div>
             <div class="wlv-detail-signals" id="wlv-dd-signals"></div>
             <button class="wlv-detail-study-btn" id="wlv-dd-study-btn" onclick="_wlvStudyBtnClick()">
-                詳しく見る →
+                もっと流れを見る →
             </button>
         </div>`;
 
     /* グロス補足ラベル（読解の手引き） */
     const hintHTML = `<p style="font-size:0.6rem;color:var(--text-sub);opacity:0.4;margin-top:14px;letter-spacing:0.02em;">
-        語をタップ → 原語と文法シグナルを確認 → 詳しく見る
+        語をタップすると、その語がここで何をしているかが見えてきます
     </p>`;
 
     return `
@@ -3957,32 +3970,35 @@ function _wordToFlowChip(w, i) {
         const tenCode  = (parts[1] || '')[off]     || '';
         const voiCode  = (parts[1] || '')[off + 1] || '';
 
-        /* 法（Mood）シグナル */
-        if (moodCode === 'M') signals.push({ label: '命令', cls: 'sig-exhort' });
-        else if (moodCode === 'P') signals.push({ label: '分詞', cls: 'sig-logic' });
-        else if (moodCode === 'N') signals.push({ label: '不定詞', cls: 'sig-logic' });
-        else if (moodCode === 'S') signals.push({ label: '接続法', cls: 'sig-logic' });
-        else if (moodCode === 'I') signals.push({ label: '直説法', cls: 'sig-logic' });
-        else if (moodCode === 'O') signals.push({ label: '希求法', cls: 'sig-logic' });
+        /* 法（Mood）シグナル — 読書感覚の言葉で */
+        if (moodCode === 'M') signals.push({ label: '強く勧めている', cls: 'sig-exhort' });
+        else if (moodCode === 'P') signals.push({ label: '背景を描いている', cls: 'sig-logic' });
+        else if (moodCode === 'N') signals.push({ label: '目的を示している', cls: 'sig-logic' });
+        else if (moodCode === 'S') signals.push({ label: '願いを込めている', cls: 'sig-logic' });
 
-        /* 時制シグナル */
-        if (tenCode === 'X') signals.push({ label: '完了', cls: 'sig-promise' });
-        else if (tenCode === 'A') signals.push({ label: 'アオリスト', cls: 'sig-declare' });
-        else if (tenCode === 'F') signals.push({ label: '未来', cls: 'sig-promise' });
-        else if (tenCode === 'I') signals.push({ label: '未完了', cls: 'sig-logic' });
+        /* 時制シグナル — 読書感覚の言葉で */
+        if (tenCode === 'X') signals.push({ label: '今も続いている', cls: 'sig-promise' });
+        else if (tenCode === 'A' && moodCode === 'I') signals.push({ label: '一つの出来事として語っている', cls: 'sig-declare' });
+        else if (tenCode === 'F' && moodCode === 'I') signals.push({ label: '確かに起きると語っている', cls: 'sig-promise' });
 
         /* 態シグナル */
-        if (voiCode === 'P') signals.push({ label: '受動', cls: 'sig-word' });
-        else if (voiCode === 'M' || voiCode === 'D') signals.push({ label: '中動', cls: 'sig-word' });
+        if (voiCode === 'P') signals.push({ label: '受けとめる側に立っている', cls: 'sig-word' });
+        else if (voiCode === 'M' || voiCode === 'D') signals.push({ label: '深く関わりながら動いている', cls: 'sig-word' });
     }
     else if (pos === 'N')    {
         roleClass = 'role-noun';
         const caseParts = parts[1] || '';
         const base = ['1','2','3'].includes(caseParts[0]) ? caseParts.slice(1) : caseParts;
-        const CASE_SIG = { N: { label: '主格', cls: 'sig-logic' }, G: { label: '属格', cls: 'sig-logic' }, D: { label: '与格', cls: 'sig-logic' }, A: { label: '対格', cls: 'sig-logic' }, V: { label: '呼格', cls: 'sig-logic' } };
+        const CASE_SIG = {
+            N: { label: '中心にいる', cls: 'sig-logic' },
+            G: { label: '結びついている', cls: 'sig-logic' },
+            D: { label: '関わりを受けている', cls: 'sig-logic' },
+            A: { label: '動作の向かう先', cls: 'sig-logic' },
+            V: { label: '呼びかけられている', cls: 'sig-logic' }
+        };
         const cs = CASE_SIG[base[0]];
         if (cs) signals.push(cs);
-        const NUM_SIG = { P: { label: '複数', cls: 'sig-logic' } };
+        const NUM_SIG = { P: { label: '複数で語られている', cls: 'sig-logic' } };
         const ns = NUM_SIG[base[1]];
         if (ns) signals.push(ns);
     }
@@ -3990,34 +4006,44 @@ function _wordToFlowChip(w, i) {
         roleClass = 'role-adj';
         const caseParts = parts[1] || '';
         const base = ['1','2','3'].includes(caseParts[0]) ? caseParts.slice(1) : caseParts;
-        const CASE_SIG = { N: { label: '主格', cls: 'sig-logic' }, G: { label: '属格', cls: 'sig-logic' }, D: { label: '与格', cls: 'sig-logic' }, A: { label: '対格', cls: 'sig-logic' } };
+        const CASE_SIG = {
+            N: { label: '特徴を示している', cls: 'sig-logic' },
+            G: { label: '性質を結びつけている', cls: 'sig-logic' },
+            D: { label: '関わる対象を彩っている', cls: 'sig-logic' },
+            A: { label: '対象の様子を語っている', cls: 'sig-logic' }
+        };
         const cs = CASE_SIG[base[0]];
         if (cs) signals.push(cs);
     }
     else if (pos === 'CONJ') {
         roleClass = 'role-conj';
         const CONJ_SIG = {
-            'γάρ':  { label: '理由', cls: 'sig-logic' },
-            'ἀλλά': { label: '転換', cls: 'sig-turn' },
-            'οὖν':  { label: '結論', cls: 'sig-logic' },
-            'δέ':   { label: '展開', cls: 'sig-turn' },
-            'καί':  { label: '継続', cls: 'sig-emphasis' },
-            'ἵνα':  { label: '目的', cls: 'sig-logic' },
-            'ὅτι':  { label: '内容', cls: 'sig-logic' },
-            'εἰ':   { label: '条件', cls: 'sig-logic' },
-            'ὥστε': { label: '結果', cls: 'sig-logic' },
+            'γάρ':  { label: 'なぜなら、と理由へ進む', cls: 'sig-logic' },
+            'ἀλλά': { label: 'しかし、と流れが変わる', cls: 'sig-turn' },
+            'οὖν':  { label: 'だから、と結論へ向かう', cls: 'sig-logic' },
+            'δέ':   { label: '話が次の段階へ進む', cls: 'sig-turn' },
+            'καί':  { label: 'さらに、と積み重なる', cls: 'sig-emphasis' },
+            'ἵνα':  { label: '〜のために、と目的が示される', cls: 'sig-logic' },
+            'ὅτι':  { label: '〜ということ、と内容が続く', cls: 'sig-logic' },
+            'εἰ':   { label: 'もし〜なら、と仮定の話に入る', cls: 'sig-logic' },
+            'ὥστε': { label: 'その結果として、と帰結が来る', cls: 'sig-logic' },
         };
         const cs = CONJ_SIG[w.text];
         if (cs) signals.push(cs);
-        else signals.push({ label: '接続', cls: 'sig-logic' });
+        else signals.push({ label: '前後をつないでいる', cls: 'sig-logic' });
     }
-    else if (pos === 'PREP') { roleClass = 'role-prep'; signals.push({ label: '前置詞', cls: 'sig-logic' }); }
-    else if (pos === 'T')    { roleClass = 'role-art'; signals.push({ label: '冠詞', cls: 'sig-logic' }); }
+    else if (pos === 'PREP') { roleClass = 'role-prep'; signals.push({ label: '関係の方向を示している', cls: 'sig-logic' }); }
+    else if (pos === 'T')    { roleClass = 'role-art'; /* 冠詞はsignalなし。静かに */ }
     else if (['P','R','D'].includes(pos)) {
         roleClass = 'role-pron';
         const caseParts = parts[1] || '';
         const base = ['1','2','3'].includes(caseParts[0]) ? caseParts.slice(1) : caseParts;
-        const CASE_SIG = { N: { label: '主格', cls: 'sig-logic' }, G: { label: '属格', cls: 'sig-logic' }, D: { label: '与格', cls: 'sig-logic' }, A: { label: '対格', cls: 'sig-logic' } };
+        const CASE_SIG = {
+            N: { label: '誰の話かを示している', cls: 'sig-logic' },
+            G: { label: '誰に関わるかを示している', cls: 'sig-logic' },
+            D: { label: '関わりを受けている人を指す', cls: 'sig-logic' },
+            A: { label: '動作の向かう人を指す', cls: 'sig-logic' }
+        };
         const cs = CASE_SIG[base[0]];
         if (cs) signals.push(cs);
     }
@@ -4094,39 +4120,64 @@ function _naturalize(gloss, kind) {
 }
 
 /**
- * rawMorph から人が読める文法メモ（1〜2行）を生成する。
- * ドロワーに表示するだけなので学術ラベルは避ける。
+ * rawMorph から読書感覚の補助メモ（1行）を生成する。
+ * ドロワーに表示するだけなので学術ラベルは使わない。
+ * Study タブでは別途詳細が表示される。
  */
 function _buildMorphText(rawMorph, pos, parts) {
-    const JPN = {
-        tense:  { P:'現在', I:'未完了', F:'未来', A:'アオリスト', X:'完了' },
-        mood:   { I:'直説法', S:'接続法', O:'希求法', M:'命令法', N:'不定詞', P:'分詞' },
-        voice:  { A:'能動', M:'中動', P:'受動', D:'中動自動' },
-        case:   { N:'主格', G:'属格', D:'与格', A:'対格', V:'呼格' },
-        number: { S:'単数', P:'複数' },
-        gender: { M:'男性', F:'女性', N:'中性' },
-        pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
-    };
-    const posJpn = JPN.pos[pos] || pos;
-    const notes  = [posJpn];
-
     if (pos === 'V' && parts[1]) {
         const off  = /^[0-9]/.test(parts[1]) ? 1 : 0;
-        const t    = JPN.tense[parts[1][off]]     || '';
-        const v    = JPN.voice[parts[1][off + 1]] || '';
-        const m    = JPN.mood[parts[1][off + 2]]  || '';
-        if (t) notes.push(t);
-        if (m) notes.push(m);
-        if (v && v !== '能動') notes.push(v);
-    } else if (['N','A','R','P','T','D'].includes(pos) && parts[1]) {
-        const base = ['1','2','3'].includes(parts[1][0]) ? parts[1].slice(1) : parts[1];
-        const c = JPN.case[base[0]]   || '';
-        const n = JPN.number[base[1]] || '';
-        if (c) notes.push(c);
-        if (n) notes.push(n);
-    }
+        const moodCode  = parts[1][off + 2] || '';
+        const tenCode   = parts[1][off]     || '';
+        const voiCode   = parts[1][off + 1] || '';
 
-    return notes.join(' · ');
+        const MOOD_NOTE = {
+            'M': '行動への呼びかけ',
+            'P': '状況や背景を添えている',
+            'N': '目的や内容を補っている',
+            'S': '願いや目的を含んでいる',
+            'I': '事実として語っている',
+            'O': '望みを込めた表現',
+        };
+        const TEN_NOTE = {
+            'X': '過去から今も続く状態',
+            'A': 'ある出来事として',
+            'F': '確かに起きること',
+            'P': '今・継続して',
+            'I': '続いていた状態',
+        };
+        const VOI_NOTE = {
+            'P': '受けとめる側に',
+            'M': '深く関わりながら',
+            'D': '深く関わりながら',
+        };
+
+        const notes = [];
+        if (MOOD_NOTE[moodCode]) notes.push(MOOD_NOTE[moodCode]);
+        if (TEN_NOTE[tenCode] && moodCode !== 'N' && moodCode !== 'P') notes.push(TEN_NOTE[tenCode]);
+        if (VOI_NOTE[voiCode]) notes.push(VOI_NOTE[voiCode]);
+        return notes.join('・') || '動詞';
+    } else if (['N','A'].includes(pos) && parts[1]) {
+        const base = ['1','2','3'].includes(parts[1][0]) ? parts[1].slice(1) : parts[1];
+        const CASE_NOTE = {
+            'N': '文の中心にいる', 'G': '〜の、と結びつく',
+            'D': '関わりを受ける', 'A': '動作の向かう先', 'V': '呼びかけ'
+        };
+        const NUM_NOTE = { 'S': '単数', 'P': '複数' };
+        const notes = [];
+        if (CASE_NOTE[base[0]]) notes.push(CASE_NOTE[base[0]]);
+        if (NUM_NOTE[base[1]] === '複数') notes.push('複数で語られている');
+        return notes.join('・') || (pos === 'N' ? '名詞' : '形容詞');
+    } else if (pos === 'CONJ') {
+        return '前後をつなぐことば';
+    } else if (pos === 'PREP') {
+        return '関係の方向を示す';
+    } else if (pos === 'T') {
+        return '指し示すことば（冠詞）';
+    } else if (['P','R','D'].includes(pos)) {
+        return '誰かを指し示している';
+    }
+    return '';
 }
 
 /* ── chip クリック：詳細ドロワーを展開 ── */
@@ -4159,7 +4210,8 @@ function _wlvChipClick(chipEl, idx) {
     signalEl.innerHTML   = chip.signals.length
         ? chip.signals.map(s => {
             const label = typeof s === 'object' ? s.label : s;
-            return `<span class="wlv-signal-tag">[${label}]</span>`;
+            const cls   = (typeof s === 'object' && s.cls) ? s.cls : 'sig-default';
+            return `<span class="wlv-signal-tag" style="border-left:2px solid var(--signal-color,rgba(90,110,130,0.3));background:transparent;color:var(--text-sub);font-weight:400;padding:2px 8px 2px 6px;">${label}</span>`;
           }).join('')
         : '';
 
