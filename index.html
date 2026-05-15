@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05151200｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05151500｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -104,9 +104,119 @@ border-radius: 7px; cursor: pointer; transition: all 0.12s;
 .container { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(-bg-paper); }
 .app-header { padding: 18px 40px; border-bottom: 1px solid var(-border-soft); background: var(-bg-paper); }
 .header-content { display: flex; align-items: center; justify-content: space-between; }
-.breadcrumb { display: flex; align-items: center; gap: 8px; color: var(-text-sub); font-size: 0.85rem; }
-.breadcrumb h1 { font-size: 1.05rem; margin: 0; color: var(-text-main); font-weight: 700; letter-spacing: -0.02em; }
-.separator { color: var(-text-sub); opacity: 0.4; }
+/* ── グローバル breadcrumb（空間ナビゲーション） ── */
+#global-breadcrumb {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    flex-wrap: wrap;
+}
+.gbc-item {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 0.82rem;
+    color: var(--text-sub);
+    cursor: pointer;
+    padding: 2px 0;
+    letter-spacing: 0.01em;
+    border-bottom: 1px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font-family: 'Noto Serif JP', serif;
+}
+.gbc-item:hover {
+    color: var(--text-main);
+    border-bottom-color: rgba(0,0,0,0.15);
+}
+.gbc-item.current {
+    color: var(--text-main);
+    font-weight: 600;
+    cursor: default;
+    border-bottom-color: transparent;
+}
+.gbc-sep {
+    color: var(--text-sub);
+    opacity: 0.35;
+    font-size: 0.78rem;
+    padding: 0 5px;
+    user-select: none;
+}
+
+/* ── 深度履歴（読書の潜水履歴） ── */
+#depth-history {
+    padding: 10px 22px 6px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    flex-shrink: 0;
+}
+#depth-history.visible {
+    display: flex;
+}
+.depth-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 0 4px 12px;
+    border-left: 1px solid rgba(90,110,130,0.12);
+    cursor: pointer;
+    transition: opacity 0.15s;
+    position: relative;
+}
+.depth-item:hover {
+    opacity: 0.75;
+}
+.depth-item::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(90,110,130,0.18);
+    transition: background 0.15s;
+}
+.depth-item:hover::before {
+    background: rgba(90,110,130,0.4);
+}
+.depth-item.depth-top {
+    padding-left: 0;
+    border-left: none;
+}
+.depth-item.depth-top::before { display: none; }
+.depth-label {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 0.75rem;
+    color: var(--text-sub);
+    opacity: 0.55;
+    letter-spacing: 0.01em;
+    transition: opacity 0.15s;
+}
+.depth-label-suffix {
+    font-size: 0.65rem;
+    color: var(--text-sub);
+    opacity: 0.4;
+    letter-spacing: 0.01em;
+}
+.depth-item:hover .depth-label { opacity: 0.85; }
+.depth-item.depth-current .depth-label {
+    opacity: 0.9;
+    color: var(--text-main);
+    font-size: 0.78rem;
+}
+.depth-item.depth-current .depth-label-suffix { opacity: 0.55; }
+.depth-item.depth-current::before {
+    background: rgba(90,110,130,0.5);
+}
+
+.breadcrumb { display: flex; align-items: center; gap: 8px; color: var(--text-sub); font-size: 0.85rem; }
+.breadcrumb h1 { font-size: 1.05rem; margin: 0; color: var(--text-main); font-weight: 700; letter-spacing: -0.02em; }
+.separator { color: var(--text-sub); opacity: 0.4; }
 
 #app {
 flex: 1;
@@ -866,28 +976,9 @@ letter-spacing: 0.04em;
 
 @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Study panel 閉じるボタン（「テキストに戻る」） */
+/* Study panel 閉じるボタン（廃止 → depth-history に置き換え済み） */
 #study-close-btn {
-background: none;
-border: none;
-cursor: pointer;
-color: var(-text-sub);
-font-size: 0.78rem;
-font-family: inherit;
-font-weight: 600;
-letter-spacing: 0.02em;
-padding: 0;
-display: flex;
-align-items: center;
-gap: 4px;
-transition: color 0.15s;
-}
-#study-close-btn:hover {
-color: var(-highlight);
-}
-.study-close-label {
-font-size: 0.75rem;
-font-weight: 600;
+display: none;
 }
 
 /* 読書モード: 本文エリア下部のヒント */
@@ -1828,11 +1919,7 @@ details[open] .study-summary::before {
 <div class="container">
     <header class="app-header">
         <div class="header-content">
-            <div class="breadcrumb">
-                <span class="root-name">新約聖書</span>
-                <span class="separator">/</span>
-                <h1 id="view-title">読み込み中...</h1>
-            </div>
+            <div id="global-breadcrumb"></div>
             <!-- open-panel-btn は Study閉じた後の再開ボタン。非表示スタート。 -->
             <button id="open-panel-btn" onclick="reopenStudyPanel()" style="display:none;" title="前の語の読解に戻る">
                 <i class="fa-solid fa-circle-info"></i><span style="font-size:0.7rem;margin-left:5px;font-family:inherit;color:var(--text-sub);">読解に戻る</span>
@@ -1866,11 +1953,10 @@ details[open] .study-summary::before {
     <div id="panel-resize-handle"></div>
     <!-- パネルヘッダー -->
     <div class="panel-header">
-        <button onclick="closeStudyPanel()" id="study-close-btn" title="テキストに戻る">
-            ← <span class="study-close-label">テキストに戻る</span>
-        </button>
         <span id="active-v" style="font-size: 0.78rem; color: var(--text-sub); font-weight: 400;"></span>
     </div>
+    <!-- 読書深度履歴 -->
+    <div id="depth-history"></div>
 
 <!-- reading-core-bar: 語形ヘッダー（Study時のみ） -->
 <div class="rcb-container" id="rcb-container">
@@ -1935,6 +2021,18 @@ const AppState = {
         tab:    'flow',   /* 最後に表示していたタブ。Study閉じても保持。 */
     },
 
+    /* 空間階層（聖書全体の"場所"） */
+    location: {
+        testament: null,  /* 'nt' | 'ot' */
+        book:      null,  /* e.g. { key:'1CO', name:'コリント人への手紙 第一', ch:16 } */
+        chapter:   null,  /* number */
+    },
+
+    /* 読書深度スタック */
+    depth: {
+        stack: [],        /* [ { type, label, verse?, strong? }, ... ] */
+    },
+
     /* 本文スクロール位置（Study閉じたとき復元する） */
     scrollTop: 0,
 
@@ -1978,6 +2076,16 @@ const AppState = {
     canReopen() {
         return !!(this.study.params);
     },
+
+    /* depth stack に追加 */
+    pushDepth(entry) {
+        this.depth.stack.push(entry);
+    },
+
+    /* depth stack をクリア */
+    clearDepth() {
+        this.depth.stack = [];
+    },
 };
 
 // ギリシャ語データが存在する書物のキーセット
@@ -1987,6 +2095,235 @@ const GREEK_BOOKS = new Set([
     'MAT','MRK','LUK','JHN','ACT',
     'HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD','REV'
 ]);
+
+/* ══════════════════════════════════════════
+   グローバル breadcrumb（空間ナビゲーション）
+   ══════════════════════════════════════════ */
+function renderGlobalBreadcrumb() {
+    const el = document.getElementById('global-breadcrumb');
+    if (!el) return;
+
+    const loc = AppState.location;
+    if (!loc.testament) {
+        el.innerHTML = '<span class="gbc-item current" style="font-family:\'Noto Serif JP\',serif;">聖書</span>';
+        return;
+    }
+
+    const testamentLabel = loc.testament === 'nt' ? '新約聖書' : '旧約聖書';
+    const items = [];
+
+    /* 聖書全体（testament）- クリックで書物一覧へ */
+    items.push(`<button class="gbc-item" onclick="_gbcGoTestament()">${testamentLabel}</button>`);
+
+    if (loc.book) {
+        items.push(`<span class="gbc-sep">›</span>`);
+        /* 書物 - クリックで章一覧へ */
+        items.push(`<button class="gbc-item" onclick="_gbcGoBook()">${loc.book.name}</button>`);
+    }
+
+    if (loc.chapter !== null) {
+        items.push(`<span class="gbc-sep">›</span>`);
+        /* 章 - クリックで現在章を再表示 */
+        items.push(`<button class="gbc-item current" onclick="_gbcGoChapter()">${loc.chapter}章</button>`);
+    }
+
+    el.innerHTML = items.join('');
+}
+
+function _gbcGoTestament() {
+    /* サイドバーを書物一覧に戻す */
+    sbGoTo(1);
+    /* depth stack をクリア */
+    AppState.clearDepth();
+    renderDepthHistory();
+}
+
+function _gbcGoBook() {
+    /* サイドバーを章一覧に戻す */
+    sbGoTo(2);
+    AppState.clearDepth();
+    renderDepthHistory();
+}
+
+function _gbcGoChapter() {
+    /* 現在の章を再表示 */
+    if (AppState.location.book && AppState.location.chapter !== null) {
+        window.location.href = `?book=${AppState.location.book.key}&ch=${AppState.location.chapter}`;
+    }
+}
+
+/* ══════════════════════════════════════════
+   読書深度スタック（読書の潜水履歴）
+   ══════════════════════════════════════════ */
+
+/**
+ * depth stack にエントリを追加し、履歴を再描画する。
+ * @param {Object} entry - { type, label, verse?, strong? }
+ */
+function pushDepth(entry) {
+    AppState.depth.stack.push(entry);
+    renderDepthHistory();
+}
+
+/**
+ * depth-history パネルを再描画する。
+ * 縦並び・左borderで深度感・静かな読書履歴。
+ */
+function renderDepthHistory() {
+    const el = document.getElementById('depth-history');
+    if (!el) return;
+
+    const stack = AppState.depth.stack;
+    if (stack.length === 0) {
+        el.classList.remove('visible');
+        el.innerHTML = '';
+        return;
+    }
+
+    el.classList.add('visible');
+
+    const items = stack.map((entry, i) => {
+        const isCurrent = i === stack.length - 1;
+        const isTop     = i === 0;
+        const cls = [
+            'depth-item',
+            isTop     ? 'depth-top' : '',
+            isCurrent ? 'depth-current' : '',
+        ].filter(Boolean).join(' ');
+
+        /* 「に戻る」は現在地以外に表示 */
+        const suffix = isCurrent ? '' : 'に戻る';
+
+        /* ギリシャ語ラベルは Gentium フォントで */
+        const labelStyle = /[\u0370-\u03FF\u1F00-\u1FFF]/.test(entry.label)
+            ? 'font-family:"Gentium Plus",serif;font-size:0.9rem;'
+            : '';
+
+        return `<div class="${cls}" onclick="restoreDepth(${i})">
+            <span class="depth-label" style="${labelStyle}">${entry.label}</span>
+            ${suffix ? `<span class="depth-label-suffix">${suffix}</span>` : ''}
+        </div>`;
+    });
+
+    el.innerHTML = items.join('');
+}
+
+/**
+ * depth stack の index 番目に戻る。
+ * それより深いエントリは破棄する。
+ */
+function restoreDepth(index) {
+    const target = AppState.depth.stack[index];
+    if (!target) return;
+
+    AppState.depth.stack = AppState.depth.stack.slice(0, index + 1);
+    restoreContext(target);
+    renderDepthHistory();
+}
+
+/**
+ * depth entry の type に応じて UI を復元する。
+ */
+function restoreContext(ctx) {
+    switch (ctx.type) {
+        case 'reading':
+            /* パネルを閉じて本文に戻る（スクロール復元あり） */
+            _closeStudyPanelInternal();
+            break;
+
+        case 'verse-flow':
+            /* 節の語形一覧に戻る */
+            if (ctx.verse !== undefined && AppState.selectedVerse.elWords) {
+                _openWordListInternal(ctx.verse, AppState.selectedVerse.elWords);
+            }
+            break;
+
+        case 'word-flow':
+            /* 語のドロワー展開状態には戻せないが、study panel を開く */
+            if (ctx.strong && AppState.inspect.data) {
+                const d = AppState.inspect.data;
+                openStudyPanel(d.greek, d.rawMorph, d.ref, d.lemma);
+            }
+            break;
+
+        case 'deep-reading':
+            /* 読書メモ（deep reading）に戻る */
+            if (AppState.study.params) {
+                const p = AppState.study.params;
+                openStudyPanel(p.word, p._rawMorph, p.ref, p.lemma);
+            }
+            break;
+    }
+}
+
+/* 内部: パネルを閉じてReadingへ（depth stackは変えない） */
+function _closeStudyPanelInternal() {
+    const sidePanel    = document.getElementById('side-panel');
+    const parallelArea = document.getElementById('parallel-text-area');
+    sidePanel.style.display    = 'none';
+    parallelArea.style.display = '';
+
+    const notesWrap = document.getElementById('reading-notes-wrap');
+    if (notesWrap) { notesWrap.style.display = 'none'; }
+    const notesArea = document.getElementById('reading-notes-area');
+    if (notesArea) {
+        notesArea.innerHTML = '';
+        notesArea.classList.remove('reading-deep-active');
+    }
+
+    const area = document.getElementById('analysis-content-area');
+    if (area) area.innerHTML = '';
+
+    document.getElementById('open-panel-btn').style.display =
+        AppState.canReopen() ? 'block' : 'none';
+
+    const rcb = document.getElementById('rcb-container');
+    if (rcb) rcb.classList.remove('visible');
+
+    const listEl = document.getElementById('word-list-view');
+    if (listEl) listEl.remove();
+
+    document.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
+    document.getElementById('active-v').innerText = '';
+
+    AppState.toReading();
+    AppState.restoreScroll();
+}
+
+/* 内部: 語形一覧を開く（depth stackは変えない） */
+function _openWordListInternal(vNum, words) {
+    _wlvWordCache = words || [];
+    const sidePanel    = document.getElementById('side-panel');
+    const parallelArea = document.getElementById('parallel-text-area');
+    sidePanel.style.display    = 'flex';
+    parallelArea.style.display = 'none';
+    document.getElementById('open-panel-btn').style.display = 'none';
+
+    const notesWrap = document.getElementById('reading-notes-wrap');
+    if (notesWrap) notesWrap.style.display = 'none';
+    const notesArea = document.getElementById('reading-notes-area');
+    if (notesArea) notesArea.innerHTML = '';
+
+    const rcb = document.getElementById('rcb-container');
+    if (rcb) rcb.classList.remove('visible');
+    _currentAnalysisParams = null;
+
+    const existing = document.getElementById('word-list-view');
+    if (existing) existing.remove();
+
+    const listEl = document.createElement('div');
+    listEl.id = 'word-list-view';
+    listEl.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;';
+
+    if (!words.length) {
+        listEl.innerHTML = `<p style="color:var(--text-sub);font-size:0.82rem;text-align:center;padding:32px 18px;">この節の語形データがありません</p>`;
+        sidePanel.appendChild(listEl);
+        return;
+    }
+
+    listEl.innerHTML = _buildFlowTabHTML(words);
+    sidePanel.appendChild(listEl);
+}
 
 const JPN_MAP = {
     pos: { 'V': '動詞', 'N': '名詞', 'A': '形容詞', 'R': '関係代名詞', 'P': '人称代名詞', 'D': '指示代名詞', 'T': '冠詞', 'ADV': '副詞', 'PREP': '前置詞', 'CONJ': '接続詞', 'PRT': '添語' },
@@ -2206,7 +2543,19 @@ function hideInspectPopover() {
 function escalateToStudy() {
     if (!AppState.inspect.data) return;
     hideInspectPopover();
-    const { greek, rawMorph, ref, lemma } = AppState.inspect.data;
+    const { greek, rawMorph, ref, lemma, strong } = AppState.inspect.data;
+
+    /* word-flow を depth stack に追加 */
+    const stack = AppState.depth.stack;
+    const top = stack[stack.length - 1];
+    if (!top || top.type !== 'word-flow') {
+        pushDepth({
+            type:   'word-flow',
+            label:  greek,
+            strong: String(strong || ''),
+        });
+    }
+
     openStudyPanel(greek, rawMorph, ref, lemma);
 }
 
@@ -4063,15 +4412,25 @@ async function init() {
     const ch   = urlParams.get('ch')   || '1';
 
     const isNt = SB_BOOKS.nt.some(b => b.key === book);
-    document.querySelector('.root-name').innerText = isNt ? '新約聖書' : '旧約聖書';
+    document.querySelector('.root-name') && (document.querySelector('.root-name').innerText = isNt ? '新約聖書' : '旧約聖書');
 
     const allBooks = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
     const found = allBooks.find(b => b.key === book);
-    document.getElementById('view-title').innerText = found
-        ? `${found.name} ${ch}章`
-        : `${book} ${ch}章`;
+    const chNum = parseInt(ch);
 
-    sbInitState(book, parseInt(ch));
+    /* AppState.location を設定 */
+    AppState.location.testament = isNt ? 'nt' : 'ot';
+    AppState.location.book      = found || null;
+    AppState.location.chapter   = chNum;
+
+    /* view-title は互換のため維持 */
+    const titleEl = document.getElementById('view-title');
+    if (titleEl) titleEl.innerText = found ? `${found.name} ${ch}章` : `${book} ${ch}章`;
+
+    /* グローバルbreadcrumb を描画 */
+    renderGlobalBreadcrumb();
+
+    sbInitState(book, chNum);
 
     await loadDict();
 
@@ -4116,6 +4475,7 @@ function render(jpData, elData, hasGreek) {
     AppState.study.params        = null;
     AppState.study.tab           = 'flow';
     AppState.scrollTop           = 0;
+    AppState.clearDepth();
     // reading-hint を保持（なければ再生成）
     let hintEl = document.getElementById('reading-hint');
     if (!hintEl) {
@@ -4203,45 +4563,24 @@ function openWordListInStudyPanel(vNum, words) {
     /* words をキャッシュ（chip クリック時の詳細参照用） */
     _wlvWordCache = words || [];
 
-    const sidePanel    = document.getElementById('side-panel');
-    const parallelArea = document.getElementById('parallel-text-area');
-
-    /* side-panel を表示 */
-    sidePanel.style.display    = 'flex';
-    parallelArea.style.display = 'none';
-    document.getElementById('open-panel-btn').style.display = 'none';
-
-    /* 読書メモエリアを非表示（語形選択前） */
-    const notesWrap = document.getElementById('reading-notes-wrap');
-    if (notesWrap) notesWrap.style.display = 'none';
-    const notesArea = document.getElementById('reading-notes-area');
-    if (notesArea) notesArea.innerHTML = '';
-
-    const rcb = document.getElementById('rcb-container');
-    if (rcb) rcb.classList.remove('visible');
-    _currentAnalysisParams = null;
-
-    /* 既存の word-list-view があれば削除 */
-    const existing = document.getElementById('word-list-view');
-    if (existing) existing.remove();
-
-    /* ── 外枠 ── */
-    const listEl = document.createElement('div');
-    listEl.id = 'word-list-view';
-    listEl.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;';
-
-    if (!words.length) {
-        listEl.innerHTML = `<p style="color:var(--text-sub);font-size:0.82rem;text-align:center;padding:32px 18px;">この節の語形データがありません</p>`;
-        sidePanel.appendChild(listEl);
-        return;
+    /* depth stack に verse-flow を追加（reading が先頭になければ追加） */
+    const stack = AppState.depth.stack;
+    if (stack.length === 0 || stack[0].type !== 'reading') {
+        /* reading を先頭に置いてからverse-flowを追加 */
+        AppState.clearDepth();
+        pushDepth({ type: 'reading', label: '読書' });
+    }
+    /* verse-flow を追加（重複しないよう top を確認） */
+    const top = stack[stack.length - 1];
+    if (!top || top.type !== 'verse-flow' || String(top.verse) !== String(vNum)) {
+        pushDepth({
+            type:  'verse-flow',
+            label: 'ことばの流れ',
+            verse: vNum,
+        });
     }
 
-    /* ── 流れビュー（タブなし・常時表示） ── */
-    const flowHTML = _buildFlowTabHTML(words);
-
-    listEl.innerHTML = flowHTML;
-
-    sidePanel.appendChild(listEl);
+    _openWordListInternal(vNum, words);
 }
 
 /* ── WLV タブ切り替え（廃止：タブレス設計へ移行済み） ── */
@@ -4832,7 +5171,19 @@ function _wlvGetChipData(idx) {
  */
 function _wlvStudyBtnClick() {
     if (!AppState.inspect.data) return;
-    const { greek, rawMorph, ref, lemma } = AppState.inspect.data;
+    const { greek, rawMorph, ref, lemma, strong } = AppState.inspect.data;
+
+    /* word-flow を depth stack に追加（deep-reading の前に挿入）*/
+    const stack = AppState.depth.stack;
+    const top = stack[stack.length - 1];
+    if (!top || top.type !== 'word-flow') {
+        pushDepth({
+            type:   'word-flow',
+            label:  greek,
+            strong: String(strong || ''),
+        });
+    }
+
     openStudyPanel(greek, rawMorph, ref, lemma);
 }
 
@@ -4960,6 +5311,18 @@ function openStudyPanel(greek, rawMorph, ref, lemma) {
     AppState.saveScroll();
     AppState.toStudy(params, 'notes');
 
+    /* depth stack に追加（重複しないよう、top が同じなら追加しない） */
+    const stack = AppState.depth.stack;
+    const topEntry = stack[stack.length - 1];
+    const isAlreadyDeep = topEntry && topEntry.type === 'deep-reading' && topEntry.strong === String(AppState.inspect.data?.strong || '');
+    if (!isAlreadyDeep) {
+        pushDepth({
+            type:   'deep-reading',
+            label:  '深く読む',
+            strong: String(AppState.inspect.data?.strong || ''),
+        });
+    }
+
     const sidePanel    = document.getElementById('side-panel');
     const parallelArea = document.getElementById('parallel-text-area');
     sidePanel.style.display    = 'flex';
@@ -4995,38 +5358,9 @@ function openStudyPanel(greek, rawMorph, ref, lemma) {
      - 「分析に戻る」ボタンを study.params の有無で制御
    ══════════════════════════════════════════ */
 function closeStudyPanel() {
-    const sidePanel    = document.getElementById('side-panel');
-    const parallelArea = document.getElementById('parallel-text-area');
-    sidePanel.style.display    = 'none';
-    parallelArea.style.display = '';
-
-    /* 読書メモエリアをクリア・非表示 */
-    const notesWrap = document.getElementById('reading-notes-wrap');
-    if (notesWrap) { notesWrap.style.display = 'none'; }
-    const notesArea = document.getElementById('reading-notes-area');
-    if (notesArea) {
-        notesArea.innerHTML = '';
-        notesArea.classList.remove('reading-deep-active');
-    }
-
-    /* 後方互換 */
-    const area = document.getElementById('analysis-content-area');
-    if (area) area.innerHTML = '';
-
-    document.getElementById('open-panel-btn').style.display =
-        AppState.canReopen() ? 'block' : 'none';
-
-    const rcb = document.getElementById('rcb-container');
-    if (rcb) rcb.classList.remove('visible');
-
-    const listEl = document.getElementById('word-list-view');
-    if (listEl) listEl.remove();
-
-    document.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
-    document.getElementById('active-v').innerText = '';
-
-    AppState.toReading();
-    AppState.restoreScroll();
+    AppState.clearDepth();
+    renderDepthHistory();
+    _closeStudyPanelInternal();
 }
 
 /* ══════════════════════════════════════════
@@ -5099,11 +5433,18 @@ async function renderCurrentPage() {
     const ch   = urlParams.get('ch')   || '1';
 
     const isNt = SB_BOOKS.nt.some(b => b.key === book);
-    document.querySelector('.root-name').innerText = isNt ? '新約聖書' : '旧約聖書';
+    document.querySelector('.root-name') && (document.querySelector('.root-name').innerText = isNt ? '新約聖書' : '旧約聖書');
 
     const allBooks = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
     const found = allBooks.find(b => b.key === book);
-    document.getElementById('view-title').innerText = found ? `${found.name} ${ch}章` : `${book} ${ch}章`;
+    const titleEl = document.getElementById('view-title');
+    if (titleEl) titleEl.innerText = found ? `${found.name} ${ch}章` : `${book} ${ch}章`;
+
+    /* location 更新 */
+    AppState.location.testament = isNt ? 'nt' : 'ot';
+    AppState.location.book      = found || null;
+    AppState.location.chapter   = parseInt(ch);
+    renderGlobalBreadcrumb();
 
     const hasGreek = GREEK_BOOKS.has(book);
 
