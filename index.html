@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05151500｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05151530｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -99,6 +99,36 @@ border-radius: 7px; cursor: pointer; transition: all 0.12s;
 }
 .sb-ch-btn:hover { background: var(--highlight-light); border-color: var(--highlight); color: var(--highlight); }
 .sb-ch-btn.active { background: var(--highlight); color: #fff; border-color: var(--highlight); font-weight: 700; }
+
+/* testament タブ（書物リスト上部） */
+.sb-testament-tabs {
+    display: flex;
+    gap: 0;
+    padding: 10px 10px 4px;
+    border-bottom: 1px solid var(--border-soft);
+    margin-bottom: 4px;
+}
+.sb-tab {
+    flex: 1;
+    padding: 5px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-sub);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: color 0.12s, border-color 0.12s;
+    position: relative;
+    bottom: -1px;
+}
+.sb-tab:hover { color: var(--text-main); }
+.sb-tab.active {
+    color: var(--highlight);
+    border-bottom-color: var(--highlight);
+}
 
 /* - 中央メインエリア - */
 .container { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(-bg-paper); }
@@ -1895,9 +1925,9 @@ details[open] .study-summary::before {
 
     <!-- Layer 1: 書物リスト -->
     <div class="sb-layer" id="sb-layer1">
-        <div class="sb-layer-header menu-text" onclick="sbGoBack(0)">
-            <span class="sb-back-arrow">‹</span>
-            <span class="sb-layer-title" id="sb-l1-title">新約聖書</span>
+        <div class="sb-testament-tabs">
+            <button class="sb-tab" id="sb-tab-nt" onclick="sbGoTo(1,'nt')">新約</button>
+            <button class="sb-tab" id="sb-tab-ot" onclick="sbGoTo(1,'ot')">旧約</button>
         </div>
         <div id="sb-book-list"></div>
     </div>
@@ -4249,12 +4279,19 @@ function sbGoTo(layer, section) {
     if (layer === 0) {
         document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
         document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
+        const tabNt = document.getElementById('sb-tab-nt');
+        const tabOt = document.getElementById('sb-tab-ot');
+        if (tabNt) tabNt.classList.toggle('active', sbSection === 'nt');
+        if (tabOt) tabOt.classList.toggle('active', sbSection === 'ot');
     }
 
     if (layer === 1) {
         if (section) sbSection = section;
-        const label = sbSection === 'nt' ? '新約聖書' : '旧約聖書';
-        document.getElementById('sb-l1-title').textContent = label;
+        /* testament タブのアクティブ状態を更新 */
+        const tabNt = document.getElementById('sb-tab-nt');
+        const tabOt = document.getElementById('sb-tab-ot');
+        if (tabNt) tabNt.classList.toggle('active', sbSection === 'nt');
+        if (tabOt) tabOt.classList.toggle('active', sbSection === 'ot');
         document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
         document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
         sbRenderBooks();
