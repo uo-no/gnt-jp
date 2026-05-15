@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05151600｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05152000｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -38,18 +38,56 @@ overflow: hidden;
 /* - 左サイドメニュー - */
 .nav-sidebar {
 width: 220px;
-background: var(-bg-sidebar);
+background: var(--bg-sidebar);
 border-right: 1px solid var(--border-soft);
 display: flex;
 flex-direction: column;
-transition: width 0.3s ease;
+transition: width 0.25s ease, transform 0.25s ease;
 overflow: hidden;
 flex-shrink: 0;
 }
 .nav-sidebar.collapsed { width: 56px; }
 .sidebar-top { padding: 22px 16px 16px; display: flex; align-items: center; gap: 12px; }
-.sidebar-toggle-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(-text-sub); width: 28px; padding: 0; }
-.sidebar-logo { font-weight: 700; font-size: 1rem; white-space: nowrap; letter-spacing: -0.01em; color: var(-text-main); }
+.sidebar-toggle-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-sub); width: 28px; padding: 0; flex-shrink: 0; }
+.sidebar-logo { font-weight: 700; font-size: 1rem; white-space: nowrap; letter-spacing: -0.01em; color: var(--text-main); }
+
+/* ── overlay モード（幅狭時） ── */
+#sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.25);
+    z-index: 200;
+}
+#sidebar-overlay.visible { display: block; }
+
+@media (max-width: 900px) {
+    .nav-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100%;
+        z-index: 201;
+        transform: translateX(-100%);
+        width: 240px !important;
+        box-shadow: 2px 0 16px rgba(0,0,0,0.12);
+    }
+    .nav-sidebar.mobile-open {
+        transform: translateX(0);
+    }
+    /* collapsed クラスは narrow では無効 */
+    .nav-sidebar.collapsed { width: 240px !important; }
+    .collapsed .menu-text, .collapsed .section-label { display: unset; }
+
+    /* ハンバーガーを常に見えるヘッダーに固定 */
+    .app-header { position: relative; }
+    #mobile-menu-btn {
+        display: flex;
+    }
+}
+@media (min-width: 901px) {
+    #mobile-menu-btn { display: none !important; }
+}
 
 .sidebar-menu { flex: 1; padding: 8px 10px; overflow-y: auto; }
 .sidebar-section { margin-bottom: 20px; }
@@ -100,37 +138,52 @@ border-radius: 7px; cursor: pointer; transition: all 0.12s;
 .sb-ch-btn:hover { background: var(--highlight-light); border-color: var(--highlight); color: var(--highlight); }
 .sb-ch-btn.active { background: var(--highlight); color: #fff; border-color: var(--highlight); font-weight: 700; }
 
-/* testament トグル（書物リスト・章グリッド上部） */
-.sb-toggle-header {
+/* Layer 1/2 ナビヘッダー（旧約聖書 ／ 新約聖書 › 書物名） */
+.sb-nav-header {
     display: flex;
     align-items: baseline;
-    gap: 4px;
-    padding: 10px 16px 8px;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
 }
-.sb-toggle-item {
+.sb-nav-item {
     background: none;
     border: none;
-    padding: 0;
+    padding: 0 2px;
     font-size: 0.72rem;
     font-weight: 700;
     font-family: inherit;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
     color: var(--text-sub);
-    opacity: 0.35;
+    opacity: 0.4;
     cursor: pointer;
-    transition: opacity 0.15s, color 0.15s;
+    transition: opacity 0.15s;
+    line-height: 1.6;
 }
-.sb-toggle-item:hover { opacity: 0.65; }
-.sb-toggle-item.active {
+.sb-nav-item:hover { opacity: 0.75; }
+.sb-nav-item.active {
     color: var(--text-main);
     opacity: 1;
     cursor: default;
 }
-.sb-toggle-sep {
-    font-size: 0.65rem;
+.sb-nav-sep {
+    font-size: 0.6rem;
     color: var(--text-sub);
     opacity: 0.2;
     user-select: none;
+    padding: 0 1px;
+}
+.sb-nav-sep-book {
+    opacity: 0.15;
+}
+.sb-nav-book {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-main);
+    opacity: 0.85;
+    letter-spacing: 0.01em;
+    line-height: 1.6;
 }
 
 /* - 中央メインエリア - */
@@ -177,74 +230,31 @@ border-radius: 7px; cursor: pointer; transition: all 0.12s;
     user-select: none;
 }
 
-/* ── 深度履歴（読書の潜水履歴） ── */
-#depth-history {
-    padding: 10px 22px 6px;
-    border-bottom: 1px solid rgba(0,0,0,0.05);
-    display: none;
-    flex-direction: column;
-    gap: 0;
+/* ── パネル戻るボタン ── */
+#panel-back-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    color: var(--text-sub);
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    transition: color 0.15s;
     flex-shrink: 0;
 }
-#depth-history.visible {
-    display: flex;
+#panel-back-btn:hover { color: var(--text-main); }
+.panel-back-arrow {
+    font-size: 0.9rem;
+    line-height: 1;
+    opacity: 0.6;
 }
-.depth-item {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    padding: 4px 0 4px 12px;
-    border-left: 1px solid rgba(90,110,130,0.12);
-    cursor: pointer;
-    transition: opacity 0.15s;
-    position: relative;
-}
-.depth-item:hover {
-    opacity: 0.75;
-}
-.depth-item::before {
-    content: '';
-    position: absolute;
-    left: -4px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: rgba(90,110,130,0.18);
-    transition: background 0.15s;
-}
-.depth-item:hover::before {
-    background: rgba(90,110,130,0.4);
-}
-.depth-item.depth-top {
-    padding-left: 0;
-    border-left: none;
-}
-.depth-item.depth-top::before { display: none; }
-.depth-label {
-    font-family: 'Noto Serif JP', serif;
-    font-size: 0.75rem;
-    color: var(--text-sub);
-    opacity: 0.55;
-    letter-spacing: 0.01em;
-    transition: opacity 0.15s;
-}
-.depth-label-suffix {
-    font-size: 0.65rem;
-    color: var(--text-sub);
-    opacity: 0.4;
-    letter-spacing: 0.01em;
-}
-.depth-item:hover .depth-label { opacity: 0.85; }
-.depth-item.depth-current .depth-label {
-    opacity: 0.9;
-    color: var(--text-main);
-    font-size: 0.78rem;
-}
-.depth-item.depth-current .depth-label-suffix { opacity: 0.55; }
-.depth-item.depth-current::before {
-    background: rgba(90,110,130,0.5);
+#panel-back-label {
+    font-size: 0.73rem;
 }
 
 .breadcrumb { display: flex; align-items: center; gap: 8px; color: var(--text-sub); font-size: 0.85rem; }
@@ -266,26 +276,52 @@ bottom-word-panel は廃止（Inspectに統合）
 ══════════════════════════════════════════ */
 #main-reading-area {
 flex: 1;
-display: flex;
+display: grid;
+grid-template-columns: 1fr 42%;
 min-height: 0;
+overflow-y: auto;
 }
-/* 左：聖書本文 */
+/* グリッドモード：左右は scroll しない。親が scroll する */
 #bible-text-area {
-flex: 1;
-overflow-y: auto;
-padding: 32px 32px 40px 52px;
+overflow: visible;
+padding: 0;
+min-width: 0;
 }
-/* 右：並列訳（Reading時のみ表示） */
 #parallel-text-area {
-width: 42%;
-border-left: 1px solid var(-border-soft);
-overflow-y: auto;
-padding: 28px 24px 20px 48px;
+overflow: visible;
+padding: 0;
 background: #fafafa;
+border-left: 1px solid rgba(0,0,0,0.08);
 font-size: 0.92rem;
-color: var(-text-sub);
+color: var(--text-sub);
 line-height: 2.0;
 }
+/* 節ペア：左右セルを display:contents で grid に展開 */
+.verse-pair { display: contents; }
+.verse-pair-left {
+padding: 2px 32px 2px 52px;
+background: #fff;
+}
+.verse-pair-right {
+padding: 2px 24px 2px 32px;
+background: #fafafa;
+}
+/* 上下の余白行 */
+.verse-grid-spacer-left  { height: 32px; background: #fff; }
+.verse-grid-spacer-right { height: 32px; background: #fafafa; }
+.verse-grid-footer-left  { height: 40px; background: #fff; }
+.verse-grid-footer-right { height: 40px; background: #fafafa; }
+/* study panel が開いているとき parallel 列を非表示 */
+#main-reading-area.panel-open {
+    grid-template-columns: 1fr 0;
+}
+#main-reading-area.panel-open #parallel-text-area,
+#main-reading-area.panel-open .verse-pair-right,
+#main-reading-area.panel-open .verse-grid-spacer-right,
+#main-reading-area.panel-open .verse-grid-footer-right {
+    display: none;
+}
+
 
 /* bottom-word-panel: 廃止。高さ0で残骸を隠す */
 #bottom-word-panel {
@@ -782,7 +818,9 @@ animation: ac-blink 1.2s ease-in-out infinite;
 }
 
 /* - 本文 - */
-.verse-block { border-bottom: 0px solid var(-border-soft); transition: background 0.15s; border-radius: 6px; margin-bottom: 2px; }
+.verse-block { transition: background 0.15s; }
+.verse-pair-left  { border-radius: 6px 0 0 6px; }
+.verse-pair-right { border-radius: 0 6px 6px 0; }
 .verse-block.selected { background: rgba(90,110,130,0.07); }
 .jp-section { padding: 4px 8px; cursor: pointer; display: flex; align-items: baseline; border-radius: 6px; }
 .jp-section:hover { background: rgba(0,0,0,0.03); }
@@ -1899,6 +1937,7 @@ details[open] .study-summary::before {
     </div>
 </div>
 
+<div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
 <div class="main-layout">
     <nav id="nav-sidebar" class="nav-sidebar">
         <div class="sidebar-top">
@@ -1907,47 +1946,46 @@ details[open] .study-summary::before {
         </div>
         <div class="sidebar-menu">
 
-    <!-- Layer 0: 旧約 / 新約 -->
+    <!-- Layer 0: トップメニュー（常に表示） -->
     <div class="sb-layer active" id="sb-layer0">
         <div class="section-label" style="padding: 10px 12px 4px;">聖書</div>
         <div class="sb-row" id="sb-ot-row" onclick="sbGoTo(1,'ot')">
             <span class="menu-text">旧約聖書</span>
             <span class="sb-row-arrow menu-text">›</span>
         </div>
-        <div class="sb-row active" id="sb-nt-row" onclick="sbGoTo(1,'nt')">
+        <div class="sb-row" id="sb-nt-row" onclick="sbGoTo(1,'nt')">
             <span class="menu-text">新約聖書</span>
             <span class="sb-row-arrow menu-text">›</span>
         </div>
-
         <div class="section-label menu-text" style="padding: 16px 12px 4px;">ツール</div>
         <div class="sb-row" id="nav-proximity" onclick="goProximityPage()">
-            <span class="menu-text">近接検索（詳細）</span>
+            <span class="menu-text">近接検索</span>
             <span class="sb-row-arrow menu-text">↗</span>
         </div>
     </div>
 
-    <!-- Layer 1: 書物リスト -->
+    <!-- Layer 1: 書物一覧 -->
     <div class="sb-layer" id="sb-layer1">
-        <div class="sb-toggle-header">
-            <button class="sb-toggle-item" id="sb-tab-ot" onclick="sbGoTo(1,'ot')">旧約聖書</button>
-            <span class="sb-toggle-sep">／</span>
-            <button class="sb-toggle-item" id="sb-tab-nt" onclick="sbGoTo(1,'nt')">新約聖書</button>
+        <!-- ナビヘッダー: 旧約聖書 ／ 新約聖書 -->
+        <div class="sb-nav-header">
+            <button class="sb-nav-item" id="sb-nav-ot" onclick="sbGoTo(1,'ot')">旧約聖書</button>
+            <span class="sb-nav-sep">／</span>
+            <button class="sb-nav-item" id="sb-nav-nt" onclick="sbGoTo(1,'nt')">新約聖書</button>
         </div>
         <div id="sb-book-list"></div>
     </div>
 
     <!-- Layer 2: 章グリッド -->
     <div class="sb-layer" id="sb-layer2">
-        <div class="sb-toggle-header">
-            <button class="sb-toggle-item" id="sb-tab-ot-l2" onclick="sbGoTo(1,'ot')">旧約聖書</button>
-            <span class="sb-toggle-sep">／</span>
-            <button class="sb-toggle-item" id="sb-tab-nt-l2" onclick="sbGoTo(1,'nt')">新約聖書</button>
+        <!-- ナビヘッダー: 旧約聖書 ／ 新約聖書 › 書物名 -->
+        <div class="sb-nav-header">
+            <button class="sb-nav-item" id="sb-nav-ot-l2" onclick="sbGoTo(1,'ot')">旧約聖書</button>
+            <span class="sb-nav-sep">／</span>
+            <button class="sb-nav-item" id="sb-nav-nt-l2" onclick="sbGoTo(1,'nt')">新約聖書</button>
+            <span class="sb-nav-sep sb-nav-sep-book">›</span>
+            <span class="sb-nav-book" id="sb-l2-title"></span>
         </div>
-        <div class="sb-layer-header menu-text" onclick="sbGoBack(1)">
-            <span class="sb-back-arrow">‹</span>
-            <span class="sb-layer-title" id="sb-l2-title"></span>
-        </div>
-        <div class="section-label" style="padding: 4px 12px 4px;">章を選ぶ</div>
+        <div class="section-label" style="padding: 6px 14px 4px;">章を選ぶ</div>
         <div class="sb-ch-grid menu-text" id="sb-ch-grid"></div>
     </div>
 
@@ -1958,7 +1996,10 @@ details[open] .study-summary::before {
 <div class="container">
     <header class="app-header">
         <div class="header-content">
-            <div id="global-breadcrumb"></div>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <button id="mobile-menu-btn" onclick="toggleMobileSidebar()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-sub);padding:0;line-height:1;">☰</button>
+                <div id="global-breadcrumb"></div>
+            </div>
             <!-- open-panel-btn は Study閉じた後の再開ボタン。非表示スタート。 -->
             <button id="open-panel-btn" onclick="reopenStudyPanel()" style="display:none;" title="前の語の読解に戻る">
                 <i class="fa-solid fa-circle-info"></i><span style="font-size:0.7rem;margin-left:5px;font-family:inherit;color:var(--text-sub);">読解に戻る</span>
@@ -1992,10 +2033,12 @@ details[open] .study-summary::before {
     <div id="panel-resize-handle"></div>
     <!-- パネルヘッダー -->
     <div class="panel-header">
+        <button id="panel-back-btn" onclick="panelGoBack()" style="display:none;">
+            <span class="panel-back-arrow">←</span>
+            <span id="panel-back-label"></span>
+        </button>
         <span id="active-v" style="font-size: 0.78rem; color: var(--text-sub); font-weight: 400;"></span>
     </div>
-    <!-- 読書深度履歴 -->
-    <div id="depth-history"></div>
 
 <!-- reading-core-bar: 語形ヘッダー（Study時のみ） -->
 <div class="rcb-container" id="rcb-container">
@@ -2101,13 +2144,13 @@ const AppState = {
 
     /* スクロール位置を保存 */
     saveScroll() {
-        const el = document.getElementById('bible-text-area');
+        const el = document.getElementById('main-reading-area');
         if (el) this.scrollTop = el.scrollTop;
     },
 
     /* スクロール位置を復元 */
     restoreScroll() {
-        const el = document.getElementById('bible-text-area');
+        const el = document.getElementById('main-reading-area');
         if (el) el.scrollTop = this.scrollTop;
     },
 
@@ -2209,56 +2252,37 @@ function pushDepth(entry) {
  * 縦並び・左borderで深度感・静かな読書履歴。
  */
 function renderDepthHistory() {
-    const el = document.getElementById('depth-history');
-    if (!el) return;
+    const btn   = document.getElementById('panel-back-btn');
+    const label = document.getElementById('panel-back-label');
+    if (!btn || !label) return;
 
     const stack = AppState.depth.stack;
-    if (stack.length === 0) {
-        el.classList.remove('visible');
-        el.innerHTML = '';
+    if (stack.length <= 1) {
+        btn.style.display = 'none';
         return;
     }
 
-    el.classList.add('visible');
+    const prev = stack[stack.length - 2];
+    const backLabel = {
+        'reading':      '読書に戻る',
+        'verse-flow':   'ことばの流れに戻る',
+        'word-flow':    prev.label + ' に戻る',
+        'deep-reading': '読解に戻る',
+    }[prev.type] || (prev.label + ' に戻る');
 
-    const items = stack.map((entry, i) => {
-        const isCurrent = i === stack.length - 1;
-        const isTop     = i === 0;
-        const cls = [
-            'depth-item',
-            isTop     ? 'depth-top' : '',
-            isCurrent ? 'depth-current' : '',
-        ].filter(Boolean).join(' ');
-
-        /* 「に戻る」は現在地以外に表示 */
-        const suffix = isCurrent ? '' : 'に戻る';
-
-        /* ギリシャ語ラベルは Gentium フォントで */
-        const labelStyle = /[\u0370-\u03FF\u1F00-\u1FFF]/.test(entry.label)
-            ? 'font-family:"Gentium Plus",serif;font-size:0.9rem;'
-            : '';
-
-        return `<div class="${cls}" onclick="restoreDepth(${i})">
-            <span class="depth-label" style="${labelStyle}">${entry.label}</span>
-            ${suffix ? `<span class="depth-label-suffix">${suffix}</span>` : ''}
-        </div>`;
-    });
-
-    el.innerHTML = items.join('');
+    label.textContent = backLabel;
+    btn.style.display = 'flex';
 }
 
-/**
- * depth stack の index 番目に戻る。
- * それより深いエントリは破棄する。
- */
-function restoreDepth(index) {
-    const target = AppState.depth.stack[index];
-    if (!target) return;
-
-    AppState.depth.stack = AppState.depth.stack.slice(0, index + 1);
+function panelGoBack() {
+    const stack = AppState.depth.stack;
+    if (stack.length <= 1) return;
+    AppState.depth.stack = stack.slice(0, stack.length - 1);
+    const target = AppState.depth.stack[AppState.depth.stack.length - 1];
     restoreContext(target);
     renderDepthHistory();
 }
+
 
 /**
  * depth entry の type に応じて UI を復元する。
@@ -2300,7 +2324,7 @@ function _closeStudyPanelInternal() {
     const sidePanel    = document.getElementById('side-panel');
     const parallelArea = document.getElementById('parallel-text-area');
     sidePanel.style.display    = 'none';
-    parallelArea.style.display = '';
+    document.getElementById('main-reading-area').classList.remove('panel-open');
 
     const notesWrap = document.getElementById('reading-notes-wrap');
     if (notesWrap) { notesWrap.style.display = 'none'; }
@@ -2323,6 +2347,7 @@ function _closeStudyPanelInternal() {
     if (listEl) listEl.remove();
 
     document.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll('.verse-pair-right').forEach(b => b.classList.remove('selected'));
     document.getElementById('active-v').innerText = '';
 
     AppState.toReading();
@@ -2335,7 +2360,7 @@ function _openWordListInternal(vNum, words) {
     const sidePanel    = document.getElementById('side-panel');
     const parallelArea = document.getElementById('parallel-text-area');
     sidePanel.style.display    = 'flex';
-    parallelArea.style.display = 'none';
+    document.getElementById('main-reading-area').classList.add('panel-open');
     document.getElementById('open-panel-btn').style.display = 'none';
 
     const notesWrap = document.getElementById('reading-notes-wrap');
@@ -4198,7 +4223,37 @@ window.addEventListener('message', (e) => {
     }
 });
 
-function toggleSidebar() { document.getElementById('nav-sidebar').classList.toggle('collapsed'); }
+function toggleSidebar() {
+    if (window.innerWidth <= 900) {
+        toggleMobileSidebar();
+    } else {
+        document.getElementById('nav-sidebar').classList.toggle('collapsed');
+    }
+}
+
+function toggleMobileSidebar() {
+    const sidebar = document.getElementById('nav-sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const isOpen  = sidebar.classList.contains('mobile-open');
+    if (isOpen) {
+        closeMobileSidebar();
+    } else {
+        sidebar.classList.add('mobile-open');
+        overlay.classList.add('visible');
+    }
+}
+
+function closeMobileSidebar() {
+    document.getElementById('nav-sidebar').classList.remove('mobile-open');
+    document.getElementById('sidebar-overlay').classList.remove('visible');
+}
+
+/* リサイズ時に状態をリセット */
+window.addEventListener('resize', () => {
+    if (window.innerWidth > 900) {
+        closeMobileSidebar();
+    }
+});
 
 /* ══════════════════════════════════════════
    サイドバー ドリルダウン
@@ -4285,39 +4340,40 @@ function sbGoTo(layer, section) {
     document.querySelectorAll('.sb-layer').forEach(l => l.classList.remove('active'));
     document.getElementById('sb-layer' + layer).classList.add('active');
 
+    /* Layer 0: sb-nt-row / sb-ot-row のアクティブ表示 */
     if (layer === 0) {
         document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
         document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
-        const tabNt = document.getElementById('sb-tab-nt');
-        const tabOt = document.getElementById('sb-tab-ot');
-        const tabNtL2 = document.getElementById('sb-tab-nt-l2');
-        const tabOtL2 = document.getElementById('sb-tab-ot-l2');
-        if (tabNt)   tabNt.classList.toggle('active',   sbSection === 'nt');
-        if (tabOt)   tabOt.classList.toggle('active',   sbSection === 'ot');
-        if (tabNtL2) tabNtL2.classList.toggle('active', sbSection === 'nt');
-        if (tabOtL2) tabOtL2.classList.toggle('active', sbSection === 'ot');
     }
 
+    /* Layer 1: 書物一覧を描画 */
     if (layer === 1) {
         if (section) sbSection = section;
-        /* testament タブのアクティブ状態を更新（Layer 1 と Layer 2 両方） */
-        const tabNt = document.getElementById('sb-tab-nt');
-        const tabOt = document.getElementById('sb-tab-ot');
-        const tabNtL2 = document.getElementById('sb-tab-nt-l2');
-        const tabOtL2 = document.getElementById('sb-tab-ot-l2');
-        if (tabNt)   tabNt.classList.toggle('active',   sbSection === 'nt');
-        if (tabOt)   tabOt.classList.toggle('active',   sbSection === 'ot');
-        if (tabNtL2) tabNtL2.classList.toggle('active', sbSection === 'nt');
-        if (tabOtL2) tabOtL2.classList.toggle('active', sbSection === 'ot');
+        _sbSyncNavHeaders();
         document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
         document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
         sbRenderBooks();
     }
 
+    /* Layer 2: 章グリッドを描画 */
     if (layer === 2) {
+        _sbSyncNavHeaders();
         document.getElementById('sb-l2-title').textContent = sbBookName;
         sbRenderChapters();
     }
+}
+
+/* Layer 1/2 のナビヘッダーのアクティブ状態を同期 */
+function _sbSyncNavHeaders() {
+    const isNt = sbSection === 'nt';
+    ['sb-nav-nt', 'sb-nav-nt-l2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('active', isNt);
+    });
+    ['sb-nav-ot', 'sb-nav-ot-l2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('active', !isNt);
+    });
 }
 
 function sbGoBack(layer) { sbGoTo(layer); }
@@ -4372,8 +4428,8 @@ function sbInitState(bookKey, ch) {
         sbBookName = found.name;
         sbMaxCh    = found.ch;
     }
-    sbGoTo(1);
-    if (found) sbGoTo(2);
+    /* 起動時: Layer 0 を表示（トップメニューから始める） */
+    sbGoTo(0);
 }
 
 /* ══════════════════════════════════════════
@@ -4382,7 +4438,7 @@ function sbInitState(bookKey, ch) {
 function showAppInfo() {
     const app = document.getElementById('bible-text-area');
     const parallel = document.getElementById('parallel-text-area');
-    if (parallel) parallel.style.display = 'none';
+    document.getElementById('main-reading-area').classList.add('panel-open');
     document.getElementById('view-title').innerText = "出典・ポリシー";
 
     const infoHtml = `
@@ -4520,6 +4576,7 @@ async function init() {
 function render(jpData, elData, hasGreek) {
     const app          = document.getElementById('bible-text-area');
     const parallel     = document.getElementById('parallel-text-area');
+    const mainArea     = document.getElementById('main-reading-area');
     // ── Study panel を閉じて Reading 状態に戻す ──
     closeStudyPanel();
     /* 章が変わった場合は AppState を完全リセット（study.params も破棄） */
@@ -4540,6 +4597,7 @@ function render(jpData, elData, hasGreek) {
     app.innerHTML = '';
     app.appendChild(hintEl);
     parallel.innerHTML = '';
+    mainArea.classList.remove('panel-open');
 
     // Study panel 内の語形一覧はなくなったため、elByVerseは
     // word-cardのHTMLをverse-blockにインライン埋め込むのではなく、
@@ -4564,35 +4622,47 @@ function render(jpData, elData, hasGreek) {
         openBtn.style.display = 'none';
     }
 
+    /* グリッド上部スペーサー */
+    const topLeft  = document.createElement('div');
+    const topRight = document.createElement('div');
+    topLeft.className  = 'verse-grid-spacer-left';
+    topRight.className = 'verse-grid-spacer-right';
+    app.appendChild(topLeft);
+    parallel.appendChild(topRight);
+
     Object.entries(jpData.verses).forEach(([vNum, text]) => {
-        // 左：聖書本文
+        // 左：聖書本文（verse-pair-left セル）
         const block = document.createElement('div');
-        block.className = 'verse-block';
+        block.className = 'verse-block verse-pair-left';
         block.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
 
         if (hasGreek) {
             block.onclick = () => {
-                // 節クリック：語形リストを side-panel に表示（本文は消えない）
-                app.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
+                mainArea.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
                 block.classList.add('selected');
+                if (pBlock) pBlock.classList.add('selected');
                 document.getElementById('active-v').innerText = `${vNum} 節`;
-
-                /* AppState に選択節を記録（Browsing モードへ） */
                 AppState.toBrowsing(vNum, elByVerse[vNum] || []);
-
                 openWordListInStudyPanel(vNum, elByVerse[vNum] || []);
                 hideInspectPopover();
             };
         }
-
         app.appendChild(block);
 
-        // 右：並列訳
+        // 右：並列訳（verse-pair-right セル）
         const pBlock = document.createElement('div');
-        pBlock.className = 'verse-block';
+        pBlock.className = 'verse-block verse-pair-right';
         pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
         parallel.appendChild(pBlock);
     });
+
+    /* グリッド下部スペーサー */
+    const botLeft  = document.createElement('div');
+    const botRight = document.createElement('div');
+    botLeft.className  = 'verse-grid-footer-left';
+    botRight.className = 'verse-grid-footer-right';
+    app.appendChild(botLeft);
+    parallel.appendChild(botRight);
 
     _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
 
@@ -5380,7 +5450,7 @@ function openStudyPanel(greek, rawMorph, ref, lemma) {
     const sidePanel    = document.getElementById('side-panel');
     const parallelArea = document.getElementById('parallel-text-area');
     sidePanel.style.display    = 'flex';
-    parallelArea.style.display = 'none';
+    document.getElementById('main-reading-area').classList.add('panel-open');
 
     const activeVEl = document.getElementById('active-v');
     if (activeVEl && greek) activeVEl.textContent = greek;
@@ -5434,13 +5504,7 @@ function reopenStudyPanel() {
 /* ══════════════════════════════════════════
    本文スクロール同期
    ══════════════════════════════════════════ */
-(function() {
-    const left  = document.getElementById('bible-text-area');
-    const right = document.getElementById('parallel-text-area');
-    if (left && right) {
-        left.addEventListener('scroll', () => { right.scrollTop = left.scrollTop; });
-    }
-})();
+/* スクロール同期：#main-reading-area が単一スクロールコンテナになったため不要 */
 
 /* ══════════════════════════════════════════
    近接検索ページへの文脈付き遷移
@@ -5478,7 +5542,7 @@ function switchTab(evt, tabName) {
     for (let i = 0; i < tabBtns.length; i++) tabBtns[i].classList.remove("active");
     document.getElementById(tabName).classList.add("active");
     evt.currentTarget.classList.add("active");
-    document.getElementById('bible-text-area').scrollTop = 0;
+    document.getElementById('main-reading-area').scrollTop = 0;
 }
 
 async function renderCurrentPage() {
@@ -5517,7 +5581,7 @@ async function renderCurrentPage() {
 
         render(jpData, elData, hasGreek && elData.length > 0);
         const parallel = document.getElementById('parallel-text-area');
-        if (parallel) parallel.style.display = '';
+        document.getElementById('main-reading-area').classList.remove('panel-open');
         document.getElementById('active-v').innerText = "";
     } catch (err) {
         document.getElementById('bible-text-area').innerHTML = `<p style="color:red">データが見つかりません。</p>`;
@@ -5530,7 +5594,7 @@ async function renderCurrentPage() {
 function showMameKnowledge() {
     const app = document.getElementById('bible-text-area');
     const parallel = document.getElementById('parallel-text-area');
-    if (parallel) parallel.style.display = 'none';
+    document.getElementById('main-reading-area').classList.add('panel-open');
     document.getElementById('view-title').innerText = "まめ知識";
 
     const contentHtml = `
