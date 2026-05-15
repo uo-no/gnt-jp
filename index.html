@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05152000｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05152100｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -362,66 +362,72 @@ transition: color 0.15s;
 }
 .footer-links button:hover { color: var(-text-main); }
 
-/* - 右サイドパネル（Study モード） - */
+/* - Depth Panel（下から展開、縦構造） - */
 #open-panel-btn {
-background: transparent; border: none; padding: 0 10px; cursor: pointer; color: var(-highlight);
+background: transparent; border: none; padding: 0 10px; cursor: pointer; color: var(--highlight);
 font-size: 1.2rem; transition: transform 0.2s, opacity 0.2s; line-height: 1;
 }
 #open-panel-btn:hover { opacity: 0.7; transform: scale(1.1); }
 
-#side-panel {
-width: 44%;
-min-width: 280px;
-max-width: 80%;
-background: var(-bg-panel);
-border-left: 1px solid var(-border-soft);
+#bottom-depth-panel {
+width: 100%;
+background: var(--bg-panel);
+border-top: 1px solid var(--border-soft);
 padding: 0;
-display: none;   /* ← Reading時は非表示。Studyへの昇格時のみ表示 */
+display: none;
 flex-direction: column;
 flex-shrink: 0;
-height: 100vh;
+height: 46vh;
+min-height: 220px;
+max-height: 70vh;
 box-sizing: border-box;
 position: relative;
+overflow: hidden;
+}
+#bottom-depth-panel.open {
+display: flex;
 }
 
-/* リサイズハンドル */
+/* リサイズハンドル（上辺） */
 #panel-resize-handle {
 position: absolute;
-left: -4px;
-top: 0;
-width: 8px;
-height: 100%;
-cursor: col-resize;
+top: -4px;
+left: 0;
+width: 100%;
+height: 8px;
+cursor: row-resize;
 z-index: 100;
 display: flex;
-align-items: center;
 justify-content: center;
+align-items: flex-end;
 }
 #panel-resize-handle::after {
-content: ‘’;
+content: '';
 display: block;
-width: 3px;
-height: 40px;
+height: 3px;
+width: 40px;
 border-radius: 2px;
-background: var(-border-soft);
-transition: background 0.15s, height 0.15s;
+background: var(--border-soft);
+transition: background 0.15s, width 0.15s;
+margin-bottom: 2px;
 }
 #panel-resize-handle:hover::after,
 #panel-resize-handle.dragging::after {
-background: var(-highlight);
-height: 60px;
+background: var(--highlight);
+width: 60px;
 }
 .panel-header {
 font-weight: 700;
 font-size: 0.95rem;
 letter-spacing: -0.01em;
-padding: 18px 22px 0;
+padding: 14px 22px 0;
 display: flex;
 justify-content: space-between;
 align-items: center;
-color: var(-accent-dark);
+color: var(--accent-dark);
 flex-shrink: 0;
 }
+
 
 /* - 読書メモUI - */
 /* タブなし・単一スクロール・annotation feel */
@@ -2014,9 +2020,40 @@ details[open] .study-summary::before {
             <div id="parallel-text-area"></div>
         </div>
         <!-- bottom-word-panel は廃止。DOMは残すが非表示 -->
-        <div id="bottom-word-panel">
+        <div id="bottom-word-panel" style="display:none;">
             <div id="panel-content"></div>
             <div id="word-detail-view"></div>
+        </div>
+
+        <!-- Depth Panel（下から展開） -->
+        <div id="bottom-depth-panel">
+            <!-- リサイズハンドル（上辺） -->
+            <div id="panel-resize-handle"></div>
+            <!-- パネルヘッダー -->
+            <div class="panel-header">
+                <button id="panel-back-btn" onclick="panelGoBack()" style="display:none;">
+                    <span class="panel-back-arrow">←</span>
+                    <span id="panel-back-label"></span>
+                </button>
+                <span id="active-v" style="font-size: 0.78rem; color: var(--text-sub); font-weight: 400;"></span>
+            </div>
+
+            <!-- reading-core-bar: 語形ヘッダー（Study時のみ） -->
+            <div class="rcb-container" id="rcb-container">
+                <span class="rcb-chip-sm" id="rcb-main-word">-</span>
+                <span class="rcb-label-sm" id="rcb-main-gloss" style="opacity:0.6;font-weight:400;letter-spacing:0;text-transform:none;font-size:0.72rem;"></span>
+            </div>
+
+            <!-- メインコンテンツエリア（タブなし・単一スクロール） -->
+            <div id="reading-notes-wrap" style="display:none;flex:1;min-height:0;overflow-y:auto;flex-direction:column;">
+                <div id="reading-notes-area"></div>
+            </div>
+
+            <!-- 分析コンテンツエリア（後方互換のため保持・非表示） -->
+            <div id="analysis-frame-wrap">
+                <iframe id="analysis-iframe" title="分析パネル（廃止）" style="display:none;"></iframe>
+                <div id="analysis-content-area" style="display:none;"></div>
+            </div>
         </div>
     </div>
     <footer class="app-footer">
@@ -2027,37 +2064,6 @@ details[open] .study-summary::before {
         </div>
     </footer>
 </div>
-
-<aside id="side-panel">
-    <!-- リサイズハンドル -->
-    <div id="panel-resize-handle"></div>
-    <!-- パネルヘッダー -->
-    <div class="panel-header">
-        <button id="panel-back-btn" onclick="panelGoBack()" style="display:none;">
-            <span class="panel-back-arrow">←</span>
-            <span id="panel-back-label"></span>
-        </button>
-        <span id="active-v" style="font-size: 0.78rem; color: var(--text-sub); font-weight: 400;"></span>
-    </div>
-
-<!-- reading-core-bar: 語形ヘッダー（Study時のみ） -->
-<div class="rcb-container" id="rcb-container">
-    <span class="rcb-chip-sm" id="rcb-main-word">-</span>
-    <span class="rcb-label-sm" id="rcb-main-gloss" style="opacity:0.6;font-weight:400;letter-spacing:0;text-transform:none;font-size:0.72rem;"></span>
-</div>
-
-<!-- メインコンテンツエリア（タブなし・単一スクロール） -->
-<div id="reading-notes-wrap" style="display:none;flex:1;min-height:0;overflow-y:auto;flex-direction:column;">
-    <div id="reading-notes-area"></div>
-</div>
-
-<!-- 分析コンテンツエリア（後方互換のため保持・非表示） -->
-<div id="analysis-frame-wrap">
-    <iframe id="analysis-iframe" title="分析パネル（廃止）" style="display:none;"></iframe>
-    <div id="analysis-content-area" style="display:none;"></div>
-</div>
-
-</aside>
 
 </div>
 
@@ -2321,10 +2327,8 @@ function restoreContext(ctx) {
 
 /* 内部: パネルを閉じてReadingへ（depth stackは変えない） */
 function _closeStudyPanelInternal() {
-    const sidePanel    = document.getElementById('side-panel');
-    const parallelArea = document.getElementById('parallel-text-area');
-    sidePanel.style.display    = 'none';
-    document.getElementById('main-reading-area').classList.remove('panel-open');
+    const sidePanel    = document.getElementById('bottom-depth-panel');
+    sidePanel.classList.remove('open');
 
     const notesWrap = document.getElementById('reading-notes-wrap');
     if (notesWrap) { notesWrap.style.display = 'none'; }
@@ -2357,10 +2361,8 @@ function _closeStudyPanelInternal() {
 /* 内部: 語形一覧を開く（depth stackは変えない） */
 function _openWordListInternal(vNum, words) {
     _wlvWordCache = words || [];
-    const sidePanel    = document.getElementById('side-panel');
-    const parallelArea = document.getElementById('parallel-text-area');
-    sidePanel.style.display    = 'flex';
-    document.getElementById('main-reading-area').classList.add('panel-open');
+    const sidePanel    = document.getElementById('bottom-depth-panel');
+    sidePanel.classList.add('open');
     document.getElementById('open-panel-btn').style.display = 'none';
 
     const notesWrap = document.getElementById('reading-notes-wrap');
@@ -2700,7 +2702,7 @@ Object.defineProperty(window, '_currentAnalysisParams', {
  * 外部から呼ばれる可能性があるため互換として残す。
  */
 function toggleSidePanel() {
-    const sidePanel = document.getElementById('side-panel');
+    const sidePanel = document.getElementById('bottom-depth-panel');
     const isHidden  = window.getComputedStyle(sidePanel).display === 'none';
     if (isHidden) {
         if (AppState.canReopen()) reopenStudyPanel();
@@ -4438,7 +4440,7 @@ function sbInitState(bookKey, ch) {
 function showAppInfo() {
     const app = document.getElementById('bible-text-area');
     const parallel = document.getElementById('parallel-text-area');
-    document.getElementById('main-reading-area').classList.add('panel-open');
+    
     document.getElementById('view-title').innerText = "出典・ポリシー";
 
     const infoHtml = `
@@ -4597,7 +4599,7 @@ function render(jpData, elData, hasGreek) {
     app.innerHTML = '';
     app.appendChild(hintEl);
     parallel.innerHTML = '';
-    mainArea.classList.remove('panel-open');
+    
 
     // Study panel 内の語形一覧はなくなったため、elByVerseは
     // word-cardのHTMLをverse-blockにインライン埋め込むのではなく、
@@ -4618,29 +4620,20 @@ function render(jpData, elData, hasGreek) {
 
     const openBtn = document.getElementById('open-panel-btn');
     if (!hasGreek) {
-        document.getElementById('side-panel').style.display = 'none';
+        document.getElementById('bottom-depth-panel').style.display = 'none';
         openBtn.style.display = 'none';
     }
 
-    /* グリッド上部スペーサー */
-    const topLeft  = document.createElement('div');
-    const topRight = document.createElement('div');
-    topLeft.className  = 'verse-grid-spacer-left';
-    topRight.className = 'verse-grid-spacer-right';
-    app.appendChild(topLeft);
-    parallel.appendChild(topRight);
-
     Object.entries(jpData.verses).forEach(([vNum, text]) => {
-        // 左：聖書本文（verse-pair-left セル）
+        // 左：聖書本文
         const block = document.createElement('div');
-        block.className = 'verse-block verse-pair-left';
+        block.className = 'verse-block';
         block.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
 
         if (hasGreek) {
             block.onclick = () => {
                 mainArea.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
                 block.classList.add('selected');
-                if (pBlock) pBlock.classList.add('selected');
                 document.getElementById('active-v').innerText = `${vNum} 節`;
                 AppState.toBrowsing(vNum, elByVerse[vNum] || []);
                 openWordListInStudyPanel(vNum, elByVerse[vNum] || []);
@@ -4649,20 +4642,12 @@ function render(jpData, elData, hasGreek) {
         }
         app.appendChild(block);
 
-        // 右：並列訳（verse-pair-right セル）
+        // 右：並列訳（parallel ON時のみ表示）
         const pBlock = document.createElement('div');
         pBlock.className = 'verse-block verse-pair-right';
         pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
         parallel.appendChild(pBlock);
     });
-
-    /* グリッド下部スペーサー */
-    const botLeft  = document.createElement('div');
-    const botRight = document.createElement('div');
-    botLeft.className  = 'verse-grid-footer-left';
-    botRight.className = 'verse-grid-footer-right';
-    app.appendChild(botLeft);
-    parallel.appendChild(botRight);
 
     _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
 
@@ -5338,36 +5323,29 @@ function _buildGreekTabHTML(words) {
 let _wlvWordCache = [];
 
 /* ══════════════════════════════════════════
-   パネルリサイズ（ドラッグ）
+   パネルリサイズ（縦方向ドラッグ - bottom-depth-panel）
    ══════════════════════════════════════════ */
 (function() {
     const handle = document.getElementById('panel-resize-handle');
-    const panel  = document.getElementById('side-panel');
-    const layout = document.querySelector('.main-layout');
-    let dragging = false;
-    let startX = 0;
-    let startW = 0;
+    const panel  = document.getElementById('bottom-depth-panel');
+    if (!handle || !panel) return;
+    let dragging = false, startY = 0, startH = 0;
 
     handle.addEventListener('mousedown', (e) => {
         dragging = true;
-        startX = e.clientX;
-        startW = panel.offsetWidth;
+        startY = e.clientY;
+        startH = panel.offsetHeight;
         handle.classList.add('dragging');
-        document.body.style.cursor = 'col-resize';
+        document.body.style.cursor = 'row-resize';
         document.body.style.userSelect = 'none';
         e.preventDefault();
     });
-
     document.addEventListener('mousemove', (e) => {
         if (!dragging) return;
-        const delta = startX - e.clientX;
-        const layoutW = layout.offsetWidth;
-        const minPx = 280;
-        const maxPx = layoutW * 0.80;
-        const newW = Math.min(maxPx, Math.max(minPx, startW + delta));
-        panel.style.width = newW + 'px';
+        const dy = startY - e.clientY;
+        const nh = Math.max(220, Math.min(window.innerHeight * 0.70, startH + dy));
+        panel.style.height = nh + 'px';
     });
-
     document.addEventListener('mouseup', () => {
         if (!dragging) return;
         dragging = false;
@@ -5375,30 +5353,21 @@ let _wlvWordCache = [];
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
     });
-
     handle.addEventListener('touchstart', (e) => {
         dragging = true;
-        startX = e.touches[0].clientX;
-        startW = panel.offsetWidth;
-        handle.classList.add('dragging');
+        startY = e.touches[0].clientY;
+        startH = panel.offsetHeight;
         e.preventDefault();
     }, { passive: false });
-
     document.addEventListener('touchmove', (e) => {
         if (!dragging) return;
-        const delta = startX - e.touches[0].clientX;
-        const layoutW = layout.offsetWidth;
-        const minPx = 280;
-        const maxPx = layoutW * 0.80;
-        const newW = Math.min(maxPx, Math.max(minPx, startW + delta));
-        panel.style.width = newW + 'px';
+        const dy = startY - e.touches[0].clientY;
+        const nh = Math.max(220, Math.min(window.innerHeight * 0.70, startH + dy));
+        panel.style.height = nh + 'px';
     }, { passive: false });
-
-    document.addEventListener('touchend', () => {
-        dragging = false;
-        handle.classList.remove('dragging');
-    });
+    document.addEventListener('touchend', () => { dragging = false; });
 })();
+
 
 /* ══════════════════════════════════════════
    openStudyPanel - 正規実装（唯一の定義）
@@ -5447,12 +5416,9 @@ function openStudyPanel(greek, rawMorph, ref, lemma) {
         });
     }
 
-    const sidePanel    = document.getElementById('side-panel');
-    const parallelArea = document.getElementById('parallel-text-area');
-    sidePanel.style.display    = 'flex';
-    document.getElementById('main-reading-area').classList.add('panel-open');
-
-    const activeVEl = document.getElementById('active-v');
+    const sidePanel    = document.getElementById('bottom-depth-panel');
+    sidePanel.classList.add('open');
+const activeVEl = document.getElementById('active-v');
     if (activeVEl && greek) activeVEl.textContent = greek;
 
     document.getElementById('open-panel-btn').style.display = 'none';
@@ -5581,7 +5547,7 @@ async function renderCurrentPage() {
 
         render(jpData, elData, hasGreek && elData.length > 0);
         const parallel = document.getElementById('parallel-text-area');
-        document.getElementById('main-reading-area').classList.remove('panel-open');
+        
         document.getElementById('active-v').innerText = "";
     } catch (err) {
         document.getElementById('bible-text-area').innerHTML = `<p style="color:red">データが見つかりません。</p>`;
@@ -5594,7 +5560,7 @@ async function renderCurrentPage() {
 function showMameKnowledge() {
     const app = document.getElementById('bible-text-area');
     const parallel = document.getElementById('parallel-text-area');
-    document.getElementById('main-reading-area').classList.add('panel-open');
+    
     document.getElementById('view-title').innerText = "まめ知識";
 
     const contentHtml = `
