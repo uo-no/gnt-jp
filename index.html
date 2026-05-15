@@ -398,7 +398,7 @@ display: block;
 margin-bottom: 4px;
 }
 
-/* ─── Layer 3: 「ことばを見る」reference layer ─── */
+/* ─── Layer 3: 「単語を調べる」reference layer ─── */
 /* 読書から分離された最下層。折りたたみ。annotation feel。 */
 .rn-ref-section {
     margin-top: 20px;
@@ -866,7 +866,7 @@ letter-spacing: 0.04em;
 
 @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Study panel 閉じるボタン（「読書に戻る」） */
+/* Study panel 閉じるボタン（「テキストに戻る」） */
 #study-close-btn {
 background: none;
 border: none;
@@ -1842,7 +1842,7 @@ details[open] .study-summary::before {
     <div id="app">
         <div id="main-reading-area">
             <div id="bible-text-area">
-                <div id="reading-hint">節をタップすると、ことばの流れが見えてきます</div>
+                <div id="reading-hint">節をタップすると、原語の順序が見えてきます</div>
             </div>
             <div id="parallel-text-area"></div>
         </div>
@@ -1866,8 +1866,8 @@ details[open] .study-summary::before {
     <div id="panel-resize-handle"></div>
     <!-- パネルヘッダー -->
     <div class="panel-header">
-        <button onclick="closeStudyPanel()" id="study-close-btn" title="読書に戻る">
-            ← <span class="study-close-label">読書に戻る</span>
+        <button onclick="closeStudyPanel()" id="study-close-btn" title="テキストに戻る">
+            ← <span class="study-close-label">テキストに戻る</span>
         </button>
         <span id="active-v" style="font-size: 0.78rem; color: var(--text-sub); font-weight: 400;"></span>
     </div>
@@ -1911,7 +1911,7 @@ let _proximityTokens = [];
      reading  → 節クリック  → browsing
      browsing → 語カードクリック → popover表示（modeは browsing のまま）
      browsing → 「詳しく見る」 → study
-     study    → 「読書に戻る」 → reading（scroll復元）
+     study    → 「テキストに戻る」 → reading（scroll復元）
      study    → 「分析に戻る」 → study（params保持・tab記憶）
    ══════════════════════════════════════════ */
 const AppState = {
@@ -2427,11 +2427,11 @@ function _renderReadingNotes(p) {
 
     /* デフォルト */
     if (prose.length === 0) {
-        prose.push(`この語の文脈的な響きは、下の「ことばを見る」から確認できます。`);
+        prose.push(`この語の文脈的な響きは、下の「単語を調べる」から確認できます。`);
     }
 
     /* ═══════════════════════════════════════════════════════
-       Reference layer - 「ことばを見る」
+       Reference layer - 「単語を調べる」
        morph grid + Abbott-Smith。
        読書 prose から分離された最下層。
        折りたたみ。初期状態は閉じている。
@@ -2486,7 +2486,7 @@ function _renderReadingNotes(p) {
     const refHTML = `
         <div class="rn-ref-section">
             <button class="rn-ref-toggle" id="rn-ref-toggle" onclick="_rnToggleRef()">
-                <span class="rn-ref-toggle-icon">›</span>ことばを見る
+                <span class="rn-ref-toggle-icon">›</span>単語を調べる
             </button>
             <div class="rn-ref-body" id="rn-ref-body">
                 ${morphGridHTML}
@@ -2514,7 +2514,7 @@ function _renderReadingNotes(p) {
 
 
 
-/* ことばを見る（reference layer）トグル */
+/* 単語を調べる（reference layer）トグル */
 function _rnToggleRef() {
     const btn  = document.getElementById('rn-ref-toggle');
     const body = document.getElementById('rn-ref-body');
@@ -2525,7 +2525,7 @@ function _rnToggleRef() {
     const icon = btn.querySelector('.rn-ref-toggle-icon');
     if (icon) icon.style.transform = isOpen ? '' : 'rotate(90deg)';
     btn.childNodes.forEach(n => {
-        if (n.nodeType === 3) n.textContent = isOpen ? 'ことばを見る' : 'とじる';
+        if (n.nodeType === 3) n.textContent = isOpen ? '単語を調べる' : '閉じる';
     });
 }
 
@@ -4121,7 +4121,7 @@ function render(jpData, elData, hasGreek) {
     if (!hintEl) {
         hintEl = document.createElement('div');
         hintEl.id = 'reading-hint';
-        hintEl.textContent = '節をタップすると、ことばの流れが見えてきます';
+        hintEl.textContent = '節をタップすると、原語の順序が見えてきます';
     }
     app.innerHTML = '';
     app.appendChild(hintEl);
@@ -4286,7 +4286,7 @@ function _buildFlowTabHTML(words) {
             <div class="wlv-detail-ja"    id="wlv-dd-ja">-</div>
             <div class="wlv-detail-resonance" id="wlv-dd-resonance"></div>
             <button class="wlv-detail-study-btn" id="wlv-dd-study-btn" onclick="_wlvStudyBtnClick()">
-                もう少し奥まで読む →
+                詳しく見る →
             </button>
         </div>`;
 
@@ -4295,7 +4295,7 @@ function _buildFlowTabHTML(words) {
 
     return `
         <div class="wlv-flow-section-compact">
-            <span class="wlv-flow-label-compact">ことばの流れ</span>
+            <span class="wlv-flow-label-compact">原語の順序</span>
             <div class="wlv-flow-stream" id="wlv-flow-stream">
                 ${chipsHTML}
             </div>
@@ -4410,14 +4410,14 @@ function _buildPassageNote(words) {
         if (words.length <= 5)
             parts.push(`短い節です。一語一語が凝縮された意味を持って置かれています。`);
         else
-            parts.push(`原語の語順と品詞の流れは、上のことばの流れから確認できます。`);
+            parts.push(`原語の語順と品詞の流れは、上の原語の順序から確認できます。`);
     }
 
     const proseParagraphs = parts.map(p2 => `<p>${p2}</p>`).join('');
 
     return `
         <section class="wlv-reading-passage-note">
-            <span class="wlv-pn-label">節の読書メモ</span>
+            <span class="wlv-pn-label">この節の読書メモ</span>
             <div class="wlv-pn-prose">
                 ${proseParagraphs}
             </div>
