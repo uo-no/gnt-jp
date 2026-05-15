@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05150930｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05151000｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -315,66 +315,11 @@ line-height: 2.0;
 letter-spacing: 0.01em;
 }
 
-/* open時：Layer 1 が後景へ沈む */
-.reading-deep-active .rn-prose {
-  opacity: 0.42;
-  transform: translateY(-2px);
-}
-
-/* depth trigger button — 「続きを読む」感覚 */
-.rn-deep-section {
-margin-top: 20px;
-}
-.rn-deep-toggle {
-display: flex;
-align-items: center;
-gap: 6px;
-width: 100%;
-background: none;
-border: none;
-padding: 8px 0 6px 14px;
-font-size: 0.75rem;
-font-weight: 400;
-letter-spacing: 0.02em;
-color: var(--text-sub);
-cursor: pointer;
-font-family: 'Noto Serif JP', serif;
-text-align: left;
-transition: color 0.2s, opacity 0.2s;
-opacity: 0.5;
-border-left: 2px solid rgba(90,110,130,0.08);
-}
-.rn-deep-toggle:hover {
-color: var(--highlight);
-opacity: 0.9;
-border-left-color: rgba(90,110,130,0.25);
-}
-.rn-deep-toggle-icon {
-font-size: 0.8rem;
-transition: transform 0.2s;
-display: inline-block;
-width: 12px;
-opacity: 0.5;
-flex-shrink: 0;
-}
-.rn-deep-toggle.open .rn-deep-toggle-icon { transform: rotate(90deg); }
-.rn-deep-toggle.open {
-color: var(--text-sub);
-opacity: 0.75;
-border-left-color: rgba(90,110,130,0.2);
-}
-
-/* Layer 2+3: deep body — prose の垂直延長として展開 */
-.rn-deep-body {
-display: none;
-margin-top: 0;
-padding-left: 14px;
-border-left: 2px solid rgba(90,110,130,0.15);
-}
-.rn-deep-body.visible {
-  display: block;
-  animation: depthUnfold 0.28s ease both;
-}
+/* rn-deep-section/toggle/body: 廃止済み（Layer 1/2 統合）互換のため定義のみ残す */
+.reading-deep-active .rn-prose { opacity: 1; transform: none; }
+.rn-deep-section { display: none; }
+.rn-deep-toggle  { display: none; }
+.rn-deep-body    { display: none; }
 @keyframes depthUnfold {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -2378,152 +2323,118 @@ function _renderReadingNotes(p) {
     const jaWord = (AppState.inspect.data?.jaWord) || '';
     const strong = String(AppState.inspect.data?.strong || '').replace(/[^0-9]/g,'');
     const desc   = (AppState.inspect.data?.desc) || (abbottSmithDict && abbottSmithDict[strong]?.description) || '';
+    const w      = jaWord ? `「${jaWord}」` : 'この語';
 
     /* ═══════════════════════════════════════════════════════
-       Layer 1: Reading prose
-       grammar / lexical nuance / discourse nuance を
-       「読書 prose の質感」として書く。
-       説明しない。文章の空気として感じさせる。
+       Reading prose — 唯一の層。
+       grammar / lexical nuance / discourse motion を
+       「文章の空気」として書く。
+       説明しない。感じさせる。
+       Layer 1 / Layer 2 の区別なし。一つの連続した文章。
        ═══════════════════════════════════════════════════════ */
 
-    /* 接続詞：前後の流れを一文で — 文法名称なし */
-    const CONJ_PROSE = {
-        'γάρ':  '前の内容を受けながら、理由の説明へと静かに入っていきます。',
-        'ἀλλά': '前に語られたことと対比しながら、調子が変わっています。',
-        'οὖν':  '前の流れが収束し、ここから先は結論の言葉が続きます。',
-        'δέ':   '話が次の段階へ、自然に進んでいます。',
-        'καί':  '内容が積み重なりながら、続いています。',
-        'ἵνα':  'この語の先に、著者が向かっている目的が続きます。',
-        'ὅτι':  'ここから、前の言葉の内容や根拠が語られます。',
-        'εἰ':   '仮定の前提として、話が展開していきます。',
-        'ὥστε': '前に語られたことを受けて、その帰結が続きます。',
-    };
+    const prose = [];
 
-    /* 動詞：法・時制・態の組み合わせを、読書感覚の一文として書く */
-    const VERB_PROSE = (() => {
-        if (pos !== 'V') return null;
-        const w = jaWord || 'この語';
-        if (mood === 'imperative') {
-            if (tense === 'present')
-                return `「${w}」という語が、続けていく姿勢として呼びかけています。`;
-            return `「${w}」という語が、説明ではなく、相手に向かって直接語りかけています。`;
-        }
-        if (mood === 'subjunctive')
-            return `断言ではなく、「${w}」という願いや目的を込めた調子が感じられます。`;
-        if (mood === 'infinitive')
-            return `「${w}」は、前の動作の意味を補いながら、目的や内容として添えられています。`;
-        if (mood === 'participle') {
-            if (tense === 'aorist')
-                return `「${w}」は、先行する出来事として背景に描かれ、主な動作を支えています。`;
-            if (tense === 'perfect')
-                return `「${w}」は、すでに起きていることとして背景に置かれ、主な動作を支えています。`;
-            return `「${w}」は、進行中の状況を描き添えながら、主な動作とともに動いています。`;
-        }
-        if (tense === 'perfect')
-            return `「${w}」という語は、かつて起きた出来事の効果が今も続いている、という重みで語られています。`;
-        if (tense === 'aorist' && mood === 'indicative')
-            return `「${w}」という語は、ひとつの完結した出来事として静かに提示されています。`;
-        if (tense === 'future' && mood === 'indicative')
-            return `「${w}」は、確かに起きることとして、約束のように語られています。`;
-        if (voice === 'passive')
-            return `「${w}」は、主語が受けとめる側として置かれた形で語られています。`;
-        if (voice === 'middle' || voice === 'middle deponent')
-            return `「${w}」は、主語が深く関わりながら動いていることが伝わる語です。`;
-        if (tense === 'present' && mood === 'indicative')
-            return `「${w}」という語は、続いている状態や習慣として、落ち着いた調子で語られています。`;
-        return null;
-    })();
-
-    /* 名詞・形容詞：格を読書感覚の一文として書く */
-    const NOUN_PROSE = (() => {
-        if (!['N','A','R','P','T','D'].includes(pos)) return null;
-        const w = jaWord || 'この語';
-        const CASE_FEEL = {
-            nominative: `「${w}」は、この節の中心として置かれています。`,
-            genitive:   `「${w}」は「〜の」と結びつき、前後の語との関係を深く示しています。`,
-            dative:     `「${w}」は、動作が向かう間接的な関わり先として置かれています。`,
-            accusative: `「${w}」は、動作が直接向かう対象として置かれています。`,
-            vocative:   `「${w}」は、文の外から直接呼びかけられている語です。`,
+    /* ── 接続詞：流れの転換を一文で ── */
+    if (pos === 'CONJ') {
+        const CONJ_AIR = {
+            'γάρ':  `前の言葉を受けながら、${w}とともに理由の説明へと入っていきます。前の主張が宙に浮いていたとすれば、ここで地に足がつきます。`,
+            'ἀλλά': `${w}がここに置かれることで、前の流れが切り替わります。対比として響き、調子がはっきりと変わる場所です。`,
+            'οὖν':  `前の節で積み重ねられてきたものが、${w}とともに収束します。結論へ向かう動きが始まる場所です。`,
+            'δέ':   `${w}とともに、話が次の段階へ自然に進んでいます。強い転換ではなく、静かな展開です。`,
+            'καί':  `内容が積み重なりながら続いています。${w}が繰り返されるとき、強調の働きをすることもあります。`,
+            'ἵνα':  `${w}の先に、著者がどこへ向かっているかが見えてきます。目的として語られる内容がここから始まります。`,
+            'ὅτι':  `${w}から、前の言葉の内容か根拠が語られます。何が主張され、何がその理由かを読み分ける場所です。`,
+            'εἰ':   `仮定の前提が始まります。「もし〜ならば」という条件の上で、議論が展開していきます。`,
+            'ὥστε': `前に語られたことを受けて、その帰結が続きます。論理の流れが結果へと着地する場所です。`,
         };
-        if (p.case && CASE_FEEL[p.case]) return CASE_FEEL[p.case];
-        if (['P','R','D'].includes(pos)) return `「${w}」は、誰か・何かを指し示しながら、関係をつないでいます。`;
-        return null;
-    })();
-
-    /* 比喩語 */
-    const METAPHOR_PROSE = {
-        'περιπατέω':  '「歩む」という語は、生き方や行動のあり方を指す比喩として響いています。',
-        'περιπατεῖν': '「歩む」という語は、生き方の比喩として使われています。',
-        'φωτί':       '「光」は、知識・啓示・義などを指す比喩として機能しています。',
-        'σκότος':     '「闇」は比喩的に、罪や神との断絶を示しています。',
-        'σταυρός':    '十字架は、当時の読者にとって処刑の道具でありながら、贖いの象徴でもありました。',
-    };
-
-    /* Layer 1 prose を組み立てる */
-    const layer1Parts = [];
-    if (pos === 'CONJ' && CONJ_PROSE[word]) {
-        layer1Parts.push(CONJ_PROSE[word]);
-    } else if (VERB_PROSE) {
-        layer1Parts.push(VERB_PROSE);
-    } else if (NOUN_PROSE) {
-        layer1Parts.push(NOUN_PROSE);
-    }
-    if (METAPHOR_PROSE[word]) layer1Parts.push(METAPHOR_PROSE[word]);
-    if (layer1Parts.length === 0) {
-        layer1Parts.push('この語の文脈的な響きは、下の「ことばを見る」から確認できます。');
+        prose.push(CONJ_AIR[word] || `前後をつなぎながら、議論の流れを形作っています。`);
     }
 
-    /* ═══════════════════════════════════════════════════════
-       Layer 2: Deep reading prose
-       文章の動きをもう少し深く感じさせる。
-       grammar説明ではなく、読書の延長として書く。
-       Layer 1 との区別は「深さ」のみ。情報追加ではない。
-       ═══════════════════════════════════════════════════════ */
-    const layer2Parts = [];
-
+    /* ── 動詞：法・時制・態を一つの読書感覚として ── */
     if (pos === 'V') {
         if (mood === 'imperative') {
-            layer2Parts.push('呼びかけとして語られているこの語は、説明や宣言ではなく、相手に向かって直接方向を指し示す言葉です。');
-            if (tense === 'present')
-                layer2Parts.push('繰り返し続けていく、という姿勢が含まれています。一度だけではなく、継続の含みが自然に生まれています。');
+            if (tense === 'present') {
+                prose.push(`${w}という語が、続けていく姿勢として呼びかけています。一度だけではなく、繰り返し保ち続けるような響きがあります。`);
+            } else {
+                prose.push(`${w}という語が、説明や宣言ではなく、相手に向かって直接方向を指し示しています。`);
+            }
         } else if (mood === 'subjunctive') {
-            layer2Parts.push('断言ではなく、願い・目的・可能性として語る調子がこの語に込められています。著者がどこへ向かっているかが、ここに見えてきます。');
-        } else if (mood === 'participle') {
-            if (tense === 'aorist')
-                layer2Parts.push('この語は主な動作の前に起きていることとして描かれています。背景から主な出来事を支える位置にあります。');
-            else
-                layer2Parts.push('主な動作と同時に進んでいる状況として描かれています。情景を添えながら、主語の動作を支えています。');
+            prose.push(`断言ではなく、願いや目的を込めた調子で${w}が置かれています。著者がどこへ向かっているかが、ここに見えてきます。`);
         } else if (mood === 'infinitive') {
-            layer2Parts.push('目的や内容として添えられた語です。「何のために」あるいは「何を」という方向を補っています。');
+            prose.push(`${w}は、前の動作の意味を補いながら、目的や内容として添えられています。「何のために」「何を」という方向がここで示されます。`);
+        } else if (mood === 'participle') {
+            if (tense === 'aorist') {
+                prose.push(`${w}は、先行する出来事として背景に描かれています。主な動作より前に起きていることとして、静かに添えられています。`);
+            } else if (tense === 'perfect') {
+                prose.push(`すでに起きていることとして${w}が背景に置かれ、主な動作を支えています。完了の状態が土台になっています。`);
+            } else {
+                prose.push(`${w}は、主な動作と同時に進んでいる状況を描き添えています。「〜しながら」という情景が重なっています。`);
+            }
         } else if (tense === 'perfect') {
-            layer2Parts.push('完了の語は、過去に起きた出来事が「今もそうである」という状態を含んでいます。かつての出来事の余韻が、この節の今につながっています。');
+            prose.push(`${w}という語は、かつて起きた出来事の効果が今も続いている、という重みで語られています。過去の出来事が、今この文の中に生きています。`);
         } else if (tense === 'aorist' && mood === 'indicative') {
-            layer2Parts.push('その出来事を「ひとつの事実」として提示しています。時間の流れの中で点として刻まれた、静かな宣言です。');
+            prose.push(`${w}という語は、ひとつの完結した出来事として静かに提示されています。時間の流れの中で点として刻まれた、宣言のような重みがあります。`);
+        } else if (tense === 'future' && mood === 'indicative') {
+            prose.push(`${w}は、確かに起きることとして語られています。命令ではなく、約束のような調子があります。`);
+        } else if (tense === 'present' && mood === 'indicative') {
+            if (voice === 'passive') {
+                prose.push(`${w}は、主語が受けとめる側として置かれた形で、継続して語られています。`);
+            } else if (voice === 'middle' || voice === 'middle deponent') {
+                prose.push(`${w}は、主語が深く関わりながら動いていることが伝わる語です。続いている状態として語られています。`);
+            } else {
+                prose.push(`${w}という語は、続いている状態として落ち着いた調子で語られています。`);
+            }
+        } else {
+            if (voice === 'passive') {
+                prose.push(`${w}は、主語が受けとめる側として置かれています。神学的な文脈では、神による行為を指すことがあります。`);
+            } else if (voice === 'middle' || voice === 'middle deponent') {
+                prose.push(`${w}は、主語が深く関わりながら動いていることが伝わる語です。`);
+            }
         }
     }
 
-    if (pos === 'CONJ') {
-        const DEEP_CONJ = {
-            'γάρ':  'この語が置かれることで、前に語られたことへの「なぜ」が始まります。議論の骨格が見えてくる箇所です。',
-            'ἀλλά': 'ここで著者は方向を変えています。前に語られたことへの対抗や補正として、この語が流れの転換点になっています。',
-            'οὖν':  '前の節で積み上げられた議論が、ここで結論へと収束します。全体の流れに着地点を与えています。',
-            'ἵνα':  '著者の意図がここに現れています。「何のために」という問いへの答えが、この語の後に続きます。',
+    /* ── 名詞・形容詞・代名詞：格を読書感覚として ── */
+    if (['N','A','R','P','T','D'].includes(pos)) {
+        const CASE_AIR = {
+            nominative: `${w}は、この節の中心として置かれています。`,
+            genitive:   `${w}は「〜の」と結びつき、前後の語との関係を深く示しています。所有・性質・由来など、どのニュアンスかは文脈が決めます。`,
+            dative:     `${w}は、動作が向かう間接的な関わり先として置かれています。`,
+            accusative: `${w}は、動作が直接向かう対象として置かれています。`,
+            vocative:   `${w}は、文の外から直接呼びかけられています。主述の構造の外に立っています。`,
         };
-        const dc = DEEP_CONJ[word];
-        if (dc) layer2Parts.push(dc);
+        if (p.case && CASE_AIR[p.case]) {
+            prose.push(CASE_AIR[p.case]);
+        } else if (['P','R','D'].includes(pos)) {
+            prose.push(`${w}は、誰か・何かを指し示しながら、関係をつないでいます。`);
+        }
     }
 
-    if (['N','A'].includes(pos) && p.case) {
-        if (p.case === 'genitive' && jaWord)
-            layer2Parts.push(`「${jaWord}」が「〜の」という形で置かれています。所有・関係・性質など、前後の語との結びつきを深く読む余地があります。`);
-        else if (p.case === 'nominative' && jaWord)
-            layer2Parts.push(`「${jaWord}」が文の中心に置かれています。この節で何が主語として機能しているかを確認するポイントです。`);
+    /* ── 前置詞 ── */
+    if (pos === 'PREP') {
+        prose.push(`${w}が関係の方向や位置を示しています。次に来る語との結びつきが、この語の意味を決めます。`);
+    }
+
+    /* ── 比喩語：文章の空気として添える ── */
+    const METAPHOR_AIR = {
+        'περιπατέω':  '「歩む」という語が繰り返され、姿勢を保ち続けるような響きがあります。',
+        'περιπατεῖν': '「歩む」という語は、生き方のあり方を指す比喩として響いています。',
+        'φωτί':       '「光」は、知識・啓示・義などを指す比喩として機能しています。',
+        'σκότος':     '「闇」が比喩として置かれています。罪や神との断絶を示しています。',
+        'σταυρός':    '十字架は、当時の読者にとって処刑の道具でありながら、贖いの象徴として受け取られた語です。',
+    };
+    if (METAPHOR_AIR[word]) prose.push(METAPHOR_AIR[word]);
+
+    /* デフォルト */
+    if (prose.length === 0) {
+        prose.push(`この語の文脈的な響きは、下の「ことばを見る」から確認できます。`);
     }
 
     /* ═══════════════════════════════════════════════════════
-       Layer 3: 原語メモ（grammar grid）
-       最下層。reference として機能する。
-       読書の邪魔をしない。折りたたみ内に収める。
+       Reference layer — 「ことばを見る」
+       morph grid + Abbott-Smith。
+       読書 prose から分離された最下層。
+       折りたたみ。初期状態は閉じている。
        ═══════════════════════════════════════════════════════ */
     const JPN_FULL = {
         pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
@@ -2533,16 +2444,15 @@ function _renderReadingNotes(p) {
         gender: { masculine:'男性', feminine:'女性', neuter:'中性' },
         number: { singular:'単数', plural:'複数' },
         case:   { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' },
-        person: { '1':'1人称', '2':'2人称', '3':'3人称' },
     };
     const morphRows = [];
-    if (p.pos)    morphRows.push({ k:'品詞',  v: JPN_FULL.pos[p.pos]     || p.pos,    core:true });
-    if (p.tense)  morphRows.push({ k:'時制',  v: JPN_FULL.tense[p.tense] || p.tense,  core:true });
-    if (p.mood)   morphRows.push({ k:'法',    v: JPN_FULL.mood[p.mood]   || p.mood,   core:true });
-    if (p.voice)  morphRows.push({ k:'態',    v: JPN_FULL.voice[p.voice] || p.voice,  core:false });
-    if (p.case)   morphRows.push({ k:'格',    v: JPN_FULL.case[p.case]   || p.case,   core:false });
-    if (p.number) morphRows.push({ k:'数',    v: JPN_FULL.number[p.number]||p.number, core:false });
-    if (p.gender) morphRows.push({ k:'性',    v: JPN_FULL.gender[p.gender]||p.gender, core:false });
+    if (p.pos)    morphRows.push({ k:'品詞', v: JPN_FULL.pos[p.pos]      || p.pos,    core:true  });
+    if (p.tense)  morphRows.push({ k:'時制', v: JPN_FULL.tense[p.tense]  || p.tense,  core:true  });
+    if (p.mood)   morphRows.push({ k:'法',   v: JPN_FULL.mood[p.mood]    || p.mood,   core:true  });
+    if (p.voice)  morphRows.push({ k:'態',   v: JPN_FULL.voice[p.voice]  || p.voice,  core:false });
+    if (p.case)   morphRows.push({ k:'格',   v: JPN_FULL.case[p.case]    || p.case,   core:false });
+    if (p.number) morphRows.push({ k:'数',   v: JPN_FULL.number[p.number]|| p.number, core:false });
+    if (p.gender) morphRows.push({ k:'性',   v: JPN_FULL.gender[p.gender]|| p.gender, core:false });
 
     const morphGridHTML = morphRows.length
         ? `<div class="rn-morph-grid">${morphRows.map(r =>
@@ -2550,7 +2460,6 @@ function _renderReadingNotes(p) {
           ).join('')}</div>`
         : '';
 
-    /* Abbott-Smith は最下層へ */
     const abbottHTML = desc
         ? `<div class="rn-lexicon">
                <span class="rn-lexicon-label">Abbott-Smith${strong ? ' · G'+strong : ''}</span>
@@ -2558,12 +2467,11 @@ function _renderReadingNotes(p) {
            </div>`
         : '';
 
-    /* 外部リンク */
     const qsMorph = new URLSearchParams();
-    if (ref)    qsMorph.set('ref',   ref);
-    if (p.word) qsMorph.set('word',  p.word);
-    if (lemma)  qsMorph.set('lemma', lemma);
-    if (p.pos)  qsMorph.set('pos',   p.pos);
+    if (ref)     qsMorph.set('ref',   ref);
+    if (p.word)  qsMorph.set('word',  p.word);
+    if (lemma)   qsMorph.set('lemma', lemma);
+    if (p.pos)   qsMorph.set('pos',   p.pos);
     if (p.tense) qsMorph.set('tense', p.tense);
     if (p.mood)  qsMorph.set('mood',  p.mood);
     const morphSearchURL = `morph-search.html?${qsMorph.toString()}`;
@@ -2575,37 +2483,21 @@ function _renderReadingNotes(p) {
     if (p.pos)  qsSem.set('pos',   p.pos);
     const semanticsURL = `semantic-search.html?${qsSem.toString()}`;
 
-    /* ─── HTML 組み立て ─── */
-    /* Layer 1 prose */
-    const layer1HTML = `<div class="rn-prose"><p class="rn-prose-text">${layer1Parts.join('<br>')}</p></div>`;
-
-    /* Layer 2 (deep body) — prose として続く。grammar labelなし。 */
-    const layer2HTML = layer2Parts.length
-        ? `<div class="rn-deep-prose"><p class="rn-deep-prose-text">${layer2Parts.join('<br>')}</p></div>`
-        : '';
-
-    /* Layer 3 — 「ことばを見る」折りたたみ */
-    const hasRef = morphGridHTML || abbottHTML;
-    const layer3HTML = hasRef
-        ? `<div class="rn-ref-section">
-               <button class="rn-ref-toggle" id="rn-ref-toggle" onclick="_rnToggleRef()">
-                   <span class="rn-ref-toggle-icon">›</span>ことばを見る
-               </button>
-               <div class="rn-ref-body" id="rn-ref-body">
-                   ${morphGridHTML}
-                   ${abbottHTML}
-                   <div class="rn-search-links">
-                       <a href="${morphSearchURL}" class="rn-search-link">同語形を探す</a>
-                       <a href="${syntaxURL}"      class="rn-search-link">構文で探す</a>
-                       <a href="${semanticsURL}"   class="rn-search-link">意味で探す</a>
-                   </div>
-               </div>
-           </div>`
-        : `<div class="rn-search-links" style="margin-top:14px;">
-               <a href="${morphSearchURL}" class="rn-search-link">同語形を探す</a>
-               <a href="${syntaxURL}"      class="rn-search-link">構文で探す</a>
-               <a href="${semanticsURL}"   class="rn-search-link">意味で探す</a>
-           </div>`;
+    const refHTML = `
+        <div class="rn-ref-section">
+            <button class="rn-ref-toggle" id="rn-ref-toggle" onclick="_rnToggleRef()">
+                <span class="rn-ref-toggle-icon">›</span>ことばを見る
+            </button>
+            <div class="rn-ref-body" id="rn-ref-body">
+                ${morphGridHTML}
+                ${abbottHTML}
+                <div class="rn-search-links">
+                    <a href="${morphSearchURL}" class="rn-search-link">同語形を探す</a>
+                    <a href="${syntaxURL}"      class="rn-search-link">構文で探す</a>
+                    <a href="${semanticsURL}"   class="rn-search-link">意味で探す</a>
+                </div>
+            </div>
+        </div>`;
 
     area.innerHTML = `
         <div class="rn-word-head">
@@ -2613,50 +2505,16 @@ function _renderReadingNotes(p) {
             ${jaWord ? `<span class="rn-ja">${jaWord}</span>` : ''}
             ${ref    ? `<span class="rn-ref">${ref}</span>`   : ''}
         </div>
-        ${layer1HTML}
-        ${layer2HTML
-            ? `<div class="rn-deep-section">
-                   <button class="rn-deep-toggle" id="rn-deep-toggle" onclick="_rnToggleDeep()">
-                       <span class="rn-deep-toggle-icon">›</span>もう少し奥まで読む
-                   </button>
-                   <div class="rn-deep-body" id="rn-deep-body">
-                       ${layer2HTML}
-                       ${layer3HTML}
-                   </div>
-               </div>`
-            : layer3HTML
-        }
+        <div class="rn-prose">
+            <p class="rn-prose-text">${prose.join('<br><br>')}</p>
+        </div>
+        ${refHTML}
     `;
 }
 
 
 
-function _rnToggleDeep() {
-    const btn  = document.getElementById('rn-deep-toggle');
-    const body = document.getElementById('rn-deep-body');
-    const area = document.getElementById('reading-notes-area');
-    if (!btn || !body) return;
-    const isOpen = body.classList.contains('visible');
-
-    body.classList.toggle('visible', !isOpen);
-    btn.classList.toggle('open', !isOpen);
-
-    /* Layer 1 prose を後景化（reading-deep-active で rn-prose が沈む） */
-    if (area) area.classList.toggle('reading-deep-active', !isOpen);
-
-    /* アイコン回転 */
-    const icon = btn.querySelector('.rn-deep-toggle-icon');
-    if (icon) icon.style.transform = isOpen ? '' : 'rotate(90deg)';
-
-    /* テキスト更新 */
-    btn.childNodes.forEach(n => {
-        if (n.nodeType === 3) {
-            n.textContent = isOpen ? 'もう少し奥まで読む' : '表層に戻る';
-        }
-    });
-}
-
-/* ことばを見る（Layer 3: reference layer） トグル */
+/* ことばを見る（reference layer）トグル */
 function _rnToggleRef() {
     const btn  = document.getElementById('rn-ref-toggle');
     const body = document.getElementById('rn-ref-body');
@@ -2670,6 +2528,10 @@ function _rnToggleRef() {
         if (n.nodeType === 3) n.textContent = isOpen ? 'ことばを見る' : 'とじる';
     });
 }
+
+/* _rnToggleDeep: 廃止（Layer 1/2 統合のため）互換のためno-op残す */
+function _rnToggleDeep() {}
+
 
 /* switchAnalysisTab: 後方互換のため残す（内部ではno-op）*/
 function switchAnalysisTab(tab) {
