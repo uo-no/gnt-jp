@@ -143,7 +143,7 @@ font-weight: 500;
 }
 
 /* ══════════════════════════════════════════
-② 意味候補リスト（最重要セクション）
+② 意味候補
 ══════════════════════════════════════════ */
 .candidates-block {
 margin-bottom: 32px;
@@ -912,7 +912,7 @@ border-radius: var(––radius-m);
 <!-- Beginner モードバー（データロード不要で即時表示） -->
 <div class="sem-mode-bar" id="sem-mode-bar">
     <button class="sem-mode-btn active" id="sem-btn-beginner"
-            onclick="setSemMode('beginner')">📖 読解モード</button>
+            onclick="setSemMode('advanced') // 読解モード廃止">📖 読解モード</button>
     <button class="sem-mode-btn" id="sem-btn-advanced"
             onclick="setSemMode('advanced')">🔬 詳細モード</button>
 </div>
@@ -962,7 +962,7 @@ border-radius: var(––radius-m);
     </div>
 
     <!-- ③ 適合理由 -->
-    <div class="reason-block fade-up" style="animation-delay:0.10s">
+    <div class="reason-block fade-up" style="display:none" style="animation-delay:0.10s">
         <div class="sec-label">この文での適合理由</div>
         <div id="reason-body">
             <div class="reason-empty">上の候補をタップすると、なぜその意味がこの文脈に合うかが表示されます。</div>
@@ -970,7 +970,7 @@ border-radius: var(––radius-m);
     </div>
 
     <!-- ⑤ 決定ガイド -->
-    <div class="guide-block fade-up" style="animation-delay:0.15s">
+    <div class="guide-block fade-up" style="display:none" style="animation-delay:0.15s">
         <div class="sec-label">意味の判断</div>
         <div class="guide-card">
             <div class="guide-card-inner" id="guide-card">
@@ -981,7 +981,7 @@ border-radius: var(––radius-m);
     </div>
 
     <!-- ⑥ 最終訳 -->
-    <div class="translation-block fade-up" style="animation-delay:0.18s">
+    <div class="translation-block fade-up" style="display:none" style="animation-delay:0.18s">
         <div class="sec-label">この文での訳</div>
         <div class="translation-display" id="translation-display">
             <div class="translation-label">最終訳（文脈適合）</div>
@@ -1150,7 +1150,7 @@ function renderSemanticBeginner() {
 }
 
 // 自動起動
-setSemMode('beginner');
+setSemMode('advanced') // 読解モード廃止;
 renderSemanticBeginner();
 
 /* ══════════════════════════════════════════
@@ -2190,31 +2190,25 @@ function renderCandidates(candidates) {
         return;
     }
 
-    // 推定パスかどうかをチェック
-    const hasInferred = candidates.some(c => c.isInferred);
-    if (hasInferred) {
-        const banner = document.getElementById('infer-banner');
-        if (banner) banner.style.display = 'flex';
-    }
+    /* スコアを相対化して件数感覚で表示 */
+    const maxScore = Math.max(...candidates.map(c => c.score || 1));
 
     container.innerHTML = candidates.map((c, i) => {
         const rank    = i + 1;
         const rankCls = `rank-${rank}`;
-        const isTop   = rank === 1;
-        const delay   = i * 40;
+        const delay   = i * 35;
         const panelId = `xsc-sem-${i}`;
 
-        const fieldBadge = c.isInferred && c.semanticField
-            ? `<span class="field-badge" style="color:${c.fieldColor||'var(--accent)'};border-color:${c.fieldColor||'var(--accent)'}33;">${c.fieldIcon||'◈'} ${c.semanticField}</span>`
-            : '';
+        /* スコアバー: 最高候補を100%として相対表示 */
+        const relPct  = Math.round((c.score / maxScore) * 100);
+        const barStyle   = c.isInferred && c.fieldColor ? `background:${c.fieldColor};` : '';
+        const fillStyle  = `${c.isInferred && c.fieldColor ? `background:${c.fieldColor};` : ''}width:${relPct}%`;
 
-        const barStyle = c.isInferred && c.fieldColor ? `background:${c.fieldColor};` : '';
-        const fillStyle = c.isInferred && c.fieldColor ? `background:${c.fieldColor};width:${c.score}%` : `width:${c.score}%`;
-
+        /* XSC: 折りたたみ根拠（保持） */
         const xscHTML = buildSemanticXscPanel(c, panelId);
 
         return `
-        <div class="cand-card ${rankCls} ${isTop ? 'active' : ''}"
+        <div class="cand-card ${rankCls}"
              style="animation-delay:${delay}ms"
              onclick="selectCandidate(${i})">
             <div class="cand-bar-accent" style="${barStyle}"></div>
@@ -2225,20 +2219,19 @@ function renderCandidates(candidates) {
                         ${c.meaning}
                         ${c.sub ? `<span class="cand-meaning-sub">${c.sub}</span>` : ''}
                     </span>
-                    ${isTop ? `<span class="top-badge">▲ 最有力</span>` : ''}
                 </div>
-                ${fieldBadge ? `<div style="margin-bottom:6px;">${fieldBadge}</div>` : ''}
                 <div class="cand-score-row">
                     <div class="cand-score-track">
                         <div class="cand-score-fill" style="${fillStyle}"></div>
                     </div>
-                    <span class="cand-score-pct">${c.score}%</span>
+                    <span class="cand-score-pct">${c.score}</span>
                 </div>
                 ${xscHTML}
             </div>
         </div>`;
     }).join('');
 }
+
 
 /* ── ③ 理由パネル描画 ── */
 function renderReasons(cand, tokens, lemma) {
@@ -2314,14 +2307,10 @@ function renderExamples(lemma) {
 /* ── 候補選択 ── */
 function selectCandidate(idx) {
     _activeIdx = idx;
-    // アクティブ状態切替
+    /* アクティブ状態切替のみ（reason/guide/translation は廃止） */
     document.querySelectorAll('.cand-card').forEach((el, i) => {
         el.classList.toggle('active', i === idx);
     });
-    const cand = _candidates[idx];
-    renderReasons(cand, _tokens, _lemma);
-    renderGuide(cand, params.word);
-    renderTranslation(cand, _tokens, params.word);
 }
 
 /* ── 全体初期化 ── */
@@ -2352,12 +2341,10 @@ function renderAll(tokens, targetWord, jaVerse) {
     // ② 候補リスト
     renderCandidates(_candidates);
 
-    // デフォルト：最有力を選択
+    // デフォルト選択（比較UIのみ — reason/guide/translation 廃止）
     if (_candidates.length) {
         _activeIdx = 0;
-        renderReasons(_candidates[0], tokens, _lemma);
-        renderGuide(_candidates[0], targetWord);
-        renderTranslation(_candidates[0], tokens, targetWord);
+        document.querySelectorAll('.cand-card')[0]?.classList.add('active');
     }
 
     // ⑦ 用例
