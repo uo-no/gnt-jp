@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05162200｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05162230｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -2405,6 +2405,27 @@ details[open] .study-summary::before {
 <script>
 let abbottSmithDict = null;
 let _proximityTokens = [];
+
+/* ══════════════════════════════════════════
+   翻訳マスター定義（TDZ対策：先頭で宣言）
+   ══════════════════════════════════════════ */
+const TRANSLATIONS = {
+    'JA1955': { label: '口語訳（1955）',     code: 'JA1955' },
+    'BUN':    { label: '文語訳',             code: 'BUN'    },
+    'KAI17':  { label: '新改訳2017',         code: 'KAI17'  },
+    'KYO':    { label: '聖書協会共同訳',     code: 'KYO'    },
+};
+const TRANS_LIST   = Object.entries(TRANSLATIONS).map(([id, t]) => ({ id, name: t.label, code: t.code }));
+const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t]) => [id, t.label]));
+
+/* アクティブ翻訳（A = メイン / B = 比較列） */
+let currentTranslation  = 'KAI17';
+let currentTranslationB = 'KYO';
+
+/* _transA / _transB は currentTranslation* と同期して動かす（後方互換エイリアス） */
+let _transMode = 'single';
+let _transA    = currentTranslation;
+let _transB    = currentTranslationB;
 
 /* ══════════════════════════════════════════
    AppState - UI状態の一元管理
@@ -6082,27 +6103,7 @@ init();
  * ─────────────────────────────────────────
  */
 
-/* 翻訳マスター定義
- * ─ TRANS_LIST / TRANS_LABELS はここから自動生成 ─ */
-const TRANSLATIONS = {
-    'JA1955': { label: '口語訳（1955）',     code: 'JA1955' },
-    'BUN': { label: '文語訳',        code: 'BUN'    },
-    'KAI17':  { label: '新改訳2017', code: 'KAI17'  },
-    'KYO':    { label: '聖書協会共同訳',   code: 'KYO'    },
-};
-
-/* 後方互換: TRANS_LIST / TRANS_LABELS を TRANSLATIONS から生成 */
-const TRANS_LIST   = Object.entries(TRANSLATIONS).map(([id, t]) => ({ id, name: t.label, code: t.code }));
-const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t]) => [id, t.label]));
-
-/* アクティブ翻訳（A = メイン / B = 比較列） */
-let currentTranslation  = 'KAI17';  /* 単一モード・比較左列 */
-let currentTranslationB = 'KYO';    /* 比較右列（UI切替は将来対応） */
-
-/* _transA / _transB は currentTranslation* と同期して動かす（後方互換エイリアス） */
-let _transMode = 'single';
-let _transA    = currentTranslation;
-let _transB    = currentTranslationB;
+/* 翻訳マスター定義・変数はスクリプト先頭で宣言済み（TDZ対策） */
 
 /*
  * transDataPath — 翻訳IDとbook/chからJSONパスを返す
