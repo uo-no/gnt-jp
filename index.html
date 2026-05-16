@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05161500｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05161600｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -89,7 +89,7 @@ flex-shrink: 0;
     #mobile-menu-btn { display: none !important; }
 }
 
-.sidebar-menu { flex: 1; padding: 8px 10px; overflow-y: auto; }
+.sidebar-menu { flex: 1; padding: 8px 0; overflow-y: hidden; display: flex; flex-direction: column; min-height: 0; }
 .sidebar-section { margin-bottom: 20px; }
 .section-label { font-size: 0.65rem; font-weight: 700; color: var(--text-sub); padding-left: 10px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.12em; }
 
@@ -108,83 +108,181 @@ font-size: 0.9rem;
 .menu-item.active { background: rgba(90,110,130,0.10); color: var(--highlight); font-weight: 700; }
 .collapsed .menu-text, .collapsed .section-label { display: none; }
 
-/* - サイドバー ドリルダウン - */
-.sb-layer { display: none; }
+/* ══════════════════════════════════════════
+   サイドバー — フラット常設構造
+   ドリルダウンを廃止し、
+   workspace control（聖書）と
+   content navigation（旧約/新約）を
+   常時同一画面に表示する。
+   ══════════════════════════════════════════ */
+
+/* 旧 sb-layer 排他表示を無効化：全レイヤー常設 */
+.sb-layer { display: block; }
 .sb-layer.active { display: block; }
-.sb-layer-header {
-display: flex; align-items: center; gap: 6px;
-padding: 8px 12px 6px; cursor: pointer; border-radius: 6px; margin: 0 4px 2px;
-transition: background 0.12s;
+
+/* ── Workspace コントロール「聖書」 ── */
+.sb-workspace {
+    padding: 12px 14px 10px;
+    margin-bottom: 4px;
 }
-.sb-layer-header:hover { background: rgba(0,0,0,0.04); }
-.sb-back-arrow { font-size: 11px; color: var(--highlight); font-weight: 700; }
-.sb-layer-title { font-size: 0.65rem; font-weight: 700; color: var(--highlight); letter-spacing: 0.1em; text-transform: uppercase; }
+.sb-workspace-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 9px 12px;
+    background: rgba(90,110,130,0.07);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+    text-align: left;
+}
+.sb-workspace-btn:hover { background: rgba(90,110,130,0.12); }
+.sb-workspace-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sb-workspace-sub {
+    font-size: 0.62rem;
+    color: var(--text-sub);
+    opacity: 0.6;
+    margin-top: 1px;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+.sb-workspace-icon {
+    font-size: 0.75rem;
+    color: var(--text-sub);
+    opacity: 0.4;
+    flex-shrink: 0;
+    margin-left: 6px;
+}
+
+/* ── 区切り線 ── */
+.sb-divider {
+    height: 1px;
+    background: rgba(0,0,0,0.06);
+    margin: 6px 14px 8px;
+}
+
+/* ── Content Navigation ── */
+/* testament切替タブ（旧約 / 新約）*/
+.sb-testament-tabs {
+    display: flex;
+    gap: 3px;
+    padding: 0 10px 6px;
+}
+.sb-testament-tab {
+    flex: 1;
+    padding: 5px 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-sub);
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    text-align: center;
+    white-space: nowrap;
+}
+.sb-testament-tab:hover { background: rgba(0,0,0,0.04); color: var(--text-main); }
+.sb-testament-tab.active {
+    background: var(--highlight-light);
+    color: var(--highlight);
+}
+
+/* ── 書物一覧 ── */
+.sb-book-scroll {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+/* 書物行 */
 .sb-row {
-padding: 7px 12px; font-size: 0.88rem; color: var(--text-main);
-cursor: pointer; display: flex; align-items: center; justify-content: space-between;
-border-radius: 8px; margin: 0 4px 1px; transition: background 0.12s;
+    padding: 7px 12px;
+    font-size: 0.88rem;
+    color: var(--text-main);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 8px;
+    margin: 0 4px 1px;
+    transition: background 0.12s;
 }
 .sb-row:hover { background: rgba(0,0,0,0.04); }
 .sb-row.active { background: var(--highlight-light); color: var(--highlight); font-weight: 700; }
 .sb-row-arrow { font-size: 10px; color: #ccc; }
 .sb-row.active .sb-row-arrow { color: var(--highlight); }
-.sb-ch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 6px 10px 10px; }
+
+/* ── 章グリッド（書物選択後にインライン展開） ── */
+.sb-inline-chapters {
+    display: none;
+    padding: 4px 10px 8px 14px;
+    animation: sbChIn 0.18s ease both;
+}
+.sb-inline-chapters.open { display: block; }
+@keyframes sbChIn {
+    from { opacity: 0; transform: translateY(-3px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+/* 書名ヘッダー（展開中の書物名） */
+.sb-inline-book-name {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--text-sub);
+    opacity: 0.5;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0 2px 5px;
+    display: block;
+}
+.sb-ch-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+}
 .sb-ch-btn {
-aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
-font-size: 0.8rem; font-weight: 500; color: var(--text-sub);
-background: #fff; border: 1px solid var(--border-soft);
-border-radius: 7px; cursor: pointer; transition: all 0.12s;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-sub);
+    background: #fff;
+    border: 1px solid var(--border-soft);
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.12s;
 }
 .sb-ch-btn:hover { background: var(--highlight-light); border-color: var(--highlight); color: var(--highlight); }
 .sb-ch-btn.active { background: var(--highlight); color: #fff; border-color: var(--highlight); font-weight: 700; }
 
-/* Layer 1/2 ナビヘッダー（旧約聖書 ／ 新約聖書 › 書物名） */
-.sb-nav-header {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 2px;
-    padding: 12px 14px 10px;
-    border-bottom: 1px solid rgba(0,0,0,0.06);
-}
-.sb-nav-item {
-    background: none;
-    border: none;
-    padding: 0 2px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    font-family: inherit;
-    letter-spacing: 0.03em;
-    color: var(--text-sub);
-    opacity: 0.4;
-    cursor: pointer;
-    transition: opacity 0.15s;
-    line-height: 1.6;
-}
-.sb-nav-item:hover { opacity: 0.75; }
-.sb-nav-item.active {
-    color: var(--text-main);
-    opacity: 1;
-    cursor: default;
-}
-.sb-nav-sep {
-    font-size: 0.6rem;
-    color: var(--text-sub);
-    opacity: 0.2;
-    user-select: none;
-    padding: 0 1px;
-}
-.sb-nav-sep-book {
-    opacity: 0.15;
-}
-.sb-nav-book {
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--text-main);
-    opacity: 0.85;
-    letter-spacing: 0.01em;
-    line-height: 1.6;
-}
+/* ── ツールセクション ── */
+.sb-tools { padding: 4px 0 8px; }
+
+/* 旧 layer-header / nav-header 互換（使わないが定義保持） */
+.sb-layer-header { display: flex; align-items: center; gap: 6px; padding: 8px 12px 6px; cursor: pointer; border-radius: 6px; margin: 0 4px 2px; transition: background 0.12s; }
+.sb-layer-header:hover { background: rgba(0,0,0,0.04); }
+.sb-back-arrow { font-size: 11px; color: var(--highlight); font-weight: 700; }
+.sb-layer-title { font-size: 0.65rem; font-weight: 700; color: var(--highlight); letter-spacing: 0.1em; text-transform: uppercase; }
+.sb-nav-header { display: none; }
+.sb-nav-item { display: none; }
+.sb-nav-sep  { display: none; }
+.sb-nav-book { display: none; }
 
 /* - 中央メインエリア - */
 .container { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(-bg-paper); }
@@ -1919,266 +2017,6 @@ details[open] .study-summary::before {
     letter-spacing: 0.01em;
     opacity: 0.82;
 }
-
-/* ══════════════════════════════════════════
-   翻訳モード
-   ══════════════════════════════════════════ */
-/* 単一モード: 右列を隠す */
-#main-reading-area.single-mode {
-    grid-template-columns: 1fr 0;
-}
-#main-reading-area.single-mode #parallel-text-area,
-#main-reading-area.single-mode .verse-pair-right {
-    display: none;
-}
-/* 比較モード: 左右均等 */
-#main-reading-area.compare-mode {
-    grid-template-columns: 1fr 1fr;
-}
-#main-reading-area.compare-mode #parallel-text-area {
-    display: block;
-}
-/* 比較モード: panel-open 時は右を畳む */
-#main-reading-area.compare-mode.panel-open {
-    grid-template-columns: 1fr 0;
-}
-/* カラムヘッダー（比較時のみ表示） */
-.trans-col-header {
-    display: none;
-    font-size: 0.58rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-sub);
-    opacity: 0.45;
-    padding: 10px 32px 4px 52px;
-    background: #fff;
-}
-.trans-col-header.right {
-    padding: 10px 24px 4px 32px;
-    background: #fafafa;
-}
-#main-reading-area.compare-mode .trans-col-header {
-    display: block;
-}
-/* 右列の jp-text */
-.verse-pair-right .jp-text {
-    font-size: 1.1rem;
-    line-height: 2.1;
-    color: var(--text-main);
-    font-family: 'Noto Serif JP', serif;
-}
-/* 「聖書」ラベル：クリック可能 */
-.sb-bible-label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    cursor: pointer;
-    transition: opacity 150ms;
-    user-select: none;
-}
-.sb-bible-label:hover { opacity: 0.65; }
-.sb-bible-label-arrow {
-    font-size: 0.58rem;
-    opacity: 0.4;
-}
-
-/* ══════════════════════════════════════════
-   Bible Picker Popup
-   ══════════════════════════════════════════ */
-#bible-picker-backdrop {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 500;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    background: rgba(255,255,255,0.55);
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 200ms ease;
-}
-#bible-picker-backdrop.bp-open {
-    display: flex;
-    opacity: 1;
-}
-#bible-picker-popup {
-    width: 420px;
-    max-width: calc(100vw - 32px);
-    border-radius: 22px;
-    background: rgba(250,250,248,0.92);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    box-shadow:
-        0 10px 40px rgba(0,0,0,0.08),
-        0 2px 10px rgba(0,0,0,0.04);
-    overflow: hidden;
-    transform: scale(0.96) translateY(6px);
-    opacity: 0;
-    transition: transform 220ms cubic-bezier(0.34,1.06,0.64,1), opacity 200ms ease;
-}
-#bible-picker-backdrop.bp-open #bible-picker-popup {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-}
-.bp-header {
-    padding: 24px 26px 16px;
-    border-bottom: 1px solid rgba(0,0,0,0.06);
-}
-.bp-title {
-    font-family: 'Noto Serif JP', serif;
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: var(--text-main);
-    letter-spacing: -0.01em;
-    margin-bottom: 2px;
-}
-.bp-subtitle {
-    font-size: 0.68rem;
-    color: var(--text-sub);
-    opacity: 0.6;
-    letter-spacing: 0.02em;
-}
-.bp-segment-wrap {
-    padding: 14px 26px 12px;
-    border-bottom: 1px solid rgba(0,0,0,0.05);
-}
-.bp-segment {
-    display: inline-flex;
-    background: rgba(0,0,0,0.06);
-    border-radius: 100px;
-    padding: 3px;
-}
-.bp-seg-btn {
-    padding: 5px 18px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    font-family: inherit;
-    letter-spacing: 0.01em;
-    color: var(--text-sub);
-    background: transparent;
-    border: none;
-    border-radius: 100px;
-    cursor: pointer;
-    transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease;
-    white-space: nowrap;
-}
-.bp-seg-btn.active {
-    background: rgba(255,255,255,0.92);
-    color: var(--text-main);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.10);
-}
-.bp-seg-btn:not(.active):hover { color: var(--text-main); }
-.bp-body {
-    padding: 10px 14px 14px;
-    max-height: 300px;
-    overflow-y: auto;
-}
-.bp-trans-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 11px 14px;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: background 150ms ease;
-}
-.bp-trans-item:hover { background: rgba(0,0,0,0.04); }
-.bp-trans-item.active .bp-trans-name {
-    font-weight: 700;
-    color: var(--highlight);
-}
-.bp-trans-item.active .bp-trans-check { opacity: 1; }
-.bp-trans-name {
-    font-family: 'Noto Serif JP', serif;
-    font-size: 0.92rem;
-    color: var(--text-main);
-    line-height: 1.4;
-}
-.bp-trans-code {
-    font-size: 0.6rem;
-    color: var(--text-sub);
-    opacity: 0.45;
-    margin-top: 1px;
-    letter-spacing: 0.04em;
-    display: block;
-}
-.bp-trans-check {
-    font-size: 0.85rem;
-    color: var(--highlight);
-    opacity: 0;
-    transition: opacity 150ms;
-}
-.bp-compare-body {
-    padding: 14px 20px 18px;
-}
-.bp-compare-pair {
-    background: rgba(0,0,0,0.025);
-    border-radius: 14px;
-    overflow: hidden;
-    border: 1px solid rgba(0,0,0,0.05);
-}
-.bp-compare-col { padding: 12px 16px; }
-.bp-compare-col + .bp-compare-col {
-    border-top: 1px solid rgba(0,0,0,0.06);
-}
-.bp-compare-side-label {
-    font-size: 0.6rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    color: var(--text-sub);
-    opacity: 0.45;
-    text-transform: uppercase;
-    display: block;
-    margin-bottom: 8px;
-}
-.bp-compare-options { display: flex; flex-direction: column; gap: 2px; }
-.bp-compare-opt {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 150ms;
-}
-.bp-compare-opt:hover { background: rgba(0,0,0,0.04); }
-.bp-compare-opt.active .bp-compare-opt-name {
-    font-weight: 700;
-    color: var(--highlight);
-}
-.bp-compare-opt.active .bp-compare-opt-dot { background: var(--highlight); }
-.bp-compare-opt-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: rgba(0,0,0,0.12);
-    flex-shrink: 0;
-    transition: background 150ms;
-}
-.bp-compare-opt-name {
-    font-family: 'Noto Serif JP', serif;
-    font-size: 0.88rem;
-    color: var(--text-main);
-}
-.bp-footer { padding: 0 20px 20px; }
-.bp-confirm-btn {
-    width: 100%;
-    padding: 11px 0;
-    background: var(--highlight);
-    color: #fff;
-    border: none;
-    border-radius: 12px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    font-family: inherit;
-    letter-spacing: 0.02em;
-    cursor: pointer;
-    transition: opacity 150ms;
-}
-.bp-confirm-btn:hover { opacity: 0.88; }
-.bp-confirm-btn:active { opacity: 0.75; }
 </style>
 
 </head>
@@ -2203,40 +2041,6 @@ details[open] .study-summary::before {
     </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     Bible Picker Popup
-     ══════════════════════════════════════════ -->
-<div id="bible-picker-backdrop" onclick="bpBackdropClick(event)">
-    <div id="bible-picker-popup" onclick="event.stopPropagation()">
-        <div class="bp-header">
-            <div class="bp-title">Bible</div>
-            <div class="bp-subtitle">読む聖書を選ぶ</div>
-        </div>
-        <div class="bp-segment-wrap">
-            <div class="bp-segment">
-                <button class="bp-seg-btn active" id="bp-seg-single" onclick="bpSwitchMode('single')">単一表示</button>
-                <button class="bp-seg-btn" id="bp-seg-compare" onclick="bpSwitchMode('compare')">比較表示</button>
-            </div>
-        </div>
-        <div class="bp-body" id="bp-single-body"></div>
-        <div class="bp-compare-body" id="bp-compare-body" style="display:none;">
-            <div class="bp-compare-pair">
-                <div class="bp-compare-col">
-                    <span class="bp-compare-side-label">左列</span>
-                    <div class="bp-compare-options" id="bp-col-a"></div>
-                </div>
-                <div class="bp-compare-col">
-                    <span class="bp-compare-side-label">右列</span>
-                    <div class="bp-compare-options" id="bp-col-b"></div>
-                </div>
-            </div>
-        </div>
-        <div class="bp-footer">
-            <button class="bp-confirm-btn" onclick="bpConfirm()">決定</button>
-        </div>
-    </div>
-</div>
-
 <div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
 <div class="main-layout">
     <nav id="nav-sidebar" class="nav-sidebar">
@@ -2246,49 +2050,63 @@ details[open] .study-summary::before {
         </div>
         <div class="sidebar-menu">
 
-    <!-- Layer 0: トップメニュー（常に表示） -->
-    <div class="sb-layer active" id="sb-layer0">
-        <div class="section-label sb-bible-label" style="padding: 10px 12px 4px;" onclick="openBiblePicker()" title="翻訳を選ぶ">
-            <span>聖書</span><span class="sb-bible-label-arrow">⌄</span>
-        </div>
-        <div class="sb-row" id="sb-ot-row" onclick="sbGoTo(1,'ot')">
-            <span class="menu-text">旧約聖書</span>
-            <span class="sb-row-arrow menu-text">›</span>
-        </div>
-        <div class="sb-row" id="sb-nt-row" onclick="sbGoTo(1,'nt')">
-            <span class="menu-text">新約聖書</span>
-            <span class="sb-row-arrow menu-text">›</span>
-        </div>
-        <div class="section-label menu-text" style="padding: 16px 12px 4px;">ツール</div>
+    <!-- ═══════════════════════════════════
+         Workspace Control — 「聖書」
+         翻訳選択・比較モード・読書設定
+         常設。押すと popup を開く。
+         ═══════════════════════════════════ -->
+    <div class="sb-workspace">
+        <button class="sb-workspace-btn" id="sb-bible-btn" onclick="openBiblePicker()" title="翻訳・表示モードを選ぶ">
+            <div style="min-width:0;flex:1;">
+                <span class="sb-workspace-label menu-text">聖書</span>
+                <span class="sb-workspace-sub menu-text" id="sb-workspace-sub">新改訳2017</span>
+            </div>
+            <span class="sb-workspace-icon menu-text">⌄</span>
+        </button>
+    </div>
+
+    <div class="sb-divider"></div>
+
+    <!-- ═══════════════════════════════════
+         Content Navigation — 旧約 / 新約
+         書物 → 章 をインライン展開
+         testament切替タブで絞り込む
+         ═══════════════════════════════════ -->
+    <div class="sb-testament-tabs" id="sb-testament-tabs">
+        <button class="sb-testament-tab menu-text" id="sb-tab-ot" onclick="sbSwitchTestament('ot')">旧約</button>
+        <button class="sb-testament-tab menu-text" id="sb-tab-nt" onclick="sbSwitchTestament('nt')">新約</button>
+    </div>
+
+    <!-- 書物一覧（スクロール可能） -->
+    <div class="sb-book-scroll" id="sb-book-scroll">
+        <div id="sb-book-list"></div>
+    </div>
+
+    <div class="sb-divider"></div>
+
+    <!-- ツール -->
+    <div class="sb-tools" style="padding: 0 10px 8px;">
         <div class="sb-row" id="nav-proximity" onclick="goProximityPage()">
             <span class="menu-text">近接検索</span>
             <span class="sb-row-arrow menu-text">↗</span>
         </div>
     </div>
 
-    <!-- Layer 1: 書物一覧 -->
-    <div class="sb-layer" id="sb-layer1">
-        <!-- ナビヘッダー: 旧約聖書 ／ 新約聖書 -->
-        <div class="sb-nav-header">
-            <button class="sb-nav-item" id="sb-nav-ot" onclick="sbGoTo(1,'ot')">旧約聖書</button>
-            <span class="sb-nav-sep">／</span>
-            <button class="sb-nav-item" id="sb-nav-nt" onclick="sbGoTo(1,'nt')">新約聖書</button>
+    <!-- 旧 layer DOM：既存 JS の getElementById 互換のため保持（非表示） -->
+    <div style="display:none;">
+        <div id="sb-layer0"></div>
+        <div id="sb-layer1">
+            <div id="sb-nav-ot"></div>
+            <div id="sb-nav-nt"></div>
         </div>
-        <div id="sb-book-list"></div>
-    </div>
-
-    <!-- Layer 2: 章グリッド -->
-    <div class="sb-layer" id="sb-layer2">
-        <!-- ナビヘッダー: 旧約聖書 ／ 新約聖書 › 書物名 -->
-        <div class="sb-nav-header">
-            <button class="sb-nav-item" id="sb-nav-ot-l2" onclick="sbGoTo(1,'ot')">旧約聖書</button>
-            <span class="sb-nav-sep">／</span>
-            <button class="sb-nav-item" id="sb-nav-nt-l2" onclick="sbGoTo(1,'nt')">新約聖書</button>
-            <span class="sb-nav-sep sb-nav-sep-book">›</span>
-            <span class="sb-nav-book" id="sb-l2-title"></span>
+        <div id="sb-layer2">
+            <div id="sb-nav-ot-l2"></div>
+            <div id="sb-nav-nt-l2"></div>
+            <div id="sb-l2-title"></div>
+            <div id="sb-ch-grid-legacy"></div>
         </div>
-        <div class="section-label" style="padding: 6px 14px 4px;">章を選ぶ</div>
-        <div class="sb-ch-grid menu-text" id="sb-ch-grid"></div>
+        <div id="sb-ot-row"></div>
+        <div id="sb-nt-row"></div>
     </div>
 
 </div>
@@ -2309,9 +2127,7 @@ details[open] .study-summary::before {
         </div>
     </header>
     <div id="app">
-        <div id="main-reading-area" class="single-mode">
-            <div class="trans-col-header" id="trans-col-header-a"></div>
-            <div class="trans-col-header right" id="trans-col-header-b"></div>
+        <div id="main-reading-area">
             <div id="bible-text-area">
                 <div id="reading-hint">節をタップすると、原語の順序が見えてきます</div>
             </div>
@@ -4636,88 +4452,93 @@ let sbBookKey  = null;
 let sbBookName = '';
 let sbMaxCh    = 1;
 
+/* ══════════════════════════════════════════
+   サイドバー — フラット常設構造
+   ドリルダウンを廃止。
+   testament タブ + 書物インライン展開。
+   ══════════════════════════════════════════ */
+
+/* 旧 sbGoTo：他 JS から呼ばれる互換 shim */
 function sbGoTo(layer, section) {
-    document.querySelectorAll('.sb-layer').forEach(l => l.classList.remove('active'));
-    document.getElementById('sb-layer' + layer).classList.add('active');
-
-    /* Layer 0: sb-nt-row / sb-ot-row のアクティブ表示 */
-    if (layer === 0) {
-        document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
-        document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
-    }
-
-    /* Layer 1: 書物一覧を描画 */
-    if (layer === 1) {
-        if (section) sbSection = section;
-        _sbSyncNavHeaders();
-        document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
-        document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
-        sbRenderBooks();
-    }
-
-    /* Layer 2: 章グリッドを描画 */
-    if (layer === 2) {
-        _sbSyncNavHeaders();
-        document.getElementById('sb-l2-title').textContent = sbBookName;
-        sbRenderChapters();
-    }
+    if (layer === 1 && section) sbSwitchTestament(section);
 }
 
-/* Layer 1/2 のナビヘッダーのアクティブ状態を同期 */
-function _sbSyncNavHeaders() {
-    const isNt = sbSection === 'nt';
-    ['sb-nav-nt', 'sb-nav-nt-l2'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.toggle('active', isNt);
-    });
-    ['sb-nav-ot', 'sb-nav-ot-l2'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.toggle('active', !isNt);
-    });
+function _sbSyncNavHeaders() { /* 互換 no-op */ }
+function sbGoBack(layer)     { /* 互換 no-op */ }
+
+/* testament 切替（旧約 / 新約タブ） */
+function sbSwitchTestament(section) {
+    sbSection = section;
+    const tabOt = document.getElementById('sb-tab-ot');
+    const tabNt = document.getElementById('sb-tab-nt');
+    if (tabOt) tabOt.classList.toggle('active', section === 'ot');
+    if (tabNt) tabNt.classList.toggle('active', section === 'nt');
+    sbRenderBooks();
 }
 
-function sbGoBack(layer) { sbGoTo(layer); }
-
+/* 書物一覧を描画（選択中の書物は章グリッドをインライン展開） */
 function sbRenderBooks() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentBook = urlParams.get('book') || 'ROM';
+    const currentCh   = parseInt(urlParams.get('ch') || '1');
+
     const list = document.getElementById('sb-book-list');
+    if (!list) return;
     list.innerHTML = '';
+
     SB_BOOKS[sbSection].forEach(b => {
-        const div = document.createElement('div');
-        div.className = 'sb-row' + (b.key === sbBookKey ? ' active' : '');
+        const isOpen   = b.key === sbBookKey;
         const hasGreek = GREEK_BOOKS.has(b.key);
-        div.innerHTML = `<span>${b.name}</span><span class="sb-row-arrow">›</span>`;
-        if (!hasGreek) {
-            div.title = '日本語訳のみ';
-            div.querySelector('span').style.color = 'var(--text-sub)';
-        }
-        div.onclick = () => {
-            sbBookKey  = b.key;
-            sbBookName = b.name;
-            sbMaxCh    = b.ch;
-            sbGoTo(2);
+
+        /* 書物行 */
+        const row = document.createElement('div');
+        row.className = 'sb-row' + (isOpen ? ' active' : '');
+        row.title = hasGreek ? '' : '日本語訳のみ';
+        row.innerHTML =
+            `<span style="${!hasGreek ? 'color:var(--text-sub)' : ''}">${b.name}</span>` +
+            `<span class="sb-row-arrow">${isOpen ? '∨' : '›'}</span>`;
+        row.onclick = () => {
+            if (sbBookKey === b.key) {
+                sbBookKey = null;
+            } else {
+                sbBookKey  = b.key;
+                sbBookName = b.name;
+                sbMaxCh    = b.ch;
+            }
+            sbRenderBooks();
         };
-        list.appendChild(div);
+        list.appendChild(row);
+
+        /* 章グリッド（この書物が選択中のときのみ展開） */
+        if (isOpen) {
+            const chWrap = document.createElement('div');
+            chWrap.className = 'sb-inline-chapters open';
+
+            const nameLabel = document.createElement('span');
+            nameLabel.className = 'sb-inline-book-name';
+            nameLabel.textContent = b.name;
+            chWrap.appendChild(nameLabel);
+
+            const grid = document.createElement('div');
+            grid.className = 'sb-ch-grid';
+            for (let i = 1; i <= b.ch; i++) {
+                const btn = document.createElement('div');
+                btn.className = 'sb-ch-btn' +
+                    (b.key === currentBook && i === currentCh ? ' active' : '');
+                btn.textContent = i;
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    window.location.href = `?book=${b.key}&ch=${i}`;
+                };
+                grid.appendChild(btn);
+            }
+            chWrap.appendChild(grid);
+            list.appendChild(chWrap);
+        }
     });
 }
 
-function sbRenderChapters() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentCh = parseInt(urlParams.get('ch') || '1');
-    const currentBook = urlParams.get('book') || 'ROM';
-
-    const grid = document.getElementById('sb-ch-grid');
-    grid.innerHTML = '';
-    for (let i = 1; i <= sbMaxCh; i++) {
-        const btn = document.createElement('div');
-        btn.className = 'sb-ch-btn' + (sbBookKey === currentBook && i === currentCh ? ' active' : '');
-        btn.textContent = i;
-        btn.onclick = () => {
-            window.location.href = `?book=${sbBookKey}&ch=${i}`;
-        };
-        grid.appendChild(btn);
-    }
-}
-
+/* 起動時の状態設定 */
 function sbInitState(bookKey, ch) {
     const inNt = SB_BOOKS.nt.some(b => b.key === bookKey);
     sbSection = inNt ? 'nt' : 'ot';
@@ -4728,9 +4549,34 @@ function sbInitState(bookKey, ch) {
         sbBookName = found.name;
         sbMaxCh    = found.ch;
     }
-    /* 起動時: Layer 0 を表示（トップメニューから始める） */
-    sbGoTo(0);
+    /* タブ初期状態 */
+    const tabOt = document.getElementById('sb-tab-ot');
+    const tabNt = document.getElementById('sb-tab-nt');
+    if (tabOt) tabOt.classList.toggle('active', sbSection === 'ot');
+    if (tabNt) tabNt.classList.toggle('active', sbSection === 'nt');
+    /* 書物一覧を描画 */
+    sbRenderBooks();
+    /* workspace サブラベル更新 */
+    _sbUpdateWorkspaceSub();
 }
+
+/* Workspace ボタンのサブラベルを現在の翻訳名に更新 */
+function _sbUpdateWorkspaceSub() {
+    const el = document.getElementById('sb-workspace-sub');
+    if (!el) return;
+    const labels = { 'NKJ2017':'新改訳2017', 'NKJ':'新改訳', 'NIV':'NIV', 'ESV':'ESV' };
+    if (typeof _transMode !== 'undefined' && _transMode === 'compare') {
+        const a = labels[_transA] || _transA || '新改訳2017';
+        const b = labels[_transB] || _transB || '新改訳';
+        el.textContent = a + '  ╱  ' + b;
+    } else {
+        const a = (typeof _transA !== 'undefined') ? (labels[_transA] || _transA) : '新改訳2017';
+        el.textContent = a;
+    }
+}
+
+/* 旧 sbRenderChapters 互換 shim（sbRenderBooks内に統合） */
+function sbRenderChapters() { sbRenderBooks(); }
 
 /* ══════════════════════════════════════════
    出典・ポリシー
@@ -4847,13 +4693,9 @@ async function init() {
     const hasGreek = GREEK_BOOKS.has(book);
 
     try {
-        const jpData = await _fetchTranslation(_transA, book, ch);
-        if (!jpData) throw new Error(`bible_jp not found: ${book}/${ch}`);
-
-        let jpDataB = null;
-        if (_transMode === 'compare') {
-            jpDataB = await _fetchTranslation(_transB, book, ch);
-        }
+        const jpRes = await fetch(`./bible_jp/${book}/${ch}.json`);
+        if (!jpRes.ok) throw new Error(`bible_jp not found: ${book}/${ch}`);
+        const jpData = await jpRes.json();
 
         let elData = [];
         if (hasGreek) {
@@ -4869,7 +4711,7 @@ async function init() {
             }
         }
 
-        render(jpData, elData, hasGreek && elData.length > 0, jpDataB);
+        render(jpData, elData, hasGreek && elData.length > 0);
 
     } catch (err) {
         console.error(err);
@@ -4877,7 +4719,7 @@ async function init() {
     }
 }
 
-function render(jpData, elData, hasGreek, jpDataB) {
+function render(jpData, elData, hasGreek) {
     const app          = document.getElementById('bible-text-area');
     const parallel     = document.getElementById('parallel-text-area');
     const mainArea     = document.getElementById('main-reading-area');
@@ -4944,11 +4786,10 @@ function render(jpData, elData, hasGreek, jpDataB) {
         }
         app.appendChild(block);
 
-        // 右：並列訳（compare モード時に翻訳Bを表示）
+        // 右：並列訳（parallel ON時のみ表示）
         const pBlock = document.createElement('div');
         pBlock.className = 'verse-block verse-pair-right';
-        const rightText = (jpDataB && jpDataB.verses && jpDataB.verses[vNum]) ? jpDataB.verses[vNum] : (jpData.verses[vNum] || '');
-        pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${rightText}</div></div>`;
+        pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
         parallel.appendChild(pBlock);
     });
 
@@ -5836,13 +5677,9 @@ async function renderCurrentPage() {
     const hasGreek = GREEK_BOOKS.has(book);
 
     try {
-        const jpData = await _fetchTranslation(_transA, book, ch);
-        if (!jpData) throw new Error('Not found');
-
-        let jpDataB = null;
-        if (_transMode === 'compare') {
-            jpDataB = await _fetchTranslation(_transB, book, ch);
-        }
+        const jpRes = await fetch(`./bible_jp/${book}/${ch}.json`);
+        if (!jpRes.ok) throw new Error('Not found');
+        const jpData = await jpRes.json();
 
         let elData = [];
         if (hasGreek) {
@@ -5852,7 +5689,9 @@ async function renderCurrentPage() {
             } catch(e) {}
         }
 
-        render(jpData, elData, hasGreek && elData.length > 0, jpDataB);
+        render(jpData, elData, hasGreek && elData.length > 0);
+        const parallel = document.getElementById('parallel-text-area');
+        
         document.getElementById('active-v').innerText = "";
     } catch (err) {
         document.getElementById('bible-text-area').innerHTML = `<p style="color:red">データが見つかりません。</p>`;
@@ -6007,10 +5846,10 @@ init();
    翻訳モード管理
    ══════════════════════════════════════════ */
 const TRANS_LIST = [
-    { id: 'NKJ2017', name: '新改訳2017',   code: 'NKJ2017' },
-    { id: 'NKJ',     name: '新改訳',        code: 'NKJ'     },
-    { id: 'NIV',     name: 'NIV',           code: 'NIV'     },
-    { id: 'ESV',     name: 'ESV',           code: 'ESV'     },
+    { id: 'NKJ2017', name: '新改訳2017', code: 'NKJ2017' },
+    { id: 'NKJ',     name: '新改訳',     code: 'NKJ'     },
+    { id: 'NIV',     name: 'NIV',        code: 'NIV'     },
+    { id: 'ESV',     name: 'ESV',        code: 'ESV'     },
 ];
 const TRANS_LABELS = { 'NKJ2017':'新改訳2017', 'NKJ':'新改訳', 'NIV':'NIV', 'ESV':'ESV' };
 
@@ -6041,14 +5880,12 @@ async function _fetchTranslation(transId, book, ch) {
 function _applyTransMode(mode) {
     _transMode = mode;
     const area = document.getElementById('main-reading-area');
-    if (mode === 'compare') {
-        area.classList.remove('single-mode');
-        area.classList.add('compare-mode');
-    } else {
-        area.classList.remove('compare-mode');
-        area.classList.add('single-mode');
+    if (area) {
+        area.classList.toggle('compare-mode', mode === 'compare');
+        area.classList.toggle('single-mode',  mode !== 'compare');
     }
     _updateColHeaders();
+    _sbUpdateWorkspaceSub();
 }
 
 function _updateColHeaders() {
@@ -6126,16 +5963,8 @@ function _bpRenderCompare() {
     ).join('');
 }
 
-function bpSelectA(id) {
-    _bpSelA = id;
-    _bpRenderSingle();
-    _bpRenderCompare();
-}
-
-function bpSelectB(id) {
-    _bpSelB = id;
-    _bpRenderCompare();
-}
+function bpSelectA(id) { _bpSelA = id; _bpRenderSingle(); _bpRenderCompare(); }
+function bpSelectB(id) { _bpSelB = id; _bpRenderCompare(); }
 
 function bpConfirm() {
     _transA = _bpSelA;
