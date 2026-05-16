@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05161700｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05161800｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -4920,10 +4920,10 @@ function render(jpData, elData, hasGreek, jpDataB) {
     const headerA = document.getElementById('trans-col-header-a');
     const headerB = document.getElementById('trans-col-header-b');
 
-    headerA.textContent = '新改訳';
+    headerA.textContent = (TRANSLATIONS[_transA] || {}).label || _transA;
 
     if (mainArea.classList.contains('compare-mode')) {
-        headerB.textContent = currentTranslationBLabel || '口語訳';
+        headerB.textContent = (TRANSLATIONS[_transB] || {}).label || _transB;
     } else {
         headerB.textContent = '';
     }
@@ -6052,36 +6052,104 @@ init();
 /* ══════════════════════════════════════════
    翻訳モード管理
    ══════════════════════════════════════════ */
-const TRANS_LIST = [
-    { id: 'NKJ2017', name: '新改訳2017',   code: 'NKJ2017' },
-    { id: 'NKJ',     name: '新改訳',        code: 'NKJ'     },
-    { id: 'NIV',     name: 'NIV',           code: 'NIV'     },
-    { id: 'ESV',     name: 'ESV',           code: 'ESV'     },
-];
-const TRANS_LABELS = { 'NKJ2017':'新改訳2017', 'NKJ':'新改訳', 'NIV':'NIV', 'ESV':'ESV' };
 
+/*
+ * ディレクトリ移行メモ
+ * ─────────────────────────────────────────
+ * 旧:
+ *   bible_jp/MAT/1.json          … NKJ2017 固定
+ *   bible_jp_nkj/MAT/1.json      … NKJ
+ *   bible_jp_niv/MAT/1.json      … NIV
+ *   bible_jp_esv/MAT/1.json      … ESV
+ *
+ * 新（translations/ 以下に統一）:
+ *   translations/JA1955/MAT/1.json   … 口語訳
+ *   translations/KJVESV/MAT/1.json   … KJV
+ *   translations/KAI17/MAT/1.json    … 新改訳2017
+ *   translations/KOG/MAT/1.json      … 口語訳（別版）
+ *   translations/KYO/MAT/1.json      … 新共同訳
+ *
+ * 移行手順:
+ *   1. 旧 bible_jp/     → translations/KAI17/  へコピー
+ *   2. 各翻訳ディレクトリ → translations/{ID}/ へコピー
+ *   3. 旧ディレクトリは削除可（フォールバックが不要になってから）
+ * ─────────────────────────────────────────
+ */
+
+/* 翻訳マスター定義
+ * ─ TRANS_LIST / TRANS_LABELS はここから自動生成 ─ */
+const TRANSLATIONS = {
+    'JA1955': { label: '口語訳',     code: 'JA1955' },
+    'KJVESV': { label: 'KJV',        code: 'KJV'    },
+    'KAI17':  { label: '新改訳2017', code: 'KAI17'  },
+    'KOG':    { label: '口語訳',     code: 'KOG'    },
+    'KYO':    { label: '新共同訳',   code: 'KYO'    },
+};
+
+/* 後方互換: TRANS_LIST / TRANS_LABELS を TRANSLATIONS から生成 */
+const TRANS_LIST   = Object.entries(TRANSLATIONS).map(([id, t]) => ({ id, name: t.label, code: t.code }));
+const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t]) => [id, t.label]));
+
+/* アクティブ翻訳（A = メイン / B = 比較列） */
+let currentTranslation  = 'KAI17';  /* 単一モード・比較左列 */
+let currentTranslationB = 'KYO';    /* 比較右列（UI切替は将来対応） */
+
+/* _transA / _transB は currentTranslation* と同期して動かす（後方互換エイリアス） */
 let _transMode = 'single';
-let _transA    = 'NKJ2017';
-let _transB    = 'NKJ';
+let _transA    = currentTranslation;
+let _transB    = currentTranslationB;
 
+/*
+ * transDataPath — 翻訳IDとbook/chからJSONパスを返す
+ *
+ * 新パス: translations/{transId}/{book}/{ch}.json
+ * フォールバック（旧ディレクトリが残っている移行期用）:
+ *   NKJ2017 → bible_jp/{book}/{ch}.json
+ *   他      → bible_jp_{transId.toLowerCase()}/{book}/{ch}.json
+ */
 function transDataPath(transId, book, ch) {
-    if (!transId || transId === 'NKJ2017') return `./bible_jp/${book}/${ch}.json`;
+    /* 新構造が整っていればこちらを使う */
+    return `./translations/${transId}/${book}/${ch}.json`;
+}
+
+/* フォールバック用（旧ディレクトリ構造）*/
+function _transDataPathLegacy(transId, book, ch) {
+    if (!transId || transId === 'KAI17') return `./bible_jp/${book}/${ch}.json`;
     return `./bible_jp_${transId.toLowerCase()}/${book}/${ch}.json`;
 }
 
+/*
+ * _fetchTranslation — 新パス → 旧パスの順で試みる
+ *   loadBook(book, translation) のエイリアスとして機能する。
+ *
+ *   新パス優先で fetch し、404 なら旧ディレクトリへフォールバック。
+ *   両方失敗した場合は null を返す。
+ */
 async function _fetchTranslation(transId, book, ch) {
-    const path = transDataPath(transId, book, ch);
+    /* ① 新パス: translations/{transId}/{book}/{ch}.json */
     try {
-        const res = await fetch(path);
+        const res = await fetch(transDataPath(transId, book, ch));
         if (res.ok) return await res.json();
     } catch(e) {}
-    if (transId !== 'NKJ2017') {
-        try {
-            const res2 = await fetch(`./bible_jp/${book}/${ch}.json`);
-            if (res2.ok) return await res2.json();
-        } catch(e) {}
-    }
+
+    /* ② 旧パスへフォールバック（移行期のみ有効） */
+    try {
+        const res2 = await fetch(_transDataPathLegacy(transId, book, ch));
+        if (res2.ok) return await res2.json();
+    } catch(e) {}
+
     return null;
+}
+
+/*
+ * loadBook — 汎用ブック読み込み関数
+ *   loadBook('JHN')                  … currentTranslation で読み込み
+ *   loadBook('JHN', 'NKJ2017')       … 指定翻訳で読み込み
+ *   loadBook('JHN', 'NKJ')           … 口語訳等を明示指定
+ */
+async function loadBook(book, translation = currentTranslation) {
+    const ch = AppState.location.chapter || 1;
+    return await _fetchTranslation(translation, book, String(ch));
 }
 
 function _applyTransMode(mode) {
@@ -6100,16 +6168,17 @@ function _applyTransMode(mode) {
 function _updateColHeaders() {
     const hA = document.getElementById('trans-col-header-a');
     const hB = document.getElementById('trans-col-header-b');
-    if (hA) hA.textContent = TRANS_LABELS[_transA] || _transA;
-    if (hB) hB.textContent = TRANS_LABELS[_transB] || _transB;
+    /* TRANSLATIONS から label を引く。未定義なら id をそのまま表示 */
+    if (hA) hA.textContent = (TRANSLATIONS[_transA] || {}).label || _transA;
+    if (hB) hB.textContent = (TRANSLATIONS[_transB] || {}).label || _transB;
 }
 
 /* ══════════════════════════════════════════
    Bible Picker Popup
    ══════════════════════════════════════════ */
 let _bpMode = 'single';
-let _bpSelA = 'NKJ2017';
-let _bpSelB = 'NKJ';
+let _bpSelA = 'KAI17';
+let _bpSelB = 'KYO';
 
 function openBiblePicker() {
     _bpMode = _transMode;
@@ -6186,6 +6255,9 @@ function bpSelectB(id) {
 function bpConfirm() {
     _transA = _bpSelA;
     _transB = _bpSelB;
+    /* currentTranslation* を _transA/B と常に同期させる */
+    currentTranslation  = _transA;
+    currentTranslationB = _transB;
     _applyTransMode(_bpMode);
     closeBiblePicker();
     renderCurrentPage();
