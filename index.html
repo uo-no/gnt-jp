@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05152100｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05161500｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -1919,6 +1919,266 @@ details[open] .study-summary::before {
     letter-spacing: 0.01em;
     opacity: 0.82;
 }
+
+/* ══════════════════════════════════════════
+   翻訳モード
+   ══════════════════════════════════════════ */
+/* 単一モード: 右列を隠す */
+#main-reading-area.single-mode {
+    grid-template-columns: 1fr 0;
+}
+#main-reading-area.single-mode #parallel-text-area,
+#main-reading-area.single-mode .verse-pair-right {
+    display: none;
+}
+/* 比較モード: 左右均等 */
+#main-reading-area.compare-mode {
+    grid-template-columns: 1fr 1fr;
+}
+#main-reading-area.compare-mode #parallel-text-area {
+    display: block;
+}
+/* 比較モード: panel-open 時は右を畳む */
+#main-reading-area.compare-mode.panel-open {
+    grid-template-columns: 1fr 0;
+}
+/* カラムヘッダー（比較時のみ表示） */
+.trans-col-header {
+    display: none;
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-sub);
+    opacity: 0.45;
+    padding: 10px 32px 4px 52px;
+    background: #fff;
+}
+.trans-col-header.right {
+    padding: 10px 24px 4px 32px;
+    background: #fafafa;
+}
+#main-reading-area.compare-mode .trans-col-header {
+    display: block;
+}
+/* 右列の jp-text */
+.verse-pair-right .jp-text {
+    font-size: 1.1rem;
+    line-height: 2.1;
+    color: var(--text-main);
+    font-family: 'Noto Serif JP', serif;
+}
+/* 「聖書」ラベル：クリック可能 */
+.sb-bible-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: opacity 150ms;
+    user-select: none;
+}
+.sb-bible-label:hover { opacity: 0.65; }
+.sb-bible-label-arrow {
+    font-size: 0.58rem;
+    opacity: 0.4;
+}
+
+/* ══════════════════════════════════════════
+   Bible Picker Popup
+   ══════════════════════════════════════════ */
+#bible-picker-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    background: rgba(255,255,255,0.55);
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 200ms ease;
+}
+#bible-picker-backdrop.bp-open {
+    display: flex;
+    opacity: 1;
+}
+#bible-picker-popup {
+    width: 420px;
+    max-width: calc(100vw - 32px);
+    border-radius: 22px;
+    background: rgba(250,250,248,0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow:
+        0 10px 40px rgba(0,0,0,0.08),
+        0 2px 10px rgba(0,0,0,0.04);
+    overflow: hidden;
+    transform: scale(0.96) translateY(6px);
+    opacity: 0;
+    transition: transform 220ms cubic-bezier(0.34,1.06,0.64,1), opacity 200ms ease;
+}
+#bible-picker-backdrop.bp-open #bible-picker-popup {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+.bp-header {
+    padding: 24px 26px 16px;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.bp-title {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-main);
+    letter-spacing: -0.01em;
+    margin-bottom: 2px;
+}
+.bp-subtitle {
+    font-size: 0.68rem;
+    color: var(--text-sub);
+    opacity: 0.6;
+    letter-spacing: 0.02em;
+}
+.bp-segment-wrap {
+    padding: 14px 26px 12px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+.bp-segment {
+    display: inline-flex;
+    background: rgba(0,0,0,0.06);
+    border-radius: 100px;
+    padding: 3px;
+}
+.bp-seg-btn {
+    padding: 5px 18px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-family: inherit;
+    letter-spacing: 0.01em;
+    color: var(--text-sub);
+    background: transparent;
+    border: none;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease;
+    white-space: nowrap;
+}
+.bp-seg-btn.active {
+    background: rgba(255,255,255,0.92);
+    color: var(--text-main);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+.bp-seg-btn:not(.active):hover { color: var(--text-main); }
+.bp-body {
+    padding: 10px 14px 14px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.bp-trans-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 150ms ease;
+}
+.bp-trans-item:hover { background: rgba(0,0,0,0.04); }
+.bp-trans-item.active .bp-trans-name {
+    font-weight: 700;
+    color: var(--highlight);
+}
+.bp-trans-item.active .bp-trans-check { opacity: 1; }
+.bp-trans-name {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 0.92rem;
+    color: var(--text-main);
+    line-height: 1.4;
+}
+.bp-trans-code {
+    font-size: 0.6rem;
+    color: var(--text-sub);
+    opacity: 0.45;
+    margin-top: 1px;
+    letter-spacing: 0.04em;
+    display: block;
+}
+.bp-trans-check {
+    font-size: 0.85rem;
+    color: var(--highlight);
+    opacity: 0;
+    transition: opacity 150ms;
+}
+.bp-compare-body {
+    padding: 14px 20px 18px;
+}
+.bp-compare-pair {
+    background: rgba(0,0,0,0.025);
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+.bp-compare-col { padding: 12px 16px; }
+.bp-compare-col + .bp-compare-col {
+    border-top: 1px solid rgba(0,0,0,0.06);
+}
+.bp-compare-side-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--text-sub);
+    opacity: 0.45;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 8px;
+}
+.bp-compare-options { display: flex; flex-direction: column; gap: 2px; }
+.bp-compare-opt {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 150ms;
+}
+.bp-compare-opt:hover { background: rgba(0,0,0,0.04); }
+.bp-compare-opt.active .bp-compare-opt-name {
+    font-weight: 700;
+    color: var(--highlight);
+}
+.bp-compare-opt.active .bp-compare-opt-dot { background: var(--highlight); }
+.bp-compare-opt-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.12);
+    flex-shrink: 0;
+    transition: background 150ms;
+}
+.bp-compare-opt-name {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 0.88rem;
+    color: var(--text-main);
+}
+.bp-footer { padding: 0 20px 20px; }
+.bp-confirm-btn {
+    width: 100%;
+    padding: 11px 0;
+    background: var(--highlight);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: inherit;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: opacity 150ms;
+}
+.bp-confirm-btn:hover { opacity: 0.88; }
+.bp-confirm-btn:active { opacity: 0.75; }
 </style>
 
 </head>
@@ -1943,6 +2203,40 @@ details[open] .study-summary::before {
     </div>
 </div>
 
+<!-- ══════════════════════════════════════════
+     Bible Picker Popup
+     ══════════════════════════════════════════ -->
+<div id="bible-picker-backdrop" onclick="bpBackdropClick(event)">
+    <div id="bible-picker-popup" onclick="event.stopPropagation()">
+        <div class="bp-header">
+            <div class="bp-title">Bible</div>
+            <div class="bp-subtitle">読む聖書を選ぶ</div>
+        </div>
+        <div class="bp-segment-wrap">
+            <div class="bp-segment">
+                <button class="bp-seg-btn active" id="bp-seg-single" onclick="bpSwitchMode('single')">単一表示</button>
+                <button class="bp-seg-btn" id="bp-seg-compare" onclick="bpSwitchMode('compare')">比較表示</button>
+            </div>
+        </div>
+        <div class="bp-body" id="bp-single-body"></div>
+        <div class="bp-compare-body" id="bp-compare-body" style="display:none;">
+            <div class="bp-compare-pair">
+                <div class="bp-compare-col">
+                    <span class="bp-compare-side-label">左列</span>
+                    <div class="bp-compare-options" id="bp-col-a"></div>
+                </div>
+                <div class="bp-compare-col">
+                    <span class="bp-compare-side-label">右列</span>
+                    <div class="bp-compare-options" id="bp-col-b"></div>
+                </div>
+            </div>
+        </div>
+        <div class="bp-footer">
+            <button class="bp-confirm-btn" onclick="bpConfirm()">決定</button>
+        </div>
+    </div>
+</div>
+
 <div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
 <div class="main-layout">
     <nav id="nav-sidebar" class="nav-sidebar">
@@ -1954,7 +2248,9 @@ details[open] .study-summary::before {
 
     <!-- Layer 0: トップメニュー（常に表示） -->
     <div class="sb-layer active" id="sb-layer0">
-        <div class="section-label" style="padding: 10px 12px 4px;">聖書</div>
+        <div class="section-label sb-bible-label" style="padding: 10px 12px 4px;" onclick="openBiblePicker()" title="翻訳を選ぶ">
+            <span>聖書</span><span class="sb-bible-label-arrow">⌄</span>
+        </div>
         <div class="sb-row" id="sb-ot-row" onclick="sbGoTo(1,'ot')">
             <span class="menu-text">旧約聖書</span>
             <span class="sb-row-arrow menu-text">›</span>
@@ -2013,7 +2309,9 @@ details[open] .study-summary::before {
         </div>
     </header>
     <div id="app">
-        <div id="main-reading-area">
+        <div id="main-reading-area" class="single-mode">
+            <div class="trans-col-header" id="trans-col-header-a"></div>
+            <div class="trans-col-header right" id="trans-col-header-b"></div>
             <div id="bible-text-area">
                 <div id="reading-hint">節をタップすると、原語の順序が見えてきます</div>
             </div>
@@ -4549,9 +4847,13 @@ async function init() {
     const hasGreek = GREEK_BOOKS.has(book);
 
     try {
-        const jpRes = await fetch(`./bible_jp/${book}/${ch}.json`);
-        if (!jpRes.ok) throw new Error(`bible_jp not found: ${book}/${ch}`);
-        const jpData = await jpRes.json();
+        const jpData = await _fetchTranslation(_transA, book, ch);
+        if (!jpData) throw new Error(`bible_jp not found: ${book}/${ch}`);
+
+        let jpDataB = null;
+        if (_transMode === 'compare') {
+            jpDataB = await _fetchTranslation(_transB, book, ch);
+        }
 
         let elData = [];
         if (hasGreek) {
@@ -4567,7 +4869,7 @@ async function init() {
             }
         }
 
-        render(jpData, elData, hasGreek && elData.length > 0);
+        render(jpData, elData, hasGreek && elData.length > 0, jpDataB);
 
     } catch (err) {
         console.error(err);
@@ -4575,7 +4877,7 @@ async function init() {
     }
 }
 
-function render(jpData, elData, hasGreek) {
+function render(jpData, elData, hasGreek, jpDataB) {
     const app          = document.getElementById('bible-text-area');
     const parallel     = document.getElementById('parallel-text-area');
     const mainArea     = document.getElementById('main-reading-area');
@@ -4642,10 +4944,11 @@ function render(jpData, elData, hasGreek) {
         }
         app.appendChild(block);
 
-        // 右：並列訳（parallel ON時のみ表示）
+        // 右：並列訳（compare モード時に翻訳Bを表示）
         const pBlock = document.createElement('div');
         pBlock.className = 'verse-block verse-pair-right';
-        pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
+        const rightText = (jpDataB && jpDataB.verses && jpDataB.verses[vNum]) ? jpDataB.verses[vNum] : (jpData.verses[vNum] || '');
+        pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${rightText}</div></div>`;
         parallel.appendChild(pBlock);
     });
 
@@ -5533,9 +5836,13 @@ async function renderCurrentPage() {
     const hasGreek = GREEK_BOOKS.has(book);
 
     try {
-        const jpRes = await fetch(`./bible_jp/${book}/${ch}.json`);
-        if (!jpRes.ok) throw new Error('Not found');
-        const jpData = await jpRes.json();
+        const jpData = await _fetchTranslation(_transA, book, ch);
+        if (!jpData) throw new Error('Not found');
+
+        let jpDataB = null;
+        if (_transMode === 'compare') {
+            jpDataB = await _fetchTranslation(_transB, book, ch);
+        }
 
         let elData = [];
         if (hasGreek) {
@@ -5545,9 +5852,7 @@ async function renderCurrentPage() {
             } catch(e) {}
         }
 
-        render(jpData, elData, hasGreek && elData.length > 0);
-        const parallel = document.getElementById('parallel-text-area');
-        
+        render(jpData, elData, hasGreek && elData.length > 0, jpDataB);
         document.getElementById('active-v').innerText = "";
     } catch (err) {
         document.getElementById('bible-text-area').innerHTML = `<p style="color:red">データが見つかりません。</p>`;
@@ -5697,6 +6002,148 @@ app.innerHTML = contentHtml;
 }
 
 init();
+
+/* ══════════════════════════════════════════
+   翻訳モード管理
+   ══════════════════════════════════════════ */
+const TRANS_LIST = [
+    { id: 'NKJ2017', name: '新改訳2017',   code: 'NKJ2017' },
+    { id: 'NKJ',     name: '新改訳',        code: 'NKJ'     },
+    { id: 'NIV',     name: 'NIV',           code: 'NIV'     },
+    { id: 'ESV',     name: 'ESV',           code: 'ESV'     },
+];
+const TRANS_LABELS = { 'NKJ2017':'新改訳2017', 'NKJ':'新改訳', 'NIV':'NIV', 'ESV':'ESV' };
+
+let _transMode = 'single';
+let _transA    = 'NKJ2017';
+let _transB    = 'NKJ';
+
+function transDataPath(transId, book, ch) {
+    if (!transId || transId === 'NKJ2017') return `./bible_jp/${book}/${ch}.json`;
+    return `./bible_jp_${transId.toLowerCase()}/${book}/${ch}.json`;
+}
+
+async function _fetchTranslation(transId, book, ch) {
+    const path = transDataPath(transId, book, ch);
+    try {
+        const res = await fetch(path);
+        if (res.ok) return await res.json();
+    } catch(e) {}
+    if (transId !== 'NKJ2017') {
+        try {
+            const res2 = await fetch(`./bible_jp/${book}/${ch}.json`);
+            if (res2.ok) return await res2.json();
+        } catch(e) {}
+    }
+    return null;
+}
+
+function _applyTransMode(mode) {
+    _transMode = mode;
+    const area = document.getElementById('main-reading-area');
+    if (mode === 'compare') {
+        area.classList.remove('single-mode');
+        area.classList.add('compare-mode');
+    } else {
+        area.classList.remove('compare-mode');
+        area.classList.add('single-mode');
+    }
+    _updateColHeaders();
+}
+
+function _updateColHeaders() {
+    const hA = document.getElementById('trans-col-header-a');
+    const hB = document.getElementById('trans-col-header-b');
+    if (hA) hA.textContent = TRANS_LABELS[_transA] || _transA;
+    if (hB) hB.textContent = TRANS_LABELS[_transB] || _transB;
+}
+
+/* ══════════════════════════════════════════
+   Bible Picker Popup
+   ══════════════════════════════════════════ */
+let _bpMode = 'single';
+let _bpSelA = 'NKJ2017';
+let _bpSelB = 'NKJ';
+
+function openBiblePicker() {
+    _bpMode = _transMode;
+    _bpSelA = _transA;
+    _bpSelB = _transB;
+    _bpRenderSingle();
+    _bpRenderCompare();
+    _bpApplyMode(_bpMode);
+    const bd = document.getElementById('bible-picker-backdrop');
+    bd.style.display = 'flex';
+    requestAnimationFrame(() => requestAnimationFrame(() => bd.classList.add('bp-open')));
+}
+
+function closeBiblePicker() {
+    const bd = document.getElementById('bible-picker-backdrop');
+    bd.classList.remove('bp-open');
+    bd.addEventListener('transitionend', () => { bd.style.display = 'none'; }, { once: true });
+}
+
+function bpBackdropClick(e) {
+    if (e.target === document.getElementById('bible-picker-backdrop')) closeBiblePicker();
+}
+
+function bpSwitchMode(mode) {
+    _bpMode = mode;
+    _bpApplyMode(mode);
+}
+
+function _bpApplyMode(mode) {
+    document.getElementById('bp-seg-single').classList.toggle('active', mode === 'single');
+    document.getElementById('bp-seg-compare').classList.toggle('active', mode === 'compare');
+    document.getElementById('bp-single-body').style.display  = mode === 'single'  ? 'block' : 'none';
+    document.getElementById('bp-compare-body').style.display = mode === 'compare' ? 'block' : 'none';
+}
+
+function _bpRenderSingle() {
+    document.getElementById('bp-single-body').innerHTML = TRANS_LIST.map(t =>
+        `<div class="bp-trans-item${t.id === _bpSelA ? ' active' : ''}" onclick="bpSelectA('${t.id}')">
+            <div>
+                <span class="bp-trans-name">${t.name}</span>
+                <span class="bp-trans-code">${t.code}</span>
+            </div>
+            <span class="bp-trans-check">✓</span>
+        </div>`
+    ).join('');
+}
+
+function _bpRenderCompare() {
+    document.getElementById('bp-col-a').innerHTML = TRANS_LIST.map(t =>
+        `<div class="bp-compare-opt${t.id === _bpSelA ? ' active' : ''}" onclick="bpSelectA('${t.id}')">
+            <span class="bp-compare-opt-dot"></span>
+            <span class="bp-compare-opt-name">${t.name}</span>
+        </div>`
+    ).join('');
+    document.getElementById('bp-col-b').innerHTML = TRANS_LIST.map(t =>
+        `<div class="bp-compare-opt${t.id === _bpSelB ? ' active' : ''}" onclick="bpSelectB('${t.id}')">
+            <span class="bp-compare-opt-dot"></span>
+            <span class="bp-compare-opt-name">${t.name}</span>
+        </div>`
+    ).join('');
+}
+
+function bpSelectA(id) {
+    _bpSelA = id;
+    _bpRenderSingle();
+    _bpRenderCompare();
+}
+
+function bpSelectB(id) {
+    _bpSelB = id;
+    _bpRenderCompare();
+}
+
+function bpConfirm() {
+    _transA = _bpSelA;
+    _transB = _bpSelB;
+    _applyTransMode(_bpMode);
+    closeBiblePicker();
+    renderCurrentPage();
+}
 </script>
 
 </body>
