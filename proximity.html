@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05062200｜近接検索｜コトバト</title>
+    <title>05172100｜近接検索｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -522,6 +522,38 @@
         align-items: center;
         flex-shrink: 0;
     }
+
+    /* ─── lemmaグループ見出し（日本語検索時） ─── */
+    .lemma-groups {
+        margin-bottom: 12px;
+    }
+    .lemma-group-bar {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        padding: 6px 0 6px 0;
+        border-bottom: 1px solid var(--border-soft);
+        cursor: pointer;
+        transition: color 0.13s;
+    }
+    .lemma-group-bar:hover .lemma-group-form { color: var(--highlight); }
+    .lemma-group-bar.active .lemma-group-form { color: var(--highlight); font-weight: 700; }
+    .lemma-group-form {
+        font-family: 'Gentium Plus', serif;
+        font-size: 1.05rem;
+        color: var(--text-main);
+        transition: color 0.13s;
+    }
+    .lemma-group-count {
+        font-size: 0.75rem;
+        color: var(--text-sub);
+    }
+    .lemma-group-gloss {
+        font-size: 0.72rem;
+        color: var(--text-sub);
+        opacity: 0.7;
+        margin-left: auto;
+    }
     </style>
 </head>
 <body>
@@ -549,7 +581,7 @@
             <div class="form-section">
                 <label class="form-label" for="inp-word1">語 1<span class="required">*</span></label>
                 <input class="greek-input" id="inp-word1" type="text"
-                    placeholder="例：πιστεύω" autocomplete="off" spellcheck="false">
+                    placeholder="例：πιστεύω / 愛 / 信じる" autocomplete="off" spellcheck="false">
             </div>
 
             <div class="form-section">
@@ -628,6 +660,7 @@
                 </div>
                 <div class="hits-panel">
                     <div class="hits-count" id="hits-count"></div>
+                    <div class="lemma-groups" id="lemma-groups" style="display:none;"></div>
                     <div class="hits-list" id="hits-list"></div>
                 </div>
             </div>
@@ -788,13 +821,17 @@ async function fetchChapter(bookKey, ch) {
         if (!res.ok) return [];
         const data = await res.json();
         // 各トークンに bookKey/ch を付加
-        const tokens = data.map(w => ({
-            text:  w.text  || '',
-            lemma: w.lemma || w.text || '',
-            ref:   w.ref   || `${bookKey} ${ch}:?`,
+const tokens = data.map(w => ({
+            text:    w.text    || '',
+            lemma:   w.lemma   || w.text || '',
+            ref:     w.ref     || `${bookKey} ${ch}:?`,
             bookKey,
             ch,
+            japanese: w.japanese || w.gloss_ja || w.gloss || null,
+            gloss:    w.gloss    || w.gloss_ja  || null,
+            strong:   w.strong   || w.strongs   || null,
         }));
+        
         tokenCache[cacheKey] = tokens;
         return tokens;
     } catch { return []; }
@@ -907,8 +944,62 @@ async function runProximitySearch({ word1, word2 = null, distance = 5, scope = '
     return { coocMap, hits, totalW1: w1Indices.length };
 }
 
+/* ============================================================
+   クエリ種別判定
+   ============================================================ */
+function detectQueryType(query) {
+    if (/[ἀ-῾Α-Ω]/u.test(query))       return 'greek';
+    if (/[ぁ-んァ-ヶ一-龠]/.test(query)) return 'japanese';
+    if (/^\d+$/.test(query))             return 'strong';
+    return 'text';
+}
+
+/* ============================================================
+   トークンマッチ（クエリ種別対応）
+   ============================================================ */
 function matchToken(tok, word) {
+    if (!word) return false;
+    const qtype = detectQueryType(word);
+    if (qtype === 'japanese') {
+        // japanese フィールドに含まれるか
+        if (tok.japanese) {
+            if (Array.isArray(tok.japanese)) {
+                if (tok.japanese.some(j => j.includes(word))) return true;
+            } else if (typeof tok.japanese === 'string') {
+                if (tok.japanese.includes(word)) return true;
+            }
+        }
+        if (tok.gloss && tok.gloss.includes(word)) return true;
+        return false;
+    }
+    if (qtype === 'strong') {
+        return String(tok.strong) === word;
+    }
+    // greek / text：従来動作
     return tok.text === word || tok.lemma === word;
+}
+
+/* ============================================================
+   lemma別グループ化（日本語検索時）
+   ============================================================ */
+function groupHitsByLemma(hits) {
+    const map = new Map(); // lemma -> group
+    for (const h of hits) {
+        const anchorTok = h.tokens[h.anchorIdx];
+        const lemma = anchorTok.lemma || anchorTok.text || '?';
+        if (!map.has(lemma)) {
+            map.set(lemma, {
+                lemma,
+                japanese: anchorTok.japanese || anchorTok.gloss || null,
+                gloss:    anchorTok.gloss    || null,
+                strong:   anchorTok.strong   || null,
+                hits: [],
+            });
+        }
+        map.get(lemma).hits.push(h);
+    }
+    // 件数降順でソート
+    return [...map.values()].sort((a, b) => b.hits.length - a.hits.length);
 }
 
 /* ============================================================
@@ -1007,8 +1098,15 @@ function renderResults({ word1, word2, coocMap, hits, totalW1 }) {
         });
     }
 
-    // 結果一覧
-    renderHits(hits, word1, word2, null);
+    // 日本語検索時はlemmaグループ表示、それ以外は従来の結果一覧
+    const qtype = detectQueryType(word1);
+    if (qtype === 'japanese' && hits.length > 0) {
+        const groups = groupHitsByLemma(hits);
+        renderLemmaGroups(groups, word1, word2);
+    } else {
+        document.getElementById('lemma-groups').style.display = 'none';
+        renderHits(hits, word1, word2, null);
+    }
 
     document.getElementById('result-panels').style.display = 'grid';
 }
@@ -1068,6 +1166,70 @@ function renderHits(hits, word1, word2, filterWord) {
         more.textContent = `…他 ${byRef.size - 80} 件（スコープを絞ると全件表示）`;
         list.appendChild(more);
     }
+}
+
+/* ============================================================
+   lemmaグループ見出し＋グループ別ヒット切り替え
+   ============================================================ */
+function renderLemmaGroups(groups, word1, word2) {
+    const container = document.getElementById('lemma-groups');
+    const countEl   = document.getElementById('hits-count');
+    const list      = document.getElementById('hits-list');
+
+    container.innerHTML = '';
+    container.style.display = 'block';
+
+    const totalHits = groups.reduce((s, g) => s + g.hits.length, 0);
+    countEl.textContent = `出現箇所：${totalHits}件（${groups.length} lemma）`;
+
+    let activeBar = null;
+
+    groups.forEach((group, idx) => {
+        const bar = document.createElement('div');
+        bar.className = 'lemma-group-bar';
+
+        // gloss表示文字列
+        let glossStr = '';
+        if (group.japanese) {
+            glossStr = Array.isArray(group.japanese)
+                ? group.japanese.slice(0, 3).join('・')
+                : String(group.japanese).slice(0, 20);
+        } else if (group.gloss) {
+            glossStr = String(group.gloss).slice(0, 20);
+        }
+
+        bar.innerHTML = `
+            <span class="lemma-group-form">${group.lemma}</span>
+            <span class="lemma-group-count">${group.hits.length}件</span>
+            ${glossStr ? `<span class="lemma-group-gloss">${glossStr}</span>` : ''}`;
+
+        bar.addEventListener('click', () => {
+            if (activeBar === bar) {
+                // 同じlemmaを再クリック → 全件表示に戻す
+                bar.classList.remove('active');
+                activeBar = null;
+                countEl.textContent = `出現箇所：${totalHits}件（${groups.length} lemma）`;
+                renderHits(groups.flatMap(g => g.hits), word1, word2, null);
+                // hits-countの上書きを元に戻す
+                countEl.textContent = `出現箇所：${totalHits}件（${groups.length} lemma）`;
+            } else {
+                if (activeBar) activeBar.classList.remove('active');
+                bar.classList.add('active');
+                activeBar = bar;
+                renderHits(group.hits, word1, word2, null);
+                countEl.textContent = `${group.lemma}：${group.hits.length}件`;
+            }
+        });
+
+        container.appendChild(bar);
+    });
+
+    // 初期表示：全lemmaのhitsを合算して表示
+    const allGroupedHits = groups.flatMap(g => g.hits);
+    _allHits = allGroupedHits; _word1 = word1; _word2 = word2 || '';
+    renderHits(allGroupedHits, word1, word2, null);
+    // renderHits が hits-count を上書きするので再セット
+    countEl.textContent = `出現箇所：${totalHits}件（${groups.length} lemma）`;
 }
 
 function buildHitCard(h, word1, word2, filterWord) {
