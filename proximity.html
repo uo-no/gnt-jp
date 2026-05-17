@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05172140｜近接検索｜コトバト</title>
+    <title>05172155｜近接検索｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -878,31 +878,52 @@ function init() {
         });
     });
 
-    // Enterキーで検索
+// debounce付き入力検索（300ms）／Enterは即時
+    let _debounceTimer = null;
+    function debouncedSearch() {
+        clearTimeout(_debounceTimer);
+        _debounceTimer = setTimeout(() => startSearch(), 300);
+    }
+
     ['inp-word1','inp-word2'].forEach(id => {
-        document.getElementById(id).addEventListener('keydown', e => {
-            if (e.key === 'Enter') startSearch();
+        const el = document.getElementById(id);
+        el.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { clearTimeout(_debounceTimer); startSearch(); }
         });
     });
 }
 
 /* ============================================================
-   データ取得 ＋ inverted index
+   データ取得 ／ ALL_TOKENS ／ SEARCH_INDEX
    ============================================================ */
-// raw token cache: key = "BOOK/CH"
-const tokenCache = {};
+const tokenCache  = {};                 // raw fetch cache: "BOOK/CH" -> token[]
+let   ALL_TOKENS  = [];                 // 全書物の flat token 配列
+let   INDEX_BUILT = false;
 
-// flat token array（全スコープ共通キャッシュ）
-let ALL_TOKENS = [];
-
-// inverted index
 const SEARCH_INDEX = {
-    lemma:    new Map(),   // lemma   -> Set<globalIdx>
-    text:     new Map(),   // text    -> Set<globalIdx>
-    japanese: new Map(),   // jp_word -> Set<globalIdx>  ※部分一致用に単語単位登録
-    strong:   new Map(),   // strong  -> Set<globalIdx>
+    lemma:    new Map(),   // lemma  -> Int32Array of globalIdx
+    text:     new Map(),   // text   -> Int32Array of globalIdx
+    japanese: new Map(),   // jp_gloss_string -> Int32Array of globalIdx
+    strong:   new Map(),   // strong -> Int32Array of globalIdx
 };
-let INDEX_BUILT = false;
+
+// ── index登録ヘルパー（構築フェーズ用：Mapに配列蓄積）
+function addToIndex(map, key, idx) {
+    if (!key) return;
+    let arr = map.get(key);
+    if (!arr) { arr = []; map.set(key, arr); }
+    arr.push(idx);
+}
+
+// ── 全token読み込み後にindex確定（配列 → 型付き配列へ変換）
+function finaliseIndex() {
+    for (const map of Object.values(SEARCH_INDEX)) {
+        for (const [k, arr] of map) {
+            map.set(k, new Int32Array(arr));
+        }
+    }
+    INDEX_BUILT = true;
+}
 
 async function fetchChapter(bookKey, ch) {
     const cacheKey = `${bookKey}/${ch}`;
@@ -926,7 +947,7 @@ async function fetchChapter(bookKey, ch) {
     } catch { return []; }
 }
 
-// スコープに応じてトークン列を取得
+// スコープに応じてトークン列を返す
 async function loadTokensForScope(scope, ref) {
     const prog = document.getElementById('scope-progress');
 
@@ -937,24 +958,40 @@ async function loadTokensForScope(scope, ref) {
             ch = parseInt(ref.match(/(\d+)$/)?.[1] || '1');
         }
         prog.classList.remove('visible');
-        // scope限定のときは slice用のローカル配列を返す（indexはALL_TOKENSベース）
         return await fetchChapter(bookKey, ch);
     }
 
-    // scope === 'all'
+    // scope === 'all' — キャッシュがあれば即返却
     if (ALL_TOKENS.length > 0) {
         prog.classList.remove('visible');
         return ALL_TOKENS;
     }
 
-    const allTokens = [];
+    // 全書物ロード
     let loaded = 0;
     const totalChapters = FLAT_BOOKS.reduce((s, b) => s + b.ch, 0);
 
     for (const book of FLAT_BOOKS) {
         for (let c = 1; c <= book.ch; c++) {
             const toks = await fetchChapter(book.key, c);
-            allTokens.push(...toks);
+            const base = ALL_TOKENS.length;
+            for (let k = 0; k < toks.length; k++) {
+                const i = base + k;
+                const tok = toks[k];
+                ALL_TOKENS.push(tok);
+
+                // index構築（ロードと同時に）
+                addToIndex(SEARCH_INDEX.lemma,  tok.lemma,  i);
+                addToIndex(SEARCH_INDEX.text,   tok.text,   i);
+                addToIndex(SEARCH_INDEX.strong, tok.strong != null ? String(tok.strong) : null, i);
+                // japanese：複数エントリを含む可能性があるため個別登録
+                if (tok.japanese) {
+                    const vals = Array.isArray(tok.japanese) ? tok.japanese : [tok.japanese];
+                    for (const v of vals) {
+                        if (v) addToIndex(SEARCH_INDEX.japanese, v, i);
+                    }
+                }
+            }
             loaded++;
             prog.textContent = `読み込み中… ${loaded} / ${totalChapters} 章`;
             prog.classList.add('visible');
@@ -962,84 +999,134 @@ async function loadTokensForScope(scope, ref) {
         }
     }
     prog.classList.remove('visible');
-    ALL_TOKENS = allTokens;
-    buildSearchIndex(ALL_TOKENS);
+    finaliseIndex();
     return ALL_TOKENS;
 }
 
-// inverted index構築（全スコープロード後に1回だけ実行）
-function buildSearchIndex(tokens) {
-    if (INDEX_BUILT) return;
-    tokens.forEach((tok, i) => {
-        // lemma
-        if (tok.lemma) {
-            if (!SEARCH_INDEX.lemma.has(tok.lemma)) SEARCH_INDEX.lemma.set(tok.lemma, new Set());
-            SEARCH_INDEX.lemma.get(tok.lemma).add(i);
-        }
-        // text
-        if (tok.text) {
-            if (!SEARCH_INDEX.text.has(tok.text)) SEARCH_INDEX.text.set(tok.text, new Set());
-            SEARCH_INDEX.text.get(tok.text).add(i);
-        }
-        // japanese（文字列全体をキーに登録。部分一致は検索時に対応）
-        if (tok.japanese) {
-            const val = tok.japanese;
-            const words = Array.isArray(val) ? val : [val];
-            for (const w of words) {
-                if (!SEARCH_INDEX.japanese.has(w)) SEARCH_INDEX.japanese.set(w, new Set());
-                SEARCH_INDEX.japanese.get(w).add(i);
-            }
-        }
-        // strong
-        if (tok.strong != null) {
-            const k = String(tok.strong);
-            if (!SEARCH_INDEX.strong.has(k)) SEARCH_INDEX.strong.set(k, new Set());
-            SEARCH_INDEX.strong.get(k).add(i);
-        }
-    });
-    INDEX_BUILT = true;
+/* ============================================================
+   クエリ種別判定
+   ============================================================ */
+function detectQueryType(query) {
+    if (/[ἀ-῾Α-Ω]/u.test(query))       return 'greek';
+    if (/[ぁ-んァ-ヶ一-龠]/.test(query)) return 'japanese';
+    if (/^\d+$/.test(query))             return 'strong';
+    return 'text';
 }
 
-// inverted index経由でマッチするglobalインデックスSetを返す
-function lookupIndices(tokens, word) {
-    const qtype = detectQueryType(word);
+/* ============================================================
+   検索関数（index経由）
+   ============================================================ */
+// index経由でglobal idx の Set を返す（スコープ限定時はtokens線形）
+function searchGreek(tokens, word) {
+    if (!INDEX_BUILT) {
+        const s = new Set();
+        tokens.forEach((t, i) => { if (t.text === word || t.lemma === word) s.add(i); });
+        return s;
+    }
+    const byLemma = SEARCH_INDEX.lemma.get(word);
+    const byText  = SEARCH_INDEX.text.get(word);
+    const s = new Set();
+    if (byLemma) for (const i of byLemma) s.add(i);
+    if (byText)  for (const i of byText)  s.add(i);
+    return s;
+}
 
-    if (qtype === 'strong') {
-        return SEARCH_INDEX.strong.get(word) || new Set();
-    }
-    if (qtype === 'japanese') {
-        // 部分一致：japanese indexのキーをスキャン
-        if (INDEX_BUILT) {
-            const result = new Set();
-            for (const [key, idxSet] of SEARCH_INDEX.japanese) {
-                if (key.includes(word)) {
-                    for (const i of idxSet) result.add(i);
-                }
+function searchJapanese(tokens, word) {
+    if (!INDEX_BUILT) {
+        // index未構築：線形スキャン（scope限定時のみ発生）
+        const s = new Set();
+        tokens.forEach((t, i) => {
+            if (t.japanese) {
+                const vals = Array.isArray(t.japanese) ? t.japanese : [t.japanese];
+                if (vals.some(v => v && v.includes(word))) s.add(i);
             }
-            // gloss fallback（japaneseに登録されていないトークンのgloss）
-            // gloss はindexに入っていないので線形スキャン（件数限定）
-            tokens.forEach((tok, i) => {
-                if (!tok.japanese && tok.gloss && tok.gloss.includes(word)) result.add(i);
-            });
-            return result;
+            if (!s.has(i) && t.gloss && t.gloss.includes(word)) s.add(i);
+        });
+        return s;
+    }
+    const s = new Set();
+    // index keyは登録文字列の完全一致 → 部分一致はkeyをイテレート
+    for (const [k, arr] of SEARCH_INDEX.japanese) {
+        if (k.includes(word)) { for (const i of arr) s.add(i); }
+    }
+    // gloss fallback（japaneseフィールドなしでglossのみのtoken）
+    if (!INDEX_BUILT) return s;  // 念のため
+    tokens.forEach((t, i) => {
+        if (!t.japanese && t.gloss && t.gloss.includes(word)) s.add(i);
+    });
+    return s;
+}
+
+function searchStrong(tokens, word) {
+    if (!INDEX_BUILT) {
+        const s = new Set();
+        tokens.forEach((t, i) => { if (String(t.strong) === word) s.add(i); });
+        return s;
+    }
+    const arr = SEARCH_INDEX.strong.get(word);
+    return arr ? new Set(arr) : new Set();
+}
+
+// 統合エントリポイント
+function resolveIndices(tokens, word) {
+    const qtype = detectQueryType(word);
+    if (qtype === 'japanese') return searchJapanese(tokens, word);
+    if (qtype === 'strong')   return searchStrong(tokens, word);
+    return searchGreek(tokens, word);   // greek / text
+}
+
+// matchToken は renderHits 内でのハイライト判定にのみ使用
+function matchToken(tok, word) {
+    if (!word) return false;
+    const qtype = detectQueryType(word);
+    if (qtype === 'japanese') {
+        if (tok.japanese) {
+            const vals = Array.isArray(tok.japanese) ? tok.japanese : [tok.japanese];
+            if (vals.some(v => v && v.includes(word))) return true;
         }
-        // indexなし fallback
-        const result = new Set();
-        tokens.forEach((tok, i) => { if (matchToken(tok, word)) result.add(i); });
-        return result;
+        return !!(tok.gloss && tok.gloss.includes(word));
     }
-    // greek / text：lemma + text 両方
-    const byLemma = SEARCH_INDEX.lemma.get(word) || new Set();
-    const byText  = SEARCH_INDEX.text.get(word)  || new Set();
-    if (byLemma.size === 0 && byText.size === 0) {
-        // index未構築 or scope限定時はフォールバック
-        const result = new Set();
-        tokens.forEach((tok, i) => { if (matchToken(tok, word)) result.add(i); });
-        return result;
+    if (qtype === 'strong') return String(tok.strong) === word;
+    return tok.text === word || tok.lemma === word;
+}
+
+/* ============================================================
+   lemma別グループ化（日本語検索時）
+   ============================================================ */
+function groupHitsByLemma(hits) {
+    const map = new Map();
+    for (const h of hits) {
+        const tok   = h.tokens[h.anchorIdx];
+        const lemma = tok.lemma || tok.text || '?';
+        if (!map.has(lemma)) {
+            map.set(lemma, {
+                lemma,
+                japanese: tok.japanese || tok.gloss || null,
+                gloss:    tok.gloss    || null,
+                strong:   tok.strong   || null,
+                hits:     [],
+                coocMap:  new Map(),
+            });
+        }
+        const group = map.get(lemma);
+        group.hits.push(h);
+
+        // lemma専用共起集計（全件・描画とは独立）
+        const { anchorIdx, start, end, tokens } = h;
+        for (let j = start; j <= end; j++) {
+            if (j === anchorIdx) continue;
+            const t = tokens[j];
+            if (!t.text || t.text.length < 2) continue;
+            if (STOP_WORDS.has(t.text)) continue;
+            if (t.lemma === lemma || t.text === lemma) continue;
+            const w = 1 / (Math.abs(j - anchorIdx) + 1);
+            const key = t.text;
+            const e = group.coocMap.get(key) || { weightedScore: 0, rawCount: 0 };
+            e.weightedScore += w; e.rawCount += 1;
+            group.coocMap.set(key, e);
+        }
     }
-    const merged = new Set(byLemma);
-    for (const i of byText) merged.add(i);
-    return merged;
+    return [...map.values()].sort((a, b) => b.hits.length - a.hits.length);
 }
 
 /* ============================================================
@@ -1048,15 +1135,15 @@ function lookupIndices(tokens, word) {
 async function runProximitySearch({ word1, word2 = null, distance = 5, scope = 'all', ref = '' }) {
     const tokens = await loadTokensForScope(scope, ref);
 
-    // 語1のインデックスをinverted index経由で取得
-    const w1IdxSet = lookupIndices(tokens, word1);
-    const w1Indices = [...w1IdxSet].sort((a, b) => a - b);
+    // index経由で語1のglobal idx取得
+    const w1Set     = resolveIndices(tokens, word1);
+    const w1Indices = [...w1Set].sort((a, b) => a - b);
 
     // 語2
-    const w2Set = word2 ? lookupIndices(tokens, word2) : new Set();
+    const w2Set = word2 ? resolveIndices(tokens, word2) : new Set();
 
     const coocMap = new Map();
-    const hits = [];
+    const hits    = [];
 
     for (const i of w1Indices) {
         const start = Math.max(0, i - distance);
@@ -1064,30 +1151,27 @@ async function runProximitySearch({ word1, word2 = null, distance = 5, scope = '
 
         // 語2フィルタ
         if (word2) {
-            let w2InWindow = false;
+            let found = false;
             for (let j = start; j <= end; j++) {
-                if (j !== i && w2Set.has(j)) { w2InWindow = true; break; }
+                if (j !== i && w2Set.has(j)) { found = true; break; }
             }
-            if (!w2InWindow) continue;
+            if (!found) continue;
         }
 
         hits.push({ anchorIdx: i, start, end, tokens, ref: tokens[i].ref });
 
-        // 共起集計
+        // 全体共起集計
         for (let j = start; j <= end; j++) {
             if (j === i) continue;
             const t = tokens[j];
             if (!t.text || t.text.length < 2) continue;
             if (STOP_WORDS.has(t.text)) continue;
-            if (w1IdxSet.has(j)) continue; // word1自身は除外
-
-            const dist = Math.abs(j - i);
-            const weight = 1 / (dist + 1);
+            if (w1Set.has(j)) continue;
+            const w   = 1 / (Math.abs(j - i) + 1);
             const key = t.text;
-            if (!coocMap.has(key)) coocMap.set(key, { weightedScore: 0, rawCount: 0 });
-            const entry = coocMap.get(key);
-            entry.weightedScore += weight;
-            entry.rawCount      += 1;
+            const e   = coocMap.get(key) || { weightedScore: 0, rawCount: 0 };
+            e.weightedScore += w; e.rawCount += 1;
+            coocMap.set(key, e);
         }
     }
 
@@ -1219,22 +1303,23 @@ async function startSearch() {
 function renderResults({ word1, word2, coocMap, hits, totalW1 }) {
     document.getElementById('loading-state').classList.remove('visible');
 
+    // 結果ヘッダー
     const header = document.getElementById('result-header');
     header.classList.add('visible');
-    const queryLabel = word2 ? `${word1}  ×  ${word2}` : word1;
-    document.getElementById('result-query-label').textContent = queryLabel;
+    document.getElementById('result-query-label').textContent =
+        word2 ? `${word1}  ×  ${word2}` : word1;
 
     const scopeLabel = { verse:'節', chapter:'章', all:'全体' }[currentScope] || '全体';
     document.getElementById('result-meta').textContent =
         `±${currentDist}語 ／ スコープ：${scopeLabel} ／ 「${word1}」${totalW1}箇所`;
 
-    // 全体共起ランキング（ギリシャ語検索時のメインパネル）
+    // 全体共起ランキング
     renderCooccurrence(coocMap, 'rank-list');
 
-    // 日本語検索 → lemmaグループUI
+    // 日本語 → lemmaグループUI ／ それ以外 → 従来ヒット一覧
     const qtype = detectQueryType(word1);
     if (qtype === 'japanese' && hits.length > 0) {
-        const groups = groupHitsByLemma(hits, currentDist);
+        const groups = groupHitsByLemma(hits);
         renderLemmaGroups(groups, word1, word2);
     } else {
         document.getElementById('lemma-groups').style.display = 'none';
@@ -1251,17 +1336,17 @@ function renderCooccurrence(coocMap, containerId, limit = 10) {
     const ranked = [...coocMap.entries()]
         .sort((a, b) => b[1].weightedScore - a[1].weightedScore)
         .slice(0, limit);
-
     const maxScore = ranked[0]?.[1].weightedScore || 1;
-    const rankList = document.getElementById(containerId);
-    rankList.innerHTML = '';
+
+    const el = document.getElementById(containerId);
+    el.innerHTML = '';
 
     if (ranked.length === 0) {
-        rankList.innerHTML = '<div style="font-size:0.8rem;color:var(--text-sub);opacity:0.6;">共起語なし</div>';
+        el.innerHTML = '<div style="font-size:0.8rem;color:var(--text-sub);opacity:0.6;">共起語なし</div>';
         return;
     }
     ranked.forEach(([word, { weightedScore, rawCount }], idx) => {
-        const pct = Math.round((weightedScore / maxScore) * 100);
+        const pct  = Math.round((weightedScore / maxScore) * 100);
         const item = document.createElement('div');
         item.className = 'rank-item';
         item.style.animationDelay = `${idx * 0.04}s`;
@@ -1279,7 +1364,7 @@ function renderCooccurrence(coocMap, containerId, limit = 10) {
             e.stopPropagation();
             document.getElementById('inp-word2').value = e.currentTarget.dataset.word;
         });
-        rankList.appendChild(item);
+        el.appendChild(item);
     });
 }
 
@@ -1299,12 +1384,10 @@ function renderLemmaGroups(groups, word1, word2) {
     countEl.textContent = `出現箇所：${totalHits}件（${groups.length} lemma）`;
 
     groups.forEach(group => {
-        // gloss表示文字列
         let glossStr = '';
         if (group.japanese) {
-            glossStr = Array.isArray(group.japanese)
-                ? group.japanese.slice(0, 3).join('・')
-                : String(group.japanese).slice(0, 20);
+            const vals = Array.isArray(group.japanese) ? group.japanese : [group.japanese];
+            glossStr = vals.slice(0, 3).join('・').slice(0, 20);
         } else if (group.gloss) {
             glossStr = String(group.gloss).slice(0, 20);
         }
@@ -1312,7 +1395,6 @@ function renderLemmaGroups(groups, word1, word2) {
         const row = document.createElement('div');
         row.className = 'lemma-group-row';
 
-        // ── ヘッダーバー ──
         const bar = document.createElement('div');
         bar.className = 'lemma-group-bar';
         bar.innerHTML = `
@@ -1321,17 +1403,15 @@ function renderLemmaGroups(groups, word1, word2) {
             <span class="lemma-group-count">${group.hits.length}件</span>
             ${glossStr ? `<span class="lemma-group-gloss">${glossStr}</span>` : ''}`;
 
-        // ── 展開パネル ──
         const panel = document.createElement('div');
         panel.className = 'lemma-group-panel';
 
-        // 特徴共起 Top3（lemma固有coocMap）
+        // ① 特徴共起 Top3
         const topCooc = [...group.coocMap.entries()]
             .sort((a, b) => b[1].weightedScore - a[1].weightedScore)
             .slice(0, 3);
-
-        const coocSection = document.createElement('div');
-        coocSection.innerHTML = `<div class="lg-cooc-title">特徴共起</div>`;
+        const coocSec = document.createElement('div');
+        coocSec.innerHTML = '<div class="lg-cooc-title">特徴共起</div>';
         const chipWrap = document.createElement('div');
         chipWrap.className = 'lg-cooc-list';
         if (topCooc.length === 0) {
@@ -1348,18 +1428,16 @@ function renderLemmaGroups(groups, word1, word2) {
                 chipWrap.appendChild(chip);
             });
         }
-        coocSection.appendChild(chipWrap);
-        panel.appendChild(coocSection);
+        coocSec.appendChild(chipWrap);
+        panel.appendChild(coocSec);
 
-        // 代表例（初期3件、さらに表示で+3件）
-        const hitsSection = document.createElement('div');
-        hitsSection.innerHTML = `<div class="lg-hits-title">代表例</div>`;
+        // ② 代表例（初期3件）
+        const hitsSec = document.createElement('div');
+        hitsSec.innerHTML = '<div class="lg-hits-title">代表例</div>';
         const hitsWrap = document.createElement('div');
         hitsWrap.className = 'lg-hit-list';
-        panel.appendChild(hitsSection);
-        hitsSection.appendChild(hitsWrap);
-
-        // 初期スライス描画
+        hitsSec.appendChild(hitsWrap);
+        panel.appendChild(hitsSec);
         renderHitSlice(hitsWrap, group.hits, word1, word2, 0, 3);
 
         // さらに表示ボタン
@@ -1370,22 +1448,18 @@ function renderLemmaGroups(groups, word1, word2) {
             moreBtn.textContent = `さらに表示（残り${group.hits.length - shown}件）`;
             moreBtn.addEventListener('click', () => {
                 renderHitSlice(hitsWrap, group.hits, word1, word2, shown, shown + 3);
-                shown += 3;
-                const remaining = group.hits.length - shown;
-                if (remaining <= 0) {
-                    moreBtn.remove();
-                } else {
-                    moreBtn.textContent = `さらに表示（残り${remaining}件）`;
-                }
+                shown = Math.min(shown + 3, group.hits.length);
+                const rem = group.hits.length - shown;
+                if (rem <= 0) moreBtn.remove();
+                else moreBtn.textContent = `さらに表示（残り${rem}件）`;
             });
             panel.appendChild(moreBtn);
         }
 
         // 開閉トグル
         bar.addEventListener('click', () => {
-            const isOpen = panel.classList.contains('open');
-            panel.classList.toggle('open', !isOpen);
-            bar.classList.toggle('open', !isOpen);
+            const open = panel.classList.toggle('open');
+            bar.classList.toggle('open', open);
         });
 
         row.appendChild(bar);
@@ -1395,13 +1469,11 @@ function renderLemmaGroups(groups, word1, word2) {
 }
 
 /* ============================================================
-   ヒットスライス描画（追記型、全件はhitsに保持）
+   ヒットスライス描画（追記型）
    ============================================================ */
 function renderHitSlice(container, hits, word1, word2, from, to) {
-    const slice = hits.slice(from, to);
-    slice.forEach(h => {
-        const card = buildHitCard(h, word1, word2 || '', '');
-        container.appendChild(card);
+    hits.slice(from, to).forEach(h => {
+        container.appendChild(buildHitCard(h, word1, word2 || '', ''));
     });
 }
 
@@ -1413,7 +1485,7 @@ let _allHits = [], _word1 = '', _word2 = '';
 function renderHits(hits, word1, word2, filterWord) {
     _allHits = hits; _word1 = word1; _word2 = word2 || '';
 
-    const list = document.getElementById('hits-list');
+    const list    = document.getElementById('hits-list');
     const countEl = document.getElementById('hits-count');
     list.innerHTML = '';
 
@@ -1443,9 +1515,7 @@ function renderHits(hits, word1, word2, filterWord) {
 
     // 重複ref対策
     const byRef = new Map();
-    displayHits.forEach(h => {
-        if (!byRef.has(h.ref)) byRef.set(h.ref, h);
-    });
+    displayHits.forEach(h => { if (!byRef.has(h.ref)) byRef.set(h.ref, h); });
 
     let rendered = 0;
     for (const [, h] of byRef) {
@@ -1465,26 +1535,24 @@ function renderHits(hits, word1, word2, filterWord) {
 }
 
 function buildHitCard(h, word1, word2, filterWord) {
-    const card = document.createElement('div');
+    const card    = document.createElement('div');
     card.className = 'hit-card';
 
-    const rawRef = h.ref || '';
-    const bookKey = h.tokens[h.anchorIdx]?.bookKey || '';
-    const ch      = h.tokens[h.anchorIdx]?.ch      || '';
+    const tok     = h.tokens[h.anchorIdx];
+    const bookKey = tok?.bookKey || '';
+    const ch      = tok?.ch      || '';
+    const rawRef  = h.ref || '';
     const refLink = bookKey && ch
         ? `<a class="hit-ref-link" href="index.html?book=${bookKey}&ch=${ch}" target="_blank">${rawRef}</a>`
         : rawRef;
 
-    const snippetTokens = h.tokens.slice(h.start, h.end + 1);
-    const snippetHtml = snippetTokens.map((tok, localIdx) => {
-        const globalIdx = h.start + localIdx;
-        const isW1 = globalIdx === h.anchorIdx;
-        const isW2 = word2 && matchToken(tok, word2) && !isW1;
-        const isFilter = filterWord && matchToken(tok, filterWord) && !isW1;
-        let cls = '';
-        if (isW1)               cls = 'w1';
-        else if (isW2 || isFilter) cls = 'w2';
-        return cls ? `<span class="${cls}">${tok.text}</span>` : tok.text;
+    const snippetHtml = h.tokens.slice(h.start, h.end + 1).map((t, li) => {
+        const gi = h.start + li;
+        const isW1     = gi === h.anchorIdx;
+        const isW2     = word2     && matchToken(t, word2)     && !isW1;
+        const isFilter = filterWord && matchToken(t, filterWord) && !isW1;
+        const cls = isW1 ? 'w1' : (isW2 || isFilter) ? 'w2' : '';
+        return cls ? `<span class="${cls}">${t.text}</span>` : t.text;
     }).join(' ');
 
     card.innerHTML = `
