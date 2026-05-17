@@ -2220,6 +2220,80 @@ details[open] .study-summary::before {
 }
 .bp-confirm-btn:hover { opacity: 0.88; }
 .bp-confirm-btn:active { opacity: 0.75; }
+
+/* ══════════════════════════════════════════
+   Depth Panel 文法装飾 namespace
+   Depth Panel 限定。本文・popover・study panel に影響しない。
+   ══════════════════════════════════════════ */
+.dp-word {
+    display: inline;
+}
+.dp-mood-imperative {
+    background: rgba(90,110,130,0.14);
+    border-radius: 4px;
+    padding: 0 2px;
+}
+.dp-mood-indicative {
+    background: rgba(0,0,0,0.05);
+    border-radius: 4px;
+    padding: 0 2px;
+}
+.dp-tense-present {
+    text-decoration: underline;
+    text-decoration-style: solid;
+    text-underline-offset: 3px;
+}
+.dp-tense-aorist {
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+}
+.dp-tense-perfect {
+    text-decoration-line: underline;
+    text-decoration-style: wavy;
+    text-underline-offset: 3px;
+}
+.dp-voice-middle::after,
+.dp-voice-passive::after {
+    content: '*';
+    font-size: 0.65em;
+    color: var(--highlight);
+    opacity: 0.7;
+    margin-left: 1px;
+    vertical-align: super;
+}
+
+/* Depth Panel 凡例 */
+.dp-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 8px 18px 4px;
+    font-size: 0.6rem;
+    color: var(--text-sub);
+    opacity: 0.65;
+    border-top: 1px solid rgba(0,0,0,0.05);
+    margin-top: 8px;
+    flex-shrink: 0;
+}
+.dp-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+.dp-legend-label {
+    font-size: 0.58rem;
+    color: var(--text-sub);
+    opacity: 0.7;
+    letter-spacing: 0.02em;
+}
+.dp-sample {
+    font-family: 'Gentium Plus', serif;
+    font-size: 0.78rem;
+    color: var(--text-main);
+    display: inline-block;
+}
 </style>
 
 </head>
@@ -4138,14 +4212,19 @@ function _buildSyntaxTree(p, JPN, jaWord) {
     const rows  = [];
 
     /* ヘルパー：インデントと接続文字を組み合わせた1行を生成 */
-    const treeRow = (indent, isLast, role, content, note = '') =>
-        `<div class="syntax-tree-row">` +
+        const treeRow = (indent, isLast, role, content, note = '', rawMorphForRow = '') => {
+        const dpCls = rawMorphForRow ? buildDepthGrammarClasses(rawMorphForRow).join(' ') : '';
+        const contentHtml = dpCls
+            ? `<span class="${dpCls}">${content}</span>`
+            : content;
+        return `<div class="syntax-tree-row">` +
         `${'<span class="syntax-tree-indent">  </span>'.repeat(indent)}` +
         `<span class="syntax-tree-connector">${isLast ? '└' : '├'}</span>` +
         `<span class="syntax-tree-role">${role}</span>` +
-        `<span class="syntax-tree-content">${content}</span>` +
+        `<span class="syntax-tree-content">${contentHtml}</span>` +
         `${note ? `<span class="syntax-tree-note">${note}</span>` : ''}` +
         `</div>`;
+    };
 
     /* 動詞中心の構造 */
     if (pos === 'V') {
@@ -4157,15 +4236,15 @@ function _buildSyntaxTree(p, JPN, jaWord) {
         rows.push(`<div class="syntax-tree-row"><span class="syntax-tree-role" style="font-size:0.6rem;opacity:0.4;">節</span><span class="syntax-tree-content" style="opacity:0.5;">述語構造</span></div>`);
 
         if (mood === 'participle') {
-            rows.push(treeRow(0, false, '述語分詞', word, `${tenseLabel}・${voiceLabel}`));
-            rows.push(treeRow(1, false, '機能', '主節の動作を修飾', ''));
-            rows.push(treeRow(1, true,  '法',   moodLabel, ''));
-        } else if (mood === 'infinitive') {
-            rows.push(treeRow(0, false, '動詞', word, `${tenseLabel}`));
-            rows.push(treeRow(1, false, '機能', '主動詞の補語', ''));
-            rows.push(treeRow(1, true,  '法',   moodLabel, ''));
-        } else {
-            rows.push(treeRow(0, false, '述語', word, `${moodLabel}・${tenseLabel}${voiceLabel ? '・' + voiceLabel : ''}`));
+                    rows.push(treeRow(0, false, '述語分詞', word, `${tenseLabel}・${voiceLabel}`, rawMorph));
+        rows.push(treeRow(1, false, '機能', '主節の動作を修飾', ''));
+        rows.push(treeRow(1, true,  '法',   moodLabel, ''));
+    } else if (mood === 'infinitive') {
+        rows.push(treeRow(0, false, '動詞', word, `${tenseLabel}`, rawMorph));
+        rows.push(treeRow(1, false, '機能', '主動詞の補語', ''));
+        rows.push(treeRow(1, true,  '法',   moodLabel, ''));
+    } else {
+        rows.push(treeRow(0, false, '述語', word, `${moodLabel}・${tenseLabel}${voiceLabel ? '・' + voiceLabel : ''}`, rawMorph));
             if (mood === 'imperative') {
                 rows.push(treeRow(1, false, '節種', '命令節（主節）', ''));
                 rows.push(treeRow(1, true,  '主語', '（2人称：省略）', ''));
@@ -4502,8 +4581,39 @@ document.addEventListener('click', function(e) {
 }, true);
 
 /* ══════════════════════════════════════════
-   以下は従来コードをそのまま保持
+   buildDepthGrammarClasses
+   Depth Panel 限定の文法装飾クラスを合成して返す。
+   原文文字列は一切変更しない。
    ══════════════════════════════════════════ */
+function buildDepthGrammarClasses(rawMorph) {
+    const classes = ['dp-word'];
+    if (!rawMorph) return classes;
+
+    const parts = rawMorph.split('-');
+    const pos   = parts[0] || '';
+
+    if (pos === 'V' && parts[1]) {
+        const off      = /^[0-9]/.test(parts[1]) ? 1 : 0;
+        const tenCode  = parts[1][off]     || '';
+        const voiCode  = parts[1][off + 1] || '';
+        const moodCode = parts[1][off + 2] || '';
+
+        /* 法 */
+        if (moodCode === 'M') classes.push('dp-mood-imperative');
+        else if (moodCode === 'I') classes.push('dp-mood-indicative');
+
+        /* 時制 */
+        if (tenCode === 'P')      classes.push('dp-tense-present');
+        else if (tenCode === 'A') classes.push('dp-tense-aorist');
+        else if (tenCode === 'X') classes.push('dp-tense-perfect');
+
+        /* 態 */
+        if (voiCode === 'M' || voiCode === 'D') classes.push('dp-voice-middle');
+        else if (voiCode === 'P')               classes.push('dp-voice-passive');
+    }
+
+    return classes;
+}
 
 function parseMorphForSearch(rawMorph) {
     const parts = rawMorph.split('-');
@@ -5134,12 +5244,12 @@ function _buildFlowTabHTML(words) {
         const sepBefore = c.phraseBreakBefore
             ? `<span class="wlv-phrase-sep"></span>`
             : '';
-        return `${sepBefore}<span class="wlv-chip ${c.roleClass}"
+                return `${sepBefore}<span class="wlv-chip ${c.roleClass}"
             id="wlv-chip-${i}"
             data-idx="${i}"
             onclick="_wlvChipClick(this, ${i})"
             title="${c.greek}">
-            <span class="wlv-chip-ja">${c.gloss}</span>
+            <span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span>
             <span class="wlv-chip-dot"></span>
         </span>`;
     }).join('');
@@ -5158,6 +5268,15 @@ function _buildFlowTabHTML(words) {
     /* ── 節全体の読書メモ ── */
     const passageNoteHTML = _buildPassageNote(words);
 
+    const legendHTML = `<div class="dp-legend">
+        <span class="dp-legend-item"><span class="dp-sample dp-mood-imperative">語</span><span class="dp-legend-label">命令法</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-mood-indicative">語</span><span class="dp-legend-label">直説法</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-tense-present">語</span><span class="dp-legend-label">現在</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-tense-aorist">語</span><span class="dp-legend-label">アオリスト</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-tense-perfect">語</span><span class="dp-legend-label">完了</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-voice-middle">語</span><span class="dp-legend-label">中動/受動</span></span>
+    </div>`;
+
     return `
         <div class="wlv-flow-section-compact">
             <span class="wlv-flow-label-compact">原語の順序</span>
@@ -5166,6 +5285,7 @@ function _buildFlowTabHTML(words) {
             </div>
             ${drawerHTML}
         </div>
+        ${legendHTML}
         ${passageNoteHTML}`;
 }
 
@@ -5347,6 +5467,8 @@ function _wordToFlowChip(w, i) {
     }
 
     /* roleClass：chip dot の色付けと signal 生成 */
+    const dpGrammarClasses = buildDepthGrammarClasses(rawMorph).join(' ');
+    
     let roleClass = 'role-other';
     const signals = [];
 
@@ -5441,7 +5563,7 @@ function _wordToFlowChip(w, i) {
     /* morphText：ドロワーに表示する人が読める文法メモ */
     const morphText = _buildMorphText(rawMorph, pos, parts);
 
-    return { greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong };
+    return { greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong, dpGrammarClasses };
 }
 
 /**
