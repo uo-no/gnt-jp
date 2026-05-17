@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05172215｜近接検索｜コトバト</title>
+    <title>05172220｜近接検索｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -809,45 +809,41 @@ const STOP_WORDS = new Set([
     'ὅς','ἥ','οἵ','αἵ','ὅ',
     'τις','τι','τινός','τινί','τινά',
     'οὗτος','αὕτη','τοῦτο','τούτου','τούτῳ','τούτους','ταύτης','ταύτῃ','ταύτην',
-    'πᾶς','πᾶν','πάντα','πάντες','πάντων','πᾶσιν',
-]);
-
+'πᾶς','πᾶν','πάντα','πάντες','πάντων','πᾶσιν',
 ]);
 
 /* ============================================================
    ALL_TOKENS / SEARCH_INDEX / 事前計算マップ
    ============================================================ */
-const tokenCache        = {};           // fetch cache: "BOOK/CH" -> raw token[]
-let   ALL_TOKENS        = [];           // flat token 配列（global index付き）
+const tokenCache        = {};
+let   ALL_TOKENS        = [];
 let   INDEX_BUILT       = false;
 
-// inverted index
 const SEARCH_INDEX = {
-    lemma:    new Map(),   // lemma  -> Int32Array of globalIdx
-    text:     new Map(),   // text   -> Int32Array of globalIdx
-    japanese: new Map(),   // jp_string -> Int32Array of globalIdx
-    strong:   new Map(),   // strong -> Int32Array of globalIdx
+    lemma:    new Map(),
+    text:     new Map(),
+    japanese: new Map(),
+    strong:   new Map(),
 };
 
-// 日本語ワード → 対応lemma一覧（事前構築）
-// 例: "愛" -> ["ἀγάπη","ἀγαπάω"]
 const JAPANESE_TO_LEMMAS = new Map();
+const LEMMA_SUMMARY      = new Map();
+const PROXIMITY_MAP      = new Map();
 
-// lemma → { topCooc: [{word,score,count}], repVerses: [{ref,start,end,anchorIdx}] }
-// 距離ごとにキャッシュ: `${lemma}:${distance}` -> summary
-const LEMMA_SUMMARY = new Map();
+const _indexBuf = {
+    lemma:    new Map(),
+    text:     new Map(),
+    japanese: new Map(),
+    strong:   new Map(),
+};
 
-// 全体 proximity map（距離別）: `${lemma}:${distance}` -> Map<word, {weightedScore, rawCount}>
-const PROXIMITY_MAP = new Map();
-
-// index構築ヘルパー（ロード時のみ使用）
-const _indexBuf = { lemma: new Map(), text: new Map(), japanese: new Map(), strong: new Map() };
 function _addToIndexBuf(field, key, idx) {
     if (!key) return;
     let arr = _indexBuf[field].get(key);
     if (!arr) { arr = []; _indexBuf[field].set(key, arr); }
     arr.push(idx);
 }
+
 function _finaliseIndex() {
     for (const field of ['lemma','text','japanese','strong']) {
         for (const [k, arr] of _indexBuf[field]) {
