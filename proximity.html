@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05172155｜近接検索｜コトバト</title>
+    <title>05180900｜近接検索｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -560,12 +560,48 @@
         font-size: 0.75rem;
         color: var(--text-sub);
     }
-    .lemma-group-gloss {
+.lemma-group-gloss {
         font-size: 0.72rem;
         color: var(--text-sub);
         opacity: 0.7;
         margin-left: auto;
     }
+
+    /* ─── 参照箇所セレクター ─── */
+    .ref-selector {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .ref-select {
+        width: 100%;
+        padding: 7px 10px;
+        font-size: 0.85rem;
+        font-family: inherit;
+        border: 1px solid var(--border-mid);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--text-main);
+        outline: none;
+        cursor: pointer;
+        transition: border-color 0.15s;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236e6e73'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 28px;
+    }
+    .ref-select:focus { border-color: var(--highlight); }
+    .ref-select:disabled { opacity: 0.4; cursor: not-allowed; }
+    .ref-current {
+        font-size: 0.72rem;
+        color: var(--highlight);
+        letter-spacing: 0.02em;
+        min-height: 1.2em;
+        text-align: right;
+    }
+
     /* グループ展開パネル */
     .lemma-group-panel {
         display: none;
@@ -680,18 +716,34 @@
                 </div>
             </div>
 
+<div class="form-section">
+                <span class="form-label">参照箇所</span>
+                <div class="ref-selector">
+                    <select class="ref-select" id="sel-book">
+                        <option value="">── 書物を選択 ──</option>
+                    </select>
+                    <select class="ref-select" id="sel-ch" disabled>
+                        <option value="">── 章 ──</option>
+                    </select>
+                    <select class="ref-select" id="sel-verse" disabled>
+                        <option value="">── 節（任意）──</option>
+                    </select>
+                    <div class="ref-current" id="ref-current"></div>
+                </div>
+            </div>
+
             <div class="form-section">
                 <span class="form-label">スコープ</span>
                 <div class="scope-row">
                     <button class="scope-btn" data-scope="verse">
                         <span class="scope-dot"></span>
                         節単位
-                        <span class="scope-note">現在表示の節</span>
+                        <span class="scope-note">選択した節</span>
                     </button>
                     <button class="scope-btn" data-scope="chapter">
                         <span class="scope-dot"></span>
                         章単位
-                        <span class="scope-note">現在の章</span>
+                        <span class="scope-note">選択した章</span>
                     </button>
                     <button class="scope-btn active" data-scope="all">
                         <span class="scope-dot"></span>
@@ -821,13 +873,104 @@ let isSearching  = false;
 
 function readURL() {
     const p = new URLSearchParams(window.location.search);
+    // ref は "ROM1" 形式 または "1CO2:1" 形式（コロン付き）両対応
+    let ref = p.get('ref') || '';
+    let refVerse = '';
+    const colonIdx = ref.indexOf(':');
+    if (colonIdx !== -1) {
+        refVerse = ref.slice(colonIdx + 1);
+        ref = ref.slice(0, colonIdx);
+    }
     return {
         word1:    p.get('word1')    || '',
         word2:    p.get('word2')    || '',
         distance: parseInt(p.get('distance') || '5'),
         scope:    p.get('scope')    || 'all',
-        ref:      p.get('ref')      || '',    // 例 "ROM1"
+        ref,        // "ROM1" 形式
+        refVerse,   // "3" など節番号（なければ空）
     };
+}
+
+// 現在選択中の参照を保持
+let currentRef      = '';   // 例: "ROM1"
+let currentRefVerse = '';   // 例: "3"
+
+function _buildBookOptions() {
+    const sel = document.getElementById('sel-book');
+    const grpNT = document.createElement('optgroup');
+    grpNT.label = '── 新約 ──';
+    ALL_BOOKS.nt.forEach(b => {
+        const o = document.createElement('option');
+        o.value = b.key; o.textContent = b.name;
+        grpNT.appendChild(o);
+    });
+    const grpOT = document.createElement('optgroup');
+    grpOT.label = '── 旧約 ──';
+    ALL_BOOKS.ot.forEach(b => {
+        const o = document.createElement('option');
+        o.value = b.key; o.textContent = b.name;
+        grpOT.appendChild(o);
+    });
+    sel.appendChild(grpNT);
+    sel.appendChild(grpOT);
+}
+
+function _buildChOptions(bookKey) {
+    const book = FLAT_BOOKS.find(b => b.key === bookKey);
+    const sel  = document.getElementById('sel-ch');
+    sel.innerHTML = '<option value="">── 章 ──</option>';
+    if (!book) { sel.disabled = true; return; }
+    for (let c = 1; c <= book.ch; c++) {
+        const o = document.createElement('option');
+        o.value = c; o.textContent = `第 ${c} 章`;
+        sel.appendChild(o);
+    }
+    sel.disabled = false;
+}
+
+async function _buildVerseOptions(bookKey, ch) {
+    const sel = document.getElementById('sel-verse');
+    sel.innerHTML = '<option value="">── 節（任意）──</option>';
+    sel.disabled = true;
+    try {
+        const toks = await fetchChapter(bookKey, ch);
+        const verses = [...new Set(toks.map(t => {
+            const m = t.ref.match(/:(\d+)/);
+            return m ? m[1] : null;
+        }).filter(Boolean))];
+        verses.sort((a, b) => parseInt(a) - parseInt(b));
+        verses.forEach(v => {
+            const o = document.createElement('option');
+            o.value = v; o.textContent = `第 ${v} 節`;
+            sel.appendChild(o);
+        });
+        sel.disabled = false;
+    } catch { /* 節選択なしのまま */ }
+}
+
+function _updateRefDisplay() {
+    const bookKey = document.getElementById('sel-book').value;
+    const ch      = document.getElementById('sel-ch').value;
+    const verse   = document.getElementById('sel-verse').value;
+    const book    = FLAT_BOOKS.find(b => b.key === bookKey);
+    const el      = document.getElementById('ref-current');
+
+    if (!bookKey || !ch) {
+        currentRef      = '';
+        currentRefVerse = '';
+        el.textContent  = '';
+        document.getElementById('back-link').href = 'index.html';
+        return;
+    }
+
+    currentRef      = `${bookKey}${ch}`;
+    currentRefVerse = verse;
+    const bookName  = book?.name || bookKey;
+    el.textContent  = verse
+        ? `${bookName} ${ch}章 ${verse}節`
+        : `${bookName} ${ch}章`;
+    document.getElementById('back-link').href =
+        `index.html?book=${bookKey}&ch=${ch}`;
 }
 
 function init() {
@@ -849,19 +992,55 @@ function init() {
         b.classList.toggle('active', b.dataset.scope === currentScope);
     });
 
-    // 戻るリンク：refパラメータがあれば対応ページに
-    if (params.ref) {
-        const book = params.ref.replace(/\d+$/, '');
-        const ch   = params.ref.match(/(\d+)$/)?.[1] || '1';
-        document.getElementById('back-link').href = `index.html?book=${book}&ch=${ch}`;
+    // 書物セレクタ構築
+    _buildBookOptions();
+
+    // URLのrefからセレクタを初期化
+    const initBookKey = params.ref ? params.ref.replace(/\d+$/, '') : '';
+    const initCh      = params.ref ? (params.ref.match(/(\d+)$/) || [])[1] || '' : '';
+
+    if (initBookKey) {
+        document.getElementById('sel-book').value = initBookKey;
+        _buildChOptions(initBookKey);
+        if (initCh) {
+            document.getElementById('sel-ch').value = initCh;
+            _buildVerseOptions(initBookKey, parseInt(initCh)).then(() => {
+                if (params.refVerse) {
+                    document.getElementById('sel-verse').value = params.refVerse;
+                }
+                _updateRefDisplay();
+            });
+        }
+        _updateRefDisplay();
     }
 
-    // 語1があれば即検索
-    if (params.word1) {
-        startSearch();
-    }
+    // 書物変更
+    document.getElementById('sel-book').addEventListener('change', () => {
+        const bookKey = document.getElementById('sel-book').value;
+        document.getElementById('sel-ch').innerHTML    = '<option value="">── 章 ──</option>';
+        document.getElementById('sel-ch').disabled     = true;
+        document.getElementById('sel-verse').innerHTML = '<option value="">── 節（任意）──</option>';
+        document.getElementById('sel-verse').disabled  = true;
+        _buildChOptions(bookKey);
+        _updateRefDisplay();
+    });
 
-    // インタラクション設定
+    // 章変更
+    document.getElementById('sel-ch').addEventListener('change', () => {
+        const bookKey = document.getElementById('sel-book').value;
+        const ch      = parseInt(document.getElementById('sel-ch').value);
+        document.getElementById('sel-verse').innerHTML = '<option value="">── 節（任意）──</option>';
+        document.getElementById('sel-verse').disabled  = true;
+        if (bookKey && ch) {
+            _buildVerseOptions(bookKey, ch).then(() => _updateRefDisplay());
+        }
+        _updateRefDisplay();
+    });
+
+    // 節変更
+    document.getElementById('sel-verse').addEventListener('change', _updateRefDisplay);
+
+    // 距離ボタン
     document.querySelectorAll('.dist-btn').forEach(b => {
         b.addEventListener('click', () => {
             document.querySelectorAll('.dist-btn').forEach(x => x.classList.remove('active'));
@@ -869,6 +1048,8 @@ function init() {
             currentDist = parseInt(b.dataset.dist);
         });
     });
+
+    // スコープボタン
     document.querySelectorAll('.scope-btn').forEach(b => {
         b.addEventListener('click', () => {
             document.querySelectorAll('.scope-btn').forEach(x => x.classList.remove('active'));
@@ -877,21 +1058,16 @@ function init() {
         });
     });
 
-// debounce付き入力検索（300ms）／Enterは即時
-    let _debounceTimer = null;
-    function debouncedSearch() {
-        clearTimeout(_debounceTimer);
-        _debounceTimer = setTimeout(() => startSearch(), 300);
-    }
-
+    // Enterキーで検索
     ['inp-word1','inp-word2'].forEach(id => {
-        const el = document.getElementById(id);
-        el.addEventListener('keydown', e => {
-            if (e.key === 'Enter') { clearTimeout(_debounceTimer); startSearch(); }
+        document.getElementById(id).addEventListener('keydown', e => {
+            if (e.key === 'Enter') startSearch();
         });
     });
-}
 
+    // 語1があれば即検索
+    if (params.word1) startSearch();
+}
 /* ============================================================
    データ取得 ／ ALL_TOKENS ／ SEARCH_INDEX
    ============================================================ */
@@ -952,9 +1128,10 @@ async function loadTokensForScope(scope, ref) {
 
     if (scope === 'verse' || scope === 'chapter') {
         let bookKey = 'ROM', ch = 1;
-        if (ref) {
-            bookKey = ref.replace(/\d+$/, '') || 'ROM';
-            ch = parseInt(ref.match(/(\d+)$/)?.[1] || '1');
+        const activeRef = currentRef || ref;
+        if (activeRef) {
+            bookKey = activeRef.replace(/\d+$/, '') || 'ROM';
+            ch = parseInt(activeRef.match(/(\d+)$/)?.[1] || '1');
         }
         prog.classList.remove('visible');
         return await fetchChapter(bookKey, ch);
@@ -1276,8 +1453,8 @@ async function startSearch() {
     document.getElementById('loading-state').classList.add('visible');
     document.getElementById('loading-label').textContent = 'データを読み込み中…';
 
-    const ref = new URLSearchParams(window.location.search).get('ref') || '';
-
+    const ref = currentRef || new URLSearchParams(window.location.search).get('ref') || '';
+    
     try {
         const { coocMap, hits, totalW1 } = await runProximitySearch({
             word1, word2,
