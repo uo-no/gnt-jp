@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05181100｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05181200｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -2280,6 +2280,105 @@ details[open] .study-summary::before {
     color: var(--text-main);
     display: inline-block;
 }
+
+/* ══ 全翻訳比較モード ══ */
+#all-trans-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    background: rgba(255,255,255,0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    align-items: center;
+    justify-content: center;
+}
+#all-trans-overlay.visible { display: flex; }
+
+#all-trans-popup {
+    width: min(640px, calc(100vw - 32px));
+    max-height: calc(100vh - 64px);
+    background: rgba(250,250,248,0.96);
+    border-radius: 20px;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: popoverIn 0.18s ease both;
+}
+
+.atp-header {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid rgba(0,0,0,0.07);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+.atp-ref {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+.atp-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.atp-nav-btn {
+    background: none;
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 0.72rem;
+    font-family: inherit;
+    color: var(--text-sub);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+.atp-nav-btn:hover { background: var(--highlight-light); color: var(--highlight); }
+.atp-close-btn {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    color: var(--text-sub);
+    cursor: pointer;
+    padding: 0 0 0 12px;
+    line-height: 1;
+    opacity: 0.5;
+    transition: opacity 0.12s;
+}
+.atp-close-btn:hover { opacity: 1; }
+
+.atp-body {
+    overflow-y: auto;
+    flex: 1;
+    padding: 4px 0 20px;
+}
+
+.atp-row {
+    padding: 14px 22px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+.atp-row:last-child { border-bottom: none; }
+.atp-label {
+    font-size: 0.56rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--text-sub);
+    opacity: 0.45;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 6px;
+}
+.atp-text {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 1.0rem;
+    line-height: 2.0;
+    color: var(--text-main);
+}
+
 </style>
 
 </head>
@@ -2304,6 +2403,23 @@ details[open] .study-summary::before {
     </div>
 </div>
 
+<!-- ══ 全翻訳比較オーバーレイ ══ -->
+<div id="all-trans-overlay" onclick="atpBackdropClick(event)">
+    <div id="all-trans-popup" onclick="event.stopPropagation()">
+        <div class="atp-header">
+            <div>
+                <span class="atp-ref" id="atp-ref">-</span>
+            </div>
+            <div class="atp-nav">
+                <button class="atp-nav-btn" id="atp-prev" onclick="atpNav(-1)">◀ 前</button>
+                <button class="atp-nav-btn" id="atp-next" onclick="atpNav(1)">次 ▶</button>
+                <button class="atp-close-btn" onclick="atpClose()">✕</button>
+            </div>
+        </div>
+        <div class="atp-body" id="atp-body"></div>
+    </div>
+</div>
+    
 <!-- ══════════════════════════════════════════
      Bible Picker Popup
      ══════════════════════════════════════════ -->
@@ -2315,8 +2431,9 @@ details[open] .study-summary::before {
         </div>
         <div class="bp-segment-wrap">
             <div class="bp-segment">
-                <button class="bp-seg-btn active" id="bp-seg-single" onclick="bpSwitchMode('single')">単一表示</button>
-                <button class="bp-seg-btn" id="bp-seg-compare" onclick="bpSwitchMode('compare')">比較表示</button>
+                <button class="bp-seg-btn active" id="bp-seg-single"  onclick="bpSwitchMode('single')">単一表示</button>
+                <button class="bp-seg-btn"        id="bp-seg-compare" onclick="bpSwitchMode('compare')">比較表示</button>
+                <button class="bp-seg-btn"        id="bp-seg-all"     onclick="bpSwitchMode('all')">全訳比較</button>
             </div>
         </div>
         <div class="bp-body" id="bp-single-body"></div>
@@ -5184,7 +5301,10 @@ function render(jpData, elData, hasGreek, jpDataB) {
         block.className = 'verse-block verse-pair-left';
         block.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
 
-        if (hasGreek) {
+        if (_transMode === 'all') {
+            block.style.cursor = 'pointer';
+            block.onclick = () => atpOpen(vNum);
+        } else if (hasGreek) {
             block.onclick = () => {
                 mainArea.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
                 block.classList.add('selected');
@@ -6268,6 +6388,83 @@ function showMameKnowledge() {
 app.innerHTML = contentHtml;
 }
 
+/* ══════════════════════════════════════════
+   全翻訳比較オーバーレイ制御
+   ══════════════════════════════════════════ */
+let _atpVerseNums = [];   /* 現在章の節番号リスト */
+let _atpCurrent   = 0;    /* 現在表示中の節インデックス */
+let _atpVerseData = {};   /* { transId: { verses: {...} } } キャッシュ */
+
+async function atpOpen(vNum) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const book = urlParams.get('book') || 'ROM';
+    const ch   = urlParams.get('ch')   || '1';
+
+    /* 節リストを取得（DOM から）*/
+    _atpVerseNums = Array.from(
+        document.querySelectorAll('.verse-pair-left .v-num')
+    ).map(el => el.textContent.trim());
+
+    _atpCurrent = _atpVerseNums.indexOf(String(vNum));
+    if (_atpCurrent < 0) _atpCurrent = 0;
+
+    /* 全翻訳データをまとめてフェッチ（キャッシュあればスキップ） */
+    await _atpFetchAll(book, ch);
+    _atpRender(book, ch);
+
+    const overlay = document.getElementById('all-trans-overlay');
+    overlay.classList.add('visible');
+}
+
+function atpClose() {
+    document.getElementById('all-trans-overlay').classList.remove('visible');
+}
+
+function atpBackdropClick(e) {
+    if (e.target === document.getElementById('all-trans-overlay')) atpClose();
+}
+
+function atpNav(dir) {
+    const next = _atpCurrent + dir;
+    if (next < 0 || next >= _atpVerseNums.length) return;
+    _atpCurrent = next;
+    const urlParams = new URLSearchParams(window.location.search);
+    _atpRender(urlParams.get('book') || 'ROM', urlParams.get('ch') || '1');
+}
+
+async function _atpFetchAll(book, ch) {
+    const cacheKey = `${book}_${ch}`;
+    if (_atpVerseData[cacheKey]) return;
+    _atpVerseData[cacheKey] = {};
+    await Promise.all(Object.keys(TRANSLATIONS).map(async id => {
+        const data = await _fetchTranslation(id, book, ch);
+        if (data) _atpVerseData[cacheKey][id] = data;
+    }));
+}
+
+function _atpRender(book, ch) {
+    const vNum     = _atpVerseNums[_atpCurrent];
+    const cacheKey = `${book}_${ch}`;
+    const allData  = _atpVerseData[cacheKey] || {};
+    const allBooks = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
+    const found    = allBooks.find(b => b.key === book);
+    const bookName = found ? found.name : book;
+
+    document.getElementById('atp-ref').textContent = `${bookName} ${ch}:${vNum}`;
+
+    /* 前後ナビボタンの活性制御 */
+    document.getElementById('atp-prev').disabled = _atpCurrent === 0;
+    document.getElementById('atp-next').disabled = _atpCurrent === _atpVerseNums.length - 1;
+
+    const body = document.getElementById('atp-body');
+    body.innerHTML = Object.entries(TRANSLATIONS).map(([id, t]) => {
+        const text = allData[id]?.verses?.[vNum] || '（データなし）';
+        return `<div class="atp-row">
+            <span class="atp-label">${t.label}</span>
+            <span class="atp-text">${text}</span>
+        </div>`;
+    }).join('');
+}
 init();
 
 /* ══════════════════════════════════════════
@@ -6353,11 +6550,11 @@ async function loadBook(book, translation = currentTranslation) {
 function _applyTransMode(mode) {
     _transMode = mode;
     const area = document.getElementById('main-reading-area');
+    area.classList.remove('single-mode', 'compare-mode');
     if (mode === 'compare') {
-        area.classList.remove('single-mode');
         area.classList.add('compare-mode');
     } else {
-        area.classList.remove('compare-mode');
+        /* 'single' も 'all' も left列のみ */
         area.classList.add('single-mode');
     }
     _updateColHeaders();
@@ -6421,10 +6618,16 @@ function bpSwitchMode(mode) {
 function _bpApplyMode(mode) {
     document.getElementById('bp-seg-single').classList.toggle('active', mode === 'single');
     document.getElementById('bp-seg-compare').classList.toggle('active', mode === 'compare');
+    document.getElementById('bp-seg-all').classList.toggle('active', mode === 'all');
     document.getElementById('bp-single-body').style.display  = mode === 'single'  ? 'block' : 'none';
     document.getElementById('bp-compare-body').style.display = mode === 'compare' ? 'block' : 'none';
+    /* 全訳比較は翻訳選択不要なのでsingle/compare bodyを両方隠す */
+    if (mode === 'all') {
+        document.getElementById('bp-single-body').style.display  = 'none';
+        document.getElementById('bp-compare-body').style.display = 'none';
+    }
 }
-
+    
 function _bpRenderSingle() {
     document.getElementById('bp-single-body').innerHTML = TRANS_LIST.map(t =>
         `<div class="bp-trans-item${t.id === _bpSelA ? ' active' : ''}" onclick="bpSelectA('${t.id}')">
