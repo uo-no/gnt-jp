@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05181130｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05181100｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -281,30 +281,28 @@ grid-template-columns: 1fr 42%;
 min-height: 0;
 overflow-y: auto;
 }
-/* グリッドモード：左右は scroll しない。親が scroll する */
+/* グリッドモード：左右コンテナはグリッドに透過させる */
 #bible-text-area {
-overflow: visible;
-padding: 0;
-min-width: 0;
+display: contents;
 }
 #parallel-text-area {
-overflow: visible;
-padding: 0;
-background: #fafafa;
-border-left: 1px solid rgba(0,0,0,0.08);
-font-size: 0.92rem;
-color: var(--text-sub);
-line-height: 2.0;
+display: contents;
 }
 /* 節ペア：左右セルを display:contents で grid に展開 */
 .verse-pair { display: contents; }
 .verse-pair-left {
 padding: 2px 32px 2px 52px;
 background: #fff;
+min-width: 0;
 }
 .verse-pair-right {
 padding: 2px 24px 2px 32px;
 background: #fafafa;
+border-left: 1px solid rgba(0,0,0,0.08);
+font-size: 0.92rem;
+color: var(--text-sub);
+line-height: 2.0;
+min-width: 0;
 }
 /* 上下の余白行 */
 .verse-grid-spacer-left  { height: 32px; background: #fff; }
@@ -315,7 +313,6 @@ background: #fafafa;
 #main-reading-area.panel-open {
     grid-template-columns: 1fr 0;
 }
-#main-reading-area.panel-open #parallel-text-area,
 #main-reading-area.panel-open .verse-pair-right,
 #main-reading-area.panel-open .verse-grid-spacer-right,
 #main-reading-area.panel-open .verse-grid-footer-right {
@@ -1057,6 +1054,23 @@ letter-spacing: 0.04em;
 #study-close-btn {
 display: none;
 }
+
+/* 読書モード: 本文エリア下部のヒント */
+#reading-hint {
+position: sticky;
+bottom: 0;
+left: 0;
+right: 0;
+padding: 6px 52px;
+background: linear-gradient(to top, var(-bg-paper) 70%, transparent);
+font-size: 0.62rem;
+color: var(-text-sub);
+letter-spacing: 0.04em;
+pointer-events: none;
+opacity: 0.5;
+display: none;
+}
+#reading-hint.visible { display: block; }
 
 /* ══════════════════════════════════════════
    Flow / Meaning / Study タブ 共通スタイル
@@ -1910,16 +1924,12 @@ details[open] .study-summary::before {
 #main-reading-area.single-mode {
     grid-template-columns: 1fr 0;
 }
-#main-reading-area.single-mode #parallel-text-area,
 #main-reading-area.single-mode .verse-pair-right {
     display: none;
 }
 /* 比較モード: 左右均等 */
 #main-reading-area.compare-mode {
     grid-template-columns: 1fr 1fr;
-}
-#main-reading-area.compare-mode #parallel-text-area {
-    display: block;
 }
 /* 比較モード: panel-open 時は右を畳む */
 #main-reading-area.compare-mode.panel-open {
@@ -1947,14 +1957,7 @@ details[open] .study-summary::before {
 #main-reading-area.compare-mode .trans-col-header {
     display: block;
 }
-#bible-text-area {
-    grid-column: 1;
-    grid-row: 2;
-}
-#parallel-text-area {
-    grid-column: 2;
-    grid-row: 2;
-}
+/* bible-text-area / parallel-text-area は display:contents のためgrid指定不要 */
 /* 右列の jp-text */
 .verse-pair-right .jp-text {
     font-size: 1.1rem;
@@ -5131,7 +5134,22 @@ function render(jpData, elData, hasGreek, jpDataB) {
     AppState.study.tab           = 'flow';
     AppState.scrollTop           = 0;
     AppState.clearDepth();
+    // reading-hint を保持（なければ再生成）
+    let hintEl = document.getElementById('reading-hint');
+    if (!hintEl) {
+        hintEl = document.createElement('div');
+        hintEl.id = 'reading-hint';
+    }
+    app.innerHTML = '';
     parallel.innerHTML = '';
+    // verse-pair 以外（hint等）を mainArea から除去してから再追加
+    mainArea.querySelectorAll('.verse-pair').forEach(el => el.remove());
+    // hintEl は mainArea の外（#app コンテナ）に置く
+    const appContainer = document.getElementById('app');
+    if (!document.getElementById('reading-hint')) {
+        appContainer.appendChild(hintEl);
+    }
+    
 
     // Study panel 内の語形一覧はなくなったため、elByVerseは
     // word-cardのHTMLをverse-blockにインライン埋め込むのではなく、
@@ -5157,9 +5175,13 @@ function render(jpData, elData, hasGreek, jpDataB) {
     }
 
     Object.entries(jpData.verses).forEach(([vNum, text]) => {
+        // verse-pair ラッパー（display:contents でグリッドに展開される）
+        const pair = document.createElement('div');
+        pair.className = 'verse-pair';
+
         // 左：聖書本文
         const block = document.createElement('div');
-        block.className = 'verse-block';
+        block.className = 'verse-block verse-pair-left';
         block.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
 
         if (hasGreek) {
@@ -5172,18 +5194,24 @@ function render(jpData, elData, hasGreek, jpDataB) {
                 hideInspectPopover();
             };
         }
-        app.appendChild(block);
+        pair.appendChild(block);
 
         // 右：並列訳（compare モード時に翻訳Bを表示）
         const pBlock = document.createElement('div');
         pBlock.className = 'verse-block verse-pair-right';
         const rightText = (jpDataB && jpDataB.verses && jpDataB.verses[vNum]) ? jpDataB.verses[vNum] : (jpData.verses[vNum] || '');
         pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${rightText}</div></div>`;
-        parallel.appendChild(pBlock);
+        pair.appendChild(pBlock);
+
+        // mainArea に直接追加（bible-text-area / parallel-text-area は display:contents で透過）
+        mainArea.appendChild(pair);
     });
 
     _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
 
+    // Reading hint: 語クリックで Inspect を開けることを静かに示す
+    const hint = document.getElementById('reading-hint');
+    if (hint) hint.classList.toggle('visible', hasGreek);
 }
 
 /**
