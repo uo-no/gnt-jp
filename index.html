@@ -1476,28 +1476,31 @@ details[open] .study-summary::before {
 .rt-tabs {
     display: flex;
     gap: 0;
-    border-bottom: 1px solid var(--border-soft);
-    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    margin-bottom: 10px;
 }
 .rt-tab {
-    padding: 5px 12px 6px;
-    font-size: 0.68rem;
-    font-weight: 600;
-    font-family: inherit;
+    padding: 4px 10px 5px;
+    font-size: 0.64rem;
+    font-weight: 400;
+    font-family: 'Noto Serif JP', serif;
     color: var(--text-sub);
     background: transparent;
     border: none;
-    border-bottom: 2px solid transparent;
+    border-bottom: 1px solid transparent;
     cursor: pointer;
     transition: color 0.12s, border-color 0.12s;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.03em;
     position: relative;
     bottom: -1px;
+    opacity: 0.55;
 }
-.rt-tab:hover { color: var(--highlight); }
+.rt-tab:hover { color: var(--text-main); opacity: 0.8; }
 .rt-tab.active {
-    color: var(--highlight);
-    border-bottom-color: var(--highlight);
+    color: var(--text-main);
+    border-bottom-color: rgba(90,110,130,0.3);
+    opacity: 1;
+    font-weight: 400;
 }
 
 /* 各 Research Tool のコンテンツエリア */
@@ -1577,14 +1580,14 @@ details[open] .study-summary::before {
 }
 .rt-loading.visible { display: block; }
 
-/* 結果ブロック：静かな paper-like カード。乱立禁止・1項目ずつ縦積み */
+/* 結果ブロック：左ボーダーのみ。card感・padding強調を除去 */
 .rt-result-block {
-    border-left: 2px solid rgba(90,110,130,0.15);
-    padding: 6px 0 6px 10px;
-    margin-bottom: 8px;
-    font-size: 0.82rem;
+    border-left: 1px solid rgba(90,110,130,0.12);
+    padding: 4px 0 4px 10px;
+    margin-bottom: 6px;
+    font-size: 0.81rem;
     color: var(--text-main);
-    line-height: 1.75;
+    line-height: 1.8;
 }
 .rt-result-block:last-child { margin-bottom: 0; }
 .rt-result-kind {
@@ -1844,6 +1847,93 @@ details[open] .study-summary::before {
     border-top: 1px solid var(--border-soft);
 }
 
+/* ══════════════════════════════════════════
+   Main Thrust / Flow Note / Participle Note
+   passage note 内の静かな margin annotation 層。
+   card禁止・box-shadow禁止・opacity系hierarchy
+   ══════════════════════════════════════════ */
+
+.rn-main-thrust {
+    padding: 0 0 16px 14px;
+    border-left: 2px solid rgba(90,110,130,0.18);
+    margin-bottom: 18px;
+}
+.rn-main-thrust-label {
+    font-size: 0.52rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text-sub);
+    opacity: 0.35;
+    display: block;
+    margin-bottom: 7px;
+    text-transform: uppercase;
+}
+.rn-main-thrust-text {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 0.84rem;
+    color: var(--text-main);
+    line-height: 2.0;
+    letter-spacing: 0.01em;
+    opacity: 0.9;
+}
+
+.rn-flow-note {
+    padding: 0 0 12px 14px;
+    border-left: 2px solid rgba(90,110,130,0.11);
+    margin-bottom: 14px;
+}
+.rn-flow-note-label {
+    font-size: 0.52rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text-sub);
+    opacity: 0.28;
+    display: block;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+.rn-flow-note-text {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 0.82rem;
+    color: var(--text-main);
+    line-height: 2.0;
+    letter-spacing: 0.01em;
+    opacity: 0.75;
+}
+
+.rn-participle-note {
+    padding: 10px 0 0 14px;
+    border-left: 2px solid rgba(90,110,130,0.09);
+    margin-top: 12px;
+}
+.rn-participle-note-label {
+    font-size: 0.50rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text-sub);
+    opacity: 0.28;
+    display: block;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+}
+.rn-participle-note-text {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 0.81rem;
+    color: var(--text-main);
+    line-height: 1.95;
+    letter-spacing: 0.01em;
+    opacity: 0.68;
+}
+
+/* Conjunction flow signal kind variants */
+/* flow-signal-kind は prose化で display:none だが、
+   flow note 内で flow kind を prose に使うため定義を追加 */
+.flow-signal-kind.flow-grounding    { }
+.flow-signal-kind.flow-contrast     { }
+.flow-signal-kind.flow-continuation { }
+.flow-signal-kind.flow-escalation   { }
+.flow-signal-kind.flow-resolution   { }
+        
 /* ══════════════════════════════════════════
    節全体の読書メモ - passage note
    word-list-view の下に配置する。
@@ -4257,33 +4347,30 @@ function _buildSyntaxTree(p, JPN, jaWord) {
         `</div>`;
     };
 
-    /* 動詞中心の構造 */
+/* 動詞 */
     if (pos === 'V') {
-        const moodLabel  = JPN.mood[mood]   || mood  || '';
-        const tenseLabel = JPN.tense[tense] || tense || '';
-        const voiceLabel = JPN.voice[voice] || voice || '';
+        const tenCode  = p1[off]     || '';
+        const voiCode  = p1[off + 1] || '';
+        const moodCode = p1[off + 2] || '';
 
-        /* ルート：動詞節 */
-        rows.push(`<div class="syntax-tree-row"><span class="syntax-tree-role" style="font-size:0.6rem;opacity:0.4;">節</span><span class="syntax-tree-content" style="opacity:0.5;">述語構造</span></div>`);
-
-        if (mood === 'participle') {
-                    rows.push(treeRow(0, false, '分詞', word, `${tenseLabel}・${voiceLabel}`, rawMorph));
-        rows.push(treeRow(1, false, '働き', '主動作の周囲に状況を添えている', ''));
-        rows.push(treeRow(1, true,  '法',   moodLabel, ''));
-    } else if (mood === 'infinitive') {
-        rows.push(treeRow(0, false, '動詞', word, `${tenseLabel}`, rawMorph));
-        rows.push(treeRow(1, false, '働き', '前の動作の意味を補っている', ''));
-        rows.push(treeRow(1, true,  '法',   moodLabel, ''));
-    } else {
-        rows.push(treeRow(0, false, '述語', word, `${moodLabel}・${tenseLabel}${voiceLabel ? '・' + voiceLabel : ''}`, rawMorph));
-            if (mood === 'imperative') {
-                rows.push(treeRow(1, false, '中心', '呼びかけの中心', ''));
-                rows.push(treeRow(1, true,  '向き', '（読者へ）', ''));
-            } else if (mood === 'subjunctive') {
-                rows.push(treeRow(1, true, '働き', '目的・願望として従う', ''));
-            } else if (mood === 'indicative') {
-                rows.push(treeRow(1, true, '中心', 'この節の動きの中心', ''));
-            }
+        if (moodCode === 'M') {
+            if (tenCode === 'P') return `${w}という呼びかけが続いています。一度ではなく、保ち続ける姿勢として。`;
+            return `${w}として、読者へ直接語りかけます。`;
+        }
+        if (moodCode === 'P') {
+            const pressureNote = `<div class="rn-participle-note"><span class="rn-participle-note-label">Participial Pressure</span><div class="rn-participle-note-text">finite verb ではなく分詞として置かれているのは、主動作を際立たせるためです。この動きは背景に沈み、中心の動作を支えています。</div></div>`;
+            if (tenCode === 'A') return `主な動作より先に起きたこととして、静かに添えられています。${pressureNote}`;
+            return `主な動作に寄り添いながら、状況を描いています。${pressureNote}`;
+        }
+        if (moodCode === 'N') return `何のために・何をすることかが、この語で補われます。`;
+        if (moodCode === 'S') return `断言ではなく、願いや目的の含みがあります。`;
+        if (tenCode === 'X') return `生じた状態が今にも響いています。過去と今が重なる感触があります。`;
+        if (tenCode === 'A' && moodCode === 'I') return `出来事全体がひとまとまりとして眺められています。`;
+        if (tenCode === 'F') return `確かに起きることとして語られています。約束のような重みがあります。`;
+        if (voiCode === 'P') return `主語がその動きを受けとめる側として立っています。`;
+        if (voiCode === 'M' || voiCode === 'D') return `主語自身もその動きに巻き込まれている響きがあります。`;
+        return `この節の動きの中心にあります。`;
+    }
         }
     }
 
@@ -5386,10 +5473,38 @@ function _buildPassageNote(words) {
         return base[0] === 'V';
     });
 
-    const parts = [];
+const parts = [];
+
+    /* ── MAIN THRUST：節の中心圧力 ── */
+    let mainThrustText = '';
+    if (imperatives.length >= 2) {
+        mainThrustText = `呼びかけが重なります。著者の視線が強く読者へ向かっています。`;
+    } else if (imperatives.length === 1) {
+        mainThrustText = `この節の中心は、読者への呼びかけです。`;
+    } else if (perfects.length > 0 && conjHints.length > 0) {
+        mainThrustText = `かつての出来事の重みを土台に、${conjHints[0]}語られています。`;
+    } else if (perfects.length > 0) {
+        mainThrustText = `過去に生じた状態が今もここに届いています。その重みが節を支えています。`;
+    } else if (passives.length > 0) {
+        mainThrustText = `主語が受けとめる側として立っています。動きの方向が外から内へ向かっています。`;
+    } else if (conjHints.length > 0) {
+        mainThrustText = `${conjHints[0]}、話が動いています。`;
+    }
+
+    /* ── FLOW NOTE：文の運動 ── */
+    let flowNoteText = '';
+    if (participles.length > 0 && imperatives.length > 0) {
+        flowNoteText = `主な呼びかけの周囲に状況が分詞として添えられています。行為の空気感を先に置き、中心の声が後から届きます。`;
+    } else if (participles.length > 1) {
+        flowNoteText = `分詞が重なり、動作の背景が層を成しています。主動作の前後に情景が積まれています。`;
+    } else if (conjHints.length > 0 && perfects.length > 0) {
+        flowNoteText = `完了の重みを起点に、${conjHints[0]}展開します。`;
+    } else if (conjHints.length > 1) {
+        flowNoteText = `複数の接続が重なり、流れが段階的に積み重なっています。`;
+    }
 
     /* 第一段落：全体の流れと調子 */
-if (conjHints.length > 0) {
+    if (conjHints.length > 0) {
         const hint = conjHints[0];
         if (imperatives.length > 0)
             parts.push(`${hint}、呼びかけが続きます。声が読者へ向かっています。`);
@@ -5431,10 +5546,26 @@ if (conjHints.length > 0) {
 
     const proseParagraphs = parts.map(p2 => `<p>${p2}</p>`).join('');
 
+    const mainThrustHTML = mainThrustText
+        ? `<div class="rn-main-thrust">
+               <span class="rn-main-thrust-label">Main Thrust</span>
+               <div class="rn-main-thrust-text">${mainThrustText}</div>
+           </div>`
+        : '';
+
+    const flowNoteHTML = flowNoteText
+        ? `<div class="rn-flow-note">
+               <span class="rn-flow-note-label">Flow</span>
+               <div class="rn-flow-note-text">${flowNoteText}</div>
+           </div>`
+        : '';
+
     return `
         <section class="wlv-reading-passage-note">
             <span class="wlv-pn-label">この節の読書メモ</span>
+            ${mainThrustHTML}
             <div class="wlv-pn-prose">
+                ${flowNoteHTML}
                 ${proseParagraphs}
             </div>
         </section>`;
