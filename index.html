@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05181400｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05181000｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -281,28 +281,30 @@ grid-template-columns: 1fr 42%;
 min-height: 0;
 overflow-y: auto;
 }
-/* グリッドモード：左右コンテナはグリッドに透過させる */
+/* グリッドモード：左右は scroll しない。親が scroll する */
 #bible-text-area {
-display: contents;
+overflow: visible;
+padding: 0;
+min-width: 0;
 }
 #parallel-text-area {
-display: contents;
+overflow: visible;
+padding: 0;
+background: #fafafa;
+border-left: 1px solid rgba(0,0,0,0.08);
+font-size: 0.92rem;
+color: var(--text-sub);
+line-height: 2.0;
 }
 /* 節ペア：左右セルを display:contents で grid に展開 */
 .verse-pair { display: contents; }
 .verse-pair-left {
 padding: 2px 32px 2px 52px;
 background: #fff;
-min-width: 0;
 }
 .verse-pair-right {
 padding: 2px 24px 2px 32px;
 background: #fafafa;
-border-left: 1px solid rgba(0,0,0,0.08);
-font-size: 0.92rem;
-color: var(--text-sub);
-line-height: 2.0;
-min-width: 0;
 }
 /* 上下の余白行 */
 .verse-grid-spacer-left  { height: 32px; background: #fff; }
@@ -313,6 +315,7 @@ min-width: 0;
 #main-reading-area.panel-open {
     grid-template-columns: 1fr 0;
 }
+#main-reading-area.panel-open #parallel-text-area,
 #main-reading-area.panel-open .verse-pair-right,
 #main-reading-area.panel-open .verse-grid-spacer-right,
 #main-reading-area.panel-open .verse-grid-footer-right {
@@ -1924,12 +1927,16 @@ details[open] .study-summary::before {
 #main-reading-area.single-mode {
     grid-template-columns: 1fr 0;
 }
+#main-reading-area.single-mode #parallel-text-area,
 #main-reading-area.single-mode .verse-pair-right {
     display: none;
 }
 /* 比較モード: 左右均等 */
 #main-reading-area.compare-mode {
     grid-template-columns: 1fr 1fr;
+}
+#main-reading-area.compare-mode #parallel-text-area {
+    display: block;
 }
 /* 比較モード: panel-open 時は右を畳む */
 #main-reading-area.compare-mode.panel-open {
@@ -1957,7 +1964,14 @@ details[open] .study-summary::before {
 #main-reading-area.compare-mode .trans-col-header {
     display: block;
 }
-/* bible-text-area / parallel-text-area は display:contents のためgrid指定不要 */
+#bible-text-area {
+    grid-column: 1;
+    grid-row: 2;
+}
+#parallel-text-area {
+    grid-column: 2;
+    grid-row: 2;
+}
 /* 右列の jp-text */
 .verse-pair-right .jp-text {
     font-size: 1.1rem;
@@ -2189,76 +2203,6 @@ details[open] .study-summary::before {
     font-size: 0.88rem;
     color: var(--text-main);
 }
-/* ── 全翻訳比較モード（BP拡張） ── */
-.bp-fullcmp-body { padding: 10px 20px 4px; }
-.bp-fullcmp-section-label {
-    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
-    color: var(--text-sub); opacity: 0.5; text-transform: uppercase;
-    display: block; margin: 10px 0 6px;
-}
-.bp-fullcmp-row { display: flex; gap: 8px; margin-bottom: 6px; }
-.bp-fullcmp-select {
-    flex: 1; padding: 8px 28px 8px 10px; font-size: 0.82rem; font-family: inherit;
-    color: var(--text-main); background: rgba(255,255,255,0.85);
-    border: 1px solid rgba(0,0,0,0.10); border-radius: 9px;
-    appearance: none; -webkit-appearance: none; cursor: pointer; outline: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236e6e73'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 10px center;
-    transition: border-color 0.15s;
-}
-.bp-fullcmp-select:focus { border-color: var(--highlight); }
-
-/* 全翻訳比較ビュー本体 */
-#full-compare-view {
-    display: none;
-    position: fixed;
-    inset: 0;
-    flex-direction: column;
-    background: var(--bg-paper);
-    z-index: 300;
-}
-#full-compare-view.fc-active { display: flex; }
-.fc-header {
-    flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
-    padding: 0 20px; border-bottom: 1px solid var(--border-soft);
-    background: var(--bg-paper); gap: 12px; min-height: 52px;
-}
-.fc-nav { display: flex; align-items: center; gap: 6px; }
-.fc-nav-btn {
-    background: none; border: 1px solid var(--border-soft); border-radius: 8px;
-    padding: 5px 14px; font-size: 0.78rem; font-family: inherit;
-    color: var(--text-sub); cursor: pointer; font-weight: 600;
-    transition: background 0.12s, color 0.12s;
-}
-.fc-nav-btn:hover { background: var(--highlight-light); color: var(--highlight); }
-.fc-nav-btn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
-.fc-location {
-    font-family: 'Noto Serif JP', serif; font-size: 0.9rem; font-weight: 600;
-    color: var(--text-main); min-width: 120px; text-align: center;
-}
-.fc-close-btn {
-    background: none; border: none; font-size: 0.72rem; font-weight: 600;
-    color: var(--text-sub); cursor: pointer; padding: 5px 10px; border-radius: 8px;
-    font-family: inherit; letter-spacing: 0.02em; transition: color 0.12s; flex-shrink: 0;
-}
-.fc-close-btn:hover { color: var(--text-main); }
-.fc-scroll { flex: 1; overflow-y: auto; padding: 20px 32px 40px; }
-.fc-trans-grid { display: grid; gap: 10px; }
-.fc-trans-card {
-    background: var(--bg-card); border: 1px solid var(--border-soft);
-    border-radius: 12px; padding: 14px 18px;
-}
-.fc-trans-name {
-    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
-    color: var(--highlight); opacity: 0.75; text-transform: uppercase;
-    display: block; margin-bottom: 6px;
-}
-.fc-trans-text {
-    font-family: 'Noto Serif JP', serif; font-size: 0.95rem;
-    line-height: 2.0; color: var(--text-main);
-}
-.fc-loading { text-align: center; padding: 40px 20px; color: var(--text-sub); font-size: 0.85rem; }
-
 .bp-footer { padding: 0 20px 20px; }
 .bp-confirm-btn {
     width: 100%;
@@ -2387,7 +2331,6 @@ details[open] .study-summary::before {
             <div class="bp-segment">
                 <button class="bp-seg-btn active" id="bp-seg-single" onclick="bpSwitchMode('single')">単一表示</button>
                 <button class="bp-seg-btn" id="bp-seg-compare" onclick="bpSwitchMode('compare')">比較表示</button>
-                <button class="bp-seg-btn" id="bp-seg-fullcmp" onclick="bpSwitchMode('fullcmp')">全翻訳比較</button>
             </div>
         </div>
         <div class="bp-body" id="bp-single-body"></div>
@@ -2401,21 +2344,6 @@ details[open] .study-summary::before {
                     <span class="bp-compare-side-label">右列</span>
                     <div class="bp-compare-options" id="bp-col-b"></div>
                 </div>
-            </div>
-        </div>
-        <div class="bp-fullcmp-body" id="bp-fullcmp-body" style="display:none;">
-            <span class="bp-fullcmp-section-label">書物</span>
-            <div class="bp-fullcmp-row">
-                <select class="bp-fullcmp-select" id="bp-fc-testament" onchange="bpFcOnTestamentChange()">
-                    <option value="nt">新約聖書</option>
-                    <option value="ot">旧約聖書</option>
-                </select>
-                <select class="bp-fullcmp-select" id="bp-fc-book" onchange="bpFcOnBookChange()"></select>
-            </div>
-            <span class="bp-fullcmp-section-label">章・節</span>
-            <div class="bp-fullcmp-row">
-                <select class="bp-fullcmp-select" id="bp-fc-chapter" onchange="bpFcOnChapterChange()"></select>
-                <select class="bp-fullcmp-select" id="bp-fc-verse"></select>
             </div>
         </div>
         <div class="bp-footer">
@@ -2504,22 +2432,6 @@ details[open] .study-summary::before {
         </div>
     </header>
     <div id="app">
-        <!-- 全翻訳比較ビュー -->
-        <div id="full-compare-view">
-            <div class="fc-header">
-                <div class="fc-nav">
-                    <button class="fc-nav-btn" id="fc-prev-btn" onclick="fcNavigate(-1)">‹ 前の節</button>
-                    <span class="fc-location" id="fc-location-label">-</span>
-                    <button class="fc-nav-btn" id="fc-next-btn" onclick="fcNavigate(1)">次の節 ›</button>
-                </div>
-                <button class="fc-close-btn" onclick="fcClose()">← 通常表示に戻る</button>
-            </div>
-            <div class="fc-scroll" id="fc-scroll">
-                <div class="fc-loading" id="fc-loading">読み込み中…</div>
-                <div class="fc-trans-grid" id="fc-trans-grid"></div>
-            </div>
-        </div>
-
         <div id="main-reading-area" class="single-mode">
             <div class="trans-col-header" id="trans-col-header-a"></div>
             <div class="trans-col-header right" id="trans-col-header-b"></div>
@@ -2708,10 +2620,8 @@ const AppState = {
 function syncUrlState() {
     const url = new URL(window.location);
 
-    if (AppState.location.book) {
-        url.searchParams.set('book', AppState.location.book.key);
-        url.searchParams.set('ch', AppState.location.chapter);
-    }
+    url.searchParams.set('book', AppState.location.book.key);
+    url.searchParams.set('ch', AppState.location.chapter);
 
     if (typeof _transA !== 'undefined') {
         url.searchParams.set('transA', _transA);
@@ -5245,14 +5155,8 @@ function render(jpData, elData, hasGreek, jpDataB) {
         hintEl.id = 'reading-hint';
     }
     app.innerHTML = '';
+    app.appendChild(hintEl);
     parallel.innerHTML = '';
-    // verse-pair 以外（hint等）を mainArea から除去してから再追加
-    mainArea.querySelectorAll('.verse-pair').forEach(el => el.remove());
-    // hintEl は mainArea の外（#app コンテナ）に置く
-    const appContainer = document.getElementById('app');
-    if (!document.getElementById('reading-hint')) {
-        appContainer.appendChild(hintEl);
-    }
     
 
     // Study panel 内の語形一覧はなくなったため、elByVerseは
@@ -5279,13 +5183,9 @@ function render(jpData, elData, hasGreek, jpDataB) {
     }
 
     Object.entries(jpData.verses).forEach(([vNum, text]) => {
-        // verse-pair ラッパー（display:contents でグリッドに展開される）
-        const pair = document.createElement('div');
-        pair.className = 'verse-pair';
-
         // 左：聖書本文
         const block = document.createElement('div');
-        block.className = 'verse-block verse-pair-left';
+        block.className = 'verse-block';
         block.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
 
         if (hasGreek) {
@@ -5298,17 +5198,14 @@ function render(jpData, elData, hasGreek, jpDataB) {
                 hideInspectPopover();
             };
         }
-        pair.appendChild(block);
+        app.appendChild(block);
 
         // 右：並列訳（compare モード時に翻訳Bを表示）
         const pBlock = document.createElement('div');
         pBlock.className = 'verse-block verse-pair-right';
         const rightText = (jpDataB && jpDataB.verses && jpDataB.verses[vNum]) ? jpDataB.verses[vNum] : (jpData.verses[vNum] || '');
         pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${rightText}</div></div>`;
-        pair.appendChild(pBlock);
-
-        // mainArea に直接追加（bible-text-area / parallel-text-area は display:contents で透過）
-        mainArea.appendChild(pair);
+        parallel.appendChild(pBlock);
     });
 
     _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
@@ -6372,169 +6269,11 @@ function showMameKnowledge() {
 app.innerHTML = contentHtml;
 }
 
+init();
+
 /* ══════════════════════════════════════════
-   全翻訳比較モード
+   翻訳モード管理
    ══════════════════════════════════════════ */
-
-/* Bible Picker — 全翻訳比較セレクト */
-function _bpFcInit() {
-    const loc = AppState.location;
-    const testament = (loc.testament === 'ot') ? 'ot' : 'nt';
-    document.getElementById('bp-fc-testament').value = testament;
-    _bpFcPopulateBooks(testament);
-    const sel = document.getElementById('bp-fc-book');
-    if (loc.book && sel.querySelector(`option[value="${loc.book.key}"]`)) {
-        sel.value = loc.book.key;
-    }
-    const bookKey = sel.value;
-    const bookObj = SB_BOOKS[testament].find(b => b.key === bookKey) || SB_BOOKS[testament][0];
-    _bpFcPopulateChapters(bookObj.ch, loc.chapter || 1);
-    _bpFcPopulateVerses(bookKey, loc.chapter || 1, 1);
-}
-
-function _bpFcPopulateBooks(testament) {
-    const sel = document.getElementById('bp-fc-book');
-    sel.innerHTML = SB_BOOKS[testament].map(b =>
-        `<option value="${b.key}">${b.name}</option>`
-    ).join('');
-}
-
-function _bpFcPopulateChapters(maxCh, currentCh) {
-    const sel = document.getElementById('bp-fc-chapter');
-    sel.innerHTML = Array.from({length: maxCh}, (_, i) => i + 1).map(n =>
-        `<option value="${n}"${n === currentCh ? ' selected' : ''}>${n} 章</option>`
-    ).join('');
-}
-
-async function _bpFcPopulateVerses(bookKey, chapter, currentVerse) {
-    const sel = document.getElementById('bp-fc-verse');
-    sel.innerHTML = '<option>…</option>';
-    sel.disabled = true;
-    let verseCount = 30;
-    try {
-        const data = await _fetchTranslation('JA1955', bookKey, String(chapter));
-        if (data && data.verses) verseCount = Object.keys(data.verses).length;
-    } catch(e) {}
-    sel.innerHTML = Array.from({length: verseCount}, (_, i) => i + 1).map(n =>
-        `<option value="${n}"${n === currentVerse ? ' selected' : ''}>${n} 節</option>`
-    ).join('');
-    sel.disabled = false;
-}
-
-function bpFcOnTestamentChange() {
-    const testament = document.getElementById('bp-fc-testament').value;
-    _bpFcPopulateBooks(testament);
-    const bookKey = document.getElementById('bp-fc-book').value;
-    const bookObj = SB_BOOKS[testament][0];
-    document.getElementById('bp-fc-book').value = bookObj.key;
-    _bpFcPopulateChapters(bookObj.ch, 1);
-    _bpFcPopulateVerses(bookObj.key, 1, 1);
-}
-
-function bpFcOnBookChange() {
-    const testament = document.getElementById('bp-fc-testament').value;
-    const bookKey   = document.getElementById('bp-fc-book').value;
-    const bookObj   = SB_BOOKS[testament].find(b => b.key === bookKey) || SB_BOOKS[testament][0];
-    _bpFcPopulateChapters(bookObj.ch, 1);
-    _bpFcPopulateVerses(bookKey, 1, 1);
-}
-
-function bpFcOnChapterChange() {
-    const bookKey = document.getElementById('bp-fc-book').value;
-    const chapter = parseInt(document.getElementById('bp-fc-chapter').value);
-    _bpFcPopulateVerses(bookKey, chapter, 1);
-}
-
-/* 全翻訳比較ビュー */
-let _fcBook = null, _fcChapter = 1, _fcVerse = 1, _fcVerseMax = 1;
-
-async function fcOpen(bookKey, chapter, verse) {
-    const allBooks = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
-    _fcBook    = allBooks.find(b => b.key === bookKey) || allBooks[0];
-    _fcChapter = chapter;
-    _fcVerse   = verse;
-
-    try {
-        const data = await _fetchTranslation('JA1955', _fcBook.key, String(_fcChapter));
-        _fcVerseMax = (data && data.verses) ? Object.keys(data.verses).length : 30;
-    } catch(e) { _fcVerseMax = 30; }
-
-    /* 全翻訳比較モードを記録してラベル更新 */
-    _transMode = 'fullcmp';
-    _updateBibleLabel();
-
-    document.getElementById('full-compare-view').classList.add('fc-active');
-
-    await _fcRender();
-}
-
-function fcClose() {
-    document.getElementById('full-compare-view').classList.remove('fc-active');
-    /* single モードに戻してラベル・ヘッダーを復元 */
-    _transMode = 'single';
-    _updateBibleLabel();
-    renderCurrentPage();
-}
-
-async function fcNavigate(delta) {
-    let next = _fcVerse + delta;
-    if (next < 1) {
-        if (_fcChapter <= 1) return;
-        _fcChapter--;
-        try {
-            const data = await _fetchTranslation('JA1955', _fcBook.key, String(_fcChapter));
-            _fcVerseMax = (data && data.verses) ? Object.keys(data.verses).length : 30;
-        } catch(e) {}
-        _fcVerse = _fcVerseMax;
-    } else if (next > _fcVerseMax) {
-        if (_fcChapter >= _fcBook.ch) return;
-        _fcChapter++;
-        _fcVerse = 1;
-        try {
-            const data = await _fetchTranslation('JA1955', _fcBook.key, String(_fcChapter));
-            _fcVerseMax = (data && data.verses) ? Object.keys(data.verses).length : 30;
-        } catch(e) {}
-    } else {
-        _fcVerse = next;
-    }
-    await _fcRender();
-}
-
-async function _fcRender() {
-    const grid     = document.getElementById('fc-trans-grid');
-    const loading  = document.getElementById('fc-loading');
-    const locLabel = document.getElementById('fc-location-label');
-    const prevBtn  = document.getElementById('fc-prev-btn');
-    const nextBtn  = document.getElementById('fc-next-btn');
-
-    locLabel.textContent = `${_fcBook.name} ${_fcChapter}章 ${_fcVerse}節`;
-    prevBtn.disabled = (_fcChapter === 1 && _fcVerse === 1);
-    nextBtn.disabled = (_fcChapter === _fcBook.ch && _fcVerse === _fcVerseMax);
-
-    loading.style.display = 'block';
-    grid.innerHTML = '';
-
-    const results = await Promise.all(TRANS_LIST.map(async t => {
-        try {
-            const data = await _fetchTranslation(t.id, _fcBook.key, String(_fcChapter));
-            const text = (data && data.verses && data.verses[String(_fcVerse)]) || null;
-            return { name: t.name, text };
-        } catch(e) {
-            return { name: t.name, text: null };
-        }
-    }));
-
-    loading.style.display = 'none';
-    grid.innerHTML = results.map(r => `
-        <div class="fc-trans-card">
-            <span class="fc-trans-name">${r.name}</span>
-            <div class="fc-trans-text">${r.text || '<span style="opacity:0.35;font-size:0.8rem;">テキストデータなし</span>'}</div>
-        </div>
-    `).join('');
-
-    document.getElementById('fc-scroll').scrollTop = 0;
-}
-
 
 /*
  * ディレクトリ移行メモ
@@ -6637,14 +6376,11 @@ function _updateColHeaders() {
 function _updateBibleLabel() {
     const el = document.getElementById('sb-bible-label-text');
     if (!el) return;
-    if (_transMode === 'fullcmp') {
-        el.textContent = '全翻訳比較';
-    } else if (_transMode === 'compare') {
-        const labelA = (TRANSLATIONS[_transA] || {}).label || _transA;
+    const labelA = (TRANSLATIONS[_transA] || {}).label || _transA;
+    if (_transMode === 'compare') {
         const labelB = (TRANSLATIONS[_transB] || {}).label || _transB;
         el.textContent = labelA + ' / ' + labelB;
     } else {
-        const labelA = (TRANSLATIONS[_transA] || {}).label || _transA;
         el.textContent = labelA;
     }
 }
@@ -6686,11 +6422,8 @@ function bpSwitchMode(mode) {
 function _bpApplyMode(mode) {
     document.getElementById('bp-seg-single').classList.toggle('active', mode === 'single');
     document.getElementById('bp-seg-compare').classList.toggle('active', mode === 'compare');
-    document.getElementById('bp-seg-fullcmp').classList.toggle('active', mode === 'fullcmp');
     document.getElementById('bp-single-body').style.display  = mode === 'single'  ? 'block' : 'none';
     document.getElementById('bp-compare-body').style.display = mode === 'compare' ? 'block' : 'none';
-    document.getElementById('bp-fullcmp-body').style.display = mode === 'fullcmp' ? 'block' : 'none';
-    if (mode === 'fullcmp') _bpFcInit();
 }
 
 function _bpRenderSingle() {
@@ -6732,15 +6465,6 @@ function bpSelectB(id) {
 }
 
 function bpConfirm() {
-    if (_bpMode === 'fullcmp') {
-        const bookKey  = document.getElementById('bp-fc-book').value;
-        const chapter  = parseInt(document.getElementById('bp-fc-chapter').value);
-        const verseNum = parseInt(document.getElementById('bp-fc-verse').value);
-        closeBiblePicker();
-        fcOpen(bookKey, chapter, verseNum);
-        return;
-    }
-
     _transA = _bpSelA;
     _transB = _bpSelB;
     currentTranslation  = _transA;
@@ -6748,17 +6472,8 @@ function bpConfirm() {
     _applyTransMode(_bpMode);
     closeBiblePicker();
 
-    /* AppState.location.book が未設定ならURLから補完（syncUrlState のクラッシュ防止） */
-    if (!AppState.location.book) {
-        const p = new URLSearchParams(window.location.search);
-        const bk = p.get('book') || 'ROM';
-        const ch = parseInt(p.get('ch') || '1');
-        const all = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
-        AppState.location.book    = all.find(b => b.key === bk) || null;
-        AppState.location.chapter = ch;
-    }
-
     syncUrlState();
+
     renderCurrentPage();
 }
 </script>
