@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05181345｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05181400｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -2210,9 +2210,17 @@ details[open] .study-summary::before {
 
 /* 全翻訳比較ビュー本体 */
 #full-compare-view {
-    display: none; flex-direction: column; height: 100%; overflow: hidden;
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 #full-compare-view.fc-active { display: flex; }
+/* fc-active 時は header・app・footer を隠す */
+#full-compare-view.fc-active ~ .app-header,
+#full-compare-view.fc-active ~ #app,
+#full-compare-view.fc-active ~ .app-footer { display: none; }
 .fc-header {
     flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
     padding: 0 20px; border-bottom: 1px solid var(--border-soft);
@@ -2486,6 +2494,22 @@ details[open] .study-summary::before {
 </nav>
 
 <div class="container">
+    <!-- 全翻訳比較ビュー：#app と兄弟で .container 直下に置くことでレイアウト干渉を防ぐ -->
+    <div id="full-compare-view">
+        <div class="fc-header">
+            <div class="fc-nav">
+                <button class="fc-nav-btn" id="fc-prev-btn" onclick="fcNavigate(-1)">‹ 前の節</button>
+                <span class="fc-location" id="fc-location-label">-</span>
+                <button class="fc-nav-btn" id="fc-next-btn" onclick="fcNavigate(1)">次の節 ›</button>
+            </div>
+            <button class="fc-close-btn" onclick="fcClose()">← 通常表示に戻る</button>
+        </div>
+        <div class="fc-scroll" id="fc-scroll">
+            <div class="fc-loading" id="fc-loading">読み込み中…</div>
+            <div class="fc-trans-grid" id="fc-trans-grid"></div>
+        </div>
+    </div>
+
     <header class="app-header">
         <div class="header-content">
             <div style="display:flex;align-items:center;gap:10px;">
@@ -2499,22 +2523,6 @@ details[open] .study-summary::before {
         </div>
     </header>
     <div id="app">
-        <!-- 全翻訳比較ビュー -->
-        <div id="full-compare-view">
-            <div class="fc-header">
-                <div class="fc-nav">
-                    <button class="fc-nav-btn" id="fc-prev-btn" onclick="fcNavigate(-1)">‹ 前の節</button>
-                    <span class="fc-location" id="fc-location-label">-</span>
-                    <button class="fc-nav-btn" id="fc-next-btn" onclick="fcNavigate(1)">次の節 ›</button>
-                </div>
-                <button class="fc-close-btn" onclick="fcClose()">← 通常表示に戻る</button>
-            </div>
-            <div class="fc-scroll" id="fc-scroll">
-                <div class="fc-loading" id="fc-loading">読み込み中…</div>
-                <div class="fc-trans-grid" id="fc-trans-grid"></div>
-            </div>
-        </div>
-
         <div id="main-reading-area" class="single-mode">
             <div class="trans-col-header" id="trans-col-header-a"></div>
             <div class="trans-col-header right" id="trans-col-header-b"></div>
@@ -6458,8 +6466,6 @@ async function fcOpen(bookKey, chapter, verse) {
     _transMode = 'fullcmp';
     _updateBibleLabel();
 
-    document.getElementById('main-reading-area').style.display = 'none';
-    document.getElementById('bottom-depth-panel').style.display = 'none';
     document.getElementById('full-compare-view').classList.add('fc-active');
 
     await _fcRender();
@@ -6467,7 +6473,6 @@ async function fcOpen(bookKey, chapter, verse) {
 
 function fcClose() {
     document.getElementById('full-compare-view').classList.remove('fc-active');
-    document.getElementById('main-reading-area').style.display = '';
     /* single モードに戻してラベル・ヘッダーを復元 */
     _transMode = 'single';
     _updateBibleLabel();
