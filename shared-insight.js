@@ -295,49 +295,108 @@ function buildXscPanelShared(deltas, confidence, panelId, accentColor) {
  * @param {Function} _cleanText    - 呼び出し元のcleanText（省略可）
  * @returns {{label, hint, conf, deltas}}
  */
-function isGenitiveAbsolute(ptcEntry, tokens, hitIdx, _entryPosCode, _decodeMorph, _cleanText) {
-    const hm = _decodeMorph(ptcEntry);
-    if (hm.case !== 'genitive') return { is: false };
+function classifyParticipleLiteShared(entry, tokens, _entryPosCode, _decodeMorph, _cleanText) {
+    _cleanText = _cleanText || (e => (e.word || e.normalized || e.text || '').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim());
 
-    // 属格名詞（分詞の主語候補）を探す
-    const genNounCandidates = tokens.filter((t, i) => {
-        if (i === hitIdx) return false;
+    const hm       = _decodeMorph(entry);
+    const ptcCase  = hm.case;
+    const ptcGender= hm.gender;
+    const ptcNumber= hm.number;
+    const hitIdx   = tokens.indexOf(entry);
+    const prevTok  = hitIdx > 0 ? tokens[hitIdx - 1] : null;
+    const prevPos  = prevTok ? _entryPosCode(prevTok) : '';
+    const deltas   = [];
+
+    /* ── 1. 冠詞一致 → 実体用法（名詞的） ── */
+    if (prevPos === 'T') {
+        const pm = _decodeMorph(prevTok);
+        if (pm.case === ptcCase && pm.gender === ptcGender && pm.number === ptcNumber) {
+            deltas.push(
+                { label: '直前に冠詞あり', value: +45 },
+                { label: '格・性・数が冠詞と一致', value: +35 },
+                { label: '形容詞・副詞用法を除外', value: +10 }
+            );
+            return { label: '実体用法（名詞的）', hint: '「〜する者」として機能', conf: 90, deltas };
+        }
+    }
+
+    /* ── 2. 格一致名詞 → 形容詞用法 ── */
+    let matchNoun = null;
+    tokens.forEach((t, i) => {
+        if (i === hitIdx) return;
         const pos = _entryPosCode(t);
-        if (!['N','P','D','R'].includes(pos)) return false;
+        if (!['N','T','A','D','R'].includes(pos)) return;
         const tm = _decodeMorph(t);
-        return tm.case === 'genitive';
+        if (tm.case === ptcCase && tm.gender === ptcGender && tm.number === ptcNumber) {
+            if (!matchNoun) matchNoun = { token: t, idx: i };
+        }
     });
-    if (!genNounCandidates.length) return { is: false };
+    if (matchNoun) {
+        const dist = Math.abs(matchNoun.idx - hitIdx);
+        const nw   = _cleanText(matchNoun.token);
+        deltas.push(
+            { label: '格一致名詞あり（' + nw + '）', value: +35 },
+            { label: dist <= 2 ? '近接（' + dist + '語）' : '距離あり（' + dist + '語）', value: dist <= 2 ? +10 : -5 },
+            { label: '冠詞なし → 実体用法を除外', value: +10 }
+        );
+        return { label: '形容詞用法', hint: '「' + nw + '」を修飾', conf: 80, deltas };
+    }
 
-    // 主節の主語（主格名詞）を探す
-    const mainSubjects = tokens.filter((t, i) => {
-        if (i === hitIdx) return false;
-        const pos = _entryPosCode(t);
-        if (!['N','P','D','R'].includes(pos)) return false;
-        const tm = _decodeMorph(t);
-        return tm.case === 'nominative';
-    });
+    /* ── 3. 属格形 → 属格絶対の可能性 ── */
+    if (ptcCase === 'genitive') {
+        // 属格名詞（分詞の主語候補）を探す
+        const genNoun = tokens.find((t, i) => {
+            if (i === hitIdx) return false;
+            const pos = _entryPosCode(t);
+            if (!['N','P','D','R'].includes(pos)) return false;
+            return _decodeMorph(t).case === 'genitive';
+        });
 
-    // 主語候補と属格名詞が異なる referent かチェック
-    // 簡易実装: lemma が異なれば別 referent と判定
-    const genLemmas = new Set(genNounCandidates.map(t => t.lemma || _cleanText(t)));
-    const subjLemmas = new Set(mainSubjects.map(t => t.lemma || _cleanText(t)));
+        // 主節の主語（主格名詞/代名詞）を探す
+        const mainSubjects = tokens.filter((t, i) => {
+            if (i === hitIdx) return false;
+            const pos = _entryPosCode(t);
+            if (!['N','P','D','R'].includes(pos)) return false;
+            return _decodeMorph(t).case === 'nominative';
+        });
 
-    const hasDistinctSubject = [...genLemmas].some(gl => !subjLemmas.has(gl));
+        // 属格絶対の本質：分詞の主語 ≠ 主節の主語（lemmaで簡易判定）
+        const genLemma  = genNoun ? (genNoun.lemma || _cleanText(genNoun)) : null;
+        const subjLemmas = new Set(mainSubjects.map(t => t.lemma || _cleanText(t)));
+        const hasDistinctSubject = genLemma && !subjLemmas.has(genLemma);
 
-    // 信頼度の計算
-    let conf = 40;
-    if (genNounCandidates.length > 0) conf += 25;
-    if (hasDistinctSubject) conf += 25;   // 非同一性確認で大幅ボーナス
-    if (mainSubjects.length === 0) conf -= 10; // 主節主語不明は減点
+        // 信頼度計算
+        let conf = 30; // 属格形ベース
+        if (genNoun)             conf += 25; // 属格名詞あり
+        if (hasDistinctSubject)  conf += 25; // 主語の非同一性確認（最重要）
+        if (mainSubjects.length === 0) conf -= 10; // 主節主語が不明瞭なら減点
 
-    return {
-        is: conf >= 55,
-        conf,
-        genNoun: _cleanText(genNounCandidates[0]),
-        hasDistinctSubject,
-    };
-}
+        const hintText = genNoun
+            ? `「${_cleanText(genNoun)}」が分詞の主語となり、主節から独立した時間・条件・理由節を形成`
+            : '主節と独立した時間・条件節を形成する可能性';
+
+        deltas.push(
+            { label: '分詞が属格形をとっている',              value: +30 },
+            { label: genNoun
+                ? `同節に属格名詞あり（${_cleanText(genNoun)}）`
+                : '格一致名詞なし',                           value: genNoun ? +25 : +5 },
+            { label: hasDistinctSubject
+                ? `主語の非同一性を確認（主節主語と異なる）`
+                : mainSubjects.length > 0
+                    ? `主語が主節と同一の可能性あり（注意）`
+                    : `主節主語が不明確`,                     value: hasDistinctSubject ? +25 : mainSubjects.length > 0 ? -15 : -10 },
+            { label: '冠詞なし → 実体用法を除外',             value: +10 },
+            { label: '属格絶対はデフォルト推定',              value: -5 }
+        );
+        return {
+            label: hasDistinctSubject
+                ? '属格絶対分詞'
+                : '属格絶対の可能性（要確認）',
+            hint:  hintText,
+            conf:  Math.min(Math.max(conf, 25), 92),
+            deltas,
+        };
+    }
 
     /* ── 4. デフォルト → 副詞用法 ── */
     const tHint  = hm.tense === 'aorist'  ? '〜してから（先行動作）'
