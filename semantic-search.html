@@ -1337,6 +1337,10 @@ const CONTEXT_RULES = [
         boosts: { '授与・受容':+18, '神学・霊的':+8 },
         reason: '授与・受容に関わる語が共起'
     },
+    // 注: 否定文脈ルール（οὐ/μή）はここに置かない。
+    // 否定辞は対象語の意味フィールドを変えず命題全体を否定するだけのため、
+    // スコアに影響させると πιστεύω を「否定・反対」フィールドに誘導してしまう。
+    // 否定辞の存在は renderCandidates() でバナー表示のみ行う。
 ];
 
 /* ─── Layer 2: 形態論推定で候補生成 ────────────────────────── */
@@ -1903,6 +1907,16 @@ function renderSemanticContext(tokens, targetWord, jaVerse) {
 }
 
 /* ── ② 候補リスト描画 ── */
+
+/**
+ * 文中に否定辞があるか検出する
+ * 意味フィールドのスコアには影響させず、UI 上でのみ注記する
+ */
+function detectNegation(tokens) {
+    const NEG = new Set(['οὐ','οὐκ','οὐχ','μή','μηδέ','οὐδέ','οὔτε','μήτε']);
+    return (tokens || []).some(t => NEG.has((t.text || '').trim()));
+}
+
 function renderCandidates(candidates) {
     const container = document.getElementById('candidates-list');
     if (!candidates.length) {
@@ -1915,6 +1929,25 @@ function renderCandidates(candidates) {
     if (hasInferred) {
         const banner = document.getElementById('infer-banner');
         if (banner) banner.style.display = 'flex';
+    }
+
+    // B-3: 否定辞バナー（スコアには影響しない注記のみ）
+    // _tokens は renderAll() でセットされるグローバル変数
+    if (detectNegation(_tokens)) {
+        container.insertAdjacentHTML('afterbegin', `
+            <div style="
+                font-size:0.72rem;
+                color:var(--c-mid, #5a6e82);
+                padding:7px 12px;
+                margin-bottom:10px;
+                background:var(--c-mid-bg, rgba(90,110,130,0.07));
+                border:1px solid rgba(90,110,130,0.20);
+                border-left:3px solid var(--c-mid, #5a6e82);
+                border-radius:var(--radius-s, 8px);
+                line-height:1.6;
+            ">
+                ⚠ 文中に否定辞（οὐ / μή）があります。下の意味候補はこの語自体の意味です。命題全体は「〜でない」となります。
+            </div>`);
     }
 
     container.innerHTML = candidates.map((c, i) => {
