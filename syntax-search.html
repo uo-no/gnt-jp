@@ -1146,6 +1146,58 @@ function findMainVerb(tokens) {
     }) || null;
 }
 
+/**
+ * 述語主格を検出する
+ * 前提: コプラ動詞（εἰμί, γίνομαι）が節内に存在する
+ * @param {Array}  tokens  節内の全トークン
+ * @param {number} verbIdx コプラ動詞のインデックス
+ * @returns {{ subjectIdx: number|null, predicateNomIdx: number|null }}
+ */
+function detectPredicateNominative(tokens, verbIdx) {
+    const COPULA_LEMMAS = new Set([
+        'εἰμί','ἐστιν','εἶναι','ὤν',
+        'γίνομαι','γίνεσθαι',
+    ]);
+
+    const verb = tokens[verbIdx];
+    const vLemma = (verb.lemma || '').trim();
+    if (!COPULA_LEMMAS.has(vLemma)) return null;
+
+    // 主格名詞をすべて収集
+    const nominals = tokens.reduce((acc, t, i) => {
+        if (i === verbIdx) return acc;
+        const pos = entryPosCode(t);
+        if (!['N','A','R','P','D','T'].includes(pos)) return acc;
+        const m = decodeMorph(t);
+        if (m.case === 'nominative') acc.push({ idx: i, tok: t, m });
+        return acc;
+    }, []);
+
+    if (nominals.length < 2) return null;   // 1つだけなら主語のみ
+
+    // コルウェルの規則:
+    //   冠詞あり（直前に T が来る） → 主語
+    //   冠詞なし → 述語主格（動詞の前に置かれることが多い）
+    const hasArticleBefore = (idx) => {
+        if (idx === 0) return false;
+        return entryPosCode(tokens[idx - 1]) === 'T';
+    };
+
+    let subjectIdx = null, predicateNomIdx = null;
+    for (const { idx } of nominals) {
+        if (hasArticleBefore(idx)) subjectIdx = idx;
+        else predicateNomIdx = idx;
+    }
+
+    // どちらか一方しか判定できない場合は動詞の後を述語主格とする
+    if (!predicateNomIdx && nominals.length >= 2) {
+        const afterVerb = nominals.find(n => n.idx > verbIdx);
+        if (afterVerb) predicateNomIdx = afterVerb.idx;
+    }
+
+    return { subjectIdx, predicateNomIdx };
+}
+   
 function assignSyntacticRoles(tokens) {
     const roles = new Map();
     const mainVerb = findMainVerb(tokens);
