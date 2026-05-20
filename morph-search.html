@@ -1117,6 +1117,50 @@ function toggleMorphContext(cardEl, encRef, encWord) {
         }
     }
 
+    /* C-2: 中動態の用法分類バッジ */
+    let middleHTML = '';
+    if (['middle','middle deponent','middle or passive'].includes(params.voice || '')) {
+        const hitEntry = tokens.find(t => cleanText(t) === normWord);
+        if (hitEntry && typeof classifyMiddleVoice === 'function') {
+            const hm = decodeMorph(hitEntry);
+            const midResult = classifyMiddleVoice(hitEntry.lemma || '', hm.voice || params.voice || '');
+            if (midResult) {
+                middleHTML = `<div class="ptc-lite" style="
+                    background: rgba(106,88,160,0.07);
+                    border: 1px solid rgba(106,88,160,0.22);
+                ">
+                    <div class="ptc-lite-label" style="color:rgba(106,88,160,0.8);">中動態の用法</div>
+                    <div class="ptc-lite-main" style="color:#6a58a0;">${midResult.type}</div>
+                    <div class="ptc-lite-hint">${midResult.note}</div>
+                </div>`;
+            }
+        }
+    }
+
+    /* C-3: 神的受動態の検出バッジ */
+    let divinePassiveHTML = '';
+    if (['passive','middle or passive'].includes(params.voice || '')) {
+        const hitEntry = tokens.find(t => cleanText(t) === normWord);
+        if (hitEntry && typeof detectDivinePassive === 'function') {
+            const dpResult = detectDivinePassive(hitEntry, tokens, decodeMorph, cleanText);
+            if (dpResult) {
+                const confColor = dpResult.confidence >= 75 ? '#2d6a4f'
+                                : dpResult.confidence >= 55 ? '#a09050' : '#8a5a38';
+                divinePassiveHTML = `<div class="ptc-lite" style="
+                    background: rgba(45,106,79,0.07);
+                    border: 1px solid rgba(45,106,79,0.22);
+                ">
+                    <div class="ptc-lite-label" style="color:rgba(45,106,79,0.85);">神的受動態（Divine Passive）</div>
+                    <div class="ptc-lite-main" style="color:${confColor};">${dpResult.note}</div>
+                    <div class="ptc-lite-hint">
+                        ユダヤ教の伝統で神の名を避けるため、「神が〜する」を受動形で表現する用法です。
+                        ${dpResult.verbJa ? `この語（${dpResult.verbJa}）は神的受動でよく使われます。` : ''}
+                    </div>
+                </div>`;
+            }
+        }
+    }
+
     /* B. scoreEngine による文脈スコア（非分詞時も表示） */
     let scoreHTML = '';
     if (params.mood !== 'participle'
@@ -1160,6 +1204,8 @@ function toggleMorphContext(cardEl, encRef, encWord) {
         <div class="morph-ctx-line">${lineHTML}</div>
         ${coocHTML}
         ${ptcHTML}
+        ${middleHTML}
+        ${divinePassiveHTML}
         ${scoreHTML}
         <div class="morph-ctx-goto">
             <button onclick="goToWord('${encRef}','${encWord}')">本文へ →</button>
@@ -1236,6 +1282,10 @@ if (document.body.classList.contains('in-iframe')) {
 
 renderHeader();
 renderCoreTags();
+// C-1: アスペクト概念タグを追加（時制が指定されている場合のみ）
+if (typeof renderAspectTag === 'function' && params.tense) {
+    renderAspectTag(params.tense);
+}
 renderCoreChips();
 renderExtChips();
 renderBookChips();
