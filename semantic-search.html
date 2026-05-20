@@ -2047,8 +2047,88 @@ function renderAll(tokens, targetWord, jaVerse) {
     // ② 候補リスト（比較UI）
     renderCandidates(_candidates);
 
+    // C-2: 中動態用法バッジ（voice が middle 系の場合のみ）
+    renderMiddleVoiceBadge(targetEntry, tokens);
+
+    // C-3: 神的受動態バッジ（voice が passive 系の場合のみ）
+    renderDivinePassiveBadge(targetEntry, tokens);
+
     // ⑦ 用例
     renderExamples(_lemma);
+}
+
+/**
+ * C-2: 中動態の用法バッジを candidates-block の下に挿入する
+ */
+function renderMiddleVoiceBadge(targetEntry, tokens) {
+    // 既存バッジを削除（再描画対応）
+    document.getElementById('sem-middle-badge')?.remove();
+    if (!targetEntry || typeof classifyMiddleVoice !== 'function') return;
+
+    const m = decodeMorph(targetEntry);
+    const midResult = classifyMiddleVoice(targetEntry.lemma || '', m.voice || '');
+    if (!midResult) return;
+
+    const badge = document.createElement('div');
+    badge.id = 'sem-middle-badge';
+    badge.style.cssText = [
+        'margin-bottom:20px',
+        'padding:10px 14px',
+        'background:rgba(106,88,160,0.07)',
+        'border:1px solid rgba(106,88,160,0.22)',
+        'border-left:3px solid #6a58a0',
+        'border-radius:var(--radius-m,12px)',
+        'animation:fadeUp 0.2s ease',
+    ].join(';');
+    badge.innerHTML = `
+        <div style="font-size:0.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+                    color:rgba(106,88,160,0.85);margin-bottom:4px;">中動態の用法</div>
+        <div style="font-size:0.88rem;font-weight:600;color:#6a58a0;margin-bottom:3px;">${midResult.type}</div>
+        <div style="font-size:0.75rem;color:var(--text-sub,#6e6e73);line-height:1.6;">${midResult.note}</div>`;
+
+    // examples-block の直前に挿入
+    const exBlock = document.getElementById('examples-block');
+    if (exBlock) exBlock.parentNode.insertBefore(badge, exBlock);
+}
+
+/**
+ * C-3: 神的受動態バッジを candidates-block の下に挿入する
+ */
+function renderDivinePassiveBadge(targetEntry, tokens) {
+    // 既存バッジを削除（再描画対応）
+    document.getElementById('sem-divine-passive-badge')?.remove();
+    if (!targetEntry || typeof detectDivinePassive !== 'function') return;
+
+    const dpResult = detectDivinePassive(targetEntry, tokens, decodeMorph, cleanText);
+    if (!dpResult) return;
+
+    const confColor = dpResult.confidence >= 75 ? '#2d6a4f'
+                    : dpResult.confidence >= 55 ? '#a09050' : '#8a5a38';
+
+    const badge = document.createElement('div');
+    badge.id = 'sem-divine-passive-badge';
+    badge.style.cssText = [
+        'margin-bottom:20px',
+        'padding:10px 14px',
+        'background:rgba(45,106,79,0.07)',
+        'border:1px solid rgba(45,106,79,0.22)',
+        'border-left:3px solid #2d6a4f',
+        'border-radius:var(--radius-m,12px)',
+        'animation:fadeUp 0.2s ease',
+    ].join(';');
+    badge.innerHTML = `
+        <div style="font-size:0.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+                    color:rgba(45,106,79,0.85);margin-bottom:4px;">神的受動態（Divine Passive）</div>
+        <div style="font-size:0.88rem;font-weight:600;color:${confColor};margin-bottom:3px;">
+            ${dpResult.note}
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-sub,#6e6e73);line-height:1.6;">
+            ユダヤ教の伝統で神の名を避けるため、「神が〜する」を受動形で表現する用法です。
+            ${dpResult.verbJa ? `この語（${dpResult.verbJa}）は神的受動でよく使われます。` : ''}
+        </div>`;
+
+    const exBlock = document.getElementById('examples-block');
+    if (exBlock) exBlock.parentNode.insertBefore(badge, exBlock);
 }
 
 /* ══════════════════════════════════════════
