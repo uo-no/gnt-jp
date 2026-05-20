@@ -758,6 +758,285 @@ function buildRoleSummary(tokens, roleMap, _cleanText) {
 }
 
 /* ═══════════════════════════════════════════════════
+   16. ASPECT_INFO / renderAspectTag  ★新規追加★
+   形態論ページ向け：アスペクト概念をタグとして表示する。
+   「アオリスト＝過去」という誤解を防ぐため、時制とは
+   別軸でアスペクト（動作態）を明示する。
+   ═══════════════════════════════════════════════════ */
+
+/**
+ * 時制コード → アスペクト情報のマップ
+ * symbol: UI 上でアスペクトを直感的に示す記号
+ *   ●   点的（完結した一点）
+ *   ━━━  線的（継続・進行）
+ *   ●━━  結果状態の継続
+ *   ◌   期待的（将来の実現）
+ */
+const ASPECT_INFO = {
+    present:    {
+        aspect:  '線的（進行・継続）',
+        symbol:  '━━━',
+        note:    '動作が進行中・習慣的に繰り返されることを示す。「今」を意味するとは限らない',
+    },
+    imperfect:  {
+        aspect:  '線的（過去の継続）',
+        symbol:  '━━━',
+        note:    '過去に継続していた動作。「〜していた」という継続・反復を背景として描く',
+    },
+    aorist:     {
+        aspect:  '点的（完結・一回性）',
+        symbol:  '●',
+        note:    '動作を完結した一点として捉える。「過去」を意味するのは直説法のときのみ。不定詞・分詞・接続法では時間軸の位置を表さない',
+    },
+    perfect:    {
+        aspect:  '結果状態の継続',
+        symbol:  '●━━',
+        note:    '完結した動作の結果が現在も有効。コイネー完了形の核心は「今も続く状態」であり、単なる過去の記述ではない',
+    },
+    pluperfect: {
+        aspect:  '過去時点での結果状態',
+        symbol:  '●━',
+        note:    '過去のある時点で完結し、その後も続いていた状態。完了形の時制を過去に移したもの',
+    },
+    future:     {
+        aspect:  '期待的（将来の実現）',
+        symbol:  '◌',
+        note:    '将来の動作・状態を述べる。アスペクトより時間的位置（未来）が主な意味。約束・命令・予言の文脈で使われる',
+    },
+};
+
+/**
+ * アスペクトタグを core-tags エリアに追記する
+ * renderCoreTags() の後に呼び出す。
+ *
+ * @param {string} tense  decodeMorph() または params.tense の値
+ */
+function renderAspectTag(tense) {
+    if (!tense) return;
+    const info = ASPECT_INFO[tense];
+    if (!info) return;
+    const el = document.getElementById('core-tags');
+    if (!el) return;
+
+    const tag = document.createElement('div');
+    tag.className = 'morph-tag';
+    tag.style.cssText = [
+        'border-left: 3px solid var(--accent-mid)',
+        'cursor: help',
+        'position: relative',
+    ].join(';');
+    tag.title = info.note;   // hover で全文表示
+    tag.innerHTML = `
+        <span class="morph-tag-key">アスペクト</span>
+        <span class="morph-tag-val" style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:0.85rem;opacity:0.6;letter-spacing:1px;">${info.symbol}</span>
+            <span>${info.aspect}</span>
+        </span>`;
+    el.appendChild(tag);
+}
+
+/* ═══════════════════════════════════════════════════
+   15. buildSemanticShift  ★新規追加★
+   Semanticタブ向け：文脈による意味変化の可能性を返す。
+   ═══════════════════════════════════════════════════ */
+/**
+ * @param {string} lemma
+ * @param {Array}  verseLemmas  - 節内のlemma配列
+ * @returns {{ hasShift:boolean, note:string }}
+ */
+/* ═══════════════════════════════════════════════════
+   17. MIDDLE_VOICE / classifyMiddleVoice  ★新規追加★
+   中動態（Middle Voice）の用法を4種類に分類する。
+   現状「中動」とだけ表示される箇所の精度を上げる。
+
+   4分類:
+     Deponent    - 中動形式だが能動の意味（ἔρχομαι 等）
+     Benefactive - 主語が自分の利益のために動作する
+     Reflexive   - 動作が主語自身に戻る（再帰的）
+     Permissive  - 主語が動作を受け入れる・許容する
+   ═══════════════════════════════════════════════════ */
+
+/**
+ * Deponent 動詞（中動形式・能動意味）の lemma セット
+ * 中動形式でしか使われない、または主要な意味が能動の動詞
+ */
+const DEPONENT_LEMMAS = new Set([
+    // 移動・行動系
+    'ἔρχομαι','πορεύομαι','ἄρχομαι','ἐγείρομαι',
+    'προσέρχομαι','ἀπέρχομαι','εἰσέρχομαι','ἐξέρχομαι',
+    'διέρχομαι','παρέρχομαι','συνέρχομαι',
+    'κάθημαι','κεῖμαι',
+    // 発話・認知系
+    'ἀποκρίνομαι','βούλομαι','λογίζομαι',
+    'δέομαι','εὔχομαι','προσεύχομαι',
+    'ἐπιθυμέω',          // 欲する（中動的）
+    // 感情・知覚系
+    'φοβέομαι','λυπέομαι',
+    'ἅπτομαι','θεάομαι','ὁράομαι',
+    // その他主要な deponent 動詞
+    'γίνομαι','δύναμαι','ἐργάζομαι',
+    'ἀσπάζομαι','χαρίζομαι','ἔρχομαι',
+    'μιμνῄσκομαι','ἐπιλανθάνομαι',
+]);
+
+/**
+ * Benefactive（利益的中動）の lemma セット
+ * 主語が自分自身の利益のために動作を行う
+ */
+const BENEFACTIVE_LEMMAS = new Set([
+    'αἱρέομαι',    // 自分のために選ぶ（≠ 能動：選ぶ一般）
+    'ποιέομαι',    // 自分のためになす
+    'λαμβάνομαι',  // 自分のために取る
+    'κτάομαι',     // 自分のために獲得する
+    'προσλαμβάνομαι', // 自分のために受け入れる
+]);
+
+/**
+ * Permissive（許容的中動）の lemma セット
+ * 主語が動作を受け入れる・許容する
+ */
+const PERMISSIVE_LEMMAS = new Set([
+    'βαπτίζομαι',      // 洗礼を受ける（自ら受け入れる）
+    'περιτέμνομαι',    // 割礼を受ける
+    'καθαρίζομαι',     // 清めを受ける
+]);
+
+/**
+ * 中動態の用法種別を判定して返す。
+ * morph-search.html と syntax-search.html の両方から呼び出せる。
+ *
+ * @param {string} lemma   entry.lemma の値
+ * @param {string} voice   decodeMorph() の voice フィールド
+ * @returns {{ type: string, note: string, cssClass: string } | null}
+ *   中動態でなければ null を返す
+ */
+function classifyMiddleVoice(lemma, voice) {
+    if (!['middle','middle deponent','middle or passive'].includes(voice)) {
+        return null;
+    }
+    const l = (lemma || '').trim();
+
+    if (DEPONENT_LEMMAS.has(l)) {
+        return {
+            type:     'Deponent（中動形・能動意味）',
+            note:     'この語は形が中動態ですが能動態の意味で使われます（deponent 動詞）。「受けとめる」ニュアンスはありません。',
+            cssClass: 'middle-deponent',
+        };
+    }
+    if (PERMISSIVE_LEMMAS.has(l)) {
+        return {
+            type:     '許容的中動',
+            note:     '主語が動作を受け入れる・許容するニュアンスです。受動態と意味が近いですが、主語の主体性が残ります。',
+            cssClass: 'middle-permissive',
+        };
+    }
+    if (BENEFACTIVE_LEMMAS.has(l)) {
+        return {
+            type:     '利益的中動',
+            note:     '主語が自分自身の利益のために動作を行います。能動態との使い分けが意味の核心です。',
+            cssClass: 'middle-benefactive',
+        };
+    }
+    // デフォルト：再帰的または一般的な中動
+    return {
+        type:     '中動態（主語が動作に深く関与）',
+        note:     '動作が主語自身に関わります。再帰的（自分を〜する）か、利益的（自分のために〜する）かは文脈で判断します。',
+        cssClass: 'middle-general',
+    };
+}
+
+/* ═══════════════════════════════════════════════════
+   18. detectDivinePassive  ★新規追加★
+   神的受動態（Theological / Divine Passive）の検出。
+   ユダヤ教の伝統で神の名を避けるため受動態を使って
+   「神が〜する」を「〜される」と表現する用法。
+   マタイ5章の幸福の言葉・パウロ書簡に頻出する。
+   ═══════════════════════════════════════════════════ */
+
+const DIVINE_PASSIVE_VERBS = [
+    { lemma: 'ἀφίημι',      ja: '赦す' },
+    { lemma: 'δικαιόω',     ja: '義とする' },
+    { lemma: 'ἁγιάζω',     ja: '聖別する' },
+    { lemma: 'σώζω',        ja: '救う' },
+    { lemma: 'καλέω',       ja: '召す・呼ぶ' },
+    { lemma: 'εὐλογέω',     ja: '祝福する' },
+    { lemma: 'παρακαλέω',  ja: '慰める' },
+    { lemma: 'ἐλεέω',      ja: '憐れむ' },
+    { lemma: 'πληρόω',     ja: '満たす・成就する' },
+    { lemma: 'χαρίζομαι',  ja: '賜わる' },
+    { lemma: 'γράφω',      ja: '書く（聖書に記される）' },
+    { lemma: 'τελέω',      ja: '成就する' },
+    { lemma: 'ἐγείρω',     ja: '起こす（復活させる）' },
+    { lemma: 'κρίνω',      ja: '裁く' },
+    { lemma: 'ἀποστέλλω',  ja: '遣わす' },
+    { lemma: 'δίδωμι',     ja: '与える' },
+    { lemma: 'χορτάζω',    ja: '満足させる' },
+    { lemma: 'ὁράω',       ja: '見る（神を見る）' },
+    { lemma: 'κληρονομέω', ja: '相続する（神の国を）' },
+];
+
+const THEOLOGICAL_MARKERS_DP = new Set([
+    'θεός','κύριος','Χριστός','Ἰησοῦς','πατήρ',
+    'βασιλεία','οὐρανός','πνεῦμα','ἅγιος',
+    'δικαιοσύνη','σωτηρία','ζωή','αἰώνιος',
+    'εὐαγγέλιον','ἐκκλησία','νόμος','πίστις','χάρις',
+]);
+
+/**
+ * 神的受動態の可能性を判定する。
+ * semantic-search.html と morph-search.html の両方から利用できる。
+ *
+ * @param {Object}   entry        対象トークン
+ * @param {Array}    tokens       節内の全トークン配列
+ * @param {Function} _decodeMorph 呼び出し元の decodeMorph 関数
+ * @param {Function} _cleanText   呼び出し元の cleanText 関数（省略可）
+ * @returns {{ isDivinePassive: boolean, confidence: number, verbJa: string, note: string } | null}
+ */
+function detectDivinePassive(entry, tokens, _decodeMorph, _cleanText) {
+    _cleanText = _cleanText || (e => (e.word||e.normalized||e.text||'').trim());
+    const m = _decodeMorph(entry);
+
+    // 受動態でなければ即 null
+    if (!['passive','middle or passive'].includes(m.voice)) return null;
+
+    const lemma = (entry.lemma || '').trim();
+    const verseLemmas = tokens.map(t => (t.lemma || '').trim());
+
+    let score = 30; // 受動態ベース
+
+    // ① 典型的な神的受動語彙との一致
+    const verbMatch = DIVINE_PASSIVE_VERBS.find(v => v.lemma === lemma);
+    const verbJa = verbMatch ? verbMatch.ja : '';
+    if (verbMatch) score += 28;
+
+    // ② 神学的文脈語の共起（最大 +24）
+    const theoCount = verseLemmas.filter(l => THEOLOGICAL_MARKERS_DP.has(l)).length;
+    score += Math.min(theoCount * 8, 24);
+
+    // ③ 明示的行為主（ὑπό + 属格）がなければ神的受動の可能性が高い
+    const hasExplicitAgent = tokens.some(t => (_cleanText(t) || '').trim() === 'ὑπό');
+    if (!hasExplicitAgent) score += 15;
+    else score -= 20;
+
+    // ④ 時制によるパターン補正
+    if (m.tense === 'future')   score += 8;  // beatitudes パターン
+    if (m.tense === 'perfect')  score += 5;  // 結果状態として継続
+    if (m.tense === 'aorist' && m.mood === 'participle') score += 6;
+
+    const confidence = Math.min(Math.max(score, 0), 95);
+    if (confidence < 45) return null;
+
+    return {
+        isDivinePassive: true,
+        confidence,
+        verbJa,
+        note: verbJa
+            ? `神的受動態の可能性（確信度 ${confidence}%）— 「神が${verbJa}」を受動形で表現しています`
+            : `神的受動態の可能性（確信度 ${confidence}%）— ユダヤ的伝統で神の名を避けるために受動態を使う用法です`,
+    };
+}
+
+/* ═══════════════════════════════════════════════════
    15. buildSemanticShift  ★新規追加★
    Semanticタブ向け：文脈による意味変化の可能性を返す。
    ═══════════════════════════════════════════════════ */
