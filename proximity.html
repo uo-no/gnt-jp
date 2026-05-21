@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05191400｜近接検索｜コトバト</title>
+    <title>05211700｜近接検索｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -805,59 +805,6 @@
 </div>
 
 <script>
-'use strict';
-/**
- * 述語主格を検出する
- * 前提: コプラ動詞（εἰμί, γίνομαι）が節内に存在する
- * @param {Array}  tokens  節内の全トークン
- * @param {number} verbIdx コプラ動詞のインデックス
- * @returns {{ subjectIdx: number|null, predicateNomIdx: number|null }}
- */
-function detectPredicateNominative(tokens, verbIdx) {
-    const COPULA_LEMMAS = new Set([
-        'εἰμί','ἐστιν','εἶναι','ὤν',
-        'γίνομαι','γίνεσθαι',
-    ]);
-
-    const verb = tokens[verbIdx];
-    const vLemma = (verb.lemma || '').trim();
-    if (!COPULA_LEMMAS.has(vLemma)) return null;
-
-    // 主格名詞をすべて収集
-    const nominals = tokens.reduce((acc, t, i) => {
-        if (i === verbIdx) return acc;
-        const pos = entryPosCode(t);
-        if (!['N','A','R','P','D','T'].includes(pos)) return acc;
-        const m = decodeMorph(t);
-        if (m.case === 'nominative') acc.push({ idx: i, tok: t, m });
-        return acc;
-    }, []);
-
-    if (nominals.length < 2) return null;   // 1つだけなら主語のみ
-
-    // コルウェルの規則:
-    //   冠詞あり（直前に T が来る） → 主語
-    //   冠詞なし → 述語主格（動詞の前に置かれることが多い）
-    const hasArticleBefore = (idx) => {
-        if (idx === 0) return false;
-        return entryPosCode(tokens[idx - 1]) === 'T';
-    };
-
-    let subjectIdx = null, predicateNomIdx = null;
-    for (const { idx } of nominals) {
-        if (hasArticleBefore(idx)) subjectIdx = idx;
-        else predicateNomIdx = idx;
-    }
-
-    // どちらか一方しか判定できない場合は動詞の後を述語主格とする
-    if (!predicateNomIdx && nominals.length >= 2) {
-        const afterVerb = nominals.find(n => n.idx > verbIdx);
-        if (afterVerb) predicateNomIdx = afterVerb.idx;
-    }
-
-    return { subjectIdx, predicateNomIdx };
-}
-    
 /* ============================================================
    書物マスター（Index.htmlと同一）
    ============================================================ */
@@ -905,15 +852,76 @@ const FLAT_BOOKS = [...ALL_BOOKS.nt, ...ALL_BOOKS.ot];
    ストップワード
    ============================================================ */
 const STOP_WORDS = new Set([
+    // ── 冠詞（全変化形）──
     'ὁ','ἡ','τό','τοῦ','τῆς','τῷ','τήν','τόν','τά','τοῖς','ταῖς','τάς','τούς',
+
+    // ── 基本接続詞・前置詞・否定詞 ──
     'καί','δέ','εἰς','ἐν','οὐ','οὐκ','οὐχ','μή','ἀλλά','γάρ','ὅτι','ἐκ','ἐξ',
     'διά','κατά','περί','ὑπό','παρά','πρός','ἀπό','σύν','μετά','ἐπί',
+    'ἀνά','ἀντί','ἕως','πρό','χωρίς','ὡς','ἐάν','εἰ','ἵνα','ὅταν','ὥστε',
+
+    // ── 人称代名詞（全変化形）──
     'αὐτός','αὐτοῦ','αὐτῷ','αὐτόν','αὐτή','αὐτῆς','αὐτήν',
     'αὐτοί','αὐτῶν','αὐτοῖς','αὐτούς','αὐταί','αὐτάς',
-    'ὅς','ἥ','οἵ','αἵ','ὅ',
-    'τις','τι','τινός','τινί','τινά',
-    'οὗτος','αὕτη','τοῦτο','τούτου','τούτῳ','τούτους','ταύτης','ταύτῃ','ταύτην',
-    'πᾶς','πᾶν','πάντα','πάντες','πάντων','πᾶσιν',
+    'ἐγώ','μου','μοι','με','ἡμεῖς','ἡμῶν','ἡμῖν','ἡμᾶς',
+    'σύ','σου','σοι','σε','ὑμεῖς','ὑμῶν','ὑμῖν','ὑμᾶς',
+
+    // ── 関係代名詞 ──
+    'ὅς','ἥ','οἵ','αἵ','ὅ','οὗ','ᾧ','ὅν','ὧν','οἷς','οὕς','ἥν','αἷς','ἅς',
+
+    // ── 不定代名詞 ──
+    'τις','τι','τινός','τινί','τινά','τινές','τινῶν','τισί','τινάς',
+
+    // ── 指示代名詞（主要変化形）──
+    'οὗτος','αὕτη','τοῦτο','τούτου','τούτῳ','τούτους',
+    'ταύτης','ταύτῃ','ταύτην','τούτων','τούτοις','ταύτας',
+    'ἐκεῖνος','ἐκείνη','ἐκεῖνο',
+    'ἐκείνου','ἐκείνης','ἐκείνῳ','ἐκείνην','ἐκεῖνον',
+    'ἐκείνων','ἐκείνοις','ἐκείνους','ἐκείναις','ἐκείνας',
+
+    // ── 全称代名詞 ──
+    'πᾶς','πᾶν','πάντα','πάντες','πάντων','πᾶσιν','πάσης','πάσῃ',
+    'πᾶσα','πάσας','πάντας',
+
+    // ── εἰμί 活用形（共起語として意味が薄い）──
+    'ἐστιν','ἐστί','εἰσίν','εἰσί','ἦν','ἦσαν','ἔσται','ἔσονται',
+    'εἶναι','ὤν','οὖσα','ὄν','ὄντος','οὔσης','ὄντι','οὔσῃ',
+    'ὄντα','οὖσαν','ὄντας','οὔσας','ὄντων','οὔσαις',
+    'ἐσόμενος','ἐσομένη','ἐσόμενον',
+
+    // ── 副詞（高頻度・意味的に薄い）──
+    'οὕτως','οὕτω',          // このように・そのように
+    'νῦν',                    // 今
+    'τότε',                   // そのとき
+    'ἤδη',                    // すでに
+    'μᾶλλον',                 // むしろ・もっと
+    'οὐκέτι','μηκέτι',        // もはや〜ない
+    'πάλιν',                  // 再び
+    'ὧδε','ἐκεῖ','ἐκεῖθεν',  // ここ・そこ・そこから
+    'ἄρα','ἆρα',              // だから・疑問小辞
+    'ποτε',                   // かつて
+    'ὅτε','ὁπότε',           // 〜するとき
+    'ἔτι',                    // まだ・なお
+    'οὐδέ','μηδέ','μήτε','οὔτε', // 〜もない（既存の否定辞拡充）
+    'ναί','οὐαί',             // はい・ああ（間投詞）
+    'ἰδού',                   // 見よ（間投詞）
+
+    // ── 相関語・添語（意味的に機能語）──
+    'μέν',                    // 一方（μέν…δέ構文）
+    'τε',                     // そして（添加）
+    'ἄν',                     // 〜するなら（仮定・可能性）
+    'γε',                     // 少なくとも（強調添語）
+    'δή',                     // 強調添語
+    'οὖν',                    // それゆえ（論理的帰結）
+    'ἄρα',                    // だから・それゆえ
+
+    // ── 疑問詞（単独では意味なし）──
+    'τίς','τί','πῶς','πότε','ποῦ','πόθεν','πόσος',
+
+    // ── 数詞（高頻度・内容語として弱い）──
+    'εἷς','μία','ἕν','ἑνός','μιᾶς',
+    'δύο','τρεῖς','τρία',
+    'πρῶτος','πρώτη','πρῶτον',  // 第一の
 ]);
 
 /* ============================================================
@@ -1407,6 +1415,81 @@ async function runProximitySearch({ word1, word2 = null, distance = 5, scope = '
     return { coocMap, hits, totalW1: w1Indices.length };
 }
 
+/* ============================================================
+   クエリ種別判定
+   ============================================================ */
+function detectQueryType(query) {
+    if (/[ἀ-῾Α-Ω]/u.test(query))       return 'greek';
+    if (/[ぁ-んァ-ヶ一-龠]/.test(query)) return 'japanese';
+    if (/^\d+$/.test(query))             return 'strong';
+    return 'text';
+}
+
+/* ============================================================
+   トークンマッチ（クエリ種別対応）
+   ============================================================ */
+function matchToken(tok, word) {
+    if (!word) return false;
+    const qtype = detectQueryType(word);
+    if (qtype === 'japanese') {
+        // japanese フィールドに含まれるか
+        if (tok.japanese) {
+            if (Array.isArray(tok.japanese)) {
+                if (tok.japanese.some(j => j.includes(word))) return true;
+            } else if (typeof tok.japanese === 'string') {
+                if (tok.japanese.includes(word)) return true;
+            }
+        }
+        if (tok.gloss && tok.gloss.includes(word)) return true;
+        return false;
+    }
+    if (qtype === 'strong') {
+        return String(tok.strong) === word;
+    }
+    // greek / text：従来動作
+    return tok.text === word || tok.lemma === word;
+}
+
+/* ============================================================
+   lemma別グループ化（日本語検索時）
+   ============================================================ */
+function groupHitsByLemma(hits, distance) {
+    const map = new Map(); // lemma -> group
+    for (const h of hits) {
+        const anchorTok = h.tokens[h.anchorIdx];
+        const lemma = anchorTok.lemma || anchorTok.text || '?';
+        if (!map.has(lemma)) {
+            map.set(lemma, {
+                lemma,
+                japanese: anchorTok.japanese || anchorTok.gloss || null,
+                gloss:    anchorTok.gloss    || null,
+                strong:   anchorTok.strong   || null,
+                hits: [],
+                coocMap: new Map(),  // lemma専用共起マップ
+            });
+        }
+        const group = map.get(lemma);
+        group.hits.push(h);
+
+        // lemma専用共起集計（全件ループ — 描画ではなく統計）
+        const { anchorIdx, start, end, tokens } = h;
+        for (let j = start; j <= end; j++) {
+            if (j === anchorIdx) continue;
+            const t = tokens[j];
+            if (!t.text || t.text.length < 2) continue;
+            if (STOP_WORDS.has(t.text)) continue;
+            if (t.lemma === lemma || t.text === lemma) continue;
+            const dist = Math.abs(j - anchorIdx);
+            const weight = 1 / (dist + 1);
+            const key = t.text;
+            if (!group.coocMap.has(key)) group.coocMap.set(key, { weightedScore: 0, rawCount: 0 });
+            const entry = group.coocMap.get(key);
+            entry.weightedScore += weight;
+            entry.rawCount      += 1;
+        }
+    }
+    return [...map.values()].sort((a, b) => b.hits.length - a.hits.length);
+}
 /* ============================================================
    UI制御
    ============================================================ */
