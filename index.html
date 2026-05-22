@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05221031｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05221044｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -305,7 +305,7 @@ background: #fff;
 .verse-pair-right {
 padding: 2px 24px 2px 32px;
 background: #fafafa;
-align-self: stretch;   /* 左が高くなったとき右も同じ行高まで伸びる */
+align-self: stretch;
 }
 /* 上下の余白行 */
 .verse-grid-spacer-left  { height: 32px; background: #fff; }
@@ -5157,7 +5157,7 @@ async function init() {
         if (!jpData) throw new Error(`bible_jp not found: ${book}/${ch}`);
 
         let jpDataB = null;
-        if (_transMode === 'compare') {
+        if (_transMode === 'compare' && _transB !== 'FLOW') {
             jpDataB = await _fetchTranslation(_transB, book, ch);
         }
 
@@ -5222,30 +5222,27 @@ app.innerHTML = '';
     /* compare モードで mainArea に直接追加した verse-pair をクリア */
     mainArea.querySelectorAll('.verse-pair').forEach(el => el.remove());
 
-    // ── compare モード時：verse-pair ラッパーで左右を同じグリッド行に並べる ──
-    // verse-pair { display:contents } により左右セルが #main-reading-area グリッドに
-    // 直接展開され、同行の高さが max(左,右) で自動的に揃う。
+    const elByVerse = {};
+    if (elData && elData.length > 0) {
+        elData.forEach(w => {
+            const v = w.ref.split(':')[1]?.split('!')[0];
+            if (v) { if (!elByVerse[v]) elByVerse[v] = []; elByVerse[v].push(w); }
+        });
+    }
+
+    const openBtn = document.getElementById('open-panel-btn');
+    if (!hasGreek) {
+        document.getElementById('bottom-depth-panel').style.display = 'none';
+        openBtn.style.display = 'none';
+    }
+
     const useVersePair = mainArea.classList.contains('compare-mode');
-    // verse-pair を挿入する親（compare時は mainArea、single時は従来通り app）
-    const pairRoot = useVersePair ? mainArea : null;
 
     Object.entries(jpData.verses).forEach(([vNum, text]) => {
         // 左：聖書本文
         const block = document.createElement('div');
         block.className = useVersePair ? 'verse-block verse-pair-left' : 'verse-block';
         block.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
-
-        if (hasGreek) {
-            block.onclick = () => {
-                mainArea.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
-                block.classList.add('selected');
-                if (pairEl) pairEl.querySelector('.verse-pair-right')?.classList.add('selected');
-                document.getElementById('active-v').innerText = `${vNum} 節`;
-                AppState.toBrowsing(vNum, elByVerse[vNum] || []);
-                openWordListInStudyPanel(vNum, elByVerse[vNum] || []);
-                hideInspectPopover();
-            };
-        }
 
         // 右：並列訳 or 読解フロー
         const pBlock = document.createElement('div');
@@ -5277,15 +5274,25 @@ app.innerHTML = '';
             pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${rightText}</div></div>`;
         }
 
+        if (hasGreek) {
+            block.onclick = () => {
+                mainArea.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
+                block.classList.add('selected');
+                pBlock.classList.add('selected');
+                document.getElementById('active-v').innerText = `${vNum} 節`;
+                AppState.toBrowsing(vNum, elByVerse[vNum] || []);
+                openWordListInStudyPanel(vNum, elByVerse[vNum] || []);
+                hideInspectPopover();
+            };
+        }
+
         if (useVersePair) {
-            // compare モード：verse-pair ラッパーで左右をまとめて mainArea に追加
             const pairEl = document.createElement('div');
             pairEl.className = 'verse-pair';
             pairEl.appendChild(block);
             pairEl.appendChild(pBlock);
             mainArea.appendChild(pairEl);
         } else {
-            // single モード：従来通り
             app.appendChild(block);
             parallel.appendChild(pBlock);
         }
@@ -6604,14 +6611,12 @@ function _bpRenderSingle() {
 }
 
 function _bpRenderCompare() {
-    /* 左列：FLOW は選べない（左は翻訳テキスト固定） */
     document.getElementById('bp-col-a').innerHTML = TRANS_LIST.filter(t => t.id !== 'FLOW').map(t =>
         `<div class="bp-compare-opt${t.id === _bpSelA ? ' active' : ''}" onclick="bpSelectA('${t.id}')">
             <span class="bp-compare-opt-dot"></span>
             <span class="bp-compare-opt-name">${t.name}</span>
         </div>`
     ).join('');
-    /* 右列：全選択肢（FLOW含む） */
     document.getElementById('bp-col-b').innerHTML = TRANS_LIST.map(t =>
         `<div class="bp-compare-opt${t.id === _bpSelB ? ' active' : ''}" onclick="bpSelectB('${t.id}')">
             <span class="bp-compare-opt-dot"></span>
