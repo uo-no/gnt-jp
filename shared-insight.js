@@ -388,15 +388,14 @@ function classifyParticipleLiteShared(entry, tokens, _entryPosCode, _decodeMorph
             { label: '冠詞なし → 実体用法を除外',             value: +10 },
             { label: '属格絶対はデフォルト推定',              value: -5 }
         );
-        return {
+       return {
             label: hasDistinctSubject
-                ? '属格絶対分詞'
+                ? '属格絶対（推定）'
                 : '属格絶対の可能性（要確認）',
             hint:  hintText,
             conf:  Math.min(Math.max(conf, 25), 92),
             deltas,
         };
-    }
 
     /* ── 4. デフォルト → 副詞用法 ── */
     const tHint  = hm.tense === 'aorist'  ? '〜してから（先行動作）'
