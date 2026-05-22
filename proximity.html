@@ -1144,6 +1144,11 @@ const SEARCH_INDEX = {
 };
 
 // ── index登録ヘルパー（構築フェーズ用：Mapに配列蓄積）
+function normalizeGreek(str) {
+    return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g, '').replace(/ς/g, 'σ').toLowerCase().trim();
+}
+
 function addToIndex(map, key, idx) {
     if (!key) return;
     let arr = map.get(key);
@@ -1220,6 +1225,11 @@ async function loadTokensForScope(scope, ref) {
                 // index構築（ロードと同時に）
                 addToIndex(SEARCH_INDEX.lemma,  tok.lemma,  i);
                 addToIndex(SEARCH_INDEX.text,   tok.text,   i);
+                // アクセント・イオタ添え字の揺れを吸収するため正規化形も登録
+                const normLemma = normalizeGreek(tok.lemma);
+                const normText  = normalizeGreek(tok.text);
+                if (normLemma && normLemma !== tok.lemma) addToIndex(SEARCH_INDEX.lemma, normLemma, i);
+                if (normText  && normText  !== tok.text)  addToIndex(SEARCH_INDEX.text,  normText,  i);
                 addToIndex(SEARCH_INDEX.strong, tok.strong != null ? String(tok.strong) : null, i);
                 // japanese：複数エントリを含む可能性があるため個別登録
                 if (tok.japanese) {
@@ -1255,16 +1265,24 @@ function detectQueryType(query) {
    ============================================================ */
 // index経由でglobal idx の Set を返す（スコープ限定時はtokens線形）
 function searchGreek(tokens, word) {
+    const normWord = normalizeGreek(word);
     if (!INDEX_BUILT) {
         const s = new Set();
-        tokens.forEach((t, i) => { if (t.text === word || t.lemma === word) s.add(i); });
+        tokens.forEach((t, i) => {
+            if (t.text === word || t.lemma === word) { s.add(i); return; }
+            if (normalizeGreek(t.text) === normWord || normalizeGreek(t.lemma) === normWord) s.add(i);
+        });
         return s;
     }
-    const byLemma = SEARCH_INDEX.lemma.get(word);
-    const byText  = SEARCH_INDEX.text.get(word);
     const s = new Set();
-    if (byLemma) for (const i of byLemma) s.add(i);
-    if (byText)  for (const i of byText)  s.add(i);
+    const byLemma     = SEARCH_INDEX.lemma.get(word);
+    const byText      = SEARCH_INDEX.text.get(word);
+    const byLemmaNorm = normWord !== word ? SEARCH_INDEX.lemma.get(normWord) : null;
+    const byTextNorm  = normWord !== word ? SEARCH_INDEX.text.get(normWord)  : null;
+    if (byLemma)     for (const i of byLemma)     s.add(i);
+    if (byText)      for (const i of byText)       s.add(i);
+    if (byLemmaNorm) for (const i of byLemmaNorm)  s.add(i);
+    if (byTextNorm)  for (const i of byTextNorm)   s.add(i);
     return s;
 }
 
@@ -1324,8 +1342,9 @@ function matchToken(tok, word) {
         return !!(tok.gloss && tok.gloss.includes(word));
     }
     if (qtype === 'strong') return String(tok.strong) === word;
-    return tok.text === word || tok.lemma === word;
-}
+    return tok.text === word || tok.lemma === word
+        || normalizeGreek(tok.text) === normalizeGreek(word)
+        || normalizeGreek(tok.lemma) === normalizeGreek(word);}
 
 /* ============================================================
    lemma別グループ化（日本語検索時）
