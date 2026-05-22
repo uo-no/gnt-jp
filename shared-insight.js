@@ -396,6 +396,7 @@ function classifyParticipleLiteShared(entry, tokens, _entryPosCode, _decodeMorph
             conf:  Math.min(Math.max(conf, 25), 92),
             deltas,
         };
+       }
 
     /* ── 4. デフォルト → 副詞用法 ── */
     const tHint  = hm.tense === 'aorist'  ? '〜してから（先行動作）'
