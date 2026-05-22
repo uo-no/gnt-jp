@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05221030｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05221045｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -5264,7 +5264,7 @@ function render(jpData, elData, hasGreek, jpDataB) {
         // 右：並列訳（compare モード時に翻訳Bを表示）
         const pBlock = document.createElement('div');
         pBlock.className = 'verse-block verse-pair-right';
-        if (_transB === 'FLOW') {
+if (_transB === 'FLOW') {
             const words = elByVerse[vNum] || [];
             if (words.length === 0) {
                 pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="color:var(--text-sub);font-size:0.82rem;opacity:0.5;">原語データなし</div></div>`;
@@ -5272,9 +5272,24 @@ function render(jpData, elData, hasGreek, jpDataB) {
                 const chips = words.map((w, i) => _wordToFlowChip(w, i));
                 const chipsHTML = chips.map((c, i) => {
                     const sep = c.phraseBreakBefore ? `<span class="wlv-phrase-sep"></span>` : '';
-                    return `${sep}<span class="wlv-chip ${c.roleClass}" data-idx="${i}" onclick="_wlvChipClick(this,${i})" title="${c.greek}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span><span class="wlv-chip-dot"></span></span>`;
+                    return `${sep}<span class="wlv-chip ${c.roleClass}" data-idx="${i}" onclick="event.stopPropagation();_wlvChipClick(this,${i})" title="${c.greek}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span><span class="wlv-chip-dot"></span></span>`;
                 }).join('');
                 pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="font-size:0.88rem;line-height:2.4;"><div class="wlv-flow-stream" style="flex-wrap:wrap;display:flex;gap:4px 2px;align-items:baseline;">${chipsHTML}</div></div></div>`;
+                /* 節クリック → 左列と同じデプスパネルを開く */
+                pBlock.onclick = () => {
+                    mainArea.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
+                    pBlock.classList.add('selected');
+                    /* 対応する左列ブロックにも selected を付ける */
+                    const leftBlock = [...app.querySelectorAll('.verse-block')].find(b => {
+                        const vEl = b.querySelector('.v-num');
+                        return vEl && vEl.textContent === String(vNum);
+                    });
+                    if (leftBlock) leftBlock.classList.add('selected');
+                    document.getElementById('active-v').innerText = `${vNum} 節`;
+                    AppState.toBrowsing(vNum, words);
+                    openWordListInStudyPanel(vNum, words);
+                    hideInspectPopover();
+                };
             }
         } else {
             const rightText = (jpDataB && jpDataB.verses && jpDataB.verses[vNum]) ? jpDataB.verses[vNum] : (jpData.verses[vNum] || '');
