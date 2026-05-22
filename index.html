@@ -2556,6 +2556,7 @@ const TRANSLATIONS = {
     'BUN':    { label: '文語訳',             code: 'BUN'    },
     'KAI17':  { label: '新改訳2017',         code: 'KAI17'  },
     'KYO':    { label: '聖書協会共同訳',     code: 'KYO'    },
+    'FLOW':   { label: '読解フロー',         code: 'FLOW'   },
 };
 const TRANS_LIST   = Object.entries(TRANSLATIONS).map(([id, t]) => ({ id, name: t.label, code: t.code }));
 const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t]) => [id, t.label]));
@@ -5263,9 +5264,22 @@ function render(jpData, elData, hasGreek, jpDataB) {
         // 右：並列訳（compare モード時に翻訳Bを表示）
         const pBlock = document.createElement('div');
         pBlock.className = 'verse-block verse-pair-right';
-        pBlock.dataset.vnum = vNum; /* Greek Flow View: 節番号を保持 */
-        const rightText = (jpDataB && jpDataB.verses && jpDataB.verses[vNum]) ? jpDataB.verses[vNum] : (jpData.verses[vNum] || '');
-        pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${rightText}</div></div>`;
+        if (_transB === 'FLOW') {
+            const words = elByVerse[vNum] || [];
+            if (words.length === 0) {
+                pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="color:var(--text-sub);font-size:0.82rem;opacity:0.5;">原語データなし</div></div>`;
+            } else {
+                const chips = words.map((w, i) => _wordToFlowChip(w, i));
+                const chipsHTML = chips.map((c, i) => {
+                    const sep = c.phraseBreakBefore ? `<span class="wlv-phrase-sep"></span>` : '';
+                    return `${sep}<span class="wlv-chip ${c.roleClass}" data-idx="${i}" onclick="_wlvChipClick(this,${i})" title="${c.greek}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span><span class="wlv-chip-dot"></span></span>`;
+                }).join('');
+                pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="font-size:0.88rem;line-height:2.4;"><div class="wlv-flow-stream" style="flex-wrap:wrap;display:flex;gap:4px 2px;align-items:baseline;">${chipsHTML}</div></div></div>`;
+            }
+        } else {
+            const rightText = (jpDataB && jpDataB.verses && jpDataB.verses[vNum]) ? jpDataB.verses[vNum] : (jpData.verses[vNum] || '');
+            pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${rightText}</div></div>`;
+        }
         parallel.appendChild(pBlock);
     });
 
@@ -6190,11 +6204,11 @@ async function renderCurrentPage() {
         const jpData = await _fetchTranslation(_transA, book, ch);
         if (!jpData) throw new Error('Not found');
 
-        let jpDataB = null;
-        if (_transMode === 'compare') {
+    let jpDataB = null;
+        if (_transMode === 'compare' && _transB !== 'FLOW') {
             jpDataB = await _fetchTranslation(_transB, book, ch);
         }
-
+        
         let elData = [];
         if (hasGreek) {
             try {
@@ -6582,12 +6596,14 @@ function _bpRenderSingle() {
 }
 
 function _bpRenderCompare() {
-    document.getElementById('bp-col-a').innerHTML = TRANS_LIST.map(t =>
+    /* 左列：FLOW は選べない（左は翻訳テキスト固定） */
+    document.getElementById('bp-col-a').innerHTML = TRANS_LIST.filter(t => t.id !== 'FLOW').map(t =>
         `<div class="bp-compare-opt${t.id === _bpSelA ? ' active' : ''}" onclick="bpSelectA('${t.id}')">
             <span class="bp-compare-opt-dot"></span>
             <span class="bp-compare-opt-name">${t.name}</span>
         </div>`
     ).join('');
+    /* 右列：全選択肢（FLOW含む） */
     document.getElementById('bp-col-b').innerHTML = TRANS_LIST.map(t =>
         `<div class="bp-compare-opt${t.id === _bpSelB ? ' active' : ''}" onclick="bpSelectB('${t.id}')">
             <span class="bp-compare-opt-dot"></span>
