@@ -305,6 +305,7 @@ background: #fff;
 .verse-pair-right {
 padding: 2px 24px 2px 32px;
 background: #fafafa;
+align-self: stretch;   /* 左が高くなったとき右も同じ行高まで伸びる */
 }
 /* 上下の余白行 */
 .verse-grid-spacer-left  { height: 32px; background: #fff; }
@@ -5215,56 +5216,42 @@ function render(jpData, elData, hasGreek, jpDataB) {
         hintEl = document.createElement('div');
         hintEl.id = 'reading-hint';
     }
-    app.innerHTML = '';
+app.innerHTML = '';
     app.appendChild(hintEl);
     parallel.innerHTML = '';
-    
+    /* compare モードで mainArea に直接追加した verse-pair をクリア */
+    mainArea.querySelectorAll('.verse-pair').forEach(el => el.remove());
 
-    // Study panel 内の語形一覧はなくなったため、elByVerseは
-    // word-cardのHTMLをverse-blockにインライン埋め込むのではなく、
-    // 節クリックで bottom のhidden panelに格納して onWordCardClick から読む方式を維持。
-    // ただし bottom-word-panel は display:none なので、代わりに
-    // 節クリックで「語形ポップアップリスト」を side-panel 上部に表示する。
-    // 今回の最小差分では: 節クリック → side-panel の panelContent に語形カードを描画し Study へ
-    // という旧来の挙動を維持しつつ、
-    // 語形カードクリック → Inspect popover（新規）の流れにする。
-
-    const elByVerse = {};
-    if (elData && elData.length > 0) {
-        elData.forEach(w => {
-            const v = w.ref.split(':')[1]?.split('!')[0];
-            if (v) { if (!elByVerse[v]) elByVerse[v] = []; elByVerse[v].push(w); }
-        });
-    }
-
-    const openBtn = document.getElementById('open-panel-btn');
-    if (!hasGreek) {
-        document.getElementById('bottom-depth-panel').style.display = 'none';
-        openBtn.style.display = 'none';
-    }
+    // ── compare モード時：verse-pair ラッパーで左右を同じグリッド行に並べる ──
+    // verse-pair { display:contents } により左右セルが #main-reading-area グリッドに
+    // 直接展開され、同行の高さが max(左,右) で自動的に揃う。
+    const useVersePair = mainArea.classList.contains('compare-mode');
+    // verse-pair を挿入する親（compare時は mainArea、single時は従来通り app）
+    const pairRoot = useVersePair ? mainArea : null;
 
     Object.entries(jpData.verses).forEach(([vNum, text]) => {
         // 左：聖書本文
         const block = document.createElement('div');
-        block.className = 'verse-block';
+        block.className = useVersePair ? 'verse-block verse-pair-left' : 'verse-block';
         block.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
 
         if (hasGreek) {
             block.onclick = () => {
                 mainArea.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
                 block.classList.add('selected');
+                if (pairEl) pairEl.querySelector('.verse-pair-right')?.classList.add('selected');
                 document.getElementById('active-v').innerText = `${vNum} 節`;
                 AppState.toBrowsing(vNum, elByVerse[vNum] || []);
                 openWordListInStudyPanel(vNum, elByVerse[vNum] || []);
                 hideInspectPopover();
             };
         }
-        app.appendChild(block);
 
-        // 右：並列訳（compare モード時に翻訳Bを表示）
+        // 右：並列訳 or 読解フロー
         const pBlock = document.createElement('div');
         pBlock.className = 'verse-block verse-pair-right';
-if (_transB === 'FLOW') {
+
+        if (_transB === 'FLOW') {
             const words = elByVerse[vNum] || [];
             if (words.length === 0) {
                 pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="color:var(--text-sub);font-size:0.82rem;opacity:0.5;">原語データなし</div></div>`;
@@ -5275,16 +5262,10 @@ if (_transB === 'FLOW') {
                     return `${sep}<span class="wlv-chip ${c.roleClass}" data-idx="${i}" onclick="event.stopPropagation();_wlvChipClick(this,${i})" title="${c.greek}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span><span class="wlv-chip-dot"></span></span>`;
                 }).join('');
                 pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="font-size:0.88rem;line-height:2.4;"><div class="wlv-flow-stream" style="flex-wrap:wrap;display:flex;gap:4px 2px;align-items:baseline;">${chipsHTML}</div></div></div>`;
-                /* 節クリック → 左列と同じデプスパネルを開く */
                 pBlock.onclick = () => {
                     mainArea.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
                     pBlock.classList.add('selected');
-                    /* 対応する左列ブロックにも selected を付ける */
-                    const leftBlock = [...app.querySelectorAll('.verse-block')].find(b => {
-                        const vEl = b.querySelector('.v-num');
-                        return vEl && vEl.textContent === String(vNum);
-                    });
-                    if (leftBlock) leftBlock.classList.add('selected');
+                    block.classList.add('selected');
                     document.getElementById('active-v').innerText = `${vNum} 節`;
                     AppState.toBrowsing(vNum, words);
                     openWordListInStudyPanel(vNum, words);
@@ -5295,7 +5276,19 @@ if (_transB === 'FLOW') {
             const rightText = (jpDataB && jpDataB.verses && jpDataB.verses[vNum]) ? jpDataB.verses[vNum] : (jpData.verses[vNum] || '');
             pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${rightText}</div></div>`;
         }
-        parallel.appendChild(pBlock);
+
+        if (useVersePair) {
+            // compare モード：verse-pair ラッパーで左右をまとめて mainArea に追加
+            const pairEl = document.createElement('div');
+            pairEl.className = 'verse-pair';
+            pairEl.appendChild(block);
+            pairEl.appendChild(pBlock);
+            mainArea.appendChild(pairEl);
+        } else {
+            // single モード：従来通り
+            app.appendChild(block);
+            parallel.appendChild(pBlock);
+        }
     });
 
 _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
