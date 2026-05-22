@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>05181000｜聖書をギリシャ語で読むアプリ｜コトバト</title>
+    <title>05221000｜聖書をギリシャ語で読むアプリ｜コトバト</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -1979,6 +1979,57 @@ details[open] .study-summary::before {
     color: var(--text-main);
     font-family: 'Noto Serif JP', serif;
 }
+/* ── Greek Flow View: 右列タブバー ── */
+.gf-tab-bar {
+    display: flex;
+    gap: 0;
+    padding: 4px 24px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    background: #fafafa;
+}
+.gf-tab-btn {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-sub);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 6px 10px 5px;
+    cursor: pointer;
+    opacity: 0.45;
+    transition: opacity 0.15s, border-color 0.15s;
+}
+.gf-tab-btn.active {
+    opacity: 0.9;
+    border-bottom-color: var(--highlight);
+}
+.gf-tab-btn:hover { opacity: 0.7; }
+
+/* Greek Flow 右列本文コンテナ */
+.gf-verse-block {
+    padding: 14px 24px 10px;
+}
+/* flowモード時は jp-text の代わりにchipを表示するため jp-text を隠す */
+.verse-pair-right.gf-mode .jp-text {
+    display: none;
+}
+.verse-pair-right.gf-mode .gf-verse-block {
+    display: block;
+}
+.verse-pair-right:not(.gf-mode) .gf-verse-block {
+    display: none;
+}
+/* flowモードのchip streamはStudy Panel版より余白を抑える */
+.gf-verse-block .wlv-flow-section-compact {
+    padding: 0 0 8px;
+}
+.gf-verse-block .wlv-reading-passage-note {
+    padding: 12px 0 8px;
+    border-top: 1px solid rgba(0,0,0,0.05);
+}
+
 /* 「聖書」ラベル：クリック可能 */
 .sb-bible-label {
     display: flex;
@@ -2434,7 +2485,13 @@ details[open] .study-summary::before {
     <div id="app">
         <div id="main-reading-area" class="single-mode">
             <div class="trans-col-header" id="trans-col-header-a"></div>
-            <div class="trans-col-header right" id="trans-col-header-b"></div>
+                <div class="trans-col-header right" id="trans-col-header-b">
+                    <span id="gf-trans-label"></span>
+                    <div class="gf-tab-bar" id="gf-tab-bar" style="display:none;">
+                        <button class="gf-tab-btn active" id="gf-tab-trans" onclick="_setRightMode('trans')">別訳</button>
+                        <button class="gf-tab-btn"        id="gf-tab-flow" onclick="_setRightMode('flow')">読解フロー</button>
+                    </div>
+                </div>
             <div id="bible-text-area">
             </div>
             <div id="parallel-text-area"></div>
@@ -2508,9 +2565,12 @@ let currentTranslation  = 'JA1955';
 let currentTranslationB = 'KYO';
 
 /* _transA / _transB は currentTranslation* と同期して動かす（後方互換エイリアス） */
-let _transMode = 'single';
-let _transA    = currentTranslation;
-let _transB    = currentTranslationB;
+let _transMode   = 'single';
+let _transA      = currentTranslation;
+let _transB      = currentTranslationB;
+let _rightMode   = 'trans'; // 'trans' | 'flow'
+let _cachedElByVerse = {};  // render()が完了後に保存。右列flow再描画用
+let _cachedJpDataB   = null;
 
 /* ══════════════════════════════════════════
    AppState - UI状態の一元管理
@@ -5203,12 +5263,34 @@ function render(jpData, elData, hasGreek, jpDataB) {
         // 右：並列訳（compare モード時に翻訳Bを表示）
         const pBlock = document.createElement('div');
         pBlock.className = 'verse-block verse-pair-right';
+        pBlock.dataset.vnum = vNum; /* Greek Flow View: 節番号を保持 */
         const rightText = (jpDataB && jpDataB.verses && jpDataB.verses[vNum]) ? jpDataB.verses[vNum] : (jpData.verses[vNum] || '');
         pBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${rightText}</div></div>`;
         parallel.appendChild(pBlock);
     });
 
-    _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
+_proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
+
+    /* Greek Flow View: キャッシュ保存 */
+    _cachedElByVerse = elByVerse;
+    _cachedJpDataB   = jpDataB || null;
+
+    /* タブバーの表示制御（原語データがあるときだけ表示） */
+    const gfTabBar    = document.getElementById('gf-tab-bar');
+    const gfTransLbl  = document.getElementById('gf-trans-label');
+    const hB          = document.getElementById('trans-col-header-b');
+    if (gfTabBar) {
+        if (hasGreek && mainArea.classList.contains('compare-mode')) {
+            gfTabBar.style.display = 'flex';
+            if (gfTransLbl) gfTransLbl.textContent = '';
+        } else {
+            gfTabBar.style.display = 'none';
+            /* 通常の翻訳ラベルを表示 */
+            if (gfTransLbl) gfTransLbl.textContent = (TRANSLATIONS[_transB] || {}).label || _transB;
+        }
+    }
+    /* flowモードが残っている場合はリセット（章移動時の整合性） */
+    if (_rightMode === 'flow') _setRightMode('trans');
 
     // Reading hint: 語クリックで Inspect を開けることを静かに示す
     const hint = document.getElementById('reading-hint');
@@ -6362,17 +6444,76 @@ function _applyTransMode(mode) {
     } else {
         area.classList.remove('compare-mode');
         area.classList.add('single-mode');
+        /* Greek Flow View: 単一表示に戻ったらタブを隠してtransに戻す */
+        const gfTabBar = document.getElementById('gf-tab-bar');
+        if (gfTabBar) gfTabBar.style.display = 'none';
+        if (_rightMode === 'flow') _setRightMode('trans');
     }
     _updateColHeaders();
 }
 
 function _updateColHeaders() {
     const hA = document.getElementById('trans-col-header-a');
-    const hB = document.getElementById('trans-col-header-b');
-    /* TRANSLATIONS から label を引く。未定義なら id をそのまま表示 */
     if (hA) hA.textContent = (TRANSLATIONS[_transA] || {}).label || _transA;
-    if (hB) hB.textContent = (TRANSLATIONS[_transB] || {}).label || _transB;
+    /* Greek Flow View: hB はタブバーを内包するため textContent で上書きしない */
+    const gfTransLbl = document.getElementById('gf-trans-label');
+    if (gfTransLbl) gfTransLbl.textContent = (TRANSLATIONS[_transB] || {}).label || _transB;
     _updateBibleLabel();
+}
+
+/* ── Greek Flow View: 右列表示モード切り替え ── */
+function _setRightMode(mode) {
+    _rightMode = mode;
+
+    /* タブボタンの active 更新 */
+    const tabTrans = document.getElementById('gf-tab-trans');
+    const tabFlow  = document.getElementById('gf-tab-flow');
+    if (tabTrans) tabTrans.classList.toggle('active', mode === 'trans');
+    if (tabFlow)  tabFlow.classList.toggle('active',  mode === 'flow');
+
+    /* 全 verse-pair-right を切り替え */
+    document.querySelectorAll('.verse-pair-right').forEach(block => {
+        const vNum = block.dataset.vnum;
+        block.classList.toggle('gf-mode', mode === 'flow');
+
+        if (mode === 'flow') {
+            /* gf-verse-block がまだなければ生成 */
+            if (!block.querySelector('.gf-verse-block')) {
+                const words = (_cachedElByVerse && vNum) ? (_cachedElByVerse[vNum] || []) : [];
+                const gfEl = document.createElement('div');
+                gfEl.className = 'gf-verse-block';
+                gfEl.innerHTML = _buildGfVerseBlock(vNum, words);
+                block.appendChild(gfEl);
+            }
+        }
+    });
+}
+
+/* ── Greek Flow View: 1節分の右列HTML生成 ── */
+function _buildGfVerseBlock(vNum, words) {
+    if (!words || words.length === 0) {
+        return `<p style="font-size:0.8rem;color:var(--text-sub);opacity:0.6;padding:8px 0;">この節の原語データがありません</p>`;
+    }
+    /* 既存の Study Panel 用ロジックを再利用 */
+    const chips = words.map((w, i) => _wordToFlowChip(w, i));
+    const chipsHTML = chips.map((c, i) => {
+        const sepBefore = c.phraseBreakBefore ? `<span class="wlv-phrase-sep"></span>` : '';
+        return `${sepBefore}<span class="wlv-chip ${c.roleClass}"
+            data-idx="${i}"
+            onclick="_wlvChipClick(this,${i})"
+            title="${c.greek}">
+            <span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span>
+            <span class="wlv-chip-dot"></span>
+        </span>`;
+    }).join('');
+
+    const passageNote = _buildPassageNote(words);
+
+    return `
+        <div class="wlv-flow-section-compact">
+            <div class="wlv-flow-stream">${chipsHTML}</div>
+        </div>
+        ${passageNote}`;
 }
 
 function _updateBibleLabel() {
