@@ -1616,7 +1616,11 @@ function groupTokens(tokens, roleMap) {
             let j = i + 1;
             while (j < tokens.length) {
                 const np = entryPosCode(tokens[j]);
-                if (['N','T','A','D','R'].includes(np) || np === '') {
+                const nm = decodeMorph(tokens[j]);
+                // 名詞系・冠詞・形容詞・副詞・代名詞、および属格修飾語（名詞の属格）を継続取り込む
+                const isNominal = ['N','T','A','D','R'].includes(np) || np === '';
+                const isGenitiveModifier = np === 'N' && nm.case === 'genitive';
+                if (isNominal || isGenitiveModifier) {
                     members.push(tokens[j]); j++;
                 } else break;
             }
