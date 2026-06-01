@@ -2290,10 +2290,19 @@ const ALL_BOOKS = [
     {key:'PSA',ch:150},{key:'PRO',ch:31},{key:'JOB',ch:42},{key:'SNG',ch:8},{key:'LAM',ch:5},
     {key:'ECC',ch:12},{key:'EST',ch:10},{key:'EZR',ch:10},{key:'NEH',ch:13},{key:'1CH',ch:29},{key:'2CH',ch:36},
 ];
+const NT_BOOKS = new Set([
+    'MAT','MRK','LUK','JHN','ACT','ROM','1CO','2CO','GAL','EPH',
+    'PHP','COL','1TH','2TH','1TI','2TI','TIT','PHM','HEB','JAS',
+    '1PE','2PE','1JN','2JN','3JN','JUD','REV'
+]);
+function bibleDataPath(bookKey, ch) {
+    const sub = NT_BOOKS.has(bookKey) ? 'nt' : 'lxx';
+    return `./bible_data/${sub}/${bookKey}/${ch}.json`;
+}
 function buildAllChapterPaths() {
     const p=[];
     for(const b of ALL_BOOKS) for(let c=1;c<=b.ch;c++)
-        p.push({key:b.key,ch:c,path:`./bible_data/${b.key}/${c}.json`});
+        p.push({key:b.key,ch:c,path:bibleDataPath(b.key,c)});
     return p;
 }
 async function fetchInBatches(tasks,sz,onProg) {
