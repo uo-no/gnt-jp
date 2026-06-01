@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>06010925｜言語の壁を超えて読む聖書アプリ</title>
+    <title>06011452｜言語の壁を超えて読む聖書アプリ</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -3242,6 +3242,12 @@ const GREEK_BOOKS = new Set([
     'HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD','REV'
 ]);
 
+/* NT か LXX かでサブディレクトリを切り替えるパスヘルパー */
+function bibleDataPath(bookKey, ch) {
+    const sub = GREEK_BOOKS.has(bookKey) ? 'nt' : 'lxx';
+    return `./bible_data/${sub}/${bookKey}/${ch}.json`;
+}
+
 /* ══════════════════════════════════════════
    グローバル breadcrumb（空間ナビゲーション）
    ══════════════════════════════════════════ */
@@ -5921,7 +5927,7 @@ async function init() {
         let elData = [];
         if (hasGreek) {
             try {
-                const elRes = await fetch(`./bible_data/${book}/${ch}.json`);
+                const elRes = await fetch(bibleDataPath(book, ch));
                 if (elRes.ok) {
                     elData = await elRes.json();
                 } else {
@@ -7137,7 +7143,7 @@ async function renderCurrentPage() {
         let elData = [];
         if (hasGreek) {
             try {
-                const elRes = await fetch(`./bible_data/${book}/${ch}.json`);
+                const elRes = await fetch(bibleDataPath(book, ch));
                 if (elRes.ok) elData = await elRes.json();
             } catch(e) {}
         }
