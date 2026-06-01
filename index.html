@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>06012102｜言語の壁を超えて読む聖書アプリ</title>
+    <title>06012127｜言語の壁を超えて読む聖書アプリ</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -252,7 +252,7 @@ flex-shrink: 0;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 120px;
+        max-width: 160px;
     }
 
     /* ナビバー中央タイトル */
@@ -3242,12 +3242,6 @@ const GREEK_BOOKS = new Set([
     'HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD','REV'
 ]);
 
-/* NT か LXX かでサブディレクトリを切り替えるパスヘルパー */
-function bibleDataPath(bookKey, ch) {
-    const sub = GREEK_BOOKS.has(bookKey) ? 'nt' : 'lxx';
-    return `./bible_data/${sub}/${bookKey}/${ch}.json`;
-}
-
 /* ══════════════════════════════════════════
    グローバル breadcrumb（空間ナビゲーション）
    ══════════════════════════════════════════ */
@@ -3348,9 +3342,7 @@ function renderDepthHistory() {
         const mbl = document.getElementById('mobile-panel-back-label');
         if (mbl) {
             const _loc2 = AppState.location;
-            mbl.textContent = (_loc2.book && _loc2.chapter !== null)
-                ? (_loc2.book.name + _loc2.chapter + '章')
-                : '本文';
+            mbl.textContent = _bookChapterLabel(_loc2);
         }
         return;
     }
@@ -3362,13 +3354,14 @@ function renderDepthHistory() {
     const prev = stack[prevIdx];
 
     const _loc = AppState.location;
-    const _chapterLabel = (_loc.book && _loc.chapter !== null)
-        ? (_loc.book.name + _loc.chapter + '章')
-        : '本文';
+    const _chapterLabel = _bookChapterLabel(_loc);
 
+    const _verseFlowLabel = (prev.type === 'verse-flow' && prev.verse && _loc.book && _loc.chapter !== null)
+        ? ((BOOK_SHORT[_loc.book.key] || _loc.book.name) + _loc.chapter + '章' + prev.verse + '節')
+        : 'フロー';
     const backLabel = {
         'reading':      _chapterLabel,
-        'verse-flow':   'フロー',
+        'verse-flow':   _verseFlowLabel,
         'deep-reading': '読解',
     }[prev.type] || (prev.label || '戻る');
 
@@ -3527,14 +3520,10 @@ function _mobileOpenPanel(titleText) {
                     : '一覧';
             } else if (prev && prev.type === 'reading') {
                 const _loc3 = AppState.location;
-                backLabel.textContent = (_loc3.book && _loc3.chapter !== null)
-                    ? (_loc3.book.name + _loc3.chapter + '章')
-                    : '本文';
+                backLabel.textContent = _bookChapterLabel(_loc3);
             } else {
                 const _loc4 = AppState.location;
-                backLabel.textContent = (_loc4.book && _loc4.chapter !== null)
-                    ? (_loc4.book.name + _loc4.chapter + '章')
-                    : '本文';
+                backLabel.textContent = _bookChapterLabel(_loc4);
             }
         }
     }
@@ -3585,7 +3574,7 @@ function _openWordListInternal(vNum, words) {
     sidePanel.appendChild(listEl);
 
     /* モバイルナビバー */
-    const chapterLabel = AppState.location.chapter ? AppState.location.chapter + ':' + vNum : '';
+    const chapterLabel = vNum ? vNum + '節' : '';
     _mobileOpenPanel(chapterLabel || '語形一覧');
 }
 
@@ -5837,13 +5826,7 @@ function showAppInfo() {
                     <tr><th>ギリシャ語底本</th><td>SBL Greek New Testament (SBLGNT)</td></tr>
                     <tr><th>形態論解析</th><td>Macula Greek Project / MorphGNT</td></tr>
                     <tr><th>辞書データ</th><td>Abbott-Smith, <em>A Manual Greek Lexicon of the New Testament</em></td></tr>
-                    <tr>
-                      <th>日本語訳聖書</th>
-                      <td>
-                        現在対応：『聖書 口語訳』（日本聖書協会、1955年）、『聖書 文語訳』（日本聖書協会、1917年改訳）<br>
-                        今後対応予定：『新改訳2017』（新日本聖書刊行会、2017年）、『聖書協会共同訳』（日本聖書協会、2018年）
-                      </td>
-                    </tr>
+                    <tr><th>日本語訳聖書</th><td>聖書 新改訳2017 © 2017 新日本聖書刊行会</td></tr>
                 </table>
             </section>
 
@@ -5910,7 +5893,7 @@ async function init() {
 
     await loadDict();
 
-    const isNtBook = GREEK_BOOKS.has(book);
+    const hasGreek = GREEK_BOOKS.has(book);
 
     try {
         /* _transA が FLOW の場合は翻訳JSONをfetchしない */
@@ -5925,19 +5908,18 @@ async function init() {
         }
 
         let elData = [];
-        /* NT書物 または 旧約書物（LXXデータを試みる）どちらもフェッチを試みる */
-        try {
-            const elRes = await fetch(bibleDataPath(book, ch));
-            if (elRes.ok) {
-                elData = await elRes.json();
-            } else {
-                console.warn(`bible_data not found for ${book}/${ch} - Greek/LXX panel disabled`);
+        if (hasGreek) {
+            try {
+                const elRes = await fetch(`./bible_data/${book}/${ch}.json`);
+                if (elRes.ok) {
+                    elData = await elRes.json();
+                } else {
+                    console.warn(`bible_data not found for ${book}/${ch} - Greek panel disabled`);
+                }
+            } catch (e) {
+                console.warn(`bible_data fetch error for ${book}/${ch}:`, e);
             }
-        } catch (e) {
-            console.warn(`bible_data fetch error for ${book}/${ch}:`, e);
         }
-
-        const hasGreek = elData.length > 0;
 
         /* _transA === 'FLOW': elData から verse キーを組み立てて jpData の代わりに渡す */
         const resolvedJpData = (_transA === 'FLOW')
@@ -5945,7 +5927,7 @@ async function init() {
             : jpData;
         if (!resolvedJpData) throw new Error(`bible_jp not found: ${book}/${ch}`);
 
-        render(resolvedJpData, elData, hasGreek, jpDataB);
+        render(resolvedJpData, elData, hasGreek && elData.length > 0, jpDataB);
 
             if (window.AppOnboarding && !window.AppOnboarding.getState().onboardingComplete) {
                 document.querySelectorAll('[data-onboarding-anchor="true"]').forEach(function(el) {
@@ -6013,9 +5995,6 @@ app.innerHTML = '';
     if (!hasGreek) {
         document.getElementById('bottom-depth-panel').style.display = 'none';
         openBtn.style.display = 'none';
-    } else {
-        /* NT → OT（LXXあり）など遷移時に display:none が残らないようリセット */
-        document.getElementById('bottom-depth-panel').style.display = '';
     }
 
     const useVersePair = mainArea.classList.contains('compare-mode');
@@ -7131,6 +7110,8 @@ async function renderCurrentPage() {
     AppState.location.chapter   = parseInt(ch);
     renderGlobalBreadcrumb();
 
+    const hasGreek = GREEK_BOOKS.has(book);
+
     try {
         /* _transA が FLOW の場合は翻訳JSONをfetchしない */
         const jpData = _transA === 'FLOW'
@@ -7142,14 +7123,13 @@ async function renderCurrentPage() {
             jpDataB = await _fetchTranslation(_transB, book, ch);
         }
         
-        /* NT・旧約（LXX）問わずデータをフェッチ試みる */
         let elData = [];
-        try {
-            const elRes = await fetch(bibleDataPath(book, ch));
-            if (elRes.ok) elData = await elRes.json();
-        } catch(e) {}
-
-        const hasGreek = elData.length > 0;
+        if (hasGreek) {
+            try {
+                const elRes = await fetch(`./bible_data/${book}/${ch}.json`);
+                if (elRes.ok) elData = await elRes.json();
+            } catch(e) {}
+        }
 
         /* _transA === 'FLOW': elData から verse キーを組み立てて jpData の代わりに渡す */
         const resolvedJpData = (_transA === 'FLOW')
@@ -7157,7 +7137,7 @@ async function renderCurrentPage() {
             : jpData;
         if (!resolvedJpData) throw new Error('Not found');
 
-        render(resolvedJpData, elData, hasGreek, jpDataB);
+        render(resolvedJpData, elData, hasGreek && elData.length > 0, jpDataB);
         document.getElementById('active-v').innerText = "";
         syncUrlState();
 
