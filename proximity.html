@@ -35,29 +35,6 @@
         min-height: 100vh;
     }
 
-    .page-shell { display: flex; flex-direction: column; min-height: 100vh; }
-
-    .page-header {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 14px 40px; border-bottom: 1px solid var(--border-soft);
-        background: var(--bg-paper); position: sticky; top: 0; z-index: 100;
-    }
-    .header-left { display: flex; align-items: center; gap: 20px; }
-    .back-link {
-        display: inline-flex; align-items: center; gap: 6px;
-        font-size: 0.82rem; color: var(--text-sub); text-decoration: none;
-        padding: 5px 12px; border: 1px solid var(--border-soft); border-radius: 20px;
-        transition: all 0.15s; white-space: nowrap;
-    }
-    .back-link:hover { color: var(--highlight); border-color: var(--highlight); background: var(--highlight-light); }
-    .page-title { font-family: 'Noto Serif JP', serif; font-size: 1rem; font-weight: 700; color: var(--accent-dark); letter-spacing: -0.01em; }
-    .page-subtitle { font-size: 0.72rem; color: var(--text-sub); letter-spacing: 0.06em; }
-    .logo-badge { font-size: 0.7rem; font-weight: 700; color: var(--highlight); letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.6; }
-
-    .page-body {
-        flex: 1; display: grid; grid-template-columns: 320px 1fr;
-        align-items: start; gap: 0; max-width: 1280px; margin: 0 auto; width: 100%; padding: 0;
-    }
 
     .search-sidebar {
         border-right: 1px solid var(--border-soft); padding: 32px 28px 60px;
@@ -323,7 +300,7 @@
         color: var(--text-sub); 
     }
 
-    .result-main { padding: 32px 40px 60px; min-height: calc(100vh - 57px); }
+    .result-main { padding: 28px 40px 60px; overflow-y: auto; height: 100%; }
 
     .empty-state {
         display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -453,20 +430,44 @@
     </style>
 </head>
 <body>
-<div class="page-shell">
+<div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
+<div class="main-layout">
 
-    <header class="page-header">
-        <div class="header-left">
-            <a class="back-link" id="back-link" href="index.html">← 本文に戻る</a>
-            <div>
-                <div class="page-title">近接検索</div>
-                <div class="page-subtitle">Proximity Search</div>
-            </div>
+    <nav id="nav-sidebar" class="nav-sidebar">
+        <div class="sidebar-top">
+            <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
+            <span class="sidebar-logo">聖書アプリ</span>
         </div>
-        <span class="logo-badge">コトバト</span>
-    </header>
+        <div class="sidebar-section-label">メニュー</div>
+        <div class="sidebar-nav-links">
+            <a class="sidebar-nav-link" href="index.html">
+                <i class="fa-solid fa-book-open"></i>本文を読む
+            </a>
+            <a class="sidebar-nav-link active" href="proximity.html">
+                <i class="fa-solid fa-arrows-left-right"></i>近接検索
+            </a>
+            <a class="sidebar-nav-link" href="morph-search.html">
+                <i class="fa-solid fa-magnifying-glass"></i>形態素検索
+            </a>
+            <a class="sidebar-nav-link" href="syntax-search.html">
+                <i class="fa-solid fa-sitemap"></i>構文検索
+            </a>
+            <a class="sidebar-nav-link" href="semantic-search.html">
+                <i class="fa-solid fa-brain"></i>意味検索
+            </a>
+        </div>
+    </nav>
 
-    <div class="page-body">
+    <div class="container">
+        <header class="app-header">
+            <button id="mobile-menu-btn" onclick="toggleMobileSidebar()">☰</button>
+            <div>
+                <div class="app-header-title">近接検索</div>
+                <div class="app-header-sub">Proximity Search</div>
+            </div>
+        </header>
+
+        <div class="page-body">
 
         <aside class="search-sidebar">
             <!-- ════ シンプルモード（常に表示） ════ -->
@@ -607,10 +608,9 @@
         </main>
     </div>
 
-    <footer class="page-footer">
-        <span>© 2026 ウオノ All rights reserved.</span>
-    </footer>
-</div>
+        </div><!-- /.page-body -->
+    </div><!-- /.container -->
+</div><!-- /.main-layout -->
 
 <script>
 /* ============================================================
@@ -655,12 +655,6 @@ const ALL_BOOKS = {
     ]
 };
 const FLAT_BOOKS = [...ALL_BOOKS.nt, ...ALL_BOOKS.ot];
-
-const NT_BOOK_KEYS = new Set(ALL_BOOKS.nt.map(b => b.key));
-function bibleDataPath(bookKey, ch) {
-    const sub = NT_BOOK_KEYS.has(bookKey) ? 'nt' : 'lxx';
-    return `./bible_data/${sub}/${bookKey}/${ch}.json`;
-}
 
 /* ============================================================
    ストップワード
@@ -771,7 +765,7 @@ async function fetchChapter(bookKey, ch) {
     const cacheKey = `${bookKey}/${ch}`;
     if (tokenCache[cacheKey]) return tokenCache[cacheKey];
     try {
-        const res = await fetch(bibleDataPath(bookKey, ch));
+        const res = await fetch(`./bible_data/${bookKey}/${ch}.json`);
         if (!res.ok) return [];
         const data = await res.json();
         const tokens = data.map(w => ({
@@ -1704,6 +1698,22 @@ function init() {
 }
 
 init();
+
+/* ── サイドバー開閉（index.html互換） ── */
+function toggleSidebar() {
+    const sb = document.getElementById('nav-sidebar');
+    sb.classList.toggle('collapsed');
+}
+function toggleMobileSidebar() {
+    const sb = document.getElementById('nav-sidebar');
+    const ov = document.getElementById('sidebar-overlay');
+    sb.classList.toggle('mobile-open');
+    ov.classList.toggle('visible');
+}
+function closeMobileSidebar() {
+    document.getElementById('nav-sidebar').classList.remove('mobile-open');
+    document.getElementById('sidebar-overlay').classList.remove('visible');
+}
 </script>
 </body>
 </html>
