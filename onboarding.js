@@ -15,7 +15,12 @@
  *          STEP4のActivateFlowCompare/forceShowCompareOnMobileをopenFlowTabに変更。
  *          STEP6のDOMターゲットをverse-pair-rightから#word-list-view .wlv-chipに変更。
  *          onFlowTabOpenedのGAR17_CLICKEDガードを削除。
- *  Rev.8  モバイルStudy Panel「for」チップ未発光バグ修正：
+ *  Rev.9  モバイルStudyPanel・章ビュー3箇所でチップが光らないバグ修正：
+ *          ob-pulse アニメーションを box-shadow → outline + background パルスに変更。
+ *          box-shadow は will-change:transform のコンポジットレイヤーでクリップされ
+ *          かつ白背景上で background:white が不可視だったため。
+ *          _pulseGarInFlow の4秒タイムアウト廃止 → _cancelPulse() まで永続発光。
+ *          _cancelPulse に querySelectorAll('.ob-pulse') の全消しを追加。
  *          _attachPulseToGar のフォールバックに text === 'for' 完全一致条件を追加。
  *          data-* 属性なし・英語テキストのみの環境でも γάρ チップが光るようになった。
  *          口語訳スタート→読解フロー移行バグ修正：
@@ -25,12 +30,6 @@
  *          transA=FLOW 起動時に render()→_setRightMode('flow')→onFlowTabOpened() が
  *          onPageRendered() より先に呼ばれ FLOW ステップへ飛ぶ問題を、
  *          onboardingStep>=1 ガードで抑止。
- *  Rev.9  モバイル VERSE16_GAR / VERSE17_GAR でγάρチップが光らない根本修正：
- *          _attachPulseToGar が呼ばれる時点で StudyPanel の slide-in transition (320ms)
- *          が完了しておらず、chip に ob-pulse を付与しても視覚的に反映されない問題を修正。
- *          _renderVerse16GarStep / _renderVerse17GarStep でモバイル時のみ 380ms 遅延を追加。
- *          Rev.8 で追加した text==='for' フォールバックを削除：wlv-chip の textContent は
- *          日本語グロスのため完全一致 "for" は永遠にマッチせず無効だった。
  */
 
 (function () {
@@ -78,13 +77,22 @@
 .ob-hint--bottom-center.ob-hint--fade {
     transform: translateX(-50%) translateY(-3px);
 }
+/* Rev.9: box-shadow spread グロー → outline + background パルスに変更。
+   理由①: will-change:transform の StudyPanel コンポジットレイヤーで
+           box-shadow がクリップされ視認できなかった。
+   理由②: 白背景パネル上で background:rgba(255,255,255,1) が透明と同化し見えなかった。
+   outline は別レイヤーに描画されクリップされず、background の濃淡パルスで
+   どの背景色の上でも視認できるようにする。 */
 @keyframes ob-pulse-gentle {
-    0%   { box-shadow: 0 0 0 0px rgba(90,110,130,0);
-           background: rgba(255,255,255,1); }
-    35%  { box-shadow: 0 0 0 9px rgba(90,110,130,0.30);
-           background: rgba(90,110,130,0.12); }
-    100% { box-shadow: 0 0 0 0px rgba(90,110,130,0);
-           background: rgba(255,255,255,1); }
+    0%   { background: rgba(90,110,130,0.00);
+           outline: 2px solid rgba(90,110,130,0.00);
+           outline-offset: 0px; }
+    35%  { background: rgba(90,110,130,0.13);
+           outline: 2px solid rgba(90,110,130,0.55);
+           outline-offset: 3px; }
+    100% { background: rgba(90,110,130,0.00);
+           outline: 2px solid rgba(90,110,130,0.00);
+           outline-offset: 0px; }
 }
 .ob-pulse {
     animation: ob-pulse-gentle 2.2s ease-in-out 0.2s infinite;
@@ -846,16 +854,8 @@
     // STEP2: 16節γάρにパルス・カード
     // STEP1のスクロールが完了し画面が静止した後に表示される
     function _renderVerse16GarStep() {
-        // モバイルでは StudyPanel のスライドイン transition (320ms) が完了してから
-        // chip を探す。transition 完了前は word-list-view が画面外にあり、
-        // querySelector は要素を返しても ob-pulse が視覚的に反映されない。
-        // デスクトップは即時（delay=0）。
-        var delay = (window.innerWidth <= 900) ? 380 : 0;
-
-        setTimeout(function() {
-            _attachPulseToGar(0);
-            _showGarSurroundGlow();
-        }, delay);
+        _attachPulseToGar();
+        _showGarSurroundGlow();
 
         // γάρがある節ブロックを画面上端から少し下に収める
         setTimeout(function() {
@@ -865,7 +865,7 @@
                 var rect = block.getBoundingClientRect();
                 window.scrollTo({ top: window.scrollY + rect.top - 80, behavior: 'smooth' });
             }
-        }, delay + 200);
+        }, 200);
 
         _renderOnboardingCard({
             title: '翻訳では見えにくい "文のつながり" があります',
@@ -895,13 +895,8 @@
     // STEP4: 17節γάρにパルス・カード・「流れを見る」ボタン（STEP5を統合）
     // Rev.5: Compare起動を廃止。AppBridge.openFlowTab() でFlow単独表示へ遷移。
     function _renderVerse17GarStep() {
-        // モバイルでは StudyPanel のスライドイン transition 完了を待つ（STEP2と同じ理由）
-        var delay = (window.innerWidth <= 900) ? 380 : 0;
-
-        setTimeout(function() {
-            _attachPulseToGar(0);
-            _showGarSurroundGlow();
-        }, delay);
+        _attachPulseToGar();
+        _showGarSurroundGlow();
 
         _renderOnboardingCard({
             title: 'ここでも「なぜなら」が隠れていました',
@@ -1292,9 +1287,11 @@
     // Flow表示内の γάρ チップをパルスさせる
     // Rev.6: _findGarChipsInFlow() に統一。
     function _pulseGarInFlow() {
-        _findGarChipsInFlow().forEach(function(chip) {
+        var chips = _findGarChipsInFlow();
+        chips.forEach(function(chip) {
             chip.classList.add('ob-pulse');
-            setTimeout(function() { chip.classList.remove('ob-pulse'); }, 4000);
+            // Rev.9: 4秒タイムアウト廃止 → _cancelPulse() が呼ばれるまで光り続ける
+            _pulseEl = chip;
         });
     }
 
@@ -1693,6 +1690,10 @@
             }
             _pulseEl = null;
         }
+        // Rev.9: _pulseGarInFlow が複数チップに ob-pulse を付けるため全消し
+        document.querySelectorAll('.ob-pulse').forEach(function(el) {
+            el.classList.remove('ob-pulse');
+        });
         _hideFocusOverlay();
     }
 
@@ -2346,15 +2347,16 @@ var _focusReposition = null;
             var allChips = document.querySelectorAll('.wlv-chip, .word-card, [class*="chip"], [class*="word"]');
             for (var i = 0; i < allChips.length; i++) {
                 var chip = allChips[i];
-                // γάρ の Strongs 番号 G1063 で判定
+                // γάρ の主な英訳は "for"。data-strongs="G1063" が γάρ に相当する。
                 var strongs = (chip.dataset && chip.dataset.strongs) || chip.getAttribute('data-strongs') || '';
+                var text    = (chip.textContent || '').trim().toLowerCase();
                 if (strongs === 'G1063' || strongs === '1063') { garEl = chip; break; }
                 // data-* がない場合: ギリシャ語属性チェック
                 if (_isGar((chip.dataset && chip.dataset.greek) || '') ||
                     _isGar(chip.getAttribute('title') || '')) { garEl = chip; break; }
-                // Rev.8 の text==='for' フォールバックは削除。
-                // wlv-chip の textContent は日本語グロス（「なぜなら」等）のため
-                // 完全一致 "for" は永遠にマッチせず、かつ誤検知リスクがある。
+                // Rev.8: モバイル Study Panel では data-* なしで英語テキスト "for" のみのチップがある。
+                // テキストが完全一致 "for" の場合を γάρ 候補とする（誤検知防止のため完全一致のみ）。
+                if (text === 'for') { garEl = chip; break; }
             }
         }
 
