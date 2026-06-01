@@ -759,6 +759,12 @@ const ALL_BOOKS = {
 };
 const FLAT_BOOKS = [...ALL_BOOKS.nt, ...ALL_BOOKS.ot];
 
+const NT_BOOK_KEYS = new Set(ALL_BOOKS.nt.map(b => b.key));
+function bibleDataPath(bookKey, ch) {
+    const sub = NT_BOOK_KEYS.has(bookKey) ? 'nt' : 'lxx';
+    return `./bible_data/${sub}/${bookKey}/${ch}.json`;
+}
+
 /* ============================================================
    ストップワード
    ============================================================ */
@@ -868,7 +874,7 @@ async function fetchChapter(bookKey, ch) {
     const cacheKey = `${bookKey}/${ch}`;
     if (tokenCache[cacheKey]) return tokenCache[cacheKey];
     try {
-        const res = await fetch(`./bible_data/${bookKey}/${ch}.json`);
+        const res = await fetch(bibleDataPath(bookKey, ch));
         if (!res.ok) return [];
         const data = await res.json();
         const tokens = data.map(w => ({
