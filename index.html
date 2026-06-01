@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>06011515｜言語の壁を超えて読む聖書アプリ</title>
+    <title>06011541｜言語の壁を超えて読む聖書アプリ</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -5910,7 +5910,7 @@ async function init() {
 
     await loadDict();
 
-    const hasGreek = GREEK_BOOKS.has(book);
+    const isNtBook = GREEK_BOOKS.has(book);
 
     try {
         /* _transA が FLOW の場合は翻訳JSONをfetchしない */
@@ -5925,18 +5925,19 @@ async function init() {
         }
 
         let elData = [];
-        if (hasGreek) {
-            try {
-                const elRes = await fetch(bibleDataPath(book, ch));
-                if (elRes.ok) {
-                    elData = await elRes.json();
-                } else {
-                    console.warn(`bible_data not found for ${book}/${ch} - Greek panel disabled`);
-                }
-            } catch (e) {
-                console.warn(`bible_data fetch error for ${book}/${ch}:`, e);
+        /* NT書物 または 旧約書物（LXXデータを試みる）どちらもフェッチを試みる */
+        try {
+            const elRes = await fetch(bibleDataPath(book, ch));
+            if (elRes.ok) {
+                elData = await elRes.json();
+            } else {
+                console.warn(`bible_data not found for ${book}/${ch} - Greek/LXX panel disabled`);
             }
+        } catch (e) {
+            console.warn(`bible_data fetch error for ${book}/${ch}:`, e);
         }
+
+        const hasGreek = elData.length > 0;
 
         /* _transA === 'FLOW': elData から verse キーを組み立てて jpData の代わりに渡す */
         const resolvedJpData = (_transA === 'FLOW')
@@ -5944,7 +5945,7 @@ async function init() {
             : jpData;
         if (!resolvedJpData) throw new Error(`bible_jp not found: ${book}/${ch}`);
 
-        render(resolvedJpData, elData, hasGreek && elData.length > 0, jpDataB);
+        render(resolvedJpData, elData, hasGreek, jpDataB);
 
             if (window.AppOnboarding && !window.AppOnboarding.getState().onboardingComplete) {
                 document.querySelectorAll('[data-onboarding-anchor="true"]').forEach(function(el) {
@@ -6012,6 +6013,9 @@ app.innerHTML = '';
     if (!hasGreek) {
         document.getElementById('bottom-depth-panel').style.display = 'none';
         openBtn.style.display = 'none';
+    } else {
+        /* NT → OT（LXXあり）など遷移時に display:none が残らないようリセット */
+        document.getElementById('bottom-depth-panel').style.display = '';
     }
 
     const useVersePair = mainArea.classList.contains('compare-mode');
@@ -7127,8 +7131,6 @@ async function renderCurrentPage() {
     AppState.location.chapter   = parseInt(ch);
     renderGlobalBreadcrumb();
 
-    const hasGreek = GREEK_BOOKS.has(book);
-
     try {
         /* _transA が FLOW の場合は翻訳JSONをfetchしない */
         const jpData = _transA === 'FLOW'
@@ -7140,13 +7142,14 @@ async function renderCurrentPage() {
             jpDataB = await _fetchTranslation(_transB, book, ch);
         }
         
+        /* NT・旧約（LXX）問わずデータをフェッチ試みる */
         let elData = [];
-        if (hasGreek) {
-            try {
-                const elRes = await fetch(bibleDataPath(book, ch));
-                if (elRes.ok) elData = await elRes.json();
-            } catch(e) {}
-        }
+        try {
+            const elRes = await fetch(bibleDataPath(book, ch));
+            if (elRes.ok) elData = await elRes.json();
+        } catch(e) {}
+
+        const hasGreek = elData.length > 0;
 
         /* _transA === 'FLOW': elData から verse キーを組み立てて jpData の代わりに渡す */
         const resolvedJpData = (_transA === 'FLOW')
@@ -7154,7 +7157,7 @@ async function renderCurrentPage() {
             : jpData;
         if (!resolvedJpData) throw new Error('Not found');
 
-        render(resolvedJpData, elData, hasGreek && elData.length > 0, jpDataB);
+        render(resolvedJpData, elData, hasGreek, jpDataB);
         document.getElementById('active-v').innerText = "";
         syncUrlState();
 
