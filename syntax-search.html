@@ -2346,6 +2346,17 @@ function buildAllChapterPaths() {
         p.push({key:b.key,ch:c,path:bibleDataPath(b.key,c)});
     return p;
 }
+function buildRefChapterPath(ref) {
+    const r = String(ref || '').replace(/!.*$/, '').trim();
+    const m = r.match(/^([A-Z0-9]+)\s+(\d+):/);
+    if (m) return [{ key: m[1], ch: parseInt(m[2]), path: bibleDataPath(m[1], parseInt(m[2])) }];
+    if (r.length === 6 && /^\d+$/.test(r)) {
+        const bookKey = BOOK_MAP[r.slice(0, 2)];
+        const ch = parseInt(r.slice(2, 4));
+        if (bookKey) return [{ key: bookKey, ch, path: bibleDataPath(bookKey, ch) }];
+    }
+    return [];
+}
 async function fetchInBatches(tasks,sz,onProg) {
     let all=[];
     for(let i=0;i<tasks.length;i+=sz) {
@@ -2411,7 +2422,7 @@ document.getElementById('bc-ref').textContent  = params.ref  || '—';
 document.getElementById('bc-word').textContent = params.word || '—';
 
 (async function() {
-    const paths   = buildAllChapterPaths();
+    const paths   = buildRefChapterPath(params.ref);
 
     const allData = await fetchInBatches(paths, 20, (done, ttl) => {
         const pct = Math.round(done/ttl*100);
