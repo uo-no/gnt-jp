@@ -209,7 +209,7 @@ function buildXscPanelShared(deltas, confidence, panelId, accentColor) {
         const barW  = Math.round(Math.abs(d.value) / maxAbs * 100);
         const barC  = d.value > 0 ? 'rgba(74,122,90,0.55)' : 'rgba(176,80,80,0.45)';
         return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;font-size:0.72rem;">
-            <span class="ui-caption" style="font-weight:700;min-width:28px;text-align:right;
+            <span style="font-size:0.68rem;font-weight:700;min-width:28px;text-align:right;
                          flex-shrink:0;color:${d.value > 0 ? '#4a7a5a' : d.value < 0 ? '#b05050' : '#888'};">
                 ${sign}${d.value}
             </span>
