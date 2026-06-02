@@ -61,23 +61,16 @@ function renderDistBar(matched, BOOK_JP, limit) {
     const rows = dist.slice(0, limit).map(d => {
         const pct = Math.round(d.count / max * 100);
         return `<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px;">
-            <span style="width:60px;font-size:0.68rem;color:var(--text-sub);text-align:right;flex-shrink:0;">${d.label}</span>
+            <span class="ui-caption" style="width:60px;text-align:right;flex-shrink:0;">${d.label}</span>
             <div style="flex:1;height:4px;background:var(--bg-panel,#f5f5f7);border-radius:2px;overflow:hidden;">
                 <div style="width:${pct}%;height:100%;border-radius:2px;background:var(--accent,#5a6e82);transition:width .4s;"></div>
             </div>
-            <span style="font-size: 0.68rem;color:var(--text-hint,#8e8e93);width:24px;text-align:right;flex-shrink:0;">${d.count}</span>
+            <span class="ui-caption" style="width:24px;text-align:right;flex-shrink:0;">${d.count}</span>
         </div>`;
     }).join('');
 
-    return `<div style="
-            border:1px solid var(--border,rgba(0,0,0,.07));
-            border-radius:10px;
-            padding:10px 13px;
-            background:var(--bg,#fff);
-            margin-bottom:12px;
-        ">
-        <div style="font-size: 0.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
-                    color:var(--text-hint,#8e8e93);margin-bottom:8px;">書物別分布（全${total}件）</div>
+    return `<div class="ui-card">
+        <div class="ui-section-label" style="margin-bottom:8px;">書物別分布（全${total}件）</div>
         ${rows}
     </div>`;
 }
@@ -158,8 +151,7 @@ function lightweightReadingHint(matched, tense, mood, BOOK_JP) {
             line-height:1.7;
             color:var(--text,#1d1d1f);
         ">
-        <div style="font-size: 0.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
-                    color:var(--accent,#5a6e82);margin-bottom:4px;">この語形の傾向</div>
+        <div class="ui-section-label" style="color:var(--accent,#5a6e82);margin-bottom:4px;">この語形の傾向</div>
         ${lines.map(l => `<div>${l}</div>`).join('')}
     </div>`;
 }
@@ -229,20 +221,8 @@ function buildXscPanelShared(deltas, confidence, panelId, accentColor) {
     }).join('');
 
     /* toggleXscShared はインライン onclick で処理。グローバル関数依存なし */
-    return `<div id="${panelId}" style="
-                margin-top:7px;
-                border:1px solid var(--border,rgba(0,0,0,.07));
-                border-radius:7px;
-                overflow:hidden;
-                font-size:0.78rem;
-            ">
-        <div style="
-                display:flex;align-items:center;justify-content:space-between;
-                padding:6px 10px 5px;
-                background:var(--bg-panel,#f5f5f7);
-                cursor:pointer;
-                user-select:none;
-            "
+    return `<div id="${panelId}" class="ui-panel">
+        <div class="ui-panel-header"
             onclick="(function(){
                 var p=document.getElementById('${panelId}');
                 if(!p) return;
@@ -253,26 +233,16 @@ function buildXscPanelShared(deltas, confidence, panelId, accentColor) {
                 body.style.display=open?'none':'block';
                 arrow.textContent=open?'▾':'▴';
             })()">
-            <span style="font-size: 0.68rem;font-weight:700;letter-spacing:.1em;
-                         text-transform:uppercase;color:var(--text-hint,#8e8e93);">
-                なぜこの判定？
-            </span>
+            <span class="ui-section-label">なぜこの判定？</span>
             <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-size:0.7rem;font-weight:700;color:${confColor};">
                     確信度 ${confidence}%
                 </span>
-                <span data-xsc-arrow style="font-size:0.68rem;color:var(--text-hint,#8e8e93);">▾</span>
+                <span data-xsc-arrow class="ui-caption">▾</span>
             </div>
         </div>
-        <div data-xsc-body style="
-                display:none;
-                padding:8px 10px 10px;
-                border-top:1px solid var(--border,rgba(0,0,0,.07));
-            ">
-            <div style="font-size: 0.68rem;font-weight:700;letter-spacing:.1em;
-                        text-transform:uppercase;color:var(--text-hint,#8e8e93);margin-bottom:6px;">
-                スコア内訳
-            </div>
+        <div data-xsc-body class="ui-panel-body">
+            <div class="ui-section-label" style="margin-bottom:6px;">スコア内訳</div>
             ${rows}
         </div>
     </div>`;
@@ -560,7 +530,7 @@ function renderExplainability(result, summaryLabel) {
     const altRows = (result.alternatives || []).slice(0, 3).map(a =>
         `<div class="exp-alt-row">
             <span style="flex:1;">${a.label}</span>
-            <span style="font-size: 0.68rem;color:var(--text-hint,#8e8e93);">${a.score}%</span>
+            <span class="ui-caption">${a.score}%</span>
         </div>`
     ).join('');
 
@@ -686,18 +656,14 @@ function buildRepresentativeExamples(matched, BOOK_JP, getJaVerse, limit) {
         return `<div style="padding:6px 0;border-bottom:1px solid var(--border,rgba(0,0,0,.06));">
             <div style="display:flex;align-items:baseline;gap:8px;">
                 <span style="font-family:'Gentium Plus',serif;font-size:1.05rem;color:var(--accent,#5a6e82);font-weight:700;">${word}</span>
-                <span style="font-size: 0.68rem;color:var(--text-hint,#8e8e93);">${label}</span>
+                <span class="ui-caption">${label}</span>
             </div>
             ${ja ? `<div style="font-size:0.75rem;color:var(--text-sub,#6e6e73);margin-top:2px;line-height:1.5;">${ja}</div>` : ''}
         </div>`;
     }).join('');
 
-    return `<div style="
-            border:1px solid var(--border,rgba(0,0,0,.07));
-            border-radius:10px;padding:10px 13px;
-            background:var(--bg,#fff);margin-bottom:12px;">
-        <div style="font-size: 0.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
-                    color:var(--text-hint,#8e8e93);margin-bottom:6px;">代表用例</div>
+    return `<div class="ui-card">
+        <div class="ui-section-label" style="margin-bottom:6px;">代表用例</div>
         ${rows}
     </div>`;
 }
