@@ -449,6 +449,30 @@
     .scope-progress { display: none; font-size: 0.75rem; color: var(--text-sub); margin-top: 8px; text-align: center; letter-spacing: 0.02em; }
     .scope-progress.visible { display: block; }
 
+    /* ── インデックス進捗インジケーター ── */
+    .idx-status {
+        display: flex; align-items: center; gap: 6px;
+        padding: 7px 12px; border-radius: 8px;
+        background: var(--info-bg); border: 1px solid var(--border-soft);
+        font-size: 0.68rem; color: var(--text-sub);
+        margin-top: 10px;
+        transition: opacity 0.4s;
+    }
+    .idx-status.hidden { opacity: 0; pointer-events: none; }
+    .idx-dot {
+        width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+        background: var(--border-mid); transition: background 0.4s;
+    }
+    .idx-dot.done { background: #4caf82; }
+    .idx-dot.active {
+        background: var(--highlight);
+        animation: pulse-dot 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+        0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+    .idx-label { flex: 1; line-height: 1.4; }
+
     @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 
@@ -654,6 +678,12 @@
             <button class="run-btn" id="run-btn" onclick="startSearch()">
                 <i class="fa-solid fa-magnifying-glass"></i>検索する
             </button>
+
+            <!-- ════ インデックス進捗 ════ -->
+            <div class="idx-status" id="idx-status">
+                <span class="idx-dot active" id="idx-dot"></span>
+                <span class="idx-label" id="idx-label">新約聖書を読み込み中…</span>
+            </div>
         </aside>
 
         <main class="result-main" id="result-main">
@@ -819,23 +849,54 @@ function readURL() {
 
 
 /* ============================================================
-   データ取得 ／ INDEX
+   データ取得 ／ Progressive Index  (L1 → L2 → L3)
+   ─────────────────────────────────────────────────────────────
+   L1（即時）  : 優先書物（NT13書）をフェッチ、textベース検索
+   L2（遅延）  : 全書物フェッチ完了後 lemma / strong インデックス確定
+   L3（さらに）: japanese partial index 構築
    ============================================================ */
-const tokenCache = {};
-let   ALL_TOKENS = [];
 
-let _indexBuildPromise = null;
-let _indexBuilt = false;
+/* ---- 生データキャッシュ ---- */
+const tokenCache = {};   // { "ROM/1": Token[] }
+let   ALL_TOKENS = [];   // 全トークン配列（順次追加）
 
+/* ---- インデックス本体 ---- */
 const SEARCH_INDEX = {
-    lemma:    new Map(),
-    text:     new Map(),
+    lemma:    new Map(),   // L2完了後に使用
+    text:     new Map(),   // 章fetchのたびに随時追加
     japanese: new Map(),
     strong:   new Map(),
 };
+const TEXT_TO_JP      = new Map();
+const JP_PARTIAL_INDEX = new Map();  // L3完了後に使用
 
-const TEXT_TO_JP = new Map();
-const JP_PARTIAL_INDEX = new Map();
+/* ---- レベルフラグ ---- */
+const IDX = {
+    l1Ready:   false,   // 優先書物テキストインデックス完了
+    l2Ready:   false,   // 全書物テキスト + lemma インデックス完了
+    l3Ready:   false,   // japanese partial インデックス完了
+    allLoaded: false,   // 全章フェッチ完了
+};
+
+/* ---- 優先ロード書物（NT13書）---- */
+const PRIORITY_BOOKS = ALL_BOOKS.nt; // 13書物、約2400章相当
+
+/* ---- ストリーミング進行管理 ---- */
+let _l2Promise = null;  // 全書物バックグラウンドロードのPromise
+let _l3Promise = null;  // L3構築のPromise
+
+/* ---- ユーティリティ ---- */
+function normalizeGreek(str) {
+    return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g, '').replace(/ς/g, 'σ').toLowerCase().trim();
+}
+
+function addToIndex(map, key, idx) {
+    if (!key) return;
+    let arr = map.get(key);
+    if (!arr) { arr = []; map.set(key, arr); }
+    arr.push(idx);
+}
 
 function _addJpPartial(str, idx) {
     if (!str || typeof str !== 'string') return;
@@ -849,27 +910,7 @@ function _addJpPartial(str, idx) {
     }
 }
 
-function normalizeGreek(str) {
-    return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g, '').replace(/ς/g, 'σ').toLowerCase().trim();
-}
-
-function addToIndex(map, key, idx) {
-    if (!key) return;
-    let arr = map.get(key);
-    if (!arr) { arr = []; map.set(key, arr); }
-    arr.push(idx);
-}
-
-function finaliseIndex() {
-    for (const map of Object.values(SEARCH_INDEX)) {
-        for (const [k, arr] of map) {
-            map.set(k, new Int32Array(arr));
-        }
-    }
-    _indexBuilt = true;
-}
-
+/* ---- 章フェッチ（共通） ---- */
 async function fetchChapter(bookKey, ch) {
     const cacheKey = `${bookKey}/${ch}`;
     if (tokenCache[cacheKey]) return tokenCache[cacheKey];
@@ -881,8 +922,7 @@ async function fetchChapter(bookKey, ch) {
             text:     w.text    || '',
             lemma:    w.lemma   || w.text || '',
             ref:      w.ref     || `${bookKey} ${ch}:?`,
-            bookKey,
-            ch,
+            bookKey,  ch,
             verse:    (() => { const m = (w.ref || '').match(/:(\d+)/); return m ? m[1] : null; })(),
             japanese: w.japanese || w.gloss_ja || w.gloss || null,
             gloss:    w.gloss    || w.gloss_ja  || null,
@@ -893,74 +933,155 @@ async function fetchChapter(bookKey, ch) {
     } catch { return []; }
 }
 
-async function _buildAllIndex() {
-    if (_indexBuilt) return;
+/* ---- 1章分をインデックスに追加（L2水準） ---- */
+function _indexChapter(toks) {
+    const base = ALL_TOKENS.length;
+    for (let k = 0; k < toks.length; k++) {
+        const i   = base + k;
+        const tok = toks[k];
+        ALL_TOKENS.push(tok);
 
-    const prog = document.getElementById('scope-progress');
-    let loaded = 0;
-    const totalChapters = FLAT_BOOKS.reduce((s, b) => s + b.ch, 0);
+        // text / lemma / strong（L2）
+        addToIndex(SEARCH_INDEX.text,  tok.text,  i);
+        addToIndex(SEARCH_INDEX.lemma, tok.lemma, i);
+        const normLemma = normalizeGreek(tok.lemma);
+        const normText  = normalizeGreek(tok.text);
+        if (normLemma && normLemma !== tok.lemma) addToIndex(SEARCH_INDEX.lemma, normLemma, i);
+        if (normText  && normText  !== tok.text)  addToIndex(SEARCH_INDEX.text,  normText,  i);
+        addToIndex(SEARCH_INDEX.strong, tok.strong != null ? String(tok.strong) : null, i);
 
-    for (const book of FLAT_BOOKS) {
-        for (let c = 1; c <= book.ch; c++) {
-            const toks = await fetchChapter(book.key, c);
-            const base = ALL_TOKENS.length;
-            for (let k = 0; k < toks.length; k++) {
-                const i   = base + k;
-                const tok = toks[k];
-                ALL_TOKENS.push(tok);
-
-                addToIndex(SEARCH_INDEX.lemma, tok.lemma, i);
-                addToIndex(SEARCH_INDEX.text,  tok.text,  i);
-                const normLemma = normalizeGreek(tok.lemma);
-                const normText  = normalizeGreek(tok.text);
-                if (normLemma && normLemma !== tok.lemma) addToIndex(SEARCH_INDEX.lemma, normLemma, i);
-                if (normText  && normText  !== tok.text)  addToIndex(SEARCH_INDEX.text,  normText,  i);
-                addToIndex(SEARCH_INDEX.strong, tok.strong != null ? String(tok.strong) : null, i);
-
-                const jpVals = tok.japanese
-                    ? (Array.isArray(tok.japanese) ? tok.japanese : [tok.japanese])
-                    : (tok.gloss ? [tok.gloss] : []);
-                for (const v of jpVals) {
-                    if (v) {
-                        addToIndex(SEARCH_INDEX.japanese, v, i);
-                        _addJpPartial(v, i);
-                    }
-                }
-
-                if (tok.text && jpVals.length > 0 && !TEXT_TO_JP.has(tok.text)) {
-                    TEXT_TO_JP.set(tok.text, jpVals[0]);
-                }
-            }
-            loaded++;
-            prog.textContent = `全書物を読み込み中です（初回のみ時間がかかります）… ${loaded} / ${totalChapters} 章`;
-            prog.classList.add('visible');
-            if (loaded % 10 === 0) await new Promise(r => setTimeout(r, 0));
+        // TEXT_TO_JP（L3のヒントとして随時構築）
+        const jpVals = tok.japanese
+            ? (Array.isArray(tok.japanese) ? tok.japanese : [tok.japanese])
+            : (tok.gloss ? [tok.gloss] : []);
+        if (tok.text && jpVals.length > 0 && !TEXT_TO_JP.has(tok.text)) {
+            TEXT_TO_JP.set(tok.text, jpVals[0]);
         }
     }
-    prog.classList.remove('visible');
-    finaliseIndex();
 }
 
+/* ---- 1章分を L3（japanese partial）にインデックス追加 ---- */
+function _indexChapterL3(toks, baseOffset) {
+    for (let k = 0; k < toks.length; k++) {
+        const i   = baseOffset + k;
+        const tok = toks[k];
+        const jpVals = tok.japanese
+            ? (Array.isArray(tok.japanese) ? tok.japanese : [tok.japanese])
+            : (tok.gloss ? [tok.gloss] : []);
+        for (const v of jpVals) {
+            if (v) {
+                addToIndex(SEARCH_INDEX.japanese, v, i);
+                _addJpPartial(v, i);
+            }
+        }
+    }
+}
+
+/* ============================================================
+   L1 ロード: 優先書物（NT13書）を即時フェッチ
+   ============================================================ */
+async function _buildL1() {
+    const promises = [];
+    for (const book of PRIORITY_BOOKS) {
+        for (let c = 1; c <= book.ch; c++) {
+            promises.push(fetchChapter(book.key, c));
+        }
+    }
+    const results = await Promise.all(promises);
+
+    // まとめてインデックス
+    let bi = 0;
+    for (const book of PRIORITY_BOOKS) {
+        for (let c = 1; c <= book.ch; c++) {
+            _indexChapter(results[bi++]);
+        }
+    }
+    IDX.l1Ready = true;
+}
+
+/* ============================================================
+   L2 バックグラウンドロード: 残り書物を順次フェッチ＆インデックス
+   ============================================================ */
+async function _buildL2Background() {
+    const remainBooks = FLAT_BOOKS.filter(
+        b => !PRIORITY_BOOKS.some(p => p.key === b.key)
+    );
+    const totalCh = remainBooks.reduce((s, b) => s + b.ch, 0);
+    let loaded = 0;
+
+    for (const book of remainBooks) {
+        for (let c = 1; c <= book.ch; c++) {
+            const toks = await fetchChapter(book.key, c);
+            _indexChapter(toks);
+            loaded++;
+            // UIブロックしないように定期的に yield
+            if (loaded % 8 === 0) await new Promise(r => setTimeout(r, 0));
+        }
+    }
+
+    IDX.allLoaded = true;
+    IDX.l2Ready   = true;
+
+    // L2完了後すぐ L3 を非同期起動
+    _l3Promise = _buildL3Background();
+}
+
+/* ============================================================
+   L3 バックグラウンド: japanese partial index 構築
+   ============================================================ */
+async function _buildL3Background() {
+    // ALL_TOKENS をオフセット 0 から走査
+    const total = ALL_TOKENS.length;
+    const BATCH = 500;
+    for (let i = 0; i < total; i += BATCH) {
+        const slice = ALL_TOKENS.slice(i, i + BATCH);
+        for (let k = 0; k < slice.length; k++) {
+            const tok = slice[k];
+            const jpVals = tok.japanese
+                ? (Array.isArray(tok.japanese) ? tok.japanese : [tok.japanese])
+                : (tok.gloss ? [tok.gloss] : []);
+            for (const v of jpVals) {
+                if (v) {
+                    addToIndex(SEARCH_INDEX.japanese, v, i + k);
+                    _addJpPartial(v, i + k);
+                }
+            }
+        }
+        await new Promise(r => setTimeout(r, 0));
+    }
+    IDX.l3Ready = true;
+}
+
+/* ============================================================
+   起動: ページロード時に即 L1 を開始、完了後 L2 をバックグラウンド起動
+   ============================================================ */
+let _l1Promise = null;
+function _ensureL1() {
+    if (!_l1Promise) {
+        _l1Promise = _buildL1().then(() => {
+            // L1完了後すぐに L2 を裏でスタート
+            _l2Promise = _buildL2Background();
+        });
+    }
+    return _l1Promise;
+}
+
+/* ============================================================
+   スコープ別トークン取得（新 API）
+   ─────────────────────────────────────────────────────────────
+   返り値: Token[]  ← 常に同期的に使えるスナップショット
+   L1完了を待ってから返す（≒ 初回フェッチ完了 = 高速）
+   ============================================================ */
 async function loadTokensForScope(scope, ref) {
-    const prog = document.getElementById('scope-progress');
+    // L1 完了を保証（初回のみ待つ、2回目以降は即リターン）
+    await _ensureL1();
 
-    if (scope === 'chapter') {
-        // デフォルト値（参照位置なしなので現在は動作しない）
-        prog.classList.remove('visible');
-        return [];
-    }
+    // scope が chapter / book の場合は現状通り空配列
+    // （参照情報が渡されていないため動作不可）
+    if (scope === 'chapter' || scope === 'book') return [];
 
-    if (scope === 'book') {
-        // デフォルト値（参照位置なしなので現在は動作しない）
-        prog.classList.remove('visible');
-        return [];
-    }
-
-    if (!_indexBuildPromise) {
-        _indexBuildPromise = _buildAllIndex();
-    }
-    await _indexBuildPromise;
-    prog.classList.remove('visible');
+    // all: L1完了スナップショットを即返す
+    // バックグラウンドで L2 が追加ロード中であっても検索は始められる
     return ALL_TOKENS;
 }
 
@@ -975,36 +1096,43 @@ function detectQueryType(query) {
 }
 
 /* ============================================================
-   検索関数
+   検索関数（Progressive Index 対応）
+   ─────────────────────────────────────────────────────────────
+   ・L1完了後 → text/lemma インデックスを使った高速検索
+   ・L3完了後 → japanese partial インデックスを使用
+   ・インデックス未完の場合でも tokens 線形スキャンで動く
    ============================================================ */
 function searchGreek(tokens, word) {
     const normWord = normalizeGreek(word);
-    if (!_indexBuilt) {
+    // L2以降: インデックス検索（高速）
+    if (IDX.l1Ready) {
         const s = new Set();
-        tokens.forEach((t, i) => {
-            if (t.text === word || t.lemma === word) { s.add(i); return; }
-            if (normalizeGreek(t.text) === normWord || normalizeGreek(t.lemma) === normWord) s.add(i);
-        });
+        for (const arr of [
+            SEARCH_INDEX.text.get(word),
+            SEARCH_INDEX.lemma.get(word),
+            normWord !== word ? SEARCH_INDEX.text.get(normWord)  : null,
+            normWord !== word ? SEARCH_INDEX.lemma.get(normWord) : null,
+        ]) {
+            if (arr) for (const i of arr) s.add(i);
+        }
         return s;
     }
+    // フォールバック（通常は到達しない）
     const s = new Set();
-    for (const arr of [
-        SEARCH_INDEX.lemma.get(word),
-        SEARCH_INDEX.text.get(word),
-        normWord !== word ? SEARCH_INDEX.lemma.get(normWord) : null,
-        normWord !== word ? SEARCH_INDEX.text.get(normWord)  : null,
-    ]) {
-        if (arr) for (const i of arr) s.add(i);
-    }
+    tokens.forEach((t, i) => {
+        if (t.text === word || t.lemma === word) { s.add(i); return; }
+        if (normalizeGreek(t.text) === normWord || normalizeGreek(t.lemma) === normWord) s.add(i);
+    });
     return s;
 }
 
 function searchJapanese(tokens, word) {
-    if (_indexBuilt) {
-        const fromPartial = JP_PARTIAL_INDEX.get(word);
-        if (fromPartial) return fromPartial;
-        return new Set();
+    // L3完了後: partial index 使用（高速）
+    if (IDX.l3Ready) {
+        const s = JP_PARTIAL_INDEX.get(word);
+        return s || new Set();
     }
+    // L1/L2完了済み: tokens 線形スキャン（中速）
     const s = new Set();
     tokens.forEach((t, i) => {
         const vals = t.japanese
@@ -1017,13 +1145,13 @@ function searchJapanese(tokens, word) {
 }
 
 function searchStrong(tokens, word) {
-    if (!_indexBuilt) {
-        const s = new Set();
-        tokens.forEach((t, i) => { if (String(t.strong) === word) s.add(i); });
-        return s;
+    if (IDX.l1Ready) {
+        const arr = SEARCH_INDEX.strong.get(word);
+        return arr ? new Set(arr) : new Set();
     }
-    const arr = SEARCH_INDEX.strong.get(word);
-    return arr ? new Set(arr) : new Set();
+    const s = new Set();
+    tokens.forEach((t, i) => { if (String(t.strong) === word) s.add(i); });
+    return s;
 }
 
 function resolveIndices(tokens, word) {
@@ -1137,6 +1265,11 @@ async function runProximitySearch({ word1, word2 = null, distance = 5, scope = '
 /* ============================================================
    UI制御
    ============================================================ */
+
+/* 最後の検索パラメータ（L2完了後の自動再検索に使用） */
+let _lastSearchParams = null;
+let _isRefreshing = false;
+
 async function startSearch() {
     if (isSearching) return;
 
@@ -1144,6 +1277,7 @@ async function startSearch() {
     if (!word1) { document.getElementById('inp-word1').focus(); return; }
     const word2 = document.getElementById('inp-word2').value.trim() || null;
 
+    _lastSearchParams = { word1, word2, distance: currentDist, scope: currentScope };
     isSearching = true;
     document.getElementById('run-btn').disabled = true;
 
@@ -1161,6 +1295,11 @@ async function startSearch() {
             ref: '',
         });
         renderResults({ word1, word2, coocMap, hits, totalW1 });
+
+        // L2がまだ完了していない場合、完了後に自動リフレッシュをスケジュール
+        if (!IDX.l2Ready && _l2Promise) {
+            _scheduleL2Refresh(word1, word2);
+        }
     } catch(e) {
         console.error(e);
         document.getElementById('loading-state').classList.remove('visible');
@@ -1173,6 +1312,70 @@ async function startSearch() {
     document.getElementById('run-btn').disabled = false;
 }
 
+/* L2完了後に静かに結果を更新する */
+function _scheduleL2Refresh(word1, word2) {
+    if (!_l2Promise) return;
+    _l2Promise.then(async () => {
+        // ユーザーがすでに別の検索をした場合はスキップ
+        const p = _lastSearchParams;
+        if (!p || p.word1 !== word1 || p.word2 !== word2) return;
+        if (_isRefreshing || isSearching) return;
+
+        _isRefreshing = true;
+        try {
+            const { coocMap, hits, totalW1 } = await runProximitySearch({
+                word1, word2,
+                distance: p.distance,
+                scope:    p.scope,
+                ref: '',
+            });
+            // 結果が増えていれば差分バナーを表示してから更新
+            const prevCount = _allHits.length;
+            if (hits.length > prevCount) {
+                _showRefinementBanner(hits.length - prevCount, () => {
+                    renderResults({ word1, word2, coocMap, hits, totalW1 });
+                });
+            }
+        } catch(e) { console.warn('L2 refresh failed:', e); }
+        _isRefreshing = false;
+    });
+}
+
+/* 「さらにN件見つかりました」バナー */
+function _showRefinementBanner(addedCount, onAccept) {
+    let banner = document.getElementById('refinement-banner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'refinement-banner';
+        banner.style.cssText = [
+            'position:fixed;bottom:28px;left:50%;transform:translateX(-50%)',
+            'background:var(--highlight);color:#fff',
+            'padding:10px 20px;border-radius:24px',
+            'font-size:0.82rem;font-weight:600;cursor:pointer',
+            'box-shadow:0 4px 16px rgba(0,0,0,0.18)',
+            'z-index:500;transition:opacity 0.3s',
+            'display:flex;align-items:center;gap:10px',
+            'white-space:nowrap',
+        ].join(';');
+        document.body.appendChild(banner);
+    }
+    banner.style.opacity = '1';
+    banner.style.display = 'flex';
+    banner.innerHTML = `<span>📖 旧約聖書も検索完了 — さらに ${addedCount} 件発見</span><span style="opacity:0.7;font-size:0.75rem">タップして更新</span>`;
+    banner.onclick = () => {
+        banner.style.opacity = '0';
+        setTimeout(() => { banner.style.display = 'none'; }, 300);
+        onAccept();
+    };
+    // 12秒後に自動消去
+    setTimeout(() => {
+        if (banner.style.display !== 'none') {
+            banner.style.opacity = '0';
+            setTimeout(() => { banner.style.display = 'none'; }, 300);
+        }
+    }, 12000);
+}
+
 function renderResults({ word1, word2, coocMap, hits, totalW1 }) {
     document.getElementById('loading-state').classList.remove('visible');
 
@@ -1180,11 +1383,13 @@ function renderResults({ word1, word2, coocMap, hits, totalW1 }) {
     header.classList.add('visible');
     document.getElementById('result-query-label').textContent =
         word2 ? `${word1}  ×  ${word2}` : word1;
-    
-    const scopeLabel = { chapter:'この章', book:'この書物', all:'聖書全体' }[currentScope] || '聖書全体';
-    const distLabel  = { 3:'±3語（狭い）', 5:'±5語（標準）', 10:'±10語（広い）' }[currentDist] || `±${currentDist}語`;
+
+    const scopeLabel  = { chapter:'この章', book:'この書物', all:'聖書全体' }[currentScope] || '聖書全体';
+    const distLabel   = { 3:'±3語（狭い）', 5:'±5語（標準）', 10:'±10語（広い）' }[currentDist] || `±${currentDist}語`;
+    // カバレッジ表示: L2完了前は「新約のみ」と明示
+    const coverageTag = IDX.l2Ready ? '' : '（新約のみ・旧約追加中）';
     document.getElementById('result-meta').textContent =
-        `近さ：${distLabel} ／ 検索範囲：${scopeLabel} ／ 「${word1}」${totalW1}箇所`;
+        `近さ：${distLabel} ／ 検索範囲：${scopeLabel} ／ 「${word1}」${totalW1}箇所${coverageTag}`;
 
     renderCooccurrence(coocMap, 'rank-list');
 
@@ -1606,7 +1811,8 @@ const POS_JP = {
 function _getSuggestions(query) {
     if (!query) return [];
 
-    if (_indexBuilt) {
+    // L3完了後: partial index 使用（高速）
+    if (IDX.l3Ready) {
         const idxSet = JP_PARTIAL_INDEX.get(query);
         if (!idxSet || idxSet.size === 0) return [];
 
@@ -1636,6 +1842,7 @@ function _getSuggestions(query) {
             });
     }
 
+    // L1以降: キャッシュ済みトークンを線形スキャン（中速）
     const lemmaMap = new Map();
     for (const toks of Object.values(tokenCache)) {
         for (const tok of toks) {
@@ -1803,7 +2010,53 @@ function init() {
     _initSuggest();
     initAdvancedToggle();
 
-    if (params.word1) startSearch();
+    /* ── ページ開始直後に L1 をキック ── */
+    _ensureL1().then(() => {
+        _updateIdxStatus();
+        if (params.word1) startSearch();
+    });
+
+    /* L2 完了を監視してステータス更新 */
+    _watchIndexProgress();
+}
+
+/* インデックス進捗をポーリングして UI に反映 */
+function _watchIndexProgress() {
+    const dot   = document.getElementById('idx-dot');
+    const label = document.getElementById('idx-label');
+    const box   = document.getElementById('idx-status');
+    if (!dot || !label || !box) return;
+
+    const timer = setInterval(() => {
+        if (IDX.l3Ready) {
+            dot.className   = 'idx-dot done';
+            label.textContent = '全書物 + 日本語インデックス 完了';
+            setTimeout(() => box.classList.add('hidden'), 3000);
+            clearInterval(timer);
+        } else if (IDX.l2Ready) {
+            dot.className   = 'idx-dot active';
+            label.textContent = '日本語インデックスを構築中…';
+        } else if (IDX.l1Ready) {
+            dot.className   = 'idx-dot active';
+            // 進捗パーセンテージを表示
+            const total = FLAT_BOOKS.reduce((s, b) => s + b.ch, 0);
+            const nt    = PRIORITY_BOOKS.reduce((s, b) => s + b.ch, 0);
+            const loaded = ALL_TOKENS.length > 0
+                ? Math.round(((Object.keys(tokenCache).length) / total) * 100)
+                : 0;
+            label.textContent = `旧約聖書を追加中… ${Math.min(loaded, 99)}%`;
+        }
+    }, 800);
+}
+
+function _updateIdxStatus() {
+    const dot   = document.getElementById('idx-dot');
+    const label = document.getElementById('idx-label');
+    if (!dot || !label) return;
+    if (IDX.l1Ready) {
+        dot.className   = 'idx-dot active';
+        label.textContent = '新約聖書 完了 — 旧約を追加中…';
+    }
 }
 
 init();
