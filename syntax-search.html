@@ -769,6 +769,162 @@ margin-bottom: 24px;
     color: var(--text-hint);
 }
 
+
+/* ══════════════════════════════════════════
+   SECTION SYSTEM (再設計)
+══════════════════════════════════════════ */
+.section-block {
+    margin-bottom: 40px;
+}
+.section-num {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-hint);
+    margin-bottom: 4px;
+}
+.section-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-sub);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+/* ══════════════════════════════════════════
+   SECTION 1 — 役割ヒーロー
+   ページ開いてすぐ「この語は何をしているのか」を伝える
+══════════════════════════════════════════ */
+.role-hero {
+    margin-bottom: 16px;
+}
+.role-hero-empty {
+    padding: 20px;
+    background: var(--bg-panel);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-m);
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-hint);
+}
+
+/* ロール強調表示 */
+.role-primary-display {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    border-radius: var(--radius-m);
+    margin-bottom: 12px;
+    animation: fadeUp 0.2s ease;
+}
+.role-primary-word {
+    font-family: 'Gentium Plus', serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1.1;
+    flex-shrink: 0;
+}
+.role-primary-right {
+    flex: 1;
+}
+.role-primary-label {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: 4px;
+}
+.role-primary-conf {
+    font-size: 0.7rem;
+    opacity: 0.75;
+}
+
+/* 推定警告（Section 2 内） */
+.estimation-notice {
+    margin-top: 12px;
+    padding: 9px 13px;
+    font-size: 0.78rem;
+    color: var(--text-sub);
+    background: rgba(186,117,23,0.06);
+    border-left: 3px solid rgba(186,117,23,0.45);
+    border-radius: 0 6px 6px 0;
+    line-height: 1.7;
+}
+.estimation-notice-label {
+    font-weight: 700;
+    color: rgba(186,117,23,0.9);
+    margin-right: 6px;
+}
+
+/* ══════════════════════════════════════════
+   SECTION 4 — 前後ナビゲーション
+══════════════════════════════════════════ */
+.nav-steps {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.nav-step-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    cursor: pointer;
+    text-decoration: none;
+    color: var(--text);
+    transition: background 0.12s, border-color 0.12s, transform 0.1s;
+}
+.nav-step-card:hover {
+    background: var(--accent-light);
+    border-color: var(--accent-mid);
+    transform: translateY(-1px);
+}
+.nav-step-arrow {
+    font-size: 1rem;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+.nav-step-body {
+    flex: 1;
+    min-width: 0;
+}
+.nav-step-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-hint);
+    margin-bottom: 3px;
+}
+.nav-step-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 2px;
+}
+.nav-step-desc {
+    font-size: 0.68rem;
+    color: var(--text-sub);
+    line-height: 1.5;
+}
+.nav-step-prev .nav-step-body { text-align: left; }
+.nav-step-next .nav-step-body { text-align: right; }
+
+/* iframe では Section 4 を非表示 */
+body.in-iframe .section-block:last-of-type { display: none !important; }
+body.in-iframe .section-divider:last-of-type { display: none !important; }
+
+@media (max-width: 520px) {
+    .nav-steps { grid-template-columns: 1fr; }
+    .role-primary-word { font-size: 1.8rem; }
+}
 </style>
 </head>
 <body>
@@ -821,54 +977,93 @@ margin-bottom: 24px;
 <!-- MAIN CONTENT (hidden until data loads) -->
 <div id="main-content" style="display:none">
 
-   <!-- ① 文全体表示 -->
-    <div class="sentence-block fade-up">
-        <div class="sec-label ui-section-label">文の全体</div>
+    <!-- ══════════════════════════════════════
+         SECTION 1 — この語の役割
+         「この語は何をしているのか」を最初の数秒で伝える
+    ══════════════════════════════════════ -->
+    <div class="section-block fade-up">
+        <div class="section-num">Section 1</div>
+        <div class="section-title">この語の役割</div>
+
+        <!-- 役割ヒーロー表示 -->
+        <div class="role-hero" id="role-hero">
+            <div class="role-hero-empty">語をタップして役割を確認</div>
+        </div>
+
+        <!-- 詳細カード（selectToken で更新） -->
+        <div id="detail-body"></div>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- ══════════════════════════════════════
+         SECTION 2 — 文全体での位置
+         どの語と関係しているか・修飾先・支配関係
+    ══════════════════════════════════════ -->
+    <div class="section-block fade-up" style="animation-delay:0.06s">
+        <div class="section-num">Section 2</div>
+        <div class="section-title">文全体での位置</div>
+
+        <!-- 節参照 -->
         <div class="sentence-ref">
             <span class="sentence-ref-badge" id="sent-ref-badge">—</span>
-            <span id="sent-ref-label" style="font-size: 0.68rem;color:var(--text-hint);font-weight:400;">推定統語解析</span>
+            <span id="sent-ref-label" style="font-size:0.68rem;color:var(--text-hint);font-weight:400;">推定統語解析</span>
         </div>
+
+        <!-- トークン列 -->
         <div class="token-line greek-headword" id="token-line"></div>
+
+        <!-- 日本語訳 -->
         <div class="sentence-ja" id="sentence-ja" style="display:none"></div>
+
+        <!-- 凡例 -->
         <div class="legend" id="legend"></div>
-        <div style="margin-top:10px;padding:9px 13px;font-size:0.85rem;color:var(--text-sub);background:rgba(186,117,23,0.06);border-left:4px solid rgba(186,117,23,0.45);border-radius:0 6px 6px 0;line-height:1.7;">
-            <span style="font-weight:700;color:rgba(186,117,23,0.9);">⚠ 推定表示：</span>この解析は語順・格・一致情報に基づく<strong>推定</strong>です。確定した正解ではありません。ヘブライズム・倒置語順・文脈的要因によって判定が変わります。各語をタップして確信度をご確認ください。
+
+        <!-- 推定警告 -->
+        <div class="estimation-notice">
+            <span class="estimation-notice-label">⚠ 推定表示</span>
+            この解析は語順・格・一致情報に基づく<strong>推定</strong>です。確定した正解ではありません。ヘブライズム・倒置語順・文脈的要因によって判定が変わります。
         </div>
     </div>
 
-    <!-- ② 構文ツリー -->
-    <div class="tree-block fade-up" style="animation-delay:0.06s">
-        <div class="sec-label ui-section-label">推定統語解析</div>
+    <hr class="section-divider">
+
+    <!-- ══════════════════════════════════════
+         SECTION 3 — 構文ツリー
+         専門的分析として後段に配置
+    ══════════════════════════════════════ -->
+    <div class="section-block fade-up" style="animation-delay:0.12s">
+        <div class="section-num">Section 3</div>
+        <div class="section-title">構文ツリー</div>
         <div class="syn-tree" id="syn-tree"></div>
     </div>
 
-    <!-- ③ 関係説明 -->
-    <div class="detail-panel fade-up" style="animation-delay:0.12s">
-        <div class="sec-label ui-section-label">選択した語の関係</div>
-        <div id="detail-body">
-            <div class="detail-empty">語をタップすると、その語の統語的関係が表示されます。</div>
-        </div>
-    </div>
+    <hr class="section-divider">
 
-    <!-- ⑤ ナビゲーション -->
-    <div class="fade-up" style="animation-delay:0.22s">
-        <div class="sec-label ui-section-label" style="margin-bottom:12px;">次のステップ</div>
-        <div class="nav-tools">
-            <a class="nav-tool-btn" href="#" onclick="navTo('morph',event)">
-                <div>
-                    <div class="nav-tool-icon">◻</div>
-                    <div class="nav-tool-main">形を確認する</div>
-                    <div class="nav-tool-sub">形態論ツールへ</div>
+    <!-- ══════════════════════════════════════
+         SECTION 4 — ナビゲーション（前後）
+    ══════════════════════════════════════ -->
+    <div class="section-block fade-up" style="animation-delay:0.18s">
+        <div class="section-num">前後のステップ</div>
+        <div class="section-title">さらに理解を深める</div>
+        <div class="nav-steps">
+            <!-- ← 前のステップ -->
+            <a class="nav-step-card nav-step-prev" href="#" onclick="navTo('morph',event)">
+                <span class="nav-step-arrow">←</span>
+                <div class="nav-step-body">
+                    <div class="nav-step-label">前のステップ</div>
+                    <div class="nav-step-title">形態論検索</div>
+                    <div class="nav-step-desc">この語が何であるかを確認する</div>
                 </div>
-                <span class="nav-tool-arrow">→</span>
             </a>
-            <a class="nav-tool-btn" href="#" onclick="navTo('semantics',event)">
-                <div>
-                    <div class="nav-tool-icon">◎</div>
-                    <div class="nav-tool-main">意味を確認する</div>
-                    <div class="nav-tool-sub">意味論ツールへ</div>
+            <!-- → 次のステップ -->
+            <a class="nav-step-card nav-step-next" href="#" onclick="navTo('semantics',event)">
+                <div class="nav-step-body">
+                    <div class="nav-step-label">次のステップ</div>
+                    <div class="nav-step-title">意味論検索</div>
+                    <div class="nav-step-desc">この語がこの文脈で何を意味するか調べる</div>
                 </div>
-                <span class="nav-tool-arrow">→</span>
+                <span class="nav-step-arrow">→</span>
             </a>
         </div>
     </div>
@@ -2098,6 +2293,19 @@ function renderDetail(entry, tokens, idx) {
                 <div style="font-size:0.68rem;color:var(--text-hint);margin-top:5px;">※ これは語順から読み取れる傾向です。文脈・レジスターによって解釈が変わります。</div>
             </div>
         </div>` : '';
+
+    /* Section 1 — 役割ヒーロー更新 */
+    const roleHeroEl = document.getElementById('role-hero');
+    if (roleHeroEl) {
+        roleHeroEl.innerHTML = `<div class="role-primary-display"
+            style="background:${meta.bg};border:1px solid ${meta.barColor}22">
+            <span class="role-primary-word" style="color:${meta.barColor}">${word}</span>
+            <div class="role-primary-right">
+                <div class="role-primary-label" style="color:${meta.barColor}">${meta.label}</div>
+                <div class="role-primary-conf" style="color:${meta.barColor}">${confLabel}</div>
+            </div>
+        </div>`;
+    }
 
     document.getElementById('detail-body').innerHTML = `
         <div class="detail-card">
