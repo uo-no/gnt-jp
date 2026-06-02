@@ -568,6 +568,7 @@ max-width: 100%;
 
 /* セクション間余白削減 */
 body.in-iframe .context-block,
+body.in-iframe .primary-meanings-block,
 body.in-iframe .candidates-block,
 body.in-iframe .examples-block {
 margin-bottom: 20px;
@@ -734,18 +735,10 @@ border-radius: var(--radius-m);
 <!-- MAIN CONTENT -->
 <div id="main-content" style="display:none">
 
-    <!-- ① 意味的文脈（Semantic Context — 共起語中心） -->
-    <div class="context-block fade-up">
-        <div class="sec-label ui-section-label">意味的文脈</div>
-        <div class="sentence-ref">
-            <span class="sentence-ref-badge" id="sent-ref-badge">—</span>
-            <span style="font-size: 0.68rem;color:var(--text-hint);font-weight:400;">意味論</span>
-        </div>
-        <!-- 対象語とその意味的近傍語のみ表示（節全文は非表示） -->
-        <div id="sem-context-display" style="margin-bottom:8px;"></div>
-        <!-- 節全文は非表示（構文確認はSyntaxタブで） -->
-        <div class="token-line greek-headword" id="token-line" style="display:none;"></div>
-        <div class="sentence-ja" id="sentence-ja" style="display:none"></div>
+    <!-- 参照バッジ（文脈ブロックから切り出し） -->
+    <div class="sentence-ref" style="margin-bottom:16px;">
+        <span class="sentence-ref-badge" id="sent-ref-badge">—</span>
+        <span style="font-size: 0.68rem;color:var(--text-hint);font-weight:400;">意味論</span>
     </div>
 
     <!-- 推定エンジン稼働バナー（DB外語彙のとき表示） -->
@@ -757,10 +750,20 @@ border-radius: var(--radius-m);
         </div>
     </div>
 
-    <!-- ② 意味候補 — 比較ビュー -->
+    <!-- ══ セクション1：代表的意味（最重要） ══ -->
+    <div class="primary-meanings-block fade-up" style="animation-delay:0s;margin-bottom:32px;padding-bottom:32px;border-bottom:1px solid var(--border);">
+        <div class="sec-label ui-section-label" style="margin-bottom:12px;">代表的意味</div>
+        <div id="primary-meanings-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+            <!-- JS で描画 -->
+        </div>
+        <div id="sentence-ja" style="display:none"></div>
+        <div class="token-line greek-headword" id="token-line" style="display:none;"></div>
+    </div>
+
+    <!-- ══ セクション2：意味領域（分析補助） ══ -->
     <div class="candidates-block fade-up" style="animation-delay:0.05s">
         <div class="sec-label ui-section-label" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">
-            <span>意味の候補</span>
+            <span>意味領域</span>
             <span style="font-size: 0.68rem;font-weight:400;letter-spacing:0.02em;text-transform:none;color:var(--text-hint);opacity:0.8;">一致度が高い順 ↓</span>
         </div>
         <div class="candidates-list" id="candidates-list">
@@ -768,34 +771,43 @@ border-radius: var(--radius-m);
         </div>
     </div>
 
-    <!-- ⑦ 比較用例 -->
+    <!-- ══ セクション3：近縁語 ══ -->
+    <div class="context-block fade-up" style="animation-delay:0.14s">
+        <div class="sec-label ui-section-label">近縁語</div>
+        <div id="sem-context-display" style="margin-bottom:8px;"></div>
+    </div>
+
+    <!-- ══ セクション4：関連概念（比較用例） ══ -->
     <div class="examples-block fade-up" style="animation-delay:0.21s" id="examples-block">
-        <div class="sec-label ui-section-label">他の文での用法</div>
+        <div class="sec-label ui-section-label">関連概念</div>
+        <div style="font-size:0.75rem;color:var(--text-hint);margin-bottom:12px;line-height:1.6;">
+            この語の用法が確認できる他の箇所
+        </div>
         <div class="examples-list" id="examples-list">
             <!-- JS で描画 -->
         </div>
     </div>
 
-    <!-- ⑧ ナビゲーション -->
-    <div class="fade-up" style="animation-delay:0.24s">
-        <div class="sec-label ui-section-label" style="margin-bottom:12px;">次のステップ</div>
+    <!-- ══ ナビゲーション（ページ下部） ══ -->
+    <div class="fade-up" style="animation-delay:0.26s">
+        <div class="sec-label ui-section-label" style="margin-bottom:12px;">探究の流れ</div>
         <div class="nav-tools">
-            <a class="nav-tool-btn" href="#" onclick="navTo('morph',event)">
-                <div>
-                    <div class="nav-tool-icon">◻</div>
-                    <div class="nav-tool-main">形を確認する</div>
-                    <div class="nav-tool-sub">形態論ツールへ</div>
-                </div>
-                <span class="nav-tool-arrow">→</span>
-            </a>
+            <!-- 前のステップ：統語論検索 -->
             <a class="nav-tool-btn" href="#" onclick="navTo('syntax',event)">
                 <div>
-                    <div class="nav-tool-icon">⋮</div>
-                    <div class="nav-tool-main">構造を確認する</div>
-                    <div class="nav-tool-sub">統語論ツールへ</div>
+                    <div class="nav-tool-icon">←</div>
+                    <div class="nav-tool-main">統語論検索</div>
+                    <div class="nav-tool-sub">この語が文の中でどのような役割を果たしているか確認する</div>
                 </div>
-                <span class="nav-tool-arrow">→</span>
             </a>
+            <!-- 探究完了 -->
+            <div class="nav-tool-btn" style="cursor:default;background:var(--c-top-bg);border-color:var(--c-top-mid);">
+                <div>
+                    <div class="nav-tool-icon" style="color:var(--c-top);">✓</div>
+                    <div class="nav-tool-main" style="color:var(--c-top);">探究完了</div>
+                    <div class="nav-tool-sub">この語の形態・文法的役割・意味を確認しました</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2334,10 +2346,9 @@ function renderTokenLine(tokens, targetWord) {
 }
 
 /**
- * 意味的文脈表示：
- * - 対象語を強調表示
- * - 意味的に関連する共起語（名詞・動詞・形容詞）のみ抽出
- * - 節全文・構文ツリーは表示しない（Syntaxタブの責務）
+ * セクション3：近縁語
+ * 意味的に関連する共起語（名詞・動詞・形容詞）のみ抽出・表示
+ * 対象語表示・日本語訳はセクション1に移動済みのためここでは非表示
  */
 function renderSemanticContext(tokens, targetWord, jaVerse) {
     const container = document.getElementById('sem-context-display');
@@ -2358,35 +2369,50 @@ function renderSemanticContext(tokens, targetWord, jaVerse) {
         return true;
     }).slice(0, 8); // 最大8語
 
-    // 対象語表示
-    const targetHTML = `
-        <div class="sem-ctx-target">
-            <span class="sem-ctx-target-word greek-headword">${targetWord}</span>
-            <span class="sem-ctx-target-label ui-section-label">対象語</span>
-        </div>`;
+    if (!neighbors.length) {
+        container.innerHTML = `<div style="font-size:0.78rem;color:var(--text-hint);">同節内に意味的近縁語が見つかりませんでした</div>`;
+        return;
+    }
 
-    // 共起語チップ
+    // 品詞ラベル
     const POS_ROLE = { V:'動詞', N:'名詞', A:'形容詞', D:'副詞', R:'関係', P:'代名詞' };
-    const neighborChips = neighbors.length > 0
-        ? `<div class="sem-cooc-section">
-            <div class="sem-cooc-label ui-section-label">意味的共起語</div>
-            <div class="sem-cooc-chips">
-                ${neighbors.map(t => {
-                    const w   = cleanText(t);
-                    const pos = (t.pos || '').toUpperCase().replace(/-$/, '');
-                    const role = POS_ROLE[pos] || '';
-                    return `<span class="sem-cooc-chip semantic-neighbor">
-                        <span class="chip-role">${role}</span>${w}
-                    </span>`;
-                }).join('')}
-            </div>
-          </div>`
-        : '';
 
-    // 日本語訳（短縮版）
-    const jaShort = jaVerse ? `<div class="sem-ja-note">${jaVerse}</div>` : '';
+    // 同系統語・類義語・関連語のグループラベル
+    const verbNeighbors  = neighbors.filter(t => (t.pos||'').toUpperCase().replace(/-$/,'') === 'V');
+    const nounNeighbors  = neighbors.filter(t => (t.pos||'').toUpperCase().replace(/-$/,'') === 'N');
+    const otherNeighbors = neighbors.filter(t => !['V','N'].includes((t.pos||'').toUpperCase().replace(/-$/','')));
 
-    container.innerHTML = targetHTML + neighborChips + jaShort;
+    const makeChips = (list) => list.map(t => {
+        const w   = cleanText(t);
+        const pos = (t.pos || '').toUpperCase().replace(/-$/, '');
+        const role = POS_ROLE[pos] || '';
+        return `<span class="sem-cooc-chip semantic-neighbor">
+            <span class="chip-role">${role}</span>${w}
+        </span>`;
+    }).join('');
+
+    let html = '';
+
+    if (verbNeighbors.length) {
+        html += `<div class="sem-cooc-section" style="margin-bottom:10px;">
+            <div class="sem-cooc-label ui-section-label" style="margin-bottom:5px;">同系統語（動詞）</div>
+            <div class="sem-cooc-chips">${makeChips(verbNeighbors)}</div>
+        </div>`;
+    }
+    if (nounNeighbors.length) {
+        html += `<div class="sem-cooc-section" style="margin-bottom:10px;">
+            <div class="sem-cooc-label ui-section-label" style="margin-bottom:5px;">関連語（名詞）</div>
+            <div class="sem-cooc-chips">${makeChips(nounNeighbors)}</div>
+        </div>`;
+    }
+    if (otherNeighbors.length) {
+        html += `<div class="sem-cooc-section">
+            <div class="sem-cooc-label ui-section-label" style="margin-bottom:5px;">類義語・修飾語</div>
+            <div class="sem-cooc-chips">${makeChips(otherNeighbors)}</div>
+        </div>`;
+    }
+
+    container.innerHTML = html;
 }
 
 /* ── ② 候補リスト描画 ── */
@@ -2506,6 +2532,24 @@ function selectCandidate(idx) {
     });
 }
 
+/* ══════════════════════════════════════════
+   セクション1：代表的意味 描画
+   ══════════════════════════════════════════ */
+function renderPrimaryMeanings(candidates) {
+    const container = document.getElementById('primary-meanings-list');
+    if (!container || !candidates.length) return;
+
+    // 全候補の意味語をタグとして列挙（スコア順のまま）
+    container.innerHTML = candidates.map((c, i) => {
+        const isTop = i === 0;
+        const style = isTop
+            ? `background:var(--c-top-bg);border:1.5px solid var(--c-top-mid);color:var(--c-top);font-size:1.1rem;font-weight:700;padding:8px 18px;border-radius:var(--radius-m);`
+            : `background:var(--bg-panel);border:1px solid var(--border);color:var(--text-sub);font-size:0.9rem;font-weight:500;padding:6px 14px;border-radius:var(--radius-m);`;
+        const subText = c.sub ? `<span style="font-size:0.7rem;font-weight:400;margin-left:5px;opacity:0.7;">${c.sub}</span>` : '';
+        return `<div style="${style}cursor:pointer;transition:opacity 0.12s;" onclick="selectCandidate(${i});document.querySelector('.candidates-block').scrollIntoView({behavior:'smooth',block:'start'})" title="${c.sub||''}">${c.meaning}${isTop ? subText : ''}</div>`;
+    }).join('');
+}
+
 /* ── 全体初期化 ── */
 function renderAll(tokens, targetWord, jaVerse) {
     _tokens = tokens;
@@ -2516,18 +2560,25 @@ function renderAll(tokens, targetWord, jaVerse) {
     );
     _lemma = targetEntry?.lemma || params.lemma || targetWord;
 
-    // ① 意味的文脈表示（共起語中心）
-    renderSemanticContext(tokens, targetWord, jaVerse);
+    // スコア計算（先に行い、セクション1・2両方で使用）
+    _candidates = computeScores(_lemma, tokens, targetWord);
+
+    // セクション1：代表的意味
+    renderPrimaryMeanings(_candidates);
 
     if (jaVerse) {
         const jaEl = document.getElementById('sentence-ja');
-        if (jaEl) { jaEl.dataset.raw = jaVerse; }
+        if (jaEl) {
+            jaEl.dataset.raw = jaVerse;
+            jaEl.className = 'sentence-ja';
+            jaEl.style.display = '';
+            jaEl.style.marginTop = '14px';
+            // 対象語をハイライト（既存ロジック流用）
+            jaEl.innerHTML = jaVerse;
+        }
     }
 
-    // スコア計算
-    _candidates = computeScores(_lemma, tokens, targetWord);
-
-    // ② 候補リスト（比較UI）
+    // セクション2：意味領域（既存の候補リスト）
     renderCandidates(_candidates);
 
     // C-2: 中動態用法バッジ（voice が middle 系の場合のみ）
@@ -2536,7 +2587,10 @@ function renderAll(tokens, targetWord, jaVerse) {
     // C-3: 神的受動態バッジ（voice が passive 系の場合のみ）
     renderDivinePassiveBadge(targetEntry, tokens);
 
-    // ⑦ 用例
+    // セクション3：近縁語（意味的共起語）
+    renderSemanticContext(tokens, targetWord, jaVerse);
+
+    // セクション4：関連概念（比較用例）
     renderExamples(_lemma);
 }
 
