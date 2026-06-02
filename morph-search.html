@@ -789,6 +789,8 @@ const GENDER_CODE = { M:'masculine',F:'feminine',N:'neuter' };
 function entryPosCode(entry) {
     if (entry.pos) return String(entry.pos).replace(/-$/,'').toUpperCase();
     if (entry.class) return CLASS_TO_POS[String(entry.class).toLowerCase()] || '';
+    if (typeof entry.morph === 'string' && entry.morph)
+        return entry.morph.split('-')[0].toUpperCase();
     return '';
 }
 function decodeMorph(entry) {
@@ -1092,7 +1094,7 @@ const PAGE_SIZE = 100;
 function renderResults(allData) {
     const matched = allData.filter(matchEntry);
     const sp      = params.pos.replace(/-$/,'');
-    const samePos = allData.filter(e=>(e.pos||'').replace(/-$/,'').toUpperCase()===sp.toUpperCase()).length;
+    const samePos = allData.filter(e => entryPosCode(e) === sp).length;
     document.getElementById('count').textContent      = matched.length.toLocaleString();
     document.getElementById('result-pct').textContent = samePos>0 ? `同品詞 ${samePos.toLocaleString()} 件中` : '';
     _currentRows  = matched;
