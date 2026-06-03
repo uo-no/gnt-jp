@@ -684,6 +684,77 @@ border-radius: var(--radius-m);
     margin-top: 2px;
 }
 
+
+/* ══════════════════════════════════════════
+   セクション1：この語の意味カード
+   ══════════════════════════════════════════ */
+.meaning-card {
+    margin-bottom: 0;
+}
+.meaning-card-word {
+    font-family: 'Gentium Plus', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--c-top);
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    margin-bottom: 14px;
+}
+.meaning-card-primary {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+.meaning-card-item {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+.meaning-card-item-rank {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--c-top);
+    flex-shrink: 0;
+    margin-bottom: 2px;
+}
+.meaning-card-item-rank.secondary {
+    background: var(--border);
+    width: 5px;
+    height: 5px;
+}
+.meaning-card-item-text {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.4;
+}
+.meaning-card-item-text.secondary {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-sub);
+}
+.meaning-card-core {
+    font-size: 0.8rem;
+    color: var(--text-sub);
+    line-height: 1.6;
+    padding: 8px 12px;
+    background: var(--bg-panel);
+    border-left: 2px solid var(--c-top-mid);
+    border-radius: 0 var(--radius-s) var(--radius-s) 0;
+    margin-top: 4px;
+}
+.meaning-card-core-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--c-top);
+    opacity: 0.8;
+    margin-bottom: 3px;
+}
+
 </style>
 </head>
 <body>
@@ -750,10 +821,10 @@ border-radius: var(--radius-m);
         </div>
     </div>
 
-    <!-- ══ セクション1：代表的意味（最重要） ══ -->
+    <!-- ══ セクション1：この語の意味（最重要） ══ -->
     <div class="primary-meanings-block fade-up" style="animation-delay:0s;margin-bottom:32px;padding-bottom:32px;border-bottom:1px solid var(--border);">
-        <div class="sec-label ui-section-label" style="margin-bottom:12px;">代表的意味</div>
-        <div id="primary-meanings-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+        <div class="sec-label ui-section-label" style="margin-bottom:14px;">この語の意味</div>
+        <div id="primary-meanings-card">
             <!-- JS で描画 -->
         </div>
         <div id="sentence-ja" style="display:none"></div>
@@ -763,7 +834,7 @@ border-radius: var(--radius-m);
     <!-- ══ セクション2：意味領域（分析補助） ══ -->
     <div class="candidates-block fade-up" style="animation-delay:0.05s">
         <div class="sec-label ui-section-label" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">
-            <span>意味領域</span>
+            <span>意味領域 <span style="font-size:0.68rem;font-weight:400;letter-spacing:0.02em;text-transform:none;color:var(--text-hint);opacity:0.9;">— なぜこの意味か</span></span>
             <span style="font-size: 0.68rem;font-weight:400;letter-spacing:0.02em;text-transform:none;color:var(--text-hint);opacity:0.8;">一致度が高い順 ↓</span>
         </div>
         <div class="candidates-list" id="candidates-list">
@@ -779,9 +850,9 @@ border-radius: var(--radius-m);
 
     <!-- ══ セクション4：関連概念（比較用例） ══ -->
     <div class="examples-block fade-up" style="animation-delay:0.21s" id="examples-block">
-        <div class="sec-label ui-section-label">関連概念</div>
+        <div class="sec-label ui-section-label">他の箇所での用法</div>
         <div style="font-size:0.75rem;color:var(--text-hint);margin-bottom:12px;line-height:1.6;">
-            この語の用法が確認できる他の箇所
+            同じ語が使われている他の聖書箇所
         </div>
         <div class="examples-list" id="examples-list">
             <!-- JS で描画 -->
@@ -1844,7 +1915,13 @@ function buildMeaningLabel(field, lemma, pos) {
         },
     };
 
-    const posKey = (pos||'').toLowerCase().replace(/^v$/,'verb').replace(/^n$/,'noun').replace(/^a$/,'adj');
+    // pos は 'V', 'N', 'A', 'verb', 'noun', 'adj', 'V-AAI-3S' など多様な形式が来る
+    const rawPos = (pos||'').toLowerCase();
+    let posKey;
+    if (rawPos.startsWith('v')) posKey = 'verb';
+    else if (rawPos.startsWith('n')) posKey = 'noun';
+    else if (rawPos.startsWith('a')) posKey = 'adj';
+    else posKey = rawPos;
     const fieldLabels = FIELD_POS_LABELS[field];
     if (fieldLabels) {
         return fieldLabels[posKey] || fieldLabels['_'];
@@ -2487,7 +2564,7 @@ function renderCandidates(candidates) {
                         ${c.meaning}
                         ${c.sub ? `<span class="cand-meaning-sub">${c.sub}</span>` : ''}
                     </span>
-                    ${isTop ? `<span class="top-badge" style="background:var(--c-top-bg);border-color:var(--c-top-mid);color:var(--c-top);">#1</span>` : ''}
+                    ${isTop ? `<span style="font-size:0.65rem;color:var(--c-top);opacity:0.7;flex-shrink:0;letter-spacing:0.04em;">最有力</span>` : ''}
                 </div>
                 ${fieldBadge ? `<div style="margin-bottom:6px;">${fieldBadge}</div>` : ''}
                 <div class="cand-score-row">
@@ -2542,18 +2619,66 @@ function selectAndScrollToField(idx) {
 }
 
 function renderPrimaryMeanings(candidates) {
-    const container = document.getElementById('primary-meanings-list');
+    const container = document.getElementById('primary-meanings-card');
     if (!container || !candidates.length) return;
 
-    container.innerHTML = candidates.map((c, i) => {
-        const isTop = i === 0;
-        const style = isTop
-            ? 'background:var(--c-top-bg);border:1.5px solid var(--c-top-mid);color:var(--c-top);font-size:1.1rem;font-weight:700;padding:8px 18px;border-radius:var(--radius-m);'
-            : 'background:var(--bg-panel);border:1px solid var(--border);color:var(--text-sub);font-size:0.9rem;font-weight:500;padding:6px 14px;border-radius:var(--radius-m);';
-        const subText = c.sub ? '<span style="font-size:0.7rem;font-weight:400;margin-left:5px;opacity:0.7;">' + c.sub + '</span>' : '';
-        const titleAttr = (c.sub || '').replace(/"/g, '&quot;');
-        return '<div style="' + style + 'cursor:pointer;transition:opacity 0.12s;" onclick="selectAndScrollToField(' + i + ')" title="' + titleAttr + '">' + c.meaning + (isTop ? subText : '') + '</div>';
-    }).join('');
+    // 対象語（ページパラメータから取得）
+    const targetWord = params.word || '';
+
+    // 最有力候補から意味語を分解
+    // c.meaning は「来る・到来する・移動する」のような・区切り文字列
+    const top = candidates[0];
+    const allMeanings = candidates
+        .map(c => c.meaning.split('・'))
+        .flat()
+        .filter((v, i, arr) => arr.indexOf(v) === i) // 重複除去
+        .slice(0, 6); // 最大6語
+
+    // 最有力3語・それ以外
+    const primaryMeanings  = allMeanings.slice(0, 3);
+    const secondaryMeanings = allMeanings.slice(3);
+
+    // 中心概念：top.sub があれば使う。なければ意味フィールド名から生成
+    const coreConceptRaw = top.sub || (top.semanticField ? top.semanticField : '');
+    // 括弧を除去して文にする（例：「（場所移動）」→「場所移動に関わる概念」）
+    const coreConcept = coreConceptRaw
+        ? coreConceptRaw.replace(/^[（(]/, '').replace(/[）)]$/, '')
+        : '';
+
+    // 意味語リスト HTML
+    const primaryHtml = primaryMeanings.map((m, i) =>
+        '<div class="meaning-card-item">' +
+            '<span class="meaning-card-item-rank"></span>' +
+            '<span class="meaning-card-item-text">' + m + '</span>' +
+        '</div>'
+    ).join('');
+
+    const secondaryHtml = secondaryMeanings.length
+        ? secondaryMeanings.map(m =>
+            '<div class="meaning-card-item">' +
+                '<span class="meaning-card-item-rank secondary"></span>' +
+                '<span class="meaning-card-item-text secondary">' + m + '</span>' +
+            '</div>'
+          ).join('')
+        : '';
+
+    // 中心概念ブロック
+    const coreHtml = coreConcept
+        ? '<div class="meaning-card-core">' +
+              '<div class="meaning-card-core-label">中心概念</div>' +
+              coreConcept +
+          '</div>'
+        : '';
+
+    container.innerHTML =
+        '<div class="meaning-card">' +
+            (targetWord ? '<div class="meaning-card-word">' + targetWord + '</div>' : '') +
+            '<div class="meaning-card-primary">' +
+                primaryHtml +
+                secondaryHtml +
+            '</div>' +
+            coreHtml +
+        '</div>';
 }
 
 /* ── 全体初期化 ── */
