@@ -755,6 +755,94 @@ border-radius: var(--radius-m);
     margin-bottom: 3px;
 }
 
+/* ── ページ説明カード ── */
+.page-intro {
+    padding: 14px 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    margin-bottom: 28px;
+}
+.page-intro-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-hint);
+    margin-bottom: 6px;
+}
+.page-intro-body {
+    font-size: 0.82rem;
+    color: var(--text-sub);
+    line-height: 1.6;
+    margin-bottom: 8px;
+}
+.page-intro-examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.page-intro-tag {
+    font-size: 0.72rem;
+    padding: 2px 9px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-sub);
+}
+
+/* ── 発見カード ── */
+.discovery-card {
+    padding: 16px 18px;
+    background: var(--bg);
+    border: 1.5px solid var(--accent-mid);
+    border-radius: var(--radius-m);
+    margin-bottom: 28px;
+}
+.discovery-card-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+}
+.discovery-word {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 10px;
+}
+.discovery-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.discovery-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--text-sub);
+}
+.discovery-arrow {
+    color: var(--accent);
+    font-size: 0.72rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.discovery-text {
+    color: var(--text);
+    font-weight: 500;
+}
+.discovery-text.muted {
+    color: var(--text-sub);
+    font-weight: 400;
+}
+
 </style>
 </head>
 <body>
@@ -769,6 +857,29 @@ border-radius: var(--radius-m);
         <span class="crumb" id="bc-word" style="font-family:'Gentium Plus',serif;font-size:0.95rem;">—</span>
         <span class="sep">›</span>
         <span>意味論</span>
+    </div>
+</div>
+
+<!-- ── このページで分かること ── -->
+<div class="page-intro">
+    <div class="page-intro-title">このページで分かること</div>
+    <div class="page-intro-body">この語がどのような意味で使われているかを調べます。</div>
+    <div class="page-intro-examples">
+        <span class="page-intro-tag">来る</span>
+        <span class="page-intro-tag">訪れる</span>
+        <span class="page-intro-tag">現れる</span>
+    </div>
+</div>
+
+<!-- ── 発見カード（意味論） ── -->
+<div class="discovery-card" id="discovery-card">
+    <div class="discovery-card-title">この語の意味</div>
+    <div class="discovery-word" id="disc-word">—</div>
+    <div class="discovery-rows" id="disc-rows">
+        <div class="discovery-row">
+            <span class="discovery-arrow">→</span>
+            <span class="discovery-text muted">読み込み中…</span>
+        </div>
     </div>
 </div>
 
@@ -2697,6 +2808,9 @@ function renderAll(tokens, targetWord, jaVerse) {
     // セクション1：代表的意味
     renderPrimaryMeanings(_candidates);
 
+    /* 発見カード更新（意味論） */
+    renderSemanticDiscoveryCard(_candidates, targetWord);
+
     if (jaVerse) {
         const jaEl = document.getElementById('sentence-ja');
         if (jaEl) {
@@ -2723,6 +2837,31 @@ function renderAll(tokens, targetWord, jaVerse) {
 
     // セクション4：関連概念（比較用例）
     renderExamples(_lemma);
+}
+
+/* ── 発見カード描画（意味論） ── */
+function renderSemanticDiscoveryCard(candidates, targetWord) {
+    const word = targetWord || params.word || '—';
+    document.getElementById('disc-word').textContent = word;
+
+    if (!candidates || !candidates.length) return;
+
+    const top = candidates[0];
+    // c.meaning は「来る・到来する・移動する」のような・区切り文字列
+    const meanings = top.meaning.split('・').slice(0, 3);
+
+    // 追加：2位候補から補完（重複除去）
+    if (candidates[1]) {
+        candidates[1].meaning.split('・').forEach(m => {
+            if (!meanings.includes(m) && meanings.length < 4) meanings.push(m);
+        });
+    }
+
+    document.getElementById('disc-rows').innerHTML = meanings.map(m => `
+        <div class="discovery-row">
+            <span class="discovery-arrow">→</span>
+            <span class="discovery-text">${m}</span>
+        </div>`).join('');
 }
 
 /**
