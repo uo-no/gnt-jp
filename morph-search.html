@@ -542,6 +542,94 @@ body.compact-reading-mode .ptc-lite { font-size: 0.7rem; padding: 5px 9px; }
     .page { padding: 24px 16px 80px; }
     .identity-word { font-size: 2.4rem; }
 }
+
+/* ── 発見カード ── */
+.discovery-card {
+    padding: 16px 18px;
+    background: var(--bg);
+    border: 1.5px solid var(--accent-mid);
+    border-radius: var(--radius-m);
+    margin-bottom: 28px;
+}
+.discovery-card-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+}
+.discovery-word {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 10px;
+}
+.discovery-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.discovery-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--text-sub);
+}
+.discovery-arrow {
+    color: var(--accent);
+    font-size: 0.72rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.discovery-text {
+    color: var(--text);
+    font-weight: 500;
+}
+.discovery-text.muted {
+    color: var(--text-sub);
+    font-weight: 400;
+}
+
+/* ── ページ説明カード ── */
+.page-intro {
+    padding: 14px 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    margin-bottom: 28px;
+}
+.page-intro-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-hint);
+    margin-bottom: 6px;
+}
+.page-intro-body {
+    font-size: 0.82rem;
+    color: var(--text-sub);
+    line-height: 1.6;
+    margin-bottom: 8px;
+}
+.page-intro-examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.page-intro-tag {
+    font-size: 0.72rem;
+    padding: 2px 9px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-sub);
+}
 </style>
 </head>
 <body>
@@ -556,6 +644,29 @@ body.compact-reading-mode .ptc-lite { font-size: 0.7rem; padding: 5px 9px; }
         <span class="crumb" id="bc-word" style="font-family:'Gentium Plus',serif;font-size:0.95rem;">—</span>
         <span class="sep">›</span>
         <span>形態論</span>
+    </div>
+</div>
+
+<!-- ── このページで分かること ── -->
+<div class="page-intro">
+    <div class="page-intro-title">このページで分かること</div>
+    <div class="page-intro-body">この語がどのような形で使われているかを調べます。</div>
+    <div class="page-intro-examples">
+        <span class="page-intro-tag">動詞か名詞か</span>
+        <span class="page-intro-tag">どのような語形か</span>
+        <span class="page-intro-tag">どのように活用しているか</span>
+    </div>
+</div>
+
+<!-- ── 発見カード（形態論） ── -->
+<div class="discovery-card" id="discovery-card">
+    <div class="discovery-card-title">この語の発見</div>
+    <div class="discovery-word" id="disc-word">—</div>
+    <div class="discovery-rows" id="disc-rows">
+        <div class="discovery-row">
+            <span class="discovery-arrow">→</span>
+            <span class="discovery-text muted">読み込み中…</span>
+        </div>
     </div>
 </div>
 
@@ -928,6 +1039,81 @@ function renderHeader() {
     document.getElementById('hdr-pos').textContent  = POS_JP[pos] || pos || '—';
     document.getElementById('hdr-word').textContent = params.word || '—';
     document.getElementById('hdr-lemma').textContent = params.lemma || '—';
+}
+
+/* ── 発見カード描画（形態論） ── */
+function renderDiscoveryCard() {
+    const pos   = params.pos.replace(/-$/,'').toUpperCase();
+    const word  = params.word || params.lemma || '—';
+    const posJa = POS_JP[pos] || null;
+
+    document.getElementById('disc-word').textContent = word;
+
+    const rows = [];
+
+    // 行1：品詞（何かを示す）
+    if (posJa) {
+        rows.push(posJa);
+    }
+
+    // 行2：動詞なら時制+態+法を平易に、名詞なら格を平易に
+    if (pos === 'V') {
+        const parts = [];
+        if (params.tense) {
+            const TENSE_PLAIN = {
+                present: '今まさに起きていること',
+                imperfect: '過去に繰り返し起きていたこと',
+                future: 'これから起きること',
+                aorist: '起きた出来事',
+                perfect: '起きた結果が今も続いていること',
+                pluperfect: '過去のある時点で完了していたこと',
+            };
+            parts.push(TENSE_PLAIN[params.tense] || TENSE_JP[params.tense]);
+        }
+        if (params.mood) {
+            const MOOD_PLAIN = {
+                indicative: '事実として述べている',
+                subjunctive: '可能性・意志を表している',
+                optative: '願望を表している',
+                imperative: '命じている',
+                infinitive: '動作そのものを表している',
+                participle: '他の語と組み合わさっている',
+            };
+            parts.push(MOOD_PLAIN[params.mood] || MOOD_JP[params.mood]);
+        }
+        if (params.voice === 'passive' || params.voice === 'middle or passive') {
+            parts.push('受ける側の立場で使われている');
+        } else if (params.voice === 'middle' || params.voice === 'middle deponent') {
+            parts.push('自分に関わる動作として使われている');
+        }
+        if (parts.length) rows.push(parts.join('・'));
+    } else if (['N','A','R','D','P'].includes(pos)) {
+        const CASE_PLAIN = {
+            nominative: '文の主役として使われている',
+            genitive:   '何かを修飾・所属を示している',
+            dative:     '間接的な対象を示している',
+            accusative: '動作の対象として使われている',
+            vocative:   '呼びかけに使われている',
+        };
+        const caseVal = extState.find(f => f.key === 'case' && f.enabled)?.value;
+        if (caseVal && CASE_PLAIN[caseVal]) {
+            rows.push(CASE_PLAIN[caseVal]);
+        }
+        const numVal = extState.find(f => f.key === 'number' && f.enabled)?.value;
+        if (numVal === 'plural') rows.push('複数形で使われている');
+    }
+
+    // 行3：lemmaから「〜を表している」
+    if (params.lemma) {
+        rows.push(`「${params.lemma}」という語の一形`);
+    }
+
+    const el = document.getElementById('disc-rows');
+    el.innerHTML = rows.map(r => `
+        <div class="discovery-row">
+            <span class="discovery-arrow">→</span>
+            <span class="discovery-text">${r}</span>
+        </div>`).join('');
 }
 
 function renderCoreTags() {
@@ -1391,6 +1577,7 @@ async function fetchJaData(morphPaths) {
    初期化
 ══════════════════════════════════════════ */
 renderHeader();
+renderDiscoveryCard();
 renderCoreTags();
 if (typeof renderAspectTag === 'function' && params.tense) { renderAspectTag(params.tense); }
 renderCoreChips();
