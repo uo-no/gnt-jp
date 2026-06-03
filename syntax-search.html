@@ -925,6 +925,94 @@ body.in-iframe .section-divider:last-of-type { display: none !important; }
     .nav-steps { grid-template-columns: 1fr; }
     .role-primary-word { font-size: 1.8rem; }
 }
+
+/* ── ページ説明カード ── */
+.page-intro {
+    padding: 14px 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    margin-bottom: 28px;
+}
+.page-intro-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-hint);
+    margin-bottom: 6px;
+}
+.page-intro-body {
+    font-size: 0.82rem;
+    color: var(--text-sub);
+    line-height: 1.6;
+    margin-bottom: 8px;
+}
+.page-intro-examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.page-intro-tag {
+    font-size: 0.72rem;
+    padding: 2px 9px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-sub);
+}
+
+/* ── 発見カード ── */
+.discovery-card {
+    padding: 16px 18px;
+    background: var(--bg);
+    border: 1.5px solid var(--accent-mid);
+    border-radius: var(--radius-m);
+    margin-bottom: 28px;
+}
+.discovery-card-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+}
+.discovery-word {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 10px;
+}
+.discovery-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.discovery-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--text-sub);
+}
+.discovery-arrow {
+    color: var(--accent);
+    font-size: 0.72rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.discovery-text {
+    color: var(--text);
+    font-weight: 500;
+}
+.discovery-text.muted {
+    color: var(--text-sub);
+    font-weight: 400;
+}
 </style>
 </head>
 <body>
@@ -939,6 +1027,29 @@ body.in-iframe .section-divider:last-of-type { display: none !important; }
         <span class="crumb" id="bc-word" style="font-family:'Gentium Plus',serif;font-size:0.95rem;">—</span>
         <span class="sep">›</span>
         <span>推定統語論</span>
+    </div>
+</div>
+
+<!-- ── このページで分かること ── -->
+<div class="page-intro">
+    <div class="page-intro-title">このページで分かること</div>
+    <div class="page-intro-body">この語が文の中でどのような役割を果たしているかを調べます。</div>
+    <div class="page-intro-examples">
+        <span class="page-intro-tag">文の中心か</span>
+        <span class="page-intro-tag">修飾語か</span>
+        <span class="page-intro-tag">どの語と結び付いているか</span>
+    </div>
+</div>
+
+<!-- ── 発見カード（統語論） ── -->
+<div class="discovery-card" id="discovery-card">
+    <div class="discovery-card-title">この文での役割</div>
+    <div class="discovery-word" id="disc-word">—</div>
+    <div class="discovery-rows" id="disc-rows">
+        <div class="discovery-row">
+            <span class="discovery-arrow">→</span>
+            <span class="discovery-text muted">読み込み中…</span>
+        </div>
     </div>
 </div>
 
@@ -2001,6 +2112,68 @@ function renderAll(tokens, targetRef) {
     renderSentence(tokens);
     renderTree(tokens);
     selectToken(autoIdx);
+
+    /* 発見カード更新（データ確定後） */
+    renderSyntaxDiscoveryCard(tokens, autoIdx);
+}
+
+/* ── 発見カード描画（統語論） ── */
+function renderSyntaxDiscoveryCard(tokens, targetIdx) {
+    const word = params.word || '—';
+    document.getElementById('disc-word').textContent = word;
+
+    const entry  = tokens[targetIdx];
+    const role   = entry ? (_roleMap.get(entry)?.role || 'other') : 'other';
+    const meta   = ROLE_META[role] || ROLE_META.other;
+
+    const ROLE_PLAIN = {
+        verb:       'この文の中心となる動詞',
+        subj:       '文の主語（動作・状態の主体）',
+        'pred-nom': '述語として主語を説明している語',
+        obj:        '動作の対象となっている語',
+        prep:       '前置詞句として場所・時・方法を示している',
+        mod:        '他の語を修飾している語',
+        ptc:        '分詞として動作に付随した状況を表している',
+        inf:        '不定詞として動作の目的・内容を示している',
+        conj:       '文と文をつなぐ接続詞',
+        vocative:   '呼びかけの対象を示している語',
+        other:      '文の要素として機能している',
+    };
+
+    const rows = [];
+    rows.push(ROLE_PLAIN[role] || meta.label);
+
+    // 動詞の場合：出来事を進めているか補足か
+    const m = entry ? decodeMorph(entry) : {};
+    if (role === 'verb') {
+        rows.push('出来事を直接進めている語');
+    } else if (role === 'subj') {
+        // 主動詞を探して表示
+        const mainVerb = findMainVerb(tokens);
+        if (mainVerb) {
+            const vWord = cleanText(mainVerb);
+            rows.push(`「${vWord}」という動詞に結び付いている`);
+        }
+    } else if (role === 'obj') {
+        const mainVerb = findMainVerb(tokens);
+        if (mainVerb) {
+            const vWord = cleanText(mainVerb);
+            rows.push(`「${vWord}」が向かう対象`);
+        }
+    } else if (role === 'ptc') {
+        const tenseHint = m.tense === 'aorist'  ? '（先に起きた動作）'
+                        : m.tense === 'present' ? '（同時に進む動作）'
+                        : '';
+        if (tenseHint) rows.push(`副詞的に主動詞を補足している${tenseHint}`);
+    } else if (role === 'mod') {
+        rows.push('他の語の意味を限定・修飾している');
+    }
+
+    document.getElementById('disc-rows').innerHTML = rows.map(r => `
+        <div class="discovery-row">
+            <span class="discovery-arrow">→</span>
+            <span class="discovery-text">${r}</span>
+        </div>`).join('');
 }
 
 /* ① トークン列 */
