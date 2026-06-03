@@ -595,40 +595,73 @@ body.compact-reading-mode .ptc-lite { font-size: 0.7rem; padding: 5px 9px; }
     font-weight: 400;
 }
 
-/* ── ページ説明カード ── */
-.page-intro {
-    padding: 14px 16px;
-    background: var(--bg-panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-m);
-    margin-bottom: 24px;
-}
-.page-intro-title {
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+/* ── ヘルプボタン & ポップオーバー ── */
+.help-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid var(--text-hint);
+    background: transparent;
     color: var(--text-hint);
-    margin-bottom: 6px;
+    font-size: 0.6rem; font-weight: 700; font-family: inherit;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+    vertical-align: middle;
+    margin-left: 4px;
 }
-.page-intro-body {
-    font-size: 0.82rem;
-    color: var(--text-sub);
-    line-height: 1.6;
-    margin-bottom: 8px;
+.help-btn:hover,
+.help-btn[aria-expanded="true"] {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-light);
 }
-.page-intro-examples {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
+/* ポップオーバーの基点 */
+.breadcrumb-tail {
+    position: relative;
+    display: inline-flex; align-items: center; gap: 0;
+    flex-shrink: 0;
 }
-.page-intro-tag {
-    font-size: 0.72rem;
-    padding: 2px 9px;
+.help-popup {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 100;
+    min-width: 200px;
+    max-width: min(260px, calc(100vw - 32px));
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: 20px;
-    color: var(--text-sub);
+    border-radius: var(--radius-m);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.10);
+    padding: 14px 16px;
+    animation: fadeUp 0.15s ease;
+}
+/* 右端に寄りすぎるとき左揃えを右揃えに切り替え */
+.help-popup.align-right {
+    left: auto;
+    right: 0;
+}
+.help-popup.open { display: block; }
+.help-popup-title {
+    font-size: 0.62rem; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 8px;
+}
+.help-popup-body {
+    font-size: 0.8rem; color: var(--text-sub);
+    line-height: 1.6; margin-bottom: 10px;
+}
+.help-popup-examples {
+    display: flex; flex-wrap: wrap; gap: 4px;
+}
+.help-popup-tag {
+    font-size: 0.7rem; padding: 2px 8px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 20px; color: var(--text-sub);
 }
 </style>
 </head>
@@ -643,7 +676,19 @@ body.compact-reading-mode .ptc-lite { font-size: 0.7rem; padding: 5px 9px; }
         <span class="sep">›</span>
         <span class="crumb" id="bc-word" style="font-family:'Gentium Plus',serif;font-size:0.95rem;">—</span>
         <span class="sep">›</span>
-        <span>形態論</span>
+        <span class="breadcrumb-tail">
+            <span>形態論</span>
+            <button class="help-btn" id="help-btn" aria-expanded="false" aria-label="このページのヘルプ">?</button>
+            <div class="help-popup" id="help-popup" role="tooltip">
+                <div class="help-popup-title">形態論とは</div>
+                <div class="help-popup-body">この語がどのような形で使われているかを調べます。</div>
+                <div class="help-popup-examples">
+                    <span class="help-popup-tag">動詞か名詞か</span>
+                    <span class="help-popup-tag">どのような語形か</span>
+                    <span class="help-popup-tag">どのように活用しているか</span>
+                </div>
+            </div>
+        </span>
     </div>
 </div>
 
@@ -659,16 +704,6 @@ body.compact-reading-mode .ptc-lite { font-size: 0.7rem; padding: 5px 9px; }
     </div>
 </div>
 
-<!-- ── このページで分かること ── -->
-<div class="page-intro">
-    <div class="page-intro-title">このページで分かること</div>
-    <div class="page-intro-body">この語がどのような形で使われているかを調べます。</div>
-    <div class="page-intro-examples">
-        <span class="page-intro-tag">動詞か名詞か</span>
-        <span class="page-intro-tag">どのような語形か</span>
-        <span class="page-intro-tag">どのように活用しているか</span>
-    </div>
-</div>
 
 <!-- ══════════════════════════════════════════
      SECTION 1 — 語の正体
@@ -1572,6 +1607,46 @@ async function fetchJaData(morphPaths) {
         )
     );
 }
+
+/* ══════════════════════════════════════════
+   ヘルプポップオーバー
+══════════════════════════════════════════ */
+(function initHelpPopup() {
+    const btn   = document.getElementById('help-btn');
+    const popup = document.getElementById('help-popup');
+    if (!btn || !popup) return;
+
+    function openPopup() {
+        /* 右端からはみ出す場合は右寄せに切り替え */
+        popup.classList.remove('align-right');
+        const rect = popup.parentElement.getBoundingClientRect();
+        const popW = 260;
+        if (rect.left + popW > window.innerWidth - 16) {
+            popup.classList.add('align-right');
+        }
+        popup.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+    }
+    function closePopup() {
+        popup.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+    }
+    function togglePopup(e) {
+        e.stopPropagation();
+        popup.classList.contains('open') ? closePopup() : openPopup();
+    }
+
+    btn.addEventListener('click', togglePopup);
+    btn.addEventListener('touchend', function(e){ e.preventDefault(); togglePopup(e); });
+
+    /* 外側クリック / タップで閉じる */
+    document.addEventListener('click', function(e) {
+        if (!popup.contains(e.target) && e.target !== btn) closePopup();
+    });
+    document.addEventListener('touchend', function(e) {
+        if (!popup.contains(e.target) && e.target !== btn) closePopup();
+    });
+})();
 
 /* ══════════════════════════════════════════
    初期化
