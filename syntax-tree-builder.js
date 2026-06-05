@@ -51,12 +51,8 @@ const PARTICIPLE_USAGE_LABEL = {
 };
 
 /* ── 形態情報 → 日本語（ノード Level 2 展開用） ────────────────────── */
-const TENSE_JP  = { present:'現在', imperfect:'半過去', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'大過去' };
-const VOICE_JP  = { active:'能動', middle:'中間', passive:'受動', 'middle deponent':'中間態', 'middle or passive':'中受動' };
-const MOOD_JP   = { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' };
-const CASE_JP   = { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' };
-const NUMBER_JP = { singular:'単数', plural:'複数' };
-const GENDER_JP = { masculine:'男性', feminine:'女性', neuter:'中性' };
+/* TENSE_JP / VOICE_JP / MOOD_JP / CASE_JP / NUMBER_JP / GENDER_JP は
+   syntax-search.html で定義済み。重複宣言を削除。 */
 
 function morphLabel(morph) {
     if (!morph) return '';
