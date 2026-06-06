@@ -2292,7 +2292,6 @@ function groupTokens(tokens, roleMap) {
    日本語訳ユーティリティ
    ══════════════════════════════════════════ */
 const _jaMap = new Map();
-const _japaneseMap = new Map();
 
 const _refToJaKey = (() => {
     const K2C = {};
@@ -2309,10 +2308,6 @@ function getJaVerse(entry) {
     const key = _refToJaKey(entry.ref);
     if (key && _jaMap.has(key)) return _jaMap.get(key);
     return entry.gloss || entry.english || '';
-}
-function getJaWord(entry) {
-    const norm = entry.normalized || entry.word || entry.text || '';
-    return _japaneseMap.get(norm) || '';
 }
 
 /* ══════════════════════════════════════════
@@ -3258,11 +3253,15 @@ async function fetchInBatches(tasks,sz,onProg) {
     }
     return all;
 }
+function jaDataPath(bookKey, ch) {
+    const sub = NT_BOOKS.has(bookKey) ? 'nt' : 'lxx';
+    return `./${JA_FOLDER}/${sub}/${bookKey}/${ch}.json`;
+}
 async function fetchJaData(morphPaths) {
     const K2C={};
     Object.entries(BOOK_MAP).forEach(([c,k])=>{ K2C[k]=c; });
     return Promise.allSettled(
-        morphPaths.map(t=>({...t,path:`./${JA_FOLDER}/${t.key}/${t.ch}.json`}))
+        morphPaths.map(t=>({...t,path:jaDataPath(t.key,t.ch)}))
         .map(t=>fetch(t.path).then(r=>r.ok?r.json():null).catch(()=>null)
             .then(data=>{
                 if(!data) return;
@@ -3276,20 +3275,6 @@ async function fetchJaData(morphPaths) {
             })
         )
     );
-}
-async function fetchJapaneseTSV() {
-    try {
-        const res = await fetch('./macula-greek-SBLGNT.tsv');
-        if (!res.ok) return;
-        const text = await res.text();
-        const lines = text.split('\n');
-        for (let i=1;i<lines.length;i++) {
-            const c=lines[i].split('\t');
-            if(c.length<12) continue;
-            const norm=(c[11]||'').trim(), ja=(c[6]||'').trim();
-            if(norm&&ja&&!_japaneseMap.has(norm)) _japaneseMap.set(norm,ja);
-        }
-    } catch(e) { console.warn('TSV読み込み失敗:',e); }
 }
 
 function getVerseTokens(allData, ref) {
@@ -3362,7 +3347,6 @@ document.getElementById('bc-word').textContent = params.word || '—';
     const txt = document.getElementById('load-text');
     if (txt) txt.textContent = '訳文を読み込み中…';
     await fetchJaData(paths);
-    await fetchJapaneseTSV();
 
     window._morphData = allData;
 
