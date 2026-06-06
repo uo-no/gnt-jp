@@ -3201,7 +3201,8 @@ window.addEventListener('message', function(e) {
 /* ══════════════════════════════════════════
    データ取得
    ══════════════════════════════════════════ */
-const JA_FOLDER = 'bible_jp';
+const JA_FOLDER = 'translations';
+const JA_VERSION = 'JA1955';
 const ALL_BOOKS = [
     {key:'ROM',ch:16},{key:'1CO',ch:16},{key:'2CO',ch:13},{key:'GAL',ch:6},
     {key:'EPH',ch:6},{key:'PHP',ch:4},{key:'COL',ch:4},{key:'1TH',ch:5},
@@ -3254,13 +3255,13 @@ async function fetchInBatches(tasks,sz,onProg) {
     return all;
 }
 function jaDataPath(bookKey, ch) {
-    return `./${JA_FOLDER}/${bookKey}/${ch}.json`;
+    return `./${JA_FOLDER}/${JA_VERSION}/${bookKey}/${ch}.json`;
 }
 async function fetchJaData(morphPaths) {
     const K2C={};
     Object.entries(BOOK_MAP).forEach(([c,k])=>{ K2C[k]=c; });
     return Promise.allSettled(
-        morphPaths.filter(t=>NT_BOOKS.has(t.key)).map(t=>({...t,path:jaDataPath(t.key,t.ch)}))
+        morphPaths.map(t=>({...t,path:jaDataPath(t.key,t.ch)}))
         .map(t=>fetch(t.path).then(r=>r.ok?r.json():null).catch(()=>null)
             .then(data=>{
                 if(!data) return;
