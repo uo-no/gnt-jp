@@ -101,7 +101,19 @@ const SyntaxTreeBuilder = (() => {
 
         // 4. 各グループを TreeNode に変換
         const targetNorm = _normalize(params && (params.word || params.lemma) || '');
-        const nodes = groups.map(g => _buildNode(g, tokens, roleMap, analysisMap, targetNorm));
+        let nodes = groups.map(g => _buildNode(g, tokens, roleMap, analysisMap, targetNorm));
+
+        // 5. Phase G 完了条件: 分詞ノードを動詞ノードの children に移動する
+        //    動詞ノードが存在する場合のみ。存在しない場合はルートに残す。
+        const verbNode = nodes.find(n => n.role === 'verb');
+        if (verbNode) {
+            const ptcNodes = nodes.filter(n => n.role === 'ptc');
+            if (ptcNodes.length > 0) {
+                verbNode.children = verbNode.children.concat(ptcNodes);
+                const ptcSet = new Set(ptcNodes);
+                nodes = nodes.filter(n => !ptcSet.has(n));
+            }
+        }
 
         return nodes;
     }
@@ -304,8 +316,14 @@ const SyntaxTreeBuilder = (() => {
 
         if (node.children && node.children.length > 0) {
             for (const child of node.children) {
-                const childEl = _renderChildNode(child, onNodeClick);
-                childrenEl.appendChild(childEl);
+                // 分詞ノードはフルノードとして再帰描画。前置詞句子要素は従来通り。
+                if (child.role === 'ptc') {
+                    const childEl = _renderNode(child, onNodeClick, depth + 1);
+                    childrenEl.appendChild(childEl);
+                } else {
+                    const childEl = _renderChildNode(child, onNodeClick);
+                    childrenEl.appendChild(childEl);
+                }
             }
         }
 
