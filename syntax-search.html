@@ -3467,11 +3467,15 @@ const ReadingImpactRenderer = (() => {
 
     /**
      * shouldShowWarning(allCandidates): 上位2候補の confidence 差 < 0.15 → true
+     * confidence は SyntaxAnalyzer 経路では 0–1 float、
+     * fallback 経路では 30–99 の整数で渡される場合がある。
+     * > 1 の場合は 100 で除算して 0–1 float に正規化してから比較する。
      */
     function shouldShowWarning(allCandidates) {
         const active = (allCandidates || []).filter(c => c.status !== 'stub');
         if (active.length < 2) return false;
-        return (active[0].confidence - active[1].confidence) < 0.15;
+        const norm = c => (c.confidence > 1 ? c.confidence / 100 : c.confidence);
+        return (norm(active[0]) - norm(active[1])) < 0.15;
     }
 
     /**
