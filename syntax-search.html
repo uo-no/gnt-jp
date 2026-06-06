@@ -3254,14 +3254,13 @@ async function fetchInBatches(tasks,sz,onProg) {
     return all;
 }
 function jaDataPath(bookKey, ch) {
-    const sub = NT_BOOKS.has(bookKey) ? 'nt' : 'lxx';
-    return `./${JA_FOLDER}/${sub}/${bookKey}/${ch}.json`;
+    return `./${JA_FOLDER}/${bookKey}/${ch}.json`;
 }
 async function fetchJaData(morphPaths) {
     const K2C={};
     Object.entries(BOOK_MAP).forEach(([c,k])=>{ K2C[k]=c; });
     return Promise.allSettled(
-        morphPaths.map(t=>({...t,path:jaDataPath(t.key,t.ch)}))
+        morphPaths.filter(t=>NT_BOOKS.has(t.key)).map(t=>({...t,path:jaDataPath(t.key,t.ch)}))
         .map(t=>fetch(t.path).then(r=>r.ok?r.json():null).catch(()=>null)
             .then(data=>{
                 if(!data) return;
