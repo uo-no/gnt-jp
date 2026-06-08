@@ -679,6 +679,71 @@
         border-radius: 3px; padding: 1px 5px;
         flex-shrink: 0; white-space: nowrap;
     }
+
+    /* ── phrase検索ウィジェット ── */
+    .phrase-search-widget {
+        margin-top: 8px;
+        border: 1px solid var(--border-soft);
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--bg-card);
+    }
+    .phrase-search-widget .lemma-search-header:hover { background: rgba(80, 130, 90, 0.08); }
+    .phrase-search-widget.open .lemma-search-chevron { transform: rotate(90deg); }
+    .phrase-search-widget.open .lemma-search-body    { display: block; }
+    .phrase-search-widget .lemma-search-title i { color: #3a7d4a; }
+    .phrase-search-input {
+        flex: 1; padding: 7px 10px;
+        font-family: 'Gentium Plus', serif; font-size: 1rem;
+        border: 1px solid var(--border-mid); border-radius: 8px;
+        background: #fff; color: var(--text-main);
+        outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .phrase-search-input:focus {
+        border-color: #3a7d4a;
+        box-shadow: 0 0 0 3px rgba(58, 125, 74, 0.12);
+    }
+    .phrase-search-input::placeholder { color: #c5c5c7; font-size: 0.88rem; }
+    .phrase-search-btn {
+        padding: 7px 12px;
+        background: #3a7d4a; color: #fff;
+        border: none; border-radius: 8px;
+        font-size: 0.78rem; font-weight: 700;
+        cursor: pointer; transition: opacity 0.15s;
+        white-space: nowrap;
+    }
+    .phrase-search-btn:hover { opacity: 0.85; }
+    .phrase-search-result {
+        margin-top: 10px;
+        font-size: 0.75rem; color: var(--text-sub);
+        line-height: 1.6; max-height: 200px;
+        overflow-y: auto;
+    }
+    .phrase-result-count {
+        font-size: 0.7rem; font-weight: 700;
+        color: #3a7d4a; margin-bottom: 4px;
+    }
+    .phrase-result-item {
+        display: flex; align-items: baseline; gap: 8px;
+        padding: 3px 6px; border-radius: 5px;
+        cursor: default; transition: background 0.1s;
+        font-size: 0.72rem;
+    }
+    .phrase-result-item:hover { background: rgba(58,125,74,0.07); }
+    .phrase-result-ref {
+        font-family: 'Noto Sans JP', sans-serif;
+        color: #3a7d4a; font-weight: 600;
+        white-space: nowrap; flex-shrink: 0;
+    }
+    .phrase-result-text {
+        font-family: 'Gentium Plus', serif;
+        font-size: 0.9rem; color: var(--text-main);
+    }
+    .phrase-result-highlight {
+        background: rgba(58,125,74,0.15);
+        border-radius: 2px; padding: 0 2px;
+        font-weight: 700; color: #2a5c38;
+    }
     </style>
 </head>
 <body>
@@ -885,7 +950,34 @@
                     <div class="morph-search-result" id="morph-search-result"></div>
                 </div>
             </div>
-        </aside>
+
+            <!-- ════ phrase（連続語）検索ウィジェット ════ -->
+            <div class="phrase-search-widget" id="phrase-search-widget">
+                <div class="lemma-search-header" onclick="togglePhraseWidget()">
+                    <span class="lemma-search-title">
+                        <i class="fa-solid fa-align-left"></i>phrase 連続語検索
+                    </span>
+                    <span class="lemma-search-chevron">▶</span>
+                </div>
+                <div class="lemma-search-body">
+                    <div style="font-size:0.65rem;color:var(--text-sub);opacity:0.65;margin-bottom:7px;line-height:1.5;">
+                        lemmaを空白区切りで入力してください<br>
+                        例: <code style="font-size:0.72rem;font-family:'Gentium Plus',serif;">ἀγαπάω θεός</code>
+                    </div>
+                    <div class="lemma-search-row">
+                        <input
+                            class="phrase-search-input"
+                            id="phrase-search-input"
+                            type="text"
+                            placeholder="例：ἀγαπάω θεός"
+                            autocomplete="off"
+                            spellcheck="false"
+                        >
+                        <button class="phrase-search-btn" onclick="runPhraseSearch()">検索</button>
+                    </div>
+                    <div class="phrase-search-result" id="phrase-search-result"></div>
+                </div>
+            </div>
 
         <main class="result-main" id="result-main">
             <div class="empty-state" id="empty-state">
@@ -2447,6 +2539,151 @@ function _initMorphSearchUI() {
 }
 
 /* ============================================================
+   phraseSearch
+   ─────────────────────────────────────────────────────────────
+   lemmaの配列を受け取り、globalIdxが連続して出現する開始位置を返す。
+   ・入力: lemmas string[]（例: ["ἀγαπάω", "θεός"]）
+   ・出力: 連続出現する先頭トークンの globalIdx[]
+   ・制約: tokenIdは使用しない。globalIdxのみ使用する。
+   ============================================================ */
+
+/**
+ * phrase検索: lemma配列が連続して出現するglobalIdxを返す。
+ * @param {string[]} lemmas  lemma文字列の配列
+ * @returns {number[]}       マッチ先頭のglobalIdx配列（昇順）
+ */
+function searchPhrase(lemmas) {
+    if (!window.lemmaIndex) return [];
+    if (!lemmas || lemmas.length === 0) return [];
+
+    // Step 1: 各lemmaの出現位置リストを取得
+    const lists = lemmas.map(l => {
+        const direct = window.lemmaIndex.get(l);
+        if (direct) return direct;
+        const norm = normalizeGreek(l);
+        return window.lemmaIndex.get(norm) || [];
+    });
+
+    // いずれかのlemmaが未登録なら0件
+    if (lists.some(arr => arr.length === 0)) return [];
+
+    // Step 2: 最初のlemmaの出現位置を基点に検証
+    const first = lists[0];
+    const results = [];
+
+    // 後続リストを Set 化して高速検索
+    const sets = lists.slice(1).map(arr => new Set(arr));
+
+    for (let i = 0; i < first.length; i++) {
+        const start = first[i];
+        let match = true;
+        for (let k = 0; k < sets.length; k++) {
+            if (!sets[k].has(start + k + 1)) {
+                match = false;
+                break;
+            }
+        }
+        if (match) results.push(start);
+    }
+
+    console.log('[searchPhrase]', lemmas.join(' '),
+        '→ 先頭globalIdxs (先頭10):', results.slice(0, 10),
+        '/ 計', results.length, '件'
+    );
+    if (results.length > 0) {
+        console.log('[searchPhrase] 先頭マッチトークン:',
+            results.slice(0, 3).map(gi =>
+                lemmas.map((_, k) => {
+                    const t = ALL_TOKENS[gi + k];
+                    return t ? `[${gi+k}]${t.ref} ${t.text}` : `[${gi+k}](none)`;
+                }).join(' | ')
+            )
+        );
+    }
+
+    return results;
+}
+
+/* ============================================================
+   phrase 検索 UI
+   ============================================================ */
+function togglePhraseWidget() {
+    const w = document.getElementById('phrase-search-widget');
+    if (!w) return;
+    w.classList.toggle('open');
+}
+
+function runPhraseSearch() {
+    const inp = document.getElementById('phrase-search-input');
+    const out = document.getElementById('phrase-search-result');
+    if (!inp || !out) return;
+
+    const query = inp.value.trim();
+    if (!query) {
+        out.innerHTML = '<div style="color:var(--text-sub);font-size:0.72rem;">lemmaを空白区切りで入力してください</div>';
+        return;
+    }
+
+    const lemmas = query.split(/\s+/).filter(Boolean);
+    if (lemmas.length < 2) {
+        out.innerHTML = '<div style="color:var(--text-sub);font-size:0.72rem;">2語以上を空白で区切って入力してください</div>';
+        return;
+    }
+
+    if (!window.lemmaIndex) {
+        out.innerHTML = '<div style="color:var(--text-sub);font-size:0.72rem;">インデックスを構築中です。しばらくお待ちください…</div>';
+        return;
+    }
+
+    const globalIdxs = searchPhrase(lemmas);
+
+    if (globalIdxs.length === 0) {
+        out.innerHTML = `<div style="color:var(--text-sub);font-size:0.72rem;">「${query}」の連続出現は見つかりませんでした</div>`;
+        return;
+    }
+
+    const SHOW = 30;
+    const shown = globalIdxs.slice(0, SHOW);
+
+    const rows = shown.map(gi => {
+        // フレーズ全体のテキストをトークンから構築
+        const phraseTokens = lemmas.map((_, k) => ALL_TOKENS[gi + k]).filter(Boolean);
+        if (phraseTokens.length === 0) return '';
+        const ref  = phraseTokens[0].ref  || '';
+        // 各トークンをハイライト付きで表示
+        const textHtml = phraseTokens.map(t =>
+            `<span class="phrase-result-highlight">${t.text || ''}</span>`
+        ).join(' ');
+        return `<div class="phrase-result-item" data-gidx="${gi}"
+                    title="globalIdx: ${gi} — ${lemmas.map((_,k)=>gi+k).join(',')}">
+                    <span class="phrase-result-ref">${ref}</span>
+                    <span class="phrase-result-text">${textHtml}</span>
+                </div>`;
+    });
+
+    const html = [
+        `<div class="phrase-result-count">${globalIdxs.length.toLocaleString()} 箇所</div>`,
+        '<div class="lemma-result-list">',
+        ...rows,
+        '</div>',
+        globalIdxs.length > SHOW
+            ? `<div class="lemma-result-more">… 他 ${(globalIdxs.length - SHOW).toLocaleString()} 件</div>`
+            : '',
+    ].join('');
+
+    out.innerHTML = html;
+}
+
+/* キーボード Enter で検索 */
+function _initPhraseSearchUI() {
+    const inp = document.getElementById('phrase-search-input');
+    if (!inp) return;
+    inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') runPhraseSearch();
+    });
+}
+
+/* ============================================================
    詳細設定 折りたたみトグル
    ============================================================ */
 function initAdvancedToggle() {
@@ -2505,6 +2742,7 @@ function init() {
     initAdvancedToggle();
     _initLemmaSearchUI();
     _initMorphSearchUI();
+    _initPhraseSearchUI();
 
     /* ── ページ開始直後に L1 をキック ── */
     _ensureL1().then(() => {
