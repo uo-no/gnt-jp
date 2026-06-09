@@ -1241,10 +1241,15 @@ function _rebuildMorphIndexIfNeeded(){
     console.info('[morphIndex] rebuilt (L2)');
 }
 
-/* phraseSearch */
+/* phraseSearch — globalIdx SSOT版
+   lemmaIndex の値はすべて globalIdx の配列。
+   連続判定は「anchorGlobalIdx + k+1」という配列オフセット加算ではなく
+   「後続語の globalIdx === anchorGlobalIdx + k+1」という globalIdx差分で行う。
+   ALL_TOKENS[gi] によるトークン復元も globalIdx 経由で行う。          */
 function searchPhrase(lemmas){
     if(!window.lemmaIndex)return[];
     if(!lemmas||lemmas.length===0)return[];
+    // lists[k] = globalIdx の配列（lemmaIndex の値はすべて globalIdx）
     const lists=lemmas.map(l=>{
         const direct=window.lemmaIndex.get(l);
         if(direct)return direct;
@@ -1252,43 +1257,59 @@ function searchPhrase(lemmas){
         return window.lemmaIndex.get(norm)||[];
     });
     if(lists.some(arr=>arr.length===0))return[];
+    // sets[k] = lists[k+1] を Set 化（globalIdx の集合）
     const first=lists[0],results=[],sets=lists.slice(1).map(arr=>new Set(arr));
     for(let i=0;i<first.length;i++){
-        const start=first[i];let match=true;
-        for(let k=0;k<sets.length;k++){if(!sets[k].has(start+k+1)){match=false;break;}}
-        if(match)results.push(start);
+        const anchorGi=first[i];  // anchorGi は globalIdx
+        let match=true;
+        for(let k=0;k<sets.length;k++){
+            // ★ 連続判定: 次語の globalIdx = anchorGi + (k+1)
+            if(!sets[k].has(anchorGi+k+1)){match=false;break;}
+        }
+        if(match)results.push(anchorGi);  // 戻り値は globalIdx
     }
     return results;
 }
 
 /* proximitySearch */
-async function runProximitySearch({word1,word2=null,distance=5,scope='all',ref=''}){
-    const tokens=await loadTokensForScope(scope,ref);
+async function runProximitySearch({word1,word2=null,distance=5,scope='all',ref:_ref=''}){
+    const tokens=await loadTokensForScope(scope,_ref);
+    // resolveIndices は globalIdx の Set を返す
     const w1Set=resolveIndices(tokens,word1);
-    const w1Indices=[...w1Set].sort((a,b)=>a-b);
+    const w1GiList=[...w1Set].sort((a,b)=>a-b);  // globalIdx のリスト
     const w2Set=word2?resolveIndices(tokens,word2):new Set();
     const coocMap=new Map(),hits=[];
-    for(const i of w1Indices){
-        const start=Math.max(0,i-distance),end=Math.min(tokens.length-1,i+distance);
+    // _giToTok: globalIdx → token の高速ルックアップ（ALL_TOKENS は gIdx連番）
+    const _giToTok=gi=>ALL_TOKENS[gi];
+    for(const anchorGi of w1GiList){
+        // ★ ウィンドウ境界も globalIdx で計算
+        const winStart=Math.max(0,anchorGi-distance);
+        const winEnd=Math.min(ALL_TOKENS.length-1,anchorGi+distance);
         if(word2){
             let found=false;
-            for(let j=start;j<=end;j++){if(j!==i&&w2Set.has(j)){found=true;break;}}
+            for(let gi=winStart;gi<=winEnd;gi++){
+                // ★ w2 との距離判定 = globalIdx差分
+                if(gi!==anchorGi&&w2Set.has(gi)){found=true;break;}
+            }
             if(!found)continue;
         }
-        hits.push({anchorIdx:i,start,end,tokens,ref:tokens[i].ref});
-        for(let j=start;j<=end;j++){
-            if(j===i)continue;
-            const t=tokens[j];
-            if(!t.text||t.text.length<2)continue;
+        // ★ anchorIdx = anchorGi（globalIdx）。ref は持たない（表示専用）
+        hits.push({anchorIdx:anchorGi,start:winStart,end:winEnd,tokens:ALL_TOKENS});
+        for(let gi=winStart;gi<=winEnd;gi++){
+            if(gi===anchorGi)continue;
+            const t=_giToTok(gi);
+            if(!t||!t.text||t.text.length<2)continue;
             if(STOP_WORDS.has(t.text))continue;
-            if(w1Set.has(j))continue;
-            const w=1/(Math.abs(j-i)+1),key=t.text;
+            if(w1Set.has(gi))continue;
+            // ★ 距離重み = 1 / (globalIdx差 + 1)
+            const dist=Math.abs(gi-anchorGi);
+            const w=1/(dist+1),key=t.text;
             const e=coocMap.get(key)||{weightedScore:0,rawCount:0};
             e.weightedScore+=w;e.rawCount+=1;
             coocMap.set(key,e);
         }
     }
-    return{coocMap,hits,totalW1:w1Indices.length};
+    return{coocMap,hits,totalW1:w1GiList.length};
 }
 
 function groupHitsByLemma(hits){
@@ -1785,15 +1806,14 @@ function _renderUnifiedResults(query,words,word2){
 }
 
 function _buildPseudoHitsFromMerged(merged,words){
+    // ★ ref はロジックに使用しない（表示専用）。
+    //   anchorIdx = gi（globalIdx）。tokens = ALL_TOKENS で UI が tok.ref を自力で読む。
     const hits=[];
-    for(const[gi,entry]of merged){
+    for(const[gi]of merged){
         const CONTEXT=5;
-        const windowStart=Math.max(0,gi-CONTEXT);
-        const windowEnd=Math.min(ALL_TOKENS.length-1,gi+CONTEXT);
-        hits.push({
-            anchorIdx:gi,start:windowStart,end:windowEnd,
-            tokens:ALL_TOKENS,ref:entry.tok.ref||'',
-        });
+        const winStart=Math.max(0,gi-CONTEXT);
+        const winEnd=Math.min(ALL_TOKENS.length-1,gi+CONTEXT);
+        hits.push({anchorIdx:gi,start:winStart,end:winEnd,tokens:ALL_TOKENS});
     }
     return hits;
 }
@@ -1804,14 +1824,19 @@ function _renderHitCards(entries,words,word2){
     list.innerHTML='';
 
     const SHOW=80;
-    const byRef=new Map();
-    // De-dup by ref (verse), keep entry with most hitTypes
+    // ★ De-dup by verse（bookKey + ch + verse）を globalIdx 経由で構成。
+    //   entry.tok.ref をキーにしない（ref はロジック禁止・表示専用）。
+    //   同一 verse 内で最多 hitTypes を持つ gi を代表として残す。
+    const byVerse=new Map();
     for(const[gi,entry]of entries){
-        const ref=entry.tok.ref||'?';
-        if(!byRef.has(ref)||entry.hitTypes.size>byRef.get(ref).entry.hitTypes.size){
-            byRef.set(ref,{gi,entry});
+        const t=entry.tok;
+        // verseKey = 位置情報フィールドから生成（refを使わない）
+        const verseKey=`${t.bookKey||'?'}:${t.ch??'?'}:${t.verse??'?'}`;
+        if(!byVerse.has(verseKey)||entry.hitTypes.size>byVerse.get(verseKey).entry.hitTypes.size){
+            byVerse.set(verseKey,{gi,entry});
         }
     }
+    const byRef=byVerse; // 変数名を後続で統一して使用
 
     countEl.textContent=_filterWord
         ?`「${_filterWord}」との共起：?件 / 全${byRef.size}件`
@@ -1839,7 +1864,9 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
     card.className='hit-card';
 
     const tok=entry.tok;
+    // ★ rawRef は表示専用（リンクラベルの文字列にのみ使う）
     const rawRef=tok.ref||'';
+    // ★ リンクの href 生成はロジック → bookKey / ch を直接使う（ref を解析しない）
     const bookKey=tok.bookKey||'';
     const ch=tok.ch||'';
     const refHtml=bookKey&&ch
@@ -1914,9 +1941,10 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         ${proxVizHtml}
         <div class="hit-snippet">${snippetHtml}</div>
         <div class="hit-trans-row">
-            <button class="hit-trans-toggle" data-ref="${rawRef}">訳を見る</button>
+            <button class="hit-trans-toggle">訳を見る</button>
             <span class="hit-trans-text"></span>
         </div>`;
+    // ★ data-ref 属性を使わない。翻訳フェッチは bookKey / ch / verse（globalIdx 由来）で行う。
 
     // Translation lazy load
     const toggleBtn=card.querySelector('.hit-trans-toggle');
@@ -1927,6 +1955,7 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         if(isOpen){transText.classList.remove('visible');toggleBtn.textContent='訳を見る';return;}
         if(!loaded){
             toggleBtn.textContent='読み込み中…';
+            // ★ フェッチに ref を使わず、bookKey / ch / verse（構造フィールド）を使用
             if(tok.bookKey && tok.ch != null && tok.verse != null){
                 const text=await _fetchTransVerse(tok.bookKey, String(tok.ch), String(tok.verse));
                 transText.textContent=text||'（訳が見つかりません）';
@@ -2071,6 +2100,7 @@ function _renderLgHitSlice(container,hits,query,word2,from,to,words){
 function _renderBookDist(entries){
     const panel=document.getElementById('dist-panel');
     if(!entries||entries.length===0){panel.style.display='none';return;}
+    // ★ 書物キーは tok.bookKey（構造フィールド）から取得。tok.ref のパースは不使用。
     const countMap=new Map();
     for(const[,{tok}]of entries){
         const key=tok.bookKey||'?';
