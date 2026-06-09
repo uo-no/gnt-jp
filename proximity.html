@@ -1039,10 +1039,10 @@ async function fetchChapter(bookKey, ch) {
         if (!res.ok) return [];
         const data = await res.json();
         const tokens = data.map(w => ({
-            // ── 表示用（ロジック禁止）──
+            // ── 表示専用（ロジック依存禁止・refをキーや条件に使用しないこと）──
             ref: w.ref || `${bookKey} ${ch}:${w.verse ?? '?'}`,
 
-            // ── 位置情報（翻訳フェッチ等の直接参照用）──
+            // ── SSOT 位置情報（翻訳フェッチ・verseKey生成・ナビゲーションに使用する）──
             bookKey,
             ch:    Number(ch),
             verse: w.verse != null ? Number(w.verse) : null,
@@ -1358,11 +1358,6 @@ async function _fetchTransVerse(bookKey,ch,verseNum){
     const data=_transCache.get(cacheKey);
     if(!data||!data.verses)return null;
     return data.verses[verseNum]||null;
-}
-function _parseRef(ref){
-    const m=ref.match(/^([A-Z0-9]+)\s*(\d+):(\d+)/);
-    if(!m)return null;
-    return{bookKey:m[1],ch:m[2],verse:m[3]};
 }
 
 /* ============================================================
