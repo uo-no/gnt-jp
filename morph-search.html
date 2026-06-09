@@ -1392,9 +1392,19 @@ function toggleMorphContext(cardEl, encRef, encWord) {
     });
     if (!window._morphData) { goToWord(ref, encWord); return; }
     const prefix = String(ref).replace(/!.*$/,'').trim();
-    const tokens = window._morphData.filter(e =>
-        String(e.ref||'').replace(/!.*$/,'').trim() === prefix
-    );
+    // 新スキーマ: book/chapter/verse での一致を優先、なければ ref 文字列比較
+    const _refParsed = (function(){
+        const m = prefix.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+        return m ? {book: m[1], chapter: parseInt(m[2],10), verse: parseInt(m[3],10)} : null;
+    })();
+    const tokens = window._morphData.filter(e => {
+        if (_refParsed && e.book && e.chapter != null && e.verse != null) {
+            return e.book === _refParsed.book
+                && String(e.chapter) === String(_refParsed.chapter)
+                && String(e.verse)   === String(_refParsed.verse);
+        }
+        return String(e.ref||'').replace(/!.*$/,'').trim() === prefix;
+    });
     if (!tokens.length) { goToWord(ref, encWord); return; }
     const normWord = cleanText({ word });
     const lineHTML = tokens.map(t => {
