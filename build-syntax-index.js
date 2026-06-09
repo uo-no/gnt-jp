@@ -328,26 +328,27 @@ async function main() {
     // 7. 節単位にグループ化
     // bible_data の各エントリは {ref, _bookKey, ...} を持つ
     // ref 形式: "ROM 8:28" など
-    const verseMap = new Map(); // "ROM 8:28" → { bookKey, chapter, verse, tokens[] }
-    for (const entry of allTokens) {
-        const ref = String(entry.ref || '').trim();
-        if (!ref) continue;
-        if (!verseMap.has(ref)) {
-            const _book    = entry.book;
-            const _chapter = entry.chapter != null ? parseInt(entry.chapter, 10) : null;
-            const _verse   = entry.verse   != null ? parseInt(entry.verse,   10) : null;
-            let bookKey, chapter, verse;
-            if (_book && _chapter != null && _verse != null) {
-                bookKey = _book; chapter = _chapter; verse = _verse;
-            } else {
-                const m = ref.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
-                if (!m) continue;
-                bookKey = m[1]; chapter = parseInt(m[2], 10); verse = parseInt(m[3], 10);
-            }
-            if (!verseMap.has(ref)) {
-                verseMap.set(ref, { bookKey, chapter, verse, tokens: [] });
-            }
+    const verseMap = new Map();
+        for (const entry of allTokens) {
+        const bookKey = entry.book;
+        const chapter = parseInt(entry.chapter, 10);
+        const verse   = parseInt(entry.verse, 10);
+    
+        if (!bookKey || Number.isNaN(chapter) || Number.isNaN(verse)) {
+            continue;
         }
+    
+        const ref = `${bookKey} ${chapter}:${verse}`;
+    
+        if (!verseMap.has(ref)) {
+            verseMap.set(ref, {
+                bookKey,
+                chapter,
+                verse,
+                tokens: []
+            });
+        }
+    
         verseMap.get(ref).tokens.push(entry);
     }
     console.log(`[INFO] 節数: ${verseMap.size}`);
