@@ -333,14 +333,20 @@ async function main() {
         const ref = String(entry.ref || '').trim();
         if (!ref) continue;
         if (!verseMap.has(ref)) {
-            const m = ref.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
-            if (!m) continue;
-            verseMap.set(ref, {
-                bookKey: m[1],
-                chapter: parseInt(m[2], 10),
-                verse:   parseInt(m[3], 10),
-                tokens:  [],
-            });
+            const _book    = entry.book;
+            const _chapter = entry.chapter != null ? parseInt(entry.chapter, 10) : null;
+            const _verse   = entry.verse   != null ? parseInt(entry.verse,   10) : null;
+            let bookKey, chapter, verse;
+            if (_book && _chapter != null && _verse != null) {
+                bookKey = _book; chapter = _chapter; verse = _verse;
+            } else {
+                const m = ref.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+                if (!m) continue;
+                bookKey = m[1]; chapter = parseInt(m[2], 10); verse = parseInt(m[3], 10);
+            }
+            if (!verseMap.has(ref)) {
+                verseMap.set(ref, { bookKey, chapter, verse, tokens: [] });
+            }
         }
         verseMap.get(ref).tokens.push(entry);
     }
