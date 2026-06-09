@@ -1031,28 +1031,35 @@ function _addJpPartial(str,idx){
         }
     }
 }
-async function fetchChapter(bookKey,ch){
-    const cacheKey=`${bookKey}/${ch}`;
-    if(tokenCache[cacheKey])return tokenCache[cacheKey];
-    try{
-        const res=await fetch(bibleDataPath(bookKey,ch));
-        if(!res.ok)return[];
-        const data=await res.json();
-        const tokens=data.map(w=>({
-            tokenId:w["xml:id"]||null,
-            text:w.text||'',
-            lemma:w.lemma||w.text||'',
-            morph:w.morph??null,
-            ref:w.ref||`${bookKey} ${ch}:?`,
-            bookKey,ch,
-            verse: w.verse != null ? String(w.verse) : null,
-            japanese:w.japanese||w.gloss_ja||w.gloss||null,
-            gloss:w.gloss||w.gloss_ja||null,
-            strong:w.strong||w.strongs||null,
+async function fetchChapter(bookKey, ch) {
+    const cacheKey = `${bookKey}/${ch}`;
+    if (tokenCache[cacheKey]) return tokenCache[cacheKey];
+    try {
+        const res = await fetch(bibleDataPath(bookKey, ch));
+        if (!res.ok) return [];
+        const data = await res.json();
+        const tokens = data.map(w => ({
+            // ── 表示用（ロジック禁止）──
+            ref: w.ref || `${bookKey} ${ch}:${w.verse ?? '?'}`,
+
+            // ── 位置情報（翻訳フェッチ等の直接参照用）──
+            bookKey,
+            ch:    Number(ch),
+            verse: w.verse != null ? Number(w.verse) : null,
+
+            // ── 語彙情報 ──
+            text:     w.text    || '',
+            lemma:    w.lemma   || w.text || '',
+            morph:    w.morph   ?? null,
+            japanese: w.japanese || w.gloss_ja || w.gloss || null,
+            gloss:    w.gloss   || w.gloss_ja || null,
+            strong:   w.strong  || w.strongs  || null,
+
+            // globalIdx は _indexChapter で付与される（ここでは未定義）
         }));
-        tokenCache[cacheKey]=tokens;
+        tokenCache[cacheKey] = tokens;
         return tokens;
-    }catch{return[];}
+    } catch { return []; }
 }
 function _indexChapter(toks){
     const base=ALL_TOKENS.length;
@@ -1181,7 +1188,7 @@ function buildLemmaIndex(tokens){
     const idx=new Map();
     for(let i=0;i<tokens.length;i++){
         const tok=tokens[i];
-        const gIdx=tok.globalIdx!==undefined?tok.globalIdx:i;
+        const gIdx=tok.globalIdx;
         const key=tok.lemma||tok.text||'';
         if(!key)continue;
         let arr=idx.get(key);if(!arr){arr=[];idx.set(key,arr);}arr.push(gIdx);
@@ -1920,13 +1927,10 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         if(isOpen){transText.classList.remove('visible');toggleBtn.textContent='訳を見る';return;}
         if(!loaded){
             toggleBtn.textContent='読み込み中…';
-            const parsed = (tok.book && tok.chapter && tok.verse)
-                ? {bookKey: tok.book, ch: String(tok.chapter), verse: String(tok.verse)}
-                : _parseRef(rawRef);
-            if(parsed){
-                const text=await _fetchTransVerse(parsed.bookKey,parsed.ch,parsed.verse);
+            if(tok.bookKey && tok.ch != null && tok.verse != null){
+                const text=await _fetchTransVerse(tok.bookKey, String(tok.ch), String(tok.verse));
                 transText.textContent=text||'（訳が見つかりません）';
-            }else{transText.textContent='（参照の解析に失敗しました）';}
+            }else{transText.textContent='（位置情報が不足しています）';}
             loaded=true;
         }
         transText.classList.add('visible');
