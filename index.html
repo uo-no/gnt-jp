@@ -4114,7 +4114,7 @@ function _renderReadingNotes(p) {
         : '';
 
     const qsMorph = new URLSearchParams();
-    if (ref)     qsMorph.set('ref',   ref);
+    if (ref)     qsMorph.set('ref',   ref);  // 表示ヒント（ロジック依存禁止）
     if (p.word)  qsMorph.set('word',  p.word);
     if (lemma)   qsMorph.set('lemma', lemma);
     if (p.pos)   qsMorph.set('pos',   p.pos);
@@ -4276,12 +4276,15 @@ function _renderMorphTab(area, p) {
     const jaWord = (_inspectData && _inspectData.jaWord) || '-';
     const desc   = (_inspectData && _inspectData.desc)   || '';
     const strong = (_inspectData && _inspectData.strong)  || '';
-    const ref    = p.ref || '';
+    const ref    = p.ref || '';   // 表示専用ラベル（📍 表示のみ）
     const lemma  = p.lemma || '';
 
     // 近くの語を見るリンク（morph-search.html へ URL遷移）
+    // ref はクエリに含めるが、これは proximity/morph-search 側の表示ヒント用途のみ。
+    // morph-search.html のロジックが ref をパースして使用している場合は
+    // そちら側で bookKey / ch / verse パラメータに移行すること。
     const qs = new URLSearchParams();
-    if (ref)   qs.set('ref',   ref);
+    if (ref)   qs.set('ref',   ref);  // 表示ヒント（ロジック依存禁止）
     if (p.word) qs.set('word', p.word);
     if (lemma)  qs.set('lemma', lemma);
     if (p.pos)  qs.set('pos',   p.pos);
@@ -4313,9 +4316,9 @@ function _renderMorphTab(area, p) {
 
 function _renderSyntaxTab(area, p) {
     const qs = new URLSearchParams();
-    const ref   = p.ref   || '';
+    const ref   = p.ref   || '';  // 表示専用ラベル
     const lemma = p.lemma || '';
-    if (ref)    qs.set('ref',   ref);
+    if (ref)    qs.set('ref',   ref);  // 表示ヒント（ロジック依存禁止）
     if (p.word) qs.set('word',  p.word);
     if (lemma)  qs.set('lemma', lemma);
     if (p.pos)  qs.set('pos',   p.pos);
@@ -4532,7 +4535,7 @@ async function _fetchFlowAI(area, p, jaWord) {
 function _renderMeaningTab(area, p) {
     const word   = p.word   || '-';
     const jaWord = (_inspectData && _inspectData.jaWord) || '-';
-    const ref    = p.ref    || '';
+    const ref    = p.ref    || '';  // 表示専用（節の見出しラベルとして表示）
 
     /* ローカルルールベースの Meaning signals */
     const meaningSignals = _buildMeaningSignals(p);
@@ -7125,23 +7128,26 @@ function reopenStudyPanel() {
 function goProximityPage() {
     const p = new URLSearchParams();
 
-    const activeVEl   = document.getElementById('active-v');
-    const activeVText = activeVEl ? activeVEl.innerText.replace(/\s*節\s*$/, '').trim() : '';
+    /* SSOT: AppState.location から書物・章を取得（URLパラメータのパース禁止）*/
+    const _loc  = AppState.location;
+    const book  = (_loc.book && _loc.book.key) || '';
+    const ch    = _loc.chapter != null ? String(_loc.chapter) : '';
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const book = urlParams.get('book') || '';
-    const ch   = urlParams.get('ch')   || '';
-
-    /* AppState.inspect.data から語を取得（後方互換: _inspectData も同じ参照） */
+    /* 語と節番号は AppState.inspect.data（構造フィールド）から取得 */
     const inspData = AppState.inspect.data;
     if (inspData && inspData.greek) {
         p.set('word1', inspData.greek);
     }
 
+    /* 節番号は構造フィールド verse から取得（DOM の innerText パース禁止）*/
+    const verse = (inspData && inspData.verse != null) ? String(inspData.verse) : '';
+
     if (book && ch) {
-        const ref = activeVText ? `${book}${ch}:${activeVText}` : `${book}${ch}`;
+        /* ref 文字列は proximity.html 側の表示ヒント用途のみ。
+           proximity.html のロジックは bookKey / ch で動作する。  */
+        const ref = verse ? `${book}${ch}:${verse}` : `${book}${ch}`;
         p.set('ref', ref);
-        if (activeVText) p.set('scope', 'verse');
+        if (verse) p.set('scope', 'verse');
     }
 
     const qs = p.toString();
