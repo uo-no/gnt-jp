@@ -400,12 +400,15 @@ async function main() {
             if (analysisMap && globalIdx != null && analysisMap.has(globalIdx)) {
                 output = analysisMap.get(globalIdx);
             } else {
-                // フォールバック: 個別 analyze（targetIdx は analyzer 内部用・SSOT外）
+                // フォールバック: 個別 analyze
+                // ★ targetIdx に配列 indexOf を使用禁止。
+                //   analyzer 側が内部で位置を必要とする場合も globalIdx を渡す。
+                if (globalIdx == null) continue;
                 try {
                     output = analyzer.analyze({
-                        target:    token,
+                        target:     token,
                         tokens,
-                        targetIdx: tokens.indexOf(token),
+                        targetGlobalIdx: globalIdx,  // ★ SSOT: 配列インデックスではなく globalIdx
                     });
                 } catch { continue; }
             }
