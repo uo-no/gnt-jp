@@ -1666,7 +1666,15 @@ async function unifiedSearch(){
 
     if(_layers.lemma){
         tasks.push((async()=>{
-            const idxs=searchByLemma(word1);
+            const qtype=detectQueryType(word1);
+            let idxs;
+            if(qtype==='japanese'){
+                await _ensureL1();
+                const s=searchJapanese(ALL_TOKENS,word1);
+                idxs=[...s];
+            }else{
+                idxs=searchByLemma(word1);
+            }
             for(const gi of idxs){
                 const tok=ALL_TOKENS[gi];if(!tok)continue;
                 if(!merged.has(gi))merged.set(gi,{tok,hitTypes:new Set(),proxHit:null});
