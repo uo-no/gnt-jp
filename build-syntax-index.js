@@ -372,37 +372,45 @@ async function main() {
         const sortKey   = bookOrder * 1_000_000 + chapter * 1_000 + verseNum;
 
         // analyzeAll が実装されている場合はそちらを使用
-        let analysisMap; // tokenIdx → AnalysisOutput
+        // analysisMap: globalIdx → AnalysisOutput（配列インデックス依存を排除）
+        let analysisMap; // globalIdx → AnalysisOutput
         if (typeof analyzer.analyzeAll === 'function') {
             try {
                 const results = analyzer.analyzeAll(tokens);
                 analysisMap = new Map();
                 if (Array.isArray(results)) {
-                    results.forEach((out, i) => analysisMap.set(i, out));
+                    results.forEach((out, _pos) => {
+                        const gIdx = tokens[_pos]?.globalIdx;
+                        if (gIdx != null) analysisMap.set(gIdx, out);
+                    });
                 } else if (results && typeof results === 'object') {
-                    Object.entries(results).forEach(([k, v]) => analysisMap.set(Number(k), v));
+                    Object.entries(results).forEach(([_pos, v]) => {
+                        const gIdx = tokens[Number(_pos)]?.globalIdx;
+                        if (gIdx != null) analysisMap.set(gIdx, v);
+                    });
                 }
             } catch { analysisMap = null; }
         }
 
-        tokens.forEach((token, tokenIdx) => {
+        for (const token of tokens) {
             totalTokensProcessed++;
+            const globalIdx = token.globalIdx;
 
             let output = null;
-            if (analysisMap && analysisMap.has(tokenIdx)) {
-                output = analysisMap.get(tokenIdx);
+            if (analysisMap && globalIdx != null && analysisMap.has(globalIdx)) {
+                output = analysisMap.get(globalIdx);
             } else {
-                // フォールバック: 個別 analyze
+                // フォールバック: 個別 analyze（targetIdx は analyzer 内部用・SSOT外）
                 try {
                     output = analyzer.analyze({
                         target:    token,
                         tokens,
-                        targetIdx: tokenIdx,
+                        targetIdx: tokens.indexOf(token),
                     });
-                } catch { return; }
+                } catch { continue; }
             }
 
-            if (!output || !Array.isArray(output.candidates) || output.candidates.length === 0) return;
+            if (!output || !Array.isArray(output.candidates) || output.candidates.length === 0) continue;
 
             const candidates = output.candidates; // confidence 降順
 
@@ -438,7 +446,7 @@ async function main() {
                     bookKey:    bookKey,
                     chapter:    chapter,
                     verse:      verseNum,
-                    tokenIdx:   tokenIdx,
+                    globalIdx:  globalIdx,          // ★ tokenIdx → globalIdx に統一
                     word:       word,
                     lemma:      lemma,
                     confidence: parseFloat(cand.confidence.toFixed(4)),
@@ -449,7 +457,7 @@ async function main() {
                 syntaxIndex.get(typeId).push(tokenRef);
                 totalHits++;
             }
-        });
+        }
 
         verseCount++;
         const pct = Math.floor(verseCount / verseTotal * 100);
