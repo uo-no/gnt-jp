@@ -680,6 +680,25 @@ body {
     display: block;
 }
 
+/* FLOWチップ（index.htmlから移植） */
+.wlv-flow-stream { display: flex; flex-wrap: wrap; gap: 4px 2px; align-items: baseline; padding: 6px 0; }
+.wlv-chip {
+    display: inline-flex; flex-direction: column; align-items: center;
+    gap: 1px; padding: 3px 7px 2px; border-radius: 4px;
+    border: 1px solid transparent;
+}
+.wlv-chip-ja { font-size: 0.95rem; font-family: 'Noto Serif JP', serif; color: var(--ink); line-height: 1.3; }
+.wlv-chip-dot { width: 3px; height: 3px; border-radius: 50%; background: transparent; flex-shrink: 0; }
+.wlv-chip.role-verb  .wlv-chip-dot { background: #7a8fa6; }
+.wlv-chip.role-noun  .wlv-chip-dot { background: #8a9a8a; }
+.wlv-chip.role-conj  .wlv-chip-dot { background: #a09070; }
+.wlv-chip.role-prep  .wlv-chip-dot { background: #9a8a6a; }
+.wlv-chip.role-adj   .wlv-chip-dot { background: #8a7a9a; }
+.wlv-chip.role-pron  .wlv-chip-dot { background: #7a9090; }
+.wlv-chip.role-art   .wlv-chip-dot { background: transparent; }
+.wlv-chip.role-other .wlv-chip-dot { background: rgba(90,110,130,0.2); }
+.wlv-chip.hit-word { background: rgba(90,110,130,0.18); border-color: rgba(90,110,130,0.4); }
+
 /* Refinement banner */
 #refinement-banner {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -1951,6 +1970,25 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         </div>`;
     }
 
+    // FLOWチップ生成（同一節のトークン全体）
+    const flowChipsHtml=(()=>{
+        const POS_ROLE={V:'role-verb',N:'role-noun',A:'role-adj',CONJ:'role-conj',PREP:'role-prep',T:'role-art',P:'role-pron',R:'role-pron',D:'role-pron'};
+        const verseWords=ALL_TOKENS.filter(t=>
+            t.bookKey===tok.bookKey &&
+            String(t.ch)===String(tok.ch) &&
+            String(t.verse)===String(tok.verse)
+        );
+        if(!verseWords.length) return '<span style="font-size:0.72rem;color:var(--ink-muted);">原語データなし</span>';
+        return verseWords.map(w=>{
+            const pos=(w.morph||'').split('-')[0];
+            const roleClass=POS_ROLE[pos]||'role-other';
+            const gloss=w.japanese||w.gloss||w.lemma||'—';
+            const isCurrent=(w.globalIdx===tok.globalIdx);
+            const hitClass=isCurrent?' hit-word':'';
+            return `<span class="wlv-chip ${roleClass}${hitClass}" title="${w.text||''}"><span class="wlv-chip-ja">${gloss}</span><span class="wlv-chip-dot"></span></span>`;
+        }).join('');
+    })();
+
     card.innerHTML=`
         <div class="hit-top">
             ${refHtml}
@@ -1963,7 +2001,9 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         </div>
         <div class="hit-greek-row">
             <button class="hit-trans-toggle">原文を見る</button>
-            <div class="hit-snippet hit-snippet-hidden">${snippetHtml}</div>
+            <div class="hit-snippet hit-snippet-hidden">
+                <div class="wlv-flow-stream">${flowChipsHtml}</div>
+            </div>
         </div>`;
     // ★ data-ref 属性を使わない。翻訳フェッチは bookKey / ch / verse（globalIdx 由来）で行う。
 
