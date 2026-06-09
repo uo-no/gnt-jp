@@ -650,20 +650,35 @@ body {
 }
 .prox-target { font-family: 'Gentium Plus', serif; font-weight: 700; color: var(--prox); opacity: 0.7; }
 
-/* Translation toggle */
-.hit-trans-row { display: flex; align-items: center; gap: 8px; }
+/* Translation — now primary display */
+.hit-trans-row { margin-bottom: 8px; }
+.hit-trans-text {
+    font-size: 0.82rem; color: var(--ink); line-height: 1.65;
+    display: none;
+}
+.hit-trans-text.visible { display: block; }
+
+/* Greek snippet toggle row */
+.hit-greek-row { display: flex; flex-direction: column; gap: 6px; }
 .hit-trans-toggle {
     font-size: 0.65rem; color: var(--ink-soft); background: none;
     border: 1px solid var(--parchment-3); border-radius: 4px;
     padding: 3px 8px; cursor: pointer; font-family: inherit;
     transition: border-color 0.12s, color 0.12s;
+    align-self: flex-start;
 }
 .hit-trans-toggle:hover { border-color: var(--accent); color: var(--accent); }
-.hit-trans-text {
-    font-size: 0.75rem; color: var(--ink-mid); line-height: 1.55;
+.hit-snippet {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.05rem; line-height: 1.7;
+    color: var(--ink); word-wrap: break-word;
+}
+.hit-snippet-hidden {
     display: none;
 }
-.hit-trans-text.visible { display: block; }
+.hit-snippet-hidden.open {
+    display: block;
+}
 
 /* Refinement banner */
 #refinement-banner {
@@ -1942,31 +1957,37 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
             <div class="hit-type-badges">${badgesHtml}</div>
         </div>
         ${proxVizHtml}
-        <div class="hit-snippet">${snippetHtml}</div>
         <div class="hit-trans-row">
-            <button class="hit-trans-toggle">訳を見る</button>
-            <span class="hit-trans-text"></span>
+            <span class="hit-trans-text hit-trans-main"></span>
+            <span class="hit-trans-loading" style="font-size:0.72rem;color:var(--ink-muted);">読み込み中…</span>
+        </div>
+        <div class="hit-greek-row">
+            <button class="hit-trans-toggle">原文を見る</button>
+            <div class="hit-snippet hit-snippet-hidden">${snippetHtml}</div>
         </div>`;
     // ★ data-ref 属性を使わない。翻訳フェッチは bookKey / ch / verse（globalIdx 由来）で行う。
 
-    // Translation lazy load
+    // Translation: auto-load on render
+    const transText=card.querySelector('.hit-trans-main');
+    const transLoading=card.querySelector('.hit-trans-loading');
     const toggleBtn=card.querySelector('.hit-trans-toggle');
-    const transText=card.querySelector('.hit-trans-text');
-    let loaded=false;
-    toggleBtn.addEventListener('click',async()=>{
-        const isOpen=transText.classList.contains('visible');
-        if(isOpen){transText.classList.remove('visible');toggleBtn.textContent='訳を見る';return;}
-        if(!loaded){
-            toggleBtn.textContent='読み込み中…';
-            // ★ フェッチに ref を使わず、bookKey / ch / verse（構造フィールド）を使用
-            if(tok.bookKey && tok.ch != null && tok.verse != null){
-                const text=await _fetchTransVerse(tok.bookKey, String(tok.ch), String(tok.verse));
-                transText.textContent=text||'（訳が見つかりません）';
-            }else{transText.textContent='（位置情報が不足しています）';}
-            loaded=true;
-        }
+    const snippetEl=card.querySelector('.hit-snippet-hidden');
+
+    // Auto-load translation
+    (async()=>{
+        if(tok.bookKey && tok.ch != null && tok.verse != null){
+            const text=await _fetchTransVerse(tok.bookKey, String(tok.ch), String(tok.verse));
+            transText.textContent=text||'（訳が見つかりません）';
+        }else{transText.textContent='（位置情報が不足しています）';}
+        transLoading.style.display='none';
         transText.classList.add('visible');
-        toggleBtn.textContent='訳を閉じる';
+    })();
+
+    // Greek snippet toggle
+    toggleBtn.addEventListener('click',()=>{
+        const isOpen=snippetEl.classList.contains('open');
+        if(isOpen){snippetEl.classList.remove('open');toggleBtn.textContent='原文を見る';}
+        else{snippetEl.classList.add('open');toggleBtn.textContent='原文を閉じる';}
     });
 
     return card;
