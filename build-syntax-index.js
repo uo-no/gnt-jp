@@ -326,10 +326,9 @@ async function main() {
     }
 
     // 7. 節単位にグループ化
-    // bible_data の各エントリは {ref, _bookKey, ...} を持つ
-    // ref 形式: "ROM 8:28" など
     const verseMap = new Map();
-        for (const entry of allTokens) {
+    
+    for (const entry of allTokens) {
         const bookKey = entry.book;
         const chapter = parseInt(entry.chapter, 10);
         const verse   = parseInt(entry.verse, 10);
@@ -338,10 +337,10 @@ async function main() {
             continue;
         }
     
-        const ref = `${bookKey} ${chapter}:${verse}`;
+        const verseKey = `${bookKey}|${chapter}|${verse}`;
     
-        if (!verseMap.has(ref)) {
-            verseMap.set(ref, {
+        if (!verseMap.has(verseKey)) {
+            verseMap.set(verseKey, {
                 bookKey,
                 chapter,
                 verse,
@@ -349,10 +348,11 @@ async function main() {
             });
         }
     
-        verseMap.get(ref).tokens.push(entry);
+        verseMap.get(verseKey).tokens.push(entry);
     }
+    
     console.log(`[INFO] 節数: ${verseMap.size}`);
-
+    
     // 8. 各節・各トークンを analyze し、インデックスを構築
     // syntaxIndex: Map<typeId, TokenRef[]>
     const syntaxIndex = new Map();
