@@ -272,8 +272,8 @@ function classifyParticipleLiteShared(entry, tokens, _entryPosCode, _decodeMorph
     const ptcCase  = hm.case;
     const ptcGender= hm.gender;
     const ptcNumber= hm.number;
-    const hitIdx   = tokens.indexOf(entry);
-    const prevTok  = hitIdx > 0 ? tokens[hitIdx - 1] : null;
+    const hitGIdx  = entry.globalIdx;          // ★ SSOT: indexOf禁止
+    const prevTok  = tokens.find(t => t.globalIdx === hitGIdx - 1) || null;
     const prevPos  = prevTok ? _entryPosCode(prevTok) : '';
     const deltas   = [];
 
@@ -292,17 +292,17 @@ function classifyParticipleLiteShared(entry, tokens, _entryPosCode, _decodeMorph
 
     /* ── 2. 格一致名詞 → 形容詞用法 ── */
     let matchNoun = null;
-    tokens.forEach((t, i) => {
-        if (i === hitIdx) return;
+    tokens.forEach(t => {
+        if (t.globalIdx === hitGIdx) return;
         const pos = _entryPosCode(t);
         if (!['N','T','A','D','R'].includes(pos)) return;
         const tm = _decodeMorph(t);
         if (tm.case === ptcCase && tm.gender === ptcGender && tm.number === ptcNumber) {
-            if (!matchNoun) matchNoun = { token: t, idx: i };
+            if (!matchNoun) matchNoun = { token: t, gIdx: t.globalIdx };
         }
     });
     if (matchNoun) {
-        const dist = Math.abs(matchNoun.idx - hitIdx);
+        const dist = Math.abs(matchNoun.gIdx - hitGIdx); // ★ globalIdx差で近接距離を計算
         const nw   = _cleanText(matchNoun.token);
         deltas.push(
             { label: '格一致名詞あり（' + nw + '）', value: +35 },
@@ -315,16 +315,16 @@ function classifyParticipleLiteShared(entry, tokens, _entryPosCode, _decodeMorph
     /* ── 3. 属格形 → 属格絶対の可能性 ── */
     if (ptcCase === 'genitive') {
         // 属格名詞（分詞の主語候補）を探す
-        const genNoun = tokens.find((t, i) => {
-            if (i === hitIdx) return false;
+        const genNoun = tokens.find(t => {
+            if (t.globalIdx === hitGIdx) return false;
             const pos = _entryPosCode(t);
             if (!['N','P','D','R'].includes(pos)) return false;
             return _decodeMorph(t).case === 'genitive';
         });
 
         // 主節の主語（主格名詞/代名詞）を探す
-        const mainSubjects = tokens.filter((t, i) => {
-            if (i === hitIdx) return false;
+        const mainSubjects = tokens.filter(t => {
+            if (t.globalIdx === hitGIdx) return false;
             const pos = _entryPosCode(t);
             if (!['N','P','D','R'].includes(pos)) return false;
             return _decodeMorph(t).case === 'nominative';
@@ -407,8 +407,8 @@ function calcCoocNeighbors(tokens, targetIdx, stopLemmas, _entryPosCode, _cleanT
     const SEMANTIC_POS = new Set(['N','V','A','D','R']);
     const results = [];
 
-    tokens.forEach((t, i) => {
-        if (i === targetIdx) return;
+    tokens.forEach(t => {
+        if (t.globalIdx === targetIdx) return;   // ★ targetIdx は呼び出し元が entry.globalIdx を渡す
         const w = _cleanText(t);
         if (!w || w.length < 2) return;
         const pos = _entryPosCode(t);
