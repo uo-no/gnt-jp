@@ -29,7 +29,6 @@ function calcDistribution(matched, BOOK_JP) {
     matched.forEach(e => {
         const bk = e._bookKey
              || e.book
-             || (String(e.ref || '').match(/^([A-Z0-9]+)/) || [])[1]
              || '?';
         counts[bk] = (counts[bk] || 0) + 1;
     });
