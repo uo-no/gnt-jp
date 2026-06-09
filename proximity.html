@@ -1062,17 +1062,16 @@ async function fetchChapter(bookKey, ch) {
     } catch { return []; }
 }
 function _indexChapter(toks){
-    const base=ALL_TOKENS.length;
-    for(let k=0;k<toks.length;k++){
-        const i=base+k,tok=toks[k];
-        tok.globalIdx=i;
+    for(const tok of toks){
+        tok.globalIdx=ALL_TOKENS.length;   // ★ SSOT: globalIdx = 付与時点の配列長
         ALL_TOKENS.push(tok);
-        addToIndex(SEARCH_INDEX.text,tok.text,i);
-        addToIndex(SEARCH_INDEX.lemma,tok.lemma,i);
+        const gIdx=tok.globalIdx;
+        addToIndex(SEARCH_INDEX.text,tok.text,gIdx);
+        addToIndex(SEARCH_INDEX.lemma,tok.lemma,gIdx);
         const nl=normalizeGreek(tok.lemma),nt=normalizeGreek(tok.text);
-        if(nl&&nl!==tok.lemma)addToIndex(SEARCH_INDEX.lemma,nl,i);
-        if(nt&&nt!==tok.text)addToIndex(SEARCH_INDEX.text,nt,i);
-        addToIndex(SEARCH_INDEX.strong,tok.strong!=null?String(tok.strong):null,i);
+        if(nl&&nl!==tok.lemma)addToIndex(SEARCH_INDEX.lemma,nl,gIdx);
+        if(nt&&nt!==tok.text)addToIndex(SEARCH_INDEX.text,nt,gIdx);
+        addToIndex(SEARCH_INDEX.strong,tok.strong!=null?String(tok.strong):null,gIdx);
         const jpVals=tok.japanese?(Array.isArray(tok.japanese)?tok.japanese:[tok.japanese]):(tok.gloss?[tok.gloss]:[]);
         if(tok.text&&jpVals.length>0&&!TEXT_TO_JP.has(tok.text))TEXT_TO_JP.set(tok.text,jpVals[0]);
     }
@@ -1095,14 +1094,16 @@ async function _buildL2Background(){
     _buildL3Background();
 }
 async function _buildL3Background(){
-    const total=ALL_TOKENS.length,BATCH=500;
-    for(let i=0;i<total;i+=BATCH){
-        const slice=ALL_TOKENS.slice(i,i+BATCH);
-        for(let k=0;k<slice.length;k++){
-            const tok=slice[k];
+    const BATCH=500;
+    let offset=0;
+    while(offset<ALL_TOKENS.length){
+        const slice=ALL_TOKENS.slice(offset,offset+BATCH);
+        for(const tok of slice){
+            const gIdx=tok.globalIdx;          // ★ SSOT: 配列位置ではなくglobalIdxを使用
             const jpVals=tok.japanese?(Array.isArray(tok.japanese)?tok.japanese:[tok.japanese]):(tok.gloss?[tok.gloss]:[]);
-            for(const v of jpVals){if(v){addToIndex(SEARCH_INDEX.japanese,v,i+k);_addJpPartial(v,i+k);}}
+            for(const v of jpVals){if(v){addToIndex(SEARCH_INDEX.japanese,v,gIdx);_addJpPartial(v,gIdx);}}
         }
+        offset+=BATCH;
         await new Promise(r=>setTimeout(r,0));
     }
     IDX.l3Ready=true;
@@ -1137,26 +1138,26 @@ function searchGreek(tokens,word){
         return s;
     }
     const s=new Set();
-    tokens.forEach((t,i)=>{
-        if(t.text===word||t.lemma===word){s.add(i);return;}
-        if(normalizeGreek(t.text)===normWord||normalizeGreek(t.lemma)===normWord)s.add(i);
+    tokens.forEach(t=>{
+        if(t.text===word||t.lemma===word){s.add(t.globalIdx);return;}
+        if(normalizeGreek(t.text)===normWord||normalizeGreek(t.lemma)===normWord)s.add(t.globalIdx);
     });
     return s;
 }
 function searchJapanese(tokens,word){
     if(IDX.l3Ready){const s=JP_PARTIAL_INDEX.get(word);return s||new Set();}
     const s=new Set();
-    tokens.forEach((t,i)=>{
+    tokens.forEach(t=>{
         const vals=t.japanese?(Array.isArray(t.japanese)?t.japanese:[t.japanese]):[];
-        if(vals.some(v=>v&&v.includes(word))){s.add(i);return;}
-        if(t.gloss&&t.gloss.includes(word))s.add(i);
+        if(vals.some(v=>v&&v.includes(word))){s.add(t.globalIdx);return;}
+        if(t.gloss&&t.gloss.includes(word))s.add(t.globalIdx);
     });
     return s;
 }
 function searchStrong(tokens,word){
     if(IDX.l1Ready){const arr=SEARCH_INDEX.strong.get(word);return arr?new Set(arr):new Set();}
     const s=new Set();
-    tokens.forEach((t,i)=>{if(String(t.strong)===word)s.add(i);});
+    tokens.forEach(t=>{if(String(t.strong)===word)s.add(t.globalIdx);});
     return s;
 }
 function resolveIndices(tokens,word){
@@ -1186,9 +1187,8 @@ function matchToken(tok,word){
 /* lemmaIndex */
 function buildLemmaIndex(tokens){
     const idx=new Map();
-    for(let i=0;i<tokens.length;i++){
-        const tok=tokens[i];
-        const gIdx=tok.globalIdx;
+    for(const tok of tokens){
+        const gIdx=tok.globalIdx;          // ★ SSOT
         const key=tok.lemma||tok.text||'';
         if(!key)continue;
         let arr=idx.get(key);if(!arr){arr=[];idx.set(key,arr);}arr.push(gIdx);
@@ -1218,10 +1218,10 @@ function _rebuildLemmaIndexIfNeeded(){
 /* morphIndex */
 function buildMorphIndex(tokens){
     const idx=new Map();
-    for(let i=0;i<tokens.length;i++){
-        const tok=tokens[i],key=tok.morph;
+    for(const tok of tokens){
+        const key=tok.morph;
         if(!key)continue;
-        const gIdx=tok.globalIdx;
+        const gIdx=tok.globalIdx;          // ★ SSOT
         let arr=idx.get(key);if(!arr){arr=[];idx.set(key,arr);}arr.push(gIdx);
     }
     for(const arr of idx.values())arr.sort((a,b)=>a-b);
