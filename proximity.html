@@ -1045,7 +1045,10 @@ async function fetchChapter(bookKey,ch){
             morph:w.morph??null,
             ref:w.ref||`${bookKey} ${ch}:?`,
             bookKey,ch,
-            verse:(()=>{const m=(w.ref||'').match(/:(\d+)/);return m?m[1]:null;})(),
+            verse: w.verse != null ? String(w.verse) : (()=>{
+                const m=(w.ref||'').match(/:(\d+)/);
+                return m?m[1]:null;
+            })(),
             japanese:w.japanese||w.gloss_ja||w.gloss||null,
             gloss:w.gloss||w.gloss_ja||null,
             strong:w.strong||w.strongs||null,
@@ -1920,7 +1923,9 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         if(isOpen){transText.classList.remove('visible');toggleBtn.textContent='訳を見る';return;}
         if(!loaded){
             toggleBtn.textContent='読み込み中…';
-            const parsed=_parseRef(rawRef);
+            const parsed = (tok.book && tok.chapter && tok.verse)
+                ? {bookKey: tok.book, ch: String(tok.chapter), verse: String(tok.verse)}
+                : _parseRef(rawRef);
             if(parsed){
                 const text=await _fetchTransVerse(parsed.bookKey,parsed.ch,parsed.verse);
                 transText.textContent=text||'（訳が見つかりません）';
