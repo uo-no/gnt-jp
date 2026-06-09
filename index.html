@@ -6054,7 +6054,10 @@ app.innerHTML = '';
             if (words.length === 0) {
                 block.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="color:var(--text-sub);font-size:0.82rem;opacity:0.5;">原語データなし</div></div>`;
             } else {
-                const chips = words.map((w, i) => _wordToFlowChip(w, i));
+                // ★ SSOT: bookKey / ch を _wordToFlowChip に渡す（ref パース禁止）
+                const _chipBookKey = AppState.location.book ? AppState.location.book.key : '';
+                const _chipCh = AppState.location.chapter != null ? AppState.location.chapter : null;
+                const chips = words.map((w, i) => _wordToFlowChip(w, i, _chipBookKey, _chipCh));
                 /* 修正B: ヨハネ3:16の先頭chip（index=0）にオンボーディングアンカーを付与 */
                 const _obBook = AppState.location.book ? AppState.location.book.key : '';
                 const _obChapter = AppState.location.chapter;
@@ -6279,8 +6282,11 @@ function _wlvSwitchTab(name) {
    ⑤ クリックで下部ドロワーに詳細を展開（初期非表示）
    ════════════════════════════════════════════════════════ */
 function _buildFlowTabHTML(words) {
-    /* 各語を「流れchip」データに変換 */
-    const chips = words.map((w, i) => _wordToFlowChip(w, i));
+    /* 各語を「流れchip」データに変換
+       ★ SSOT: bookKey / ch を渡す（AppState.location 経由）*/
+    const _fbkKey = AppState.location.book ? AppState.location.book.key : '';
+    const _fbkCh  = AppState.location.chapter != null ? AppState.location.chapter : null;
+    const chips = words.map((w, i) => _wordToFlowChip(w, i, _fbkKey, _fbkCh));
 
     /* ── chip HTML（補助として小さく） ── */
     const chipsHTML = chips.map((c, i) => {
@@ -6466,11 +6472,22 @@ function _buildPassageNote(words) {
  * @param {number} i   index
  * @returns {{ greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong }}
  */
-function _wordToFlowChip(w, i) {
+/**
+ * @param {Object} w       - 語トークン（生JSON）
+ * @param {number} i       - 節内インデックス
+ * @param {string} [_bookKey] - 書物キー（呼び出し元が持つ構造フィールド）
+ * @param {number} [_ch]      - 章番号（呼び出し元が持つ構造フィールド）
+ */
+function _wordToFlowChip(w, i, _bookKey, _ch) {
     const greek    = w.text   || '-';
     const rawMorph = w.morph  || '';
     const lemma    = w.lemma  || '';
+    // ★ ref は表示専用。ナビゲーション/ロジックには bookKey / ch / verse を使う。
     const ref      = w.ref    || '';
+    // ★ SSOT: 書物キー・章番号は構造フィールドから取得（ref パース禁止）
+    const bookKey  = w.bookKey  || _bookKey || '';
+    const ch       = w.ch       != null ? w.ch       : (_ch != null ? _ch : null);
+    const verse    = w.verse    != null ? w.verse    : null;
     const strong   = String(w.strong || '').replace(/[^0-9]/g, '');
     // 表示言語の優先順位: gloss → lemma → '—'
     // 表示変更したい場合はここを w.japanese || w.gloss || w.lemma || '—' などに変更する
@@ -6608,7 +6625,9 @@ function _wordToFlowChip(w, i) {
     /* morphText：ドロワーに表示する人が読める文法メモ */
     const morphText = _buildMorphText(rawMorph, pos, parts);
 
-    return { greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong, dpGrammarClasses };
+    // ★ SSOT: bookKey / ch / verse を chip に持たせる。
+    //          openStudyPanel 等のロジックはこれらを使い、ref 文字列に依存しない。
+    return { greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong, dpGrammarClasses, bookKey, ch, verse };
 }
 
 /**
@@ -6756,7 +6775,8 @@ function _wlvChipClick(chipEl, idx) {
     const chip = _wlvGetChipData(idx);
     if (!chip) return;
 
-    /* AppState の inspect を更新 */
+    /* AppState の inspect を更新
+       ★ SSOT: ref は表示専用として保持。ロジックには bookKey / ch / verse を使う。 */
     AppState.inspect.data = {
         greek:    chip.greek,
         strong:   chip.strong,
@@ -6765,7 +6785,10 @@ function _wlvChipClick(chipEl, idx) {
         lemma:    chip.lemma,
         jaWord:   chip.jaWord,
         desc:     (abbottSmithDict && abbottSmithDict[chip.strong]?.description) || '',
-        ref:      chip.ref,
+        ref:      chip.ref,      // 表示専用（ラベル・URL クエリ文字列のみ）
+        bookKey:  chip.bookKey  || '',
+        ch:       chip.ch       != null ? chip.ch    : null,
+        verse:    chip.verse    != null ? chip.verse  : null,
     };
 
     /* depth stack に word-flow を追加 */
@@ -7611,8 +7634,11 @@ function _buildGfVerseBlock(vNum, words) {
     if (!words || words.length === 0) {
         return `<p style="font-size:0.8rem;color:var(--text-sub);opacity:0.6;padding:8px 0;">この節の原語データがありません</p>`;
     }
-    /* 既存の Study Panel 用ロジックを再利用 */
-    const chips = words.map((w, i) => _wordToFlowChip(w, i));
+    /* 既存の Study Panel 用ロジックを再利用
+       ★ SSOT: bookKey / ch を渡す（AppState.location 経由）*/
+    const _gfBkKey = AppState.location.book ? AppState.location.book.key : '';
+    const _gfBkCh  = AppState.location.chapter != null ? AppState.location.chapter : null;
+    const chips = words.map((w, i) => _wordToFlowChip(w, i, _gfBkKey, _gfBkCh));
     const chipsHTML = chips.map((c, i) => {
         const sepBefore = c.phraseBreakBefore ? `<span class="wlv-phrase-sep"></span>` : '';
         return `${sepBefore}<span class="wlv-chip ${c.roleClass}"
