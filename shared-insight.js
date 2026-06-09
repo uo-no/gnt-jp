@@ -392,14 +392,14 @@ function classifyParticipleLiteShared(entry, tokens, _entryPosCode, _decodeMorph
    ═══════════════════════════════════════════════════ */
 /**
  * @param {Array}   tokens       - 節全体のトークン配列
- * @param {number}  targetIdx    - 対象語のインデックス
+ * @param {number}  targetGlobalIdx - 対象語の globalIdx（必ず entry.globalIdx を渡すこと）
  * @param {Set}     stopLemmas   - ストップワード lemma セット
  * @param {Function} _entryPosCode
  * @param {Function} _cleanText
  * @param {number}  [maxResults=6]
  * @returns {Array<{word:string, pos:string}>}
  */
-function calcCoocNeighbors(tokens, targetIdx, stopLemmas, _entryPosCode, _cleanText, maxResults) {
+function calcCoocNeighbors(tokens, targetGlobalIdx, stopLemmas, _entryPosCode, _cleanText, maxResults) {
     maxResults = maxResults || 6;
     _cleanText = _cleanText || (e => (e.word || e.normalized || e.text || '').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim());
     stopLemmas = stopLemmas || new Set();
@@ -408,7 +408,7 @@ function calcCoocNeighbors(tokens, targetIdx, stopLemmas, _entryPosCode, _cleanT
     const results = [];
 
     tokens.forEach(t => {
-        if (t.globalIdx === targetIdx) return;   // ★ targetIdx は呼び出し元が entry.globalIdx を渡す
+        if (t.globalIdx === targetGlobalIdx) return;   // ★ SSOT: globalIdx で自身を除外
         const w = _cleanText(t);
         if (!w || w.length < 2) return;
         const pos = _entryPosCode(t);
@@ -432,7 +432,7 @@ const scoreEngine = {
      *   morphology  : { tense, mood, voice, case, gender, number }
      *   syntax      : { role, hasArticle, matchNoun, ptcCase }
      *   semantics   : { lemma, coocHits, objType, subjType, baseScore }
-     *   context     : { tokens, targetIdx }
+     *   context     : { tokens, targetGlobalIdx }  // ★ SSOT: targetGlobalIdx = entry.globalIdx
      * @returns {{ score:number, confidence:number, reasons:Array, rejected:Array, alternatives:Array }}
      */
     evaluate(opts) {
@@ -634,11 +634,13 @@ function buildRepresentativeExamples(matched, BOOK_JP, getJaVerse, limit) {
     limit = limit || 3;
     if (!matched.length) return '';
 
-    /* 書物を分散させつつ上位 limit 件を選ぶ */
+    /* 書物を分散させつつ上位 limit 件を選ぶ
+       ★ SSOT: 書物キーは _bookKey / bookKey（構造フィールド）から取得。
+               ref 文字列のパース禁止。                               */
     const seen  = new Set();
     const picks = [];
     for (const e of matched) {
-        const bk = e._bookKey || (String(e.ref||'').match(/^([A-Z0-9]+)/)||[])[1] || '?';
+        const bk = e._bookKey || e.bookKey || '?';
         if (!seen.has(bk)) {
             seen.add(bk);
             picks.push(e);
@@ -649,9 +651,12 @@ function buildRepresentativeExamples(matched, BOOK_JP, getJaVerse, limit) {
 
     const rows = picks.map(e => {
         const word = e.word || e.normalized || e.text || '';
+        // ★ ref は表示専用（ラベルとして読む）。ロジックには bookKey / ch / verse を使う。
         const ref  = e.ref  || '';
-        const bk   = e._bookKey || (String(ref).match(/^([A-Z0-9]+)/)||[])[1] || '';
-        const label = (BOOK_JP[bk] || bk) + ' ' + String(ref).replace(/^[A-Z0-9]+\s*/,'');
+        const bk   = e._bookKey || e.bookKey || '';
+        // ラベル生成: 書物名 + ref の verse 部分（表示のみ）
+        const verseLabel = ref ? String(ref).replace(/^[A-Z0-9]+\s*/,'') : (e.verse != null ? e.verse : '');
+        const label = (BOOK_JP[bk] || bk) + (verseLabel ? ' ' + verseLabel : '');
         const ja    = typeof getJaVerse === 'function' ? getJaVerse(e) : '';
         return `<div style="padding:6px 0;border-bottom:1px solid var(--border,rgba(0,0,0,.06));">
             <div style="display:flex;align-items:baseline;gap:8px;">
