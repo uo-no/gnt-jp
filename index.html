@@ -4658,22 +4658,32 @@ function _renderReadingNotes(p) {
    LN Layer / Cluster Layer / Concordance
    ══════════════════════════════════════════ */
 
-/* ──────────────────────────────────────────────────────────────
-   Global data accessors — SINGLE ACCESS POINT for shared state.
-   All code in this file MUST use these functions instead of
-   direct references to ALL_TOKENS or window.lemmaIndex.
-   ────────────────────────────────────────────────────────────── */
 /**
- * Returns the full token array built by search.html.
- * Never access ALL_TOKENS directly from this file.
+ * SSOT (Single Source of Truth):
+ * index.html is the only authoritative source for data ACCESS.
+ *
+ * - getTokens()     : sole getter for the token array (ALL_TOKENS)
+ * - getLemmaIndex() : sole getter for the lemma index (window.lemmaIndex)
+ *
+ * search.html role  : DATA INGESTION ONLY
+ *   - Builds ALL_TOKENS via _indexChapter()
+ *   - Builds window.lemmaIndex / window.morphIndex
+ *   - Does NOT define getTokens() or getLemmaIndex()
+ *   - Does NOT call these getters
+ *
+ * All Layers (LN / Cluster / Graph / Concordance) access data
+ * exclusively through the two getters defined below.
  */
+
+/* ──────────────────────────────────────────────────────────────
+   Data accessors — defined here, used everywhere (index.html only)
+   ────────────────────────────────────────────────────────────── */
+
+/** Returns the full token array built by search.html. */
 function getTokens() {
     return typeof ALL_TOKENS !== 'undefined' ? ALL_TOKENS : [];
 }
-/**
- * Returns the current lemmaIndex, or null if not yet built.
- * Never access window.lemmaIndex directly from this file.
- */
+/** Returns the current lemmaIndex built by search.html, or null. */
 function getLemmaIndex() { return window.lemmaIndex || null; }
 
 /* ──────────────────────────────────────────
