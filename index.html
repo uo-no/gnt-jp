@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>1700｜言語の壁を超えて読む聖書アプリ</title>
+    <title>1717｜言語の壁を超えて読む聖書アプリ</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -4904,20 +4904,44 @@ function _buildLnLayerHTML(lnCodes, currentLemmaId, currentWord) {
 /* ── Cluster Layer display builder (auxiliary — reads domainCodes directly) ── */
 function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
     const sections = [];
+
     for (const code of domainCodes.slice(0, 2)) {
         const entry = _clusterIndexData[code];
         if (!entry || !entry.lemmas) continue;
+
         const siblings = entry.lemmas
             .map(id => {
                 const e = _lexiconData[id];
                 if (!e) return null;
+
                 const isCurrent = id === currentLemmaId;
-                return { id, headword: e.headword || '', gloss: _jaGlossFromLemmaId(id) || e.gloss || '', count: e.count || 0, isCurrent };
+
+                return {
+                    id,
+                    headword: e.headword || '',
+                    gloss: _jaGlossFromLemmaId(id) || e.gloss || '',
+                    count: e.count || 0,
+                    isCurrent
+                };
+            })
+            .filter(Boolean);
+
+        const chips = siblings.map(s => `
+            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}" data-lemma-id="${s.id}" title="${s.gloss}">
+                <span class="rn-sibling-gr">${s.headword}</span>
+                ${s.gloss ? `<span class="rn-sibling-ja">${s.gloss}</span>` : ''}
+                <span class="rn-sibling-count">${s.count}</span>
+            </span>
+        `).join('');
+
         sections.push(`
             <div class="rn-ln-domain-label">共起クラスター ${code}（この語群が新約聖書に計 ${entry.occurrences || '?'}回登場）</div>
-            <div class="rn-sibling-chips">${chips}</div>`));
+            <div class="rn-sibling-chips">${chips}</div>
+        `);
     }
+
     if (!sections.length) return '';
+
     return `
     <div class="rn-cluster-section">
         <button class="rn-layer-toggle" data-target="rn-cluster-body">
@@ -4926,11 +4950,13 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
             <span class="rn-layer-toggle-icon">›</span>
         </button>
         <div class="rn-layer-body" id="rn-cluster-body">
-            <div class="rn-layer-intro">以下の語は聖書内で同じ場面・文脈によく一緒に登場します。意味が似ているのではなく、使われる状況が似ている語の集まりです。右の数字は新約聖書での出現回数。枠付きがこの単語です。</div>
+            <div class="rn-layer-intro">
+                以下の語は聖書内で同じ場面・文脈によく一緒に登場します。意味が似ているのではなく、使われる状況が似ている語の集まりです。右の数字は新約聖書での出現回数。枠付きがこの単語です。
+            </div>
             ${sections.join('')}
         </div>
     </div>`;
-}}
+}
 
 /**
  * _buildFusionViewHTML(fusionResults, resolvedId)
