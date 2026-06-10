@@ -4738,23 +4738,6 @@ function _jaGlossFromLemmaId(id) {
    ══════════════════════════════════════════ */
 
 /**
- * Returns the intersection of lemmas that appear in both the given
- * LN domain and the given cluster domain.
- * @param {string} ln      – e.g. "25.43"
- * @param {string} cluster – e.g. "25003"
- * @returns {string[]} array of lemmaId strings
- */
-function getFusionSet(ln, cluster) {
-    const lnSet      = new Set(_lnIndexData[ln]?.lemmas      || []);
-    const clusterSet = new Set(_clusterIndexData[cluster]?.lemmas || []);
-    const intersection = [];
-    for (const id of lnSet) {
-        if (clusterSet.has(id)) intersection.push(id);
-    }
-    return intersection;
-}
-
-/**
  * Scores a single lemmaId against one LN domain and one cluster domain.
  * LN membership:      +2
  * Cluster membership: +1
@@ -4804,7 +4787,7 @@ function getRankedLemmas(ln, cluster) {
 
    Data flow (enforced):
      window.lemmaIndex  →  _giListFromLemmaIndex()  →  Basic Concordance only
-     fusionResults      →  _buildFusionViewHTML()   →  Fusion View only
+     lnCodes / domainCodes  →  _buildFusionViewHTML()  →  Fusion View only
      graph              →  buildGraphConcordance()  →  Graph View only
      LN / Cluster data  →  display only (no verse mapping)
 
@@ -4826,20 +4809,13 @@ async function _injectSemanticLayers(container, strong, lemmaId, word) {
     const lnCodes     = lexEntry?.ln      || [];
     const domainCodes = lexEntry?.domains || [];
 
-    /* ── Compute fusion ranking (primary LN + primary cluster) ── */
-    const primaryLN      = lnCodes[0]      || null;
-    const primaryCluster = domainCodes[0]  || null;
-    const fusionResults  = (primaryLN && primaryCluster)
-        ? getRankedLemmas(primaryLN, primaryCluster)
-        : [];
-
-    /* ── LN Layer (auxiliary display — unchanged role) ── */
+    /* ── LN Layer (semantic signal generator) ── */
     if (lnCodes.length > 0) {
         const lnHTML = _buildLnLayerHTML(lnCodes, resolvedId, word);
         if (lnHTML) container.insertAdjacentHTML('beforeend', lnHTML);
     }
 
-    /* ── Cluster Layer (auxiliary display — unchanged role) ── */
+    /* ── Cluster Layer (relational signal generator) ── */
     if (domainCodes.length > 0) {
         const clHTML = _buildClusterLayerHTML(domainCodes, resolvedId, word);
         if (clHTML) container.insertAdjacentHTML('beforeend', clHTML);
@@ -4849,11 +4825,9 @@ async function _injectSemanticLayers(container, strong, lemmaId, word) {
     const concordHTML = _buildConcordanceHTML(resolvedId, word);
     if (concordHTML) container.insertAdjacentHTML('beforeend', concordHTML);
 
-    /* ── Fusion View (auxiliary/derived — appended after Basic, never alters it) ── */
-    if (fusionResults.length > 0) {
-        const fusionHTML = _buildFusionViewHTML(fusionResults, resolvedId);
-        if (fusionHTML) container.insertAdjacentHTML('beforeend', fusionHTML);
-    }
+    /* ── Fusion View (intersection display layer — ranking computed internally) ── */
+    const fusionHTML = _buildFusionViewHTML(lnCodes, domainCodes, resolvedId);
+    if (fusionHTML) container.insertAdjacentHTML('beforeend', fusionHTML);
 
     /* ── Semantic Graph View (auxiliary — append only) ── */
     if (resolvedId) _injectSemanticGraph(resolvedId, false);
@@ -4988,22 +4962,31 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
 }
 
 /**
- * _buildFusionViewHTML(fusionResults, resolvedId)
+ * _buildFusionViewHTML(lnCodes, domainCodes, resolvedId)
  *
- * Fusion View — auxiliary/derived display only.
- * Builds a compact verse list for semantically-related lemmas (LN × Cluster rank).
+ * Fusion View — intersection display layer.
+ * Computes ranked lemmas from the primary LN + primary Cluster signals internally,
+ * then builds a compact verse list for the resulting neighbours.
  * Rules:
  *   - resolvedId is excluded (already shown in Basic Concordance above).
  *   - Uses _giListFromLemmaIndex() — same Basic source, read-only.
  *   - Result is displayed as a visually distinct sub-section, never mixed into Basic.
  *   - Removing this function has zero effect on Basic Concordance.
  *
- * @param {{ lemmaId: string, score: number }[]} fusionResults
- * @param {string} resolvedId – excluded from this view (already in Basic)
+ * @param {string[]} lnCodes      – LN domain codes from the focused word's lexicon entry
+ * @param {string[]} domainCodes  – Cluster domain codes from the focused word's lexicon entry
+ * @param {string}   resolvedId   – excluded from this view (already in Basic)
  * @returns {string} HTML string or empty string
  */
-function _buildFusionViewHTML(fusionResults, resolvedId) {
-    if (!getLemmaIndex() || !fusionResults.length) return '';
+function _buildFusionViewHTML(lnCodes, domainCodes, resolvedId) {
+    if (!getLemmaIndex()) return '';
+
+    /* Compute ranking internally — Fusion View owns this responsibility */
+    const primaryLN      = lnCodes[0]      || null;
+    const primaryCluster = domainCodes[0]  || null;
+    if (!primaryLN || !primaryCluster) return '';
+    const fusionResults = getRankedLemmas(primaryLN, primaryCluster);
+    if (!fusionResults.length) return '';
 
     const fusionById = new Map();
     const FUSION_CAP = 20;
@@ -5066,13 +5049,8 @@ function _buildFusionViewHTML(fusionResults, resolvedId) {
  *
  * This is the ONLY authoritative concordance. It is strictly lemmaId-based,
  * driven by window.lemmaIndex, and preserves natural occurrence order.
- * No scoring or reranking is applied to Basic Concordance results.
+ * No scoring or reranking is applied.
  *
- * fusionResults is accepted as a parameter but is used only to build a
- * separate auxiliary "semantic view" section rendered AFTER the Basic section.
- * The Basic section always comes first and is never influenced by fusionResults.
- *
- * @param {{ lemmaId: string, score: number }[]} fusionResults  – auxiliary/derived view only
  * @param {string} resolvedId  – lemmaId of the focused word (canonical source)
  * @param {string} word        – surface form (for Basic fallback lookup only)
  */
@@ -5162,11 +5140,15 @@ function _buildConcordanceHTML(resolvedId, word) {
 /**
  * buildSemanticGraph(lemmaId)
  *
- * Builds a weighted node list centered on lemmaId.
- * Weight rules (additive per lemma):
- *   LN membership     → +2
- *   Cluster membership → +1
- *   Co-verse occurrence → +1  (sampled via lemmaIndex, capped for perf)
+ * Structure assembler — builds a weighted node list centered on lemmaId.
+ * Signal collection rules:
+ *   LN membership      → lnSignal     (semantic category signal)
+ *   Cluster membership → clusterSignal (relational proximity signal)
+ *   Co-verse occurrence → coocHits    (contextual signal)
+ *
+ * Weight for each node is delegated entirely to scoreEngine.evaluate().
+ * This function does NOT perform scoring; it only collects signals and
+ * assembles the resulting structure.
  *
  * Returns { centerId, centerEntry, nodes } where nodes is sorted by
  * weight descending and capped at 20.
@@ -5178,30 +5160,33 @@ function buildSemanticGraph(lemmaId) {
     const lnCodes     = centerEntry.ln      || [];
     const domainCodes = centerEntry.domains || [];
 
-    /* Accumulate weights per neighbor lemmaId */
-    const weightMap = new Map();   // lemmaId → weight
+    /* Step 1: Collect signals per candidate lemmaId — no scoring here */
+    const candidateMap = new Map(); // lemmaId → { lnHit, clusterHit, coocHits[] }
 
-    function _add(id, pts) {
-        if (id === lemmaId) return;   // exclude center from neighbor list
-        weightMap.set(id, (weightMap.get(id) || 0) + pts);
+    function _register(id, asLn, asCluster) {
+        if (id === lemmaId) return;
+        if (!candidateMap.has(id)) {
+            candidateMap.set(id, { lnHit: false, clusterHit: false, coocHits: [] });
+        }
+        const c = candidateMap.get(id);
+        if (asLn)      c.lnHit      = true;
+        if (asCluster) c.clusterHit = true;
     }
 
-    /* LN neighbors → +2 each */
+    /* LN neighbors — semantic category signal */
     for (const ln of lnCodes.slice(0, 3)) {
-        for (const id of (_lnIndexData[ln]?.lemmas || [])) _add(id, 2);
+        for (const id of (_lnIndexData[ln]?.lemmas || [])) _register(id, true, false);
     }
 
-    /* Cluster neighbors → +1 each */
+    /* Cluster neighbors — relational proximity signal */
     for (const code of domainCodes.slice(0, 3)) {
-        for (const id of (_clusterIndexData[code]?.lemmas || [])) _add(id, 1);
+        for (const id of (_clusterIndexData[code]?.lemmas || [])) _register(id, false, true);
     }
 
-    /* Co-verse occurrence → +1 (sample first 200 verses of center word) */
+    /* Co-verse occurrence — contextual signal (sample first 200 verses of center word) */
     /* Uses shared _giListFromLemmaIndex — same Basic source lookup rules */
     if (getLemmaIndex()) {
-        const giList  = _giListFromLemmaIndex(lemmaId);
-
-        /* Collect verse spans for up to 200 anchor occurrences */
+        const giList = _giListFromLemmaIndex(lemmaId);
         const SAMPLE_VERSES = 200;
         const WINDOW        = 5;
         let sampled = 0;
@@ -5213,21 +5198,37 @@ function buildSemanticGraph(lemmaId) {
                 if (j === gi) continue;
                 const t = getTokens()[j];
                 if (!t || !t.lemmaId || t.lemmaId === lemmaId) continue;
-                _add(t.lemmaId, 1);
+                if (!candidateMap.has(t.lemmaId)) {
+                    candidateMap.set(t.lemmaId, { lnHit: false, clusterHit: false, coocHits: [] });
+                }
+                candidateMap.get(t.lemmaId).coocHits.push(t.text || '');
             }
         }
     }
 
-    /* Sort and cap at 20 */
-    const nodes = [...weightMap.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 20)
-        .map(([id, weight]) => ({
+    /* Step 2: Delegate scoring to scoreEngine — structure assembler does not score */
+    const nodes = [];
+    for (const [id, signals] of candidateMap) {
+        const freq = _lexiconData[id]?.count || 0;
+        const result = scoreEngine.evaluate({
+            semantics: {
+                baseScore:     Math.round(Math.log(freq + 1) * 10),
+                lnSignal:      signals.lnHit,
+                clusterSignal: signals.clusterHit,
+                coocHits:      signals.coocHits,
+            }
+        });
+        nodes.push({
             lemmaId: id,
-            weight,
+            weight:  result.score,
             headword: _lexiconData[id]?.headword || id,
             gloss:    _jaGlossFromLemmaId(id) || _lexiconData[id]?.gloss || '',
-        }));
+        });
+    }
+
+    /* Step 3: Sort and cap — assembler responsibility */
+    nodes.sort((a, b) => b.weight - a.weight);
+    nodes.splice(20);
 
     return { centerId: lemmaId, centerEntry, nodes };
 }
