@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>06101543｜言語の壁を超えて読む聖書アプリ</title>
+    <title>言語の壁を超えて読む聖書アプリ</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -4689,6 +4689,20 @@ function _giListFromLemmaIndex(id) {
     return window.lemmaIndex.get(norm) || [];
 }
 
+/**
+ * _jaGlossFromLemmaId(id)
+ * Returns a Japanese gloss for a lemma by looking up the first token occurrence.
+ * Falls back to the English gloss from lexicon if no Japanese is found.
+ */
+function _jaGlossFromLemmaId(id) {
+    const giList = _giListFromLemmaIndex(id);
+    for (const gi of giList.slice(0, 5)) {
+        const ja = ALL_TOKENS[gi]?.japanese;
+        if (ja && ja !== '-' && ja !== '—') return ja;
+    }
+    return _lexiconData[id]?.gloss || '';
+}
+
 /* ══════════════════════════════════════════
    Fusion Layer — LN × Cluster scoring engine
    Pure data functions; no DOM access.
@@ -4856,7 +4870,7 @@ function _buildLnLayerHTML(lnCodes, currentLemmaId, currentWord) {
                 const e = _lexiconData[id];
                 if (!e) return null;
                 const isCurrent = id === currentLemmaId;
-                return { id, headword: e.headword || '', gloss: e.gloss || '', count: e.count || 0, isCurrent };
+                return { id, headword: e.headword || '', gloss: _jaGlossFromLemmaId(id) || e.gloss || '', count: e.count || 0, isCurrent };
             })
             .filter(Boolean)
             .sort((a, b) => b.count - a.count)
@@ -4898,18 +4912,7 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
                 const e = _lexiconData[id];
                 if (!e) return null;
                 const isCurrent = id === currentLemmaId;
-                return { id, headword: e.headword || '', gloss: e.gloss || '', count: e.count || 0, isCurrent };
-            })
-            .filter(Boolean)
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 16);
-        if (siblings.length < 2) continue;
-        const chips = siblings.map(s => `
-            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}" data-lemma-id="${s.id}" title="${s.gloss}">
-                <span class="rn-sibling-gr">${s.headword}</span>
-                ${s.gloss ? `<span class="rn-sibling-ja">${s.gloss}</span>` : ''}
-                <span class="rn-sibling-count">${s.count}</span>
-            </span>`).join('');
+                return { id, headword: e.headword || '', gloss: _jaGlossFromLemmaId(id) || e.gloss || '', count: e.count || 0, isCurrent };
         sections.push(`
             <div class="rn-ln-domain-label">共起クラスター ${code}（この語群が新約聖書に計 ${entry.occurrences || '?'}回登場）</div>
             <div class="rn-sibling-chips">${chips}</div>`);
@@ -5168,7 +5171,7 @@ function buildSemanticGraph(lemmaId) {
             lemmaId: id,
             weight,
             headword: _lexiconData[id]?.headword || id,
-            gloss:    _lexiconData[id]?.gloss    || '',
+            gloss:    _jaGlossFromLemmaId(id) || _lexiconData[id]?.gloss || '',
         }));
 
     return { centerId: lemmaId, centerEntry, nodes };
