@@ -1099,6 +1099,8 @@ async function fetchChapter(bookKey, ch) {
         const res = await fetch(bibleDataPath(bookKey, ch));
         if (!res.ok) return [];
         const data = await res.json();
+        // ── language: bibleDataPath の sub と同じ区分（'nt' | 'lxx'）──
+        const language = NT_BOOK_KEYS.has(bookKey) ? 'nt' : 'lxx';
         const tokens = data.map(w => ({
             // ── 表示専用（ロジック依存禁止・refをキーや条件に使用しないこと）──
             ref: w.ref || `${bookKey} ${ch}:${w.verse ?? '?'}`,
@@ -1115,6 +1117,10 @@ async function fetchChapter(bookKey, ch) {
             japanese: w.japanese || w.gloss_ja || w.gloss || null,
             gloss:    w.gloss   || w.gloss_ja || null,
             strong:   w.strong  || w.strongs  || null,
+
+            // ── 言語・lemma識別子 ──
+            language,
+            lemmaId:  w.lemmaId ?? w.lemma_id ?? null,
 
             // globalIdx は _indexChapter で付与される（ここでは未定義）
         }));
