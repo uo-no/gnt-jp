@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>06101519｜言語の壁を超えて読む聖書アプリ</title>
+    <title>06101533｜言語の壁を超えて読む聖書アプリ</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -1143,6 +1143,10 @@ opacity: 0.7;
     background: rgba(154,122,181,0.18);
     border-color: rgba(154,122,181,0.5);
 }
+.rn-sibling-chip.active {
+    background: var(--highlight-light);
+    border-color: var(--highlight);
+}
 .rn-graph-node-gr {
     font-family: 'Gentium Plus', serif;
     font-size: 0.92rem;
@@ -1235,6 +1239,16 @@ opacity: 0.7;
     opacity: 0.6;
     font-style: italic;
 }
+.rn-graph-popover-link {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--highlight);
+    text-decoration: none;
+    margin-top: 2px;
+    letter-spacing: 0.01em;
+}
+.rn-graph-popover-link:hover { text-decoration: underline; }
 
 /* Toggle button — the clickable header of each section */
 .rn-layer-toggle {
@@ -4817,6 +4831,18 @@ async function _injectSemanticLayers(container, strong, lemmaId, word) {
             if (icon) icon.style.transform = '';  /* let CSS handle it */
         });
     });
+
+    /* Wire sibling chip popovers (LN + Cluster) via event delegation */
+    container.querySelectorAll('.rn-ln-section, .rn-cluster-section').forEach(section => {
+        section.addEventListener('click', (e) => {
+            const chip = e.target.closest('.rn-sibling-chip');
+            if (!chip) return;
+            if (chip.classList.contains('current')) return;
+            e.stopPropagation();
+            const lemmaId = chip.dataset.lemmaId;
+            if (lemmaId) _showGraphNodePopover(chip, lemmaId);
+        });
+    });
 }
 
 /* ── LN Layer display builder (auxiliary — reads lnCodes directly) ── */
@@ -4837,7 +4863,7 @@ function _buildLnLayerHTML(lnCodes, currentLemmaId, currentWord) {
             .slice(0, 16);
         if (siblings.length < 2) continue;
         const chips = siblings.map(s => `
-            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}" title="${s.gloss}">
+            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}" data-lemma-id="${s.id}" title="${s.gloss}">
                 <span class="rn-sibling-gr">${s.headword}</span>
                 ${s.gloss ? `<span class="rn-sibling-ja">${s.gloss}</span>` : ''}
                 <span class="rn-sibling-count">${s.count}</span>
@@ -4879,7 +4905,7 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
             .slice(0, 16);
         if (siblings.length < 2) continue;
         const chips = siblings.map(s => `
-            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}" title="${s.gloss}">
+            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}" data-lemma-id="${s.id}" title="${s.gloss}">
                 <span class="rn-sibling-gr">${s.headword}</span>
                 ${s.gloss ? `<span class="rn-sibling-ja">${s.gloss}</span>` : ''}
                 <span class="rn-sibling-count">${s.count}</span>
@@ -5243,7 +5269,7 @@ function _showGraphNodePopover(anchorEl, lemmaId) {
     const count = entry?.count    || 0;
 
     /* Find one example verse */
-    let exRef = '', exSnippet = '';
+    let exRef = '', exSnippet = '', exHref = '#';
     if (window.lemmaIndex) {
         const giList = _giListFromLemmaIndex(lemmaId);
         const gi = giList[0];
@@ -5257,6 +5283,7 @@ function _showGraphNodePopover(anchorEl, lemmaId) {
                 const txt = (t.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
                 return isAnchor ? `<span class="rn-concord-hl">${txt}</span>` : txt;
             }).join(' ');
+            exHref = tok?.bookKey && tok?.ch ? `index.html?book=${tok.bookKey}&ch=${tok.ch}` : '#';
         }
     }
 
@@ -5265,16 +5292,16 @@ function _showGraphNodePopover(anchorEl, lemmaId) {
     pop.className = 'rn-graph-popover';
     pop.dataset.lemmaId = lemmaId;
     pop.dataset.anchor  = anchorEl.dataset.lemmaId;
-    pop.innerHTML =
-        `<div class="rn-graph-popover-hw">${hw}</div>`
-      + (gloss ? `<div class="rn-graph-popover-gloss">${gloss}</div>` : '')
-      + `<div class="rn-graph-popover-meta">新約聖書での出現：${count}回</div>`
-      + (exSnippet
-          ? `<div class="rn-graph-popover-sep"></div>`
-          + `<div class="rn-graph-popover-ex-label">用例</div>`
-          + `<div class="rn-graph-popover-ref">${exRef}</div>`
+
+    if (exSnippet) {
+        pop.innerHTML =
+            `<div class="rn-graph-popover-ref">${exRef}</div>`
           + `<div class="rn-graph-popover-snippet">${exSnippet}</div>`
-          : `<div class="rn-graph-popover-no-ex">用例データなし</div>`);
+          + `<div class="rn-graph-popover-sep"></div>`
+          + `<a class="rn-graph-popover-link" href="${exHref}">この章を開く →</a>`;
+    } else {
+        pop.innerHTML = `<div class="rn-graph-popover-no-ex">用例データなし</div>`;
+    }
 
     /* Position: below the chip, left-aligned */
     const nodesDiv = anchorEl.closest('.rn-graph-nodes') || anchorEl.parentElement;
