@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>06101432｜言語の壁を超えて読む聖書アプリ</title>
+    <title>06101447｜言語の壁を超えて読む聖書アプリ</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -4715,8 +4715,10 @@ async function _injectSemanticLayers(container, strong, lemmaId, word) {
     /* ── Semantic Graph View (auxiliary — append only) ── */
     if (resolvedId) _injectSemanticGraph(resolvedId, false);
 
-    /* Wire toggle buttons */
+    /* Wire toggle buttons (exclude .rn-graph-section toggles — those are wired
+       individually in _injectSemanticGraph to avoid duplicate listener issues) */
     container.querySelectorAll('.rn-layer-toggle').forEach(btn => {
+        if (btn.closest('.rn-graph-section')) return;
         btn.addEventListener('click', () => {
             const bodyId = btn.dataset.target;
             const body   = document.getElementById(bodyId);
@@ -5227,18 +5229,20 @@ function _injectSemanticGraph(lemmaId, redraw) {
 
     container.appendChild(graphEl);
 
-    /* Wire the toggle button for this graph section */
+    /* Wire the toggle button for this graph section only.
+       Uses querySelector on the element itself (not getElementById) to avoid
+       ID collisions on redraw, and skips duplicate listener registration
+       that would otherwise cancel out open/close on each click. */
     const toggleBtn = graphEl.querySelector('.rn-layer-toggle');
     if (toggleBtn) {
+        const bodyEl = graphEl.querySelector('.rn-layer-body');
         toggleBtn.addEventListener('click', () => {
-            const bodyId = toggleBtn.dataset.target;
-            const body   = document.getElementById(bodyId);
-            if (!body) return;
-            const isOpen = body.classList.contains('visible');
-            body.classList.toggle('visible', !isOpen);
+            if (!bodyEl) return;
+            const isOpen = bodyEl.classList.contains('visible');
+            bodyEl.classList.toggle('visible', !isOpen);
             toggleBtn.classList.toggle('open', !isOpen);
             const icon = toggleBtn.querySelector('.rn-layer-toggle-icon');
-            if (icon) icon.style.transform = isOpen ? '' : 'rotate(90deg)';
+            if (icon) icon.style.transform = '';  /* let CSS handle rotation */
         });
     }
 }
