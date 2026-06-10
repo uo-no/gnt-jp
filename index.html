@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>06101510｜言語の壁を超えて読む聖書アプリ</title>
+    <title>06101519｜言語の壁を超えて読む聖書アプリ</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -1139,6 +1139,10 @@ opacity: 0.7;
     transform: translateY(-1px);
 }
 .rn-graph-node:active { transform: translateY(0); }
+.rn-graph-node.active {
+    background: rgba(154,122,181,0.18);
+    border-color: rgba(154,122,181,0.5);
+}
 .rn-graph-node-gr {
     font-family: 'Gentium Plus', serif;
     font-size: 0.92rem;
@@ -1156,6 +1160,80 @@ opacity: 0.7;
     margin-top: 1px;
     font-variant-numeric: tabular-nums;
     font-weight: 700;
+}
+
+/* Graph node popover */
+.rn-graph-popover {
+    position: absolute;
+    z-index: 400;
+    background: var(--bg-paper);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.13);
+    padding: 12px 14px;
+    min-width: 180px;
+    max-width: 260px;
+    pointer-events: auto;
+    animation: popoverIn 0.15s ease both;
+}
+@keyframes popoverIn {
+    from { opacity: 0; transform: translateY(4px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.rn-graph-popover-hw {
+    font-family: 'Gentium Plus', serif;
+    font-size: 1.05rem;
+    color: var(--text-main);
+    font-weight: 700;
+    line-height: 1.2;
+}
+.rn-graph-popover-gloss {
+    font-size: 0.78rem;
+    color: var(--text-sub);
+    margin-top: 2px;
+    margin-bottom: 8px;
+}
+.rn-graph-popover-meta {
+    font-size: 0.7rem;
+    color: var(--text-sub);
+    opacity: 0.7;
+    margin-bottom: 8px;
+}
+.rn-graph-popover-sep {
+    height: 1px;
+    background: var(--border-soft);
+    margin: 8px 0;
+}
+.rn-graph-popover-ex-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-sub);
+    opacity: 0.6;
+    margin-bottom: 4px;
+}
+.rn-graph-popover-ref {
+    font-size: 0.7rem;
+    color: var(--highlight);
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+.rn-graph-popover-snippet {
+    font-family: 'Gentium Plus', serif;
+    font-size: 0.82rem;
+    color: var(--text-sub);
+    line-height: 1.6;
+}
+.rn-graph-popover-snippet .rn-concord-hl {
+    color: var(--text-main);
+    font-weight: 700;
+}
+.rn-graph-popover-no-ex {
+    font-size: 0.75rem;
+    color: var(--text-sub);
+    opacity: 0.6;
+    font-style: italic;
 }
 
 /* Toggle button — the clickable header of each section */
@@ -5101,7 +5179,7 @@ function renderSemanticGraph(graph) {
     /* Intro */
     const intro = document.createElement('div');
     intro.className = 'rn-layer-intro';
-    intro.textContent = '意味・共起の両面でつながりの強い関連語を表示しています。wの数字が大きいほど関係が深い語です。語をクリックするとその語を中心に組み替わります。';
+    intro.textContent = '意味・共起の両面でつながりの強い関連語です。wの数字が大きいほど関係が深い語です。語をクリックすると詳細をのぞけます。';
     body.appendChild(intro);
 
     /* Center node */
@@ -5115,6 +5193,7 @@ function renderSemanticGraph(graph) {
     /* Neighbor nodes */
     const nodesDiv = document.createElement('div');
     nodesDiv.className = 'rn-graph-nodes';
+    nodesDiv.style.position = 'relative';
 
     for (const node of graph.nodes) {
         const chip = document.createElement('span');
@@ -5125,8 +5204,9 @@ function renderSemanticGraph(graph) {
           + (node.gloss ? `<span class="rn-graph-node-ja">${node.gloss}</span>` : '')
           + `<span class="rn-graph-node-w">w${node.weight}</span>`;
 
-        chip.addEventListener('click', () => {
-            _injectSemanticGraph(node.lemmaId, /* redraw */ true);
+        chip.addEventListener('click', (e) => {
+            e.stopPropagation();
+            _showGraphNodePopover(chip, node.lemmaId);
         });
 
         nodesDiv.appendChild(chip);
@@ -5139,7 +5219,92 @@ function renderSemanticGraph(graph) {
 }
 
 /**
- * buildGraphConcordance(graph)
+ * _showGraphNodePopover(anchorEl, lemmaId)
+ * Shows a small popover near the clicked chip with gloss, count, and one example verse.
+ */
+function _showGraphNodePopover(anchorEl, lemmaId) {
+    /* Remove any existing popover */
+    const existing = document.querySelector('.rn-graph-popover');
+    if (existing) {
+        if (existing.dataset.lemmaId === lemmaId && existing.dataset.anchor === anchorEl.dataset.lemmaId) {
+            existing.remove();
+            anchorEl.classList.remove('active');
+            return;
+        }
+        document.querySelectorAll('.rn-graph-node.active').forEach(n => n.classList.remove('active'));
+        existing.remove();
+    }
+
+    anchorEl.classList.add('active');
+
+    const entry = _lexiconData?.[lemmaId];
+    const hw    = entry?.headword || lemmaId;
+    const gloss = entry?.gloss    || '';
+    const count = entry?.count    || 0;
+
+    /* Find one example verse */
+    let exRef = '', exSnippet = '';
+    if (window.lemmaIndex) {
+        const giList = _giListFromLemmaIndex(lemmaId);
+        const gi = giList[0];
+        if (gi != null) {
+            const tok   = ALL_TOKENS[gi];
+            const start = Math.max(0, gi - 3);
+            const end   = Math.min(ALL_TOKENS.length - 1, gi + 4);
+            exRef     = tok ? (tok.ref || `${tok.bookKey} ${tok.ch}:${tok.verse}`) : '';
+            exSnippet = ALL_TOKENS.slice(start, end + 1).map((t, li) => {
+                const isAnchor = start + li === gi;
+                const txt = (t.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+                return isAnchor ? `<span class="rn-concord-hl">${txt}</span>` : txt;
+            }).join(' ');
+        }
+    }
+
+    /* Build popover */
+    const pop = document.createElement('div');
+    pop.className = 'rn-graph-popover';
+    pop.dataset.lemmaId = lemmaId;
+    pop.dataset.anchor  = anchorEl.dataset.lemmaId;
+    pop.innerHTML =
+        `<div class="rn-graph-popover-hw">${hw}</div>`
+      + (gloss ? `<div class="rn-graph-popover-gloss">${gloss}</div>` : '')
+      + `<div class="rn-graph-popover-meta">新約聖書での出現：${count}回</div>`
+      + (exSnippet
+          ? `<div class="rn-graph-popover-sep"></div>`
+          + `<div class="rn-graph-popover-ex-label">用例</div>`
+          + `<div class="rn-graph-popover-ref">${exRef}</div>`
+          + `<div class="rn-graph-popover-snippet">${exSnippet}</div>`
+          : `<div class="rn-graph-popover-no-ex">用例データなし</div>`);
+
+    /* Position: below the chip, left-aligned */
+    const nodesDiv = anchorEl.closest('.rn-graph-nodes') || anchorEl.parentElement;
+    nodesDiv.style.position = 'relative';
+    nodesDiv.appendChild(pop);
+
+    const chipRect  = anchorEl.getBoundingClientRect();
+    const parentRect = nodesDiv.getBoundingClientRect();
+    let left = chipRect.left - parentRect.left;
+    let top  = chipRect.bottom - parentRect.top + 6;
+
+    /* Clamp so it doesn't overflow right edge */
+    const maxLeft = parentRect.width - 270;
+    if (left > maxLeft) left = Math.max(0, maxLeft);
+
+    pop.style.left = left + 'px';
+    pop.style.top  = top  + 'px';
+
+    /* Close on outside click */
+    function _onOutside(e) {
+        if (!pop.contains(e.target) && e.target !== anchorEl) {
+            pop.remove();
+            anchorEl.classList.remove('active');
+            document.removeEventListener('click', _onOutside);
+        }
+    }
+    setTimeout(() => document.addEventListener('click', _onOutside), 0);
+}
+
+/**
  *
  * Graph Concordance — auxiliary/derived view (NOT canonical).
  *
