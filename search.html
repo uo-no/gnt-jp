@@ -1066,6 +1066,17 @@ function normalizeGreek(str) {
     return (str||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
         .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g,'').replace(/ς/g,'σ').toLowerCase().trim();
 }
+/**
+ * Strong番号を正規化して "G\d+" 形式に統一する。
+ *   "3972"  → "G3972"
+ *   "g3972" → "G3972"
+ *   "G3972" → "G3972"
+ * 数字部分が取れない場合は空文字を返す。
+ */
+function normalizeStrong(value) {
+    const digits = String(value || '').replace(/[^0-9]/g, '');
+    return digits ? 'G' + digits : '';
+}
 function addToIndex(map,key,idx){
     if(!key)return; let arr=map.get(key);
     if(!arr){arr=[];map.set(key,arr);}arr.push(idx);
@@ -1121,7 +1132,7 @@ function _indexChapter(toks){
         const nl=normalizeGreek(tok.lemma),nt=normalizeGreek(tok.text);
         if(nl&&nl!==tok.lemma)addToIndex(SEARCH_INDEX.lemma,nl,gIdx);
         if(nt&&nt!==tok.text)addToIndex(SEARCH_INDEX.text,nt,gIdx);
-        addToIndex(SEARCH_INDEX.strong,tok.strong!=null?String(tok.strong):null,gIdx);
+        addToIndex(SEARCH_INDEX.strong,tok.strong!=null?normalizeStrong(tok.strong):null,gIdx);
         const jpVals=tok.japanese?(Array.isArray(tok.japanese)?tok.japanese:[tok.japanese]):(tok.gloss?[tok.gloss]:[]);
         if(tok.text&&jpVals.length>0&&!TEXT_TO_JP.has(tok.text))TEXT_TO_JP.set(tok.text,jpVals[0]);
     }
@@ -1173,7 +1184,7 @@ async function loadTokensForScope(scope,ref){
 function detectQueryType(query){
     if(/[ἀ-῾Α-Ω]/u.test(query))return'greek';
     if(/[ぁ-んァ-ヶ一-龠]/.test(query))return'japanese';
-    if(/^\d+$/.test(query))return'strong';
+    if(/^[Gg]?\d+$/.test(query))return'strong';
     return'text';
 }
 function searchGreek(tokens,word){
@@ -1205,9 +1216,10 @@ function searchJapanese(tokens,word){
     return s;
 }
 function searchStrong(tokens,word){
-    if(IDX.l1Ready){const arr=SEARCH_INDEX.strong.get(word);return arr?new Set(arr):new Set();}
+    const normWord=normalizeStrong(word);
+    if(IDX.l1Ready){const arr=SEARCH_INDEX.strong.get(normWord);return arr?new Set(arr):new Set();}
     const s=new Set();
-    tokens.forEach(t=>{if(String(t.strong)===word)s.add(t.globalIdx);});
+    tokens.forEach(t=>{if(normalizeStrong(t.strong)===normWord)s.add(t.globalIdx);});
     return s;
 }
 function resolveIndices(tokens,word){
@@ -1224,7 +1236,7 @@ function matchToken(tok,word){
         if(vals.some(v=>v&&v.includes(word)))return true;
         return!!(tok.gloss&&tok.gloss.includes(word));
     }
-    if(qtype==='strong')return String(tok.strong)===word;
+    if(qtype==='strong')return normalizeStrong(tok.strong)===normalizeStrong(word);
     return tok.text===word||tok.lemma===word
         ||normalizeGreek(tok.text)===normalizeGreek(word)
         ||normalizeGreek(tok.lemma)===normalizeGreek(word);
