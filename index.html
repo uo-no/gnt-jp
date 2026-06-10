@@ -3111,6 +3111,18 @@ details[open] .study-summary::before {
 let abbottSmithDict = null;
 let _proximityTokens = [];
 
+/**
+ * Strong番号を正規化して "G\d+" 形式に統一する。
+ *   "3972"  → "G3972"
+ *   "g3972" → "G3972"
+ *   "G3972" → "G3972"
+ * 数字部分が取れない場合は空文字を返す。
+ */
+function normalizeStrong(value) {
+    const digits = String(value || '').replace(/[^0-9]/g, '');
+    return digits ? 'G' + digits : '';
+}
+
 /* ══════════════════════════════════════════
    翻訳マスター定義（TDZ対策：先頭で宣言）
    ══════════════════════════════════════════ */
@@ -3704,9 +3716,10 @@ function decorate(wordText, wordData) {
         jpMorph = JPN_MAP.pos[pos] || morph;
     }
 
-    const strong = String(m.strong || "").replace(/[^0-9]/g, ""); 
+    const strong = normalizeStrong(m.strong);
+    const strongDigits = strong.slice(1); // abbottSmithDict キー用（数字のみ）
     const jaWord  = m.japanese || "-";
-    const desc    = m.description || (abbottSmithDict && abbottSmithDict[strong]?.description) || "解説なし";
+    const desc    = m.description || (abbottSmithDict && abbottSmithDict[strongDigits]?.description) || "解説なし";
     const lemma   = String(m.lemma || "").replace(/'/g, "\\'");
     const jaWordE = jaWord.replace(/'/g, "\\'");
     const descE   = desc.replace(/'/g, "\\'").replace(/\n/g, '\\n');
@@ -3728,7 +3741,7 @@ function decorate(wordText, wordData) {
                     <span style="color:var(--text-sub);font-weight:400;margin-left:6px;font-size:0.82rem;">［${jaWord}］</span>
                     <span class="tag-jp">${jpMorph}</span>
                 </div>
-                <span class="strong-num">G${strong}</span>
+                <span class="strong-num">${strong}</span>
             </div>`;
 }
 
@@ -3967,8 +3980,8 @@ function _renderReadingNotes(p) {
     const ref    = p.ref    || '';
     const lemma  = p.lemma  || '';
     const jaWord = (AppState.inspect.data?.jaWord) || '';
-    const strong = String(AppState.inspect.data?.strong || '').replace(/[^0-9]/g,'');
-    const desc   = (AppState.inspect.data?.desc) || (abbottSmithDict && abbottSmithDict[strong]?.description) || '';
+    const strong = normalizeStrong(AppState.inspect.data?.strong);
+    const desc   = (AppState.inspect.data?.desc) || (abbottSmithDict && abbottSmithDict[strong.slice(1)]?.description) || '';
     const w      = jaWord ? `「${jaWord}」` : 'この語';
 
     /* ═══════════════════════════════════════════════════════
@@ -4298,7 +4311,7 @@ function _renderMorphTab(area, p) {
         <div class="ac-entry">
             <div class="ac-entry-greek">${p.word || '-'}</div>
             <div class="ac-entry-ja">${jaWord}</div>
-            ${strong ? `<span class="ac-entry-strong">G${strong}</span>` : ''}
+            ${strong ? `<span class="ac-entry-strong">${strong}</span>` : ''}
             ${morphGridHTML}
             ${ref ? `<span class="ac-cite-ref">📍 ${ref}</span>` : ''}
         </div>
@@ -4378,7 +4391,7 @@ function _renderSemanticsTab(area, p) {
         <div class="ac-entry">
             <div class="ac-entry-greek">${p.word || '-'}</div>
             <div class="ac-entry-ja">${jaWord}</div>
-            ${strong ? `<span class="ac-entry-strong">G${strong}（Abbott-Smith）</span>` : ''}
+            ${strong ? `<span class="ac-entry-strong">${strong}（Abbott-Smith）</span>` : ''}
         </div>
         ${abbottHtml}
         <div style="margin-top:14px;">
@@ -4711,7 +4724,7 @@ function _renderStudyTab(area, p) {
             <summary class="study-summary"><span class="study-summary-inner"><span>語の意味</span><span class="study-summary-sub">Semantics · 辞書・意味論</span></span></summary>
             <div class="study-details-body">
                 ${strong ? `<div class="semantics-note">
-                    <span class="semantics-note-label">Abbott-Smith Lexicon · G${strong}</span>
+                    <span class="semantics-note-label">Abbott-Smith Lexicon · ${strong}</span>
                     ${abbottBody}
                 </div>` : abbottBody}
             </div>
@@ -5527,7 +5540,7 @@ function buildMorphTagsHTML(rawMorph) {
  * iframe等からの呼び出しが来た場合のフォールバック。
  */
 function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc, ref) {
-    AppState.inspect.data = { greek, strong, jpMorph, rawMorph, lemma, jaWord, desc, ref };
+    AppState.inspect.data = { greek, strong: normalizeStrong(strong), jpMorph, rawMorph, lemma, jaWord, desc, ref };
     if (ref && rawMorph) {
         openStudyPanel(greek, rawMorph, ref, lemma);
     }
@@ -6477,7 +6490,7 @@ function _wordToFlowChip(w, i, _bookKey, _ch) {
     const bookKey  = w.bookKey  || _bookKey || '';
     const ch       = w.ch       != null ? w.ch       : (_ch != null ? _ch : null);
     const verse    = w.verse    != null ? w.verse    : null;
-    const strong   = String(w.strong || '').replace(/[^0-9]/g, '');
+    const strong   = normalizeStrong(w.strong);
     // 表示言語の優先順位: gloss → lemma → '—'
     // 表示変更したい場合はここを w.japanese || w.gloss || w.lemma || '—' などに変更する
     const jaWord   = w.japanese || '—';
@@ -6773,7 +6786,7 @@ function _wlvChipClick(chipEl, idx) {
         rawMorph: chip.rawMorph,
         lemma:    chip.lemma,
         jaWord:   chip.jaWord,
-        desc:     (abbottSmithDict && abbottSmithDict[chip.strong]?.description) || '',
+        desc:     (abbottSmithDict && abbottSmithDict[chip.strong.slice(1)]?.description) || '',
         ref:      chip.ref,      // 表示専用（ラベル・URL クエリ文字列のみ）
         bookKey:  chip.bookKey  || '',
         ch:       chip.ch       != null ? chip.ch    : null,
@@ -6903,7 +6916,7 @@ function _buildGreekTabHTML(words) {
     const rows = words.map(w => {
         const pos     = (w.morph || '').split('-')[0];
         const posJpn  = JPN_POS[pos] || pos;
-        const strong  = String(w.strong || '').replace(/[^0-9]/g, '');
+        const strong  = normalizeStrong(w.strong);
         const jaWord  = w.japanese || '—';
         return `<div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,0.04);">
             <span style="font-family:'Gentium Plus',serif;font-size:1.15rem;color:var(--text-main);min-width:80px;flex-shrink:0;">${w.text || ''}</span>
