@@ -3764,6 +3764,8 @@ const _inspectDataProxy = {
     get jaWord()   { return AppState.inspect.data?.jaWord   || ''; },
     get desc()     { return AppState.inspect.data?.desc     || ''; },
     get ref()      { return AppState.inspect.data?.ref      || ''; },
+    get language() { return AppState.inspect.data?.language || ''; },
+    get lemmaId()  { return AppState.inspect.data?.lemmaId  ?? null; },
 };
 /* 後方互換: _inspectData を参照している既存コードが動くよう変数として公開 */
 let _inspectData = _inspectDataProxy;
@@ -6629,7 +6631,9 @@ function _wordToFlowChip(w, i, _bookKey, _ch) {
 
     // ★ SSOT: bookKey / ch / verse を chip に持たせる。
     //          openStudyPanel 等のロジックはこれらを使い、ref 文字列に依存しない。
-    return { greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong, dpGrammarClasses, bookKey, ch, verse };
+    const language = w.language || '';
+    const lemmaId  = w.lemmaId  != null ? w.lemmaId : null;
+    return { greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong, dpGrammarClasses, bookKey, ch, verse, language, lemmaId };
 }
 
 /**
@@ -6791,6 +6795,8 @@ function _wlvChipClick(chipEl, idx) {
         bookKey:  chip.bookKey  || '',
         ch:       chip.ch       != null ? chip.ch    : null,
         verse:    chip.verse    != null ? chip.verse  : null,
+        language: chip.language || '',
+        lemmaId:  chip.lemmaId  != null ? chip.lemmaId : null,
     };
 
     /* depth stack に word-flow を追加 */
