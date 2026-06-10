@@ -4658,9 +4658,27 @@ function _renderReadingNotes(p) {
    LN Layer / Cluster Layer / Concordance
    ══════════════════════════════════════════ */
 
+/* ──────────────────────────────────────────────────────────────
+   Global data accessors — SINGLE ACCESS POINT for shared state.
+   All code in this file MUST use these functions instead of
+   direct references to ALL_TOKENS or window.lemmaIndex.
+   ────────────────────────────────────────────────────────────── */
+/**
+ * Returns the full token array built by search.html.
+ * Never access ALL_TOKENS directly from this file.
+ */
+function getTokens() {
+    return typeof ALL_TOKENS !== 'undefined' ? ALL_TOKENS : [];
+}
+/**
+ * Returns the current lemmaIndex, or null if not yet built.
+ * Never access window.lemmaIndex directly from this file.
+ */
+function getLemmaIndex() { return window.lemmaIndex || null; }
+
 /* ──────────────────────────────────────────
    Shared lemmaIndex lookup helper
-   Single access point for window.lemmaIndex.
+   Single access point for lemmaIndex.
    Used by Basic Concordance and Graph views.
    Graph / Fusion MUST go through this;
    they must never bypass Basic source rules.
@@ -4670,7 +4688,7 @@ function _renderReadingNotes(p) {
  * _giListFromLemmaIndex(id)
  *
  * Returns the globalIdx array for a lemmaId by looking up its headword
- * in window.lemmaIndex (with NFD-normalised fallback).
+ * via getLemmaIndex() (with NFD-normalised fallback).
  * This is the ONLY authorised access point for lemmaIndex lookups.
  * All concordance lookups — Basic and derived — must use this function.
  *
@@ -4678,15 +4696,16 @@ function _renderReadingNotes(p) {
  * @returns {number[]} array of globalIdx values (empty array if not found)
  */
 function _giListFromLemmaIndex(id) {
-    if (!window.lemmaIndex) return [];
+    const idx = getLemmaIndex();
+    if (!idx) return [];
     const entry  = _lexiconData[id];
     const hw     = entry?.headword || '';
     if (!hw) return [];
-    const direct = window.lemmaIndex.get(hw);
+    const direct = idx.get(hw);
     if (direct && direct.length) return direct;
     const norm = hw.normalize('NFD').replace(/[̀-ͯ]/g, '')
         .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g, '').replace(/ς/g, 'σ').toLowerCase().trim();
-    return window.lemmaIndex.get(norm) || [];
+    return idx.get(norm) || [];
 }
 
 /**
@@ -4697,7 +4716,7 @@ function _giListFromLemmaIndex(id) {
 function _jaGlossFromLemmaId(id) {
     const giList = _giListFromLemmaIndex(id);
     for (const gi of giList.slice(0, 5)) {
-        const ja = ALL_TOKENS[gi]?.japanese;
+        const ja = getTokens()[gi]?.japanese;
         if (ja && ja !== '-' && ja !== '—') return ja;
     }
     return _lexiconData[id]?.gloss || '';
@@ -4974,7 +4993,7 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
  * @returns {string} HTML string or empty string
  */
 function _buildFusionViewHTML(fusionResults, resolvedId) {
-    if (!window.lemmaIndex || !fusionResults.length) return '';
+    if (!getLemmaIndex() || !fusionResults.length) return '';
 
     const fusionById = new Map();
     const FUSION_CAP = 20;
@@ -4984,7 +5003,7 @@ function _buildFusionViewHTML(fusionResults, resolvedId) {
         if (fusionById.size >= FUSION_CAP) break;
         for (const gi of _giListFromLemmaIndex(fid)) {
             if (fusionById.size >= FUSION_CAP) break;
-            const tok = ALL_TOKENS[gi];
+            const tok = getTokens()[gi];
             if (!tok) continue;
             const vk = `${tok.bookKey}:${tok.ch}:${tok.verse}`;
             if (!fusionById.has(vk)) fusionById.set(vk, { gi, tok });
@@ -4996,8 +5015,8 @@ function _buildFusionViewHTML(fusionResults, resolvedId) {
     const FSHOW = 15;
     const rows  = [...fusionById.values()].slice(0, FSHOW).map(({ gi, tok }) => {
         const start   = Math.max(0, gi - 3);
-        const end     = Math.min(ALL_TOKENS.length - 1, gi + 3);
-        const snippet = ALL_TOKENS.slice(start, end + 1).map((t, li) => {
+        const end     = Math.min(getTokens().length - 1, gi + 3);
+        const snippet = getTokens().slice(start, end + 1).map((t, li) => {
             const isAnchor = start + li === gi;
             const txt = (t.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
             return isAnchor ? `<span class="rn-concord-hl">${txt}</span>` : txt;
@@ -5054,7 +5073,7 @@ function _buildConcordanceHTML(resolvedId, word) {
      * Source: window.lemmaIndex via _giListFromLemmaIndex().
      * No scoring. No reordering. No fusion input.
      */
-    if (!window.lemmaIndex) return '';
+    if (!getLemmaIndex()) return '';
 
     const byVerse   = new Map();   // verseKey → { gi, tok }
     const VERSE_CAP = 60;
@@ -5063,7 +5082,7 @@ function _buildConcordanceHTML(resolvedId, word) {
     if (resolvedId) {
         for (const gi of _giListFromLemmaIndex(resolvedId)) {
             if (byVerse.size >= VERSE_CAP) break;
-            const tok = ALL_TOKENS[gi];
+            const tok = getTokens()[gi];
             if (!tok) continue;
             const vk = `${tok.bookKey}:${tok.ch}:${tok.verse}`;
             if (!byVerse.has(vk)) byVerse.set(vk, { gi, tok });
@@ -5072,10 +5091,10 @@ function _buildConcordanceHTML(resolvedId, word) {
 
     /* Fallback: surface form lookup — lemmaIndex only, no fusion */
     if (!byVerse.size) {
-        const fallbackList = (word ? window.lemmaIndex.get(word) : null) || [];
+        const fallbackList = (word ? getLemmaIndex().get(word) : null) || [];
         for (const gi of fallbackList) {
             if (byVerse.size >= VERSE_CAP) break;
-            const tok = ALL_TOKENS[gi];
+            const tok = getTokens()[gi];
             if (!tok) continue;
             const vk = `${tok.bookKey}:${tok.ch}:${tok.verse}`;
             if (!byVerse.has(vk)) byVerse.set(vk, { gi, tok });
@@ -5088,8 +5107,8 @@ function _buildConcordanceHTML(resolvedId, word) {
     const allRows = [...byVerse.values()];
     const rows    = allRows.slice(0, SHOW).map(({ gi, tok }) => {
         const start   = Math.max(0, gi - 3);
-        const end     = Math.min(ALL_TOKENS.length - 1, gi + 3);
-        const snippet = ALL_TOKENS.slice(start, end + 1).map((t, li) => {
+        const end     = Math.min(getTokens().length - 1, gi + 3);
+        const snippet = getTokens().slice(start, end + 1).map((t, li) => {
             const isAnchor = start + li === gi;
             const txt = (t.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
             return isAnchor ? `<span class="rn-concord-hl">${txt}</span>` : txt;
@@ -5169,7 +5188,7 @@ function buildSemanticGraph(lemmaId) {
 
     /* Co-verse occurrence → +1 (sample first 200 verses of center word) */
     /* Uses shared _giListFromLemmaIndex — same Basic source lookup rules */
-    if (window.lemmaIndex) {
+    if (getLemmaIndex()) {
         const giList  = _giListFromLemmaIndex(lemmaId);
 
         /* Collect verse spans for up to 200 anchor occurrences */
@@ -5179,10 +5198,10 @@ function buildSemanticGraph(lemmaId) {
         for (const gi of giList) {
             if (sampled++ >= SAMPLE_VERSES) break;
             const start = Math.max(0, gi - WINDOW);
-            const end   = Math.min(ALL_TOKENS.length - 1, gi + WINDOW);
+            const end   = Math.min(getTokens().length - 1, gi + WINDOW);
             for (let j = start; j <= end; j++) {
                 if (j === gi) continue;
-                const t = ALL_TOKENS[j];
+                const t = getTokens()[j];
                 if (!t || !t.lemmaId || t.lemmaId === lemmaId) continue;
                 _add(t.lemmaId, 1);
             }
@@ -5300,21 +5319,22 @@ function _showGraphNodePopover(anchorEl, lemmaId) {
         /* Primary: headword-based lookup via shared helper */
         let giList = _giListFromLemmaIndex(lemmaId);
 
-        /* Fallback: scan ALL_TOKENS directly for this lemmaId */
+        /* Fallback: scan token array directly for this lemmaId */
         if (!giList.length) {
-            for (let i = 0; i < ALL_TOKENS.length; i++) {
-                if (ALL_TOKENS[i]?.lemmaId === lemmaId) { giList = [i]; break; }
+            const toks = getTokens();
+            for (let i = 0; i < toks.length; i++) {
+                if (toks[i]?.lemmaId === lemmaId) { giList = [i]; break; }
             }
         }
 
         let exRef = '', exSnippet = '', exHref = '#';
         const gi = giList[0];
         if (gi != null) {
-            const tok   = ALL_TOKENS[gi];
+            const tok   = getTokens()[gi];
             const start = Math.max(0, gi - 3);
-            const end   = Math.min(ALL_TOKENS.length - 1, gi + 4);
+            const end   = Math.min(getTokens().length - 1, gi + 4);
             exRef     = tok ? (tok.ref || `${tok.bookKey} ${tok.ch}:${tok.verse}`) : '';
-            exSnippet = ALL_TOKENS.slice(start, end + 1).map((t, li) => {
+            exSnippet = getTokens().slice(start, end + 1).map((t, li) => {
                 const isAnchor = start + li === gi;
                 const txt = (t.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
                 return isAnchor ? `<span class="rn-concord-hl">${txt}</span>` : txt;
@@ -5381,7 +5401,7 @@ function buildGraphConcordance(graph) {
     const byVerse = new Map();
     const CAP     = 30;
 
-    if (!window.lemmaIndex) return { byVerse, total: 0 };
+    if (!getLemmaIndex()) return { byVerse, total: 0 };
 
     /* Uses shared _giListFromLemmaIndex — same Basic source, no duplication */
 
@@ -5395,7 +5415,7 @@ function buildGraphConcordance(graph) {
         if (byVerse.size >= CAP) break;
         for (const gi of _giListFromLemmaIndex(id)) {
             if (byVerse.size >= CAP) break;
-            const tok = ALL_TOKENS[gi];
+            const tok = getTokens()[gi];
             if (!tok) continue;
             const vk = `${tok.bookKey}:${tok.ch}:${tok.verse}`;
             if (!byVerse.has(vk)) byVerse.set(vk, { gi, tok });
@@ -5449,8 +5469,8 @@ function _injectSemanticGraph(lemmaId, redraw) {
 
         for (const { gi, tok } of byVerse.values()) {
             const start   = Math.max(0, gi - 3);
-            const end     = Math.min(ALL_TOKENS.length - 1, gi + 3);
-            const snippet = ALL_TOKENS.slice(start, end + 1).map((t, li) => {
+            const end     = Math.min(getTokens().length - 1, gi + 3);
+            const snippet = getTokens().slice(start, end + 1).map((t, li) => {
                 const isAnchor = start + li === gi;
                 const txt = (t.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
                 return isAnchor ? `<span class="rn-concord-hl">${txt}</span>` : txt;
