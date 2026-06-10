@@ -1045,6 +1045,22 @@ let isSearching  = false;
    ============================================================ */
 const tokenCache = {};
 let   ALL_TOKENS = [];
+
+/* ──────────────────────────────────────────────────────────────
+   DATA INGESTION LAYER — search.html role boundary
+   ──────────────────────────────────────────────────────────────
+   This file is responsible for:
+     1. Building ALL_TOKENS (token ingestion)
+     2. Building window.lemmaIndex / window.morphIndex (index construction)
+     3. Exposing built data via window.* for consumption by index.html
+
+   SSOT (Single Source of Truth) for data ACCESS lives in index.html.
+   getTokens() and getLemmaIndex() are defined ONLY in index.html.
+   This file does NOT define or call those getters.
+   All internal reads of ALL_TOKENS within this file use ALL_TOKENS directly,
+   because this is the authoritative write site for that array.
+   ────────────────────────────────────────────────────────────── */
+
 const SEARCH_INDEX = {
     lemma:    new Map(),
     text:     new Map(),
@@ -1164,8 +1180,9 @@ async function _buildL2Background(){
 async function _buildL3Background(){
     const BATCH=500;
     let offset=0;
-    while(offset<ALL_TOKENS.length){
-        const slice=ALL_TOKENS.slice(offset,offset+BATCH);
+    const tokens=ALL_TOKENS;
+    while(offset<tokens.length){
+        const slice=tokens.slice(offset,offset+BATCH);
         for(const tok of slice){
             const gIdx=tok.globalIdx;          // ★ SSOT: 配列位置ではなくglobalIdxを使用
             const jpVals=tok.japanese?(Array.isArray(tok.japanese)?tok.japanese:[tok.japanese]):(tok.gloss?[tok.gloss]:[]);
@@ -1268,11 +1285,12 @@ function buildLemmaIndex(tokens){
     return idx;
 }
 function searchByLemma(lemma){
-    if(!window.lemmaIndex)return[];
-    const direct=window.lemmaIndex.get(lemma);
+    const idx=window.lemmaIndex;
+    if(!idx)return[];
+    const direct=idx.get(lemma);
     if(direct)return direct;
     const norm=normalizeGreek(lemma);
-    return window.lemmaIndex.get(norm)||[];
+    return idx.get(norm)||[];
 }
 function _buildAndExposeLemmaIndex(){
     window.lemmaIndex=buildLemmaIndex(ALL_TOKENS);
@@ -1316,14 +1334,15 @@ function _rebuildMorphIndexIfNeeded(){
    「後続語の globalIdx === anchorGlobalIdx + k+1」という globalIdx差分で行う。
    ALL_TOKENS[gi] によるトークン復元も globalIdx 経由で行う。          */
 function searchPhrase(lemmas){
-    if(!window.lemmaIndex)return[];
+    const idx=window.lemmaIndex;
+    if(!idx)return[];
     if(!lemmas||lemmas.length===0)return[];
     // lists[k] = globalIdx の配列（lemmaIndex の値はすべて globalIdx）
     const lists=lemmas.map(l=>{
-        const direct=window.lemmaIndex.get(l);
+        const direct=idx.get(l);
         if(direct)return direct;
         const norm=normalizeGreek(l);
-        return window.lemmaIndex.get(norm)||[];
+        return idx.get(norm)||[];
     });
     if(lists.some(arr=>arr.length===0))return[];
     // sets[k] = lists[k+1] を Set 化（globalIdx の集合）
@@ -1349,11 +1368,12 @@ async function runProximitySearch({word1,word2=null,distance=5,scope='all',ref:_
     const w2Set=word2?resolveIndices(tokens,word2):new Set();
     const coocMap=new Map(),hits=[];
     // _giToTok: globalIdx → token の高速ルックアップ（ALL_TOKENS は gIdx連番）
-    const _giToTok=gi=>ALL_TOKENS[gi];
+    const _allToks=ALL_TOKENS;
+    const _giToTok=gi=>_allToks[gi];
     for(const anchorGi of w1GiList){
         // ★ ウィンドウ境界も globalIdx で計算
         const winStart=Math.max(0,anchorGi-distance);
-        const winEnd=Math.min(ALL_TOKENS.length-1,anchorGi+distance);
+        const winEnd=Math.min(_allToks.length-1,anchorGi+distance);
         if(word2){
             let found=false;
             for(let gi=winStart;gi<=winEnd;gi++){
@@ -1363,7 +1383,7 @@ async function runProximitySearch({word1,word2=null,distance=5,scope='all',ref:_
             if(!found)continue;
         }
         // ★ anchorIdx = anchorGi（globalIdx）。ref は持たない（表示専用）
-        hits.push({anchorIdx:anchorGi,start:winStart,end:winEnd,tokens:ALL_TOKENS});
+        hits.push({anchorIdx:anchorGi,start:winStart,end:winEnd,tokens:_allToks});
         for(let gi=winStart;gi<=winEnd;gi++){
             if(gi===anchorGi)continue;
             const t=_giToTok(gi);
@@ -1881,11 +1901,12 @@ function _buildPseudoHitsFromMerged(merged,words){
     // ★ ref はロジックに使用しない（表示専用）。
     //   anchorIdx = gi（globalIdx）。tokens = ALL_TOKENS で UI が tok.ref を自力で読む。
     const hits=[];
+    const allToks=ALL_TOKENS;
     for(const[gi]of merged){
         const CONTEXT=5;
         const winStart=Math.max(0,gi-CONTEXT);
-        const winEnd=Math.min(ALL_TOKENS.length-1,gi+CONTEXT);
-        hits.push({anchorIdx:gi,start:winStart,end:winEnd,tokens:ALL_TOKENS});
+        const winEnd=Math.min(allToks.length-1,gi+CONTEXT);
+        hits.push({anchorIdx:gi,start:winStart,end:winEnd,tokens:allToks});
     }
     return hits;
 }
