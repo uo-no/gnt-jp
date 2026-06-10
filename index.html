@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>06101537｜言語の壁を超えて読む聖書アプリ</title>
+    <title>06101543｜言語の壁を超えて読む聖書アプリ</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -5257,21 +5257,28 @@ function _showGraphNodePopover(anchorEl, lemmaId) {
             anchorEl.classList.remove('active');
             return;
         }
-        document.querySelectorAll('.rn-graph-node.active').forEach(n => n.classList.remove('active'));
+        document.querySelectorAll('.rn-graph-node.active, .rn-sibling-chip.active').forEach(n => n.classList.remove('active'));
         existing.remove();
     }
 
     anchorEl.classList.add('active');
 
-    const entry = _lexiconData?.[lemmaId];
-    const hw    = entry?.headword || lemmaId;
-    const gloss = entry?.gloss    || '';
-    const count = entry?.count    || 0;
+    /* Ensure semantic data is loaded before building popover */
+    _ensureSemanticData().then(() => {
+        const entry = _lexiconData?.[lemmaId];
+        const hw    = entry?.headword || lemmaId;
 
-    /* Find one example verse */
-    let exRef = '', exSnippet = '', exHref = '#';
-    if (window.lemmaIndex) {
-        const giList = _giListFromLemmaIndex(lemmaId);
+        /* Primary: headword-based lookup via shared helper */
+        let giList = _giListFromLemmaIndex(lemmaId);
+
+        /* Fallback: scan ALL_TOKENS directly for this lemmaId */
+        if (!giList.length) {
+            for (let i = 0; i < ALL_TOKENS.length; i++) {
+                if (ALL_TOKENS[i]?.lemmaId === lemmaId) { giList = [i]; break; }
+            }
+        }
+
+        let exRef = '', exSnippet = '', exHref = '#';
         const gi = giList[0];
         if (gi != null) {
             const tok   = ALL_TOKENS[gi];
@@ -5285,50 +5292,49 @@ function _showGraphNodePopover(anchorEl, lemmaId) {
             }).join(' ');
             exHref = tok?.bookKey && tok?.ch ? `index.html?book=${tok.bookKey}&ch=${tok.ch}` : '#';
         }
-    }
 
-    /* Build popover */
-    const pop = document.createElement('div');
-    pop.className = 'rn-graph-popover';
-    pop.dataset.lemmaId = lemmaId;
-    pop.dataset.anchor  = anchorEl.dataset.lemmaId;
+        /* Build popover */
+        const pop = document.createElement('div');
+        pop.className = 'rn-graph-popover';
+        pop.dataset.lemmaId = lemmaId;
+        pop.dataset.anchor  = anchorEl.dataset.lemmaId || lemmaId;
 
-    if (exSnippet) {
-        pop.innerHTML =
-            `<div class="rn-graph-popover-ref">${exRef}</div>`
-          + `<div class="rn-graph-popover-snippet">${exSnippet}</div>`
-          + `<div class="rn-graph-popover-sep"></div>`
-          + `<a class="rn-graph-popover-link" href="${exHref}">この章を開く →</a>`;
-    } else {
-        pop.innerHTML = `<div class="rn-graph-popover-no-ex">用例データなし</div>`;
-    }
-
-    /* Position: below the chip, left-aligned */
-    const nodesDiv = anchorEl.closest('.rn-graph-nodes') || anchorEl.parentElement;
-    nodesDiv.style.position = 'relative';
-    nodesDiv.appendChild(pop);
-
-    const chipRect  = anchorEl.getBoundingClientRect();
-    const parentRect = nodesDiv.getBoundingClientRect();
-    let left = chipRect.left - parentRect.left;
-    let top  = chipRect.bottom - parentRect.top + 6;
-
-    /* Clamp so it doesn't overflow right edge */
-    const maxLeft = parentRect.width - 270;
-    if (left > maxLeft) left = Math.max(0, maxLeft);
-
-    pop.style.left = left + 'px';
-    pop.style.top  = top  + 'px';
-
-    /* Close on outside click */
-    function _onOutside(e) {
-        if (!pop.contains(e.target) && e.target !== anchorEl) {
-            pop.remove();
-            anchorEl.classList.remove('active');
-            document.removeEventListener('click', _onOutside);
+        if (exSnippet) {
+            pop.innerHTML =
+                `<div class="rn-graph-popover-ref">${exRef}</div>`
+              + `<div class="rn-graph-popover-snippet">${exSnippet}</div>`
+              + `<div class="rn-graph-popover-sep"></div>`
+              + `<a class="rn-graph-popover-link" href="${exHref}">この章を開く →</a>`;
+        } else {
+            pop.innerHTML = `<div class="rn-graph-popover-no-ex">用例データなし</div>`;
         }
-    }
-    setTimeout(() => document.addEventListener('click', _onOutside), 0);
+
+        /* Position: below the chip */
+        const nodesDiv = anchorEl.closest('.rn-graph-nodes, .rn-sibling-chips') || anchorEl.parentElement;
+        nodesDiv.style.position = 'relative';
+        nodesDiv.appendChild(pop);
+
+        const chipRect   = anchorEl.getBoundingClientRect();
+        const parentRect = nodesDiv.getBoundingClientRect();
+        let left = chipRect.left - parentRect.left;
+        let top  = chipRect.bottom - parentRect.top + 6;
+
+        const maxLeft = parentRect.width - 270;
+        if (left > maxLeft) left = Math.max(0, maxLeft);
+
+        pop.style.left = left + 'px';
+        pop.style.top  = top  + 'px';
+
+        /* Close on outside click */
+        function _onOutside(e) {
+            if (!pop.contains(e.target) && e.target !== anchorEl) {
+                pop.remove();
+                anchorEl.classList.remove('active');
+                document.removeEventListener('click', _onOutside);
+            }
+        }
+        setTimeout(() => document.addEventListener('click', _onOutside), 0);
+    });
 }
 
 /**
