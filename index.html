@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>06101447｜言語の壁を超えて読む聖書アプリ</title>
+    <title>06101510｜言語の壁を超えて読む聖書アプリ</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -1238,6 +1238,14 @@ opacity: 0.7;
     animation: rnLayerOpen 0.2s ease both;
 }
 .rn-layer-body.visible { display: block; }
+.rn-layer-intro {
+    font-size: 0.75rem;
+    color: var(--text-sub);
+    line-height: 1.7;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+}
 
 @keyframes rnLayerOpen {
     from { opacity: 0; transform: translateY(-4px); }
@@ -4757,18 +4765,19 @@ function _buildLnLayerHTML(lnCodes, currentLemmaId, currentWord) {
                 <span class="rn-sibling-count">${s.count}</span>
             </span>`).join('');
         sections.push(`
-            <div class="rn-ln-domain-label">LN ${ln} · ${entry.occurrences || ''}回</div>
+            <div class="rn-ln-domain-label">意味分類 ${ln}（この分類に属する語が新約聖書に計 ${entry.occurrences || '?'}回登場）</div>
             <div class="rn-sibling-chips">${chips}</div>`);
     }
     if (!sections.length) return '';
     return `
     <div class="rn-ln-section">
         <button class="rn-layer-toggle" data-target="rn-ln-body">
-            <span>🔵 意味領域（LN）の同類語</span>
+            <span>🔵 意味の比較（言い換え候補）</span>
             <span class="rn-layer-hint">同じ意味カテゴリーに属する語の一覧</span>
             <span class="rn-layer-toggle-icon">›</span>
         </button>
         <div class="rn-layer-body" id="rn-ln-body">
+            <div class="rn-layer-intro">以下の語はすべて同じ意味カテゴリー（Louw-Nida分類）に属します。右の数字は新約聖書での出現回数。枠付きがこの単語です。</div>
             ${sections.join('')}
         </div>
     </div>`;
@@ -4798,18 +4807,19 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
                 <span class="rn-sibling-count">${s.count}</span>
             </span>`).join('');
         sections.push(`
-            <div class="rn-ln-domain-label">Cluster ${code} · ${entry.occurrences || ''}回</div>
+            <div class="rn-ln-domain-label">共起クラスター ${code}（この語群が新約聖書に計 ${entry.occurrences || '?'}回登場）</div>
             <div class="rn-sibling-chips">${chips}</div>`);
     }
     if (!sections.length) return '';
     return `
     <div class="rn-cluster-section">
         <button class="rn-layer-toggle" data-target="rn-cluster-body">
-            <span>🟢 語彙クラスター（共起関係）</span>
+            <span>🟢 文脈の比較（同じ状況で出やすい語）</span>
             <span class="rn-layer-hint">聖書内でよく一緒に使われる語の集まり</span>
             <span class="rn-layer-toggle-icon">›</span>
         </button>
         <div class="rn-layer-body" id="rn-cluster-body">
+            <div class="rn-layer-intro">以下の語は聖書内で同じ場面・文脈によく一緒に登場します。意味が似ているのではなく、使われる状況が似ている語の集まりです。右の数字は新約聖書での出現回数。枠付きがこの単語です。</div>
             ${sections.join('')}
         </div>
     </div>`;
@@ -5080,13 +5090,19 @@ function renderSemanticGraph(graph) {
     const toggle = document.createElement('button');
     toggle.className    = 'rn-layer-toggle';
     toggle.dataset.target = 'rn-graph-body';
-    toggle.innerHTML    = `<span>🟣 意味グラフ（${graph.nodes.length}語）</span>`
-                        + `<span class="rn-layer-hint">関連語をクリックして探索できます</span>`
+    toggle.innerHTML    = `<span>🟣 関係の探索（${graph.nodes.length}語のつながり）</span>`
+                        + `<span class="rn-layer-hint">関連語をクリックしてたどれます</span>`
                         + `<span class="rn-layer-toggle-icon">›</span>`;
 
     const body = document.createElement('div');
     body.className = 'rn-layer-body';
     body.id        = 'rn-graph-body';
+
+    /* Intro */
+    const intro = document.createElement('div');
+    intro.className = 'rn-layer-intro';
+    intro.textContent = '意味・共起の両面でつながりの強い関連語を表示しています。wの数字が大きいほど関係が深い語です。語をクリックするとその語を中心に組み替わります。';
+    body.appendChild(intro);
 
     /* Center node */
     const centerDiv = document.createElement('div');
