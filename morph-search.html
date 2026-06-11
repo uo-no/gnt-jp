@@ -1228,10 +1228,13 @@ function renderCoreTags() {
     const summaryParts = [];
     if (pos && POS_JP[pos]) summaryParts.push(POS_JP[pos]);
     if (params.mood)   summaryParts.push(MOOD_JP[params.mood]   || params.mood);
-    if (params.voice)  summaryParts.push(VOICE_JP[params.voice] || params.voice);
+    // 態：params.voice が空でも extState から補完
+    const _voiceVal = params.voice ||
+        extState.find(f => f.key === 'voice' && f.enabled && f.value)?.value || '';
+    if (_voiceVal)  summaryParts.push(VOICE_JP[_voiceVal] || _voiceVal);
     if (params.tense)  summaryParts.push(TENSE_JP[params.tense] || params.tense);
     if (params.person) summaryParts.push(PERSON_JP[params.person] || params.person + '人称');
-    extState.filter(f=>f.enabled&&f.value).forEach(f => {
+    extState.filter(f=>f.enabled&&f.value&&f.key!=='voice').forEach(f => {
         const MAP = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
         if (MAP[f.key]?.[f.value]) summaryParts.push(MAP[f.key][f.value]);
     });
@@ -1279,18 +1282,18 @@ function renderCoreTags() {
         let summaryText = '';
 
         if (pos === 'V') {
-            if (params.person && params.mood && ['indicative','subjunctive','imperative'].includes(params.mood)) {
-                // 定動詞（人称あり）
+            if (params.mood && ['indicative','subjunctive','imperative'].includes(params.mood)) {
+                // 定動詞・命令法
                 const personTxt  = PERSON_JP[params.person] || '';
                 const moodTxt    = MOOD_JP[params.mood]     || '';
                 const tenseTxt   = TENSE_JP[params.tense]   || '';
                 const voiceTxt   = VOICE_JP[params.voice]   || '';
                 if (params.mood === 'indicative') {
-                    summaryText = `${personTxt}の行為・出来事を事実として述べる形です。`;
+                    summaryText = `${personTxt ? personTxt + 'の' : ''}行為・出来事を事実として述べる形です。`;
                 } else if (params.mood === 'subjunctive') {
-                    summaryText = `${personTxt}に関わる可能性・目的・条件を表す形です。`;
+                    summaryText = `${personTxt ? personTxt + 'に関わる' : ''}可能性・目的・条件を表す形です。`;
                 } else if (params.mood === 'imperative') {
-                    summaryText = `${personTxt}に対して${tenseTxt === 'アオリスト' ? '一度限りの' : '継続的な'}行為を命じる形です。`;
+                    summaryText = `${tenseTxt === 'アオリスト' ? '一度限りの' : '継続的な'}行為を命じる命令法です。`;
                 }
             } else if (params.mood === 'participle') {
                 // 分詞：動詞的形容詞として性・数・格を持つ
@@ -1410,7 +1413,8 @@ function renderCoreChips() {
     // コアチップ：法・態・時制（動詞のみ） ＋ 人称（定動詞のみ）をトグル式で表示
     const coreToggle = [
         params.mood   ? { key:'mood',   label: MOOD_JP[params.mood]   || params.mood   } : null,
-        params.voice  ? { key:'voice',  label: VOICE_JP[params.voice] || params.voice  } : null,
+        (() => { const v = params.voice || extState.find(f=>f.key==='voice'&&f.enabled&&f.value)?.value||'';
+                 return v ? { key:'voice', label: VOICE_JP[v] || v } : null; })(),
         params.tense  ? { key:'tense',  label: TENSE_JP[params.tense] || params.tense  } : null,
         params.person ? { key:'person', label: PERSON_JP[params.person] || params.person+'人称' } : null,
         // 数（定動詞の場合：person がある場合のみコアに）
