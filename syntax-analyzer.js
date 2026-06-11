@@ -2143,9 +2143,14 @@ class SyntaxAnalyzer {
 // § 13.  グローバルエクスポート
 // =============================================================
 
-// ブラウザ（script タグ）用
+// ブラウザ（script タグ）用  ── STEP8: App.syntax 配下へ移行
 if (typeof window !== 'undefined') {
-    window.SyntaxAnalyzer     = SyntaxAnalyzer;
+    window.App = window.App || {};
+    window.App.syntax = window.App.syntax || {};
+    window.App.syntax.Analyzer = SyntaxAnalyzer;
+
+    /* 互換エイリアス（既存の window.SyntaxAnalyzer 参照を壊さない） */
+    window.SyntaxAnalyzer = window.App.syntax.Analyzer;
 }
 
 // ES Module 用（バンドラー環境）
