@@ -2146,9 +2146,6 @@ class SyntaxAnalyzer {
 // ブラウザ（script タグ）用
 if (typeof window !== 'undefined') {
     window.SyntaxAnalyzer     = SyntaxAnalyzer;
-    window.RegistryLoader     = RegistryLoader;
-    window.CheckEvaluator     = CheckEvaluator;
-    window.CandidateNormalizer = CandidateNormalizer;
 }
 
 // ES Module 用（バンドラー環境）
