@@ -716,7 +716,11 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 /* Hit card top row */
 .hit-top {
     display: flex; align-items: center; gap: 8px;
-    margin-bottom: 8px; flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+.hit-top-right {
+    display: flex; align-items: center; gap: 6px;
+    margin-left: auto; flex-shrink: 0;
 }
 .hit-ref-link {
     font-size: 0.72rem; font-weight: 700;
@@ -750,7 +754,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 
 /* Hit-type badges — the core of the unified UI */
-.hit-type-badges { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+.hit-type-badges { display: flex; gap: 4px; flex-wrap: wrap; }
 .ht-badge {
     font-size: 0.52rem; font-weight: 700; padding: 2px 6px;
     border-radius: 8px; letter-spacing: 0.06em; text-transform: uppercase;
@@ -2132,8 +2136,9 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         ?`<a class="hit-open-btn" href="${openHref}" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:0.55rem;"></i>本文で見る</a>`
         :'';
 
-    // Hit-type badges — the semantic signature of this result
-    const badgesHtml=[...entry.hitTypes].map(t=>`<span class="ht-badge ${t}">${t}</span>`).join('');
+    // Hit-type badges — Japanese short labels matching menu names
+    const BADGE_JP={lemma:'語根',phrase:'フレーズ',prox:'近接',morph:'品詞'};
+    const badgesHtml=[...entry.hitTypes].map(t=>`<span class="ht-badge ${t}">${BADGE_JP[t]||t}</span>`).join('');
 
     // Build context window
     const CONTEXT_LEMMA=4,CONTEXT_PROX=entry.proxHit?Math.abs(entry.proxHit.end-entry.proxHit.start):5;
@@ -2214,8 +2219,10 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
     card.innerHTML=`
         <div class="hit-top">
             ${refHtml}
-            <div class="hit-type-badges">${badgesHtml}</div>
-            ${openBtnHtml}
+            <div class="hit-top-right">
+                <div class="hit-type-badges">${badgesHtml}</div>
+                ${openBtnHtml}
+            </div>
         </div>
         ${proxVizHtml}
         <div class="hit-trans-row">
