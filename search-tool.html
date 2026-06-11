@@ -58,27 +58,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     overflow: hidden;
 }
 
-/* ── App header ── */
-.app-header {
-    padding: 18px 40px;
-    border-bottom: 1px solid var(--border-soft);
-    background: var(--bg-paper);
-    flex-shrink: 0;
-    position: sticky; top: 0; z-index: 10;
-}
-.header-content {
-    display: flex; align-items: center; justify-content: space-between;
-}
-.gbc-item {
-    font-family: 'Noto Serif JP', serif;
-    font-size: 0.82rem;
-    color: var(--text-sub);
-    letter-spacing: 0.01em;
-}
-.gbc-item.current {
-    color: var(--text-main);
-    font-weight: 600;
-}
+
 .idx-pill {
     display: flex; align-items: center; gap: 6px;
     padding: 4px 10px;
@@ -197,10 +177,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
         width: 100%;
         overflow: visible;
         min-height: 100vh;
-    }
-
-    .app-header {
-        padding: 14px 18px;
     }
 
     .result-panel {
@@ -592,10 +568,11 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 .rank-item:hover { background: var(--bg-panel); }
 .rank-item.highlighted { background: var(--prox-bg); }
-.rank-top { display: flex; align-items: baseline; gap: 5px; margin-bottom: 3px; }
+.rank-top { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+.rank-word-wrap { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .rank-word { font-family: 'Gentium Plus', serif; font-size: 0.92rem; color: var(--text-main); }
 .rank-gloss { font-size: 0.65rem; color: var(--text-sub); }
-.rank-score { font-size: 0.62rem; color: var(--text-sub); margin-left: auto; white-space: nowrap; }
+.rank-score { font-size: 0.62rem; color: var(--text-sub); white-space: nowrap; flex-shrink: 0; }
 .rank-bar-track {
     height: 2px; background: var(--border-soft); border-radius: 1px; overflow: hidden;
 }
@@ -739,7 +716,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     border: 1px solid var(--border-soft);
     border-radius: 10px;
     background: var(--bg-panel);
-    font-size: 0.62rem; font-weight: 700;
+    font-size: 0.72rem; font-weight: 700;
     font-family: inherit;
     color: var(--text-sub);
     cursor: pointer; white-space: nowrap;
@@ -756,7 +733,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 /* Hit-type badges — the core of the unified UI */
 .hit-type-badges { display: flex; gap: 4px; flex-wrap: wrap; }
 .ht-badge {
-    font-size: 0.52rem; font-weight: 700; padding: 2px 6px;
+    font-size: 0.72rem; font-weight: 700; padding: 2px 6px;
     border-radius: 8px; letter-spacing: 0.06em; text-transform: uppercase;
 }
 .ht-badge.lemma  { background: var(--lemma-bg);  color: var(--lemma); }
@@ -877,7 +854,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     .result-panel { padding: 20px 16px 40px; }
     .results-grid { grid-template-columns: 1fr; }
     .results-grid:not(.no-cooc) .cooc-col { display: none; }
-    .app-header { padding: 14px 16px; }
 }
 </style>
 </head>
@@ -1023,13 +999,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 <!-- ═══════════════════════════ Main Container ═══════════════════════════ -->
 <div class="container">
 
-<header class="app-header">
-    <div class="header-content">
-        <div id="global-breadcrumb">
-            <span class="gbc-item current">検索</span>
-        </div>
-    </div>
-</header>
 
 <!-- ═══════════════════════════ Result Panel ═══════════════════════════ -->
 <main class="result-panel" id="result-panel">
@@ -2123,8 +2092,37 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
     const ch=tok.ch||'';
     const verse=tok.verse!=null?tok.verse:'';
 
-    // 節参照ラベル（クリック不要、表示のみ）
-    const refHtml=`<span class="hit-ref-plain">${rawRef}</span>`;
+    // 節参照ラベル — StudyPanelと同じ「ローマ5章5節」形式
+    const BOOK_SHORT_SEARCH = {
+        MAT:'マタイ', MRK:'マルコ', LUK:'ルカ', JHN:'ヨハネ', ACT:'使徒',
+        ROM:'ローマ', '1CO':'Ⅰコリント', '2CO':'Ⅱコリント',
+        GAL:'ガラテヤ', EPH:'エペソ', PHP:'ピリピ', COL:'コロサイ',
+        '1TH':'Ⅰテサロニケ', '2TH':'Ⅱテサロニケ',
+        '1TI':'Ⅰテモテ', '2TI':'Ⅱテモテ',
+        TIT:'テトス', PHM:'ピレモン', HEB:'ヘブル',
+        JAS:'ヤコブ', '1PE':'Ⅰペテロ', '2PE':'Ⅱペテロ',
+        '1JN':'Ⅰヨハネ', '2JN':'Ⅱヨハネ', '3JN':'Ⅲヨハネ',
+        JUD:'ユダ', REV:'黙示録',
+        GEN:'創世記', EXO:'出エジプト', LEV:'レビ', NUM:'民数',
+        DEU:'申命', JOS:'ヨシュア', JDG:'士師', RUT:'ルツ',
+        '1SA':'Ⅰサムエル', '2SA':'Ⅱサムエル',
+        '1KI':'Ⅰ列王', '2KI':'Ⅱ列王',
+        '1CH':'Ⅰ歴代', '2CH':'Ⅱ歴代',
+        EZR:'エズラ', NEH:'ネヘミヤ', EST:'エステル',
+        JOB:'ヨブ', PSA:'詩篇', PRO:'箴言', ECC:'伝道', SNG:'雅歌',
+        ISA:'イザヤ', JER:'エレミヤ', LAM:'哀歌', EZK:'エゼキエル',
+        DAN:'ダニエル', HOS:'ホセア', JOL:'ヨエル', AMO:'アモス',
+        OBA:'オバデヤ', JON:'ヨナ', MIC:'ミカ', NAH:'ナホム',
+        HAB:'ハバクク', ZEP:'ゼパニヤ', HAG:'ハガイ', ZEC:'ゼカリヤ', MAL:'マラキ',
+    };
+    const _bookNameMap=new Map(FLAT_BOOKS.map(b=>[b.key,b.name]));
+    const _jpRef=(()=>{
+        const m=rawRef.match(/^([A-Z1-9]{2,6})\s+(\d+):(\d+)/);
+        if(!m) return rawRef;
+        const short=BOOK_SHORT_SEARCH[m[1]]||_bookNameMap.get(m[1])||m[1];
+        return `${short}${m[2]}章${m[3]}節`;
+    })();
+    const refHtml=`<span class="hit-ref-plain">${_jpRef}</span>`;
 
     // 「本文で見る」ボタン（verse付きURL）
     const openHref=bookKey&&ch
@@ -2278,8 +2276,10 @@ function _renderCooccurrence(coocMap,containerId,limit=10){
         item.style.animationDelay=`${idx*0.04}s`;
         item.innerHTML=`
             <div class="rank-top">
-                <span class="rank-word">${word}</span>
-                ${jpGloss?`<span class="rank-gloss">${jpGloss}</span>`:''}
+                <div class="rank-word-wrap">
+                    <span class="rank-word">${word}</span>
+                    ${jpGloss?`<span class="rank-gloss">${jpGloss}</span>`:''}
+                </div>
                 <span class="rank-score">${rawCount}回</span>
                 <button class="add-btn" data-word="${word}" title="この語を検索欄に追加して近接検索を絞り込む">+ 絞り込む</button>
             </div>
