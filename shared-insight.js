@@ -621,7 +621,6 @@ function buildSemanticShift(lemma, verseLemmas) {
    ───────────────────────────────────────────────────
    設計方針：
      - 正規経路  : window.App.scoreEngine（唯一の公式API）
-     - 非推奨経路: window.scoreEngine（互換エイリアス、将来削除予定）
    安定性保証：
      - 二重ロード耐性  : if (!window.App.scoreEngine) ガードで上書きしない
      - 実行順序耐性    : window.App || {} で先行定義済みのAppを保持
@@ -636,13 +635,4 @@ window.App = window.App || {};
       二重ロードされても既存インスタンスを上書きしない */
 if (!window.App.scoreEngine) {
     window.App.scoreEngine = scoreEngine;
-}
-
-/* ③ 後方互換エイリアス（非推奨 / @deprecated）
-      既存の外部HTMLが window.scoreEngine を参照している間の移行橋渡し。
-      正規経路（window.App.scoreEngine）への移行完了後に削除すること。
-      意図的に writable:true / configurable:true のままにし
-      テスト環境でのモック差し替えを可能にする。            */
-if (typeof window.scoreEngine === 'undefined') {
-    window.scoreEngine = window.App.scoreEngine;
 }
