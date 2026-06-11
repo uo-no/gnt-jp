@@ -2450,9 +2450,9 @@ function selectToken(idx) {
         highlightRelated(entry, tokens, idx);
 
         /* Phase G: § 3 ツリーノード active 連動 */
-        if (window.SyntaxTreeBuilder) {
+        if (window.App && window.App.syntax && window.App.syntax.TreeBuilder) {
             const treeEl = document.getElementById('syn-tree');
-            if (treeEl) SyntaxTreeBuilder.setActiveNode(treeEl, idx);
+            if (treeEl) window.App.syntax.TreeBuilder.setActiveNode(treeEl, idx);
         }
     }
 }
@@ -3373,12 +3373,14 @@ document.getElementById('bc-word').textContent = params.word || '—';
     document.getElementById('main-content').style.display = 'block';
 
     /* Phase C: SyntaxAnalyzer 初期化（syntax-analyzer.js が実装済みの場合のみ） */
-    if (typeof SyntaxAnalyzer === 'function') {
+    const _SyntaxAnalyzer = (window.App && window.App.syntax && window.App.syntax.Analyzer)
+                          || (typeof SyntaxAnalyzer === 'function' ? SyntaxAnalyzer : null);
+    if (_SyntaxAnalyzer) {
         try {
             const registryJson = await fetch('./syntax-registry.json').then(r => r.ok ? r.json() : null).catch(() => null);
             if (registryJson) {
                 window._syntaxRegistryData = registryJson; /* Phase H: reading_impact 参照用 */
-                window._syntaxAnalyzer = new SyntaxAnalyzer(registryJson);
+                window._syntaxAnalyzer = new _SyntaxAnalyzer(registryJson);
                 console.log('[Phase C] SyntaxAnalyzer initialized');
             }
         } catch(e) {
@@ -3567,13 +3569,15 @@ function renderReadingImpact(candidates) {
    Phase G: § 3 構文ツリー描画関数
 ══════════════════════════════════════════ */
 function _renderSyntaxTree(tokens, analysisResults) {
-    if (!window.SyntaxTreeBuilder) return;
+    const _SyntaxTreeBuilder = (window.App && window.App.syntax && window.App.syntax.TreeBuilder)
+                             || window.SyntaxTreeBuilder || null;
+    if (!_SyntaxTreeBuilder) return;
     const treeEl = document.getElementById('syn-tree');
     if (!treeEl) return;
 
-    const nodes = SyntaxTreeBuilder.build(tokens, _roleMap, params, analysisResults);
+    const nodes = _SyntaxTreeBuilder.build(tokens, _roleMap, params, analysisResults);
 
-    SyntaxTreeBuilder.render(nodes, treeEl, function(baseIdx) {
+    _SyntaxTreeBuilder.render(nodes, treeEl, function(baseIdx) {
         /* ノードタップ → § 1 トークン選択連動 */
         selectToken(baseIdx);
         /* トークン列の選択済み要素をスクロール表示 */
