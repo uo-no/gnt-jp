@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>2252｜形態論検索</title>
+<title>形態論検索</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 
@@ -1203,15 +1203,45 @@ function renderCoreTags() {
     /* サマリー文は活用情報の説明として、話し手の語りかけ口調で */
     const summaryEl = document.getElementById('core-summary');
     if (summaryEl) {
-        // 人称があれば「この語形について」という導入を加える
         let summaryText = '';
-        if (params.person && params.mood && ['indicative','subjunctive','imperative'].includes(params.mood)) {
-            const personTxt = PERSON_JP[params.person] || '';
-            summaryText = `この語形について話し手${params.person === '1' ? '自身' : ''}の行為を、出来事全体として述べる形です。`;
+
+        if (pos === 'V') {
+            if (params.person && params.mood && ['indicative','subjunctive','imperative'].includes(params.mood)) {
+                // 定動詞（人称あり）
+                const personTxt  = PERSON_JP[params.person] || '';
+                const moodTxt    = MOOD_JP[params.mood]     || '';
+                const tenseTxt   = TENSE_JP[params.tense]   || '';
+                const voiceTxt   = VOICE_JP[params.voice]   || '';
+                if (params.mood === 'indicative') {
+                    summaryText = `${personTxt}の行為・出来事を事実として述べる形です。`;
+                } else if (params.mood === 'subjunctive') {
+                    summaryText = `${personTxt}に関わる可能性・目的・条件を表す形です。`;
+                } else if (params.mood === 'imperative') {
+                    summaryText = `${personTxt}に対して${tenseTxt === 'アオリスト' ? '一度限りの' : '継続的な'}行為を命じる形です。`;
+                }
+            } else if (params.mood === 'participle') {
+                // 分詞：動詞的形容詞として性・数・格を持つ
+                summaryText = hint || '動詞の意味を保ちながら名詞・形容詞的に機能します。性・数・格で修飾する名詞と一致します。';
+            } else if (params.mood === 'infinitive') {
+                summaryText = hint || '動作そのものを名詞のように表す不定詞です。';
+            } else if (params.mood === 'optative') {
+                summaryText = hint || '願望・祈願・婉曲な条件を表す希求法です。';
+            } else if (hint) {
+                summaryText = hint;
+            }
+        } else if (['N','A','R','P','D','T'].includes(pos)) {
+            // 名詞・形容詞・代名詞・冠詞
+            const POS_DESC = {
+                N: '名詞として文中で使われています。',
+                A: '形容詞として名詞を修飾しています。修飾する名詞と性・数・格が一致します。',
+                R: '関係代名詞として節を導きます。先行詞の性・数と、節内の文法的役割（格）を持ちます。',
+                P: '人称代名詞です。性・数・格で指示対象と文法的機能を示します。',
+                D: '指示代名詞として対象を指し示します。性・数・格を持ちます。',
+                T: '冠詞として名詞に添えられています。修飾する名詞と性・数・格が一致します。',
+            };
+            summaryText = POS_DESC[pos] || '';
         }
-        if (!summaryText && hint) {
-            summaryText = hint;
-        }
+
         summaryEl.textContent = summaryText;
         summaryEl.style.display = summaryText ? '' : 'none';
 
@@ -1232,18 +1262,31 @@ function renderCoreTags() {
     const detailGrid  = document.getElementById('identity-detail-grid');
     if (detailGrid) {
         const parts = [];
-        if (params.mood)   parts.push(MOOD_JP[params.mood]   || params.mood);
-        if (params.voice)  parts.push(VOICE_JP[params.voice] || params.voice);
-        if (params.tense)  parts.push(TENSE_JP[params.tense] || params.tense);
-        if (params.person) parts.push((PERSON_JP[params.person] || params.person) + '人称');
 
-        // 名詞系: 性・数・格 の順
-        const genderF = extState.find(f => f.key === 'gender' && f.enabled && f.value);
-        const numberF = extState.find(f => f.key === 'number' && f.enabled && f.value);
-        const caseF   = extState.find(f => f.key === 'case'   && f.enabled && f.value);
-        if (genderF) parts.push(GENDER_JP[genderF.value] || genderF.value);
-        if (numberF) parts.push(NUMBER_JP[numberF.value] || numberF.value);
-        if (caseF)   parts.push(CASE_JP[caseF.value]     || caseF.value);
+        if (pos === 'V') {
+            // 動詞系：法　態　時制　[人称]　[性　数　格（分詞の場合）]
+            if (params.mood)   parts.push(MOOD_JP[params.mood]   || params.mood);
+            if (params.voice)  parts.push(VOICE_JP[params.voice] || params.voice);
+            if (params.tense)  parts.push(TENSE_JP[params.tense] || params.tense);
+            if (params.person) parts.push((PERSON_JP[params.person] || params.person) + '人称');
+            // 分詞は性・数・格も持つ
+            if (params.mood === 'participle') {
+                const gF = extState.find(f => f.key === 'gender' && f.enabled && f.value);
+                const nF = extState.find(f => f.key === 'number' && f.enabled && f.value);
+                const cF = extState.find(f => f.key === 'case'   && f.enabled && f.value);
+                if (gF) parts.push(GENDER_JP[gF.value] || gF.value);
+                if (nF) parts.push(NUMBER_JP[nF.value] || nF.value);
+                if (cF) parts.push(CASE_JP[cF.value]   || cF.value);
+            }
+        } else {
+            // 名詞・形容詞・代名詞・冠詞系：性　数　格
+            const gF = extState.find(f => f.key === 'gender' && f.enabled && f.value);
+            const nF = extState.find(f => f.key === 'number' && f.enabled && f.value);
+            const cF = extState.find(f => f.key === 'case'   && f.enabled && f.value);
+            if (gF) parts.push(GENDER_JP[gF.value] || gF.value);
+            if (nF) parts.push(NUMBER_JP[nF.value] || nF.value);
+            if (cF) parts.push(CASE_JP[cF.value]   || cF.value);
+        }
 
         if (parts.length) {
             detailGrid.textContent = parts.join('\u3000');
