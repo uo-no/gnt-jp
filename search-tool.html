@@ -1553,6 +1553,42 @@ function searchPhrase(lemmas){
     return results;
 }
 
+/* searchPhraseJapanese — 日本語グロスによる連続フレーズ検索
+   words: 空白で分割した日本語グロスの配列
+   JP_PARTIAL_INDEX をアンカー候補に使い、連続するトークンのグロスと照合する */
+function searchPhraseJapanese(words){
+    if(!words||words.length===0)return[];
+    const first=words[0];
+    // アンカー候補: 最初の語にマッチするglobalIdx一覧
+    let candidates;
+    if(IDX.l3Ready){
+        candidates=[...(JP_PARTIAL_INDEX.get(first)||new Set())];
+    }else{
+        candidates=[];
+        ALL_TOKENS.forEach(t=>{
+            const vals=t.japanese?(Array.isArray(t.japanese)?t.japanese:[t.japanese]):(t.gloss?[t.gloss]:[]);
+            if(vals.some(v=>v&&v.includes(first)))candidates.push(t.globalIdx);
+        });
+    }
+    if(candidates.length===0)return[];
+    if(words.length===1)return candidates;
+
+    const results=[];
+    for(const anchorGi of candidates){
+        let match=true;
+        for(let k=1;k<words.length;k++){
+            const nextTok=ALL_TOKENS[anchorGi+k];
+            if(!nextTok){match=false;break;}
+            const vals=nextTok.japanese
+                ?(Array.isArray(nextTok.japanese)?nextTok.japanese:[nextTok.japanese])
+                :(nextTok.gloss?[nextTok.gloss]:[]);
+            if(!vals.some(v=>v&&v.includes(words[k]))){match=false;break;}
+        }
+        if(match)results.push(anchorGi);
+    }
+    return results;
+}
+
 /* proximitySearch */
 async function runProximitySearch({word1,word2=null,distance=5,scope='all',ref:_ref=''}){
     const tokens=await loadTokensForScope(scope,_ref);
@@ -1957,9 +1993,10 @@ async function unifiedSearch(){
         })());
     }
 
-    if(_layers.phrase&&words.length>=2){
+    if(_layers.phrase&&(words.length>=2||detectQueryType(word1)==='japanese')){
         tasks.push((async()=>{
-            const idxs=searchPhrase(words);
+            const isJp=detectQueryType(word1)==='japanese';
+            const idxs=isJp?searchPhraseJapanese(words):searchPhrase(words);
             for(const gi of idxs){
                 const tok=ALL_TOKENS[gi];if(!tok)continue;
                 if(!merged.has(gi))merged.set(gi,{tok,hitTypes:new Set(),proxHit:null});
