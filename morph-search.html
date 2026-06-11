@@ -217,7 +217,7 @@ body {
     letter-spacing: 0.03em;
 }
 
-
+.identity-detail-block {
     margin-top: 16px;
     padding: 12px 14px;
     background: var(--bg-panel);
@@ -357,6 +357,60 @@ body {
 }
 .chip-toggle.on .chip-dot { background: var(--accent); border-color: var(--accent); color: #fff; }
 .chip-toggle.off .chip-dot { background: transparent; color: #ccc; }
+
+/* フィルター サブグループラベル（※分詞・※名詞） */
+.filter-subgroup-label {
+    font-size: 0.60rem;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: var(--text-hint);
+    margin-bottom: 6px;
+    padding-left: 2px;
+}
+
+/* ラジオ式チップ（検索対象） */
+.chip-radio {
+    border: 1px solid var(--border); cursor: pointer; user-select: none;
+}
+.chip-radio.on {
+    background: var(--accent-light); border-color: var(--accent-mid);
+    color: var(--accent); font-weight: 600;
+}
+.chip-radio.off {
+    background: var(--bg); border-color: var(--border);
+    color: var(--text-sub);
+}
+.chip-radio:hover.off { background: var(--bg-panel); }
+.chip-radio-dot {
+    width: 13px; height: 13px; border-radius: 50%;
+    border: 1.5px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; flex-shrink: 0;
+}
+.chip-radio.on .chip-radio-dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip-radio.off .chip-radio-dot { background: transparent; }
+
+/* スコープチップ（範囲：LXX / 新約） */
+.chip-scope {
+    border: 1px solid var(--border); cursor: pointer; user-select: none;
+}
+.chip-scope.on {
+    background: var(--accent-light); border-color: var(--accent-mid);
+    color: var(--accent); font-weight: 600;
+}
+.chip-scope.off {
+    background: var(--bg); border-color: var(--border);
+    color: var(--text-hint); text-decoration: line-through;
+}
+.chip-scope:hover.off { background: var(--bg-panel); text-decoration: none; }
+.chip-scope-check {
+    width: 13px; height: 13px; border-radius: 3px;
+    border: 1.5px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; flex-shrink: 0;
+}
+.chip-scope.on .chip-scope-check { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip-scope.off .chip-scope-check { background: transparent; }
 
 /* 件数表示 */
 .results-meta {
@@ -781,29 +835,42 @@ body.compact-reading-mode .result-ja {
             </span>
         </summary>
         <div class="filter-disclosure-body">
-            <!-- 凡例 -->
-            <div class="chip-legend">
-                <span class="chip-legend-label">凡例</span>
-                <span class="chip-legend-item"><span class="chip-legend-dot on"></span>ON（含む）</span>
-                <span class="chip-legend-item"><span class="chip-legend-dot off"></span>OFF（取り消し線＝除外）</span>
-                <span style="margin-left:4px;">タップで切り替え</span>
-            </div>
-            <div class="filter-group">
-                <div class="filter-group-label">コア条件（固定）</div>
-                <div class="chips" id="core-chips"></div>
-            </div>
-            <div class="filter-group" id="ext-group">
-                <div class="filter-group-label">拡張条件 — タップで ON / OFF</div>
-                <div class="chips" id="ext-chips"></div>
-            </div>
-            <div class="filter-group">
-                <div class="filter-group-label">書物範囲 — タップで ON / OFF</div>
-                <div class="chips" id="book-chips"></div>
-            </div>
+
+            <!-- ① 検索対象 -->
             <div class="filter-group" id="word-filter-group" style="display:none">
-                <div class="filter-group-label">語形の絞り込み</div>
+                <div class="filter-group-label">検索対象</div>
                 <div class="chips" id="word-filter-chips"></div>
             </div>
+
+            <!-- ② 範囲 -->
+            <div class="filter-group">
+                <div class="filter-group-label">範囲</div>
+                <div class="chips" id="scope-chips"></div>
+            </div>
+
+            <!-- ③ 語形（コア＋拡張） -->
+            <div class="filter-group" id="morph-group">
+                <div class="filter-group-label">語形</div>
+                <!-- コア固定チップ -->
+                <div class="chips" id="core-chips" style="margin-bottom:6px;"></div>
+                <!-- 拡張トグルチップ -->
+                <div class="chips" id="ext-chips" style="margin-bottom:0;"></div>
+                <!-- 分詞サブグループ -->
+                <div id="ptc-group" style="display:none;margin-top:10px;">
+                    <div class="filter-subgroup-label">※ 分詞</div>
+                    <div class="chips" id="ptc-chips"></div>
+                </div>
+                <!-- 名詞サブグループ -->
+                <div id="noun-group" style="display:none;margin-top:10px;">
+                    <div class="filter-subgroup-label">※ 名詞</div>
+                    <div class="chips" id="noun-chips"></div>
+                </div>
+            </div>
+
+            <!-- 旧 book-chips は非表示にして互換維持 -->
+            <div style="display:none"><div class="chips" id="book-chips"></div></div>
+            <!-- 旧 ext-group は非表示 -->
+            <div id="ext-group" style="display:none"></div>
         </div>
     </details>
 
@@ -935,6 +1002,8 @@ const BOOK_GROUPS = [
 ];
 let bookState = BOOK_GROUPS.map(g => ({ ...g, enabled: true }));
 let wordFilterMode = params.word ? 'word' : (params.lemma ? 'lemma' : 'none');
+const scopeState = { lxx: true, nt: true };
+const LXX_KEYS = new Set(['lxx_torah','lxx_forprop','lxx_latprop','lxx_writings']);
 
 function syncURL() {
     const p = new URLSearchParams(location.search);
@@ -1025,6 +1094,9 @@ const STOP_LEMMAS = new Set([
 /* ══════════════════════════════════════════
    マッチング（変更なし）
 ══════════════════════════════════════════ */
+// コア条件のON/OFF状態（ページロード時はすべてON）
+const coreOnState = { mood: true, voice: true, tense: true, person: true };
+
 function matchEntry(entry) {
     if (wordFilterMode === 'lemma' && params.lemma) {
         if (normalizeGreek(entry.lemma||'') !== normalizeGreek(params.lemma)) return false;
@@ -1039,14 +1111,15 @@ function matchEntry(entry) {
     const sp = params.pos.replace(/-$/,'').toUpperCase();
     if (sp && entryPosCode(entry) !== sp) return false;
     const m = decodeMorph(entry);
-    if (params.tense && m.tense !== params.tense) return false;
-    if (params.mood  && m.mood  !== params.mood)  return false;
-    if (params.voice) {
+    if (coreOnState.tense  && params.tense && m.tense !== params.tense) return false;
+    if (coreOnState.mood   && params.mood  && m.mood  !== params.mood)  return false;
+    if (coreOnState.voice  && params.voice) {
         const ok = m.voice === params.voice
             || (params.voice==='middle'  && (m.voice==='middle deponent'||m.voice==='middle or passive'))
             || (params.voice==='passive' && m.voice==='middle or passive');
         if (!ok) return false;
     }
+    if (coreOnState.person && params.person && (m.person||'') !== params.person) return false;
     for (const f of extState) {
         if (!f.enabled || !f.value) continue;
         if ((m[f.key]||'') !== f.value) return false;
@@ -1332,45 +1405,145 @@ function renderDist(matched) {
 }
 
 function renderCoreChips() {
-    const defs = [
-        {label:'品詞', val:POS_JP[params.pos.replace(/-$/,'')]||params.pos},
-        {label:'法',   val:MOOD_JP[params.mood]  ||params.mood},
-        {label:'時制', val:TENSE_JP[params.tense]||params.tense},
-        {label:'態',   val:VOICE_JP[params.voice]||params.voice},
-    ].filter(d=>d.val);
-    document.getElementById('core-chips').innerHTML = defs.map(d=>
-        `<div class="chip chip-fixed"><span class="chip-key">${d.label}</span><span>${d.val}</span></div>`
-    ).join('');
+    const PERSON_JP = { '1':'一人称', '2':'二人称', '3':'三人称' };
+    const pos = params.pos.replace(/-$/,'').toUpperCase();
+    // コアチップ：法・態・時制（動詞のみ） ＋ 人称（定動詞のみ）をトグル式で表示
+    const coreToggle = [
+        params.mood   ? { key:'mood',   label: MOOD_JP[params.mood]   || params.mood   } : null,
+        params.voice  ? { key:'voice',  label: VOICE_JP[params.voice] || params.voice  } : null,
+        params.tense  ? { key:'tense',  label: TENSE_JP[params.tense] || params.tense  } : null,
+        params.person ? { key:'person', label: PERSON_JP[params.person] || params.person+'人称' } : null,
+        // 数（定動詞の場合：person がある場合のみコアに）
+        (params.person && extState.find(f=>f.key==='number'&&f.value))
+            ? null : null,  // number は ext で扱うのでここでは出さない
+    ].filter(Boolean);
+
+    document.getElementById('core-chips').innerHTML = coreToggle.map(d => {
+        const on = coreOnState[d.key] !== false; // デフォルトON
+        return `<div class="chip chip-toggle ${on?'on':'off'}" onclick="toggleCore('${d.key}')">
+            <div class="chip-dot">${on?'✓':''}</div>
+            <span>${d.label}</span>
+        </div>`;
+    }).join('');
+
+    renderPtcGroup();
+    renderNounGroup();
+}
+
+function toggleCore(key) {
+    coreOnState[key] = !coreOnState[key];
+    renderCoreChips();
+    updateFilterSummaryText();
+    if (window._morphData) renderResults(window._morphData);
+}
+
+/* 分詞サブグループ（※分詞） */
+function renderPtcGroup() {
+    const ptcGroup = document.getElementById('ptc-group');
+    const ptcChips = document.getElementById('ptc-chips');
+    // 分詞（mood=participle）の場合のみ表示
+    if (params.mood !== 'participle') { ptcGroup.style.display='none'; return; }
+    ptcGroup.style.display = 'block';
+    // 分詞の性・数・格（extState から）
+    const MAP   = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
+    const LABEL = { gender:'性', number:'数', case:'格' };
+    const ptcExt = extState.filter(f => ['gender','number','case'].includes(f.key) && f.value);
+    ptcChips.innerHTML = ptcExt.map((f,_) => {
+        const i = extState.indexOf(f);
+        return `<div class="chip chip-toggle ${f.enabled?'on':'off'}" onclick="toggleExt(${i})">
+            <div class="chip-dot">${f.enabled?'✓':''}</div>
+            <span style="font-size:0.68rem;opacity:0.7;margin-right:1px;">${LABEL[f.key]||f.key}</span>
+            <span>${MAP[f.key]?.[f.value]||f.value}</span>
+        </div>`;
+    }).join('');
+}
+
+/* 名詞サブグループ（※名詞） */
+function renderNounGroup() {
+    const nounGroup = document.getElementById('noun-group');
+    const nounChips = document.getElementById('noun-chips');
+    const pos = params.pos.replace(/-$/,'').toUpperCase();
+    // 名詞・形容詞・代名詞系 かつ 分詞でない場合
+    const isNominal = ['N','A','R','P','D','T'].includes(pos);
+    if (!isNominal || params.mood === 'participle') { nounGroup.style.display='none'; return; }
+    nounGroup.style.display = 'block';
+    const MAP   = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
+    const LABEL = { gender:'性', number:'数', case:'格' };
+    const nounExt = extState.filter(f => ['gender','number','case'].includes(f.key) && f.value);
+    nounChips.innerHTML = nounExt.map((f,_) => {
+        const i = extState.indexOf(f);
+        return `<div class="chip chip-toggle ${f.enabled?'on':'off'}" onclick="toggleExt(${i})">
+            <div class="chip-dot">${f.enabled?'✓':''}</div>
+            <span style="font-size:0.68rem;opacity:0.7;margin-right:1px;">${LABEL[f.key]||f.key}</span>
+            <span>${MAP[f.key]?.[f.value]||f.value}</span>
+        </div>`;
+    }).join('');
 }
 
 function renderExtChips() {
     const el = document.getElementById('ext-chips');
-    if (!extState.length) { document.getElementById('ext-group').style.display='none'; return; }
-    document.getElementById('ext-group').style.display = 'block';
-    const MAP   = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
-    const LABEL = { gender:'性', number:'数', case:'格' };
-    el.innerHTML = extState.map((f,i) => `
-        <div class="chip chip-toggle ${f.enabled?'on':'off'}" onclick="toggleExt(${i})">
+    // メインの ext-chips には person/number をご required で動詞の数だけ出す
+    // 性・数・格は ptc/noun グループで表示するのでここでは出さない
+    const pos = params.pos.replace(/-$/,'').toUpperCase();
+    const isVerb    = pos === 'V';
+    const isPtc     = params.mood === 'participle';
+    const isNominal = ['N','A','R','P','D','T'].includes(pos);
+
+    // 定動詞（mood が indicative/subjunctive/imperative）の「数」のみここで表示
+    let showInMain = [];
+    if (isVerb && !isPtc) {
+        showInMain = extState.filter(f => f.key === 'number' && f.value);
+    }
+    // ptc / nominal の場合は全部サブグループに任せる→ここは空
+    el.innerHTML = showInMain.map((f) => {
+        const i = extState.indexOf(f);
+        const MAP   = { number:NUMBER_JP };
+        const LABEL = { number:'数' };
+        return `<div class="chip chip-toggle ${f.enabled?'on':'off'}" onclick="toggleExt(${i})">
             <div class="chip-dot">${f.enabled?'✓':''}</div>
             <span style="font-size:0.68rem;opacity:0.7;margin-right:1px;">${LABEL[f.key]||f.key}</span>
             <span>${MAP[f.key]?.[f.value]||f.value}</span>
-        </div>`).join('');
+        </div>`;
+    }).join('');
 }
 
 function renderBookChips() {
-    const LXX_KEYS = new Set(['lxx_torah','lxx_forprop','lxx_latprop','lxx_writings']);
-    const ntGroups  = bookState.filter(g => !LXX_KEYS.has(g.key));
-    const lxxGroups = bookState.filter(g =>  LXX_KEYS.has(g.key));
-    const makeChips = groups => groups.map(g => {
-        const i = bookState.indexOf(g);
-        return `<div class="chip chip-toggle ${g.enabled?'on':'off'}" onclick="toggleBook(${i})">
-            <div class="chip-dot">${g.enabled?'✓':''}</div>
-            <span>${g.label}</span>
+    // 旧 book-chips（非表示）も互換のために更新
+    const el = document.getElementById('book-chips');
+    el.innerHTML = '';
+    renderScopeChips();
+}
+
+function renderScopeChips() {
+    const el = document.getElementById('scope-chips');
+    if (!el) return;
+    const scopes = [
+        { key:'nt',  label:'新約' },
+        { key:'lxx', label:'LXX' },
+    ];
+    el.innerHTML = scopes.map(s => {
+        const on = scopeState[s.key];
+        return `<div class="chip chip-scope ${on?'on':'off'}" onclick="toggleScope('${s.key}')">
+            <div class="chip-scope-check">${on?'✓':''}</div>
+            <span>${s.label}</span>
         </div>`;
     }).join('');
-    document.getElementById('book-chips').innerHTML =
-        makeChips(ntGroups) +
-        (lxxGroups.length ? `<div class="book-section-sep">LXX</div>` + makeChips(lxxGroups) : '');
+}
+
+function toggleScope(key) {
+    scopeState[key] = !scopeState[key];
+    // bookState に反映
+    bookState.forEach(g => {
+        if (key === 'lxx') {
+            if (LXX_KEYS.has(g.key)) g.enabled = scopeState.lxx;
+        } else {
+            if (!LXX_KEYS.has(g.key)) g.enabled = scopeState.nt;
+        }
+    });
+    renderScopeChips();
+    updateFilterSummaryText();
+    notifyFilterChanged();
+    if (window._morphData) renderResults(window._morphData);
 }
 
 function renderWordFilterChips() {
@@ -1378,34 +1551,43 @@ function renderWordFilterChips() {
     if (!params.lemma && !params.word) { sec.style.display='none'; return; }
     sec.style.display = 'block';
     const modes = [
-        params.lemma ? { key:'lemma', label:`原形一致　${params.lemma}` } : null,
-        params.word  ? { key:'word',  label:`語形一致　${params.word}`  } : null,
+        params.word  ? { key:'word',  label:`語形一致`,  greek: params.word  } : null,
+        params.lemma ? { key:'lemma', label:`原形一致`,   greek: params.lemma } : null,
     ].filter(Boolean);
-    document.getElementById('word-filter-chips').innerHTML = modes.map(mode => `
-        <div class="chip chip-toggle ${wordFilterMode===mode.key?'on':'off'}"
-             onclick="toggleWordFilter('${mode.key}')"
-             style="font-family:${mode.key!=='none'?'\'Gentium Plus\',serif':'inherit'}">
-            <div class="chip-dot">${wordFilterMode===mode.key?'✓':''}</div>
+    document.getElementById('word-filter-chips').innerHTML = modes.map(mode => {
+        const on = wordFilterMode === mode.key;
+        return `<div class="chip chip-radio ${on?'on':'off'}" onclick="toggleWordFilter('${mode.key}')">
+            <div class="chip-radio-dot">${on?'●':''}</div>
             <span>${mode.label}</span>
-        </div>`).join('');
+            <span style="font-family:'Gentium Plus',serif;margin-left:3px;opacity:0.85;">${mode.greek}</span>
+        </div>`;
+    }).join('');
 }
 
 /* フィルターサマリーテキスト（折りたたみヘッダーに表示） */
 function updateFilterSummaryText() {
-    const onExt    = extState.filter(f=>f.enabled&&f.value).length;
-    const offExt   = extState.filter(f=>!f.enabled&&f.value).length;
-    const onBooks  = bookState.filter(g=>g.enabled).length;
-    const parts    = [];
-    if (onExt)  parts.push(`拡張条件 ${onExt}件ON`);
+    const parts = [];
+    // 検索対象
+    if (wordFilterMode === 'lemma') parts.push('原形一致');
+    else if (wordFilterMode === 'word') parts.push('語形一致');
+    // 範囲
+    const scopeParts = [];
+    if (scopeState.nt)  scopeParts.push('新約');
+    if (scopeState.lxx) scopeParts.push('LXX');
+    if (scopeParts.length < 2) parts.push(scopeParts.join('・') || '範囲なし');
+    // コア条件OFF
+    const coreOff = Object.entries(coreOnState).filter(([,v])=>!v).length;
+    if (coreOff) parts.push(`語形条件 ${coreOff}件OFF`);
+    // 拡張条件OFF
+    const offExt = extState.filter(f=>!f.enabled&&f.value).length;
     if (offExt) parts.push(`${offExt}件OFF`);
-    parts.push(`書物 ${onBooks}/${bookState.length}グループ`);
     const el = document.getElementById('filter-summary-text');
-    if (el) el.textContent = parts.join('・');
+    if (el) el.textContent = parts.length ? parts.join('・') : '条件変更なし';
 }
 
 function toggleExt(i)  {
     extState[i].enabled=!extState[i].enabled;
-    renderExtChips(); renderCoreTags(); syncURL();
+    renderExtChips(); renderCoreChips(); renderCoreTags(); syncURL();
     updateFilterSummaryText();
     notifyFilterChanged();
     if(window._morphData) renderResults(window._morphData);
@@ -1418,7 +1600,9 @@ function toggleBook(i) {
     if(window._morphData) renderResults(window._morphData);
 }
 function toggleWordFilter(mode) {
-    wordFilterMode=mode;
+    // ラジオ式：同じものをクリックしても変わらない（常に1つが選択）
+    if (wordFilterMode === mode) return;
+    wordFilterMode = mode;
     renderWordFilterChips();
     if(window._morphData) renderResults(window._morphData);
 }
@@ -1692,6 +1876,7 @@ if (typeof renderAspectTag === 'function' && params.tense) { renderAspectTag(par
 renderCoreChips();
 renderExtChips();
 renderBookChips();
+renderScopeChips();
 renderWordFilterChips();
 updateFilterSummaryText();
 
