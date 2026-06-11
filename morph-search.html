@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>形態論検索</title>
+<title>0817｜形態論検索</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 
@@ -944,6 +944,38 @@ function getSearchParams() {
 }
 const params = getSearchParams();
 
+/* ══════════════════════════════════════════
+   URLパラメータ不完全時の補完（実データから解決）
+══════════════════════════════════════════ */
+// renderResults が呼ばれたとき、最初のヒットから voice/gender/number/case を補完する
+let resolvedMorph = null;  // { voice, gender, number, case, person } — 補完済み情報
+
+function patchParamsFromEntry(entry) {
+    if (resolvedMorph) return;  // 一度だけ実行
+    const m = decodeMorph(entry);
+    resolvedMorph = {
+        voice:  m.voice  || params.voice  || '',
+        gender: m.gender || params.gender?.value || '',
+        number: m.number || params.number?.value || '',
+        case:   m.case   || params.case?.value   || '',
+        person: m.person || params.person || '',
+    };
+    // extState も補完（値がない場合のみ追加）
+    ['gender','number','case'].forEach(key => {
+        if (resolvedMorph[key] && !extState.find(f => f.key === key)) {
+            extState.push({ key, label: key, value: resolvedMorph[key], enabled: true });
+        }
+    });
+    // params.voice が空なら補完
+    if (!params.voice && resolvedMorph.voice) params.voice = resolvedMorph.voice;
+    if (!params.person && resolvedMorph.person) params.person = resolvedMorph.person;
+    // 表示を再描画
+    renderCoreTags();
+    renderCoreChips();
+    renderExtChips();
+    updateFilterSummaryText();
+}
+
 let extState = [
     { key:'gender', label:'性', value: params.gender.value, enabled: params.gender.enabled },
     { key:'number', label:'数', value: params.number.value, enabled: params.number.enabled },
@@ -1669,6 +1701,8 @@ const PAGE_SIZE = 100;
 
 function renderResults(allData) {
     const matched = allData.filter(matchEntry);
+    // URLパラメータが不完全な場合、最初のヒットから補完
+    if (matched.length > 0 && !resolvedMorph) patchParamsFromEntry(matched[0]);
     const sp      = params.pos.replace(/-$/,'');
     const samePos = allData.filter(e=>(e.pos||'').replace(/-$/,'').toUpperCase()===sp.toUpperCase()).length;
     document.getElementById('count').textContent      = matched.length.toLocaleString();
