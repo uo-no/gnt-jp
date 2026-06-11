@@ -429,9 +429,14 @@ const SyntaxTreeBuilder = (() => {
 
 })();
 
-/* ── ブラウザグローバル export ─────────────────────────────────────── */
+/* ── ブラウザグローバル export  ── STEP8: App.syntax 配下へ移行 ── */
 if (typeof window !== 'undefined') {
-    window.SyntaxTreeBuilder = SyntaxTreeBuilder;
+    window.App = window.App || {};
+    window.App.syntax = window.App.syntax || {};
+    window.App.syntax.TreeBuilder = SyntaxTreeBuilder;
+
+    /* 互換エイリアス（既存の window.SyntaxTreeBuilder 参照を壊さない） */
+    window.SyntaxTreeBuilder = window.App.syntax.TreeBuilder;
 }
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { SyntaxTreeBuilder };
