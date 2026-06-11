@@ -78,7 +78,7 @@ body {
 }
 
 /* ══════════════════════════════════════════
-   SECTION 1 — 語の正体
+   SECTION 1 — 語形の正体
    目標：最初の3秒で「この語は何か」を理解させる
 ══════════════════════════════════════════ */
 .identity-block {
@@ -179,6 +179,61 @@ body {
     background: var(--bg-inset);
     border-radius: var(--radius-s);
     border-left: 3px solid var(--accent-mid);
+}
+
+/* 一行活用サマリー（品詞＋活用を連結表示） */
+.identity-morph-summary-line {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 12px;
+    letter-spacing: 0.02em;
+}
+
+/* 日本語訳 */
+.identity-ja-gloss {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--text-sub);
+    margin-bottom: 14px;
+    padding: 6px 12px;
+    background: var(--bg-inset);
+    border-radius: var(--radius-s);
+    display: inline-block;
+}
+
+/* 詳細分析ブロック */
+.identity-detail-block {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+}
+.identity-detail-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-hint);
+    margin-bottom: 10px;
+}
+.identity-detail-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 16px;
+    align-items: baseline;
+}
+.identity-detail-key {
+    font-size: 0.72rem;
+    color: var(--text-hint);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.identity-detail-val {
+    font-size: 0.82rem;
+    color: var(--text);
+    font-weight: 500;
 }
 
 /* ══════════════════════════════════════════
@@ -647,7 +702,7 @@ body.compact-reading-mode .result-ja {
      「この語は何か」を最初の3秒で理解させる
 ══════════════════════════════════════════ -->
 <div class="section-block fade-up">
-    <div class="section-title">§ 1 語の正体</div>
+    <div class="section-title">§ 1 語形の正体</div>
 
     <div class="identity-block">
         <!-- 語形（最大・最優先） -->
@@ -659,14 +714,20 @@ body.compact-reading-mode .result-ja {
             <span class="identity-lemma-val" id="hdr-lemma">—</span>
         </div>
 
-        <!-- 品詞バッジ -->
-        <div class="identity-pos-badge" id="hdr-pos">品詞</div>
+        <!-- 一行活用サマリー（品詞＋活用情報を連結） -->
+        <div class="identity-morph-summary-line" id="identity-morph-line">—</div>
 
-        <!-- 活用情報グリッド -->
-        <div class="identity-morph-grid" id="core-tags"></div>
+        <!-- 日本語訳 -->
+        <div class="identity-ja-gloss" id="identity-ja-gloss" style="display:none"></div>
 
-        <!-- 活用サマリー -->
+        <!-- 活用の説明文 -->
         <div class="identity-summary" id="core-summary"></div>
+
+        <!-- 詳細分析テーブル -->
+        <div class="identity-detail-block" id="identity-detail-block" style="display:none">
+            <div class="identity-detail-label">詳細分析</div>
+            <div class="identity-detail-grid" id="identity-detail-grid"></div>
+        </div>
     </div>
 </div>
 
@@ -789,6 +850,7 @@ function getSearchParams() {
         tense:  p.get('tense') || '',
         mood:   p.get('mood')  || '',
         voice:  p.get('voice') || '',
+        person: p.get('person')|| '',
         gender: { value: p.get('gender')||'', enabled: !dis.has('gender') },
         number: { value: p.get('number')||'', enabled: !dis.has('number') },
         case:   { value: p.get('case')  ||'', enabled: !dis.has('case')   },
@@ -983,7 +1045,6 @@ function renderHeader() {
     const pos = params.pos.replace(/-$/,'').toUpperCase();
     document.getElementById('bc-ref').textContent   = params.ref  || '詳細';
     document.getElementById('bc-word').textContent  = params.word || '—';
-    document.getElementById('hdr-pos').textContent  = POS_JP[pos] || pos || '—';
     document.getElementById('hdr-word').textContent = params.word || '—';
     document.getElementById('hdr-lemma').textContent = params.lemma || '—';
 }
@@ -1071,33 +1132,36 @@ function renderDiscoveryCard() {
 }
 
 function renderCoreTags() {
-    /* 活用グリッド — 法・時制・態を primary（accent色）で最優先表示 */
-    const tags = [];
-    const addTag = (key, val, primary) => { if (val) tags.push({ key, val, primary: !!primary }); };
-    if (params.mood)  addTag('法',   MOOD_JP[params.mood]   || params.mood,  true);
-    if (params.tense) addTag('時制', TENSE_JP[params.tense] || params.tense, true);
-    if (params.voice) addTag('態',   VOICE_JP[params.voice] || params.voice, true);
-    const MAP   = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
-    const LABEL = { gender:'性', number:'数', case:'格' };
-    for (const f of extState) {
-        if (f.value) addTag(LABEL[f.key]||f.key, MAP[f.key]?.[f.value]||f.value, false);
+    const pos = params.pos.replace(/-$/,'').toUpperCase();
+    const PERSON_JP = { '1':'一人称', '2':'二人称', '3':'三人称' };
+
+    /* ── 一行活用サマリー（品詞＋活用情報を連結） ── */
+    const summaryParts = [];
+    if (pos && POS_JP[pos]) summaryParts.push(POS_JP[pos]);
+    if (params.mood)   summaryParts.push(MOOD_JP[params.mood]   || params.mood);
+    if (params.voice)  summaryParts.push(VOICE_JP[params.voice] || params.voice);
+    if (params.tense)  summaryParts.push(TENSE_JP[params.tense] || params.tense);
+    if (params.person) summaryParts.push(PERSON_JP[params.person] || params.person + '人称');
+    extState.filter(f=>f.enabled&&f.value).forEach(f => {
+        const MAP = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
+        if (MAP[f.key]?.[f.value]) summaryParts.push(MAP[f.key][f.value]);
+    });
+    const lineEl = document.getElementById('identity-morph-line');
+    if (lineEl) lineEl.textContent = summaryParts.join('') || '—';
+
+    /* ── 日本語訳（jaWordがあれば表示） ── */
+    const jaGlossEl = document.getElementById('identity-ja-gloss');
+    if (jaGlossEl) {
+        // jaWord は URL パラメータ 'jaword' or 'ja' から取得を試みる
+        const p = new URLSearchParams(location.search);
+        const jaWord = p.get('jaword') || p.get('ja') || '';
+        if (jaWord) {
+            jaGlossEl.textContent = `「${jaWord}」`;
+            jaGlossEl.style.display = '';
+        }
     }
-    document.getElementById('core-tags').innerHTML = tags.map(t => `
-        <div class="identity-morph-item ${t.primary ? 'primary' : ''}">
-            <span class="identity-morph-key">${t.key}</span>
-            <span class="identity-morph-val">${t.val}</span>
-        </div>`).join('');
 
-    /* サマリー文 */
-    const parts = [];
-    const MAP2 = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
-    if (params.tense) parts.push(TENSE_JP[params.tense]||params.tense);
-    if (params.voice) parts.push(VOICE_JP[params.voice]||params.voice);
-    if (params.mood)  parts.push(MOOD_JP[params.mood]  ||params.mood);
-    extState.filter(f=>f.enabled&&f.value).forEach(f => parts.push(MAP2[f.key]?.[f.value]||f.value));
-    document.getElementById('core-summary').textContent = parts.join(' · ') || '—';
-
-    /* パターンヒント（法＋時制から生成） E-2 */
+    /* ── サマリー説明文（法＋時制から） ── */
     const PATTERN_HINT = {
         'indicative:present':    '現在の事実・習慣的行為を描写します。',
         'indicative:imperfect':  '過去の継続・反復行為を表します。',
@@ -1119,16 +1183,55 @@ function renderCoreTags() {
     };
     const hintKey = `${params.mood || ''}:${params.tense || ''}`;
     const hint = PATTERN_HINT[hintKey] || null;
-    let summaryEl = document.getElementById('core-summary');
-    let hintEl = document.getElementById('pattern-hint');
-    if (!hintEl) {
-        hintEl = document.createElement('div');
-        hintEl.id = 'pattern-hint';
-        hintEl.style.cssText = 'margin-top:8px;font-size:0.75rem;color:var(--text-sub);line-height:1.6;';
-        summaryEl.parentNode.insertBefore(hintEl, summaryEl.nextSibling);
+
+    /* サマリー文は活用情報の説明として、話し手の語りかけ口調で */
+    const summaryEl = document.getElementById('core-summary');
+    if (summaryEl) {
+        // 人称があれば「この語形について」という導入を加える
+        let summaryText = '';
+        if (params.person && params.mood && ['indicative','subjunctive','imperative'].includes(params.mood)) {
+            const personTxt = PERSON_JP[params.person] || '';
+            summaryText = `この語形について話し手${params.person === '1' ? '自身' : ''}の行為を、出来事全体として述べる形です。`;
+        }
+        if (!summaryText && hint) {
+            summaryText = hint;
+        }
+        summaryEl.textContent = summaryText;
+        summaryEl.style.display = summaryText ? '' : 'none';
+
+        /* パターンヒント要素（旧実装との互換）は非表示 */
+        let hintEl = document.getElementById('pattern-hint');
+        if (!hintEl) {
+            hintEl = document.createElement('div');
+            hintEl.id = 'pattern-hint';
+            hintEl.style.display = 'none';
+            summaryEl.parentNode.insertBefore(hintEl, summaryEl.nextSibling);
+        }
+        hintEl.textContent = '';
+        hintEl.style.display = 'none';
     }
-    hintEl.textContent = hint || '';
-    hintEl.style.display = hint ? '' : 'none';
+
+    /* ── 詳細分析テーブル ── */
+    const detailBlock = document.getElementById('identity-detail-block');
+    const detailGrid  = document.getElementById('identity-detail-grid');
+    if (detailGrid) {
+        const rows = [];
+        if (params.mood)   rows.push({ k:'法',   v: MOOD_JP[params.mood]   || params.mood });
+        if (params.voice)  rows.push({ k:'態',   v: VOICE_JP[params.voice] || params.voice });
+        if (params.tense)  rows.push({ k:'時制', v: TENSE_JP[params.tense] || params.tense });
+        if (params.person) rows.push({ k:'人称', v: PERSON_JP[params.person] || params.person });
+        extState.filter(f=>f.enabled&&f.value).forEach(f => {
+            const MAP   = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
+            const LABEL = { gender:'性', number:'数', case:'格' };
+            if (MAP[f.key]?.[f.value]) rows.push({ k: LABEL[f.key]||f.key, v: MAP[f.key][f.value] });
+        });
+        if (rows.length) {
+            detailGrid.innerHTML = rows.map(r =>
+                `<span class="identity-detail-key">${r.k}</span><span class="identity-detail-val">${r.v}</span>`
+            ).join('');
+            if (detailBlock) detailBlock.style.display = '';
+        }
+    }
 }
 
 function renderDist(matched) {
