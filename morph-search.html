@@ -926,10 +926,6 @@ function getBookKey(entry) {
     if (entry.book != null && entry.book !== '') {
         return BOOK_MAP[String(entry.book).padStart(2,'0')] || null;
     }
-    if (entry.ref) {
-        const m = String(entry.ref).match(/^([A-Z0-9]+)/);
-        if (m) return m[1];
-    }
     return null;
 }
 function normalizeGreek(str) {
@@ -1288,19 +1284,18 @@ function notifyFilterChanged() {
    日本語訳（変更なし）
 ══════════════════════════════════════════ */
 const _jaMap = new Map();
-const _refToJaKey = (() => {
-    const KEY_TO_CODE = {};
-    Object.entries(BOOK_MAP).forEach(([code,key])=>{ KEY_TO_CODE[key]=code; });
-    return function(ref) {
-        const m = String(ref||'').match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
-        if (!m) return null;
-        const code = KEY_TO_CODE[m[1]];
-        if (!code) return null;
-        return `${code}${String(m[2]).padStart(2,'0')}${String(m[3]).padStart(2,'0')}`;
-    };
+/* _refToJaKey は STEP9 Data Flow Fix により削除 */
+const _KEY_TO_CODE = (() => {
+    const m = {};
+    Object.entries(BOOK_MAP).forEach(([code, key]) => { m[key] = code; });
+    return m;
 })();
 function getJaVerse(entry) {
-    const key = _refToJaKey(entry.ref);
+    const bk   = entry._bookKey || entry.book;
+    const code = _KEY_TO_CODE[bk];
+    const ch   = String(entry.ch ?? '').padStart(2, '0');
+    const v    = String(entry.verse ?? '').padStart(2, '0');
+    const key  = code && ch && v ? `${code}${ch}${v}` : null;
     if (key && _jaMap.has(key)) return _jaMap.get(key);
     return entry.gloss || entry.english || '';
 }
