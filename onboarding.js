@@ -3142,11 +3142,4 @@ const _DEFAULT_INSIGHT_EXPERIENCED = '翻訳では平らに見える箇所に、
         }, 10000);
     }
 
-    /* ── グローバル便利関数（開発時のみ） ────────────── */
-    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-        window.resetOnboarding = function () {
-            window.AppOnboarding.reset();
-        };
-    }
-
 })();
