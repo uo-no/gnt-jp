@@ -526,6 +526,51 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     font-family: 'Gentium Plus', serif;
     font-size: 1.35rem; font-weight: 700; color: var(--text-main);
     letter-spacing: 0.02em;
+    cursor: pointer; border-bottom: 2px dotted var(--border-soft);
+    transition: border-color 0.15s, color 0.15s;
+}
+.result-query:hover { border-bottom-color: var(--highlight); color: var(--highlight); }
+
+/* ── Abbott-Smith Modal ── */
+#as-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.38);
+    z-index: 900; display: none; align-items: center; justify-content: center;
+    padding: 20px;
+}
+#as-backdrop.open { display: flex; }
+#as-modal {
+    background: var(--bg-panel); border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+    max-width: 640px; width: 100%; max-height: 80vh;
+    display: flex; flex-direction: column; overflow: hidden;
+}
+#as-modal-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px 12px; border-bottom: 1px solid var(--border-soft);
+    flex-shrink: 0;
+}
+#as-modal-lemma {
+    font-family: 'Gentium Plus', serif; font-size: 1.5rem;
+    font-weight: 700; color: var(--text-main); flex: 1;
+}
+#as-modal-strong {
+    font-size: 0.68rem; font-weight: 700; color: var(--text-sub);
+    background: var(--bg-sub); border-radius: 6px; padding: 2px 7px;
+}
+#as-modal-close {
+    width: 28px; height: 28px; border-radius: 50%; border: none;
+    background: var(--bg-sub); cursor: pointer; font-size: 0.9rem;
+    color: var(--text-sub); display: flex; align-items: center; justify-content: center;
+    transition: background 0.12s;
+}
+#as-modal-close:hover { background: var(--border-soft); }
+#as-modal-body {
+    padding: 16px 20px; overflow-y: auto; flex: 1;
+    font-size: 0.82rem; line-height: 1.75; color: var(--text-main);
+    white-space: pre-wrap; font-family: 'Noto Serif JP', Georgia, serif;
+}
+#as-modal-body .as-empty {
+    color: var(--text-sub); font-style: italic;
 }
 .result-count {
     font-size: 0.78rem; font-weight: 700;
@@ -1055,6 +1100,18 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 </div><!-- /.container -->
 
 </div><!-- /.main-layout -->
+
+<!-- Abbott-Smith Modal -->
+<div id="as-backdrop" onclick="_asClose()">
+    <div id="as-modal" onclick="event.stopPropagation()">
+        <div id="as-modal-head">
+            <span id="as-modal-lemma"></span>
+            <span id="as-modal-strong"></span>
+            <button id="as-modal-close" onclick="_asClose()">✕</button>
+        </div>
+        <div id="as-modal-body"></div>
+    </div>
+</div>
 
 <!-- Mobile overlay & FAB -->
 <div class="mobile-overlay" id="mobile-overlay" onclick="_closeMobilePanel()"></div>
@@ -2664,6 +2721,78 @@ function _closeMobilePanel(){
 }
 
 init();
+
+/* ============================================================
+   Abbott-Smith 辞書モーダル
+   ============================================================ */
+let _abbottDict = null;
+let _abbottLoading = false;
+
+async function _loadAbbott() {
+    if (_abbottDict) return;
+    if (_abbottLoading) return;
+    _abbottLoading = true;
+    try {
+        const res = await fetch('./abbott-smith.tsv');
+        const text = await res.text();
+        _abbottDict = {};
+        text.split('\n').forEach((line, i) => {
+            if (i === 0) return; // header
+            const cols = line.split('\t');
+            if (cols.length < 3) return;
+            const strong = cols[0].trim();
+            _abbottDict[strong] = { lemma: cols[1]?.trim() || '', description: cols[2]?.trim() || '' };
+        });
+    } catch(e) {
+        console.warn('Abbott-Smith load error', e);
+    }
+}
+
+// result-query-label クリックでモーダル表示
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('result-query-label').addEventListener('click', _asOpen);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') _asClose(); });
+});
+
+function _asOpen() {
+    const query = _lastQuery.trim();
+    if (!query) return;
+
+    // Strong番号で検索中の場合
+    let strongKey = null;
+    if (/^[Gg]?\d+$/.test(query)) {
+        strongKey = String(parseInt(query.replace(/\D/g, ''), 10));
+    } else {
+        // lemmaから対応するstrongを探す
+        const found = ALL_TOKENS.find(t =>
+            t.lemma === query ||
+            normalizeGreek(t.lemma) === normalizeGreek(query)
+        );
+        if (found && found.strong) {
+            strongKey = String(parseInt(String(found.strong).replace(/\D/g, ''), 10));
+        }
+    }
+
+    _loadAbbott().then(() => {
+        const entry = _abbottDict && strongKey ? _abbottDict[strongKey] : null;
+        const lemmaEl = document.getElementById('as-modal-lemma');
+        const strongEl = document.getElementById('as-modal-strong');
+        const bodyEl = document.getElementById('as-modal-body');
+
+        lemmaEl.textContent = (entry && entry.lemma) ? entry.lemma : query;
+        strongEl.textContent = strongKey ? `G${strongKey}` : '';
+        if (entry && entry.description) {
+            bodyEl.innerHTML = entry.description.replace(/\n/g, '<br>');
+        } else {
+            bodyEl.innerHTML = '<span class="as-empty">この語のAbbott-Smith辞書データが見つかりませんでした。</span>';
+        }
+        document.getElementById('as-backdrop').classList.add('open');
+    });
+}
+
+function _asClose() {
+    document.getElementById('as-backdrop').classList.remove('open');
+}
 </script>
 </body>
 </html>
