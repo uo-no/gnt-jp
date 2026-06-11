@@ -865,6 +865,40 @@ opacity: 0.5;
 letter-spacing: 0.02em;
 display: block;
 }
+/* ── 辞書形式テーブル ── */
+.rn-dict-table {
+border-collapse: collapse;
+width: 100%;
+}
+.rn-dict-table td {
+padding: 3px 0;
+vertical-align: baseline;
+line-height: 1.6;
+}
+.rn-dict-key {
+font-size: 0.72rem;
+font-weight: 700;
+letter-spacing: 0.06em;
+color: var(--text-sub);
+white-space: nowrap;
+padding-right: 14px;
+width: 4.5em;
+}
+.rn-dict-val {
+font-size: 0.90rem;
+color: var(--text-main);
+}
+.rn-dict-greek {
+font-family: 'Gentium Plus', serif;
+font-size: 1.5rem;
+display: inline;
+line-height: 1.2;
+}
+.rn-dict-comp {
+font-family: 'Gentium Plus', serif;
+font-size: 0.88rem;
+color: var(--text-main);
+}
 
 /* 読書メモ本体 */
 .rn-notes {
@@ -3469,7 +3503,7 @@ details[open] .study-summary::before {
             <!-- reading-core-bar: 語形ヘッダー（Study時のみ） -->
             <div class="rcb-container" id="rcb-container">
                 <span class="rcb-chip-sm" id="rcb-main-word">-</span>
-                <span class="rcb-label-sm" id="rcb-main-gloss" style="font-weight:400;letter-spacing:0;text-transform:none;font-size:0.75rem;"></span>
+                <span class="rcb-label-sm" id="rcb-main-gloss" style="font-weight:400;letter-spacing:0;text-transform:none;font-size:0.75rem;display:none;"></span>
             </div>
 
             <!-- メインコンテンツエリア（タブなし・単一スクロール） -->
@@ -4629,11 +4663,27 @@ function _renderReadingNotes(p) {
         }
     }
 
+    /* 語構成：既存データに構成情報フィールドなし → 固定表示 */
+    const compositionLabel = '単純語';
+
     area.innerHTML = `
         <div class="rn-word-head">
-            <span class="rn-greek greek-headword">${word}</span>
-            ${jaWord ? `<span class="rn-ja">${jaWord}</span>` : ''}
-            ${ref    ? `<span class="rn-ref">${ref}</span>`   : ''}
+            <table class="rn-dict-table">
+                <tbody>
+                    <tr>
+                        <td class="rn-dict-key">語形</td>
+                        <td class="rn-dict-val"><span class="rn-greek greek-headword rn-dict-greek">${word}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="rn-dict-key">語構成</td>
+                        <td class="rn-dict-val rn-dict-comp">${compositionLabel}</td>
+                    </tr>
+                    <tr>
+                        <td class="rn-dict-key">意味</td>
+                        <td class="rn-dict-val">${jaWord || '—'}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
         <div class="rn-prose reading-block">
             <p class="rn-prose-text reading-prose">${prose.join('<br><br>')}</p>
