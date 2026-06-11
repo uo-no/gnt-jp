@@ -202,8 +202,22 @@ body {
     display: inline-block;
 }
 
-/* 詳細分析ブロック */
-.identity-detail-block {
+/* 語の正体内の区切り線 */
+.identity-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 14px 0;
+}
+
+/* 詳細分析フラット1行 */
+.identity-detail-flat {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-sub);
+    letter-spacing: 0.03em;
+}
+
+
     margin-top: 16px;
     padding: 12px 14px;
     background: var(--bg-panel);
@@ -702,7 +716,7 @@ body.compact-reading-mode .result-ja {
      「この語は何か」を最初の3秒で理解させる
 ══════════════════════════════════════════ -->
 <div class="section-block fade-up">
-    <div class="section-title">§ 1 語形の正体</div>
+    <div class="section-title">§1 語形の正体</div>
 
     <div class="identity-block">
         <!-- 語形（最大・最優先） -->
@@ -714,7 +728,8 @@ body.compact-reading-mode .result-ja {
             <span class="identity-lemma-val" id="hdr-lemma">—</span>
         </div>
 
-        <!-- 一行活用サマリー（品詞＋活用情報を連結） -->
+        <!-- 一行活用サマリー（品詞＋活用情報を連結）-->
+        <hr class="identity-divider">
         <div class="identity-morph-summary-line" id="identity-morph-line">—</div>
 
         <!-- 日本語訳 -->
@@ -722,11 +737,12 @@ body.compact-reading-mode .result-ja {
 
         <!-- 活用の説明文 -->
         <div class="identity-summary" id="core-summary"></div>
+        <hr class="identity-divider">
 
         <!-- 詳細分析テーブル -->
         <div class="identity-detail-block" id="identity-detail-block" style="display:none">
             <div class="identity-detail-label">詳細分析</div>
-            <div class="identity-detail-grid" id="identity-detail-grid"></div>
+            <div class="identity-detail-flat" id="identity-detail-grid"></div>
         </div>
     </div>
 </div>
@@ -1215,20 +1231,22 @@ function renderCoreTags() {
     const detailBlock = document.getElementById('identity-detail-block');
     const detailGrid  = document.getElementById('identity-detail-grid');
     if (detailGrid) {
-        const rows = [];
-        if (params.mood)   rows.push({ k:'法',   v: MOOD_JP[params.mood]   || params.mood });
-        if (params.voice)  rows.push({ k:'態',   v: VOICE_JP[params.voice] || params.voice });
-        if (params.tense)  rows.push({ k:'時制', v: TENSE_JP[params.tense] || params.tense });
-        if (params.person) rows.push({ k:'人称', v: PERSON_JP[params.person] || params.person });
-        extState.filter(f=>f.enabled&&f.value).forEach(f => {
-            const MAP   = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
-            const LABEL = { gender:'性', number:'数', case:'格' };
-            if (MAP[f.key]?.[f.value]) rows.push({ k: LABEL[f.key]||f.key, v: MAP[f.key][f.value] });
-        });
-        if (rows.length) {
-            detailGrid.innerHTML = rows.map(r =>
-                `<span class="identity-detail-key">${r.k}</span><span class="identity-detail-val">${r.v}</span>`
-            ).join('');
+        const parts = [];
+        if (params.mood)   parts.push(MOOD_JP[params.mood]   || params.mood);
+        if (params.voice)  parts.push(VOICE_JP[params.voice] || params.voice);
+        if (params.tense)  parts.push(TENSE_JP[params.tense] || params.tense);
+        if (params.person) parts.push((PERSON_JP[params.person] || params.person) + '人称');
+
+        // 名詞系: 性・数・格 の順
+        const genderF = extState.find(f => f.key === 'gender' && f.enabled && f.value);
+        const numberF = extState.find(f => f.key === 'number' && f.enabled && f.value);
+        const caseF   = extState.find(f => f.key === 'case'   && f.enabled && f.value);
+        if (genderF) parts.push(GENDER_JP[genderF.value] || genderF.value);
+        if (numberF) parts.push(NUMBER_JP[numberF.value] || numberF.value);
+        if (caseF)   parts.push(CASE_JP[caseF.value]     || caseF.value);
+
+        if (parts.length) {
+            detailGrid.textContent = parts.join('\u3000');
             if (detailBlock) detailBlock.style.display = '';
         }
     }
