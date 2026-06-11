@@ -435,9 +435,10 @@
     })();
 
     /* ══════════════════════════════════════════════════
-       Public API
+       Public API  ── STEP8: App.onboarding へ移行
        ══════════════════════════════════════════════════ */
-    window.AppOnboarding = {
+    window.App = window.App || {};
+    window.App.onboarding = {
 
         init() {
             /* 即時初期化済みのため no-op。DOMContentLoadedからの呼び出し用に残す。 */
@@ -509,11 +510,12 @@
                 // WELCOME ステップのとき、ページロード時点でStudy Panelがすでに開いていれば
                 // onStudyPanelOpened が呼ばれないため、手動で通知して STEP2 へ進める
                 else if (_state.currentStep === OB_STEP.WELCOME && !_state.verse16Opened) {
-                    var _appMode = (window.AppState && window.AppState.mode) || '';
-                    var _vNum    = (window.AppState && window.AppState.selectedVerse && window.AppState.selectedVerse.vNum) || null;
+                    var _appState = (window.App && window.App.bridge && window.App.bridge.getAppState) ? window.App.bridge.getAppState() : null;
+                    var _appMode = (_appState && _appState.mode) || '';
+                    var _vNum    = (_appState && _appState.selectedVerse && _appState.selectedVerse.vNum) || null;
                     if ((_appMode === 'study' || _appMode === 'browsing') && _vNum) {
                         setTimeout(function() {
-                            window.AppOnboarding.onStudyPanelOpened(window.innerWidth <= 900, String(_vNum));
+                            window.App.onboarding.onStudyPanelOpened(window.innerWidth <= 900, String(_vNum));
                         }, 400);
                     } else {
                         // Study Panelが閉じていれば通常通り WELCOME カードを表示
@@ -652,9 +654,10 @@
             //    → book が JHN であれば ROM onboarding をスキップして HOUTOS へ進む。
             // AppState.location は非同期描画後に確定するため URL から直接取得する
             var _urlBook = new URLSearchParams(window.location.search).get('book') || '';
+            var _bridgeState = (!_urlBook && window.App && window.App.bridge && window.App.bridge.getAppState) ? window.App.bridge.getAppState() : null;
             var _curBook = (_urlBook)
-                || ((window.AppState && window.AppState.location && window.AppState.location.book)
-                    ? window.AppState.location.book.key : '');
+                || (_bridgeState && _bridgeState.location && _bridgeState.location.book
+                    ? _bridgeState.location.book.key : '');
             var _isJhnContext = (_curBook === 'JHN');
             var _jhnOnboardingSteps = [
                 OB_STEP.JOHN316_READING, OB_STEP.JOHN316_HOUTOS,
@@ -698,7 +701,10 @@
             }, 500);
         },
 
-    }; // end window.AppOnboarding
+    }; // end window.App.onboarding
+
+    /* 互換エイリアス（既存の window.AppOnboarding 参照を壊さない） */
+    window.AppOnboarding = window.App.onboarding;
 
     /* ── Unified Onboarding Card ────────────────────── */
     function _renderOnboardingCard(config) {
