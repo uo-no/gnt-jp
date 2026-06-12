@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>2012｜形態論検索</title>
+<title>2037｜形態論検索</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 
@@ -735,10 +735,8 @@ body.compact-reading-mode .result-ja {
 }
 .help-popup {
     display: none;
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    z-index: 100;
+    position: fixed;
+    z-index: 1000;
     min-width: 200px;
     max-width: min(260px, calc(100vw - 32px));
     background: var(--bg);
@@ -1956,13 +1954,26 @@ async function fetchJaData(morphPaths) {
     if (!btn || !popup) return;
 
     function openPopup() {
-        /* 右端からはみ出す場合は右寄せに切り替え */
+        /* position: fixed のため、ボタンの位置を基準に座標を計算する */
         popup.classList.remove('align-right');
-        const rect = popup.parentElement.getBoundingClientRect();
+        popup.style.left = '';
+        popup.style.right = '';
+        popup.style.top = '';
+
+        const rect = btn.getBoundingClientRect();
         const popW = 260;
-        if (rect.left + popW > window.innerWidth - 16) {
+        const margin = 16;
+
+        let top = rect.bottom + 8;
+        if (rect.left + popW > window.innerWidth - margin) {
+            /* 右端からはみ出す場合は右揃え */
             popup.classList.add('align-right');
+            popup.style.right = (window.innerWidth - rect.right) + 'px';
+        } else {
+            popup.style.left = rect.left + 'px';
         }
+        popup.style.top = top + 'px';
+
         popup.classList.add('open');
         btn.setAttribute('aria-expanded', 'true');
     }
