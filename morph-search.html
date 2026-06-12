@@ -998,19 +998,25 @@ function patchParamsFromEntry(entry) {
         number: m.number || params.number?.value || '',
         case:   m.case   || params.case?.value   || '',
         person: m.person || params.person || '',
+        jaWord: entry.japanese || '',
     };
-    // extState に表示用エントリを追加（_fromResolved フラグ付き）
-    // matchEntry では _fromResolved エントリを無視する
     ['gender','number','case'].forEach(key => {
         const val = resolvedMorph[key];
         if (val && !extState.find(f => f.key === key)) {
             extState.push({ key, label: key, value: val, enabled: true, _fromResolved: true });
         }
     });
-    // voice も params に補完（matchEntry は coreOnState.voice=true のときのみ参照）
     if (!params.voice && resolvedMorph.voice) params.voice = resolvedMorph.voice;
     if (!params.person && resolvedMorph.person) params.person = resolvedMorph.person;
-    // 表示を再描画
+    // パンくずのギリシャ語を日本語に更新
+    if (resolvedMorph.jaWord) {
+        const bcWord = document.getElementById('bc-word');
+        if (bcWord) {
+            bcWord.textContent = resolvedMorph.jaWord;
+            bcWord.style.fontFamily = 'inherit';
+            bcWord.style.fontSize   = '';
+        }
+    }
     renderCoreTags();
     renderCoreChips();
     renderExtChips();
@@ -1206,7 +1212,7 @@ function matchEntry(entry) {
 ══════════════════════════════════════════ */
 function renderHeader() {
     const pos = params.pos.replace(/-$/,'').toUpperCase();
-    document.getElementById('bc-ref').textContent   = params.ref  || '詳細';
+    document.getElementById('bc-ref').textContent   = buildRefLabel(params.ref) || '詳細';
     document.getElementById('bc-word').textContent  = params.word || '—';
     document.getElementById('hdr-word').textContent = params.word || '—';
     document.getElementById('hdr-lemma').textContent = params.lemma || '—';
