@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>1318｜形態論検索</title>
+<title>1454｜形態論検索</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 
@@ -952,8 +952,18 @@ function patchParamsFromEntry(entry) {
         case:   m.case   || params.case?.value   || '',
         person: m.person || params.person || '',
     };
-    // ★ extState・params には一切書き込まない（matchEntry のフィルターに影響させない）
-    // 表示のみ再描画（resolvedMorph を参照する renderCoreTags が使う）
+    // extState に表示用エントリを追加（_fromResolved フラグ付き）
+    // matchEntry では _fromResolved エントリを無視する
+    ['gender','number','case'].forEach(key => {
+        const val = resolvedMorph[key];
+        if (val && !extState.find(f => f.key === key)) {
+            extState.push({ key, label: key, value: val, enabled: true, _fromResolved: true });
+        }
+    });
+    // voice も params に補完（matchEntry は coreOnState.voice=true のときのみ参照）
+    if (!params.voice && resolvedMorph.voice) params.voice = resolvedMorph.voice;
+    if (!params.person && resolvedMorph.person) params.person = resolvedMorph.person;
+    // 表示を再描画
     renderCoreTags();
     renderCoreChips();
     renderExtChips();
@@ -1137,6 +1147,7 @@ function matchEntry(entry) {
     }
     if (coreOnState.person && params.person && (m.person||'') !== params.person) return false;
     for (const f of extState) {
+        if (f._fromResolved) continue;  // 表示補完エントリはフィルター対象外
         if (!f.enabled || !f.value) continue;
         if ((m[f.key]||'') !== f.value) return false;
     }
