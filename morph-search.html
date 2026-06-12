@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>0907｜形態論検索</title>
+<title>1156｜形態論検索</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 
@@ -952,16 +952,8 @@ function patchParamsFromEntry(entry) {
         case:   m.case   || params.case?.value   || '',
         person: m.person || params.person || '',
     };
-    // extState も補完（値がない場合のみ追加）
-    ['gender','number','case'].forEach(key => {
-        if (resolvedMorph[key] && !extState.find(f => f.key === key)) {
-            extState.push({ key, label: key, value: resolvedMorph[key], enabled: true });
-        }
-    });
-    // params.voice が空なら補完
-    if (!params.voice && resolvedMorph.voice) params.voice = resolvedMorph.voice;
-    if (!params.person && resolvedMorph.person) params.person = resolvedMorph.person;
-    // 表示を再描画
+    // ★ extState・params には一切書き込まない（matchEntry のフィルターに影響させない）
+    // 表示のみ再描画（resolvedMorph を参照する renderCoreTags が使う）
     renderCoreTags();
     renderCoreChips();
     renderExtChips();
@@ -1248,22 +1240,10 @@ function renderCoreTags() {
     const pos = params.pos.replace(/-$/,'').toUpperCase();
     const PERSON_JP = { '1':'一人称', '2':'二人称', '3':'三人称' };
 
-    /* ── 一行活用サマリー（品詞＋活用情報を連結） ── */
-    const summaryParts = [];
-    if (pos && POS_JP[pos]) summaryParts.push(POS_JP[pos]);
-    if (params.mood)   summaryParts.push(MOOD_JP[params.mood]   || params.mood);
-    // 態：params.voice が空でも extState から補完
-    const _voiceVal = params.voice ||
-        extState.find(f => f.key === 'voice' && f.enabled && f.value)?.value || '';
-    if (_voiceVal)  summaryParts.push(VOICE_JP[_voiceVal] || _voiceVal);
-    if (params.tense)  summaryParts.push(TENSE_JP[params.tense] || params.tense);
-    if (params.person) summaryParts.push(PERSON_JP[params.person] || params.person + '人称');
-    extState.filter(f=>f.enabled&&f.value&&f.key!=='voice').forEach(f => {
-        const MAP = { gender:GENDER_JP, number:NUMBER_JP, case:CASE_JP };
-        if (MAP[f.key]?.[f.value]) summaryParts.push(MAP[f.key][f.value]);
-    });
-    const lineEl = document.getElementById('identity-morph-line');
-    if (lineEl) lineEl.textContent = summaryParts.join('') || '—';
+    /* ── 一行活用サマリー（品詞＋活用情報を連結）── 削除済み、処理のみ維持 ── */
+    // resolvedMorph があれば補完値を優先（表示専用、フィルターには影響しない）
+    const _rm = resolvedMorph || {};
+    const _voiceVal = params.voice || _rm.voice || '';
 
     /* ── 日本語訳（jaWordがあれば表示） ── */
     const jaGlossEl = document.getElementById('identity-ja-gloss');
@@ -1362,34 +1342,38 @@ function renderCoreTags() {
     const detailGrid  = document.getElementById('identity-detail-grid');
     if (detailGrid) {
         const parts = [];
+        // resolvedMorph（先取りフェッチ補完）を優先、なければ params/extState
+        const _rm2 = resolvedMorph || {};
+        const _getVal = (key) =>
+            _rm2[key] ||
+            extState.find(f => f.key === key && f.enabled && f.value)?.value ||
+            (typeof params[key] === 'object' ? params[key]?.value : params[key]) || '';
 
         if (pos === 'V') {
-            // 動詞系：法　態　時制　[人称]　[性　数　格（分詞の場合）]
-            if (params.mood)   parts.push(MOOD_JP[params.mood]   || params.mood);
-            if (params.voice)  parts.push(VOICE_JP[params.voice] || params.voice);
-            if (params.tense)  parts.push(TENSE_JP[params.tense] || params.tense);
-            if (params.person) parts.push((PERSON_JP[params.person] || params.person) + '人称');
-            // 分詞は性・数・格も持つ
+            if (params.mood)  parts.push(MOOD_JP[params.mood] || params.mood);
+            const vv = _getVal('voice');
+            if (vv)           parts.push(VOICE_JP[vv] || vv);
+            if (params.tense) parts.push(TENSE_JP[params.tense] || params.tense);
+            const pv = params.person || _rm2.person || '';
+            if (pv)           parts.push((PERSON_JP[pv] || pv) + '人称');
             if (params.mood === 'participle') {
-                const gF = extState.find(f => f.key === 'gender' && f.enabled && f.value);
-                const nF = extState.find(f => f.key === 'number' && f.enabled && f.value);
-                const cF = extState.find(f => f.key === 'case'   && f.enabled && f.value);
-                if (gF) parts.push(GENDER_JP[gF.value] || gF.value);
-                if (nF) parts.push(NUMBER_JP[nF.value] || nF.value);
-                if (cF) parts.push(CASE_JP[cF.value]   || cF.value);
+                const gv = _getVal('gender'), nv = _getVal('number'), cv = _getVal('case');
+                if (gv) parts.push(GENDER_JP[gv] || gv);
+                if (nv) parts.push(NUMBER_JP[nv] || nv);
+                if (cv) parts.push(CASE_JP[cv]   || cv);
+            } else {
+                const nv = _getVal('number');
+                if (nv) parts.push(NUMBER_JP[nv] || nv);
             }
         } else {
-            // 名詞・形容詞・代名詞・冠詞系：性　数　格
-            const gF = extState.find(f => f.key === 'gender' && f.enabled && f.value);
-            const nF = extState.find(f => f.key === 'number' && f.enabled && f.value);
-            const cF = extState.find(f => f.key === 'case'   && f.enabled && f.value);
-            if (gF) parts.push(GENDER_JP[gF.value] || gF.value);
-            if (nF) parts.push(NUMBER_JP[nF.value] || nF.value);
-            if (cF) parts.push(CASE_JP[cF.value]   || cF.value);
+            const gv = _getVal('gender'), nv = _getVal('number'), cv = _getVal('case');
+            if (gv) parts.push(GENDER_JP[gv] || gv);
+            if (nv) parts.push(NUMBER_JP[nv] || nv);
+            if (cv) parts.push(CASE_JP[cv]   || cv);
         }
 
         if (parts.length) {
-            detailGrid.textContent = parts.join('\u3000');
+            detailGrid.textContent = parts.join('　');
             if (detailBlock) detailBlock.style.display = '';
         }
     }
