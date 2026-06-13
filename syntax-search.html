@@ -1275,73 +1275,6 @@ margin-bottom: 20px;
     font-weight: 400;
 }
 
-/* ══════════════════════════════════════════
-   絞り込み条件 — filter-disclosure
-══════════════════════════════════════════ */
-.filter-section-block { margin-bottom: 32px; }
-.filter-disclosure { margin-bottom: 0; }
-.filter-disclosure-trigger {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 9px 14px;
-    background: var(--bg-panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-s);
-    cursor: pointer; user-select: none;
-    font-size: 0.75rem; color: var(--text-sub);
-    transition: background 0.12s;
-    list-style: none;
-}
-.filter-disclosure-trigger:hover { background: #ebebed; }
-.filter-disclosure-trigger .trigger-label { font-weight: 600; }
-.filter-disclosure-trigger .trigger-state {
-    font-size: 0.68rem; color: var(--text-hint);
-    display: flex; align-items: center; gap: 6px;
-}
-.filter-disclosure-trigger .trigger-arrow {
-    font-size: 0.7rem; color: var(--text-hint);
-    transition: transform 0.2s;
-}
-.filter-disclosure[open] .filter-disclosure-trigger .trigger-arrow { transform: rotate(180deg); }
-.filter-disclosure-body {
-    padding: 14px;
-    border: 1px solid var(--border);
-    border-top: none;
-    border-radius: 0 0 var(--radius-s) var(--radius-s);
-    background: var(--bg-inset);
-}
-.filter-group { margin-bottom: 14px; }
-.filter-group:last-child { margin-bottom: 0; }
-.filter-group-label {
-    font-size: 0.62rem; font-weight: 700;
-    letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--text-hint); margin-bottom: 8px;
-}
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 5px 12px; border-radius: 20px; font-size: 0.75rem;
-    transition: all 0.12s;
-}
-.chip-scope {
-    border: 1px solid var(--border); cursor: pointer; user-select: none;
-}
-.chip-scope.on {
-    background: var(--accent-light); border-color: var(--accent-mid);
-    color: var(--accent); font-weight: 600;
-}
-.chip-scope.off {
-    background: var(--bg); border-color: var(--border);
-    color: var(--text-hint); text-decoration: line-through;
-}
-.chip-scope:hover.off { background: var(--bg-panel); text-decoration: none; }
-.chip-scope-check {
-    width: 13px; height: 13px; border-radius: 3px;
-    border: 1.5px solid currentColor;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 9px; flex-shrink: 0;
-}
-.chip-scope.on .chip-scope-check { background: var(--accent); border-color: var(--accent); color: #fff; }
-.chip-scope.off .chip-scope-check { background: transparent; }
 </style>
    <script src="syntax-tree-builder.js"></script>
    <script src="syntax-analyzer.js"></script>
@@ -1386,25 +1319,7 @@ margin-bottom: 20px;
 </div>
 
 <!-- 共有フィルターバー（Morph引継ぎ） -->
-<!-- 絞り込み条件 -->
-<div class="filter-section-block" id="filter-section-block">
-    <details class="filter-disclosure" id="filter-details">
-        <summary class="filter-disclosure-trigger">
-            <span class="trigger-label">絞り込み条件</span>
-            <span class="trigger-state">
-                <span id="filter-summary-text">条件変更なし</span>
-                <span class="trigger-arrow">▾</span>
-            </span>
-        </summary>
-        <div class="filter-disclosure-body">
-            <!-- 範囲 -->
-            <div class="filter-group">
-                <div class="filter-group-label">範囲</div>
-                <div class="chips" id="scope-chips"></div>
-            </div>
-        </div>
-    </details>
-</div>
+
 
 <!-- LOADING STATE -->
 <div id="main-loading" class="loading">
@@ -1644,53 +1559,7 @@ function notifyFilterChanged() {
     else if (window.opener && !window.opener.closed) window.opener.postMessage(msg, '*');
 }
 
-/* 新約／LXX スコープ状態 */
-const LXX_KEYS = new Set(['lxx_torah','lxx_forprop','lxx_latprop','lxx_writings']);
-const scopeState = { nt: true, lxx: true };
-
-function renderScopeChips() {
-    const el = document.getElementById('scope-chips');
-    if (!el) return;
-    const scopes = [
-        { key:'nt',  label:'新約' },
-        { key:'lxx', label:'LXX' },
-    ];
-    el.innerHTML = scopes.map(s => {
-        const on = scopeState[s.key];
-        return `<div class="chip chip-scope ${on?'on':'off'}" onclick="toggleScope('${s.key}')">
-            <div class="chip-scope-check">${on?'✓':''}</div>
-            <span>${s.label}</span>
-        </div>`;
-    }).join('');
-}
-
-function toggleScope(key) {
-    scopeState[key] = !scopeState[key];
-    bookFilterState.forEach(g => {
-        if (key === 'lxx') {
-            if (LXX_KEYS.has(g.key)) g.enabled = scopeState.lxx;
-        } else {
-            if (!LXX_KEYS.has(g.key)) g.enabled = scopeState.nt;
-        }
-    });
-    renderScopeChips();
-    updateFilterSummaryText();
-    notifyFilterChanged();
-}
-
-function updateFilterSummaryText() {
-    const parts = [];
-    const scopeParts = [];
-    if (scopeState.nt)  scopeParts.push('新約');
-    if (scopeState.lxx) scopeParts.push('LXX');
-    if (scopeParts.length < 2) parts.push(scopeParts.join('・') || '範囲なし');
-    const el = document.getElementById('filter-summary-text');
-    if (el) el.textContent = parts.length ? parts.join('・') : '条件変更なし';
-}
-
-// 初期描画
-renderScopeChips();
-updateFilterSummaryText();
+/* 初期描画 */
 
 /* ══════════════════════════════════════════
    データ共通ユーティリティ
@@ -3274,8 +3143,7 @@ window.addEventListener('message', function(e) {
                 ...g,
                 enabled: f.groups.length === 0 ? true : groupSet.has(g.key)
             }));
-            renderScopeChips();
-            updateFilterSummaryText();
+            notifyFilterChanged();
         }
     }
 });
