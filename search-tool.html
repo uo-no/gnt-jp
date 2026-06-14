@@ -2551,14 +2551,22 @@ function _showEmpty(title,desc){
    init
    ============================================================ */
 function init(){
+    // 他ページ（morph-search.html）から語形情報が渡されていれば読み取る
+    const incoming = _applyIncomingSearchContext();
     _initSuggest();
     _initMorphChips();
+    if (incoming && incoming.hasMorph) {
+        _layers.morph = true;
+        _updateMorphClearBtn();
+    }
     // Initial layer sync
     Object.keys(_layers).forEach(k=>_syncLayerUI(k));
     // Start data loading
     _ensureL1().then(()=>{
         _buildAndExposeLemmaIndex();
         _buildAndExposeMorphIndex();
+        // 検索語が引き継がれている場合は読み込み完了後に自動検索
+        if (incoming && incoming.hasLemma) unifiedSearch();
     });
     _watchIndexProgress();
     // Initial prox slider
@@ -2607,6 +2615,64 @@ const MORPH_MOOD = [
 
 /* State: selected values per slot */
 const _morphSel = {pos:new Set(),case:new Set(),num:new Set(),gen:new Set(),tense:new Set(),voice:new Set(),mood:new Set()};
+
+/* ============================================================
+   他ページ（morph-search.html）からの語形情報の引き継ぎ
+   morph-search.html の searchContext は英語フルワード
+   （例: tense="aorist", case="nominative"）で値を渡してくるため、
+   ここで本ツールの1文字コード（Robinson-Pierpont式）に変換する。
+   ============================================================ */
+const TENSE_CODE_MAP = {
+    present:'P', imperfect:'I', future:'F',
+    aorist:'A', perfect:'X', pluperfect:'Y',
+};
+const VOICE_CODE_MAP = {
+    active:'A', middle:'M', passive:'P',
+    'middle deponent':'M', 'middle or passive':'M',
+};
+const MOOD_CODE_MAP = {
+    indicative:'I', subjunctive:'S', optative:'O',
+    imperative:'M', infinitive:'N', participle:'P',
+};
+const GENDER_CODE_MAP = { masculine:'M', feminine:'F', neuter:'N' };
+const NUMBER_CODE_MAP = { singular:'S', plural:'P' };
+const CASE_CODE_MAP   = {
+    nominative:'N', genitive:'G', dative:'D',
+    accusative:'A', vocative:'V',
+};
+/* pos は morph-search 側で既に1文字の大文字コード（V/N/A/R/T/P/D）として渡ってくる */
+const POS_CODE_SET = new Set(MORPH_POS.map(p => p.code));
+
+/**
+ * URLSearchParams から lemma / pos / tense / voice / mood / number / gender / case を読み取り、
+ * 検索語入力欄と _morphSel に反映する。
+ * person は本ツールに対応する絞り込み項目が無いため引き継がない。
+ * 戻り値: { hasLemma, hasMorph } / パラメータが無ければ null
+ */
+function _applyIncomingSearchContext(){
+    const sp = new URLSearchParams(location.search);
+    if ([...sp.keys()].length === 0) return null;
+
+    const lemma = (sp.get('lemma') || '').trim();
+    if (lemma) {
+        document.getElementById('unified-search-input').value = lemma;
+    }
+
+    const addCode = (slot, code) => { if (code) _morphSel[slot].add(code); };
+
+    const pos = (sp.get('pos') || '').toUpperCase();
+    if (pos && POS_CODE_SET.has(pos)) addCode('pos', pos);
+
+    addCode('tense', TENSE_CODE_MAP[sp.get('tense') || '']);
+    addCode('voice', VOICE_CODE_MAP[sp.get('voice') || '']);
+    addCode('mood',  MOOD_CODE_MAP[sp.get('mood') || '']);
+    addCode('gen',   GENDER_CODE_MAP[sp.get('gender') || '']);
+    addCode('num',   NUMBER_CODE_MAP[sp.get('number') || '']);
+    addCode('case',  CASE_CODE_MAP[sp.get('case') || '']);
+
+    const hasMorph = Object.values(_morphSel).some(s => s.size > 0);
+    return { hasLemma: !!lemma, hasMorph };
+}
 
 /* Build pattern string from selections — returns null if nothing selected */
 function _getMorphFilterPattern(){
