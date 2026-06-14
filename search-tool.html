@@ -2726,11 +2726,20 @@ function _morphMatchesPattern(morphTag, pattern){
         if(pattern.tense && !pattern.tense.has(t)) return false;
         if(pattern.voice && !pattern.voice.has(v)) return false;
         if(pattern.mood  && !pattern.mood.has(m))  return false;
-        // For verbal, num is last char of parts[2] or parts[1+extra]
-        if(pattern.num){
-            const pn = parts[2]||'';
-            const numCode = pn.length>0 ? pn[pn.length-1] : '';
-            if(!pattern.num.has(numCode)) return false;
+
+        const pn = parts[2] || '';
+        if (m === 'P') {
+            // 分詞: parts[2] = CaseNumGen (例: "NSM" = 主格単数男性)
+            const c = pn[0]||'', n = pn[1]||'', g = pn[2]||'';
+            if(pattern.case && !pattern.case.has(c)) return false;
+            if(pattern.num  && !pattern.num.has(n))  return false;
+            if(pattern.gen  && !pattern.gen.has(g))  return false;
+        } else {
+            // 直説法・接続法など: parts[2] = PersonNum (例: "3S")。数は2文字目。
+            if(pattern.num){
+                const numCode = pn.length>0 ? pn[1]||pn[pn.length-1] : '';
+                if(!pattern.num.has(numCode)) return false;
+            }
         }
     }
     return true;
