@@ -2892,7 +2892,14 @@ function renderOneCandidateItem(cand, rank, total) {
     }
 
     /* §2 解釈への影響 */
-    const impactText = dict?.reading_impact_detail || typeDef?.reading_impact?.tip_ja || '';
+    /* 方針: reading_impact_detail を各候補ごとに registry 側で用意するのが正本。
+       未設定の場合は tip_ja（断定形）にフォールバックするが、
+       これは registry のデータ未整備を示すため console.warn で検出可能にする。 */
+    let impactText = dict?.reading_impact_detail || '';
+    if (!impactText && typeDef?.reading_impact?.tip_ja) {
+        impactText = typeDef.reading_impact.tip_ja;
+        console.warn(`[§2 解釈への影響] reading_impact_detail 未設定のため tip_ja にフォールバック: candidate=${cand.id}`);
+    }
     if (impactText) {
         bodyHtml += `<div class="dict-section dict-s2">
             <div class="dict-section-label ui-section-label">解釈への影響</div>
@@ -2922,14 +2929,14 @@ function renderOneCandidateItem(cand, rank, total) {
     /* §4 類例 */
     if (typeDef?.example_verse || typeDef?.example_greek || typeDef?.example_gloss) {
         let exInner = '';
+        if (typeDef.example_verse) {
+            exInner += `<div class="dict-ex-verse">${_escHtml(typeDef.example_verse)}</div>`;
+        }
         if (typeDef.example_greek) {
             exInner += `<div class="dict-ex-greek">${_escHtml(typeDef.example_greek)}</div>`;
         }
         if (typeDef.example_gloss) {
             exInner += `<div class="dict-ex-gloss">${_escHtml(typeDef.example_gloss)}</div>`;
-        }
-        if (typeDef.example_verse) {
-            exInner += `<div class="dict-ex-verse">${_escHtml(typeDef.example_verse)}</div>`;
         }
         bodyHtml += `<div class="dict-section dict-s4">
             <div class="dict-section-label ui-section-label">類例</div>
