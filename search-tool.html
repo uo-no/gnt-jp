@@ -2711,7 +2711,10 @@ function _morphMatchesPattern(morphTag, pattern){
     const isVerbal = posCode === 'V';
     if(!isVerbal){
         // Nominal: parts[1] = CaseNumGen (e.g. "NSM")
-        const cng = parts[1] || '';
+        // ただし1人称・2人称代名詞は性別の代わりに先頭に人称番号が付く
+        // （例: "1NS" = 1人称主格単数, "2GP" = 2人称属格複数）。
+        let cng = parts[1] || '';
+        if (/^[12]/.test(cng)) cng = cng.slice(1);
         const c = cng[0]||'', n = cng[1]||'', g = cng[2]||'';
         if(pattern.case && !pattern.case.has(c)) return false;
         if(pattern.num  && !pattern.num.has(n))  return false;
