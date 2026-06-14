@@ -2717,8 +2717,11 @@ function _morphMatchesPattern(morphTag, pattern){
         if(pattern.num  && !pattern.num.has(n))  return false;
         if(pattern.gen  && !pattern.gen.has(g))  return false;
     } else {
-        // Verbal: parts[1] = TenseVoiceMood (e.g. "PAI"), parts[2] = PersonNum or Num
-        const tvm = parts[1] || '';
+        // Verbal: parts[1] = TenseVoiceMood (e.g. "PAI")、ただし第二アオリスト/
+        // 第二完了は先頭に "2" が付く（例: "2AAI" = 第二アオリスト能動直説法）。
+        // 先頭が数字の場合は読み飛ばしてから時制・態・法を取得する。
+        let tvm = parts[1] || '';
+        if (/^[0-9]/.test(tvm)) tvm = tvm.slice(1);
         const t = tvm[0]||'', v = tvm[1]||'', m = tvm[2]||'';
         if(pattern.tense && !pattern.tense.has(t)) return false;
         if(pattern.voice && !pattern.voice.has(v)) return false;
