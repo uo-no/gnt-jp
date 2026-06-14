@@ -2850,19 +2850,20 @@ function renderOneCandidateItem(cand, rank, total) {
         </div>`;
     }
 
-    /* §3 構文ツリー＋見分け方 */
+    /* §3 見分け方（旧: 構文ツリー＋見分け方。ツリーは§1の構文ツリーへ統合済み） */
     {
         let s3Inner = '';
-        /* 構文ツリー: existing XSC tree slot — rendered by caller via panelId */
-        if (!isStub && cand.xsc && cand.xsc.deltas && cand.xsc.deltas.length > 0) {
-            s3Inner += buildXscPanelFromCandidate(cand, panelId);
-        }
         /* 見分け方 */
         const diag = dict?.diagnostics;
-        if (Array.isArray(diag) && diag.length > 0) {
+        const hasDiag = Array.isArray(diag) && diag.length > 0;
+        if (hasDiag) {
             const items = diag.map(d => `<li>${_escHtml(d)}</li>`).join('');
-            s3Inner += `<div class="dict-section-label ui-section-label" style="margin-top:10px;">見分け方</div>
+            s3Inner += `<div class="dict-section-label ui-section-label">見分け方</div>
             <ul class="dict-diagnostics">${items}</ul>`;
+        }
+        /* 確信度スコア内訳（補足。「なぜこの判定？」内に独自の見出しを持つ） */
+        if (!isStub && cand.xsc && cand.xsc.deltas && cand.xsc.deltas.length > 0) {
+            s3Inner += buildXscPanelFromCandidate(cand, panelId);
         }
         if (s3Inner) {
             bodyHtml += `<div class="dict-section dict-s3">${s3Inner}</div>`;
