@@ -330,6 +330,70 @@ flex-shrink: 0;
     padding: 4px 0;
     font-style: italic;
 }
+/* 候補body内セクション（判定理由・見分け方・他候補分析） */
+.cand-section { padding-top: 9px; }
+.cand-section + .cand-section { border-top: 1px solid var(--border); margin-top: 2px; }
+.cand-section-label {
+    font-size: 0.63rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--text-hint);
+    margin-bottom: 5px;
+}
+.cand-bullets { display: flex; flex-direction: column; gap: 3px; }
+.cand-bullet {
+    font-size: 0.73rem;
+    color: var(--text-sub);
+    padding: 1px 0 1px 13px;
+    position: relative;
+    line-height: 1.55;
+}
+.cand-bullet::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 8px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.45;
+}
+.cand-bullet.pos::before { background: #4a7a5a; opacity: 0.7; }
+.cand-bullet.neg::before { background: #b05050; opacity: 0.7; }
+.cand-def-text {
+    font-size: 0.81rem;
+    color: var(--text-sub);
+    line-height: 1.7;
+    padding-top: 3px;
+}
+.cand-example {
+    margin-top: 5px;
+    padding: 8px 10px;
+    background: var(--bg-inset);
+    border-radius: var(--radius-s);
+    border: 1px solid var(--border);
+}
+.cand-example-ref {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--text-hint);
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+}
+.cand-example-greek {
+    font-size: 0.88rem;
+    color: var(--text);
+    font-style: italic;
+    line-height: 1.5;
+    margin-bottom: 3px;
+}
+.cand-example-gloss {
+    font-size: 0.75rem;
+    color: var(--text-sub);
+    line-height: 1.55;
+}
 .similar-syntax-link {
     display: inline-flex;
     align-items: center;
@@ -2704,6 +2768,23 @@ function renderRelTags(entry, tokens, idx, analysisOutput) {
     </div>`;
 }
 
+/* § 2 候補リスト — ヘルパー */
+function _escH(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function _getRegistryType(candidateId) {
+    if (!window._syntaxRegistryData) return null;
+    const cats = window._syntaxRegistryData.categories || {};
+    for (const catVal of Object.values(cats)) {
+        for (const sc of (catVal.subcategories || [])) {
+            for (const t of (sc.types || [])) {
+                if (t.id === candidateId) return t;
+            }
+        }
+    }
+    return null;
+}
+
 /* § 2 候補リスト */
 function renderCandidates(entry, tokens, idx, analysisOutput) {
     const wrap = document.getElementById('candidate-list-wrap');
@@ -2832,23 +2913,79 @@ function renderOneCandidateItem(cand, rank, total) {
     const stubBadge = isStub ? '<span class="candidate-stub-badge">参考</span>' : '';
 
     let bodyHtml = '';
-    if (cand.wallace_ref) {
-        bodyHtml += `<div class="wallace-ref">wallace_ref: ${cand.wallace_ref}</div>`;
-    }
-    if (cand.hint_ja) {
-        bodyHtml += `<div class="candidate-hint">${cand.hint_ja}</div>`;
-    }
+
     if (isStub) {
         bodyHtml += `<div class="candidate-stub-note">判定ロジック未実装のため参考値です</div>`;
+    } else {
+        const typeDef = _getRegistryType(cand.id);
+
+        /* §1 構文機能 — dictionary.summary */
+        const summary = typeDef?.dictionary?.summary || '';
+        if (summary) {
+            bodyHtml += `<div class="cand-section">
+                <div class="cand-section-label">構文機能</div>
+                <div class="cand-def-text">${_escH(summary)}</div>
+            </div>`;
+        }
+
+        /* §2 解釈への影響 — dictionary.reading_impact_detail || reading_impact.tip_ja */
+        const impactDetail = typeDef?.dictionary?.reading_impact_detail
+            || typeDef?.reading_impact?.tip_ja || '';
+        if (impactDetail) {
+            bodyHtml += `<div class="cand-section">
+                <div class="cand-section-label">解釈への影響</div>
+                <div class="cand-def-text">${_escH(processTipJa(impactDetail))}</div>
+            </div>`;
+        }
+
+        /* §3 構造と見分け方 — dictionary.diagnostics → deltas → XSC panel */
+        const diagnostics = typeDef?.dictionary?.diagnostics || [];
+        const deltas      = cand.xsc?.deltas || [];
+        const posDeltas   = deltas.filter(d => d.value > 0);
+        const negDeltas   = deltas.filter(d => d.value < 0);
+        const hasStructure = diagnostics.length > 0 || deltas.length > 0;
+        if (hasStructure) {
+            bodyHtml += `<div class="cand-section">
+                <div class="cand-section-label">構造と見分け方</div>`;
+            /* dictionary.diagnostics */
+            if (diagnostics.length > 0) {
+                bodyHtml += `<div class="cand-bullets" style="margin-bottom:6px;">`;
+                diagnostics.forEach(d => {
+                    bodyHtml += `<div class="cand-bullet">${_escH(d)}</div>`;
+                });
+                bodyHtml += `</div>`;
+            }
+            /* diagnostics: positive / negative delta bullets */
+            if (posDeltas.length > 0 || negDeltas.length > 0) {
+                bodyHtml += `<div class="cand-bullets" style="margin-bottom:6px;">`;
+                posDeltas.forEach(d => {
+                    bodyHtml += `<div class="cand-bullet pos">${_escH(d.label_ja || d.signal_id)}</div>`;
+                });
+                negDeltas.forEach(d => {
+                    bodyHtml += `<div class="cand-bullet neg">${_escH(d.label_ja || d.signal_id)}</div>`;
+                });
+                bodyHtml += `</div>`;
+            }
+            /* XSC panel */
+            if (deltas.length > 0) {
+                bodyHtml += buildXscPanelFromCandidate(cand, panelId);
+            }
+            bodyHtml += `</div>`;
+        }
+
+        /* §4 類例 — example_verse / greek / gloss */
+        if (typeDef?.example_verse) {
+            bodyHtml += `<div class="cand-section">
+                <div class="cand-section-label">類例</div>
+                <div class="cand-example">
+                    <div class="cand-example-ref">${_escH(typeDef.example_verse)}</div>
+                    ${typeDef.example_greek ? `<div class="cand-example-greek">${_escH(typeDef.example_greek)}</div>` : ''}
+                    ${typeDef.example_gloss  ? `<div class="cand-example-gloss">${_escH(typeDef.example_gloss)}</div>`  : ''}
+                </div>
+            </div>`;
+        }
     }
-    // XSC panel
-    if (!isStub && cand.xsc && cand.xsc.deltas && cand.xsc.deltas.length > 0) {
-        bodyHtml += buildXscPanelFromCandidate(cand, panelId);
-    }
-    /* Phase H: 2位以降の候補に reading_impact 補助表示 */
-    if (!isTop && !isStub) {
-        bodyHtml += ReadingImpactRenderer.buildSubHtml(cand.id);
-    }
+
     /* 類似構文検索リンク */
     if (!isStub) {
         const simUrl = `similar-syntax-search.html?syntax_id=${encodeURIComponent(cand.id)}`;
