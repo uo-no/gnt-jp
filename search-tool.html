@@ -1084,7 +1084,50 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
                 <div class="hits-list" id="hits-list"></div>
             </div>
         </div>
-    </div>
+    </div><!-- /#result-body -->
+
+    <!-- ═══════════════════════════ Syntax Pattern Panel ═══════════════════════════ -->
+    <div id="syntax-panel">
+        <div class="syn-section-title">構文パターン検索</div>
+        <div class="syn-header">
+            <span class="syn-label" id="syn-label">読み込み中…</span>
+            <span class="syn-sublabel" id="syn-sublabel"></span>
+            <span class="syn-count" id="syn-count"></span>
+        </div>
+        <details class="syn-filter" id="syn-filter-panel">
+            <summary>フィルター</summary>
+            <div class="syn-filter-body">
+                <div class="syn-filter-row">
+                    <div class="syn-filter-label">書物グループ</div>
+                    <div class="book-chips" id="syn-book-chips"></div>
+                </div>
+                <div class="syn-filter-row">
+                    <div class="syn-filter-label">ソート</div>
+                    <div class="sort-btns">
+                        <button class="sort-btn active" onclick="_synSetSort('canonical',this)">正典順</button>
+                        <button class="sort-btn" onclick="_synSetSort('confidence_desc',this)">確信度順</button>
+                        <button class="sort-btn" onclick="_synSetSort('book_frequency',this)">書物頻度順</button>
+                    </div>
+                </div>
+                <div class="syn-filter-row">
+                    <div class="syn-filter-label">確信度しきい値</div>
+                    <div class="conf-row">
+                        <input type="range" class="conf-slider" id="syn-conf-slider" min="0" max="90" value="30" oninput="_synOnConfSlider(this)">
+                        <span class="conf-value" id="syn-conf-value-label">30%</span>
+                    </div>
+                </div>
+                <div class="syn-filter-row">
+                    <label class="stub-toggle">
+                        <input type="checkbox" id="syn-stub-toggle" onchange="_synApplyFilters()">
+                        スタブを含む
+                    </label>
+                </div>
+            </div>
+        </details>
+        <div class="syn-status" id="syn-status"></div>
+        <div id="syn-results-list"></div>
+        <button class="load-more-btn" id="syn-load-more" style="display:none;" onclick="_synLoadMore()">さらに表示</button>
+    </div><!-- /#syntax-panel -->
 
 </main>
 
@@ -2750,10 +2793,306 @@ function _closeMobilePanel(){
 
 init();
 
+/* ============================================================
+   SYNTAX PATTERN SEARCH — similar-syntax-search.html から統合
+   ============================================================ */
+
+const SYN_NT_BOOKS = new Set([
+    'MAT','MRK','LUK','JHN','ACT','ROM','1CO','2CO','GAL','EPH',
+    'PHP','COL','1TH','2TH','1TI','2TI','TIT','PHM','HEB','JAS',
+    '1PE','2PE','1JN','2JN','3JN','JUD','REV'
+]);
+const SYN_BOOK_JP = {
+    MAT:'マタイ',MRK:'マルコ',LUK:'ルカ',JHN:'ヨハネ',ACT:'使徒',
+    ROM:'ローマ','1CO':'Ⅰコリント','2CO':'Ⅱコリント',
+    GAL:'ガラテヤ',EPH:'エペソ',PHP:'ピリピ',COL:'コロサイ',
+    '1TH':'Ⅰテサロニケ','2TH':'Ⅱテサロニケ',
+    '1TI':'Ⅰテモテ','2TI':'Ⅱテモテ',TIT:'テトス',PHM:'ピレモン',
+    HEB:'ヘブル',JAS:'ヤコブ','1PE':'Ⅰペテロ','2PE':'Ⅱペテロ',
+    '1JN':'Ⅰヨハネ','2JN':'Ⅱヨハネ','3JN':'Ⅲヨハネ',JUD:'ユダ',REV:'黙示録',
+    GEN:'創世記',EXO:'出エジプト記',LEV:'レビ記',NUM:'民数記',DEU:'申命記',
+    JOS:'ヨシュア記',JDG:'士師記','1SA':'サムエル記上','2SA':'サムエル記下',
+    '1KI':'列王記上','2KI':'列王記下',
+    ISA:'イザヤ書',JER:'エレミヤ書',EZE:'エゼキエル書',DAN:'ダニエル書',
+    HOS:'ホセア書',JOL:'ヨエル書',AMO:'アモス書',OBA:'オバデヤ書',
+    JON:'ヨナ書',MIC:'ミカ書',NAH:'ナホム書',HAB:'ハバクク書',
+    ZEP:'ゼパニヤ書',HAG:'ハガイ書',ZEC:'ゼカリヤ書',MAL:'マラキ書',
+    PSA:'詩篇',PRO:'箴言',JOB:'ヨブ記',SNG:'雅歌',RUT:'ルツ記',
+    LAM:'哀歌',ECC:'コヘレト',EST:'エステル記',EZR:'エズラ記',
+    NEH:'ネヘミヤ記','1CH':'歴代誌上','2CH':'歴代誌下',
+};
+const SYN_BOOK_GROUPS = [
+    { key:'gospel',      label:'福音書',     books:['MAT','MRK','LUK','JHN'] },
+    { key:'acts',        label:'使徒',       books:['ACT'] },
+    { key:'pauline',     label:'パウロ',     books:['ROM','1CO','2CO','GAL','1TH','2TH'] },
+    { key:'prison',      label:'獄中',       books:['EPH','PHP','COL','PHM'] },
+    { key:'pastoral',    label:'牧会',       books:['1TI','2TI','TIT'] },
+    { key:'general',     label:'一般書簡',   books:['HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD'] },
+    { key:'rev',         label:'黙示録',     books:['REV'] },
+    { key:'lxx_torah',   label:'モーセ五書', books:['GEN','EXO','LEV','NUM','DEU'] },
+    { key:'lxx_forprop', label:'前預言書',   books:['JOS','JDG','1SA','2SA','1KI','2KI'] },
+    { key:'lxx_latprop', label:'後預言書',   books:['ISA','JER','EZE','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAH','HAB','ZEP','HAG','ZEC','MAL'] },
+    { key:'lxx_writings',label:'諸書',       books:['PSA','PRO','JOB','SNG','RUT','LAM','ECC','EST','EZR','NEH','1CH','2CH'] },
+];
+const SYN_PAGE_SIZE = 50;
+
+class SyntaxIndexCache {
+    #cache = new Map(); #loading = new Map();
+    async get(syntaxId) {
+        if (this.#cache.has(syntaxId)) return this.#cache.get(syntaxId);
+        if (this.#loading.has(syntaxId)) return this.#loading.get(syntaxId);
+        const pr = fetch(`./syntax-index/${syntaxId}.json`)
+            .then(r => r.ok ? r.json() : []).catch(() => [])
+            .then(hits => { this.#cache.set(syntaxId, hits); this.#loading.delete(syntaxId); return hits; });
+        this.#loading.set(syntaxId, pr);
+        return pr;
+    }
+}
+const _synCache = new SyntaxIndexCache();
+
+let _synAllHits = [], _synFiltered = [], _synDisplayed = 0;
+let _synSortOrder = 'canonical', _synConfMin = 0.30, _synIncludeStub = false;
+let _synEnabledGroups = new Set(SYN_BOOK_GROUPS.map(g => g.key));
+let _synVerseCache = new Map(), _synRegistryData = null;
+
+function _synBuildRefLabel(bookKey, ch, verse) { return `${SYN_BOOK_JP[bookKey]||bookKey} ${ch}:${verse}`; }
+function _synBibleDataPath(bookKey, ch) { return `./bible_data/${SYN_NT_BOOKS.has(bookKey)?'nt':'lxx'}/${bookKey}/${ch}.json`; }
+function _synConfClass(c) { return c>=0.75?'high':c>=0.55?'medium':'low'; }
+function _synCleanText(e) { return (e.word||e.normalized||e.text||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim(); }
+function _synEsc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _synResolveBooks() {
+    const b = new Set();
+    SYN_BOOK_GROUPS.forEach(g => { if (_synEnabledGroups.has(g.key)) g.books.forEach(k => b.add(k)); });
+    return b;
+}
+
+function _synApplyFilters() {
+    const books = _synResolveBooks();
+    _synIncludeStub = document.getElementById('syn-stub-toggle').checked;
+    _synConfMin = parseFloat(document.getElementById('syn-conf-slider').value) / 100;
+    _synFiltered = _synAllHits.filter(h =>
+        h.confidence >= _synConfMin && (_synIncludeStub || h.status === 'active') && books.has(h.bookKey)
+    );
+    _synFiltered = _synSortHits(_synFiltered, _synSortOrder);
+    _synDisplayed = 0;
+    _synRenderResults(true);
+}
+function _synSortHits(hits, order) {
+    if (order === 'confidence_desc') return [...hits].sort((a,b) => b.confidence - a.confidence);
+    if (order === 'book_frequency') {
+        const freq = {};
+        hits.forEach(h => { freq[h.bookKey] = (freq[h.bookKey]||0) + 1; });
+        return [...hits].sort((a,b) => (freq[b.bookKey]-freq[a.bookKey]) || (a.sortKey-b.sortKey));
+    }
+    return [...hits].sort((a,b) => a.sortKey - b.sortKey);
+}
+function _synSetSort(order, btn) {
+    _synSortOrder = order;
+    document.querySelectorAll('#syntax-panel .sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _synApplyFilters();
+}
+function _synOnConfSlider(el) {
+    document.getElementById('syn-conf-value-label').textContent = `${el.value}%`;
+    _synApplyFilters();
+}
+function _synToggleGroup(key) {
+    if (_synEnabledGroups.has(key)) { if (_synEnabledGroups.size <= 1) return; _synEnabledGroups.delete(key); }
+    else _synEnabledGroups.add(key);
+    document.querySelectorAll('#syn-book-chips .book-chip').forEach(c => c.classList.toggle('active', _synEnabledGroups.has(c.dataset.group)));
+    _synApplyFilters();
+}
+
+function _synRenderResults(reset) {
+    const list = document.getElementById('syn-results-list');
+    const status = document.getElementById('syn-status');
+    const more = document.getElementById('syn-load-more');
+    if (reset) { list.innerHTML = ''; _synDisplayed = 0; }
+    if (_synFiltered.length === 0) {
+        list.innerHTML = `<div class="empty"><div class="empty-icon">ζητεῖτε</div>結果が見つかりません<br>フィルタ条件を変更してください</div>`;
+        more.style.display = 'none';
+        status.textContent = '0 件';
+        _synSetCount(0);
+        return;
+    }
+    const page = _synFiltered.slice(_synDisplayed, _synDisplayed + SYN_PAGE_SIZE);
+    const hasMore = _synDisplayed + SYN_PAGE_SIZE < _synFiltered.length;
+    if (reset && _synSortOrder === 'canonical') _synRenderByBook(list, page);
+    else page.forEach(h => list.appendChild(_synBuildCard(h)));
+    _synDisplayed += page.length;
+    status.textContent = `${_synFiltered.length} 件中 ${_synDisplayed} 件表示`;
+    more.style.display = hasMore ? 'flex' : 'none';
+    _synSetCount(_synFiltered.length);
+}
+function _synRenderByBook(container, page) {
+    let curBook = null;
+    for (const hit of page) {
+        if (curBook !== hit.bookKey) {
+            curBook = hit.bookKey;
+            const cnt = page.filter(x => x.bookKey === curBook).length;
+            const h = document.createElement('div');
+            h.className = 'book-heading';
+            h.innerHTML = `<span class="book-heading-name">${SYN_BOOK_JP[curBook]||curBook}</span><span class="book-heading-count">${cnt}</span>`;
+            container.appendChild(h);
+        }
+        container.appendChild(_synBuildCard(hit));
+    }
+}
+function _synLoadMore() {
+    const page = _synFiltered.slice(_synDisplayed, _synDisplayed + SYN_PAGE_SIZE);
+    const list = document.getElementById('syn-results-list');
+    page.forEach(h => list.appendChild(_synBuildCard(h)));
+    _synDisplayed += page.length;
+    document.getElementById('syn-load-more').style.display = _synDisplayed < _synFiltered.length ? 'flex' : 'none';
+    document.getElementById('syn-status').textContent = `${_synFiltered.length} 件中 ${_synDisplayed} 件表示`;
+}
+function _synSetCount(n) {
+    const el = document.getElementById('syn-count');
+    el.textContent = `${n} 件`; el.style.display = n > 0 ? 'inline-block' : 'none';
+}
+
+function _synBuildCard(hit) {
+    const card = document.createElement('div');
+    card.className = 'app-card';
+    Object.assign(card.dataset, { bookKey:hit.bookKey, chapter:hit.chapter, verse:hit.verse, tokenIdx:hit.tokenIdx, word:hit.word });
+    const ref = _synBuildRefLabel(hit.bookKey, hit.chapter, hit.verse);
+    const pct = Math.round(hit.confidence * 100);
+    const cls = _synConfClass(hit.confidence);
+    const ctxId = `syn-ctx-${hit.bookKey}-${hit.chapter}-${hit.verse}-${hit.tokenIdx}`;
+    card.innerHTML = `
+        <div class="app-card-head" onclick="_synToggleCard(this.parentElement)">
+            <span class="app-card-ref">${ref}</span>
+            <span class="app-card-word">${_synEsc(hit.word)}</span>
+            <span class="app-card-meta"><span class="result-conf ${cls}">${pct}%</span></span>
+            <span class="app-card-arrow">›</span>
+        </div>
+        <div class="app-card-body">
+            <div class="result-lemma">レンマ: <span style="font-family:'Gentium Plus',serif;">${_synEsc(hit.lemma)}</span></div>
+            <div class="ctx-loading" id="${ctxId}">展開中…</div>
+        </div>`;
+    return card;
+}
+function _synToggleCard(card) {
+    const wasOpen = card.classList.contains('open');
+    card.classList.toggle('open');
+    if (!wasOpen) _synLoadContext(card);
+}
+async function _synLoadContext(card) {
+    const { bookKey, chapter, verse, tokenIdx, word } = card.dataset;
+    const ctxId = `syn-ctx-${bookKey}-${chapter}-${verse}-${tokenIdx}`;
+    const ctxEl = document.getElementById(ctxId);
+    if (!ctxEl) return;
+    const cacheKey = `${bookKey}-${chapter}`;
+    let tokens = _synVerseCache.get(cacheKey);
+    if (!tokens) {
+        const data = await fetch(_synBibleDataPath(bookKey, parseInt(chapter)))
+            .then(r => r.ok ? r.json() : []).catch(() => []);
+        tokens = Array.isArray(data) ? data : [];
+        _synVerseCache.set(cacheKey, tokens);
+    }
+    const vt = tokens.filter(t => String(t.ref||'').endsWith(`:${verse}`));
+    const ti = parseInt(tokenIdx);
+    let html = '';
+    if (vt.length > 0) {
+        html = `<div class="context-snippet">${vt.map((t,i) => {
+            const w = _synCleanText(t);
+            return `<span class="snippet-token${(i===ti||w===word)?' hit':''}">${_synEsc(w)}</span>`;
+        }).join('')}</div>`;
+    } else {
+        html = `<div class="result-ja result-ja-empty">（節データ未取得）</div>`;
+    }
+    ctxEl.outerHTML = html;
+}
+
+function _synRenderBookChips() {
+    document.getElementById('syn-book-chips').innerHTML = SYN_BOOK_GROUPS.map(g =>
+        `<div class="book-chip active" data-group="${g.key}" onclick="_synToggleGroup('${g.key}')">${g.label}</div>`
+    ).join('');
+}
+
+async function _synLoadRegistry() {
+    try { _synRegistryData = await fetch('./syntax-registry.json').then(r => r.ok ? r.json() : null).catch(() => null); }
+    catch { _synRegistryData = null; }
+}
+function _synGetTypeDef(id) {
+    if (!_synRegistryData) return null;
+    for (const cat of Object.values(_synRegistryData.categories || {}))
+        for (const sc of (cat.subcategories || []))
+            for (const t of (sc.types || []))
+                if (t.id === id) return t;
+    return null;
+}
+
+async function _synInit(syntaxId) {
+    document.getElementById('syntax-panel').style.display = 'block';
+    _synRenderBookChips();
+    document.getElementById('syn-label').textContent = syntaxId;
+
+    const [, hits] = await Promise.all([_synLoadRegistry(), _synCache.get(syntaxId)]);
+    _synAllHits = Array.isArray(hits) ? hits : [];
+
+    const typeDef = _synGetTypeDef(syntaxId);
+    if (typeDef) {
+        document.getElementById('syn-label').textContent = typeDef.label_ja || syntaxId;
+        document.getElementById('syn-sublabel').textContent = typeDef.label_en || '';
+    }
+
+    if (_synAllHits.length === 0) {
+        document.getElementById('syn-results-list').innerHTML =
+            `<div class="empty"><div class="empty-icon">ζητεῖτε</div>結果が見つかりません<br>
+            <small style="color:var(--text-hint);">syntax-index/${_synEsc(syntaxId)}.json が見つかりません</small></div>`;
+        document.getElementById('syn-status').textContent = '0 件';
+        return;
+    }
+    _synApplyFilters();
+}
+
 /* URL パラメータから検索語を引き継ぐ */
 (function initFromUrl() {
     const p = new URLSearchParams(location.search);
     const query = p.get('lemma') || p.get('word') || '';
+    const syntaxId = p.get('syntax_id') || '';
+    if (!query && !syntaxId) return;
+
+    // 英語フルワード → 単文字コードへの逆引きマップ
+    // index.html は tense="present" 等のフルワードで渡す
+    const WORD_TO_CODE = {
+        tense: { present:'P', imperfect:'I', future:'F', aorist:'A', perfect:'X', pluperfect:'Y' },
+        voice: { active:'A', middle:'M', passive:'P', 'middle deponent':'M', 'middle or passive':'P' },
+        mood:  { indicative:'I', subjunctive:'S', optative:'O', imperative:'M', infinitive:'N', participle:'P' },
+        case:  { nominative:'N', genitive:'G', dative:'D', accusative:'A', vocative:'V' },
+        num:   { singular:'S', plural:'P' },
+        gen:   { masculine:'M', feminine:'F', neuter:'N' },
+    };
+    const toCode = (slot, val) => {
+        if (!val) return '';
+        const map = WORD_TO_CODE[slot];
+        return map ? (map[val.toLowerCase()] || val.replace(/-+$/, '')) : val.replace(/-+$/, '');
+    };
+
+    const morphFromUrl = {
+        pos:   (p.get('pos')    || '').replace(/-+$/, ''),
+        tense: toCode('tense',  p.get('tense')),
+        mood:  toCode('mood',   p.get('mood')),
+        voice: toCode('voice',  p.get('voice')),
+        case:  toCode('case',   p.get('case')),
+        num:   toCode('num',    p.get('number')),
+        gen:   toCode('gen',    p.get('gender')),
+    };
+    let hasMorph = false;
+    for (const [slot, val] of Object.entries(morphFromUrl)) {
+        if (val) { _morphSel[slot].add(val); hasMorph = true; }
+    }
+    if (hasMorph) {
+        _initMorphChips();          // チップを選択状態で再描画
+        _updateMorphSubSections();
+        _updateMorphClearBtn();
+        _layers.morph = true;
+        _syncLayerUI('morph');
+    }
+
+    if (syntaxId) _synInit(syntaxId);
+
     if (!query) return;
     const inp = document.getElementById('unified-search-input');
     if (inp) inp.value = query;
