@@ -404,21 +404,6 @@ const NT_BOOKS = new Set([
     '1PE','2PE','1JN','2JN','3JN','JUD','REV'
 ]);
 
-const BOOK_MAP = {
-    '01':'MAT','02':'MRK','03':'LUK','04':'JHN','05':'ACT',
-    '06':'ROM','07':'1CO','08':'2CO','09':'GAL','10':'EPH',
-    '11':'PHP','12':'COL','13':'1TH','14':'2TH','15':'1TI',
-    '16':'2TI','17':'TIT','18':'PHM','19':'HEB','20':'JAS',
-    '21':'1PE','22':'2PE','23':'1JN','24':'2JN','25':'3JN',
-    '26':'JUD','27':'REV',
-    '28':'GEN','29':'EXO','30':'LEV','31':'NUM','32':'DEU',
-    '33':'JOS','34':'JDG','35':'1SA','36':'2SA','37':'1KI','38':'2KI',
-    '39':'ISA','40':'JER','41':'EZE','42':'DAN',
-    '43':'HOS','44':'JOL','45':'AMO','46':'OBA','47':'JON',
-    '48':'MIC','49':'NAH','50':'HAB','51':'ZEP','52':'HAG','53':'ZEC','54':'MAL',
-    '55':'PSA','56':'PRO','57':'JOB','58':'SNG','59':'RUT',
-    '60':'LAM','61':'ECC','62':'EST','63':'EZR','64':'NEH','65':'1CH','66':'2CH',
-};
 
 const JA_FOLDER = 'bible_jp';
 const PAGE_SIZE  = 50;
@@ -472,15 +457,8 @@ const _cache = new SyntaxIndexCache();
 /* ══════════════════════════════════════════
    ユーティリティ
 ══════════════════════════════════════════ */
-function buildRefLabel(ref) {
-    const r = String(ref || '');
-    const m = r.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
-    if (m) return `${BOOK_JP[m[1]] || m[1]} ${m[2]}:${m[3]}`;
-    if (r.length === 6 && /^\d+$/.test(r)) {
-        const bk = BOOK_MAP[r.slice(0, 2)];
-        return `${(bk && BOOK_JP[bk]) || bk || r.slice(0, 2)} ${parseInt(r.slice(2, 4))}:${parseInt(r.slice(4, 6))}`;
-    }
-    return r;
+function buildRefLabel(bookKey, chapter, verse) {
+    return `${BOOK_JP[bookKey] || bookKey} ${chapter}:${verse}`;
 }
 
 function cleanText(entry) {
@@ -654,14 +632,13 @@ function loadMore() {
 function buildResultCard(hit) {
     const card = document.createElement('div');
     card.className = 'result-card';
-    card.dataset.ref    = hit.ref;
     card.dataset.bookKey = hit.bookKey;
     card.dataset.chapter = hit.chapter;
     card.dataset.verse   = hit.verse;
     card.dataset.tokenIdx = hit.tokenIdx;
     card.dataset.word    = hit.word;
 
-    const refLabel  = buildRefLabel(hit.ref);
+    const refLabel  = buildRefLabel(hit.bookKey, hit.chapter, hit.verse);
     const confPct   = Math.round(hit.confidence * 100);
     const cls       = confClass(hit.confidence);
 
@@ -674,7 +651,7 @@ function buildResultCard(hit) {
         </div>
         <div class="result-card-body">
             <div class="result-lemma">レンマ: <span style="font-family:'Gentium Plus',serif;">${escHtml(hit.lemma)}</span></div>
-            <div class="ctx-loading" id="ctx-${escId(hit.ref)}-${hit.tokenIdx}">展開中…</div>
+            <div class="ctx-loading" id="ctx-${hit.bookKey}-${hit.chapter}-${hit.verse}-${hit.tokenIdx}">展開中…</div>
         </div>`;
 
     return card;
@@ -695,9 +672,8 @@ async function loadContextSnippet(card) {
     const verse    = parseInt(card.dataset.verse);
     const tokenIdx = parseInt(card.dataset.tokenIdx);
     const hitWord  = card.dataset.word;
-    const ref      = card.dataset.ref;
 
-    const ctxId = `ctx-${escId(ref)}-${tokenIdx}`;
+    const ctxId = `ctx-${bookKey}-${chapter}-${verse}-${tokenIdx}`;
     const ctxEl = document.getElementById(ctxId);
     if (!ctxEl) return;
     if (ctxEl.dataset.loaded) return; // 既にロード済み
@@ -719,11 +695,11 @@ async function loadContextSnippet(card) {
     // 節内トークンを絞り込む
     const verseTokens = tokens.filter(t => {
         const r = String(t.ref || '');
-        return r === ref || r.endsWith(`:${verse}`);
+        return r.endsWith(`:${verse}`);
     });
 
     // 日本語訳
-    const jaText = _jaMap.get(ref) || _jaMap.get(`${bookKey}${String(chapter).padStart(2,'0')}${String(verse).padStart(2,'0')}`) || '';
+    const jaText = _jaMap.get(`${bookKey}${String(chapter).padStart(2,'0')}${String(verse).padStart(2,'0')}`) || '';
 
     let html = '';
     if (jaText) {
