@@ -832,6 +832,12 @@ font-size: 2rem; color: #d8d8dc; margin-bottom: 16px;
 .dict-diagnostics li {
     margin-bottom: 2px;
 }
+.dict-diagnostics-more {
+    color: var(--text-hint);
+    font-style: italic;
+    list-style: none;
+    margin-left: -18px;
+}
 .dict-ex-greek {
     font-family: 'Gentium Plus', serif;
     font-size: 1.05rem;
@@ -1480,6 +1486,7 @@ margin-bottom: 20px;
     white-space: nowrap;
 }
 </style>
+   <script src="detail-panel-renderer.js"></script>
    <script src="syntax-tree-builder.js"></script>
    <script src="syntax-analyzer.js"></script>
 </head>
@@ -1556,6 +1563,12 @@ margin-bottom: 20px;
         <!-- 凡例 -->
         <div class="legend" id="legend"></div>
 
+        <!-- 語順マーカー -->
+        <div id="word-order-wrap"></div>
+
+        <!-- 形態タグ -->
+        <div id="morph-tags-wrap"></div>
+
         <!-- 推定警告 -->
         <div class="estimation-notice">
             <span class="estimation-notice-label">⚠ 参考情報</span>
@@ -1564,11 +1577,14 @@ margin-bottom: 20px;
     </div>
 
     <!-- ══════════════════════════════════════
-         § 2 解釈への影響（Phase H）
+         § 2 意味と解釈への影響（Phase H）
     ══════════════════════════════════════ -->
     <hr class="section-divider" id="reading-impact-divider" style="display:none;">
     <div class="section-block fade-up" style="animation-delay:0.06s;display:none;" id="reading-impact-section">
-        <div class="section-title">§ 2 &nbsp;解釈への影響</div>
+        <div class="section-title">§ 2 &nbsp;意味と解釈への影響</div>
+
+        <!-- 構文機能の要約（summary） -->
+        <div id="ri-summary"></div>
 
         <!-- 読解傾向ラベル -->
         <div class="ri-label" id="ri-label"></div>
@@ -1590,7 +1606,7 @@ margin-bottom: 20px;
     </div>
 
     <!-- ══════════════════════════════════════
-         § 3 判定根拠（旧§4。旧§3構文ツリーは§1に統合のため削除）
+         § 3 判定根拠（reasoning / diagnostics / XSC をフラット表示）
     ══════════════════════════════════════ -->
     <div class="section-block fade-up" style="animation-delay:0.12s">
         <div class="section-title">§ 3 &nbsp;判定根拠</div>
@@ -1601,15 +1617,33 @@ margin-bottom: 20px;
         <!-- 競合注記 -->
         <div id="conflict-note-wrap"></div>
 
-        <!-- 候補リスト -->
+        <!-- 候補リスト（候補名・簡易説明・見分け補助の簡易版のみ） -->
         <div id="candidate-list-wrap"></div>
 
+        <!-- 判定理由（reasoning） -->
+        <div id="reasoning-wrap"></div>
 
-        <!-- 語順マーカー -->
-        <div id="word-order-wrap"></div>
+        <!-- 見分け方（diagnostics・全文） -->
+        <div id="diagnostics-wrap"></div>
 
-        <!-- 形態タグ -->
-        <div id="morph-tags-wrap"></div>
+        <!-- XSC（Explainable Scoring） -->
+        <div id="xsc-main-wrap"></div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         § 4 証拠（evidence）
+    ══════════════════════════════════════ -->
+    <div class="section-block fade-up" style="animation-delay:0.16s;display:none;" id="evidence-section">
+        <div class="section-title">§ 4 &nbsp;証拠</div>
+        <div id="evidence-wrap"></div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         § 5 例（example_verse / example_greek / example_gloss を個別表示）
+    ══════════════════════════════════════ -->
+    <div class="section-block fade-up" style="animation-delay:0.2s;display:none;" id="examples-section">
+        <div class="section-title">§ 5 &nbsp;例</div>
+        <div id="examples-wrap"></div>
     </div>
 
 </div><!-- /main-content -->
@@ -2723,6 +2757,9 @@ function renderCandidates(entry, tokens, idx, analysisOutput) {
 
     if (!analysisOutput) {
         renderReadingImpact([]);  /* Phase H: fallback → 非表示 */
+        renderJudgmentDetails([]);   /* §3 reasoning/diagnostics/XSC */
+        renderEvidenceSection([]);   /* §4 evidence */
+        renderExamplesSection([]);   /* §5 example_* */
         const m = decodeMorph(entry);
         const pos = entryPosCode(entry);
         if (pos === 'V' && m.mood === 'participle') {
@@ -2761,6 +2798,9 @@ function renderCandidates(entry, tokens, idx, analysisOutput) {
     if (allCandidates.length === 0) {
         wrap.innerHTML = '<div class="candidates-empty">この語の構文用法を特定できませんでした。</div>';
         renderReadingImpact([]);  /* Phase H: 0件 → 非表示 */
+        renderJudgmentDetails([]);
+        renderEvidenceSection([]);
+        renderExamplesSection([]);
         return;
     }
 
@@ -2770,6 +2810,9 @@ function renderCandidates(entry, tokens, idx, analysisOutput) {
             この語の構文用法について、いくつかの可能性があります（分析ロジック実装中）。
         </div>` + renderCandidateItems(stubCandidates, true);
         renderReadingImpact([]);  /* Phase H: stub のみ → 非表示 */
+        renderJudgmentDetails([]);
+        renderEvidenceSection([]);
+        renderExamplesSection([]);
         return;
     }
 
@@ -2793,8 +2836,119 @@ function renderCandidates(entry, tokens, idx, analysisOutput) {
     html += renderCandidateItems(allCandidates, false);
     wrap.innerHTML = html;
 
-    /* Phase H: § 4 読解への影響 更新 */
+    /* Phase H: § 2 意味と解釈への影響 更新（summary + reading_impact） */
     renderReadingImpact(candidates);
+
+    /* § 3 判定根拠: reasoning / diagnostics / XSC をフラット表示 */
+    renderJudgmentDetails(allCandidates);
+
+    /* § 4 証拠（evidence） */
+    renderEvidenceSection(allCandidates);
+
+    /* § 5 例（example_verse / example_greek / example_gloss） */
+    renderExamplesSection(allCandidates);
+}
+
+/**
+ * § 3 判定根拠（main panel フラット表示）
+ * reasoning / diagnostics（全文） / XSC を 1位候補を基準に
+ * §3 直下へ直接描画する。candidate panel 側にはネストしない。
+ */
+function renderJudgmentDetails(candidates) {
+    const reasoningWrap = document.getElementById('reasoning-wrap');
+    const diagWrap      = document.getElementById('diagnostics-wrap');
+    const xscWrap       = document.getElementById('xsc-main-wrap');
+    if (!reasoningWrap || !diagWrap || !xscWrap) return;
+
+    const active = (candidates || []).filter(c => c.status !== 'stub');
+    if (active.length === 0) {
+        reasoningWrap.innerHTML = '';
+        diagWrap.innerHTML = '';
+        xscWrap.innerHTML = '';
+        return;
+    }
+
+    const top     = active[0];
+    const typeDef = findTypeDef(top.id);
+    const dict    = typeDef?.dictionary;
+
+    /* 判定理由（reasoning） */
+    const reasoningText = dict?.reasoning || top.reasoning || '';
+    reasoningWrap.innerHTML = reasoningText
+        ? `<div class="dict-section"><div class="ui-section-label">判定理由</div><div class="dict-summary">${_escHtml(reasoningText)}</div></div>`
+        : '';
+
+    /* 見分け方（diagnostics・全文） */
+    const diag = dict?.diagnostics;
+    diagWrap.innerHTML = (Array.isArray(diag) && diag.length)
+        ? `<div class="dict-section"><div class="ui-section-label">見分け方</div><ul class="dict-diagnostics">${diag.map(d=>`<li>${_escHtml(d)}</li>`).join('')}</ul></div>`
+        : '';
+
+    /* XSC（Explainable Scoring） — §3 直下、candidate panel にはネストしない */
+    if (top.xsc?.deltas?.length) {
+        const panelId = 'xsc-main-' + (top.id || '').replace(/\./g, '-');
+        xscWrap.innerHTML = buildXscPanelFromCandidate(top, panelId);
+    } else {
+        xscWrap.innerHTML = '';
+    }
+}
+
+/**
+ * § 4 証拠（evidence） — main panel 専属の独立セクション。
+ * candidate panel には絶対に表示しない。
+ */
+function renderEvidenceSection(candidates) {
+    const section = document.getElementById('evidence-section');
+    const wrap     = document.getElementById('evidence-wrap');
+    if (!section || !wrap) return;
+
+    const active = (candidates || []).filter(c => c.status !== 'stub');
+    if (active.length === 0) { section.style.display = 'none'; wrap.innerHTML = ''; return; }
+
+    const top      = active[0];
+    const typeDef  = findTypeDef(top.id);
+    const evidence = typeDef?.evidence ?? typeDef?.dictionary?.evidence ?? top.evidence;
+
+    if (!evidence || (Array.isArray(evidence) && evidence.length === 0)) {
+        section.style.display = 'none';
+        wrap.innerHTML = '';
+        return;
+    }
+
+    wrap.innerHTML = Array.isArray(evidence)
+        ? `<ul class="dict-diagnostics">${evidence.map(e=>`<li>${_escHtml(e)}</li>`).join('')}</ul>`
+        : `<div class="dict-summary">${_escHtml(evidence)}</div>`;
+    section.style.display = '';
+}
+
+/**
+ * § 5 例（example_verse / example_greek / example_gloss）
+ * 仕様により各要素は必ず分離表示する（統合禁止）。
+ * main panel 専属の独立セクション。candidate panel には表示しない。
+ */
+function renderExamplesSection(candidates) {
+    const section = document.getElementById('examples-section');
+    const wrap     = document.getElementById('examples-wrap');
+    if (!section || !wrap) return;
+
+    const active = (candidates || []).filter(c => c.status !== 'stub');
+    if (active.length === 0) { section.style.display = 'none'; wrap.innerHTML = ''; return; }
+
+    const top     = active[0];
+    const typeDef = findTypeDef(top.id);
+
+    if (!typeDef || !(typeDef.example_verse || typeDef.example_greek || typeDef.example_gloss)) {
+        section.style.display = 'none';
+        wrap.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+    if (typeDef.example_verse)  html += `<div class="dict-section"><div class="ui-section-label">引用箇所</div><div class="dict-ex-verse">${_escHtml(typeDef.example_verse)}</div></div>`;
+    if (typeDef.example_greek)  html += `<div class="dict-section"><div class="ui-section-label">ギリシャ語原文</div><div class="dict-ex-greek">${_escHtml(typeDef.example_greek)}</div></div>`;
+    if (typeDef.example_gloss)  html += `<div class="dict-section"><div class="ui-section-label">逐語訳</div><div class="dict-ex-gloss">${_escHtml(typeDef.example_gloss)}</div></div>`;
+    wrap.innerHTML = html;
+    section.style.display = '';
 }
 
 function renderCandidateItems(candidates, allStub) {
@@ -2818,115 +2972,75 @@ function renderCandidateItems(candidates, allStub) {
     return html;
 }
 
+/**
+ * renderOneCandidateItem — candidate panel（制限あり）レンダラー
+ *
+ * ■ candidate panel に許可される情報（仕様で厳格に制限）
+ *   - 候補名（label_ja）
+ *   - 簡易説明（dictionary.summary）
+ *   - 見分け補助（diagnostics の簡略版のみ・先頭2件まで）
+ *
+ * ❌ 禁止（main panel 専属。candidate panel には絶対に含めない）
+ *   - §4 evidence
+ *   - §5 example_verse / example_greek / example_gloss
+ *   - XSC（Explainable Scoring パネル）
+ *   - word-order / morph-tags
+ *   - reading_impact の詳細（§2 main panel の責務）
+ *
+ * §1/§2/§3/§4/§5 の本体は main panel 側（renderCandidates 内の
+ * renderImpactSection / renderJudgmentDetails / renderEvidenceSection /
+ * renderExamplesSection）が描画する。
+ *
+ * DetailPanelRenderer が利用可能な場合はそちらへ委譲する。
+ */
 function renderOneCandidateItem(cand, rank, total) {
-    const isTop  = rank === 0;
-    const conf   = cand.confidence;
+    /* ── 新レンダラーが利用可能な場合 ── */
+    if (typeof DetailPanelRenderer !== 'undefined' &&
+        typeof DetailPanelRenderer.renderOneCandidateItem === 'function') {
+        return DetailPanelRenderer.renderOneCandidateItem(cand, rank, total);
+    }
+
+    /* ── フォールバック（DetailPanelRenderer 未ロード時） ── */
+    console.warn('[renderOneCandidateItem] DetailPanelRenderer not found. Using legacy fallback.');
+    const isTop   = rank === 0;
+    const conf    = cand.confidence;
     const confPct = Math.round(conf * 100);
-    const barColor = confBarColor(conf);
-    const isStub = cand.status === 'stub';
+    const bColor  = confBarColor(conf);
+    const isStub  = cand.status === 'stub';
     const showBar = total > 1;
-
-    const panelId = 'xsc-cand-' + cand.id.replace(/\./g,'-') + '-' + rank;
-
-    const barHtml = showBar ? `<div class="conf-bar-wrap">
-        <div class="conf-bar-track${isStub?' stub-dashed':''}">
-            <div class="conf-bar" style="width:${isStub?'40':confPct}%;background:${barColor};"></div>
-        </div>
-        <span class="conf-pct">${confPct}%</span>
-    </div>` : `<span class="conf-pct">${confPct}%</span>`;
-
+    const itemId  = 'cand-item-' + (cand.id || '').replace(/\./g, '-') + '-' + rank;
+    const barHtml = showBar
+        ? `<div class="conf-bar-wrap"><div class="conf-bar-track${isStub?' stub-dashed':''}"><div class="conf-bar" style="width:${isStub?40:confPct}%;background:${bColor};"></div></div><span class="conf-pct">${confPct}%</span></div>`
+        : `<span class="conf-pct">${confPct}%</span>`;
     const stubBadge = isStub ? '<span class="candidate-stub-badge">参考</span>' : '';
+    const typeDef   = findTypeDef(cand.id);
+    const dict      = typeDef?.dictionary;
+    let bodyHtml = isStub ? '<div class="candidate-stub-note">判定ロジック未実装のため参考値です</div>' : '';
 
-    const typeDef = findTypeDef(cand.id);
-    const dict    = typeDef?.dictionary;
-
-    let bodyHtml = '';
-
-    if (isStub) {
-        bodyHtml += `<div class="candidate-stub-note">判定ロジック未実装のため参考値です</div>`;
-    }
-
-    /* §1 構文機能 */
+    /* 簡易説明（summary） */
     if (dict?.summary) {
-        bodyHtml += `<div class="dict-section dict-s1">
-            <div class="dict-section-label ui-section-label">構文機能</div>
-            <div class="dict-label-ja">${_escHtml(cand.label_ja || cand.id)}</div>
-            <div class="dict-summary">${_escHtml(dict.summary)}</div>
-        </div>`;
+        bodyHtml += `<div class="dict-section"><div class="dict-summary">${_escHtml(dict.summary)}</div></div>`;
     }
 
-    /* §2 解釈への影響 */
-    /* 方針: reading_impact_detail を各候補ごとに registry 側で用意するのが正本。
-       未設定の場合は tip_ja（断定形）にフォールバックするが、
-       これは registry のデータ未整備を示すため console.warn で検出可能にする。 */
-    let impactText = dict?.reading_impact_detail || '';
-    if (!impactText && typeDef?.reading_impact?.tip_ja) {
-        impactText = typeDef.reading_impact.tip_ja;
-        console.warn(`[§2 解釈への影響] reading_impact_detail 未設定のため tip_ja にフォールバック: candidate=${cand.id}`);
-    }
-    if (impactText) {
-        bodyHtml += `<div class="dict-section dict-s2">
-            <div class="dict-section-label ui-section-label">解釈への影響</div>
-            <div class="dict-impact">${_escHtml(impactText)}</div>
-        </div>`;
+    /* 見分け補助（diagnostics の簡略版・先頭2件まで） */
+    const diag = dict?.diagnostics;
+    if (Array.isArray(diag) && diag.length) {
+        const briefDiag = diag.slice(0, 2);
+        const more = diag.length > briefDiag.length ? `<li class="dict-diagnostics-more">他${diag.length - briefDiag.length}件…（詳細は§3）</li>` : '';
+        bodyHtml += `<div class="dict-section"><div class="ui-section-label">見分け方（簡易）</div><ul class="dict-diagnostics">${briefDiag.map(d=>`<li>${_escHtml(d)}</li>`).join('')}${more}</ul></div>`;
     }
 
-    /* §3 見分け方（旧: 構文ツリー＋見分け方。ツリーは§1の構文ツリーへ統合済み） */
-    {
-        let s3Inner = '';
-        /* 見分け方 */
-        const diag = dict?.diagnostics;
-        const hasDiag = Array.isArray(diag) && diag.length > 0;
-        if (hasDiag) {
-            const items = diag.map(d => `<li>${_escHtml(d)}</li>`).join('');
-            s3Inner += `<div class="dict-section-label ui-section-label">見分け方</div>
-            <ul class="dict-diagnostics">${items}</ul>`;
-        }
-        /* 確信度スコア内訳（補足。「なぜこの判定？」内に独自の見出しを持つ） */
-        if (!isStub && cand.xsc && cand.xsc.deltas && cand.xsc.deltas.length > 0) {
-            s3Inner += buildXscPanelFromCandidate(cand, panelId);
-        }
-        if (s3Inner) {
-            bodyHtml += `<div class="dict-section dict-s3">${s3Inner}</div>`;
-        }
-    }
-
-    /* §4 類例 */
-    if (typeDef?.example_verse || typeDef?.example_greek || typeDef?.example_gloss) {
-        let exInner = '';
-        if (typeDef.example_verse) {
-            exInner += `<div class="dict-ex-verse">${_escHtml(typeDef.example_verse)}</div>`;
-        }
-        if (typeDef.example_greek) {
-            exInner += `<div class="dict-ex-greek">${_escHtml(typeDef.example_greek)}</div>`;
-        }
-        if (typeDef.example_gloss) {
-            exInner += `<div class="dict-ex-gloss">${_escHtml(typeDef.example_gloss)}</div>`;
-        }
-        bodyHtml += `<div class="dict-section dict-s4">
-            <div class="dict-section-label ui-section-label">類例</div>
-            ${exInner}
-        </div>`;
-    }
-
-    /* 類似構文検索リンク */
-    if (!isStub) {
-        const simUrl = `similar-syntax-search.html?syntax_id=${encodeURIComponent(cand.id)}`;
-        bodyHtml += `<a class="similar-syntax-link" href="${simUrl}" target="_blank">🔍 類似箇所を検索</a>`;
-    }
-
+    if (!isStub) bodyHtml += `<a class="similar-syntax-link" href="similar-syntax-search.html?syntax_id=${encodeURIComponent(cand.id)}" target="_blank">🔍 類似箇所を検索</a>`;
     const openClass = isTop ? ' open' : '';
-
-    return `<div class="candidate-item${isTop?' top':''}${openClass}" id="${panelId}-item">
-        <div class="candidate-item-head" onclick="toggleCandidateItem('${panelId}-item')">
-            <span class="candidate-rank">${rank+1}</span>
-            <span class="candidate-label">${cand.label_ja || cand.id}</span>
-            ${stubBadge}
-            ${barHtml}
-            <span class="candidate-arrow">▾</span>
-        </div>
-        <div class="candidate-item-body">${bodyHtml}</div>
-    </div>`;
+    return `<div class="candidate-item${isTop?' top':''}${openClass}" id="${itemId}">
+  <div class="candidate-item-head" onclick="toggleCandidateItem('${itemId}')">
+    <span class="candidate-rank">${rank+1}</span>
+    <span class="candidate-label">${_escHtml(cand.label_ja||cand.id)}</span>
+    ${stubBadge}${barHtml}
+    <span class="candidate-arrow">▾</span>
+  </div>
+  <div class="candidate-item-body">${bodyHtml}</div>
+</div>`;
 }
 
 /**
@@ -3665,12 +3779,14 @@ const ReadingImpactRenderer = (() => {
     }
 
     /**
-     * render(candidate, allCandidates): § 4 セクション全体を更新する
+     * render(candidate, allCandidates): § 2 セクション全体を更新する
      * candidate: candidates[0]（1位候補）
+     * §2 = summary（構文機能の要約） + reading_impact
      */
     function render(candidate, allCandidates) {
         const section   = document.getElementById('reading-impact-section');
         const divider   = document.getElementById('reading-impact-divider');
+        const summaryEl = document.getElementById('ri-summary');
         const labelEl   = document.getElementById('ri-label');
         const tipEl     = document.getElementById('ri-tip');
         const warningEl = document.getElementById('ri-warning');
@@ -3678,6 +3794,10 @@ const ReadingImpactRenderer = (() => {
         function hide() {
             if (section)  section.style.display  = 'none';
             if (divider)  divider.style.display   = 'none';
+            if (summaryEl) summaryEl.innerHTML = '';
+            if (labelEl) { labelEl.textContent = ''; labelEl.style.display = ''; }
+            if (tipEl)   { tipEl.textContent   = ''; tipEl.style.display   = ''; }
+            if (warningEl) warningEl.style.display = 'none';
         }
         function show() {
             if (section)  section.style.display  = '';
@@ -3686,22 +3806,25 @@ const ReadingImpactRenderer = (() => {
 
         if (!candidate || candidate.status === 'stub') { hide(); return; }
 
+        /* summary（構文機能の要約） */
+        const typeDef = findTypeDef(candidate.id);
+        const summary = typeDef?.dictionary?.summary || '';
+        if (summaryEl) summaryEl.innerHTML = summary ? `<div class="dict-summary">${_esc(summary)}</div>` : '';
+
+        /* reading_impact */
         const ri = _getImpact(candidate.id);
-        if (!ri || !ri.impact_key) { hide(); return; }
+        const validRi = !!(ri && ri.impact_key && VALID_IMPACT_KEYS.has(ri.impact_key) && ri.label_ja);
 
-        /* 未知の impact_key → 非表示 */
-        if (!VALID_IMPACT_KEYS.has(ri.impact_key)) { hide(); return; }
+        if (!summary && !validRi) { hide(); return; }
 
-        /* label_ja */
-        const label = ri.label_ja || '';
-        if (!label) { hide(); return; }
-
-        if (labelEl) labelEl.textContent = label;
-        if (tipEl)   tipEl.textContent   = processTipJa(ri.tip_ja || '');
-
-        /* 注意事項 */
-        if (warningEl) {
-            warningEl.style.display = shouldShowWarning(allCandidates) ? '' : 'none';
+        if (validRi) {
+            if (labelEl) { labelEl.textContent = ri.label_ja; labelEl.style.display = ''; }
+            if (tipEl)   { tipEl.textContent   = processTipJa(ri.tip_ja || ''); tipEl.style.display = ''; }
+            if (warningEl) warningEl.style.display = shouldShowWarning(allCandidates) ? '' : 'none';
+        } else {
+            if (labelEl) { labelEl.textContent = ''; labelEl.style.display = 'none'; }
+            if (tipEl)   { tipEl.textContent   = ''; tipEl.style.display = 'none'; }
+            if (warningEl) warningEl.style.display = 'none';
         }
 
         show();
