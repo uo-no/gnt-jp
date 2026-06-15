@@ -7,90 +7,39 @@
 <title>統語論検索</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/layout.css">
+<link rel="stylesheet" href="styles/components.css">
 <style>
-/* ══════════════════════════════════════════
-   Design tokens
-   ══════════════════════════════════════════ */
+/* ── page-specific tokens: syntax role colors ── */
 :root {
-    --bg:           #ffffff;
-    --bg-panel:     #f5f5f7;
-    --bg-inset:     #fafafa;
-    --text:         #1d1d1f;
-    --text-sub:     #6e6e73;
-    --text-hint:    #8e8e93;
-    --accent:       #5a6e82;
-    --accent-light: rgba(90,110,130,0.09);
-    --accent-mid:   rgba(90,110,130,0.20);
-    --border:       rgba(0,0,0,0.07);
-    --radius-s: 8px;
-    --radius-m: 12px;
-    --radius-l: 16px;
+    --c-verb:   #3d6b9a;
+    --c-subj:   #4a8a62;
+    --c-obj:    #8a5a38;
+    --c-prep:   #6a58a0;
+    --c-mod:    #8a7030;
+    --c-conj:   #888888;
+    --c-ptc:    #c47028;
+    --c-inf:    #5a7a8a;
 
-/* 役割カラー（HSL ベース・彩度を抑える） */
---c-verb:   #3d6b9a;
---c-subj:   #4a8a62;
---c-obj:    #8a5a38;
---c-prep:   #6a58a0;
---c-mod:    #8a7030;
---c-conj:   #888888;
---c-ptc:    #c47028;  /* 分詞 */
---c-inf:    #5a7a8a;  /* 不定詞 */
-
---c-verb-bg:   rgba(61,107,154,0.08);
---c-subj-bg:   rgba(74,138,98,0.08);
---c-obj-bg:    rgba(138,90,56,0.08);
---c-prep-bg:   rgba(106,88,160,0.08);
---c-mod-bg:    rgba(138,112,48,0.07);
---c-ptc-bg:    rgba(196,112,40,0.08);
---c-inf-bg:    rgba(90,122,138,0.08);
-
+    --c-verb-bg:   rgba(61,107,154,0.08);
+    --c-subj-bg:   rgba(74,138,98,0.08);
+    --c-obj-bg:    rgba(138,90,56,0.08);
+    --c-prep-bg:   rgba(106,88,160,0.08);
+    --c-mod-bg:    rgba(138,112,48,0.07);
+    --c-ptc-bg:    rgba(196,112,40,0.08);
+    --c-inf-bg:    rgba(90,122,138,0.08);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body {
-    font-family: 'Noto Sans JP', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    -webkit-font-smoothing: antialiased;
-}
+/* reset, body, .nav, .btn-back, .breadcrumb, .section-divider, .book-section-sep → layout.css */
 
-/* ══════════════════════════════════════════
-Layout
-══════════════════════════════════════════ */
-.page { max-width: 720px; margin: 0 auto; padding: 32px 24px 100px; }
-
-/* Nav */
-.nav { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
-.btn-back {
-display: inline-flex; align-items: center; gap: 4px;
-padding: 5px 13px; font-size: 0.78rem; font-family: inherit;
-border: 1px solid var(--border); border-radius: 20px;
-background: transparent; cursor: pointer; color: var(--text-sub);
-transition: background 0.12s;
-}
-.btn-back:hover { background: var(--bg-panel); }
-.breadcrumb {
-display: flex; align-items: center; gap: 5px;
-font-size: 0.75rem; color: var(--text-hint);
-flex: 1; overflow: hidden;
-}
-.breadcrumb .crumb { color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
-.breadcrumb .sep { color: #b0b0b6; flex-shrink: 0; }
+/* syntax-searchはmax-width:720pxを使用 */
+.page { max-width: 720px; }
 
 /* Section label */
 .sec-label {
 letter-spacing: 0.14em;
 margin-bottom: 12px;
-}
-.section-divider { border: none; border-top: 1px solid var(--border); margin: 0 0 40px; }
-
-/* NT / LXX 区切り */
-.book-section-sep {
-    width: 100%;
-    letter-spacing: 0.14em;
-    padding: 8px 2px 4px;
-    margin-top: 2px;
 }
 
 /* ══════════════════════════════════════════
@@ -486,93 +435,7 @@ flex-shrink: 0;
 .similar-syntax-link:hover {
     background: var(--accent-mid);
 }
-/* 次の分析ナビ */
-.nav-next-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 12px;
-}
-.nav-next-btn {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 18px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-m, 10px);
-    text-decoration: none;
-    color: var(--text);
-    transition: background 0.12s, border-color 0.12s;
-}
-.nav-next-btn:hover {
-    background: var(--accent-light);
-    border-color: var(--accent-mid);
-}
-.nav-next-body { flex: 1; }
-.nav-next-title {
-    font-size: 0.88rem;
-    font-weight: 700;
-    color: var(--accent);
-    margin-bottom: 2px;
-}
-.nav-next-sub {
-    font-size: 0.72rem;
-    color: var(--text-sub);
-}
-.nav-next-arrow {
-    font-size: 1rem;
-    color: var(--text-hint);
-    margin-left: 12px;
-    flex-shrink: 0;
-}
-.nav-inherit-card {
-    background: var(--bg-panel, #f5f5f7);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-s, 8px);
-    padding: 12px 14px;
-}
-.nav-inherit-label {
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-hint);
-    margin-bottom: 8px;
-}
-.nav-inherit-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 8px;
-}
-.nav-inherit-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 3px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    font-size: 0.72rem;
-    color: var(--text-sub);
-}
-.nav-inherit-chip-key {
-    color: var(--text-hint);
-    font-size: 0.65rem;
-}
-.nav-inherit-chip-val {
-    font-weight: 600;
-    color: var(--text);
-}
-.nav-inherit-chip-val.greek {
-    font-family: var(--font-greek, serif);
-    font-size: 0.82rem;
-}
-.nav-inherit-note {
-    font-size: 0.7rem;
-    color: var(--text-hint);
-}
+/* .nav-next-*, .nav-inherit-* → components.css */
 .conflict-note {
     padding: 7px 12px;
     background: rgba(90,110,130,0.06);
@@ -725,26 +588,7 @@ transform: translateY(-1px);
 .nav-tool-sub  { font-size: 0.68rem; color: var(--text-sub); }
 .nav-tool-arrow { font-size: 0.85rem; color: var(--text-hint); flex-shrink: 0; margin-left: 8px; align-self: center; }
 
-/* ══════════════════════════════════════════
-Loading / Error
-══════════════════════════════════════════ */
-.loading {
-text-align: center; padding: 64px 16px; color: var(--text-hint);
-}
-.loading-greek {
-font-family: 'Gentium Plus', serif;
-font-size: 2rem; color: #d8d8dc; margin-bottom: 16px;
-}
-.loading-bar-wrap { width: 200px; margin: 0 auto 10px; height: 2px; background: var(--bg-panel); border-radius: 2px; overflow: hidden; }
-.loading-bar { height: 100%; background: var(--accent); transition: width 0.3s; border-radius: 2px; }
-.loading-text { font-size: 0.72rem; }
-@keyframes pulse { 0%,80%,100%{opacity:0.3} 40%{opacity:1} }
-.dot { display: inline-block; animation: pulse 1.4s ease-in-out infinite; }
-.dot:nth-child(2) { animation-delay: 0.2s; }
-.dot:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-.fade-up { animation: fadeUp 0.25s ease forwards; }
+/* .loading*, @keyframes, .fade-up, .dot → layout.css */
 
 /* ══════════════════════════════════════════
    § 4 読解への影響（Phase H）— CSS
@@ -813,20 +657,10 @@ font-size: 2rem; color: #d8d8dc; margin-bottom: 16px;
 .ri-sub-label { font-size: 0.8rem; font-weight: 700; color: var(--text); margin-bottom: 3px; }
 .ri-sub-tip   { font-size: 0.78rem; color: var(--text-sub); line-height: 1.65; }
 
-/* Footer */
-.app-footer {
-margin-top: 48px; padding-top: 16px;
-border-top: 1px solid var(--border);
-display: flex; align-items: center; justify-content: space-between;
-font-size: 0.68rem; color: var(--text-hint);
-}
-.footer-links { display: flex; gap: 16px; }
-.footer-links a { color: var(--text-hint); text-decoration: none; border-bottom: 1px solid var(--border); padding-bottom: 1px; }
-.footer-links a:hover { color: var(--text-sub); }
+/* .app-footer, .footer-links → layout.css */
 
 /* Responsive */
 @media (max-width: 520px) {
-.page { padding: 24px 16px 80px; }
 .token-line { font-size: 1.2rem; gap: 3px 7px; }
 .nav-tools { grid-template-columns: 1fr; }
 }
@@ -1173,118 +1007,7 @@ margin-bottom: 20px;
     .role-primary-word { font-size: 1.8rem; }
 }
 
-/* ── ヘルプボタン & ポップオーバー ── */
-.help-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    border: 1.5px solid var(--text-hint);
-    background: transparent;
-    color: var(--text-hint);
-    font-size: 0.6rem; font-weight: 700; font-family: inherit;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-    flex-shrink: 0;
-    transition: border-color 0.12s, color 0.12s, background 0.12s;
-    vertical-align: middle;
-    margin-left: 4px;
-}
-.help-btn:hover,
-.help-btn[aria-expanded="true"] {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: var(--accent-light);
-}
-.breadcrumb-tail {
-    position: relative;
-    display: inline-flex; align-items: center; gap: 0;
-    flex-shrink: 0;
-}
-.help-popup {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    min-width: 200px;
-    max-width: min(260px, calc(100vw - 32px));
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-m);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.10);
-    padding: 14px 16px;
-    animation: fadeUp 0.15s ease;
-}
-.help-popup.open { display: block; }
-.help-popup-title {
-    font-size: 0.62rem; font-weight: 700;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--accent); margin-bottom: 8px;
-}
-.help-popup-body {
-    font-size: 0.8rem; color: var(--text-sub);
-    line-height: 1.6; margin-bottom: 10px;
-}
-.help-popup-examples {
-    display: flex; flex-wrap: wrap; gap: 4px;
-}
-.help-popup-tag {
-    font-size: 0.7rem; padding: 2px 8px;
-    background: var(--bg-panel);
-    border: 1px solid var(--border);
-    border-radius: 20px; color: var(--text-sub);
-}
-
-/* ── 発見カード ── */
-.discovery-card {
-    padding: 16px 18px;
-    background: var(--bg);
-    border: 1.5px solid var(--accent-mid);
-    border-radius: var(--radius-m);
-    margin-bottom: 24px;
-}
-.discovery-card-title {
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 10px;
-}
-.discovery-word {
-    font-family: 'Gentium Plus', serif;
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--text);
-    line-height: 1.2;
-    margin-bottom: 10px;
-}
-.discovery-rows {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-.discovery-row {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 0.88rem;
-    line-height: 1.5;
-    color: var(--text-sub);
-}
-.discovery-arrow {
-    color: var(--accent);
-    font-size: 0.72rem;
-    flex-shrink: 0;
-    margin-top: 1px;
-}
-.discovery-text {
-    color: var(--text);
-    font-weight: 500;
-}
-.discovery-text.muted {
-    color: var(--text-sub);
-    font-weight: 400;
-}
+/* .help-btn, .breadcrumb-tail, .help-popup*, .discovery-card* → components.css */
 
 /* ══════════════════════════════════════════
    チップ型トークン表示
@@ -3487,6 +3210,10 @@ function processTipJa(tip) {
     }
     return result;
 }
+
+/* ══════════════════════════════════════════
+   Phase G: § 3 構文ツリー描画関数
+══════════════════════════════════════════ */
 </script>
 
 </body>
