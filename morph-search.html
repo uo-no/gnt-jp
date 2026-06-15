@@ -719,6 +719,34 @@ body.compact-reading-mode .result-ja {
 .filter-section-block {
     margin-bottom: 32px;
 }
+/* 次の分析ナビ */
+.nav-next-list { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+.nav-next-btn {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 18px; background:#fff; border:1px solid var(--border);
+    border-radius:10px; text-decoration:none; color:inherit;
+    transition:background 0.12s;
+}
+.nav-next-btn:hover { background:var(--accent-light, #f0f4ff); }
+.nav-next-body { flex:1; }
+.nav-next-title { font-size:0.88rem; font-weight:700; color:var(--accent); margin-bottom:2px; }
+.nav-next-sub { font-size:0.72rem; color:var(--text-sub); }
+.nav-next-arrow { font-size:1rem; color:var(--text-hint); margin-left:12px; }
+.nav-inherit-card {
+    background:var(--bg-panel); border:1px solid var(--border);
+    border-radius:10px; padding:12px 14px;
+}
+.nav-inherit-label { font-size:0.65rem; font-weight:700; text-transform:uppercase; color:var(--text-hint); margin-bottom:8px; }
+.nav-inherit-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+.nav-inherit-chip {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 10px; background:#fff; border:1px solid var(--border);
+    border-radius:20px; font-size:0.72rem;
+}
+.nav-inherit-chip-key { color:var(--text-hint); }
+.nav-inherit-chip-val { font-weight:600; color:var(--text); }
+.nav-inherit-chip-val.greek { font-family:'GFS Didot',Georgia,serif; font-size:0.82rem; }
+.nav-inherit-note { font-size:0.7rem; color:var(--text-hint); }
 </style>
 </head>
 <body>
@@ -866,50 +894,21 @@ body.compact-reading-mode .result-ja {
     <div class="result-list" id="result-list" style="display:none"></div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     SECTION 4 — 次の分析
-══════════════════════════════════════════ -->
-<div class="section-block fade-up" id="next-analysis-section" style="display:none; animation-delay:0.1s">
-    <hr class="section-divider" style="margin-top:0;">
+<div class="section-block fade-up" id="nav-next-section" style="display:none;animation-delay:0.18s">
     <div class="section-title">次の分析</div>
-
-    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
-
-        <!-- 統語論検索へ -->
-        <div class="identity-detail-block" style="cursor:pointer; transition:border-color 0.12s;"
-             onmouseenter="this.style.borderColor='var(--accent-mid)'"
-             onmouseleave="this.style.borderColor=''"
-             onclick="navigateTo('syntax')">
-            <div style="display:flex; align-items:center; justify-content:space-between;">
-                <div>
-                    <div style="font-size:0.72rem; font-weight:700; color:var(--accent); margin-bottom:4px; letter-spacing:0.05em;">統語論検索へ</div>
-                    <div class="identity-detail-flat">語順・修飾関係を見る</div>
-                </div>
-                <span style="color:var(--text-hint); font-size:0.85rem;">→</span>
+    <div class="nav-next-list">
+        <a class="nav-next-btn" href="#" onclick="navToSyntax(event)">
+            <div class="nav-next-body">
+                <div class="nav-next-title">統語論検索へ</div>
+                <div class="nav-next-sub">語順・修飾関係を見る</div>
             </div>
-        </div>
-
-        <!-- 単語検索へ -->
-        <div class="identity-detail-block" style="cursor:pointer; transition:border-color 0.12s;"
-             onmouseenter="this.style.borderColor='var(--accent-mid)'"
-             onmouseleave="this.style.borderColor=''"
-             onclick="navigateTo('lexicon')">
-            <div style="display:flex; align-items:center; justify-content:space-between;">
-                <div>
-                    <div style="font-size:0.72rem; font-weight:700; color:var(--accent); margin-bottom:4px; letter-spacing:0.05em;">単語検索へ</div>
-                    <div class="identity-detail-flat">語義・用例を調べる</div>
-                </div>
-                <span style="color:var(--text-hint); font-size:0.85rem;">→</span>
-            </div>
-        </div>
-
+            <span class="nav-next-arrow">→</span>
+        </a>
     </div>
-
-    <!-- 引き継ぎ情報 -->
-    <div class="identity-summary">
-        <div style="font-size:0.68rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-hint); margin-bottom:8px;">引き継ぎ項目</div>
-        <div id="next-analysis-context-tags" class="chips" style="gap:5px;"></div>
-        <div style="margin-top:8px; font-size:0.75rem; color:var(--text-sub);">現在の検索条件を引き継ぎます</div>
+    <div class="nav-inherit-card">
+        <div class="nav-inherit-label">引き継ぎ項目</div>
+        <div class="nav-inherit-chips" id="nav-inherit-chips"></div>
+        <div class="nav-inherit-note">現在の検索条件を引き継ぎます</div>
     </div>
 </div>
 
@@ -1654,7 +1653,6 @@ function renderResults(allData) {
     _displayCount = PAGE_SIZE;
     renderDist(matched);
     renderPage();
-    renderNextAnalysis();
 }
 
 function renderPage() {
@@ -1693,6 +1691,69 @@ function renderPage() {
     }
 }
 function loadMore() { _displayCount += PAGE_SIZE; renderPage(); }
+
+function navToSyntax(e) {
+    e.preventDefault();
+    const msg = { type: 'NAV_TO_SYNTAX', ref: params.ref, word: params.word };
+    if (window.parent && window.parent !== window) { window.parent.postMessage(msg, '*'); return; }
+    if (window.opener && !window.opener.closed) { window.opener.postMessage(msg, '*'); return; }
+    const qs = new URLSearchParams();
+    if (params.ref)   qs.set('ref',   params.ref);
+    if (params.word)  qs.set('word',  params.word);
+    if (params.lemma) qs.set('lemma', params.lemma);
+    if (params.pos)   qs.set('pos',   params.pos);
+    const _rm = resolvedMorph || {};
+    const _pos = params.pos.replace(/-$/,'').toUpperCase();
+    if (_pos === 'V') {
+        if (params.tense || _rm.tense)   qs.set('tense',  params.tense || _rm.tense);
+        if (params.mood)                  qs.set('mood',   params.mood);
+        if (params.voice || _rm.voice)    qs.set('voice',  params.voice || _rm.voice);
+    } else {
+        if (params.case?.value  || _rm.case)   qs.set('case',   params.case?.value  || _rm.case);
+        if (params.number?.value|| _rm.number) qs.set('number', params.number?.value || _rm.number);
+        if (params.gender?.value|| _rm.gender) qs.set('gender', params.gender?.value || _rm.gender);
+    }
+    location.href = `syntax-search.html?${qs.toString()}`;
+}
+
+function updateNavInherit() {
+    const section  = document.getElementById('nav-next-section');
+    const chipsEl  = document.getElementById('nav-inherit-chips');
+    if (!section || !chipsEl) return;
+    section.style.display = '';
+
+    const _rm  = resolvedMorph || {};
+    const _pos = params.pos.replace(/-$/,'').toUpperCase();
+    const lemma = params.lemma || params.word || '';
+
+    const chips = [];
+    if (lemma) chips.push({ key: '基本形', val: lemma, greek: true });
+    const posJa = POS_JP[_pos] || '';
+    if (posJa) chips.push({ key: '品詞', val: posJa });
+
+    if (_pos === 'V') {
+        const mood  = params.mood;
+        const tense = params.tense || _rm.tense;
+        const voice = params.voice || _rm.voice;
+        if (mood)  chips.push({ key: '法',   val: MOOD_JP[mood]   || mood });
+        if (tense) chips.push({ key: '時制', val: TENSE_JP[tense] || tense });
+        if (voice) chips.push({ key: '態',   val: VOICE_JP[voice] || voice });
+    } else {
+        const num = params.number?.value || _rm.number;
+        const gen = params.gender?.value || _rm.gender;
+        const cas = params.case?.value   || _rm.case;
+        if (num) chips.push({ key: '数', val: NUMBER_JP[num] || num });
+        if (gen) chips.push({ key: '性', val: GENDER_JP[gen] || gen });
+        if (cas) chips.push({ key: '格', val: CASE_JP[cas]   || cas });
+    }
+
+    chipsEl.innerHTML = chips.map(c =>
+        `<span class="nav-inherit-chip">
+            <span class="nav-inherit-chip-key">${c.key}</span>
+            <span class="nav-inherit-chip-val${c.greek ? ' greek' : ''}">${c.val}</span>
+        </span>`
+    ).join('');
+}
 
 function goToWord(ref, enc) {
     const word = decodeURIComponent(enc);
@@ -1882,101 +1943,6 @@ async function fetchJaData(morphPaths) {
     });
 })();
 
-/* ══════════════════════════════════════════
-   次の分析セクション
-══════════════════════════════════════════ */
-
-/**
- * 現在の検索状態をまとめた searchContext オブジェクトを返す。
- * URLパラメータではなく params / extState / resolvedMorph を参照。
- */
-function buildSearchContext() {
-    const _rm = resolvedMorph || {};
-    const _get = (key) =>
-        _rm[key] ||
-        extState.find(f => f.key === key && f.enabled && f.value)?.value ||
-        (typeof params[key] === 'object' ? params[key]?.value : params[key]) || '';
-
-    return {
-        lemma:  params.lemma  || '',
-        pos:    params.pos.replace(/-$/, '').toUpperCase() || '',
-        tense:  params.tense  || '',
-        voice:  _get('voice') || '',
-        mood:   params.mood   || '',
-        person: params.person || _rm.person || '',
-        number: _get('number') || '',
-        gender: _get('gender') || '',
-        case:   _get('case')   || '',
-    };
-}
-
-/**
- * searchContext タグを描画し、「次の分析」セクションを表示する。
- * renderResults() の末尾から呼ばれる。
- */
-function renderNextAnalysis() {
-    const section = document.getElementById('next-analysis-section');
-    if (!section) return;
-
-    const ctx = buildSearchContext();
-    window._searchContext = ctx;
-
-    const LABELS = {
-        lemma: '基本形', pos: '品詞', tense: '時制', voice: '態',
-        mood: '法', person: '人称', number: '数', gender: '性', case: '格',
-    };
-    const JP_VALS = {
-        tense:  TENSE_JP,
-        voice:  VOICE_JP,
-        mood:   MOOD_JP,
-        gender: GENDER_JP,
-        number: NUMBER_JP,
-        case:   CASE_JP,
-        pos:    POS_JP,
-        person: { '1': '一人称', '2': '二人称', '3': '三人称' },
-    };
-
-    const tagsEl = document.getElementById('next-analysis-context-tags');
-    if (tagsEl) {
-        tagsEl.innerHTML = Object.entries(ctx)
-            .filter(([, v]) => v)
-            .map(([k, v]) => {
-                const label = LABELS[k] || k;
-                const val   = (JP_VALS[k] && JP_VALS[k][v]) ? JP_VALS[k][v] : v;
-                return `<div class="chip chip-fixed">
-                    <span class="chip-key">${label}</span>
-                    <span>${val}</span>
-                </div>`;
-            }).join('');
-    }
-
-    section.style.display = '';
-}
-
-/**
- * ボタン押下時のナビゲーション。
- * destination: 'syntax' | 'lexicon'
- * searchContext は window._searchContext から参照可能。
- */
-function navigateTo(destination) {
-    const ctx = window._searchContext || buildSearchContext();
-    const msg = { type: 'NAVIGATE_TO', destination, searchContext: ctx };
-
-    if (window.parent && window.parent !== window) {
-        window.parent.postMessage(msg, '*');
-        return;
-    }
-    if (window.opener && !window.opener.closed) {
-        window.opener.postMessage(msg, '*');
-        return;
-    }
-
-    const p = new URLSearchParams();
-    Object.entries(ctx).forEach(([k, v]) => { if (v) p.set(k, v); });
-    const page = destination === 'syntax' ? 'syntax-search.html' : 'search-tool.html';
-    location.href = `${page}?${p.toString()}`;
-}
-
 /* 初期化 */
 (async function init() {
     const loadEl = document.getElementById('loading');
@@ -2050,6 +2016,7 @@ function navigateTo(destination) {
     listEl.style.display = 'flex';
     document.getElementById('result-section').style.display = '';
     renderResults(allData);
+    updateNavInherit();
 })();
 </script>
 </body>
