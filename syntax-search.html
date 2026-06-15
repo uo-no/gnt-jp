@@ -838,6 +838,14 @@ font-size: 2rem; color: #d8d8dc; margin-bottom: 16px;
     list-style: none;
     margin-left: -18px;
 }
+/* セクション本文が空の場合の明示的プレースホルダ
+   （完全空DOM禁止: 該当データが無い場合もこの表示で内容を維持する） */
+.section-empty-note {
+    font-size: 0.8rem;
+    color: var(--text-hint);
+    font-style: italic;
+    padding: 4px 0;
+}
 .dict-ex-greek {
     font-family: 'Gentium Plus', serif;
     font-size: 1.05rem;
@@ -1633,7 +1641,7 @@ margin-bottom: 20px;
     <!-- ══════════════════════════════════════
          § 4 証拠（evidence）
     ══════════════════════════════════════ -->
-    <div class="section-block fade-up" style="animation-delay:0.16s;display:none;" id="evidence-section">
+    <div class="section-block fade-up" style="animation-delay:0.16s" id="evidence-section">
         <div class="section-title">§ 4 &nbsp;証拠</div>
         <div id="evidence-wrap"></div>
     </div>
@@ -1641,7 +1649,7 @@ margin-bottom: 20px;
     <!-- ══════════════════════════════════════
          § 5 例（example_verse / example_greek / example_gloss を個別表示）
     ══════════════════════════════════════ -->
-    <div class="section-block fade-up" style="animation-delay:0.2s;display:none;" id="examples-section">
+    <div class="section-block fade-up" style="animation-delay:0.2s" id="examples-section">
         <div class="section-title">§ 5 &nbsp;例</div>
         <div id="examples-wrap"></div>
     </div>
@@ -2861,10 +2869,11 @@ function renderJudgmentDetails(candidates) {
     if (!reasoningWrap || !diagWrap || !xscWrap) return;
 
     const active = (candidates || []).filter(c => c.status !== 'stub');
+
     if (active.length === 0) {
-        reasoningWrap.innerHTML = '';
-        diagWrap.innerHTML = '';
-        xscWrap.innerHTML = '';
+        reasoningWrap.innerHTML = `<div class="dict-section"><div class="ui-section-label">判定理由</div>${_emptySectionNote()}</div>`;
+        diagWrap.innerHTML      = `<div class="dict-section"><div class="ui-section-label">見分け方</div>${_emptySectionNote()}</div>`;
+        xscWrap.innerHTML       = `<div class="dict-section"><div class="ui-section-label">なぜこの判定？（XSC）</div>${_emptySectionNote()}</div>`;
         return;
     }
 
@@ -2874,72 +2883,77 @@ function renderJudgmentDetails(candidates) {
 
     /* 判定理由（reasoning） */
     const reasoningText = dict?.reasoning || top.reasoning || '';
-    reasoningWrap.innerHTML = reasoningText
-        ? `<div class="dict-section"><div class="ui-section-label">判定理由</div><div class="dict-summary">${_escHtml(reasoningText)}</div></div>`
-        : '';
+    reasoningWrap.innerHTML = `<div class="dict-section"><div class="ui-section-label">判定理由</div>${
+        reasoningText ? `<div class="dict-summary">${_escHtml(reasoningText)}</div>` : _emptySectionNote()
+    }</div>`;
 
     /* 見分け方（diagnostics・全文） */
     const diag = dict?.diagnostics;
-    diagWrap.innerHTML = (Array.isArray(diag) && diag.length)
-        ? `<div class="dict-section"><div class="ui-section-label">見分け方</div><ul class="dict-diagnostics">${diag.map(d=>`<li>${_escHtml(d)}</li>`).join('')}</ul></div>`
-        : '';
+    diagWrap.innerHTML = `<div class="dict-section"><div class="ui-section-label">見分け方</div>${
+        (Array.isArray(diag) && diag.length)
+            ? `<ul class="dict-diagnostics">${diag.map(d=>`<li>${_escHtml(d)}</li>`).join('')}</ul>`
+            : _emptySectionNote()
+    }</div>`;
 
     /* XSC（Explainable Scoring） — §3 直下、candidate panel にはネストしない */
     if (top.xsc?.deltas?.length) {
         const panelId = 'xsc-main-' + (top.id || '').replace(/\./g, '-');
         xscWrap.innerHTML = buildXscPanelFromCandidate(top, panelId);
     } else {
-        xscWrap.innerHTML = '';
+        xscWrap.innerHTML = `<div class="dict-section"><div class="ui-section-label">なぜこの判定？（XSC）</div>${_emptySectionNote()}</div>`;
     }
 }
 
 /**
  * § 4 証拠（evidence） — main panel 専属の独立セクション。
  * candidate panel には絶対に表示しない。
+ *
+ * ■ 重要: UIセクション構造はデータスキーマに依存して変化してはならない。
+ * evidence が存在しない場合でも §4 セクション自体は必ず表示し、
+ * 内容が空の場合は「なし」表示や非表示にせず、空セクションとして維持する。
  */
 function renderEvidenceSection(candidates) {
-    const section = document.getElementById('evidence-section');
-    const wrap     = document.getElementById('evidence-wrap');
-    if (!section || !wrap) return;
+    const wrap = document.getElementById('evidence-wrap');
+    if (!wrap) return;
 
     const active = (candidates || []).filter(c => c.status !== 'stub');
-    if (active.length === 0) { section.style.display = 'none'; wrap.innerHTML = ''; return; }
+    if (active.length === 0) { wrap.innerHTML = _emptySectionNote(); return; }
 
     const top      = active[0];
     const typeDef  = findTypeDef(top.id);
     const evidence = typeDef?.evidence ?? typeDef?.dictionary?.evidence ?? top.evidence;
 
     if (!evidence || (Array.isArray(evidence) && evidence.length === 0)) {
-        section.style.display = 'none';
-        wrap.innerHTML = '';
+        wrap.innerHTML = _emptySectionNote();
         return;
     }
 
     wrap.innerHTML = Array.isArray(evidence)
         ? `<ul class="dict-diagnostics">${evidence.map(e=>`<li>${_escHtml(e)}</li>`).join('')}</ul>`
         : `<div class="dict-summary">${_escHtml(evidence)}</div>`;
-    section.style.display = '';
 }
 
 /**
  * § 5 例（example_verse / example_greek / example_gloss）
  * 仕様により各要素は必ず分離表示する（統合禁止）。
  * main panel 専属の独立セクション。candidate panel には表示しない。
+ *
+ * ■ 重要: example_* が存在しない場合でも §5 セクション自体は必ず表示し、
+ * 内容が空の場合は「該当データなし」の明示的プレースホルダを表示する
+ * （完全空DOM禁止）。
  */
 function renderExamplesSection(candidates) {
-    const section = document.getElementById('examples-section');
-    const wrap     = document.getElementById('examples-wrap');
-    if (!section || !wrap) return;
+    const wrap = document.getElementById('examples-wrap');
+    if (!wrap) return;
 
     const active = (candidates || []).filter(c => c.status !== 'stub');
-    if (active.length === 0) { section.style.display = 'none'; wrap.innerHTML = ''; return; }
+    if (active.length === 0) { wrap.innerHTML = _emptySectionNote(); return; }
 
     const top     = active[0];
     const typeDef = findTypeDef(top.id);
 
     if (!typeDef || !(typeDef.example_verse || typeDef.example_greek || typeDef.example_gloss)) {
-        section.style.display = 'none';
-        wrap.innerHTML = '';
+        wrap.innerHTML = _emptySectionNote();
         return;
     }
 
@@ -2948,7 +2962,6 @@ function renderExamplesSection(candidates) {
     if (typeDef.example_greek)  html += `<div class="dict-section"><div class="ui-section-label">ギリシャ語原文</div><div class="dict-ex-greek">${_escHtml(typeDef.example_greek)}</div></div>`;
     if (typeDef.example_gloss)  html += `<div class="dict-section"><div class="ui-section-label">逐語訳</div><div class="dict-ex-gloss">${_escHtml(typeDef.example_gloss)}</div></div>`;
     wrap.innerHTML = html;
-    section.style.display = '';
 }
 
 function renderCandidateItems(candidates, allStub) {
@@ -3062,6 +3075,15 @@ function findTypeDef(candidateId) {
 
 function _escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/**
+ * 空セクション表示ルール:
+ * データが存在しない場合でも完全空DOMは禁止。
+ * 「該当データなし」等の明示的プレースホルダを返す。
+ */
+function _emptySectionNote(text) {
+    return `<div class="section-empty-note">${_escHtml(text || '該当データなし')}</div>`;
 }
 
 function buildXscPanelFromCandidate(cand, panelId) {
@@ -3791,43 +3813,36 @@ const ReadingImpactRenderer = (() => {
         const tipEl     = document.getElementById('ri-tip');
         const warningEl = document.getElementById('ri-warning');
 
-        function hide() {
-            if (section)  section.style.display  = 'none';
-            if (divider)  divider.style.display   = 'none';
-            if (summaryEl) summaryEl.innerHTML = '';
-            if (labelEl) { labelEl.textContent = ''; labelEl.style.display = ''; }
-            if (tipEl)   { tipEl.textContent   = ''; tipEl.style.display   = ''; }
-            if (warningEl) warningEl.style.display = 'none';
-        }
-        function show() {
-            if (section)  section.style.display  = '';
-            if (divider)  divider.style.display   = '';
-        }
+        /* §2 セクション自体は常に表示する（空セクション表示ルール） */
+        if (section)  section.style.display  = '';
+        if (divider)  divider.style.display   = '';
 
-        if (!candidate || candidate.status === 'stub') { hide(); return; }
+        if (!candidate || candidate.status === 'stub') {
+            if (summaryEl) summaryEl.innerHTML = _emptySectionNote();
+            if (labelEl) { labelEl.textContent = '該当データなし'; labelEl.classList.add('section-empty-note'); }
+            if (tipEl)   { tipEl.textContent   = ''; tipEl.classList.remove('section-empty-note'); }
+            if (warningEl) warningEl.style.display = 'none';
+            return;
+        }
 
         /* summary（構文機能の要約） */
         const typeDef = findTypeDef(candidate.id);
         const summary = typeDef?.dictionary?.summary || '';
-        if (summaryEl) summaryEl.innerHTML = summary ? `<div class="dict-summary">${_esc(summary)}</div>` : '';
+        if (summaryEl) summaryEl.innerHTML = summary ? `<div class="dict-summary">${_esc(summary)}</div>` : _emptySectionNote();
 
         /* reading_impact */
         const ri = _getImpact(candidate.id);
         const validRi = !!(ri && ri.impact_key && VALID_IMPACT_KEYS.has(ri.impact_key) && ri.label_ja);
 
-        if (!summary && !validRi) { hide(); return; }
-
         if (validRi) {
-            if (labelEl) { labelEl.textContent = ri.label_ja; labelEl.style.display = ''; }
-            if (tipEl)   { tipEl.textContent   = processTipJa(ri.tip_ja || ''); tipEl.style.display = ''; }
+            if (labelEl) { labelEl.textContent = ri.label_ja; labelEl.classList.remove('section-empty-note'); }
+            if (tipEl)   { tipEl.textContent   = processTipJa(ri.tip_ja || ''); tipEl.classList.remove('section-empty-note'); }
             if (warningEl) warningEl.style.display = shouldShowWarning(allCandidates) ? '' : 'none';
         } else {
-            if (labelEl) { labelEl.textContent = ''; labelEl.style.display = 'none'; }
-            if (tipEl)   { tipEl.textContent   = ''; tipEl.style.display = 'none'; }
+            if (labelEl) { labelEl.textContent = '該当データなし'; labelEl.classList.add('section-empty-note'); }
+            if (tipEl)   { tipEl.textContent   = ''; tipEl.classList.remove('section-empty-note'); }
             if (warningEl) warningEl.style.display = 'none';
         }
-
-        show();
     }
 
     /**
