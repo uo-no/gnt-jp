@@ -211,11 +211,6 @@ async function fetchInBatches(tasks, size, onProgress) {
     return all;
 }
 
-// ── ref 文字列生成 ───────────────────────────────────────────────────────────
-function makeRef(bookKey, chapter, verse) {
-    return `${bookKey} ${chapter}:${verse}`;
-}
-
 // ── メイン ───────────────────────────────────────────────────────────────────
 async function main() {
     const startTime = Date.now();
@@ -445,7 +440,6 @@ async function main() {
 
                 /** @type {TokenRef} */
                 const tokenRef = {
-                    ref:        ref,
                     bookKey:    bookKey,
                     chapter:    chapter,
                     verse:      verseNum,
