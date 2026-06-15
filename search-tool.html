@@ -2551,22 +2551,14 @@ function _showEmpty(title,desc){
    init
    ============================================================ */
 function init(){
-    // 他ページ（morph-search.html）から語形情報が渡されていれば読み取る
-    const incoming = _applyIncomingSearchContext();
     _initSuggest();
     _initMorphChips();
-    if (incoming && incoming.hasMorph) {
-        _layers.morph = true;
-        _updateMorphClearBtn();
-    }
     // Initial layer sync
     Object.keys(_layers).forEach(k=>_syncLayerUI(k));
     // Start data loading
     _ensureL1().then(()=>{
         _buildAndExposeLemmaIndex();
         _buildAndExposeMorphIndex();
-        // 検索語が引き継がれている場合は読み込み完了後に自動検索
-        if (incoming && incoming.hasLemma) unifiedSearch();
     });
     _watchIndexProgress();
     // Initial prox slider
@@ -2616,64 +2608,6 @@ const MORPH_MOOD = [
 /* State: selected values per slot */
 const _morphSel = {pos:new Set(),case:new Set(),num:new Set(),gen:new Set(),tense:new Set(),voice:new Set(),mood:new Set()};
 
-/* ============================================================
-   他ページ（morph-search.html）からの語形情報の引き継ぎ
-   morph-search.html の searchContext は英語フルワード
-   （例: tense="aorist", case="nominative"）で値を渡してくるため、
-   ここで本ツールの1文字コード（Robinson-Pierpont式）に変換する。
-   ============================================================ */
-const TENSE_CODE_MAP = {
-    present:'P', imperfect:'I', future:'F',
-    aorist:'A', perfect:'X', pluperfect:'Y',
-};
-const VOICE_CODE_MAP = {
-    active:'A', middle:'M', passive:'P',
-    'middle deponent':'M', 'middle or passive':'M',
-};
-const MOOD_CODE_MAP = {
-    indicative:'I', subjunctive:'S', optative:'O',
-    imperative:'M', infinitive:'N', participle:'P',
-};
-const GENDER_CODE_MAP = { masculine:'M', feminine:'F', neuter:'N' };
-const NUMBER_CODE_MAP = { singular:'S', plural:'P' };
-const CASE_CODE_MAP   = {
-    nominative:'N', genitive:'G', dative:'D',
-    accusative:'A', vocative:'V',
-};
-/* pos は morph-search 側で既に1文字の大文字コード（V/N/A/R/T/P/D）として渡ってくる */
-const POS_CODE_SET = new Set(MORPH_POS.map(p => p.code));
-
-/**
- * URLSearchParams から lemma / pos / tense / voice / mood / number / gender / case を読み取り、
- * 検索語入力欄と _morphSel に反映する。
- * person は本ツールに対応する絞り込み項目が無いため引き継がない。
- * 戻り値: { hasLemma, hasMorph } / パラメータが無ければ null
- */
-function _applyIncomingSearchContext(){
-    const sp = new URLSearchParams(location.search);
-    if ([...sp.keys()].length === 0) return null;
-
-    const lemma = (sp.get('lemma') || '').trim();
-    if (lemma) {
-        document.getElementById('unified-search-input').value = lemma;
-    }
-
-    const addCode = (slot, code) => { if (code) _morphSel[slot].add(code); };
-
-    const pos = (sp.get('pos') || '').toUpperCase();
-    if (pos && POS_CODE_SET.has(pos)) addCode('pos', pos);
-
-    addCode('tense', TENSE_CODE_MAP[sp.get('tense') || '']);
-    addCode('voice', VOICE_CODE_MAP[sp.get('voice') || '']);
-    addCode('mood',  MOOD_CODE_MAP[sp.get('mood') || '']);
-    addCode('gen',   GENDER_CODE_MAP[sp.get('gender') || '']);
-    addCode('num',   NUMBER_CODE_MAP[sp.get('number') || '']);
-    addCode('case',  CASE_CODE_MAP[sp.get('case') || '']);
-
-    const hasMorph = Object.values(_morphSel).some(s => s.size > 0);
-    return { hasLemma: !!lemma, hasMorph };
-}
-
 /* Build pattern string from selections — returns null if nothing selected */
 function _getMorphFilterPattern(){
     if(_morphSel.pos.size===0&&_morphSel.case.size===0&&_morphSel.num.size===0&&
@@ -2711,38 +2645,23 @@ function _morphMatchesPattern(morphTag, pattern){
     const isVerbal = posCode === 'V';
     if(!isVerbal){
         // Nominal: parts[1] = CaseNumGen (e.g. "NSM")
-        // ただし1人称・2人称代名詞は性別の代わりに先頭に人称番号が付く
-        // （例: "1NS" = 1人称主格単数, "2GP" = 2人称属格複数）。
-        let cng = parts[1] || '';
-        if (/^[12]/.test(cng)) cng = cng.slice(1);
+        const cng = parts[1] || '';
         const c = cng[0]||'', n = cng[1]||'', g = cng[2]||'';
         if(pattern.case && !pattern.case.has(c)) return false;
         if(pattern.num  && !pattern.num.has(n))  return false;
         if(pattern.gen  && !pattern.gen.has(g))  return false;
     } else {
-        // Verbal: parts[1] = TenseVoiceMood (e.g. "PAI")、ただし第二アオリスト/
-        // 第二完了は先頭に "2" が付く（例: "2AAI" = 第二アオリスト能動直説法）。
-        // 先頭が数字の場合は読み飛ばしてから時制・態・法を取得する。
-        let tvm = parts[1] || '';
-        if (/^[0-9]/.test(tvm)) tvm = tvm.slice(1);
+        // Verbal: parts[1] = TenseVoiceMood (e.g. "PAI"), parts[2] = PersonNum or Num
+        const tvm = parts[1] || '';
         const t = tvm[0]||'', v = tvm[1]||'', m = tvm[2]||'';
         if(pattern.tense && !pattern.tense.has(t)) return false;
         if(pattern.voice && !pattern.voice.has(v)) return false;
         if(pattern.mood  && !pattern.mood.has(m))  return false;
-
-        const pn = parts[2] || '';
-        if (m === 'P') {
-            // 分詞: parts[2] = CaseNumGen (例: "NSM" = 主格単数男性)
-            const c = pn[0]||'', n = pn[1]||'', g = pn[2]||'';
-            if(pattern.case && !pattern.case.has(c)) return false;
-            if(pattern.num  && !pattern.num.has(n))  return false;
-            if(pattern.gen  && !pattern.gen.has(g))  return false;
-        } else {
-            // 直説法・接続法など: parts[2] = PersonNum (例: "3S")。数は2文字目。
-            if(pattern.num){
-                const numCode = pn.length>0 ? pn[1]||pn[pn.length-1] : '';
-                if(!pattern.num.has(numCode)) return false;
-            }
+        // For verbal, num is last char of parts[2] or parts[1+extra]
+        if(pattern.num){
+            const pn = parts[2]||'';
+            const numCode = pn.length>0 ? pn[pn.length-1] : '';
+            if(!pattern.num.has(numCode)) return false;
         }
     }
     return true;
@@ -2839,6 +2758,16 @@ function _closeMobilePanel(){
 }
 
 init();
+
+/* URL パラメータから検索語を引き継ぐ */
+(function initFromUrl() {
+    const p = new URLSearchParams(location.search);
+    const query = p.get('lemma') || p.get('word') || '';
+    if (!query) return;
+    const inp = document.getElementById('unified-search-input');
+    if (inp) inp.value = query;
+    unifiedSearch();
+})();
 
 /* ============================================================
    Abbott-Smith 辞書モーダル
