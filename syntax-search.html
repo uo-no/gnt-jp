@@ -362,6 +362,15 @@ flex-shrink: 0;
 }
 .cand-bullet.pos::before { background: #4a7a5a; opacity: 0.7; }
 .cand-bullet.neg::before { background: #b05050; opacity: 0.7; }
+.cand-sub-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--text-hint);
+    margin-top: 6px;
+    margin-bottom: 3px;
+}
 .cand-def-text {
     font-size: 0.81rem;
     color: var(--text-sub);
@@ -2968,13 +2977,14 @@ function renderOneCandidateItem(cand, rank, total) {
             </div>`;
         }
 
-        /* §3 構造と見分け方 — 構造図 → dictionary.diagnostics → deltas → XSC panel */
+        /* §3 構造と見分け方 — 構造図 → diagnostics → reasoning → deltas → XSC panel */
         const diagnostics = typeDef?.dictionary?.diagnostics || [];
+        const reasoning   = typeDef?.dictionary?.reasoning   || [];
         const deltas      = cand.xsc?.deltas || [];
         const posDeltas   = deltas.filter(d => d.value > 0);
         const negDeltas   = deltas.filter(d => d.value < 0);
         const relTreeHtml = buildGenitiveRelTree(cand.id, _tokens[_selectedIdx], _tokens, _selectedIdx);
-        const hasStructure = relTreeHtml || diagnostics.length > 0 || deltas.length > 0;
+        const hasStructure = relTreeHtml || diagnostics.length > 0 || reasoning.length > 0 || deltas.length > 0;
         if (hasStructure) {
             bodyHtml += `<div class="cand-section">
                 <div class="cand-section-label">構造と見分け方</div>`;
@@ -2982,9 +2992,19 @@ function renderOneCandidateItem(cand, rank, total) {
             if (relTreeHtml) bodyHtml += relTreeHtml;
             /* dictionary.diagnostics */
             if (diagnostics.length > 0) {
+                bodyHtml += `<div class="cand-sub-label">見分け方</div>`;
                 bodyHtml += `<div class="cand-bullets" style="margin-bottom:6px;">`;
                 diagnostics.forEach(d => {
                     bodyHtml += `<div class="cand-bullet">${_escH(d)}</div>`;
+                });
+                bodyHtml += `</div>`;
+            }
+            /* dictionary.reasoning */
+            if (reasoning.length > 0) {
+                bodyHtml += `<div class="cand-sub-label">判定根拠</div>`;
+                bodyHtml += `<div class="cand-bullets" style="margin-bottom:6px;">`;
+                reasoning.forEach(r => {
+                    bodyHtml += `<div class="cand-bullet">${_escH(r)}</div>`;
                 });
                 bodyHtml += `</div>`;
             }
