@@ -394,6 +394,70 @@ flex-shrink: 0;
     color: var(--text-sub);
     line-height: 1.55;
 }
+/* 属格関係図 */
+.cand-rel-tree {
+    margin-bottom: 8px;
+    padding: 7px 10px;
+    background: var(--bg-panel, #f5f5f7);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+}
+.cand-rel-node {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 28px;
+}
+.cand-rel-bar {
+    width: 3px;
+    height: 22px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    background: #7a7aaa;
+}
+.cand-rel-word {
+    font-size: 0.95rem;
+    font-family: var(--font-greek, serif);
+}
+.cand-rel-gloss {
+    font-size: 0.70rem;
+    color: var(--text-hint);
+}
+.cand-rel-children {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-left: 14px;
+    padding-left: 9px;
+    border-left: 1.5px solid var(--border);
+    margin-top: 3px;
+}
+.cand-rel-child {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    min-height: 24px;
+}
+.cand-rel-edge {
+    color: var(--text-hint);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+.cand-rel-child-word {
+    font-size: 0.88rem;
+    font-family: var(--font-greek, serif);
+}
+.cand-rel-label {
+    font-size: 0.63rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    color: #7a7aaa;
+    padding: 1px 5px;
+    border: 1px solid rgba(122,122,170,0.35);
+    border-radius: 3px;
+    flex-shrink: 0;
+}
 .similar-syntax-link {
     display: inline-flex;
     align-items: center;
@@ -2904,15 +2968,18 @@ function renderOneCandidateItem(cand, rank, total) {
             </div>`;
         }
 
-        /* §3 構造と見分け方 — dictionary.diagnostics → deltas → XSC panel */
+        /* §3 構造と見分け方 — 構造図 → dictionary.diagnostics → deltas → XSC panel */
         const diagnostics = typeDef?.dictionary?.diagnostics || [];
         const deltas      = cand.xsc?.deltas || [];
         const posDeltas   = deltas.filter(d => d.value > 0);
         const negDeltas   = deltas.filter(d => d.value < 0);
-        const hasStructure = diagnostics.length > 0 || deltas.length > 0;
+        const relTreeHtml = buildGenitiveRelTree(cand.id, _tokens[_selectedIdx], _tokens, _selectedIdx);
+        const hasStructure = relTreeHtml || diagnostics.length > 0 || deltas.length > 0;
         if (hasStructure) {
             bodyHtml += `<div class="cand-section">
                 <div class="cand-section-label">構造と見分け方</div>`;
+            /* 属格関係図 */
+            if (relTreeHtml) bodyHtml += relTreeHtml;
             /* dictionary.diagnostics */
             if (diagnostics.length > 0) {
                 bodyHtml += `<div class="cand-bullets" style="margin-bottom:6px;">`;
@@ -2969,6 +3036,57 @@ function renderOneCandidateItem(cand, rank, total) {
             <span class="candidate-arrow">▾</span>
         </div>
         <div class="candidate-item-body">${bodyHtml}</div>
+    </div>`;
+}
+
+/* ── 属格関係図 ──────────────────────────────────────────────────────── */
+function buildGenitiveRelTree(candidateId, entry, tokens, tokenIdx) {
+    const GENITIVE_TARGETS = new Set([
+        'genitive.possessive',
+        'genitive.subjective',
+        'genitive.objective',
+    ]);
+    if (!GENITIVE_TARGETS.has(candidateId)) return '';
+
+    const RELATION_LABEL = {
+        'genitive.possessive': '所有者',
+        'genitive.subjective': '主体',
+        'genitive.objective':  '対象',
+    };
+    const relationLabel = RELATION_LABEL[candidateId];
+
+    const SKIP_CLASS = new Set(['adv', 'det', 'punct', 'conj']);
+    const STOP_CLASS = new Set(['verb', 'prep']);
+    const NOMINAL    = new Set(['noun', 'adj', 'pron']);
+
+    /* 直前の非属格名詞を head として探す */
+    let headToken = null;
+    for (let j = tokenIdx - 1; j >= 0; j--) {
+        const t = tokens[j];
+        const c = t.class || '';
+        if (SKIP_CLASS.has(c)) continue;
+        if (STOP_CLASS.has(c)) break;
+        if (NOMINAL.has(c) && t.case !== 'genitive') { headToken = t; break; }
+    }
+    if (!headToken) return '';
+
+    const headWord   = _escH(headToken.text || headToken.normalized || '');
+    const headGloss  = _escH(headToken.japanese || headToken.gloss || '');
+    const depWord    = _escH(entry.text || entry.normalized || '');
+
+    return `<div class="cand-rel-tree">
+        <div class="cand-rel-node">
+            <div class="cand-rel-bar"></div>
+            <span class="cand-rel-word greek-headword">${headWord}</span>
+            ${headGloss ? `<span class="cand-rel-gloss">${headGloss}</span>` : ''}
+        </div>
+        <div class="cand-rel-children">
+            <div class="cand-rel-child">
+                <span class="cand-rel-edge">└─</span>
+                <span class="cand-rel-child-word greek-headword">${depWord}</span>
+                <span class="cand-rel-label">${relationLabel}</span>
+            </div>
+        </div>
     </div>`;
 }
 
