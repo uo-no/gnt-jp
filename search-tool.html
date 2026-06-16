@@ -2191,18 +2191,56 @@ function _renderHitCards(entries,words,word2){
         ?`「${_filterWord}」との共起：?件 / 全${byRef.size}件`
         :`${byRef.size.toLocaleString()} 節`;
 
-    let rendered=0;
-    for(const[,{gi,entry}]of byRef){
-        if(rendered>=SHOW)break;
-        const card=_buildUnifiedCard(gi,entry,words,word2);
-        card.style.animationDelay=`${rendered*0.02}s`;
+    const FOLD = 3; // 最初に表示する件数
+    const allEntries = [...byRef.values()].slice(0, SHOW);
+    const visible = allEntries.slice(0, FOLD);
+    const folded  = allEntries.slice(FOLD);
+
+    let rendered = 0;
+    for (const { gi, entry } of visible) {
+        const card = _buildUnifiedCard(gi, entry, words, word2);
+        card.style.animationDelay = `${rendered * 0.02}s`;
         list.appendChild(card);
         rendered++;
     }
-    if(byRef.size>SHOW){
-        const more=document.createElement('div');
-        more.style.cssText='text-align:center;padding:12px;font-size:0.75rem;color:var(--ink-soft);opacity:0.5;';
-        more.textContent=`…他 ${byRef.size-SHOW} 節`;
+
+    if (folded.length > 0) {
+        // 折りたたみボタン
+        const btn = document.createElement('button');
+        btn.className = 'hits-toggle-btn';
+        const btnIcon = document.createElement('span');
+        btnIcon.className = 'material-symbols-outlined mat-icon';
+        btnIcon.textContent = 'expand_more';
+        const btnLabel = document.createElement('span');
+        btnLabel.textContent = `残り ${folded.length} 節を表示`;
+        btn.appendChild(btnIcon); btn.appendChild(btnLabel);
+
+        // 折りたたみコンテナ
+        const overflow = document.createElement('div');
+        overflow.className = 'hits-overflow closed';
+        for (const { gi, entry } of folded) {
+            const card = _buildUnifiedCard(gi, entry, words, word2);
+            card.style.animationDelay = `${rendered * 0.02}s`;
+            overflow.appendChild(card);
+            rendered++;
+        }
+
+        btn.onclick = () => {
+            const isOpen = btn.classList.contains('open');
+            btn.classList.toggle('open', !isOpen);
+            overflow.classList.toggle('closed', isOpen);
+            btnIcon.textContent = isOpen ? 'expand_more' : 'expand_less';
+            btnLabel.textContent = isOpen ? `残り ${folded.length} 節を表示` : '折りたたむ';
+        };
+
+        list.appendChild(btn);
+        list.appendChild(overflow);
+    }
+
+    if (byRef.size > SHOW) {
+        const more = document.createElement('div');
+        more.style.cssText = 'text-align:center;padding:12px;font-size:0.75rem;color:var(--ink-soft);opacity:0.5;';
+        more.textContent = `…他 ${byRef.size - SHOW} 節`;
         list.appendChild(more);
     }
 }
