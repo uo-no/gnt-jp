@@ -7704,6 +7704,9 @@ app.innerHTML = '';
                 const _chipBookKey = AppState.location.book ? AppState.location.book.key : '';
                 const _chipCh = AppState.location.chapter != null ? AppState.location.chapter : null;
                 const chips = words.map((w, i) => _wordToFlowChip(w, i, _chipBookKey, _chipCh));
+                /* 複数節が同時に描画されるため、idx は節内でのみ有効。
+                   block 単位でchipデータを保持し、_wlvChipClick から節を跨いだ取り違えなく参照できるようにする。 */
+                block._flowChips = chips;
                 /* 修正B: ヨハネ3:16の先頭chip（index=0）にオンボーディングアンカーを付与 */
                 const _obBook = AppState.location.book ? AppState.location.book.key : '';
                 const _obChapter = AppState.location.chapter;
@@ -8421,7 +8424,11 @@ function _wlvChipClick(chipEl, idx) {
 
     _wlvActiveChipIdx = idx;
 
-    const chip = _wlvGetChipData(idx);
+    /* 本文中（読書フロー）の chip は節ブロックに紐づくローカルキャッシュから取得。
+       複数節が同時に描画されるため、グローバルな _wlvWordCache（idx基準）は節を跨いで取り違える。
+       パネル内の流れタブ（節ブロックの外）では従来どおり _wlvWordCache を使う。 */
+    const verseBlock = chipEl.closest('.verse-block');
+    const chip = (verseBlock && verseBlock._flowChips) ? verseBlock._flowChips[idx] : _wlvGetChipData(idx);
     if (!chip) return;
 
     /* AppState の inspect を更新
@@ -8443,19 +8450,26 @@ function _wlvChipClick(chipEl, idx) {
         lemmaId:  chip.lemmaId  != null ? chip.lemmaId : null,
     };
 
-    /* depth stack に word-flow を追加 */
-    const stack = AppState.depth.stack;
-    const top = stack[stack.length - 1];
-    if (!top || top.type !== 'word-flow') {
-        pushDepth({
-            type:   'word-flow',
-            label:  chip.greek,
-            strong: String(chip.strong || ''),
-        });
+    if (verseBlock) {
+        /* 本文を読んでいる最中の chip タップ：まず Inspect popover で軽く確認する。
+           Study panel へ進むかどうかは popover の「詳しく見る」ボタン（escalateToStudy）に委ねる。 */
+        showInspectPopover(chipEl, chip.greek, chip.strong, chip.morphText, chip.rawMorph, chip.jaWord);
+        window.App.onboarding?.onWordClicked(chipEl);
+        return;
     }
 
-    /* デプスパネルを直接開く */
-    openStudyPanel(chip.greek, chip.rawMorph, chip.ref, chip.lemma);
+    /* パネル内（流れタブ）の chip タップ：ドロワーで軽く確認する。
+       Study panel へ進むかどうかは「詳しく見る」ボタン（_wlvStudyBtnClick）に委ねる。 */
+    const drawer = document.getElementById('wlv-detail-drawer');
+    if (drawer) {
+        const ddGreek = document.getElementById('wlv-dd-greek');
+        const ddJa    = document.getElementById('wlv-dd-ja');
+        const ddReso  = document.getElementById('wlv-dd-resonance');
+        if (ddGreek) ddGreek.textContent = chip.greek || '-';
+        if (ddJa)    ddJa.textContent    = chip.jaWord || chip.gloss || '-';
+        if (ddReso)  ddReso.textContent  = _buildResonanceText(chip);
+        drawer.classList.add('visible');
+    }
 
     /* onboarding hook（クリックされたchip要素を渡す） */
     window.App.onboarding?.onWordClicked(chipEl);
