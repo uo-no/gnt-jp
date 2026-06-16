@@ -2555,14 +2555,15 @@ function renderOneCandidateItem(cand, rank, total) {
             </div>`;
         }
 
-        /* §3 構造と見分け方 — 構造図 → diagnostics → reasoning → deltas → XSC panel */
+        /* §3 構造と見分け方 — 構造図 → diagnostics → reasoning → evidence → deltas → XSC panel */
         const diagnostics = typeDef?.dictionary?.diagnostics || [];
         const reasoning   = typeDef?.dictionary?.reasoning   || [];
+        const evidence    = typeDef?.dictionary?.evidence    || [];
         const deltas      = cand.xsc?.deltas || [];
         const posDeltas   = deltas.filter(d => d.value > 0);
         const negDeltas   = deltas.filter(d => d.value < 0);
         const relTreeHtml = buildGenitiveRelTree(cand.id, _tokens[_selectedIdx], _tokens, _selectedIdx);
-        const hasStructure = relTreeHtml || diagnostics.length > 0 || reasoning.length > 0 || deltas.length > 0;
+        const hasStructure = relTreeHtml || diagnostics.length > 0 || reasoning.length > 0 || evidence.length > 0 || deltas.length > 0;
         if (hasStructure) {
             bodyHtml += `<div class="cand-section">
                 <div class="cand-section-label">構造と見分け方</div>`;
@@ -2583,6 +2584,15 @@ function renderOneCandidateItem(cand, rank, total) {
                 bodyHtml += `<div class="cand-bullets" style="margin-bottom:6px;">`;
                 reasoning.forEach(r => {
                     bodyHtml += `<div class="cand-bullet">${_escH(r)}</div>`;
+                });
+                bodyHtml += `</div>`;
+            }
+            /* dictionary.evidence */
+            if (evidence.length > 0) {
+                bodyHtml += `<div class="cand-sub-label">確認事項</div>`;
+                bodyHtml += `<div class="cand-bullets" style="margin-bottom:6px;">`;
+                evidence.forEach(e => {
+                    bodyHtml += `<div class="cand-bullet">□ ${_escH(e)}</div>`;
                 });
                 bodyHtml += `</div>`;
             }
