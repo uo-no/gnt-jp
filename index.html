@@ -5058,7 +5058,7 @@ function _buildFusionViewHTML(lnCodes, domainCodes, resolvedId) {
             const txt = (t.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
             return isAnchor ? `<span class="rn-concord-hl">${txt}</span>` : txt;
         }).join(' ');
-        const refLabel = tok.ref || `${tok.bookKey} ${tok.ch}:${tok.verse}`;
+        const refLabel = _rnFmtRef(tok);
         const href     = tok.bookKey && tok.ch
             ? `index.html?book=${tok.bookKey}&ch=${tok.ch}`
             : '#';
@@ -5145,7 +5145,7 @@ function _buildConcordanceHTML(resolvedId, word) {
             const txt = (t.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
             return isAnchor ? `<span class="rn-concord-hl">${txt}</span>` : txt;
         }).join(' ');
-        const refLabel = tok.ref || `${tok.bookKey} ${tok.ch}:${tok.verse}`;
+        const refLabel = _rnFmtRef(tok);
         const href     = tok.bookKey && tok.ch
             ? `index.html?book=${tok.bookKey}&ch=${tok.ch}`
             : '#';
@@ -5388,7 +5388,7 @@ function _showGraphNodePopover(anchorEl, lemmaId) {
             const tok   = getTokens()[gi];
             const start = Math.max(0, gi - 3);
             const end   = Math.min(getTokens().length - 1, gi + 4);
-            exRef     = tok ? (tok.ref || `${tok.bookKey} ${tok.ch}:${tok.verse}`) : '';
+            exRef     = tok ? _rnFmtRef(tok) : '';
             exSnippet = getTokens().slice(start, end + 1).map((t, li) => {
                 const isAnchor = start + li === gi;
                 const txt = (t.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -5530,7 +5530,7 @@ function _injectSemanticGraph(lemmaId, redraw) {
                 const txt = (t.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
                 return isAnchor ? `<span class="rn-concord-hl">${txt}</span>` : txt;
             }).join(' ');
-            const refLabel = tok.ref || `${tok.bookKey} ${tok.ch}:${tok.verse}`;
+            const refLabel = _rnFmtRef(tok);
             const href     = tok.bookKey && tok.ch
                 ? `index.html?book=${tok.bookKey}&ch=${tok.ch}` : '#';
 
@@ -7062,6 +7062,15 @@ function _bookChapterLabel(loc) {
     if (!loc.book || loc.chapter === null) return '本文';
     const short = BOOK_SHORT[loc.book.key] || loc.book.name;
     return short + loc.chapter + '章';
+}
+function _rnFmtRef(tok) {
+    const r = tok.ref || '';
+    const m = r.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+    if (m) return (BOOK_SHORT[m[1]] || m[1]) + m[2] + '章' + m[3] + '節';
+    const bk = BOOK_SHORT[tok.bookKey || ''] || tok.bookKey || '';
+    const ch = tok.ch != null ? tok.ch : '';
+    const v  = tok.verse != null ? tok.verse : '';
+    return bk + (ch !== '' ? ch + '章' : '') + (v !== '' ? v + '節' : '');
 }
 
 let sbSection  = 'nt';

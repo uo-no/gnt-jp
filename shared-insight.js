@@ -512,8 +512,10 @@ function buildRepresentativeExamples(matched, BOOK_JP, getJaVerse, limit) {
         const word = e.word || e.normalized || e.text || '';
         const ref  = e.ref  || '';
         const bk   = e._bookKey || e.bookKey || '';
-        const verseLabel = ref ? String(ref).replace(/^[A-Z0-9]+\s*/,'') : (e.verse != null ? e.verse : '');
-        const label = (BOOK_JP[bk] || bk) + (verseLabel ? ' ' + verseLabel : '');
+        const rm   = ref.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+        const label = rm
+            ? (BOOK_JP[rm[1]] || BOOK_JP[bk] || bk) + rm[2] + '章' + rm[3] + '節'
+            : (BOOK_JP[bk] || bk) + (e.chapter != null ? e.chapter + '章' : '') + (e.verse != null ? e.verse + '節' : '');
         const ja    = typeof getJaVerse === 'function' ? getJaVerse(e) : '';
         return `<div style="padding:6px 0;border-bottom:1px solid var(--border,rgba(0,0,0,.06));"><div style="display:flex;align-items:baseline;gap:8px;"><span style="font-family:'Gentium Plus',serif;font-size:1.05rem;color:var(--accent,#5a6e82);font-weight:700;">${word}</span><span class="ui-caption">${label}</span></div>${ja ? `<div style="font-size:0.75rem;color:var(--text-sub,#6e6e73);margin-top:2px;line-height:1.5;">${ja}</div>` : ''}</div>`;
     }).join('');
