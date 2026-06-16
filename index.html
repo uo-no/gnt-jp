@@ -3529,32 +3529,50 @@ let _proximityTokens = [];
 let _lexiconData      = null;
 let _lnIndexData      = null;
 let _clusterIndexData = null;
+let _compositionData  = null;
 let _lexiconLoading   = false;
 
 async function _ensureSemanticData() {
-    if (_lexiconData && _lnIndexData && _clusterIndexData) return;
+    if (_lexiconData && _lnIndexData && _clusterIndexData && _compositionData) return;
     if (_lexiconLoading) {
         await new Promise(res => {
             const t = setInterval(() => {
-                if (_lexiconData && _lnIndexData && _clusterIndexData) { clearInterval(t); res(); }
+                if (_lexiconData && _lnIndexData && _clusterIndexData && _compositionData) { clearInterval(t); res(); }
             }, 60);
         });
         return;
     }
     _lexiconLoading = true;
     try {
-        const [lexRes, lnRes, clRes] = await Promise.all([
+        const [lexRes, lnRes, clRes, compRes] = await Promise.all([
             fetch('./lexicon/lexicon-lite.json'),
             fetch('./index/domains-ln-index.json'),
             fetch('./index/domains-cluster-index.json'),
+            fetch('./lexicon/lexicon-composition.json'),
         ]);
-        _lexiconData      = lexRes.ok ? await lexRes.json() : {};
-        _lnIndexData      = lnRes.ok  ? await lnRes.json()  : {};
-        _clusterIndexData = clRes.ok  ? await clRes.json()  : {};
+        _lexiconData      = lexRes.ok  ? await lexRes.json()  : {};
+        _lnIndexData      = lnRes.ok   ? await lnRes.json()   : {};
+        _clusterIndexData = clRes.ok   ? await clRes.json()   : {};
+        _compositionData  = compRes.ok ? await compRes.json() : {};
     } catch(e) {
         console.warn('[SemanticData] load failed:', e);
-        _lexiconData = _lnIndexData = _clusterIndexData = {};
+        _lexiconData = _lnIndexData = _clusterIndexData = _compositionData = {};
     }
+}
+
+/**
+ * lemmaId に対応する語構成要素配列を返す。
+ * @param {string} lemmaId – 例: "grc:G4279"
+ * @returns {string[] | null} 構成要素リスト、または単純語・未整備の場合は null
+ */
+function getWordComposition(lemmaId) {
+    if (!_compositionData || !lemmaId) return null;
+    const entry = _compositionData[lemmaId];
+    if (entry === null) return null;          // 明示的な単純語マーカー
+    if (!entry) return null;                  // エントリなし（未整備）
+    return Array.isArray(entry.components) && entry.components.length > 0
+        ? entry.components
+        : null;
 }
 
 function _resolveLemmaId(strong) {
@@ -4657,8 +4675,8 @@ function _renderReadingNotes(p) {
         }
     }
 
-    /* 語構成：既存データに構成情報フィールドなし → 固定表示 */
-    const compositionLabel = '単純語';
+    const compositionParts = getWordComposition(AppState.inspect.data?.lemmaId || null);
+    const compositionLabel = compositionParts ? compositionParts.join(' + ') : '単純語';
 
     area.innerHTML = `
         <div class="rn-word-head">
