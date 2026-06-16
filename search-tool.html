@@ -2836,19 +2836,174 @@ const SYN_BOOK_GROUPS = [
 ];
 const SYN_PAGE_SIZE = 50;
 
+/* ── SyntaxAnalyzer が参照するグローバル関数（syntax-search.html と同一） ── */
+const _SYN_TENSE_CODE  = { P:'present',I:'imperfect',F:'future',A:'aorist',X:'perfect',Z:'pluperfect' };
+const _SYN_VOICE_CODE  = { A:'active',M:'middle',P:'passive',D:'middle deponent',E:'middle or passive',N:'middle or passive' };
+const _SYN_MOOD_CODE   = { I:'indicative',S:'subjunctive',O:'optative',M:'imperative',N:'infinitive',P:'participle' };
+const _SYN_CASE_CODE   = { N:'nominative',G:'genitive',D:'dative',A:'accusative',V:'vocative' };
+const _SYN_NUMBER_CODE = { S:'singular',P:'plural' };
+const _SYN_GENDER_CODE = { M:'masculine',F:'feminine',N:'neuter' };
+const _SYN_CLASS_TO_POS = {
+    verb:'V',noun:'N',adjective:'A',article:'T',
+    preposition:'P',conjunction:'C',adverb:'D',
+    particle:'X',pronoun:'P','relative pronoun':'R',
+};
+function entryPosCode(e) {
+    if (e.pos) return String(e.pos).replace(/-$/,'').toUpperCase();
+    if (e.class) return _SYN_CLASS_TO_POS[String(e.class).toLowerCase()] || '';
+    return '';
+}
+function decodeMorph(e) {
+    const n = v => (!v||v==='-')?'':v;
+    if (e.tense||e.mood||e.voice) return {
+        pos:entryPosCode(e), tense:n(e.tense), voice:n(e.voice), mood:n(e.mood),
+        case:n(e.case), number:n(e.number), gender:n(e.gender), person:n(e.person),
+    };
+    if (e.morph&&typeof e.morph==='object'){const m=e.morph;return{
+        pos:n(e.pos||'').replace(/-$/,''),tense:n(m.tense),voice:n(m.voice),mood:n(m.mood),
+        case:n(m.case),number:n(m.number),gender:n(m.gender),person:n(m.person),
+    };}
+    const raw=typeof e.morph==='string'?e.morph:'';
+    const parts=raw.split('-');
+    const pos=n(e.pos||parts[0]||'').replace(/-$/,'');
+    if(pos.toUpperCase()==='V'&&parts[1]){
+        const seg=parts[1],off=/^[0-9]/.test(seg)?1:0;
+        return{pos,tense:_SYN_TENSE_CODE[seg[off]]||'',voice:_SYN_VOICE_CODE[seg[off+1]]||'',
+            mood:_SYN_MOOD_CODE[seg[off+2]]||'',person:seg[off+3]||'',
+            number:_SYN_NUMBER_CODE[seg[off+4]]||'',gender:'',case:''};}
+    if(parts[1]){const seg=parts[1],hp=['1','2','3'].includes(seg[0]),b=hp?seg.slice(1):seg;
+        return{pos,tense:'',voice:'',mood:'',person:hp?seg[0]:'',
+            case:_SYN_CASE_CODE[b[0]]||'',number:_SYN_NUMBER_CODE[b[1]]||'',gender:_SYN_GENDER_CODE[b[2]]||''};}
+    return{pos,tense:'',voice:'',mood:'',case:'',number:'',gender:'',person:''};
+}
+function cleanText(e) {
+    return (e.word||e.normalized||e.text||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim();
+}
+
+/* NT書物・章数（オンデマンド解析で使用） */
+const _SYN_NT_CHAPTERS = [
+    {key:'MAT',ch:28},{key:'MRK',ch:16},{key:'LUK',ch:24},{key:'JHN',ch:21},
+    {key:'ACT',ch:28},{key:'ROM',ch:16},{key:'1CO',ch:16},{key:'2CO',ch:13},
+    {key:'GAL',ch:6},{key:'EPH',ch:6},{key:'PHP',ch:4},{key:'COL',ch:4},
+    {key:'1TH',ch:5},{key:'2TH',ch:3},{key:'1TI',ch:6},{key:'2TI',ch:4},
+    {key:'TIT',ch:3},{key:'PHM',ch:1},{key:'HEB',ch:13},{key:'JAS',ch:5},
+    {key:'1PE',ch:5},{key:'2PE',ch:3},{key:'1JN',ch:5},{key:'2JN',ch:1},
+    {key:'3JN',ch:1},{key:'JUD',ch:1},{key:'REV',ch:22},
+];
+const _SYN_BOOK_ORDER = Object.fromEntries(_SYN_NT_CHAPTERS.map((b,i) => [b.key, i+1]));
+let _synAnalyzerInstance = null, _synAnalyzerLoading = null;
+
 class SyntaxIndexCache {
     #cache = new Map(); #loading = new Map();
     async get(syntaxId) {
         if (this.#cache.has(syntaxId)) return this.#cache.get(syntaxId);
         if (this.#loading.has(syntaxId)) return this.#loading.get(syntaxId);
         const pr = fetch(`./syntax-index/${syntaxId}.json`)
-            .then(r => r.ok ? r.json() : []).catch(() => [])
-            .then(hits => { this.#cache.set(syntaxId, hits); this.#loading.delete(syntaxId); return hits; });
+            .then(async r => r.ok ? r.json() : _synAnalyzeOnDemand(syntaxId))
+            .catch(() => _synAnalyzeOnDemand(syntaxId))
+            .then(hits => {
+                const arr = Array.isArray(hits) ? hits : [];
+                this.#cache.set(syntaxId, arr); this.#loading.delete(syntaxId);
+                return arr;
+            });
         this.#loading.set(syntaxId, pr);
         return pr;
     }
 }
 const _synCache = new SyntaxIndexCache();
+
+/* ── SyntaxAnalyzer オンデマンドロード ── */
+async function _synEnsureAnalyzer() {
+    if (_synAnalyzerInstance) return _synAnalyzerInstance;
+    if (_synAnalyzerLoading) return _synAnalyzerLoading;
+    _synAnalyzerLoading = (async () => {
+        const [registry] = await Promise.all([
+            _synRegistryData
+                ? Promise.resolve(_synRegistryData)
+                : fetch('./syntax-registry.json').then(r=>r.ok?r.json():null).catch(()=>null)
+                    .then(d => { _synRegistryData = d; return d; }),
+            typeof SyntaxAnalyzer !== 'undefined'
+                ? Promise.resolve()
+                : new Promise((res, rej) => {
+                    const s = document.createElement('script');
+                    s.src = './syntax-analyzer.js';
+                    s.onload = res;
+                    s.onerror = () => rej(new Error('syntax-analyzer.js 読み込み失敗'));
+                    document.head.appendChild(s);
+                }),
+        ]);
+        _synAnalyzerInstance = new SyntaxAnalyzer(registry || _synRegistryData);
+        _synAnalyzerLoading = null;
+        return _synAnalyzerInstance;
+    })();
+    return _synAnalyzerLoading;
+}
+
+/* ── ブラウザ内オンデマンド解析（syntax-index/*.json 未生成時のフォールバック） ── */
+async function _synAnalyzeOnDemand(syntaxId) {
+    const statusEl = document.getElementById('syn-status');
+    let analyzer;
+    try {
+        analyzer = await _synEnsureAnalyzer();
+    } catch (e) {
+        if (statusEl) statusEl.textContent = 'SyntaxAnalyzer の読み込みに失敗しました';
+        return [];
+    }
+
+    const hits = [];
+    const tasks = [];
+    for (const b of _SYN_NT_CHAPTERS)
+        for (let c = 1; c <= b.ch; c++) tasks.push({ key: b.key, ch: c });
+
+    const BATCH = 8;
+    let done = 0;
+    for (let i = 0; i < tasks.length; i += BATCH) {
+        const slice = tasks.slice(i, i + BATCH);
+        const results = await Promise.allSettled(
+            slice.map(t => fetch(`./bible_data/nt/${t.key}/${t.ch}.json`)
+                .then(r => r.ok ? r.json() : []).catch(() => [])
+                .then(d => ({ ...t, tokens: d })))
+        );
+        for (const r of results) {
+            if (r.status !== 'fulfilled') { done++; continue; }
+            const { key, ch, tokens } = r.value;
+            if (!Array.isArray(tokens) || !tokens.length) { done++; continue; }
+
+            const bookOrder = _SYN_BOOK_ORDER[key] || 99;
+            const verseMap = new Map();
+            for (const t of tokens) {
+                const vk = String(t.verse);
+                if (!verseMap.has(vk)) verseMap.set(vk, []);
+                verseMap.get(vk).push(t);
+            }
+            for (const [vStr, vTokens] of verseMap) {
+                for (let ti = 0; ti < vTokens.length; ti++) {
+                    const token = vTokens[ti];
+                    try {
+                        const out = analyzer.analyze({ target: token, tokens: vTokens, targetIdx: ti });
+                        if (!out?.candidates?.length) continue;
+                        const c0 = out.candidates[0];
+                        if (c0.id !== syntaxId || c0.confidence < 0.3 || c0.status !== 'active') continue;
+                        const chN = parseInt(ch), vN = parseInt(vStr);
+                        hits.push({
+                            bookKey: key, chapter: chN, verse: vN,
+                            globalIdx: token.globalIdx,
+                            word: _synCleanText(token),
+                            lemma: (token.lemma || '').trim(),
+                            confidence: parseFloat(c0.confidence.toFixed(4)),
+                            status: c0.status,
+                            sortKey: bookOrder * 1_000_000 + chN * 1000 + vN,
+                        });
+                    } catch { /* skip */ }
+                }
+            }
+            done++;
+        }
+        if (statusEl) statusEl.textContent = `解析中… ${done}/${tasks.length} 章 (${Math.round(done/tasks.length*100)}%)`;
+    }
+    if (statusEl) statusEl.textContent = '';
+    return hits;
+}
 
 let _synAllHits = [], _synFiltered = [], _synDisplayed = 0;
 let _synSortOrder = 'canonical', _synConfMin = 0.30, _synIncludeStub = false;
@@ -2954,11 +3109,12 @@ function _synSetCount(n) {
 function _synBuildCard(hit) {
     const card = document.createElement('div');
     card.className = 'app-card';
-    Object.assign(card.dataset, { bookKey:hit.bookKey, chapter:hit.chapter, verse:hit.verse, tokenIdx:hit.tokenIdx, word:hit.word });
+    // ビルドスクリプトは tokenIdx ではなく globalIdx を出力する
+    Object.assign(card.dataset, { bookKey:hit.bookKey, chapter:hit.chapter, verse:hit.verse, globalIdx:hit.globalIdx, word:hit.word });
     const ref = _synBuildRefLabel(hit.bookKey, hit.chapter, hit.verse);
     const pct = Math.round(hit.confidence * 100);
     const cls = _synConfClass(hit.confidence);
-    const ctxId = `syn-ctx-${hit.bookKey}-${hit.chapter}-${hit.verse}-${hit.tokenIdx}`;
+    const ctxId = `syn-ctx-${hit.bookKey}-${hit.chapter}-${hit.verse}-${hit.globalIdx}`;
     card.innerHTML = `
         <div class="app-card-head" onclick="_synToggleCard(this.parentElement)">
             <span class="app-card-ref">${ref}</span>
@@ -2978,8 +3134,8 @@ function _synToggleCard(card) {
     if (!wasOpen) _synLoadContext(card);
 }
 async function _synLoadContext(card) {
-    const { bookKey, chapter, verse, tokenIdx, word } = card.dataset;
-    const ctxId = `syn-ctx-${bookKey}-${chapter}-${verse}-${tokenIdx}`;
+    const { bookKey, chapter, verse, globalIdx, word } = card.dataset;
+    const ctxId = `syn-ctx-${bookKey}-${chapter}-${verse}-${globalIdx}`;
     const ctxEl = document.getElementById(ctxId);
     if (!ctxEl) return;
     const cacheKey = `${bookKey}-${chapter}`;
@@ -2990,13 +3146,14 @@ async function _synLoadContext(card) {
         tokens = Array.isArray(data) ? data : [];
         _synVerseCache.set(cacheKey, tokens);
     }
-    const vt = tokens.filter(t => String(t.ref||'').endsWith(`:${verse}`));
-    const ti = parseInt(tokenIdx);
+    // ref 形式: "MAT 1:1!1" — chapter/verse フィールドで絞り込む
+    const vt = tokens.filter(t => String(t.chapter) === String(chapter) && String(t.verse) === String(verse));
     let html = '';
     if (vt.length > 0) {
-        html = `<div class="context-snippet">${vt.map((t,i) => {
+        html = `<div class="context-snippet">${vt.map(t => {
             const w = _synCleanText(t);
-            return `<span class="snippet-token${(i===ti||w===word)?' hit':''}">${_synEsc(w)}</span>`;
+            const isHit = String(t.globalIdx) === String(globalIdx);
+            return `<span class="snippet-token${isHit?' hit':''}">${_synEsc(w)}</span>`;
         }).join('')}</div>`;
     } else {
         html = `<div class="result-ja result-ja-empty">（節データ未取得）</div>`;
@@ -3026,8 +3183,9 @@ function _synGetTypeDef(id) {
 async function _synInit(syntaxId) {
     document.getElementById('syntax-panel').style.display = 'block';
     _synRenderBookChips();
-    document.getElementById('syn-label').textContent = syntaxId;
+    document.getElementById('syn-label').textContent = '読み込み中…';
 
+    // registry とインデックス取得を並列実行
     const [, hits] = await Promise.all([_synLoadRegistry(), _synCache.get(syntaxId)]);
     _synAllHits = Array.isArray(hits) ? hits : [];
 
