@@ -3309,6 +3309,149 @@ details[open] .study-summary::before {
     color: var(--text-main);
     display: inline-block;
 }
+
+/* ═══════════════════════════════════════════════════════
+   StudyPanel 4-level structure
+   ═══════════════════════════════════════════════════════ */
+.rn-level-section {
+    margin-top: 18px;
+    border-top: 1px solid rgba(0,0,0,0.05);
+}
+.rn-level-section > summary {
+    font-size: 0.72rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: var(--text-sub);
+    cursor: pointer;
+    padding: 10px 0 8px;
+    list-style: none;
+    font-family: 'Noto Serif JP', serif;
+    opacity: 0.5;
+    user-select: none;
+    transition: opacity 0.15s;
+    display: block;
+}
+.rn-level-section > summary:hover { opacity: 0.85; }
+.rn-level-section[open] > summary { opacity: 0.65; }
+.rn-level-section > summary::-webkit-details-marker { display: none; }
+.rn-level-body {
+    padding-top: 4px;
+    padding-bottom: 10px;
+}
+.rn-level-body #rn-semantic-layers { margin-top: 0; }
+
+/* Level 1: Dictionary preview */
+.rn-dict-section {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0,0,0,0.05);
+}
+.rn-dict-label {
+    display: block;
+    margin-bottom: 6px;
+}
+.rn-dict-preview {
+    font-size: 0.80rem;
+    color: var(--text-sub);
+    line-height: 1.8;
+}
+.rn-dict-expand-btn {
+    background: none;
+    border: none;
+    padding: 3px 0 0;
+    font-size: 0.65rem;
+    color: var(--text-hint, #8e8e93);
+    cursor: pointer;
+    display: block;
+    margin-top: 2px;
+    opacity: 0.65;
+    font-family: inherit;
+    letter-spacing: 0.02em;
+}
+.rn-dict-expand-btn:hover { opacity: 1; }
+
+/* Level 1: Usage trends */
+.rn-usage-trends {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0,0,0,0.05);
+}
+.rn-usage-label {
+    display: block;
+    margin-bottom: 8px;
+}
+.rn-usage-group {
+    margin-bottom: 10px;
+}
+.rn-usage-group-label {
+    font-size: 0.72rem;
+    font-family: 'Noto Serif JP', serif;
+    color: var(--text-sub);
+    opacity: 0.75;
+    margin-bottom: 3px;
+}
+.rn-usage-list {
+    margin: 0;
+    padding: 0 0 0 14px;
+    font-size: 0.75rem;
+    color: var(--text-main);
+    line-height: 1.9;
+}
+
+/* Level 2: Etymology */
+.rn-etymology {
+    font-size: 0.80rem;
+    color: var(--text-sub);
+    margin: 8px 0 6px;
+    opacity: 0.8;
+}
+.rn-etymology-parts {
+    font-family: 'Gentium Plus', serif;
+    letter-spacing: 0.05em;
+    color: var(--text-main);
+}
+
+/* Level 2: Full dictionary */
+.rn-dict-full-section {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0,0,0,0.04);
+}
+.rn-dict-full-text {
+    font-size: 0.77rem;
+    color: var(--text-sub);
+    line-height: 1.8;
+    margin-top: 6px;
+}
+
+/* Level 4: Research item header */
+.rn-research-item-label {
+    font-size: 0.72rem;
+    font-family: 'Noto Serif JP', serif;
+    color: var(--text-sub);
+    opacity: 0.7;
+    margin-bottom: 6px;
+}
+
+/* Level 4: External search links */
+.rn-research-links {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0,0,0,0.04);
+}
+.rn-research-link {
+    font-size: 0.82rem;
+    color: var(--highlight, #0070c0);
+    text-decoration: none;
+    font-family: 'Noto Serif JP', serif;
+    opacity: 0.85;
+    transition: opacity 0.15s;
+    display: block;
+}
+.rn-research-link:hover { opacity: 1; text-decoration: underline; }
 </style>
 
 </head>
@@ -4439,10 +4582,9 @@ function closeAnalysis() {
 
 /* ══════════════════════════════════════════
    _renderReadingNotes
-   タブなし・単一スクロール・読書メモ方式。
-   flow signal → 読書感覚の自然文 → 原語深読み（折りたたみ）
+   4階層構造: 聖書読者 → 学習者 → 研究者
    ══════════════════════════════════════════ */
-function _renderReadingNotes(p) {
+async function _renderReadingNotes(p) {
     const area = document.getElementById('reading-notes-area');
     if (!area) return;
     area.scrollTop = 0;
@@ -4456,20 +4598,13 @@ function _renderReadingNotes(p) {
     const lemma  = p.lemma  || '';
     const jaWord = (AppState.inspect.data?.jaWord) || '';
     const strong = normalizeStrong(AppState.inspect.data?.strong);
-    const desc   = (AppState.inspect.data?.desc) || (abbottSmithDict && abbottSmithDict[strong.slice(1)]?.description) || '';
     const w      = jaWord ? `「${jaWord}」` : 'この語';
 
     /* ═══════════════════════════════════════════════════════
-       Reading prose - 唯一の層。
-       grammar / lexical nuance / discourse motion を
-       「文章の空気」として書く。
-       説明しない。感じさせる。
-       Layer 1 / Layer 2 の区別なし。一つの連続した文章。
+       Reading prose (reading_impact) — ロジック変更禁止
        ═══════════════════════════════════════════════════════ */
-
     const prose = [];
 
-    /* ── 接続詞：流れの転換を一文で ── */
     if (pos === 'CONJ') {
         const CONJ_AIR = {
             'γάρ':  `前の言葉を受けながら、${w}とともに理由の説明へと入っていきます。前の主張が宙に浮いていたとすれば、ここで地に足がつきます。`,
@@ -4485,7 +4620,6 @@ function _renderReadingNotes(p) {
         prose.push(CONJ_AIR[word] || `前後をつなぎながら、議論の流れを形作っています。`);
     }
 
-    /* ── 動詞：法・時制・態を一つの読書感覚として ── */
     if (pos === 'V') {
         if (mood === 'imperative') {
             if (tense === 'present') {
@@ -4528,7 +4662,6 @@ function _renderReadingNotes(p) {
         }
     }
 
-    /* ── 名詞・形容詞・代名詞：格を読書感覚として ── */
     if (['N','A','R','P','T','D'].includes(pos)) {
         const CASE_AIR = {
             nominative: `${w}は、この節の中心として置かれています。`,
@@ -4544,12 +4677,10 @@ function _renderReadingNotes(p) {
         }
     }
 
-    /* ── 前置詞 ── */
     if (pos === 'PREP') {
         prose.push(`${w}が関係の方向や位置を示しています。次に来る語との結びつきが、この語の意味を決めます。`);
     }
 
-    /* ── 比喩語：文章の空気として添える ── */
     const METAPHOR_AIR = {
         'περιπατέω':  '「歩む」という語が繰り返され、姿勢を保ち続けるような響きがあります。',
         'περιπατεῖν': '「歩む」という語は、生き方のあり方を指す比喩として響いています。',
@@ -4559,17 +4690,44 @@ function _renderReadingNotes(p) {
     };
     if (METAPHOR_AIR[word]) prose.push(METAPHOR_AIR[word]);
 
-    /* デフォルト */
     if (prose.length === 0) {
-        prose.push(`この語の文脈的な響きは、下の「単語を調べる」から確認できます。`);
+        prose.push(`この語の詳細は、「単語を詳しく調べる」から確認できます。`);
     }
 
     /* ═══════════════════════════════════════════════════════
-       Reference layer - 「単語を調べる」
-       morph grid + Abbott-Smith。
-       読書 prose から分離された最下層。
-       折りたたみ。初期状態は閉じている。
+       Lexicon data (async)
        ═══════════════════════════════════════════════════════ */
+    await _ensureSemanticData();
+    const resolvedId  = (AppState.inspect.data?.lemmaId) || _resolveLemmaId(strong);
+    const lexEntry    = resolvedId ? _lexiconData?.[resolvedId] : null;
+
+    const gloss_ja        = lexEntry?.gloss_ja || jaWord || '';
+    const abbottSmithText = lexEntry?.abbottSmith || '';
+    const contexts        = lexEntry?.contexts || {};
+    const synopticRefs    = contexts.synoptic_refs || [];
+    const paulineRefs     = contexts.pauline_refs  || [];
+
+    /* ── URLs ── */
+    const qsMorph = new URLSearchParams();
+    if (ref)      qsMorph.set('ref',    ref);
+    if (p.word)   qsMorph.set('word',   p.word);
+    if (lemma)    qsMorph.set('lemma',  lemma);
+    if (p.pos)    qsMorph.set('pos',    p.pos);
+    if (p.tense)  qsMorph.set('tense',  p.tense);
+    if (p.mood)   qsMorph.set('mood',   p.mood);
+    if (p.voice)  qsMorph.set('voice',  p.voice);
+    if (p.gender) qsMorph.set('gender', p.gender);
+    if (p.number) qsMorph.set('number', p.number);
+    if (p.case)   qsMorph.set('case',   p.case);
+    if (jaWord && jaWord !== '-') qsMorph.set('jword', jaWord);
+    const morphSearchURL = `morph-search.html?${qsMorph.toString()}`;
+    const syntaxURL      = `syntax-search.html?${qsMorph.toString()}`;
+    const qsConcord = new URLSearchParams();
+    if (p.word) qsConcord.set('word1', p.word);
+    if (ref)    qsConcord.set('ref',   ref);
+    const concordURL = `search-tool.html?${qsConcord.toString()}`;
+
+    /* ── Morph grid (Level 2) ── */
     const JPN_FULL = {
         pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
         tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'大完了' },
@@ -4580,13 +4738,13 @@ function _renderReadingNotes(p) {
         case:   { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' },
     };
     const morphRows = [];
-    if (p.pos)    morphRows.push({ k:'品詞', v: JPN_FULL.pos[p.pos]      || p.pos,    core:true  });
-    if (p.tense)  morphRows.push({ k:'時制', v: JPN_FULL.tense[p.tense]  || p.tense,  core:true  });
-    if (p.mood)   morphRows.push({ k:'法',   v: JPN_FULL.mood[p.mood]    || p.mood,   core:true  });
-    if (p.voice)  morphRows.push({ k:'態',   v: JPN_FULL.voice[p.voice]  || p.voice,  core:false });
-    if (p.case)   morphRows.push({ k:'格',   v: JPN_FULL.case[p.case]    || p.case,   core:false });
-    if (p.number) morphRows.push({ k:'数',   v: JPN_FULL.number[p.number]|| p.number, core:false });
-    if (p.gender) morphRows.push({ k:'性',   v: JPN_FULL.gender[p.gender]|| p.gender, core:false });
+    if (p.pos)    morphRows.push({ k:'品詞', v: JPN_FULL.pos[p.pos]       || p.pos,    core:true  });
+    if (p.tense)  morphRows.push({ k:'時制', v: JPN_FULL.tense[p.tense]   || p.tense,  core:true  });
+    if (p.mood)   morphRows.push({ k:'法',   v: JPN_FULL.mood[p.mood]     || p.mood,   core:true  });
+    if (p.voice)  morphRows.push({ k:'態',   v: JPN_FULL.voice[p.voice]   || p.voice,  core:false });
+    if (p.case)   morphRows.push({ k:'格',   v: JPN_FULL.case[p.case]     || p.case,   core:false });
+    if (p.number) morphRows.push({ k:'数',   v: JPN_FULL.number[p.number] || p.number, core:false });
+    if (p.gender) morphRows.push({ k:'性',   v: JPN_FULL.gender[p.gender] || p.gender, core:false });
 
     const morphGridHTML = morphRows.length
         ? `<div class="rn-morph-grid">${morphRows.map(r =>
@@ -4594,80 +4752,77 @@ function _renderReadingNotes(p) {
           ).join('')}</div>`
         : '';
 
-    const abbottHTML = desc
-        ? `<div class="rn-lexicon">
-               <span class="rn-lexicon-label ui-label" title="古典ギリシャ語辞典（Abbott-Smith, 1922）">Abbott-Smith${strong ? ' · G'+strong : ''}</span>
-               ${desc.replace(/\n/g,'<br>')}
-           </div>`
+    /* ── Etymology / composition (Level 2) — 単純語は非表示 ── */
+    const compositionParts = getWordComposition(resolvedId || AppState.inspect.data?.lemmaId || null);
+    const etymologyHTML = compositionParts
+        ? `<div class="rn-etymology">語源&emsp;<span class="rn-etymology-parts">${compositionParts.join(' + ')}</span></div>`
         : '';
 
-    const qsMorph = new URLSearchParams();
-    if (ref)     qsMorph.set('ref',   ref);
-    if (p.word)  qsMorph.set('word',  p.word);
-    if (lemma)   qsMorph.set('lemma', lemma);
-    if (p.pos)   qsMorph.set('pos',   p.pos);
-    if (p.tense) qsMorph.set('tense', p.tense);
-    if (p.mood)  qsMorph.set('mood',  p.mood);
-    if (jaWord)  qsMorph.set('jword', jaWord);
-    const morphSearchURL = `morph-search.html?${qsMorph.toString()}`;
-    const syntaxURL      = `syntax-search.html?${qsMorph.toString()}`;
-    const qsSem = new URLSearchParams();
-    if (ref)    qsSem.set('ref',   ref);
-    if (p.word) qsSem.set('word',  p.word);
-    if (lemma)  qsSem.set('lemma', lemma);
-    if (p.pos)  qsSem.set('pos',   p.pos);
-    const semanticsURL = `semantic-search.html?${qsSem.toString()}`;
+    /* ── Abbott-Smith preview (Level 1) ── */
+    const PREVIEW_LEN = 200;
+    let abbottPreviewHTML = '';
+    if (abbottSmithText) {
+        const isLong = abbottSmithText.length > PREVIEW_LEN;
+        const previewText = isLong
+            ? abbottSmithText.slice(0, PREVIEW_LEN) + '…'
+            : abbottSmithText;
+        abbottPreviewHTML = `
+            <div class="rn-dict-section">
+                <span class="rn-dict-label ui-label">辞書</span>
+                <div class="rn-dict-preview">${previewText.replace(/\n/g,'<br>')}</div>
+                ${isLong ? `<button class="rn-dict-expand-btn" onclick="_rnExpandDict(this)">続きを読む ▼</button>` : ''}
+            </div>`;
+    }
 
-    const refHTML = `
-        <div class="rn-ref-section">
-            <button class="rn-ref-toggle" id="rn-ref-toggle" onclick="_rnToggleRef()">
-                <span class="rn-ref-toggle-label">単語を調べる</span>
-                <span class="rn-ref-toggle-icon">›</span>
-            </button>
-            <div class="rn-ref-body" id="rn-ref-body">
-                ${morphGridHTML}
-                ${abbottHTML}
-                <div class="rn-search-links">
-                    <a href="${morphSearchURL}" class="rn-search-link">同語形を探す</a>
-                    <a href="${syntaxURL}"      class="rn-search-link">構文で探す</a>
-                    <a href="${semanticsURL}"   class="rn-search-link">意味で探す</a>
-                </div>
-            </div>
-        </div>`;
+    /* ── Usage trends (Level 1) ── */
+    const BOOK_FULL = {
+        'マタ':'マタイ', 'マコ':'マルコ', 'ルカ':'ルカ', 'ヨハ':'ヨハネ',
+        'ロマ':'ローマ', 'コリ':'コリント', 'コリ一':'コリント第一', 'コリ二':'コリント第二',
+        'ガラ':'ガラテヤ', 'エペ':'エペソ', 'ピリ':'ピリピ', 'コロ':'コロサイ',
+        'テサ':'テサロニケ', 'テサ一':'テサロニケ第一', 'テサ二':'テサロニケ第二',
+        'テモ':'テモテ', 'テモ一':'テモテ第一', 'テモ二':'テモテ第二',
+        'テト':'テトス', 'ピレ':'ピレモン',
+    };
+    let usageTrendsHTML = '';
+    if (synopticRefs.length > 0 || paulineRefs.length > 0) {
+        const synHTML = synopticRefs.length > 0 ? `
+            <div class="rn-usage-group">
+                <div class="rn-usage-group-label">福音書で使われることが多い</div>
+                <ul class="rn-usage-list">${synopticRefs.map(r => `<li>${BOOK_FULL[r] || r}</li>`).join('')}</ul>
+            </div>` : '';
+        const pauHTML = paulineRefs.length > 0 ? `
+            <div class="rn-usage-group">
+                <div class="rn-usage-group-label">パウロ書簡でも見られる</div>
+                <ul class="rn-usage-list">${paulineRefs.map(r => `<li>${BOOK_FULL[r] || r}</li>`).join('')}</ul>
+            </div>` : '';
+        usageTrendsHTML = `
+            <div class="rn-usage-trends">
+                <span class="rn-usage-label ui-label">使用傾向</span>
+                ${synHTML}${pauHTML}
+            </div>`;
+    }
 
-/* ── 中級者向け補助ラベル（experiencedReader のみ） ── */
+    /* ── Experienced reader labels ── */
     let expLabelHTML = '';
     if (window.App.onboarding?.getState()?.experiencedReader && pos === 'V') {
         const labels = [];
-
-        // 中動態判定（既存関数を使用）
         if (typeof classifyMiddleVoice === 'function') {
             const mvc = classifyMiddleVoice(lemma, voice);
-            if (mvc) {
-                labels.push('中動態として読むこともできます');
-            }
+            if (mvc) labels.push('中動態として読むこともできます');
         }
-
-        // 神的受動態判定（既存関数を使用）
         if (typeof detectDivinePassive === 'function' && typeof decodeMorph === 'function') {
-            const inspectData = AppState.inspect.data || {};
             const tokenForDP  = { word, lemma, morph: p._rawMorph };
-            const verseTokens = [];   // 節トークン未取得時は空配列で渡す
+            const verseTokens = [];
             const dp = detectDivinePassive(tokenForDP, verseTokens, decodeMorph);
-            if (dp && dp.isDivinePassive) {
-                labels.push('行為者が暗示されています');
-            }
+            if (dp && dp.isDivinePassive) labels.push('行為者が暗示されています');
         }
-
-        // 主語省略（省略形：主格代名詞なし動詞）
         if (['indicative','subjunctive','imperative'].includes(mood) && pos === 'V') {
             const hasExplicitSubject = (AppState.inspect.data?.rawMorph || '').includes('1S')
                 || (AppState.inspect.data?.rawMorph || '').includes('2S');
-            if (!hasExplicitSubject && ['1st','2nd'].some(p => (p._rawMorph || '').includes(p))) {
+            if (!hasExplicitSubject && ['1st','2nd'].some(pp => (p._rawMorph || '').includes(pp))) {
                 labels.push('主語が省略されています');
             }
         }
-
         if (labels.length > 0) {
             expLabelHTML = `<div class="rn-exp-labels">${
                 labels.map(l => `<span class="rn-exp-label">${l}</span>`).join('')
@@ -4675,43 +4830,74 @@ function _renderReadingNotes(p) {
         }
     }
 
-    const compositionParts = getWordComposition(AppState.inspect.data?.lemmaId || null);
-    const compositionLabel = compositionParts ? compositionParts.join(' + ') : '単純語';
+    /* ── Abbott-Smith full text (Level 2) ── */
+    const abbottFullHTML = abbottSmithText
+        ? `<div class="rn-dict-full-section">
+               <span class="rn-dict-label ui-label">辞書全文</span>
+               <div class="rn-dict-full-text">${abbottSmithText.replace(/\n/g,'<br>')}</div>
+           </div>`
+        : '';
 
+    /* ═══════════════════════════════════════════════════════
+       HTML 出力 — 4階層構造
+       ═══════════════════════════════════════════════════════ */
     area.innerHTML = `
+        <!-- LEVEL 1: まず聖書を読む（常時表示） -->
         <div class="rn-word-head">
-            <table class="rn-dict-table">
-                <tbody>
-                    <tr>
-                        <td class="rn-dict-key">語形</td>
-                        <td class="rn-dict-val"><span class="rn-greek greek-headword rn-dict-greek">${word}</span></td>
-                    </tr>
-                    <tr>
-                        <td class="rn-dict-key">語構成</td>
-                        <td class="rn-dict-val rn-dict-comp">${compositionLabel}</td>
-                    </tr>
-                    <tr>
-                        <td class="rn-dict-key">意味</td>
-                        <td class="rn-dict-val">${jaWord || '—'}</td>
-                    </tr>
-                </tbody>
-            </table>
+            <span class="rn-greek greek-headword">${word}</span>
+            ${gloss_ja ? `<span class="rn-ja">${gloss_ja}</span>` : ''}
+            ${ref ? `<span class="rn-ref">${ref}</span>` : ''}
         </div>
+
         <div class="rn-prose reading-block">
             <p class="rn-prose-text reading-prose">${prose.join('<br><br>')}</p>
         </div>
+
         ${expLabelHTML}
-        ${refHTML}
-        <div id="rn-semantic-layers"></div>
+        ${abbottPreviewHTML}
+        ${usageTrendsHTML}
+
+        <!-- LEVEL 2: 単語を詳しく調べる（折りたたみ） -->
+        <details class="rn-level-section">
+            <summary>▼ 単語を詳しく調べる</summary>
+            <div class="rn-level-body">
+                ${morphGridHTML}
+                ${etymologyHTML}
+                ${abbottFullHTML}
+            </div>
+        </details>
+
+        <!-- LEVEL 3: さらに学ぶ（折りたたみ） -->
+        <details class="rn-level-section">
+            <summary>▼ さらに学ぶ</summary>
+            <div class="rn-level-body">
+                <div id="rn-semantic-layers"></div>
+            </div>
+        </details>
+
+        <!-- LEVEL 4: 研究する（折りたたみ） -->
+        <details class="rn-level-section">
+            <summary>▼ 研究する</summary>
+            <div class="rn-level-body">
+                <div class="rn-research-links">
+                    <a href="${concordURL}" class="rn-research-link" target="_blank">この語の用例を見る →</a>
+                    <a href="${morphSearchURL}" class="rn-research-link" target="_blank">この語形を探す →</a>
+                    <a href="${syntaxURL}" class="rn-research-link" target="_blank">同じ構文を探す →</a>
+                </div>
+            </div>
+        </details>
     `;
 
-    /* Async: inject LN layer, Cluster layer, Concordance after paint */
-    const capturedStrong = strong;
-    const capturedLemmaId = AppState.inspect.data?.lemmaId || null;
-    const capturedWord = word;
-    _injectSemanticLayers(
+    /* Abbott-Smith 全文をデータ属性に保存（展開ボタン用） */
+    if (abbottSmithText.length > PREVIEW_LEN) {
+        const dictPreview = area.querySelector('.rn-dict-preview');
+        if (dictPreview) dictPreview.dataset.full = abbottSmithText;
+    }
+
+    /* セマンティックレイヤーを非同期注入 */
+    _injectStudyPanelContent(
         document.getElementById('rn-semantic-layers'),
-        capturedStrong, capturedLemmaId, capturedWord
+        strong, resolvedId, word
     );
 }
 
@@ -4955,8 +5141,8 @@ function _buildLnLayerHTML(lnCodes, currentLemmaId, currentWord) {
     return `
     <div class="rn-ln-section">
         <button class="rn-layer-toggle" data-target="rn-ln-body">
-            <span>意味の比較（言い換え候補）</span>
-            <span class="rn-layer-hint">同じ意味カテゴリーに属する語の一覧</span>
+            <span>似た意味の語を見る</span>
+            <span class="rn-layer-hint">似た意味を持つ他の語を見る</span>
             <span class="rn-layer-toggle-icon">›</span>
         </button>
         <div class="rn-layer-body" id="rn-ln-body">
@@ -5010,8 +5196,8 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
     return `
     <div class="rn-cluster-section">
         <button class="rn-layer-toggle" data-target="rn-cluster-body">
-            <span>文脈の比較（同じ状況で出やすい語）</span>
-            <span class="rn-layer-hint">聖書内でよく一緒に使われる語の集まり</span>
+            <span>一緒に使われる語を見る</span>
+            <span class="rn-layer-hint">この語と一緒に現れやすい語を見る</span>
             <span class="rn-layer-toggle-icon">›</span>
         </button>
         <div class="rn-layer-body" id="rn-cluster-body">
@@ -5315,8 +5501,8 @@ function renderSemanticGraph(graph) {
     const toggle = document.createElement('button');
     toggle.className    = 'rn-layer-toggle';
     toggle.dataset.target = 'rn-graph-body';
-    toggle.innerHTML    = `<span>関係の探索（${graph.nodes.length}語のつながり）</span>`
-                        + `<span class="rn-layer-hint">関連語をクリックしてたどれます</span>`
+    toggle.innerHTML    = `<span>関連する概念をたどる（${graph.nodes.length}語のつながり）</span>`
+                        + `<span class="rn-layer-hint">関連する概念をたどって学ぶ</span>`
                         + `<span class="rn-layer-toggle-icon">›</span>`;
 
     const body = document.createElement('div');
@@ -5613,6 +5799,76 @@ function _rnToggleRef() {
 
 /* _rnToggleDeep: 廃止（Layer 1/2 統合のため）互換のためno-op残す */
 function _rnToggleDeep() {}
+
+/* Level 1 辞書プレビュー展開ボタン */
+function _rnExpandDict(btn) {
+    const preview = btn.previousElementSibling;
+    if (!preview) return;
+    const fullText = preview.dataset.full || '';
+    if (!fullText) return;
+    preview.innerHTML = fullText.replace(/\n/g, '<br>');
+    btn.remove();
+}
+
+/* ══════════════════════════════════════════
+   _injectStudyPanelContent
+   Level 3（さらに学ぶ）のセマンティックレイヤーを非同期注入。
+   _injectSemanticLayers の代替として _renderReadingNotes から呼ばれる。
+   ══════════════════════════════════════════ */
+async function _injectStudyPanelContent(semContainer, strong, lemmaId, word) {
+    if (!semContainer) return;
+    await _ensureSemanticData();
+
+    const resolvedId   = lemmaId || _resolveLemmaId(strong);
+    const lexEntry     = resolvedId ? _lexiconData[resolvedId] : null;
+    const lnCodes      = lexEntry?.ln      || [];
+    const domainCodes  = lexEntry?.domains || [];
+
+    /* LN Layer */
+    if (lnCodes.length > 0) {
+        const lnHTML = _buildLnLayerHTML(lnCodes, resolvedId, word);
+        if (lnHTML) semContainer.insertAdjacentHTML('beforeend', lnHTML);
+    }
+
+    /* Cluster Layer */
+    if (domainCodes.length > 0) {
+        const clHTML = _buildClusterLayerHTML(domainCodes, resolvedId, word);
+        if (clHTML) semContainer.insertAdjacentHTML('beforeend', clHTML);
+    }
+
+    /* Fusion View */
+    const fusionHTML = _buildFusionViewHTML(lnCodes, domainCodes, resolvedId);
+    if (fusionHTML) semContainer.insertAdjacentHTML('beforeend', fusionHTML);
+
+    /* Semantic Graph（getElementById で #rn-semantic-layers を参照） */
+    if (resolvedId) _injectSemanticGraph(resolvedId, false);
+
+    /* LN/Cluster/Fusion トグルボタンを配線 */
+    semContainer.querySelectorAll('.rn-layer-toggle').forEach(btn => {
+        if (btn.closest('.rn-graph-section')) return;
+        btn.addEventListener('click', () => {
+            const bodyId = btn.dataset.target;
+            const body   = document.getElementById(bodyId);
+            if (!body) return;
+            const isOpen = body.classList.contains('visible');
+            body.classList.toggle('visible', !isOpen);
+            btn.classList.toggle('open', !isOpen);
+            const icon = btn.querySelector('.rn-layer-toggle-icon');
+            if (icon) icon.style.transform = '';
+        });
+    });
+
+    /* 兄弟チップポップオーバーを配線 */
+    semContainer.querySelectorAll('.rn-ln-section, .rn-cluster-section').forEach(section => {
+        section.addEventListener('click', (e) => {
+            const chip = e.target.closest('.rn-sibling-chip');
+            if (!chip || chip.classList.contains('current')) return;
+            e.stopPropagation();
+            const lId = chip.dataset.lemmaId;
+            if (lId) _showGraphNodePopover(chip, lId);
+        });
+    });
+}
 
 
 /* switchAnalysisTab: 後方互換のため残す（内部ではno-op）*/
