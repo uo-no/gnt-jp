@@ -2851,7 +2851,7 @@ const SYN_BOOK_JP = {
     GEN:'創世記',EXO:'出エジプト記',LEV:'レビ記',NUM:'民数記',DEU:'申命記',
     JOS:'ヨシュア記',JDG:'士師記','1SA':'サムエル記上','2SA':'サムエル記下',
     '1KI':'列王記上','2KI':'列王記下',
-    ISA:'イザヤ書',JER:'エレミヤ書',EZE:'エゼキエル書',DAN:'ダニエル書',
+    ISA:'イザヤ書',JER:'エレミヤ書',EZK:'エゼキエル書',DAN:'ダニエル書',
     HOS:'ホセア書',JOL:'ヨエル書',AMO:'アモス書',OBA:'オバデヤ書',
     JON:'ヨナ書',MIC:'ミカ書',NAH:'ナホム書',HAB:'ハバクク書',
     ZEP:'ゼパニヤ書',HAG:'ハガイ書',ZEC:'ゼカリヤ書',MAL:'マラキ書',
@@ -2860,17 +2860,17 @@ const SYN_BOOK_JP = {
     NEH:'ネヘミヤ記','1CH':'歴代誌上','2CH':'歴代誌下',
 };
 const SYN_BOOK_GROUPS = [
-    { key:'gospel',      label:'福音書',     books:['MAT','MRK','LUK','JHN'] },
-    { key:'acts',        label:'使徒',       books:['ACT'] },
-    { key:'pauline',     label:'パウロ',     books:['ROM','1CO','2CO','GAL','1TH','2TH'] },
-    { key:'prison',      label:'獄中',       books:['EPH','PHP','COL','PHM'] },
-    { key:'pastoral',    label:'牧会',       books:['1TI','2TI','TIT'] },
-    { key:'general',     label:'一般書簡',   books:['HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD'] },
-    { key:'rev',         label:'黙示録',     books:['REV'] },
-    { key:'lxx_torah',   label:'モーセ五書', books:['GEN','EXO','LEV','NUM','DEU'] },
-    { key:'lxx_forprop', label:'前預言書',   books:['JOS','JDG','1SA','2SA','1KI','2KI'] },
-    { key:'lxx_latprop', label:'後預言書',   books:['ISA','JER','EZE','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAH','HAB','ZEP','HAG','ZEC','MAL'] },
-    { key:'lxx_writings',label:'諸書',       books:['PSA','PRO','JOB','SNG','RUT','LAM','ECC','EST','EZR','NEH','1CH','2CH'] },
+    { key:'gospel',      label:'福音書',           books:['MAT','MRK','LUK','JHN'] },
+    { key:'acts',        label:'使徒言行録',         books:['ACT'] },
+    { key:'pauline',     label:'パウロ書簡',         books:['ROM','1CO','2CO','GAL','1TH','2TH'] },
+    { key:'prison',      label:'獄中書簡',           books:['EPH','PHP','COL','PHM'] },
+    { key:'pastoral',    label:'牧会書簡',           books:['1TI','2TI','TIT'] },
+    { key:'general',     label:'一般書簡',           books:['HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD'] },
+    { key:'rev',         label:'黙示録',             books:['REV'] },
+    { key:'lxx_torah',   label:'モーセ五書（LXX）',  books:['GEN','EXO','LEV','NUM','DEU'] },
+    { key:'lxx_forprop', label:'前預言書（LXX）',    books:['JOS','JDG','1SA','2SA','1KI','2KI'] },
+    { key:'lxx_latprop', label:'後預言書（LXX）',    books:['ISA','JER','EZK','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAH','HAB','ZEP','HAG','ZEC','MAL'] },
+    { key:'lxx_writings',label:'諸書（LXX）',        books:['PSA','PRO','JOB','SNG','RUT','LAM','ECC','EST','EZR','NEH','1CH','2CH'] },
 ];
 const SYN_PAGE_SIZE = 50;
 
@@ -3092,7 +3092,13 @@ function _synOnConfSlider(el) {
 function _synToggleGroup(key) {
     if (_synEnabledGroups.has(key)) { if (_synEnabledGroups.size <= 1) return; _synEnabledGroups.delete(key); }
     else _synEnabledGroups.add(key);
-    document.querySelectorAll('#syn-book-chips .book-chip').forEach(c => c.classList.toggle('active', _synEnabledGroups.has(c.dataset.group)));
+    document.querySelectorAll('#syn-book-chips .filter-chip-toggle').forEach(c => {
+        const on = _synEnabledGroups.has(c.dataset.group);
+        c.classList.toggle('on', on);
+        c.classList.toggle('off', !on);
+        const dot = c.querySelector('.filter-chip-dot');
+        if (dot) dot.textContent = on ? '✓' : '';
+    });
     _synApplyFilters();
 }
 
@@ -3201,7 +3207,9 @@ async function _synLoadContext(card) {
 
 function _synRenderBookChips() {
     document.getElementById('syn-book-chips').innerHTML = SYN_BOOK_GROUPS.map(g =>
-        `<div class="book-chip active" data-group="${g.key}" onclick="_synToggleGroup('${g.key}')">${g.label}</div>`
+        `<div class="filter-chip-toggle on" data-group="${g.key}" onclick="_synToggleGroup('${g.key}')">
+            <div class="filter-chip-dot">✓</div>${g.label}
+        </div>`
     ).join('');
 }
 
