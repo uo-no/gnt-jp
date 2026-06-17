@@ -4563,6 +4563,138 @@ function closeAnalysis() {
 }
 
 /* ══════════════════════════════════════════
+   Wallace準拠 reading_prose（wallace-compiler移植版）
+   出典:
+     wallace-compiler/src/{aspectRule,moodRule,voiceRule,caseFunctionRule}.ts
+     wallace-compiler/src/prose/{templates,generator}.ts
+   文言はTS版から変更していない（prose-policy.md RULE-001〜006準拠）。
+   discourse_function（接続詞の談話機能）は本ラウンドのスコープ外。
+   経緯: wallace-compiler/docs/direct_integration_design.md
+   ══════════════════════════════════════════ */
+const WALLACE_ASPECT_MAP = {
+    aorist:  "行為全体として提示されている（完結）",
+    present: "進行・継続として提示されている",
+    future:  "これから起こることとして提示されている",
+    perfect: "結果が現在まで続く状態として提示されている",
+};
+const WALLACE_MOOD_MAP = {
+    indicative:  "事実として記述されている",
+    imperative:  "命令として機能している",
+    subjunctive: "可能性として提示されている",
+    infinitive:  "動作を補足する働きとして機能している",
+    participle:  "主な動作に付随する働きとして機能している",
+};
+const WALLACE_VOICE_MAP = {
+    active:  "主語が行為主体",
+    passive: "主語が受動対象",
+    middle:  "主語が行為に関与する側",
+};
+const WALLACE_CASE_FUNCTION_MAP = {
+    "genitive.possessive":   "所有関係を示している",
+    "genitive.descriptive":  "性質・特徴を記述する関係を示している",
+    "genitive.partitive":    "全体に対する部分の関係を示している",
+    "genitive.attributive":  "属性を付与する関係を示している",
+    "genitive.epexegetical": "同格的に内容を説明する関係を示している",
+    "genitive.relationship": "親族・関係性を示す関係を示している",
+    "genitive.material":     "材料・構成要素の関係を示している",
+    "genitive.content":      "内容を示す関係を示している",
+    "genitive.attributed":   "性質を逆転して付与する関係を示している",
+    "genitive.predicate":    "述語的に機能する関係を示している",
+    "genitive.subjective":   "主語的関係として機能している",
+    "genitive.objective":    "目的語的関係として機能している",
+    "genitive.plenary":      "主語的機能と目的語的機能を同時に持つ関係を示している",
+    "genitive.comparison":   "比較の基準となる関係を示している",
+    "genitive.separation":   "分離・起点を示す関係を示している",
+    "genitive.time":         "時間的範囲を示す関係を示している",
+    "genitive.place":        "場所を示す関係を示している",
+    "genitive.agency":       "行為者を示す関係を示している",
+    "genitive.means":        "手段を示す関係を示している",
+    "genitive.absolute":     "独立した分詞構造の主語としての関係を示している",
+    "dative":     "間接的な対象を示している",
+    "accusative": "直接的な対象を示している",
+    "vocative":   "呼びかけ対象として機能している",
+};
+
+function wallaceAspectRule(v)       { return v ? (WALLACE_ASPECT_MAP[v]        || null) : null; }
+function wallaceMoodRule(v)         { return v ? (WALLACE_MOOD_MAP[v]          || null) : null; }
+function wallaceVoiceRule(v)        { return v ? (WALLACE_VOICE_MAP[v]         || null) : null; }
+function wallaceCaseFunctionRule(v) { return v ? (WALLACE_CASE_FUNCTION_MAP[v] || null) : null; }
+
+const WALLACE_ASPECT_TEMPLATES = {
+    "行為全体として提示されている（完結）": "この動詞が表す出来事は、一つのまとまりとして描かれています。",
+    "進行・継続として提示されている": "この動詞が表す出来事は、継続する行為や状態として描かれています。",
+    "これから起こることとして提示されている": "この動詞が表す出来事は、これから起こることとして描かれています。",
+    "結果が現在まで続く状態として提示されている": "この動詞が表す出来事は、過去に起こったことの結果が現在まで続く状態として描かれています。",
+};
+const WALLACE_MOOD_TEMPLATES = {
+    "事実として記述されている": "ここでは内容が事実として述べられています。",
+    "命令として機能している": "ここでは命令として語られています。",
+    "可能性として提示されている": "ここでは可能性のある事柄として述べられています。",
+    "動作を補足する働きとして機能している": "ここでは、動作を補足する働きとして機能しています。",
+    "主な動作に付随する働きとして機能している": "ここでは、主な動作に付随する働きとして機能しています。",
+};
+const WALLACE_VOICE_TEMPLATES = {
+    "主語が行為主体": "主語がその行為を行う側として描かれています。",
+    "主語が行為に関与する側": "主語がその行為に関与する側として描かれています。",
+    "主語が受動対象": "主語がその行為を受ける側として描かれています。",
+};
+const WALLACE_CASE_TEMPLATES = {
+    "所有関係を示している": "この属格は、所有関係を表しています。",
+    "性質・特徴を記述する関係を示している": "この属格は、性質や特徴を記述する関係を表しています。",
+    "全体に対する部分の関係を示している": "この属格は、全体に対する部分の関係を表しています。",
+    "属性を付与する関係を示している": "この属格は、修飾する語に性質を付与する関係を表しています。",
+    "同格的に内容を説明する関係を示している": "この属格は、同格的に内容を説明する関係を表しています。",
+    "親族・関係性を示す関係を示している": "この属格は、親族関係や対人関係を表しています。",
+    "材料・構成要素の関係を示している": "この属格は、材料や構成要素の関係を表しています。",
+    "内容を示す関係を示している": "この属格は、内容を示す関係を表しています。",
+    "性質を逆転して付与する関係を示している": "この属格は、通常とは逆方向に性質を付与する関係を表しています。",
+    "述語的に機能する関係を示している": "この属格は、述語的に機能する関係を表しています。",
+    "主語的関係として機能している": "この属格は、動作の主体としての関係を表しています。",
+    "目的語的関係として機能している": "この属格は、動作の対象としての関係を表しています。",
+    "主語的機能と目的語的機能を同時に持つ関係を示している": "この属格は、主語としての関係とも、対象としての関係とも読める関係を表しています。",
+    "比較の基準となる関係を示している": "この属格は、比較の基準となる関係を表しています。",
+    "分離・起点を示す関係を示している": "この属格は、分離や起点を示す関係を表しています。",
+    "時間的範囲を示す関係を示している": "この属格は、時間的範囲を示す関係を表しています。",
+    "場所を示す関係を示している": "この属格は、場所を示す関係を表しています。",
+    "行為者を示す関係を示している": "この属格は、行為者を示す関係を表しています。",
+    "手段を示す関係を示している": "この属格は、手段を示す関係を表しています。",
+    "独立した分詞構造の主語としての関係を示している": "この属格は、分詞構文の中で独立した主語としての関係を表しています。",
+    "間接的な対象を示している": "この与格は、動作が間接的に及ぶ対象を表しています。",
+    "直接的な対象を示している": "この対格は、動作が直接及ぶ対象を表しています。",
+    "呼びかけ対象として機能している": "この呼格は、文の外から呼びかけられている対象を表しています。",
+};
+
+/* Grammar Adapter：StudyPanelのpパラメータをgenerator入力へ変換する薄いアダプタ。対象はtense/mood/voice/caseのみ。 */
+function wallaceGrammarAdapter(p) {
+    const rawVoice = p.voice || '';
+    const normalizedVoice = (rawVoice === 'middle deponent') ? 'middle' : rawVoice;
+    return {
+        case:      wallaceCaseFunctionRule(p.case  || ''),
+        aspect:    wallaceAspectRule(p.tense || ''),
+        mood:      wallaceMoodRule(p.mood  || ''),
+        voice:     wallaceVoiceRule(normalizedVoice),
+        discourse: null,
+    };
+}
+
+/* generator移植版。順序固定（case→aspect→mood→voice→discourse）、null除外、単純連結のみ（フィールド間の因果接続語を生成しない）。 */
+function generateWallaceReadingProse(grammar) {
+    const ordered = [
+        [WALLACE_CASE_TEMPLATES,   grammar.case],
+        [WALLACE_ASPECT_TEMPLATES, grammar.aspect],
+        [WALLACE_MOOD_TEMPLATES,   grammar.mood],
+        [WALLACE_VOICE_TEMPLATES,  grammar.voice],
+    ];
+    const paragraphs = [];
+    for (const [map, value] of ordered) {
+        if (!value) continue;
+        const sentence = map[value];
+        if (sentence) paragraphs.push(sentence);
+    }
+    return paragraphs.join('<br><br>');
+}
+
+/* ══════════════════════════════════════════
    _renderReadingNotes
    4階層構造: 聖書読者 → 学習者 → 研究者
    ══════════════════════════════════════════ */
@@ -4583,98 +4715,20 @@ async function _renderReadingNotes(p) {
     const w      = jaWord ? `「${jaWord}」` : 'この語';
 
     /* ═══════════════════════════════════════════════════════
-       Reading prose (reading_impact) — ロジック変更禁止
+       Reading prose — Wallace準拠版（2026-06-17置換）
+       経緯・スコープ: wallace-compiler/docs/direct_integration_design.md
+                       wallace-compiler/docs/reading_prose_direct_integration_completion_report.md
+       旧ロジック（CONJ_AIR/V群分岐/CASE_AIR/PREP/METAPHOR_AIR）は
+       wallaceGrammarAdapter + generateWallaceReadingProse に置換済み。
+       discourse_function・nominative・汎用genitive・代名詞・前置詞・
+       語彙比喩（METAPHOR_AIR）は本ラウンドのスコープ外（フォールバック表示）。
        ═══════════════════════════════════════════════════════ */
-    const prose = [];
-
-    if (pos === 'CONJ') {
-        const CONJ_AIR = {
-            'γάρ':  `前の言葉を受けながら、${w}とともに理由の説明へと入っていきます。前の主張が宙に浮いていたとすれば、ここで地に足がつきます。`,
-            'ἀλλά': `${w}がここに置かれることで、前の流れが切り替わります。対比として響き、調子がはっきりと変わる場所です。`,
-            'οὖν':  `前の節で積み重ねられてきたものが、${w}とともに収束します。結論へ向かう動きが始まる場所です。`,
-            'δέ':   `${w}とともに、話が次の段階へ自然に進んでいます。強い転換ではなく、静かな展開です。`,
-            'καί':  `内容が積み重なりながら続いています。${w}が繰り返されるとき、強調の働きをすることもあります。`,
-            'ἵνα':  `${w}の先に、著者がどこへ向かっているかが見えてきます。目的として語られる内容がここから始まります。`,
-            'ὅτι':  `${w}から、前の言葉の内容か根拠が語られます。何が主張され、何がその理由かを読み分ける場所です。`,
-            'εἰ':   `仮定の前提が始まります。「もし〜ならば」という条件の上で、議論が展開していきます。`,
-            'ὥστε': `前に語られたことを受けて、その帰結が続きます。論理の流れが結果へと着地する場所です。`,
-        };
-        prose.push(CONJ_AIR[word] || `前後をつなぎながら、議論の流れを形作っています。`);
+    const wallaceGrammar = wallaceGrammarAdapter(p);
+    let wallaceProseText = generateWallaceReadingProse(wallaceGrammar);
+    if (!wallaceProseText) {
+        wallaceProseText = `この語の詳細は、「単語を詳しく調べる」から確認できます。`;
     }
-
-    if (pos === 'V') {
-        if (mood === 'imperative') {
-            if (tense === 'present') {
-                prose.push(`${w}という語が、続けていく姿勢として呼びかけています。一度だけではなく、繰り返し保ち続けるような響きがあります。`);
-            } else {
-                prose.push(`${w}という語が、説明や宣言ではなく、相手に向かって直接方向を指し示しています。`);
-            }
-        } else if (mood === 'subjunctive') {
-            prose.push(`断言ではなく、願いや目的を込めた調子で${w}が置かれています。著者がどこへ向かっているかが、ここに見えてきます。`);
-        } else if (mood === 'infinitive') {
-            prose.push(`${w}は、前の動作の意味を補いながら、目的や内容として添えられています。「何のために」「何を」という方向がここで示されます。`);
-        } else if (mood === 'participle') {
-            if (tense === 'aorist') {
-                prose.push(`${w}は、先行する出来事として背景に描かれています。主な動作より前に起きていることとして、静かに添えられています。`);
-            } else if (tense === 'perfect') {
-                prose.push(`すでに起きていることとして${w}が背景に置かれ、主な動作を支えています。完了の状態が土台になっています。`);
-            } else {
-                prose.push(`${w}は、主な動作と同時に進んでいる状況を描き添えています。「〜しながら」という情景が重なっています。`);
-            }
-        } else if (tense === 'perfect') {
-            prose.push(`${w}という語は、かつて起きた出来事の効果が今も続いている、という重みで語られています。過去の出来事が、今この文の中に生きています。`);
-        } else if (tense === 'aorist' && mood === 'indicative') {
-            prose.push(`${w}という語は、ひとつの完結した出来事として静かに提示されています。時間の流れの中で点として刻まれた、宣言のような重みがあります。`);
-        } else if (tense === 'future' && mood === 'indicative') {
-            prose.push(`${w}は、確かに起きることとして語られています。命令ではなく、約束のような調子があります。`);
-        } else if (tense === 'present' && mood === 'indicative') {
-            if (voice === 'passive') {
-                prose.push(`${w}は、主語が受けとめる側として置かれた形で、継続して語られています。`);
-            } else if (voice === 'middle' || voice === 'middle deponent') {
-                prose.push(`${w}は、主語が深く関わりながら動いていることが伝わる語です。続いている状態として語られています。`);
-            } else {
-                prose.push(`${w}という語は、続いている状態として落ち着いた調子で語られています。`);
-            }
-        } else {
-            if (voice === 'passive') {
-                prose.push(`${w}は、主語が受けとめる側として置かれています。神学的な文脈では、神による行為を指すことがあります。`);
-            } else if (voice === 'middle' || voice === 'middle deponent') {
-                prose.push(`${w}は、主語が深く関わりながら動いていることが伝わる語です。`);
-            }
-        }
-    }
-
-    if (['N','A','R','P','T','D'].includes(pos)) {
-        const CASE_AIR = {
-            nominative: `${w}は、この節の中心として置かれています。`,
-            genitive:   `${w}は「〜の」と結びつき、前後の語との関係を深く示しています。所有・性質・由来など、どのニュアンスかは文脈が決めます。`,
-            dative:     `${w}は、動作が向かう間接的な関わり先として置かれています。`,
-            accusative: `${w}は、動作が直接向かう対象として置かれています。`,
-            vocative:   `${w}は、文の外から直接呼びかけられています。主述の構造の外に立っています。`,
-        };
-        if (p.case && CASE_AIR[p.case]) {
-            prose.push(CASE_AIR[p.case]);
-        } else if (['P','R','D'].includes(pos)) {
-            prose.push(`${w}は、誰か・何かを指し示しながら、関係をつないでいます。`);
-        }
-    }
-
-    if (pos === 'PREP') {
-        prose.push(`${w}が関係の方向や位置を示しています。次に来る語との結びつきが、この語の意味を決めます。`);
-    }
-
-    const METAPHOR_AIR = {
-        'περιπατέω':  '「歩む」という語が繰り返され、姿勢を保ち続けるような響きがあります。',
-        'περιπατεῖν': '「歩む」という語は、生き方のあり方を指す比喩として響いています。',
-        'φωτί':       '「光」は、知識・啓示・義などを指す比喩として機能しています。',
-        'σκότος':     '「闇」が比喩として置かれています。罪や神との断絶を示しています。',
-        'σταυρός':    '十字架は、当時の読者にとって処刑の道具でありながら、贖いの象徴として受け取られた語です。',
-    };
-    if (METAPHOR_AIR[word]) prose.push(METAPHOR_AIR[word]);
-
-    if (prose.length === 0) {
-        prose.push(`この語の詳細は、「単語を詳しく調べる」から確認できます。`);
-    }
+    const prose = [wallaceProseText];
 
     /* ═══════════════════════════════════════════════════════
        Lexicon data (async)
