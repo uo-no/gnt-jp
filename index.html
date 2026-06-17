@@ -3340,35 +3340,10 @@ details[open] .study-summary::before {
 }
 .rn-level-body #rn-semantic-layers { margin-top: 0; }
 
-/* Level 1: Dictionary preview */
-.rn-dict-section {
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(0,0,0,0.05);
-}
 .rn-dict-label {
     display: block;
     margin-bottom: 6px;
 }
-.rn-dict-preview {
-    font-size: 0.80rem;
-    color: var(--text-sub);
-    line-height: 1.8;
-}
-.rn-dict-expand-btn {
-    background: none;
-    border: none;
-    padding: 3px 0 0;
-    font-size: 0.65rem;
-    color: var(--text-hint, #8e8e93);
-    cursor: pointer;
-    display: block;
-    margin-top: 2px;
-    opacity: 0.65;
-    font-family: inherit;
-    letter-spacing: 0.02em;
-}
-.rn-dict-expand-btn:hover { opacity: 1; }
 
 /* Level 1: Usage trends */
 .rn-usage-trends {
@@ -4758,22 +4733,6 @@ async function _renderReadingNotes(p) {
         ? `<div class="rn-etymology">語源&emsp;<span class="rn-etymology-parts">${compositionParts.join(' + ')}</span></div>`
         : '';
 
-    /* ── Abbott-Smith preview (Level 1) ── */
-    const PREVIEW_LEN = 200;
-    let abbottPreviewHTML = '';
-    if (abbottSmithText) {
-        const isLong = abbottSmithText.length > PREVIEW_LEN;
-        const previewText = isLong
-            ? abbottSmithText.slice(0, PREVIEW_LEN) + '…'
-            : abbottSmithText;
-        abbottPreviewHTML = `
-            <div class="rn-dict-section">
-                <span class="rn-dict-label ui-label">辞書</span>
-                <div class="rn-dict-preview">${previewText.replace(/\n/g,'<br>')}</div>
-                ${isLong ? `<button class="rn-dict-expand-btn" onclick="_rnExpandDict(this)">続きを読む ▼</button>` : ''}
-            </div>`;
-    }
-
     /* ── Usage trends (Level 1) ── */
     const BOOK_FULL = {
         'マタ':'マタイ', 'マコ':'マルコ', 'ルカ':'ルカ', 'ヨハ':'ヨハネ',
@@ -4854,7 +4813,6 @@ async function _renderReadingNotes(p) {
         </div>
 
         ${expLabelHTML}
-        ${abbottPreviewHTML}
         ${usageTrendsHTML}
 
         <!-- LEVEL 2: 単語を詳しく調べる（折りたたみ） -->
@@ -5793,15 +5751,6 @@ function _rnToggleRef() {
 
 /* _rnToggleDeep: 廃止（Layer 1/2 統合のため）互換のためno-op残す */
 function _rnToggleDeep() {}
-
-/* Level 1 辞書プレビューの「続きを読む」：辞書全文は Level 1 に展開せず、
-   「単語を詳しく調べる」（Level 2）側の辞書全文セクションを開いて見せる。 */
-function _rnExpandDict(btn) {
-    const details = document.getElementById('rn-level2-details');
-    if (!details) return;
-    details.open = true;
-    details.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
 
 /* ══════════════════════════════════════════
    _injectStudyPanelContent
