@@ -923,6 +923,9 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
         <span>検索する</span>
     </button>
 
+    <!-- データ取得の警告（失敗ファイル・章数不整合） -->
+    <div id="fetch-warning-panel" style="margin-top:8px;"></div>
+
     <!-- Interpretation layers -->
     <div class="layers-block">
         <div class="s-label">解釈レイヤー</div>
@@ -1157,74 +1160,44 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
      ORIGINAL LOGIC BLOCK — All algorithms preserved verbatim.
      Only the UI dispatcher and rendering layer are new.
      ═══════════════════════════════════════════════════════════════ -->
+<script src="./book-master.js"></script>
 <script>
 /* ============================================================
-   書物マスター（original — unchanged）
+   書物マスター: books.json が唯一の出典（book-master.js 経由）。
+   ALL_BOOKS / FLAT_BOOKS / NT_BOOK_KEYS のローカル定義は撤廃。
+   init() の冒頭で applyBookMaster() が下記変数を実値で埋めるまで、
+   これらは空のまま（書物リストに依存する処理は init() 完了後のみ実行される）。
    ============================================================ */
-const ALL_BOOKS = {
-    nt: [
-        {key:'ROM', name:'ローマ人への手紙',         ch:16},
-        {key:'1CO', name:'コリント人への手紙 第一',   ch:16},
-        {key:'2CO', name:'コリント人への手紙 第二',   ch:13},
-        {key:'GAL', name:'ガラテヤ人への手紙',        ch:6},
-        {key:'EPH', name:'エペソ人への手紙',          ch:6},
-        {key:'PHP', name:'ピリピ人への手紙',          ch:4},
-        {key:'COL', name:'コロサイ人への手紙',        ch:4},
-        {key:'1TH', name:'テサロニケ人への手紙 第一', ch:5},
-        {key:'2TH', name:'テサロニケ人への手紙 第二', ch:3},
-        {key:'1TI', name:'テモテへの手紙 第一',       ch:6},
-        {key:'2TI', name:'テモテへの手紙 第二',       ch:4},
-        {key:'TIT', name:'テトスへの手紙',            ch:3},
-        {key:'PHM', name:'ピレモンへの手紙',          ch:1},
-    ],
-    ot: [
-        {key:'GEN', name:'創世記',              ch:50},
-        {key:'EXO', name:'出エジプト記',        ch:40},
-        {key:'LEV', name:'レビ記',              ch:27},
-        {key:'NUM', name:'民数記',              ch:36},
-        {key:'DEU', name:'申命記',              ch:34},
-        {key:'JOS', name:'ヨシュア記',          ch:24},
-        {key:'JDG', name:'士師記',              ch:21},
-        {key:'RUT', name:'ルツ記',              ch:4},
-        {key:'1SA', name:'サムエル記 第一',     ch:31},
-        {key:'2SA', name:'サムエル記 第二',     ch:24},
-        {key:'1KI', name:'列王記 第一',         ch:22},
-        {key:'2KI', name:'列王記 第二',         ch:25},
-        {key:'ISA', name:'イザヤ書',            ch:66},
-        {key:'JER', name:'エレミヤ書',          ch:52},
-        {key:'EZE', name:'エゼキエル書',        ch:48},
-        {key:'DAN', name:'ダニエル書',          ch:12},
-        {key:'HOS', name:'ホセア書',            ch:14},
-        {key:'JOL', name:'ヨエル書',            ch:3},
-        {key:'AMO', name:'アモス書',            ch:9},
-        {key:'OBA', name:'オバデヤ書',          ch:1},
-        {key:'JON', name:'ヨナ書',              ch:4},
-        {key:'MIC', name:'ミカ書',              ch:7},
-        {key:'NAH', name:'ナホム書',            ch:3},
-        {key:'HAB', name:'ハバクク書',          ch:3},
-        {key:'ZEP', name:'ゼパニヤ書',          ch:3},
-        {key:'HAG', name:'ハガイ書',            ch:2},
-        {key:'ZEC', name:'ゼカリヤ書',          ch:14},
-        {key:'MAL', name:'マラキ書',            ch:4},
-        {key:'PSA', name:'詩篇',                ch:150},
-        {key:'PRO', name:'箴言',                ch:31},
-        {key:'JOB', name:'ヨブ記',              ch:42},
-        {key:'SNG', name:'雅歌',                ch:8},
-        {key:'LAM', name:'哀歌',                ch:5},
-        {key:'ECC', name:'伝道者の書',          ch:12},
-        {key:'EST', name:'エステル記',          ch:10},
-        {key:'EZR', name:'エズラ記',            ch:10},
-        {key:'NEH', name:'ネヘミヤ記',          ch:13},
-        {key:'1CH', name:'歴代志 第一',         ch:29},
-        {key:'2CH', name:'歴代志 第二',         ch:36},
-    ]
-};
-const FLAT_BOOKS = [...ALL_BOOKS.nt, ...ALL_BOOKS.ot];
-const NT_BOOK_KEYS = new Set(ALL_BOOKS.nt.map(b => b.key));
+let FLAT_BOOKS    = [];   // [{key, name, ch}] — NT(27書)+OT(39書) 全件
+let NT_BOOK_KEYS   = new Set();
 
-function bibleDataPath(bookKey, ch) {
-    const sub = NT_BOOK_KEYS.has(bookKey) ? 'nt' : 'lxx';
-    return `./bible_data/${sub}/${bookKey}/${ch}.json`;
+let _bookMasterPromise = null;
+/* books.json の読み込み+反映を1回だけ行う（複数箇所から呼ばれても安全）。
+   全文索引の構築（重い）とは独立に、書物リスト/グループ名だけ先に必要な
+   UI（構文検索の書物チップ等）はこれだけを待てばよい。 */
+function ensureBookMasterApplied() {
+    if (!_bookMasterPromise) {
+        _bookMasterPromise = BookMaster.load().then(master => { applyBookMaster(master); return master; });
+    }
+    return _bookMasterPromise;
+}
+
+function applyBookMaster(master) {
+    FLAT_BOOKS = master.ALL.map(b => ({ key: b.key, name: b.name, ch: b.chapters }));
+    NT_BOOK_KEYS = new Set(master.ntKeys);
+
+    /* SYNTAX PATTERN SEARCH（オンデマンド解析）側も同じ books.json を参照する。
+       以前はここだけ別の ALL_BOOKS 系コピーを持っていたため統一する。 */
+    SYN_NT_BOOKS = new Set(master.ntKeys);
+    SYN_BOOK_JP  = Object.fromEntries(master.ALL.map(b => [b.key, b.name]));
+    SYN_BOOK_GROUPS = master.groups;
+    _SYN_NT_CHAPTERS = master.NT.map(b => ({ key: b.key, ch: b.chapters }));
+    _SYN_BOOK_ORDER  = Object.fromEntries(_SYN_NT_CHAPTERS.map((b,i) => [b.key, i+1]));
+    _synEnabledGroups = new Set(SYN_BOOK_GROUPS.map(g => g.key));
+}
+
+async function bibleDataPath(bookKey, ch) {
+    return BookMaster.pathFor(bookKey, ch);
 }
 
 /* ============================================================
@@ -1297,14 +1270,17 @@ const SEARCH_INDEX = {
 };
 const TEXT_TO_JP       = new Map();
 const JP_PARTIAL_INDEX = new Map();
-const IDX = { l1Ready: false, l2Ready: false, l3Ready: false, allLoaded: false };
+/* IDX.ready: NT27書+OT39書すべてのfetch・索引化が完了したことを示す唯一のフラグ。
+   以前は l1Ready（NT13書のみの部分索引）で検索を許可していたため、
+   未完全な索引に対する検索 = 再現性のないヒット数という構造的バグがあった。
+   優先サブセットの読み込みを廃止し、「全件読み込み完了」を唯一のゲートにする。 */
+const IDX = { ready: false, l3Ready: false };
 const POS_JP = {
     'V':'動詞','N':'名詞','A':'形容詞','R':'関係代名詞',
     'P':'代名詞','T':'冠詞','D':'指示代名詞',
     'ADV':'副詞','PREP':'前置詞','CONJ':'接続詞','PRT':'添語',
 };
-const PRIORITY_BOOKS = ALL_BOOKS.nt;
-let _l2Promise = null;
+let _indexPromise = null;
 
 function normalizeGreek(str) {
     return (str||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -1339,39 +1315,37 @@ function _addJpPartial(str,idx){
 async function fetchChapter(bookKey, ch) {
     const cacheKey = `${bookKey}/${ch}`;
     if (tokenCache[cacheKey]) return tokenCache[cacheKey];
-    try {
-        const res = await fetch(bibleDataPath(bookKey, ch));
-        if (!res.ok) return [];
-        const data = await res.json();
-        // ── corpusId: テキスト区分（'NT' | 'LXX'）、language: 原語識別子（'grc' 固定）──
-        const corpusId = NT_BOOK_KEYS.has(bookKey) ? 'NT' : 'LXX';
-        const tokens = data.map(w => ({
-            // ── 表示専用（ロジック依存禁止・refをキーや条件に使用しないこと）──
-            ref: w.ref || `${bookKey} ${ch}:${w.verse ?? '?'}`,
+    const path = await bibleDataPath(bookKey, ch);
+    const data = await BookMaster.fetchJSON(path);
+    if (!Array.isArray(data)) return []; // 失敗は BookMaster.fetchJSON が console.error + __failedFetches に記録済み
+    // ── corpusId: テキスト区分（'NT' | 'LXX'）、language: 原語識別子（'grc' 固定）──
+    const corpusId = NT_BOOK_KEYS.has(bookKey) ? 'NT' : 'LXX';
+    const tokens = data.map(w => ({
+        // ── 表示専用（ロジック依存禁止・refをキーや条件に使用しないこと）──
+        ref: w.ref || `${bookKey} ${ch}:${w.verse ?? '?'}`,
 
-            // ── SSOT 位置情報（翻訳フェッチ・verseKey生成・ナビゲーションに使用する）──
-            bookKey,
-            ch:    Number(ch),
-            verse: w.verse != null ? Number(w.verse) : null,
+        // ── SSOT 位置情報（翻訳フェッチ・verseKey生成・ナビゲーションに使用する）──
+        bookKey,
+        ch:    Number(ch),
+        verse: w.verse != null ? Number(w.verse) : null,
 
-            // ── 語彙情報 ──
-            text:     w.text    || '',
-            lemma:    w.lemma   || w.text || '',
-            morph:    w.morph   ?? null,
-            japanese: w.japanese || w.gloss_ja || w.gloss || null,
-            gloss:    w.gloss   || w.gloss_ja || null,
-            strong:   w.strong  || w.strongs  || null,
+        // ── 語彙情報 ──
+        text:     w.text    || '',
+        lemma:    w.lemma   || w.text || '',
+        morph:    w.morph   ?? null,
+        japanese: w.japanese || w.gloss_ja || w.gloss || null,
+        gloss:    w.gloss   || w.gloss_ja || null,
+        strong:   w.strong  || w.strongs  || null,
 
-            // ── 言語・lemma識別子 ──
-            language: 'grc',
-            corpusId,
-            lemmaId:  w.lemmaId ?? w.lemma_id ?? null,
+        // ── 言語・lemma識別子 ──
+        language: 'grc',
+        corpusId,
+        lemmaId:  w.lemmaId ?? w.lemma_id ?? null,
 
-            // globalIdx は _indexChapter で付与される（ここでは未定義）
-        }));
-        tokenCache[cacheKey] = tokens;
-        return tokens;
-    } catch { return []; }
+        // globalIdx は _indexChapter で付与される（ここでは未定義）
+    }));
+    tokenCache[cacheKey] = tokens;
+    return tokens;
 }
 function _indexChapter(toks){
     for(const tok of toks){
@@ -1388,21 +1362,21 @@ function _indexChapter(toks){
         if(tok.text&&jpVals.length>0&&!TEXT_TO_JP.has(tok.text))TEXT_TO_JP.set(tok.text,jpVals[0]);
     }
 }
-async function _buildL1(){
-    const promises=[];
-    for(const book of PRIORITY_BOOKS)for(let c=1;c<=book.ch;c++)promises.push(fetchChapter(book.key,c));
-    const results=await Promise.all(promises);
-    let bi=0;
-    for(const book of PRIORITY_BOOKS)for(let c=1;c<=book.ch;c++)_indexChapter(results[bi++]);
-    IDX.l1Ready=true;
-}
-async function _buildL2Background(){
-    const remainBooks=FLAT_BOOKS.filter(b=>!PRIORITY_BOOKS.some(p=>p.key===b.key));
-    for(const book of remainBooks){
-        for(let c=1;c<=book.ch;c++){const toks=await fetchChapter(book.key,c);_indexChapter(toks);}
+/* NT27書+OT39書すべてを対象に索引を構築する単一フェーズ。
+   以前は「優先13書だけ読んで検索可能にし、残りをバックグラウンドで読む」
+   二段構成だったため、未完全な索引で検索が実行できてしまっていた。
+   バッチ並列fetch＋yieldで応答性は確保しつつ、ゲート（IDX.ready）は
+   全件完了の1点のみに統一する。 */
+async function _buildFullIndex(){
+    const tasks=await BookMaster.buildChapterTasks();
+    const BATCH=20;
+    for(let i=0;i<tasks.length;i+=BATCH){
+        const slice=tasks.slice(i,i+BATCH);
+        const results=await Promise.all(slice.map(t=>fetchChapter(t.key,t.ch)));
+        for(const toks of results)_indexChapter(toks);
         await new Promise(r=>setTimeout(r,0));
     }
-    IDX.allLoaded=true;IDX.l2Ready=true;
+    IDX.ready=true;
     _buildL3Background();
 }
 async function _buildL3Background(){
@@ -1421,15 +1395,15 @@ async function _buildL3Background(){
     }
     IDX.l3Ready=true;
 }
-let _l1Promise=null;
-function _ensureL1(){
-    if(!_l1Promise){
-        _l1Promise=_buildL1().then(()=>{_l2Promise=_buildL2Background();});
+let _fullIndexPromise=null;
+function _ensureFullIndex(){
+    if(!_fullIndexPromise){
+        _fullIndexPromise=ensureBookMasterApplied().then(()=>_buildFullIndex());
     }
-    return _l1Promise;
+    return _fullIndexPromise;
 }
 async function loadTokensForScope(scope,ref){
-    await _ensureL1();
+    await _ensureFullIndex();
     if(scope==='chapter'||scope==='book')return[];
     return ALL_TOKENS;
 }
@@ -1441,7 +1415,7 @@ function detectQueryType(query){
 }
 function searchGreek(tokens,word){
     const normWord=normalizeGreek(word);
-    if(IDX.l1Ready){
+    if(IDX.ready){
         const s=new Set();
         for(const arr of[
             SEARCH_INDEX.text.get(word),SEARCH_INDEX.lemma.get(word),
@@ -1469,7 +1443,7 @@ function searchJapanese(tokens,word){
 }
 function searchStrong(tokens,word){
     const normWord=normalizeStrong(word);
-    if(IDX.l1Ready){const arr=SEARCH_INDEX.strong.get(normWord);return arr?new Set(arr):new Set();}
+    if(IDX.ready){const arr=SEARCH_INDEX.strong.get(normWord);return arr?new Set(arr):new Set();}
     const s=new Set();
     tokens.forEach(t=>{if(normalizeStrong(t.strong)===normWord)s.add(t.globalIdx);});
     return s;
@@ -1513,21 +1487,21 @@ function buildLemmaIndex(tokens){
     return idx;
 }
 function searchByLemma(lemma){
-    const idx=window.lemmaIndex;
-    if(!idx)return[];
-    const direct=idx.get(lemma);
-    if(direct)return direct;
-    const norm=normalizeGreek(lemma);
-    return idx.get(norm)||[];
+    const idx = window.lemmaIndex;
+    if (!idx) return [];
+
+    const norm = normalizeGreek(String(lemma || ""));
+
+    return idx.get(norm) || [];
 }
 function _buildAndExposeLemmaIndex(){
     window.lemmaIndex=buildLemmaIndex(ALL_TOKENS);
     console.info('[lemmaIndex] built — lemmas:',window.lemmaIndex.size);
 }
 function _rebuildLemmaIndexIfNeeded(){
-    if(!IDX.l2Ready)return;
+    if(!IDX.ready)return;
     window.lemmaIndex=buildLemmaIndex(ALL_TOKENS);
-    console.info('[lemmaIndex] rebuilt (L2) — lemmas:',window.lemmaIndex.size);
+    console.info('[lemmaIndex] rebuilt — lemmas:',window.lemmaIndex.size);
 }
 
 /* morphIndex */
@@ -1551,9 +1525,9 @@ function _buildAndExposeMorphIndex(){
     console.info('[morphIndex] built — morphTags:',window.morphIndex.size);
 }
 function _rebuildMorphIndexIfNeeded(){
-    if(!IDX.l2Ready)return;
+    if(!IDX.ready)return;
     window.morphIndex=buildMorphIndex(ALL_TOKENS);
-    console.info('[morphIndex] rebuilt (L2)');
+    console.info('[morphIndex] rebuilt');
 }
 
 /* phraseSearch — globalIdx SSOT版
@@ -1567,10 +1541,8 @@ function searchPhrase(lemmas){
     if(!lemmas||lemmas.length===0)return[];
     // lists[k] = globalIdx の配列（lemmaIndex の値はすべて globalIdx）
     const lists=lemmas.map(l=>{
-        const direct=idx.get(l);
-        if(direct)return direct;
-        const norm=normalizeGreek(l);
-        return idx.get(norm)||[];
+        const norm = normalizeGreek(String(l || ""));
+        return idx.get(norm) || [];
     });
     if(lists.some(arr=>arr.length===0))return[];
     // sets[k] = lists[k+1] を Set 化（globalIdx の集合）
@@ -1699,14 +1671,17 @@ async function _fetchTransVerse(bookKey,ch,verseNum){
     const cacheKey=`${bookKey}/${ch}`;
     if(!_transCache.has(cacheKey)){
         _transCache.set(cacheKey,null);
-        try{
-            let data=null;
-            for(const transId of['JA1955','KAI17']){
+        let data=null;
+        for(const transId of['JA1955','KAI17']){
+            /* 複数訳を順に試す意図的なフォールバック（KAI17等が未収録の書物を持つのは
+               仕様であり障害ではない）。__failedFetches には積まないが、追跡可能にする。 */
+            try{
                 const res=await fetch(`./translations/${transId}/${bookKey}/${ch}.json`);
                 if(res.ok){data=await res.json();break;}
-            }
-            _transCache.set(cacheKey,data);
-        }catch{_transCache.set(cacheKey,null);}
+                console.info(`[translation] ${transId}/${bookKey}/${ch} not available (HTTP ${res.status})`);
+            }catch(err){console.info(`[translation] ${transId}/${bookKey}/${ch} fetch error`,err);}
+        }
+        _transCache.set(cacheKey,data);
     }
     const data=_transCache.get(cacheKey);
     if(!data||!data.verses)return null;
@@ -1816,43 +1791,26 @@ function _watchIndexProgress(){
             _rebuildMorphIndexIfNeeded();
             setTimeout(()=>pill&&pill.classList.add('done'),3000);
             clearInterval(timer);
-        }else if(IDX.l2Ready){
+        }else if(IDX.ready){
             dot.className='idx-dot active';
             label.textContent='日本語インデックス構築中…';
-        }else if(IDX.l1Ready){
+        }else{
             dot.className='idx-dot active';
             const total=FLAT_BOOKS.reduce((s,b)=>s+b.ch,0);
             const loaded=Object.keys(tokenCache).length;
-            label.textContent=`旧約を追加中… ${Math.min(Math.round((loaded/total)*100),99)}%`;
+            label.textContent=total?`全書物読み込み中… ${Math.min(Math.round((loaded/total)*100),99)}%`:'書物マスター読み込み中…';
         }
     },800);
 }
 
 /* ============================================================
-   L2 refinement banner（original — unchanged）
+   検索ゲート（再現性のための必須要件）:
+   IDX.ready（全書物の索引化完了）になるまで unifiedSearch は実行されない
+   （下記 unifiedSearch 冒頭の _ensureFullIndex 完了待ちで保証）。
+   そのため「索引が未完成のまま検索が走り、後から件数が増える」という
+   旧 L2 refinement banner が前提としていた状況は構造的に発生しなくなった。
    ============================================================ */
 let _lastSearchQuery=null;
-let _isRefreshing=false;
-function _scheduleL2Refresh(query,layers){
-    if(!_l2Promise)return;
-    _l2Promise.then(async()=>{
-        if(_lastSearchQuery!==query||_isRefreshing||isSearching)return;
-        _isRefreshing=true;
-        try{
-            if(layers.prox){
-                const words=query.trim().split(/\s+/);
-                const{hits}=await runProximitySearch({
-                    word1:words[0],word2:words[1]||null,
-                    distance:currentDist,scope:currentScope,ref:'',
-                });
-                if(hits.length>_allMergedResults.size){
-                    _showRefinementBanner(hits.length-_allMergedResults.size,()=>unifiedSearch());
-                }
-            }
-        }catch(e){console.warn('L2 refresh failed:',e);}
-        _isRefreshing=false;
-    });
-}
 function _showRefinementBanner(addedCount,onAccept){
     let banner=document.getElementById('refinement-banner');
     if(!banner){
@@ -1980,17 +1938,24 @@ async function unifiedSearch(){
 
     _lastSearchQuery=query;
     _activeLayerSet={..._layers};
-    _showLoading();
     isSearching=true;
     document.getElementById('run-btn').disabled=true;
     // Close mobile panel when search fires
     if(window.innerWidth<=680) _closeMobilePanel();
 
-    await _ensureL1();
+    /* 検索実行ゲート（再現性のための必須要件）:
+       IDX.ready（NT27書+OT39書すべての索引化完了）になるまで実際の検索は実行しない。
+       「未完成の索引を検索して0件/部分的な結果を返す」ことを許すと、ロード状況という
+       検索条件と無関係な外部要因でヒット数が変動してしまうため、ここで完全にブロックする。 */
+    if(!IDX.ready){
+        _showLoading('全書物のインデックスを構築中です。完了まで検索は実行されません…');
+    } else {
+        _showLoading();
+    }
+    await _ensureFullIndex();
     if(!window.lemmaIndex){
-        _showEmpty('インデックス構築中','しばらくお待ちください');
-        isSearching=false;document.getElementById('run-btn').disabled=false;
-        return;
+        _buildAndExposeLemmaIndex();
+        _buildAndExposeMorphIndex();
     }
 
     // Read morph filter value from checkbox state
@@ -2013,7 +1978,7 @@ async function unifiedSearch(){
             const qtype=detectQueryType(word1);
             let idxs;
             if(qtype==='japanese'){
-                await _ensureL1();
+                await _ensureFullIndex();
                 const s=searchJapanese(ALL_TOKENS,word1);
                 idxs=[...s];
             }else{
@@ -2083,10 +2048,8 @@ async function unifiedSearch(){
     _addHistory(query,_activeLayerSet);
     _lastQuery=query;
     _renderUnifiedResults(query,words,word2);
-
-    if(!IDX.l2Ready&&_l2Promise){
-        _scheduleL2Refresh(query,_activeLayerSet);
-    }
+    /* この時点で IDX.ready は必ず true（上のゲートで保証済み）。
+       「索引未完成のまま検索→後から件数が増える」事象は構造的に発生しない。 */
 }
 
 /* ============================================================
@@ -2627,8 +2590,9 @@ function init(){
     _initMorphChips();
     // Initial layer sync
     Object.keys(_layers).forEach(k=>_syncLayerUI(k));
-    // Start data loading
-    _ensureL1().then(()=>{
+    BookMaster.attachWarningPanel(document.getElementById('fetch-warning-panel'));
+    // Start data loading（全書物の索引化が完了するまで unifiedSearch はブロックされる）
+    _ensureFullIndex().then(()=>{
         _buildAndExposeLemmaIndex();
         _buildAndExposeMorphIndex();
     });
@@ -2835,43 +2799,11 @@ init();
    SYNTAX PATTERN SEARCH — similar-syntax-search.html から統合
    ============================================================ */
 
-const SYN_NT_BOOKS = new Set([
-    'MAT','MRK','LUK','JHN','ACT','ROM','1CO','2CO','GAL','EPH',
-    'PHP','COL','1TH','2TH','1TI','2TI','TIT','PHM','HEB','JAS',
-    '1PE','2PE','1JN','2JN','3JN','JUD','REV'
-]);
-const SYN_BOOK_JP = {
-    MAT:'マタイ',MRK:'マルコ',LUK:'ルカ',JHN:'ヨハネ',ACT:'使徒',
-    ROM:'ローマ','1CO':'Ⅰコリント','2CO':'Ⅱコリント',
-    GAL:'ガラテヤ',EPH:'エペソ',PHP:'ピリピ',COL:'コロサイ',
-    '1TH':'Ⅰテサロニケ','2TH':'Ⅱテサロニケ',
-    '1TI':'Ⅰテモテ','2TI':'Ⅱテモテ',TIT:'テトス',PHM:'ピレモン',
-    HEB:'ヘブル',JAS:'ヤコブ','1PE':'Ⅰペテロ','2PE':'Ⅱペテロ',
-    '1JN':'Ⅰヨハネ','2JN':'Ⅱヨハネ','3JN':'Ⅲヨハネ',JUD:'ユダ',REV:'黙示録',
-    GEN:'創世記',EXO:'出エジプト記',LEV:'レビ記',NUM:'民数記',DEU:'申命記',
-    JOS:'ヨシュア記',JDG:'士師記','1SA':'サムエル記上','2SA':'サムエル記下',
-    '1KI':'列王記上','2KI':'列王記下',
-    ISA:'イザヤ書',JER:'エレミヤ書',EZK:'エゼキエル書',DAN:'ダニエル書',
-    HOS:'ホセア書',JOL:'ヨエル書',AMO:'アモス書',OBA:'オバデヤ書',
-    JON:'ヨナ書',MIC:'ミカ書',NAH:'ナホム書',HAB:'ハバクク書',
-    ZEP:'ゼパニヤ書',HAG:'ハガイ書',ZEC:'ゼカリヤ書',MAL:'マラキ書',
-    PSA:'詩篇',PRO:'箴言',JOB:'ヨブ記',SNG:'雅歌',RUT:'ルツ記',
-    LAM:'哀歌',ECC:'コヘレト',EST:'エステル記',EZR:'エズラ記',
-    NEH:'ネヘミヤ記','1CH':'歴代誌上','2CH':'歴代誌下',
-};
-const SYN_BOOK_GROUPS = [
-    { key:'gospel',      label:'福音書',           books:['MAT','MRK','LUK','JHN'] },
-    { key:'acts',        label:'使徒言行録',         books:['ACT'] },
-    { key:'pauline',     label:'パウロ書簡',         books:['ROM','1CO','2CO','GAL','1TH','2TH'] },
-    { key:'prison',      label:'獄中書簡',           books:['EPH','PHP','COL','PHM'] },
-    { key:'pastoral',    label:'牧会書簡',           books:['1TI','2TI','TIT'] },
-    { key:'general',     label:'一般書簡',           books:['HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD'] },
-    { key:'rev',         label:'黙示録',             books:['REV'] },
-    { key:'lxx_torah',   label:'モーセ五書（LXX）',  books:['GEN','EXO','LEV','NUM','DEU'] },
-    { key:'lxx_forprop', label:'前預言書（LXX）',    books:['JOS','JDG','1SA','2SA','1KI','2KI'] },
-    { key:'lxx_latprop', label:'後預言書（LXX）',    books:['ISA','JER','EZK','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAH','HAB','ZEP','HAG','ZEC','MAL'] },
-    { key:'lxx_writings',label:'諸書（LXX）',        books:['PSA','PRO','JOB','SNG','RUT','LAM','ECC','EST','EZR','NEH','1CH','2CH'] },
-];
+/* SYN_NT_BOOKS / SYN_BOOK_JP / SYN_BOOK_GROUPS は books.json（book-master.js）由来。
+   applyBookMaster() が BookMaster.load() 完了後に実値で埋める。 */
+let SYN_NT_BOOKS   = new Set();
+let SYN_BOOK_JP    = {};
+let SYN_BOOK_GROUPS = [];
 const SYN_PAGE_SIZE = 50;
 
 /* ── SyntaxAnalyzer が参照するグローバル関数（syntax-search.html と同一） ── */
@@ -2918,17 +2850,9 @@ function cleanText(e) {
     return (e.word||e.normalized||e.text||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim();
 }
 
-/* NT書物・章数（オンデマンド解析で使用） */
-const _SYN_NT_CHAPTERS = [
-    {key:'MAT',ch:28},{key:'MRK',ch:16},{key:'LUK',ch:24},{key:'JHN',ch:21},
-    {key:'ACT',ch:28},{key:'ROM',ch:16},{key:'1CO',ch:16},{key:'2CO',ch:13},
-    {key:'GAL',ch:6},{key:'EPH',ch:6},{key:'PHP',ch:4},{key:'COL',ch:4},
-    {key:'1TH',ch:5},{key:'2TH',ch:3},{key:'1TI',ch:6},{key:'2TI',ch:4},
-    {key:'TIT',ch:3},{key:'PHM',ch:1},{key:'HEB',ch:13},{key:'JAS',ch:5},
-    {key:'1PE',ch:5},{key:'2PE',ch:3},{key:'1JN',ch:5},{key:'2JN',ch:1},
-    {key:'3JN',ch:1},{key:'JUD',ch:1},{key:'REV',ch:22},
-];
-const _SYN_BOOK_ORDER = Object.fromEntries(_SYN_NT_CHAPTERS.map((b,i) => [b.key, i+1]));
+/* NT書物・章数（オンデマンド解析で使用）。books.json 由来、applyBookMaster() が埋める。 */
+let _SYN_NT_CHAPTERS = [];
+let _SYN_BOOK_ORDER  = {};
 let _synAnalyzerInstance = null, _synAnalyzerLoading = null;
 
 class SyntaxIndexCache {
@@ -2936,9 +2860,18 @@ class SyntaxIndexCache {
     async get(syntaxId) {
         if (this.#cache.has(syntaxId)) return this.#cache.get(syntaxId);
         if (this.#loading.has(syntaxId)) return this.#loading.get(syntaxId);
+        /* syntax-index/{id}.json は事前生成キャッシュであり、未生成は想定された
+           フォールバック経路（_synAnalyzeOnDemand で原資料から再計算する）。
+           genuine なデータ取得失敗ではないため __failedFetches には積まないが、
+           「サイレント化」にはしない — console.info で必ず追跡可能にする。 */
         const pr = fetch(`./syntax-index/${syntaxId}.json`)
-            .then(async r => r.ok ? r.json() : _synAnalyzeOnDemand(syntaxId))
-            .catch(() => _synAnalyzeOnDemand(syntaxId))
+            .then(r => {
+                if (r.ok) return r.json();
+                console.info('[syntax-index] cache miss (HTTP '+r.status+'), falling back to on-demand:', syntaxId);
+                return null;
+            })
+            .catch(err => { console.info('[syntax-index] cache fetch error, falling back to on-demand:', syntaxId, err); return null; })
+            .then(async data => data != null ? data : _synAnalyzeOnDemand(syntaxId))
             .then(hits => {
                 const arr = Array.isArray(hits) ? hits : [];
                 this.#cache.set(syntaxId, arr); this.#loading.delete(syntaxId);
@@ -2958,7 +2891,7 @@ async function _synEnsureAnalyzer() {
         const [registry] = await Promise.all([
             _synRegistryData
                 ? Promise.resolve(_synRegistryData)
-                : fetch('./syntax-registry.json').then(r=>r.ok?r.json():null).catch(()=>null)
+                : BookMaster.fetchJSON('./syntax-registry.json')
                     .then(d => { _synRegistryData = d; return d; }),
             typeof SyntaxAnalyzer !== 'undefined'
                 ? Promise.resolve()
@@ -2998,9 +2931,7 @@ async function _synAnalyzeOnDemand(syntaxId) {
     for (let i = 0; i < tasks.length; i += BATCH) {
         const slice = tasks.slice(i, i + BATCH);
         const results = await Promise.allSettled(
-            slice.map(t => fetch(`./bible_data/nt/${t.key}/${t.ch}.json`)
-                .then(r => r.ok ? r.json() : []).catch(() => [])
-                .then(d => ({ ...t, tokens: d })))
+            slice.map(async t => ({ ...t, tokens: (await BookMaster.fetchJSON(await BookMaster.pathFor(t.key, t.ch))) || [] }))
         );
         for (const r of results) {
             if (r.status !== 'fulfilled') { done++; continue; }
@@ -3045,11 +2976,10 @@ async function _synAnalyzeOnDemand(syntaxId) {
 
 let _synAllHits = [], _synFiltered = [], _synDisplayed = 0;
 let _synSortOrder = 'canonical', _synConfMin = 0.30, _synIncludeStub = false;
-let _synEnabledGroups = new Set(SYN_BOOK_GROUPS.map(g => g.key));
+let _synEnabledGroups = new Set(); // applyBookMaster() が全グループ有効状態で埋める
 let _synVerseCache = new Map(), _synRegistryData = null;
 
 function _synBuildRefLabel(bookKey, ch, verse) { return `${SYN_BOOK_JP[bookKey]||bookKey} ${ch}章${verse}節`; }
-function _synBibleDataPath(bookKey, ch) { return `./bible_data/${SYN_NT_BOOKS.has(bookKey)?'nt':'lxx'}/${bookKey}/${ch}.json`; }
 function _synConfClass(c) { return c>=0.75?'high':c>=0.55?'medium':'low'; }
 function _synCleanText(e) { return (e.word||e.normalized||e.text||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim(); }
 function _synEsc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -3185,8 +3115,7 @@ async function _synLoadContext(card) {
     const cacheKey = `${bookKey}-${chapter}`;
     let tokens = _synVerseCache.get(cacheKey);
     if (!tokens) {
-        const data = await fetch(_synBibleDataPath(bookKey, parseInt(chapter)))
-            .then(r => r.ok ? r.json() : []).catch(() => []);
+        const data = await BookMaster.fetchJSON(await BookMaster.pathFor(bookKey, parseInt(chapter)));
         tokens = Array.isArray(data) ? data : [];
         _synVerseCache.set(cacheKey, tokens);
     }
@@ -3214,8 +3143,7 @@ function _synRenderBookChips() {
 }
 
 async function _synLoadRegistry() {
-    try { _synRegistryData = await fetch('./syntax-registry.json').then(r => r.ok ? r.json() : null).catch(() => null); }
-    catch { _synRegistryData = null; }
+    _synRegistryData = await BookMaster.fetchJSON('./syntax-registry.json');
 }
 function _synGetTypeDef(id) {
     if (!_synRegistryData) return null;
@@ -3228,6 +3156,7 @@ function _synGetTypeDef(id) {
 
 async function _synInit(syntaxId) {
     document.getElementById('syntax-panel').style.display = 'block';
+    await ensureBookMasterApplied(); // SYN_BOOK_GROUPS 等が埋まってからチップを描く
     _synRenderBookChips();
     document.getElementById('syn-label').textContent = '読み込み中…';
 

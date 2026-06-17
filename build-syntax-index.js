@@ -41,38 +41,18 @@ const REGISTRY_PATH = getArg('--registry', './syntax-registry.json');
 const BATCH_SIZE   = parseInt(getArg('--batch-size', '10'), 10);
 const NT_ONLY      = args.includes('--nt-only');
 
-// ── 書物定義（syntax-search.html の ALL_BOOKS / NT_BOOKS と同一） ───────────
-const NT_BOOKS = new Set([
-    'MAT','MRK','LUK','JHN','ACT','ROM','1CO','2CO','GAL','EPH',
-    'PHP','COL','1TH','2TH','1TI','2TI','TIT','PHM','HEB','JAS',
-    '1PE','2PE','1JN','2JN','3JN','JUD','REV'
-]);
-
-const ALL_BOOKS = [
-    /* NT */
-    {key:'MAT',ch:28},{key:'MRK',ch:16},{key:'LUK',ch:24},{key:'JHN',ch:21},
-    {key:'ACT',ch:28},{key:'ROM',ch:16},{key:'1CO',ch:16},{key:'2CO',ch:13},
-    {key:'GAL',ch:6}, {key:'EPH',ch:6}, {key:'PHP',ch:4}, {key:'COL',ch:4},
-    {key:'1TH',ch:5},{key:'2TH',ch:3},{key:'1TI',ch:6},{key:'2TI',ch:4},
-    {key:'TIT',ch:3},{key:'PHM',ch:1},{key:'HEB',ch:13},{key:'JAS',ch:5},
-    {key:'1PE',ch:5},{key:'2PE',ch:3},{key:'1JN',ch:5},{key:'2JN',ch:1},
-    {key:'3JN',ch:1},{key:'JUD',ch:1},{key:'REV',ch:22},
-    /* LXX — モーセ五書 */
-    {key:'GEN',ch:50},{key:'EXO',ch:40},{key:'LEV',ch:27},{key:'NUM',ch:36},{key:'DEU',ch:34},
-    /* LXX — 前預言書 */
-    {key:'JOS',ch:24},{key:'JDG',ch:21},{key:'RUT',ch:4},{key:'1SA',ch:31},{key:'2SA',ch:24},
-    {key:'1KI',ch:22},{key:'2KI',ch:25},
-    /* LXX — 後預言書（大） */
-    {key:'ISA',ch:66},{key:'JER',ch:52},{key:'EZE',ch:48},{key:'DAN',ch:12},
-    /* LXX — 後預言書（小十二） */
-    {key:'HOS',ch:14},{key:'JOL',ch:3},{key:'AMO',ch:9},{key:'OBA',ch:1},
-    {key:'JON',ch:4},{key:'MIC',ch:7},{key:'NAH',ch:3},{key:'HAB',ch:3},
-    {key:'ZEP',ch:3},{key:'HAG',ch:2},{key:'ZEC',ch:14},{key:'MAL',ch:4},
-    /* LXX — 諸書 */
-    {key:'PSA',ch:150},{key:'PRO',ch:31},{key:'JOB',ch:42},{key:'SNG',ch:8},
-    {key:'LAM',ch:5},{key:'ECC',ch:12},{key:'EST',ch:10},{key:'EZR',ch:10},
-    {key:'NEH',ch:13},{key:'1CH',ch:29},{key:'2CH',ch:36},
-];
+// ── 書物定義: books.json（全ページ・全スクリプト共通の単一の出典）───────────
+// search-tool.html / morph-search.html / syntax-search.html はブラウザの
+// fetch 経由で books.json を読むが、このスクリプトは Node なので fs で直接読む。
+// データの「内容」は books.json 1箇所のみに存在し、ここにコピーは置かない。
+const BOOKS_JSON_PATH = path.resolve(__dirname, 'books.json');
+if (!fs.existsSync(BOOKS_JSON_PATH)) {
+    console.error(`[ERROR] books.json が見つかりません: ${BOOKS_JSON_PATH}`);
+    process.exit(1);
+}
+const booksMaster = JSON.parse(fs.readFileSync(BOOKS_JSON_PATH, 'utf8'));
+const ALL_BOOKS = [...booksMaster.NT, ...booksMaster.OT].map(b => ({ key: b.key, ch: b.chapters }));
+const NT_BOOKS  = new Set(booksMaster.NT.map(b => b.key));
 
 // BOOK_ORDER: similar-syntax-search-spec.md § 3-3 準拠
 // NT: 1–27 (MAT=1 … REV=27), LXX: 28以降
@@ -83,6 +63,50 @@ ALL_BOOKS.forEach((b, i) => { BOOK_ORDER[b.key] = i + 1; });
 const TARGET_BOOKS = NT_ONLY
     ? ALL_BOOKS.filter(b => NT_BOOKS.has(b.key))
     : ALL_BOOKS;
+
+// ── 章数の実ファイル検証（books.json の宣言 vs bible_data/ の実際のファイル）───
+// ブラウザ側（book-master.js）はファイルシステムを読めないため境界プローブで
+// 代替検証するが、Node はここで実ディレクトリを直接スキャンして正確に検証できる。
+function validateChapterCounts() {
+    const warnings = [];
+    for (const b of ALL_BOOKS) {
+        const sub = NT_BOOKS.has(b.key) ? 'nt' : 'lxx';
+        const dir = path.join(__dirname, 'bible_data', sub, b.key);
+        if (!fs.existsSync(dir)) {
+            warnings.push({ key: b.key, issue: 'missing_directory', dir });
+            continue;
+        }
+        const actualChapters = fs.readdirSync(dir)
+            .filter(f => f.endsWith('.json'))
+            .map(f => parseInt(f.replace(/\.json$/, ''), 10))
+            .filter(n => !Number.isNaN(n));
+        const actualMax = actualChapters.length ? Math.max(...actualChapters) : 0;
+        if (actualMax !== b.ch) {
+            warnings.push({ key: b.key, issue: 'chapter_count_mismatch', declared: b.ch, actual: actualMax });
+        }
+    }
+    if (warnings.length) {
+        console.error(`[ERROR] books.json の章数と実ファイルが ${warnings.length} 件で不一致です:`);
+        for (const w of warnings) {
+            if (w.issue === 'missing_directory') {
+                console.error(`  - ${w.key}: ディレクトリが存在しません (${w.dir})`);
+            } else {
+                console.error(`  - ${w.key}: books.json は ${w.declared} 章と宣言、実ファイルは ${w.actual} 章まで存在`);
+            }
+        }
+        const warnPath = path.join(__dirname, 'syntax-index', '_book-validation-warnings.json');
+        try {
+            fs.mkdirSync(path.dirname(warnPath), { recursive: true });
+            fs.writeFileSync(warnPath, JSON.stringify({ generatedAt: new Date().toISOString(), warnings }, null, 2));
+            console.error(`[ERROR] 詳細を書き出しました: ${warnPath}`);
+        } catch (e) {
+            console.error('[ERROR] 警告ファイルの書き出しに失敗:', e.message);
+        }
+    } else {
+        console.log('[OK] books.json の章数は実ファイルと完全に一致しています');
+    }
+    return warnings;
+}
 
 // ── 形態論デコーダ（syntax-search.html と同一ロジック） ────────────────────
 const TENSE_CODE  = {P:'present',I:'imperfect',F:'future',A:'aorist',X:'perfect',Z:'pluperfect'};
@@ -165,6 +189,10 @@ function bibleDataFilePath(bookKey, ch) {
     return null;
 }
 
+// failedChapters: { key, ch, reason }[] — サイレント化禁止。main() の最後に
+// 件数とファイル一覧を必ず console.error し、JSON レポートにも書き出す。
+const failedChapters = [];
+
 async function fetchChapter(bookKey, ch) {
     // 1. ファイルシステムから直接読む
     const filePath = bibleDataFilePath(bookKey, ch);
@@ -176,19 +204,31 @@ async function fetchChapter(bookKey, ch) {
                 data.forEach(e => { e._bookKey = bookKey; });
                 return data;
             }
-        } catch { /* fallthrough to fetch */ }
+            failedChapters.push({ key: bookKey, ch, reason: `不正なJSON形式（配列ではない）: ${filePath}` });
+            return null;
+        } catch (e) {
+            failedChapters.push({ key: bookKey, ch, reason: `ファイル読み込み/解析エラー: ${filePath} — ${e.message}` });
+            return null;
+        }
     }
 
-    // 2. HTTP fetch
+    // 2. ファイルが無い場合は HTTP fetch にフォールバック
     const url = bibleDataUrl(bookKey, ch);
     try {
         const res = await fetch(url);
-        if (!res.ok) return null;
+        if (!res.ok) {
+            failedChapters.push({ key: bookKey, ch, reason: `HTTP ${res.status}: ${url}` });
+            return null;
+        }
         const data = await res.json();
-        if (!Array.isArray(data)) return null;
+        if (!Array.isArray(data)) {
+            failedChapters.push({ key: bookKey, ch, reason: `不正なJSON形式（配列ではない）: ${url}` });
+            return null;
+        }
         data.forEach(e => { e._bookKey = bookKey; });
         return data;
-    } catch {
+    } catch (e) {
+        failedChapters.push({ key: bookKey, ch, reason: `fetch エラー: ${url} — ${e.message}` });
         return null;
     }
 }
@@ -214,6 +254,9 @@ async function fetchInBatches(tasks, size, onProgress) {
 // ── メイン ───────────────────────────────────────────────────────────────────
 async function main() {
     const startTime = Date.now();
+
+    // 0. books.json の章数が実ファイルと一致しているか検証（構造的欠損の早期検出）
+    validateChapterCounts();
 
     // 1. syntax-analyzer.js を読み込む
     const analyzerAbsPath = path.resolve(process.cwd(), ANALYZER_PATH);
@@ -311,6 +354,22 @@ async function main() {
         }
     });
     console.log(`\n[OK] トークン総数: ${allTokens.length}`);
+
+    // fetch失敗の可視化（サイレント化禁止）— 件数とファイル一覧を必ず出力する
+    if (failedChapters.length) {
+        console.error(`[ERROR] ${failedChapters.length} 章の取得に失敗しました:`);
+        for (const f of failedChapters) console.error(`  - ${f.key} ${f.ch}章: ${f.reason}`);
+        const failPath = path.join(__dirname, 'syntax-index', '_fetch-failures.json');
+        try {
+            fs.mkdirSync(path.dirname(failPath), { recursive: true });
+            fs.writeFileSync(failPath, JSON.stringify({ generatedAt: new Date().toISOString(), failedChapters }, null, 2));
+            console.error(`[ERROR] 詳細を書き出しました: ${failPath}`);
+        } catch (e) {
+            console.error('[ERROR] 失敗レポートの書き出しに失敗:', e.message);
+        }
+    } else {
+        console.log('[OK] 全章の取得に成功しました（失敗0件）');
+    }
 
     if (allTokens.length === 0) {
         console.error('[ERROR] トークンが1件も取得できませんでした。');
