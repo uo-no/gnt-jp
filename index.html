@@ -4833,17 +4833,13 @@ async function _renderReadingNotes(p) {
             </div>
         </details>
 
-        <!-- LEVEL 4: 研究する（折りたたみ） -->
-        <details class="rn-level-section">
-            <summary>▼ 研究する</summary>
-            <div class="rn-level-body">
-                <div class="rn-research-links">
-                    <a href="${concordURL}" class="rn-research-link" target="_blank">この語の用例を見る →</a>
-                    <a href="${morphSearchURL}" class="rn-research-link" target="_blank">この語形を探す →</a>
-                    <a href="${syntaxURL}" class="rn-research-link" target="_blank">同じ構文を探す →</a>
-                </div>
-            </div>
-        </details>
+        <!-- さらに調べる：検索ツールへのナビゲーション（常時表示・折りたたみなし） -->
+        <div class="rn-research-links">
+            <span class="rn-research-item-label">さらに調べる</span>
+            <a href="${concordURL}" class="rn-research-link" target="_blank">この語の用例を見る →</a>
+            <a href="${morphSearchURL}" class="rn-research-link" target="_blank">この語形を探す →</a>
+            <a href="${syntaxURL}" class="rn-research-link" target="_blank">同じ構文を探す →</a>
+        </div>
     `;
 
     /* セマンティックレイヤーを非同期注入 */
@@ -5085,8 +5081,9 @@ function _buildLnLayerHTML(lnCodes, currentLemmaId, currentWord) {
                 ${s.gloss ? `<span class="rn-sibling-ja">${s.gloss}</span>` : ''}
                 <span class="rn-sibling-count">${s.count}</span>
             </span>`).join('');
+        const occText = entry.occurrences ? `（新約聖書に計 ${entry.occurrences}回登場）` : '';
         sections.push(`
-            <div class="rn-ln-domain-label">意味分類 ${ln}（この分類に属する語が新約聖書に計 ${entry.occurrences || '?'}回登場）</div>
+            <div class="rn-ln-domain-label">近い意味の語${occText}</div>
             <div class="rn-sibling-chips">${chips}</div>`);
     }
     if (!sections.length) return '';
@@ -5098,7 +5095,7 @@ function _buildLnLayerHTML(lnCodes, currentLemmaId, currentWord) {
             <span class="rn-layer-toggle-icon">›</span>
         </button>
         <div class="rn-layer-body" id="rn-ln-body">
-            <div class="rn-layer-intro">以下の語はすべて同じ意味カテゴリー（Louw-Nida分類）に属します。数字は新約聖書での出現回数。枠付きがこの単語です。</div>
+            <div class="rn-layer-intro">以下の語は聖書で近い意味を持つ語です。数字は新約聖書での出現回数。枠付きがこの単語です。</div>
             ${sections.join('')}
         </div>
     </div>`;
@@ -5137,8 +5134,9 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
             </span>
         `).join('');
 
+        const occText = entry.occurrences ? `（新約聖書に計 ${entry.occurrences}回登場）` : '';
         sections.push(`
-            <div class="rn-ln-domain-label">共起クラスター ${code}（この語群が新約聖書に計 ${entry.occurrences || '?'}回登場）</div>
+            <div class="rn-ln-domain-label">よく一緒に使われる語${occText}</div>
             <div class="rn-sibling-chips">${chips}</div>
         `);
     }
@@ -5231,8 +5229,8 @@ function _buildFusionViewHTML(lnCodes, domainCodes, resolvedId) {
     return `
     <div class="rn-concord-section" style="opacity:0.88;">
         <button class="rn-layer-toggle" data-target="rn-fusion-body">
-            <span>意味的隣接語（${fusionById.size}節）</span>
-            <span class="rn-layer-hint">LN・クラスター両方に含まれる関連語の用例</span>
+            <span>特に関連の深い語を見る（${fusionById.size}節）</span>
+            <span class="rn-layer-hint">以下の語は、意味と文脈の両面でこの語と強く結び付いています。</span>
             <span class="rn-layer-toggle-icon">›</span>
         </button>
         <div class="rn-layer-body" id="rn-fusion-body">
@@ -5464,7 +5462,7 @@ function renderSemanticGraph(graph) {
     /* Intro */
     const intro = document.createElement('div');
     intro.className = 'rn-layer-intro';
-    intro.textContent = '意味・共起の両面でつながりの強い関連語です。wの数字が大きいほど関係が深い語です。語をクリックすると詳細をのぞけます。';
+    intro.textContent = '意味と文脈の両面でつながりの強い関連語です。数字が大きいほど関係が深い語です。語をクリックすると詳細をのぞけます。';
     body.appendChild(intro);
 
     /* Center node */
@@ -5487,7 +5485,7 @@ function renderSemanticGraph(graph) {
         chip.innerHTML =
             `<span class="rn-graph-node-gr">${node.headword}</span>`
           + (node.gloss ? `<span class="rn-graph-node-ja">${node.gloss}</span>` : '')
-          + `<span class="rn-graph-node-w">w${node.weight}</span>`;
+          + `<span class="rn-graph-node-w">${node.weight}</span>`;
 
         chip.addEventListener('click', (e) => {
             e.stopPropagation();
