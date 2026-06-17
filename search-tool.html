@@ -1368,6 +1368,10 @@ function _indexChapter(toks){
    バッチ並列fetch＋yieldで応答性は確保しつつ、ゲート（IDX.ready）は
    全件完了の1点のみに統一する。 */
 async function _buildFullIndex(){
+    /* fetch とインライン索引化（_indexChapter による SEARCH_INDEX.text/lemma/strong 構築）が
+       バッチループ内で混在しているため、この区間は「data-load」として一括計測する
+       （fetchとインデックス構築だけを個別に分離計測するには本ループの構造変更が必要）。 */
+    performance.mark('data-load-start');
     const tasks=await BookMaster.buildChapterTasks();
     const BATCH=20;
     for(let i=0;i<tasks.length;i+=BATCH){
@@ -1376,6 +1380,7 @@ async function _buildFullIndex(){
         for(const toks of results)_indexChapter(toks);
         await new Promise(r=>setTimeout(r,0));
     }
+    _logPerfMeasure('data-load', `${tasks.length} chapters, ${ALL_TOKENS.length.toLocaleString()} tokens (fetch+inline SEARCH_INDEX)`);
     IDX.ready=true;
     _buildL3Background();
 }
@@ -1494,13 +1499,27 @@ function searchByLemma(lemma){
 
     return idx.get(norm) || [];
 }
+/* 性能計測ヘルパー（監査用。ロジックには影響しない） */
+function _logPerfMeasure(name, note) {
+    performance.mark(name + '-end');
+    performance.measure(name, name + '-start', name + '-end');
+    const dur = performance.getEntriesByName(name).pop().duration;
+    console.log(`[perf] ${name}${note ? ' (' + note + ')' : ''}: ${dur.toFixed(1)} ms`);
+    performance.clearMarks(name + '-start');
+    performance.clearMarks(name + '-end');
+    performance.clearMeasures(name);
+}
 function _buildAndExposeLemmaIndex(){
+    performance.mark('index-build-start');
     window.lemmaIndex=buildLemmaIndex(ALL_TOKENS);
+    _logPerfMeasure('index-build', `buildLemmaIndex over ${ALL_TOKENS.length.toLocaleString()} tokens, ${window.lemmaIndex.size.toLocaleString()} keys`);
     console.info('[lemmaIndex] built — lemmas:',window.lemmaIndex.size);
 }
 function _rebuildLemmaIndexIfNeeded(){
     if(!IDX.ready)return;
+    performance.mark('index-build-start');
     window.lemmaIndex=buildLemmaIndex(ALL_TOKENS);
+    _logPerfMeasure('index-build', `rebuild over ${ALL_TOKENS.length.toLocaleString()} tokens, ${window.lemmaIndex.size.toLocaleString()} keys`);
     console.info('[lemmaIndex] rebuilt — lemmas:',window.lemmaIndex.size);
 }
 
@@ -1971,6 +1990,7 @@ async function unifiedSearch(){
     let proxCoocMap=new Map();
 
     // --- Execute layers in parallel ---
+    performance.mark('search-start');
     const tasks=[];
 
     if(_layers.lemma){
@@ -2030,6 +2050,7 @@ async function unifiedSearch(){
     }
 
     await Promise.all(tasks);
+    _logPerfMeasure('search', `layers=${Object.keys(_activeLayerSet).filter(k=>_activeLayerSet[k]).join(',')}, ${merged.size.toLocaleString()} hits`);
 
     // --- Morph post-filter ---
     if(morphFilter&&merged.size>0){
@@ -2047,7 +2068,9 @@ async function unifiedSearch(){
 
     _addHistory(query,_activeLayerSet);
     _lastQuery=query;
+    performance.mark('render-start');
     _renderUnifiedResults(query,words,word2);
+    _logPerfMeasure('render', `${_allMergedResults.size.toLocaleString()} hits merged`);
     /* この時点で IDX.ready は必ず true（上のゲートで保証済み）。
        「索引未完成のまま検索→後から件数が増える」事象は構造的に発生しない。 */
 }

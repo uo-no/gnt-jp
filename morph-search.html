@@ -862,12 +862,57 @@ const STOP_LEMMAS = new Set([
 
 const coreOnState = { mood: true, voice: true, tense: true, person: true };
 
-function matchEntry(entry) {
-    if (wordFilterMode === 'lemma' && params.lemma) {
-        if (normalizeGreek(entry.lemma||'') !== normalizeGreek(params.lemma)) return false;
-    } else if (wordFilterMode === 'word' && params.word) {
-        if (normalizeGreek(entry.word||entry.normalized||entry.text||'') !== normalizeGreek(params.word)) return false;
+/* ══════════════════════════════════════════
+   語形/原形インデックス（データロード後に1回だけ構築）
+   ══════════════════════════════════════════
+   matchEntry は以前、毎回（=チップ操作ごと）allData 全件に対して
+   normalizeGreek() を呼びながら線形走査していた。
+   params.word / params.lemma はページ生存中不変であり、wordFilterMode は
+   'word'⇄'lemma' 間のみ切替可能（'none' との間の切替UIは存在しない）ため、
+   両方のインデックスを最初に1回だけ作っておけば、切替が起きても再構築不要。
+   空文字キーも除外せずインデックス化する（normalizeGreek(params.lemma) が
+   退化的に空文字になるケースでも元の挙動と完全一致させるため）。 */
+let _lemmaIndex = null; // Map<normalizeGreek(lemma), Entry[]>
+let _wordIndex  = null; // Map<normalizeGreek(word|normalized|text), Entry[]>
+
+function buildWordLemmaIndex(allData) {
+    const lemmaIdx = new Map();
+    const wordIdx  = new Map();
+    for (const e of allData) {
+        const lk = normalizeGreek(e.lemma || '');
+        let larr = lemmaIdx.get(lk);
+        if (!larr) { larr = []; lemmaIdx.set(lk, larr); }
+        larr.push(e);
+
+        const wk = normalizeGreek(e.word || e.normalized || e.text || '');
+        let warr = wordIdx.get(wk);
+        if (!warr) { warr = []; wordIdx.set(wk, warr); }
+        warr.push(e);
     }
+    _lemmaIndex = lemmaIdx;
+    _wordIndex  = wordIdx;
+}
+
+/* word/lemma 制約が無い（wordFilterMode==='none'）場合の母集合決定レイヤー。
+   現時点では allData をそのまま返すのみだが、将来的に前処理（追加の絞り込み等）
+   を挟められるよう、呼び出し側からは関数呼び出しとして分離している。 */
+function resolveUnfilteredBase(allData) {
+    return allData;
+}
+
+function getCandidateBase(allData) {
+    if (wordFilterMode === 'lemma' && params.lemma) {
+        return _lemmaIndex.get(normalizeGreek(params.lemma)) || [];
+    }
+    if (wordFilterMode === 'word' && params.word) {
+        return _wordIndex.get(normalizeGreek(params.word)) || [];
+    }
+    return resolveUnfilteredBase(allData);
+}
+
+function matchEntryFilters(entry) {
+    /* word/lemma の一致判定は getCandidateBase() による事前絞り込みで
+       保証済みのため、ここでは判定しない（matchEntry からの分離点）。 */
     if (!bookState.every(g => g.enabled)) {
         const en = new Set(bookState.filter(g=>g.enabled).flatMap(g=>g.books));
         const bk = entry._bookKey || getBookKey(entry);
@@ -1373,8 +1418,23 @@ let _currentRows = [];
 let _displayCount = 100;
 const PAGE_SIZE = 100;
 
+/* 性能計測ヘルパー（監査用。ロジックには影響しない） */
+function _logPerfMeasure(name, note) {
+    performance.mark(name + '-end');
+    performance.measure(name, name + '-start', name + '-end');
+    const dur = performance.getEntriesByName(name).pop().duration;
+    console.log(`[perf] ${name}${note ? ' (' + note + ')' : ''}: ${dur.toFixed(1)} ms`);
+    performance.clearMarks(name + '-start');
+    performance.clearMarks(name + '-end');
+    performance.clearMeasures(name);
+}
+
 function renderResults(allData) {
-    const matched = allData.filter(matchEntry);
+    performance.mark('search-start');
+    const base    = getCandidateBase(allData);
+    const matched = base.filter(matchEntryFilters);
+    _logPerfMeasure('search', `matchEntryFilters over ${base.length.toLocaleString()} candidates (base of ${allData.length.toLocaleString()} tokens)`);
+
     if (matched.length > 0 && !resolvedMorph) patchParamsFromEntry(matched[0]);
     const sp      = params.pos.replace(/-$/,'');
     const samePos = allData.filter(e=>(e.pos||'').replace(/-$/,'').toUpperCase()===sp.toUpperCase()).length;
@@ -1387,10 +1447,12 @@ function renderResults(allData) {
 }
 
 function renderPage() {
+    performance.mark('render-start');
     const el   = document.getElementById('result-list');
     const rows = _currentRows;
     if (!rows.length) {
         el.innerHTML = `<div class="empty"><div class="empty-icon">∅</div>条件に一致する語形が見つかりませんでした。<br>拡張条件をOFFにするか、書物範囲を広げてみてください。</div>`;
+        _logPerfMeasure('render', '0 rows');
         return;
     }
     const slice = rows.slice(0, _displayCount);
@@ -1420,6 +1482,7 @@ function renderPage() {
                 さらに表示（残り ${more.toLocaleString()} 件）
             </button></div>`;
     }
+    _logPerfMeasure('render', `${slice.length} DOM cards`);
 }
 function loadMore() { _displayCount += PAGE_SIZE; renderPage(); }
 
@@ -1706,6 +1769,7 @@ async function fetchJaData(morphPaths) {
     const filterBlock = document.getElementById('filter-section-block');
     if (filterBlock) filterBlock.style.display = '';
 
+    performance.mark('data-load-start');
     const paths = await BookMaster.buildChapterTasks();
     const allData = await fetchInBatches(paths, 20, (done, ttl) => {
         const pct = Math.round(done/ttl*100);
@@ -1714,6 +1778,7 @@ async function fetchJaData(morphPaths) {
         if (bar) bar.style.width = pct + '%';
         if (txt) txt.textContent = `読み込み中 ${pct}%`;
     });
+    _logPerfMeasure('data-load', `${paths.length} chapters, ${allData.length.toLocaleString()} tokens`);
 
     if (!allData.length) {
         loadEl.innerHTML = `<p style="color:#c00;font-size:0.82rem;">データが見つかりませんでした。<code>bible_data/ROM/1.json</code> の形式で配置してください。</p>`;
@@ -1725,6 +1790,9 @@ async function fetchJaData(morphPaths) {
     await fetchJaData(paths);
 
     window._morphData = allData;
+    performance.mark('index-build-start');
+    buildWordLemmaIndex(allData);
+    _logPerfMeasure('index-build', `lemmaIndex ${_lemmaIndex.size.toLocaleString()} keys, wordIndex ${_wordIndex.size.toLocaleString()} keys`);
     loadEl.style.display = 'none';
     listEl.style.display = 'flex';
     document.getElementById('result-section').style.display = '';

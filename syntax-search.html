@@ -3002,6 +3002,17 @@ function getVerseTokens(allData, ref) {
     return allData.filter(e => String(e.ref||'').replace(/!.*$/,'').trim() === prefix);
 }
 
+/* 性能計測ヘルパー（監査用。ロジックには影響しない） */
+function _logPerfMeasure(name, note) {
+    performance.mark(name + '-end');
+    performance.measure(name, name + '-start', name + '-end');
+    const dur = performance.getEntriesByName(name).pop().duration;
+    console.log(`[perf] ${name}${note ? ' (' + note + ')' : ''}: ${dur.toFixed(1)} ms`);
+    performance.clearMarks(name + '-start');
+    performance.clearMarks(name + '-end');
+    performance.clearMeasures(name);
+}
+
 /* ══════════════════════════════════════════
    ヘルプポップオーバー
 ══════════════════════════════════════════ */
@@ -3073,6 +3084,7 @@ if (params.jword) {
 
     const paths   = await BookMaster.buildChapterTasks();
 
+    performance.mark('data-load-start');
     const allData = await fetchInBatches(paths, 20, (done, ttl) => {
         const pct = Math.round(done/ttl*100);
         const bar = document.getElementById('load-bar');
@@ -3080,6 +3092,7 @@ if (params.jword) {
         if (bar) bar.style.width = pct + '%';
         if (txt) txt.textContent = `読み込み中 ${pct}%`;
     });
+    _logPerfMeasure('data-load', `${paths.length} chapters, ${allData.length.toLocaleString()} tokens`);
 
     if (!allData.length) {
         document.getElementById('main-loading').innerHTML =
@@ -3094,7 +3107,9 @@ if (params.jword) {
     window._morphData = allData;
 
     const ref = params.ref;
+    performance.mark('search-start');
     const tokens = getVerseTokens(allData, ref);
+    _logPerfMeasure('search', `getVerseTokens over ${allData.length.toLocaleString()} tokens → ${tokens.length} found`);
 
     if (!tokens.length) {
         document.getElementById('main-loading').innerHTML =
@@ -3131,7 +3146,9 @@ if (params.jword) {
         }
     }
 
+    performance.mark('render-start');
     renderAll(tokens, ref);
+    _logPerfMeasure('render', `${tokens.length} tokens`);
 
 })();
 
