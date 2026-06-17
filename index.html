@@ -830,6 +830,7 @@ flex-direction: column;
 }
 #reading-notes-area {
 padding: 0 22px 60px;
+max-width: 640px;
 }
 
 /* 語形ヘッダー（Word Head）*/
@@ -849,13 +850,6 @@ color: var(--text-sub);
 font-weight: 400;
 display: block;
 margin-bottom: 2px;
-}
-.rn-ref {
-font-size: 0.68rem;
-color: var(--text-sub);
-opacity: 0.5;
-letter-spacing: 0.02em;
-display: block;
 }
 /* ── 辞書形式テーブル ── */
 .rn-dict-table {
@@ -1091,11 +1085,8 @@ opacity: 0.7;
     overflow: hidden;
 }
 
-/* Section colour coding: each layer has a distinct left accent */
-.rn-ln-section      { border-left: 3px solid #7b9ab5; }
-.rn-cluster-section { border-left: 3px solid #8fa87a; }
+/* LN / Cluster / Graph: unified card design — no per-card accent colour */
 .rn-concord-section { border-left: 3px solid #b58a5a; }
-.rn-graph-section   { border-left: 3px solid #9a7ab5; }
 
 /* Wrapper to stack sections with consistent gap */
 #rn-semantic-layers {
@@ -1304,19 +1295,10 @@ opacity: 0.7;
     opacity: 1;
 }
 
-/* Section-specific toggle tints */
-.rn-ln-section      .rn-layer-toggle { background: rgba(123,154,181,0.07); border-left: 3px solid rgba(123,154,181,0.5); }
-.rn-ln-section      .rn-layer-toggle:hover,
-.rn-ln-section      .rn-layer-toggle.open  { background: rgba(123,154,181,0.14); border-left-color: rgba(123,154,181,0.85); }
-.rn-cluster-section .rn-layer-toggle { background: rgba(143,168,122,0.07); border-left: 3px solid rgba(143,168,122,0.5); }
-.rn-cluster-section .rn-layer-toggle:hover,
-.rn-cluster-section .rn-layer-toggle.open  { background: rgba(143,168,122,0.14); border-left-color: rgba(143,168,122,0.85); }
+/* Section-specific toggle tint (Concordance/Fusion only — LN/Cluster/Graph share the base .rn-layer-toggle design above) */
 .rn-concord-section .rn-layer-toggle { background: rgba(181,138,90,0.07); border-left: 3px solid rgba(181,138,90,0.5); }
 .rn-concord-section .rn-layer-toggle:hover,
 .rn-concord-section .rn-layer-toggle.open  { background: rgba(181,138,90,0.14); border-left-color: rgba(181,138,90,0.85); }
-.rn-graph-section   .rn-layer-toggle { background: rgba(154,122,181,0.07); border-left: 3px solid rgba(154,122,181,0.5); }
-.rn-graph-section   .rn-layer-toggle:hover,
-.rn-graph-section   .rn-layer-toggle.open  { background: rgba(154,122,181,0.14); border-left-color: rgba(154,122,181,0.85); }
 
 /* Icon: rotates on open, pushed to right */
 .rn-layer-toggle-icon {
@@ -3334,6 +3316,16 @@ details[open] .study-summary::before {
 .rn-level-section > summary:hover { opacity: 0.85; }
 .rn-level-section[open] > summary { opacity: 0.65; }
 .rn-level-section > summary::-webkit-details-marker { display: none; }
+.rn-level-section > summary::before {
+    content: '▶';
+    display: inline-block;
+    margin-right: 6px;
+    font-size: 0.65em;
+    transition: transform 0.18s cubic-bezier(.4,0,.2,1);
+}
+.rn-level-section[open] > summary::before {
+    transform: rotate(90deg);
+}
 .rn-level-body {
     padding-top: 4px;
     padding-bottom: 10px;
@@ -4816,7 +4808,6 @@ async function _renderReadingNotes(p) {
         <div class="rn-word-head">
             <span class="rn-greek greek-headword">${word}</span>
             ${gloss_ja ? `<span class="rn-ja">${gloss_ja}</span>` : ''}
-            ${ref ? `<span class="rn-ref">${ref}</span>` : ''}
         </div>
 
         <div class="rn-prose reading-block">
@@ -4828,7 +4819,7 @@ async function _renderReadingNotes(p) {
 
         <!-- LEVEL 2: 単語を詳しく調べる（折りたたみ） -->
         <details class="rn-level-section" id="rn-level2-details">
-            <summary>▼ 単語を詳しく調べる</summary>
+            <summary>単語を詳しく調べる</summary>
             <div class="rn-level-body">
                 ${morphGridHTML}
                 ${etymologyHTML}
@@ -4838,7 +4829,7 @@ async function _renderReadingNotes(p) {
 
         <!-- LEVEL 3: さらに学ぶ（折りたたみ） -->
         <details class="rn-level-section">
-            <summary>▼ さらに学ぶ</summary>
+            <summary>さらに学ぶ</summary>
             <div class="rn-level-body">
                 <div id="rn-semantic-layers"></div>
             </div>
