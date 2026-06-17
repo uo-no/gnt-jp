@@ -1567,7 +1567,8 @@ function toggleMorphContext(cardEl, encRef, encWord) {
     cardEl.classList.add('ctx-open');
 }
 
-const JA_FOLDER = 'bible_jp';
+const JA_FOLDER = 'translations';
+const JA_VERSION = 'JA1955';
 /* 書物・章一覧と nt/lxx 振り分けは book-master.js（books.json）が単一の出典。
    ここではローカルコピーを持たず、fetchInBatches に渡されたタスクのみを扱う。 */
 async function fetchInBatches(tasks,sz,onProg) {
@@ -1588,10 +1589,14 @@ async function fetchJaData(morphPaths) {
     const KEY_TO_CODE={};
     Object.entries(BOOK_MAP).forEach(([code,key])=>{ KEY_TO_CODE[key]=code; });
     return Promise.allSettled(
-        morphPaths.map(t=>({...t,path:`./${JA_FOLDER}/${t.key}/${t.ch}.json`}))
-        .map(t=>BookMaster.fetchJSON(t.path)
+        morphPaths.map(t=>({...t,path:`./${JA_FOLDER}/${JA_VERSION}/${t.key}/${t.ch}.json`}))
+        .map(t=>fetch(t.path).then(r=>r.ok?r.json():null)
+            /* JA1955は七十人訳のみの章（PSA151・JOL4等）を収録していないため、
+               この章には和訳が存在しない。genuineなデータ取得失敗ではないので
+               __failedFetches には積まず、console.infoのみで追跡可能にする。 */
+            .catch(err=>{ console.info('[ja-translation] fetch error, skipping:', t.path, err); return null; })
             .then(data=>{
-                if(!data) return;
+                if(!data) { console.info('[ja-translation] no Japanese translation available for', t.path); return; }
                 const vers=data.verses; if(!vers||typeof vers!=='object') return;
                 const bc=KEY_TO_CODE[t.key]; if(!bc) return;
                 Object.entries(vers).forEach(([vn,tx])=>{

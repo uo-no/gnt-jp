@@ -2924,8 +2924,7 @@ function navTo(target, e) {
         if (_m.gender) qs.set('gender', _m.gender);
     }
     const url = `${fileMap[target]}?${qs.toString()}`;
-    if (target === 'morph') { window.open(url, '_blank'); }
-    else { location.href = url; }
+    window.open(url, '_blank');
 }
 
 /* ══════════════════════════════════════════
@@ -2979,9 +2978,13 @@ async function fetchJaData(morphPaths) {
     Object.entries(BOOK_MAP).forEach(([c,k])=>{ K2C[k]=c; });
     return Promise.allSettled(
         morphPaths.map(t=>({...t,path:jaDataPath(t.key,t.ch)}))
-        .map(t=>BookMaster.fetchJSON(t.path)
+        .map(t=>fetch(t.path).then(r=>r.ok?r.json():null)
+            /* JA1955は七十人訳のみの章（PSA151・JOL4等）を収録していないため、
+               この章には和訳が存在しない。genuineなデータ取得失敗ではないので
+               __failedFetches には積まず、console.infoのみで追跡可能にする。 */
+            .catch(err=>{ console.info('[ja-translation] fetch error, skipping:', t.path, err); return null; })
             .then(data=>{
-                if(!data) return;
+                if(!data) { console.info('[ja-translation] no Japanese translation available for', t.path); return; }
                 const vers=data.verses; if(!vers||typeof vers!=='object') return;
                 const bc=K2C[t.key]; if(!bc) return;
                 const cs=String(t.ch).padStart(2,'0');
