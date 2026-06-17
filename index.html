@@ -4858,7 +4858,7 @@ async function _renderReadingNotes(p) {
         ${usageTrendsHTML}
 
         <!-- LEVEL 2: 単語を詳しく調べる（折りたたみ） -->
-        <details class="rn-level-section">
+        <details class="rn-level-section" id="rn-level2-details">
             <summary>▼ 単語を詳しく調べる</summary>
             <div class="rn-level-body">
                 ${morphGridHTML}
@@ -4887,12 +4887,6 @@ async function _renderReadingNotes(p) {
             </div>
         </details>
     `;
-
-    /* Abbott-Smith 全文をデータ属性に保存（展開ボタン用） */
-    if (abbottSmithText.length > PREVIEW_LEN) {
-        const dictPreview = area.querySelector('.rn-dict-preview');
-        if (dictPreview) dictPreview.dataset.full = abbottSmithText;
-    }
 
     /* セマンティックレイヤーを非同期注入 */
     _injectStudyPanelContent(
@@ -5800,14 +5794,13 @@ function _rnToggleRef() {
 /* _rnToggleDeep: 廃止（Layer 1/2 統合のため）互換のためno-op残す */
 function _rnToggleDeep() {}
 
-/* Level 1 辞書プレビュー展開ボタン */
+/* Level 1 辞書プレビューの「続きを読む」：辞書全文は Level 1 に展開せず、
+   「単語を詳しく調べる」（Level 2）側の辞書全文セクションを開いて見せる。 */
 function _rnExpandDict(btn) {
-    const preview = btn.previousElementSibling;
-    if (!preview) return;
-    const fullText = preview.dataset.full || '';
-    if (!fullText) return;
-    preview.innerHTML = fullText.replace(/\n/g, '<br>');
-    btn.remove();
+    const details = document.getElementById('rn-level2-details');
+    if (!details) return;
+    details.open = true;
+    details.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /* ══════════════════════════════════════════
