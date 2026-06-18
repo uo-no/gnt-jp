@@ -1414,28 +1414,69 @@ function entryPosCode(e) {
     return '';
 }
 function decodeMorph(e) {
-    const n = v => (!v||v==='-')?'':v;
-    if (e.tense||e.mood||e.voice) return {
-        pos:entryPosCode(e), tense:n(e.tense), voice:n(e.voice), mood:n(e.mood),
-        case:n(e.case), number:n(e.number), gender:n(e.gender), person:n(e.person),
-    };
-    if (e.morph&&typeof e.morph==='object') { const m=e.morph; return {
-        pos:n(e.pos||'').replace(/-$/,''), tense:n(m.tense), voice:n(m.voice), mood:n(m.mood),
-        case:n(m.case), number:n(m.number), gender:n(m.gender), person:n(m.person),
-    };}
-    const raw = typeof e.morph==='string'?e.morph:'';
-    const parts=raw.split('-');
-    const pos=n(e.pos||parts[0]||'').replace(/-$/,'');
-    if (pos.toUpperCase()==='V'&&parts[1]) {
-        const seg=parts[1],off=/^[0-9]/.test(seg)?1:0;
-        return {pos,tense:TENSE_CODE[seg[off]]||'',voice:VOICE_CODE[seg[off+1]]||'',
-                mood:MOOD_CODE[seg[off+2]]||'',person:seg[off+3]||'',
-                number:NUMBER_CODE[seg[off+4]]||'',gender:'',case:''};
+    const result = (function () {
+        const n = v => (!v||v==='-')?'':v;
+        if (e.tense||e.mood||e.voice) return {
+            pos:entryPosCode(e), tense:n(e.tense), voice:n(e.voice), mood:n(e.mood),
+            case:n(e.case), number:n(e.number), gender:n(e.gender), person:n(e.person),
+        };
+        if (e.morph&&typeof e.morph==='object') { const m=e.morph; return {
+            pos:n(e.pos||'').replace(/-$/,''), tense:n(m.tense), voice:n(m.voice), mood:n(m.mood),
+            case:n(m.case), number:n(m.number), gender:n(m.gender), person:n(m.person),
+        };}
+        const raw = typeof e.morph==='string'?e.morph:'';
+        const parts=raw.split('-');
+        const pos=n(e.pos||parts[0]||'').replace(/-$/,'');
+        if (pos.toUpperCase()==='V'&&parts[1]) {
+            const seg=parts[1],off=/^[0-9]/.test(seg)?1:0;
+            return {pos,tense:TENSE_CODE[seg[off]]||'',voice:VOICE_CODE[seg[off+1]]||'',
+                    mood:MOOD_CODE[seg[off+2]]||'',person:seg[off+3]||'',
+                    number:NUMBER_CODE[seg[off+4]]||'',gender:'',case:''};
+        }
+        if (parts[1]){const seg=parts[1],hp=['1','2','3'].includes(seg[0]),b=hp?seg.slice(1):seg;
+            return {pos,tense:'',voice:'',mood:'',person:hp?seg[0]:'',
+                    case:CASE_CODE[b[0]]||'',number:NUMBER_CODE[b[1]]||'',gender:GENDER_CODE[b[2]]||''};}
+        return {pos,tense:'',voice:'',mood:'',case:'',number:'',gender:'',person:''};
+    })();
+    /* 安全フォールバック（追加分）: case/number/gender が全て空の場合のみ、
+       entry の直接フィールドを使用する。上記の既存ロジックは一切変更していない。 */
+    if (!result.case && !result.number && !result.gender) {
+        const n = v => (!v||v==='-')?'':v;
+        result.case   = n(e.case);
+        result.number = n(e.number);
+        result.gender = n(e.gender);
     }
-    if (parts[1]){const seg=parts[1],hp=['1','2','3'].includes(seg[0]),b=hp?seg.slice(1):seg;
-        return {pos,tense:'',voice:'',mood:'',person:hp?seg[0]:'',
-                case:CASE_CODE[b[0]]||'',number:NUMBER_CODE[b[1]]||'',gender:GENDER_CODE[b[2]]||''};}
-    return {pos,tense:'',voice:'',mood:'',case:'',number:'',gender:'',person:''};
+    return result;
+}
+
+/* ══════════════════════════════════════════
+   表示・解析用マージ（追加分・検索ロジックには関与しない）
+   ══════════════════════════════════════════
+   構文判定の決定ロジックは decodeMorph に統一されている
+   （assignSyntacticRoles は decodeMorph(t) を直接参照する。
+   このファイルに resolveMorphAttrs の戻り値を渡してはならない）。
+   この関数は entry.* を decoded（decodeMorphの出力）に対して上書きしない。
+   返り値の case/number/gender/tense/mood/voice は decoded と完全に同じ値を
+   保持したまま、entry.* 側の値を entry_case 等の別キーで補助的に保持するだけの
+   “表示・解析用マージ”である。
+   entry.* と decodeMorph(entry) の値が一致しない場合は
+   window.__morphAttrDisagreements に記録する（削除・無視はしない。594件existing）。 */
+window.__morphAttrDisagreements = window.__morphAttrDisagreements || [];
+const _MORPH_ATTR_KEYS = ['case','number','gender','tense','mood','voice'];
+function resolveMorphAttrs(e, decoded) {
+    const n = v => (!v || v === '-') ? '' : v;
+    const resolved = Object.assign({}, decoded); // 検索判定に使う値は decoded のまま、一切上書きしない
+    for (const key of _MORPH_ATTR_KEYS) {
+        const entryValue = n(e[key]);
+        if (entryValue && entryValue !== decoded[key]) {
+            window.__morphAttrDisagreements.push({
+                ref: e.ref, tokenId: e.tokenId, globalIdx: e.globalIdx,
+                attr: key, entryValue: entryValue, decodeMorphValue: decoded[key],
+            });
+        }
+        resolved['entry_' + key] = entryValue; // 表示・解析用の補助情報として保持するのみ
+    }
+    return resolved;
 }
 
 function cleanText(e) {
@@ -2056,8 +2097,10 @@ let _targetRef  = '';
 function renderAll(tokens, targetRef) {
     _tokens   = tokens;
     _targetRef = targetRef;
+    performance.mark('syntax-roles-start');
     _roleMap  = assignSyntacticRoles(tokens);
     _wordOrderMarkers = detectWordOrderMarkers(tokens, _roleMap);
+    _logPerfMeasure('syntax-roles', `assignSyntacticRoles+detectWordOrderMarkers over ${tokens.length} tokens`);
     _selectedIdx = -1;
 
     const targetNorm = normalizeGreek(params.word);
@@ -2112,9 +2155,10 @@ function renderSyntaxDiscoveryCard(tokens, targetIdx) {
 /* ① チップ型トークン列 */
 function renderSentence(tokens) {
     const line = document.getElementById('token-line');
+    performance.mark('html-gen-sentence-start');
     const groups = groupTokens(tokens, _roleMap);
 
-    line.innerHTML = groups.map(g => {
+    const html = groups.map(g => {
         const role = g.role || 'other';
         const hasRole = role !== 'other' && role !== null;
         const baseIdx = g.baseIdx;
@@ -2147,8 +2191,12 @@ function renderSentence(tokens) {
             ${ja ? `<span class="token-chip-gr">${word}</span>` : ''}
         </div>`;
     }).filter(Boolean).join('');
+    _logPerfMeasure('html-gen-sentence', `${groups.length} groups → ${html.length} chars`);
 
+    performance.mark('render-sentence-start');
+    line.innerHTML = html;
     renderLegend(tokens);
+    _logPerfMeasure('render-sentence', `DOM write + renderLegend`);
 }
 
 function renderLegend(tokens) {
@@ -2183,6 +2231,7 @@ function selectToken(idx) {
         const entry = tokens[idx];
         // SyntaxAnalyzer が利用可能な場合は候補ベースで表示
         let analysisOutput = null;
+        performance.mark('syntax-analyze-start');
         if (window._syntaxAnalyzer) {
             try {
                 analysisOutput = window._syntaxAnalyzer.analyze({
@@ -2192,6 +2241,9 @@ function selectToken(idx) {
                 console.warn('SyntaxAnalyzer.analyze failed:', e);
             }
         }
+        _logPerfMeasure('syntax-analyze', window._syntaxAnalyzer ? 'SyntaxAnalyzer.analyze' : 'skipped (no analyzer)');
+
+        performance.mark('detail-render-start');
         renderRoleHero(entry, tokens, idx, analysisOutput);
         renderCandidates(entry, tokens, idx, analysisOutput);
         renderWordOrder(entry, tokens, idx, analysisOutput);
@@ -2201,6 +2253,7 @@ function selectToken(idx) {
         }
         highlightRelated(entry, tokens, idx);
         updateNavInherit(entry, analysisOutput);
+        _logPerfMeasure('detail-render', 'renderRoleHero+renderCandidates+renderWordOrder+renderMorphTags+highlightRelated+updateNavInherit');
 
     }
 }
@@ -2776,6 +2829,7 @@ function renderMorphTags(entry, tokens, idx, analysisOutput) {
     if (!wrap) return;
 
     const m = analysisOutput ? (analysisOutput.morph || decodeMorph(entry)) : decodeMorph(entry);
+    resolveMorphAttrs(entry, decodeMorph(entry)); // 表示専用ログ: entry.*とdecodeMorphの差分計測のみ。mには影響しない
     const pos = m.pos || entryPosCode(entry);
 
     const tagParts = [];
@@ -2951,25 +3005,8 @@ window.addEventListener('message', function(e) {
 const JA_FOLDER = 'translations';
 const JA_VERSION = 'JA1955';
 /* 書物・章一覧と nt/lxx 振り分けは book-master.js（books.json）が単一の出典。
-   ここではローカルコピーを持たず、fetchInBatches に渡されたタスクのみを扱う。 */
-async function fetchInBatches(tasks,sz,onProg) {
-    let all=[];
-    for(let i=0;i<tasks.length;i+=sz) {
-        const results=await Promise.allSettled(
-            tasks.slice(i,i+sz).map(t=>
-                BookMaster.fetchJSON(t.path)
-                .then(data=>{
-                    if(!Array.isArray(data)) return null;
-                    data.forEach(entry=>{entry._bookKey=t.key;});
-                    return data;
-                })
-            )
-        );
-        results.forEach(r=>{if(r.status==='fulfilled'&&Array.isArray(r.value))all=all.concat(r.value);});
-        onProg(Math.min(i+sz,tasks.length),tasks.length);
-    }
-    return all;
-}
+   このページは1節分のみ表示するため、対象章1件だけを BookMaster.pathFor() で
+   取得する（init() 内）。複数章のバッチ取得（旧 fetchInBatches）は不要になった。 */
 function jaDataPath(bookKey, ch) {
     return `./${JA_FOLDER}/${JA_VERSION}/${bookKey}/${ch}.json`;
 }
@@ -3075,41 +3112,53 @@ if (params.jword) {
 
 (async function() {
     /* 書物マスター（BOOK_MAP/BOOK_JP/BOOK_GROUPS）を最初に確定させる。
-       全書物の本文データ取得（重い）より先に、breadcrumb 表示に必要な
-       最小限の情報だけ揃えるため、ここで待つ。 */
+       本文データ取得より先に、breadcrumb 表示に必要な最小限の情報だけ揃えるため、
+       ここで待つ。 */
     const master = await BookMaster.load();
     applyBookMaster(master);
     BookMaster.attachWarningPanel(document.getElementById('fetch-warning-panel'));
     document.getElementById('bc-ref').textContent = buildRefLabel(params.ref) || params.ref || '—';
 
-    const paths   = await BookMaster.buildChapterTasks();
+    /* このページは常に1節分のみを表示するため、全書物（1191章・451MB）を読む
+       必要はなく、params.ref が指す1章だけを取得すれば十分
+       （window._morphData / allData の用途は getVerseTokens のみで、他のいかなる
+       機能もこのページ内では全書物データに依存していないことを確認済み）。 */
+    const refMatch = String(params.ref || '').match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+    if (!refMatch) {
+        document.getElementById('main-loading').innerHTML =
+            `<p style="color:#c00;font-size:0.82rem;">節の指定（ref）が見つかりません。</p>`;
+        return;
+    }
+    const refBookKey = refMatch[1];
+    const refChapter = parseInt(refMatch[2], 10);
 
     performance.mark('data-load-start');
-    const allData = await fetchInBatches(paths, 20, (done, ttl) => {
-        const pct = Math.round(done/ttl*100);
-        const bar = document.getElementById('load-bar');
-        const txt = document.getElementById('load-text');
-        if (bar) bar.style.width = pct + '%';
-        if (txt) txt.textContent = `読み込み中 ${pct}%`;
-    });
-    _logPerfMeasure('data-load', `${paths.length} chapters, ${allData.length.toLocaleString()} tokens`);
+    const loadTxt = document.getElementById('load-text');
+    if (loadTxt) loadTxt.textContent = '読み込み中…';
+    const chapterPath = await BookMaster.pathFor(refBookKey, refChapter);
+    const chapterData = await BookMaster.fetchJSON(chapterPath);
+    const allData = Array.isArray(chapterData) ? chapterData : [];
+    allData.forEach(e => { e._bookKey = refBookKey; });
+    const loadBar = document.getElementById('load-bar');
+    if (loadBar) loadBar.style.width = '100%';
+    _logPerfMeasure('data-load', `1 chapter (${refBookKey} ${refChapter}), ${allData.length.toLocaleString()} tokens`);
 
     if (!allData.length) {
         document.getElementById('main-loading').innerHTML =
-            `<p style="color:#c00;font-size:0.82rem;">データが見つかりませんでした。<code>bible_data/ROM/1.json</code> の形式で配置してください。</p>`;
+            `<p style="color:#c00;font-size:0.82rem;">データが見つかりませんでした。<code>bible_data/nt/${refBookKey}/${refChapter}.json</code> の形式で配置してください。</p>`;
         return;
     }
 
     const txt = document.getElementById('load-text');
     if (txt) txt.textContent = '訳文を読み込み中…';
-    await fetchJaData(paths);
+    await fetchJaData([{ key: refBookKey, ch: refChapter }]);
 
     window._morphData = allData;
 
     const ref = params.ref;
-    performance.mark('search-start');
+    performance.mark('getVerseTokens-start');
     const tokens = getVerseTokens(allData, ref);
-    _logPerfMeasure('search', `getVerseTokens over ${allData.length.toLocaleString()} tokens → ${tokens.length} found`);
+    _logPerfMeasure('getVerseTokens', `over ${allData.length.toLocaleString()} tokens (1 chapter) → ${tokens.length} found`);
 
     if (!tokens.length) {
         document.getElementById('main-loading').innerHTML =
@@ -3146,9 +3195,9 @@ if (params.jword) {
         }
     }
 
-    performance.mark('render-start');
+    performance.mark('render-total-start');
     renderAll(tokens, ref);
-    _logPerfMeasure('render', `${tokens.length} tokens`);
+    _logPerfMeasure('render-total', `${tokens.length} tokens（内訳は syntax-roles/syntax-analyze/html-gen-*/render-* の各ログ参照）`);
 
 })();
 

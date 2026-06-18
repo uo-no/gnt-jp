@@ -328,7 +328,6 @@
 }
 .results-count { font-size: 0.82rem; color: var(--text-sub); }
 .results-count strong { font-size: 1rem; font-weight: 700; color: var(--text); }
-.results-pct { font-size: 0.7rem; color: var(--text-hint); }
 .result-list { display: flex; flex-direction: column; gap: 5px; }
 /* .app-card base styles → components.css */
 .app-card { cursor: pointer; }
@@ -637,7 +636,6 @@ body.compact-reading-mode .result-ja {
         <!-- 件数 -->
         <div class="results-meta">
             <div class="results-count"><strong id="count">0</strong> 件ヒット</div>
-            <div class="results-pct" id="result-pct"></div>
         </div>
     </div><!-- /#result-section -->
 
@@ -722,7 +720,7 @@ let resolvedMorph = null;
 
 function patchParamsFromEntry(entry) {
     if (resolvedMorph) return;
-    const m = decodeMorph(entry);
+    const m = resolveMorphAttrs(entry, decodeMorph(entry));
     resolvedMorph = {
         voice:  m.voice  || params.voice  || '',
         gender: m.gender || params.gender?.value || '',
@@ -805,33 +803,75 @@ function entryPosCode(entry) {
     return '';
 }
 function decodeMorph(entry) {
-    const norm = v => (!v || v === '-') ? '' : v;
-    if (entry.tense || entry.mood || entry.voice) {
-        return { pos: entryPosCode(entry), tense: norm(entry.tense), voice: norm(entry.voice),
-                 mood: norm(entry.mood), case: norm(entry.case), number: norm(entry.number),
-                 gender: norm(entry.gender), person: norm(entry.person) };
+    const result = (function () {
+        const norm = v => (!v || v === '-') ? '' : v;
+        if (entry.tense || entry.mood || entry.voice) {
+            return { pos: entryPosCode(entry), tense: norm(entry.tense), voice: norm(entry.voice),
+                     mood: norm(entry.mood), case: norm(entry.case), number: norm(entry.number),
+                     gender: norm(entry.gender), person: norm(entry.person) };
+        }
+        if (entry.morph && typeof entry.morph === 'object') {
+            const m = entry.morph;
+            return { pos: norm(entry.pos||'').replace(/-$/,''), tense:norm(m.tense), voice:norm(m.voice),
+                     mood:norm(m.mood), case:norm(m.case), number:norm(m.number), gender:norm(m.gender), person:norm(m.person) };
+        }
+        const raw = typeof entry.morph === 'string' ? entry.morph : '';
+        const parts = raw.split('-');
+        const pos = norm(entry.pos||parts[0]||'').replace(/-$/,'');
+        if (pos.toUpperCase() === 'V' && parts[1]) {
+            const seg = parts[1], off = /^[0-9]/.test(seg) ? 1 : 0;
+            return { pos, tense:TENSE_CODE[seg[off]]||'', voice:VOICE_CODE[seg[off+1]]||'',
+                     mood:MOOD_CODE[seg[off+2]]||'', person:seg[off+3]||'',
+                     number:NUMBER_CODE[seg[off+4]]||'', gender:'', case:'' };
+        }
+        if (parts[1]) {
+            const seg=parts[1], hp=['1','2','3'].includes(seg[0]), b=hp?seg.slice(1):seg;
+            return { pos, tense:'',voice:'',mood:'', person:hp?seg[0]:'',
+                     case:CASE_CODE[b[0]]||'', number:NUMBER_CODE[b[1]]||'', gender:GENDER_CODE[b[2]]||'' };
+        }
+        return { pos, tense:'',voice:'',mood:'',case:'',number:'',gender:'',person:'' };
+    })();
+    /* 安全フォールバック（追加分）: case/number/gender が全て空の場合のみ、
+       entry の直接フィールドを使用する。上記の既存ロジックは一切変更していない。 */
+    if (!result.case && !result.number && !result.gender) {
+        const norm = v => (!v || v === '-') ? '' : v;
+        result.case   = norm(entry.case);
+        result.number = norm(entry.number);
+        result.gender = norm(entry.gender);
     }
-    if (entry.morph && typeof entry.morph === 'object') {
-        const m = entry.morph;
-        return { pos: norm(entry.pos||'').replace(/-$/,''), tense:norm(m.tense), voice:norm(m.voice),
-                 mood:norm(m.mood), case:norm(m.case), number:norm(m.number), gender:norm(m.gender), person:norm(m.person) };
-    }
-    const raw = typeof entry.morph === 'string' ? entry.morph : '';
-    const parts = raw.split('-');
-    const pos = norm(entry.pos||parts[0]||'').replace(/-$/,'');
-    if (pos.toUpperCase() === 'V' && parts[1]) {
-        const seg = parts[1], off = /^[0-9]/.test(seg) ? 1 : 0;
-        return { pos, tense:TENSE_CODE[seg[off]]||'', voice:VOICE_CODE[seg[off+1]]||'',
-                 mood:MOOD_CODE[seg[off+2]]||'', person:seg[off+3]||'',
-                 number:NUMBER_CODE[seg[off+4]]||'', gender:'', case:'' };
-    }
-    if (parts[1]) {
-        const seg=parts[1], hp=['1','2','3'].includes(seg[0]), b=hp?seg.slice(1):seg;
-        return { pos, tense:'',voice:'',mood:'', person:hp?seg[0]:'',
-                 case:CASE_CODE[b[0]]||'', number:NUMBER_CODE[b[1]]||'', gender:GENDER_CODE[b[2]]||'' };
-    }
-    return { pos, tense:'',voice:'',mood:'',case:'',number:'',gender:'',person:'' };
+    return result;
 }
+
+/* ══════════════════════════════════════════
+   表示・解析用マージ（追加分・検索ロジックには関与しない）
+   ══════════════════════════════════════════
+   検索エンジンの決定ロジックは decodeMorph に統一されている
+   （matchEntryFilters / extState判定 は decodeMorph(entry) を直接参照する。
+   このファイルに resolveMorphAttrs の戻り値を渡してはならない）。
+   この関数は entry.* を decoded（decodeMorphの出力）に対して上書きしない。
+   返り値の case/number/gender/tense/mood/voice は decoded と完全に同じ値を
+   保持したまま、entry.* 側の値を entry_case 等の別キーで補助的に保持するだけの
+   “表示・解析用マージ”である。
+   entry.* と decodeMorph(entry) の値が一致しない場合は
+   window.__morphAttrDisagreements に記録する（削除・無視はしない。594件existing）。 */
+window.__morphAttrDisagreements = window.__morphAttrDisagreements || [];
+const _MORPH_ATTR_KEYS = ['case','number','gender','tense','mood','voice'];
+function resolveMorphAttrs(entry, decoded) {
+    const norm = v => (!v || v === '-') ? '' : v;
+    const resolved = Object.assign({}, decoded); // 検索判定に使う値は decoded のまま、一切上書きしない
+    for (const key of _MORPH_ATTR_KEYS) {
+        const entryValue = norm(entry[key]);
+        if (entryValue && entryValue !== decoded[key]) {
+            window.__morphAttrDisagreements.push({
+                ref: entry.ref, tokenId: entry.tokenId, globalIdx: entry.globalIdx,
+                attr: key, entryValue: entryValue, decodeMorphValue: decoded[key],
+            });
+        }
+        resolved['entry_' + key] = entryValue; // 表示・解析用の補助情報として保持するのみ
+    }
+    return resolved;
+}
+
 function cleanText(entry) {
     return (entry.word||entry.normalized||entry.text||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim();
 }
@@ -863,34 +903,47 @@ const STOP_LEMMAS = new Set([
 const coreOnState = { mood: true, voice: true, tense: true, person: true };
 
 /* ══════════════════════════════════════════
-   語形/原形インデックス（データロード後に1回だけ構築）
+   語形/原形インデックス（ビルド時生成済みファイルを直接フェッチ）
    ══════════════════════════════════════════
-   matchEntry は以前、毎回（=チップ操作ごと）allData 全件に対して
-   normalizeGreek() を呼びながら線形走査していた。
+   以前は「データロード後に1回だけ allData 全件から in-browser で
+   lemmaIndex/wordIndex を構築」していたが、その allData 自体が
+   全書物（451MB・616,644トークン）の毎回ロードを必要としていた。
+   build-morph-index.js がビルド時に1回だけ bible_data 全体をスキャンし、
+   正規化済みレンマ/語形ごとに1ファイル（morph-index/lemma|word/{hexKey}.json）
+   へ事前出力するため、実行時は該当ファイルを1つfetchするだけで済む
+   （在トークン全体をロード・走査する必要がない）。
    params.word / params.lemma はページ生存中不変であり、wordFilterMode は
    'word'⇄'lemma' 間のみ切替可能（'none' との間の切替UIは存在しない）ため、
-   両方のインデックスを最初に1回だけ作っておけば、切替が起きても再構築不要。
-   空文字キーも除外せずインデックス化する（normalizeGreek(params.lemma) が
-   退化的に空文字になるケースでも元の挙動と完全一致させるため）。 */
-let _lemmaIndex = null; // Map<normalizeGreek(lemma), Entry[]>
-let _wordIndex  = null; // Map<normalizeGreek(word|normalized|text), Entry[]>
+   両方が指定されている場合は両方を最初に1回だけfetchしておけば、
+   切替が起きても再フェッチ不要。 */
+let _lemmaCandidates = null; // Entry[]（params.lemma に一致する全トークン）
+let _wordCandidates  = null; // Entry[]（params.word に一致する全トークン）
 
-function buildWordLemmaIndex(allData) {
-    const lemmaIdx = new Map();
-    const wordIdx  = new Map();
-    for (const e of allData) {
-        const lk = normalizeGreek(e.lemma || '');
-        let larr = lemmaIdx.get(lk);
-        if (!larr) { larr = []; lemmaIdx.set(lk, larr); }
-        larr.push(e);
-
-        const wk = normalizeGreek(e.word || e.normalized || e.text || '');
-        let warr = wordIdx.get(wk);
-        if (!warr) { warr = []; wordIdx.set(wk, warr); }
-        warr.push(e);
+function hexEncodeKey(normalizedKey) {
+    let out = '';
+    for (const ch of normalizedKey) {
+        out += ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0');
     }
-    _lemmaIndex = lemmaIdx;
-    _wordIndex  = wordIdx;
+    return out || '0000';
+}
+
+async function fetchWordLemmaCandidates() {
+    const fetches = [];
+    if (params.lemma) {
+        const key = hexEncodeKey(normalizeGreek(params.lemma));
+        fetches.push(
+            BookMaster.fetchJSON(`./morph-index/lemma/${key}.json`)
+                .then(d => { _lemmaCandidates = Array.isArray(d) ? d : []; })
+        );
+    }
+    if (params.word) {
+        const key = hexEncodeKey(normalizeGreek(params.word));
+        fetches.push(
+            BookMaster.fetchJSON(`./morph-index/word/${key}.json`)
+                .then(d => { _wordCandidates = Array.isArray(d) ? d : []; })
+        );
+    }
+    await Promise.all(fetches);
 }
 
 /* word/lemma 制約が無い（wordFilterMode==='none'）場合の母集合決定レイヤー。
@@ -902,10 +955,10 @@ function resolveUnfilteredBase(allData) {
 
 function getCandidateBase(allData) {
     if (wordFilterMode === 'lemma' && params.lemma) {
-        return _lemmaIndex.get(normalizeGreek(params.lemma)) || [];
+        return _lemmaCandidates || [];
     }
     if (wordFilterMode === 'word' && params.word) {
-        return _wordIndex.get(normalizeGreek(params.word)) || [];
+        return _wordCandidates || [];
     }
     return resolveUnfilteredBase(allData);
 }
@@ -1436,10 +1489,7 @@ function renderResults(allData) {
     _logPerfMeasure('search', `matchEntryFilters over ${base.length.toLocaleString()} candidates (base of ${allData.length.toLocaleString()} tokens)`);
 
     if (matched.length > 0 && !resolvedMorph) patchParamsFromEntry(matched[0]);
-    const sp      = params.pos.replace(/-$/,'');
-    const samePos = allData.filter(e=>(e.pos||'').replace(/-$/,'').toUpperCase()===sp.toUpperCase()).length;
     document.getElementById('count').textContent      = matched.length.toLocaleString();
-    document.getElementById('result-pct').textContent = samePos>0 ? `同品詞 ${samePos.toLocaleString()} 件中` : '';
     _currentRows  = matched;
     _displayCount = PAGE_SIZE;
     renderDist(matched);
@@ -1460,7 +1510,6 @@ function renderPage() {
     el.innerHTML = slice.map((entry, idx) => {
         const word     = entry.word || entry.normalized || entry.text || '';
         const refLabel = buildRefLabel(entry.ref);
-        const jaText   = getJaVerse(entry);
         const encRef   = encodeURIComponent(entry.ref || '');
         const encWord  = encodeURIComponent(word);
         return `<div class="app-card" style="animation:fadeUp 0.2s ease ${Math.min(idx*8,240)}ms both"
@@ -1770,29 +1819,38 @@ async function fetchJaData(morphPaths) {
     if (filterBlock) filterBlock.style.display = '';
 
     performance.mark('data-load-start');
-    const paths = await BookMaster.buildChapterTasks();
-    const allData = await fetchInBatches(paths, 20, (done, ttl) => {
-        const pct = Math.round(done/ttl*100);
+    let allData;
+    if (wordFilterMode !== 'none') {
+        /* 語形/レンマが指定されている場合：build-morph-index.js が
+           ビルド時に事前生成したインデックスファイルを1つfetchするだけでよく、
+           全書物（NT27書+OT39書・約451MB）のロードは不要。 */
         const bar = document.getElementById('load-bar');
         const txt = document.getElementById('load-text');
-        if (bar) bar.style.width = pct + '%';
-        if (txt) txt.textContent = `読み込み中 ${pct}%`;
-    });
-    _logPerfMeasure('data-load', `${paths.length} chapters, ${allData.length.toLocaleString()} tokens`);
+        if (txt) txt.textContent = '読み込み中…';
+        await fetchWordLemmaCandidates();
+        if (bar) bar.style.width = '100%';
+        allData = (wordFilterMode === 'lemma' ? _lemmaCandidates : _wordCandidates) || [];
+        _logPerfMeasure('data-load', `事前生成インデックス（${wordFilterMode}）, ${allData.length.toLocaleString()} tokens — 全書物ロードなし`);
+    } else {
+        /* 語形/レンマの指定が無い場合（品詞等のみでの全件閲覧）は絞り込みキーが
+           無いため、従来通り全書物をロードする。 */
+        const paths = await BookMaster.buildChapterTasks();
+        allData = await fetchInBatches(paths, 20, (done, ttl) => {
+            const pct = Math.round(done/ttl*100);
+            const bar = document.getElementById('load-bar');
+            const txt = document.getElementById('load-text');
+            if (bar) bar.style.width = pct + '%';
+            if (txt) txt.textContent = `読み込み中 ${pct}%`;
+        });
+        _logPerfMeasure('data-load', `${paths.length} chapters, ${allData.length.toLocaleString()} tokens（全書物ロード）`);
+    }
 
     if (!allData.length) {
         loadEl.innerHTML = `<p style="color:#c00;font-size:0.82rem;">データが見つかりませんでした。<code>bible_data/ROM/1.json</code> の形式で配置してください。</p>`;
         return;
     }
 
-    const txt = document.getElementById('load-text');
-    if (txt) txt.textContent = '日本語訳を読み込み中…';
-    await fetchJaData(paths);
-
     window._morphData = allData;
-    performance.mark('index-build-start');
-    buildWordLemmaIndex(allData);
-    _logPerfMeasure('index-build', `lemmaIndex ${_lemmaIndex.size.toLocaleString()} keys, wordIndex ${_wordIndex.size.toLocaleString()} keys`);
     loadEl.style.display = 'none';
     listEl.style.display = 'flex';
     document.getElementById('result-section').style.display = '';
