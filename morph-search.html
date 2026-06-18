@@ -696,6 +696,15 @@ const NUMBER_JP = { singular:'単数', plural:'複数' };
 const CASE_JP   = { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' };
 const POS_JP    = { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞' };
 
+function _escH(s){
+    return String(s ?? '')
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+}
+
 function getSearchParams() {
     const p   = new URLSearchParams(location.search);
     const dis = new Set((p.get('_disabled')||'').split(',').filter(Boolean));
@@ -1066,7 +1075,7 @@ function renderDiscoveryCard() {
     }
 
     if (params.lemma) {
-        rows.push(`「${params.lemma}」という語の一形`);
+        rows.push(`「${_escH(params.lemma)}」という語の一形`);
     }
 
     const el = document.getElementById('disc-rows');
@@ -1258,7 +1267,7 @@ function renderCoreChips() {
         const on = coreOnState[d.key] !== false;
         return `<div class="chip chip-toggle ${on?'on':'off'}" onclick="toggleCore('${d.key}')">
             <div class="chip-dot">${on?'✓':''}</div>
-            <span>${d.label}</span>
+            <span>${_escH(d.label)}</span>
         </div>`;
     }).join('');
 
@@ -1286,7 +1295,7 @@ function renderPtcGroup() {
         return `<div class="chip chip-toggle ${f.enabled?'on':'off'}" onclick="toggleExt(${i})">
             <div class="chip-dot">${f.enabled?'✓':''}</div>
             <span style="font-size:0.68rem;opacity:0.7;margin-right:1px;">${LABEL[f.key]||f.key}</span>
-            <span>${MAP[f.key]?.[f.value]||f.value}</span>
+            <span>${_escH(MAP[f.key]?.[f.value]||f.value)}</span>
         </div>`;
     }).join('');
 }
@@ -1306,7 +1315,7 @@ function renderNounGroup() {
         return `<div class="chip chip-toggle ${f.enabled?'on':'off'}" onclick="toggleExt(${i})">
             <div class="chip-dot">${f.enabled?'✓':''}</div>
             <span style="font-size:0.68rem;opacity:0.7;margin-right:1px;">${LABEL[f.key]||f.key}</span>
-            <span>${MAP[f.key]?.[f.value]||f.value}</span>
+            <span>${_escH(MAP[f.key]?.[f.value]||f.value)}</span>
         </div>`;
     }).join('');
 }
@@ -1328,7 +1337,7 @@ function renderExtChips() {
         return `<div class="chip chip-toggle ${f.enabled?'on':'off'}" onclick="toggleExt(${i})">
             <div class="chip-dot">${f.enabled?'✓':''}</div>
             <span style="font-size:0.68rem;opacity:0.7;margin-right:1px;">${LABEL[f.key]||f.key}</span>
-            <span>${MAP[f.key]?.[f.value]||f.value}</span>
+            <span>${_escH(MAP[f.key]?.[f.value]||f.value)}</span>
         </div>`;
     }).join('');
 }
@@ -1383,7 +1392,7 @@ function renderWordFilterChips() {
         return `<div class="chip chip-radio ${on?'on':'off'}" onclick="toggleWordFilter('${mode.key}')">
             <div class="chip-radio-dot">${on?'●':''}</div>
             <span>${mode.label}</span>
-            <span style="font-family:'Gentium Plus',serif;margin-left:3px;opacity:0.85;">${mode.greek}</span>
+            <span style="font-family:'Gentium Plus',serif;margin-left:3px;opacity:0.85;">${_escH(mode.greek)}</span>
         </div>`;
     }).join('');
 }
@@ -1516,10 +1525,10 @@ function renderPage() {
             onclick="toggleMorphContext(this,'${encRef}','${encWord}')">
             <div class="result-top">
                 <div>
-                    <span class="result-word">${word}</span>
-                    <span class="result-lemma">${entry.lemma||''}</span>
+                    <span class="result-word">${_escH(word)}</span>
+                    <span class="result-lemma">${_escH(entry.lemma||'')}</span>
                 </div>
-                <span class="result-ref">${refLabel}</span>
+                <span class="result-ref">${_escH(refLabel)}</span>
             </div>
         </div>`;
     }).join('');
@@ -1593,7 +1602,7 @@ function updateNavInherit() {
     chipsEl.innerHTML = chips.map(c =>
         `<span class="nav-inherit-chip">
             <span class="nav-inherit-chip-key">${c.key}</span>
-            <span class="nav-inherit-chip-val${c.greek ? ' greek' : ''}">${c.val}</span>
+            <span class="nav-inherit-chip-val${c.greek ? ' greek' : ''}">${_escH(c.val)}</span>
         </span>`
     ).join('');
 }
@@ -1664,8 +1673,8 @@ function toggleMorphContext(cardEl, encRef, encWord) {
         const roleClass = POS_ROLE[pos] || 'role-other';
         const ja = t.japanese || '';
         const dpCls = _ctxDpClasses(t.morph||'').join(' ');
-        const jaSpan = `<span class="ctx-chip-ja${dpCls?' '+dpCls:''}">${ja || w}</span>`;
-        const grSpan = ja ? `<span class="ctx-chip-gr">${w}</span>` : '';
+        const jaSpan = `<span class="ctx-chip-ja${dpCls?' '+dpCls:''}">${_escH(ja || w)}</span>`;
+        const grSpan = ja ? `<span class="ctx-chip-gr">${_escH(w)}</span>` : '';
         const dot    = `<span class="ctx-chip-dot"></span>`;
         return `<span class="ctx-chip ${roleClass}${isHit?' ctx-hit':''}">${jaSpan}${grSpan}${dot}</span>`;
     }).filter(Boolean).join('');
