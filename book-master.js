@@ -60,6 +60,7 @@
             })
             .catch(err => {
                 notifyFailure({ path: './books.json', error: String(err) });
+                _masterPromise = null; // 失敗を永久キャッシュしない。次回呼び出しで再fetchできるようにする
                 throw err; // books.json が無ければ検索は成立しないため再throw
             });
         return _masterPromise;
