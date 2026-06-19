@@ -1403,8 +1403,7 @@ async function _buildL3Background(){
 let _fullIndexPromise=null;
 function _ensureFullIndex(){
     if(!_fullIndexPromise){
-        _fullIndexPromise=ensureBookMasterApplied().then(()=>_buildFullIndex())
-            .catch(err=>{ _fullIndexPromise=null; throw err; }); // 失敗を永久キャッシュしない。次回呼び出しで再構築できるようにする
+        _fullIndexPromise=ensureBookMasterApplied().then(()=>_buildFullIndex());
     }
     return _fullIndexPromise;
 }
@@ -1972,15 +1971,7 @@ async function unifiedSearch(){
     } else {
         _showLoading();
     }
-    try{
-        await _ensureFullIndex();
-    }catch(err){
-        console.error('索引構築に失敗しました:', err);
-        isSearching=false;
-        document.getElementById('run-btn').disabled=false;
-        _showEmpty('索引の読み込みに失敗しました', 'ネットワーク状態を確認し、もう一度検索を実行してください');
-        return;
-    }
+    await _ensureFullIndex();
     if(!window.lemmaIndex){
         _buildAndExposeLemmaIndex();
         _buildAndExposeMorphIndex();
@@ -2627,8 +2618,6 @@ function init(){
     _ensureFullIndex().then(()=>{
         _buildAndExposeLemmaIndex();
         _buildAndExposeMorphIndex();
-    }).catch(err=>{
-        console.error('初期索引構築に失敗しました（検索実行時に再試行されます）:', err);
     });
     _watchIndexProgress();
     // Initial prox slider
