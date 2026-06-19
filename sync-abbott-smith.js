@@ -4,9 +4,10 @@
  *                         abbott-smith.tsv の最新内容と同期する
  *
  * 背景:
- *   abbott-smith.tsv（strong / lemma / description_en / description_ja）は
+ *   abbott-smith.tsv（strong / lemma / description_en / description_literal_ja / description_ja）は
  *   index.html / search-tool.html がブラウザ実行時に直接 fetch する一次データであり、
  *   引き続き本リポジトリに残す必要がある。
+ *   lexicon-lite.json への同期には、頻度表記を含まない description_ja（5列目）を使用する。
  *
  *   一方 lexicon/lexicon-lite.json は、頻度数(count)・意味ドメイン(domains/ln)・
  *   文脈参照(contexts)など abbott-smith.tsv には存在しない独自データを多数含む
@@ -44,9 +45,9 @@ function main() {
         const line = lines[i];
         if (!line.trim()) continue;
         const cols = line.split('\t');
-        if (cols.length < 4) continue;
+        if (cols.length < 5) continue;
         const strong = cols[0].trim();
-        const descJa = cols[3].trim();
+        const descJa = cols[4].trim();
         if (strong) tsvMap.set(strong, descJa);
     }
     console.log(`[INFO] abbott-smith.tsv: ${tsvMap.size} 件のstrong番号を読み込み`);
