@@ -658,10 +658,17 @@ body.compact-reading-mode .result-ja {
 <div class="section-block fade-up" id="nav-next-section" style="display:none;animation-delay:0.18s">
     <div class="section-title">次の分析</div>
     <div class="nav-next-list">
-        <a class="nav-next-btn" href="#" onclick="navToSyntax(event)">
+        <a class="nav-next-btn" href="#" onclick="navTo('syntax', event)">
             <div class="nav-next-body">
                 <div class="nav-next-title">統語論検索へ</div>
                 <div class="nav-next-sub">語順・修飾関係を見る</div>
+            </div>
+            <span class="nav-next-arrow">→</span>
+        </a>
+        <a class="nav-next-btn" href="#" onclick="navTo('semantics', event)">
+            <div class="nav-next-body">
+                <div class="nav-next-title">単語検索へ</div>
+                <div class="nav-next-sub">語義・用例を調べる</div>
             </div>
             <span class="nav-next-arrow">→</span>
         </a>
@@ -1478,7 +1485,6 @@ function buildRefLabel(ref) {
 
 let _currentRows = [];
 let _displayCount = 100;
-let _renderGen = 0;
 const PAGE_SIZE = 100;
 
 /* 性能計測ヘルパー（監査用。ロジックには影響しない） */
@@ -1515,7 +1521,6 @@ function renderPage() {
         _logPerfMeasure('render', '0 rows');
         return;
     }
-    const gen = ++_renderGen;
     const slice = rows.slice(0, _displayCount);
     const more  = rows.length - _displayCount;
     el.innerHTML = slice.map((entry, idx) => {
@@ -1524,7 +1529,7 @@ function renderPage() {
         const encRef   = encodeURIComponent(entry.ref || '');
         const encWord  = encodeURIComponent(word);
         return `<div class="app-card" style="animation:fadeUp 0.2s ease ${Math.min(idx*8,240)}ms both"
-            onclick="goToWord('${encRef}','${encWord}')">
+            onclick="toggleMorphContext(this,'${encRef}','${encWord}')">
             <div class="result-top">
                 <div>
                     <span class="result-word">${_escH(word)}</span>
@@ -1532,7 +1537,6 @@ function renderPage() {
                 </div>
                 <span class="result-ref">${_escH(refLabel)}</span>
             </div>
-            <div class="morph-ctx-line" id="flow-${gen}-${idx}"></div>
         </div>`;
     }).join('');
     if (more > 0) {
@@ -1544,29 +1548,12 @@ function renderPage() {
             </button></div>`;
     }
     _logPerfMeasure('render', `${slice.length} DOM cards`);
-
-    /* 各カードのフローチップ（節全体の語順）を埋める。
-       全件ロード時（wordFilterMode==='none'）は window._morphData がすでに
-       節全体を含むため同期的に決まるが、語形/レンマ索引のみロードしている場合は
-       その節の他のトークンを持たないため、章単位で1回だけ追加fetchして埋める
-       （章ごとにキャッシュするので同じ章を含む複数ヒットでも再フェッチしない）。 */
-    slice.forEach((entry, idx) => {
-        const word     = entry.word || entry.normalized || entry.text || '';
-        const normWord = cleanText({ word });
-        getVerseTokens(entry).then(tokens => {
-            if (gen !== _renderGen) return; // 再描画済みの古い結果は無視
-            const target = document.getElementById(`flow-${gen}-${idx}`);
-            if (!target) return;
-            const html = buildFlowChipsHTML(tokens, normWord);
-            target.innerHTML = html || buildFlowChipsHTML([entry], normWord);
-        });
-    });
 }
 function loadMore() { _displayCount += PAGE_SIZE; renderPage(); }
 
-function navToSyntax(e) {
+function navTo(target, e) {
     e.preventDefault();
-    const msg = { type: 'NAV_TO_SYNTAX', ref: params.ref, word: params.word };
+    const msg = { type: `NAV_TO_${target.toUpperCase()}`, ref: params.ref, word: params.word };
     if (window.parent && window.parent !== window) { window.parent.postMessage(msg, '*'); return; }
     if (window.opener && !window.opener.closed) { window.opener.postMessage(msg, '*'); return; }
     const qs = new URLSearchParams();
@@ -1585,7 +1572,9 @@ function navToSyntax(e) {
         if (params.number?.value|| _rm.number) qs.set('number', params.number?.value || _rm.number);
         if (params.gender?.value|| _rm.gender) qs.set('gender', params.gender?.value || _rm.gender);
     }
-    location.href = `syntax-search.html?${qs.toString()}`;
+    const fileMap = { syntax: 'syntax-search.html', semantics: 'search-tool.html' };
+    const url = `${fileMap[target]}?${qs.toString()}`;
+    window.open(url, '_blank');
 }
 
 function updateNavInherit() {
@@ -1628,110 +1617,96 @@ function updateNavInherit() {
 }
 
 function goToWord(ref, enc) {
-    const word = decodeURIComponent(enc);
-    const msg  = { type:'GO_TO_REF', ref, word };
+    const prefix = String(ref||'').replace(/!.*$/,'').trim();
+    const m = prefix.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+    if (!m) return;
+    const bookKey = m[1];
+    const chapter = parseInt(m[2], 10);
+    const msg = { type:'GO_TO_VERSE', bookKey, chapter };
     if (window.parent && window.parent !== window) { window.parent.postMessage(msg,'*'); return; }
     if (window.opener && !window.opener.closed) { window.opener.postMessage(msg,'*'); return; }
-    const qs = new URLSearchParams();
-    if (ref)  qs.set('ref',  ref);
-    if (word) qs.set('word', word);
-    location.href = `index.html?${qs.toString()}`;
+    window.open(`index.html?book=${encodeURIComponent(bookKey)}&ch=${chapter}`, '_blank');
 }
 
-/* ══════════════════════════════════════════
-   フローチップ（節内の語順表示）
-   ══════════════════════════════════════════
-   結果カードに常時表示する、該当節のトークンを並べたチップ列を作る。
-   以前は app-card クリック時だけ動的に組み立てていたが、
-   今はカード表示と同時に常に表示する仕様に変更したため、
-   組み立てロジックを共用関数として切り出した。 */
-const CTX_POS_ROLE = {
-    V:'role-verb', N:'role-noun', A:'role-adj', R:'role-pron', P:'role-pron',
-    D:'role-pron', T:'role-art', CONJ:'role-conj', PREP:'role-prep',
-};
-const CTX_JPN_MAP = {
-    tense: { P:'present', I:'imperfect', F:'future', A:'aorist', X:'perfect' },
-    voice: { A:'active',  M:'middle',    P:'passive', D:'middle' },
-    mood:  { I:'indicative', S:'subjunctive', O:'optative', M:'imperative', N:'infinitive', P:'participle' },
-};
-function ctxDpClasses(rawMorph) {
-    const cls = [];
-    const parts = (rawMorph||'').split('-');
-    const pos = parts[0];
-    if (pos !== 'V' || !parts[1]) return cls;
-    const off = /^[0-9]/.test(parts[1]) ? 1 : 0;
-    const ten = parts[1][off], voi = parts[1][off+1], moo = parts[1][off+2];
-    const tense = CTX_JPN_MAP.tense[ten], voice = CTX_JPN_MAP.voice[voi], mood = CTX_JPN_MAP.mood[moo];
-    if (tense === 'present')    cls.push('dp-tense-present');
-    if (tense === 'aorist')     cls.push('dp-tense-aorist');
-    if (tense === 'perfect')    cls.push('dp-tense-perfect');
-    if (mood  === 'imperative') cls.push('dp-mood-imperative');
-    if (mood  === 'indicative') cls.push('dp-mood-indicative');
-    if (voice === 'middle')     cls.push('dp-voice-middle');
-    if (voice === 'passive')    cls.push('dp-voice-passive');
-    return cls;
-}
-function buildFlowChipsHTML(tokens, normWord) {
-    return (tokens||[]).map(t => {
+async function toggleMorphContext(cardEl, encRef, encWord) {
+    const ref  = decodeURIComponent(encRef);
+    const word = decodeURIComponent(encWord);
+    const existing = cardEl.querySelector('.morph-ctx');
+    if (existing) { existing.remove(); cardEl.classList.remove('ctx-open'); return; }
+    document.querySelectorAll('.app-card.ctx-open').forEach(c => {
+        c.querySelector('.morph-ctx')?.remove(); c.classList.remove('ctx-open');
+    });
+    const prefix = String(ref).replace(/!.*$/,'').trim();
+    const m = prefix.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+    if (!m) { goToWord(ref, encWord); return; }
+    const bookKey = m[1], chapterNum = parseInt(m[2], 10), verseNum = m[3];
+
+    /* _morphData は語形/レンマ検索時、事前生成インデックス（その語の全出現のみ）
+       であり同節の他語を含まないため、節全体は常に bible_data から直接取得する。 */
+    const ctx = document.createElement('div');
+    ctx.className = 'morph-ctx';
+    ctx.addEventListener('click', e => e.stopPropagation());
+    ctx.innerHTML = `<div class="morph-ctx-line" style="opacity:0.5;">読み込み中…</div>`;
+    cardEl.appendChild(ctx);
+    cardEl.classList.add('ctx-open');
+
+    let chapterData = null;
+    try {
+        const path = await BookMaster.pathFor(bookKey, chapterNum);
+        chapterData = await BookMaster.fetchJSON(path);
+    } catch (e) { chapterData = null; }
+
+    /* 取得完了までの間にカードが閉じられていたら何もしない */
+    if (!cardEl.classList.contains('ctx-open') || cardEl.querySelector('.morph-ctx') !== ctx) return;
+
+    const tokens = Array.isArray(chapterData)
+        ? chapterData.filter(e => String(e.verse) === verseNum)
+        : [];
+    if (!tokens.length) { ctx.remove(); cardEl.classList.remove('ctx-open'); goToWord(ref, encWord); return; }
+    const normWord = cleanText({ word });
+
+    const POS_ROLE = {
+        V:'role-verb', N:'role-noun', A:'role-adj', R:'role-pron', P:'role-pron',
+        D:'role-pron', T:'role-art', CONJ:'role-conj', PREP:'role-prep',
+    };
+    const JPN_MAP_CTX = {
+        tense: { P:'present', I:'imperfect', F:'future', A:'aorist', X:'perfect' },
+        voice: { A:'active',  M:'middle',    P:'passive', D:'middle' },
+        mood:  { I:'indicative', S:'subjunctive', O:'optative', M:'imperative', N:'infinitive', P:'participle' },
+    };
+    function _ctxDpClasses(rawMorph) {
+        const cls = [];
+        const parts = (rawMorph||'').split('-');
+        const pos = parts[0];
+        if (pos !== 'V' || !parts[1]) return cls;
+        const off = /^[0-9]/.test(parts[1]) ? 1 : 0;
+        const ten = parts[1][off], voi = parts[1][off+1], moo = parts[1][off+2];
+        const tense = JPN_MAP_CTX.tense[ten], voice = JPN_MAP_CTX.voice[voi], mood = JPN_MAP_CTX.mood[moo];
+        if (tense === 'present')    cls.push('dp-tense-present');
+        if (tense === 'aorist')     cls.push('dp-tense-aorist');
+        if (tense === 'perfect')    cls.push('dp-tense-perfect');
+        if (mood  === 'imperative') cls.push('dp-mood-imperative');
+        if (mood  === 'indicative') cls.push('dp-mood-indicative');
+        if (voice === 'middle')     cls.push('dp-voice-middle');
+        if (voice === 'passive')    cls.push('dp-voice-passive');
+        return cls;
+    }
+    const lineHTML = tokens.map(t => {
         const w = cleanText(t);
         if (!w) return '';
         const isHit = w === normWord;
         const pos = (t.morph||'').split('-')[0] || 'other';
-        const roleClass = CTX_POS_ROLE[pos] || 'role-other';
+        const roleClass = POS_ROLE[pos] || 'role-other';
         const ja = t.japanese || '';
-        const dpCls = ctxDpClasses(t.morph||'').join(' ');
+        const dpCls = _ctxDpClasses(t.morph||'').join(' ');
         const jaSpan = `<span class="ctx-chip-ja${dpCls?' '+dpCls:''}">${_escH(ja || w)}</span>`;
         const grSpan = ja ? `<span class="ctx-chip-gr">${_escH(w)}</span>` : '';
         const dot    = `<span class="ctx-chip-dot"></span>`;
         return `<span class="ctx-chip ${roleClass}${isHit?' ctx-hit':''}">${jaSpan}${grSpan}${dot}</span>`;
     }).filter(Boolean).join('');
-}
-
-/* 節全体のトークンを得るためのデータ取得層。
-   wordFilterMode==='none'（品詞等のみで全件閲覧）の場合は window._morphData が
-   すでに全書物のトークンを含むため、追加fetch無しで該当節を抜き出すだけでよい。
-   wordFilterMode が 'word'/'lemma' の場合は、事前生成インデックス由来の
-   候補（同じ語形/レンマの出現のみ）しか window._morphData に無く、同じ節の
-   他の語を含まないため、その節を含む章データを1回だけ追加fetchする。
-   章単位でキャッシュするので、同じ章に複数ヒットがあっても再フェッチしない。 */
-const _chapterTokenCache = new Map(); // key: `${bookKey}|${chapter}` -> Promise<Entry[]>
-
-function fetchChapterTokensCached(bookKey, chapter) {
-    const key = `${bookKey}|${chapter}`;
-    if (_chapterTokenCache.has(key)) return _chapterTokenCache.get(key);
-    const p = (async () => {
-        try {
-            const path = await BookMaster.pathFor(bookKey, chapter);
-            const data = await BookMaster.fetchJSON(path);
-            const tokens = Array.isArray(data) ? data : [];
-            tokens.forEach(t => { if (!t._bookKey) t._bookKey = bookKey; });
-            return tokens;
-        } catch (e) {
-            console.info('[flow-chips] failed to fetch chapter for context:', bookKey, chapter, e);
-            return [];
-        }
-    })();
-    _chapterTokenCache.set(key, p);
-    return p;
-}
-
-function filterTokensForVerse(tokens, entry) {
-    const prefix = String(entry.ref||'').replace(/!.*$/,'').trim();
-    if (!prefix) return [];
-    return tokens.filter(e => String(e.ref||'').replace(/!.*$/,'').trim() === prefix);
-}
-
-function getVerseTokens(entry) {
-    if (wordFilterMode === 'none' && window._morphData) {
-        return Promise.resolve(filterTokensForVerse(window._morphData, entry));
-    }
-    const bookKey = entry._bookKey || getBookKey(entry);
-    const chapter = entry.chapter;
-    if (!bookKey || chapter == null) return Promise.resolve([entry]);
-    return fetchChapterTokensCached(bookKey, chapter).then(tokens => {
-        const matched = filterTokensForVerse(tokens, entry);
-        return matched.length ? matched : [entry];
-    });
+    ctx.innerHTML = `
+        <div class="morph-ctx-line">${lineHTML}</div>
+        <div class="morph-ctx-goto"><button onclick="goToWord('${encRef}','${encWord}')">本文へ →</button></div>`;
 }
 
 const JA_FOLDER = 'translations';
@@ -1902,7 +1877,6 @@ async function fetchJaData(morphPaths) {
 
     if (!allData.length) {
         loadEl.innerHTML = `<p style="color:#c00;font-size:0.82rem;">データが見つかりませんでした。<code>bible_data/ROM/1.json</code> の形式で配置してください。</p>`;
-        updateNavInherit();
         return;
     }
 
