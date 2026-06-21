@@ -2085,7 +2085,7 @@ function syncURL() {
     const slotToParam = { pos:'pos', tense:'tense', mood:'mood', voice:'voice', case:'case', num:'number', gen:'gender' };
     Object.entries(slotToParam).forEach(([slot, paramName]) => {
         const set = _morphSel[slot];
-        if (set && set.size > 0) p.set(paramName, Array.from(set)[0]);
+        if (set && set.size > 0) p.set(paramName, Array.from(set).join(','));
     });
 
     const activeLayers = ['lemma','phrase','prox','morph'].filter(k => _layers[k]);
@@ -3276,19 +3276,22 @@ async function _synInit(syntaxId) {
         const map = WORD_TO_CODE[slot];
         return map ? (map[val.toLowerCase()] || val.replace(/-+$/, '')) : val.replace(/-+$/, '');
     };
+    // カンマ区切り（複数選択）・単一値のどちらも受け付ける。
+    // index.html からのリンクは単一フルワードのみを渡すため、その場合は従来通り1件になる。
+    const splitVals = (raw) => (raw || '').split(',').map(s => s.trim()).filter(Boolean);
 
     const morphFromUrl = {
-        pos:   (p.get('pos')    || '').replace(/-+$/, ''),
-        tense: toCode('tense',  p.get('tense')),
-        mood:  toCode('mood',   p.get('mood')),
-        voice: toCode('voice',  p.get('voice')),
-        case:  toCode('case',   p.get('case')),
-        num:   toCode('num',    p.get('number')),
-        gen:   toCode('gen',    p.get('gender')),
+        pos:   splitVals(p.get('pos')).map(v => v.replace(/-+$/, '')),
+        tense: splitVals(p.get('tense')).map(v => toCode('tense', v)),
+        mood:  splitVals(p.get('mood')).map(v => toCode('mood', v)),
+        voice: splitVals(p.get('voice')).map(v => toCode('voice', v)),
+        case:  splitVals(p.get('case')).map(v => toCode('case', v)),
+        num:   splitVals(p.get('number')).map(v => toCode('num', v)),
+        gen:   splitVals(p.get('gender')).map(v => toCode('gen', v)),
     };
     let hasMorph = false;
-    for (const [slot, val] of Object.entries(morphFromUrl)) {
-        if (val) { _morphSel[slot].add(val); hasMorph = true; }
+    for (const [slot, vals] of Object.entries(morphFromUrl)) {
+        vals.forEach(v => { if (v) { _morphSel[slot].add(v); hasMorph = true; } });
     }
     if (hasMorph) {
         _initMorphChips();          // チップを選択状態で再描画

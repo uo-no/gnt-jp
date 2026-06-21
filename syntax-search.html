@@ -1499,9 +1499,27 @@ const CASE_CODE   = { N:'nominative',G:'genitive',D:'dative',A:'accusative',V:'v
 const NUMBER_CODE = { S:'singular',P:'plural' };
 const GENDER_CODE = { M:'masculine',F:'feminine',N:'neuter' };
 
+/* bible_data の class 値は短縮形（prep/adv/conj等）と完全形（preposition/adverb等）が
+   混在しているため、CLASS_TO_POS を引く前に完全形へ正規化する。 */
+function normalizeClass(c) {
+    if (!c) return '';
+    const map = {
+        prep:'preposition',
+        adv:'adverb',
+        conj:'conjunction',
+        num:'numeral',
+        adj:'adjective',
+        det:'article',
+        pron:'pronoun',
+        ptcl:'particle',
+        intj:'interjection'
+    };
+    return map[String(c).toLowerCase()] || String(c).toLowerCase();
+}
+
 function entryPosCode(e) {
     if (e.pos) return String(e.pos).replace(/-$/,'').toUpperCase();
-    if (e.class) return CLASS_TO_POS[String(e.class).toLowerCase()] || '';
+    if (e.class) return CLASS_TO_POS[normalizeClass(e.class)] || '';
     return '';
 }
 function decodeMorph(e) {
