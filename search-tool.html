@@ -891,9 +891,23 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     .results-grid { grid-template-columns: 1fr; }
     .results-grid:not(.no-cooc) .cooc-col { display: none; }
 }
+
+.share-url-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.9rem; padding: 2px 6px; border-radius: 6px; opacity: 0.75;
+}
+.share-url-btn:hover { opacity: 1; background: rgba(0,0,0,0.05); }
+
+.share-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px);
+    background: #333; color: #fff; padding: 8px 16px; border-radius: 8px;
+    font-size: 0.82rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 9999;
+}
+.share-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
+<div id="share-toast" class="share-toast"></div>
 <div class="main-layout">
 
 <!-- ═══════════════════════════ Search Panel ═══════════════════════════ -->
@@ -901,9 +915,12 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     <!-- Header inside sidebar -->
     <div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;">
         <span style="font-family:'Noto Sans JP',sans-serif;font-size:1rem;font-weight:700;color:var(--text-main);letter-spacing:-0.01em;">聖書原文検索</span>
-        <div class="idx-pill" id="idx-pill">
-            <span class="idx-dot active" id="idx-dot"></span>
-            <span id="idx-label">新約を読み込み中…</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <button class="share-url-btn" onclick="copyShareUrl()" title="このURLをコピー">🔗</button>
+            <div class="idx-pill" id="idx-pill">
+                <span class="idx-dot active" id="idx-dot"></span>
+                <span id="idx-label">新約を読み込み中…</span>
+            </div>
         </div>
     </div>
 
@@ -1829,25 +1846,6 @@ function _watchIndexProgress(){
    そのため「索引が未完成のまま検索が走り、後から件数が増える」という
    旧 L2 refinement banner が前提としていた状況は構造的に発生しなくなった。
    ============================================================ */
-let _lastSearchQuery=null;
-function _showRefinementBanner(addedCount,onAccept){
-    let banner=document.getElementById('refinement-banner');
-    if(!banner){
-        banner=document.createElement('div');
-        banner.id='refinement-banner';
-        document.body.appendChild(banner);
-    }
-    banner.style.display='flex';
-    banner.style.opacity='1';
-    banner.innerHTML=`<span>📖 旧約聖書も完了 — さらに ${addedCount} 件発見</span><span style="opacity:0.6;font-size:0.72rem;">タップして更新</span>`;
-    banner.onclick=()=>{
-        banner.style.opacity='0';
-        setTimeout(()=>{banner.style.display='none';},300);
-        onAccept();
-    };
-    setTimeout(()=>{if(banner.style.display!=='none'){banner.style.opacity='0';setTimeout(()=>{banner.style.display='none';},300);}},12000);
-}
-
 /* ============================================================
    UI state — Layer toggles
    ============================================================ */
@@ -1955,7 +1953,6 @@ async function unifiedSearch(){
         return;
     }
 
-    _lastSearchQuery=query;
     _activeLayerSet={..._layers};
     isSearching=true;
     document.getElementById('run-btn').disabled=true;
@@ -2073,6 +2070,60 @@ async function unifiedSearch(){
     _logPerfMeasure('render', `${_allMergedResults.size.toLocaleString()} hits merged`);
     /* この時点で IDX.ready は必ず true（上のゲートで保証済み）。
        「索引未完成のまま検索→後から件数が増える」事象は構造的に発生しない。 */
+    syncURL();
+}
+
+/* allow-list（このページの実際の検索条件のみ）からゼロ構築する。
+   location.searchをベースにしない＝他ページのパラメータ混入を防ぐ。 */
+function syncURL() {
+    const p = new URLSearchParams();
+    p.set('tool', 'search');
+
+    const query = (_lastQuery || '').trim();
+    if (query) p.set('lemma', query);
+
+    const slotToParam = { pos:'pos', tense:'tense', mood:'mood', voice:'voice', case:'case', num:'number', gen:'gender' };
+    Object.entries(slotToParam).forEach(([slot, paramName]) => {
+        const set = _morphSel[slot];
+        if (set && set.size > 0) p.set(paramName, Array.from(set)[0]);
+    });
+
+    const activeLayers = ['lemma','phrase','prox','morph'].filter(k => _layers[k]);
+    if (activeLayers.length) p.set('layers', activeLayers.join(','));
+    p.set('dist', String(currentDist));
+
+    history.replaceState(null, '', '?' + p.toString());
+}
+
+/* 現在表示中のURLをそのままクリップボードへコピーする（URL生成ロジックは呼ばない）。 */
+async function copyShareUrl() {
+    const url = location.href;
+    try {
+        await navigator.clipboard.writeText(url);
+        _showShareToast();
+    } catch (e) {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = url;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            _showShareToast();
+        } catch (e2) {
+            console.warn('copyShareUrl: コピーに失敗しました', e2);
+        }
+    }
+}
+function _showShareToast() {
+    const t = document.getElementById('share-toast');
+    if (!t) return;
+    t.textContent = 'URLをコピーしました';
+    t.classList.add('visible');
+    clearTimeout(t._hideTimer);
+    t._hideTimer = setTimeout(() => t.classList.remove('visible'), 2000);
 }
 
 /* ============================================================
@@ -3252,6 +3303,24 @@ async function _synInit(syntaxId) {
     if (!query) return;
     const inp = document.getElementById('unified-search-input');
     if (inp) inp.value = query;
+
+    // layers: URL指定時のみ _layers をURL値で上書き（未指定時は既存挙動を維持）
+    const layersParam = p.get('layers');
+    if (layersParam) {
+        const activeFromUrl = new Set(layersParam.split(',').filter(Boolean));
+        ['lemma','phrase','prox','morph'].forEach(k => {
+            _layers[k] = activeFromUrl.has(k);
+            _syncLayerUI(k);
+        });
+    }
+
+    // dist: URL指定時のみ既存スライダー更新処理(setProxPreset)を再利用して反映
+    const distParam = p.get('dist');
+    if (distParam) {
+        const d = parseInt(distParam, 10);
+        if (!isNaN(d)) setProxPreset(d);
+    }
+
     unifiedSearch();
 })();
 

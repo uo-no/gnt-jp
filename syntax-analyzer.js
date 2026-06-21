@@ -1259,9 +1259,19 @@ const CheckEvaluator = (() => {
             }
             const [, funcName, argsStr] = match;
             // 引数: カンマ区切り・前後スペース・クォート除去
-            const args = argsStr
-                ? argsStr.split(',').map(a => a.trim().replace(/^['"]|['"]$/g, ''))
-                : [];
+            // 引数全体が ['a','b','c'] のような配列リテラル1個の場合は
+            // 外側の角括弧を除いた中身を同じ規則でカンマ分割する。
+            let args;
+            if (argsStr) {
+                const trimmedArgsStr = argsStr.trim();
+                const arrayMatch = trimmedArgsStr.match(/^\[([^\]]*)\]$/);
+                const inner = arrayMatch ? arrayMatch[1] : trimmedArgsStr;
+                args = inner
+                    ? inner.split(',').map(a => a.trim().replace(/^['"]|['"]$/g, ''))
+                    : [];
+            } else {
+                args = [];
+            }
 
             const handler = _handlers.get(funcName);
             if (!handler) {
@@ -1307,6 +1317,15 @@ CheckEvaluator.register('target_tense_in',
 );
 CheckEvaluator.register('target_mood_eq',
     (ctx, [moodVal]) => ctx.morph?.mood === moodVal
+);
+CheckEvaluator.register('target_number_eq',
+    (ctx, [numberVal]) => ctx.morph?.number === numberVal
+);
+CheckEvaluator.register('target_pos_eq',
+    (ctx, [posVal]) => ctx.posCode === posVal
+);
+CheckEvaluator.register('target_is_proper_noun',
+    (ctx) => ctx.target?.type === 'proper'
 );
 
 // ターゲットのレンマがリストに含まれるか（registry の named list 参照）
@@ -1410,6 +1429,24 @@ CheckEvaluator.register('article_agrees_case_gender_number',
             && pm.number === ctx.morph?.number;
     }
 );
+// 冠詞が性のみで一致するか（article_agrees_case_gender_number の派生版）
+CheckEvaluator.register('article_gender_matches',
+    (ctx) => {
+        if (ctx.prevPos !== 'T') return false;
+        if (!ctx.prevToken) return false;
+        const pm = typeof decodeMorph === 'function' ? decodeMorph(ctx.prevToken) : {};
+        return pm.gender === ctx.morph?.gender;
+    }
+);
+// 冠詞が数のみで一致するか（article_agrees_case_gender_number の派生版）
+CheckEvaluator.register('article_number_matches',
+    (ctx) => {
+        if (ctx.prevPos !== 'T') return false;
+        if (!ctx.prevToken) return false;
+        const pm = typeof decodeMorph === 'function' ? decodeMorph(ctx.prevToken) : {};
+        return pm.number === ctx.morph?.number;
+    }
+);
 
 // 主動詞の時制・法
 CheckEvaluator.register('main_verb_tense_eq',
@@ -1424,6 +1461,13 @@ CheckEvaluator.register('main_verb_mood_eq',
         if (!ctx.mainVerb) return false;
         const m = typeof decodeMorph === 'function' ? decodeMorph(ctx.mainVerb) : {};
         return m.mood === moodVal;
+    }
+);
+CheckEvaluator.register('main_verb_voice_eq',
+    (ctx, [voiceVal]) => {
+        if (!ctx.mainVerb) return false;
+        const m = typeof decodeMorph === 'function' ? decodeMorph(ctx.mainVerb) : {};
+        return m.voice === voiceVal;
     }
 );
 

@@ -1135,10 +1135,24 @@ margin-bottom: 20px;
     color: var(--text-hint);
     white-space: nowrap;
 }
+
+.share-url-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.9rem; padding: 2px 6px; border-radius: 6px; opacity: 0.75;
+}
+.share-url-btn:hover { opacity: 1; background: rgba(0,0,0,0.05); }
+
+.share-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px);
+    background: #333; color: #fff; padding: 8px 16px; border-radius: 8px;
+    font-size: 0.82rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 9999;
+}
+.share-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
    <script src="syntax-analyzer.js"></script>
 </head>
 <body>
+<div id="share-toast" class="share-toast"></div>
 <div class="page">
 
 <!-- Nav -->
@@ -1151,6 +1165,7 @@ margin-bottom: 20px;
         <span class="sep">›</span>
         <span class="breadcrumb-tail">
             <span>統語論</span>
+            <button class="share-url-btn" onclick="copyShareUrl()" title="このURLをコピー">🔗</button>
             <button class="help-btn" id="help-btn" aria-expanded="false" aria-label="このページのヘルプ">?</button>
             <div class="help-popup" id="help-popup" role="tooltip">
                 <div class="help-popup-title">統語論とは</div>
@@ -1337,6 +1352,82 @@ function getParams() {
     };
 }
 const params = getParams();
+
+/* allow-list（このページの実際の検索条件のみ）からゼロ構築する。
+   location.searchをベースにしない＝他ページのパラメータ混入を防ぐ。
+   選択中トークン（_selectedIdx）があればその語の情報を優先し、
+   なければ初期paramsの値を維持する。 */
+function syncURL() {
+    const p = new URLSearchParams();
+    p.set('tool', 'syntax');
+    if (params.ref) p.set('ref', params.ref);
+
+    const entry = (typeof _selectedIdx !== 'undefined' && _selectedIdx >= 0 && _tokens && _tokens[_selectedIdx])
+        ? _tokens[_selectedIdx] : null;
+
+    if (entry) {
+        const m = decodeMorph(entry);
+        const word = entry.text || entry.normalized || '';
+        const lemma = entry.lemma || '';
+        if (word)     p.set('word',   word);
+        if (lemma)    p.set('lemma',  lemma);
+        if (m.pos)    p.set('pos',    m.pos);
+        if (m.tense)  p.set('tense',  m.tense);
+        if (m.mood)   p.set('mood',   m.mood);
+        if (m.voice)  p.set('voice',  m.voice);
+        if (m.case)   p.set('case',   m.case);
+        if (m.gender) p.set('gender', m.gender);
+        if (m.number) p.set('number', m.number);
+    } else {
+        if (params.word)   p.set('word',   params.word);
+        if (params.lemma)  p.set('lemma',  params.lemma);
+        if (params.pos)    p.set('pos',    params.pos);
+        if (params.tense)  p.set('tense',  params.tense);
+        if (params.mood)   p.set('mood',   params.mood);
+        if (params.voice)  p.set('voice',  params.voice);
+        if (params.case)   p.set('case',   params.case);
+        if (params.gender) p.set('gender', params.gender);
+        if (params.number) p.set('number', params.number);
+    }
+
+    if (params.books)    p.set('books',    params.books);
+    if (params.scope)    p.set('scope',    params.scope);
+    if (params.category) p.set('category', params.category);
+    if (params.jword)    p.set('jword',    params.jword);
+
+    history.replaceState(null, '', '?' + p.toString());
+}
+
+/* 現在表示中のURLをそのままクリップボードへコピーする（URL生成ロジックは呼ばない）。 */
+async function copyShareUrl() {
+    const url = location.href;
+    try {
+        await navigator.clipboard.writeText(url);
+        _showShareToast();
+    } catch (e) {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = url;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            _showShareToast();
+        } catch (e2) {
+            console.warn('copyShareUrl: コピーに失敗しました', e2);
+        }
+    }
+}
+function _showShareToast() {
+    const t = document.getElementById('share-toast');
+    if (!t) return;
+    t.textContent = 'URLをコピーしました';
+    t.classList.add('visible');
+    clearTimeout(t._hideTimer);
+    t._hideTimer = setTimeout(() => t.classList.remove('visible'), 2000);
+}
 
 /* ══════════════════════════════════════════
    Syntax Beginner Mode: removed (analysis tool)
@@ -2255,6 +2346,7 @@ function selectToken(idx) {
         updateNavInherit(entry, analysisOutput);
         _logPerfMeasure('detail-render', 'renderRoleHero+renderCandidates+renderWordOrder+renderMorphTags+highlightRelated+updateNavInherit');
 
+        syncURL();
     }
 }
 
@@ -2467,7 +2559,7 @@ function renderCandidates(entry, tokens, idx, analysisOutput) {
     const allCandidates    = [...activeCandidates, ...stubCandidates];
 
     if (allCandidates.length === 0) {
-        wrap.innerHTML = '<div class="candidates-empty">この語の構文用法を特定できませんでした。</div>';
+        wrap.innerHTML = '<div class="candidates-empty">この機能は現在、属格・与格・分詞の用法分類のみに対応しています。この語はその対象外です。</div>';
         return;
     }
 

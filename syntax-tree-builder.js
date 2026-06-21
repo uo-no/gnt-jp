@@ -234,16 +234,9 @@ const SyntaxTreeBuilder = (() => {
         };
     }
 
-    /* ── DOM レンダリング（親子インデントツリー形式） ──────────────── */
+    /* ── DOM レンダリング ────────────────────────────────────────── */
     /**
      * render(nodes, container, onNodeClick)
-     *
-     * 仕様通りの親子インデント形式で描画する。
-     *   例：
-     *     動詞
-     *     └─ 主語
-     *         └─ 修飾語
-     *
      * @param {TreeNode[]} nodes
      * @param {Element}    container   — .syn-tree コンテナ要素
      * @param {Function}   onNodeClick — (baseIdx) => void
@@ -256,268 +249,127 @@ const SyntaxTreeBuilder = (() => {
             return;
         }
 
-        // 動詞ノードをルートとして、残りを子として配置する
-        // 動詞がない場合は全ノードをフラットに並べる
-        const verbNode = nodes.find(n => n.role === 'verb');
-        const otherNodes = nodes.filter(n => n !== verbNode);
-
-        if (verbNode) {
-            // 動詞ノード下に全他ノードをぶら下げる構造
-            const rootEl = _renderIndentNode(verbNode, otherNodes, onNodeClick, 0);
-            container.appendChild(rootEl);
-        } else {
-            // 動詞なし: そのままインデントなしで並べる
-            for (const node of nodes) {
-                const el = _renderIndentNode(node, [], onNodeClick, 0);
-                container.appendChild(el);
-            }
+        for (const node of nodes) {
+            const el = _renderNode(node, onNodeClick, 0);
+            container.appendChild(el);
         }
     }
 
-    /**
-     * _renderIndentNode — 親子インデント形式のノード1行を描画する
-     * @param {Object}   node         描画対象ノード
-     * @param {Array}    childNodes   このノードの子として表示するノード配列
-     * @param {Function} onNodeClick
-     * @param {number}   depth        インデント深さ（0 = ルート）
-     */
-    function _renderIndentNode(node, childNodes, onNodeClick, depth) {
+    /* ── 単ノード描画 ────────────────────────────────────────────── */
+    function _renderNode(node, onNodeClick, depth) {
         const ROLE_META_LOCAL = window.ROLE_META || {};
-        const meta   = ROLE_META_LOCAL[node.role] || { label: node.role, barColor: '#bbb' };
+        const meta    = ROLE_META_LOCAL[node.role] || { label: node.role, barColor: '#bbb', bg: 'var(--bg-panel)' };
+        const hasChildren = (node.children && node.children.length > 0) || node.usageInfo;
         const confPct = Math.round(node.confidence * 100);
-        const confCls = node.confidence >= 0.75 ? 'conf-high'
-                      : node.confidence >= 0.55 ? 'conf-medium' : 'conf-low';
+        const confCls = node.confidence >= 0.75 ? 'conf-high' : node.confidence >= 0.55 ? 'conf-medium' : 'conf-low';
+
+        // 形態ラベル（Level 2 用）
         const morphText = morphLabel(node.morph);
-        const hasSubChildren = (node.children && node.children.length > 0) || node.usageInfo;
-        const hasChildren = childNodes.length > 0 || hasSubChildren;
 
-        /* ── ラッパー ── */
+        // aria-label
+        const ariaLabel = `${meta.label} ${node.words} ${morphText} 確信度${confPct}%`;
+
         const wrap = document.createElement('div');
-        wrap.className = 'itree-wrap';
-        wrap.style.cssText = `
-            display: flex;
-            flex-direction: column;
-            margin-left: ${depth > 0 ? '0' : '0'}px;
-        `;
+        wrap.className = 'tree-node-wrap';
 
-        /* ── インデントガイド行 ── */
-        const row = document.createElement('div');
-        row.style.cssText = `display: flex; align-items: stretch; min-height: 36px;`;
-
-        // 深さ分のインデント柱
-        for (let d = 0; d < depth; d++) {
-            const guide = document.createElement('div');
-            guide.style.cssText = `
-                width: 20px;
-                flex-shrink: 0;
-                position: relative;
-            `;
-            // 縦線
-            const vline = document.createElement('div');
-            vline.style.cssText = `
-                position: absolute;
-                left: 10px; top: 0; bottom: 0;
-                width: 1.5px;
-                background: var(--border, rgba(0,0,0,0.08));
-            `;
-            guide.appendChild(vline);
-            // 最後の列のみ L 字横線を追加
-            if (d === depth - 1) {
-                const hline = document.createElement('div');
-                hline.style.cssText = `
-                    position: absolute;
-                    left: 10px; top: 50%;
-                    width: 10px; height: 1.5px;
-                    background: var(--border, rgba(0,0,0,0.08));
-                `;
-                guide.appendChild(hline);
-            }
-            row.appendChild(guide);
-        }
-
-        /* ── ノード本体ボタン ── */
+        /* ノード本体 */
         const nodeEl = document.createElement('div');
-        nodeEl.className = 'itree-node' + (node.isTarget ? ' active' : '');
+        nodeEl.className = 'tree-node' + (node.isTarget ? ' active' : '');
         nodeEl.dataset.role    = node.role;
         nodeEl.dataset.baseIdx = node.baseIdx;
         nodeEl.setAttribute('role', 'button');
         nodeEl.setAttribute('tabindex', '0');
-        nodeEl.setAttribute('aria-label', `${meta.label} ${node.words} ${confPct}%`);
-        nodeEl.style.cssText = `
-            flex: 1;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            border-radius: 6px;
-            border: 1px solid var(--border, rgba(0,0,0,0.07));
-            background: var(--bg, #fff);
-            cursor: pointer;
-            min-height: 36px;
-            transition: background 0.1s, border-color 0.12s;
-            margin: 2px 0;
-            user-select: none;
-        `;
-        if (node.isTarget) {
-            nodeEl.style.borderColor = meta.barColor;
-            nodeEl.style.boxShadow   = `0 0 0 2px ${meta.barColor}22`;
-        }
+        nodeEl.setAttribute('aria-expanded', 'false');
+        nodeEl.setAttribute('aria-label', ariaLabel);
 
         nodeEl.innerHTML = `
-            <span style="
-                width: 3px; height: 20px; border-radius: 2px; flex-shrink:0;
-                background: ${_esc(meta.barColor)};
-            "></span>
-            <span style="
-                font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em;
-                color: ${_esc(meta.barColor)}; flex-shrink: 0; min-width: 36px;
-            ">${_esc(meta.label)}</span>
-            <span class="greek-headword" style="flex:1; font-size:1.0rem; min-width:0; word-break:break-word;">${_esc(node.words)}</span>
-            ${morphText ? `<span style="font-size:0.65rem;color:var(--text-hint,#8e8e93);flex-shrink:0;">${_esc(morphText)}</span>` : ''}
-            <span class="${confCls}" style="font-size:0.65rem;font-weight:700;flex-shrink:0;">${confPct}%</span>
-            ${hasChildren ? `<span style="font-size:0.65rem;color:var(--text-hint,#8e8e93);flex-shrink:0;transition:transform 0.15s;" class="itree-arrow">›</span>` : ''}
-        `;
+            <div class="node-bar" style="background:${meta.barColor};"></div>
+            <div class="node-inner">
+                <span class="node-role-tag" style="color:${meta.barColor};">${meta.label}</span>
+                <span class="node-words greek-headword">${_esc(node.words)}</span>
+                <span class="node-conf ${confCls}">${confPct}%</span>
+                ${hasChildren ? '<span class="node-arrow">›</span>' : ''}
+            </div>`;
 
-        row.appendChild(nodeEl);
-        wrap.appendChild(row);
+        /* Level 2: 形態情報 + usageInfo */
+        const detailEl = document.createElement('div');
+        detailEl.className = 'node-detail';
 
-        /* ── 子コンテナ（折りたたみ） ── */
-        const childWrap = document.createElement('div');
-        childWrap.className = 'itree-children';
-        childWrap.style.display = 'none';
-
-        // 前置詞句などの sub-children
-        if (node.children && node.children.length > 0) {
-            for (const child of node.children) {
-                if (child.role === 'ptc') {
-                    const childEl = _renderIndentNode(child, [], onNodeClick, depth + 1);
-                    childWrap.appendChild(childEl);
-                } else {
-                    // 前置詞句子要素
-                    const childEl = _renderPrepChild(child, depth + 1, onNodeClick);
-                    childWrap.appendChild(childEl);
-                }
-            }
+        let detailHtml = '';
+        if (morphText) {
+            detailHtml += `<div class="node-detail-morph">${_esc(morphText)}</div>`;
         }
-
-        // usageInfo（分詞用法）
         if (node.usageInfo) {
             const uConf    = Math.round(node.usageInfo.confidence * 100);
-            const uConfCls = node.usageInfo.confidence >= 0.75 ? 'conf-high'
-                           : node.usageInfo.confidence >= 0.55 ? 'conf-medium' : 'conf-low';
-            const uRow = document.createElement('div');
-            uRow.style.cssText = `display:flex;align-items:stretch;`;
-            for (let d = 0; d <= depth; d++) {
-                const g = document.createElement('div');
-                g.style.cssText = `width:20px;flex-shrink:0;position:relative;`;
-                const vl = document.createElement('div');
-                vl.style.cssText = `position:absolute;left:10px;top:0;bottom:0;width:1.5px;background:var(--border,rgba(0,0,0,0.08));`;
-                g.appendChild(vl);
-                if (d === depth) {
-                    const hl = document.createElement('div');
-                    hl.style.cssText = `position:absolute;left:10px;top:50%;width:10px;height:1.5px;background:var(--border,rgba(0,0,0,0.08));`;
-                    g.appendChild(hl);
+            const uConfCls = node.usageInfo.confidence >= 0.75 ? 'conf-high' : node.usageInfo.confidence >= 0.55 ? 'conf-medium' : 'conf-low';
+            detailHtml += `<div class="usage-node">
+                <span class="usage-node-label">用法</span>
+                <span class="usage-node-value">${_esc(node.usageInfo.label)}</span>
+                <span class="usage-node-conf ${uConfCls}">${uConf}%</span>
+            </div>`;
+        }
+        detailEl.innerHTML = detailHtml;
+
+        /* 子ノードコンテナ */
+        const childrenEl = document.createElement('div');
+        childrenEl.className = 'tree-children';
+
+        if (node.children && node.children.length > 0) {
+            for (const child of node.children) {
+                // 分詞ノードはフルノードとして再帰描画。前置詞句子要素は従来通り。
+                if (child.role === 'ptc') {
+                    const childEl = _renderNode(child, onNodeClick, depth + 1);
+                    childrenEl.appendChild(childEl);
+                } else {
+                    const childEl = _renderChildNode(child, onNodeClick);
+                    childrenEl.appendChild(childEl);
                 }
-                uRow.appendChild(g);
-            }
-            const uEl = document.createElement('div');
-            uEl.style.cssText = `flex:1;display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:0.75rem;color:var(--text-sub,#6e6e73);`;
-            uEl.innerHTML = `<span style="font-size:0.62rem;font-weight:700;color:var(--text-hint,#8e8e93);min-width:36px;">用法</span>
-                <span style="flex:1;">${_esc(node.usageInfo.label)}</span>
-                <span class="${uConfCls}" style="font-size:0.65rem;font-weight:700;">${uConf}%</span>`;
-            uRow.appendChild(uEl);
-            childWrap.appendChild(uRow);
-        }
-
-        // 動詞ルート直下の sibling ノード群
-        if (childNodes.length > 0) {
-            for (const child of childNodes) {
-                // 各子ノードはさらにその子（前置詞句内部）を持つ可能性がある
-                const subChildren = child.children && child.children.length > 0 ? [] : [];
-                const childEl = _renderIndentNode(child, subChildren, onNodeClick, depth + 1);
-                childWrap.appendChild(childEl);
             }
         }
 
-        if (hasChildren) {
-            wrap.appendChild(childWrap);
-            // デフォルトで展開
-            childWrap.style.display = '';
+        wrap.appendChild(nodeEl);
+        if (detailHtml) wrap.appendChild(detailEl);
+        if (node.children && node.children.length > 0) wrap.appendChild(childrenEl);
 
-            /* トグル */
-            const arrowEl = nodeEl.querySelector('.itree-arrow');
-            nodeEl.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const isOpen = childWrap.style.display !== 'none';
-                childWrap.style.display = isOpen ? 'none' : '';
-                if (arrowEl) arrowEl.style.transform = isOpen ? '' : 'rotate(90deg)';
-                if (onNodeClick) onNodeClick(node.baseIdx);
-            });
-            nodeEl.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); nodeEl.click(); }
-            });
-            // 初期状態（展開済み）の矢印
-            if (arrowEl) arrowEl.style.transform = 'rotate(90deg)';
-        } else {
-            nodeEl.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (onNodeClick) onNodeClick(node.baseIdx);
-            });
-            nodeEl.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); nodeEl.click(); }
-            });
-        }
+        /* クリックハンドラ */
+        const handleActivate = (e) => {
+            e.stopPropagation();
+            const isOpen = nodeEl.classList.contains('open');
+
+            if (hasChildren) {
+                nodeEl.classList.toggle('open');
+                nodeEl.setAttribute('aria-expanded', String(!isOpen));
+                if (detailHtml) detailEl.classList.toggle('open');
+                if (node.children && node.children.length > 0) childrenEl.classList.toggle('open');
+            }
+
+            // § 1 トークン選択と連動
+            if (onNodeClick) onNodeClick(node.baseIdx);
+        };
+
+        nodeEl.addEventListener('click', handleActivate);
+        nodeEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleActivate(e); }
+        });
 
         return wrap;
     }
 
-    /* ── 前置詞句子ノード（インデントツリー用） ─────────────────────── */
-    function _renderPrepChild(child, depth, onNodeClick) {
-        const row = document.createElement('div');
-        row.style.cssText = `display:flex;align-items:stretch;`;
-
-        for (let d = 0; d < depth; d++) {
-            const g = document.createElement('div');
-            g.style.cssText = `width:20px;flex-shrink:0;position:relative;`;
-            const vl = document.createElement('div');
-            vl.style.cssText = `position:absolute;left:10px;top:0;bottom:0;width:1.5px;background:var(--border,rgba(0,0,0,0.08));`;
-            g.appendChild(vl);
-            if (d === depth - 1) {
-                const hl = document.createElement('div');
-                hl.style.cssText = `position:absolute;left:10px;top:50%;width:10px;height:1.5px;background:var(--border,rgba(0,0,0,0.08));`;
-                g.appendChild(hl);
-            }
-            row.appendChild(g);
-        }
-
-        const el = document.createElement('div');
-        el.className = 'itree-node';
-        el.dataset.baseIdx = child.baseIdx;
-        el.style.cssText = `
-            flex:1; display:flex; align-items:center; gap:8px;
-            padding:5px 10px; border-radius:6px;
-            border:1px solid var(--border,rgba(0,0,0,0.07));
-            background:var(--bg-inset,#fafafa);
-            cursor:pointer; min-height:32px; margin:2px 0;
-            transition:background 0.1s;
-        `;
-        el.innerHTML = `
-            <span style="font-size:0.62rem;font-weight:700;color:var(--text-hint,#8e8e93);min-width:36px;">${_esc(child._subLabel || '')}</span>
-            <span class="greek-headword" style="flex:1;font-size:0.95rem;">${_esc(child.words)}</span>
-        `;
-        el.addEventListener('click', (e) => { e.stopPropagation(); if (onNodeClick) onNodeClick(child.baseIdx); });
-        row.appendChild(el);
-        return row;
-    }
-
-    /* ── 旧 _renderNode（後方互換のため残す） ───────────────────────── */
-    function _renderNode(node, onNodeClick, depth) {
-        return _renderIndentNode(node, [], onNodeClick, depth);
-    }
-
-    /* ── 旧 _renderChildNode（後方互換のため残す） ──────────────────── */
+    /* ── 前置詞句子ノード描画 ────────────────────────────────────── */
     function _renderChildNode(child, onNodeClick) {
-        return _renderPrepChild(child, 1, onNodeClick);
+        const confPct = Math.round(child.confidence * 100);
+        const el = document.createElement('div');
+        el.className = 'tree-child-node';
+        el.dataset.baseIdx = child.baseIdx;
+        el.innerHTML = `
+            <span class="child-node-label">${_esc(child._subLabel || '')}</span>
+            <span class="child-node-words greek-headword">${_esc(child.words)}</span>`;
+
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (onNodeClick) onNodeClick(child.baseIdx);
+        });
+        return el;
     }
 
     /* ── ノードの active 状態更新（§ 1 連動） ───────────────────── */
@@ -541,7 +393,6 @@ const SyntaxTreeBuilder = (() => {
     }
 
     function _cleanText(entry) {
-        // syntax-search.html の cleanText と同じ
         if (typeof window !== 'undefined' && typeof cleanText === 'function') {
             return cleanText(entry);
         }
@@ -562,7 +413,6 @@ const SyntaxTreeBuilder = (() => {
     }
 
     function _normalize(str) {
-        // normalizeGreek が利用可能なら使う
         if (typeof window !== 'undefined' && typeof normalizeGreek === 'function') {
             return normalizeGreek(str);
         }

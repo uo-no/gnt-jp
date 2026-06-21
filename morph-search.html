@@ -506,9 +506,23 @@ body.compact-reading-mode .result-ja {
    絞り込み条件ブロック（§1 直下用）
 ══════════════════════════════════════════ */
 .filter-section-block { margin-bottom: 32px; }
+
+.share-url-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.9rem; padding: 2px 6px; border-radius: 6px; opacity: 0.75;
+}
+.share-url-btn:hover { opacity: 1; background: rgba(0,0,0,0.05); }
+
+.share-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px);
+    background: #333; color: #fff; padding: 8px 16px; border-radius: 8px;
+    font-size: 0.82rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 9999;
+}
+.share-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
+<div id="share-toast" class="share-toast"></div>
 <div class="page">
 
 <!-- Nav -->
@@ -521,6 +535,7 @@ body.compact-reading-mode .result-ja {
         <span class="sep">›</span>
         <span class="breadcrumb-tail">
             <span>形態論</span>
+            <button class="share-url-btn" onclick="copyShareUrl()" title="このURLをコピー">🔗</button>
             <button class="help-btn" id="help-btn" aria-expanded="false" aria-label="このページのヘルプ">?</button>
             <div class="help-popup" id="help-popup" role="tooltip">
                 <div class="help-popup-title">形態論とは</div>
@@ -792,12 +807,62 @@ function applyBookMaster(master) {
     bookState = BOOK_GROUPS.map(g => ({ ...g, enabled: true }));
 }
 
+/* allow-list（このページの実際の検索条件のみ）からゼロ構築する。
+   location.searchをベースにしない＝他ページのパラメータ混入を防ぐ。 */
 function syncURL() {
-    const p = new URLSearchParams(location.search);
-    const dis = extState.filter(f=>!f.enabled).map(f=>f.key);
+    const p = new URLSearchParams();
+    p.set('tool', 'morph');
+    if (params.pos)    p.set('pos',    params.pos);
+    if (params.tense)  p.set('tense',  params.tense);
+    if (params.mood)   p.set('mood',   params.mood);
+    if (params.voice)  p.set('voice',  params.voice);
+    if (params.person) p.set('person', params.person);
+    if (params.gender.value) p.set('gender', params.gender.value);
+    if (params.number.value) p.set('number', params.number.value);
+    if (params.case.value)   p.set('case',   params.case.value);
+    if (params.ref)   p.set('ref',   params.ref);
+    if (params.word)  p.set('word',  params.word);
+    if (params.lemma) p.set('lemma', params.lemma);
+    if (params.jword) p.set('jword', params.jword);
+
+    const dis = [
+        ...extState.filter(f => !f.enabled).map(f => f.key),
+        ...Object.entries(coreOnState).filter(([, v]) => !v).map(([k]) => k),
+    ];
     if (dis.length) p.set('_disabled', dis.join(','));
-    else p.delete('_disabled');
+
     history.replaceState(null,'','?'+p.toString());
+}
+
+/* 現在表示中のURLをそのままクリップボードへコピーする（URL生成ロジックは呼ばない）。 */
+async function copyShareUrl() {
+    const url = location.href;
+    try {
+        await navigator.clipboard.writeText(url);
+        _showShareToast();
+    } catch (e) {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = url;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            _showShareToast();
+        } catch (e2) {
+            console.warn('copyShareUrl: コピーに失敗しました', e2);
+        }
+    }
+}
+function _showShareToast() {
+    const t = document.getElementById('share-toast');
+    if (!t) return;
+    t.textContent = 'URLをコピーしました';
+    t.classList.add('visible');
+    clearTimeout(t._hideTimer);
+    t._hideTimer = setTimeout(() => t.classList.remove('visible'), 2000);
 }
 
 const CLASS_TO_POS = {
@@ -815,6 +880,7 @@ const GENDER_CODE = { M:'masculine',F:'feminine',N:'neuter' };
 
 function entryPosCode(entry) {
     if (entry.pos) return String(entry.pos).replace(/-$/,'').toUpperCase();
+    if (entry.morph) return String(entry.morph).split('-')[0].toUpperCase();
     if (entry.class) return CLASS_TO_POS[String(entry.class).toLowerCase()] || '';
     return '';
 }
@@ -916,7 +982,10 @@ const STOP_LEMMAS = new Set([
     'τίς','τί','πῶς','ποῦ','πόθεν',
 ]);
 
-const coreOnState = { mood: true, voice: true, tense: true, person: true };
+const coreOnState = (function() {
+    const dis = new Set((new URLSearchParams(location.search).get('_disabled')||'').split(',').filter(Boolean));
+    return { mood: !dis.has('mood'), voice: !dis.has('voice'), tense: !dis.has('tense'), person: !dis.has('person') };
+})();
 
 /* ══════════════════════════════════════════
    語形/原形インデックス（ビルド時生成済みファイルを直接フェッチ）
@@ -1287,6 +1356,7 @@ function toggleCore(key) {
     renderCoreChips();
     updateFilterSummaryText();
     if (window._morphData) renderResults(window._morphData);
+    syncURL();
 }
 
 function renderPtcGroup() {
@@ -1457,21 +1527,6 @@ function notifyFilterChanged() {
     else if (window.opener && !window.opener.closed) window.opener.postMessage(msg,'*');
 }
 
-const _jaMap = new Map();
-const _KEY_TO_CODE = (() => {
-    const m = {};
-    Object.entries(BOOK_MAP).forEach(([code, key]) => { m[key] = code; });
-    return m;
-})();
-function getJaVerse(entry) {
-    const bk   = entry._bookKey || entry.book;
-    const code = _KEY_TO_CODE[bk];
-    const ch   = String(entry.ch ?? '').padStart(2, '0');
-    const v    = String(entry.verse ?? '').padStart(2, '0');
-    const key  = code && ch && v ? `${code}${String(entry.ch??'').padStart(2,'0')}${String(parseInt(entry.verse??0)).padStart(2,'0')}` : null;
-    if (key && _jaMap.has(key)) return _jaMap.get(key);
-    return entry.gloss || entry.english || '';
-}
 function buildRefLabel(ref) {
     const r = String(ref||'');
     const m = r.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
@@ -1727,28 +1782,6 @@ async function fetchInBatches(tasks,sz,onProg) {
     }
     return all;
 }
-async function fetchJaData(morphPaths) {
-    const KEY_TO_CODE={};
-    Object.entries(BOOK_MAP).forEach(([code,key])=>{ KEY_TO_CODE[key]=code; });
-    return Promise.allSettled(
-        morphPaths.map(t=>({...t,path:`./${JA_FOLDER}/${JA_VERSION}/${t.key}/${t.ch}.json`}))
-        .map(t=>fetch(t.path).then(r=>r.ok?r.json():null)
-            /* JA1955は七十人訳のみの章（PSA151・JOL4等）を収録していないため、
-               この章には和訳が存在しない。genuineなデータ取得失敗ではないので
-               __failedFetches には積まず、console.infoのみで追跡可能にする。 */
-            .catch(err=>{ console.info('[ja-translation] fetch error, skipping:', t.path, err); return null; })
-            .then(data=>{
-                if(!data) { console.info('[ja-translation] no Japanese translation available for', t.path); return; }
-                const vers=data.verses; if(!vers||typeof vers!=='object') return;
-                const bc=KEY_TO_CODE[t.key]; if(!bc) return;
-                Object.entries(vers).forEach(([vn,tx])=>{
-                    _jaMap.set(`${bc}${String(t.ch).padStart(2,'0')}${String(parseInt(vn)).padStart(2,'0')}`,String(tx));
-                });
-            })
-        )
-    );
-}
-
 /* ヘルプポップオーバー */
 (function initHelpPopup() {
     const btn   = document.getElementById('help-btn');
