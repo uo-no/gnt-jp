@@ -144,15 +144,6 @@ line-height: 1;
 pointer-events: none;
 }
 
-/* 日本語訳（薄く） */
-.sentence-ja {
-font-size: 0.8rem; color: var(--text-hint);
-line-height: 1.7; padding: 8px 12px;
-background: var(--bg-panel);
-border-radius: var(--radius-s);
-border-left: 2px solid var(--border);
-}
-
 /* 凡例 */
 .legend {
 display: flex; flex-wrap: wrap; gap: 8px;
@@ -2173,28 +2164,6 @@ function groupTokens(tokens, roleMap) {
 }
 
 /* ══════════════════════════════════════════
-   日本語訳ユーティリティ
-   ══════════════════════════════════════════ */
-const _jaMap = new Map();
-
-const _refToJaKey = (() => {
-    const K2C = {};
-    Object.entries(BOOK_MAP).forEach(([c,k])=>{ K2C[k]=c; });
-    return function(ref) {
-        const m = String(ref||'').match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
-        if (!m) return null;
-        const code = K2C[m[1]]; if (!code) return null;
-        return `${code}${String(m[2]).padStart(2,'0')}${String(m[3]).padStart(2,'0')}`;
-    };
-})();
-
-function getJaVerse(entry) {
-    const key = _refToJaKey(entry.ref);
-    if (key && _jaMap.has(key)) return _jaMap.get(key);
-    return entry.gloss || entry.english || '';
-}
-
-/* ══════════════════════════════════════════
    レンダリング
    ══════════════════════════════════════════ */
 let _tokens = [];
@@ -3109,41 +3078,6 @@ window.addEventListener('message', function(e) {
     }
 });
 
-/* ══════════════════════════════════════════
-   データ取得
-   ══════════════════════════════════════════ */
-const JA_FOLDER = 'translations';
-const JA_VERSION = 'JA1955';
-/* 書物・章一覧と nt/lxx 振り分けは book-master.js（books.json）が単一の出典。
-   このページは1節分のみ表示するため、対象章1件だけを BookMaster.pathFor() で
-   取得する（init() 内）。複数章のバッチ取得（旧 fetchInBatches）は不要になった。 */
-function jaDataPath(bookKey, ch) {
-    return `./${JA_FOLDER}/${JA_VERSION}/${bookKey}/${ch}.json`;
-}
-async function fetchJaData(morphPaths) {
-    const K2C={};
-    Object.entries(BOOK_MAP).forEach(([c,k])=>{ K2C[k]=c; });
-    return Promise.allSettled(
-        morphPaths.map(t=>({...t,path:jaDataPath(t.key,t.ch)}))
-        .map(t=>fetch(t.path).then(r=>r.ok?r.json():null)
-            /* JA1955は七十人訳のみの章（PSA151・JOL4等）を収録していないため、
-               この章には和訳が存在しない。genuineなデータ取得失敗ではないので
-               __failedFetches には積まず、console.infoのみで追跡可能にする。 */
-            .catch(err=>{ console.info('[ja-translation] fetch error, skipping:', t.path, err); return null; })
-            .then(data=>{
-                if(!data) { console.info('[ja-translation] no Japanese translation available for', t.path); return; }
-                const vers=data.verses; if(!vers||typeof vers!=='object') return;
-                const bc=K2C[t.key]; if(!bc) return;
-                const cs=String(t.ch).padStart(2,'0');
-                Object.entries(vers).forEach(([vn,tx])=>{
-                    const vs=String(parseInt(vn)).padStart(2,'0');
-                    _jaMap.set(`${bc}${cs}${vs}`,String(tx));
-                });
-            })
-        )
-    );
-}
-
 function getVerseTokens(allData, ref) {
     const prefix = String(ref).replace(/!.*$/,'').trim();
     return allData.filter(e => String(e.ref||'').replace(/!.*$/,'').trim() === prefix);
@@ -3258,10 +3192,6 @@ if (params.jword) {
             `<p style="color:#c00;font-size:0.82rem;">データが見つかりませんでした。<code>bible_data/nt/${refBookKey}/${refChapter}.json</code> の形式で配置してください。</p>`;
         return;
     }
-
-    const txt = document.getElementById('load-text');
-    if (txt) txt.textContent = '訳文を読み込み中…';
-    await fetchJaData([{ key: refBookKey, ch: refChapter }]);
 
     window._morphData = allData;
 
