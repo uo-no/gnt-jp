@@ -1908,6 +1908,10 @@ function _addHistory(query,layers){
     if(_history.length>8)_history.pop();
     _renderHistory();
 }
+/* 表示専用のHTMLエスケープ。_renderHistory()のquery展開のみに使用する。 */
+function _escH(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 function _renderHistory(){
     const block=document.getElementById('history-block');
     const list=document.getElementById('history-list');
@@ -1922,7 +1926,7 @@ function _renderHistory(){
             .map(l=>`<span class="h-badge ${l}">${l}</span>`).join('');
         item.innerHTML=`
             <div class="history-badges">${badges}</div>
-            <span class="h-query">${query}</span>`;
+            <span class="h-query">${_escH(query)}</span>`;
         item.addEventListener('click',()=>{
             document.getElementById('unified-search-input').value=query;
             Object.keys(_layers).forEach(k=>{_layers[k]=!!layers[k];_syncLayerUI(k);});
@@ -2163,7 +2167,7 @@ function _renderUnifiedResults(query,words,word2){
         document.getElementById('hits-list').innerHTML=`
             <div class="zero-hits">
                 <div class="zero-hits-icon">∅</div>
-                <div class="zero-hits-msg">「${query}」に該当する箇所がありませんでした</div>
+                <div class="zero-hits-msg">「${_escH(query)}」に該当する箇所がありませんでした</div>
             </div>`;
         document.getElementById('hits-count').textContent='';
         document.getElementById('lemma-groups').style.display='none';
@@ -2389,8 +2393,8 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
     let proxVizHtml='';
     if(entry.hitTypes.has('prox')&&w2Gi>=0){
         const dist=Math.abs(w2Gi-anchorGi);
-        const anchorText=tok.text||words[0];
-        const targetText=ALL_TOKENS[w2Gi]?.text||word2;
+        const anchorText=tok.text||_escH(words[0]);
+        const targetText=ALL_TOKENS[w2Gi]?.text||_escH(word2);
         proxVizHtml=`<div class="prox-dist-row">
             <span class="prox-anchor">${anchorText}</span>
             <div class="prox-dist-line"><span class="prox-dist-label">距離 ${dist}</span></div>

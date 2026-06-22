@@ -2785,9 +2785,11 @@ const _DEFAULT_INSIGHT_EXPERIENCED = '翻訳では平らに見える箇所に、
         el.appendChild(disclaimer);
 
         // Rev.3: 「後で読む」軽量保存ボタン（中級者の蓄積感を作る）
+        // UI非表示化：保存ロジック・イベント・app_saved_insightsは変更せず、
+        // 行全体をdisplay:noneにして見た目からのみ除去する（レイアウト幅は発生しない）。
         const saveRow = document.createElement('div');
         saveRow.style.cssText = [
-            'display: flex',
+            'display: none',
             'justify-content: flex-end',
             'margin-top: 6px',
         ].join(';');
