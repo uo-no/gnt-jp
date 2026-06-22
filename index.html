@@ -3463,6 +3463,19 @@ details[open] .study-summary::before {
             <span class="menu-text">検索</span>
             <span class="sb-row-arrow menu-text">↗</span>
         </div>
+        <div class="sb-row" id="nav-bookmarks" onclick="showBookmarks()">
+            <span class="menu-text">ブックマーク</span>
+        </div>
+        <div class="sb-row" id="nav-notes" onclick="showNotes()">
+            <span class="menu-text">メモ</span>
+        </div>
+        <div class="section-label menu-text" style="padding: 16px 12px 4px;">履歴</div>
+        <div class="sb-row" id="nav-recent-verses" onclick="showRecentVerses()">
+            <span class="menu-text">最近読んだ箇所</span>
+        </div>
+        <div class="sb-row" id="nav-recent-words" onclick="showRecentWords()">
+            <span class="menu-text">最近見た単語</span>
+        </div>
     </div>
 
     <!-- Layer 1: 書物一覧 -->
@@ -3546,7 +3559,8 @@ details[open] .study-summary::before {
                     <span id="mobile-panel-back-label">本文</span>
                 </button>
                 <span id="mobile-nav-title"></span>
-                <button class="share-url-btn" onclick="copyShareUrl()" style="margin-left:auto;" title="このURLをコピー">🔗</button>
+                <button class="share-url-btn bookmark-btn" onclick="toggleBookmark()" style="margin-left:auto;" title="この節をブックマーク">☆</button>
+                <button class="share-url-btn" onclick="copyShareUrl()" title="このURLをコピー">🔗</button>
             </div>
 
             <div class="panel-header">
@@ -3555,6 +3569,7 @@ details[open] .study-summary::before {
                     <span id="panel-back-label"></span>
                 </button>
                 <span id="active-v" style="font-size: 0.78rem; color: var(--text-sub); font-weight: 400;"></span>
+                <button class="share-url-btn bookmark-btn" onclick="toggleBookmark()" title="この節をブックマーク">☆</button>
                 <button class="share-url-btn" onclick="copyShareUrl()" title="このURLをコピー">🔗</button>
             </div>
 
@@ -3567,6 +3582,13 @@ details[open] .study-summary::before {
             <!-- メインコンテンツエリア（タブなし・単一スクロール） -->
             <div id="reading-notes-wrap" style="display:none;flex:1;min-height:0;overflow-y:auto;flex-direction:column;">
                 <div id="reading-notes-area"></div>
+                <!-- 節ごとのメモ（追記。reading-notes-area とは別要素のため、その innerHTML 書き換えの影響を受けない） -->
+                <div id="reading-note-block-rn" style="display:none;padding:16px 22px 22px;border-top:1px solid var(--border-soft);">
+                    <h3 style="font-size:0.8rem;font-weight:700;color:var(--text-main);margin:0 0 10px;">メモ</h3>
+                    <textarea id="reading-note-textarea-rn" style="width:100%;min-height:90px;padding:10px;font-family:inherit;font-size:0.85rem;color:var(--text-main);border:1px solid var(--border-soft);border-radius:6px;resize:vertical;box-sizing:border-box;"></textarea>
+                    <button class="inspect-study-btn" style="margin-top:8px;" onclick="_saveCurrentNote('rn')">保存</button>
+                    <span id="reading-note-status-rn" style="display:block;margin-top:6px;font-size:0.75rem;color:var(--text-sub);"></span>
+                </div>
             </div>
 
             <!-- 分析コンテンツエリア（後方互換のため保持・非表示） -->
@@ -3753,6 +3775,21 @@ const AppState = {
         this.mode = 'browsing';
         this.selectedVerse = { vNum, elWords: elWords || [] };
         this.inspect.data  = null;
+
+        /* 読書位置（節）の永続化：selectedVerse が確定する唯一の地点（SSOT）。
+           ref・構造化フィールドはすべて AppState.location / vNum から組み立てる（ref パース禁止のSSOT原則） */
+        if (window.App.storage) {
+            const bookKey = this.location.book ? this.location.book.key : '';
+            const ch = this.location.chapter != null ? this.location.chapter : '';
+            if (bookKey && ch !== '' && vNum != null) {
+                window.App.storage.addRecentVerse({
+                    ref: `${bookKey} ${ch}:${vNum}`,
+                    bookKey: bookKey,
+                    chapter: ch,
+                    verse: Number(vNum),
+                });
+            }
+        }
     },
 
     /* Study 状態に移行 */
@@ -3920,6 +3957,94 @@ function _showShareToast() {
     t.classList.add('visible');
     clearTimeout(t._hideTimer);
     t._hideTimer = setTimeout(() => t.classList.remove('visible'), 2000);
+}
+
+/* 現在開いている節の ref を構造フィールド（bookKey/ch/verse）から組み立てる（ref パース禁止のSSOT原則に従う） */
+function _currentVerseRef() {
+    const bookKey = AppState.location.book ? AppState.location.book.key : '';
+    const ch = AppState.location.chapter != null ? AppState.location.chapter : '';
+    const vNum = AppState.selectedVerse.vNum;
+    if (!bookKey || ch === '' || vNum == null) return null;
+    return `${bookKey} ${ch}:${vNum}`;
+}
+
+/* StudyPanel内の☆ボタン：未保存→addBookmark、保存済み→removeBookmark（toggle）
+   構造化フィールドは AppState.location / AppState.selectedVerse から直接組み立てる（ref パース禁止） */
+function toggleBookmark() {
+    if (!window.App.storage) return;
+    const ref = _currentVerseRef();
+    if (!ref) return;
+    const saved = window.App.storage.getBookmarks().some(b => b.ref === ref);
+    if (saved) {
+        window.App.storage.removeBookmark(ref);
+    } else {
+        const bookKey = AppState.location.book ? AppState.location.book.key : '';
+        const chapter = AppState.location.chapter != null ? AppState.location.chapter : null;
+        const verse = AppState.selectedVerse.vNum != null ? Number(AppState.selectedVerse.vNum) : null;
+        window.App.storage.addBookmark({ ref, bookKey, chapter, verse });
+    }
+    _syncBookmarkButtons(ref);
+}
+
+/* ☆ボタンの見た目を現在の保存状態に同期する */
+function _syncBookmarkButtons(ref) {
+    if (!window.App.storage) return;
+    const r = ref || _currentVerseRef();
+    const saved = !!(r && window.App.storage.getBookmarks().some(b => b.ref === r));
+    document.querySelectorAll('.bookmark-btn').forEach(btn => {
+        btn.textContent = saved ? '★' : '☆';
+    });
+}
+
+/* 節ごとのメモ（1節=1メモ）UI。Study Panelには「節一覧」（#word-list-view）と
+   「語の詳しく見る」（#reading-notes-area）の2つの表示モードがあり、それぞれ
+   innerHTMLを丸ごと書き換えるため、メモブロックはそのどちらの管理下にも置かず、
+   idSuffixで区別した独立要素として追記する（既存UIには一切触れない）。
+   保存は保存ボタン押下時のみ。自動保存・input/blur保存は行わない。 */
+function _noteBlockHtml(idSuffix) {
+    return `
+        <div id="reading-note-block-${idSuffix}" style="display:none;padding:16px 22px 22px;border-top:1px solid var(--border-soft);">
+            <h3 style="font-size:0.8rem;font-weight:700;color:var(--text-main);margin:0 0 10px;">メモ</h3>
+            <textarea id="reading-note-textarea-${idSuffix}" style="width:100%;min-height:90px;padding:10px;font-family:inherit;font-size:0.85rem;color:var(--text-main);border:1px solid var(--border-soft);border-radius:6px;resize:vertical;box-sizing:border-box;"></textarea>
+            <button class="inspect-study-btn" style="margin-top:8px;" onclick="_saveCurrentNote('${idSuffix}')">保存</button>
+            <span id="reading-note-status-${idSuffix}" style="display:block;margin-top:6px;font-size:0.75rem;color:var(--text-sub);"></span>
+        </div>`;
+}
+
+/* 現在の節のrefに紐づくメモを textarea へ読み込む（既存の getNotes() のみ使用） */
+function _loadNoteUI(idSuffix) {
+    const block = document.getElementById('reading-note-block-' + idSuffix);
+    const textarea = document.getElementById('reading-note-textarea-' + idSuffix);
+    const statusEl = document.getElementById('reading-note-status-' + idSuffix);
+    if (!block || !textarea) return;
+    if (statusEl) statusEl.textContent = '';
+
+    const ref = _currentVerseRef();
+    if (!ref || !window.App.storage) {
+        block.style.display = 'none';
+        return;
+    }
+    block.style.display = 'block';
+    const notes = window.App.storage.getNotes();
+    const existing = notes.find(n => n.ref === ref);
+    textarea.value = existing ? existing.content : '';
+}
+
+/* 保存ボタン押下時のみ呼ばれる。saveNote(ref, content) のみ使用、localStorage直接アクセスなし。 */
+function _saveCurrentNote(idSuffix) {
+    const statusEl = document.getElementById('reading-note-status-' + idSuffix);
+    const ref = _currentVerseRef();
+    if (!ref || !window.App.storage) {
+        if (statusEl) statusEl.textContent = '保存できませんでした';
+        return;
+    }
+    /* 構造化フィールドは AppState.location / AppState.selectedVerse から直接組み立てる（ref パース禁止） */
+    const bookKey = AppState.location.book ? AppState.location.book.key : '';
+    const chapter = AppState.location.chapter != null ? AppState.location.chapter : null;
+    const verse = AppState.selectedVerse.vNum != null ? Number(AppState.selectedVerse.vNum) : null;
+    const textarea = document.getElementById('reading-note-textarea-' + idSuffix);
+    const ok = window.App.storage.saveNote(ref, textarea ? textarea.value : '', bookKey, chapter, verse);
+    if (statusEl) statusEl.textContent = ok ? '保存しました' : '保存できませんでした';
 }
 
 function applyShareState(state) {
@@ -4303,14 +4428,18 @@ function _openWordListInternal(vNum, words) {
 
     if (!words.length) {
         listEl.innerHTML = `<p style="color:var(--text-sub);font-size:0.82rem;text-align:center;padding:32px 18px;">この節の語形データがありません</p>`;
+        listEl.insertAdjacentHTML('beforeend', _noteBlockHtml('wlv'));
         sidePanel.appendChild(listEl);
+        _loadNoteUI('wlv');
         /* モバイルナビバー */
         _mobileOpenPanel('語形一覧');
         return;
     }
 
     listEl.innerHTML = _buildFlowTabHTML(words);
+    listEl.insertAdjacentHTML('beforeend', _noteBlockHtml('wlv'));
     sidePanel.appendChild(listEl);
+    _loadNoteUI('wlv');
 
     /* モバイルナビバー */
     const chapterLabel = vNum ? vNum + '節' : '';
@@ -4482,6 +4611,8 @@ function onWordCardClick(cardEl, event) {
 
     /* Inspect 状態を AppState に記録 */
     AppState.inspect.data = { greek, strong, jpMorph, rawMorph, lemma, jaWord, desc, ref };
+
+    /* recentWords の保存は _wlvChipClick() が唯一のSSOT */
 
     showInspectPopover(cardEl, greek, strong, jpMorph, rawMorph, jaWord);
 
@@ -7658,7 +7789,181 @@ function showAppInfo() {
     `;
     app.innerHTML = infoHtml;
 }
-    
+
+/* ブックマーク一覧画面。showAppInfo()/showMameKnowledge()と同じ .static-page 差し替え方式。
+   bookmarks は recentVerses と同じ構造化フィールド（bookKey/chapter/verse）を持つため、
+   一覧→節移動のリンク生成は構造化フィールドのみを使用する（ref文字列の解析は一切行わない）。 */
+function showBookmarks() {
+    closeMobileSidebar();
+
+    const app = document.getElementById('bible-text-area');
+
+    document.getElementById('main-reading-area').classList.add('single-mode');
+    document.getElementById('main-reading-area').classList.add('static-view');
+    document.getElementById('main-reading-area').scrollTop = 0;
+
+    const _titleElBm = document.getElementById('view-title');
+    if (_titleElBm) _titleElBm.innerText = "ブックマーク";
+
+    const bookmarks = window.App.storage ? window.App.storage.getBookmarks() : [];
+
+    const rowsHtml = bookmarks.length
+        ? bookmarks.map(b => {
+            if (!b.bookKey || b.chapter == null || b.verse == null) {
+                return `<div class="sb-row"><span>${b.ref || ''}</span></div>`;
+            }
+            const href = `index.html?book=${encodeURIComponent(b.bookKey)}&ch=${encodeURIComponent(b.chapter)}&verse=${encodeURIComponent(b.verse)}&panel=study`;
+            return `<div class="sb-row" onclick="location.href='${href}'"><span>${b.ref}</span><span class="sb-row-arrow">›</span></div>`;
+        }).join('')
+        : `<p style="color:var(--text-sub);font-size:0.85rem;">ブックマークはまだありません。節を開いて☆をタップすると、ここに表示されます。</p>`;
+
+    const html = `
+        <div class="static-page">
+            <section>
+                <h3>ブックマーク</h3>
+                ${rowsHtml}
+            </section>
+            <div class="back-wrap">
+                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+            </div>
+        </div>
+    `;
+    app.innerHTML = html;
+}
+
+/* 最近読んだ箇所一覧画面。showBookmarks()と同じ .static-page 差し替え方式。
+   URL生成は entry.bookKey / entry.chapter / entry.verse のみを使用する（ref文字列の解析は行わない）。
+   panel=study は付けない＝節へ移動するのみで Study Panel は開かない。 */
+function showRecentVerses() {
+    closeMobileSidebar();
+
+    const app = document.getElementById('bible-text-area');
+
+    document.getElementById('main-reading-area').classList.add('single-mode');
+    document.getElementById('main-reading-area').classList.add('static-view');
+    document.getElementById('main-reading-area').scrollTop = 0;
+
+    const _titleElRv = document.getElementById('view-title');
+    if (_titleElRv) _titleElRv.innerText = "最近読んだ箇所";
+
+    const recentVerses = window.App.storage ? window.App.storage.getRecentVerses() : [];
+
+    const rowsHtml = recentVerses.length
+        ? recentVerses.map(v => {
+            if (!v.bookKey || v.chapter == null || v.verse == null) {
+                return `<div class="sb-row"><span>${v.ref || ''}</span></div>`;
+            }
+            const href = `index.html?book=${encodeURIComponent(v.bookKey)}&ch=${encodeURIComponent(v.chapter)}&verse=${encodeURIComponent(v.verse)}`;
+            return `<div class="sb-row" onclick="location.href='${href}'"><span>${v.ref}</span><span class="sb-row-arrow">›</span></div>`;
+        }).join('')
+        : `<p style="color:var(--text-sub);font-size:0.85rem;">最近読んだ箇所はまだありません。</p>`;
+
+    const html = `
+        <div class="static-page">
+            <section>
+                <h3>最近読んだ箇所</h3>
+                ${rowsHtml}
+            </section>
+            <div class="back-wrap">
+                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+            </div>
+        </div>
+    `;
+    app.innerHTML = html;
+}
+
+/* 最近見た単語一覧画面。showBookmarks()/showRecentVerses()と同じ .static-page 差し替え方式。
+   URL生成は entry.bookKey / entry.chapter / entry.verse のみを使用する（ref文字列という概念自体が
+   recentWords には存在しないため、解析の余地もない）。panel=study を付けて Study Panel を開くが、
+   元の単語の自動選択やWord Card再生成は行わない（節へ移動するのみ）。 */
+function showRecentWords() {
+    closeMobileSidebar();
+
+    const app = document.getElementById('bible-text-area');
+
+    document.getElementById('main-reading-area').classList.add('single-mode');
+    document.getElementById('main-reading-area').classList.add('static-view');
+    document.getElementById('main-reading-area').scrollTop = 0;
+
+    const _titleElRw = document.getElementById('view-title');
+    if (_titleElRw) _titleElRw.innerText = "最近見た単語";
+
+    const recentWords = window.App.storage ? window.App.storage.getRecentWords() : [];
+
+    const rowsHtml = recentWords.length
+        ? recentWords.map(w => {
+            const lemmaLine = `<div>${w.lemma || ''}</div>`;
+            if (!w.bookKey || w.chapter == null || w.verse == null) {
+                const locLine = `<div style="color:var(--text-sub);font-size:0.78rem;">節不明</div>`;
+                return `<div class="sb-row" style="flex-direction:column;align-items:flex-start;">${lemmaLine}${locLine}</div>`;
+            }
+            const href = `index.html?book=${encodeURIComponent(w.bookKey)}&ch=${encodeURIComponent(w.chapter)}&verse=${encodeURIComponent(w.verse)}&panel=study`;
+            const locLine = `<div style="color:var(--text-sub);font-size:0.78rem;">${w.bookKey} ${w.chapter}:${w.verse}</div>`;
+            return `<div class="sb-row" style="flex-direction:column;align-items:flex-start;" onclick="location.href='${href}'">${lemmaLine}${locLine}</div>`;
+        }).join('')
+        : `<p style="color:var(--text-sub);font-size:0.85rem;">最近見た単語はまだありません。</p>`;
+
+    const html = `
+        <div class="static-page">
+            <section>
+                <h3>最近見た単語</h3>
+                ${rowsHtml}
+            </section>
+            <div class="back-wrap">
+                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+            </div>
+        </div>
+    `;
+    app.innerHTML = html;
+}
+
+/* メモ一覧画面。showBookmarks()/showRecentVerses()/showRecentWords()と同じ .static-page 差し替え方式。
+   notes構造には bookKey/chapter/verse が存在しない（notes構造変更禁止のため今回も追加しない）ので、
+   ref解析は一切行わず、構造化フィールドが無い場合はクリック不可表示にする。
+   content はユーザー入力の自由記述のため、表示前に簡易エスケープする（本ファイル内の既存コードと同方式）。 */
+function showNotes() {
+    closeMobileSidebar();
+
+    const app = document.getElementById('bible-text-area');
+
+    document.getElementById('main-reading-area').classList.add('single-mode');
+    document.getElementById('main-reading-area').classList.add('static-view');
+    document.getElementById('main-reading-area').scrollTop = 0;
+
+    const _titleElNt = document.getElementById('view-title');
+    if (_titleElNt) _titleElNt.innerText = "メモ";
+
+    const notes = window.App.storage ? window.App.storage.getNotes() : [];
+    const sorted = notes.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+    const rowsHtml = sorted.length
+        ? sorted.map(n => {
+            const raw = n.content || '';
+            const truncated = raw.length > 100 ? raw.slice(0, 100) + '…' : raw;
+            const preview = truncated.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+            const refLabel = (n.ref || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+            if (!n.bookKey || n.chapter == null || n.verse == null) {
+                return `<div class="sb-row" style="flex-direction:column;align-items:flex-start;"><div>${refLabel}</div><div style="color:var(--text-sub);font-size:0.78rem;">${preview}</div></div>`;
+            }
+            const href = `index.html?book=${encodeURIComponent(n.bookKey)}&ch=${encodeURIComponent(n.chapter)}&verse=${encodeURIComponent(n.verse)}&panel=study`;
+            return `<div class="sb-row" style="flex-direction:column;align-items:flex-start;" onclick="location.href='${href}'"><div>${refLabel}</div><div style="color:var(--text-sub);font-size:0.78rem;">${preview}</div></div>`;
+        }).join('')
+        : `<p style="color:var(--text-sub);font-size:0.85rem;">メモはまだありません。</p>`;
+
+    const html = `
+        <div class="static-page">
+            <section>
+                <h3>メモ</h3>
+                ${rowsHtml}
+            </section>
+            <div class="back-wrap">
+                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+            </div>
+        </div>
+    `;
+    app.innerHTML = html;
+}
+
 async function init() {
     /* onboarding未完了なら、render/applyShareState/onPageRendered実行前に
        フラグを立てておく（onboarding.js の自動デモによるURL書き換えを防ぐ） */
@@ -8017,6 +8322,15 @@ _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma
 function openWordListInStudyPanel(vNum, words) {
     /* words をキャッシュ（chip クリック時の詳細参照用） */
     _wlvWordCache = words || [];
+
+    /* ☆ボタンの表示状態を現在の節に同期する（ref は構造フィールドから組み立てる。ref パース禁止のSSOT原則に従う） */
+    if (window.App.storage) {
+        const _posBookKey = AppState.location.book ? AppState.location.book.key : '';
+        const _posCh = AppState.location.chapter != null ? AppState.location.chapter : '';
+        if (_posBookKey && _posCh !== '' && vNum != null) {
+            _syncBookmarkButtons(`${_posBookKey} ${_posCh}:${vNum}`);
+        }
+    }
 
     /* depth stack に verse-flow を追加（reading が先頭になければ追加） */
     const stack = AppState.depth.stack;
@@ -8582,6 +8896,16 @@ function _wlvChipClick(chipEl, idx) {
         lemmaId:  chip.lemmaId  != null ? chip.lemmaId : null,
     };
 
+    if (window.App.storage && chip.strong) {
+        window.App.storage.addRecentWord({
+            lemma: chip.lemma,
+            strong: chip.strong,
+            bookKey: chip.bookKey || '',
+            chapter: chip.ch != null ? Number(chip.ch) : null,
+            verse: chip.verse != null ? Number(chip.verse) : null,
+        });
+    }
+
     if (verseBlock) {
         /* 本文を読んでいる最中の chip タップ：まず Inspect popover で軽く確認する。
            Study panel へ進むかどうかは popover の「詳しく見る」ボタン（escalateToStudy）に委ねる。 */
@@ -8846,6 +9170,9 @@ const activeVEl = document.getElementById('active-v');
     if (notesWrap) notesWrap.style.display = 'flex';
 
     _renderReadingNotes(params);
+
+    /* 節ごとのメモ欄を読み込む（既存の読書メモエリアとは別要素。追記のみ） */
+    _loadNoteUI('rn');
 
     /* ── オンボーディング：アンカー語（ἠγάπησεν）初回タップ時に発見テキストを先頭注入 ── */
     (function _injectObDiscovery() {
@@ -9698,6 +10025,7 @@ function _mobileSwipeBack() {
     });
     
 </script>
+<script src="app-storage.js"></script>
 <script src="shared-insight.js" defer></script>
 <script src="onboarding.js"></script>
 </body>
