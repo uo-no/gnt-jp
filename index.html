@@ -9277,46 +9277,14 @@ function _navigateVerse(delta) {
    翻訳モード管理
    ══════════════════════════════════════════ */
 
-/*
- * ディレクトリ移行メモ
- * ─────────────────────────────────────────
- * 旧:
- *   bible_jp/MAT/1.json          … NKJ2017 固定
- *   bible_jp_nkj/MAT/1.json      … NKJ
- *   bible_jp_niv/MAT/1.json      … NIV
- *   bible_jp_esv/MAT/1.json      … ESV
- *
- * 新（translations/ 以下に統一）:
- *   translations/JA1955/MAT/1.json   … 口語訳（JA1955）
- *   translations/KAI17/MAT/1.json    … 新改訳2017
- *   translations/KYO/MAT/1.json      … 聖書協会共同訳
- *
- * 移行手順:
- *   1. 旧 bible_jp/     → translations/KAI17/  へコピー
- *   2. 各翻訳ディレクトリ → translations/{ID}/ へコピー
- *   3. 旧ディレクトリは削除可（フォールバックが不要になってから）
- * ─────────────────────────────────────────
- */
-
 /* 翻訳マスター定義・変数はスクリプト先頭で宣言済み（TDZ対策） */
 
 /*
  * transDataPath — 翻訳IDとbook/chからJSONパスを返す
- *
- * 新パス: translations/{transId}/{book}/{ch}.json
- * フォールバック（旧ディレクトリが残っている移行期用）:
- *   NKJ2017 → bible_jp/{book}/{ch}.json
- *   他      → bible_jp_{transId.toLowerCase()}/{book}/{ch}.json
+ *   translations/{transId}/{book}/{ch}.json
  */
 function transDataPath(transId, book, ch) {
-    /* 新構造が整っていればこちらを使う */
     return `./translations/${transId}/${book}/${ch}.json`;
-}
-
-/* フォールバック用（旧ディレクトリ構造）*/
-function _transDataPathLegacy(transId, book, ch) {
-    if (!transId || transId === 'KAI17') return `./bible_jp/${book}/${ch}.json`;
-    return `./bible_jp_${transId.toLowerCase()}/${book}/${ch}.json`;
 }
 
 /*
@@ -9339,20 +9307,13 @@ function _buildFlowJpData(elData) {
 /*
  *   loadBook(book, translation) のエイリアスとして機能する。
  *
- *   新パス優先で fetch し、404 なら旧ディレクトリへフォールバック。
- *   両方失敗した場合は null を返す。
+ *   translations/{transId}/{book}/{ch}.json を fetch する。
+ *   失敗した場合は null を返す。
  */
 async function _fetchTranslation(transId, book, ch) {
-    /* ① 新パス: translations/{transId}/{book}/{ch}.json */
     try {
         const res = await fetch(transDataPath(transId, book, ch));
         if (res.ok) return await res.json();
-    } catch(e) {}
-
-    /* ② 旧パスへフォールバック（移行期のみ有効） */
-    try {
-        const res2 = await fetch(_transDataPathLegacy(transId, book, ch));
-        if (res2.ok) return await res2.json();
     } catch(e) {}
 
     return null;
