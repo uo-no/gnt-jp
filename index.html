@@ -1158,7 +1158,7 @@ opacity: 0.7;
 
 /* Guide label above sections — visible when sections are present */
 #rn-semantic-layers:not(:empty)::before {
-    content: '▼ 項目をクリックすると展開します';
+    content: '項目をクリックすると展開します';
     display: block;
     font-size: 0.60rem;
     color: var(--text-sub);
@@ -1631,6 +1631,7 @@ color: var(--text-sub);
 margin-top: 6px;
 display: block;
 }
+.ac-cite-ref svg { width: 0.85em; height: 0.85em; vertical-align: -0.1em; margin-right: 1px; }
 .ac-no-data {
 text-align: center;
 color: var(--text-sub);
@@ -1738,6 +1739,8 @@ animation: ac-blink 1.2s ease-in-out infinite;
     white-space: nowrap;
 }
 .list-item-empty { color: var(--text-sub); font-size: 0.85rem; }
+.list-item-empty .inline-icon { display: inline-flex; vertical-align: -0.15em; }
+.list-item-empty .inline-icon svg { width: 0.85em; height: 0.85em; }
 .static-page h3 {
     font-size: 0.9rem;
     font-weight: 700;
@@ -2627,6 +2630,7 @@ details[open] .study-summary::before {
     margin-top: 2px;
     display: block;
 }
+.rt-result-ref svg { width: 0.85em; height: 0.85em; vertical-align: -0.1em; margin-right: 1px; }
 /* 空結果メッセージ */
 .rt-no-result {
     font-size: 0.78rem;
@@ -3215,6 +3219,7 @@ details[open] .study-summary::before {
     opacity: 0;
     transition: opacity 150ms;
 }
+.bp-trans-check svg { width: 0.85rem; height: 0.85rem; display: block; }
 .bp-compare-body {
     padding: 14px 20px 18px;
 }
@@ -3385,14 +3390,13 @@ details[open] .study-summary::before {
 .rn-level-section > summary:hover { opacity: 0.85; }
 .rn-level-section[open] > summary { opacity: 0.65; }
 .rn-level-section > summary::-webkit-details-marker { display: none; }
-.rn-level-section > summary::before {
-    content: '▶';
-    display: inline-block;
+.rn-level-arrow {
+    display: inline-flex;
     margin-right: 6px;
-    font-size: 0.65em;
     transition: transform 0.18s cubic-bezier(.4,0,.2,1);
 }
-.rn-level-section[open] > summary::before {
+.rn-level-arrow svg { width: 0.65em; height: 0.65em; display: block; }
+.rn-level-section[open] > summary .rn-level-arrow {
     transform: rotate(90deg);
 }
 .rn-level-body {
@@ -3745,34 +3749,8 @@ details[open] .study-summary::before {
 
 </div>
 
+<script src="./shared-ui.js"></script>
 <script>
-/* ══════════════════════════════════════════
-   アイコンレジストリ（SSOT）
-   絵文字/CSS擬似要素の代わりに線画SVGアイコンをここで一元管理する。
-   各所では生のSVGを書かず、必ず icon('name') 経由で参照する。
-   サイズ・色は呼び出し側のCSS（.share-url-btn svg 等）が決める。
-   ══════════════════════════════════════════ */
-const ICONS = {
-    bookmark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>',
-    link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
-    note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>',
-    menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M4 6h16M4 18h16"/></svg>',
-    chevronDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
-    chevronRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
-    chevronUp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>',
-};
-function icon(name) {
-    return ICONS[name] || '';
-}
-/* 静的HTML側に書かれた data-icon="name" 要素へ、ページ読込時にレジストリのSVGを挿入する。
-   既存の子要素（.note-dot 等）は壊さないよう先頭に追加するだけにとどめる。 */
-function _renderStaticIcons() {
-    document.querySelectorAll('[data-icon]').forEach(el => {
-        const svg = icon(el.dataset.icon);
-        if (svg) el.insertAdjacentHTML('afterbegin', svg);
-    });
-}
-
 let abbottSmithDict = null;
 let _proximityTokens = [];
 
@@ -5425,7 +5403,7 @@ async function _renderReadingNotes(p) {
 
         <!-- LEVEL 2: 単語を詳しく調べる（折りたたみ） -->
         <details class="rn-level-section" id="rn-level2-details">
-            <summary>単語を詳しく調べる</summary>
+            <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>単語を詳しく調べる</summary>
             <div class="rn-level-body">
                 ${morphGridHTML}
                 ${etymologyHTML}
@@ -5435,7 +5413,7 @@ async function _renderReadingNotes(p) {
 
         <!-- LEVEL 3: さらに学ぶ（折りたたみ） -->
         <details class="rn-level-section">
-            <summary>さらに学ぶ</summary>
+            <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>さらに学ぶ</summary>
             <div class="rn-level-body">
                 <div id="rn-semantic-layers"></div>
             </div>
@@ -6498,7 +6476,7 @@ function _renderMorphTab(area, p) {
             <div class="ac-entry-ja">${jaWord}</div>
             ${strong ? `<span class="ac-entry-strong">${strong}</span>` : ''}
             ${morphGridHTML}
-            ${ref ? `<span class="ac-cite-ref">📍 ${ref}</span>` : ''}
+            ${ref ? `<span class="ac-cite-ref">${icon('pin')} ${ref}</span>` : ''}
         </div>
         ${desc ? `<div class="ac-abbottsmith">${desc.replace(/\n/g,'<br>')}</div>` : ''}
         <div class="ac-morph-search-row">
@@ -6541,7 +6519,7 @@ function _renderSyntaxTab(area, p) {
             <div class="ac-entry-greek">${p.word || '-'}</div>
             ${features.length ? `<div style="margin-top:4px;">${features.map(f =>
                 `<span class="morph-tag-pill core" style="margin-right:4px;">${f}</span>`).join('')}</div>` : ''}
-            ${ref ? `<span class="ac-cite-ref" style="margin-top:8px;display:block;">📍 ${ref}</span>` : ''}
+            ${ref ? `<span class="ac-cite-ref" style="margin-top:8px;display:block;">${icon('pin')} ${ref}</span>` : ''}
         </div>
         <div class="ac-entry" style="margin-top:2px;">
             <p style="margin:0;font-size:0.82rem;color:var(--text-sub);line-height:1.75;">
@@ -7420,7 +7398,7 @@ function _rtRenderResults(text, resultsEl) {
         return `<div class="rt-result-block">
             ${kind ? `<span class="rt-result-kind">${kind}</span>` : ''}
             <span class="rt-result-text">${body.replace(/\n/g,'<br>')}</span>
-            ${ref  ? `<span class="rt-result-ref">📍 ${ref}</span>` : ''}
+            ${ref  ? `<span class="rt-result-ref">${icon('pin')} ${ref}</span>` : ''}
         </div>`;
     }).join('');
 }
@@ -8153,7 +8131,7 @@ function showBookmarks() {
                 : '';
             return _listItemCard({ title: b.ref || '', meta: _listMetaDate(b.createdAt), href });
         }).join('')
-        : `<p class="list-item-empty">ブックマークはまだありません。節を開いて☆をタップすると、ここに表示されます。</p>`;
+        : `<p class="list-item-empty">ブックマークはまだありません。節を開いて<span class="inline-icon">${icon('bookmark')}</span>をタップすると、ここに表示されます。</p>`;
 
     const html = `
         <div class="static-page list-page">
@@ -10144,7 +10122,7 @@ function _bpRenderSingle() {
                 <span class="bp-trans-name">${t.name}</span>
                 <span class="bp-trans-code">${t.code}</span>
             </div>
-            <span class="bp-trans-check">✓</span>
+            <span class="bp-trans-check">${icon('check')}</span>
         </div>`
     ).join('');
 }
