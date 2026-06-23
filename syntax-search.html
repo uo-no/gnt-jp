@@ -251,7 +251,10 @@ flex-shrink: 0;
     color: var(--text-hint);
     transition: transform 0.15s;
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
 }
+.candidate-arrow svg, .xsc-arrow svg { width: 11px; height: 11px; display: block; }
 .candidate-item.open .candidate-arrow { transform: rotate(180deg); }
 .candidate-hint {
     font-size: 0.82rem;
@@ -453,6 +456,7 @@ flex-shrink: 0;
     transition: background 0.1s;
 }
 .candidate-show-more:hover { background: var(--accent-light); }
+.candidate-show-more svg { width: 13px; height: 13px; display: block; }
 .candidates-empty {
     padding: 16px;
     text-align: center;
@@ -836,7 +840,7 @@ transition: background 0.12s;
 .xsc-conf {
 font-size: 0.7rem; font-weight: 700;
 }
-.xsc-arrow { font-size: 0.68rem; color: var(--text-hint); transition: transform 0.15s; }
+.xsc-arrow { font-size: 0.68rem; color: var(--text-hint); transition: transform 0.15s; display: inline-flex; align-items: center; }
 .xsc-panel.open .xsc-arrow { transform: rotate(180deg); }
 .xsc-body {
 display: none;
@@ -1130,8 +1134,10 @@ margin-bottom: 20px;
 .share-url-btn {
     background: none; border: none; cursor: pointer;
     font-size: 0.9rem; padding: 2px 6px; border-radius: 6px; opacity: 0.75;
+    display: inline-flex; align-items: center; justify-content: center;
 }
 .share-url-btn:hover { opacity: 1; background: rgba(0,0,0,0.05); }
+.share-url-btn svg { width: 16px; height: 16px; display: block; }
 
 .share-toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px);
@@ -1156,7 +1162,7 @@ margin-bottom: 20px;
         <span class="sep">›</span>
         <span class="breadcrumb-tail">
             <span>統語論</span>
-            <button class="share-url-btn" onclick="copyShareUrl()" title="このURLをコピー">🔗</button>
+            <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
             <button class="help-btn" id="help-btn" aria-expanded="false" aria-label="このページのヘルプ">?</button>
             <div class="help-popup" id="help-popup" role="tooltip">
                 <div class="help-popup-title">統語論とは</div>
@@ -1283,6 +1289,24 @@ margin-bottom: 20px;
 
 <script src="./book-master.js"></script>
 <script>
+/* ══════════════════════════════════════════
+   アイコンレジストリ（SSOT）。index.html の同名レジストリと同じSVGパスを使用する
+   （ビルドツールが無い静的HTML構成のため、ファイルごとに同一内容を保持する）。
+   ══════════════════════════════════════════ */
+const ICONS = {
+    link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+    chevronDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+};
+function icon(name) {
+    return ICONS[name] || '';
+}
+function _renderStaticIcons() {
+    document.querySelectorAll('[data-icon]').forEach(el => {
+        const svg = icon(el.dataset.icon);
+        if (svg) el.insertAdjacentHTML('afterbegin', svg);
+    });
+}
+_renderStaticIcons();
 
 (function detectIframe() {
     try {
@@ -2090,7 +2114,7 @@ function buildXscPanel(usage, panelId) {
             <span class="xsc-head-label ui-section-label">なぜこの判定？</span>
             <div class="xsc-head-right">
                 <span class="xsc-conf" style="color:${confColor};">確信度 ${usage.confidence}%</span>
-                <span class="xsc-arrow">▾</span>
+                <span class="xsc-arrow">${icon('chevronDown')}</span>
             </div>
         </div>
         <div class="xsc-body">
@@ -2589,7 +2613,7 @@ function renderCandidateItems(candidates, allStub) {
     });
     if (hidden.length > 0) {
         html += `<div class="candidate-show-more" onclick="showMoreCandidates(this, ${JSON.stringify(candidates).replace(/"/g,'&quot;')}, ${visible.length})">
-            他の候補を見る (${hidden.length}) ▾
+            他の候補を見る (${hidden.length}) ${icon('chevronDown')}
         </div>`;
     }
     html += '</div>';
@@ -2741,7 +2765,7 @@ function renderOneCandidateItem(cand, rank, total) {
             <span class="candidate-label">${cand.label_ja || cand.id}</span>
             ${stubBadge}
             ${barHtml}
-            <span class="candidate-arrow">▾</span>
+            <span class="candidate-arrow">${icon('chevronDown')}</span>
         </div>
         <div class="candidate-item-body">${bodyHtml}</div>
     </div>`;
@@ -2837,7 +2861,7 @@ function buildXscPanelFromCandidate(cand, panelId) {
             <span class="xsc-head-label ui-section-label">なぜこの判定？</span>
             <div class="xsc-head-right">
                 <span class="xsc-conf" style="color:${confColor};">確信度 ${confPct}%</span>
-                <span class="xsc-arrow">▾</span>
+                <span class="xsc-arrow">${icon('chevronDown')}</span>
             </div>
         </div>
         <div class="xsc-body">

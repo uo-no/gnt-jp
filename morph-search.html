@@ -202,7 +202,10 @@
     font-size: 0.7rem;
     color: var(--text-hint);
     transition: transform 0.2s;
+    display: inline-flex;
+    align-items: center;
 }
+.filter-disclosure-trigger .trigger-arrow svg { width: 11px; height: 11px; display: block; }
 .filter-disclosure[open] .filter-disclosure-trigger .trigger-arrow { transform: rotate(180deg); }
 .filter-disclosure-body {
     padding: 14px;
@@ -375,19 +378,6 @@
     line-height: 1.1;
 }
 .ctx-chip.ctx-hit .ctx-chip-gr { opacity: 1; color: var(--accent); }
-.ctx-chip-dot {
-    width: 3px; height: 3px; border-radius: 50%;
-    background: transparent; flex-shrink: 0;
-    margin-top: 1px;
-}
-.ctx-chip.role-verb  .ctx-chip-dot { background: #7a8fa6; }
-.ctx-chip.role-noun  .ctx-chip-dot { background: #8a9a8a; }
-.ctx-chip.role-conj  .ctx-chip-dot { background: #a09070; }
-.ctx-chip.role-prep  .ctx-chip-dot { background: #9a8a6a; }
-.ctx-chip.role-adj   .ctx-chip-dot { background: #8a7a9a; }
-.ctx-chip.role-pron  .ctx-chip-dot { background: #7a9090; }
-.ctx-chip.role-art   .ctx-chip-dot { background: transparent; }
-.ctx-chip.role-other .ctx-chip-dot { background: rgba(90,110,130,0.2); }
 .ctx-chip-ja.dp-tense-present  { text-decoration: underline solid; text-underline-offset: 2px; }
 .ctx-chip-ja.dp-tense-aorist   { text-decoration: underline dotted; text-underline-offset: 2px; }
 .ctx-chip-ja.dp-tense-perfect  { text-decoration: underline wavy; text-underline-offset: 2px; }
@@ -510,8 +500,10 @@ body.compact-reading-mode .result-ja {
 .share-url-btn {
     background: none; border: none; cursor: pointer;
     font-size: 0.9rem; padding: 2px 6px; border-radius: 6px; opacity: 0.75;
+    display: inline-flex; align-items: center; justify-content: center;
 }
 .share-url-btn:hover { opacity: 1; background: rgba(0,0,0,0.05); }
+.share-url-btn svg { width: 16px; height: 16px; display: block; }
 
 .share-toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px);
@@ -535,7 +527,7 @@ body.compact-reading-mode .result-ja {
         <span class="sep">›</span>
         <span class="breadcrumb-tail">
             <span>形態論</span>
-            <button class="share-url-btn" onclick="copyShareUrl()" title="このURLをコピー">🔗</button>
+            <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
             <button class="help-btn" id="help-btn" aria-expanded="false" aria-label="このページのヘルプ">?</button>
             <div class="help-popup" id="help-popup" role="tooltip">
                 <div class="help-popup-title">形態論とは</div>
@@ -590,7 +582,7 @@ body.compact-reading-mode .result-ja {
             <span class="trigger-label">絞り込み条件</span>
             <span class="trigger-state">
                 <span id="filter-summary-text">読み込み中…</span>
-                <span class="trigger-arrow">▾</span>
+                <span class="trigger-arrow" data-icon="chevronDown"></span>
             </span>
         </summary>
         <div class="filter-disclosure-body">
@@ -699,6 +691,24 @@ body.compact-reading-mode .result-ja {
 
 <script src="./book-master.js"></script>
 <script>
+/* ══════════════════════════════════════════
+   アイコンレジストリ（SSOT）。index.html の同名レジストリと同じSVGパスを使用する
+   （ビルドツールが無い静的HTML構成のため、ファイルごとに同一内容を保持する）。
+   ══════════════════════════════════════════ */
+const ICONS = {
+    link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+    chevronDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+};
+function icon(name) {
+    return ICONS[name] || '';
+}
+function _renderStaticIcons() {
+    document.querySelectorAll('[data-icon]').forEach(el => {
+        const svg = icon(el.dataset.icon);
+        if (svg) el.insertAdjacentHTML('afterbegin', svg);
+    });
+}
+_renderStaticIcons();
 
 (function detectIframe() {
     try { if (window.self !== window.top) document.body.classList.add('in-iframe'); }
@@ -1756,8 +1766,7 @@ async function toggleMorphContext(cardEl, encRef, encWord) {
         const dpCls = _ctxDpClasses(t.morph||'').join(' ');
         const jaSpan = `<span class="ctx-chip-ja${dpCls?' '+dpCls:''}">${_escH(ja || w)}</span>`;
         const grSpan = ja ? `<span class="ctx-chip-gr">${_escH(w)}</span>` : '';
-        const dot    = `<span class="ctx-chip-dot"></span>`;
-        return `<span class="ctx-chip ${roleClass}${isHit?' ctx-hit':''}">${jaSpan}${grSpan}${dot}</span>`;
+        return `<span class="ctx-chip ${roleClass}${isHit?' ctx-hit':''}">${jaSpan}${grSpan}</span>`;
     }).filter(Boolean).join('');
     ctx.innerHTML = `
         <div class="morph-ctx-line">${lineHTML}</div>

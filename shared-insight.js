@@ -231,14 +231,14 @@ function buildXscPanelShared(deltas, confidence, panelId, accentColor) {
                 if(!body||!arrow) return;
                 var open=body.style.display!=='none';
                 body.style.display=open?'none':'block';
-                arrow.textContent=open?'▾':'▴';
+                arrow.innerHTML=open?icon('chevronDown'):icon('chevronUp');
             })()">
             <span class="ui-section-label">なぜこの判定？</span>
             <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-size:0.7rem;font-weight:700;color:${confColor};">
                     確信度 ${confidence}%
                 </span>
-                <span data-xsc-arrow class="ui-caption">▾</span>
+                <span data-xsc-arrow class="ui-caption">${icon('chevronDown')}</span>
             </div>
         </div>
         <div data-xsc-body class="ui-panel-body">

@@ -19,8 +19,22 @@ body {
     padding: 32px 24px 100px;
 }
 
-/* ── Top nav ── */
-.nav { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
+/* ── Top nav ──
+   スクロール追従（index.htmlの#global-breadcrumb相当の挙動）は .nav に付与する。
+   .breadcrumb 自身に position:sticky を置くと、直接の親 .nav の高さが
+   .breadcrumb 自身とほぼ同じ（＝stickyが効く余地となる「親の中の余白」が無い）ため
+   実際にはスクロールに追従しない。.nav の親である .page は十分な高さを持つため、
+   .nav に付与することで意図通りスクロール追従する（padding・DOM構造は変更していない）。
+   z-index: position:stickyはDOM順での通常の重なり順に従うだけで、自動的に後続コンテンツより
+   手前には来ない。.nav はページ先頭の要素のため、z-indexが無いと固定後にスクロールしてきた
+   後続コンテンツが上に重なって見えてしまう（.book-heading の既存の sticky 実装が
+   z-index:10 を使っているのと同じ理由・同じ値で揃える）。 */
+.nav {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 32px;
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border-soft);
+}
 
 .btn-back {
     display: inline-flex; align-items: center; gap: 4px;
@@ -31,14 +45,16 @@ body {
 }
 .btn-back:hover { background: var(--bg-panel); }
 
-/* ── Breadcrumb ── */
+/* ── Breadcrumb ──
+   index.html の #global-breadcrumb / .gbc-item に合わせた最小統一（監査A案）。
+   padding・DOM構造・クリック挙動（このクラムは元々非インタラクティブ）は変更しない。 */
 .breadcrumb {
-    display: flex; align-items: center; gap: 5px;
-    font-size: 0.75rem; color: var(--text-hint);
+    display: flex; align-items: baseline; gap: 5px;
+    font-size: 0.82rem; color: var(--text-sub);
     flex: 1; overflow: hidden;
 }
 .breadcrumb .crumb {
-    color: var(--accent); white-space: nowrap;
+    color: var(--text-sub); white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis; max-width: 130px;
 }
 .breadcrumb .sep { color: #b0b0b6; flex-shrink: 0; }

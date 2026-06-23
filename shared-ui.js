@@ -1,5 +1,11 @@
 /* shared-ui.js — Study Panel shared UI builders */
 
+/* このファイルは特定ページの読込を前提としない自己完結ユーティリティのため、
+   index.html等のグローバル icon() レジストリには依存させず、ここでSVGを直接保持する
+   （buildInfoCard の引数名が icon のため、外側の icon() を呼ぶと名前衝突する点にも注意）。
+   パスはindex.htmlのICONS.chevronDownと同一。 */
+const _CHEVRON_DOWN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+
 /**
  * buildInfoCard({ title, icon, body })
  *   title {string} — section label (displayed in .info-card-title)
@@ -19,7 +25,7 @@ function buildInfoCard({ title, icon, body }) {
         <div class="info-card-head" onclick="this.parentElement.classList.toggle('open')">
             ${iconHtml}
             <span class="info-card-title">${escHtml(title)}</span>
-            <span class="info-card-arrow">▾</span>
+            <span class="info-card-arrow">${_CHEVRON_DOWN_SVG}</span>
         </div>
         <div class="info-card-body"></div>`;
 
