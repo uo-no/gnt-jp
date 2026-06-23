@@ -1610,6 +1610,59 @@ animation: ac-blink 1.2s ease-in-out infinite;
     line-height: 1.8;
     color: var(--text-main);
 }
+/* ブックマーク/メモ/履歴系の一覧ページ用モディファイア。
+   .static-page は #bible-text-area（single-mode時にmax-width:44em + 左右padding:24pxで
+   聖書本文と同じ幅に揃えられている）の内側に差し込まれるため、ここで独自にmax-width/左右paddingを
+   持たせると親の幅とズレる。横方向は完全に親に委ねることで聖書本文と同一幅にする。 */
+.static-page.list-page {
+    max-width: none;
+    margin: 0;
+    padding: 32px 0 60px;
+}
+/* ブックマーク/メモ/最近読んだ箇所/最近見た単語、4ページ共通のカードUI。
+   タイトル(1行目)・補足情報(2行目)・右側メタ情報、という構造を共通クラスとして統一する。
+   ページごとの違いは _listItemCard() に渡すデータ（title/sub/meta/href）だけに閉じる。 */
+.list-item-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+}
+.list-item-card:hover { background: var(--highlight-light); border-color: var(--highlight); }
+.list-item-main { min-width: 0; flex: 1; }
+.list-item-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.list-item-sub {
+    margin-top: 4px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--text-sub);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.list-item-meta {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    color: var(--text-sub);
+    white-space: nowrap;
+}
+.list-item-empty { color: var(--text-sub); font-size: 0.85rem; }
 .static-page h3 {
     font-size: 0.9rem;
     font-weight: 700;
@@ -2806,6 +2859,11 @@ details[open] .study-summary::before {
     grid-template-columns: 1fr 0;
 }
 #main-reading-area.single-mode #bible-text-area {
+    /* grid item は width:auto だとコンテンツ量に応じてshrink-to-fitされてしまうため、
+       width:100%で明示的にグリッド列いっぱいに広げる（その上でmax-width:44emが上限を決める）。
+       本文は元々文章量が多くshrink-to-fitでも44emに達していたため見た目は変わらないが、
+       ブックマーク等のコンテンツが少ない一覧ページでは本文より狭くなっていた。 */
+    width: 100%;
     margin-left: auto;
     margin-right: auto;
     padding-left: 24px;
@@ -3760,6 +3818,12 @@ const AppState = {
     /* 本文スクロール位置（Study閉じたとき復元する） */
     scrollTop: 0,
 
+    /* UI状態（ヘッダー/パンくず/サイドバーの選択表示の唯一のソース）。
+       'bible' | 'bookmarks' | 'notes' | 'recentVerses' | 'recentWords' | 'sourcePolicy' | 'knowledge' */
+    ui: {
+        view: 'bible',
+    },
+
     /* ── ヘルパー ── */
 
     /* Reading 状態にリセット（scroll保持・study.tab保持） */
@@ -4153,6 +4217,76 @@ function _gbcGoBook() {
     sbGoTo(2);
     AppState.clearDepth();
     renderDepthHistory();
+}
+
+/* ══════════════════════════════════════════
+   UI同期: AppState.ui.view を唯一のソースとして
+   ヘッダー（document.title）/ パンくず（#global-breadcrumb）/
+   サイドバーの選択状態（ツール・履歴の active クラス）をまとめて再描画する。
+   showBookmarks() などの各ビュー関数は AppState.ui.view を設定して
+   syncUIFromState() を呼ぶだけにし、ヘッダーやパンくずを個別にDOM操作しない。
+   ══════════════════════════════════════════ */
+const VIEW_LABELS = {
+    bookmarks:    'ブックマーク',
+    notes:        'メモ',
+    recentVerses: '最近読んだ箇所',
+    recentWords:  '最近見た単語',
+    sourcePolicy: '出典・ポリシー',
+    knowledge:    'まめ知識',
+};
+
+const SIDEBAR_VIEW_NAV_IDS = {
+    bookmarks:    'nav-bookmarks',
+    notes:        'nav-notes',
+    recentVerses: 'nav-recent-verses',
+    recentWords:  'nav-recent-words',
+};
+
+function _bibleHeaderLabel() {
+    const loc = AppState.location;
+    if (!loc.testament) return '聖書';
+    if (!loc.book) return loc.testament === 'nt' ? '新約聖書' : '旧約聖書';
+    return loc.chapter != null ? `${loc.book.name} ${loc.chapter}章` : loc.book.name;
+}
+
+function updateHeader(view) {
+    const label = view === 'bible' ? _bibleHeaderLabel() : (VIEW_LABELS[view] || '');
+    document.title = label ? `${label}｜聖書アプリ` : '聖書アプリ';
+    /* view-title は互換のため維持（該当要素が無い環境でも安全な no-op） */
+    const titleEl = document.getElementById('view-title');
+    if (titleEl) titleEl.innerText = label;
+}
+
+function updateBreadcrumb(view) {
+    if (view === 'bible') {
+        renderGlobalBreadcrumb();
+        return;
+    }
+    const el = document.getElementById('global-breadcrumb');
+    if (!el) return;
+    /* 聖書の testament/book/chapter 固定表示を残さない：非bibleビューでは
+       現在のビュー名のみを表示する単純なパンくずに切り替える。
+       VIEW_LABELS の値はすべて本ファイル内の定数（ユーザー入力やentry.*データではない）。 */
+    const label = VIEW_LABELS[view] || '';
+    el.innerHTML = `<span class="gbc-item current" style="font-family:'Noto Serif JP',serif;">${label}</span>`;
+}
+
+function updateSidebarActive(view) {
+    Object.values(SIDEBAR_VIEW_NAV_IDS).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+    });
+    const activeId = SIDEBAR_VIEW_NAV_IDS[view];
+    if (activeId) {
+        const el = document.getElementById(activeId);
+        if (el) el.classList.add('active');
+    }
+}
+
+function syncUIFromState() {
+    updateHeader(AppState.ui.view);
+    updateBreadcrumb(AppState.ui.view);
+    updateSidebarActive(AppState.ui.view);
 }
 
 /* ══════════════════════════════════════════
@@ -7707,8 +7841,8 @@ function showAppInfo() {
     document.getElementById('main-reading-area').classList.add('static-view');
     document.getElementById('main-reading-area').scrollTop = 0;
 
-    const _titleElInfo = document.getElementById('view-title');
-    if (_titleElInfo) _titleElInfo.innerText = "出典・ポリシー";
+    AppState.ui.view = 'sourcePolicy';
+    syncUIFromState();
 
     const infoHtml = `
         <div class="static-page">
@@ -7794,6 +7928,28 @@ function showAppInfo() {
     app.innerHTML = infoHtml;
 }
 
+/* ブックマーク/メモ/最近読んだ箇所/最近見た単語、4ページ共通のカードUIヘルパー。
+   ★ HTML安全性: entry系データと同様、ここを通る title/sub/meta は信頼できない値として
+   _escH() で必ずエスケープする（生のテンプレートリテラル結合は禁止）。
+   href が無い（構造化フィールドが欠けている＝旧データ等）場合はクリック不可カードにする。 */
+function _escH(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+}
+
+function _listMetaDate(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return (d.getMonth() + 1) + '/' + d.getDate();
+}
+
+function _listItemCard(opts) {
+    const titleHtml = `<div class="list-item-title">${_escH(opts.title || '')}</div>`;
+    const subHtml = opts.sub ? `<div class="list-item-sub">${_escH(opts.sub)}</div>` : '';
+    const metaHtml = opts.meta ? `<div class="list-item-meta">${_escH(opts.meta)}</div>` : '';
+    const onclickAttr = opts.href ? ` onclick="location.href='${opts.href}'"` : '';
+    return `<div class="list-item-card"${onclickAttr}><div class="list-item-main">${titleHtml}${subHtml}</div>${metaHtml}</div>`;
+}
+
 /* ブックマーク一覧画面。showAppInfo()/showMameKnowledge()と同じ .static-page 差し替え方式。
    bookmarks は recentVerses と同じ構造化フィールド（bookKey/chapter/verse）を持つため、
    一覧→節移動のリンク生成は構造化フィールドのみを使用する（ref文字列の解析は一切行わない）。 */
@@ -7806,23 +7962,22 @@ function showBookmarks() {
     document.getElementById('main-reading-area').classList.add('static-view');
     document.getElementById('main-reading-area').scrollTop = 0;
 
-    const _titleElBm = document.getElementById('view-title');
-    if (_titleElBm) _titleElBm.innerText = "ブックマーク";
+    AppState.ui.view = 'bookmarks';
+    syncUIFromState();
 
     const bookmarks = window.App.storage ? window.App.storage.getBookmarks() : [];
 
     const rowsHtml = bookmarks.length
         ? bookmarks.map(b => {
-            if (!b.bookKey || b.chapter == null || b.verse == null) {
-                return `<div class="sb-row"><span>${b.ref || ''}</span></div>`;
-            }
-            const href = `index.html?book=${encodeURIComponent(b.bookKey)}&ch=${encodeURIComponent(b.chapter)}&verse=${encodeURIComponent(b.verse)}&panel=study`;
-            return `<div class="sb-row" onclick="location.href='${href}'"><span>${b.ref}</span><span class="sb-row-arrow">›</span></div>`;
+            const href = (b.bookKey && b.chapter != null && b.verse != null)
+                ? `index.html?book=${encodeURIComponent(b.bookKey)}&ch=${encodeURIComponent(b.chapter)}&verse=${encodeURIComponent(b.verse)}&panel=study`
+                : '';
+            return _listItemCard({ title: b.ref || '', meta: _listMetaDate(b.createdAt), href });
         }).join('')
-        : `<p style="color:var(--text-sub);font-size:0.85rem;">ブックマークはまだありません。節を開いて☆をタップすると、ここに表示されます。</p>`;
+        : `<p class="list-item-empty">ブックマークはまだありません。節を開いて☆をタップすると、ここに表示されます。</p>`;
 
     const html = `
-        <div class="static-page">
+        <div class="static-page list-page">
             <section>
                 <h3>ブックマーク</h3>
                 ${rowsHtml}
@@ -7847,23 +8002,22 @@ function showRecentVerses() {
     document.getElementById('main-reading-area').classList.add('static-view');
     document.getElementById('main-reading-area').scrollTop = 0;
 
-    const _titleElRv = document.getElementById('view-title');
-    if (_titleElRv) _titleElRv.innerText = "最近読んだ箇所";
+    AppState.ui.view = 'recentVerses';
+    syncUIFromState();
 
     const recentVerses = window.App.storage ? window.App.storage.getRecentVerses() : [];
 
     const rowsHtml = recentVerses.length
         ? recentVerses.map(v => {
-            if (!v.bookKey || v.chapter == null || v.verse == null) {
-                return `<div class="sb-row"><span>${v.ref || ''}</span></div>`;
-            }
-            const href = `index.html?book=${encodeURIComponent(v.bookKey)}&ch=${encodeURIComponent(v.chapter)}&verse=${encodeURIComponent(v.verse)}`;
-            return `<div class="sb-row" onclick="location.href='${href}'"><span>${v.ref}</span><span class="sb-row-arrow">›</span></div>`;
+            const href = (v.bookKey && v.chapter != null && v.verse != null)
+                ? `index.html?book=${encodeURIComponent(v.bookKey)}&ch=${encodeURIComponent(v.chapter)}&verse=${encodeURIComponent(v.verse)}`
+                : '';
+            return _listItemCard({ title: v.ref || '', meta: _listMetaDate(v.timestamp), href });
         }).join('')
-        : `<p style="color:var(--text-sub);font-size:0.85rem;">最近読んだ箇所はまだありません。</p>`;
+        : `<p class="list-item-empty">最近読んだ箇所はまだありません。</p>`;
 
     const html = `
-        <div class="static-page">
+        <div class="static-page list-page">
             <section>
                 <h3>最近読んだ箇所</h3>
                 ${rowsHtml}
@@ -7889,26 +8043,24 @@ function showRecentWords() {
     document.getElementById('main-reading-area').classList.add('static-view');
     document.getElementById('main-reading-area').scrollTop = 0;
 
-    const _titleElRw = document.getElementById('view-title');
-    if (_titleElRw) _titleElRw.innerText = "最近見た単語";
+    AppState.ui.view = 'recentWords';
+    syncUIFromState();
 
     const recentWords = window.App.storage ? window.App.storage.getRecentWords() : [];
 
     const rowsHtml = recentWords.length
         ? recentWords.map(w => {
-            const lemmaLine = `<div>${w.lemma || ''}</div>`;
-            if (!w.bookKey || w.chapter == null || w.verse == null) {
-                const locLine = `<div style="color:var(--text-sub);font-size:0.78rem;">節不明</div>`;
-                return `<div class="sb-row" style="flex-direction:column;align-items:flex-start;">${lemmaLine}${locLine}</div>`;
-            }
-            const href = `index.html?book=${encodeURIComponent(w.bookKey)}&ch=${encodeURIComponent(w.chapter)}&verse=${encodeURIComponent(w.verse)}&panel=study`;
-            const locLine = `<div style="color:var(--text-sub);font-size:0.78rem;">${w.bookKey} ${w.chapter}:${w.verse}</div>`;
-            return `<div class="sb-row" style="flex-direction:column;align-items:flex-start;" onclick="location.href='${href}'">${lemmaLine}${locLine}</div>`;
+            const hasLoc = w.bookKey && w.chapter != null && w.verse != null;
+            const href = hasLoc
+                ? `index.html?book=${encodeURIComponent(w.bookKey)}&ch=${encodeURIComponent(w.chapter)}&verse=${encodeURIComponent(w.verse)}&panel=study`
+                : '';
+            const sub = hasLoc ? `${w.bookKey} ${w.chapter}:${w.verse}` : '節不明';
+            return _listItemCard({ title: w.lemma || '', sub, meta: _listMetaDate(w.timestamp), href });
         }).join('')
-        : `<p style="color:var(--text-sub);font-size:0.85rem;">最近見た単語はまだありません。</p>`;
+        : `<p class="list-item-empty">最近見た単語はまだありません。</p>`;
 
     const html = `
-        <div class="static-page">
+        <div class="static-page list-page">
             <section>
                 <h3>最近見た単語</h3>
                 ${rowsHtml}
@@ -7924,7 +8076,7 @@ function showRecentWords() {
 /* メモ一覧画面。showBookmarks()/showRecentVerses()/showRecentWords()と同じ .static-page 差し替え方式。
    notes構造には bookKey/chapter/verse が存在しない（notes構造変更禁止のため今回も追加しない）ので、
    ref解析は一切行わず、構造化フィールドが無い場合はクリック不可表示にする。
-   content はユーザー入力の自由記述のため、表示前に簡易エスケープする（本ファイル内の既存コードと同方式）。 */
+   content はユーザー入力の自由記述のため、_listItemCard() 内の _escH() でエスケープしてから表示する。 */
 function showNotes() {
     closeMobileSidebar();
 
@@ -7934,8 +8086,8 @@ function showNotes() {
     document.getElementById('main-reading-area').classList.add('static-view');
     document.getElementById('main-reading-area').scrollTop = 0;
 
-    const _titleElNt = document.getElementById('view-title');
-    if (_titleElNt) _titleElNt.innerText = "メモ";
+    AppState.ui.view = 'notes';
+    syncUIFromState();
 
     const notes = window.App.storage ? window.App.storage.getNotes() : [];
     const sorted = notes.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -7944,18 +8096,15 @@ function showNotes() {
         ? sorted.map(n => {
             const raw = n.content || '';
             const truncated = raw.length > 100 ? raw.slice(0, 100) + '…' : raw;
-            const preview = truncated.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-            const refLabel = (n.ref || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-            if (!n.bookKey || n.chapter == null || n.verse == null) {
-                return `<div class="sb-row" style="flex-direction:column;align-items:flex-start;"><div>${refLabel}</div><div style="color:var(--text-sub);font-size:0.78rem;">${preview}</div></div>`;
-            }
-            const href = `index.html?book=${encodeURIComponent(n.bookKey)}&ch=${encodeURIComponent(n.chapter)}&verse=${encodeURIComponent(n.verse)}&panel=study`;
-            return `<div class="sb-row" style="flex-direction:column;align-items:flex-start;" onclick="location.href='${href}'"><div>${refLabel}</div><div style="color:var(--text-sub);font-size:0.78rem;">${preview}</div></div>`;
+            const href = (n.bookKey && n.chapter != null && n.verse != null)
+                ? `index.html?book=${encodeURIComponent(n.bookKey)}&ch=${encodeURIComponent(n.chapter)}&verse=${encodeURIComponent(n.verse)}&panel=study`
+                : '';
+            return _listItemCard({ title: n.ref || '', sub: truncated, meta: _listMetaDate(n.updatedAt), href });
         }).join('')
-        : `<p style="color:var(--text-sub);font-size:0.85rem;">メモはまだありません。</p>`;
+        : `<p class="list-item-empty">メモはまだありません。</p>`;
 
     const html = `
-        <div class="static-page">
+        <div class="static-page list-page">
             <section>
                 <h3>メモ</h3>
                 ${rowsHtml}
@@ -7987,7 +8136,6 @@ async function init() {
     _applyTransMode(_transMode);
     
     const isNt = SB_BOOKS.nt.some(b => b.key === book);
-    document.querySelector('.root-name') && (document.querySelector('.root-name').innerText = isNt ? '新約聖書' : '旧約聖書');
 
     const allBooks = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
     const found = allBooks.find(b => b.key === book);
@@ -7998,12 +8146,9 @@ async function init() {
     AppState.location.book      = found || null;
     AppState.location.chapter   = chNum;
 
-    /* view-title は互換のため維持 */
-    const titleEl = document.getElementById('view-title');
-    if (titleEl) titleEl.innerText = found ? `${found.name} ${ch}章` : `${book} ${ch}章`;
-
-    /* グローバルbreadcrumb を描画 */
-    renderGlobalBreadcrumb();
+    /* ヘッダー/パンくず/サイドバー選択状態は AppState.ui.view から一括同期する */
+    AppState.ui.view = 'bible';
+    syncUIFromState();
 
     syncUrlState();
 
@@ -9301,18 +9446,18 @@ async function renderCurrentPage() {
     const ch   = urlParams.chapter || '1';
 
     const isNt = SB_BOOKS.nt.some(b => b.key === book);
-    document.querySelector('.root-name') && (document.querySelector('.root-name').innerText = isNt ? '新約聖書' : '旧約聖書');
 
     const allBooks = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
     const found = allBooks.find(b => b.key === book);
-    const titleEl = document.getElementById('view-title');
-    if (titleEl) titleEl.innerText = found ? `${found.name} ${ch}章` : `${book} ${ch}章`;
 
     /* location 更新 */
     AppState.location.testament = isNt ? 'nt' : 'ot';
     AppState.location.book      = found || null;
     AppState.location.chapter   = parseInt(ch);
-    renderGlobalBreadcrumb();
+
+    /* ヘッダー/パンくず/サイドバー選択状態は AppState.ui.view から一括同期する */
+    AppState.ui.view = 'bible';
+    syncUIFromState();
 
     const hasGreek = GREEK_BOOKS.has(book);
 
@@ -9369,8 +9514,8 @@ function showMameKnowledge() {
     document.getElementById('main-reading-area').classList.add('static-view');
     document.getElementById('main-reading-area').scrollTop = 0;
 
-    const _titleElMame = document.getElementById('view-title');
-    if (_titleElMame) _titleElMame.innerText = "まめ知識";
+    AppState.ui.view = 'knowledge';
+    syncUIFromState();
 
     const contentHtml = `
 <div class="static-page">
