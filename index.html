@@ -3624,6 +3624,7 @@ details[open] .study-summary::before {
                 <span id="mobile-nav-title"></span>
                 <button class="share-url-btn bookmark-btn" onclick="toggleBookmark()" style="margin-left:auto;" title="この節をブックマーク">☆</button>
                 <button class="share-url-btn" onclick="copyShareUrl()" title="このURLをコピー">🔗</button>
+                <button class="share-url-btn note-btn" onclick="_toggleNoteUI()" title="この節にメモを書く">📝</button>
             </div>
 
             <div class="panel-header">
@@ -3634,6 +3635,7 @@ details[open] .study-summary::before {
                 <span id="active-v" style="font-size: 0.78rem; color: var(--text-sub); font-weight: 400;"></span>
                 <button class="share-url-btn bookmark-btn" onclick="toggleBookmark()" title="この節をブックマーク">☆</button>
                 <button class="share-url-btn" onclick="copyShareUrl()" title="このURLをコピー">🔗</button>
+                <button class="share-url-btn note-btn" onclick="_toggleNoteUI()" title="この節にメモを書く">📝</button>
             </div>
 
             <!-- reading-core-bar: 語形ヘッダー（Study時のみ） -->
@@ -4065,6 +4067,26 @@ function _syncBookmarkButtons(ref) {
     });
 }
 
+/* 📝ボタン：開いている方のメモブロック（'wlv'=節一覧 / 'rn'=深く読む。同時に存在するのは
+   片方のみ）を開閉する。読書の主役は本文なので、メモは既定では折りたたんでおき、
+   ここでのクリック時のみ展開する。 */
+function _toggleNoteUI() {
+    const block = document.getElementById('reading-note-block-wlv') || document.getElementById('reading-note-block-rn');
+    if (!block) return;
+    block.style.display = (block.style.display === 'block') ? 'none' : 'block';
+}
+
+/* 📝ボタンの見た目を保存済みメモの有無に同期する（_syncBookmarkButtons と同じ方式） */
+function _syncNoteButtons(ref) {
+    if (!window.App.storage) return;
+    const r = ref || _currentVerseRef();
+    const existing = r ? window.App.storage.getNotes().find(n => n.ref === r) : null;
+    const hasNote = !!(existing && existing.content && existing.content.trim().length > 0);
+    document.querySelectorAll('.note-btn').forEach(btn => {
+        btn.textContent = hasNote ? '📝•' : '📝';
+    });
+}
+
 /* 節ごとのメモ（1節=1メモ）UI。Study Panelには「節一覧」（#word-list-view）と
    「語の詳しく見る」（#reading-notes-area）の2つの表示モードがあり、それぞれ
    innerHTMLを丸ごと書き換えるため、メモブロックはそのどちらの管理下にも置かず、
@@ -4080,23 +4102,27 @@ function _noteBlockHtml(idSuffix) {
         </div>`;
 }
 
-/* 現在の節のrefに紐づくメモを textarea へ読み込む（既存の getNotes() のみ使用） */
+/* 現在の節のrefに紐づくメモを textarea へ読み込む（既存の getNotes() のみ使用）。
+   メモは読書の主役ではないため、節を開いた直後は常に折りたたんだ状態にする
+   （📝ボタンで _toggleNoteUI() から展開する）。 */
 function _loadNoteUI(idSuffix) {
     const block = document.getElementById('reading-note-block-' + idSuffix);
     const textarea = document.getElementById('reading-note-textarea-' + idSuffix);
     const statusEl = document.getElementById('reading-note-status-' + idSuffix);
     if (!block || !textarea) return;
     if (statusEl) statusEl.textContent = '';
+    block.style.display = 'none';
 
     const ref = _currentVerseRef();
     if (!ref || !window.App.storage) {
-        block.style.display = 'none';
+        textarea.value = '';
+        _syncNoteButtons(ref);
         return;
     }
-    block.style.display = 'block';
     const notes = window.App.storage.getNotes();
     const existing = notes.find(n => n.ref === ref);
     textarea.value = existing ? existing.content : '';
+    _syncNoteButtons(ref);
 }
 
 /* 保存ボタン押下時のみ呼ばれる。saveNote(ref, content) のみ使用、localStorage直接アクセスなし。 */
@@ -4114,6 +4140,7 @@ function _saveCurrentNote(idSuffix) {
     const textarea = document.getElementById('reading-note-textarea-' + idSuffix);
     const ok = window.App.storage.saveNote(ref, textarea ? textarea.value : '', bookKey, chapter, verse);
     if (statusEl) statusEl.textContent = ok ? '保存しました' : '保存できませんでした';
+    _syncNoteButtons(ref);
 }
 
 function applyShareState(state) {
