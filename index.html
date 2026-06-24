@@ -352,16 +352,6 @@ flex-shrink: 0;
 
     #reading-notes-wrap {
         padding-top: 0;
-        /* PC: パネルが height:auto のためスクロールコンテナは flex:1 で伸張しない。
-           max-height でスクロール上限を決め、コンテンツ高さ = パネル高さ にする。
-           48px は .panel-header のおおよその高さ（パネル最大高 70vh から差し引く）。 */
-        flex: none;
-        max-height: calc(70vh - 48px);
-    }
-    #word-list-view {
-        /* 同上：節一覧表示のスクロールコンテナ */
-        flex: none;
-        max-height: calc(70vh - 48px);
     }
 }
 
@@ -778,7 +768,8 @@ padding: 0;
 display: none;
 flex-direction: column;
 flex-shrink: 0;
-height: auto;
+height: 46vh;
+min-height: 220px;
 max-height: 70vh;
 box-sizing: border-box;
 position: relative;
@@ -900,9 +891,6 @@ font-size: 0.82rem; opacity: 0; pointer-events: none; transition: opacity .2s, t
 #reading-notes-wrap {
 display: flex;
 flex-direction: column;
-flex: 1;
-min-height: 0;
-overflow-y: auto;
 }
 #reading-notes-area {
 padding: 0 22px 60px;
@@ -3519,6 +3507,26 @@ details[open] .study-summary::before {
     font-family: 'Noto Sans JP', sans-serif;
     text-decoration: none;
 }
+
+/* PC: コンテンツ高さへの収縮。ベースCSS（height:46vh）より後方に置くことで !important 不要。
+   ドラッグリサイズは panel.style.height='Xpx'（inline）が hit-content CSS を上書きするため維持される。
+   close時に panelEl.style.height='' でinlineがリセットされ、次回openで fit-content が再適用される。 */
+@media (min-width: 901px) {
+    #bottom-depth-panel {
+        height: fit-content;
+        min-height: 0;
+    }
+    #reading-notes-wrap {
+        flex: none !important;
+        max-height: calc(70vh - 44px);
+        overflow-y: auto;
+    }
+    #word-list-view {
+        flex: none !important;
+        max-height: calc(70vh - 44px);
+        overflow-y: auto;
+    }
+}
 </style>
 
 </head>
@@ -3737,7 +3745,7 @@ details[open] .study-summary::before {
             </div>
 
             <!-- メインコンテンツエリア（タブなし・単一スクロール） -->
-            <div id="reading-notes-wrap" style="display:none;">
+            <div id="reading-notes-wrap" style="display:none;flex:1;min-height:0;overflow-y:auto;flex-direction:column;">
                 <div id="reading-notes-area"></div>
                 <!-- 節ごとのメモ（追記。reading-notes-area とは別要素のため、その innerHTML 書き換えの影響を受けない） -->
                 <div id="reading-note-block-rn" style="display:none;padding:16px 22px 22px;border-top:1px solid var(--border-soft);">
@@ -4735,7 +4743,7 @@ function _openWordListInternal(vNum, words) {
 
     const listEl = document.createElement('div');
     listEl.id = 'word-list-view';
-    listEl.style.cssText = 'display:flex;flex-direction:column;';
+    listEl.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;';
 
     if (!words.length) {
         listEl.innerHTML = `<p style="color:var(--text-sub);font-size:0.82rem;text-align:center;padding:32px 18px;">この節の語形データがありません</p>`;
