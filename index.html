@@ -724,7 +724,6 @@ display: none;
 #word-detail-view { display: none; }
 
 .app-footer {
-margin-top: 1;
 border-top: 1px solid var(--border-soft);
 padding: 12px 48px;
 display: flex;
@@ -8100,7 +8099,16 @@ function _escH(s) {
 function _listMetaDate(ts) {
     if (!ts) return '';
     const d = new Date(ts);
-    return (d.getMonth() + 1) + '/' + d.getDate();
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dStart     = new Date(d.getFullYear(),   d.getMonth(),   d.getDate());
+    const diffDays   = Math.round((todayStart - dStart) / 86400000);
+    if (diffDays === 0) return '今日';
+    if (diffDays === 1) return '昨日';
+    if (diffDays >= 2 && diffDays <= 6) return diffDays + '日前';
+    if (diffDays === 7) return '1週間前';
+    const DAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
+    return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日（' + DAY_JA[d.getDay()] + '）';
 }
 
 function _listItemCard(opts) {
@@ -8133,7 +8141,10 @@ function showBookmarks() {
             const href = (b.bookKey && b.chapter != null && b.verse != null)
                 ? `index.html?book=${encodeURIComponent(b.bookKey)}&ch=${encodeURIComponent(b.chapter)}&verse=${encodeURIComponent(b.verse)}&panel=study`
                 : '';
-            return _listItemCard({ title: b.ref || '', meta: _listMetaDate(b.createdAt), href });
+            const bTitle = (b.bookKey && b.chapter != null && b.verse != null)
+                ? `${BOOK_SHORT[b.bookKey] || b.bookKey}${b.chapter}章${b.verse}節`
+                : (b.ref || '');
+            return _listItemCard({ title: bTitle, meta: _listMetaDate(b.createdAt), href });
         }).join('')
         : `<p class="list-item-empty">ブックマークはまだありません。節を開いて<span class="icon">${icon('bookmark')}</span>をタップすると、ここに表示されます。</p>`;
 
@@ -8169,7 +8180,10 @@ function showRecentVerses() {
             const href = (v.bookKey && v.chapter != null && v.verse != null)
                 ? `index.html?book=${encodeURIComponent(v.bookKey)}&ch=${encodeURIComponent(v.chapter)}&verse=${encodeURIComponent(v.verse)}`
                 : '';
-            return _listItemCard({ title: v.ref || '', meta: _listMetaDate(v.timestamp), href });
+            const vTitle = (v.bookKey && v.chapter != null && v.verse != null)
+                ? `${BOOK_SHORT[v.bookKey] || v.bookKey}${v.chapter}章${v.verse}節`
+                : (v.ref || '');
+            return _listItemCard({ title: vTitle, meta: _listMetaDate(v.timestamp), href });
         }).join('')
         : `<p class="list-item-empty">最近読んだ箇所はまだありません。</p>`;
 
@@ -8207,7 +8221,9 @@ function showRecentWords() {
             const href = hasLoc
                 ? `index.html?book=${encodeURIComponent(w.bookKey)}&ch=${encodeURIComponent(w.chapter)}&verse=${encodeURIComponent(w.verse)}&panel=study`
                 : '';
-            const sub = hasLoc ? `${w.bookKey} ${w.chapter}:${w.verse}` : '節不明';
+            const sub = hasLoc
+                ? `${BOOK_SHORT[w.bookKey] || w.bookKey}${Number(w.chapter)}章${Number(w.verse)}節`
+                : '節不明';
             return _listItemCard({ title: w.lemma || '', sub, meta: _listMetaDate(w.timestamp), href });
         }).join('')
         : `<p class="list-item-empty">最近見た単語はまだありません。</p>`;
@@ -8248,7 +8264,10 @@ function showNotes() {
             const href = (n.bookKey && n.chapter != null && n.verse != null)
                 ? `index.html?book=${encodeURIComponent(n.bookKey)}&ch=${encodeURIComponent(n.chapter)}&verse=${encodeURIComponent(n.verse)}&panel=study`
                 : '';
-            return _listItemCard({ title: n.ref || '', sub: truncated, meta: _listMetaDate(n.updatedAt), href });
+            const nTitle = (n.bookKey && n.chapter != null && n.verse != null)
+                ? `${BOOK_SHORT[n.bookKey] || n.bookKey}${n.chapter}章${n.verse}節`
+                : (n.ref || '');
+            return _listItemCard({ title: nTitle, sub: truncated, meta: _listMetaDate(n.updatedAt), href });
         }).join('')
         : `<p class="list-item-empty">メモはまだありません。</p>`;
 
@@ -8876,8 +8895,12 @@ function _wordToFlowChip(w, i, _bookKey, _ch) {
     // ★ ref は表示専用。ナビゲーション/ロジックには bookKey / ch / verse を使う。
     const ref      = w.ref    || '';
     // ★ SSOT: 書物キー・章番号は構造フィールドから取得（ref パース禁止）
-    const bookKey  = w.bookKey  || _bookKey || '';
-    const ch       = w.ch       != null ? w.ch       : (_ch != null ? _ch : null);
+    // 生データのフィールド名は book / chapter（bookKey / ch ではない）なのでフォールバック追加
+    const bookKey  = w.bookKey  || w.book    || _bookKey || '';
+    const ch       = w.ch      != null ? w.ch
+                   : w.chapter != null ? w.chapter
+                   : _ch       != null ? _ch
+                   : null;
     const verse    = w.verse    != null ? w.verse    : null;
     const strong   = normalizeStrong(w.strong);
     // 表示言語の優先順位: gloss → lemma → '—'
