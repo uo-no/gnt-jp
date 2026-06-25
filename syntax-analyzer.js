@@ -1325,7 +1325,13 @@ CheckEvaluator.register('target_pos_eq',
     (ctx, [posVal]) => ctx.posCode === posVal
 );
 CheckEvaluator.register('target_is_proper_noun',
-    (ctx) => ctx.target?.type === 'proper'
+    (ctx) => {
+        if (ctx.target?.type === 'proper') return true;
+        // ギリシャ語固有名詞はレンマが大文字始まり（U+0391–U+03A9: Α–Ω）
+        const lemma = ctx.target?.lemma ?? '';
+        const code = lemma.length > 0 ? lemma.codePointAt(0) : 0;
+        return code >= 0x0391 && code <= 0x03A9;
+    }
 );
 
 // ターゲットのレンマがリストに含まれるか（registry の named list 参照）
@@ -1353,9 +1359,7 @@ CheckEvaluator.register('verb_lemma_in_list',
         const list = ctx._registry?.getList?.(listName);
         if (!list) return false;
         return (ctx.tokens ?? []).some(t => {
-            // entryPosCode は morph-decoder.js 依存だが、ここでは ctx 経由で使用
-            const posCode = typeof entryPosCode === 'function' ? entryPosCode(t) : (t.pos ?? '');
-            return posCode === 'V' && list.has(t.lemma ?? '');
+            return _resolveEntryPos(t) === 'V' && list.has(t.lemma ?? '');
         });
     }
 );
@@ -1371,8 +1375,7 @@ CheckEvaluator.register('context_verb_lemma_in_list',
         const list = ctx._registry?.getList?.(listName);
         if (!list) return false;
         return (ctx.tokens ?? []).some(t => {
-            const posCode = typeof entryPosCode === 'function' ? entryPosCode(t) : (t.pos ?? '');
-            return posCode === 'V' && list.has(t.lemma ?? '');
+            return _resolveEntryPos(t) === 'V' && list.has(t.lemma ?? '');
         });
     }
 );
@@ -1410,8 +1413,7 @@ CheckEvaluator.register('context_has_negation',
 // コンテキスト: 動詞が συν- 複合語か
 CheckEvaluator.register('context_verb_has_syn_prefix',
     (ctx) => (ctx.tokens ?? []).some(t => {
-        const posCode = typeof entryPosCode === 'function' ? entryPosCode(t) : (t.pos ?? '');
-        if (posCode !== 'V') return false;
+        if (_resolveEntryPos(t) !== 'V') return false;
         const l = t.lemma ?? '';
         return l.startsWith('συν') || l.startsWith('συμ') || l.startsWith('συγ')
             || l.startsWith('συλ') || l.startsWith('συρ');
@@ -1725,12 +1727,62 @@ class GenitiveScorer extends CandidateScorer {
         // registry の getList 参照を ctx に注入（head_lemma_in_list 等で使用）
         const enrichedCtx = Object.assign(Object.create(ctx), { _registry: registry });
 
-        return types
+        const results = types
             // priority 昇順で評価（数値が小さい方が先）
             .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
             .map(typeDef => this._evaluateType(typeDef, enrichedCtx))
             // null（対象外）と rawScore = 0 を除外
             .filter(result => result !== null && result.rawScore > 0);
+
+        // Phase 2: genitive.absolute 誤発火抑制
+        // ① target が分詞形の場合 → ParticipleScorer の participle.genitive_absolute に委譲
+        // ② target が名詞形の場合 → 近接 3 語以内に属格分詞がない場合は抑制
+        //    (genitive.absolute は属格分詞＋属格名詞の構文を対象とするため)
+        const gaCand = results.find(r => r.typeId === 'genitive.absolute');
+        if (gaCand) {
+            if (enrichedCtx.morph?.mood === 'participle') {
+                // 分詞は ParticipleScorer が担当するため GenitiveScorer 側では除外
+                gaCand.rawScore = 0;
+            } else {
+                // 名詞: 近接（3語以内）に属格分詞がなければ非属格絶対構文として抑制
+                const ti   = enrichedCtx.targetIdx;
+                const toks = enrichedCtx.tokens ?? [];
+                const hasNearGenitiveParticiple = toks.some((t, i) => {
+                    if (i === ti || Math.abs(i - ti) > 3) return false;
+                    const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
+                    return m.mood === 'participle' && m.case === 'genitive';
+                });
+                if (!hasNearGenitiveParticiple) gaCand.rawScore = 0;
+            }
+        }
+
+        // Phase 6a: genitive.subjective / genitive.objective 誤発火抑制
+        // agentive_semantics / patient_semantics が無条件発火するため
+        // 構造的条件を後処理で補う。
+        //
+        // 抑制条件 ①: 前置詞支配属格 (isAfterPrep)
+        //   前置詞が格の意味を決定するため subjective/objective は非適用。
+        //   例: ἐκ βραχίονος, δι' ἔργων, μετὰ αὐτῶν
+        //
+        // 抑制条件 ②: head noun が action_noun_lemmas に存在しない
+        //   Wallace GGBB pp.113-121: 動作名詞 head がなければ
+        //   subjective/objective は構造的に成立しない。
+        {
+            const subj = results.find(r => r.typeId === 'genitive.subjective');
+            const obj  = results.find(r => r.typeId === 'genitive.objective');
+            if (subj || obj) {
+                const suppress = enrichedCtx.isAfterPrep ||
+                    !registry.getList('action_noun_lemmas').has(
+                        enrichedCtx.headNoun?.lemma ?? ''
+                    );
+                if (suppress) {
+                    if (subj) subj.rawScore = 0;
+                    if (obj)  obj.rawScore  = 0;
+                }
+            }
+        }
+
+        return results.filter(r => r.rawScore > 0);
     }
 }
 
@@ -1768,7 +1820,7 @@ class DativeScorer extends CandidateScorer {
         //   - target_lemma_in_list('temporal_noun_lemmas') など
         const enrichedCtx = Object.assign(Object.create(ctx), { _registry: registry });
 
-        return types
+        const results = types
             // priority 昇順で評価（数値が小さい方が先）
             .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
             // 各 type を基底クラスの _evaluateType で評価:
@@ -1780,6 +1832,34 @@ class DativeScorer extends CandidateScorer {
             .map(typeDef => this._evaluateType(typeDef, enrichedCtx))
             // null（required_* 不一致で対象外）と rawScore = 0 を除外
             .filter(result => result !== null && result.rawScore > 0);
+
+        // Phase 3: 手段的与格の優先補正
+        // πίστις / χάρις / δύναμις / πνεῦμα など道具的意味の強い名詞を
+        // dative.sphere / dative.manner より dative.means が勝つよう補正する。
+        // 前置詞 ἐν の直後（領域的与格の明示マーカー）の場合は補正しない。
+        const INSTRUMENTAL_LEMMAS = new Set([
+            'πίστις', 'χάρις', 'δύναμις', 'πνεῦμα',
+            'νόμος', 'ἀλήθεια', 'σοφία', 'δικαιοσύνη',
+        ]);
+        const targetLemma = enrichedCtx.target?.lemma ?? '';
+        if (INSTRUMENTAL_LEMMAS.has(targetLemma) && !enrichedCtx.isAfterPrep) {
+            // ἐν が直前節にある場合（文脈的 sphere）は除外
+            const hasEn = enrichedCtx.tokens.some(
+                (t, i) => i < enrichedCtx.targetIdx && (t.lemma === 'ἐν' || t.text === 'ἐν')
+            );
+            if (!hasEn) {
+                const means  = results.find(r => r.typeId === 'dative.means');
+                const sphere = results.find(r => r.typeId === 'dative.sphere');
+                const manner = results.find(r => r.typeId === 'dative.manner');
+                // means: 45 + 35 = 80 (sphere の最大 65, manner の最大 75 を超える)
+                if (means)  means.rawScore  += 35;
+                if (sphere) sphere.rawScore  = Math.max(0, sphere.rawScore - 20);  // 65 → 45
+                // χάρις 等が manner_noun_lemmas に含まれる場合も manner を抑制
+                if (manner) manner.rawScore  = Math.max(0, manner.rawScore - 20);  // 75 → 55
+            }
+        }
+
+        return results;
     }
 }
 
@@ -1815,22 +1895,59 @@ class ParticipleScorer extends CandidateScorer {
         //   - context_verb_lemma_in_list('perception_verb_lemmas') などのリスト参照で使用
         const enrichedCtx = Object.assign(Object.create(ctx), { _registry: registry });
 
-        return types
+        const results = types
             // priority 昇順で評価（数値が小さい方が先）
             .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
-            // 各 type を基底クラスの _evaluateType で評価:
-            //   1. required_case/required_mood/required_pos チェック
-            //   2. stub → default_confidence を rawScore とする
-            //   3. exclusions → 1件でも true なら rawScore = 0
-            //   4. detection.signals を評価し base_weight から weight 加算
-            //      例: article_agrees_case_gender_number() → +weight
-            //          context_has_case_gender_number_match() → +weight
-            //          distance_to_match_le(2) → +weight
-            //   5. RawCandidate { typeId, rawScore, signalsMatched, signalsFailed, deltas, typeDef } を返す
             .map(typeDef => this._evaluateType(typeDef, enrichedCtx))
-            // null（required_* 不一致で対象外）と rawScore = 0 を除外
             .filter(result => result !== null && result.rawScore > 0);
+
+        // Phase 2: participle.genitive_absolute 誤発火抑制
+        // 属格絶対構文は原則無冠詞。冠詞付き属格分詞は限定用法（attributive）のため抑制。
+        if (enrichedCtx.hasArticleBefore) {
+            const ga = results.find(r => r.typeId === 'participle.genitive_absolute');
+            if (ga) ga.rawScore = 0;
+        }
+
+        return results.filter(r => r.rawScore > 0);
     }
+}
+
+
+// =============================================================
+// § 3b.  _resolveEntryPos — POS コード解決ヘルパー
+// =============================================================
+
+/**
+ * トークンの POS コードを解決する。
+ * entryPosCode グローバルが利用可能な場合はそれを優先する。
+ * 利用不可（Node.js テスト環境など）は morph 文字列と直接フィールドから推定する。
+ *
+ * morph 文字列の形式: "V-AOP-NPM" / "N-GSM" / "PREP" / "CONJ" / "ADV" など
+ * 先頭セグメントが POS コード:
+ *   - 単一文字 (V/N/A/T/P/R/D/X/I/B) → そのまま返す
+ *   - "PREP" / "COND" → 前置詞 'P'
+ *   - "CONJ"          → 接続詞 'C'
+ *   - "ADV" / "PRT"   → 副詞・助詞 'D'
+ *   - "PART" / "INJ"  → 不変化詞 'X'
+ */
+function _resolveEntryPos(t) {
+    if (!t || typeof t !== 'object') return '';
+    if (typeof entryPosCode === 'function') {
+        const r = entryPosCode(t);
+        if (r) return r;
+    }
+    if (t.pos) return String(t.pos).replace(/-$/, '').toUpperCase();
+    if (typeof t.morph === 'string' && t.morph) {
+        const seg = t.morph.split('-')[0];
+        if (seg === 'PREP' || seg === 'COND') return 'P';
+        if (seg === 'CONJ') return 'C';
+        if (seg === 'ADV' || seg === 'PRT') return 'D';
+        if (seg === 'PART' || seg === 'INJ') return 'X';
+        if (seg.length === 1) return seg;
+    }
+    // 動詞固有フィールドが存在すれば動詞と判定
+    if (t.mood || t.tense || t.voice) return 'V';
+    return '';
 }
 
 
@@ -1855,8 +1972,8 @@ const ContextBuilder = (() => {
     /** 節の主動詞（分詞・不定詞以外の定形動詞）を返す */
     function _findMainVerb(tokens) {
         return tokens.find(t => {
-            const pos = typeof entryPosCode === 'function' ? entryPosCode(t) : (t.pos ?? '');
-            const m   = typeof decodeMorph  === 'function' ? decodeMorph(t)  : {};
+            const pos = _resolveEntryPos(t);
+            const m   = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
             return pos === 'V' && m.mood && m.mood !== 'participle' && m.mood !== 'infinitive';
         }) ?? null;
     }
@@ -1864,7 +1981,7 @@ const ContextBuilder = (() => {
     /** コプラ動詞を返す */
     function _findCopulaVerb(tokens) {
         return tokens.find(t => {
-            const pos = typeof entryPosCode === 'function' ? entryPosCode(t) : (t.pos ?? '');
+            const pos = _resolveEntryPos(t);
             if (pos !== 'V') return false;
             const lemma = (t.lemma ?? '').trim();
             const word  = typeof cleanText === 'function' ? cleanText(t) : (t.word ?? '');
@@ -1884,7 +2001,7 @@ const ContextBuilder = (() => {
         let bestDist = Infinity;
         tokens.forEach((t, i) => {
             if (i === targetIdx) return;
-            const pos = typeof entryPosCode === 'function' ? entryPosCode(t) : (t.pos ?? '');
+            const pos = _resolveEntryPos(t);
             if (!['N','T','A','R','D'].includes(pos)) return;
             const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
             if (m.case === morph.case && m.gender === morph.gender && m.number === morph.number) {
@@ -1899,7 +2016,7 @@ const ContextBuilder = (() => {
     function _findGenitiveNoun(tokens, targetIdx) {
         return tokens.find((t, i) => {
             if (i === targetIdx) return false;
-            const pos = typeof entryPosCode === 'function' ? entryPosCode(t) : (t.pos ?? '');
+            const pos = _resolveEntryPos(t);
             if (!['N','A','R','D','P'].includes(pos)) return false;
             const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
             return m.case === 'genitive';
@@ -1910,15 +2027,14 @@ const ContextBuilder = (() => {
     function _findPerceptionVerb(tokens, _targetIdx, perceptionLemmas) {
         if (!perceptionLemmas || perceptionLemmas.size === 0) return null;
         return tokens.find(t => {
-            const pos = typeof entryPosCode === 'function' ? entryPosCode(t) : (t.pos ?? '');
-            return pos === 'V' && perceptionLemmas.has(t.lemma ?? '');
+            return _resolveEntryPos(t) === 'V' && perceptionLemmas.has(t.lemma ?? '');
         }) ?? null;
     }
 
     /** ヘッド名詞を探す（属格用：直前の名詞系トークン） */
     function _findHeadNoun(tokens, targetIdx) {
         for (let i = targetIdx - 1; i >= 0; i--) {
-            const pos = typeof entryPosCode === 'function' ? entryPosCode(tokens[i]) : (tokens[i].pos ?? '');
+            const pos = _resolveEntryPos(tokens[i]);
             if (['N','A','R'].includes(pos)) return tokens[i];
             if (!['T','D'].includes(pos)) break; // 冠詞・副詞は飛ばす、それ以外で中断
         }
@@ -1929,9 +2045,7 @@ const ContextBuilder = (() => {
     function _checkArticleBefore(tokens, targetIdx) {
         for (let back = 1; back <= 2; back++) {
             if (targetIdx - back < 0) break;
-            const pos = typeof entryPosCode === 'function'
-                ? entryPosCode(tokens[targetIdx - back])
-                : (tokens[targetIdx - back].pos ?? '');
+            const pos = _resolveEntryPos(tokens[targetIdx - back]);
             if (pos === 'T') return true;
             if (pos !== 'A') break;
         }
@@ -1945,8 +2059,8 @@ const ContextBuilder = (() => {
     function _buildInitialRoleMap(tokens) {
         const roles = new Map();
         tokens.forEach((t, idx) => {
-            const pos = typeof entryPosCode === 'function' ? entryPosCode(t) : (t.pos ?? '');
-            const m   = typeof decodeMorph  === 'function' ? decodeMorph(t)  : {};
+            const pos = _resolveEntryPos(t);
+            const m   = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
             let role = 'other';
             if (pos === 'V') {
                 role = m.mood === 'participle' ? 'ptc'
@@ -1960,7 +2074,7 @@ const ContextBuilder = (() => {
                 if (m.case === 'nominative') role = 'subj';
                 else if (m.case === 'accusative') {
                     const prev = idx > 0 ? tokens[idx - 1] : null;
-                    const prevPos = prev ? (typeof entryPosCode === 'function' ? entryPosCode(prev) : (prev.pos ?? '')) : '';
+                    const prevPos = prev ? _resolveEntryPos(prev) : '';
                     role = prevPos === 'P' ? 'other' : 'obj';
                 } else if (m.case === 'genitive' || m.case === 'dative') {
                     role = 'mod';
@@ -1982,20 +2096,16 @@ const ContextBuilder = (() => {
          * @returns {AnalysisContext}
          */
         build(target, tokens, targetIdx, registry) {
-            const morph   = typeof decodeMorph  === 'function' ? decodeMorph(target)  : {};
-            const posCode = typeof entryPosCode === 'function' ? entryPosCode(target) : (target.pos ?? '');
-            const word    = typeof cleanText    === 'function' ? cleanText(target)    : (target.word ?? '');
+            const morph   = typeof decodeMorph === 'function' ? decodeMorph(target) : {};
+            const posCode = _resolveEntryPos(target);
+            const word    = typeof cleanText   === 'function' ? cleanText(target)   : (target.word ?? '');
 
             // 周辺トークン
             const prevToken = targetIdx > 0 ? tokens[targetIdx - 1] : null;
-            const prevPos   = prevToken
-                ? (typeof entryPosCode === 'function' ? entryPosCode(prevToken) : (prevToken.pos ?? ''))
-                : '';
+            const prevPos   = prevToken ? _resolveEntryPos(prevToken) : '';
             const prevLemma = prevToken?.lemma ?? '';
             const nextToken = targetIdx < tokens.length - 1 ? tokens[targetIdx + 1] : null;
-            const nextPos   = nextToken
-                ? (typeof entryPosCode === 'function' ? entryPosCode(nextToken) : (nextToken.pos ?? ''))
-                : '';
+            const nextPos   = nextToken ? _resolveEntryPos(nextToken) : '';
 
             // 節レベル
             const mainVerb    = _findMainVerb(tokens);
@@ -2020,8 +2130,7 @@ const ContextBuilder = (() => {
             const negationLemmas   = registry?.getList?.('negation_lemmas')        ?? new Set();
 
             const hasGivingVerb = tokens.some(t => {
-                const pos = typeof entryPosCode === 'function' ? entryPosCode(t) : (t.pos ?? '');
-                return pos === 'V' && givingLemmas.has(t.lemma ?? '');
+                return _resolveEntryPos(t) === 'V' && givingLemmas.has(t.lemma ?? '');
             });
 
             const hasAdversative = tokens.some(t => {
@@ -2067,13 +2176,13 @@ class WordOrderAnalyzer {
         const SKIP_POS = new Set(['C', 'T']);
 
         const mainVerbIdx = tokens.findIndex(t => {
-            const pos = typeof entryPosCode === 'function' ? entryPosCode(t) : (t.pos ?? '');
-            const m   = typeof decodeMorph  === 'function' ? decodeMorph(t)  : {};
+            const pos = _resolveEntryPos(t);
+            const m   = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
             return pos === 'V' && m.mood && m.mood !== 'participle' && m.mood !== 'infinitive';
         });
         if (mainVerbIdx < 0) return null;
 
-        const pos  = typeof entryPosCode === 'function' ? entryPosCode(target) : (target.pos ?? '');
+        const pos  = _resolveEntryPos(target);
         const role = roleMap.get(target)?.role;
 
         if (!role || role === 'other' || role === 'conj') return null;
@@ -2083,12 +2192,10 @@ class WordOrderAnalyzer {
         if (targetIdx < mainVerbIdx) {
             if (role === 'subj') {
                 const effectiveStart = tokens.findIndex(t2 => {
-                    const p = typeof entryPosCode === 'function' ? entryPosCode(t2) : (t2.pos ?? '');
-                    return !SKIP_POS.has(p);
+                    return !SKIP_POS.has(_resolveEntryPos(t2));
                 });
                 const hasPrior = tokens.slice(0, targetIdx).some(t2 => {
-                    const p = typeof entryPosCode === 'function' ? entryPosCode(t2) : (t2.pos ?? '');
-                    return !SKIP_POS.has(p);
+                    return !SKIP_POS.has(_resolveEntryPos(t2));
                 });
                 if (targetIdx === effectiveStart || !hasPrior) return null; // 無標
                 return {
@@ -2110,8 +2217,7 @@ class WordOrderAnalyzer {
         // ② 動詞が節の実質先頭 → verb-initial（動詞自身にのみ適用）
         if (targetIdx === mainVerbIdx) {
             const firstContentIdx = tokens.findIndex(t2 => {
-                const p = typeof entryPosCode === 'function' ? entryPosCode(t2) : (t2.pos ?? '');
-                return !SKIP_POS.has(p);
+                return !SKIP_POS.has(_resolveEntryPos(t2));
             });
             if (mainVerbIdx === firstContentIdx && tokens.length > mainVerbIdx + 1) {
                 return {
@@ -2161,14 +2267,15 @@ class SyntaxAnalyzer {
         // 1. コンテキスト構築
         const ctx = ContextBuilder.build(target, tokens, targetIdx, this.registry);
 
-        // 2. 担当スコアラーを選択（先頭一致・1件のみ）
-        const scorer = this.scorers.find(s => s.canHandle(ctx));
-        if (!scorer) {
+        // 2. 担当スコアラーを全件選択（格と法の両方を持つトークン対応）
+        // 例: 属格分詞は GenitiveScorer + ParticipleScorer の両方が処理する
+        const activeScorers = this.scorers.filter(s => s.canHandle(ctx));
+        if (!activeScorers.length) {
             return this._emptyOutput(ctx);
         }
 
-        // 3. 候補スコア計算
-        const rawCandidates = scorer.score(ctx, this.registry);
+        // 3. 候補スコア計算（全スコアラーの結果を統合）
+        const rawCandidates = activeScorers.flatMap(s => s.score(ctx, this.registry));
 
         // 4. 正規化
         const candidates = this.normalizer.normalize(rawCandidates, this.registry.getShared());
@@ -2492,8 +2599,8 @@ if (typeof module !== 'undefined' && module.exports) {
         target, tokens, targetIdx
     ) {
         const mainVerbIdx = tokens.findIndex(t => {
-            const pos = typeof entryPosCode === 'function' ? entryPosCode(t) : (t.pos ?? '');
-            const m   = typeof decodeMorph  === 'function' ? decodeMorph(t)  : {};
+            const pos = _resolveEntryPos(t);
+            const m   = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
             return pos === 'V' && m.mood && m.mood !== 'participle' && m.mood !== 'infinitive';
         });
 

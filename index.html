@@ -3781,9 +3781,29 @@ details[open] .study-summary::before {
 </div>
 
 <script src="./shared-ui.js"></script>
+<script src="./syntax-analyzer.js"></script>
 <script>
 let abbottSmithDict = null;
 let _proximityTokens = [];
+
+/* decodeMorph / cleanText — bible_data tokens have direct case/mood/tense/voice fields */
+function decodeMorph(e) {
+    if (!e || typeof e !== 'object') return {};
+    return {
+        pos:    e.pos || (e.class ? String(e.class).slice(0, 1).toUpperCase() : ''),
+        tense:  e.tense  || '',
+        voice:  e.voice  || '',
+        mood:   e.mood   || '',
+        case:   e.case   || '',
+        number: e.number || '',
+        gender: e.gender || '',
+        person: e.person || '',
+    };
+}
+function cleanText(e) {
+    const s = (e && typeof e === 'object') ? (e.text || e.normalized || '') : String(e || '');
+    return s.replace(/[.,;:!?·—'··]+$/g, '').trim();
+}
 
 /* ══════════════════════════════════════════
    Semantic layer data — LN / Cluster / Lexicon
@@ -5249,6 +5269,58 @@ function generateWallaceReadingProse(grammar) {
     return paragraphs.join('<br><br>');
 }
 
+/* ── registry-based prose helpers for _renderReadingNotes ── */
+let _rnRegistryData = null;
+let _rnAnalyzer     = null;
+
+async function _ensureRnAnalyzer() {
+    if (_rnAnalyzer) return;
+    try {
+        const res = await fetch('./syntax-registry.json');
+        if (!res.ok) return;
+        _rnRegistryData = await res.json();
+        const Cls = window.SyntaxAnalyzer || window.App?.syntax?.Analyzer;
+        if (Cls) _rnAnalyzer = new Cls(_rnRegistryData);
+    } catch (e) {
+        console.warn('[RN] registry init failed:', e);
+    }
+}
+
+function _rnGetType(typeId) {
+    if (!_rnRegistryData) return null;
+    for (const cat of Object.values(_rnRegistryData.categories || {})) {
+        for (const sc of (cat.subcategories || [])) {
+            for (const t of (sc.types || [])) {
+                if (t.id === typeId) return t;
+            }
+        }
+    }
+    return null;
+}
+
+async function _getRegistryProse(p) {
+    await _ensureRnAnalyzer();
+    if (!_rnAnalyzer) return '';
+    const tokens = _wlvWordCache;
+    let target = null, targetIdx = -1;
+    for (let i = 0; i < tokens.length; i++) {
+        if (tokens[i].ref === p.ref) { target = tokens[i]; targetIdx = i; break; }
+    }
+    if (!target) return '';
+    let out = null;
+    try {
+        out = _rnAnalyzer.analyze({ target, tokens, targetIdx });
+    } catch (e) {
+        console.warn('[RN] analyze failed:', e);
+        return '';
+    }
+    const top = out?.candidates?.[0];
+    if (!top) return '';
+    const typeDef = _rnGetType(top.id);
+    if (!typeDef) return '';
+    return typeDef.reading_impact?.tip_ja || typeDef.hint_ja || '';
+}
+
 /* ══════════════════════════════════════════
    _renderReadingNotes
    4階層構造: 聖書読者 → 学習者 → 研究者
@@ -5280,6 +5352,9 @@ async function _renderReadingNotes(p) {
        ═══════════════════════════════════════════════════════ */
     const wallaceGrammar = wallaceGrammarAdapter(p);
     let wallaceProseText = generateWallaceReadingProse(wallaceGrammar);
+    if (!wallaceProseText && (p.case === 'genitive' || p.case === 'dative' || p.mood === 'participle')) {
+        wallaceProseText = await _getRegistryProse(p);
+    }
     if (!wallaceProseText) {
         wallaceProseText = `この語の詳細は、「単語を詳しく調べる」から確認できます。`;
     }
