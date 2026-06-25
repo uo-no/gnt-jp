@@ -1559,6 +1559,65 @@ class CandidateNormalizer {
 // § 6.  CandidateScorer 基底 — 実装
 // =============================================================
 
+/**
+ * 同点候補の順位を安定化するための小加算スコアを計算する。
+ *
+ * final_score = base_weight + Σ signals.value + tie_break_score
+ *
+ * 構成:
+ *   depth_score        — detection.conditions 数による意味的特異性 [0, 0.5, 1.0]
+ *   axis_priority_score — 条件 ID から推定する分析レベル [0.5, 0.7, 1.0]
+ *   specificity_score   — alternatives 数の逆数（競合候補が少ない＝より固有） [0, 1]
+ *
+ * 合計値を 0.3 でスケーリングし、最大値を 0.9 以下に抑える。
+ * これにより整数シグナル差 1pt の逆転は起こらないことが保証される。
+ */
+function _computeTieBreakScore(typeDef) {
+    const conditions   = typeDef.detection?.conditions   ?? [];
+    const alternatives = typeDef.alternatives            ?? [];
+
+    // ── depth_score ───────────────────────────────────────────
+    // conditions 数（合計）を意味的特異性の代理指標とする。
+    // 多い → より限定的な文脈にしか発動しない → leaf
+    const condCount = conditions.length;
+    const depth_score = condCount >= 3 ? 1.0 : condCount >= 1 ? 0.5 : 0.0;
+
+    // ── axis_priority_score ───────────────────────────────────
+    // condition.id から分析レベルを推定する。
+    // clause-level: 節構造・主語関係・動詞語彙に依存する条件
+    // syntax-level: 頭語・一致・隣接要素に依存する条件
+    // morphology:   それ以外（形態素素性のみ）→ デフォルト
+    const CLAUSE_IDS = new Set([
+        'genitive_participle','distinct_subject','same_subject_as_main',
+        'attendant_circumstance_pattern','main_verb_aorist_imperative',
+        'has_perception_verb','has_giving_verb','has_adversative',
+        'complementary_ptc_verb','periphrastic_verb_present',
+        'has_ina_clause','has_hoti_clause','has_indirect_discourse',
+    ]);
+    const SYNTAX_IDS = new Set([
+        'follows_head_noun','head_is_action_noun','head_is_abstract_or_symbol',
+        'head_is_partitive_trigger','article_agreement','comparative_adjective_present',
+        'separation_verb_present','matching_article_noun_present','matching_noun_agrees',
+        'noun_follows','article_present','anarthrous','has_article',
+    ]);
+
+    let axis_priority_score = 0.5; // morphology (default)
+    for (const c of conditions) {
+        if (CLAUSE_IDS.has(c.id))  { axis_priority_score = 1.0; break; }
+        if (SYNTAX_IDS.has(c.id))    axis_priority_score = Math.max(axis_priority_score, 0.7);
+    }
+
+    // ── specificity_score ─────────────────────────────────────
+    // alternatives が少ないほど他候補と競合せず固有 → 高スコア
+    const specificity_score = 1 / (1 + alternatives.length);
+
+    // ── 合計・スケーリング ─────────────────────────────────────
+    // 生合計 max = 1 + 1 + 1 = 3 → × 0.3 → max ≈ 0.9
+    const TIE_BREAK_SCALE = 0.3;
+    return ((depth_score + axis_priority_score + specificity_score) / 3) * TIE_BREAK_SCALE;
+}
+
+
 class CandidateScorer {
     /** サブクラスが実装: このスコアラーが対象を扱えるかを返す */
     canHandle(_ctx) { return false; }
@@ -1582,7 +1641,7 @@ class CandidateScorer {
         if (typeDef.status === 'stub') {
             return {
                 typeId:         typeDef.id,
-                rawScore:       typeDef.xsc?.default_confidence ?? 0,
+                rawScore:       (typeDef.xsc?.default_confidence ?? 0) + _computeTieBreakScore(typeDef),
                 signalsMatched: [],
                 signalsFailed:  [],
                 deltas:         [],
@@ -1630,7 +1689,7 @@ class CandidateScorer {
             }
         }
 
-        return { typeId: typeDef.id, rawScore: score, signalsMatched: matched, signalsFailed: failed, deltas, typeDef };
+        return { typeId: typeDef.id, rawScore: score + _computeTieBreakScore(typeDef), signalsMatched: matched, signalsFailed: failed, deltas, typeDef };
     }
 
     /**
@@ -2620,7 +2679,7 @@ if (typeof module !== 'undefined' && module.exports) {
         if (typeDef.status === 'stub') {
             return {
                 typeId:         typeDef.id,
-                rawScore:       typeDef.xsc?.default_confidence ?? 0,
+                rawScore:       (typeDef.xsc?.default_confidence ?? 0) + _computeTieBreakScore(typeDef),
                 signalsMatched: [],
                 signalsFailed:  [],
                 deltas:         [],
@@ -2698,7 +2757,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
         return {
             typeId: typeDef.id,
-            rawScore: score,
+            rawScore: score + _computeTieBreakScore(typeDef),
             signalsMatched: matched,
             signalsFailed: failed,
             deltas,
