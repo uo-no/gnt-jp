@@ -1744,13 +1744,36 @@ class GenitiveScorer extends CandidateScorer {
                 // 分詞は ParticipleScorer が担当するため GenitiveScorer 側では除外
                 gaCand.rawScore = 0;
             } else {
-                // 名詞: 近接（3語以内）に属格分詞がなければ非属格絶対構文として抑制
+                // 名詞: 近接（3語以内）に独立属格分詞がなければ非属格絶対構文として抑制
+                // Phase 8: 冠詞直後の属格分詞 (substantival participle) は除外する。
+                //   "θεοῦ τοῦ ζῳοποιοῦντος" の τοῦ ζῳοποιοῦντος は限定用法であり
+                //   GA の主語根拠にならない。直前トークンが T (冠詞) の分詞を除外することで
+                //   P5 パターン（等位限定分詞の誤 GA ペアリング）を防ぐ。
                 const ti   = enrichedCtx.targetIdx;
                 const toks = enrichedCtx.tokens ?? [];
                 const hasNearGenitiveParticiple = toks.some((t, i) => {
                     if (i === ti || Math.abs(i - ti) > 3) return false;
                     const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
-                    return m.mood === 'participle' && m.case === 'genitive';
+                    if (!(m.mood === 'participle' && m.case === 'genitive')) return false;
+                    // Case 1: 直前が冠詞 → "τοῦ [ptc]" → substantival → 除外
+                    if (i > 0 && _resolveEntryPos(toks[i - 1]) === 'T') return false;
+                    // Case 2: 2語前が冠詞 かつ 直前が副詞・接続詞・小詞 かつ 格一致 →
+                    //   substantival (副詞介在パターン) → 除外。
+                    //   "τοῦ νῦν ἐνεργοῦντος" (τοῦ[gen] + νῦν[adv] + ptc[gen]) → 除外。
+                    //   格一致を必須とすることで "τῇ ἐπαύριον ἐξελθόντων" (MRK 11:12) の
+                    //   誤発火を防ぐ (τῇ は属格分詞に係らない与格冠詞)。
+                    if (i >= 2) {
+                        const p1 = _resolveEntryPos(toks[i - 1]);
+                        const p2 = _resolveEntryPos(toks[i - 2]);
+                        const p1isNonNominal = (p1 === 'D' || p1 === 'C' || p1 === 'X' || p1 === 'P');
+                        if (p2 === 'T' && p1isNonNominal) {
+                            const artCase = typeof decodeMorph === 'function'
+                                ? (decodeMorph(toks[i - 2])?.case ?? '')
+                                : '';
+                            if (artCase === m.case) return false;  // 格一致 → substantival
+                        }
+                    }
+                    return true;
                 });
                 if (!hasNearGenitiveParticiple) gaCand.rawScore = 0;
             }
