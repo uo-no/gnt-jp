@@ -1795,6 +1795,8 @@ animation: ac-blink 1.2s ease-in-out infinite;
 }
 .static-page section { margin-bottom: 40px; }
 .static-page p { color: var(--text-sub); margin: var(--space-sm) 0; }
+/* Changelog: 各リリースの「なぜ変えたか」を表す1行。区切り線は使わず余白のみで区切る。 */
+.static-page p.changelog-story { font-size: var(--text-caption); }
 .static-page ul { padding-left: var(--space-md); color: var(--text-sub); }
 .static-page li { margin-bottom: var(--space-sm); }
 .static-page strong { color: var(--text-main); }
@@ -3808,6 +3810,7 @@ details[open] .study-summary::before {
         <div class="footer-links">
             <button onclick="showMameKnowledge()">まめ知識</button>
             <button onclick="showAppInfo()">出典・ポリシー</button>
+            <button onclick="showChangelog()">更新情報</button>
         </div>
     </footer>
 </div>
@@ -4430,6 +4433,7 @@ const VIEW_LABELS = {
     recentWords:  '最近見た単語',
     sourcePolicy: '出典・ポリシー',
     knowledge:    'まめ知識',
+    changelog:    '更新情報',
 };
 
 const SIDEBAR_VIEW_NAV_IDS = {
@@ -4790,7 +4794,7 @@ function _openWordListInternal(vNum, words) {
     listEl.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;';
 
     if (!words.length) {
-        listEl.innerHTML = `<p style="color:var(--text-sub);font-size: var(--text-caption);text-align:center;padding: var(--space-xl) var(--space-md);">この節の語形データがありません</p>`;
+        listEl.innerHTML = `<p style="color:var(--text-sub);font-size: var(--text-caption);text-align:center;padding: var(--space-xl) var(--space-md);">この節では語形表示はまだ利用できません</p>`;
         listEl.insertAdjacentHTML('beforeend', _noteBlockHtml('wlv'));
         sidePanel.appendChild(listEl);
         _loadNoteUI('wlv');
@@ -7977,6 +7981,57 @@ function showAppInfo() {
         </div>
     `;
     app.innerHTML = infoHtml;
+}
+
+/* ══════════════════════════════════════════
+   Changelog（更新情報）
+   データは ./data/changelog.json から取得する（コードへのハードコード禁止）。
+   各リリースは { version, date, title, story, changes[] } の形をとる
+   （title は現状未使用。将来の表示拡張に備えてデータ側にのみ存在する）。
+   story は「何を変えたか」ではなく「なぜ変えたか」をユーザー視点・1行で表す文で、
+   技術用語（関数名・DOM・クラス名等）は含めない。
+   ══════════════════════════════════════════ */
+
+/* Changelog画面。showAppInfo()/showMameKnowledge()と同じ .static-page 差し替え方式。
+   story/changes は外部JSON（changelog.json）由来のため、entry系データと同じ規律として
+   _escH() を必ず通してから描画する（生のテンプレートリテラル結合は禁止）。 */
+async function showChangelog() {
+    const app = document.getElementById('bible-text-area');
+
+    document.getElementById('main-reading-area').classList.add('single-mode');
+    document.getElementById('main-reading-area').classList.add('static-view');
+    document.getElementById('main-reading-area').scrollTop = 0;
+
+    AppState.ui.view = 'changelog';
+    syncUIFromState();
+
+    let releases = [];
+    try {
+        const res = await fetch('./data/changelog.json');
+        if (res.ok) releases = await res.json();
+    } catch (e) {
+        console.warn('[Changelog] changelog.json の取得に失敗しました:', e);
+    }
+
+    const entriesHtml = releases.map(rel => {
+        const changesHtml = (rel.changes || []).map(c => `<li>${_escH(c)}</li>`).join('');
+        return `
+            <section>
+                <h3>${_escH(rel.version)} <span class="ui-caption">${_escH(rel.date)}</span></h3>
+                <p class="changelog-story">${_escH(rel.story)}</p>
+                <ul>${changesHtml}</ul>
+            </section>`;
+    }).join('');
+
+    const html = `
+        <div class="static-page">
+            ${entriesHtml}
+            <div class="back-wrap">
+                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+            </div>
+        </div>
+    `;
+    app.innerHTML = html;
 }
 
 /* ブックマーク/メモ/最近読んだ箇所/最近見た単語、4ページ共通のカードUIヘルパー。
