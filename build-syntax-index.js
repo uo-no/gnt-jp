@@ -18,8 +18,8 @@
  *   --base-url <url>   bible_data の取得先ベース URL（デフォルト: http://localhost:8080）
  *   --nt-only          NT のみ処理（デフォルト: false、全書物処理）
  *   --out-dir <dir>    出力先ディレクトリ（デフォルト: ./syntax-index）
- *   --analyzer <path>  syntax-analyzer.js のパス（デフォルト: ./syntax-analyzer.js）
- *   --registry <path>  syntax-registry.json のパス（デフォルト: ./syntax-registry.json）
+ *   --analyzer <path>  syntax-analyzer.js のパス（デフォルト: ./js/syntax-analyzer.js）
+ *   --registry <path>  syntax-registry.json のパス（デフォルト: ./data/syntax-registry.json）
  *   --batch-size <n>   並列 fetch 数（デフォルト: 10）
  */
 
@@ -36,8 +36,8 @@ function getArg(name, defaultVal) {
 }
 const BASE_URL     = getArg('--base-url',  'http://localhost:8080');
 const OUT_DIR      = getArg('--out-dir',   './syntax-index');
-const ANALYZER_PATH = getArg('--analyzer', './syntax-analyzer.js');
-const REGISTRY_PATH = getArg('--registry', './syntax-registry.json');
+const ANALYZER_PATH = getArg('--analyzer', './js/syntax-analyzer.js');
+const REGISTRY_PATH = getArg('--registry', './data/syntax-registry.json');
 const BATCH_SIZE   = parseInt(getArg('--batch-size', '10'), 10);
 const NT_ONLY      = args.includes('--nt-only');
 

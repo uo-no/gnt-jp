@@ -78,7 +78,8 @@
 
     /* 旧形式（{ref, content, updatedAt}のみ）に構造化フィールドを補完する。ref文字列のパースは発生しない。
        bookKey/chapter/verseが未確定のまま残ったエントリは、そのrefが次回saveNote()で
-       再保存されれば、SSOT経由の正規データで自然に上書きされる。 */
+       再保存されれば、SSOT経由の正規データで自然に上書きされる。
+       status/deletedAt（soft delete用）が無い既存データは active 扱いとして補完する。 */
     function migrateNoteEntry(entry) {
         if (!entry || typeof entry !== 'object' || !entry.ref) return null;
         return {
@@ -88,6 +89,8 @@
             verse: entry.verse != null ? entry.verse : null,
             content: entry.content || '',
             updatedAt: entry.updatedAt != null ? entry.updatedAt : Date.now(),
+            status: entry.status === 'deleted' ? 'deleted' : 'active',
+            deletedAt: entry.deletedAt != null ? entry.deletedAt : null,
         };
     }
 
@@ -224,8 +227,46 @@
                 verse: verse != null ? verse : null,
                 content: content,
                 updatedAt: Date.now(),
+                status: 'active',
+                deletedAt: null,
             });
         }
+        return saveUserData();
+    }
+
+    /* soft delete: 物理削除はしない。status を 'deleted' にし、deletedAt を記録するのみ。 */
+    function deleteNote(ref) {
+        if (!ref) return;
+        var state = ensureState();
+        var existing = state.notes.find(function (n) {
+            return n.ref === ref;
+        });
+        if (!existing) return;
+        existing.status = 'deleted';
+        existing.deletedAt = Date.now();
+        return saveUserData();
+    }
+
+    /* ゴミ箱からの復元: status を 'active' に戻し、deletedAt をクリアする。 */
+    function restoreNote(ref) {
+        if (!ref) return;
+        var state = ensureState();
+        var existing = state.notes.find(function (n) {
+            return n.ref === ref;
+        });
+        if (!existing) return;
+        existing.status = 'active';
+        existing.deletedAt = null;
+        return saveUserData();
+    }
+
+    /* 完全削除（物理削除）。UIからは呼び出さない、明示的な関数としてのみ存在する。 */
+    function purgeNote(ref) {
+        if (!ref) return;
+        var state = ensureState();
+        state.notes = state.notes.filter(function (n) {
+            return n.ref !== ref;
+        });
         return saveUserData();
     }
 
@@ -247,8 +288,20 @@
         });
     }
 
+    /* 通常一覧用: 削除済み（status === 'deleted'）は含めない。 */
     function getNotes() {
-        return ensureState().notes.map(function (n) {
+        return ensureState().notes.filter(function (n) {
+            return n.status !== 'deleted';
+        }).map(function (n) {
+            return Object.assign({}, n);
+        });
+    }
+
+    /* ゴミ箱一覧用: 削除済みのみを返す。 */
+    function getDeletedNotes() {
+        return ensureState().notes.filter(function (n) {
+            return n.status === 'deleted';
+        }).map(function (n) {
             return Object.assign({}, n);
         });
     }
@@ -264,10 +317,14 @@
             addBookmark: addBookmark,
             removeBookmark: removeBookmark,
             saveNote: saveNote,
+            deleteNote: deleteNote,
+            restoreNote: restoreNote,
+            purgeNote: purgeNote,
             getRecentVerses: getRecentVerses,
             getRecentWords: getRecentWords,
             getBookmarks: getBookmarks,
             getNotes: getNotes,
+            getDeletedNotes: getDeletedNotes,
         };
     }
 })();
