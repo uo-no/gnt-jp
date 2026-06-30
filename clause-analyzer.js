@@ -908,12 +908,25 @@ class AnnotationMapper {
 }
 
 // =====================================================================
-// § 5. Phase 11B — StudyPanelAdapter（AnnotationMapper → ViewModel）
+// § 5. Phase 11B/12 — StudyPanelAdapter（AnnotationMapper → ViewModel）
 // =====================================================================
 //
 // AnnotationMapper が生成した標準データを StudyPanel がそのまま描画できる
 // ViewModel に変換するだけの層。discourse分類・stopReason・color・span・
 // phrase・confidence のいずれも変更/再計算しない（読み取り→詰め替えのみ）。
+//
+// 注記（Phase 12: 役割固定・要確認）: 本クラスは文を一切生成しない
+// （= 自然文生成ロジックを持たない）という意味では既に③に適合している。
+// 一方、本クラスの出力は discourse.type / confidence / stopReason / span
+// をそのまま含んでおり、Phase 11D で定義した「Inspect/Studyモード」用の
+// 詳細ビューであって、Wallace読書メモが表示される「Readingモード」とは
+// 別の画面を想定している（Reading側のテキストは必ず ReadingFormatter /
+// ReadingNoteLibrary を経由し、本クラスは経由しない）。今回の指示④
+// 「禁止: discourse.type/marker/confidence数値/clause構造」を本クラスにも
+// 無条件に適用すると Inspect/Studyモードの構造化データが丸ごと失われる
+// ため、Reading面のテキスト生成経路には絶対に関与させないという制約は
+// 厳守しつつ、Inspect/Study用の構造化フィールドはそのまま残した。
+// この区分の理解が違う場合はご指摘ください。
 class StudyPanelAdapter {
     constructor() {}
 
@@ -991,28 +1004,42 @@ class StudyPanelAdapter {
 }
 
 // =====================================================================
-// § 6. Phase 11C/最終仕上げ — ReadingFormatter（Wallace Gloss 統合版）
+// § 6. Phase 11C/最終仕上げ/読書言語統一 — ReadingFormatter（Wallace Gloss 統合版）
 // =====================================================================
 //
 // AnnotationMapper / StudyPanelAdapter / ReadingNoteLibrary の出力を
-// 「読書中の自然な理解を助ける静かな1文」に翻訳するだけの Presentation
-// Layer。解析・再判定・score計算・discourse.type/marker/confidence の
-// 直接表示は一切行わない。
+// 「読書として読める静かな1文」に翻訳するだけの Presentation Layer。
+// 解析・再判定・score計算・discourse.type/clause.type/marker/confidence
+// の直接表示は一切行わない。主語は常に「読書の視点（ここでは／この
+// 箇所では）」であり、「この節は」のような分析主語は使わない。
 //
-// 注記（2点の逸脱、いずれも意図的・要報告）:
+// 注記（2点の逸脱、いずれも意図的・要報告、最終仕上げラウンドからの継続）:
 //
-// (1) hint: 仕様の生成ルールは `hint = item.discourse?.marker ?? null`
-//     だが、同じ仕様の冒頭「絶対原則」は「❌ marker（γάρ/ὅτι 等）を
-//     出さない」と明記している。生のマーカー文字列をそのまま hint に
-//     入れるとこの絶対原則に直接違反するため、絶対原則を優先し
-//     hint は常に null を返すようにした。
+// (1) hint: 過去の仕様生成ルールは `hint = item.discourse?.marker` だが、
+//     marker（生のギリシア語マーカー）を表に出すことは絶対禁止のため、
+//     hint は常に null を返す。
 //
-// (2) confidenceText: 仕様の生成ルールは
-//     `` `confidence: ${Math.round(confidence*100)}%` `` という
-//     数値そのものを文字列化する内容だが、同じ仕様の絶対原則は
-//     「❌ confidenceをUIに出さない」と明記している。これも矛盾する
-//     ため、絶対原則を優先し、Phase 11C で実装済みの定性的な表現
-//     （安定/一般的/複数の解釈）をそのまま維持し、数値は一切出さない。
+// (2) confidenceText: 過去の仕様生成ルールは生の confidence% 文字列化
+//     だが、confidence数値の露出は絶対禁止のため、定性的な表現
+//     （安定/一般的/複数の解釈）のみを返す。数値は一切出さない。
+//
+// 注記（title/summary の統合）: 前ラウンドでは title=WallaceGloss原文・
+// summary=脱プレフィックス変形という2系統の文言を保持していたが、今回の
+// 「読書言語への統一」指示はその区別を要求しておらず、両方とも同じ
+// Wallace原則（「ここでは／この流れでは／この箇所では」＋意味説明、
+// 分類ラベルを露出しない静かな1文）に従う必要がある。2系統を維持する
+// 根拠が無くなったため、1つの正規文（_WALLACE_TEXT）に統合し、
+// title・summary はともに同じ文を返す。
+//
+// 注記（DISCOURSE_EXPLANATION の文言修正）: 今回指定された OK例
+// 「ここでは、前の内容がなぜ成立するのかが説明されています」は、
+// 前ラウンドの WallaceGloss 原文にあった「という理由が」を含まない。
+// この1件は今回のテスト基準で名指しされているため文言を合わせた。
+// 他のキー（PURPOSE の「目的」、CONDITION の「条件」など）は今回
+// 名指しでの修正対象になっておらず、かつ前ラウンドで✅例として
+// 明示的に承認済みの語であるため、独自判断で除去することはしていない
+// （分類名詞そのものではなく「この節は〜です／を示します／説明して
+// います」という分析口調が禁止対象、という理解に基づく）。
 //
 // 注記（WallaceGloss の補完）: ご指定の WallaceGloss は
 // DISCOURSE_EXPLANATION / CONTENT / COMPLEMENT / PURPOSE /
@@ -1021,23 +1048,59 @@ class StudyPanelAdapter {
 // これ以外に TRUE_NARRATIVE（γάρ）/ REASON（ὅτι）/
 // SIMILE・TEMPORAL・APPROX_CAUSE（ὡς/ὥσπερρ）も出力する
 // （TRUE_NARRATIVE は Phase 10C-γB/11C の必須テストケースである
-// MRK 3:10 で実際に出力される値）。これらが WallaceGloss に未定義の
-// まま素通しすると全て汎用 UNCLASSIFIED 文に潰れてしまうため、
-// 同じ文体で補完エントリを追加した（WallaceGloss 本体は改変せず、
-// 別定数としてマージしている）。
+// MRK 3:10 で実際に出力される値）。これらが未定義のまま素通しすると
+// 全て汎用 UNCLASSIFIED 文に潰れてしまうため、同じ文体で補完エントリを
+// 追加している。
 //
 // 注記（CONDITION の到達経路）: classifyDiscourseRelation() は
 // εἰ/ἐάν/ἀλλά を専用処理しないため、条件節・対比節の discourse.type は
-// 常に 'UNCLASSIFIED' になる（ROM 1:10 で確認済み）。
-// discourse.type 単独の lookup では WallaceGloss.CONDITION は
-// 到達不能なデッドコードになってしまうため、clause.type
-// （'clause.condition' / 'clause.contrast'）から対応する WallaceGloss
-// キーへ橋渡しする小さなマップを追加した。これにより成功条件にある
-// εἰ / ἀλλά も、汎用 UNCLASSIFIED 文ではなく専用の自然文になる。
+// 常に 'UNCLASSIFIED' になる（ROM 1:10 で確認済み）。discourse.type
+// 単独の lookup では CONDITION 用の文は到達不能なデッドコードになって
+// しまうため、clause.type（'clause.condition' / 'clause.contrast'）
+// から対応するキーへ橋渡しする小さなマップを追加した。これにより
+// 成功条件にある εἰ / ἀλλά も汎用 UNCLASSIFIED 文ではなく専用の自然文
+// になる。
+//
+// 注記（Phase 12: アーキテクチャ固定）: 本クラスをシステム内で唯一の
+// 自然文生成源とする。ReadingNoteLibrary は自前の文章テーブルを持たず
+// 本クラスの出力をそのまま再利用するのみ（§7 参照）。StudyPanelAdapter
+// は文を一切生成しない（§5 参照）。さらに、将来このクラスや
+// _WALLACE_TEXT に変更が入っても discourse.type / marker / confidence
+// 数値が誤って自然文に紛れ込まないよう、format() の戻り値を
+// assertReadingTextSafe() で検証してから返す（Guard Rule）。
 
-const WallaceGloss = {
+// ── Guard Rule: discourse.type / marker / confidence数値の漏洩を検出する ──
+const _LEAK_GUARD_TOKENS = [
+    // discourse.type 列挙値（_WALLACE_TEXT の全キー）
+    'DISCOURSE_EXPLANATION', 'CONTENT', 'COMPLEMENT', 'PURPOSE',
+    'EXPLANATORY_PURPOSE', 'RESULT', 'CONDITION', 'CONTRAST_EXPLANATION',
+    'UNCLASSIFIED', 'TRUE_NARRATIVE', 'REASON', 'SIMILE', 'TEMPORAL',
+    'APPROX_CAUSE',
+    // 生マーカー（clause-registry.json の lemmas + ὡς系）
+    'γάρ', 'ὅτι', 'ἵνα', 'ὅπως', 'εἰ', 'ἐάν', 'ἀλλά', 'ὡς', 'ὥσπερ',
+];
+const _CONFIDENCE_NUMBER_RE = /\d+(\.\d+)?\s*%|confidence\s*[:=]/i;
+
+// UI に渡す直前の自然文を検査し、内部用語・数値が混入していれば例外を
+// 投げる（"strip" ではなく "throw" を選択: 漏洩は仕様バグであり、UI側で
+// 黙って取り除くと検出が遅れるため、生成側で即座に失敗させる）。
+function assertReadingTextSafe(text) {
+    if (text == null) return text;
+    if (typeof text !== 'string') return text;
+    for (const token of _LEAK_GUARD_TOKENS) {
+        if (text.includes(token)) {
+            throw new Error(`Reading UI Guard: internal token "${token}" leaked into UI text: "${text}"`);
+        }
+    }
+    if (_CONFIDENCE_NUMBER_RE.test(text)) {
+        throw new Error(`Reading UI Guard: confidence-like number leaked into UI text: "${text}"`);
+    }
+    return text;
+}
+
+const _WALLACE_TEXT = {
     DISCOURSE_EXPLANATION:
-        'ここでは、前の内容がなぜ成立するのかという理由が説明されています。',
+        'ここでは、前の内容がなぜ成立するのかが説明されています。',
 
     CONTENT:
         'ここでは、その内容が具体的に明らかにされています。',
@@ -1062,11 +1125,8 @@ const WallaceGloss = {
 
     UNCLASSIFIED:
         'ここでは、状況や背景が補足されています。',
-};
 
-// WallaceGloss に無いが実際に出力される discourse.type への補完（同一文体）
-const _GLOSS_TITLE = {
-    ...WallaceGloss,
+    // WallaceGloss に無いが実際に出力される discourse.type への補完（同一文体）
     TRUE_NARRATIVE: 'ここでは、背景となる出来事や状況が補足されています。',
     REASON:         'ここでは、理由にあたる内容が示されています。',
     SIMILE:         'ここでは、たとえを用いて説明されています。',
@@ -1074,28 +1134,7 @@ const _GLOSS_TITLE = {
     APPROX_CAUSE:   'ここでは、おおよその理由が示されています。',
 };
 
-// summary: 主語・分類語を避けた「少し自然化した1文」
-// γάρ/ὅτι/ἵνα は仕様の ⭕ 例を逐語的に使用。他は WallaceGloss/_GLOSS_TITLE
-// から確認済みの変換規則（先頭の「ここでは、」を外す）のみを機械的に適用し、
-// 仕様に無い独自の言い回しは作らない。
-const _GLOSS_SUMMARY = {
-    DISCOURSE_EXPLANATION: '前の内容がなぜ成立するのかが説明されています。',
-    CONTENT:                'その内容が具体的に明らかにされています。',
-    PURPOSE:                'その目的として意図されていることが示されています。',
-    COMPLEMENT:              'その内容が補足的に示されています。',
-    EXPLANATORY_PURPOSE:     'その目的がより説明的に展開されています。',
-    RESULT:                  'その結果が示されています。',
-    CONDITION:               'ある条件が前提として提示されています。',
-    CONTRAST_EXPLANATION:    '前の内容との対比が示され、話の方向が転換されています。',
-    UNCLASSIFIED:            '状況や背景が補足されています。',
-    TRUE_NARRATIVE:          '背景となる出来事や状況が補足されています。',
-    REASON:                  '理由にあたる内容が示されています。',
-    SIMILE:                  'たとえを用いて説明されています。',
-    TEMPORAL:                '出来事の前後関係が示されています。',
-    APPROX_CAUSE:            'おおよその理由が示されています。',
-};
-
-// discourse.type が UNCLASSIFIED になる clause.type を WallaceGloss の
+// discourse.type が UNCLASSIFIED になる clause.type を _WALLACE_TEXT の
 // 対応キーへ橋渡しする（上の「CONDITION の到達経路」注記を参照）
 const _CLAUSE_TYPE_TO_GLOSS_KEY = {
     'clause.condition': 'CONDITION',
@@ -1107,28 +1146,44 @@ class ReadingFormatter {
 
     // -----------------------------------------------------------------
     // 公開API — AnnotationMapper item / StudyPanelAdapter clauseCard
-    // item / ReadingNoteLibrary output のいずれも受け取れる
-    // （.discourse を持たない入力は UNCLASSIFIED 相当として扱う）
+    // item / ReadingNoteLibrary output / Wordレイヤーの wordContext
+    // （{type, text, verseContext, clauseContext}）のいずれも受け取れる。
+    // （.discourse も .clauseContext も持たない入力は UNCLASSIFIED 相当）
+    //
+    // 注記（Wordレイヤー統一）: wordContext.clauseContext が存在する
+    // 場合は、その clauseContext（節レベルの discourse/type を持つ
+    // アイテム）を唯一の意味源として使う。単語自体（wordContext.type=
+    // lemma/morph種別, .text, .verseContext）は一切新規解釈しない —
+    // 「節の意味の一部として単語を見る」という Wallace 思想どおり、
+    // 節の判定結果をそのまま再利用するだけ。clauseContext が無い
+    // （= 意味のある節文脈が無い）場合は通常どおり UNCLASSIFIED 文に
+    // フォールバックする（呼び出し側が「完全非表示にすべきか」を
+    // 判断する場合は、clauseContext が無い時点で format() を呼ばずに
+    // null を返す設計にする — 本メソッドの戻り値は常に
+    // {title,summary,hint,confidenceText} の4フィールドで一貫させる）。
     // -----------------------------------------------------------------
     format(item) {
-        const discourseType = item?.discourse?.type ?? null;
-        const confidence    = item?.discourse?.confidence ?? 0;
-        const clauseType    = item?.type ?? item?.label ?? null;
+        const source = (item && item.clauseContext !== undefined) ? item.clauseContext : item;
 
-        const key = this._resolveGlossKey(discourseType, clauseType);
+        const discourseType = source?.discourse?.type ?? null;
+        const confidence    = source?.discourse?.confidence ?? 0;
+        const clauseType    = source?.type ?? source?.label ?? null;
+
+        const key  = this._resolveGlossKey(discourseType, clauseType);
+        const text = assertReadingTextSafe(_WALLACE_TEXT[key]);
 
         return {
-            title:          _GLOSS_TITLE[key],
-            summary:        _GLOSS_SUMMARY[key],
+            title:          text,
+            summary:        text,
             hint:           this._getHint(),
-            confidenceText: this._getConfidenceText(confidence),
+            confidenceText: assertReadingTextSafe(this._getConfidenceText(confidence)),
         };
     }
 
     // discourse.type が具体的な値を持つ場合はそれを優先し、
     // UNCLASSIFIED（または未知）の場合のみ clause.type 橋渡しを試みる
     _resolveGlossKey(discourseType, clauseType) {
-        if (discourseType && discourseType !== 'UNCLASSIFIED' && _GLOSS_TITLE[discourseType]) {
+        if (discourseType && discourseType !== 'UNCLASSIFIED' && _WALLACE_TEXT[discourseType]) {
             return discourseType;
         }
         const bridged = _CLAUSE_TYPE_TO_GLOSS_KEY[clauseType];
@@ -1150,40 +1205,41 @@ class ReadingFormatter {
 }
 
 // =====================================================================
-// § 7. Phase 11D — ReadingNoteLibrary（読書体験のための意味記憶レイヤー）
+// § 7. Phase 11D/12 — ReadingNoteLibrary（読書体験のための意味記憶レイヤー）
 // =====================================================================
 //
 // AnnotationMapper / StudyPanelAdapter / ReadingFormatter の出力を
 // 「読書ノート」（ReadingNote）に変換するだけの読み取り専用レイヤー。
 // 解析・再分類・confidence再計算は一切行わない。
 //
-// 注記（3種類の入力形状の橋渡し）: 仕様上 generateNote() は
-// AnnotationMapper item / StudyPanelAdapter clauseCard item /
-// ReadingFormatter output のいずれも受け取れることになっているが、
-// ReadingFormatter.format() の戻り値（{title,summary,hint,confidenceText}）
-// には discourse.marker も confidence の数値も id も存在しない
-// （Phase 11C で意図的に剥ぎ取られているため）。そのため、
-// item.discourse が無い場合は item.title / item.summary をそのまま
-// label / text として再利用し（新たな分析はせず、既に完成している
-// 自然文をそのまま転記するだけ）、marker由来の情報（type/confidence/id）
-// は安全なデフォルト（'UNCLASSIFIED' / 0 / null）に倒す。
+// 注記（Phase 12: 役割固定・要報告）: 「ReadingFormatterを唯一の自然文
+// 生成源にする」という指示に伴い、本クラスが独自に保持していた文章表
+// （旧 _NOTE_RULES_BY_MARKER、γάρ/ὅτι/ἵνα/εἰ/ἀλλά ごとの label/text）を
+// 廃止した。前ラウンドで一度 _WALLACE_TEXT の値を複写して使う形に統一
+// していたが、複写である以上「ReadingFormatterの結果をそのまま再利用」
+// にはなっておらず、将来 _WALLACE_TEXT 側だけが変更されればこちらは
+// 古い文言のまま取り残される（＝崩れる）リスクが残っていた。そのため
+// generateNote() は ReadingFormatter のインスタンスを直接呼び出し、
+// その戻り値をそのまま label/text に詰め替えるだけにした。本クラスが
+// 行うのは group（refs付与）・cluster（clusterNotes）・suggest の3つの
+// みで、分類・翻訳・新規の文章生成は一切行わない。
 //
-// 注記（マーカー表の補完）: ὅπως は registry 上 ἵνα と同一マーカー群
-// （"lemmas": ["ἵνα","ὅπως"]）であるため目的ノートの表に同居させた。
-// ἐάν は仕様の見出しに "εἰ / ἐάν" と明記されているため条件ノートの
-// 表に含めた。ὡς/ὥσπερρ 等、仕様に明記の無いマーカーは
-// UNCLASSIFIED 側のフォールバックに委ねる（独自の文言を捏造しない）。
-
-const _NOTE_RULES_BY_MARKER = {
-    'γάρ':        { label: '理由',        text: 'この節は前の内容の理由を説明しています' },
-    'ὅτι':        { label: '内容 / 理由', text: 'この節は内容や理由を導きます' },
-    'ἵνα':        { label: '目的',        text: 'この節は目的を示しています' },
-    'ὅπως':       { label: '目的',        text: 'この節は目的を示しています' },
-    'εἰ':         { label: '条件',        text: 'この節は条件を示しています' },
-    'ἐάν':        { label: '条件',        text: 'この節は条件を示しています' },
-    'ἀλλά':       { label: '対比',        text: 'ここで話題の流れが転換します' },
-    UNCLASSIFIED: { label: '読書補助',    text: 'この節は文の補足情報です' },
-};
+// 注記（3種類の入力形状の橋渡し）: generateNote() は AnnotationMapper
+// item / StudyPanelAdapter clauseCard item / ReadingFormatter output の
+// いずれも受け取れる。ReadingFormatter output（{title,summary,...}）が
+// 渡された場合は二重に format() へ通さず、既に確定した自然文を
+// そのまま再利用する（item.discourse が無く item.title がある場合に
+// 限り素通しする）。marker由来の情報（type/confidence/id）は元の
+// discourse が無ければ安全なデフォルト（'UNCLASSIFIED' / 0 / null）に
+// 倒す。
+//
+// 注記（suggest() は維持）: 役割固定リストは generateNote() で「新しい
+// 文章を作らない」ことを求めているが、suggest() 自体は group/cluster と
+// 並んで本クラスに明示的に残された責務であり、UIの許可リストにある
+// 「読書用ヒント」に当たる別カテゴリの短文（Wallace文＝自然文とは別物、
+// 既存の固定テーブルからの読み出しのみで新規生成ではない）。
+// 「この節は」のような分析口調や discourse.type/marker/confidence の
+// 直接露出が無いことは確認済みのため、文言は変更していない。
 
 // suggest() 用の軽量ヒント（generateNote() のラベル/本文とは独立した短文）
 const _SUGGESTION_BY_MARKER = {
@@ -1195,10 +1251,14 @@ const _SUGGESTION_BY_MARKER = {
 };
 
 class ReadingNoteLibrary {
-    constructor() {}
+    constructor() {
+        // ① ReadingFormatterを唯一の自然文生成源にする — 本クラスは
+        // 自前の文章テーブルを持たず、必ずこのインスタンス経由で文を取得する
+        this._formatter = new ReadingFormatter();
+    }
 
     // -----------------------------------------------------------------
-    // ① generateNote — 入力 → ノート生成
+    // ① generateNote — 入力 → ノート生成（文章は作らず group するだけ）
     // refs は元の clause/discourse オブジェクトが book/chapter/verse を
     // 持たないため、呼び出し側が文脈として渡す任意の第2引数。
     // -----------------------------------------------------------------
@@ -1207,13 +1267,18 @@ class ReadingNoteLibrary {
         const confidence = item?.discourse?.confidence ?? 0;
         const id         = item?.id ?? null;
 
-        const rule = _NOTE_RULES_BY_MARKER[marker] ?? _NOTE_RULES_BY_MARKER.UNCLASSIFIED;
+        // 既に ReadingFormatter.format() 済みの出力（.discourse を持たず
+        // .title を持つ）はそのまま再利用し、そうでなければ Formatter に
+        // 生成させる（本クラス自身は文章を作らない）
+        const formatted = (item?.discourse === undefined && item?.title !== undefined)
+            ? item
+            : this._formatter.format(item);
 
         return {
             id,
             type:  marker ?? 'UNCLASSIFIED',
-            label: item?.title   ?? rule.label,
-            text:  item?.summary ?? rule.text,
+            label: assertReadingTextSafe(formatted.title),
+            text:  assertReadingTextSafe(formatted.summary),
             refs: {
                 book:    refs.book,
                 chapter: refs.chapter,
@@ -1684,10 +1749,11 @@ if (typeof window !== 'undefined') {
     window.App.syntax.ReadingNoteLibrary  = ReadingNoteLibrary;
     window.App.syntax.PrecisionAudit      = PrecisionAudit;
     window.App.syntax.StabilityMonitor    = StabilityMonitor;
+    window.App.syntax.assertReadingTextSafe = assertReadingTextSafe;
     /* 互換エイリアス */
     window.ClauseAnalyzer = ClauseAnalyzer;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { ClauseAnalyzer, AnnotationMapper, StudyPanelAdapter, ReadingFormatter, ReadingNoteLibrary, PrecisionAudit, StabilityMonitor };
+    module.exports = { ClauseAnalyzer, AnnotationMapper, StudyPanelAdapter, ReadingFormatter, ReadingNoteLibrary, PrecisionAudit, StabilityMonitor, assertReadingTextSafe };
 }

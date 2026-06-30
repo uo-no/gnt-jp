@@ -1926,28 +1926,22 @@ line-height: 1.4;
 margin-bottom: 0;
 }
 
-/* popoverの中部：品詞タグ3つまで */
-.inspect-tags {
+/* popoverの中部：Layer 2 Inspect — ReadingFormatter駆動の1文のみ。
+   ★ Phase: Reading/Inspect/StudyPanel 3層分離。
+   旧 .inspect-tags / .inspect-tag（品詞タグ最大3つ）は廃止。
+   grammar/type/confidence を一切表示しない「軽い理解補助」に統一。 */
+.inspect-note {
 padding: 6px 14px 8px;
-display: flex;
-flex-wrap: wrap;
-gap: 4px;
 border-bottom: 1px solid var(--border-soft);
-}
-.inspect-tag {
-font-size: 0.65rem;
-padding: 2px 7px;
-border-radius: 20px;
-background: var(--bg-panel);
+font-size: 0.78rem;
+line-height: 1.5;
 color: var(--text-sub);
-border: 1px solid var(--border-soft);
-letter-spacing: 0.01em;
+min-height: 1em; /* 空の間もレイアウトが揺れないように */
 }
-.inspect-tag.core {
-background: rgba(90,110,130,0.10);
-color: var(--highlight);
-border-color: rgba(90,110,130,0.2);
-font-weight: 600;
+.inspect-note:empty {
+padding: 0;
+border-bottom: none;
+min-height: 0;
 }
 
 .inspect-footer {
@@ -3306,38 +3300,47 @@ details[open] .study-summary::before {
 
 /* ══════════════════════════════════════════
    Depth Panel 文法装飾 namespace
-   Depth Panel 限定。本文・popover・study panel に影響しない。
+   Depth Panel（#bottom-depth-panel = StudyPanel）限定。
+   本文（Reading層: 左ペインFLOW表示・gf-verse-block）には適用しない。
+   ★ Phase: Reading/Inspect/StudyPanel 3層分離。
+   旧実装はこのコメントの意図どおりにスコープされておらず、
+   _wordToFlowChip() が dpGrammarClasses を本文側のチップにも
+   付与していたため、grep上は同じクラス名でも本文側に色・下線が
+   漏れて適用されていた。ここで実際に #bottom-depth-panel 配下のみに
+   限定する（JS側のチップ生成ロジックは変更せず、CSS側のスコープのみ
+   修正— クラス自体は本文チップにも付くが、StudyPanel外では
+   何の見た目の効果も持たなくなる）。
    ══════════════════════════════════════════ */
-.dp-word {
+#bottom-depth-panel .dp-word {
     display: inline;
 }
-.dp-mood-imperative {
+#bottom-depth-panel .dp-mood-imperative {
     background: rgba(90,110,130,0.14);
     border-radius: 4px;
     padding: 0 2px;
 }
-.dp-mood-indicative {
+#bottom-depth-panel .dp-mood-indicative {
     background: rgba(0,0,0,0.05);
     border-radius: 4px;
     padding: 0 2px;
 }
-.dp-tense-present {
+#bottom-depth-panel .dp-tense-present {
     text-decoration: underline;
     text-decoration-style: solid;
     text-underline-offset: 3px;
 }
-.dp-tense-aorist {
+#bottom-depth-panel .dp-tense-aorist {
     text-decoration-line: underline;
     text-decoration-style: dotted;
     text-underline-offset: 3px;
 }
-.dp-tense-perfect {
+#bottom-depth-panel .dp-tense-perfect {
     text-decoration-line: underline;
     text-decoration-style: wavy;
     text-underline-offset: 3px;
 }
-.dp-voice-middle::after,
-.dp-voice-passive::after {
+#bottom-depth-panel .dp-voice-middle::after,
+#bottom-depth-panel .dp-voice-passive::after {
     content: '*';
     font-size: 0.65em;
     color: var(--highlight);
@@ -3552,7 +3555,7 @@ details[open] .study-summary::before {
         <div class="inspect-greek greek-headword" id="insp-greek">-</div>
         <div class="inspect-ja"    id="insp-ja">-</div>
     </div>
-    <div class="inspect-tags" id="insp-tags"></div>
+    <div class="inspect-note" id="insp-note"></div>
         <div class="inspect-footer">
             <button class="inspect-study-btn" id="insp-study-btn" onclick="escalateToStudy()">
                 <span>この語の響きを読む</span>
@@ -3782,6 +3785,8 @@ details[open] .study-summary::before {
 
 <script src="./shared-ui.js"></script>
 <script src="./syntax-analyzer.js"></script>
+<script src="./phrase-analyzer.js"></script>
+<script src="./clause-analyzer.js"></script>
 <script>
 let abbottSmithDict = null;
 let _proximityTokens = [];
@@ -4787,6 +4792,9 @@ function _openWordListInternal(vNum, words) {
     listEl.insertAdjacentHTML('beforeend', _noteBlockHtml('wlv'));
     sidePanel.appendChild(listEl);
     _loadNoteUI('wlv');
+    /* 節全体の読書メモ（ReadingFormatter駆動）を非同期に注入。
+       表示すべき内容が無ければ何も起きない（静寂優先）。 */
+    _fillWallacePassageNote(words, listEl);
 
     /* モバイルナビバー */
     const chapterLabel = vNum ? vNum + '節' : '';
@@ -4970,7 +4978,16 @@ function onWordCardClick(cardEl, event) {
     notifyAppStateChange();
 }
 
-function showInspectPopover(anchorEl, greek, strong, jpMorph, rawMorph, jaWord) {
+/**
+ * Layer 2: Inspect popover。
+ * words / idx が渡された場合のみ、その語が属する節の ReadingFormatter
+ * 文を「1文以内の軽い理解補助」として非同期に表示する（StudyPanelの
+ * resonance drawerと同じ _buildWordResonanceText を再利用 — Wordレベル
+ * の意味解釈ロジックを2系統作らない）。words/idxが無い文脈（word-card
+ * クリック等、特定の節の文脈を持たない場合）では note は常に空のまま
+ * （= 完全非表示。代替の説明文は出さない）。
+ */
+function showInspectPopover(anchorEl, greek, strong, jpMorph, rawMorph, jaWord, words, idx) {
     const popover = document.getElementById('inspect-popover');
 
     // --- 位置決め用 rect を DOM 変更前に読む（forced reflow 防止） ---
@@ -4980,9 +4997,14 @@ function showInspectPopover(anchorEl, greek, strong, jpMorph, rawMorph, jaWord) 
     document.getElementById('insp-greek').textContent = greek;
     document.getElementById('insp-ja').textContent    = jaWord || '-';
 
-    // 品詞タグ（最大3つ）
-    const tagsEl = document.getElementById('insp-tags');
-    tagsEl.innerHTML = buildInspectTagsHTML(rawMorph);
+    // Layer 2: ReadingFormatter駆動の1文（grammar/type/confidence表示禁止）
+    const noteEl = document.getElementById('insp-note');
+    if (noteEl) {
+        noteEl.textContent = '';
+        if (words != null && idx != null) {
+            _fillInspectNote(noteEl, words, idx);
+        }
+    }
 
     // --- 位置決め ---
     const popW = 220;
@@ -5044,51 +5066,20 @@ function escalateToStudy() {
     openStudyPanel(greek, rawMorph, ref, lemma);
 }
 
+let _inspNoteGen = 0; // 古い非同期結果の誤注入を防ぐ世代カウンタ
+
 /**
- * Inspect用のヒントHTMLを生成（最大2つ）。
- * 文法用語ではなく「この語がここで何をしているか」を読書感覚で表示。
+ * Layer 2 Inspect の note 欄を ReadingFormatter 駆動で非同期に埋める。
+ * StudyPanelの _buildWordResonanceText をそのまま再利用する
+ * （Wordレベルの意味解釈ロジックをレイヤーごとに作らない＝原則⑨）。
+ * 意味のある clauseContext が無ければ何も表示しない（静寂優先）。
  */
-function buildInspectTagsHTML(rawMorph) {
-    const m = parseMorphForSearch(rawMorph);
-    const hints = [];
-
-    if (m.pos === 'V') {
-        // 法による読書ヒント
-        if (m.mood === 'imperative')  hints.push({ label: '強く勧めている', core: true });
-        else if (m.mood === 'infinitive') hints.push({ label: '目的・内容を補っている', core: true });
-        else if (m.mood === 'participle') hints.push({ label: '背景を描き添えている', core: true });
-        else if (m.mood === 'subjunctive') hints.push({ label: '願いや目的を示している', core: true });
-        else if (m.mood === 'indicative') hints.push({ label: '事実として語っている', core: true });
-        // 時制による読書ヒント
-        if (m.tense === 'perfect')    hints.push({ label: '今も続いている', core: false });
-        else if (m.tense === 'aorist' && m.mood === 'indicative') hints.push({ label: '一つの出来事として', core: false });
-        else if (m.tense === 'future') hints.push({ label: '確かに起きると語っている', core: false });
-        // 態による読書ヒント
-        if (m.voice === 'passive')    hints.push({ label: '受けとめる側に立っている', core: false });
-        else if (m.voice === 'middle' || m.voice === 'middle deponent') hints.push({ label: '深く関わりながら動いている', core: false });
-    } else if (m.pos === 'CONJ') {
-        const CONJ_HINT = {
-            imperative: '強く勧めている',
-        };
-        hints.push({ label: '流れをつないでいる', core: true });
-    } else if (m.pos === 'N' || m.pos === 'A') {
-        const CASE_HINT = {
-            nominative: '中心にいる',
-            genitive:   '結びついている',
-            dative:     '関わりを受けている',
-            accusative: '動作の向かう先',
-            vocative:   '呼びかけられている',
-        };
-        if (m.case && CASE_HINT[m.case]) hints.push({ label: CASE_HINT[m.case], core: true });
-    } else if (['P','R','D'].includes(m.pos)) {
-        hints.push({ label: '誰かを指し示している', core: true });
-    } else if (m.pos === 'PREP') {
-        hints.push({ label: '関係の方向を示している', core: true });
-    }
-
-    return hints.slice(0, 2).map(t =>
-        `<span class="inspect-tag${t.core ? ' core' : ''}">${t.label}</span>`
-    ).join('');
+async function _fillInspectNote(noteEl, words, idx) {
+    const myGen = ++_inspNoteGen;
+    const sentence = await _buildWordResonanceText(words, idx);
+    if (myGen !== _inspNoteGen) return; // 既に別の語/popoverに移動済み
+    if (!noteEl.isConnected) return;
+    if (sentence) noteEl.textContent = sentence;
 }
 
 /* ══════════════════════════════════════════
@@ -8529,6 +8520,9 @@ app.innerHTML = '';
                 /* 複数節が同時に描画されるため、idx は節内でのみ有効。
                    block 単位でchipデータを保持し、_wlvChipClick から節を跨いだ取り違えなく参照できるようにする。 */
                 block._flowChips = chips;
+                /* Layer 2 Inspect: ReadingFormatterのclause解析には生トークン配列が
+                   必要なため、chipデータと並べて words もそのまま保持しておく。 */
+                block._flowWords = words;
                 /* 修正B: ヨハネ3:16の先頭chip（index=0）にオンボーディングアンカーを付与 */
                 const _obBook = AppState.location.book ? AppState.location.book.key : '';
                 const _obChapter = AppState.location.chapter;
@@ -8803,8 +8797,14 @@ function _buildFlowTabHTML(words) {
             </button>
         </div>`;
 
-    /* ── 節全体の読書メモ ── */
-    const passageNoteHTML = _buildPassageNote(words);
+    /* ── 節全体の読書メモ（ReadingFormatter駆動・非同期） ──
+       ★ Phase: index.html独自解釈ロジック廃止。
+       _buildPassageNote（CONJ_FEEL/imperatives/perfects/passives/
+       metaphorヒューリスティック）は完全削除済み。空スロットのみここで
+       同期的に確保し、中身は _fillWallacePassageNote() が
+       clause-analyzer.js の ReadingFormatter.format() の結果のみで
+       非同期に埋める（データなし・節なしの場合は何も注入しない＝静寂）。 */
+    const passageNoteHTML = '<div id="wlv-passage-note-slot"></div>';
 
     /* オンボーディング完了前は凡例を非表示 */
     const _obComplete = window.App.onboarding?.getState()?.onboardingComplete;
@@ -8829,117 +8829,130 @@ function _buildFlowTabHTML(words) {
         ${legendHTML}`;
 }
 
-/**
- * 節全体の読書メモを生成する。
- * words 配列を解析し、節の「流れ・tone・discourse・emphasis」を
- * 自然な prose として表現する。
+/* ═════════════════════════════════════════════════════════════════
+ * 節全体の読書メモ — ReadingFormatter 駆動版
  *
- * 設計原則：
- * - signal 列挙しない。自然な文章として融合する。
- * - commentary / exegesis ではない。軽い読書補助。
- * - 情報を列挙するのではなく、文章の動きを感じさせる。
+ * 旧 _buildPassageNote（CONJ_FEEL辞書 / imperatives・perfects・
+ * passives・participles ヒューリスティック / METAPHOR辞書 / 呼格判定 /
+ * 「原語の語順と品詞の流れは、上の原語の順序から確認できます。」を
+ * 含む独自フォールバック文）は完全に削除した。
+ *
+ * UI生成の唯一ソースは clause-analyzer.js の ReadingFormatter.format()。
+ * 本ブロックの役割は「SyntaxAnalyzer→PhraseAnalyzer→ClauseAnalyzer の
+ * パイプラインを実行し、検出された節ごとに ReadingFormatter へ渡す」
+ * という配線のみで、文章そのものは一切生成しない。
+ *
+ * フォールバックルール:
+ *   - words が空 → null（節を組まない）
+ *   - パイプライン未初期化 / 初期化失敗 → null（代替文で埋めない）
+ *   - 節が1つも検出されない → null（多くの平叙文がこれに該当する。
+ *     旧実装はここで汎用フォールバック文を出していたが、今回はそれを
+ *     廃止し、読書メモという「言うことがある時だけ話す」静寂優先の
+ *     設計にする）
+ *   - 検出された節がいずれも discourse.type を持たない → null
+ *
+ * discourse.type / clause.type / marker / confidence は、
+ * ReadingFormatter.format() の戻り値（{title, summary, hint,
+ * confidenceText}）にしか触れないため、本ブロックのコードには
+ * そもそも一切登場しない（Guard Rule は ReadingFormatter 側で
+ * assertReadingTextSafe() により多重に保証済み）。
+ * ═════════════════════════════════════════════════════════════════ */
+
+let _wallacePipeline       = null;  // { sa, pa, ca, rf } キャッシュ（初回のみ registry を fetch）
+let _wallacePipelineFailed = false; // 初期化に失敗した場合は再試行せず静かに諦める
+let _wallacePassageNoteGen = 0;     // 古い非同期結果の注入を防ぐ世代カウンタ
+
+async function _ensureWallacePipeline() {
+    if (_wallacePipeline || _wallacePipelineFailed) return _wallacePipeline;
+    try {
+        const [syntaxRegistry, phraseRegistry, clauseRegistry] = await Promise.all([
+            fetch('./syntax-registry.json').then(r => r.json()),
+            fetch('./phrase-registry.json').then(r => r.json()),
+            fetch('./clause-registry.json').then(r => r.json()),
+        ]);
+        const SyntaxAnalyzerCls = window.SyntaxAnalyzer || window.App?.syntax?.Analyzer;
+        const PhraseAnalyzerCls = window.PhraseAnalyzer || window.App?.syntax?.PhraseAnalyzer;
+        const ClauseAnalyzerCls = window.App?.syntax?.ClauseAnalyzer;
+        const ReadingFormatterCls = window.App?.syntax?.ReadingFormatter;
+        if (!SyntaxAnalyzerCls || !PhraseAnalyzerCls || !ClauseAnalyzerCls || !ReadingFormatterCls) {
+            throw new Error('required analyzer classes not loaded');
+        }
+        _wallacePipeline = {
+            sa: new SyntaxAnalyzerCls(syntaxRegistry),
+            pa: new PhraseAnalyzerCls(phraseRegistry),
+            ca: new ClauseAnalyzerCls(clauseRegistry),
+            rf: new ReadingFormatterCls(),
+        };
+    } catch (e) {
+        console.warn('[Wallace] pipeline init failed:', e);
+        _wallacePipelineFailed = true;
+        _wallacePipeline = null;
+    }
+    return _wallacePipeline;
+}
+
+/* clauseResults キャッシュ（直近に解析した verse の words 参照をキーにする）。
+   節レイヤー（passage note）と単語レイヤー（resonance）が同じ解析結果を
+   共有するための唯一の場所 — 「レイヤーごとの別ロジック」を作らない。 */
+let _wallaceClauseCache = null; // { words, clauseResults }
+
+/**
+ * words（節の生トークン配列）に対する ClauseAnalyzer の解析結果を返す。
+ * 同じ words 参照に対しては再解析せずキャッシュを返す（節レイヤー・
+ * 単語レイヤーの両方から呼ばれるため）。
+ * @returns {Promise<Array|null>}
  */
-function _buildPassageNote(words) {
-    if (!words || words.length === 0) return '';
-
-    /* ────────────────────────────────────────────────
-       節全体の読書メモ。
-       signal 列挙しない。自然な文として書く。
-       文章の動きを感じさせる。commentary ではない。
-       ──────────────────────────────────────────────── */
-
-    /* 接続詞 */
-    const conjWords = words.filter(w => (w.morph || '').split('-')[0] === 'CONJ').map(w => w.text || '');
-    const CONJ_FEEL = {
-        'γάρ':  '理由や根拠を示しながら',
-        'ἀλλά': '前の内容と対比しながら',
-        'οὖν':  '前の流れを受けて結論へ向かいながら',
-        'δέ':   '話が次の段階へ進みながら',
-        'ἵνα':  '目的を示しながら',
-        'ὥστε': '前の内容の帰結として',
-        'ὅτι':  '内容を補足しながら',
-    };
-    const conjHints = conjWords.map(c => CONJ_FEEL[c]).filter(Boolean);
-
-    /* 動詞の法を読む */
-    const verbs = words.filter(w => (w.morph || '').split('-')[0] === 'V');
-    const imperatives = verbs.filter(w => {
-        const p1 = (w.morph || '').split('-')[1] || '';
-        const off = /^[0-9]/.test(p1) ? 1 : 0;
-        return p1[off + 2] === 'M';
-    });
-    const perfects = verbs.filter(w => {
-        const p1 = (w.morph || '').split('-')[1] || '';
-        const off = /^[0-9]/.test(p1) ? 1 : 0;
-        return p1[off] === 'X';
-    });
-    const passives = verbs.filter(w => {
-        const p1 = (w.morph || '').split('-')[1] || '';
-        const off = /^[0-9]/.test(p1) ? 1 : 0;
-        return p1[off + 1] === 'P';
-    });
-    const participles = verbs.filter(w => {
-        const p1 = (w.morph || '').split('-')[1] || '';
-        const off = /^[0-9]/.test(p1) ? 1 : 0;
-        return p1[off + 2] === 'P';
-    });
-
-    /* 比喩語 */
-    const METAPHOR = { 'περιπατέω': '歩む', 'περιπατεῖν': '歩む', 'φωτί': '光', 'σκότος': '闇', 'σταυρός': '十字架' };
-    const metaphorFound = words.find(w => METAPHOR[w.text] || METAPHOR[w.lemma]);
-
-    /* 呼格 */
-    const hasVocative = words.some(w => {
-        const p1 = (w.morph || '').split('-')[1] || '';
-        const base = ['1','2','3'].includes(p1[0]) ? p1.slice(1) : p1;
-        return base[0] === 'V';
-    });
-
-    const parts = [];
-
-    /* 第一段落：全体の流れと調子 */
-    if (conjHints.length > 0) {
-        const hint = conjHints[0];
-        if (imperatives.length > 0)
-            parts.push(`${hint}、行動への呼びかけが続いています。`);
-        else if (perfects.length > 0)
-            parts.push(`${hint}、かつての出来事が今も続いているという響きが感じられます。`);
-        else
-            parts.push(`${hint}、話が展開しています。`);
-    } else if (imperatives.length >= 2) {
-        parts.push(`呼びかけの調子が重なっています。同じ方向への言葉が繰り返されることで、強調の感触があります。`);
-    } else if (imperatives.length === 1) {
-        parts.push(`説明や叙述ではなく、行動への呼びかけとして語られています。`);
-    } else if (perfects.length > 0) {
-        parts.push(`過去に起きた出来事の効果が今も続いている、という完了の重みが感じられます。`);
-    } else if (passives.length > 0) {
-        parts.push(`主語が「受けとめる側」として置かれています。神学的な文脈では、神による行為を示すことがあります。`);
+async function _getWallaceClauseAnalysis(words) {
+    if (!words || words.length === 0) return null;
+    if (_wallaceClauseCache && _wallaceClauseCache.words === words) {
+        return _wallaceClauseCache.clauseResults;
     }
-
-    /* 第二段落：構造の特徴 */
-    if (participles.length > 0 && imperatives.length > 0) {
-        parts.push(`主な呼びかけに、分詞が添えられています。「〜しながら」という背景や状況を重ねています。`);
-    } else if (participles.length > 1) {
-        parts.push(`複数の分詞が連なり、主語の状況や動作の背景が丁寧に描かれています。`);
+    const pipeline = await _ensureWallacePipeline();
+    if (!pipeline) return null;
+    const { sa, pa, ca } = pipeline;
+    try {
+        const all = sa.analyzeAll(words);
+        const syntaxResults = all.results.map(r => r.output);
+        const phraseResults = pa.analyze({ tokens: words, syntaxResults });
+        const clauseResults = ca.analyze({ tokens: words, syntaxResults, phraseResults });
+        _wallaceClauseCache = { words, clauseResults };
+        return clauseResults;
+    } catch (e) {
+        console.warn('[Wallace] analysis failed:', e);
+        return null;
     }
-    if (metaphorFound) {
-        const mJa = METAPHOR[metaphorFound.text] || METAPHOR[metaphorFound.lemma] || '';
-        if (mJa) parts.push(`「${mJa}」が比喩として使われています。文字通りの意味を超えて、生き方や状態を指している可能性があります。`);
-    }
-    if (hasVocative) {
-        parts.push(`呼びかけの言葉が使われています。読者を直接名指しする調子があります。`);
-    }
+}
 
-    /* デフォルト */
-    if (parts.length === 0) {
-        if (words.length <= 5)
-            parts.push(`短い節です。一語一語が凝縮された意味を持って置かれています。`);
-        else
-            parts.push(`原語の語順と品詞の流れは、上の原語の順序から確認できます。`);
+/**
+ * words（節の生トークン配列）から ReadingFormatter による読書メモHTMLを
+ * 組み立てる。文章は一切自前で生成しない — ReadingFormatter.format()の
+ * title/summary をそのまま使うのみ。
+ * @returns {Promise<string|null>} 表示すべき内容が無ければ null
+ */
+async function _buildWallacePassageNoteHTML(words) {
+    if (!words || words.length === 0) return null;
+
+    const clauseResults = await _getWallaceClauseAnalysis(words);
+    if (!clauseResults || clauseResults.length === 0) return null;
+
+    const pipeline = await _ensureWallacePipeline();
+    if (!pipeline) return null;
+    const { ca, rf } = pipeline;
+
+    const seen = new Set();
+    const sentences = [];
+    for (const clause of clauseResults) {
+        const discourse = ca.classifyDiscourseRelation(words, clause);
+        const formatted  = rf.format({ discourse, type: clause.type });
+        const sentence   = formatted && formatted.summary;
+        if (sentence && !seen.has(sentence)) {
+            seen.add(sentence);
+            sentences.push(sentence);
+        }
     }
+    if (sentences.length === 0) return null;
 
-    const proseParagraphs = parts.map(p2 => `<p>${p2}</p>`).join('');
-
+    const proseParagraphs = sentences.map(s => `<p>${s}</p>`).join('');
     return `
         <section class="wlv-reading-passage-note">
             <span class="wlv-pn-label">この節の読書メモ</span>
@@ -8947,6 +8960,98 @@ function _buildPassageNote(words) {
                 ${proseParagraphs}
             </div>
         </section>`;
+}
+
+/**
+ * #wlv-passage-note-slot を ReadingFormatter の結果で非同期に埋める。
+ * 表示すべき内容が無ければ何も注入しない（説明文で埋めない＝静寂優先）。
+ * ユーザーが別の節へ素早く移動した場合に古い結果を誤注入しないよう、
+ * 世代カウンタで自分が最新の呼び出しかを確認してから反映する。
+ */
+async function _fillWallacePassageNote(words, container) {
+    const myGen = ++_wallacePassageNoteGen;
+    const html = await _buildWallacePassageNoteHTML(words);
+    if (myGen !== _wallacePassageNoteGen) return;       // 既に次の節に移動済み
+    if (!html) return;                                   // 静寂優先：空スロットのまま
+    const slot = container && container.querySelector('#wlv-passage-note-slot');
+    if (slot) slot.outerHTML = html;
+}
+
+/* ═════════════════════════════════════════════════════════════════
+ * 単語クリック時の表示（Wordレイヤー）— ReadingFormatter 統一版
+ *
+ * 旧 _buildResonanceText（pos/tense/voice/mood ごとの独自ヒューリス
+ * ティック文と、resonance専用の CONJ_FEEL辞書）は完全に削除した。
+ *
+ * Word レイヤーは新規の文章を一切生成しない。クリックされた語が
+ * 属する節（あれば、最も範囲の狭い節）を ClauseAnalyzer の結果から
+ * 特定し、その節の discourse 判定結果を wordContext.clauseContext と
+ * して ReadingFormatter.format(wordContext) に渡すだけ — 「節の意味の
+ * 一部として単語を見る」という Wallace 思想のとおり、単語自体の
+ * 文法（reason/purpose 等の分析語、grammarタグ、confidence）は
+ * 一切表示しない。
+ *
+ * 意味のある clauseContext が見つからない場合（語がどの節にも
+ * 属さない、または解析自体が行えない）は null を返し、呼び出し側で
+ * 完全に非表示にする（説明文で埋めない＝静寂優先）。
+ * ═════════════════════════════════════════════════════════════════ */
+
+/**
+ * words 配列中の idx 番目の語が属する節（あれば最も範囲の狭い節）を返す。
+ */
+function _findEnclosingClause(clauseResults, idx) {
+    let best = null;
+    for (const c of clauseResults) {
+        if (c.start <= idx && idx <= c.end) {
+            if (!best || (c.end - c.start) < (best.end - best.start)) best = c;
+        }
+    }
+    return best;
+}
+
+/**
+ * 1語（words[idx]）について、その語が属する節の ReadingFormatter 文を
+ * 返す。単語レベルの独立解釈は一切行わない。
+ * @returns {Promise<string|null>} 意味のある clauseContext が無ければ null
+ */
+async function _buildWordResonanceText(words, idx) {
+    if (!words || words.length === 0 || idx == null || !words[idx]) return null;
+
+    const clauseResults = await _getWallaceClauseAnalysis(words);
+    if (!clauseResults || clauseResults.length === 0) return null;
+
+    const clause = _findEnclosingClause(clauseResults, idx);
+    if (!clause) return null; // ⑤ 意味のある clauseContext が無い → 完全非表示
+
+    const pipeline = await _ensureWallacePipeline();
+    if (!pipeline) return null;
+    const { ca, rf } = pipeline;
+
+    const w = words[idx];
+    const discourse = ca.classifyDiscourseRelation(words, clause);
+    const wordContext = {
+        type:          w.lemma || w.morph || '',
+        text:          w.text  || '',
+        verseContext:  w.verse != null ? String(w.verse) : '',
+        clauseContext: { discourse, type: clause.type },
+    };
+    const formatted = rf.format(wordContext);
+    return (formatted && formatted.summary) || null;
+}
+
+let _wlvResonanceGen = 0; // 古い非同期結果の誤注入を防ぐ世代カウンタ
+
+/**
+ * #wlv-dd-resonance を ReadingFormatter の結果で非同期に埋める。
+ * 表示すべき内容が無ければ空のまま（静寂優先）。
+ */
+async function _fillWlvResonance(ddReso, words, idx) {
+    if (!ddReso) return;
+    const myGen = ++_wlvResonanceGen;
+    ddReso.textContent = '';
+    const sentence = await _buildWordResonanceText(words, idx);
+    if (myGen !== _wlvResonanceGen) return; // 既に別の語に移動済み
+    if (sentence) ddReso.textContent = sentence;
 }
 
 
@@ -9302,8 +9407,12 @@ function _wlvChipClick(chipEl, idx) {
 
     if (verseBlock) {
         /* 本文を読んでいる最中の chip タップ：まず Inspect popover で軽く確認する。
-           Study panel へ進むかどうかは popover の「詳しく見る」ボタン（escalateToStudy）に委ねる。 */
-        showInspectPopover(chipEl, chip.greek, chip.strong, chip.morphText, chip.rawMorph, chip.jaWord);
+           Study panel へ進むかどうかは popover の「詳しく見る」ボタン（escalateToStudy）に委ねる。
+           ★ Layer 2: verseBlock._flowWords が無い経路（gf-verse-block 等）では
+           chip解決自体が _wlvWordCache にフォールバックする既存仕様に合わせ、
+           words も同じソースにフォールバックする。 */
+        const verseWords = verseBlock._flowWords || _wlvWordCache;
+        showInspectPopover(chipEl, chip.greek, chip.strong, chip.morphText, chip.rawMorph, chip.jaWord, verseWords, idx);
         window.App.onboarding?.onWordClicked(chipEl);
         _syncOnboardingActiveFlag();
         return;
@@ -9318,7 +9427,8 @@ function _wlvChipClick(chipEl, idx) {
         const ddReso  = document.getElementById('wlv-dd-resonance');
         if (ddGreek) ddGreek.textContent = chip.greek || '-';
         if (ddJa)    ddJa.textContent    = chip.jaWord || chip.gloss || '-';
-        if (ddReso)  ddReso.textContent  = _buildResonanceText(chip);
+        /* ReadingFormatter駆動・非同期（静寂優先：意味のある節文脈が無ければ何も表示しない） */
+        _fillWlvResonance(ddReso, _wlvWordCache, idx);
         drawer.classList.add('visible');
     }
 
@@ -9326,76 +9436,6 @@ function _wlvChipClick(chipEl, idx) {
     window.App.onboarding?.onWordClicked(chipEl);
     _syncOnboardingActiveFlag();
 }
-
-/**
- * 1語について「この節でどう響くか」を1〜2文のproseで返す。
- * signal tag列挙禁止。形態論タームを読書感覚の言葉に翻訳する。
- */
-function _buildResonanceText(chip) {
-    const rawMorph = chip.rawMorph || '';
-    const parts    = rawMorph.split('-');
-    const pos      = parts[0] || '';
-    const p1       = parts[1] || '';
-    const off      = /^[0-9]/.test(p1) ? 1 : 0;
-    const jaWord   = chip.jaWord || '';
-    const w        = jaWord ? `「${jaWord}」` : 'この語';
-
-    /* 動詞 */
-    if (pos === 'V') {
-        const tenCode  = p1[off]     || '';
-        const voiCode  = p1[off + 1] || '';
-        const moodCode = p1[off + 2] || '';
-
-        if (moodCode === 'M') {
-            if (tenCode === 'P') return `${w}が繰り返し続けていく姿勢として、呼びかけています。`;
-            return `説明ではなく、${w}として直接方向を示しています。`;
-        }
-        if (moodCode === 'P') {
-            if (tenCode === 'A') return `先行する動作として背景に置かれ、主な出来事を支えています。`;
-            return `主な動作と同時に進む状況を描き添えています。`;
-        }
-        if (moodCode === 'N') return `前の動作の目的や内容を補っています。`;
-        if (moodCode === 'S') return `願いや目的の含みをもって響いています。`;
-        if (tenCode === 'X') return `かつて起きた出来事の効果が、今この節でも続いています。`;
-        if (tenCode === 'A' && moodCode === 'I') return `点的動作として捉えられた出来事です。時間的な位置は文脈に依存しますが、動作全体をひとまとまりとして提示しています。`;        if (tenCode === 'F') return `確かに起きることとして語られています。`;
-        if (voiCode === 'P') return `主語が受けとめる側として置かれています。`;
-        if (voiCode === 'M' || voiCode === 'D') return `主語が深く関わりながら動いています。`;
-        return `この節の中心的な動作として響いています。`;
-    }
-
-    /* 接続詞 */
-    if (pos === 'CONJ') {
-        const CONJ_FEEL = {
-            'γάρ':  '前の内容の根拠へと流れが向かっています。',
-            'ἀλλά': 'ここで流れが転換し、対比が強まっています。',
-            'οὖν':  '前の議論を受けて、結論へと向かっています。',
-            'δέ':   '話が次の段階へ静かに進んでいます。',
-            'καί':  '内容が積み重なりながら続いています。',
-            'ἵνα':  '目的の内容がこの先に続きます。',
-            'ὥστε': '前の内容を受けて、その帰結が語られています。',
-            'ὅτι':  '内容や根拠の節が始まっています。',
-        };
-        return CONJ_FEEL[chip.greek] || '前後の節をつなぎ、流れを形作っています。';
-    }
-
-    /* 名詞・形容詞・代名詞 */
-    if (['N','A','R','P','T','D'].includes(pos)) {
-        const base = ['1','2','3'].includes(p1[0]) ? p1.slice(1) : p1;
-        const CASE_FEEL = {
-            'N': `${w}が、この節の中心に置かれています。`,
-            'G': `${w}が「〜の」として結びつき、関係を示しています。`,
-            'D': `${w}が、動作の間接的な関わりとして響いています。`,
-            'A': `${w}が、動作の向かう先として置かれています。`,
-            'V': `${w}が、直接呼びかけられています。`,
-        };
-        return CASE_FEEL[base[0]] || '原語の詳細は「深く読む」から確認できます。';
-    }
-
-    if (pos === 'PREP') return '関係の方向や位置を示しています。';
-    if (pos === 'T') return '後続の語を特定して指し示しています。';
-    return '原語の詳細は「深く読む」から確認できます。';
-}
-
 
 /** chip index → chip データを _wlvWordCache から取得 */
 function _wlvGetChipData(idx) {
