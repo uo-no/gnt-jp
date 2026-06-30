@@ -478,6 +478,15 @@ flex-shrink: 0;
         transform: none !important;
         position: relative !important;
         pointer-events: auto !important;
+        /* ★ Apple風カードUI（デスクトップ限定）。モバイルは独自の
+           border-radius/box-shadow（Bottom Sheet用、約473行上のメディア
+           クエリ参照）を既に持つためここでは触れない。 */
+        border: 1px solid var(--border-soft);
+        border-bottom: none;
+        border-radius: var(--radius-l) var(--radius-l) 0 0;
+    }
+    #bottom-depth-panel.open {
+        box-shadow: var(--shadow-card);
     }
 }
 
@@ -760,6 +769,16 @@ font-size: 1.2rem; transition: transform 0.2s, opacity 0.2s; line-height: 1;
 }
 #open-panel-btn:hover { opacity: 0.7; transform: scale(1.1); }
 
+/* ★ Apple風カードUI（StudyPanel）。
+   高さは既存の46vh/220px/70vh＋ドラッグハンドルによるユーザー操作の
+   レンジをそのまま維持する（これは「コンテンツ量による自動伸長」では
+   なくユーザーの明示的な操作であり、今回の「固定高さ」要件が禁止する
+   対象ではないと判断した — もし完全に固定値・リサイズ不可にしたい
+   場合は別途指示が必要）。今回の核心の修正は overflow: visible →
+   hidden。中身（#reading-notes-wrap / 動的生成される #word-list-view）は
+   どちらも flex:1; min-height:0; overflow-y:auto 済みのため、コンテナ
+   側さえ hidden にすればコンテンツ量に関わらずパネル自体は伸びず、
+   スクロールは内部のみで完結する。 */
 #bottom-depth-panel {
 width: 100%;
 background: var(--bg-panel);
@@ -773,15 +792,19 @@ min-height: 220px;
 max-height: 70vh;
 box-sizing: border-box;
 position: relative;
-overflow: visible;
+overflow: hidden;
 }
 #bottom-depth-panel.open {
 display: flex;
 }
 
+/* ★ top を -4px ではなく 0 にする：親 #bottom-depth-panel が
+   overflow:hidden になったため、パネル境界の外（負のオフセット）に
+   はみ出す部分はクリップされてしまう。掴み領域の高さは変えず、
+   パネル内側に完全に収める。 */
 #panel-resize-handle {
 position: absolute;
-top: -4px;
+top: 0;
 left: 0;
 width: 100%;
 height: 8px;
@@ -806,11 +829,14 @@ margin-bottom: 2px;
 background: var(--highlight);
 width: 60px;
 }
+/* ★ Apple風カードUI: 既存デザイントークンの余白（16/24px）を使用。
+   header は flex-shrink:0 で常に固定表示、スクロールするのは
+   #reading-notes-wrap / #word-list-view 側のみ。 */
 .panel-header {
 font-weight: 700;
 font-size: 0.95rem;
 letter-spacing: -0.01em;
-padding: 14px 22px 0;
+padding: var(--space-md) var(--space-lg) var(--space-sm);
 display: flex;
 justify-content: space-between;
 align-items: center;
@@ -8952,12 +8978,17 @@ async function _buildWallacePassageNoteHTML(words) {
     }
     if (sentences.length === 0) return null;
 
-    const proseParagraphs = sentences.map(s => `<p>${s}</p>`).join('');
+    /* 複数節が検出された場合、節ごとに「ここでは、」を繰り返さず
+       ReadingFormatter.combine() で1つの自然文に統合する
+       （単一節の場合は combine() がそのまま元の文を返す）。 */
+    const combined = rf.combine(sentences);
+    if (!combined) return null;
+
     return `
         <section class="wlv-reading-passage-note">
             <span class="wlv-pn-label">この節の読書メモ</span>
             <div class="wlv-pn-prose">
-                ${proseParagraphs}
+                <p>${combined}</p>
             </div>
         </section>`;
 }

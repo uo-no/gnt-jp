@@ -1141,6 +1141,41 @@ const _CLAUSE_TYPE_TO_GLOSS_KEY = {
     'clause.contrast':  'CONTRAST_EXPLANATION',
 };
 
+// combine() の読書リズム用：各 _WALLACE_TEXT キーが2文目以降に来たときの
+// 接続語タイプ（A=通常追加「、」/ B=軽い意味転換「、そして」/
+// C=補足追加「、さらに」）。各キーの本文に含まれる語そのものから判定:
+//   - 「対比」「転換」を含む → B（CONTRAST_EXPLANATIONは自身の文に
+//     既に「転換されています」とあり、明確な意味の転換）
+//   - SIMILEはたとえ話への切替＝説明の仕方自体が変わるためBとした
+//   - 「補足」「展開」を含む → C（COMPLEMENT/UNCLASSIFIED/
+//     TRUE_NARRATIVEは文中に「補足」、EXPLANATORY_PURPOSEは目的の
+//     「展開」＝既出の目的を掘り下げる付加情報）
+//   - それ以外（理由・内容・目的・結果・条件など、新規の事実を
+//     ストレートに足すもの）→ A
+// 未知のキー（将来追加分・combine()に渡された非_WALLACE_TEXT文）は
+// 既定で 'A'（最も控えめな「、」）にフォールバックする。
+const _CONNECTOR_TYPE_BY_KEY = {
+    DISCOURSE_EXPLANATION: 'A',
+    CONTENT:               'A',
+    COMPLEMENT:             'C',
+    PURPOSE:                'A',
+    EXPLANATORY_PURPOSE:    'C',
+    RESULT:                 'A',
+    CONDITION:              'A',
+    CONTRAST_EXPLANATION:   'B',
+    UNCLASSIFIED:           'C',
+    TRUE_NARRATIVE:         'C',
+    REASON:                 'A',
+    SIMILE:                 'B',
+    TEMPORAL:               'A',
+    APPROX_CAUSE:           'A',
+};
+
+// combine() が入力文字列から元の _WALLACE_TEXT キーを逆引きするための表
+const _WALLACE_TEXT_TO_KEY = new Map(
+    Object.entries(_WALLACE_TEXT).map(([key, text]) => [text, key])
+);
+
 class ReadingFormatter {
     constructor() {}
 
@@ -1178,6 +1213,60 @@ class ReadingFormatter {
             hint:           this._getHint(),
             confidenceText: assertReadingTextSafe(this._getConfidenceText(confidence)),
         };
+    }
+
+    // -----------------------------------------------------------------
+    // combine — 複数の format() 出力文を「ここでは、」1回だけの
+    // 1つの自然文に統合し、節境界に読書リズム（接続語の軽い変化）を
+    // 持たせる。
+    //
+    // 例: ["ここでは、Aされています。", "ここでは、Bされています。"]
+    //     → "ここでは、Aされ、Bされています。"（Bが通常追加=Aタイプの場合）
+    //
+    // 最後の1文以外は「〜されています」を継続形「〜され」に機械的に
+    // 変換する。2文目以降の接続語は、その文の discourse 種別から
+    // 「、」（通常追加）/「、そして」（軽い意味転換）/
+    // 「、さらに」（補足追加）のいずれかを選ぶ（_CONNECTOR_TYPE_BY_KEY
+    // 参照、判定根拠は同マップのコメントに記載）。最後の1文だけ元の
+    // 丁寧形のまま残す。入力は呼び出し側で重複除去済みであることを
+    // 前提とする（同一文の重複排除はここでは行わない＝呼び出し側の責務）。
+    //
+    // 注記（仕様の解釈について・要報告）: 依頼文の出力例⑥は
+    // Before/After が文字列として同一で「視覚的には変更しない」と
+    // 注記されていたが、依頼文④では接続語自体を「、」/「、そして」/
+    // 「、さらに」の3種に変えると明記されていた。両者は字面上矛盾する。
+    // ④の方が具体的かつ実行可能な指示であり、またゴール⑨の「読みの
+    // リズム」は語の変化なしには実現できないと判断したため、④を採用し
+    // 接続語を実際に変化させた（HTML/CSSによる視覚的な間の表現は
+    // 追加していない＝「視覚的には変更しない」はそちらの意味として
+    // 解釈）。
+    //
+    // 注記: 現行の全14種の _WALLACE_TEXT エントリは検証済みの通り
+    // 例外なく「〜されています」で終わる（node実行による確認済み）。
+    // 将来このパターンに合わないエントリが追加された場合、継続形への
+    // 変換は単に無効（置換が起きず元の丁寧形のまま）になるだけで、
+    // 文として壊れたり内部用語が漏れたりすることはない。
+    // -----------------------------------------------------------------
+    combine(sentences) {
+        const list = (sentences || []).filter(Boolean);
+        if (list.length === 0) return null;
+        if (list.length === 1) return assertReadingTextSafe(list[0]);
+
+        const bodies = list.map(s => s.replace(/^ここでは、/, '').replace(/。$/, ''));
+        const continuatives = bodies.slice(0, -1).map(b => b.replace(/されています$/, 'され'));
+        const last = bodies[bodies.length - 1];
+        const allBodies = continuatives.concat(last);
+
+        const CONNECTOR_TEXT = { A: '、', B: '、そして', C: '、さらに' };
+        let combined = 'ここでは、' + allBodies[0];
+        for (let i = 1; i < allBodies.length; i++) {
+            const key  = _WALLACE_TEXT_TO_KEY.get(list[i]);
+            const type = _CONNECTOR_TYPE_BY_KEY[key] || 'A';
+            combined += CONNECTOR_TEXT[type] + allBodies[i];
+        }
+        combined += '。';
+
+        return assertReadingTextSafe(combined);
     }
 
     // discourse.type が具体的な値を持つ場合はそれを優先し、
