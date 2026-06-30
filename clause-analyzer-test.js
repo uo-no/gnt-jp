@@ -98,13 +98,13 @@ function loadJson(relPath) {
     return JSON.parse(fs.readFileSync(path.join(BASE_DIR, relPath), 'utf8'));
 }
 
-const { SyntaxAnalyzer }  = require(path.join(BASE_DIR, 'syntax-analyzer.js'));
-const { PhraseAnalyzer }  = require(path.join(BASE_DIR, 'phrase-analyzer.js'));
-const { ClauseAnalyzer }  = require(path.join(BASE_DIR, 'clause-analyzer.js'));
+const { SyntaxAnalyzer }  = require(path.join(BASE_DIR, 'js', 'syntax-analyzer.js'));
+const { PhraseAnalyzer }  = require(path.join(BASE_DIR, 'js', 'phrase-analyzer.js'));
+const { ClauseAnalyzer }  = require(path.join(BASE_DIR, 'js', 'clause-analyzer.js'));
 
-const syntaxRegistry  = loadJson('syntax-registry.json');
-const phraseRegistry  = loadJson('phrase-registry.json');
-const clauseRegistry  = loadJson('clause-registry.json');
+const syntaxRegistry  = loadJson('data/syntax-registry.json');
+const phraseRegistry  = loadJson('data/phrase-registry.json');
+const clauseRegistry  = loadJson('data/clause-registry.json');
 const booksMaster     = loadJson('books.json');
 
 const sa = new SyntaxAnalyzer(syntaxRegistry);
