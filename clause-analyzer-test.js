@@ -157,7 +157,7 @@ console.log('\n═════════════════════�
 console.log('§ 1. 追加ファイル一覧');
 console.log('══════════════════════════════════════════════');
 
-const newFiles = ['clause-analyzer.js', 'clause-registry.json', 'clause-analyzer-test.js'];
+const newFiles = ['js/clause-analyzer.js', 'data/clause-registry.json', 'clause-analyzer-test.js'];
 for (const f of newFiles) {
     const exists = fs.existsSync(path.join(BASE_DIR, f));
     console.log(`  ${exists ? 'OK' : 'MISSING'}  ${f}`);

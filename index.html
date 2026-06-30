@@ -8790,116 +8790,134 @@ function _buildFlowTabHTML(words) {
         ${legendHTML}`;
 }
 
-/**
- * 節全体の読書メモを生成する。
- * words 配列を解析し、節の「流れ・tone・discourse・emphasis」を
- * 自然な prose として表現する。
+/* ═════════════════════════════════════════════════════════════════
+ * 節全体の読書メモ — ReadingFormatter 駆動版
  *
- * 設計原則：
- * - signal 列挙しない。自然な文章として融合する。
- * - commentary / exegesis ではない。軽い読書補助。
- * - 情報を列挙するのではなく、文章の動きを感じさせる。
+ * 旧 _buildPassageNote（CONJ_FEEL辞書 / imperatives・perfects・
+ * passives・participles ヒューリスティック / METAPHOR辞書 / 呼格判定 /
+ * 「原語の語順と品詞の流れは、上の原語の順序から確認できます。」を
+ * 含む独自フォールバック文）は完全に削除した。
+ *
+ * UI生成の唯一ソースは clause-analyzer.js の ReadingFormatter.format()。
+ * 本ブロックの役割は「SyntaxAnalyzer→PhraseAnalyzer→ClauseAnalyzer の
+ * パイプラインを実行し、検出された節ごとに ReadingFormatter へ渡す」
+ * という配線のみで、文章そのものは一切生成しない。
+ *
+ * フォールバックルール:
+ *   - words が空 → null（節を組まない）
+ *   - パイプライン未初期化 / 初期化失敗 → null（代替文で埋めない）
+ *   - 節が1つも検出されない → null（多くの平叙文がこれに該当する。
+ *     旧実装はここで汎用フォールバック文を出していたが、今回はそれを
+ *     廃止し、読書メモという「言うことがある時だけ話す」静寂優先の
+ *     設計にする）
+ *   - 検出された節がいずれも discourse.type を持たない → null
+ *
+ * discourse.type / clause.type / marker / confidence は、
+ * ReadingFormatter.format() の戻り値（{title, summary, hint,
+ * confidenceText}）にしか触れないため、本ブロックのコードには
+ * そもそも一切登場しない（Guard Rule は ReadingFormatter 側で
+ * assertReadingTextSafe() により多重に保証済み）。
+ * ═════════════════════════════════════════════════════════════════ */
+
+let _wallacePipeline       = null;  // { sa, pa, ca, rf } キャッシュ（初回のみ registry を fetch）
+let _wallacePipelineFailed = false; // 初期化に失敗した場合は再試行せず静かに諦める
+let _wallacePassageNoteGen = 0;     // 古い非同期結果の注入を防ぐ世代カウンタ
+
+async function _ensureWallacePipeline() {
+    if (_wallacePipeline || _wallacePipelineFailed) return _wallacePipeline;
+    try {
+        const [syntaxRegistry, phraseRegistry, clauseRegistry] = await Promise.all([
+            fetch('./data/syntax-registry.json').then(r => r.json()),
+            fetch('./data/phrase-registry.json').then(r => r.json()),
+            fetch('./data/clause-registry.json').then(r => r.json()),
+        ]);
+        const SyntaxAnalyzerCls = window.SyntaxAnalyzer || window.App?.syntax?.Analyzer;
+        const PhraseAnalyzerCls = window.PhraseAnalyzer || window.App?.syntax?.PhraseAnalyzer;
+        const ClauseAnalyzerCls = window.App?.syntax?.ClauseAnalyzer;
+        const ReadingFormatterCls = window.App?.syntax?.ReadingFormatter;
+        if (!SyntaxAnalyzerCls || !PhraseAnalyzerCls || !ClauseAnalyzerCls || !ReadingFormatterCls) {
+            throw new Error('required analyzer classes not loaded');
+        }
+        _wallacePipeline = {
+            sa: new SyntaxAnalyzerCls(syntaxRegistry),
+            pa: new PhraseAnalyzerCls(phraseRegistry),
+            ca: new ClauseAnalyzerCls(clauseRegistry),
+            rf: new ReadingFormatterCls(),
+        };
+    } catch (e) {
+        console.warn('[Wallace] pipeline init failed:', e);
+        _wallacePipelineFailed = true;
+        _wallacePipeline = null;
+    }
+    return _wallacePipeline;
+}
+
+/* clauseResults キャッシュ（直近に解析した verse の words 参照をキーにする）。
+   節レイヤー（passage note）と単語レイヤー（resonance）が同じ解析結果を
+   共有するための唯一の場所 — 「レイヤーごとの別ロジック」を作らない。 */
+let _wallaceClauseCache = null; // { words, clauseResults }
+
+/**
+ * words（節の生トークン配列）に対する ClauseAnalyzer の解析結果を返す。
+ * 同じ words 参照に対しては再解析せずキャッシュを返す（節レイヤー・
+ * 単語レイヤーの両方から呼ばれるため）。
+ * @returns {Promise<Array|null>}
  */
-function _buildPassageNote(words) {
-    if (!words || words.length === 0) return '';
-
-    /* ────────────────────────────────────────────────
-       節全体の読書メモ。
-       signal 列挙しない。自然な文として書く。
-       文章の動きを感じさせる。commentary ではない。
-       ──────────────────────────────────────────────── */
-
-    /* 接続詞 */
-    const conjWords = words.filter(w => (w.morph || '').split('-')[0] === 'CONJ').map(w => w.text || '');
-    const CONJ_FEEL = {
-        'γάρ':  '理由や根拠を示しながら',
-        'ἀλλά': '前の内容と対比しながら',
-        'οὖν':  '前の流れを受けて結論へ向かいながら',
-        'δέ':   '話が次の段階へ進みながら',
-        'ἵνα':  '目的を示しながら',
-        'ὥστε': '前の内容の帰結として',
-        'ὅτι':  '内容を補足しながら',
-    };
-    const conjHints = conjWords.map(c => CONJ_FEEL[c]).filter(Boolean);
-
-    /* 動詞の法を読む */
-    const verbs = words.filter(w => (w.morph || '').split('-')[0] === 'V');
-    const imperatives = verbs.filter(w => {
-        const p1 = (w.morph || '').split('-')[1] || '';
-        const off = /^[0-9]/.test(p1) ? 1 : 0;
-        return p1[off + 2] === 'M';
-    });
-    const perfects = verbs.filter(w => {
-        const p1 = (w.morph || '').split('-')[1] || '';
-        const off = /^[0-9]/.test(p1) ? 1 : 0;
-        return p1[off] === 'X';
-    });
-    const passives = verbs.filter(w => {
-        const p1 = (w.morph || '').split('-')[1] || '';
-        const off = /^[0-9]/.test(p1) ? 1 : 0;
-        return p1[off + 1] === 'P';
-    });
-    const participles = verbs.filter(w => {
-        const p1 = (w.morph || '').split('-')[1] || '';
-        const off = /^[0-9]/.test(p1) ? 1 : 0;
-        return p1[off + 2] === 'P';
-    });
-
-    /* 比喩語 */
-    const METAPHOR = { 'περιπατέω': '歩む', 'περιπατεῖν': '歩む', 'φωτί': '光', 'σκότος': '闇', 'σταυρός': '十字架' };
-    const metaphorFound = words.find(w => METAPHOR[w.text] || METAPHOR[w.lemma]);
-
-    /* 呼格 */
-    const hasVocative = words.some(w => {
-        const p1 = (w.morph || '').split('-')[1] || '';
-        const base = ['1','2','3'].includes(p1[0]) ? p1.slice(1) : p1;
-        return base[0] === 'V';
-    });
-
-    const parts = [];
-
-    /* 第一段落：全体の流れと調子 */
-    if (conjHints.length > 0) {
-        const hint = conjHints[0];
-        if (imperatives.length > 0)
-            parts.push(`${hint}、行動への呼びかけが続いています。`);
-        else if (perfects.length > 0)
-            parts.push(`${hint}、かつての出来事が今も続いているという響きが感じられます。`);
-        else
-            parts.push(`${hint}、話が展開しています。`);
-    } else if (imperatives.length >= 2) {
-        parts.push(`呼びかけの調子が重なっています。同じ方向への言葉が繰り返されることで、強調の感触があります。`);
-    } else if (imperatives.length === 1) {
-        parts.push(`説明や叙述ではなく、行動への呼びかけとして語られています。`);
-    } else if (perfects.length > 0) {
-        parts.push(`過去に起きた出来事の効果が今も続いている、という完了の重みが感じられます。`);
-    } else if (passives.length > 0) {
-        parts.push(`主語が「受けとめる側」として置かれています。神学的な文脈では、神による行為を示すことがあります。`);
+async function _getWallaceClauseAnalysis(words) {
+    if (!words || words.length === 0) return null;
+    if (_wallaceClauseCache && _wallaceClauseCache.words === words) {
+        return _wallaceClauseCache.clauseResults;
     }
+    const pipeline = await _ensureWallacePipeline();
+    if (!pipeline) return null;
+    const { sa, pa, ca } = pipeline;
+    try {
+        const all = sa.analyzeAll(words);
+        const syntaxResults = all.results.map(r => r.output);
+        const phraseResults = pa.analyze({ tokens: words, syntaxResults });
+        const clauseResults = ca.analyze({ tokens: words, syntaxResults, phraseResults });
+        _wallaceClauseCache = { words, clauseResults };
+        return clauseResults;
+    } catch (e) {
+        console.warn('[Wallace] analysis failed:', e);
+        return null;
+    }
+}
 
-    /* 第二段落：構造の特徴 */
-    if (participles.length > 0 && imperatives.length > 0) {
-        parts.push(`主な呼びかけに、分詞が添えられています。「〜しながら」という背景や状況を重ねています。`);
-    } else if (participles.length > 1) {
-        parts.push(`複数の分詞が連なり、主語の状況や動作の背景が丁寧に描かれています。`);
-    }
-    if (metaphorFound) {
-        const mJa = METAPHOR[metaphorFound.text] || METAPHOR[metaphorFound.lemma] || '';
-        if (mJa) parts.push(`「${mJa}」が比喩として使われています。文字通りの意味を超えて、生き方や状態を指している可能性があります。`);
-    }
-    if (hasVocative) {
-        parts.push(`呼びかけの言葉が使われています。読者を直接名指しする調子があります。`);
-    }
+/**
+ * words（節の生トークン配列）から ReadingFormatter による読書メモHTMLを
+ * 組み立てる。文章は一切自前で生成しない — ReadingFormatter.format()の
+ * title/summary をそのまま使うのみ。
+ * @returns {Promise<string|null>} 表示すべき内容が無ければ null
+ */
+async function _buildWallacePassageNoteHTML(words) {
+    if (!words || words.length === 0) return null;
 
-    /* デフォルト */
-    if (parts.length === 0) {
-        if (words.length <= 5)
-            parts.push(`短い節です。一語一語が凝縮された意味を持って置かれています。`);
-        else
-            parts.push(`原語の語順と品詞の流れは、上の原語の順序から確認できます。`);
-    }
+    const clauseResults = await _getWallaceClauseAnalysis(words);
+    if (!clauseResults || clauseResults.length === 0) return null;
 
-    const proseParagraphs = parts.map(p2 => `<p>${p2}</p>`).join('');
+    const pipeline = await _ensureWallacePipeline();
+    if (!pipeline) return null;
+    const { ca, rf } = pipeline;
+
+    const seen = new Set();
+    const sentences = [];
+    for (const clause of clauseResults) {
+        const discourse = ca.classifyDiscourseRelation(words, clause);
+        const formatted  = rf.format({ discourse, type: clause.type });
+        const sentence   = formatted && formatted.summary;
+        if (sentence && !seen.has(sentence)) {
+            seen.add(sentence);
+            sentences.push(sentence);
+        }
+    }
+    if (sentences.length === 0) return null;
+
+    /* 複数節が検出された場合、節ごとに「ここでは、」を繰り返さず
+       ReadingFormatter.combine() で1つの自然文に統合する
+       （単一節の場合は combine() がそのまま元の文を返す）。 */
+    const combined = rf.combine(sentences);
+    if (!combined) return null;
 
     return `
         <section class="wlv-reading-passage-note">
