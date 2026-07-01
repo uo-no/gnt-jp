@@ -3492,7 +3492,7 @@ details[open] .study-summary::before {
 
             <!-- モバイル専用ナビゲーションバー（iOS風） -->
             <div id="mobile-nav-bar" style="display:none;">
-                <button id="mobile-panel-back" onclick="_mobileClosePanelToText()">
+                <button id="mobile-panel-back" onclick="panelGoBack()">
                     <span id="mobile-panel-back-chevron">‹</span>
                 </button>
                 <span id="mobile-nav-title"></span>
@@ -4508,11 +4508,6 @@ function _mobileOpenPanel(titleText, wasAlreadyOpen) {
     }
 }
 
-/* モバイル「← 戻る」ボタン（id="mobile-panel-back"）。挙動は panelGoBack() と同一。 */
-function _mobileClosePanelToText() {
-    panelGoBack();
-}
-
 /* 内部: 語形一覧を開く（depth stackは変えない） */
 function _openWordListInternal(vNum, words) {
     _wlvWordCache = words || [];
@@ -4531,7 +4526,7 @@ function _openWordListInternal(vNum, words) {
     const rcb = document.getElementById('rcb-container');
     if (rcb) rcb.classList.remove('visible');
     const activeVEl = document.getElementById('active-v');
-    if (activeVEl) activeVEl.textContent = '';
+    if (activeVEl) activeVEl.textContent = vNum ? `${vNum}節` : '';
     _currentAnalysisParams = null;
 
     const existing = document.getElementById('word-list-view');
@@ -9547,10 +9542,8 @@ function _mobileSwipeBack() {
     },
     openFlowTab: async function() {
         /* モバイル：StudyPanelを閉じてFLOWモードで本文を再描画 */
-        if (window.innerWidth <= 900) {
-            if (typeof _mobileClosePanelToText === 'function') {
-                closeStudyPanel();
-            }
+        if (_isMobile()) {
+            closeStudyPanel();
         }
         _transA = currentTranslation = 'FLOW';
         _applyTransMode('single');
