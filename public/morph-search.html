@@ -1006,21 +1006,36 @@ function hexEncodeKey(normalizedKey) {
     return out || '0000';
 }
 
+/* 分割形式（{key}/index.json + part_N.json）に対応した汎用fetch。
+   index.json が存在すれば全パーツを並列取得してconcatし、
+   存在しなければ従来の単一ファイル形式にフォールバックする。
+   index.jsonの404はサイレントに処理し、警告パネルは出さない。 */
+async function fetchMorphIndex(dir, key) {
+    let index = null;
+    try {
+        const res = await fetch(`../morph-index/${dir}/${key}/index.json`);
+        if (res.ok) index = await res.json();
+    } catch { /* split format not present, fall through */ }
+
+    if (index && Array.isArray(index.parts)) {
+        const arrays = await Promise.all(
+            index.parts.map(p => BookMaster.fetchJSON(`../morph-index/${dir}/${key}/${p}`))
+        );
+        return arrays.flatMap(a => Array.isArray(a) ? a : []);
+    }
+    const d = await BookMaster.fetchJSON(`../morph-index/${dir}/${key}.json`);
+    return Array.isArray(d) ? d : [];
+}
+
 async function fetchWordLemmaCandidates() {
     const fetches = [];
     if (params.lemma) {
         const key = hexEncodeKey(normalizeGreek(params.lemma));
-        fetches.push(
-            BookMaster.fetchJSON(`../morph-index/lemma/${key}.json`)
-                .then(d => { _lemmaCandidates = Array.isArray(d) ? d : []; })
-        );
+        fetches.push(fetchMorphIndex('lemma', key).then(d => { _lemmaCandidates = d; }));
     }
     if (params.word) {
         const key = hexEncodeKey(normalizeGreek(params.word));
-        fetches.push(
-            BookMaster.fetchJSON(`../morph-index/word/${key}.json`)
-                .then(d => { _wordCandidates = Array.isArray(d) ? d : []; })
-        );
+        fetches.push(fetchMorphIndex('word', key).then(d => { _wordCandidates = d; }));
     }
     await Promise.all(fetches);
 }
