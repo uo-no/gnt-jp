@@ -29,7 +29,10 @@ const LEGACY_PATTERNS = [
 ];
 
 const IGNORE_DIRS  = new Set(['.git', 'node_modules', 'bible_data', 'morph-index', 'translations']);
-const IGNORE_FILES = new Set(['scripts/path-audit.js']);
+const IGNORE_FILES = new Set([
+    'scripts/path-audit.js',
+    'docs/architecture-rules.md',  // 禁止パスを意図的に列挙するドキュメント
+]);
 
 function walkFiles(dir, results = []) {
     for (const entry of readdirSync(dir)) {
