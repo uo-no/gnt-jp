@@ -31,7 +31,7 @@
 const fs   = require('fs');
 const path = require('path');
 
-const ROOT      = __dirname;
+const ROOT      = path.join(__dirname, '..');
 const TSV_PATH  = path.join(ROOT, 'data', 'abbott-smith.tsv');
 const LEX_PATH  = path.join(ROOT, 'lexicon', 'lexicon-lite.json');
 

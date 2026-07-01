@@ -36,7 +36,7 @@ function getArg(name, defaultVal) {
 }
 const BASE_URL     = getArg('--base-url',  'http://localhost:8080');
 const OUT_DIR      = getArg('--out-dir',   './syntax-index');
-const ANALYZER_PATH = getArg('--analyzer', './js/syntax-analyzer.js');
+const ANALYZER_PATH = getArg('--analyzer', './core/syntax-analyzer.js');
 const REGISTRY_PATH = getArg('--registry', './data/syntax-registry.json');
 const BATCH_SIZE   = parseInt(getArg('--batch-size', '10'), 10);
 const NT_ONLY      = args.includes('--nt-only');
@@ -45,7 +45,7 @@ const NT_ONLY      = args.includes('--nt-only');
 // search-tool.html / morph-search.html / syntax-search.html はブラウザの
 // fetch 経由で books.json を読むが、このスクリプトは Node なので fs で直接読む。
 // データの「内容」は books.json 1箇所のみに存在し、ここにコピーは置かない。
-const BOOKS_JSON_PATH = path.resolve(__dirname, 'books.json');
+const BOOKS_JSON_PATH = path.resolve(__dirname, '..', 'books.json');
 if (!fs.existsSync(BOOKS_JSON_PATH)) {
     console.error(`[ERROR] books.json が見つかりません: ${BOOKS_JSON_PATH}`);
     process.exit(1);
@@ -71,7 +71,7 @@ function validateChapterCounts() {
     const warnings = [];
     for (const b of ALL_BOOKS) {
         const sub = NT_BOOKS.has(b.key) ? 'nt' : 'lxx';
-        const dir = path.join(__dirname, 'bible_data', sub, b.key);
+        const dir = path.join(__dirname, '..', 'bible_data', sub, b.key);
         if (!fs.existsSync(dir)) {
             warnings.push({ key: b.key, issue: 'missing_directory', dir });
             continue;
@@ -94,7 +94,7 @@ function validateChapterCounts() {
                 console.error(`  - ${w.key}: books.json は ${w.declared} 章と宣言、実ファイルは ${w.actual} 章まで存在`);
             }
         }
-        const warnPath = path.join(__dirname, 'syntax-index', '_book-validation-warnings.json');
+        const warnPath = path.join(__dirname, '..', 'syntax-index', '_book-validation-warnings.json');
         try {
             fs.mkdirSync(path.dirname(warnPath), { recursive: true });
             fs.writeFileSync(warnPath, JSON.stringify({ generatedAt: new Date().toISOString(), warnings }, null, 2));
@@ -359,7 +359,7 @@ async function main() {
     if (failedChapters.length) {
         console.error(`[ERROR] ${failedChapters.length} 章の取得に失敗しました:`);
         for (const f of failedChapters) console.error(`  - ${f.key} ${f.ch}章: ${f.reason}`);
-        const failPath = path.join(__dirname, 'syntax-index', '_fetch-failures.json');
+        const failPath = path.join(__dirname, '..', 'syntax-index', '_fetch-failures.json');
         try {
             fs.mkdirSync(path.dirname(failPath), { recursive: true });
             fs.writeFileSync(failPath, JSON.stringify({ generatedAt: new Date().toISOString(), failedChapters }, null, 2));

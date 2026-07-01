@@ -33,7 +33,7 @@
 const fs   = require('fs');
 const path = require('path');
 
-const ROOT       = __dirname;
+const ROOT       = path.join(__dirname, '..');
 const BOOKS_JSON = path.join(ROOT, 'books.json');
 const OUT_DIR    = path.join(ROOT, 'morph-index');
 

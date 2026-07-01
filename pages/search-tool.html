@@ -6,9 +6,9 @@
 <title>検索ツール</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/tokens.css">
-<link rel="stylesheet" href="css/layout.css">
-<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="../css/tokens.css">
+<link rel="stylesheet" href="../css/layout.css">
+<link rel="stylesheet" href="../css/components.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" rel="stylesheet">
 <style>
 /* tokens.css provides --bg-paper, --bg-panel, --bg-sidebar, --text-main, --highlight, --border-soft aliases */
@@ -1173,8 +1173,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
      ORIGINAL LOGIC BLOCK — All algorithms preserved verbatim.
      Only the UI dispatcher and rendering layer are new.
      ═══════════════════════════════════════════════════════════════ -->
-<script src="./book-master.js"></script>
-<script src="./shared-ui.js"></script>
+<script src="../assets/js/book-master.js"></script>
+<script src="../assets/js/shared-ui.js"></script>
 <script>
 /* ============================================================
    書物マスター: books.json が唯一の出典（book-master.js 経由）。
@@ -1709,7 +1709,7 @@ async function _fetchTransVerse(bookKey,ch,verseNum){
             /* 複数訳を順に試す意図的なフォールバック（KAI17等が未収録の書物を持つのは
                仕様であり障害ではない）。__failedFetches には積まないが、追跡可能にする。 */
             try{
-                const res=await fetch(`./translations/${transId}/${bookKey}/${ch}.json`);
+                const res=await fetch(`../translations/${transId}/${bookKey}/${ch}.json`);
                 if(res.ok){data=await res.json();break;}
                 console.info(`[translation] ${transId}/${bookKey}/${ch} not available (HTTP ${res.status})`);
             }catch(err){console.info(`[translation] ${transId}/${bookKey}/${ch} fetch error`,err);}
@@ -2940,7 +2940,7 @@ class SyntaxIndexCache {
            フォールバック経路（_synAnalyzeOnDemand で原資料から再計算する）。
            genuine なデータ取得失敗ではないため __failedFetches には積まないが、
            「サイレント化」にはしない — console.info で必ず追跡可能にする。 */
-        const pr = fetch(`./syntax-index/${syntaxId}.json`)
+        const pr = fetch(`../syntax-index/${syntaxId}.json`)
             .then(r => {
                 if (r.ok) return r.json();
                 console.info('[syntax-index] cache miss (HTTP '+r.status+'), falling back to on-demand:', syntaxId);
@@ -2967,15 +2967,15 @@ async function _synEnsureAnalyzer() {
         const [registry] = await Promise.all([
             _synRegistryData
                 ? Promise.resolve(_synRegistryData)
-                : BookMaster.fetchJSON('./data/syntax-registry.json')
+                : BookMaster.fetchJSON('../assets/data/syntax-registry.json')
                     .then(d => { _synRegistryData = d; return d; }),
             typeof SyntaxAnalyzer !== 'undefined'
                 ? Promise.resolve()
                 : new Promise((res, rej) => {
                     const s = document.createElement('script');
-                    s.src = './syntax-analyzer.js';
+                    s.src = '../core/syntax-analyzer.js';
                     s.onload = res;
-                    s.onerror = () => rej(new Error('syntax-analyzer.js 読み込み失敗'));
+                    s.onerror = () => rej(new Error('core/syntax-analyzer.js 読み込み失敗'));
                     document.head.appendChild(s);
                 }),
         ]);
@@ -3219,7 +3219,7 @@ function _synRenderBookChips() {
 }
 
 async function _synLoadRegistry() {
-    _synRegistryData = await BookMaster.fetchJSON('./data/syntax-registry.json');
+    _synRegistryData = await BookMaster.fetchJSON('../assets/data/syntax-registry.json');
 }
 function _synGetTypeDef(id) {
     if (!_synRegistryData) return null;
@@ -3340,7 +3340,7 @@ async function _loadAbbott() {
     if (_abbottLoading) return;
     _abbottLoading = true;
     try {
-        const res = await fetch('./data/abbott-smith.tsv');
+        const res = await fetch('../assets/data/abbott-smith.tsv');
         const text = await res.text();
         _abbottDict = {};
         text.split('\n').forEach((line, i) => {

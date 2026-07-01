@@ -22,7 +22,7 @@ const fs   = require('fs');
 const path = require('path');
 
 const VERBOSE  = process.argv.includes('--verbose');
-const BASE_DIR = path.resolve(__dirname);
+const BASE_DIR = path.resolve(__dirname, '..');
 
 // ── グローバル形態論デコーダ（syntax-analyzer.js が参照する） ───────────────
 // syntax-analyzer.js は decodeMorph / entryPosCode / cleanText をグローバルスコープで
@@ -157,7 +157,7 @@ console.log('\n═════════════════════�
 console.log('§ 1. 追加ファイル一覧');
 console.log('══════════════════════════════════════════════');
 
-const newFiles = ['js/clause-analyzer.js', 'data/clause-registry.json', 'clause-analyzer-test.js'];
+const newFiles = ['core/clause-analyzer.js', 'data/clause-registry.json', 'clause-analyzer-test.js'];
 for (const f of newFiles) {
     const exists = fs.existsSync(path.join(BASE_DIR, f));
     console.log(`  ${exists ? 'OK' : 'MISSING'}  ${f}`);

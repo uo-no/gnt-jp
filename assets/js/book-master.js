@@ -36,7 +36,7 @@
 
     async function load() {
         if (_masterPromise) return _masterPromise;
-        _masterPromise = fetch('./books.json')
+        _masterPromise = fetch('../books.json')
             .then(r => {
                 if (!r.ok) throw new Error(`books.json fetch failed: HTTP ${r.status}`);
                 return r.json();
@@ -59,7 +59,7 @@
                 };
             })
             .catch(err => {
-                notifyFailure({ path: './books.json', error: String(err) });
+                notifyFailure({ path: '../books.json', error: String(err) });
                 _masterPromise = null; // 失敗を永久キャッシュしない。次回呼び出しで再fetchできるようにする
                 throw err; // books.json が無ければ検索は成立しないため再throw
             });
@@ -83,7 +83,7 @@
 
     async function pathFor(key, ch) {
         const master = await load();
-        return `./bible_data/${folderForSync(master, key)}/${key}/${ch}.json`;
+        return `../bible_data/${folderForSync(master, key)}/${key}/${ch}.json`;
     }
 
     async function buildChapterTasks() {
@@ -92,7 +92,7 @@
         for (const b of master.ALL) {
             const folder = folderForSync(master, b.key);
             for (let c = 1; c <= b.chapters; c++) {
-                tasks.push({ key: b.key, ch: c, path: `./bible_data/${folder}/${b.key}/${c}.json` });
+                tasks.push({ key: b.key, ch: c, path: `../bible_data/${folder}/${b.key}/${c}.json` });
             }
         }
         return tasks;
@@ -120,7 +120,7 @@
         const master = await load();
         for (const b of master.ALL) {
             const folder = folderForSync(master, b.key);
-            const probePath = `./bible_data/${folder}/${b.key}/${b.chapters + 1}.json`;
+            const probePath = `../bible_data/${folder}/${b.key}/${b.chapters + 1}.json`;
             try {
                 const res = await fetch(probePath, { method: 'HEAD' });
                 if (res.ok) {
