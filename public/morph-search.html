@@ -1006,25 +1006,51 @@ function hexEncodeKey(normalizedKey) {
     return out || '0000';
 }
 
-/* 分割形式（{key}/index.json + part_N.json）に対応した汎用fetch。
-   index.json が存在すれば全パーツを並列取得してconcatし、
-   存在しなければ従来の単一ファイル形式にフォールバックする。
-   index.jsonの404はサイレントに処理し、警告パネルは出さない。 */
+/* バケット形式（2 文字プレフィックス単位）対応の汎用 fetch。
+ *
+ * ファイル構成:
+ *   通常バケット : {prefix8}.json            → { hexKey: [...TokenEntry] }
+ *   分割バケット : {prefix8}/index.json       → { parts: ["part_1.json", ...] }
+ *                 {prefix8}/part_N.json       → { hexKey: [...TokenEntry], ... }
+ *
+ * フロー:
+ *   1. {prefix8}/index.json をサイレント確認
+ *   2. あれば各 part を並列 fetch → Object.assign でマージ → data[key] を返す
+ *   3. なければ {prefix8}.json を fetch → data[key] を返す
+ *   index.json の 404 はサイレント処理し警告パネルは出さない。
+ */
 async function fetchMorphIndex(dir, key) {
+    const prefix = key.length >= 8 ? key.slice(0, 8) : key;
+
+    /* 1. 分割バケット確認（サイレント） */
     let index = null;
     try {
-        const res = await fetch(`../morph-index/${dir}/${key}/index.json`);
+        const res = await fetch(`../morph-index/${dir}/${prefix}/index.json`);
         if (res.ok) index = await res.json();
-    } catch { /* split format not present, fall through */ }
+    } catch { /* not a split bucket */ }
 
     if (index && Array.isArray(index.parts)) {
-        const arrays = await Promise.all(
-            index.parts.map(p => BookMaster.fetchJSON(`../morph-index/${dir}/${key}/${p}`))
+        const parts = await Promise.all(
+            index.parts.map(p => BookMaster.fetchJSON(`../morph-index/${dir}/${prefix}/${p}`))
         );
-        return arrays.flatMap(a => Array.isArray(a) ? a : []);
+        /* 同一キーが複数 part に分割されているケース（巨大配列）に備え
+           Object.assign ではなく配列 concat でマージする */
+        const merged = {};
+        for (const part of parts) {
+            if (!part || typeof part !== 'object') continue;
+            for (const [k, arr] of Object.entries(part)) {
+                merged[k] = merged[k] ? merged[k].concat(arr) : arr.slice();
+            }
+        }
+        return merged[key] ?? [];
     }
-    const d = await BookMaster.fetchJSON(`../morph-index/${dir}/${key}.json`);
-    return Array.isArray(d) ? d : [];
+
+    /* 2. 通常バケット */
+    const bucket = await BookMaster.fetchJSON(`../morph-index/${dir}/${prefix}.json`);
+    if (bucket && typeof bucket === 'object' && !Array.isArray(bucket)) {
+        return bucket[key] ?? [];
+    }
+    return [];
 }
 
 async function fetchWordLemmaCandidates() {
