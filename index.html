@@ -597,6 +597,13 @@ border-radius: var(--radius-s); cursor: pointer; transition: all var(--transitio
     border-right: none;
     font-family: 'Noto Serif JP', serif;
 }
+.gbc-item:not(.current)::after {
+    content: '▾';
+    font-size: 0.7em;
+    margin-left: 2px;
+    opacity: 0.45;
+    vertical-align: middle;
+}
 .gbc-item:hover {
     color: var(--text-main);
     border-bottom-color: rgba(0,0,0,0.15);
@@ -1217,6 +1224,7 @@ opacity: var(--opacity-secondary);
     animation: rnLayerOpen var(--transition-base) both;
 }
 .rn-layer-body.visible { display: block; }
+.rn-flat .rn-layer-body { border-top: none; padding-top: 0; }
 .rn-layer-intro {
     font-size: var(--text-caption);
     color: var(--text-sub);
@@ -1761,92 +1769,17 @@ transition: background var(--transition-fast);
 .tag-jp { color: var(--text-sub); font-size: var(--text-caption); margin-left: var(--space-xs); opacity: var(--opacity-secondary); }
 .strong-num { font-size: var(--text-caption); color: #9e9ea4; font-family: monospace; }
 
-/* ══════════════════════════════════════════
-Inspect Popover
-語クリックで本文上に浮かぶ軽量カード。
-基本義・品詞タグ・「詳しく見る」だけ。
-══════════════════════════════════════════ */
-#inspect-popover {
-position: fixed;
-z-index: 200;
-width: 220px;
-background: #ffffff;
-border: 1px solid var(--border-soft);
-border-radius: var(--radius-m);
-box-shadow: 0 4px 20px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);
-padding: 0;
-display: none;
-flex-direction: column;
-overflow: hidden;
-animation: popoverIn var(--transition-fast);
-}
-#inspect-popover.visible { display: flex; }
-@keyframes popoverIn {
-from { opacity: 0; transform: translateY(4px) scale(0.98); }
-to   { opacity: var(--opacity-primary); transform: translateY(0) scale(1); }
-}
-
-.inspect-head {
-padding: var(--space-sm) var(--space-md) var(--space-sm);
-border-bottom: 1px solid var(--border-soft);
-}
-.inspect-greek {
-font-size: var(--text-headline);
-margin-bottom: var(--space-xs);
-}
-.inspect-ja {
-font-size: var(--text-caption);
-font-weight: 400;
-color: var(--text-sub);
-line-height: 1.4;
-margin-bottom: 0;
-}
-
-/* popoverの中部：Layer 2 Inspect — ReadingFormatter駆動の1文のみ。
-   ★ Phase: Reading/Inspect/StudyPanel 3層分離。
-   旧 .inspect-tags / .inspect-tag（品詞タグ最大3つ）は廃止。
-   grammar/type/confidence を一切表示しない「軽い理解補助」に統一。 */
-.inspect-note {
-padding: var(--space-xs) var(--space-md) var(--space-sm);
-border-bottom: 1px solid var(--border-soft);
-font-size: var(--text-caption);
-line-height: 1.5;
-color: var(--text-sub);
-min-height: 1em; /* 空の間もレイアウトが揺れないように */
-}
-.inspect-note:empty {
-padding: 0;
-border-bottom: none;
-min-height: 0;
-}
-
-.inspect-footer {
-padding: 0;
-}
-.inspect-study-btn {
-display: flex;
-align-items: center;
-justify-content: space-between;
-width: 100%;
+.rn-save-btn {
+display: flex; align-items: center; width: 100%;
 padding: var(--space-sm) var(--space-md);
-font-size: var(--text-caption);
-font-family: inherit;
-font-weight: 700;
-color: #fff;
-background: var(--highlight);
-border: none;
-cursor: pointer;
-letter-spacing: 0.02em;
+font-size: var(--text-caption); font-family: inherit; font-weight: 700;
+color: #fff; background: var(--highlight);
+border: none; border-radius: var(--radius-s);
+cursor: pointer; letter-spacing: 0.02em;
 transition: opacity var(--transition-fast);
-text-align: left;
 }
-.inspect-study-btn:hover {
-opacity: var(--opacity-primary);
-}
-.inspect-study-arrow {
-font-size: var(--text-body);
-opacity: var(--opacity-primary);
-}
+.rn-save-btn:hover { opacity: var(--opacity-primary); }
+
 
 /* -- morph-search-btn（近くの語を見るなど、Study panel内で継続使用） -- */
 .morph-search-btn {
@@ -3404,20 +3337,8 @@ details[open] .study-summary::before {
      DOM最上位に置くことでz-index競合を避ける
      ══════════════════════════════════════════ -->
 
-<div id="inspect-popover" role="tooltip" aria-live="polite">
-    <div class="inspect-head">
-        <div class="inspect-greek greek-headword" id="insp-greek">-</div>
-        <div class="inspect-ja"    id="insp-ja">-</div>
-    </div>
-    <div class="inspect-note" id="insp-note"></div>
-        <div class="inspect-footer">
-            <button class="inspect-study-btn" id="insp-study-btn" onclick="escalateToStudy()">
-                <span>この語の響きを読む</span>
-                <span class="inspect-study-arrow">→</span>
-        </button>
-        </div>
-    </div>
-    
+
+
 <!-- ══════════════════════════════════════════
      Bible Picker Popup
      ══════════════════════════════════════════ -->
@@ -3613,7 +3534,7 @@ details[open] .study-summary::before {
                 <div id="reading-note-block-rn" style="display:none;padding: var(--space-md) var(--space-lg) var(--space-lg);border-top:1px solid var(--border-soft);">
                     <h3 style="font-size: var(--text-caption);font-weight:700;color:var(--text-main);margin: 0 0 var(--space-sm);">メモ</h3>
                     <textarea id="reading-note-textarea-rn" style="width:100%;min-height:90px;padding: var(--space-sm);font-family:inherit;font-size: var(--text-body);color:var(--text-main);border:1px solid var(--border-soft);border-radius: var(--radius-s);resize:vertical;box-sizing:border-box;"></textarea>
-                    <button class="inspect-study-btn" style="margin-top: var(--space-sm);" onclick="_saveCurrentNote('rn')">保存</button>
+                    <button class="rn-save-btn" style="margin-top: var(--space-sm);" onclick="_saveCurrentNote('rn')">保存</button>
                     <span id="reading-note-status-rn" style="display:block;margin-top: var(--space-xs);font-size: var(--text-caption);color:var(--text-sub);"></span>
                 </div>
             </div>
@@ -4083,7 +4004,7 @@ function _noteBlockHtml(idSuffix) {
         <div id="reading-note-block-${idSuffix}" style="display:none;padding: var(--space-md) var(--space-lg) var(--space-lg);border-top:1px solid var(--border-soft);">
             <h3 style="font-size: var(--text-caption);font-weight:700;color:var(--text-main);margin: 0 0 var(--space-sm);">メモ</h3>
             <textarea id="reading-note-textarea-${idSuffix}" style="width:100%;min-height:90px;padding: var(--space-sm);font-family:inherit;font-size: var(--text-body);color:var(--text-main);border:1px solid var(--border-soft);border-radius: var(--radius-s);resize:vertical;box-sizing:border-box;"></textarea>
-            <button class="inspect-study-btn" style="margin-top: var(--space-sm);" onclick="_saveCurrentNote('${idSuffix}')">保存</button>
+            <button class="rn-save-btn" style="margin-top: var(--space-sm);" onclick="_saveCurrentNote('${idSuffix}')">保存</button>
             <span id="reading-note-status-${idSuffix}" style="display:block;margin-top: var(--space-xs);font-size: var(--text-caption);color:var(--text-sub);"></span>
         </div>`;
 }
@@ -4223,15 +4144,14 @@ function renderGlobalBreadcrumb() {
 }
 
 function _gbcGoTestament() {
-    /* サイドバーを書物一覧に戻す */
+    if (!_isSidebarOpen()) { _openSidebar(); return; }
     sbGoTo(1);
-    /* depth stack をクリア */
     AppState.clearDepth();
     renderDepthHistory();
 }
 
 function _gbcGoBook() {
-    /* サイドバーを章一覧に戻す */
+    if (!_isSidebarOpen()) { _openSidebar(); return; }
     sbGoTo(2);
     AppState.clearDepth();
     renderDepthHistory();
@@ -4814,9 +4734,7 @@ function onWordCardClick(cardEl, event) {
     /* Inspect 状態を AppState に記録 */
     AppState.inspect.data = { greek, strong, jpMorph, rawMorph, lemma, jaWord, desc, ref };
 
-    /* recentWords の保存は _wlvChipClick() が唯一のSSOT */
-
-    showInspectPopover(cardEl, greek, strong, jpMorph, rawMorph, jaWord);
+    openStudyPanel(greek, rawMorph, ref, lemma);
 
     /* onboarding hook */
     if (window.App.onboarding) window.App.onboarding.onWordClicked(cardEl);
@@ -4825,109 +4743,6 @@ function onWordCardClick(cardEl, event) {
     notifyAppStateChange();
 }
 
-/**
- * Layer 2: Inspect popover。
- * words / idx が渡された場合のみ、その語が属する節の ReadingFormatter
- * 文を「1文以内の軽い理解補助」として非同期に表示する（StudyPanelの
- * resonance drawerと同じ _buildWordResonanceText を再利用 — Wordレベル
- * の意味解釈ロジックを2系統作らない）。words/idxが無い文脈（word-card
- * クリック等、特定の節の文脈を持たない場合）では note は常に空のまま
- * （= 完全非表示。代替の説明文は出さない）。
- */
-function showInspectPopover(anchorEl, greek, strong, jpMorph, rawMorph, jaWord, words, idx) {
-    const popover = document.getElementById('inspect-popover');
-
-    // --- 位置決め用 rect を DOM 変更前に読む（forced reflow 防止） ---
-    const rect = anchorEl.getBoundingClientRect();
-
-    // --- 内容を更新 ---
-    document.getElementById('insp-greek').textContent = greek;
-    document.getElementById('insp-ja').textContent    = jaWord || '-';
-
-    // Layer 2: ReadingFormatter駆動の1文（grammar/type/confidence表示禁止）
-    const noteEl = document.getElementById('insp-note');
-    if (noteEl) {
-        noteEl.textContent = '';
-        if (words != null && idx != null) {
-            _fillInspectNote(noteEl, words, idx);
-        }
-    }
-
-    // --- 位置決め ---
-    const popW = 220;
-    const popH = 130; // 概算
-
-    // デフォルトは anchorEl の右下
-    let left = rect.right + 8;
-    let top  = rect.top;
-
-    // 右端オーバー対策
-    if (left + popW > window.innerWidth - 8) {
-        left = rect.left - popW - 8;
-    }
-    // 下端オーバー対策
-    if (top + popH > window.innerHeight - 8) {
-        top = window.innerHeight - popH - 8;
-    }
-    // 上端オーバー対策
-    if (top < 8) { top = 8; }
-
-    popover.style.left = left + 'px';
-    popover.style.top  = top  + 'px';
-
-    popover.classList.add('visible');
-
-    /* onboarding hook */
-    window.App.onboarding?.onPopoverShown?.(anchorEl);
-    _syncOnboardingActiveFlag();
-}
-
-function hideInspectPopover() {
-    const popover = document.getElementById('inspect-popover');
-    popover.classList.remove('visible');
-}
-
-/**
- * Inspect → Study へ昇格。
- * popoverの「詳しく見る」ボタンから呼ばれる。
- * 責務:
- *   - popoverを閉じる
- *   - Study.open に制御を移す（AppState.toStudy は openStudyPanel が行う）
- */
-function escalateToStudy() {
-    if (!AppState.inspect.data) return;
-    hideInspectPopover();
-    const { greek, rawMorph, ref, lemma, strong } = AppState.inspect.data;
-
-    /* word-flow を depth stack に追加 */
-    const stack = AppState.depth.stack;
-    const top = stack[stack.length - 1];
-    if (!top || top.type !== 'word-flow') {
-        pushDepth({
-            type:   'word-flow',
-            label:  greek,
-            strong: String(strong || ''),
-        });
-    }
-
-    openStudyPanel(greek, rawMorph, ref, lemma);
-}
-
-let _inspNoteGen = 0; // 古い非同期結果の誤注入を防ぐ世代カウンタ
-
-/**
- * Layer 2 Inspect の note 欄を ReadingFormatter 駆動で非同期に埋める。
- * StudyPanelの _buildWordResonanceText をそのまま再利用する
- * （Wordレベルの意味解釈ロジックをレイヤーごとに作らない＝原則⑨）。
- * 意味のある clauseContext が無ければ何も表示しない（静寂優先）。
- */
-async function _fillInspectNote(noteEl, words, idx) {
-    const myGen = ++_inspNoteGen;
-    const sentence = await _buildWordResonanceText(words, idx);
-    if (myGen !== _inspNoteGen) return; // 既に別の語/popoverに移動済み
-    if (!noteEl.isConnected) return;
-    if (sentence) noteEl.textContent = sentence;
-}
 
 /* ══════════════════════════════════════════
    Study Panel 制御
@@ -5573,19 +5388,35 @@ async function _injectStudyPanelContent(semContainer, strong, lemmaId, word) {
         if (clHTML) semContainer.insertAdjacentHTML('beforeend', clHTML);
     }
 
-    /* トグルボタンを配線 */
-    semContainer.querySelectorAll('.rn-layer-toggle').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const bodyId = btn.dataset.target;
-            const body   = document.getElementById(bodyId);
-            if (!body) return;
-            const isOpen = body.classList.contains('visible');
-            body.classList.toggle('visible', !isOpen);
-            btn.classList.toggle('open', !isOpen);
-            const icon = btn.querySelector('.rn-layer-toggle-icon');
-            if (icon) icon.style.transform = '';
+    /* アコーディオン構造の決定：item数に応じて分岐 */
+    const toggleSections = semContainer.querySelectorAll('.rn-cluster-section, .rn-concord-section');
+
+    if (toggleSections.length === 1) {
+        /* 単一項目：トグルを除去してフラット展開 */
+        const toggle = toggleSections[0].querySelector('.rn-layer-toggle');
+        const body   = toggleSections[0].querySelector('.rn-layer-body');
+        if (toggle) toggle.remove();
+        if (body)   body.classList.add('visible');
+        toggleSections[0].classList.add('rn-flat');
+        /* 外側 <details>（さらに学ぶ）も自動展開 */
+        const outerDetails = semContainer.closest('details.rn-level-section');
+        if (outerDetails) outerDetails.open = true;
+
+    } else if (toggleSections.length > 1) {
+        /* 複数項目：従来通りトグルを配線 */
+        semContainer.querySelectorAll('.rn-layer-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const bodyId = btn.dataset.target;
+                const body   = document.getElementById(bodyId);
+                if (!body) return;
+                const isOpen = body.classList.contains('visible');
+                body.classList.toggle('visible', !isOpen);
+                btn.classList.toggle('open', !isOpen);
+                const icon = btn.querySelector('.rn-layer-toggle-icon');
+                if (icon) icon.style.transform = '';
+            });
         });
-    });
+    }
 
     /* Cluster chip → 共起検索へ遷移 */
     const clusterSection = semContainer.querySelector('.rn-cluster-section');
@@ -6786,18 +6617,6 @@ function _getCurrentVerseRef() {
 }
 
 /* ══════════════════════════════════════════
-   Inspect popover を本文クリックで閉じる
-   ══════════════════════════════════════════ */
-document.addEventListener('click', function(e) {
-    const popover = document.getElementById('inspect-popover');
-    if (!popover.classList.contains('visible')) return;
-    // popover自体のクリックは閉じない
-    if (popover.contains(e.target)) return;
-    // word-cardのクリックは onWordCardClick が処理するため、ここでは閉じるだけ
-    hideInspectPopover();
-}, true);
-
-/* ══════════════════════════════════════════
    buildDepthGrammarClasses
    Depth Panel 限定の文法装飾クラスを合成して返す。
    原文文字列は一切変更しない。
@@ -6901,9 +6720,7 @@ function buildMorphTagsHTML(rawMorph) {
 }
 
 /**
- * 従来の showDetail は Study panel への直接エスカレーション（後方互換）。
- * 現在は onWordCardClick → showInspectPopover → escalateToStudy の流れが主導線。
- * iframe等からの呼び出しが来た場合のフォールバック。
+ * showDetail: iframe等からの呼び出し用フォールバック（後方互換）。
  */
 function showDetail(greek, strong, jpMorph, rawMorph, lemma, jaWord, desc, ref) {
     AppState.inspect.data = { greek, strong: normalizeStrong(strong), jpMorph, rawMorph, lemma, jaWord, desc, ref };
@@ -6962,6 +6779,29 @@ function toggleMobileSidebar() {
 function closeMobileSidebar() {
     document.getElementById('nav-sidebar').classList.remove('mobile-open');
     document.getElementById('sidebar-overlay').classList.remove('visible');
+}
+
+function _isSidebarOpen() {
+    const sidebar = document.getElementById('nav-sidebar');
+    if (!sidebar) return false;
+    if (window.innerWidth <= 900) return sidebar.classList.contains('mobile-open');
+    return !sidebar.classList.contains('collapsed');
+}
+
+function _openSidebar() {
+    const sidebar = document.getElementById('nav-sidebar');
+    if (!sidebar) return;
+    if (window.innerWidth <= 900) {
+        sidebar.classList.add('mobile-open');
+        const overlay = document.getElementById('sidebar-overlay');
+        if (overlay) overlay.classList.add('visible');
+    } else {
+        const fab    = document.getElementById('sidebar-fab');
+        const header = document.querySelector('.app-header');
+        sidebar.classList.remove('collapsed');
+        if (fab)    fab.style.display = 'none';
+        if (header) header.style.paddingLeft = '';
+    }
 }
 
 /* リサイズ時に状態をリセット */
@@ -7804,7 +7644,6 @@ app.innerHTML = '';
                     document.getElementById('active-v').innerText = `${vNum} 節`;
                     AppState.toBrowsing(vNum, words);
                     openWordListInStudyPanel(vNum, words);
-                    hideInspectPopover();
                     notifyAppStateChange();
                 };
             }
@@ -7835,7 +7674,6 @@ app.innerHTML = '';
                     document.getElementById('active-v').innerText = `${vNum} 節`;
                     AppState.toBrowsing(vNum, elByVerse[vNum] || []);
                     openWordListInStudyPanel(vNum, elByVerse[vNum] || []);
-                    hideInspectPopover();
                     notifyAppStateChange();
                 };
             }
@@ -7849,7 +7687,6 @@ app.innerHTML = '';
                 document.getElementById('active-v').innerText = `${vNum} 節`;
                 AppState.toBrowsing(vNum, elByVerse[vNum] || []);
                 openWordListInStudyPanel(vNum, elByVerse[vNum] || []);
-                hideInspectPopover();
                 notifyAppStateChange();
             };
         }
@@ -7962,7 +7799,7 @@ _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma
  *   通常               … 既存の word-card リスト。
  *   原語               … ギリシャ語テキスト + 簡易morph。
  *
- * 既存の AppState / openStudyPanel / Inspect popover との接続はそのまま。
+ * 既存の AppState / openStudyPanel との接続はそのまま。
  * word-card の onclick（onWordCardClick）も通常タブでは変わらず動作する。
  * 流れタブのchipクリックは _wlvChipClick() を経由して同じ AppState を更新する。
  */
@@ -8677,13 +8514,8 @@ function _wlvChipClick(chipEl, idx) {
     }
 
     if (verseBlock) {
-        /* 本文を読んでいる最中の chip タップ：まず Inspect popover で軽く確認する。
-           Study panel へ進むかどうかは popover の「詳しく見る」ボタン（escalateToStudy）に委ねる。
-           ★ Layer 2: verseBlock._flowWords が無い経路（gf-verse-block 等）では
-           chip解決自体が _wlvWordCache にフォールバックする既存仕様に合わせ、
-           words も同じソースにフォールバックする。 */
-        const verseWords = verseBlock._flowWords || _wlvWordCache;
-        showInspectPopover(chipEl, chip.greek, chip.strong, chip.morphText, chip.rawMorph, chip.jaWord, verseWords, idx);
+        /* 本文を読んでいる最中の chip タップ：StudyPanel に直接表示する。 */
+        openStudyPanel(chip.greek, chip.rawMorph, chip.ref, chip.lemma);
         window.App.onboarding?.onWordClicked(chipEl);
         _syncOnboardingActiveFlag();
         return;
@@ -8717,7 +8549,7 @@ function _wlvGetChipData(idx) {
 }
 
 /**
- * 「詳しく見る」ボタン：AppState.inspect.data が設定済みなので escalateToStudy と同じ処理
+ * 「詳しく見る」ボタン：AppState.inspect.data が設定済みなので openStudyPanel を直接呼ぶ
  */
 function _wlvStudyBtnClick() {
     if (!AppState.inspect.data) return;
