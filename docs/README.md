@@ -7,10 +7,29 @@
 
 構成は以下の4画面です。
 
-* `index.html` — 聖書本文の閲覧（メイン画面）
-* `morph-search.html` — 形態論（語形）検索
-* `syntax-search.html` — 統語論（文構造）検索
-* `search-tool.html` — 統合検索（見出し語・フレーズ・近接・形態素）
+* `pages/index.html` — 聖書本文の閲覧（メイン画面）
+* `pages/morph-search.html` — 形態論（語形）検索
+* `pages/syntax-search.html` — 統語論（文構造）検索
+* `pages/search-tool.html` — 統合検索（見出し語・フレーズ・近接・形態素）
+
+---
+
+## プロジェクト構造
+
+- `pages/`       → UI（HTMLのみ・ロジック禁止）
+- `core/`        → 解析ロジック（純関数）
+- `assets/js/`   → UI補助・状態管理
+- `assets/data/` → 実データ
+- `css/`         → スタイル
+- `scripts/`     → ビルド・生成専用
+- `docs/`        → 設計・仕様
+
+## 設計原則
+
+- `pages/` は薄く保つ（ロジックは `core/` または `assets/js/` へ）
+- `core/` は DOM に依存しない（純関数・Node.js でも動作可能）
+- `assets/data/` は直接編集しない（`scripts/` 経由で生成）
+- `scripts/` でのみデータ生成する
 
 ---
 
@@ -42,9 +61,9 @@ UIは Apple Books / Apple Notes 等を参照し、情報密度・余白・強調
 * 「読解フロー」表示：原語の語順のまま、語ごとの日本語グロスを添えて読み進めるモード
 * StudyPanel：選択した語の形態情報・辞書解説・読書メモを表示
   * 本文 → 節パネル → 単語詳細の3階層構造。「戻る」操作は常に1つ上の階層を閉じるだけの単純な動作で統一されている
-* ReadingFormatter（`js/clause-analyzer.js`）による読書メモの自然文生成
-  * 節・文の構造（`js/syntax-analyzer.js` / `js/phrase-analyzer.js` の解析結果）に基づき、語形コード等を露出させない自然文を生成する単一の生成元として統一されている
-* Wallace文法体系に基づく構文分類（`js/syntax-analyzer.js` / `data/syntax-registry.json`）
+* ReadingFormatter（`core/clause-analyzer.js`）による読書メモの自然文生成
+  * 節・文の構造（`core/syntax-analyzer.js` / `core/phrase-analyzer.js` の解析結果）に基づき、語形コード等を露出させない自然文を生成する単一の生成元として統一されている
+* Wallace文法体系に基づく構文分類（`core/syntax-analyzer.js` / `assets/data/syntax-registry.json`）
 * ブックマーク・メモ・最近読んだ箇所・最近見た単語の保存と一覧表示
   * メモの削除はソフトデリート（ゴミ箱への移動・復元・完全削除）方式
 * 更新情報（Changelog）画面：`data/changelog.json` を読み込んで表示
@@ -59,10 +78,10 @@ UIは Apple Books / Apple Notes 等を参照し、情報密度・余白・強調
 * 静的HTML / CSS / JavaScript（サーバーなし、ビルド不要）
 * フォント：Google Fonts（CDN）— Gentium Plus（ギリシャ語）、Noto Sans JP / Noto Serif JP（日本語）
 * データ：ローカルJSON / TSV（聖書本文・翻訳・形態索引・辞書・構文/句/節レジストリ）。辞書データは原典辞書（Abbott-Smith）をベースにした再構成データで、日本語部分は人手翻訳とAI補助による抄訳を含みます。詳細は [DATA_LICENSE.md](./DATA_LICENSE.md) を参照してください。
-* 解析エンジン（いずれも `/js` 配下、DOM/UIに非依存）
-  * `syntax-analyzer.js`：トークン単位の構文機能候補を判定（`data/syntax-registry.json` 参照）
-  * `phrase-analyzer.js`：`syntax-analyzer.js` の出力から句レベル構造を構成（`data/phrase-registry.json` 参照）
-  * `clause-analyzer.js`：`syntax-analyzer.js` / `phrase-analyzer.js` の出力から節レベル構造を構成し、ReadingFormatter等を含む（`data/clause-registry.json` 参照）
+* 解析エンジン（いずれも `core/` 配下、DOM/UIに非依存）
+  * `core/syntax-analyzer.js`：トークン単位の構文機能候補を判定（`assets/data/syntax-registry.json` 参照）
+  * `core/phrase-analyzer.js`：`syntax-analyzer.js` の出力から句レベル構造を構成（`assets/data/phrase-registry.json` 参照）
+  * `core/clause-analyzer.js`：`syntax-analyzer.js` / `phrase-analyzer.js` の出力から節レベル構造を構成し、ReadingFormatter等を含む（`assets/data/clause-registry.json` 参照）
 * デザイントークン（`css/tokens.css`）：タイポグラフィ6段階・角丸3段階・不透明度4段階・単一アクセントカラー・モーション（easing 1種類／duration 3段階）を単一のソースとして定義
 * 外部通信はGoogle Fonts（CDN）のみで、サーバーサイド処理は行いません
 
@@ -71,15 +90,18 @@ UIは Apple Books / Apple Notes 等を参照し、情報密度・余白・強調
 ## ディレクトリ構成
 
 ```
-index.html / morph-search.html / syntax-search.html / search-tool.html  — 主要画面
-css/                    — 共通スタイル（tokens.css / layout.css / components.css）
-js/                     — 解析エンジン（syntax-analyzer.js / phrase-analyzer.js / clause-analyzer.js）
-data/                   — レジストリ・辞書・Changelogデータ（*.json / abbott-smith.tsv）
+pages/                  — 主要画面（index.html / morph-search.html / syntax-search.html / search-tool.html）
+core/                   — 解析エンジン（syntax-analyzer.js / phrase-analyzer.js / clause-analyzer.js）
+assets/js/              — UI補助スクリプト（app-storage.js / book-master.js / shared-ui.js 等）
+assets/data/            — レジストリ・辞書・Changelogデータ（*.json / abbott-smith.tsv）
+  assets/data/index/    — ドメインインデックス
+  assets/data/lexicon/  — 辞書データ
+css/                    — 共通スタイル（tokens.css）
 bible_data/             — 聖書本文・形態素データ
 translations/           — 日本語訳データ
-morph-index/, lexicon/  — 形態素索引・辞書データ
-onboarding.js, book-master.js, shared-ui.js, shared-insight.js, app-storage.js 等 — 補助スクリプト
-docs/                   — 内部設計ドキュメント・本README
+morph-index/            — 形態素索引
+scripts/                — ビルド・データ生成スクリプト
+docs/                   — 設計ドキュメント・本README
 ```
 
 ---

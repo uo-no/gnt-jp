@@ -1064,7 +1064,7 @@
  * 初期化例:
  *
  *   // 1. Registry JSON を fetch
- *   const registryJson = await fetch('./data/syntax-registry.json').then(r => r.json())
+ *   const registryJson = await fetch('./assets/data/syntax-registry.json').then(r => r.json())
  *
  *   // 2. インスタンス生成
  *   const analyzer = new SyntaxAnalyzer(registryJson)

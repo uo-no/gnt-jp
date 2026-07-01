@@ -1,0 +1,53 @@
+name: Path Structure Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-old-paths:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect legacy path references
+        run: |
+          FOUND=0
+
+          echo "=== Checking for ./data/ references ==="
+          if grep -rn "\./data/" --include="*.js" --include="*.html" .; then
+            echo "ERROR: ./data/ references found (moved to ./assets/data/)"
+            FOUND=1
+          fi
+
+          echo "=== Checking for ./js/ references ==="
+          if grep -rn "\./js/" --include="*.js" --include="*.html" .; then
+            echo "ERROR: ./js/ references found (moved to ./core/ or ./assets/js/)"
+            FOUND=1
+          fi
+
+          echo "=== Checking for ./index/ references ==="
+          if grep -rn "\./index/" --include="*.js" --include="*.html" .; then
+            echo "ERROR: ./index/ references found (moved to ./assets/data/index/)"
+            FOUND=1
+          fi
+
+          echo "=== Checking for ./lexicon/ references ==="
+          if grep -rn "\./lexicon/" --include="*.js" --include="*.html" .; then
+            echo "ERROR: ./lexicon/ references found (moved to ./assets/data/lexicon/)"
+            FOUND=1
+          fi
+
+          if [ "$FOUND" -eq 1 ]; then
+            echo ""
+            echo "FAIL: Legacy path references detected. Update to the new structure:"
+            echo "  ./data/      -> ./assets/data/"
+            echo "  ./js/        -> ./core/ or ./assets/js/"
+            echo "  ./index/     -> ./assets/data/index/"
+            echo "  ./lexicon/   -> ./assets/data/lexicon/"
+            exit 1
+          fi
+
+          echo "OK: No legacy path references found."
