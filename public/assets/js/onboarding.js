@@ -778,133 +778,66 @@
         var safeB  = _readSafeAreaBottom();
         var sc     = _getScrollParent(anchorEl);
 
-        if (sc) {
-            /* ── ① スクロール親内 absolute 配置 ──────────────────────
-               absolute は sc の content に追従するため、iOS momentum
-               scroll 中でもカードとアンカーのズレが発生しない。        */
-
-            // sc が positioned でなければ relative に昇格させる
-            if (getComputedStyle(sc).position === 'static') {
-                sc.style.position = 'relative';
-            }
-            if (cardEl.parentNode !== sc) sc.appendChild(cardEl);
-            cardEl.style.position = 'absolute';
-            cardEl.style.bottom   = 'auto';
-
-            function _placeAbs() {
-                var scRect   = sc.getBoundingClientRect();
-                var anchorR  = anchorEl.getBoundingClientRect();
-                var vh       = window.innerHeight;
-                var cardH    = cardEl.offsetHeight || 120;
-                var anchorH  = anchorEl.offsetHeight;
-                /* sc.clientTop = ボーダー上端幅。
-                   position:absolute の top:0 は sc のパディング上端（ボーダー内側）が起点。
-                   ビューポートY ⟷ absTop の変換:
-                     ビューポートY = scRect.top + sc.clientTop + absTop - sc.scrollTop
-                     absTop = ビューポートY - scRect.top - sc.clientTop + sc.scrollTop */
-                var scBorderT  = sc.clientTop || 0;
-                var scOriginVp = scRect.top + scBorderT; // absolute 座標の viewport Y 原点
-
-                /* アンカーの absolute 座標（sc コンテンツ内、スクロール考慮） */
-                var anchorInSc = anchorR.top - scOriginVp + sc.scrollTop;
-
-                var anchorMidVp = anchorR.top + anchorH / 2;
-
-                /* 下側候補 absTop と、そのカード下端の viewport Y */
-                var topBel     = anchorInSc + anchorH + MARGIN;
-                var botViewBel = scOriginVp + topBel - sc.scrollTop + cardH;
-                var belFits    = botViewBel <= vh - safeB - MARGIN;
-
-                /* 上側候補 absTop と、そのカード上端の viewport Y */
-                var topAbo     = anchorInSc - MARGIN - cardH;
-                var topViewAbo = scOriginVp + topAbo - sc.scrollTop;
-                var aboFits    = topViewAbo >= SAFE_T;
-
-                var absTop;
-                if (anchorMidVp < vh * 0.50) {
-                    /* アンカー上半分 → まず下を試す */
-                    if (belFits) {
-                        absTop = topBel;
-                    } else if (aboFits) {
-                        absTop = topAbo;
-                    } else {
-                        /* どちらも収まらない → viewport 下端でクランプした下側 */
-                        var maxAbsBel = (vh - safeB - MARGIN - cardH) - scOriginVp + sc.scrollTop;
-                        absTop = Math.max(0, Math.min(topBel, maxAbsBel));
-                    }
-                } else {
-                    /* アンカー下半分 → まず上を試す */
-                    if (aboFits) {
-                        absTop = topAbo;
-                    } else if (belFits) {
-                        absTop = topBel;
-                    } else {
-                        /* どちらも収まらない → SAFE_T でクランプした上側 */
-                        var minAbsAbo = SAFE_T - scOriginVp + sc.scrollTop;
-                        absTop = Math.max(0, Math.max(topAbo, minAbsAbo));
-                    }
-                }
-
-                /* 最終クランプ: コンテンツ内で負にならない */
-                absTop = Math.max(0, absTop);
-                cardEl.style.top = absTop + 'px';
-            }
-
-            _placeAbs();
-            /* absolute なのでパネルスクロールには追従不要。リサイズ時のみ再計算。 */
-            window.addEventListener('resize', _placeAbs, { passive: true });
-
-            _cardRepositionCleaner = function() {
-                window.removeEventListener('resize', _placeAbs);
-            };
-
-        } else {
-            /* ── ② window スクロール → fixed 配置 ───────────────────── */
-            if (cardEl.parentNode !== document.body) {
-                document.body.appendChild(cardEl);
-            }
-            cardEl.style.position = 'fixed';
-            cardEl.style.bottom   = 'auto';
-
-            function _placeFixed() {
-                var r      = anchorEl.getBoundingClientRect();
-                var vh     = window.innerHeight;
-                var cardH  = cardEl.offsetHeight || 120;
-                var midY   = r.top + r.height / 2;
-
-                var maxTop  = vh - safeB - MARGIN - cardH;  // 最下限
-                var topBel  = r.bottom + MARGIN;             // 下側候補
-                var topAbo  = r.top - MARGIN - cardH;        // 上側候補
-                var belFits = topBel + cardH <= vh - safeB - MARGIN;
-                var aboFits = topAbo >= SAFE_T;
-
-                var topVal;
-                if (midY < vh * 0.50) {
-                    /* アンカー上半分 → まず下を試す */
-                    if (belFits)        { topVal = topBel; }
-                    else if (aboFits)   { topVal = topAbo; }
-                    else                { topVal = Math.max(SAFE_T, maxTop); }
-                } else {
-                    /* アンカー下半分 → まず上を試す */
-                    if (aboFits)        { topVal = topAbo; }
-                    else if (belFits)   { topVal = topBel; }
-                    else                { topVal = Math.max(SAFE_T, maxTop); }
-                }
-
-                /* viewport 内クランプ（長いカードが画面外へ出ないよう保証） */
-                topVal = Math.max(SAFE_T, Math.min(topVal, maxTop));
-                cardEl.style.top = topVal + 'px';
-            }
-
-            _placeFixed();
-            window.addEventListener('scroll',  _placeFixed, { passive: true, capture: true });
-            window.addEventListener('resize',  _placeFixed, { passive: true });
-
-            _cardRepositionCleaner = function() {
-                window.removeEventListener('scroll', _placeFixed, true);
-                window.removeEventListener('resize', _placeFixed);
-            };
+        /* 常に document.body + position:fixed で描画する。
+           スクロール親（sc）が overflow:hidden を持つ場合、absolute 配置だと
+           クリッピングされて不可視になるため portal 方式に統一する。
+           sc が存在する場合はそのスクロールイベントに直接リスナーを登録して
+           アンカーの viewport 座標変化を追跡する。                           */
+        if (cardEl.parentNode !== document.body) {
+            document.body.appendChild(cardEl);
         }
+        cardEl.style.position = 'fixed';
+        cardEl.style.bottom   = 'auto';
+
+        function _place() {
+            var r     = anchorEl.getBoundingClientRect();
+            var vh    = window.innerHeight;
+            var cardH = cardEl.offsetHeight || 120;
+            var midY  = r.top + r.height / 2;
+
+            var maxTop  = vh - safeB - MARGIN - cardH;
+            var topBel  = r.bottom + MARGIN;
+            var topAbo  = r.top - MARGIN - cardH;
+            var belFits = topBel + cardH <= vh - safeB - MARGIN;
+            var aboFits = topAbo >= SAFE_T;
+
+            var topVal;
+            if (midY < vh * 0.50) {
+                if (belFits)      { topVal = topBel; }
+                else if (aboFits) { topVal = topAbo; }
+                else              { topVal = Math.max(SAFE_T, maxTop); }
+            } else {
+                if (aboFits)      { topVal = topAbo; }
+                else if (belFits) { topVal = topBel; }
+                else              { topVal = Math.max(SAFE_T, maxTop); }
+            }
+            topVal = Math.max(SAFE_T, Math.min(topVal, maxTop));
+            cardEl.style.top = topVal + 'px';
+        }
+
+        function _onResize() {
+            safeB = _readSafeAreaBottom();  // 回転時に再取得
+            _place();
+        }
+
+        _place();
+
+        if (sc) {
+            /* sc のスクロールで anchor が viewport 内を移動する → sc に直接登録 */
+            sc.addEventListener('scroll', _place, { passive: true });
+        } else {
+            window.addEventListener('scroll', _place, { passive: true, capture: true });
+        }
+        window.addEventListener('resize', _onResize, { passive: true });
+
+        _cardRepositionCleaner = function() {
+            if (sc) {
+                sc.removeEventListener('scroll', _place);
+            } else {
+                window.removeEventListener('scroll', _place, true);
+            }
+            window.removeEventListener('resize', _onResize);
+        };
     }
 
     function _renderOnboardingCard(config) {
