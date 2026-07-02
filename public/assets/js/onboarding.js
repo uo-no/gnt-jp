@@ -1226,6 +1226,8 @@
 
     // STEP6: Flow表示
     // Rev.6: モバイル単独表示対応。γάρチップが見つかるまで最大2秒リトライ。
+    // Rev.10: スクロール処理を追加。γάρが画面外の場合に自動スクロールし、
+    //         スクロール完了後にパルスとカードを表示する（STEP2/4と同一パターン）。
     function _renderFlowStep() {
         var loadingEl = _showFlowLoadingIndicator();
 
@@ -1235,12 +1237,24 @@
             var chips = _findGarChipsInFlow();
             if (chips.length > 0 || attempt >= 10) {
                 if (loadingEl) { loadingEl.remove(); loadingEl = null; }
-                _pulseGarInFlow();
-                _renderOnboardingCard({
-                    title: 'γάρ（なぜなら）は理由を示す語です',
-                    body:  '光っている語をもう一度押してみてください'
-                });
-                _attachFlowGarClickHandler();
+
+                var firstChip = chips.length > 0 ? chips[0] : null;
+
+                // γάρが画面外の場合はスクロールして視野内に収める
+                if (firstChip) {
+                    _scrollAnchorToViewport(firstChip, 0.35);
+                }
+
+                // スクロール完了後にパルス＆カードを表示（スクロール中にパルスしない）
+                setTimeout(function() {
+                    _pulseGarInFlow();
+                    _renderOnboardingCard({
+                        title: 'γάρ（なぜなら）は理由を示す語です',
+                        body:  '光っている語をもう一度押してみてください',
+                        anchorEl: firstChip,
+                    });
+                    _attachFlowGarClickHandler();
+                }, firstChip ? 450 : 0);
             } else {
                 attempt++;
                 setTimeout(_tryAttach, 200);

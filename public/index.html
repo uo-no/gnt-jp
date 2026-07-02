@@ -590,7 +590,7 @@ border-radius: var(--radius-s); cursor: pointer; transition: all var(--transitio
 .header-content { display: flex; align-items: center; justify-content: space-between; }
 #global-breadcrumb {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 0;
     flex-wrap: wrap;
 }
@@ -631,6 +631,52 @@ border-radius: var(--radius-s); cursor: pointer; transition: all var(--transitio
     font-size: var(--text-caption);
     padding: 0 var(--space-xs);
     user-select: none;
+}
+.gbc-chapter-nav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.gbc-ch-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 2px 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.6em;
+    line-height: 1;
+    color: var(--text-sub);
+    border-radius: var(--radius-s);
+    transition: background var(--transition-fast), color var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+.gbc-ch-arrow:hover:not(:disabled) {
+    background: rgba(0,0,0,0.06);
+    color: var(--text-main);
+}
+.gbc-ch-arrow:active:not(:disabled) {
+    background: rgba(0,0,0,0.10);
+}
+.gbc-ch-arrow:disabled {
+    opacity: 0.2;
+    cursor: default;
+}
+.gbc-ch-label {
+    background: none;
+    border: none;
+    cursor: default;
+    font-family: 'Noto Serif JP', serif;
+    font-size: var(--text-caption);
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-main);
+    letter-spacing: 0.01em;
+    padding: 0 2px;
 }
 
 #panel-back-btn {
@@ -4144,9 +4190,17 @@ function renderGlobalBreadcrumb() {
     }
 
     if (loc.chapter !== null) {
+        const _maxCh = loc.book ? loc.book.ch : 1;
+        const _ch    = loc.chapter;
         items.push(`<span class="gbc-sep">›</span>`);
-        /* 章 - クリックで現在章を再表示 */
-        items.push(`<button class="gbc-item current" onclick="_gbcGoChapter()">${loc.chapter}章</button>`);
+        /* 章 - 左右矢印で前後章へ、中央クリックで現在章を再表示 */
+        items.push(
+            `<span class="gbc-item current gbc-chapter-nav">` +
+            `<button class="gbc-ch-arrow" onclick="_gbcPrevChapter()" aria-label="前の章"${_ch <= 1 ? ' disabled' : ''}>◀</button>` +
+            `<button class="gbc-ch-label" onclick="_gbcGoChapter()">${_ch}章</button>` +
+            `<button class="gbc-ch-arrow" onclick="_gbcNextChapter()" aria-label="次の章"${_ch >= _maxCh ? ' disabled' : ''}>▶</button>` +
+            `</span>`
+        );
     }
 
     el.innerHTML = items.join('');
@@ -4283,6 +4337,20 @@ function _gbcGoChapter() {
     if (AppState.location.book && AppState.location.chapter !== null) {
         _navTo(AppState.location.book.key, AppState.location.chapter);
     }
+}
+
+function _gbcPrevChapter() {
+    const loc = AppState.location;
+    if (!loc.book || loc.chapter === null) return;
+    const prev = loc.chapter - 1;
+    if (prev >= 1) _navTo(loc.book.key, prev);
+}
+
+function _gbcNextChapter() {
+    const loc = AppState.location;
+    if (!loc.book || loc.chapter === null) return;
+    const next = loc.chapter + 1;
+    if (next <= loc.book.ch) _navTo(loc.book.key, next);
 }
 
 /* ══════════════════════════════════════════
