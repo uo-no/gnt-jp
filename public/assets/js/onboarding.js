@@ -349,6 +349,7 @@
     let _currentHintId     = null;
     let _isProcessingClick = false;
     let _lastClickedEl     = null;
+    let _cardRepositionCleaner = null; // cleanup fn for near-anchor card repositioning
 
     /* ── 状態管理（Public APIより先に定義） ─────────── */
     function _loadState() {
@@ -707,7 +708,211 @@
     window.AppOnboarding = window.App.onboarding;
 
     /* ── Unified Onboarding Card ────────────────────── */
+    /* ── カード近傍配置ヘルパー ─────────────────────────
+       設計方針:
+         ① スクロール親がある（StudyPanel 等）→ position:absolute で親内に注入。
+            absolute はコンテンツに追従するため iOS momentum scroll でもズレない。
+         ② スクロール親なし（window スクロール）→ position:fixed + scroll/resize 追従。
+       どちらのケースも:
+         - アンカーが viewport 上半分 → カードを下側
+         - アンカーが viewport 下半分 → カードを上側（入らなければ逆を試す）
+         - top を [SAFE_T, vh - safeAreaBottom - MARGIN - cardH] にクランプ
+    ─────────────────────────────────────────────── */
+
+    /* env(safe-area-inset-bottom) を px 値で返す。
+       probe 要素経由で env() を評価することで --sab CSS変数が未定義でも動作。
+       viewport-fit=cover が設定されている場合にのみ実際のノッチ高さを返す。 */
+    function _readSafeAreaBottom() {
+        var probe = document.createElement('div');
+        probe.style.cssText = 'position:fixed;bottom:0;height:0;width:0;' +
+            'padding-bottom:env(safe-area-inset-bottom,0px);' +
+            'visibility:hidden;pointer-events:none;';
+        document.body.appendChild(probe);
+        var val = parseFloat(getComputedStyle(probe).paddingBottom) || 0;
+        probe.remove();
+        return val;
+    }
+
+    /* 最も近いスクロール可能な祖先を返す（なければ null）。
+       document.body は除外（window スクロールと区別）。 */
+    function _getScrollParent(el) {
+        var p = el.parentElement;
+        while (p && p !== document.body) {
+            var s = window.getComputedStyle(p);
+            if (/auto|scroll/.test(s.overflow + s.overflowY) && p.scrollHeight > p.clientHeight) {
+                return p;
+            }
+            p = p.parentElement;
+        }
+        return null;
+    }
+
+    /* アンカー要素をスクロール容器内で fraction の位置へ移動する。
+       scrollIntoView ではなく scrollTop の直接計算を使うことで、
+       fraction の正確な制御と StudyPanel 内部スクロールの両方に対応する。 */
+    function _scrollAnchorToViewport(anchorEl, fraction) {
+        if (!anchorEl) return;
+        fraction = fraction !== undefined ? fraction : 0.30;
+        /* getBoundingClientRect().top は現在のビューポート座標。
+           target Y = vh * fraction になるよう delta を計算する。 */
+        var rect  = anchorEl.getBoundingClientRect();
+        var delta = rect.top - window.innerHeight * fraction;
+        var sc    = _getScrollParent(anchorEl);
+        if (sc) {
+            sc.scrollTo({ top: sc.scrollTop + delta, behavior: 'smooth' });
+        } else {
+            window.scrollTo({ top: window.scrollY + delta, behavior: 'smooth' });
+        }
+    }
+
+    /* アンカー要素の上または下にカードを配置し、リスナーを登録する。
+       返却はなし。_cardRepositionCleaner にクリーンアップ関数をセット。 */
+    function _positionCardNear(cardEl, anchorEl) {
+        if (_cardRepositionCleaner) {
+            _cardRepositionCleaner();
+            _cardRepositionCleaner = null;
+        }
+
+        var MARGIN = 16;
+        var SAFE_T = 58;  // ヘッダー下端の安全マージン（px）
+        var safeB  = _readSafeAreaBottom();
+        var sc     = _getScrollParent(anchorEl);
+
+        if (sc) {
+            /* ── ① スクロール親内 absolute 配置 ──────────────────────
+               absolute は sc の content に追従するため、iOS momentum
+               scroll 中でもカードとアンカーのズレが発生しない。        */
+
+            // sc が positioned でなければ relative に昇格させる
+            if (getComputedStyle(sc).position === 'static') {
+                sc.style.position = 'relative';
+            }
+            if (cardEl.parentNode !== sc) sc.appendChild(cardEl);
+            cardEl.style.position = 'absolute';
+            cardEl.style.bottom   = 'auto';
+
+            function _placeAbs() {
+                var scRect   = sc.getBoundingClientRect();
+                var anchorR  = anchorEl.getBoundingClientRect();
+                var vh       = window.innerHeight;
+                var cardH    = cardEl.offsetHeight || 120;
+                var anchorH  = anchorEl.offsetHeight;
+                /* sc.clientTop = ボーダー上端幅。
+                   position:absolute の top:0 は sc のパディング上端（ボーダー内側）が起点。
+                   ビューポートY ⟷ absTop の変換:
+                     ビューポートY = scRect.top + sc.clientTop + absTop - sc.scrollTop
+                     absTop = ビューポートY - scRect.top - sc.clientTop + sc.scrollTop */
+                var scBorderT  = sc.clientTop || 0;
+                var scOriginVp = scRect.top + scBorderT; // absolute 座標の viewport Y 原点
+
+                /* アンカーの absolute 座標（sc コンテンツ内、スクロール考慮） */
+                var anchorInSc = anchorR.top - scOriginVp + sc.scrollTop;
+
+                var anchorMidVp = anchorR.top + anchorH / 2;
+
+                /* 下側候補 absTop と、そのカード下端の viewport Y */
+                var topBel     = anchorInSc + anchorH + MARGIN;
+                var botViewBel = scOriginVp + topBel - sc.scrollTop + cardH;
+                var belFits    = botViewBel <= vh - safeB - MARGIN;
+
+                /* 上側候補 absTop と、そのカード上端の viewport Y */
+                var topAbo     = anchorInSc - MARGIN - cardH;
+                var topViewAbo = scOriginVp + topAbo - sc.scrollTop;
+                var aboFits    = topViewAbo >= SAFE_T;
+
+                var absTop;
+                if (anchorMidVp < vh * 0.50) {
+                    /* アンカー上半分 → まず下を試す */
+                    if (belFits) {
+                        absTop = topBel;
+                    } else if (aboFits) {
+                        absTop = topAbo;
+                    } else {
+                        /* どちらも収まらない → viewport 下端でクランプした下側 */
+                        var maxAbsBel = (vh - safeB - MARGIN - cardH) - scOriginVp + sc.scrollTop;
+                        absTop = Math.max(0, Math.min(topBel, maxAbsBel));
+                    }
+                } else {
+                    /* アンカー下半分 → まず上を試す */
+                    if (aboFits) {
+                        absTop = topAbo;
+                    } else if (belFits) {
+                        absTop = topBel;
+                    } else {
+                        /* どちらも収まらない → SAFE_T でクランプした上側 */
+                        var minAbsAbo = SAFE_T - scOriginVp + sc.scrollTop;
+                        absTop = Math.max(0, Math.max(topAbo, minAbsAbo));
+                    }
+                }
+
+                /* 最終クランプ: コンテンツ内で負にならない */
+                absTop = Math.max(0, absTop);
+                cardEl.style.top = absTop + 'px';
+            }
+
+            _placeAbs();
+            /* absolute なのでパネルスクロールには追従不要。リサイズ時のみ再計算。 */
+            window.addEventListener('resize', _placeAbs, { passive: true });
+
+            _cardRepositionCleaner = function() {
+                window.removeEventListener('resize', _placeAbs);
+            };
+
+        } else {
+            /* ── ② window スクロール → fixed 配置 ───────────────────── */
+            if (cardEl.parentNode !== document.body) {
+                document.body.appendChild(cardEl);
+            }
+            cardEl.style.position = 'fixed';
+            cardEl.style.bottom   = 'auto';
+
+            function _placeFixed() {
+                var r      = anchorEl.getBoundingClientRect();
+                var vh     = window.innerHeight;
+                var cardH  = cardEl.offsetHeight || 120;
+                var midY   = r.top + r.height / 2;
+
+                var maxTop  = vh - safeB - MARGIN - cardH;  // 最下限
+                var topBel  = r.bottom + MARGIN;             // 下側候補
+                var topAbo  = r.top - MARGIN - cardH;        // 上側候補
+                var belFits = topBel + cardH <= vh - safeB - MARGIN;
+                var aboFits = topAbo >= SAFE_T;
+
+                var topVal;
+                if (midY < vh * 0.50) {
+                    /* アンカー上半分 → まず下を試す */
+                    if (belFits)        { topVal = topBel; }
+                    else if (aboFits)   { topVal = topAbo; }
+                    else                { topVal = Math.max(SAFE_T, maxTop); }
+                } else {
+                    /* アンカー下半分 → まず上を試す */
+                    if (aboFits)        { topVal = topAbo; }
+                    else if (belFits)   { topVal = topBel; }
+                    else                { topVal = Math.max(SAFE_T, maxTop); }
+                }
+
+                /* viewport 内クランプ（長いカードが画面外へ出ないよう保証） */
+                topVal = Math.max(SAFE_T, Math.min(topVal, maxTop));
+                cardEl.style.top = topVal + 'px';
+            }
+
+            _placeFixed();
+            window.addEventListener('scroll',  _placeFixed, { passive: true, capture: true });
+            window.addEventListener('resize',  _placeFixed, { passive: true });
+
+            _cardRepositionCleaner = function() {
+                window.removeEventListener('scroll', _placeFixed, true);
+                window.removeEventListener('resize', _placeFixed);
+            };
+        }
+    }
+
     function _renderOnboardingCard(config) {
+        // 前回の近傍配置リスナーをクリーンアップ
+        if (_cardRepositionCleaner) {
+            _cardRepositionCleaner();
+            _cardRepositionCleaner = null;
+        }
 
         let el = document.getElementById('ob-value-summary');
 
@@ -741,16 +946,44 @@
             }
         `;
 
-        requestAnimationFrame(function() {
+        var anchorEl = config.anchorEl || null;
+        if (anchorEl) {
+            // アンカー近傍配置：一旦画面外へ隠し、layout取得後に正確な位置へ
+            el.style.top    = '-9999px';
+            el.style.bottom = 'auto';
             requestAnimationFrame(function() {
-                el.classList.add('ob-visible');
+                // offsetHeight が確定した状態で配置
+                // _positionCardNear 内でスクロール親への移動・position 設定も行う
+                _positionCardNear(el, anchorEl);
+                requestAnimationFrame(function() {
+                    el.classList.add('ob-visible');
+                });
             });
-        });
+        } else {
+            // デフォルト：CSS の position:fixed + bottom 固定値にまかせる。
+            // 前ステップで sc に移動されていた場合は body に戻す。
+            if (el.parentNode !== document.body) {
+                document.body.appendChild(el);
+            }
+            el.style.position = '';  // CSS の position:fixed に復帰
+            el.style.top      = '';
+            el.style.bottom   = '';
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    el.classList.add('ob-visible');
+                });
+            });
+        }
 
         return el;
     }
 
     function _hideOnboardingCard() {
+        // 近傍配置リスナーをクリーンアップ
+        if (_cardRepositionCleaner) {
+            _cardRepositionCleaner();
+            _cardRepositionCleaner = null;
+        }
         const el = document.getElementById('ob-value-summary');
         if (!el) return;
         el.classList.remove('ob-visible');
@@ -863,20 +1096,21 @@
         _attachPulseToGar();
         _showGarSurroundGlow();
 
-        // γάρがある節ブロックを画面上端から少し下に収める
+        // γάρ要素が DOM に確定するのを待ってからスクロール→カード表示
         setTimeout(function() {
             var garEl = document.querySelector('[data-ob-gar-anchor="true"]');
-            if (garEl) {
-                var block = garEl.closest('.verse-block, .verse-pair-left') || garEl;
-                var rect = block.getBoundingClientRect();
-                window.scrollTo({ top: window.scrollY + rect.top - 80, behavior: 'smooth' });
-            }
-        }, 200);
+            if (garEl) _scrollAnchorToViewport(garEl, 0.30);
 
-        _renderOnboardingCard({
-            title: '翻訳では見えにくい "文のつながり" があります',
-            body:  '光っている語を押してみてください'
-        });
+            // スクロール完了後にカードをアンカー近傍へ配置
+            setTimeout(function() {
+                var garEl = document.querySelector('[data-ob-gar-anchor="true"]');
+                _renderOnboardingCard({
+                    title: '翻訳では見えにくい "文のつながり" があります',
+                    body:  '光っている語を押してみてください',
+                    anchorEl: garEl,
+                });
+            }, 380);
+        }, 150);
     }
 
     // STEP3: γάρ押下後 → 演出→「続きも見てみる」ボタン
@@ -904,46 +1138,56 @@
         _attachPulseToGar();
         _showGarSurroundGlow();
 
-        _renderOnboardingCard({
-            title: 'ここでも「なぜなら」が隠れていました',
-            body:  '文が、理由を重ねながら続いています。原文では、その流れが見えやすくなります。',
-            actions: `
-                <button id="ob-flow-btn" class="ob-btn">
-                    語の流れを見てみましょう →
-                </button>
-            `
-        });
+        // γάρ要素確定後にスクロール→カードをアンカー近傍へ配置
+        setTimeout(function() {
+            var garEl = document.querySelector('[data-ob-gar-anchor="true"]');
+            if (garEl) _scrollAnchorToViewport(garEl, 0.30);
 
-        document.getElementById('ob-flow-btn')
-            ?.addEventListener('click', function() {
-                _cancelPulse();
-                _hideOnboardingCard();
-                setTimeout(function() {
-                    var isMobile = window.innerWidth <= 900;
+            setTimeout(function() {
+                var garEl = document.querySelector('[data-ob-gar-anchor="true"]');
+                _renderOnboardingCard({
+                    title: 'ここでも「なぜなら」が隠れていました',
+                    body:  '文が、理由を重ねながら続いています。原文では、その流れが見えやすくなります。',
+                    actions: `
+                        <button id="ob-flow-btn" class="ob-btn">
+                            語の流れを見てみましょう →
+                        </button>
+                    `,
+                    anchorEl: garEl,
+                });
 
-                    if (isMobile) {
-                        // Rev.7: モバイルは Study Panel を閉じて章ビューの Flow に戻る。
-                        _closeMobileStudyPanelAndGoFlow();
-                        return;
-                    }
+                document.getElementById('ob-flow-btn')
+                    ?.addEventListener('click', function() {
+                        _cancelPulse();
+                        _hideOnboardingCard();
+                        setTimeout(function() {
+                            var isMobile = window.innerWidth <= 900;
 
-                    // デスクトップ：従来通り AppBridge 経由で Flow 表示
-                    if (window.AppBridge && window.AppBridge.openFlowTab) {
-                        window.AppBridge.openFlowTab();
-                    } else if (window.AppBridge && window.AppBridge.activateFlowCompare) {
-                        window.AppBridge.activateFlowCompare().then(function() {
-                            _scrollToOnboardingVerse();
-                            _state.achievedFirstFlow = true;
-                            _saveState();
-                            setTimeout(function() { _goToStep(OB_STEP.FLOW); }, 800);
-                        });
-                    } else {
-                        _state.achievedFirstFlow = true;
-                        _saveState();
-                        _goToStep(OB_STEP.FLOW);
-                    }
-                }, 600);
-            });
+                            if (isMobile) {
+                                // Rev.7: モバイルは Study Panel を閉じて章ビューの Flow に戻る。
+                                _closeMobileStudyPanelAndGoFlow();
+                                return;
+                            }
+
+                            // デスクトップ：従来通り AppBridge 経由で Flow 表示
+                            if (window.AppBridge && window.AppBridge.openFlowTab) {
+                                window.AppBridge.openFlowTab();
+                            } else if (window.AppBridge && window.AppBridge.activateFlowCompare) {
+                                window.AppBridge.activateFlowCompare().then(function() {
+                                    _scrollToOnboardingVerse();
+                                    _state.achievedFirstFlow = true;
+                                    _saveState();
+                                    setTimeout(function() { _goToStep(OB_STEP.FLOW); }, 800);
+                                });
+                            } else {
+                                _state.achievedFirstFlow = true;
+                                _saveState();
+                                _goToStep(OB_STEP.FLOW);
+                            }
+                        }, 600);
+                    });
+            }, 380);
+        }, 150);
     }
 
     // STEP5 (GAR17_CLICKED) は STEP4 に統合済み。_goToStep での互換のため空関数を残す。
@@ -1488,10 +1732,20 @@
             _waitForHoutosAndPulse(0);
         }, 300);
 
-        _renderOnboardingCard({
-            title: 'ここでも別の語が光っています',
-            body:  '押してみてください'
-        });
+        // οὕτως 要素が DOM に確定するのを待ってからスクロール→カード配置
+        setTimeout(function() {
+            var anchorEl = document.querySelector('[data-onboarding-anchor="true"]');
+            if (anchorEl) _scrollAnchorToViewport(anchorEl, 0.30);
+
+            setTimeout(function() {
+                var anchorEl = document.querySelector('[data-onboarding-anchor="true"]');
+                _renderOnboardingCard({
+                    title: 'ここでも別の語が光っています',
+                    body:  '押してみてください',
+                    anchorEl: anchorEl,
+                });
+            }, 380);
+        }, 400);
     }
 
     // JOH-3: οὕτως押下後 → onboarding prose + compare CTA
