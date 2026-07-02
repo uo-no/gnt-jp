@@ -1347,6 +1347,28 @@ opacity: var(--opacity-secondary);
     opacity: var(--opacity-secondary);
     margin-top: var(--space-xs);
 }
+.rn-sibling-badge {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    color: var(--text-sub);
+    background: rgba(90,110,130,0.15);
+    border-radius: 3px;
+    padding: 1px 5px;
+    margin-top: 2px;
+    font-family: 'Noto Sans JP', sans-serif;
+    opacity: var(--opacity-primary);
+}
+.rn-sibling-action {
+    font-size: 9px;
+    color: var(--highlight);
+    opacity: 0.55;
+    margin-top: 2px;
+    font-family: 'Noto Sans JP', sans-serif;
+    transition: opacity var(--transition-fast);
+}
+.rn-sibling-chip:hover .rn-sibling-action {
+    opacity: 0.9;
+}
 .rn-concord-list {
     display: flex;
     flex-direction: column;
@@ -5234,12 +5256,17 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
             <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}" data-lemma-id="${s.id}" data-headword="${s.headword.replace(/"/g,'&quot;')}" title="${s.gloss}">
                 <span class="rn-sibling-gr">${s.headword}</span>
                 ${s.gloss ? `<span class="rn-sibling-ja">${s.gloss}</span>` : ''}
-                <span class="rn-sibling-count">${s.count}</span>
+                ${s.count ? `<span class="rn-sibling-count">新約 ${s.count}回</span>` : ''}
+                ${s.isCurrent
+                    ? `<span class="rn-sibling-badge">閲覧中</span>`
+                    : `<span class="rn-sibling-action">共起を検索 →</span>`}
             </span>
         `).join('');
 
+        const totalOccurrences = entry.occurrences || 0;
+        const occLabel = totalOccurrences ? ` · 計${totalOccurrences}回` : '';
         sections.push(`
-            <div class="rn-ln-domain-label">よく一緒に使われる語</div>
+            <div class="rn-ln-domain-label">文脈をともにする語${occLabel}</div>
             <div class="rn-sibling-chips">${chips}</div>
         `);
     }
@@ -5254,7 +5281,7 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
         </button>
         <div class="rn-layer-body" id="rn-cluster-body">
             <div class="rn-layer-intro">
-                以下の語は聖書内で同じ場面・文脈によく一緒に登場します。意味が似ているのではなく、使われる状況が似ている語の集まりです。数字は新約聖書での出現回数。枠付きがこの単語です。
+                この語と同じ文脈で現れやすい語です。
             </div>
             ${sections.join('')}
         </div>

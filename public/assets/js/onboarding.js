@@ -379,6 +379,18 @@
             // 未完了 & 途中離脱（step >= 1）→ step を 0 に戻して再スタート
             if (!_state.onboardingComplete && !_state.onboardingSkipped && _state.onboardingStep >= 1) {
                 _state.onboardingStep = 0;
+                // Bug B fix: JOH フェーズ途中の場合は currentStep も READING へ同期リセット。
+                // WELCOME に戻すと verse16Opened=true 等のフラグで再発火できず stuck になるため
+                // READING が正しい値。_guardOnboardingUrl が JHN 3 へ誘導し直す。
+                var _johMidSteps = [
+                    OB_STEP.JOHN316_HOUTOS,
+                    OB_STEP.JOHN316_WORD_CLICKED,
+                    // COMPARE: onPageRendered に専用ハンドラあり → _obActivateCompare で直接復元可
+                    // FLOW: Bug D ハンドラで直接再起動可 → READING への退行は不要
+                ];
+                if (_johMidSteps.indexOf(_state.currentStep) !== -1) {
+                    _state.currentStep = OB_STEP.JOHN316_READING;
+                }
             }
             _saveState();
         }
@@ -390,18 +402,15 @@
     /* ── オンボーディング未完了時のURLガード ──────────────
        stepに応じて ROM 1 または JHN 3 へ誘導する。
        ※ onboardingStep === 0 はオンボーディング未開始（または途中離脱後リセット）。
-          この状態ではユーザーが自由に箇所を選べるようガードを発動しない。
+          この状態では通常自由閲覧を許可するが、JOH ステップが currentStep に残る場合は
+          JHN 3 ガードを継続する（Bug B fix）。
     ───────────────────────────────────────────────── */
     (function _guardOnboardingUrl() {
         try {
             if (_state.onboardingComplete || _state.onboardingSkipped) return;
-            // 実際にオンボーディングが進行中（step >= 1）のときだけガードする
-            if (_state.onboardingStep === 0 && !_state.firstLaunch) return;
-            var p = new URLSearchParams(window.location.search);
-            var book = p.get('book') || 'ROM';
-            var ch   = p.get('ch')   || '1';
 
             // JOH 3:16 onboarding steps は JHN 3 で動作する
+            // Bug B fix: _isJhnStep を早期リターン判定より前に計算する
             var _jhnSteps = [
                 OB_STEP.JOHN316_READING,
                 OB_STEP.JOHN316_HOUTOS,
@@ -411,6 +420,14 @@
                 OB_STEP.FINAL_COMPLETE,
             ];
             var _isJhnStep = _jhnSteps.indexOf(_state.currentStep) !== -1;
+
+            // onboardingStep=0（途中離脱リセット後）は自由閲覧を許可するが、
+            // JOH ステップが currentStep に残る場合は引き続き JHN 3 ガードを有効にする
+            if (_state.onboardingStep === 0 && !_state.firstLaunch && !_isJhnStep) return;
+
+            var p = new URLSearchParams(window.location.search);
+            var book = p.get('book') || 'ROM';
+            var ch   = p.get('ch')   || '1';
 
             if (_isJhnStep) {
                 // JHN 3 以外ならリダイレクト
@@ -540,6 +557,33 @@
                     requestAnimationFrame(function() {
                         requestAnimationFrame(function() {
                             _goToStep(OB_STEP.JOHN316_COMPARE);
+                        });
+                    });
+                }
+
+                // Bug D fix: JOHN316_HOUTOS / JOHN316_WORD_CLICKED —
+                // リロードで StudyPanel が閉じるため READING にフォールバックして v.16 再オープンへ誘導。
+                // _guardOnboardingUrl（Bug B fix）が JHN 3 へリダイレクトするため
+                // ここに到達する時点では必ず JHN 3 上で動作する。
+                // WORD_CLICKED からの場合は οὕτως 再クリックを許可するためフラグをリセット。
+                else if (_state.currentStep === OB_STEP.JOHN316_HOUTOS ||
+                         _state.currentStep === OB_STEP.JOHN316_WORD_CLICKED) {
+                    if (_state.currentStep === OB_STEP.JOHN316_WORD_CLICKED) {
+                        _state.john316WordClicked = false;
+                        _saveState();
+                    }
+                    requestAnimationFrame(function() {
+                        requestAnimationFrame(function() {
+                            _goToStep(OB_STEP.JOHN316_READING);
+                        });
+                    });
+                }
+
+                // Bug D fix: JOHN316_FLOW — リロード後に compare+flow を再起動
+                else if (_state.currentStep === OB_STEP.JOHN316_FLOW) {
+                    requestAnimationFrame(function() {
+                        requestAnimationFrame(function() {
+                            _goToStep(OB_STEP.JOHN316_FLOW);
                         });
                     });
                 }
@@ -1026,8 +1070,8 @@
     // STEP2: 16節γάρにパルス・カード
     // STEP1のスクロールが完了し画面が静止した後に表示される
     function _renderVerse16GarStep() {
-        _attachPulseToGar();
-        _showGarSurroundGlow();
+        // Bug G fix: anchor 確定後に glow を呼ぶことで null 読み取りを防ぐ
+        _attachPulseToGar(undefined, function() { _showGarSurroundGlow(); });
 
         // γάρ要素が DOM に確定するのを待ってからスクロール→カード表示
         setTimeout(function() {
@@ -1068,8 +1112,8 @@
     // STEP4: 17節γάρにパルス・カード・「流れを見る」ボタン（STEP5を統合）
     // Rev.5: Compare起動を廃止。AppBridge.openFlowTab() でFlow単独表示へ遷移。
     function _renderVerse17GarStep() {
-        _attachPulseToGar();
-        _showGarSurroundGlow();
+        // Bug G fix: anchor 確定後に glow を呼ぶことで null 読み取りを防ぐ
+        _attachPulseToGar(undefined, function() { _showGarSurroundGlow(); });
 
         // γάρ要素確定後にスクロール→カードをアンカー近傍へ配置
         setTimeout(function() {
@@ -1157,8 +1201,9 @@
     //    onFlowTabOpened() → _goToStep(OB_STEP.FLOW) → _renderFlowStep() でチップがパルスする。
     // ③ history.back() は URL 遷移でオンボーディング状態が壊れるため使わない。
     function _closeMobileStudyPanelAndGoFlow() {
-        _state.achievedFirstFlow = true;
-        _saveState();
+        // Bug A fix: achievedFirstFlow のセットは onFlowTabOpened() 内の通常フローに委ねる。
+        // ここで事前セットすると onFlowTabOpened の先頭ガードに即引っかかり
+        // _goToStep(FLOW) が呼ばれなくなるため削除。
 
         // ── パネルを閉じる ───────────────────────────────────────
         if (window.AppBridge && window.AppBridge.closeStudyPanel) {
@@ -1529,19 +1574,23 @@
        既存関数を流用し、JOH固有のロジックのみ追加する。
     ─────────────────────────────────────────────── */
 
-    // οὕτως を探してパルスを付ける（DOM未準備なら最大10回リトライ）
-    function _waitForHoutosAndPulse(attempt) {
+    // οὕτως を探してパルスを付ける（DOM未準備なら最大25回リトライ）
+    // Bug C fix: cb(el) で anchor 確定後にスクロール・カードを連鎖させ、
+    // 独立タイマーによる競合（anchor が null になる問題）を解消する。
+    function _waitForHoutosAndPulse(attempt, cb) {
         var el = _findHoutosEl();
         if (el) {
             _attachPulseToHoutos(el);
+            if (cb) cb(el);
             return;
         }
         if (attempt >= 25) {
             console.warn('[Onboarding] οὕτως not found after 25 attempts (5s)');
+            if (cb) cb(null);
             return;
         }
         setTimeout(function() {
-            _waitForHoutosAndPulse(attempt + 1);
+            _waitForHoutosAndPulse(attempt + 1, cb);
         }, 200);
     }
 
@@ -1672,27 +1721,22 @@
     }
 
     // JOH-2: οὕτως にpulse・カード表示
+    // Bug C fix: 独立タイマー2本をコールバックで直列化。
+    // _waitForHoutosAndPulse が anchor を確定してから scroll → card の順で処理するため
+    // anchor が null になる競合を排除する。
     function _renderJohn316HoutosStep() {
-        // onStudyPanelOpened → ここに来る時点で Study Panel は開いている。
-        // 描画完了を少し待ってから pulse を付ける。
         setTimeout(function() {
-            _waitForHoutosAndPulse(0);
+            _waitForHoutosAndPulse(0, function(houtosEl) {
+                if (houtosEl) _scrollAnchorToViewport(houtosEl, 0.30);
+                setTimeout(function() {
+                    _renderOnboardingCard({
+                        title: 'ここでも別の語が光っています',
+                        body:  '押してみてください',
+                        anchorEl: houtosEl || null,
+                    });
+                }, houtosEl ? 380 : 0);
+            });
         }, 300);
-
-        // οὕτως 要素が DOM に確定するのを待ってからスクロール→カード配置
-        setTimeout(function() {
-            var anchorEl = document.querySelector('[data-onboarding-anchor="true"]');
-            if (anchorEl) _scrollAnchorToViewport(anchorEl, 0.30);
-
-            setTimeout(function() {
-                var anchorEl = document.querySelector('[data-onboarding-anchor="true"]');
-                _renderOnboardingCard({
-                    title: 'ここでも別の語が光っています',
-                    body:  '押してみてください',
-                    anchorEl: anchorEl,
-                });
-            }, 380);
-        }, 400);
     }
 
     // JOH-3: οὕτως押下後 → onboarding prose + compare CTA
@@ -2521,7 +2565,9 @@ var _focusReposition = null;
     }
 
     // STEP2/4: γάρ の word-card または wlv-chip にパルスを付ける
-    function _attachPulseToGar(attempt) {
+    // Bug G fix: cb(garEl) を追加し、anchor セット完了後に _showGarSurroundGlow 等を
+    // 確実に呼べるようにする。既存の無引数呼び出しはそのまま動作する。
+    function _attachPulseToGar(attempt, cb) {
         attempt = attempt || 0;
 
         function _isGar(str) {
@@ -2570,9 +2616,10 @@ var _focusReposition = null;
         if (!garEl) {
             if (attempt < 15) {
                 // DOM描画待ちリトライ（最大3秒）
-                setTimeout(function() { _attachPulseToGar(attempt + 1); }, 200);
+                setTimeout(function() { _attachPulseToGar(attempt + 1, cb); }, 200);
             } else {
                 console.warn('[Onboarding] γάρ not found in DOM after retries');
+                if (cb) cb(null);
             }
             return;
         }
@@ -2589,6 +2636,7 @@ var _focusReposition = null;
             garEl.style.background = 'rgba(90,110,130,0.07)';
             garEl.setAttribute('data-ob-affordance', 'true');
         }
+        if (cb) cb(garEl);
     }
 
     // γάρ周辺の前後chipに薄いグロー（STEP2/4共通）
