@@ -854,6 +854,7 @@ z-index: 100;
 display: flex;
 justify-content: center;
 align-items: flex-end;
+touch-action: none;
 }
 #panel-resize-handle::after {
 content: '';
@@ -4446,15 +4447,15 @@ function _closeStudyPanelInternal() {
     sidePanel.classList.remove('open');
 
     const notesWrap = document.getElementById('reading-notes-wrap');
+    /* close直前にスクロール位置を StudyPanelState へ保存（open後の2段rAFで復元する） */
+    if (notesWrap) StudyPanelState.scrollTop = notesWrap.scrollTop;
+    /* display:none で隠す。innerHTML破棄は禁止（DOMを維持して次のopenで位置を復元する） */
     if (notesWrap) { notesWrap.style.display = 'none'; }
     const notesArea = document.getElementById('reading-notes-area');
-    if (notesArea) {
-        notesArea.innerHTML = '';
-        notesArea.classList.remove('reading-deep-active');
-    }
+    /* クラスのみリセット。innerHTML = '' は禁止（_renderReadingNotes が全量置換するため不要） */
+    if (notesArea) { notesArea.classList.remove('reading-deep-active'); }
 
-    const area = document.getElementById('analysis-content-area');
-    if (area) area.innerHTML = '';
+    StudyPanelState.isOpen = false;
 
     document.getElementById('open-panel-btn').style.display =
         AppState.canReopen() ? 'block' : 'none';
@@ -4515,6 +4516,18 @@ function _panelExpandedVh() {
    戻った際にここへ保存しておいた値を読み戻すことでスクロール位置を復元する。
    null は「復元すべき位置が無い」を意味する（新しい節を開いた場合等）。 */
 let _versePanelScrollTop = null;
+
+/* StudyPanel UI状態の一元管理オブジェクト。
+   UIロジック（open/close/drag）はこのオブジェクトを通じて状態を読み書きし、
+   DOM状態・AppState・スクロール位置と混在させない。
+   scrollTop: close直前に保存し、次のopen後に2段rAFで復元する。
+   isDragging: pointer capture 中のみ true。pointerup/cancel で必ず false に戻す。 */
+const StudyPanelState = {
+    isOpen:    false,
+    height:    0,
+    scrollTop: 0,
+    isDragging: false,
+};
 
 /* 本文（左カラム）の節要素を節番号から特定する。
    注意：左カラムの .verse-block には data-vnum 属性が付与されない（data-vnumがあるのは
@@ -4597,8 +4610,7 @@ function _openWordListInternal(vNum, words) {
 
     const notesWrap = document.getElementById('reading-notes-wrap');
     if (notesWrap) notesWrap.style.display = 'none';
-    const notesArea = document.getElementById('reading-notes-area');
-    if (notesArea) notesArea.innerHTML = '';
+    /* notesArea は display:none で隠すのみ。innerHTML = '' 禁止（DOMを維持する） */
 
     const rcb = document.getElementById('rcb-container');
     if (rcb) rcb.classList.remove('visible');
@@ -8667,71 +8679,74 @@ let _wlvWordCache = [];
 
 /* ══════════════════════════════════════════
    パネルリサイズ（縦方向ドラッグ - bottom-depth-panel）
+   設計原則：
+   - pointerdown / pointermove / pointerup / pointercancel のみ（mouse/touch分岐禁止）
+   - setPointerCapture で捕捉 → pointerup/cancel で必ず releasePointerCapture
+   - ドラッグ中は window/document 依存なし（capture で完結）
+   - 高さは常に clamp で処理（状態依存でイベントを止めない）
+   - isDragging は StudyPanelState で一元管理
    ══════════════════════════════════════════ */
 (function() {
     const handle = document.getElementById('panel-resize-handle');
     const panel  = document.getElementById('bottom-depth-panel');
     if (!handle || !panel) return;
-    let dragging = false, startY = 0, startH = 0;
 
-    handle.addEventListener('mousedown', (e) => {
-        dragging = true;
+    let startY = 0, startH = 0;
+
+    handle.addEventListener('pointerdown', (e) => {
+        StudyPanelState.isDragging = true;
         startY = e.clientY;
         startH = panel.offsetHeight;
         handle.classList.add('dragging');
-        document.body.style.cursor = 'row-resize';
+        /* captureにより、指がハンドル外に出ても pointermove を継続受信する */
+        handle.setPointerCapture(e.pointerId);
         document.body.style.userSelect = 'none';
         e.preventDefault();
     });
-    document.addEventListener('mousemove', (e) => {
-        if (!dragging) return;
-        const dy = startY - e.clientY;
-        const nh = Math.max(220, Math.min(window.innerHeight * 0.70, startH + dy));
-        panel.style.height = nh + 'px';
-    });
-    document.addEventListener('mouseup', () => {
-        if (!dragging) return;
-        dragging = false;
-        handle.classList.remove('dragging');
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-    });
-    handle.addEventListener('touchstart', (e) => {
-        dragging = true;
-        startY = e.touches[0].clientY;
-        startH = panel.offsetHeight;
-        e.preventDefault();
-    }, { passive: false });
-    /* モバイル：Bottom Sheetはコンテンツ種別（_panelContentMode）に応じた上限まで自由追従し、
-       指を離した時に40vhか拡張上限のどちらか近い方へスナップする（自由リサイズにはしない）。
-       PC（_isMobile()がfalse）はこれまで通り220px〜70vhの自由連続リサイズのまま、スナップしない。 */
-    document.addEventListener('touchmove', (e) => {
-        if (!dragging) return;
-        const dy = startY - e.touches[0].clientY;
+
+    handle.addEventListener('pointermove', (e) => {
+        if (!StudyPanelState.isDragging) return;
         const isMobile = _isMobile();
         const minH = isMobile ? window.innerHeight * 0.40 : 220;
         const maxH = isMobile ? window.innerHeight * _panelExpandedVh() : window.innerHeight * 0.70;
-        const nh = Math.max(minH, Math.min(maxH, startH + dy));
-        /* モバイルはCSS側の height/max-height が !important のため、ドラッグ中の高さも
-           setProperty(...,'important') で勝たせる必要がある（PC側は従来通り通常代入のまま）。 */
+        /* clamp：max/min 状態でも反対方向にドラッグすれば必ず動く */
+        const nh = Math.min(maxH, Math.max(minH, startH + (startY - e.clientY)));
+        StudyPanelState.height = nh;
         if (isMobile) {
             panel.style.setProperty('height', nh + 'px', 'important');
         } else {
             panel.style.height = nh + 'px';
         }
-    }, { passive: false });
-    document.addEventListener('touchend', () => {
-        if (!dragging) return;
-        dragging = false;
+    });
+
+    function _finishDrag(e) {
+        if (!StudyPanelState.isDragging) return;
+        StudyPanelState.isDragging = false;
+        handle.classList.remove('dragging');
+        document.body.style.userSelect = '';
+        /* capture を必ず解放する（pointerup/cancel 両方から呼ばれる） */
+        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+        /* モバイル：指を離した時に 40vh か拡張上限のどちらか近い方へスナップ */
         if (_isMobile()) {
             const expandedFrac = _panelExpandedVh();
-            const mid = window.innerHeight * ((0.40 + expandedFrac) / 2);
+            const mid    = window.innerHeight * ((0.40 + expandedFrac) / 2);
             const target = panel.offsetHeight > mid ? (expandedFrac * 100 + 'vh') : '40vh';
             panel.style.transition = 'height 0.25s ease';
             panel.style.setProperty('height', target, 'important');
             setTimeout(() => { panel.style.transition = ''; }, 260);
         }
-    });
+    }
+
+    function _cancelDrag(e) {
+        /* 着信・OSジェスチャーなどでキャンセルされた場合。スナップはしない */
+        StudyPanelState.isDragging = false;
+        handle.classList.remove('dragging');
+        document.body.style.userSelect = '';
+        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
+
+    handle.addEventListener('pointerup',     _finishDrag);
+    handle.addEventListener('pointercancel', _cancelDrag);
 })();
 
 
@@ -8807,6 +8822,20 @@ const activeVEl = document.getElementById('active-v');
     if (notesWrap) notesWrap.style.display = 'flex';
 
     _renderReadingNotes(params);
+
+    /* スクロール位置の復元（close直前に StudyPanelState.scrollTop へ保存した位置を再適用）。
+       _renderReadingNotes は async で DOM を置換するため、2段 rAF で確実に render 後に適用する。
+       1段目：レイアウト計算開始を待つ。2段目：paint サイクル後に scrollTop を確定する。 */
+    {
+        const _savedScroll = StudyPanelState.scrollTop;
+        StudyPanelState.scrollTop = 0;
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const nw = document.getElementById('reading-notes-wrap');
+                if (nw) nw.scrollTop = _savedScroll;
+            });
+        });
+    }
 
     /* 節ごとのメモ欄を読み込む（既存の読書メモエリアとは別要素。追記のみ） */
     _loadNoteUI('rn');
