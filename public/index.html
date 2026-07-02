@@ -4967,7 +4967,7 @@ async function _renderReadingNotes(p) {
     const abbottFullHTML = abbottSmithText
         ? `<div class="rn-dict-full-section">
                <span class="rn-dict-label ui-label">辞書全文</span>
-               <div class="rn-dict-full-text">${abbottSmithText.replace(/\n/g,'<br>')}</div>
+               <div class="rn-dict-full-text">${_escH(abbottSmithText).replace(/\n/g,'<br>')}</div>
            </div>`
         : '';
 
@@ -5510,7 +5510,7 @@ function _renderMorphTab(area, p) {
             ${morphGridHTML}
             ${ref ? `<span class="ac-cite-ref">${icon('pin')} ${_escH(ref)}</span>` : ''}
         </div>
-        ${desc ? `<div class="ac-abbottsmith">${desc.replace(/\n/g,'<br>')}</div>` : ''}
+        ${desc ? `<div class="ac-abbottsmith">${_escH(desc).replace(/\n/g,'<br>')}</div>` : ''}
         <div class="ac-morph-search-row">
             <a href="${morphSearchURL}" class="morph-search-btn" title="この語形が現れる他の箇所を検索">
                 この語形が現れる箇所を探す →
@@ -5579,7 +5579,7 @@ function _renderSemanticsTab(area, p) {
     const strong = (_inspectData && _inspectData.strong)  || '';
 
     const abbottHtml = desc
-        ? `<div class="ac-abbottsmith">${desc.replace(/\n/g,'<br>')}</div>`
+        ? `<div class="ac-abbottsmith">${_escH(desc).replace(/\n/g,'<br>')}</div>`
         : `<p class="ac-no-data">辞書データが見つかりません</p>`;
 
     area.innerHTML = `
@@ -5916,7 +5916,7 @@ function _renderStudyTab(area, p) {
 
     /* ── Semantics: Abbott-Smith ── */
     const abbottBody = desc
-        ? `<div class="semantics-abbott">${desc.replace(/\n/g,'<br>')}</div>`
+        ? `<div class="semantics-abbott">${_escH(desc).replace(/\n/g,'<br>')}</div>`
         : `<p class="ac-no-data" style="padding: var(--space-sm) 0;">辞書データが見つかりません</p>`;
     const semanticsSectionHTML = `
         <details class="study-details">
@@ -6415,7 +6415,7 @@ function _rtRenderResults(text, resultsEl) {
     /* ブロック分割（--- 区切り）*/
     const blocks = text.split(/---+/).map(b => b.trim()).filter(Boolean);
     if (blocks.length === 0) {
-        resultsEl.innerHTML = `<div class="rt-result-block"><span class="rt-result-text">${text.replace(/\n/g,'<br>')}</span></div>`;
+        resultsEl.innerHTML = `<div class="rt-result-block"><span class="rt-result-text">${_escH(text).replace(/\n/g,'<br>')}</span></div>`;
         return;
     }
     resultsEl.innerHTML = blocks.map(block => {
@@ -6428,7 +6428,7 @@ function _rtRenderResults(text, resultsEl) {
         const ref    = refMatch  ? refMatch[1].trim()  : '';
         return `<div class="rt-result-block">
             ${kind ? `<span class="rt-result-kind">${kind}</span>` : ''}
-            <span class="rt-result-text">${body.replace(/\n/g,'<br>')}</span>
+            <span class="rt-result-text">${_escH(body).replace(/\n/g,'<br>')}</span>
             ${ref  ? `<span class="rt-result-ref">${icon('pin')} ${_escH(ref)}</span>` : ''}
         </div>`;
     }).join('');
@@ -7181,7 +7181,9 @@ async function showChangelog() {
    _escH() で必ずエスケープする（生のテンプレートリテラル結合は禁止）。
    href が無い（構造化フィールドが欠けている＝旧データ等）場合はクリック不可カードにする。 */
 function _escH(s) {
-    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function _listMetaDate(ts) {
@@ -7552,7 +7554,7 @@ async function init() {
 
     } catch (err) {
         console.error(err);
-        document.getElementById('bible-text-area').innerHTML = `<p style="color:red">データが見つかりません（${book} ${ch}章）</p>`;
+        document.getElementById('bible-text-area').innerHTML = `<p style="color:red">データが見つかりません（${_escH(book)} ${_escH(ch)}章）</p>`;
     }
 }
 
