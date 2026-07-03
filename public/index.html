@@ -110,163 +110,92 @@ height: 100%;
 .main-layout { display: flex; height: 100%; width: 100%; overflow: hidden; }
 
 .nav-sidebar {
+position: fixed;
+top: 0;
+left: 0;
+height: 100dvh;
 width: 260px;
-background: var(--bg-sidebar);
+background: var(--bg-panel);
 border-right: 1px solid var(--border-soft);
 display: flex;
 flex-direction: column;
-transition: width var(--transition-base), transform var(--transition-base);
+transition: transform var(--transition-base);
 overflow: hidden;
-flex-shrink: 0;
+z-index: 201;
+transform: translateX(-100%);
 }
-.nav-sidebar.collapsed { width: 0; border-right-width: 0; }
+.nav-sidebar.open {
+transform: translateX(0);
+}
 .sidebar-top { padding: var(--space-lg) var(--space-md) var(--space-md); display: flex; align-items: center; gap: var(--space-sm); }
 .sidebar-toggle-btn { background: none; border: none; font-size: var(--text-title); cursor: pointer; color: var(--text-sub); width: 28px; padding: 0; flex-shrink: 0; }
 .sidebar-logo { font-weight: 700; font-size: var(--text-body-lg); white-space: nowrap; letter-spacing: -0.01em; color: var(--text-main); }
 
-#sidebar-fab {
-    display: none;
+#sidebar-overlay {
     position: fixed;
-    top: 14px;
-    left: 14px;
-    z-index: 300;
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-m);
-    background: var(--bg-sidebar);
+    inset: 0;
+    background: rgba(0,0,0,0.04);
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-base);
+}
+#sidebar-overlay.visible { opacity: 1; pointer-events: auto; }
+
+/* アプリ情報 FAB：左下固定。X軸サイドバー・Y軸パネルより下層（z-index 120）に配置し、
+   どちらのオーバーレイが開いていても自然に隠れる。 */
+#info-fab {
+    position: fixed;
+    bottom: 20px;
+    left: 16px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-paper);
     border: 1px solid var(--border-soft);
     box-shadow: 0 2px 10px rgba(0,0,0,0.10);
     cursor: pointer;
+    display: flex;
     align-items: center;
     justify-content: center;
-    font-size: var(--text-body-lg);
+    z-index: 120;
     color: var(--text-sub);
-    transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
-    -webkit-tap-highlight-color: transparent;
-    line-height: 1;
     padding: 0;
+    transition: background var(--transition-fast), box-shadow var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
 }
-#sidebar-fab:hover {
+#info-fab:hover {
     background: var(--highlight-light);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.13);
     color: var(--highlight);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.13);
 }
-#sidebar-fab:active { transform: scale(0.93); }
-@media (max-width: 900px) {
-    #sidebar-fab { display: none !important; }
-}
-/* collapsed 時：ヘッダー左端を FAB(14px) + ボタン幅(36px) + 余白(14px) = 64px 右に退避 */
-.nav-sidebar-collapsed-spacer {
-    width: 64px;
-    flex-shrink: 0;
-    transition: width var(--transition-base);
-    display: none; /* JS で制御 */
-}
-
-#sidebar-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.25);
-    z-index: 200;
-}
-#sidebar-overlay.visible { display: block; }
+#info-fab:active { transform: scale(0.93); }
 
 @media (max-width: 900px) {
-    .nav-sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        height: 100%;
-        z-index: 201;
-        transform: translateX(-100%);
-        width: 260px !important;
-        box-shadow: 2px 0 16px rgba(0,0,0,0.12);
-    }
-    .nav-sidebar.mobile-open {
-        transform: translateX(0);
-    }
-    .nav-sidebar.collapsed { width: 260px !important; }
-    .collapsed .menu-text, .collapsed .section-label { display: unset; }
-
     .app-header { position: relative; }
     #mobile-menu-btn {
         display: flex;
     }
-
-    /* ══════════════════════════════════════════
-       モバイル：スライドイン画面遷移
-       本文とStudy Panelを横スライドで切り替える
-       iOSネイティブのpush navigationと同じ感覚
-       ══════════════════════════════════════════ */
 
     #app {
         position: relative;
         overflow: hidden;
     }
 
-    #main-reading-area {
-        transition: transform var(--transition-slow),
-                    opacity  var(--transition-slow);
-        will-change: transform, opacity;
-    }
-
-    /* Bottom Sheet化：初期40vh・translateYでスライドし、本文は隠さない。
-       拡張上限（80vh/98vh）は #panel-resize-handle のドラッグJS側が
-       _panelContentMode に応じて動的に決める（このCSSのmax-heightは安全上限）。
-       height/max-heightに !important が必要な理由：このファイルには本ルールより後方（PC既定値）に
-       無条件の #bottom-depth-panel { height:46vh; max-height:70vh; } が存在し、!important なしだと
-       詳細度が同じためソース順で後方のPCルールに上書きされてしまう（旧実装が!importantだった理由と同じ）。
-       ドラッグ中のJS（タッチ）側もこの!importantに勝つ必要があるため setProperty(...,'important') を使う。 */
+    /* モバイル Bottom Sheet：見た目・高さを共通ルールから上書き。
+       CSS 変数でサイズを差し替えるため !important 不要。
+       位置・表示・transform 制御はすべて共通ルール（#bottom-depth-panel）で管理する。 */
     #bottom-depth-panel {
-        position: fixed !important;
-        top: auto;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        width: 100% !important;
-        height: 40vh !important;
-        max-height: 98vh !important;
-        min-height: 0 !important;
-        border-top: none !important;
-        z-index: 150;
-        transform: translateY(100%);
-        /* heightのtransitionはここに常設しない：ドラッグ中の毎フレーム更新が0.25s遅延して
-           指の動きに追従しなくなるため。スナップ時のみJS側で一時的にtransitionを付与する
-           （touchendハンドラ参照）。 */
-        transition: transform var(--transition-slow);
-        will-change: transform;
-        /* display:none → display:flex への変化をtransitionで扱うため */
-        display: flex !important;
-        pointer-events: none;
+        --panel-default-h: 40vh;
+        --panel-min-h: 0px;
+        --panel-max-h: 98vh;
+        border-top: none;
         padding-bottom: env(safe-area-inset-bottom, 0px);
         background: var(--bg-paper);
-        /* search-tool.html の .search-panel（モバイルbottom-sheet、上端18px角丸）に質感を揃える。
-           上端のみ・高さ/ドラッグ/スクロール/開閉ロジックには一切影響しない見た目のみの変更。 */
         border-radius: var(--radius-l) var(--radius-l) 0 0;
     }
     #bottom-depth-panel.open {
-        transform: translateY(0);
-        pointer-events: auto;
         box-shadow: 0 -8px 40px rgba(0,0,0,0.10);
-    }
-
-    /* パネル展開時: 100dvh 基準で読書エリアをパネル直上まで明示的に縮める。
-       display:none や % チェーンを使わず dvh で直接計算することで
-       iOS Safari の viewport 再計算に依存しない安定したレイアウトを実現する。
-       --app-header-h は JS 起動時に実測してセット（フォールバック 57px）。
-       フッターは DOM に残したまま panel に物理的に覆われる（z-index: 150）。 */
-    #app.mobile-study-open #main-reading-area {
-        flex: none;
-        height: calc(100dvh - var(--app-header-h, 57px) - var(--current-panel-h, 40vh));
-        min-height: 0;
-        overflow-y: auto;
-    }
-
-    /* #app.mobile-study-open は状態管理用クラスとして維持する（JS側の付け外しは変更しない）。
-       Bottom Sheet化に伴い、本文の暗転・押し出し・操作無効化は廃止し、本文は常時フル表示・
-       操作可能のままにする（意図的に宣言なし）。 */
-    #app.mobile-study-open #main-reading-area {
     }
 
     /* compare-mode を強制シングル表示に（769px〜900px：縦積み未満の中間サイズ） */
@@ -486,12 +415,6 @@ flex-shrink: 0;
     #mobile-nav-bar  { display: none !important; }
     #mobile-panel-back { display: none !important; }
     #bottom-depth-panel {
-        transform: none !important;
-        position: relative !important;
-        pointer-events: auto !important;
-        /* ★ Apple風カードUI（デスクトップ限定）。モバイルは独自の
-           border-radius/box-shadow（Bottom Sheet用、約473行上のメディア
-           クエリ参照）を既に持つためここでは触れない。 */
         border: 1px solid var(--border-soft);
         border-bottom: none;
         border-radius: var(--radius-l) var(--radius-l) 0 0;
@@ -521,7 +444,6 @@ color: var(--text-sub);
 }
 .menu-item:hover { background: rgba(0,0,0,0.04); }
 .menu-item.active { background: rgba(90,110,130,0.10); color: var(--highlight); }
-.collapsed .menu-text, .collapsed .section-label { display: none; }
 
 .sb-layer { display: none; }
 .sb-layer.active { display: block; }
@@ -599,7 +521,21 @@ border-radius: var(--radius-s); cursor: pointer; transition: all var(--transitio
     line-height: 1.6;
 }
 
-.container { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg-paper); overflow: hidden; height: 100%; }
+/* main は常に最前面のカード。sidebar 展開時に左向き影と微小変位で「浮き」を表現する。 */
+.container {
+    flex: 1; min-width: 0; min-height: 0;
+    display: flex; flex-direction: column;
+    background: var(--bg-paper);
+    overflow: hidden;
+    height: 100%;
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+.nav-sidebar.open ~ .container {
+    transform: translateX(5px);
+    /* 外影: 左主体・わずかに下向き・拡散 = カードが自然に浮いている感覚 */
+    /* inset 左端影: box-shadow と同プロパティに同居させてトランジションを揃える */
+    box-shadow: -6px 4px 24px rgba(0,0,0,0.07), inset -1px 0 0 rgba(0,0,0,0.06);
+}
 .app-header { padding: 18px 40px; border-bottom: 1px solid var(--border-soft); background: var(--bg-paper); flex-shrink: 0; position: sticky; top: 0; z-index: 10; }
 .header-content { display: flex; align-items: center; justify-content: space-between; }
 #global-breadcrumb {
@@ -835,23 +771,35 @@ font-size: var(--text-title); transition: transform var(--transition-base), opac
    どちらも flex:1; min-height:0; overflow-y:auto 済みのため、コンテナ
    側さえ hidden にすればコンテンツ量に関わらずパネル自体は伸びず、
    スクロールは内部のみで完結する。 */
+/* 方向軸分離：panel は常に position:fixed で Y 軸専有。
+   sidebar（X 軸）と空間を共有しない。display:none による状態制御は禁止。
+   モバイルではCSS変数（--panel-default-h 等）で高さを差し替える。 */
 #bottom-depth-panel {
+position: fixed;
+bottom: 0;
+left: 0;
+right: 0;
 width: 100%;
+height: var(--panel-default-h, 46vh);
+min-height: var(--panel-min-h, 220px);
+max-height: var(--panel-max-h, 70vh);
 background: var(--bg-panel);
 border-top: 1px solid var(--border-soft);
 padding: 0;
-display: none;
+display: flex;
 flex-direction: column;
 flex-shrink: 0;
-height: 46vh;
-min-height: 220px;
-max-height: 70vh;
 box-sizing: border-box;
-position: relative;
 overflow: hidden;
+z-index: 150;
+transform: translateY(100%);
+transition: transform var(--transition-slow);
+will-change: transform;
+pointer-events: none;
 }
 #bottom-depth-panel.open {
-display: flex;
+transform: translateY(0);
+pointer-events: auto;
 }
 
 /* ★ top を -4px ではなく 0 にする：親 #bottom-depth-panel が
@@ -962,7 +910,6 @@ textarea[id^="reading-note-textarea-"]:focus-visible {
 /* サイドバー開閉ボタン（PC/モバイル計3箇所）：絵文字☰をSVGへ。元のfont-sizeに合わせたサイズを維持する */
 .sidebar-toggle-btn { display: inline-flex; align-items: center; justify-content: center; }
 .sidebar-toggle-btn svg, #mobile-menu-btn svg { width: 19px; height: 19px; display: block; }
-#sidebar-fab svg { width: 17px; height: 17px; display: block; }
 #mobile-menu-btn { align-items: center; justify-content: center; }
 
 .share-toast {
@@ -3585,7 +3532,9 @@ details[open] .study-summary::before {
 </div>
 
 <div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
-<button id="sidebar-fab" data-icon="menu" onclick="toggleSidebar()" title="メニューを開く"></button>
+<button id="info-fab" onclick="toggleSidebar()" title="アプリ情報・資料室" aria-label="アプリ情報を開く">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+</button>
 <div class="main-layout">
     <nav id="nav-sidebar" class="nav-sidebar">
         <div class="sidebar-top">
@@ -3624,6 +3573,16 @@ details[open] .study-summary::before {
         </div>
         <div class="sb-row" id="nav-recent-words" onclick="showRecentWords()">
             <span class="menu-text">最近見た単語</span>
+        </div>
+        <div class="section-label menu-text" style="padding: var(--space-md) var(--space-sm) var(--space-xs);">システム</div>
+        <div class="sb-row" onclick="showMameKnowledge()">
+            <span class="menu-text">まめ知識</span>
+        </div>
+        <div class="sb-row" onclick="showChangelog()">
+            <span class="menu-text">更新情報</span>
+        </div>
+        <div class="sb-row" onclick="showAppInfo()">
+            <span class="menu-text">出典・ポリシー</span>
         </div>
     </div>
 
@@ -3702,7 +3661,7 @@ details[open] .study-summary::before {
             <div id="panel-resize-handle"></div>
 
             <!-- モバイル専用ナビゲーションバー（iOS風） -->
-            <div id="mobile-nav-bar" style="display:none;">
+            <div id="mobile-nav-bar">
                 <button id="mobile-panel-back" onclick="panelGoBack()">
                     <span id="mobile-panel-back-chevron">‹</span>
                 </button>
@@ -3757,13 +3716,6 @@ details[open] .study-summary::before {
             </div>
         </div>
     </div>
-    <footer class="app-footer">
-        <div class="footer-links">
-            <button onclick="showMameKnowledge()">まめ知識</button>
-            <button onclick="showAppInfo()">出典・ポリシー</button>
-            <button onclick="showChangelog()">更新情報</button>
-        </div>
-    </footer>
 </div>
 
 </div>
@@ -4667,29 +4619,15 @@ function _closeStudyPanelInternal() {
     document.querySelectorAll('.verse-pair-right').forEach(b => b.classList.remove('selected'));
     document.getElementById('active-v').innerText = '';
 
-    /* モバイル：スライドアウトアニメーションで本文に戻る。--current-panel-h も解除する */
-    const appEl = document.getElementById('app');
-    appEl.classList.remove('mobile-study-open');
-    appEl.style.removeProperty('--current-panel-h');
+    document.getElementById('app').classList.remove('mobile-study-open');
 
-    /* モバイル：スワイプ途中で残ったtransformを確実にリセット */
-    const mainAreaEl = document.getElementById('main-reading-area');
-    if (mainAreaEl) {
-        mainAreaEl.style.transform  = '';
-        mainAreaEl.style.opacity    = '';
-        mainAreaEl.style.transition = '';
-    }
     const panelEl = document.getElementById('bottom-depth-panel');
     if (panelEl) {
         panelEl.style.transform = '';
         panelEl.style.transition = '';
-        /* Bottom Sheetのドラッグで変更した高さをクリアし、次回openは必ずCSS既定の40vhから始まるようにする */
+        /* Bottom Sheetのドラッグで変更した高さをクリアし、次回openは必ずCSS既定の高さから始まるようにする */
         panelEl.style.height = '';
     }
-
-    /* モバイルナビバーを非表示 */
-    const navBar = document.getElementById('mobile-nav-bar');
-    if (navBar) navBar.style.display = 'none';
 
     AppState.toReading();
     AppState.restoreScroll();
@@ -4772,12 +4710,6 @@ function _adjustReadingAreaForPanel(wasOpen) {
 function _mobileOpenPanel(titleText, wasAlreadyOpen) {
     if (_isMobile()) {
         document.getElementById('app').classList.add('mobile-study-open');
-
-        /* モバイルナビバーの表示 */
-        const navBar = document.getElementById('mobile-nav-bar');
-        if (navBar) navBar.style.display = 'flex';
-
-        /* タイトル更新 */
         const navTitle = document.getElementById('mobile-nav-title');
         if (navTitle) navTitle.textContent = titleText || '語を読む';
     }
@@ -4785,10 +4717,10 @@ function _mobileOpenPanel(titleText, wasAlreadyOpen) {
 
 /* 内部: 語形一覧を開く（depth stackは変えない） */
 function _openWordListInternal(vNum, words) {
+    closeMobileSidebar();
     _wlvWordCache = words || [];
     const sidePanel    = document.getElementById('bottom-depth-panel');
     sidePanel.style.height = '';
-    if (_isMobile()) document.getElementById('app').style.setProperty('--current-panel-h', '40vh');
     const wasOpen = sidePanel.classList.contains('open');
     _panelContentMode = 'verse';
     sidePanel.classList.add('open');
@@ -7186,73 +7118,44 @@ window.addEventListener('message', (e) => {
     }
 });
 
+/* sidebar は X 軸専有の fixed overlay。mobile-open 廃止、.open クラスで統一。
+   PC/モバイル分岐なし。StudyPanel（Y 軸）との相互排他を JS で保証する。 */
 function toggleSidebar() {
-    if (window.innerWidth <= 900) {
-        toggleMobileSidebar();
-    } else {
-        const sidebar = document.getElementById('nav-sidebar');
-        const fab = document.getElementById('sidebar-fab');
-        const header = document.querySelector('.app-header');
-        const isCollapsed = sidebar.classList.toggle('collapsed');
-        if (fab) fab.style.display = isCollapsed ? 'flex' : 'none';
-        if (header) header.style.paddingLeft = isCollapsed ? '72px' : '';
-    }
+    toggleMobileSidebar();
 }
 
 function toggleMobileSidebar() {
     const sidebar = document.getElementById('nav-sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    const isOpen  = sidebar.classList.contains('mobile-open');
-    if (isOpen) {
+    if (sidebar.classList.contains('open')) {
         closeMobileSidebar();
     } else {
-        sidebar.classList.add('mobile-open');
-        overlay.classList.add('visible');
+        const panel = document.getElementById('bottom-depth-panel');
+        if (panel && panel.classList.contains('open')) closeStudyPanel();
+        sidebar.classList.add('open');
+        document.getElementById('sidebar-overlay').classList.add('visible');
     }
 }
 
 function closeMobileSidebar() {
-    document.getElementById('nav-sidebar').classList.remove('mobile-open');
+    document.getElementById('nav-sidebar').classList.remove('open');
     document.getElementById('sidebar-overlay').classList.remove('visible');
 }
 
 function _isSidebarOpen() {
     const sidebar = document.getElementById('nav-sidebar');
-    if (!sidebar) return false;
-    if (window.innerWidth <= 900) return sidebar.classList.contains('mobile-open');
-    return !sidebar.classList.contains('collapsed');
+    return sidebar ? sidebar.classList.contains('open') : false;
 }
 
 function _openSidebar() {
     const sidebar = document.getElementById('nav-sidebar');
     if (!sidebar) return;
-    if (window.innerWidth <= 900) {
-        sidebar.classList.add('mobile-open');
-        const overlay = document.getElementById('sidebar-overlay');
-        if (overlay) overlay.classList.add('visible');
-    } else {
-        const fab    = document.getElementById('sidebar-fab');
-        const header = document.querySelector('.app-header');
-        sidebar.classList.remove('collapsed');
-        if (fab)    fab.style.display = 'none';
-        if (header) header.style.paddingLeft = '';
-    }
+    sidebar.classList.add('open');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (overlay) overlay.classList.add('visible');
 }
 
-/* ヘッダー実高を CSS 変数に書き込む。
-   100dvh 基準の読書エリア高さ計算（#app.mobile-study-open #main-reading-area）がこの値を参照する。
-   display:none や % チェーンに依存しないため iOS Safari 上でも再計算が発生しない。 */
-function _initMobileLayoutVars() {
-    const h = document.querySelector('.app-header');
-    if (h) document.documentElement.style.setProperty('--app-header-h', h.offsetHeight + 'px');
-}
-
-/* リサイズ時に状態をリセット */
 window.addEventListener('resize', () => {
-    if (window.innerWidth > 900) {
-        closeMobileSidebar();
-    }
-    _initMobileLayoutVars();
+    closeMobileSidebar();
 });
 
 /* ══════════════════════════════════════════
@@ -7474,6 +7377,7 @@ function sbInitState(bookKey, ch) {
    出典・ポリシー
    ══════════════════════════════════════════ */
 function showAppInfo() {
+    closeMobileSidebar();
     const app = document.getElementById('bible-text-area');
     const parallel = document.getElementById('parallel-text-area');
 
@@ -7581,6 +7485,7 @@ function showAppInfo() {
    story/changes は外部JSON（changelog.json）由来のため、entry系データと同じ規律として
    _escH() を必ず通してから描画する（生のテンプレートリテラル結合は禁止）。 */
 async function showChangelog() {
+    closeMobileSidebar();
     const app = document.getElementById('bible-text-area');
 
     document.getElementById('main-reading-area').classList.add('single-mode');
@@ -9077,7 +8982,6 @@ let _wlvWordCache = [];
         StudyPanelState.height = nh;
         if (isMobile) {
             panel.style.setProperty('height', nh + 'px', 'important');
-            document.getElementById('app').style.setProperty('--current-panel-h', nh + 'px');
         } else {
             panel.style.height = nh + 'px';
         }
@@ -9097,7 +9001,6 @@ let _wlvWordCache = [];
             const target = panel.offsetHeight > mid ? (expandedFrac * 100 + 'vh') : '40vh';
             panel.style.transition = 'height 0.25s ease';
             panel.style.setProperty('height', target, 'important');
-            document.getElementById('app').style.setProperty('--current-panel-h', target);
             setTimeout(() => { panel.style.transition = ''; }, 260);
         }
     }
@@ -9128,8 +9031,8 @@ let _wlvWordCache = [];
    タブを廃止し、単一スクロールの読書メモパネルに表示する。
    ══════════════════════════════════════════ */
 function openStudyPanel(greek, rawMorph, ref, lemma, options = {}) {
+    closeMobileSidebar();
     document.getElementById('bottom-depth-panel').style.height = '';
-    if (_isMobile()) document.getElementById('app').style.setProperty('--current-panel-h', '40vh');
     const listEl = document.getElementById('word-list-view');
     /* 節Panel（Level 2）から来た場合のみ、破棄する直前のスクロール位置を保存しておく
        （panelGoBack() で Level 2 に戻った時に復元する。スクロール保持のための唯一の保存箇所）。 */
@@ -9392,6 +9295,7 @@ async function renderCurrentPage() {
    まめ知識
    ══════════════════════════════════════════ */
 function showMameKnowledge() {
+    closeMobileSidebar();
     const app = document.getElementById('bible-text-area');
     const parallel = document.getElementById('parallel-text-area');
 
@@ -10044,8 +9948,6 @@ function _mobileSwipeBack() {
         if (window.App.onboarding) window.App.onboarding.init();
         _syncOnboardingActiveFlag();
         init();
-        /* ヘッダー実高をフォント描画後に実測してセット */
-        requestAnimationFrame(_initMobileLayoutVars);
         _ensureSemanticData().catch(function(){});
 
         /* 語源要素タップ → Abbott-Smith ポップアップ（イベントデリゲーション） */
