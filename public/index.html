@@ -1308,7 +1308,7 @@ opacity: var(--opacity-secondary);
     display: flex;
     flex-direction: column;
     gap: 2px;
-    margin-bottom: var(--space-xs);
+    margin-bottom: var(--space-sm);
     border-left: 2px solid rgba(90,110,130,0.22);
     padding-left: 6px;
 }
@@ -1329,40 +1329,57 @@ opacity: var(--opacity-secondary);
     color: var(--text-sub);
     opacity: var(--opacity-primary);
 }
+.rn-ln-domain-title::before {
+    content: '意味領域：';
+    font-weight: 400;
+    letter-spacing: 0;
+    opacity: 0.6;
+}
 .rn-sibling-chips {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+    flex-direction: column;
+    gap: 0;
     margin-bottom: var(--space-xs);
 }
 .rn-sibling-chip {
-    display: inline-flex;
+    display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 1px;
-    padding: 3px 8px 5px;
-    border-radius: var(--radius-s);
-    border: 1px solid rgba(90,110,130,0.12);
-    background: rgba(90,110,130,0.03);
+    gap: 2px;
+    padding: var(--space-sm);
+    border-radius: 0;
+    border: none;
+    border-top: 1px solid rgba(90,110,130,0.09);
+    background: transparent;
     cursor: pointer;
-    transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+    transition: background var(--transition-fast);
     font-size: var(--text-caption);
 }
+.rn-sibling-chip:first-child {
+    border-top: none;
+}
 .rn-sibling-chip:hover {
-    background: rgba(90,110,130,0.12);
-    border-color: rgba(90,110,130,0.32);
-    transform: translateY(-1px);
+    background: rgba(90,110,130,0.06);
 }
 .rn-sibling-chip.current {
-    background: rgba(90,110,130,0.17);
-    border-color: rgba(90,110,130,0.65);
+    background: rgba(90,110,130,0.09);
+    border-left: 3px solid rgba(90,110,130,0.55);
     font-weight: 700;
-    box-shadow: 0 0 0 3px rgba(90,110,130,0.30);
     cursor: default;
+}
+/* ▶ は U+00A0（ノーブレークスペース）で Greek 語との間隔を確保する。
+   将来 CSS margin に移行する場合は content を '▶' のみにして
+   .rn-sibling-gr::before に margin-right を追加すること。 */
+.rn-sibling-chip.current .rn-sibling-gr::before {
+    content: '▶\00a0';
+    font-size: 0.65em;
+    opacity: 0.55;
+    font-family: sans-serif;
+    vertical-align: 0.1em;
 }
 .rn-sibling-gr {
     font-family: 'Gentium Plus', serif;
-    font-size: var(--text-body);
+    font-size: var(--text-body-lg);
     color: var(--text-main);
     line-height: 1.2;
 }
@@ -1396,10 +1413,12 @@ opacity: var(--opacity-secondary);
 .rn-chip-hidden { display: none; }
 .rn-chip-more {
     display: block;
-    margin-top: var(--space-xs);
-    padding: 0;
+    margin-top: 0;
+    padding: var(--space-xs) var(--space-sm);
     background: none;
     border: none;
+    border-top: 1px solid rgba(90,110,130,0.09);
+    text-align: left;
     font-size: var(--text-caption);
     font-family: 'Noto Sans JP', sans-serif;
     color: var(--highlight);
@@ -5419,12 +5438,12 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
         const chips = siblings.map((s, i) => {
             const hidden = useLimit && !s.isCurrent && i >= CHIP_SHOW;
             return `
-            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}${hidden ? ' rn-chip-hidden' : ''}" data-lemma-id="${s.id}" data-headword="${s.headword.replace(/"/g,'&quot;')}" title="${s.gloss}">
+            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}${hidden ? ' rn-chip-hidden' : ''}" data-lemma-id="${s.id}" data-headword="${s.headword.replace(/"/g,'&quot;')}" data-cluster-id="${code}" title="${s.gloss}">
                 <span class="rn-sibling-gr">${s.headword}</span>
                 ${s.gloss ? `<span class="rn-sibling-ja">${s.gloss}</span>` : ''}
 
                 ${s.isCurrent
-                    ? `<span class="rn-sibling-badge">閲覧中</span>`
+                    ? `<span class="rn-sibling-badge">基準語</span>`
                     : `<span class="rn-sibling-action">共起を検索 →</span>`}
             </span>`;
         }).join('');
@@ -5726,10 +5745,14 @@ async function _injectStudyPanelContent(semContainer, strong, lemmaId, word) {
             e.stopPropagation();
             const hw = chip.dataset.headword || '';
             if (!hw) return;
-            const currentWord = AppState.inspect.data?.greek || '';
             const p = new URLSearchParams();
-            if (currentWord) p.set('word1', currentWord);
-            p.set('word2', hw);
+            p.set('word1', hw);
+            const refLemmaId = AppState.inspect.data?.lemmaId;
+            if (refLemmaId) p.set('ref_lemma', refLemmaId);
+            const cmpLemmaId = chip.dataset.lemmaId;
+            if (cmpLemmaId) p.set('cmp_lemma', cmpLemmaId);
+            const clusterId = chip.dataset.clusterId;
+            if (clusterId) p.set('cluster', clusterId);
             window.open(`search-tool.html?${p.toString()}`, '_blank');
         });
 
