@@ -251,6 +251,18 @@ flex-shrink: 0;
         box-shadow: 0 -8px 40px rgba(0,0,0,0.10);
     }
 
+    /* パネル展開時: 100dvh 基準で読書エリアをパネル直上まで明示的に縮める。
+       display:none や % チェーンを使わず dvh で直接計算することで
+       iOS Safari の viewport 再計算に依存しない安定したレイアウトを実現する。
+       --app-header-h は JS 起動時に実測してセット（フォールバック 57px）。
+       フッターは DOM に残したまま panel に物理的に覆われる（z-index: 150）。 */
+    #app.mobile-study-open #main-reading-area {
+        flex: none;
+        height: calc(100dvh - var(--app-header-h, 57px) - var(--current-panel-h, 40vh));
+        min-height: 0;
+        overflow-y: auto;
+    }
+
     /* #app.mobile-study-open は状態管理用クラスとして維持する（JS側の付け外しは変更しない）。
        Bottom Sheet化に伴い、本文の暗転・押し出し・操作無効化は廃止し、本文は常時フル表示・
        操作可能のままにする（意図的に宣言なし）。 */
@@ -3824,11 +3836,16 @@ async function _ensureSemanticData() {
     }
 }
 
-/**
- * lemmaId に対応する語構成要素配列を返す。
- * @param {string} lemmaId – 例: "grc:G4279"
- * @returns {string[] | null} 構成要素リスト、または単純語・未整備の場合は null
- */
+/* lexicon エントリの表示文字列を解決する唯一の関数。
+   優先順位: gloss_ja（日本語）→ headword（正規表記）→ lexemeId（最終保証）
+   UI はこの関数のみを経由し、直接の条件分岐・フォールバック記述は禁止。 */
+function resolveDisplay(entry, lexemeId) {
+    return (entry && entry.gloss_ja) || (entry && entry.headword) || lexemeId;
+}
+
+/* lemmaId に対応する語構成要素配列を返す。
+   @returns {Array<{lexemeId:string}>|null}
+   各要素は lexemeId（lexicon の主キー）のみを持つ。文字列一致は使用しない。 */
 function getWordComposition(lemmaId) {
     if (!_compositionData || !lemmaId) return null;
     const entry = _compositionData[lemmaId];
@@ -3840,38 +3857,30 @@ function getWordComposition(lemmaId) {
 }
 
 /* 語源パーツ HTML を生成（日本語表示・クリック可能）
-   各要素は .rn-etym-part として描画し、data-gr に Greek 語形を保持する。
-   将来 A + B + C ... の n 要素にも対応（map + join で生成）。 */
+   parts: Array<{lexemeId:string}>
+   UI の責務: lexicon 参照 → resolveDisplay 呼び出し → 描画。ロジックは持たない。 */
 function _buildEtymPartsHTML(parts) {
-    return parts.map(gr => {
-        let gloss = gr;
-        if (_lexiconData) {
-            const entry = Object.values(_lexiconData).find(e => e.headword === gr);
-            gloss = entry?.gloss_ja || gr;
-        }
-        return `<span class="rn-etym-part" data-gr="${_escH(gr)}">${_escH(gloss)}</span>`;
+    return parts.map(({ lexemeId }) => {
+        const entry   = _lexiconData?.[lexemeId];
+        const display = resolveDisplay(entry, lexemeId);
+        return `<span class="rn-etym-part" data-lexeme-id="${_escH(lexemeId)}">${_escH(display)}</span>`;
     }).join('<span class="rn-etym-sep"> ＋ </span>');
 }
 
-/* Abbott-Smith ポップアップを開く（search-tool._asOpen と同等の役割）。
-   _lexiconData → lemmaId から Strong を導出して abbottSmithDict を参照。 */
-function _openEtymPopup(gr) {
-    let gloss = '', desc = '';
-    if (_lexiconData) {
-        const found = Object.entries(_lexiconData).find(([, e]) => e.headword === gr);
-        if (found) {
-            const [lemmaId, entry] = found;
-            gloss = entry.gloss_ja || '';
-            desc  = entry.abbottSmith || '';
-            if (!desc) {
-                const digits = lemmaId.replace(/^grc:G/i, '');
-                desc = abbottSmithDict?.[digits]?.description || '';
-            }
-        }
+/* Abbott-Smith ポップアップを開く。
+   lexemeId で _lexiconData を直接引く。headword 文字列検索は行わない。 */
+function _openEtymPopup(lexemeId) {
+    const entry = _lexiconData?.[lexemeId];
+    const form  = entry?.headword || '';
+    const gloss = entry?.gloss_ja || '';
+    let   desc  = entry?.abbottSmith || '';
+    if (!desc && lexemeId) {
+        const digits = lexemeId.replace(/^grc:G/i, '');
+        desc = abbottSmithDict?.[digits]?.description || '';
     }
     const bd = document.getElementById('rn-etym-backdrop');
     if (!bd) return;
-    document.getElementById('rn-etym-modal-gr').textContent = gr;
+    document.getElementById('rn-etym-modal-gr').textContent = form;
     document.getElementById('rn-etym-modal-ja').textContent = gloss;
     const bodyEl = document.getElementById('rn-etym-modal-body');
     bodyEl.innerHTML = desc
@@ -4658,17 +4667,17 @@ function _closeStudyPanelInternal() {
     document.querySelectorAll('.verse-pair-right').forEach(b => b.classList.remove('selected'));
     document.getElementById('active-v').innerText = '';
 
-    /* モバイル：スライドアウトアニメーションで本文に戻る */
-    document.getElementById('app').classList.remove('mobile-study-open');
+    /* モバイル：スライドアウトアニメーションで本文に戻る。--current-panel-h も解除する */
+    const appEl = document.getElementById('app');
+    appEl.classList.remove('mobile-study-open');
+    appEl.style.removeProperty('--current-panel-h');
 
-    /* モバイル：スワイプ途中で残ったtransformを確実にリセット。
-       padding-bottom も CSS 既定（safe-area のみ）に戻す（restoreScroll より前に行う）。 */
+    /* モバイル：スワイプ途中で残ったtransformを確実にリセット */
     const mainAreaEl = document.getElementById('main-reading-area');
     if (mainAreaEl) {
-        mainAreaEl.style.transform    = '';
-        mainAreaEl.style.opacity      = '';
-        mainAreaEl.style.transition   = '';
-        mainAreaEl.style.paddingBottom = '';
+        mainAreaEl.style.transform  = '';
+        mainAreaEl.style.opacity    = '';
+        mainAreaEl.style.transition = '';
     }
     const panelEl = document.getElementById('bottom-depth-panel');
     if (panelEl) {
@@ -4734,40 +4743,28 @@ function _findVisibleVerseBlock(vNum) {
 
 /**
  * StudyPanel を開いた直後に呼ぶ。
- * ① モバイルのみ：position:fixed パネルが本文を覆う分だけ #main-reading-area に
- *    padding-bottom を追加し、スクロール可能領域を panel 高さぶん拡張する。
- *    CSS の env(safe-area-inset-bottom) は style をリセットして computed 値を読んでから加算し維持する。
- * ② 選択節の底辺が実効表示領域の底辺より下にある場合のみ、差分だけ scrollBy する（最小限）。
- *    scrollIntoView 禁止 / 固定px禁止 / wasOpen=true（Level間遷移）では何もしない。
+ * 選択節の底辺が読書エリアの底辺より下にある場合のみ、差分だけ scrollBy する（最小限）。
+ * scrollIntoView 禁止 / 固定px禁止 / wasOpen=true（Level間遷移）では何もしない。
+ * ※ モバイルでの読書エリア収縮（padding でなく flex-basis の高さ計算）は CSS 側が担う。
  */
 function _adjustReadingAreaForPanel(wasOpen) {
     if (wasOpen) return;
 
     const mainArea = document.getElementById('main-reading-area');
-    const panel    = document.getElementById('bottom-depth-panel');
-    if (!mainArea || !panel) return;
+    if (!mainArea) return;
 
-    if (_isMobile()) {
-        /* safe-area-inset-bottom を失わないよう一度クリアして computed 値を読む */
-        mainArea.style.paddingBottom = '';
-        const basePb = parseInt(getComputedStyle(mainArea).paddingBottom) || 0;
-        mainArea.style.paddingBottom = (panel.offsetHeight + basePb) + 'px';
-    }
-
-    /* 選択節がパネルに隠れている場合のみ最小限スクロール */
+    /* 選択節が読書エリアの可視底辺を超えている場合のみ最小限スクロール。
+       モバイル・デスクトップ共に containerRect.bottom = 読書エリアの実効下端（パネル補正不要）。 */
     const vNum    = AppState.selectedVerse?.vNum ?? AppState.inspect.data?.verse;
     const verseEl = _findVisibleVerseBlock(vNum);
     if (!verseEl) return;
 
     const containerRect   = mainArea.getBoundingClientRect();
-    /* デスクトップ：パネルは flow 内なので containerRect.bottom は既に縮小済み（補正不要）
-       モバイル  ：パネルは fixed なので覆う分を差し引く */
-    const effectiveBottom = containerRect.bottom - (_isMobile() ? panel.offsetHeight : 0);
     const verseBottom     = verseEl.getBoundingClientRect().bottom;
 
-    if (verseBottom > effectiveBottom) {
+    if (verseBottom > containerRect.bottom) {
         const MARGIN = 16;
-        mainArea.scrollBy({ top: verseBottom - effectiveBottom + MARGIN, behavior: 'smooth' });
+        mainArea.scrollBy({ top: verseBottom - containerRect.bottom + MARGIN, behavior: 'smooth' });
     }
 }
 
@@ -4791,6 +4788,7 @@ function _openWordListInternal(vNum, words) {
     _wlvWordCache = words || [];
     const sidePanel    = document.getElementById('bottom-depth-panel');
     sidePanel.style.height = '';
+    if (_isMobile()) document.getElementById('app').style.setProperty('--current-panel-h', '40vh');
     const wasOpen = sidePanel.classList.contains('open');
     _panelContentMode = 'verse';
     sidePanel.classList.add('open');
@@ -7241,11 +7239,20 @@ function _openSidebar() {
     }
 }
 
+/* ヘッダー実高を CSS 変数に書き込む。
+   100dvh 基準の読書エリア高さ計算（#app.mobile-study-open #main-reading-area）がこの値を参照する。
+   display:none や % チェーンに依存しないため iOS Safari 上でも再計算が発生しない。 */
+function _initMobileLayoutVars() {
+    const h = document.querySelector('.app-header');
+    if (h) document.documentElement.style.setProperty('--app-header-h', h.offsetHeight + 'px');
+}
+
 /* リサイズ時に状態をリセット */
 window.addEventListener('resize', () => {
     if (window.innerWidth > 900) {
         closeMobileSidebar();
     }
+    _initMobileLayoutVars();
 });
 
 /* ══════════════════════════════════════════
@@ -9070,6 +9077,7 @@ let _wlvWordCache = [];
         StudyPanelState.height = nh;
         if (isMobile) {
             panel.style.setProperty('height', nh + 'px', 'important');
+            document.getElementById('app').style.setProperty('--current-panel-h', nh + 'px');
         } else {
             panel.style.height = nh + 'px';
         }
@@ -9089,6 +9097,7 @@ let _wlvWordCache = [];
             const target = panel.offsetHeight > mid ? (expandedFrac * 100 + 'vh') : '40vh';
             panel.style.transition = 'height 0.25s ease';
             panel.style.setProperty('height', target, 'important');
+            document.getElementById('app').style.setProperty('--current-panel-h', target);
             setTimeout(() => { panel.style.transition = ''; }, 260);
         }
     }
@@ -9120,6 +9129,7 @@ let _wlvWordCache = [];
    ══════════════════════════════════════════ */
 function openStudyPanel(greek, rawMorph, ref, lemma, options = {}) {
     document.getElementById('bottom-depth-panel').style.height = '';
+    if (_isMobile()) document.getElementById('app').style.setProperty('--current-panel-h', '40vh');
     const listEl = document.getElementById('word-list-view');
     /* 節Panel（Level 2）から来た場合のみ、破棄する直前のスクロール位置を保存しておく
        （panelGoBack() で Level 2 に戻った時に復元する。スクロール保持のための唯一の保存箇所）。 */
@@ -10034,13 +10044,15 @@ function _mobileSwipeBack() {
         if (window.App.onboarding) window.App.onboarding.init();
         _syncOnboardingActiveFlag();
         init();
+        /* ヘッダー実高をフォント描画後に実測してセット */
+        requestAnimationFrame(_initMobileLayoutVars);
         _ensureSemanticData().catch(function(){});
 
         /* 語源要素タップ → Abbott-Smith ポップアップ（イベントデリゲーション） */
         document.addEventListener('click', function(e) {
             const part = e.target.closest('.rn-etym-part');
             if (!part) return;
-            _openEtymPopup(part.dataset.gr);
+            _openEtymPopup(part.dataset.lexemeId);
         });
 
         /* ESC キーで語源ポップアップを閉じる */
