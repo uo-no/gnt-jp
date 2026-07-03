@@ -1402,6 +1402,21 @@ opacity: var(--opacity-secondary);
 .rn-sibling-chip:hover .rn-sibling-action {
     opacity: 0.9;
 }
+.rn-chip-hidden { display: none; }
+.rn-chip-more {
+    display: block;
+    margin-top: var(--space-xs);
+    padding: 0;
+    background: none;
+    border: none;
+    font-size: var(--text-caption);
+    font-family: 'Noto Sans JP', sans-serif;
+    color: var(--highlight);
+    cursor: pointer;
+    opacity: 0.65;
+    letter-spacing: 0.03em;
+}
+.rn-chip-more:hover { opacity: 1; }
 .rn-concord-list {
     display: flex;
     flex-direction: column;
@@ -5401,18 +5416,34 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
                     isCurrent: id === currentLemmaId,
                 };
             })
-            .filter(Boolean);
+            .filter(Boolean)
+            // 比較しやすさを優先し、意味グループ内は新約聖書での出現頻度順に表示する。
+            .sort((a, b) => b.count - a.count);
 
-        const chips = siblings.map(s => `
-            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}" data-lemma-id="${s.id}" data-headword="${s.headword.replace(/"/g,'&quot;')}" title="${s.gloss}">
+        // UX方針: 初期表示は最小限にし、必要な場合のみ全件を表示する。
+        const CHIP_SHOW = 5;
+        const CHIP_MIN_OVER = 3;
+        const useLimit = siblings.length > CHIP_SHOW + CHIP_MIN_OVER - 1;
+
+        const chips = siblings.map((s, i) => {
+            const hidden = useLimit && !s.isCurrent && i >= CHIP_SHOW;
+            return `
+            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}${hidden ? ' rn-chip-hidden' : ''}" data-lemma-id="${s.id}" data-headword="${s.headword.replace(/"/g,'&quot;')}" title="${s.gloss}">
                 <span class="rn-sibling-gr">${s.headword}</span>
                 ${s.gloss ? `<span class="rn-sibling-ja">${s.gloss}</span>` : ''}
                 ${s.count ? `<span class="rn-sibling-count">新約 ${s.count}回</span>` : ''}
                 ${s.isCurrent
                     ? `<span class="rn-sibling-badge">閲覧中</span>`
                     : `<span class="rn-sibling-action">共起を検索 →</span>`}
-            </span>
-        `).join('');
+            </span>`;
+        }).join('');
+
+        const hiddenCount = useLimit
+            ? siblings.filter((s, i) => !s.isCurrent && i >= CHIP_SHOW).length
+            : 0;
+        const moreBtn = hiddenCount > 0
+            ? `<button class="rn-chip-more">関連語をすべて表示</button>`
+            : '';
 
         const totalOccurrences = entry.occurrences || 0;
         const occLabel     = totalOccurrences ? `<span class="rn-domain-occ"> · グループ計 ${totalOccurrences} 回</span>` : '';
@@ -5423,6 +5454,7 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
                 <span class="rn-ln-domain-title">${domainTitle}${occLabel}</span>
             </div>
             <div class="rn-sibling-chips">${chips}</div>
+            ${moreBtn}
         `);
     }
 
@@ -5713,6 +5745,17 @@ async function _injectStudyPanelContent(semContainer, strong, lemmaId, word) {
             if (currentWord) p.set('word1', currentWord);
             p.set('word2', hw);
             window.open(`search-tool.html?${p.toString()}`, '_blank');
+        });
+
+        /* 「関連語をすべて表示」ボタン
+           TODO: 現在は一括展開としている。
+           将来的に段階的表示や別UIへの変更を検討する。 */
+        clusterSection.querySelectorAll('.rn-chip-more').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const chipsEl = btn.previousElementSibling;
+                if (chipsEl) chipsEl.querySelectorAll('.rn-chip-hidden').forEach(c => c.classList.remove('rn-chip-hidden'));
+                btn.remove();
+            });
         });
     }
 }
