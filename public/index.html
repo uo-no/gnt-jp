@@ -1274,9 +1274,9 @@ opacity: var(--opacity-secondary);
 .rn-layer-intro {
     font-size: var(--text-caption);
     color: var(--text-sub);
-    line-height: 1.7;
-    margin-bottom: var(--space-sm);
-    padding-bottom: var(--space-sm);
+    line-height: 1.6;
+    margin-bottom: var(--space-xs);
+    padding-bottom: var(--space-xs);
     border-bottom: 1px solid rgba(0,0,0,0.06);
 }
 .rn-layer-intro-note {
@@ -1290,15 +1290,10 @@ opacity: var(--opacity-secondary);
    ──────────────────────────────────────────── */
 
 /* 1. 出現回数を小さく・目立たなく */
-.rn-domain-occ {
-    font-size: 0.8em;
-    font-weight: 400;
-    opacity: var(--opacity-secondary);
-    letter-spacing: 0;
-}
-
-/* 2. 第2グループの前にセパレーターを挿入（グループ境界の明示） */
-.rn-sibling-chips + .rn-ln-domain-label {
+/* 2. 第2グループの前にセパレーターを挿入（グループ境界の明示）
+   chips の直後にmoreBtn が入る場合も考慮して両セレクターで指定する */
+.rn-sibling-chips + .rn-ln-domain-label,
+.rn-chip-more + .rn-ln-domain-label {
     margin-top: var(--space-md);
     padding-top: var(--space-sm);
     border-top: 1px solid var(--border);
@@ -1314,6 +1309,8 @@ opacity: var(--opacity-secondary);
     flex-direction: column;
     gap: 2px;
     margin-bottom: var(--space-xs);
+    border-left: 2px solid rgba(90,110,130,0.22);
+    padding-left: 6px;
 }
 .rn-ln-domain-category {
     font-size: 10px;
@@ -1335,18 +1332,18 @@ opacity: var(--opacity-secondary);
 .rn-sibling-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-xs) var(--space-xs);
-    margin-bottom: var(--space-sm);
+    gap: 4px;
+    margin-bottom: var(--space-xs);
 }
 .rn-sibling-chip {
     display: inline-flex;
     flex-direction: column;
-    align-items: center;
-    gap: var(--space-xs);
-    padding: var(--space-xs) var(--space-sm) var(--space-xs);
+    align-items: flex-start;
+    gap: 1px;
+    padding: 3px 8px 5px;
     border-radius: var(--radius-s);
-    border: 1px solid rgba(90,110,130,0.15);
-    background: rgba(90,110,130,0.04);
+    border: 1px solid rgba(90,110,130,0.12);
+    background: rgba(90,110,130,0.03);
     cursor: pointer;
     transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
     font-size: var(--text-caption);
@@ -1357,10 +1354,10 @@ opacity: var(--opacity-secondary);
     transform: translateY(-1px);
 }
 .rn-sibling-chip.current {
-    background: rgba(90,110,130,0.14);
-    border-color: rgba(90,110,130,0.55);
+    background: rgba(90,110,130,0.17);
+    border-color: rgba(90,110,130,0.65);
     font-weight: 700;
-    box-shadow: 0 0 0 3px rgba(90,110,130,0.22);
+    box-shadow: 0 0 0 3px rgba(90,110,130,0.30);
     cursor: default;
 }
 .rn-sibling-gr {
@@ -1373,12 +1370,6 @@ opacity: var(--opacity-secondary);
     font-size: var(--text-caption);
     color: var(--text-sub);
     line-height: 1.2;
-}
-.rn-sibling-count {
-    font-size: var(--text-caption);
-    color: var(--text-sub);
-    opacity: var(--opacity-secondary);
-    margin-top: var(--space-xs);
 }
 .rn-sibling-badge {
     font-size: 9px;
@@ -5431,7 +5422,7 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
             <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}${hidden ? ' rn-chip-hidden' : ''}" data-lemma-id="${s.id}" data-headword="${s.headword.replace(/"/g,'&quot;')}" title="${s.gloss}">
                 <span class="rn-sibling-gr">${s.headword}</span>
                 ${s.gloss ? `<span class="rn-sibling-ja">${s.gloss}</span>` : ''}
-                ${s.count ? `<span class="rn-sibling-count">新約 ${s.count}回</span>` : ''}
+
                 ${s.isCurrent
                     ? `<span class="rn-sibling-badge">閲覧中</span>`
                     : `<span class="rn-sibling-action">共起を検索 →</span>`}
@@ -5445,13 +5436,11 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
             ? `<button class="rn-chip-more">関連語をすべて表示</button>`
             : '';
 
-        const totalOccurrences = entry.occurrences || 0;
-        const occLabel     = totalOccurrences ? `<span class="rn-domain-occ"> · グループ計 ${totalOccurrences} 回</span>` : '';
         const domainTitle  = _getDomainLabel(code);
         sections.push(`
             <div class="rn-ln-domain-label">
                 <span class="rn-ln-domain-category">意味グループ</span>
-                <span class="rn-ln-domain-title">${domainTitle}${occLabel}</span>
+                <span class="rn-ln-domain-title">${domainTitle}</span>
             </div>
             <div class="rn-sibling-chips">${chips}</div>
             ${moreBtn}
