@@ -1212,17 +1212,10 @@ opacity: var(--opacity-secondary);
     margin-top: var(--space-md);
 }
 
-/* Guide label above sections — visible when sections are present */
-#rn-semantic-layers:not(:empty)::before {
-    content: '項目をクリックすると展開します';
-    display: block;
-    font-size: var(--text-caption);
-    color: var(--text-sub);
-    opacity: var(--opacity-secondary);
-    letter-spacing: 0.05em;
-    margin-bottom: var(--space-xs);
-    font-family: 'Noto Sans JP', sans-serif;
-}
+/* [A] 削除: "項目をクリックすると展開します" の ::before 擬似要素。
+   1セクション時は JS がトグルを除去して自動展開するため、
+   「クリックで展開」という案内が実態と矛盾するケースが生じる。
+   クリック可能性はボタンの chevron アイコンで伝達する。 */
 
 
 .rn-layer-toggle {
@@ -1285,6 +1278,10 @@ opacity: var(--opacity-secondary);
     margin-bottom: var(--space-sm);
     padding-bottom: var(--space-sm);
     border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.rn-layer-intro-note {
+    opacity: var(--opacity-secondary);
+    font-size: 0.85em;
 }
 
 @keyframes rnLayerOpen {
@@ -5116,9 +5113,9 @@ async function _renderReadingNotes(p) {
             </div>
         </details>
 
-        <!-- LEVEL 3: さらに学ぶ（折りたたみ） -->
+        <!-- LEVEL 3: 意味が近い語と比べる（折りたたみ） -->
         <details class="rn-level-section">
-            <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>さらに学ぶ</summary>
+            <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>意味が近い語と比べる</summary>
             <div class="rn-level-body">
                 <div id="rn-semantic-layers"></div>
             </div>
@@ -5248,13 +5245,31 @@ function _jaGlossFromLemmaId(id) {
      • All lemmaIndex access goes through _giListFromLemmaIndex().
    ══════════════════════════════════════════════════════════════ */
 
-/* ── Semantic Domain label helpers ── */
+/* ══════════════════════════════════════════════════════════════════
+   Semantic Domain / Cluster / Raw Code — 設計境界
+   詳細: docs/semantic-domain.md
+
+   ■ Raw Domain Code   clusterIndex のキー。ゼロ埋め有無で別エントリが存在する。
+                       clusterIndex アクセスは必ず生コードで行うこと。
+   ■ Normalized Code   ラベル辞書（semantic-domain-labels.json）用のキー。
+                       clusterIndex のキーとして使用してはいけない。
+   ■ Semantic Domain   Louw-Nida 意味領域。ユーザー向け表示分類。
+   ■ Cluster           Semantic Domain 内の語群。1ドメインに複数存在しうる。
+   ══════════════════════════════════════════════════════════════════ */
 
 /**
- * Normalize a domain code to canonical form used as key in semantic-domain-labels.json.
- * Rule: strip leading zeros from the major-domain prefix (all chars except last 3).
- * Short codes (≤ 3 chars after stripping) are returned as-is (they ARE the major domain).
+ * UI ラベル取得専用。clusterIndex のアクセスには使用禁止。
+ *
+ * Raw Domain Code → Normalized Domain Code へ変換する。
+ * 正規化後のコードは semantic-domain-labels.json のキーとして使用する。
+ * domains-cluster-index.json (_clusterIndexData) のキーとして使ってはいけない。
+ *
+ * 変換規則: メジャードメイン部分（末尾3桁を除く全桁）の先頭ゼロを除去。
  * Examples: '033029' → '33029', '008002' → '8002', '064' → '64', '49' → '49'
+ *
+ * 根拠: ゼロ埋め有無で cluster は別エントリ（内容が異なる）。
+ *       '013001'(19語) と '13001'(71語) は異なるクラスター。正規化して
+ *       clusterIndex を引くと誤ったクラスターを参照する。docs/semantic-domain.md 参照。
  */
 function _normalizeDomainCode(code) {
     const s = String(code).replace(/^0+/, '') || '0';
@@ -5265,11 +5280,16 @@ function _normalizeDomainCode(code) {
 }
 
 /**
- * Return the Japanese title for a domain code.
+ * Raw Code を受け取り、表示用ラベルのみ返す。
+ *
+ * clusterIndex へのアクセスは行わない。ラベル辞書 (_semanticDomainLabels) のみ参照。
+ * 同じ Semantic Domain に属する複数の Raw Code（'013001' / '13001' 等）は
+ * 正規化後に同一ラベルを返す — これは意図した動作（意味カテゴリーは同一のため）。
+ *
  * Lookup order:
- *   1. subdomains[normalized]      (specific subdomain label)
- *   2. majorDomains[majorNum]      (major domain fallback)
- *   3. '分類 <code>'               (final fallback — never empty)
+ *   1. subdomains[normalized]   specific subdomain label
+ *   2. majorDomains[majorNum]   major domain fallback
+ *   3. '分類 <code>'            final fallback — never returns empty
  */
 function _getDomainLabel(code) {
     if (!_semanticDomainLabels) return `分類 ${code}`;
@@ -5290,7 +5310,56 @@ function _getDomainLabel(code) {
     return `分類 ${code}`;
 }
 
-/* ── Cluster Layer display builder (auxiliary — reads domainCodes directly) ── */
+/**
+ * Semantic Domain オブジェクトを返す公開 API。
+ *
+ * Raw Domain Code を受け取り、ラベル辞書から解決した意味領域情報を返す。
+ * 検索・フィルター・意味領域ブラウザ・関連語表示など、将来の機能で共通利用できる。
+ *
+ * clusterIndex へのアクセスは行わない。ラベル辞書 (_semanticDomainLabels) のみ参照。
+ * 呼び出し前に _ensureSemanticData() が完了している必要がある。
+ *
+ * @param  {string} code  Raw Domain Code（例: '33029', '013001', '016'）
+ * @returns {{
+ *   rawCode:        string,   // 入力された生コードそのまま
+ *   normalizedCode: string,   // 正規化コード（ラベル辞書キー）
+ *   majorCode:      string,   // メジャードメイン番号（例: '33'）
+ *   title:          string,   // 日本語タイトル（サブ or メジャー or フォールバック）
+ *   titleEn:        string,   // 英語タイトル（存在する場合のみ）
+ *   description:    string,   // 説明文（存在する場合のみ）
+ * }}
+ */
+function _getSemanticDomain(code) {
+    const rawCode        = String(code);
+    const normalizedCode = _normalizeDomainCode(rawCode);
+    const majorCode      = normalizedCode.length >= 4
+        ? String(parseInt(normalizedCode.slice(0, -3), 10))
+        : normalizedCode;
+
+    if (!_semanticDomainLabels) {
+        return { rawCode, normalizedCode, majorCode, title: `分類 ${rawCode}`, titleEn: '', description: '' };
+    }
+
+    const sub   = _semanticDomainLabels.subdomains?.[normalizedCode]  || {};
+    const major = _semanticDomainLabels.majorDomains?.[majorCode]     || {};
+
+    const title       = sub.title       || major.title       || `分類 ${rawCode}`;
+    const titleEn     = sub.titleEn     || major.titleEn     || '';
+    const description = sub.description || major.description || '';
+
+    return { rawCode, normalizedCode, majorCode, title, titleEn, description };
+}
+
+/**
+ * Cluster を描画する関数。Semantic Domain そのものを描画しているわけではない。
+ *
+ * 1つの Semantic Domain に複数の Cluster が存在するため、domainCodes に複数コードが
+ * 含まれる場合は同じ「意味グループ」見出しのセクションが複数並ぶ。これは仕様であり
+ * バグではない（例: κλητός の '33029' と '33030' は同一ドメイン内の別クラスター）。
+ *
+ * clusterIndex アクセスは生コード (code) そのままで行う。正規化コードで引いてはいけない。
+ * domainCodes は lexicon-lite の domains[] フィールドから取得した Raw Domain Code の配列。
+ */
 function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
     const sections = [];
 
@@ -5324,7 +5393,7 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
         `).join('');
 
         const totalOccurrences = entry.occurrences || 0;
-        const occLabel     = totalOccurrences ? ` · 計${totalOccurrences}回` : '';
+        const occLabel     = totalOccurrences ? ` · グループ計 ${totalOccurrences} 回` : '';
         const domainTitle  = _getDomainLabel(code);
         sections.push(`
             <div class="rn-ln-domain-label">
@@ -5340,12 +5409,12 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
     return `
     <div class="rn-cluster-section">
         <button class="rn-layer-toggle" data-target="rn-cluster-body">
-            <span>一緒に使われる語を見る</span>
+            <span>意味が近い語を見る</span>
             <span class="rn-layer-toggle-icon icon">${icon('chevronRight')}</span>
         </button>
         <div class="rn-layer-body" id="rn-cluster-body">
             <div class="rn-layer-intro">
-                この語と同じ文脈で現れやすい語です。
+                意味の近い語と並べて読むと、この語ならではのニュアンスが見えやすくなります。<span class="rn-layer-intro-note">（Louw–Nida 意味分類に基づく）</span>
             </div>
             ${sections.join('')}
         </div>
@@ -5354,6 +5423,10 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
 
 
 /**
+ * TODO: _buildConcordanceHTML は未接続（_injectStudyPanelContent から呼ばれていない）。
+ * 「さらに学ぶ」セクションへの用例一覧注入を将来実装する場合に使用する。
+ * 実装するまでは削除せず保持する。接続する際は _injectStudyPanelContent を修正すること。
+ *
  * Basic Concordance builder — canonical source of truth (fact layer).
  *
  * This is the ONLY authoritative concordance. It is strictly lemmaId-based,
@@ -5440,9 +5513,10 @@ function _buildConcordanceHTML(resolvedId, word) {
 }
 
 /* ══════════════════════════════════════════
-   Semantic Graph View — NEW fourth layer
-   All functions are pure additions; zero
-   modifications to existing code above.
+   Semantic Graph View — 未接続（TODO）
+   buildSemanticGraph は定義済みだが _injectStudyPanelContent から呼ばれていない。
+   グラフ表示 UI を実装する際に接続すること。
+   削除禁止: 将来の意味グラフ機能のために保持する。
    ══════════════════════════════════════════ */
 
 /**
@@ -5557,7 +5631,20 @@ async function _injectStudyPanelContent(semContainer, strong, lemmaId, word) {
     const lexEntry    = resolvedId ? _lexiconData[resolvedId] : null;
     const domainCodes = lexEntry?.domains || [];
 
-    /* Cluster Layer */
+    /*
+     * Cluster Layer — 設計注意点
+     *
+     * 1つの Semantic Domain（意味領域）に複数の Cluster が存在するため、
+     * domainCodes に含まれる複数の Raw Code が同一ドメインを指すことがある。
+     * _buildClusterLayerHTML は先頭2コードをそれぞれ別セクションとして描画するため、
+     * 「意味グループ」の見出しが同じタイトルで2行並ぶケースは仕様（バグではない）。
+     *
+     * 例: κλητός の domainCodes = ['33029', '33030']
+     *   → 両方とも Semantic Domain 33（コミュニケーション）内の別 Cluster。
+     *   → UI には「召す・呼び出す（261回）」と「招く・呼び寄せる（312回）」が並ぶ。
+     *
+     * 詳細: docs/semantic-domain.md
+     */
     if (domainCodes.length > 0) {
         const clHTML = _buildClusterLayerHTML(domainCodes, resolvedId, word);
         if (clHTML) semContainer.insertAdjacentHTML('beforeend', clHTML);
