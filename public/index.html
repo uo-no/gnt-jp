@@ -1293,12 +1293,26 @@ opacity: var(--opacity-secondary);
 }
 
 .rn-ln-domain-label {
-    font-size: var(--text-caption);
-    font-weight: 600;
-    letter-spacing: 0.09em;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: var(--space-sm);
+}
+.rn-ln-domain-category {
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.1em;
     color: var(--text-sub);
     opacity: var(--opacity-secondary);
-    margin-bottom: var(--space-sm);
+    text-transform: uppercase;
+    font-family: 'Noto Sans JP', sans-serif;
+}
+.rn-ln-domain-title {
+    font-size: var(--text-caption);
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    color: var(--text-sub);
+    opacity: var(--opacity-primary);
 }
 .rn-sibling-chips {
     display: flex;
@@ -3663,39 +3677,43 @@ function cleanText(e) {
 }
 
 /* ══════════════════════════════════════════
-   Semantic layer data — LN / Cluster / Lexicon
+   Semantic layer data — LN / Cluster / Lexicon / Domain Labels
    ══════════════════════════════════════════ */
-let _lexiconData      = null;
-let _lnIndexData      = null;
-let _clusterIndexData = null;
-let _compositionData  = null;
-let _lexiconLoading   = false;
+let _lexiconData           = null;
+let _lnIndexData           = null;
+let _clusterIndexData      = null;
+let _compositionData       = null;
+let _semanticDomainLabels  = null;
+let _lexiconLoading        = false;
 
 async function _ensureSemanticData() {
-    if (_lexiconData && _lnIndexData && _clusterIndexData && _compositionData) return;
+    if (_lexiconData && _lnIndexData && _clusterIndexData && _compositionData && _semanticDomainLabels) return;
     if (_lexiconLoading) {
         await new Promise(res => {
             const t = setInterval(() => {
-                if (_lexiconData && _lnIndexData && _clusterIndexData && _compositionData) { clearInterval(t); res(); }
+                if (_lexiconData && _lnIndexData && _clusterIndexData && _compositionData && _semanticDomainLabels) { clearInterval(t); res(); }
             }, 60);
         });
         return;
     }
     _lexiconLoading = true;
     try {
-        const [lexRes, lnRes, clRes, compRes] = await Promise.all([
+        const [lexRes, lnRes, clRes, compRes, sdlRes] = await Promise.all([
             fetch('../assets/data/lexicon/lexicon-lite.json'),
             fetch('../assets/data/index/domains-ln-index.json'),
             fetch('../assets/data/index/domains-cluster-index.json'),
             fetch('../assets/data/lexicon/lexicon-composition.json'),
+            fetch('../assets/data/index/semantic-domain-labels.json'),
         ]);
-        _lexiconData      = lexRes.ok  ? await lexRes.json()  : {};
-        _lnIndexData      = lnRes.ok   ? await lnRes.json()   : {};
-        _clusterIndexData = clRes.ok   ? await clRes.json()   : {};
-        _compositionData  = compRes.ok ? await compRes.json() : {};
+        _lexiconData          = lexRes.ok   ? await lexRes.json()   : {};
+        _lnIndexData          = lnRes.ok    ? await lnRes.json()    : {};
+        _clusterIndexData     = clRes.ok    ? await clRes.json()    : {};
+        _compositionData      = compRes.ok  ? await compRes.json()  : {};
+        _semanticDomainLabels = sdlRes.ok   ? await sdlRes.json()   : {};
     } catch(e) {
         console.warn('[SemanticData] load failed:', e);
         _lexiconData = _lnIndexData = _clusterIndexData = _compositionData = {};
+        _semanticDomainLabels = {};
     }
 }
 
@@ -5230,6 +5248,48 @@ function _jaGlossFromLemmaId(id) {
      • All lemmaIndex access goes through _giListFromLemmaIndex().
    ══════════════════════════════════════════════════════════════ */
 
+/* ── Semantic Domain label helpers ── */
+
+/**
+ * Normalize a domain code to canonical form used as key in semantic-domain-labels.json.
+ * Rule: strip leading zeros from the major-domain prefix (all chars except last 3).
+ * Short codes (≤ 3 chars after stripping) are returned as-is (they ARE the major domain).
+ * Examples: '033029' → '33029', '008002' → '8002', '064' → '64', '49' → '49'
+ */
+function _normalizeDomainCode(code) {
+    const s = String(code).replace(/^0+/, '') || '0';
+    if (s.length >= 4) {
+        return String(parseInt(s.slice(0, -3), 10)) + s.slice(-3);
+    }
+    return s;
+}
+
+/**
+ * Return the Japanese title for a domain code.
+ * Lookup order:
+ *   1. subdomains[normalized]      (specific subdomain label)
+ *   2. majorDomains[majorNum]      (major domain fallback)
+ *   3. '分類 <code>'               (final fallback — never empty)
+ */
+function _getDomainLabel(code) {
+    if (!_semanticDomainLabels) return `分類 ${code}`;
+    const normalized = _normalizeDomainCode(code);
+
+    const sub = _semanticDomainLabels.subdomains?.[normalized];
+    if (sub?.title) return sub.title;
+
+    let majorNum;
+    if (normalized.length >= 4) {
+        majorNum = String(parseInt(normalized.slice(0, -3), 10));
+    } else {
+        majorNum = normalized;
+    }
+    const major = _semanticDomainLabels.majorDomains?.[majorNum];
+    if (major?.title) return major.title;
+
+    return `分類 ${code}`;
+}
+
 /* ── Cluster Layer display builder (auxiliary — reads domainCodes directly) ── */
 function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
     const sections = [];
@@ -5264,9 +5324,13 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
         `).join('');
 
         const totalOccurrences = entry.occurrences || 0;
-        const occLabel = totalOccurrences ? ` · 計${totalOccurrences}回` : '';
+        const occLabel     = totalOccurrences ? ` · 計${totalOccurrences}回` : '';
+        const domainTitle  = _getDomainLabel(code);
         sections.push(`
-            <div class="rn-ln-domain-label">文脈をともにする語${occLabel}</div>
+            <div class="rn-ln-domain-label">
+                <span class="rn-ln-domain-category">意味グループ</span>
+                <span class="rn-ln-domain-title">${domainTitle}${occLabel}</span>
+            </div>
             <div class="rn-sibling-chips">${chips}</div>
         `);
     }
