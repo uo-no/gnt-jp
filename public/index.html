@@ -504,6 +504,8 @@ cursor: pointer;
 transition: background var(--transition-fast);
 white-space: nowrap;
 font-size: var(--text-body);
+/* Layer 4: 非アクティブ項目は --text-sub にして本文との序列を明確にする */
+color: var(--text-sub);
 }
 .menu-item:hover { background: rgba(0,0,0,0.04); }
 .menu-item.active { background: rgba(90,110,130,0.10); color: var(--highlight); }
@@ -773,6 +775,7 @@ display: none;
 #panel-content { display: none; }
 #word-detail-view { display: none; }
 
+/* Layer 4 クロム: フッターも #fafafa にして本文エリアとクロムを分離する */
 .app-footer {
 border-top: 1px solid var(--border-soft);
 padding: 12px 48px;
@@ -780,7 +783,7 @@ display: flex;
 align-items: center;
 justify-content: space-between;
 flex-shrink: 0;
-background: var(--bg-paper);
+background: var(--bg-inset);
 }
 .footer-copy {
 font-size: var(--text-caption);
@@ -3392,10 +3395,69 @@ details[open] .study-summary::before {
     opacity: var(--opacity-primary);
 }
 .rn-etymology-parts {
-    font-family: 'Gentium Plus', serif;
-    letter-spacing: 0.05em;
+    font-family: 'Noto Sans JP', sans-serif;
     color: var(--text-main);
 }
+/* result-query と同じ interaction パターンを踏襲（dotted underline + hover color） */
+.rn-etym-part {
+    display: inline;
+    cursor: pointer;
+    border-bottom: 2px dotted var(--border-soft);
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+.rn-etym-part:hover {
+    border-bottom-color: var(--highlight);
+    color: var(--highlight);
+}
+.rn-etym-sep {
+    opacity: var(--opacity-secondary);
+    font-family: 'Noto Sans JP', sans-serif;
+}
+/* 語源ポップアップモーダル（search-tool の #as-modal と同構造） */
+#rn-etym-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.38);
+    z-index: 900; display: none; align-items: center; justify-content: center;
+    padding: 20px;
+}
+#rn-etym-backdrop.open { display: flex; }
+#rn-etym-modal {
+    background: var(--bg-panel); border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+    max-width: 480px; width: 100%; max-height: 70vh;
+    display: flex; flex-direction: column; overflow: hidden;
+}
+#rn-etym-modal-head {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 16px 20px 12px; border-bottom: 1px solid var(--border-soft);
+    flex-shrink: 0;
+}
+#rn-etym-modal-label { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+#rn-etym-modal-gr {
+    font-family: 'Gentium Plus', serif; font-size: 1.35rem;
+    font-weight: 700; color: var(--text-main);
+}
+#rn-etym-modal-ja {
+    font-size: var(--text-caption); color: var(--text-sub);
+}
+#rn-etym-modal-close {
+    width: 28px; height: 28px; border-radius: 50%; border: none; flex-shrink: 0;
+    background: var(--bg-sub); cursor: pointer; font-size: 1rem;
+    color: var(--text-sub); display: flex; align-items: center; justify-content: center;
+    transition: background 0.12s;
+}
+#rn-etym-modal-close:hover { background: var(--border-soft); }
+#rn-etym-modal-body {
+    padding: 16px 20px; overflow-y: auto; flex: 1;
+    font-size: 0.82rem; line-height: 1.75; color: var(--text-main);
+    white-space: pre-wrap; font-family: 'Noto Serif JP', Georgia, serif;
+}
+.rn-etym-as-label {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-sub);
+    opacity: var(--opacity-secondary); margin-bottom: 6px;
+    font-family: 'Noto Sans JP', sans-serif;
+}
+.rn-etym-empty { color: var(--text-sub); font-style: italic; }
 
 /* Level 2: Full dictionary */
 .rn-dict-full-section {
@@ -3774,6 +3836,47 @@ function getWordComposition(lemmaId) {
     return Array.isArray(entry.components) && entry.components.length > 0
         ? entry.components
         : null;
+}
+
+/* 語源パーツ HTML を生成（日本語表示・クリック可能）
+   各要素は .rn-etym-part として描画し、data-gr に Greek 語形を保持する。
+   将来 A + B + C ... の n 要素にも対応（map + join で生成）。 */
+function _buildEtymPartsHTML(parts) {
+    return parts.map(gr => {
+        let gloss = gr;
+        if (_lexiconData) {
+            const entry = Object.values(_lexiconData).find(e => e.headword === gr);
+            gloss = entry?.gloss_ja || gr;
+        }
+        return `<span class="rn-etym-part" data-gr="${_escH(gr)}">${_escH(gloss)}</span>`;
+    }).join('<span class="rn-etym-sep"> ＋ </span>');
+}
+
+/* Abbott-Smith ポップアップを開く（search-tool._asOpen と同等の役割）。
+   _lexiconData → lemmaId から Strong を導出して abbottSmithDict を参照。 */
+function _openEtymPopup(gr) {
+    let gloss = '', desc = '';
+    if (_lexiconData) {
+        const found = Object.entries(_lexiconData).find(([, e]) => e.headword === gr);
+        if (found) {
+            const [lemmaId, entry] = found;
+            gloss = entry.gloss_ja || '';
+            desc  = entry.abbottSmith || '';
+            if (!desc) {
+                const digits = lemmaId.replace(/^grc:G/i, '');
+                desc = abbottSmithDict?.[digits]?.description || '';
+            }
+        }
+    }
+    const bd = document.getElementById('rn-etym-backdrop');
+    if (!bd) return;
+    document.getElementById('rn-etym-modal-gr').textContent = gr;
+    document.getElementById('rn-etym-modal-ja').textContent = gloss;
+    const bodyEl = document.getElementById('rn-etym-modal-body');
+    bodyEl.innerHTML = desc
+        ? `<div class="rn-etym-as-label">Abbott-Smith</div>${_escH(desc).replace(/\n/g, '<br>')}`
+        : '<span class="rn-etym-empty">Abbott-Smithデータなし</span>';
+    bd.classList.add('open');
 }
 
 function _resolveLemmaId(strong) {
@@ -5068,7 +5171,7 @@ async function _renderReadingNotes(p) {
     /* ── Etymology / composition (Level 2) — 単純語は非表示 ── */
     const compositionParts = getWordComposition(resolvedId || AppState.inspect.data?.lemmaId || null);
     const etymologyHTML = compositionParts
-        ? `<div class="rn-etymology">語源&emsp;<span class="rn-etymology-parts">${compositionParts.join(' + ')}</span></div>`
+        ? `<div class="rn-etymology">語源&emsp;<span class="rn-etymology-parts">${_buildEtymPartsHTML(compositionParts)}</span></div>`
         : '';
 
     /* ── Usage trends (Level 1) ── */
@@ -9931,11 +10034,39 @@ function _mobileSwipeBack() {
         _syncOnboardingActiveFlag();
         init();
         _ensureSemanticData().catch(function(){});
+
+        /* 語源要素タップ → Abbott-Smith ポップアップ（イベントデリゲーション） */
+        document.addEventListener('click', function(e) {
+            const part = e.target.closest('.rn-etym-part');
+            if (!part) return;
+            _openEtymPopup(part.dataset.gr);
+        });
+
+        /* ESC キーで語源ポップアップを閉じる */
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.getElementById('rn-etym-backdrop')?.classList.remove('open');
+            }
+        });
     });
     
 </script>
 <script src="../assets/js/app-storage.js"></script>
 <script src="../assets/js/shared-insight.js" defer></script>
 <script src="../assets/js/onboarding.js"></script>
+
+<!-- 語源要素 Abbott-Smith ポップアップ（search-tool #as-modal と同構造） -->
+<div id="rn-etym-backdrop" onclick="this.classList.remove('open')">
+    <div id="rn-etym-modal" onclick="event.stopPropagation()">
+        <div id="rn-etym-modal-head">
+            <div id="rn-etym-modal-label">
+                <span id="rn-etym-modal-gr"></span>
+                <span id="rn-etym-modal-ja"></span>
+            </div>
+            <button id="rn-etym-modal-close" onclick="document.getElementById('rn-etym-backdrop').classList.remove('open')">×</button>
+        </div>
+        <div id="rn-etym-modal-body"></div>
+    </div>
+</div>
 </body>
 </html>
