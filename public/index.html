@@ -1284,6 +1284,26 @@ opacity: var(--opacity-secondary);
     font-size: 0.85em;
 }
 
+/* ── Cluster IA: グループ境界・補足情報の整理 ──
+   説明文は DOM 順（チップ直前）を維持する。
+   チップ表示順は変更しない。現在語は視覚強調のみで識別する。
+   ──────────────────────────────────────────── */
+
+/* 1. 出現回数を小さく・目立たなく */
+.rn-domain-occ {
+    font-size: 0.8em;
+    font-weight: 400;
+    opacity: var(--opacity-secondary);
+    letter-spacing: 0;
+}
+
+/* 2. 第2グループの前にセパレーターを挿入（グループ境界の明示） */
+.rn-sibling-chips + .rn-ln-domain-label {
+    margin-top: var(--space-md);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border);
+}
+
 @keyframes rnLayerOpen {
     from { opacity: 0; transform: translateY(-4px); }
     to   { opacity: var(--opacity-primary); transform: translateY(0); }
@@ -1293,7 +1313,7 @@ opacity: var(--opacity-secondary);
     display: flex;
     flex-direction: column;
     gap: 2px;
-    margin-bottom: var(--space-sm);
+    margin-bottom: var(--space-xs);
 }
 .rn-ln-domain-category {
     font-size: 10px;
@@ -1303,6 +1323,7 @@ opacity: var(--opacity-secondary);
     opacity: var(--opacity-secondary);
     text-transform: uppercase;
     font-family: 'Noto Sans JP', sans-serif;
+    display: none;
 }
 .rn-ln-domain-title {
     font-size: var(--text-caption);
@@ -1337,9 +1358,10 @@ opacity: var(--opacity-secondary);
 }
 .rn-sibling-chip.current {
     background: rgba(90,110,130,0.14);
-    border-color: rgba(90,110,130,0.45);
+    border-color: rgba(90,110,130,0.55);
     font-weight: 700;
-    box-shadow: 0 0 0 2px rgba(90,110,130,0.18);
+    box-shadow: 0 0 0 3px rgba(90,110,130,0.22);
+    cursor: default;
 }
 .rn-sibling-gr {
     font-family: 'Gentium Plus', serif;
@@ -5393,7 +5415,7 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
         `).join('');
 
         const totalOccurrences = entry.occurrences || 0;
-        const occLabel     = totalOccurrences ? ` · グループ計 ${totalOccurrences} 回` : '';
+        const occLabel     = totalOccurrences ? `<span class="rn-domain-occ"> · グループ計 ${totalOccurrences} 回</span>` : '';
         const domainTitle  = _getDomainLabel(code);
         sections.push(`
             <div class="rn-ln-domain-label">
