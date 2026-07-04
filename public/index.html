@@ -107,40 +107,31 @@ height: 100%;
 -webkit-font-smoothing: antialiased;
 }
 
-.main-layout { display: flex; height: 100%; width: 100%; overflow: hidden; }
+.main-layout { display: flex; height: 100%; width: 100%; overflow: hidden; --app-header-h: 60px; background: var(--bg-panel); }
 
 .nav-sidebar {
 position: fixed;
 top: 0;
 left: 0;
 height: 100dvh;
-width: 260px;
+width: 280px;
 background: var(--bg-panel);
-border-right: 1px solid var(--border-soft);
 display: flex;
 flex-direction: column;
-transition: transform var(--transition-base);
 overflow: hidden;
-z-index: 201;
-transform: translateX(-100%);
+z-index: 5;
+opacity: 0;
+pointer-events: none;
+transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .nav-sidebar.open {
-transform: translateX(0);
+opacity: 1;
+pointer-events: auto;
 }
 .sidebar-top { padding: var(--space-lg) var(--space-md) var(--space-md); display: flex; align-items: center; gap: var(--space-sm); }
 .sidebar-toggle-btn { background: none; border: none; font-size: var(--text-title); cursor: pointer; color: var(--text-sub); width: 28px; padding: 0; flex-shrink: 0; }
-.sidebar-logo { font-weight: 700; font-size: var(--text-body-lg); white-space: nowrap; letter-spacing: -0.01em; color: var(--text-main); }
+.sidebar-logo { font-weight: 700; font-size: var(--text-body); white-space: nowrap; letter-spacing: -0.01em; color: var(--text-main); }
 
-#sidebar-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.04);
-    z-index: 200;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity var(--transition-base);
-}
-#sidebar-overlay.visible { opacity: 1; pointer-events: auto; }
 
 @media (max-width: 900px) {
     .app-header { position: relative; }
@@ -382,7 +373,7 @@ transform: translateX(0);
 }
 
 @media (min-width: 901px) {
-    #mobile-menu-btn { display: none !important; }
+    #mobile-menu-btn { display: flex; }
     #mobile-nav-bar  { display: none !important; }
     #mobile-panel-back { display: none !important; }
     #bottom-depth-panel {
@@ -427,7 +418,7 @@ transition: background var(--transition-fast);
 .sb-back-arrow { font-size: var(--text-caption); color: var(--highlight); font-weight: 700; }
 .sb-layer-title { font-size: var(--text-caption); font-weight: 600; color: #4a5f72; letter-spacing: 0.08em; }
 .sb-row {
-padding: var(--rhythm-medium-y) var(--rhythm-medium-x); font-size: var(--text-body); color: var(--text-main);
+padding: 6px 12px; font-size: 13px; color: var(--text-main);
 cursor: pointer; display: flex; align-items: center; justify-content: space-between;
 border-radius: var(--radius-s); margin-bottom: var(--space-xs); transition: background var(--transition-fast);
 }
@@ -463,13 +454,55 @@ border-radius: var(--radius-s); margin-bottom: var(--space-xs); transition: back
 }
 #sb-info-btn:hover { background: var(--highlight-light); color: var(--highlight); }
 #sb-info-btn:active { transform: scale(0.93); }
-#sb-info-popup {
-    max-height: 0;
+#info-overlay-card {
+    position: fixed;
+    width: 210px;
+    background: var(--bg-paper);
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.05);
+    z-index: 500;
     overflow: hidden;
-    transition: max-height var(--transition-base);
-    padding: 0 var(--space-xs);
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+    pointer-events: none;
+    transition: opacity 0.18s cubic-bezier(0.2,0.8,0.2,1),
+                transform 0.18s cubic-bezier(0.2,0.8,0.2,1);
 }
-#sb-info-accordion.open #sb-info-popup { max-height: 160px; }
+#info-overlay-card.visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+.info-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--border-soft);
+}
+.info-card-title {
+    font-size: var(--text-caption); font-weight: 600;
+    letter-spacing: 0.06em; color: var(--text-sub);
+}
+.info-card-close {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: none; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-hint); padding: 0;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+}
+.info-card-close:hover { background: var(--bg-panel); color: var(--text-sub); }
+.info-card-items { padding: var(--space-xs) 0; }
+.info-card-item {
+    width: 100%; display: flex; align-items: center; gap: var(--space-sm);
+    padding: 10px var(--space-md); background: none; border: none;
+    cursor: pointer; font-size: 13px; color: var(--text-main);
+    font-family: inherit; text-align: left;
+    transition: background var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+}
+.info-card-item:hover { background: var(--bg-panel); }
+.info-card-item svg { flex-shrink: 0; color: var(--text-sub); }
 .sb-ch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--rhythm-micro); padding: var(--rhythm-medium-y) var(--rhythm-medium-x) var(--rhythm-medium-x); }
 .sb-ch-btn {
 aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
@@ -527,22 +560,28 @@ border-radius: var(--radius-s); cursor: pointer; transition: all var(--transitio
     line-height: 1.6;
 }
 
-/* main は常に最前面のカード。sidebar 展開時に左向き影と微小変位で「浮き」を表現する。 */
+/* main = 最前面のカード (z-index:10)。sidebar (z-index:5) は常に背面。
+   sidebar が開くと main が自発的に退き、背後のレイヤーが見える構造。 */
 .container {
     flex: 1; min-width: 0; min-height: 0;
     display: flex; flex-direction: column;
     background: var(--bg-paper);
     overflow: hidden;
     height: 100%;
-    transition: transform var(--transition-base), box-shadow var(--transition-base);
+    position: relative;
+    z-index: 10;
+    transform-origin: center center;
+    transition:
+        transform      0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+        border-radius  0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+        box-shadow     0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .nav-sidebar.open ~ .container {
-    transform: translateX(5px);
-    /* 外影: 左主体・わずかに下向き・拡散 = カードが自然に浮いている感覚 */
-    /* inset 左端影: box-shadow と同プロパティに同居させてトランジションを揃える */
-    box-shadow: -6px 4px 24px rgba(0,0,0,0.07), inset -1px 0 0 rgba(0,0,0,0.06);
+    transform: translateX(280px);
+    border-radius: 16px;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.12);
 }
-.app-header { padding: 18px 40px; border-bottom: 1px solid var(--border-soft); background: var(--bg-paper); flex-shrink: 0; position: sticky; top: 0; z-index: 10; }
+.app-header { padding: 18px 40px; border-bottom: 1px solid var(--border-soft); background: var(--bg-paper); flex-shrink: 0; position: sticky; top: 0; z-index: 20; }
 .header-content { display: flex; align-items: center; justify-content: space-between; }
 #global-breadcrumb {
     display: flex;
@@ -3537,11 +3576,9 @@ details[open] .study-summary::before {
     </div>
 </div>
 
-<div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
 <div class="main-layout">
     <nav id="nav-sidebar" class="nav-sidebar">
         <div class="sidebar-top">
-            <button class="sidebar-toggle-btn" data-icon="menu" onclick="toggleSidebar()"></button>
             <span class="menu-text sidebar-logo">聖書アプリ</span>
         </div>
         <div class="sidebar-menu">
@@ -3614,20 +3651,9 @@ details[open] .study-summary::before {
 
 </div>
 
-<div class="sidebar-bottom" id="sb-info-accordion">
-    <div id="sb-info-popup">
-        <div class="sb-row" onclick="showMameKnowledge()">
-            <span class="menu-text">まめ知識</span>
-        </div>
-        <div class="sb-row" onclick="showChangelog()">
-            <span class="menu-text">更新情報</span>
-        </div>
-        <div class="sb-row" onclick="showAppInfo()">
-            <span class="menu-text">出典・ポリシー</span>
-        </div>
-    </div>
+<div class="sidebar-bottom">
     <div class="sb-info-footer">
-        <button id="sb-info-btn" onclick="toggleInfoAccordion()" title="Information" aria-label="Informationを開く">
+        <button id="sb-info-btn" onclick="toggleInfoCard()" title="Information" aria-label="Informationを開く">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
         </button>
     </div>
@@ -3730,6 +3756,23 @@ details[open] .study-summary::before {
     </div>
 </div>
 
+</div>
+
+<div id="info-overlay-card" role="dialog" aria-label="Information">
+    <div class="info-card-items">
+        <button class="info-card-item" onclick="closeInfoCard();showMameKnowledge()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <span>まめ知識</span>
+        </button>
+        <button class="info-card-item" onclick="closeInfoCard();showChangelog()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <span>更新情報</span>
+        </button>
+        <button class="info-card-item" onclick="closeInfoCard();showAppInfo()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>出典・ポリシー</span>
+        </button>
+    </div>
 </div>
 
 <script src="../assets/js/shared-ui.js"></script>
@@ -4603,9 +4646,17 @@ function panelGoBack() {
 }
 
 /* 内部: パネルを閉じてReadingへ（depth stackは変えない） */
+function _syncReadingPanelPadding() {
+    const area  = document.getElementById('main-reading-area');
+    const panel = document.getElementById('bottom-depth-panel');
+    if (!area || !panel) return;
+    area.style.paddingBottom = panel.classList.contains('open') ? panel.offsetHeight + 'px' : '';
+}
+
 function _closeStudyPanelInternal() {
     const sidePanel    = document.getElementById('bottom-depth-panel');
     sidePanel.classList.remove('open');
+    _syncReadingPanelPadding();
 
     const notesWrap = document.getElementById('reading-notes-wrap');
     /* close直前にスクロール位置を StudyPanelState へ保存（open後の2段rAFで復元する） */
@@ -4736,6 +4787,7 @@ function _openWordListInternal(vNum, words) {
     const wasOpen = sidePanel.classList.contains('open');
     _panelContentMode = 'verse';
     sidePanel.classList.add('open');
+    _syncReadingPanelPadding();
     document.getElementById('open-panel-btn').style.display = 'none';
 
     const notesWrap = document.getElementById('reading-notes-wrap');
@@ -5490,7 +5542,7 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
 
                 ${s.isCurrent
                     ? `<span class="rn-sibling-badge">基準語</span>`
-                    : `<span class="rn-sibling-action">共起を検索 →</span>`}
+                    : `<span class="rn-sibling-action">用例を探す →</span>`}
             </span>`;
         }).join('');
 
@@ -7130,50 +7182,53 @@ window.addEventListener('message', (e) => {
     }
 });
 
-/* sidebar は X 軸専有の fixed overlay。mobile-open 廃止、.open クラスで統一。
-   PC/モバイル分岐なし。StudyPanel（Y 軸）との相互排他を JS で保証する。 */
-function toggleSidebar() {
-    toggleMobileSidebar();
+/* ── Sidebar 開閉（class toggle のみ。style操作・overlay・transform禁止）── */
+function openSidebar() {
+    /* StudyPanel（Y軸）との空間分離を維持 */
+    const panel = document.getElementById('bottom-depth-panel');
+    if (panel && panel.classList.contains('open')) closeStudyPanel();
+    document.getElementById('nav-sidebar').classList.add('open');
 }
-
-function toggleMobileSidebar() {
-    const sidebar = document.getElementById('nav-sidebar');
-    if (sidebar.classList.contains('open')) {
-        closeMobileSidebar();
-    } else {
-        const panel = document.getElementById('bottom-depth-panel');
-        if (panel && panel.classList.contains('open')) closeStudyPanel();
-        sidebar.classList.add('open');
-        document.getElementById('sidebar-overlay').classList.add('visible');
-    }
-}
-
-function closeMobileSidebar() {
-    document.getElementById('nav-sidebar').classList.remove('open');
-    document.getElementById('sidebar-overlay').classList.remove('visible');
-}
-
-function _isSidebarOpen() {
-    const sidebar = document.getElementById('nav-sidebar');
-    return sidebar ? sidebar.classList.contains('open') : false;
-}
-
-function _openSidebar() {
-    const sidebar = document.getElementById('nav-sidebar');
-    if (!sidebar) return;
-    sidebar.classList.add('open');
-    const overlay = document.getElementById('sidebar-overlay');
-    if (overlay) overlay.classList.add('visible');
-}
+function closeSidebar()        { document.getElementById('nav-sidebar').classList.remove('open'); }
+function toggleSidebar()       { _isSidebarOpen() ? closeSidebar() : openSidebar(); }
+function toggleMobileSidebar() { toggleSidebar(); }
+function closeMobileSidebar()  { closeSidebar(); }
+function _isSidebarOpen()      { return document.getElementById('nav-sidebar')?.classList.contains('open') ?? false; }
+function _openSidebar()        { openSidebar(); }
 
 window.addEventListener('resize', () => {
     closeMobileSidebar();
 });
 
-function toggleInfoAccordion() {
-    const acc = document.getElementById('sb-info-accordion');
-    if (acc) acc.classList.toggle('open');
+document.querySelector('.container')?.addEventListener('click', (e) => {
+    if (!_isSidebarOpen()) return;
+    if (document.getElementById('mobile-menu-btn')?.contains(e.target)) return;
+    closeSidebar();
+});
+
+function toggleInfoCard() {
+    const card = document.getElementById('info-overlay-card');
+    if (!card) return;
+    if (card.classList.contains('visible')) { card.classList.remove('visible'); return; }
+    const btn = document.getElementById('sb-info-btn');
+    if (btn) {
+        const r = btn.getBoundingClientRect();
+        card.style.left   = r.left + 'px';
+        card.style.bottom = (window.innerHeight - r.top + 8) + 'px';
+        card.style.top    = 'auto';
+        card.style.right  = 'auto';
+    }
+    card.classList.add('visible');
 }
+function closeInfoCard() {
+    document.getElementById('info-overlay-card')?.classList.remove('visible');
+}
+document.addEventListener('click', function(e) {
+    const card = document.getElementById('info-overlay-card');
+    if (!card?.classList.contains('visible')) return;
+    const btn = document.getElementById('sb-info-btn');
+    if (!card.contains(e.target) && !btn?.contains(e.target)) closeInfoCard();
+});
 
 /* ══════════════════════════════════════════
    サイドバー ドリルダウン
@@ -9002,6 +9057,7 @@ let _wlvWordCache = [];
         } else {
             panel.style.height = nh + 'px';
         }
+        _syncReadingPanelPadding();
     });
 
     function _finishDrag(e) {
@@ -9090,6 +9146,7 @@ function openStudyPanel(greek, rawMorph, ref, lemma, options = {}) {
     const wasOpen = sidePanel.classList.contains('open');
     _panelContentMode = 'word';
     sidePanel.classList.add('open');
+    _syncReadingPanelPadding();
 const activeVEl = document.getElementById('active-v');
     if (activeVEl && greek) activeVEl.textContent = greek;
 
