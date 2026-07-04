@@ -1155,12 +1155,20 @@ const _WALLACE_TEXT = {
     GENITIVE_MEANS:        'ここでは、属格名詞が手段や方法を示しています。',
     GENITIVE_SOURCE:       'ここでは、属格名詞が起源や由来を示しています。',
     GENITIVE_ABSOLUTE:     'ここでは、属格の分詞節が文全体の背景として示されています。',
+    GENITIVE_DIRECT_OBJECT: 'ここでは、属格名詞が動詞の直接目的語として機能しています。',
 
     // Wallace 冠詞用法（§2）ごとのテンプレート
     ARTICLE_MONADIC:          'ここでは、冠詞が宇宙的・唯一的な実体（世界・神等）を特定しています。',
     ARTICLE_GENERIC:          'ここでは、冠詞が特定個体ではなく種類・類全体を指しています。',
     ARTICLE_PREVIOUS_REF:     'ここでは、冠詞が前文脈で導入された対象を再び指し示しています。',
     ARTICLE_PAR_EXCELLENCE:   'ここでは、冠詞がその類の中で最も著名・卓越した存在を指しています。',
+    ARTICLE_SIMPLE_ID:        'ここでは、冠詞が対象を特定・識別しています。',
+    ARTICLE_WELL_KNOWN:       'ここでは、冠詞が誰もが知る周知の対象を指しています。',
+    ARTICLE_ABSTRACT:         'ここでは、冠詞が抽象的な概念そのものを個別化しています。',
+    ARTICLE_DEICTIC:          'ここでは、冠詞が眼前の対象を指し示しています。',
+    ARTICLE_KATAPHORIC:       'ここでは、冠詞が後続の説明句によって特定される対象を先取りしています。',
+    ARTICLE_GRANVILLE_SHARP:  'ここでは、一つの冠詞が καί で結ばれた二つの名詞を同一人物として束ねています。',
+    ARTICLE_COLWELL:          'ここでは、冠詞がコプラ文の主語を標識しています（無冠詞側が述語）。',
 };
 
 // discourse.type が UNCLASSIFIED になる clause.type を _WALLACE_TEXT の
@@ -1191,12 +1199,20 @@ const _CLAUSE_TYPE_TO_GLOSS_KEY = {
     'genitive.means':        'GENITIVE_MEANS',
     'genitive.source':       'GENITIVE_SOURCE',
     'genitive.absolute':     'GENITIVE_ABSOLUTE',
+    'genitive.direct_object': 'GENITIVE_DIRECT_OBJECT',
 
     // 冠詞用法 → _WALLACE_TEXT キー
     'article.monadic':            'ARTICLE_MONADIC',
     'article.generic':            'ARTICLE_GENERIC',
     'article.previous_reference': 'ARTICLE_PREVIOUS_REF',
-    'article.par_excellence':     'ARTICLE_PAR_EXCELLENCE',
+    'article.par_excellence':       'ARTICLE_PAR_EXCELLENCE',
+    'article.simple_identification': 'ARTICLE_SIMPLE_ID',
+    'article.well_known':           'ARTICLE_WELL_KNOWN',
+    'article.abstract':             'ARTICLE_ABSTRACT',
+    'article.deictic':              'ARTICLE_DEICTIC',
+    'article.kataphoric':           'ARTICLE_KATAPHORIC',
+    'article.granville_sharp':      'ARTICLE_GRANVILLE_SHARP',
+    'article.colwell':              'ARTICLE_COLWELL',
 };
 
 // combine() の読書リズム用：各 _WALLACE_TEXT キーが2文目以降に来たときの
@@ -1251,6 +1267,7 @@ const _CONNECTOR_TYPE_BY_KEY = {
     GENITIVE_MEANS:         'A',
     GENITIVE_SOURCE:        'A',
     GENITIVE_ABSOLUTE:      'C',
+    GENITIVE_DIRECT_OBJECT: 'A',
 };
 
 // combine() が入力文字列から元の _WALLACE_TEXT キーを逆引きするための表

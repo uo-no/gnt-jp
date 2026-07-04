@@ -967,6 +967,644 @@ console.log('\n  ─── MAT 2:8（節分割による付帯状況の是正） 
 catVerseTest('MAT 2:8 πορευθέντες', 'MAT', 2, 8, 'πορεύομαι', 'participle.', 'participle.adverbial_attendant');
 
 // ════════════════════════════════════════════════════════════════
+// §7f  Phase 4 統合テスト（Context API 移行の検証）
+// ════════════════════════════════════════════════════════════════
+section('§7f  Phase 4 統合テスト');
+
+// ── 属格絶対（Phase 4E: GenP ベース判定） ────────────────────────
+// MAT 2:1 Τοῦ δὲ Ἰησοῦ γεννηθέντος — 後置小辞 δέ を透過して GenP が成立すること
+console.log('\n  ─── MAT 2:1（属格絶対・δέ 透過） ─────────────');
+catVerseTest('MAT 2:1 γεννηθέντος', 'MAT', 2, 1, 'γεννάω', 'participle.', 'participle.genitive_absolute');
+catVerseTest('MAT 2:1 Ἰησοῦ（noun 側）', 'MAT', 2, 1, 'Ἰησοῦς', 'genitive.', 'genitive.absolute');
+
+// MAT 9:18 ταῦτα αὐτοῦ λαλοῦντος — 代名詞主語の属格絶対（Wallace pp.654–655 引用例）
+console.log('\n  ─── MAT 9:18（属格絶対・代名詞主語） ──────────');
+catVerseTest('MAT 9:18 λαλοῦντος', 'MAT', 9, 18, 'λαλέω', 'participle.', 'participle.genitive_absolute');
+
+// ── Dative Means（Phase 4F: governor/phrase ベース補正） ─────────
+// ROM 3:28 δικαιοῦσθαι πίστει — 裸の道具的与格（Wallace pp.162–163）。
+// governor が前置詞でないため道具的補正が正しく発動すること。
+console.log('\n  ─── ROM 3:28（手段与格） ────────────────────');
+catVerseTest('ROM 3:28 πίστει', 'ROM', 3, 28, 'πίστις', 'dative.', 'dative.means');
+{
+    const ctx = buildCtx('ROM', 3, 28, 'πίστις');
+    check('ROM 3:28 πίστει — governor が前置詞でない（裸の与格）',
+          ctx !== null && ctx.governorPOS !== 'P',
+          `governorPOS="${ctx?.governorPOS}"`);
+}
+
+// ── Article Head（Phase 4H: head 探索の Context 一元化） ─────────
+// JHN 1:21 Ὁ προφήτης — 冠詞の head が Context 経由で解決され
+// par_excellence が最上位になること。
+console.log('\n  ─── JHN 1:21（冠詞 head） ───────────────────');
+{
+    const tokens = verseTokens('JHN', 1, 21);
+    const i = tokens.findIndex((t, k) =>
+        (t.lemma ?? '') === 'ὁ' && (tokens[k + 1]?.lemma ?? '') === 'προφήτης');
+    check('JHN 1:21 — ὁ + προφήτης の並びが存在', i >= 0);
+    if (i >= 0) {
+        const ctx = ContextBuilder.build(tokens[i], tokens, i);
+        check('JHN 1:21 ὁ — ctx.headLemma = προφήτης（Context head 解決）',
+              ctx.headLemma === 'προφήτης', `headLemma="${ctx.headLemma}"`);
+        const all = sa.analyzeAll(tokens);
+        const entry = all.results.find(r => r.tokenIdx === i);
+        const top = (entry?.output?.candidates || [])[0];
+        check('JHN 1:21 ὁ — article.par_excellence が最上位',
+              top?.id === 'article.par_excellence',
+              `top="${top?.id}"(${top?.confidence?.toFixed(2)})`);
+    }
+}
+
+// ── Clause boundary（Phase 4C: 節スコープ検索の検証） ────────────
+// MAT 2:8: complementary の知覚動詞（εὑρίσκω）は別節にあるため、
+// 節スコープ化により πορευθέντες では発火しないこと。
+console.log('\n  ─── MAT 2:8（節スコープの complementary 抑制） ──');
+{
+    const r = analyzeTokenCat('MAT', 2, 8, 'πορεύομαι', 'participle.');
+    const comp = r.allCandidates.find(c => c.id === 'participle.complementary');
+    check('MAT 2:8 πορευθέντες — complementary が知覚動詞シグナルを失う（≤ 0.35）',
+          !comp || (comp.confidence ?? 0) <= 0.35,
+          comp ? `complementary=${comp.confidence.toFixed(2)}` : '');
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7g  Phase 4.5 基盤テスト（Valency / Phrase / Dependency / Lexicon）
+// ════════════════════════════════════════════════════════════════
+section('§7g  Phase 4.5 基盤テスト');
+
+// ── 4.5A: Verb Valency Dictionary ────────────────────────────────
+{
+    const reg = sa.registry ?? sa._registry ?? null;
+    const loader = reg && typeof reg.getVerbValency === 'function' ? reg : null;
+    check('valency: RegistryLoader.getVerbValency が存在', loader !== null);
+    if (loader) {
+        check('valency: ἀκούω → genitive（Wallace pp.131–134）',
+              loader.getVerbValency('ἀκούω')?.governs_case === 'genitive');
+        check('valency: πιστεύω → dative（Wallace pp.171–173）',
+              loader.getVerbValency('πιστεύω')?.governs_case === 'dative');
+        check('valency: προσκυνέω → dative',
+              loader.getVerbValency('προσκυνέω')?.governs_case === 'dative');
+        check('valency: παύομαι → complement participle（Wallace p.646）',
+              loader.getVerbValency('παύομαι')?.complement === 'participle');
+        check('valency: 未登録レンマ → null',
+              loader.getVerbValency('τρέχω') === null);
+        check('valency: _schema 等のメタキー → null',
+              loader.getVerbValency('_schema') === null);
+    }
+}
+
+// ── 4.5B: Phrase Layer エンリッチ ────────────────────────────────
+{
+    const ctx = buildCtx('JAS', 1, 13, 'θεός'); // Ἀπὸ θεοῦ = PP
+    const pp = ctx?.phrase;
+    check('phrase-enrich: PP に head が付与される', Number.isInteger(pp?.head));
+    check('phrase-enrich: PP の headLemma = θεός（前置詞の目的語）',
+          pp?.headLemma === 'θεός', `headLemma="${pp?.headLemma}"`);
+    check('phrase-enrich: PP の case = genitive', pp?.case === 'genitive');
+    check('phrase-enrich: dependents に前置詞が含まれる',
+          Array.isArray(pp?.dependents) && pp.dependents.length >= 1);
+
+    const ctxGen = buildCtx('ROM', 8, 35, 'Χριστός');
+    const genp = (ctxGen?.genitivePhrases ?? []).find(p =>
+        ctxGen.targetIdx >= p.start && ctxGen.targetIdx <= p.end);
+    check('phrase-enrich: GenP にも case/head が付与される',
+          genp?.case === 'genitive' && Number.isInteger(genp?.head));
+}
+
+// ── 4.5C: Dependency 拡張（名詞・分詞・属格修飾） ────────────────
+{
+    // 名詞 → 属格修飾: ROM 8:35 ἀγάπης governs Χριστοῦ
+    const ctx = buildCtx('ROM', 8, 35, 'Χριστός');
+    const toks = ctx?.tokens ?? [];
+    const agapeIdx  = toks.findIndex(t => (t.lemma ?? '') === 'ἀγάπη');
+    const christIdx = ctx?.targetIdx ?? -1;
+    check('governs: 名詞 → 属格修飾（ἀγάπης governs Χριστοῦ）',
+          ctx?.governs(agapeIdx, christIdx) === true);
+    check('dependsOn: Χριστοῦ dependsOn ἀγάπης',
+          ctx?.dependsOn(christIdx, agapeIdx) === true);
+
+    // 名詞 → 限定分詞: JHN 4:11 ὕδωρ governs ζῶν
+    const ctxPtc = buildCtx('JHN', 4, 11, 'ζάω');
+    const t2 = ctxPtc?.tokens ?? [];
+    const hydorIdx = t2.findIndex(t => (t.lemma ?? '') === 'ὕδωρ');
+    check('governs: 名詞 → 限定分詞（ὕδωρ governs ζῶν）',
+          ctxPtc?.governs(hydorIdx, ctxPtc.targetIdx) === true);
+
+    // 属格絶対: MAT 2:1 γεννηθέντος governs Ἰησοῦ（同一 GenP 内）
+    const ctxGA = buildCtx('MAT', 2, 1, 'γεννάω');
+    const t3 = ctxGA?.tokens ?? [];
+    const iesouIdx = t3.findIndex(t => (t.lemma ?? '') === 'Ἰησοῦς');
+    check('governs: 属格分詞 → 意味上の主語（γεννηθέντος governs Ἰησοῦ）',
+          ctxGA?.governs(ctxGA.targetIdx, iesouIdx) === true);
+}
+
+// ── 4.5D: Lexicon の registry 移行 ───────────────────────────────
+{
+    const reg = sa.registry ?? sa._registry ?? null;
+    const irr = reg?.getList?.('irregular_comparative_lemmas');
+    check('lexicon: irregular_comparative_lemmas が registry から解決される',
+          irr instanceof Set && irr.has('μείζων'),
+          `size=${irr?.size}`);
+    const instr = reg?.getList?.('instrumental_noun_lemmas');
+    check('lexicon: instrumental_noun_lemmas が registry から解決される',
+          instr instanceof Set && instr.has('πίστις'),
+          `size=${instr?.size}`);
+    const sep = reg?.getList?.('separation_verb_lemmas');
+    check('lexicon: separation_verb_lemmas に修正済み καταργέω が含まれる',
+          sep instanceof Set && sep.has('καταργέω') && !sep.has('κατηργέω'));
+}
+
+// ── 4.5E: 全節リスト・二重小辞透過 ───────────────────────────────
+{
+    const ctx = buildCtx('MAT', 2, 8, 'πορεύομαι');
+    check('clauses: ctx.clauses が複数節を返す（MAT 2:8）',
+          Array.isArray(ctx?.clauses) && ctx.clauses.length >= 3,
+          `clauses=${ctx?.clauses?.length}`);
+    check('clauses: clause.index が所属節を指す',
+          Number.isInteger(ctx?.clause?.index) &&
+          ctx.clauses[ctx.clause.index]?.start <= ctx.targetIdx &&
+          ctx.clauses[ctx.clause.index]?.end   >= ctx.targetIdx);
+    check('clauses: parent フィールドが予約されている（null）',
+          ctx?.clause?.parent === null);
+
+    // 二重小辞透過: 合成 [gen] [μέν] [γάρ] [gen] が単一 GenP になる
+    const synth = [
+        { class: 'noun', lemma: 'θεός',  text: 'θεοῦ',  case: 'genitive', gender: 'masculine', number: 'singular' },
+        { class: 'ptcl', lemma: 'μέν',   text: 'μὲν' },
+        { class: 'conj', lemma: 'γάρ',   text: 'γὰρ' },
+        { class: 'noun', lemma: 'νόμος', text: 'νόμου', case: 'genitive', gender: 'masculine', number: 'singular' },
+    ];
+    const sctx = ContextBuilder.build(synth[0], synth, 0);
+    const genp = (sctx.genitivePhrases ?? [])[0];
+    check('GenP: 二重小辞（μὲν γάρ）を透過して単一属格句になる',
+          genp && genp.start === 0 && genp.end === 3,
+          `GenP=${JSON.stringify(sctx.genitivePhrases)}`);
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7h  Phase 5 — Wallace Category Completion テスト
+// ════════════════════════════════════════════════════════════════
+section('§7h  Phase 5 カテゴリ完成テスト');
+
+/** 同一 lemma が複数ある場合、expected が top のトークンを探す版 */
+function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId) {
+    const tokens = verseTokens(bookKey, ch, v);
+    const all = tokens.length ? sa.analyzeAll(tokens) : { results: [] };
+    const entries = all.results.filter(r =>
+        (tokens[r.tokenIdx]?.lemma ?? '') === targetLemma &&
+        (r.output?.candidates || []).some(c => c.id?.startsWith(prefix)));
+    const tops = entries.map(e => {
+        const cs = (e.output.candidates || [])
+            .filter(c => c.id.startsWith(prefix))
+            .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
+        return cs[0]?.id ?? null;
+    });
+    check(`${label} — ${expectedId} が top となるトークンが存在`,
+          tops.includes(expectedId),
+          `tops=[${tops.join(', ')}]`);
+    const anyHas = entries.some(e =>
+        (e.output.candidates || []).some(c => c.id === expectedId));
+    check(`${label} — ${expectedId} が候補に存在`, anyHas);
+}
+
+// ── 完了条件: gen/dat/ptc/article に stub ゼロ ───────────────────
+{
+    const CORE = ['genitive', 'dative', 'participle', 'article'];
+    for (const cat of CORE) {
+        const stubs = allTypeDefsPhase5().filter(t =>
+            t.id.startsWith(cat + '.') && t.status === 'stub');
+        check(`完了条件: ${cat} に stub が存在しない`, stubs.length === 0,
+              stubs.map(t => t.id).join(', '));
+    }
+    function allTypeDefsPhase5() { return collectAllTypeDefs(syntaxRegistry); }
+    // accusative カテゴリが存在し active 型を持つ
+    const accTypes = collectAllTypeDefs(syntaxRegistry).filter(t => t.id.startsWith('accusative.'));
+    check('Accusative Engine: カテゴリが存在（型 ≥ 5）', accTypes.length >= 5, `${accTypes.length} 型`);
+    check('Accusative Engine: active 型 ≥ 3',
+          accTypes.filter(t => t.status === 'active').length >= 3);
+}
+
+// ── Dative 完成 ──────────────────────────────────────────────────
+console.log('\n  ─── Dative: possession / direct_object / agent / measure / ethical ───');
+catVerseTest('LUK 2:7 αὐτοῖς（所有与格）', 'LUK', 2, 7, 'αὐτός', 'dative.', 'dative.possession');
+catVerseTestAny('MAT 4:10 αὐτῷ（動詞支配与格・valency 辞書）', 'MAT', 4, 10, 'αὐτός', 'dative.', 'dative.direct_object');
+catVerseTest('LUK 23:15 αὐτῷ（行為者与格・Wallace p.165）', 'LUK', 23, 15, 'αὐτός', 'dative.', 'dative.agent');
+catVerseTest('ROM 5:9 πολλῷ（程度与格）', 'ROM', 5, 9, 'πολύς', 'dative.', 'dative.measure');
+catVerseTest('MAT 21:5 σοι（道義的与格）', 'MAT', 21, 5, 'σύ', 'dative.', 'dative.ethical');
+
+// ── Genitive 完成 ────────────────────────────────────────────────
+console.log('\n  ─── Genitive: direct_object / material / content / attributed / agency / place / predicate / plenary ───');
+catVerseTest('JHN 10:3 φωνῆς（動詞支配属格・ἀκούω valency）', 'JHN', 10, 3, 'φωνή', 'genitive.', 'genitive.direct_object');
+catVerseTest('REV 18:12 χρυσοῦ（材料属格）', 'REV', 18, 12, 'χρυσός', 'genitive.', 'genitive.material');
+catVerseTest('JHN 21:8 ἰχθύων（内容属格・Wallace pp.92–94）', 'JHN', 21, 8, 'ἰχθύς', 'genitive.', 'genitive.content');
+catVerseTest('ROM 6:4 ζωῆς（被属性属格・καινότης 逆転）', 'ROM', 6, 4, 'ζωή', 'genitive.', 'genitive.attributed');
+catVerseTest('JHN 6:45 θεοῦ（行為者属格・-τος 動形容詞）', 'JHN', 6, 45, 'θεός', 'genitive.', 'genitive.agency');
+catVerseTest('LUK 16:24 ὕδατος（場所属格・Wallace pp.124–125）', 'LUK', 16, 24, 'ὕδωρ', 'genitive.', 'genitive.place');
+{
+    // 1CO 6:19 ἑαυτῶν → predicate genitive（コプラ節内・修正後の context_has_copula 検証）
+    const r = analyzeTokenCat('1CO', 6, 19, 'ἑαυτοῦ', 'genitive.');
+    check('1CO 6:19 ἑαυτῶν — genitive.predicate が最高スコア',
+          r.topId === 'genitive.predicate',
+          `top="${r.topId}"(${r.topConf.toFixed(2)})`);
+}
+{
+    // plenary: ROM 8:35 で候補として生存（top は subjective のまま）
+    const r = analyzeToken('ROM', 8, 35, 'Χριστός');
+    const pl = r.allCandidates.find(c => c.id === 'genitive.plenary');
+    check('ROM 8:35 — plenary が active 候補（≥0.45）に存在',
+          pl != null && (pl.confidence ?? 0) >= 0.45,
+          pl ? pl.confidence.toFixed(2) : 'なし');
+    check('ROM 8:35 — subjective が引き続き最高スコア', r.topId === 'genitive.subjective');
+}
+
+// ── Participle 完成 ──────────────────────────────────────────────
+console.log('\n  ─── Participle: redundant / complementary(valency) / indirect_discourse / 副詞系 ───');
+catVerseTest('MAT 4:4 ἀποκριθείς（冗語的分詞）', 'MAT', 4, 4, 'ἀποκρίνομαι', 'participle.', 'participle.redundant');
+catVerseTest('LUK 5:4 λαλῶν（補語分詞・παύω valency）', 'LUK', 5, 4, 'λαλέω', 'participle.', 'participle.complementary');
+catVerseTest('ACT 7:12 ὄντα（間接話法分詞・旧 complementary から独立）', 'ACT', 7, 12, 'εἰμί', 'participle.', 'participle.indirect_discourse');
+catVerseTest('HEB 5:8 ὤν（譲歩・καίπερ）', 'HEB', 5, 8, 'εἰμί', 'participle.', 'participle.adverbial_concessive');
+catVerseTest('GAL 6:9 ἐκλυόμενοι（条件・μή + 未来主動詞）', 'GAL', 6, 9, 'ἐκλύομαι', 'participle.', 'participle.adverbial_conditional');
+catVerseTest('LUK 19:6 χαίρων（様態）', 'LUK', 19, 6, 'χαίρω', 'participle.', 'participle.adverbial_manner');
+catVerseTest('ACT 8:27 προσκυνήσων（目的・未来分詞）', 'ACT', 8, 27, 'προσκυνέω', 'participle.', 'participle.adverbial_purpose_result');
+catVerseTest('ROM 12:9 ἀποστυγοῦντες（命令的分詞）', 'ROM', 12, 9, 'ἀποστυγέω', 'participle.', 'participle.imperatival');
+catVerseTest('MAT 16:19 δεδεμένον（迂言法・ἔσται + 完了分詞）', 'MAT', 16, 19, 'δέω', 'participle.', 'participle.periphrastic');
+{
+    // MAT 3:15 πρέπον: predicate が有効候補（periphrastic との競合は許容）
+    const r = analyzeTokenCat('MAT', 3, 15, 'πρέπω', 'participle.');
+    const pr = r.allCandidates.find(c => c.id === 'participle.predicate');
+    check('MAT 3:15 πρέπον — participle.predicate が候補（≥0.50）',
+          pr != null && (pr.confidence ?? 0) >= 0.50,
+          pr ? pr.confidence.toFixed(2) : 'なし');
+}
+
+// ── Accusative Engine ────────────────────────────────────────────
+console.log('\n  ─── Accusative: direct_object / subject_of_infinitive / adverbial ───');
+catVerseTest('MAT 22:37 κύριον（直接目的語）', 'MAT', 22, 37, 'κύριος', 'accusative.', 'accusative.direct_object');
+catVerseTest('MAT 16:13 υἱόν（不定詞の主語）', 'MAT', 16, 13, 'υἱός', 'accusative.', 'accusative.subject_of_infinitive');
+catVerseTest('MAT 26:45 τὸ λοιπόν（副詞的対格）', 'MAT', 26, 45, 'λοιπός', 'accusative.', 'accusative.adverbial');
+
+// ── Article 完成 ─────────────────────────────────────────────────
+console.log('\n  ─── Article: generic / previous_reference ───');
+{
+    // LUK 10:7 ὁ ἐργάτης → generic（ἐργάτης 直前の冠詞を特定して検証）
+    const tokens = verseTokens('LUK', 10, 7);
+    const i = tokens.findIndex((t, k) =>
+        (t.lemma ?? '') === 'ὁ' && (tokens[k + 1]?.lemma ?? '') === 'ἐργάτης');
+    check('LUK 10:7 — ὁ + ἐργάτης が存在', i >= 0);
+    if (i >= 0) {
+        const all = sa.analyzeAll(tokens);
+        const entry = all.results.find(r => r.tokenIdx === i);
+        const top = (entry?.output?.candidates || [])[0];
+        check('LUK 10:7 ὁ ἐργάτης — article.generic が最上位',
+              top?.id === 'article.generic',
+              `top="${top?.id}"(${top?.confidence?.toFixed(2)})`);
+    }
+    // previous_reference: 合成（詩節内照応: ἄνθρωπος 無冠詞 → ὁ ἄνθρωπος）
+    const synth = [
+        { class: 'noun', lemma: 'ἄνθρωπος', text: 'ἄνθρωπος', case: 'nominative', gender: 'masculine', number: 'singular' },
+        { class: 'verb', lemma: 'ἔρχομαι',  text: 'ἦλθεν', mood: 'indicative', tense: 'aorist' },
+        { class: 'det',  lemma: 'ὁ',        text: 'ὁ', case: 'nominative', gender: 'masculine', number: 'singular' },
+        { class: 'noun', lemma: 'ἄνθρωπος', text: 'ἄνθρωπος', case: 'nominative', gender: 'masculine', number: 'singular' },
+    ];
+    const all2 = sa.analyzeAll(synth);
+    const e2 = all2.results.find(r => r.tokenIdx === 2);
+    const top2 = (e2?.output?.candidates || [])[0];
+    check('合成照応 — article.previous_reference が最上位',
+          top2?.id === 'article.previous_reference',
+          `top="${top2?.id}"(${top2?.confidence?.toFixed(2)})`);
+}
+
+// ── valency 接続の確認（complementary が perception 判定を持たないこと） ──
+{
+    const comp = collectAllTypeDefs(syntaxRegistry).find(t => t.id === 'participle.complementary');
+    const usesValency = (comp?.detection?.conditions ?? [])
+        .some(c => String(c.check ?? '').includes('valency_complement_participle'));
+    const usesPerception = (comp?.detection?.conditions ?? [])
+        .some(c => String(c.check ?? '').includes('perception_verb_lemmas'));
+    check('complementary — valency 辞書ベースに移行済み', usesValency);
+    check('complementary — 旧 perception verb 判定が廃止済み', !usesPerception);
+    const idd = collectAllTypeDefs(syntaxRegistry).find(t => t.id === 'participle.indirect_discourse');
+    check('indirect_discourse — 独立型として存在（Wallace pp.645–646）', idd?.status === 'active');
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7i  Phase 6 — Accusative 完成テスト
+// ════════════════════════════════════════════════════════════════
+section('§7i  Phase 6 Accusative 完成');
+
+// ── 完了条件 ─────────────────────────────────────────────────────
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    check('完了条件: accusative に stub が存在しない',
+          all.filter(t => t.id.startsWith('accusative.') && t.status === 'stub').length === 0);
+    for (const cat of ['genitive', 'dative', 'participle', 'article', 'accusative']) {
+        const catTypes = all.filter(t => t.id.startsWith(cat + '.'));
+        check(`完了条件: ${cat} が全型 active（${catTypes.length} 型）`,
+              catTypes.length > 0 && catTypes.every(t => t.status === 'active'));
+    }
+    check('registry 全型数 ≥ 64', all.length >= 64, `${all.length} 型`);
+    check('accusative 型数 = 7',
+          all.filter(t => t.id.startsWith('accusative.')).length === 7);
+
+    // 活性化 4 型の構造チェック
+    for (const tid of ['accusative.object_complement', 'accusative.double_person_thing',
+                       'accusative.cognate', 'accusative.predicate']) {
+        const t = all.find(x => x.id === tid);
+        check(`${tid} — active`, t?.status === 'active');
+        check(`${tid} — example_verse あり`, Boolean(t?.example_verse));
+        check(`${tid} — detection.conditions 非空`,
+              (t?.detection?.conditions ?? []).length > 0);
+    }
+}
+
+// ── Verb Valency 拡張（22 → 60+） ────────────────────────────────
+{
+    const loader = sa.registry;
+    const vvRaw = syntaxRegistry.shared?.verb_valency ?? {};
+    const lemmas = Object.keys(vvRaw).filter(k => !k.startsWith('_'));
+    check('valency: レンマ数 ≥ 60', lemmas.length >= 60, `${lemmas.length} 語`);
+    // カテゴリ被覆
+    const groups = {
+        'teaching(διδάσκω)':   () => loader.getVerbValency('διδάσκω')?.double_accusative === 'person_thing',
+        'naming(καλέω)':       () => loader.getVerbValency('καλέω')?.object_complement === true,
+        'making(ποιέω)':       () => loader.getVerbValency('ποιέω')?.object_complement === true,
+        'judging(νομίζω)':     () => loader.getVerbValency('νομίζω')?.object_complement === true,
+        'judging(ἡγέομαι)':    () => loader.getVerbValency('ἡγέομαι')?.object_complement === true,
+        'asking(ἐρωτάω)':      () => loader.getVerbValency('ἐρωτάω')?.double_accusative === 'person_thing',
+        'motion(ἔρχομαι)':     () => loader.getVerbValency('ἔρχομαι')?.governs_case === null,
+        'perception(ὁράω)':    () => loader.getVerbValency('ὁράω')?.governs_case === 'accusative',
+        'speech(κηρύσσω)':     () => loader.getVerbValency('κηρύσσω')?.governs_case === 'accusative',
+        'speech(λέγω・OC)':    () => loader.getVerbValency('λέγω')?.object_complement === true,
+        'clothing(ἐνδύω)':     () => loader.getVerbValency('ἐνδύω')?.double_accusative === 'person_thing',
+        'making(τίθημι)':      () => loader.getVerbValency('τίθημι')?.object_complement === true,
+    };
+    for (const [label, fn] of Object.entries(groups)) {
+        check(`valency 被覆: ${label}`, fn());
+    }
+    // スキーマ整合
+    const VALID_CASE = new Set(['genitive', 'dative', 'accusative', null]);
+    check('valency: 全エントリの governs_case が有効値',
+          lemmas.every(l => VALID_CASE.has(vvRaw[l].governs_case)));
+    check('valency: 全エントリに wallace_ref がある',
+          lemmas.every(l => 'wallace_ref' in vvRaw[l]));
+    // 既存の属格・与格支配が保持されている
+    check('valency 後方互換: ἀκούω → genitive',
+          loader.getVerbValency('ἀκούω')?.governs_case === 'genitive');
+    check('valency 後方互換: προσκυνέω → dative',
+          loader.getVerbValency('προσκυνέω')?.governs_case === 'dative');
+}
+
+// ── Wallace 代表例（活性化 4 型） ────────────────────────────────
+console.log('\n  ─── Object Complement (pp.186–189) ───');
+catVerseTest('PHP 3:7 ζημίαν（ἡγέομαι 補語）', 'PHP', 3, 7, 'ζημία', 'accusative.', 'accusative.object_complement');
+catVerseTest('JHN 15:15 φίλους（λέγω 補語）', 'JHN', 15, 15, 'φίλος', 'accusative.', 'accusative.object_complement');
+console.log('\n  ─── Double Accusative (pp.181–182) ───');
+catVerseTest('JHN 14:26 ὑμᾶς（διδάσκω 人+物）', 'JHN', 14, 26, 'σύ', 'accusative.', 'accusative.double_person_thing');
+console.log('\n  ─── Cognate (pp.189–190) ───');
+catVerseTest('MAT 2:10 χαράν（ἐχάρησαν χαράν）', 'MAT', 2, 10, 'χαρά', 'accusative.', 'accusative.cognate');
+catVerseTest('MRK 4:41 φόβον（ἐφοβήθησαν φόβον）', 'MRK', 4, 41, 'φόβος', 'accusative.', 'accusative.cognate');
+console.log('\n  ─── Predicate (pp.190–192) ───');
+catVerseTest('ACT 28:6 θεόν（ἔλεγον αὐτὸν εἶναι θεόν・無冠詞=述語）', 'ACT', 28, 6, 'θεός', 'accusative.', 'accusative.predicate');
+console.log('\n  ─── 追加代表例 ───');
+catVerseTest('LUK 12:14 κριτήν（καθίστημι 補語）', 'LUK', 12, 14, 'κριτής', 'accusative.', 'accusative.object_complement');
+catVerseTest('MAT 7:9 ἄρτον（αἰτέω 人+物）', 'MAT', 7, 9, 'ἄρτος', 'accusative.', 'accusative.double_person_thing');
+
+// ── False Positive ガード（DO / OC / Double の競合） ─────────────
+console.log('\n  ─── FP ガード ───');
+{
+    // MAT 22:37 κύριον τὸν θεόν σου: 連続対格 = 1 塊 → OC/double は発火しない
+    const r = analyzeTokenCat('MAT', 22, 37, 'κύριος', 'accusative.');
+    check('FP: MAT 22:37 κύριον — direct_object が引き続き top',
+          r.topId === 'accusative.direct_object', `top=${r.topId}`);
+    const oc = r.allCandidates.find(c => c.id === 'accusative.object_complement');
+    const da = r.allCandidates.find(c => c.id === 'accusative.double_person_thing');
+    check('FP: MAT 22:37 — object_complement は低スコア（< 0.4）',
+          !oc || oc.confidence < 0.4, oc ? oc.confidence.toFixed(2) : '');
+    check('FP: MAT 22:37 — double_person_thing は低スコア（< 0.4）',
+          !da || da.confidence < 0.4, da ? da.confidence.toFixed(2) : '');
+
+    // MAT 16:13 τὸν υἱόν（有冠詞）: 冠詞規則により subject_of_infinitive が top を維持
+    const r2 = analyzeTokenCat('MAT', 16, 13, 'υἱός', 'accusative.');
+    check('FP: MAT 16:13 υἱόν（有冠詞）— subject_of_infinitive top 維持（冠詞規則）',
+          r2.topId === 'accusative.subject_of_infinitive', `top=${r2.topId}`);
+
+    // MAT 16:13 τίνα（無冠詞）: 述語対格が top（Wallace pp.192–197 の冠詞規則の陽性側）
+    const r3 = analyzeTokenCat('MAT', 16, 13, 'τίς', 'accusative.');
+    check('MAT 16:13 τίνα（無冠詞）— predicate が top（冠詞規則の陽性側）',
+          r3.topId === 'accusative.predicate', `top=${r3.topId}`);
+
+    // 既存カテゴリの DO が壊れていないこと
+    const g = analyzeTokenCat('JHN', 10, 3, 'φωνή', 'genitive.');
+    check('FP: JHN 10:3 — genitive.direct_object top 維持', g.topId === 'genitive.direct_object');
+
+    // λέγω は OC 登録されたが、対格 1 塊の通常発話文では OC が top にならない
+    const r4 = analyzeTokenCat('MAT', 22, 43, 'κύριος', 'accusative.');
+    check('FP: MAT 22:43 κύριον（λέγω + 対格1塊）— direct_object top 維持',
+          r4.topId === 'accusative.direct_object', `top=${r4.topId}`);
+
+    // 与格・分詞の旗艦テストが Phase 6 後も不変
+    const d1 = analyzeTokenCat('LUK', 2, 7, 'αὐτός', 'dative.');
+    check('FP: LUK 2:7 — dative.possession top 維持', d1.topId === 'dative.possession');
+    const p1 = analyzeTokenCat('MAT', 4, 4, 'ἀποκρίνομαι', 'participle.');
+    check('FP: MAT 4:4 — participle.redundant top 維持', p1.topId === 'participle.redundant');
+    const p2 = analyzeTokenCat('JHN', 4, 11, 'ζάω', 'participle.');
+    check('FP: JHN 4:11 — participle.attributive top 維持', p2.topId === 'participle.attributive');
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7j  Corpus Metrics（構造検証・PHM 1 書のみ）
+// ════════════════════════════════════════════════════════════════
+section('§7j  Corpus Metrics');
+
+{
+    const metrics = require(path.join(__dirname, 'corpus-metrics.cjs'));
+    check('corpus-metrics: computeBookSummary がエクスポートされている',
+          typeof metrics.computeBookSummary === 'function');
+    check('corpus-metrics: toCsv がエクスポートされている',
+          typeof metrics.toCsv === 'function');
+
+    const s = metrics.computeBookSummary(sa, 'PHM');
+    for (const k of ['book', 'analyzed', 'average_confidence', 'unresolved',
+                     'category_frequency', 'top_confusion']) {
+        check(`corpus-metrics: summary.${k} が存在`, k in s);
+    }
+    check('corpus-metrics: PHM analyzed > 0', s.analyzed > 0, `analyzed=${s.analyzed}`);
+    check('corpus-metrics: 平均 confidence が (0,1]',
+          s.average_confidence > 0 && s.average_confidence <= 1,
+          String(s.average_confidence));
+    check('corpus-metrics: unresolved ≥ 0 かつ ≤ analyzed',
+          s.unresolved >= 0 && s.unresolved <= s.analyzed);
+    check('corpus-metrics: top_confusion が配列（≤5 件）',
+          Array.isArray(s.top_confusion) && s.top_confusion.length <= 5);
+    check('corpus-metrics: category_frequency にカテゴリが存在',
+          Object.keys(s.category_frequency).length > 0,
+          Object.keys(s.category_frequency).join(','));
+    const csv = metrics.toCsv([s]);
+    check('corpus-metrics: CSV 生成（ヘッダ + 1 行）',
+          csv.split('\n').filter(Boolean).length === 2);
+
+    // FP 集計ガード: PHM 全体で accusative の top は direct_object が最頻であること
+    const acc = s.category_frequency.accusative ?? {};
+    const accTop = Object.entries(acc).sort((a, b) => b[1] - a[1])[0];
+    if (accTop) {
+        check('corpus-metrics: PHM の accusative 最頻 top は direct_object',
+              accTop[0] === 'accusative.direct_object', `${accTop[0]}=${accTop[1]}`);
+        const ocN = acc['accusative.object_complement'] ?? 0;
+        const daN = acc['accusative.double_person_thing'] ?? 0;
+        check('corpus-metrics: OC top 数 < DO top 数（FP 抑制）',
+              ocN < accTop[1]);
+        check('corpus-metrics: double top 数 < DO top 数（FP 抑制）',
+              daN < accTop[1]);
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7k  Phase 7 — Article System Completion
+// ════════════════════════════════════════════════════════════════
+section('§7k  Phase 7 Article System');
+
+/** 「lemma ὁ + 直後 lemma X」の冠詞トークンの top を検証 */
+function articleTest(label, bookKey, ch, v, nextLemma, expectedId, minConf = 0.4) {
+    const tokens = verseTokens(bookKey, ch, v);
+    const i = tokens.findIndex((t, k) =>
+        (t.lemma ?? '') === 'ὁ' && (tokens[k + 1]?.lemma ?? '') === nextLemma);
+    check(`${label} — 対象冠詞が存在`, i >= 0);
+    if (i < 0) return;
+    const all = sa.analyzeAll(tokens);
+    const entry = all.results.find(r => r.tokenIdx === i);
+    const cands = entry?.output?.candidates ?? [];
+    const top = cands[0];
+    check(`${label} — ${expectedId} が最上位`,
+          top?.id === expectedId,
+          `top="${top?.id}"(${top?.confidence?.toFixed(2)})`);
+    check(`${label} — confidence ≥ ${minConf}`,
+          (top?.confidence ?? 0) >= minConf);
+}
+
+// ── 型の存在・active 検証 ────────────────────────────────────────
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const NEW7 = ['article.simple_identification', 'article.well_known', 'article.abstract',
+                  'article.deictic', 'article.kataphoric', 'article.granville_sharp',
+                  'article.colwell'];
+    for (const tid of NEW7) {
+        const t = all.find(x => x.id === tid);
+        check(`${tid} — active + conditions 非空`,
+              t?.status === 'active' && (t?.detection?.conditions ?? []).length > 0);
+    }
+    check('article 型数 = 11',
+          all.filter(t => t.id.startsWith('article.')).length === 11);
+}
+
+// ── Wallace 代表例 ───────────────────────────────────────────────
+console.log('\n  ─── 個別化用法（pp.216–227） ───');
+articleTest('MAT 2:14 τὸ παιδίον（単純識別=デフォルト）', 'MAT', 2, 14, 'παιδίον',
+            'article.simple_identification');
+articleTest('ROM 13:10 ἡ ἀγάπη（抽象名詞）', 'ROM', 13, 10, 'ἀγάπη', 'article.abstract');
+articleTest('JHN 7:38 ἡ γραφή（著名用法）', 'JHN', 7, 38, 'γραφή', 'article.well_known');
+articleTest('JHN 15:20 τοῦ λόγου οὗ（後方照応）', 'JHN', 15, 20, 'λόγος', 'article.kataphoric');
+
+console.log('\n  ─── 特殊構文（pp.256–290） ───');
+articleTest('EPH 1:3 ὁ θεὸς καὶ πατήρ（Granville Sharp TSKS）', 'EPH', 1, 3, 'θεός',
+            'article.granville_sharp');
+{
+    // JHN 1:1: 第3節 καὶ θεὸς ἦν ὁ λόγος の ὁ のみ colwell、前2つは par_excellence
+    const tokens = verseTokens('JHN', 1, 1);
+    const all = sa.analyzeAll(tokens);
+    const tops = [];
+    tokens.forEach((t, i) => {
+        if ((t.lemma ?? '') === 'ὁ' && (tokens[i + 1]?.lemma ?? '') === 'λόγος') {
+            const e = all.results.find(r => r.tokenIdx === i);
+            tops.push((e?.output?.candidates ?? [])[0]?.id ?? null);
+        }
+    });
+    check('JHN 1:1 — ὁ λόγος が 3 回出現', tops.length === 3, `${tops.length} 回`);
+    check('JHN 1:1 — 第3の ὁ（θεὸς ἦν ὁ λόγος）のみ colwell',
+          tops[2] === 'article.colwell' && tops[0] !== 'article.colwell' &&
+          tops[1] !== 'article.colwell',
+          `tops=[${tops.join(', ')}]`);
+}
+{
+    // LUK 23:47 ὁ ἄνθρωπος οὗτος δίκαιος ἦν:
+    // colwell（δίκαιος 無冠詞先行述語）と deictic（οὗτος 隣接）が両立する節。
+    // top は colwell、deictic も有効候補（≥0.50）であること。
+    const tokens = verseTokens('LUK', 23, 47);
+    const i = tokens.findIndex((t, k) =>
+        (t.lemma ?? '') === 'ὁ' && (tokens[k + 1]?.lemma ?? '') === 'ἄνθρωπος');
+    const all = sa.analyzeAll(tokens);
+    const cands = all.results.find(r => r.tokenIdx === i)?.output?.candidates ?? [];
+    check('LUK 23:47 — colwell が最上位（δίκαιος 無冠詞先行述語構文）',
+          cands[0]?.id === 'article.colwell', `top=${cands[0]?.id}`);
+    const de = cands.find(c => c.id === 'article.deictic');
+    check('LUK 23:47 — deictic（οὗτος 隣接）が有効候補（≥0.50）',
+          de != null && de.confidence >= 0.50, de ? de.confidence.toFixed(2) : 'なし');
+}
+
+// ── 回帰: 既存 4 用法が新型に負けないこと ────────────────────────
+console.log('\n  ─── 既存用法の回帰 ───');
+articleTest('回帰: MAT 5:14 τὸ φῶς → monadic 維持', 'MAT', 5, 14, 'φῶς', 'article.monadic');
+articleTest('回帰: LUK 10:7 ὁ ἐργάτης → generic 維持', 'LUK', 10, 7, 'ἐργάτης', 'article.generic');
+articleTest('回帰: JHN 1:21 ὁ προφήτης → par_excellence 維持', 'JHN', 1, 21, 'προφήτης',
+            'article.par_excellence');
+{
+    // 合成照応（§7h と同一入力）: previous_reference が simple_identification に勝つ
+    const synth = [
+        { class: 'noun', lemma: 'ἄνθρωπος', text: 'ἄνθρωπος', case: 'nominative', gender: 'masculine', number: 'singular' },
+        { class: 'verb', lemma: 'ἔρχομαι',  text: 'ἦλθεν', mood: 'indicative', tense: 'aorist' },
+        { class: 'det',  lemma: 'ὁ',        text: 'ὁ', case: 'nominative', gender: 'masculine', number: 'singular' },
+        { class: 'noun', lemma: 'ἄνθρωπος', text: 'ἄνθρωπος', case: 'nominative', gender: 'masculine', number: 'singular' },
+    ];
+    const all = sa.analyzeAll(synth);
+    const top = (all.results.find(r => r.tokenIdx === 2)?.output?.candidates ?? [])[0];
+    check('回帰: 合成照応 → previous_reference が simple_identification に勝つ',
+          top?.id === 'article.previous_reference', `top=${top?.id}`);
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7l  Phase 7.5 — Wallace Coverage Report（監査レイヤー）
+// ════════════════════════════════════════════════════════════════
+section('§7l  Wallace Coverage Report');
+
+{
+    const cov = require(path.join(__dirname, 'wallace-coverage.cjs'));
+    check('coverage: generateCoverage がエクスポートされている',
+          typeof cov.generateCoverage === 'function');
+    const report = cov.generateCoverage();
+    cov.writeReports(report);
+
+    // スキーマ検証
+    for (const k of ['generated_at', 'wallace_version', 'engine_version', 'summary', 'chapters']) {
+        check(`coverage: report.${k} が存在`, k in report);
+    }
+    for (const k of ['implemented_categories', 'implemented_types', 'active_types',
+                     'stub_types', 'tests']) {
+        check(`coverage: summary.${k} が数値`, typeof report.summary[k] === 'number');
+    }
+    check('coverage: 章数 ≥ 13', report.chapters.length >= 13, `${report.chapters.length}`);
+    check('coverage: status は complete/partial/planned のみ',
+          report.chapters.every(c => ['complete', 'partial', 'planned'].includes(c.status)));
+    for (const cat of ['Genitive', 'Dative', 'Accusative', 'Article', 'Participle']) {
+        const ch = report.chapters.find(c => c.label === cat);
+        check(`coverage: ${cat} 章が complete`, ch?.status === 'complete',
+              `status=${ch?.status} stub=${ch?.stub}`);
+    }
+    check('coverage: 整合性 FAIL ゼロ',
+          report.validation.failures.length === 0,
+          report.validation.failures.join(' / '));
+    check('coverage: stub_types = 0（Wallace 5 カテゴリ完成状態）',
+          report.summary.stub_types === 0);
+
+    // 生成物
+    for (const f of ['wallace_coverage.json', 'wallace_coverage.csv', 'wallace_coverage.md']) {
+        check(`coverage: ${f} が生成される`,
+              fs.existsSync(path.join(__dirname, 'output', f)));
+    }
+    const md = fs.readFileSync(path.join(__dirname, 'output', 'wallace_coverage.md'), 'utf8');
+    check('coverage: Markdown に Summary 節', md.includes('## Summary'));
+    check('coverage: Markdown に Validation 節', md.includes('## Validation'));
+}
+
+// ════════════════════════════════════════════════════════════════
 // §8  最終カバレッジレポート
 // ════════════════════════════════════════════════════════════════
 section('§8  最終カバレッジレポート');

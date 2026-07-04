@@ -1327,6 +1327,252 @@ CheckEvaluator.register('governor_lemma_eq',
     (ctx, [lemmaVal]) => ctx.governorPOS === 'P' && (ctx.governorLemma ?? '') === lemmaVal
 );
 
+// ── Phase 5: Valency / Clause / Head 派生判定 ────────────────────
+
+// 支配動詞（節の定形動詞）が指定格を支配するか（verb_valency 辞書参照）
+CheckEvaluator.register('valency_governs',
+    (ctx, [caseVal]) => {
+        const vv = ctx._registry?.getVerbValency?.(ctx.governorVerb?.lemma ?? '');
+        return vv?.governs_case === caseVal;
+    }
+);
+
+// 節内に complement='participle' の動詞（παύω 等）があるか
+CheckEvaluator.register('valency_complement_participle',
+    (ctx) => _clauseTokens(ctx).some(t => {
+        if (_resolveEntryPos(t) !== 'V') return false;
+        const vv = ctx._registry?.getVerbValency?.(t.lemma ?? '');
+        return vv?.complement === 'participle';
+    })
+);
+
+// コプラ動詞（εἰμί/γίνομαι/ὑπάρχω）の定形が同一節内にあるか。
+// 注: ctx.copulaVerb（詩節先頭のコプラ）ではなく節内を直接走査する。
+//   ① 詩節前半の別節コプラを誤参照しない（1CO 6:19 前半 ἐστιν 問題）
+//   ② 対象分詞自身（ὤν 等）をコプラとして数えない（HEB 5:8 問題）
+CheckEvaluator.register('context_has_copula',
+    (ctx) => {
+        const COPULA = ['εἰμί', 'γίνομαι', 'ὑπάρχω'];
+        return _clauseTokens(ctx).some(t => {
+            if (t === ctx.target) return false;
+            if (_resolveEntryPos(t) !== 'V') return false;
+            if (!COPULA.includes(t.lemma ?? '')) return false;
+            const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
+            return m.mood && m.mood !== 'participle' && m.mood !== 'infinitive';
+        });
+    }
+);
+
+// 対象の節が従属節か（従属接続詞・関係代名詞開始）
+CheckEvaluator.register('clause_is_subordinate',
+    (ctx) => ctx.subordinateClause === true
+);
+
+// 主動詞のレンマ判定（冗語的分詞: ἀποκριθεὶς εἶπεν 型）
+CheckEvaluator.register('main_verb_lemma_in',
+    (ctx, lemmas) => lemmas.includes(ctx.mainVerb?.lemma ?? '')
+);
+
+// 節内に定形動詞が存在しない（命令的分詞: ROM 12:9 型）
+CheckEvaluator.register('clause_lacks_finite_verb',
+    (ctx) => ctx.clause?.mainVerb == null
+);
+
+// 節内に不定詞があるか（対格主語: acc + inf 構文）
+CheckEvaluator.register('clause_has_infinitive',
+    (ctx) => _clauseTokens(ctx).some(t => {
+        const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
+        return m.mood === 'infinitive';
+    })
+);
+
+// 節内に完了受動の動詞形（定形・分詞とも）があるか（行為者与格: LUK 23:15 型）
+CheckEvaluator.register('clause_has_perfect_passive',
+    (ctx) => _clauseTokens(ctx).some(t => {
+        if (_resolveEntryPos(t) !== 'V') return false;
+        const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
+        return m.tense === 'perfect' && m.voice === 'passive';
+    })
+);
+
+// head が -τος 型動形容詞（行為者属格: διδακτοὶ θεοῦ 型・Wallace pp.126–127）
+CheckEvaluator.register('head_is_verbal_adjective',
+    (ctx) => /τός$|τος$/.test(ctx.headLemma ?? '')
+);
+
+// head レンマが対象より前に既出（前出指示用法・詩節内照応）
+CheckEvaluator.register('head_lemma_repeated_earlier',
+    (ctx) => {
+        const l = ctx.headLemma ?? '';
+        if (!l) return false;
+        return (ctx.tokens ?? []).some((t, i) =>
+            i < ctx.targetIdx && (t.lemma ?? '') === l);
+    }
+);
+
+// 対象が主動詞より後方にある（副詞的分詞の手段用法等の位置ヒント）
+CheckEvaluator.register('follows_main_verb',
+    (ctx) => ctx.mainVerbIdx >= 0 && ctx.mainVerbIdx < ctx.targetIdx
+);
+
+// ── Phase 6: Accusative 完成用ハンドラ ───────────────────────────
+
+// 節内に目的語補語動詞（καλέω/ποιέω/ἡγέομαι 等）があるか（valency 辞書）
+CheckEvaluator.register('valency_object_complement',
+    (ctx) => _clauseTokens(ctx).some(t => {
+        if (_resolveEntryPos(t) !== 'V') return false;
+        return ctx._registry?.getVerbValency?.(t.lemma ?? '')?.object_complement === true;
+    })
+);
+
+// 節内に人物+事物二重対格動詞（διδάσκω/αἰτέω 等）があるか（valency 辞書）
+CheckEvaluator.register('valency_double_accusative',
+    (ctx) => _clauseTokens(ctx).some(t => {
+        if (_resolveEntryPos(t) !== 'V') return false;
+        return ctx._registry?.getVerbValency?.(t.lemma ?? '')?.double_accusative === 'person_thing';
+    })
+);
+
+// 節内の対格「句」（連続する対格形トークンの塊）が 2 つ以上あるか。
+// 二重対格構文（目的語+補語 / 人+物）の構造要件。
+// "κύριον τὸν θεόν σου" は 1 塊（連続）、"ὑμᾶς … πάντα" は 2 塊。
+CheckEvaluator.register('clause_has_two_acc_chunks',
+    (ctx) => {
+        const toks = _clauseTokens(ctx);
+        let chunks = 0, inRun = false;
+        for (const t of toks) {
+            const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
+            const isAcc = m.case === 'accusative';
+            if (isAcc && !inRun) { chunks++; inRun = true; }
+            if (!isAcc) inRun = false;
+        }
+        return chunks >= 2;
+    }
+);
+
+// 節内動詞と対象が登録済み同根ペア（cognate_pair_lemmas: "動詞|名詞" 形式）
+CheckEvaluator.register('cognate_pair_match',
+    (ctx) => {
+        const pairs = ctx._registry?.getList?.('cognate_pair_lemmas');
+        if (!pairs || pairs.size === 0) return false;
+        const noun = ctx.target?.lemma ?? '';
+        return _clauseTokens(ctx).some(t => {
+            if (_resolveEntryPos(t) !== 'V') return false;
+            return pairs.has(`${t.lemma ?? ''}|${noun}`);
+        });
+    }
+);
+
+// 節内に εἶναι / γίνεσθαι の不定詞があるか（述語対格: acc + inf コプラ構文）
+CheckEvaluator.register('clause_has_copula_infinitive',
+    (ctx) => _clauseTokens(ctx).some(t => {
+        if (_resolveEntryPos(t) !== 'V') return false;
+        if (!['εἰμί', 'γίνομαι'].includes(t.lemma ?? '')) return false;
+        const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
+        return m.mood === 'infinitive';
+    })
+);
+
+// ── Phase 7: Article System 完成用ハンドラ（統語判定のみ） ────────
+
+// 冠詞の head 名詞の直後が関係代名詞（registry リスト）または
+// 一致する冠詞（第2限定位置）→ 後方照応（kataphoric）の構造標識
+CheckEvaluator.register('head_followed_by_relative_or_article',
+    (ctx, [listName]) => {
+        const h = ctx.head?.idx ?? -1;
+        if (h < 0) return false;
+        const toks = ctx.tokens ?? [];
+        const next = toks[h + 1];
+        if (!next) return false;
+        const rel = ctx._registry?.getList?.(listName);
+        if (rel && rel.has(next.lemma ?? '')) return true;
+        if (_resolveEntryPos(next) === 'T') {
+            const hm = typeof decodeMorph === 'function' ? decodeMorph(toks[h]) : {};
+            const nm = typeof decodeMorph === 'function' ? decodeMorph(next) : {};
+            return hm.case === nm.case && hm.gender === nm.gender && hm.number === nm.number;
+        }
+        return false;
+    }
+);
+
+// 冠詞名詞句に格・性・数一致の指示代名詞（registry リスト）が隣接
+//（head の直後 or 冠詞の直前）→ 指示的用法（deictic）
+CheckEvaluator.register('head_has_adjacent_demonstrative',
+    (ctx, [listName]) => {
+        const dem = ctx._registry?.getList?.(listName);
+        if (!dem) return false;
+        const h = ctx.head?.idx ?? -1;
+        if (h < 0) return false;
+        const toks = ctx.tokens ?? [];
+        const hm = typeof decodeMorph === 'function' ? decodeMorph(toks[h]) : {};
+        const agrees = (t) => {
+            if (!t || !dem.has(t.lemma ?? '')) return false;
+            const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
+            return m.case === hm.case && m.gender === hm.gender && m.number === hm.number;
+        };
+        return agrees(toks[h + 1]) || agrees(toks[ctx.targetIdx - 1]);
+    }
+);
+
+// Granville Sharp TSKS 構文: [T][名詞][καί][無冠詞名詞]・格一致・単数・
+// 第2名詞が非固有名詞（Wallace pp.270–290 の規則の統語的条件）
+CheckEvaluator.register('tsks_construction',
+    (ctx) => {
+        const ti = ctx.targetIdx ?? -1;
+        const toks = ctx.tokens ?? [];
+        const s1 = toks[ti + 1], kai = toks[ti + 2], s2 = toks[ti + 3];
+        if (!s1 || !kai || !s2) return false;
+        if ((kai.lemma ?? '') !== 'καί') return false;
+        if (!['N', 'A'].includes(_resolveEntryPos(s1))) return false;
+        if (!['N', 'A'].includes(_resolveEntryPos(s2))) return false;
+        const m1 = typeof decodeMorph === 'function' ? decodeMorph(s1) : {};
+        const m2 = typeof decodeMorph === 'function' ? decodeMorph(s2) : {};
+        if (m1.case !== m2.case || !m1.case) return false;
+        if (m1.number !== 'singular' || m2.number !== 'singular') return false;
+        // 第2名詞は非固有名詞（レンマ小文字始まり）— Sharp 規則の適用範囲
+        const l2 = s2.lemma ?? '';
+        const c = l2.length ? l2.codePointAt(0) : 0;
+        if (c >= 0x0391 && c <= 0x03A9) return false;
+        return true;
+    }
+);
+
+// Colwell 構文: 節内に定形コプラがあり、コプラより前に無冠詞の主格名詞
+// （述語主格候補）が存在し、冠詞側の head が主格 → 冠詞は主語標識
+// （Wallace pp.256–270: θεὸς ἦν ὁ λόγος）
+CheckEvaluator.register('colwell_subject_article',
+    (ctx) => {
+        const hm = ctx.head
+            ? (typeof decodeMorph === 'function' ? decodeMorph(ctx.head.token) : {})
+            : {};
+        if (hm.case !== 'nominative') return false;
+        const toks = ctx.tokens ?? [];
+        const s = Number.isInteger(ctx.clauseStart) ? ctx.clauseStart : 0;
+        const e = Number.isInteger(ctx.clauseEnd) ? ctx.clauseEnd : toks.length - 1;
+        // 節内の定形コプラ位置
+        let cop = -1;
+        for (let i = s; i <= e; i++) {
+            const t = toks[i];
+            if (_resolveEntryPos(t) !== 'V') continue;
+            if (!['εἰμί', 'γίνομαι'].includes(t.lemma ?? '')) continue;
+            const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
+            if (m.mood && m.mood !== 'participle' && m.mood !== 'infinitive') { cop = i; break; }
+        }
+        if (cop < 0) return false;
+        // コプラより前の無冠詞主格名詞（head 以外）
+        for (let j = s; j < cop; j++) {
+            const t = toks[j];
+            if (j === (ctx.head?.idx ?? -1)) continue;
+            if (!['N', 'A'].includes(_resolveEntryPos(t))) continue;
+            const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
+            if (m.case !== 'nominative') continue;
+            if (j > 0 && _resolveEntryPos(toks[j - 1]) === 'T') continue; // 有冠詞は除外
+            return true;
+        }
+        return false;
+    }
+);
+
 // ── Phase 4A: Head ベースの隣接名詞判定 ─────────────────────────
 // 旧 follows_head_noun は prev_pos_eq('N') で「直前が N」のみを判定し、
 // GNT 最多数派の [N][T][gen]（冠詞介在）を見逃していた。
@@ -1434,8 +1680,13 @@ CheckEvaluator.register('context_head_lemma_in_list',
 );
 
 // コンテキスト: 格・性・数が一致する名詞が存在するか（ParticipleScorer用）
+// Phase 4A: 分詞は ctx.head（一致する N/A/R・冠詞除外）を単一情報源とする。
+// 旧 matchingNoun は冠詞（T）にも一致したため「冠詞しか一致しない」場合に
+// 形容詞用法を過大評価していた（冠詞は被修飾名詞ではない — Wallace pp.617–621）。
 CheckEvaluator.register('context_has_case_gender_number_match',
-    (ctx) => ctx.matchingNoun != null
+    (ctx) => (ctx.morph?.mood === 'participle')
+        ? ctx.head != null
+        : ctx.matchingNoun != null
 );
 
 // 冠詞の直後の名詞のレンマがリストに含まれるか
@@ -1458,17 +1709,14 @@ CheckEvaluator.register('context_has_genitive_noun',
 // コンテキスト: 節内に比較級形容詞（-τερ語尾）が存在するか
 CheckEvaluator.register('context_has_comparative_adj',
     (ctx) => {
-        const tokens = ctx.tokens ?? [];
+        // Phase 4C: 比較級の探索は節スコープに限定（別節の比較級による誤発火防止）
+        const tokens = _clauseTokens(ctx);
         if (tokens.some(t => /τερ(ος|α|ον)/.test(t.word ?? ''))) return true;
-        // 不規則比較級: -ων/-ον 形（Wallace §4.C.7 pp.110-112 の比較属格対象）
-        const _IRREGULAR_COMPARATIVES = new Set([
-            'μείζων','μεῖζον','ἐλάσσων','ἔλαττον','κρείσσων','κρεῖσσον',
-            'πλείων','πλεῖον','μᾶλλον','ἥσσων','ἧσσον','χείρων','χεῖρον'
-        ]);
-        return tokens.some(t =>
-            _IRREGULAR_COMPARATIVES.has(t.lemma ?? '') ||
-            _IRREGULAR_COMPARATIVES.has(t.word ?? '')
-        );
+        // 不規則比較級（Wallace pp.110–112）— Phase 4.5D: registry を単一情報源とする
+        // （genitive.comparison.detection.irregular_comparative_lemmas）
+        const irr = ctx._registry?.getList?.('irregular_comparative_lemmas');
+        if (!irr || irr.size === 0) return false;
+        return tokens.some(t => irr.has(t.lemma ?? '') || irr.has(t.word ?? ''));
     }
 );
 
@@ -1477,9 +1725,9 @@ CheckEvaluator.register('context_has_negation',
     (ctx) => !!ctx.hasAdversative
 );
 
-// コンテキスト: 動詞が συν- 複合語か
+// コンテキスト: 動詞が συν- 複合語か（Phase 4C: 節スコープに限定）
 CheckEvaluator.register('context_verb_has_syn_prefix',
-    (ctx) => (ctx.tokens ?? []).some(t => {
+    (ctx) => _clauseTokens(ctx).some(t => {
         if (_resolveEntryPos(t) !== 'V') return false;
         const l = t.lemma ?? '';
         return l.startsWith('συν') || l.startsWith('συμ') || l.startsWith('συγ')
@@ -1552,12 +1800,12 @@ CheckEvaluator.register('genitive_subject_differs_from_main_subject',
     }
 );
 
-// 一致名詞との距離
+// 一致名詞との距離（Phase 4A: ctx.head の idx を単一情報源とする）
 CheckEvaluator.register('distance_to_match_le',
     (ctx, [n]) => {
-        if (!ctx.matchingNoun) return false;
-        const idx = (ctx.tokens ?? []).indexOf(ctx.matchingNoun);
-        return Math.abs(idx - ctx.targetIdx) <= Number(n);
+        const hi = ctx.head?.idx ?? -1;
+        if (hi < 0) return false;
+        return Math.abs(hi - ctx.targetIdx) <= Number(n);
     }
 );
 
@@ -1811,38 +2059,42 @@ class GenitiveScorer extends CandidateScorer {
                 // 分詞は ParticipleScorer が担当するため GenitiveScorer 側では除外
                 gaCand.rawScore = 0;
             } else {
-                // 名詞: 近接（3語以内）に独立属格分詞がなければ非属格絶対構文として抑制
-                // Phase 8: 冠詞直後の属格分詞 (substantival participle) は除外する。
-                //   "θεοῦ τοῦ ζῳοποιοῦντος" の τοῦ ζῳοποιοῦντος は限定用法であり
-                //   GA の主語根拠にならない。直前トークンが T (冠詞) の分詞を除外することで
-                //   P5 パターン（等位限定分詞の誤 GA ペアリング）を防ぐ。
+                // 名詞: 同一属格句（GenP）内に独立属格分詞がなければ非属格絶対構文として抑制。
+                // Phase 4E: 旧「±3語以内」の距離窓を ctx.genitivePhrases（連続属格句・
+                // 後置小辞透過）ベースに置換。GA は連続する属格句として実現される
+                // （Wallace pp.654–655）ため、句境界が距離窓より正確な判定単位になる。
+                // substantival 除外（旧 Phase 8 の Case 1/2）は句内判定として維持:
+                //   Case 1: "τοῦ [ptc]"（冠詞直後）→ 限定用法 → GA 根拠にならない
+                //   Case 2: "τοῦ νῦν ἐνεργοῦντος"（冠詞+副詞介在・格一致）→ 同上
                 const ti   = enrichedCtx.targetIdx;
                 const toks = enrichedCtx.tokens ?? [];
-                const hasNearGenitiveParticiple = toks.some((t, i) => {
-                    if (i === ti || Math.abs(i - ti) > 3) return false;
-                    const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
-                    if (!(m.mood === 'participle' && m.case === 'genitive')) return false;
-                    // Case 1: 直前が冠詞 → "τοῦ [ptc]" → substantival → 除外
-                    if (i > 0 && _resolveEntryPos(toks[i - 1]) === 'T') return false;
-                    // Case 2: 2語前が冠詞 かつ 直前が副詞・接続詞・小詞 かつ 格一致 →
-                    //   substantival (副詞介在パターン) → 除外。
-                    //   "τοῦ νῦν ἐνεργοῦντος" (τοῦ[gen] + νῦν[adv] + ptc[gen]) → 除外。
-                    //   格一致を必須とすることで "τῇ ἐπαύριον ἐξελθόντων" (MRK 11:12) の
-                    //   誤発火を防ぐ (τῇ は属格分詞に係らない与格冠詞)。
-                    if (i >= 2) {
-                        const p1 = _resolveEntryPos(toks[i - 1]);
-                        const p2 = _resolveEntryPos(toks[i - 2]);
-                        const p1isNonNominal = (p1 === 'D' || p1 === 'C' || p1 === 'X' || p1 === 'P');
-                        if (p2 === 'T' && p1isNonNominal) {
-                            const artCase = typeof decodeMorph === 'function'
-                                ? (decodeMorph(toks[i - 2])?.case ?? '')
-                                : '';
-                            if (artCase === m.case) return false;  // 格一致 → substantival
+                const gp   = (enrichedCtx.genitivePhrases ?? [])
+                    .find(p => ti >= p.start && ti <= p.end);
+                let hasGaParticipleInPhrase = false;
+                if (gp) {
+                    for (let i = gp.start; i <= gp.end; i++) {
+                        if (i === ti) continue;
+                        const m = typeof decodeMorph === 'function' ? decodeMorph(toks[i]) : {};
+                        if (!(m.mood === 'participle' && m.case === 'genitive')) continue;
+                        // Case 1: 直前が冠詞 → substantival → 除外
+                        if (i > 0 && _resolveEntryPos(toks[i - 1]) === 'T') continue;
+                        // Case 2: 2語前が冠詞 + 直前が非名詞系 + 格一致 → substantival → 除外
+                        if (i >= 2) {
+                            const p1 = _resolveEntryPos(toks[i - 1]);
+                            const p2 = _resolveEntryPos(toks[i - 2]);
+                            const p1isNonNominal = (p1 === 'D' || p1 === 'C' || p1 === 'X' || p1 === 'P');
+                            if (p2 === 'T' && p1isNonNominal) {
+                                const artCase = typeof decodeMorph === 'function'
+                                    ? (decodeMorph(toks[i - 2])?.case ?? '')
+                                    : '';
+                                if (artCase === m.case) continue;
+                            }
                         }
+                        hasGaParticipleInPhrase = true;
+                        break;
                     }
-                    return true;
-                });
-                if (!hasNearGenitiveParticiple) gaCand.rawScore = 0;
+                }
+                if (!hasGaParticipleInPhrase) gaCand.rawScore = 0;
             }
         }
 
@@ -1861,7 +2113,8 @@ class GenitiveScorer extends CandidateScorer {
             const subj = results.find(r => r.typeId === 'genitive.subjective');
             const obj  = results.find(r => r.typeId === 'genitive.objective');
             if (subj || obj) {
-                const suppress = enrichedCtx.isAfterPrep ||
+                // Phase 4B: isAfterPrep（直前のみ）→ governor（冠詞介在の前置詞句も捕捉）
+                const suppress = (enrichedCtx.governorPOS === 'P') ||
                     !registry.getList('action_noun_lemmas').has(
                         enrichedCtx.headLemma ?? ''
                     );
@@ -1913,11 +2166,11 @@ class GenitiveScorer extends CandidateScorer {
             const src = results.find(r => r.typeId === 'genitive.source');
             const sep = results.find(r => r.typeId === 'genitive.separation');
             if (src && sep && src.rawScore > 0 && sep.rawScore > 0) {
-                const hasSepVerb = !!enrichedCtx.tokens?.some(t => {
-                    const lemma = t.lemma ?? '';
-                    return ['χωρίζω','ἀποχωρίζω','ἀπαλλάσσω','ἐλευθερόω',
-                            'ἀποθνήσκω','ἀφίστημι','ἀπέχω','καταργέω'].includes(lemma);
-                });
+                // Phase 4.5D: ハードコード複製を廃止し registry を単一情報源とする
+                const sepVerbs = registry.getList('separation_verb_lemmas') ?? new Set();
+                const hasSepVerb = !!enrichedCtx.tokens?.some(
+                    t => sepVerbs.has(t.lemma ?? '')
+                );
                 if (hasSepVerb) {
                     src.rawScore = 0;  // 分離動詞あり: source 抑制
                 } else {
@@ -1980,27 +2233,27 @@ class DativeScorer extends CandidateScorer {
         // Phase 3: 手段的与格の優先補正
         // πίστις / χάρις / δύναμις / πνεῦμα など道具的意味の強い名詞を
         // dative.sphere / dative.manner より dative.means が勝つよう補正する。
-        // 前置詞 ἐν の直後（領域的与格の明示マーカー）の場合は補正しない。
-        const INSTRUMENTAL_LEMMAS = new Set([
-            'πίστις', 'χάρις', 'δύναμις', 'πνεῦμα',
-            'νόμος', 'ἀλήθεια', 'σοφία', 'δικαιοσύνη',
-        ]);
+        // Phase 4.5D: 語彙リストは registry（dative.means.detection.
+        // instrumental_noun_lemmas）を単一情報源とする。
+        const INSTRUMENTAL_LEMMAS =
+            registry.getList('instrumental_noun_lemmas') ?? new Set();
         const targetLemma = enrichedCtx.target?.lemma ?? '';
-        if (INSTRUMENTAL_LEMMAS.has(targetLemma) && !enrichedCtx.isAfterPrep) {
-            // ἐν が直前節にある場合（文脈的 sphere）は除外
-            const hasEn = enrichedCtx.tokens.some(
-                (t, i) => i < enrichedCtx.targetIdx && (t.lemma === 'ἐν' || t.text === 'ἐν')
-            );
-            if (!hasEn) {
-                const means  = results.find(r => r.typeId === 'dative.means');
-                const sphere = results.find(r => r.typeId === 'dative.sphere');
-                const manner = results.find(r => r.typeId === 'dative.manner');
-                // means: 45 + 35 = 80 (sphere の最大 65, manner の最大 75 を超える)
-                if (means)  means.rawScore  += 35;
-                if (sphere) sphere.rawScore  = Math.max(0, sphere.rawScore - 20);  // 65 → 45
-                // χάρις 等が manner_noun_lemmas に含まれる場合も manner を抑制
-                if (manner) manner.rawScore  = Math.max(0, manner.rawScore - 20);  // 75 → 55
-            }
+        // Phase 4F: 旧実装は「ἐν が target より前のどこかにある」という詩節全域
+        // スキャンで補正を抑止していた（無関係な ἐν 句でも抑止される過剰判定）。
+        // ctx.governor / ctx.phrase により「target 自身が前置詞句に属するか」を
+        // 直接判定する。前置詞支配下なら格でなく前置詞が意味を決定するため
+        // 道具的補正は非適用（Wallace: 前置詞句は前置詞の章の管轄）。
+        const inPrepPhrase = enrichedCtx.governorPOS === 'P' ||
+                             enrichedCtx.phrase?.type === 'PP';
+        if (INSTRUMENTAL_LEMMAS.has(targetLemma) && !inPrepPhrase) {
+            const means  = results.find(r => r.typeId === 'dative.means');
+            const sphere = results.find(r => r.typeId === 'dative.sphere');
+            const manner = results.find(r => r.typeId === 'dative.manner');
+            // means: 45 + 35 = 80 (sphere の最大 65, manner の最大 75 を超える)
+            if (means)  means.rawScore  += 35;
+            if (sphere) sphere.rawScore  = Math.max(0, sphere.rawScore - 20);  // 65 → 45
+            // χάρις 等が manner_noun_lemmas に含まれる場合も manner を抑制
+            if (manner) manner.rawScore  = Math.max(0, manner.rawScore - 20);  // 75 → 55
         }
 
         return results;
@@ -2053,6 +2306,32 @@ class ParticipleScorer extends CandidateScorer {
         }
 
         return results.filter(r => r.rawScore > 0);
+    }
+}
+
+
+// =============================================================
+// § 6a.  AccusativeScorer — 対格スコアラー（Phase 5 新設）
+// =============================================================
+//
+// Wallace §5 Accusative (pp.176–205)。
+// Phase 4.5 で Context API（head/governor/clause/phrase/valency）が
+// 安定化したため、ContextBuilder を変更せずカテゴリ追加のみで実装できる。
+
+class AccusativeScorer extends CandidateScorer {
+    /** 対格名詞・形容詞・代名詞に対応する（冠詞は ArticleScorer が担当） */
+    canHandle(ctx) {
+        return ctx.morph?.case === 'accusative' && ctx.posCode !== 'T';
+    }
+
+    score(ctx, registry) {
+        const types = registry.getTypesForCase('accusative');
+        if (!types || types.length === 0) return [];
+        const enrichedCtx = Object.assign(Object.create(ctx), { _registry: registry });
+        return types
+            .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+            .map(typeDef => this._evaluateType(typeDef, enrichedCtx))
+            .filter(result => result !== null && result.rawScore > 0);
     }
 }
 
@@ -2224,6 +2503,7 @@ const ContextBuilder = (() => {
     const _SUBORDINATOR_LEMMAS = new Set([
         'ὅτι', 'ἵνα', 'ἐάν', 'εἰ', 'ὅταν', 'ὅτε', 'καθώς', 'ἐπεί', 'ἐπειδή',
         'ὥστε', 'ὅπως', 'πρίν', 'ἕως', 'μήποτε', 'ὅπου', 'ἐπάν', 'καθάπερ', 'ἡνίκα',
+        'καίπερ', 'καίτοι',  // 譲歩小辞（καίπερ ὢν υἱός — 譲歩分詞節を従属節扱いにする）
     ]);
     /** 関係代名詞レンマ（節境界の開始標識） */
     const _RELATIVE_LEMMAS = new Set(['ὅς', 'ὅστις', 'ὅσπερ', 'οἷος', 'ὅσος']);
@@ -2272,6 +2552,35 @@ const ContextBuilder = (() => {
         const subordinate =
             _SUBORDINATOR_LEMMAS.has(firstLemma) || _RELATIVE_LEMMAS.has(firstLemma);
         return { start, end, subordinate };
+    }
+
+    /**
+     * Phase 4.5E: 詩節内の全節を線形分割して返す（入れ子対応の準備）。
+     * _segmentClause と同一の境界規則を使用する。
+     * parent は現状 null 固定（Phase 5 で従属節の親子解決を実装予定）。
+     * @returns {Array<{start,end,index,subordinate,parent}>}
+     */
+    function _segmentAllClauses(tokens) {
+        const clauses = [];
+        let start = 0;
+        for (let i = 0; i < tokens.length; i++) {
+            if (i > start && _isClauseOpener(tokens[i])) {
+                clauses.push({ start, end: i - 1 });
+                start = i;
+            }
+            if (_hasClauseBreakAfter(tokens[i]) && i + 1 < tokens.length) {
+                clauses.push({ start, end: i });
+                start = i + 1;
+            }
+        }
+        if (start < tokens.length) clauses.push({ start, end: tokens.length - 1 });
+        clauses.forEach((c, idx) => {
+            const fl = String(tokens[c.start]?.lemma ?? '');
+            c.index       = idx;
+            c.subordinate = _SUBORDINATOR_LEMMAS.has(fl) || _RELATIVE_LEMMAS.has(fl);
+            c.parent      = null; // 入れ子（親節）解決は将来実装
+        });
+        return clauses;
     }
 
     /** 範囲内の最初の定形動詞（分詞・不定詞以外） */
@@ -2377,10 +2686,21 @@ const ContextBuilder = (() => {
         }
 
         // ── 属格句（重複可の別レイヤー）: 連続する属格形トークン ──
+        // 後置小辞（δέ, γάρ, μέν, οὖν, τε）と等位接続 καί は、直後に属格が
+        // 続く場合に限り透過する（"Τοῦ δὲ Ἰησοῦ γεννηθέντος"・"τοῦ θεοῦ καὶ πατρός"）。
+        const _GENP_TRANSPARENT = new Set(['δέ', 'γάρ', 'μέν', 'οὖν', 'τε', 'καί']);
         const genitivePhrases = [];
         let gStart = -1;
         for (let i = 0; i <= n; i++) {
-            const isGen = i < n && morphAt(i).case === 'genitive';
+            let isGen = i < n && morphAt(i).case === 'genitive';
+            if (!isGen && i < n && gStart >= 0 &&
+                _GENP_TRANSPARENT.has(tokens[i]?.lemma ?? '')) {
+                // Phase 4.5E: 連続する透過小辞（二重小辞 "μὲν γάρ" 等）を
+                // まとめて先読みし、その先が属格なら句を継続する
+                let j = i + 1;
+                while (j < n && _GENP_TRANSPARENT.has(tokens[j]?.lemma ?? '')) j++;
+                if (j < n && morphAt(j).case === 'genitive') isGen = true;
+            }
             if (isGen && gStart < 0) gStart = i;
             if (!isGen && gStart >= 0) {
                 genitivePhrases.push({ type: 'GenP', start: gStart, end: i - 1 });
@@ -2389,6 +2709,40 @@ const ContextBuilder = (() => {
         }
 
         phrases.sort((a, b) => a.start - b.start);
+
+        // ── Phase 4.5B: 句の形態情報エンリッチ ──────────────────────
+        // 各句に head（句内ヘッドの index）・headLemma・case/gender/number・
+        // dependents（head 以外の構成トークン index）を付与する。
+        //   PP   → 前置詞の目的語（末尾の N/R）が形態ヘッド
+        //   PtcP → 分詞が形態ヘッド
+        //   NP   → 句内の最後の N（なければ末尾トークン）
+        //   GenP → 句内の最後の N/R（なければ末尾トークン）
+        const enrich = (p, headIdxRule) => {
+            let h = headIdxRule(p);
+            if (h < p.start || h > p.end) h = p.end;
+            const m = morphAt(h);
+            p.head       = h;
+            p.headLemma  = tokens[h]?.lemma ?? '';
+            p.case       = m.case   ?? '';
+            p.gender     = m.gender ?? '';
+            p.number     = m.number ?? '';
+            p.dependents = [];
+            for (let k = p.start; k <= p.end; k++) if (k !== h) p.dependents.push(k);
+            return p;
+        };
+        const lastPosIn = (p, poses) => {
+            for (let k = p.end; k >= p.start; k--) {
+                if (poses.includes(posAt(k))) return k;
+            }
+            return p.end;
+        };
+        phrases.forEach(p => {
+            if (p.type === 'PP')       enrich(p, q => lastPosIn(q, ['N', 'R']));
+            else if (p.type === 'PtcP') enrich(p, q => q.end);
+            else                        enrich(p, q => lastPosIn(q, ['N']));
+        });
+        genitivePhrases.forEach(p => enrich(p, q => lastPosIn(q, ['N', 'R'])));
+
         return { phrases, genitivePhrases };
     }
 
@@ -2472,12 +2826,15 @@ const ContextBuilder = (() => {
             const roleMap        = _buildInitialRoleMap(tokens);
 
             // 分詞専用
+            // Phase 4C: genitiveNoun（属格絶対の主語候補）と perceptionVerb は
+            // 節スコープに限定する（属格絶対は独立節・知覚動詞は同一節内で支配）。
+            const clauseToks = tokens.slice(clauseSeg.start, clauseSeg.end + 1);
             const { matchingNoun, matchScore } = _findMatchingNoun(target, tokens, targetIdx, morph);
             const genitiveNoun   = (morph.case === 'genitive')
-                ? _findGenitiveNoun(tokens, targetIdx)
+                ? _findGenitiveNoun(clauseToks, clauseToks.indexOf(target))
                 : null;
             const perceptionLemmas = registry?.getList?.('perception_verb_lemmas') ?? new Set();
-            const perceptionVerb = _findPerceptionVerb(tokens, targetIdx, perceptionLemmas);
+            const perceptionVerb = _findPerceptionVerb(clauseToks, clauseToks.indexOf(target), perceptionLemmas);
 
             // 属格用ヘッド名詞
             const headNoun = (morph.case === 'genitive') ? _findHeadNoun(tokens, targetIdx) : null;
@@ -2487,14 +2844,15 @@ const ContextBuilder = (() => {
             const adversativeLemmas= registry?.getList?.('adversative_lemmas')     ?? new Set();
             const negationLemmas   = registry?.getList?.('negation_lemmas')        ?? new Set();
 
-            const hasGivingVerb = tokens.some(t => {
+            // Phase 4C: 授与動詞・否定/逆接の検出も節スコープに限定
+            const hasGivingVerb = clauseToks.some(t => {
                 return _resolveEntryPos(t) === 'V' && givingLemmas.has(t.lemma ?? '');
             });
 
-            const hasAdversative = tokens.some(t => {
+            const hasAdversative = clauseToks.some(t => {
                 const l = t.lemma ?? '';
                 return adversativeLemmas.has(l) || negationLemmas.has(l);
-            }) || tokens.some(t => {
+            }) || clauseToks.some(t => {
                 const w = typeof cleanText === 'function' ? cleanText(t) : (t.word ?? '');
                 return w === 'οὐ' || w === 'οὐκ' || w === 'οὐχ' || w === 'μή' || w === 'μηδέ';
             });
@@ -2528,11 +2886,16 @@ const ContextBuilder = (() => {
             const governorVerb = mainVerb ?? null; // 支配動詞（前置詞の有無と独立）
 
             // 実装3: Clause API
+            // Phase 4.5E: 詩節内の全節リスト（入れ子対応の準備。parent は null 固定）
+            const clauses = _segmentAllClauses(tokens);
             const clause = {
                 start:       clauseSeg.start,
                 end:         clauseSeg.end,
                 mainVerb:    clauseMainVerb,
                 subordinate: clauseSeg.subordinate,
+                index:       clauses.findIndex(
+                    c => targetIdx >= c.start && targetIdx <= c.end),
+                parent:      null, // 入れ子（親節）解決は将来実装
             };
 
             // 実装5: Dependency Helper（最小実装 — 完全依存構造解析ではない）
@@ -2554,17 +2917,41 @@ const ContextBuilder = (() => {
             const governs = (gIdx, dIdx) => {
                 if (gIdx === dIdx) return false;
                 const g = tokens[gIdx];
-                if (!g) return false;
+                const d = tokens[dIdx];
+                if (!g || !d) return false;
                 const gp = _resolveEntryPos(g);
+                const dm = typeof decodeMorph === 'function' ? decodeMorph(d) : {};
                 if (gp === 'P') {
                     // 前置詞は自分の PP 内の後続語を支配
                     const pp = phrases.find(p => p.type === 'PP' && p.start === gIdx);
                     return Boolean(pp && dIdx > gIdx && dIdx <= pp.end);
                 }
+                // Phase 4.5C: 名詞系（N/A/R）→ 属格修飾・限定分詞の支配
+                if (['N', 'A', 'R'].includes(gp)) {
+                    // 属格修飾: d の head 解決（後方 N/A/R）が g に一致
+                    if (dm.case === 'genitive' && _findHeadNoun(tokens, dIdx) === g) {
+                        return true;
+                    }
+                    // 限定分詞: d（分詞）の一致名詞解決が g に一致
+                    if (dm.mood === 'participle' &&
+                        _findAgreeingNominal(tokens, dIdx, dm) === g) {
+                        return true;
+                    }
+                    return false;
+                }
                 if (gp === 'V') {
-                    // 定形動詞は同一節内の語を支配（PP の目的語は前置詞が支配）
                     const m = typeof decodeMorph === 'function' ? decodeMorph(g) : {};
-                    if (!m.mood || m.mood === 'participle' || m.mood === 'infinitive') return false;
+                    // Phase 4.5C: 属格絶対 — 属格分詞は同一 GenP 内の
+                    // 属格名詞・代名詞（意味上の主語）を支配する
+                    if (m.mood === 'participle') {
+                        if (m.case !== 'genitive' || dm.case !== 'genitive') return false;
+                        if (!['N', 'A', 'R'].includes(_resolveEntryPos(d))) return false;
+                        const genp = genitivePhrases.find(
+                            p => gIdx >= p.start && gIdx <= p.end);
+                        return Boolean(genp && dIdx >= genp.start && dIdx <= genp.end);
+                    }
+                    if (m.mood === 'infinitive' || !m.mood) return false;
+                    // 定形動詞は同一節内の語を支配（PP の目的語は前置詞が支配）
                     if (gIdx < clause.start || gIdx > clause.end) return false;
                     if (dIdx < clause.start || dIdx > clause.end) return false;
                     const dp = phrases.find(p => dIdx >= p.start && dIdx <= p.end);
@@ -2608,7 +2995,7 @@ const ContextBuilder = (() => {
                 governorVerb,
                 governorLemma: governor?.lemma ?? '',
                 governorPOS:   governor?.pos   ?? '',
-                clause,
+                clause, clauses,
                 clauseStart:       clause.start,
                 clauseEnd:         clause.end,
                 subordinateClause: clause.subordinate,
@@ -2709,6 +3096,7 @@ class SyntaxAnalyzer {
             new ArticleScorer(),
             new GenitiveScorer(),
             new DativeScorer(),
+            new AccusativeScorer(),   // Phase 5: Wallace §5 (pp.176–205)
             new ParticipleScorer(),
         ];
         this.normalizer = new CandidateNormalizer();
@@ -2914,6 +3302,23 @@ if (typeof module !== 'undefined' && module.exports) {
         // article.par_excellence が following_noun_in_list で参照（卓越的役割名詞）
         'par_excellence_noun_lemmas': [
             { typeId: 'article.par_excellence', detKey: 'par_excellence_noun_lemmas' },
+        ],
+        // article.generic が following_noun_in_list で参照（総称的類名詞・Phase 5）
+        'generic_noun_lemmas': [
+            { typeId: 'article.generic', detKey: 'generic_noun_lemmas' },
+        ],
+        // ── Phase 7: Article System ───────────────────────────────────
+        'well_known_noun_lemmas': [
+            { typeId: 'article.well_known', detKey: 'well_known_noun_lemmas' },
+        ],
+        'abstract_article_lemmas': [
+            { typeId: 'article.abstract', detKey: 'abstract_article_lemmas' },
+        ],
+        'demonstrative_lemmas': [
+            { typeId: 'article.deictic', detKey: 'demonstrative_lemmas' },
+        ],
+        'relative_pronoun_lemmas': [
+            { typeId: 'article.kataphoric', detKey: 'relative_pronoun_lemmas' },
         ],
     };
 
@@ -3230,6 +3635,18 @@ if (typeof module !== 'undefined' && module.exports) {
         globalThis._BUILTIN_CONDITION_SIGNAL_MAP = _BUILTIN_CONDITION_SIGNAL_MAP;
     }
 
+    // ── Phase 4.5A: Verb Valency Dictionary アクセサ ──────────────
+    // shared.verb_valency（動詞の支配格・必須項・任意項）を返す。
+    // Scorer からは未使用（将来の direct-object 型・complementary 判定の基盤）。
+    if (typeof RegistryLoader !== 'undefined' &&
+        !RegistryLoader.prototype.getVerbValency) {
+        RegistryLoader.prototype.getVerbValency = function (lemma) {
+            const vv = this.getShared?.()?.verb_valency ?? null;
+            if (!vv || !lemma || String(lemma).startsWith('_')) return null;
+            return vv[lemma] ?? null;
+        };
+    }
+
     /**
      * condition.id に対応する signal.id を返す。
      * 1. 直接一致（signal.id === condition.id）→ condition をそのまま返す（既存動作）
@@ -3446,11 +3863,12 @@ CheckEvaluator.register('context_discourse_type_eq',
 // ⑦ context_lemma_in_list — 節内全トークンのレンマを named list と照合
 //    dative.reference の reference_head_word 等で使用（POS 制限なし：
 //    νεκρός は形容詞、ζάω は動詞・分詞で現れるため）。
+//    Phase 4C: 節スコープに限定。
 CheckEvaluator.register('context_lemma_in_list',
     (ctx, [listName]) => {
         const list = ctx._registry?.getList?.(listName);
         if (!list) return false;
-        return (ctx.tokens ?? []).some(t => list.has(t.lemma ?? ''));
+        return _clauseTokens(ctx).some(t => list.has(t.lemma ?? ''));
     }
 );
 
