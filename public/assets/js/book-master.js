@@ -124,6 +124,10 @@
             try {
                 const res = await fetch(probePath, { method: 'HEAD' });
                 if (res.ok) {
+                    /* SPA サーバは存在しないパスに HTML フォールバック (200+text/html) を返す。
+                       content-type が JSON でない場合は実データではないため偽陽性として除外する。 */
+                    const ct = res.headers.get('content-type') || '';
+                    if (!ct.includes('json')) continue;
                     const detail = { key: b.key, declaredChapters: b.chapters, probedChapter: b.chapters + 1 };
                     console.error('[BookMaster] books.json の章数が不足している可能性があります', detail);
                     if (onAnomaly) onAnomaly(detail);
