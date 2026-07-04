@@ -104,9 +104,9 @@
                 "conditions": [
                   {
                     "id": "follows_head_noun",
-                    "signal": "target が名詞の直後または冠詞＋名詞句の後に置かれる",
-                    "check": "prev_pos_in(['N','T','A'])",
-                    "note": "最も頻出のパターン。後続属格が前の名詞を修飾する。"
+                    "signal": "target が名詞の直後に置かれる（N のみ：冠詞 T を除く）",
+                    "check": "prev_pos_eq('N')",
+                    "note": "直前トークンが N（名詞）のみ一致。T（冠詞）は属格名詞自身の冠詞であり head noun ではないため除外。"
                   },
                   {
                     "id": "article_agreement",
@@ -210,8 +210,8 @@
                 "conditions": [
                   {
                     "id": "follows_head_noun",
-                    "signal": "名詞に後続する属格",
-                    "check": "prev_pos_in(['N','T','A'])"
+                    "signal": "名詞に後続する属格（N のみ：冠詞 T を除く）",
+                    "check": "prev_pos_eq('N')"
                   },
                   {
                     "id": "qualitative_noun",
@@ -424,11 +424,17 @@
                     "signal": "対応する形容詞があり意味が等価",
                     "check": "has_adjectival_equivalent()",
                     "note": "ヒューリスティック。確定は文脈依存。"
+                  },
+                  {
+                    "id": "semitic_context",
+                    "signal": "ヘブライ語的文体の文脈",
+                    "check": "context_discourse_type_eq('semitic')",
+                    "note": "_TODO: 文体判定は未実装（恒偽）。orphan signal 化を防ぐための条件ゲート。"
                   }
                 ]
               },
               "xsc": {
-                "base_weight": 15,
+                "base_weight": 10,
                 "signals": [
                   {
                     "id": "abstract_genitive",
@@ -438,7 +444,8 @@
                   {
                     "id": "adjectival_equivalent",
                     "value": 20,
-                    "label_ja": "対応形容詞と意味等価"
+                    "label_ja": "対応形容詞と意味等価",
+                    "_TODO": "has_adjectival_equivalent() は未実装スタブ——このシグナルは常に dead（加点不可）。条件なし登録のため unconditional 扱いになるが、実装まで意図的に放置。実装後は detection.conditions に adjectival_equivalent 条件を追加すること。"
                   },
                   {
                     "id": "semitic_context",
@@ -446,7 +453,7 @@
                     "label_ja": "ヘブライ語的文体の文脈"
                   }
                 ],
-                "default_confidence": 45
+                "default_confidence": 35
               },
               "alternatives": [
                 "genitive.descriptive",
@@ -507,6 +514,12 @@
                     "id": "head_is_abstract_or_symbol",
                     "signal": "ヘッドが抽象概念・象徴語",
                     "check": "head_lemma_in_list('abstract_symbol_lemmas')"
+                  },
+                  {
+                    "id": "no_possessive_semantics",
+                    "signal": "所有関係の意味が成立しない",
+                    "check": "semantic_equivalence_test()",
+                    "note": "_TODO: 意味論的排除テストは未実装（恒偽）。orphan signal 化を防ぐための条件ゲート。"
                   }
                 ],
                 "trigger_head_lemmas": [
@@ -574,18 +587,63 @@
               "wallace_ref": "§4.A.1 sub (pp.83–84)",
               "wallace_freq": "common",
               "priority": 3,
-              "status": "stub",
+              "status": "active",
               "description_ja": "家族・師弟などの人的関係を示す。「〜の息子」「〜の弟子」。",
-              "hint_ja": "人名の属格が家族・社会関係を表す名詞に後続する。",
+              "description_en": "The genitive denotes a familial or social relationship (son of, brother of, etc.).",
+              "example_verse": "MAT 1:1",
+              "example_greek": "υἱοῦ Δαυίδ υἱοῦ Ἀβραάμ",
+              "example_gloss": "「ダビデの子、アブラハムの子」——固有名詞属格が家族関係名詞に後続",
+              "hint_ja": "人名の属格が家族・社会関係を表す名詞（υἱός, ἀδελφός 等）に後続する。",
+              "reading_impact": {
+                "label_ja": "人的関係の特定",
+                "tip_ja": "父子・兄弟・師弟など人的関係を確定する。文書の文脈・家系の特定に重要。",
+                "impact_key": "qualifying"
+              },
               "detection": {
                 "required_case": "genitive",
-                "conditions": [],
-                "note": "stub"
+                "conditions": [
+                  {
+                    "id": "head_is_kinship_noun",
+                    "signal": "ヘッドが親族・関係名詞（υἱός, ἀδελφός 等）",
+                    "check": "head_lemma_in_list('kinship_head_lemmas')"
+                  },
+                  {
+                    "id": "proper_name_genitive",
+                    "signal": "属格が固有名詞（人名）",
+                    "check": "target_is_proper_noun()"
+                  }
+                ],
+                "kinship_head_lemmas": [
+                  "υἱός",
+                  "ἀδελφός",
+                  "μήτηρ",
+                  "πατήρ",
+                  "θυγάτηρ",
+                  "σύζυγος",
+                  "ἀνήρ",
+                  "γυνή",
+                  "τέκνον",
+                  "παῖς",
+                  "ἀδελφή",
+                  "πρεσβύτερος",
+                  "νυμφίος"
+                ]
               },
               "xsc": {
-                "base_weight": 0,
-                "signals": [],
-                "default_confidence": 40
+                "base_weight": 10,
+                "signals": [
+                  {
+                    "id": "kinship_noun_head",
+                    "value": 35,
+                    "label_ja": "親族・関係名詞がヘッド（υἱός, ἀδελφός 等）"
+                  },
+                  {
+                    "id": "proper_name_genitive",
+                    "value": 15,
+                    "label_ja": "固有名詞属格（人名）"
+                  }
+                ],
+                "default_confidence": 50
               },
               "alternatives": [
                 "genitive.possessive"
@@ -635,7 +693,7 @@
               "xsc": {
                 "base_weight": 0,
                 "signals": [],
-                "default_confidence": 40
+                "default_confidence": 38
               },
               "alternatives": [
                 "genitive.partitive"
@@ -732,6 +790,16 @@
                     "id": "pronoun_genitive",
                     "signal": "人称代名詞属格",
                     "check": "target_pos_eq('P')"
+                  },
+                  {
+                    "id": "proper_name_genitive",
+                    "signal": "固有名詞属格（神名・人名）",
+                    "check": "target_is_proper_noun()"
+                  },
+                  {
+                    "id": "agentive_semantics",
+                    "signal": "行為者として読める意味論的文脈（action noun ヘッド要件）",
+                    "check": "head_lemma_in_list('action_noun_lemmas')"
                   }
                 ],
                 "trigger_head_lemmas": [
@@ -745,7 +813,37 @@
                   "ἀποκάλυψις",
                   "εὐαγγέλιον",
                   "λόγος",
-                  "χάρις"
+                  "χάρις",
+                  "ζῆλος",
+                  "φόβος",
+                  "χαρά",
+                  "λύπη",
+                  "εἰρήνη",
+                  "πόθος",
+                  "μῖσος",
+                  "ἐπιθυμία",
+                  "διακονία",
+                  "λατρεία",
+                  "μαρτυρία",
+                  "κλῆσις",
+                  "παράκλησις",
+                  "ἀγγελία",
+                  "ἐντολή",
+                  "δόξα",
+                  "τιμή",
+                  "ὀργή",
+                  "βούλημα",
+                  "θέλημα",
+                  "κρῖμα",
+                  "νίκη",
+                  "ἀνάστασις",
+                  "προσευχή",
+                  "εὐχαριστία",
+                  "ἐλεημοσύνη",
+                  "δύναμις",
+                  "ἐνέργεια",
+                  "παρουσία",
+                  "ἀποστολή"
                 ],
                 "disambiguation_note": "同一構文でも objective genitive の可能性がある。ヘッドの動詞的意味・文脈で決定。"
               },
@@ -766,6 +864,11 @@
                     "id": "pronoun_genitive",
                     "value": 10,
                     "label_ja": "人称代名詞属格"
+                  },
+                  {
+                    "id": "proper_name_genitive",
+                    "value": 15,
+                    "label_ja": "固有名詞属格（神・人名は主語的解釈が優勢）"
                   }
                 ],
                 "default_confidence": 50
@@ -829,6 +932,11 @@
                     "id": "proper_name_genitive",
                     "signal": "固有名詞属格",
                     "check": "target_is_proper_noun()"
+                  },
+                  {
+                    "id": "patient_semantics",
+                    "signal": "受け手として読める意味論的文脈（action noun ヘッド要件）",
+                    "check": "head_lemma_in_list('action_noun_lemmas')"
                   }
                 ],
                 "trigger_head_lemmas": [
@@ -838,9 +946,33 @@
                   "γνῶσις",
                   "κρίσις",
                   "ἀποκάλυψις",
-                  "ἀγαπᾶν",
-                  "πιστεύειν",
-                  "εἰδέναι"
+                  "ζῆλος",
+                  "φόβος",
+                  "χαρά",
+                  "λύπη",
+                  "εἰρήνη",
+                  "πόθος",
+                  "μῖσος",
+                  "ἐπιθυμία",
+                  "διακονία",
+                  "λατρεία",
+                  "μαρτυρία",
+                  "κλῆσις",
+                  "παράκλησις",
+                  "ἀγγελία",
+                  "ἐντολή",
+                  "δόξα",
+                  "τιμή",
+                  "ὀργή",
+                  "θέλημα",
+                  "κρῖμα",
+                  "ἀνάστασις",
+                  "προσευχή",
+                  "εὐχαριστία",
+                  "δύναμις",
+                  "ἐνέργεια",
+                  "παρουσία",
+                  "ἀποστολή"
                 ]
               },
               "xsc": {
@@ -1044,7 +1176,7 @@
                   "ἀποθνήσκω",
                   "ἀφίστημι",
                   "ἀπέχω",
-                  "κατηργέω"
+                  "καταργέω"
                 ]
               },
               "xsc": {
@@ -1129,9 +1261,7 @@
                   "ὥρα",
                   "καιρός",
                   "χρόνος",
-                  "νυκτός",
                   "ἑσπέρα",
-                  "πρωΐ",
                   "σάββατον"
                 ]
               },
@@ -1250,6 +1380,95 @@
               "alternatives": [
                 "genitive.descriptive"
               ]
+            },
+            {
+              "id": "genitive.source",
+              "ui_role": "mod",
+              "label_ja": "起源属格",
+              "label_en": "Genitive of Source",
+              "wallace_ref": "§4.C.4 (pp.109–110)",
+              "wallace_freq": "occasional",
+              "priority": 3,
+              "status": "active",
+              "description_ja": "属格がヘッドの出所・起源・由来を示す。「〜から来る・〜に由来する」。ἀπό/ἐκ/παρά に支配されることが多い。",
+              "description_en": "The genitive substantive indicates the source or origin from which something comes.",
+              "example_verse": "JAS 1:13",
+              "example_greek": "Ἀπὸ θεοῦ πειράζομαι",
+              "example_gloss": "「神から誘惑される（神が誘惑の起源ではない）」——θεοῦ が起源属格",
+              "hint_ja": "「〜���ら来る・〜���由来する」と訳せる属格。前置詞 ἀπό/ἐκ/παρά を伴うことが多い。分離属格との違い：起源属格は出所・由来を表し、分離属格は分離・除去を意味する動詞が支配する。",
+              "reading_impact": {
+                "label_ja": "起源・出所の特定",
+                "tip_ja": "何が・誰が出所かを示す。神学的文脈では「神からの賜物」「神の使者」などの起源を強調する。",
+                "impact_key": "source_origin"
+              },
+              "detection": {
+                "required_case": "genitive",
+                "conditions": [
+                  {
+                    "id": "prep_source_present",
+                    "signal": "ἀπό/ἐκ/παρά が直前",
+                    "check": "prev_token_lemma_in(['ἀπό','ἐκ','παρά'])",
+                    "note": "起源・出所を示す前置詞"
+                  },
+                  {
+                    "id": "no_separation_verb",
+                    "signal": "分離動詞と共起しない",
+                    "check": "NOT context_verb_lemma_in_list('separation_verb_lemmas')",
+                    "note": "分離属格との弁別。χωρίζω 等の分離動詞があれば genitive.separation を優先"
+                  },
+                  {
+                    "id": "divine_or_personal_source",
+                    "signal": "固有名詞（神名・人名）が起源として立つ",
+                    "check": "target_is_proper_noun()",
+                    "note": "Wallace pp.109–110: 起源属格は人格的起源（神・人物）が典型。"
+                  }
+                ],
+                "source_prepositions": [
+                  "ἀπό",
+                  "ἐκ",
+                  "παρά"
+                ]
+              },
+              "xsc": {
+                "base_weight": 15,
+                "signals": [
+                  {
+                    "id": "source_prep",
+                    "value": 35,
+                    "label_ja": "ἀπό / ἐκ / παρά が直前"
+                  },
+                  {
+                    "id": "divine_or_personal_source",
+                    "value": 20,
+                    "label_ja": "神・人物名などの起源名詞"
+                  }
+                ],
+                "default_confidence": 55
+              },
+              "alternatives": [
+                "genitive.separation",
+                "genitive.descriptive"
+              ],
+              "dictionary": {
+                "summary": "属格が「出所・起��・由来」を示す副詞的用法。前置詞 ἀπό/ἐκ/π��ρά を伴うことが多い。",
+                "diagnostics": [
+                  "「〜から来る・〜に由来する・〜から生まれる」と訳せる",
+                  "前置詞 ἀπό/ἐκ/παρά が直前にある",
+                  "分離・除去を意味する動詞は伴わない（分離属格との弁別点）",
+                  "神・人物・場所・概念が「起源・出所」として立つ"
+                ],
+                "evidence": [
+                  "ἀπό/ἐκ/παρά + 属格の構造",
+                  "起源・由来の意味を持つ文脈"
+                ],
+                "reasoning": [
+                  "前置詞と属格の組み合わせが起源方向を示す",
+                  "分離動詞がなければ除去ではなく起源"
+                ],
+                "classification": "Hybrid",
+                "classification_def": "統語的手がかり（前置詞）と意味的解釈（起源か分離か）の両方で判定する。",
+                "reading_impact_detail": "起源属格を認識することで、その人物・事物が「どこから来たか・誰によるか」が明示される。神学的文脈では神・律法・人間など起源の帰属が重要な意味を持つ。"
+              }
             },
             {
               "id": "genitive.absolute",
@@ -1390,9 +1609,9 @@
               "status": "active",
               "description_ja": "動作の最終的な受け手・到達先を示す。「〜に（与える・言う・送る）」。",
               "description_en": "Indicates the person to whom something is given, said, or done.",
-              "example_verse": "JHN 3:16",
-              "example_greek": "ἔδωκεν τὸν υἱὸν τὸν μονογενῆ",
-              "example_gloss": "「独り子を（世に）与えた」——ここでは τῷ κόσμῳ が間接目的語",
+              "example_verse": "MAT 7:6",
+              "example_greek": "Μὴ δῶτε τὸ ἅγιον τοῖς κυσίν",
+              "example_gloss": "「聖なるものを犬に与えてはならない」——τοῖς κυσίν が δίδωμι の間接目的語",
               "hint_ja": "「与える・言う・送る・示す」系の動詞と共に現れる与格。受け手を示す。",
               "reading_impact": {
                 "label_ja": "動作の受け手",
@@ -1713,8 +1932,9 @@
                 "conditions": [
                   {
                     "id": "reference_head_word",
-                    "signal": "ヘッドが「死・生・自由・奴隷」系の語",
-                    "check": "context_head_lemma_in_list('reference_head_lemmas')"
+                    "signal": "節内に「死・生・自由・奴隷」系の語がある",
+                    "check": "context_lemma_in_list('reference_head_lemmas')",
+                    "note": "旧実装 context_head_lemma_in_list は ctx.headNoun（属格専用）参照のため与格では恒偽だった。節内全トークンスキャンへ変更。"
                   },
                   {
                     "id": "no_giving_verb",
@@ -1835,9 +2055,9 @@
               "status": "active",
               "description_ja": "動作・状態が成立する領域・分野・空間を示す。「〜の領域において」「〜において」。",
               "description_en": "Indicates the sphere or realm in which the action or state holds true.",
-              "example_verse": "ROM 12:2",
-              "example_greek": "ἀνακαινώσει τοῦ νοός",
-              "example_gloss": "「心の刷新によって」（νοός = 属格だが、νοΐ 与格で「心の領域で」表現する場合も）",
+              "example_verse": "ACT 16:5",
+              "example_greek": "ἐστερεοῦντο τῇ πίστει",
+              "example_gloss": "「信仰において堅くされていった」——τῇ πίστει が領域与格（Wallace p.155 引用例）",
               "hint_ja": "「〜の点で・〜において」という分野・領域を示す。精神・霊的領域の表現に多い。",
               "reading_impact": {
                 "label_ja": "領域・分野の指定",
@@ -1940,6 +2160,12 @@
                     "id": "temporal_noun",
                     "signal": "時を示す名詞の与格",
                     "check": "target_lemma_in_list('temporal_noun_lemmas')"
+                  },
+                  {
+                    "id": "article_present",
+                    "signal": "直前に冠詞（特定時点の標識）",
+                    "check": "prev_pos_eq('T')",
+                    "note": "Wallace pp.155–157: 時点与格は τῇ τρίτῃ ἡμέρᾳ のように冠詞を伴うことが多い。"
                   }
                 ],
                 "trigger_lemmas": [
@@ -2109,9 +2335,9 @@
               "status": "active",
               "description_ja": "動作がどのように行われるかを示す。「〜の様態で・〜をもって」。",
               "description_en": "Indicates the manner in which the action is performed.",
-              "example_verse": "ROM 15:13",
-              "example_greek": "πληρώσαι ὑμᾶς πάσης χαρᾶς καὶ εἰρήνης",
-              "example_gloss": "「あらゆる喜びと平和で満たしてください」",
+              "example_verse": "JHN 7:26",
+              "example_greek": "παρρησίᾳ λαλεῖ",
+              "example_gloss": "「公然と語っている」——παρρησίᾳ が様態与格（Wallace p.162 引用例）",
               "hint_ja": "副詞に言い換えられる与格。抽象名詞が多い（喜び・平和・忍耐・勇気等）。",
               "reading_impact": {
                 "label_ja": "動作の様態描写",
@@ -2125,6 +2351,12 @@
                     "id": "abstract_manner_noun",
                     "signal": "様態・感情・性質を示す抽象名詞",
                     "check": "target_lemma_in_list('manner_noun_lemmas')"
+                  },
+                  {
+                    "id": "adverb_substitutable",
+                    "signal": "副詞への言い換え可能",
+                    "check": "semantic_substitution_test('adverb')",
+                    "note": "_TODO: 意味論的テストは未実装（恒偽）。orphan signal 化を防ぐための条件ゲート。実装時に置換。"
                   }
                 ],
                 "manner_noun_lemmas": [
@@ -2133,7 +2365,6 @@
                   "ἀγάπη",
                   "σπουδή",
                   "ταπεινοφροσύνη",
-                  "δυνάμει",
                   "παρρησία",
                   "θάρσος",
                   "φόβος",
@@ -2193,9 +2424,9 @@
               "status": "active",
               "description_ja": "「〜と共に・〜と一緒に」共同行動・結合関係を示す。σύν 前置詞の代替。",
               "description_en": "Indicates association or accompaniment ('together with').",
-              "example_verse": "ROM 8:17",
-              "example_greek": "συγκληρονόμοι δὲ Χριστοῦ",
-              "example_gloss": "「キリストと共に相続人」——共同相続の文脈",
+              "example_verse": "ROM 6:4",
+              "example_greek": "συνετάφημεν οὖν αὐτῷ διὰ τοῦ βαπτίσματος",
+              "example_gloss": "「バプテスマによって彼と共に葬られた」——αὐτῷ が結合与格（συν- 複合動詞と共起）",
               "hint_ja": "σύν + 与格 または syn- 複合動詞と共に現れる与格。「共に〜する」文脈。",
               "reading_impact": {
                 "label_ja": "共同・連帯関係",
@@ -2346,12 +2577,12 @@
               "wallace_freq": "common",
               "priority": 2,
               "status": "active",
-              "description_ja": "名詞を修飾する形容詞として機能する。冠詞なしで格・性・数が一致する名詞を修飾。",
-              "description_en": "Functions as an adjective, modifying a noun (without article in the most common pattern).",
-              "example_verse": "JHN 4:10",
+              "description_ja": "名詞を修飾する形容詞として機能する。冠詞を伴う限定位置（第1・第2限定位置）が最も明確で、無冠詞の場合は確度が下がる（Wallace pp.617–618）。",
+              "description_en": "Functions as an adjective modifying a noun. Clearest in attributive position with the article; anarthrous examples are less certain.",
+              "example_verse": "JHN 4:11",
               "example_greek": "τὸ ὕδωρ τὸ ζῶν",
-              "example_gloss": "「生ける水」——ζῶν（分詞）が ὕδωρ を限定修飾",
-              "hint_ja": "節内に格・性・数が一致する名詞があり、冠詞を伴わない。直接修飾関係。",
+              "example_gloss": "「生ける水」——ζῶν（分詞）が第2限定位置で ὕδωρ を限定修飾",
+              "hint_ja": "格・性・数が一致する名詞を限定位置（冠詞＋名詞＋冠詞＋分詞 等）で修飾する。無冠詞でも成立するが確度は低い。",
               "reading_impact": {
                 "label_ja": "名詞の特性限定",
                 "tip_ja": "分詞を形容詞として読む。修飾される名詞の性質を動的に描写する。",
@@ -2407,7 +2638,7 @@
                   {
                     "id": "no_article",
                     "value": -10,
-                    "label_ja": "冠詞なし（実体用法除外）"
+                    "label_ja": "無冠詞（限定用法の確度低下・Wallace p.618）"
                   }
                 ],
                 "default_confidence": 65
@@ -2458,7 +2689,7 @@
               "xsc": {
                 "base_weight": 0,
                 "signals": [],
-                "default_confidence": 40
+                "default_confidence": 38
               },
               "alternatives": [
                 "participle.periphrastic",
@@ -2518,6 +2749,12 @@
                     "id": "article_number_match",
                     "signal": "数が冠詞と一致",
                     "check": "article_number_matches()"
+                  },
+                  {
+                    "id": "matching_head_noun_present",
+                    "signal": "限定位置に格・性・数一致の名詞がある（限定用法の徴表）",
+                    "check": "ptc_in_attributive_position()",
+                    "note": "Wallace pp.617–621: 実体用法は『修飾する名詞が存在しない』ことが成立条件。τὸ ὕδωρ τὸ ζῶν（第2限定位置）等では attributive に譲る。"
                   }
                 ]
               },
@@ -2543,6 +2780,11 @@
                     "id": "article_number_match",
                     "value": 15,
                     "label_ja": "数が冠詞と一致"
+                  },
+                  {
+                    "id": "matching_head_noun_present",
+                    "value": -60,
+                    "label_ja": "限定位置に被修飾名詞あり（実体用法でない）"
                   }
                 ],
                 "default_confidence": 90
@@ -2736,6 +2978,12 @@
                     "id": "no_article_before",
                     "signal": "冠詞なし",
                     "check": "NOT prev_pos_eq('T')"
+                  },
+                  {
+                    "id": "narrative_sequence",
+                    "signal": "物語的連続文脈（主動詞がアオリスト直説法）",
+                    "check": "main_verb_tense_eq('aorist') AND main_verb_mood_eq('indicative')",
+                    "note": "Wallace p.642 の付帯状況 5 基準のうち『主動詞は直説法（物語）または命令法』を実装。従来は無条件加点だった。"
                   }
                 ]
               },
@@ -2754,8 +3002,8 @@
                   },
                   {
                     "id": "narrative_sequence",
-                    "value": 15,
-                    "label_ja": "物語的連続文脈"
+                    "value": 10,
+                    "label_ja": "物語的連続文脈（アオリスト直説法主動詞）"
                   }
                 ],
                 "default_confidence": 70
@@ -2820,6 +3068,12 @@
                     "id": "logical_discourse_marker",
                     "signal": "論証的文体（推論・結論の文脈）",
                     "check": "context_discourse_type_eq('argumentative')"
+                  },
+                  {
+                    "id": "passive_participle",
+                    "signal": "分詞が受動態（ROM 5:1 δικαιωθέντες 型）",
+                    "check": "target_voice_eq('passive')",
+                    "note": "Wallace pp.631–632: 論証書簡の理由分詞はアオリスト受動が典型。従来は無条件加点だった。"
                   }
                 ]
               },
@@ -2891,7 +3145,7 @@
               "xsc": {
                 "base_weight": 0,
                 "signals": [],
-                "default_confidence": 40
+                "default_confidence": 38
               },
               "alternatives": [
                 "participle.adverbial_temporal",
@@ -2918,7 +3172,7 @@
               "xsc": {
                 "base_weight": 0,
                 "signals": [],
-                "default_confidence": 40
+                "default_confidence": 38
               },
               "alternatives": [
                 "participle.adverbial_temporal",
@@ -3145,7 +3399,7 @@
               "xsc": {
                 "base_weight": 0,
                 "signals": [],
-                "default_confidence": 50
+                "default_confidence": 39
               },
               "alternatives": [
                 "participle.predicate",
@@ -3219,6 +3473,11 @@
                     "id": "verb_type_pattern",
                     "signal": "補語要求動詞の典型パターン",
                     "check": "context_verb_lemma_in_list('perception_verb_lemmas') AND target_case_eq('accusative') AND context_has_case_gender_number_match()"
+                  },
+                  {
+                    "id": "no_article_before",
+                    "signal": "分詞直前に冠詞なし",
+                    "check": "NOT prev_pos_eq('T')"
                   }
                 ],
                 "perception_verb_lemmas": [
@@ -3279,6 +3538,173 @@
                 "classification": "Hybrid",
                 "classification_def": "統語的手がかりと意味的解釈の両方を組み合わせて判定する構文タイプ。どちらか一方だけでは確定できない。",
                 "reading_impact_detail": "補語分詞を同定することで、知覚・認識の内容が動作として把握されているか状態として把握されているかが明確になる。支配動詞の語彙的性質（知覚 vs 認識 vs 表象）によって分詞のアスペクト選択が変わり、認識の確実性・完了性に関する著者の意図が読み取れる。"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "article": {
+      "pos": "T",
+      "label_ja": "冠詞用法",
+      "label_en": "Article Uses",
+      "wallace_ref": "§2 (pp.206–290)",
+      "description": "ギリシャ語の定冠詞（ὁ, ἡ, τό）の機能的・意味的用法を分類する。",
+      "priority_default": 50,
+      "subcategories": [
+        {
+          "group_id": "semantic_uses",
+          "group_label_ja": "意味的冠詞用法",
+          "group_label_en": "Semantic Article Uses",
+          "wallace_ref": "§2.A (pp.217–252)",
+          "types": [
+            {
+              "id": "article.monadic",
+              "ui_role": "mod",
+              "label_ja": "単一体的用法",
+              "label_en": "Monadic Article",
+              "wallace_ref": "§2.A.1 (pp.223–225)",
+              "wallace_freq": "common",
+              "priority": 1,
+              "status": "active",
+              "description_ja": "指示対象が宇宙的・唯一的な実体（太陽、世界など）であることを示す冠詞用法。",
+              "description_en": "The article points to a unique, one-of-a-kind entity.",
+              "example_verse": "MAT 5:14",
+              "example_greek": "τὸ φῶς τοῦ κόσμου",
+              "example_gloss": "「世の光」——τὸ が単一体的用法（世の光は唯一）",
+              "hint_ja": "直後の名詞が宇宙的・唯一的な実体（太陽・月・世界・光・神）を指す場合。",
+              "detection": {
+                "required_pos": "T",
+                "monadic_noun_lemmas": [
+                  "κόσμος",
+                  "ἥλιος",
+                  "σελήνη",
+                  "γῆ",
+                  "ἅδης",
+                  "ᾅδης",
+                  "οὐρανός",
+                  "φῶς",
+                  "σκότος",
+                  "πῦρ",
+                  "ὕδωρ",
+                  "ἄνεμος",
+                  "θάλασσα"
+                ],
+                "conditions": [
+                  {
+                    "id": "monadic_noun",
+                    "signal": "直後の名詞が唯一的実体（宇宙・神等）",
+                    "check": "following_noun_in_list('monadic_noun_lemmas')"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 15,
+                "signals": [
+                  {
+                    "id": "monadic_noun",
+                    "value": 50,
+                    "label_ja": "唯一的実体名詞（太陽・世界・神・霊等）"
+                  }
+                ],
+                "default_confidence": 25
+              }
+            },
+            {
+              "id": "article.generic",
+              "ui_role": "mod",
+              "label_ja": "総称的用法",
+              "label_en": "Generic Article",
+              "wallace_ref": "§2.A.2 (pp.227–231)",
+              "wallace_freq": "common",
+              "priority": 2,
+              "status": "stub",
+              "description_ja": "種類・類全体を指す冠詞用法。特定個体ではなく「〜というもの一般」を表す。",
+              "description_en": "The article identifies a class as a whole rather than a specific individual.",
+              "example_verse": "MAT 5:13",
+              "example_greek": "Ὑμεῖς ἐστε τὸ ἅλας τῆς γῆς",
+              "example_gloss": "「あなたがたは地の塩である」——τὸ ἅλας の冠詞が「塩という種類一般」を総称的に指す",
+              "hint_ja": "名詞が特定個人ではなく種類・類全体を指す文脈（格言・一般原理等）。",
+              "detection": {
+                "required_pos": "T",
+                "conditions": []
+              },
+              "xsc": {
+                "base_weight": 10,
+                "signals": [],
+                "default_confidence": 20
+              }
+            },
+            {
+              "id": "article.previous_reference",
+              "ui_role": "mod",
+              "label_ja": "前出指示用法",
+              "label_en": "Previous Reference (Anaphoric)",
+              "wallace_ref": "§2.A.3 (pp.217–220)",
+              "wallace_freq": "very common",
+              "priority": 3,
+              "status": "stub",
+              "description_ja": "前文脈ですでに導入された対象を再指示する冠詞用法（照応的用法）。",
+              "description_en": "The article refers back to an entity already introduced in the context.",
+              "example_verse": "JHN 4:9",
+              "example_greek": "λέγει αὐτῷ ἡ γυνὴ ἡ Σαμαρῖτις",
+              "example_gloss": "「サマリアの女は言った」——v.7 で γυνή（無冠詞）として導入後、v.9 で ἡ γυνή と冠詞付きで前出指示（照応）",
+              "hint_ja": "同じ名詞・実体が直前の文脈（同節・前節）ですでに導入されている場合。",
+              "detection": {
+                "required_pos": "T",
+                "conditions": []
+              },
+              "xsc": {
+                "base_weight": 10,
+                "signals": [],
+                "default_confidence": 20
+              }
+            },
+            {
+              "id": "article.par_excellence",
+              "ui_role": "mod",
+              "label_ja": "卓越的用法",
+              "label_en": "Par Excellence Article",
+              "wallace_ref": "§2.A.4 (pp.222–223)",
+              "wallace_freq": "occasional",
+              "priority": 4,
+              "status": "active",
+              "description_ja": "ある類の中で最も著名・卓越した存在を指す冠詞用法。",
+              "description_en": "The article points to the preeminent member of a class.",
+              "example_verse": "JHN 1:21",
+              "example_greek": "Ὁ προφήτης εἶ σύ",
+              "example_gloss": "「あなたはあの預言者ですか」——ὁ が卓越的用法（期待された特定の預言者）",
+              "hint_ja": "役職・称号名詞（預言者・王・祭司長等）が類の中の最も卓越した存在を指す場合。",
+              "detection": {
+                "required_pos": "T",
+                "par_excellence_noun_lemmas": [
+                  "προφήτης",
+                  "βασιλεύς",
+                  "ἀρχιερεύς",
+                  "ποιμήν",
+                  "διδάσκαλος",
+                  "νόμος",
+                  "κριτής",
+                  "λόγος"
+                ],
+                "conditions": [
+                  {
+                    "id": "par_excellence_noun",
+                    "signal": "直後が卓越的役割名詞（預言者・王等）",
+                    "check": "following_noun_in_list('par_excellence_noun_lemmas')"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 15,
+                "signals": [
+                  {
+                    "id": "par_excellence_noun",
+                    "value": 45,
+                    "label_ja": "卓越的役割名詞（預言者・王・律法等）"
+                  }
+                ],
+                "default_confidence": 25
               }
             }
           ]

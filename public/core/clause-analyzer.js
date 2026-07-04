@@ -1132,6 +1132,35 @@ const _WALLACE_TEXT = {
     SIMILE:         'ここでは、たとえを用いて説明されています。',
     TEMPORAL:       'ここでは、出来事の前後関係が示されています。',
     APPROX_CAUSE:   'ここでは、おおよその理由が示されています。',
+
+    // Wallace 属格詳細分類（§4）ごとのテンプレート
+    GENITIVE_POSSESSIVE:   'ここでは、属格名詞が所有関係を表しています。',
+    GENITIVE_DESCRIPTIVE:  'ここでは、属格名詞が修飾名詞の性質を描写しています。',
+    GENITIVE_PARTITIVE:    'ここでは、全体のうちの一部が示されています。',
+    GENITIVE_ATTRIBUTIVE:  'ここでは、属格名詞が形容詞のように機能しています。',
+    GENITIVE_EPEXEGETICAL: 'ここでは、属格名詞が前の名詞の内容を具体的に説明しています。',
+    GENITIVE_RELATIONSHIP: 'ここでは、属格名詞が親族や社会的な関係を示しています。',
+    GENITIVE_MATERIAL:     'ここでは、属格名詞が材料や素材を示しています。',
+    GENITIVE_CONTENT:      'ここでは、属格名詞が内容物を示しています。',
+    GENITIVE_ATTRIBUTED:   'ここでは、属格名詞が修飾名詞の属性を担っています。',
+    GENITIVE_PREDICATE:    'ここでは、属格名詞が述語の働きをしています。',
+    GENITIVE_SUBJECTIVE:   'ここでは、属格名詞が動作の主体として示されています。',
+    GENITIVE_OBJECTIVE:    'ここでは、属格名詞が動作の対象として示されています。',
+    GENITIVE_PLENARY:      'ここでは、属格名詞が動作の主体と対象の両方の意味を含んでいます。',
+    GENITIVE_COMPARISON:   'ここでは、比較の基準となる対象が属格で示されています。',
+    GENITIVE_SEPARATION:   'ここでは、属格名詞が離れる対象を示しています。',
+    GENITIVE_TIME:         'ここでは、属格名詞が動作が行われる時間の種類を示しています。',
+    GENITIVE_PLACE:        'ここでは、属格名詞が場所や空間を示しています。',
+    GENITIVE_AGENCY:       'ここでは、属格名詞が動作の実行者を示しています。',
+    GENITIVE_MEANS:        'ここでは、属格名詞が手段や方法を示しています。',
+    GENITIVE_SOURCE:       'ここでは、属格名詞が起源や由来を示しています。',
+    GENITIVE_ABSOLUTE:     'ここでは、属格の分詞節が文全体の背景として示されています。',
+
+    // Wallace 冠詞用法（§2）ごとのテンプレート
+    ARTICLE_MONADIC:          'ここでは、冠詞が宇宙的・唯一的な実体（世界・神等）を特定しています。',
+    ARTICLE_GENERIC:          'ここでは、冠詞が特定個体ではなく種類・類全体を指しています。',
+    ARTICLE_PREVIOUS_REF:     'ここでは、冠詞が前文脈で導入された対象を再び指し示しています。',
+    ARTICLE_PAR_EXCELLENCE:   'ここでは、冠詞がその類の中で最も著名・卓越した存在を指しています。',
 };
 
 // discourse.type が UNCLASSIFIED になる clause.type を _WALLACE_TEXT の
@@ -1139,6 +1168,35 @@ const _WALLACE_TEXT = {
 const _CLAUSE_TYPE_TO_GLOSS_KEY = {
     'clause.condition': 'CONDITION',
     'clause.contrast':  'CONTRAST_EXPLANATION',
+
+    // 属格詳細分類 → _WALLACE_TEXT キー
+    'genitive.possessive':   'GENITIVE_POSSESSIVE',
+    'genitive.descriptive':  'GENITIVE_DESCRIPTIVE',
+    'genitive.partitive':    'GENITIVE_PARTITIVE',
+    'genitive.attributive':  'GENITIVE_ATTRIBUTIVE',
+    'genitive.epexegetical': 'GENITIVE_EPEXEGETICAL',
+    'genitive.relationship': 'GENITIVE_RELATIONSHIP',
+    'genitive.material':     'GENITIVE_MATERIAL',
+    'genitive.content':      'GENITIVE_CONTENT',
+    'genitive.attributed':   'GENITIVE_ATTRIBUTED',
+    'genitive.predicate':    'GENITIVE_PREDICATE',
+    'genitive.subjective':   'GENITIVE_SUBJECTIVE',
+    'genitive.objective':    'GENITIVE_OBJECTIVE',
+    'genitive.plenary':      'GENITIVE_PLENARY',
+    'genitive.comparison':   'GENITIVE_COMPARISON',
+    'genitive.separation':   'GENITIVE_SEPARATION',
+    'genitive.time':         'GENITIVE_TIME',
+    'genitive.place':        'GENITIVE_PLACE',
+    'genitive.agency':       'GENITIVE_AGENCY',
+    'genitive.means':        'GENITIVE_MEANS',
+    'genitive.source':       'GENITIVE_SOURCE',
+    'genitive.absolute':     'GENITIVE_ABSOLUTE',
+
+    // 冠詞用法 → _WALLACE_TEXT キー
+    'article.monadic':            'ARTICLE_MONADIC',
+    'article.generic':            'ARTICLE_GENERIC',
+    'article.previous_reference': 'ARTICLE_PREVIOUS_REF',
+    'article.par_excellence':     'ARTICLE_PAR_EXCELLENCE',
 };
 
 // combine() の読書リズム用：各 _WALLACE_TEXT キーが2文目以降に来たときの
@@ -1169,6 +1227,30 @@ const _CONNECTOR_TYPE_BY_KEY = {
     SIMILE:                 'B',
     TEMPORAL:               'A',
     APPROX_CAUSE:           'A',
+
+    // 属格分類は新規の統語的事実を提示するものがほとんど → A
+    // 「補足」色の強いもの（属性描写・背景）→ C
+    GENITIVE_POSSESSIVE:    'A',
+    GENITIVE_DESCRIPTIVE:   'C',
+    GENITIVE_PARTITIVE:     'A',
+    GENITIVE_ATTRIBUTIVE:   'C',
+    GENITIVE_EPEXEGETICAL:  'A',
+    GENITIVE_RELATIONSHIP:  'A',
+    GENITIVE_MATERIAL:      'A',
+    GENITIVE_CONTENT:       'A',
+    GENITIVE_ATTRIBUTED:    'C',
+    GENITIVE_PREDICATE:     'A',
+    GENITIVE_SUBJECTIVE:    'A',
+    GENITIVE_OBJECTIVE:     'A',
+    GENITIVE_PLENARY:       'A',
+    GENITIVE_COMPARISON:    'A',
+    GENITIVE_SEPARATION:    'A',
+    GENITIVE_TIME:          'A',
+    GENITIVE_PLACE:         'A',
+    GENITIVE_AGENCY:        'A',
+    GENITIVE_MEANS:         'A',
+    GENITIVE_SOURCE:        'A',
+    GENITIVE_ABSOLUTE:      'C',
 };
 
 // combine() が入力文字列から元の _WALLACE_TEXT キーを逆引きするための表
@@ -1844,5 +1926,5 @@ if (typeof window !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { ClauseAnalyzer, AnnotationMapper, StudyPanelAdapter, ReadingFormatter, ReadingNoteLibrary, PrecisionAudit, StabilityMonitor, assertReadingTextSafe };
+    module.exports = { ClauseAnalyzer, AnnotationMapper, StudyPanelAdapter, ReadingFormatter, ReadingNoteLibrary, PrecisionAudit, StabilityMonitor, assertReadingTextSafe, _WALLACE_TEXT, _CLAUSE_TYPE_TO_GLOSS_KEY };
 }
