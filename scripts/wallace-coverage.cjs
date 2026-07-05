@@ -99,6 +99,45 @@ function generateCoverage() {
         }
     }
 
+    // ── Phase 7.6: tested_examples 抽出 ──
+    // テストソース中で型 id と同一行にある verse 参照（'BBB', c, v）を収集する。
+    const testedExamples = new Map(); // id → Set('BBB c:v')
+    for (const line of testSrc.split('\n')) {
+        const refM = line.match(/'([A-Z0-9]{2,4})',\s*(\d+),\s*(\d+)/);
+        if (!refM) continue;
+        for (const t of types) {
+            if (line.includes(`'${t.id}'`)) {
+                if (!testedExamples.has(t.id)) testedExamples.set(t.id, new Set());
+                testedExamples.get(t.id).add(`${refM[1]} ${refM[2]}:${refM[3]}`);
+            }
+        }
+    }
+
+    // ── Phase 7.6 検査: 代表例（example_verse）の欠落・重複 ──
+    // representative-missing 免除リスト（Wallace 上代表例が稀少で文献確認待ちの型）
+    const NO_REPRESENTATIVE_ALLOWED = new Set(['genitive.means']);
+    for (const t of types) {
+        if (t.status !== 'active') continue;
+        if (!t.example_verse && !NO_REPRESENTATIVE_ALLOWED.has(t.id)) {
+            failures.push(`representative missing: ${t.id}（example_verse なし）`);
+        }
+    }
+    {
+        const byVerse = new Map();
+        for (const t of types) {
+            if (!t.example_verse) continue;
+            if (!byVerse.has(t.example_verse)) byVerse.set(t.example_verse, []);
+            byVerse.get(t.example_verse).push(t.id);
+        }
+        for (const [verse, ids] of byVerse) {
+            if (ids.length > 3) {
+                warnings.push(`同一代表節が ${ids.length} 型で使用: ${verse} (${ids.join(', ')})`);
+            } else if (ids.length > 1) {
+                infos.push(`代表節の共有: ${verse} (${ids.join(', ')})`);
+            }
+        }
+    }
+
     // ── 検査 6: 同一 Wallace ページ共有（INFO） ──
     {
         const byPage = new Map();
@@ -127,6 +166,7 @@ function generateCoverage() {
         const stub   = catTypes.filter(t => t.status === 'stub').length;
         const status = catTypes.length === 0 ? 'planned'
                      : stub > 0 ? 'partial' : 'complete';
+        const testedCount = catTypes.filter(t => tested(t.id)).length;
         return {
             key: ch.key,
             label: ch.label,
@@ -134,6 +174,10 @@ function generateCoverage() {
             registry_types: catTypes.length,
             active,
             stub,
+            implemented: active,
+            tested: testedCount,
+            coverage: active > 0
+                ? Number((testedCount / active * 100).toFixed(1)) : 0,
             regression_test_mentions: ch.registryCategory ? testMentions(ch.registryCategory) : 0,
             metrics_covered: catTypes.length > 0,
             status,
@@ -141,8 +185,10 @@ function generateCoverage() {
                 id: t.id,
                 title: t.label_en ?? t.label_ja ?? '',
                 wallace_ref: t.wallace_ref ?? '',
+                representative: t.example_verse ?? null,
                 active: t.status === 'active',
                 tested: tested(t.id),
+                tested_examples: [...(testedExamples.get(t.id) ?? [])],
                 registry: true,
             })),
         };
@@ -180,6 +226,11 @@ function generateCoverage() {
             active_types: types.filter(t => t.status === 'active').length,
             stub_types: types.filter(t => t.status === 'stub').length,
             tests: (testSrc.match(/\bcheck\(/g) ?? []).length,
+            tested_types: types.filter(t => tested(t.id)).length,
+            coverage_percent: Number((types.filter(t => t.status === 'active' && tested(t.id)).length /
+                Math.max(1, types.filter(t => t.status === 'active').length) * 100).toFixed(1)),
+            representative_examples_verified:
+                types.filter(t => tested(t.id) && (testedExamples.get(t.id)?.size ?? 0) > 0).length,
         },
         chapters,
         validation: { failures, warnings, infos },
@@ -213,6 +264,8 @@ function toMarkdown(r) {
     L.push('## Summary', '');
     L.push(`- Categories: ${r.summary.implemented_categories}`);
     L.push(`- Types: ${r.summary.implemented_types} (active ${r.summary.active_types} / stub ${r.summary.stub_types})`);
+    L.push(`- Tested types: ${r.summary.tested_types} / ${r.summary.active_types} ` +
+           `(**${r.summary.coverage_percent}%**)`);
     L.push(`- Test assertions (call sites): ${r.summary.tests}`);
     const impl = r.chapters.filter(c => c.status !== 'planned').length;
     L.push(`- Chapter coverage: ${impl} / ${r.chapters.length}`, '', '---', '');
@@ -220,19 +273,33 @@ function toMarkdown(r) {
     for (const ch of r.chapters) {
         L.push(`## ${ch.label}`, '');
         L.push(`Status: **${ch.status}**  |  Pages: ${ch.wallace_pages}  |  ` +
-               `Implemented: ${ch.active} / ${ch.registry_types}  |  ` +
+               `Implemented: ${ch.implemented} / ${ch.registry_types}  |  ` +
+               `Tested: ${ch.tested} (${ch.coverage}%)  |  ` +
                `Stub: ${ch.stub}  |  Test mentions: ${ch.regression_test_mentions}  |  ` +
                `Metrics: ${ch.metrics_covered ? '✓' : '—'}`, '');
         if (ch.types.length) {
-            L.push('| Type | Wallace | Active | Tested |');
-            L.push('|------|---------|--------|--------|');
+            L.push('| Type | Wallace | Active | Tested | Examples |');
+            L.push('|------|---------|--------|--------|----------|');
             for (const t of ch.types) {
-                L.push(`| ${t.id} | ${t.wallace_ref} | ${t.active ? '✓' : '—'} | ${t.tested ? '✓' : '—'} |`);
+                L.push(`| ${t.id} | ${t.wallace_ref} | ${t.active ? '✓' : '—'} | ` +
+                       `${t.tested ? '✓' : '—'} | ${t.tested_examples.join(', ') || '—'} |`);
             }
             L.push('');
         }
         L.push('---', '');
     }
+
+    // ── Regression Matrix ──
+    L.push('## Regression Matrix', '');
+    L.push('| Category | Type | Representative | Tested |');
+    L.push('|----------|------|----------------|--------|');
+    for (const ch of r.chapters) {
+        for (const t of ch.types) {
+            L.push(`| ${ch.label} | ${t.id.split('.')[1]} | ` +
+                   `${t.representative ?? '—'} | ${t.tested ? '✓' : '—'} |`);
+        }
+    }
+    L.push('', '---', '');
 
     L.push('## Validation', '');
     L.push(`- FAIL: ${r.validation.failures.length}`);
@@ -245,6 +312,8 @@ function toMarkdown(r) {
 
     if (r.metrics) {
         L.push('## Corpus Metrics（book_summary.json より引用）', '');
+        L.push(`- Representative Examples Verified: ` +
+               `${r.summary.representative_examples_verified} / ${r.summary.active_types}`);
         L.push(`- Analyzed tokens: ${r.metrics.analyzed}`);
         L.push(`- Average confidence: ${r.metrics.average_confidence}`);
         L.push(`- Unresolved (<0.40): ${r.metrics.unresolved}`);

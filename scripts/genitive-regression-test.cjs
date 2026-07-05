@@ -1605,6 +1605,73 @@ section('§7l  Wallace Coverage Report');
 }
 
 // ════════════════════════════════════════════════════════════════
+// §7m  Phase 7.6 — 代表例テスト（Coverage WARN 解消）
+// ════════════════════════════════════════════════════════════════
+section('§7m  代表例テスト（WARN 対象 16 型）');
+
+/**
+ * 代表例検証: top/rank/confidence/signal/gloss を一括検証する。
+ * 判定ロジックは一切変更しない（現行エンジンの実測値に基づく水準固定）。
+ */
+function reprTest(label, bookKey, ch, v, lemma, prefix, typeId, opt) {
+    const { maxRank, minConf, requireSignal = true } = opt;
+    const r = analyzeTokenCat(bookKey, ch, v, lemma, prefix);
+    const rank = r.allCandidates.findIndex(c => c.id === typeId) + 1;
+    const found = r.allCandidates.find(c => c.id === typeId);
+    check(`${label} — 候補に存在`, Boolean(found),
+          `候補: ${r.allCandidates.slice(0, 4).map(c => c.id).join(', ')}`);
+    check(`${label} — rank ≤ ${maxRank}`, rank > 0 && rank <= maxRank,
+          `rank=${rank} top=${r.topId}`);
+    check(`${label} — confidence ≥ ${minConf}`,
+          (found?.confidence ?? 0) >= minConf,
+          `conf=${found?.confidence?.toFixed(2)}`);
+    check(`${label} — signals_matched が配列${requireSignal ? '（非空）' : ''}`,
+          Array.isArray(found?.signals_matched) &&
+          (!requireSignal || found.signals_matched.length > 0));
+    // gloss: genitive/article は ReadingFormatter、それ以外は label_ja
+    if (typeId.startsWith('genitive.') || typeId.startsWith('article.')) {
+        const g = rf.format({ type: typeId })?.summary ?? '';
+        check(`${label} — gloss 有効`,
+              g && g !== UNCLASSIFIED_TEXT && !/undefined/.test(g));
+    } else {
+        check(`${label} — label_ja 有効`, Boolean(found?.label_ja));
+    }
+}
+
+// ── top（rank=1）検証 ────────────────────────────────────────────
+reprTest('genitive.possessive MAT 5:3 τῶν οὐρανῶν', 'MAT', 5, 3, 'οὐρανός', 'genitive.', 'genitive.possessive', { maxRank: 1, minConf: 0.80 });
+reprTest('genitive.time JHN 3:2 νυκτός', 'JHN', 3, 2, 'νύξ', 'genitive.', 'genitive.time', { maxRank: 1, minConf: 0.75 });
+reprTest('dative.time JHN 2:1 τῇ ἡμέρᾳ τῇ τρίτῃ', 'JHN', 2, 1, 'ἡμέρα', 'dative.', 'dative.time', { maxRank: 1, minConf: 0.75 });
+reprTest('participle.adverbial_causal ROM 5:1 δικαιωθέντες', 'ROM', 5, 1, 'δικαιόω', 'participle.', 'participle.adverbial_causal', { maxRank: 1, minConf: 0.55 });
+
+// ── rank ≤ 2（Wallace 上も競合が正当なもの） ─────────────────────
+reprTest('genitive.descriptive ROM 7:24 τοῦ θανάτου', 'ROM', 7, 24, 'θάνατος', 'genitive.', 'genitive.descriptive', { maxRank: 2, minConf: 0.75 });
+reprTest('dative.interest_advantage ROM 6:10 ζῇ τῷ θεῷ', 'ROM', 6, 10, 'θεός', 'dative.', 'dative.interest_advantage', { maxRank: 2, minConf: 0.70 });
+reprTest('dative.interest_disadvantage ROM 8:7 τῷ νόμῳ', 'ROM', 8, 7, 'νόμος', 'dative.', 'dative.interest_disadvantage', { maxRank: 2, minConf: 0.65 });
+reprTest('dative.manner JHN 7:26 παρρησίᾳ', 'JHN', 7, 26, 'παρρησία', 'dative.', 'dative.manner', { maxRank: 2, minConf: 0.55 });
+reprTest('dative.association ROM 6:4 αὐτῷ', 'ROM', 6, 4, 'αὐτός', 'dative.', 'dative.association', { maxRank: 2, minConf: 0.55 });
+
+// ── 候補生存（保守的検出・Wallace 上文脈依存の型） ───────────────
+reprTest('genitive.relationship MAT 1:1 υἱοῦ Δαυίδ', 'MAT', 1, 1, 'Δαυίδ', 'genitive.', 'genitive.relationship', { maxRank: 3, minConf: 0.60 });
+reprTest('dative.sphere ACT 16:5 τῇ πίστει', 'ACT', 16, 5, 'πίστις', 'dative.', 'dative.sphere', { maxRank: 3, minConf: 0.45 });
+reprTest('genitive.attributive ROM 6:6 τῆς ἁμαρτίας', 'ROM', 6, 6, 'ἁμαρτία', 'genitive.', 'genitive.attributive', { maxRank: 6, minConf: 0.35 });
+reprTest('genitive.comparison JHN 13:16 τοῦ κυρίου', 'JHN', 13, 16, 'κύριος', 'genitive.', 'genitive.comparison', { maxRank: 5, minConf: 0.35 });
+reprTest('genitive.epexegetical ROM 4:11 περιτομῆς', 'ROM', 4, 11, 'περιτομή', 'genitive.', 'genitive.epexegetical', { maxRank: 8, minConf: 0.30, requireSignal: false });
+reprTest('participle.adverbial_means ACT 16:16 μαντευομένη', 'ACT', 16, 16, 'μαντεύομαι', 'participle.', 'participle.adverbial_means', { maxRank: 5, minConf: 0.35 });
+
+// ── genitive.means: Wallace 上代表例が稀少（p.125・要文献確認）——
+//    registry 構造レベルで検証（representative-missing 免除対象）
+{
+    const t = collectAllTypeDefs(syntaxRegistry).find(x => x.id === 'genitive.means');
+    check('genitive.means — active + conditions 実装済み',
+          t?.status === 'active' && (t?.detection?.conditions ?? []).length >= 2);
+    check('genitive.means — 全 signal が条件対応（orphan なし・§7a で担保）',
+          (t?.xsc?.signals ?? []).length >= 2);
+    const g = rf.format({ type: 'genitive.means' })?.summary ?? '';
+    check('genitive.means — gloss 有効', g && g !== UNCLASSIFIED_TEXT);
+}
+
+// ════════════════════════════════════════════════════════════════
 // §8  最終カバレッジレポート
 // ════════════════════════════════════════════════════════════════
 section('§8  最終カバレッジレポート');
