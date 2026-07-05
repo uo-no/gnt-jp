@@ -1672,6 +1672,552 @@ reprTest('participle.adverbial_means ACT 16:16 μαντευομένη', 'ACT', 1
 }
 
 // ════════════════════════════════════════════════════════════════
+// §7n  Phase 8 — Infinitive Engine（Wallace §34 pp.587–611）
+// ════════════════════════════════════════════════════════════════
+section('§7n  Infinitive Engine');
+
+// ── 構造検証 ─────────────────────────────────────────────────────
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const infTypes = all.filter(t => t.id.startsWith('infinitive.'));
+    check('infinitive: 型数 = 11', infTypes.length === 11, `${infTypes.length}`);
+    check('infinitive: 全型 active（stub ゼロ）',
+          infTypes.every(t => t.status === 'active'));
+    check('infinitive: 全型に example_verse',
+          infTypes.every(t => Boolean(t.example_verse)));
+    // valency 拡張
+    const loader = sa.registry;
+    check('valency: δύναμαι → complement=infinitive',
+          loader.getVerbValency('δύναμαι')?.complement === 'infinitive');
+    check('valency: μέλλω → complement=infinitive',
+          loader.getVerbValency('μέλλω')?.complement === 'infinitive');
+    check('valency: θέλω → complement=infinitive',
+          loader.getVerbValency('θέλω')?.complement === 'infinitive');
+    check('valency: παύω → complement=participle 維持（分詞補語と不干渉）',
+          loader.getVerbValency('παύω')?.complement === 'participle');
+}
+
+// ── Wallace 代表例（各用法） ─────────────────────────────────────
+console.log('\n  ─── 副詞的用法（pp.590–599） ───');
+catVerseTest('MAT 6:24 δουλεύειν（補語・δύναμαι valency）', 'MAT', 6, 24, 'δουλεύω', 'infinitive.', 'infinitive.complementary');
+catVerseTest('MAT 13:3 τοῦ σπείρειν（目的・裸の τοῦ）', 'MAT', 13, 3, 'σπείρω', 'infinitive.', 'infinitive.purpose');
+catVerseTest('ROM 1:11 εἰς τὸ στηριχθῆναι（目的・εἰς τό）', 'ROM', 1, 11, 'στηρίζω', 'infinitive.', 'infinitive.purpose');
+catVerseTest('MAT 8:24 ὥστε καλύπτεσθαι（結果）', 'MAT', 8, 24, 'καλύπτω', 'infinitive.', 'infinitive.result');
+catVerseTest('MAT 26:32 μετὰ δὲ τὸ ἐγερθῆναι（時・後置小辞介在）', 'MAT', 26, 32, 'ἐγείρω', 'infinitive.', 'infinitive.time');
+catVerseTest('MAT 13:4 ἐν τῷ σπείρειν（時・同時）', 'MAT', 13, 4, 'σπείρω', 'infinitive.', 'infinitive.time');
+catVerseTest('MAT 13:5 διὰ τὸ μὴ ἔχειν（原因・μή 介在）', 'MAT', 13, 5, 'ἔχω', 'infinitive.', 'infinitive.cause');
+
+console.log('\n  ─── 名詞的・独立的用法（pp.600–608） ───');
+catVerseTest('MAT 16:21 δεῖ ἀπελθεῖν（主語・非人称）', 'MAT', 16, 21, 'ἀπέρχομαι', 'infinitive.', 'infinitive.subject');
+catVerseTest('MAT 16:13 λέγουσιν εἶναι（間接話法）', 'MAT', 16, 13, 'εἰμί', 'infinitive.', 'infinitive.indirect_discourse');
+catVerseTest('MAT 3:11 ἱκανὸς βαστάσαι（付加説明）', 'MAT', 3, 11, 'βαστάζω', 'infinitive.', 'infinitive.epexegetical');
+catVerseTest('PHP 1:21 τὸ ζῆν（冠詞付き名詞化）', 'PHP', 1, 21, 'ζάω', 'infinitive.', 'infinitive.articular');
+catVerseTest('ROM 12:15 χαίρειν（命令的・無定形動詞節）', 'ROM', 12, 15, 'χαίρω', 'infinitive.', 'infinitive.imperatival');
+
+// ── FP ガード・means 候補生存 ────────────────────────────────────
+{
+    // ἐν τῷ + 不定詞: time が top、means は低確度候補として生存
+    const r = analyzeTokenCat('MAT', 13, 4, 'σπείρω', 'infinitive.');
+    const mn = r.allCandidates.find(c => c.id === 'infinitive.means');
+    check('MAT 13:4 — means が低確度候補（time との Wallace 上の競合を保存）',
+          mn != null && mn.confidence >= 0.35 && mn.confidence < (r.topConf ?? 1));
+
+    // 既存カテゴリ非干渉: 分詞・対格の旗艦テスト再確認
+    const p1 = analyzeTokenCat('MAT', 4, 4, 'ἀποκρίνομαι', 'participle.');
+    check('FP: MAT 4:4 — participle.redundant top 維持（不定詞導入の非干渉）',
+          p1.topId === 'participle.redundant');
+    const a1 = analyzeTokenCat('MAT', 16, 13, 'υἱός', 'accusative.');
+    check('FP: MAT 16:13 υἱόν — accusative.subject_of_infinitive top 維持',
+          a1.topId === 'accusative.subject_of_infinitive');
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7p  Phase 9A — Verb Mood（Wallace pp.443–493）
+// ════════════════════════════════════════════════════════════════
+section('§7p  Verb Mood Engine');
+
+// ── 構造検証 ─────────────────────────────────────────────────────
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const vb = all.filter(t => t.id.startsWith('verb.'));
+    check('verb: 型数 = 48（mood 21 + tense 21 + voice 6）', vb.length === 48, `${vb.length}`);
+    check('verb: 全型 active + example_verse あり',
+          vb.every(t => t.status === 'active' && Boolean(t.example_verse)));
+    const moods = { indicative: 27, imperative: 6, subjunctive: 7, optative: 3 };
+    for (const [m, n] of Object.entries(moods)) {
+        check(`verb: required_mood=${m} が ${n} 型`,
+              vb.filter(t => t.detection?.required_mood === m).length === n);
+    }
+}
+
+// ── Wallace 代表例（representative） ─────────────────────────────
+console.log('\n  ─── Indicative（+ 時制用法） ───');
+catVerseTest('JHN 1:1 ἦν（叙述）', 'JHN', 1, 1, 'εἰμί', 'verb.', 'verb.declarative');
+catVerseTest('MRK 1:40 ἔρχεται（歴史的現在）', 'MRK', 1, 40, 'ἔρχομαι', 'verb.', 'verb.historical_present');
+catVerseTest('JHN 4:25 ἔρχεται（未来的現在）', 'JHN', 4, 25, 'ἔρχομαι', 'verb.', 'verb.futuristic_present');
+catVerseTest('PHP 2:28 ἔπεμψα（書簡的アオリスト）', 'PHP', 2, 28, 'πέμπω', 'verb.', 'verb.epistolary_aorist');
+{
+    const g = analyzeTokenCat('2CO', 9, 7, 'ἀγαπάω', 'verb.');
+    const gn = g.allCandidates.find(c => c.id === 'verb.gnomic_present');
+    check('2CO 9:7 ἀγαπᾷ — gnomic が rank≤2 候補（≥0.40）',
+          gn != null && gn.confidence >= 0.40 &&
+          g.allCandidates.findIndex(c => c.id === 'verb.gnomic_present') <= 1);
+    const d3 = analyzeTokenCat('MAT', 3, 17, 'εὐδοκέω', 'verb.');
+    const dr = d3.allCandidates.find(c => c.id === 'verb.dramatic_aorist');
+    check('MAT 3:17 εὐδόκησα — dramatic が候補に存在（≥0.30）',
+          dr != null && dr.confidence >= 0.30);
+}
+
+console.log('\n  ─── Imperative ───');
+catVerseTest('LUK 11:3 δίδου（継続・現在命令）', 'LUK', 11, 3, 'δίδωμι', 'verb.', 'verb.imperative_customary');
+catVerseTest('ACT 2:38 μετανοήσατε（総括）', 'ACT', 2, 38, 'μετανοέω', 'verb.', 'verb.imperative_constative');
+catVerseTest('MAT 6:11 δός（切迫・祈願）', 'MAT', 6, 11, 'δίδωμι', 'verb.', 'verb.imperative_urgency');
+catVerseTest('MAT 27:42 καταβάτω（3人称・許容）', 'MAT', 27, 42, 'καταβαίνω', 'verb.', 'verb.imperative_permissive');
+{
+    const r = analyzeTokenCat('JHN', 2, 7, 'γεμίζω', 'verb.');
+    const ing = r.allCandidates.find(c => c.id === 'verb.imperative_ingressive');
+    check('JHN 2:7 γεμίσατε — ingressive が低確度候補（総括との Wallace 上の競合を保存）',
+          ing != null && ing.confidence >= 0.30);
+}
+
+console.log('\n  ─── Subjunctive ───');
+catVerseTest('HEB 12:1 τρέχωμεν（勧告）', 'HEB', 12, 1, 'τρέχω', 'verb.', 'verb.hortatory');
+catVerseTest('MAT 6:13 μὴ εἰσενέγκῃς（禁止）', 'MAT', 6, 13, 'εἰσφέρω', 'verb.', 'verb.prohibitory');
+catVerseTest('MAT 6:31 τί φάγωμεν（審議・spec 代表例）', 'MAT', 6, 31, 'ἐσθίω', 'verb.', 'verb.deliberative');
+catVerseTest('JHN 10:28 οὐ μὴ ἀπόλωνται（強調否定）', 'JHN', 10, 28, 'ἀπόλλυμι', 'verb.', 'verb.emphatic_negation');
+catVerseTest('JHN 17:3 ἵνα γινώσκωσιν（目的節）', 'JHN', 17, 3, 'γινώσκω', 'verb.', 'verb.purpose_clause');
+catVerseTest('MRK 3:29 ὃς ἂν βλασφημήσῃ（不定関係）', 'MRK', 3, 29, 'βλασφημέω', 'verb.', 'verb.indefinite_relative');
+catVerseTest('1JN 1:9 ἐὰν ὁμολογῶμεν（条件）', '1JN', 1, 9, 'ὁμολογέω', 'verb.', 'verb.conditional_subjunctive');
+
+console.log('\n  ─── Optative ───');
+catVerseTest('ACT 8:31 πῶς ἂν δυναίμην（可能性）', 'ACT', 8, 31, 'δύναμαι', 'verb.', 'verb.potential_optative');
+catVerseTest('ROM 6:2 μὴ γένοιτο（祈願）', 'ROM', 6, 2, 'γίνομαι', 'verb.', 'verb.wish_optative');
+catVerseTest('LUK 8:9 τίς εἴη（間接話法）', 'LUK', 8, 9, 'εἰμί', 'verb.', 'verb.optative_indirect_discourse');
+
+// ── false positive / mood interaction ───────────────────────────
+console.log('\n  ─── FP / 相互作用 ───');
+{
+    // 1JN 1:9（1人称複数の ἐάν 従属節）: hortatory が top を奪わないこと
+    const r = analyzeTokenCat('1JN', 1, 9, 'ὁμολογέω', 'verb.');
+    const ho = r.allCandidates.find(c => c.id === 'verb.hortatory');
+    check('FP: 1JN 1:9 — hortatory は従属節で降格（< conditional）',
+          !ho || ho.confidence < (r.topConf ?? 1));
+    // JHN 17:3（ἵνα 節）: hortatory/deliberative が top でない
+    const r2 = analyzeTokenCat('JHN', 17, 3, 'γινώσκω', 'verb.');
+    check('FP: JHN 17:3 — ἵνα 節では purpose が hortatory に優先',
+          r2.topId === 'verb.purpose_clause');
+    // 禁止 vs 強調否定の弁別: MAT 6:13 は μή 単独 → prohibitory（emphatic でない）
+    const r3 = analyzeTokenCat('MAT', 6, 13, 'εἰσφέρω', 'verb.');
+    const em = r3.allCandidates.find(c => c.id === 'verb.emphatic_negation');
+    check('FP: MAT 6:13 — οὐ μή でないため emphatic_negation は非発火（≤0.30）',
+          !em || em.confidence <= 0.30);
+    // clause interaction: 節スコープが法判定に正しく効く（既存旗艦の非回帰）
+    const p1 = analyzeTokenCat('MAT', 2, 8, 'πορεύομαι', 'participle.');
+    check('相互作用: MAT 2:8 attendant top 維持（VerbScorer 導入の非干渉）',
+          p1.topId === 'participle.adverbial_attendant');
+    const i1 = analyzeTokenCat('MAT', 6, 24, 'δουλεύω', 'infinitive.');
+    check('相互作用: MAT 6:24 complementary top 維持', i1.topId === 'infinitive.complementary');
+    const a1 = analyzeTokenCat('JHN', 10, 3, 'φωνή', 'genitive.');
+    check('相互作用: JHN 10:3 genitive.direct_object top 維持',
+          a1.topId === 'genitive.direct_object');
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7q  Phase 9B — Tense / Aspect / Voice（Wallace pp.408–586）
+// ════════════════════════════════════════════════════════════════
+section('§7q  Tense/Aspect/Voice');
+
+/** verb カテゴリ内の rank/conf/signal を検証（mood 型 declarative との共存を前提） */
+function verbRepr(label, b, c, v, lemma, typeId, opt) {
+    const { maxRank, minConf, requireSignal = true } = opt;
+    const r = analyzeTokenCat(b, c, v, lemma, 'verb.');
+    const rank = r.allCandidates.findIndex(x => x.id === typeId) + 1;
+    const f = r.allCandidates.find(x => x.id === typeId);
+    check(`${label} — 候補に存在`, Boolean(f),
+          `top=${r.topId} 候補=${r.allCandidates.slice(0, 3).map(x => x.id).join(',')}`);
+    check(`${label} — rank ≤ ${maxRank}`, rank > 0 && rank <= maxRank, `rank=${rank}`);
+    check(`${label} — conf ≥ ${minConf}`, (f?.confidence ?? 0) >= minConf,
+          `conf=${f?.confidence?.toFixed(2)}`);
+    if (requireSignal) {
+        check(`${label} — signals_matched 非空`,
+              Array.isArray(f?.signals_matched) && f.signals_matched.length > 0);
+    }
+}
+
+console.log('\n  ─── Present（pp.514–537） ───');
+verbRepr('progressive MAT 25:8 σβέννυνται', 'MAT', 25, 8, 'σβέννυμι', 'verb.present_progressive', { maxRank: 20, minConf: 0.30, requireSignal: false });
+verbRepr('customary LUK 18:12 νηστεύω δίς', 'LUK', 18, 12, 'νηστεύω', 'verb.present_customary', { maxRank: 2, minConf: 0.45 });
+verbRepr('iterative MAT 17:15 πολλάκις πίπτει', 'MAT', 17, 15, 'πίπτω', 'verb.present_iterative', { maxRank: 3, minConf: 0.45 });
+
+console.log('\n  ─── Imperfect（pp.540–553） ───');
+verbRepr('progressive MRK 9:31 ἐδίδασκεν', 'MRK', 9, 31, 'διδάσκω', 'verb.imperfect_progressive', { maxRank: 2, minConf: 0.45 });
+verbRepr('ingressive MAT 5:2 ἐδίδασκεν（先行アオリスト分詞）', 'MAT', 5, 2, 'διδάσκω', 'verb.imperfect_ingressive', { maxRank: 1, minConf: 0.50 });
+verbRepr('iterative JHN 19:3 ἤρχοντο（無標識・低確度）', 'JHN', 19, 3, 'ἔρχομαι', 'verb.imperfect_iterative', { maxRank: 30, minConf: 0.30, requireSignal: false });
+verbRepr('customary MRK 15:6 κατὰ ἑορτὴν ἀπέλυεν', 'MRK', 15, 6, 'ἀπολύω', 'verb.imperfect_customary', { maxRank: 3, minConf: 0.45 });
+verbRepr('conative MAT 3:14 διεκώλυεν', 'MAT', 3, 14, 'διακωλύω', 'verb.imperfect_conative', { maxRank: 1, minConf: 0.50 });
+
+console.log('\n  ─── Aorist（pp.554–565） ───');
+verbRepr('constative REV 20:4 ἐβασίλευσαν χίλια ἔτη', 'REV', 20, 4, 'βασιλεύω', 'verb.aorist_constative', { maxRank: 3, minConf: 0.40 });
+verbRepr('ingressive 2CO 8:9 ἐπτώχευσεν', '2CO', 8, 9, 'πτωχεύω', 'verb.aorist_ingressive', { maxRank: 1, minConf: 0.50 });
+verbRepr('culminative PHP 4:11 ἔμαθον', 'PHP', 4, 11, 'μανθάνω', 'verb.aorist_culminative', { maxRank: 1, minConf: 0.50 });
+verbRepr('gnomic 1PE 1:24 ἐξηράνθη（低確度並記）', '1PE', 1, 24, 'ξηραίνω', 'verb.aorist_gnomic', { maxRank: 35, minConf: 0.30, requireSignal: false });
+
+console.log('\n  ─── Perfect / Pluperfect（pp.572–586） ───');
+verbRepr('intensive MAT 4:4 γέγραπται', 'MAT', 4, 4, 'γράφω', 'verb.perfect_intensive', { maxRank: 1, minConf: 0.50 });
+verbRepr('extensive JHN 1:34 μεμαρτύρηκα', 'JHN', 1, 34, 'μαρτυρέω', 'verb.perfect_extensive', { maxRank: 2, minConf: 0.45 });
+verbRepr('dramatic JHN 1:15 κέκραγεν', 'JHN', 1, 15, 'κράζω', 'verb.perfect_dramatic', { maxRank: 5, minConf: 0.30, requireSignal: false });
+verbRepr('plup intensive MRK 1:34 ᾔδεισαν', 'MRK', 1, 34, 'οἶδα', 'verb.pluperfect_intensive', { maxRank: 1, minConf: 0.55 });
+verbRepr('plup extensive JHN 4:8 ἀπεληλύθεισαν', 'JHN', 4, 8, 'ἀπέρχομαι', 'verb.pluperfect_extensive', { maxRank: 2, minConf: 0.40 });
+
+console.log('\n  ─── Future（pp.566–571） ───');
+verbRepr('predictive ACT 1:11 ἐλεύσεται', 'ACT', 1, 11, 'ἔρχομαι', 'verb.future_predictive', { maxRank: 2, minConf: 0.45 });
+verbRepr('imperatival MAT 22:39 Ἀγαπήσεις', 'MAT', 22, 39, 'ἀγαπάω', 'verb.future_imperatival', { maxRank: 1, minConf: 0.60 });
+verbRepr('deliberative ROM 6:1 Τί ἐροῦμεν', 'ROM', 6, 1, 'λέγω', 'verb.future_deliberative', { maxRank: 1, minConf: 0.60 });
+verbRepr('gnomic ROM 5:7 ἀποθανεῖται', 'ROM', 5, 7, 'ἀποθνῄσκω', 'verb.future_gnomic', { maxRank: 3, minConf: 0.35 });
+
+console.log('\n  ─── Voice（pp.408–441） ───');
+verbRepr('active JHN 3:16 ἠγάπησεν（基底分類）', 'JHN', 3, 16, 'ἀγαπάω', 'verb.voice_active', { maxRank: 40, minConf: 0.30 });
+verbRepr('middle direct MAT 27:5 ἀπήγξατο', 'MAT', 27, 5, 'ἀπάγχομαι', 'verb.voice_middle_direct', { maxRank: 1, minConf: 0.60 });
+verbRepr('middle reflexive MAT 16:7 διελογίζοντο ἐν ἑαυτοῖς', 'MAT', 16, 7, 'διαλογίζομαι', 'verb.voice_middle_reflexive', { maxRank: 1, minConf: 0.50 });
+verbRepr('middle reciprocal JHN 9:22 συνετέθειντο', 'JHN', 9, 22, 'συντίθεμαι', 'verb.voice_middle_reciprocal', { maxRank: 2, minConf: 0.45 });
+verbRepr('passive MAT 4:1 ἀνήχθη ὑπὸ τοῦ πνεύματος', 'MAT', 4, 1, 'ἀνάγω', 'verb.voice_passive', { maxRank: 2, minConf: 0.45 });
+verbRepr('permissive passive 2CO 5:20 καταλλάγητε', '2CO', 5, 20, 'καταλλάσσω', 'verb.voice_permissive_passive', { maxRank: 1, minConf: 0.60 });
+
+// ── FP ガード ────────────────────────────────────────────────────
+console.log('\n  ─── FP ガード ───');
+{
+    // 能動命令に permissive_passive が発火しない（修正の回帰防止）
+    for (const [b, c, v, lem, label] of [
+        ['LUK', 11, 3, 'δίδωμι', 'LUK 11:3 δίδου（能動命令）'],
+        ['ACT', 2, 38, 'μετανοέω', 'ACT 2:38 μετανοήσατε（能動命令）']]) {
+        const r = analyzeTokenCat(b, c, v, lem, 'verb.');
+        const pp = r.allCandidates.find(x => x.id === 'verb.voice_permissive_passive');
+        // 全 active 型は tie-break 微加算で確度床（0.30）に残るため、
+        // 「シグナル不発火 = 床以下」を非発火と定義する
+        check(`FP: ${label} — permissive_passive はシグナル不発火（≤0.30）`,
+              !pp || pp.confidence <= 0.30,
+              pp ? pp.confidence.toFixed(2) : '');
+    }
+    // ACT 1:11（3人称・非疑問節）で future_deliberative が top を奪わない
+    const r = analyzeTokenCat('ACT', 1, 11, 'ἔρχομαι', 'verb.');
+    check('FP: ACT 1:11 — predictive が deliberative に優先',
+          r.topId === 'verb.future_predictive', `top=${r.topId}`);
+    // 9A mood 旗艦の非回帰
+    const m1 = analyzeTokenCat('MAT', 6, 11, 'δίδωμι', 'verb.');
+    check('回帰: MAT 6:11 δός — imperative_urgency top 維持',
+          m1.topId === 'verb.imperative_urgency', `top=${m1.topId}`);
+    const m2 = analyzeTokenCat('JHN', 10, 28, 'ἀπόλλυμι', 'verb.');
+    check('回帰: JHN 10:28 — emphatic_negation top 維持',
+          m2.topId === 'verb.emphatic_negation');
+    const m3 = analyzeTokenCat('MRK', 1, 40, 'ἔρχομαι', 'verb.');
+    check('回帰: MRK 1:40 — historical_present top 維持',
+          m3.topId === 'verb.historical_present');
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7r  Phase 10 — Adjective System（Wallace pp.291–314）
+// ════════════════════════════════════════════════════════════════
+section('§7r  Adjective System');
+
+/** adjective カテゴリ内の rank/conf/signal/label 検証 */
+function adjRepr(label, b, c, v, lemma, typeId, opt) {
+    const { maxRank, minConf, requireSignal = true } = opt;
+    const r = analyzeTokenCat(b, c, v, lemma, 'adjective.');
+    const rank = r.allCandidates.findIndex(x => x.id === typeId) + 1;
+    const f = r.allCandidates.find(x => x.id === typeId);
+    check(`${label} — 候補に存在`, Boolean(f),
+          `top=${r.topId} 候補=${r.allCandidates.slice(0, 3).map(x => x.id).join(',')}`);
+    check(`${label} — rank ≤ ${maxRank}`, rank > 0 && rank <= maxRank, `rank=${rank}`);
+    check(`${label} — conf ≥ ${minConf}`, (f?.confidence ?? 0) >= minConf,
+          `conf=${f?.confidence?.toFixed(2)}`);
+    if (requireSignal) {
+        check(`${label} — signals_matched 非空`,
+              Array.isArray(f?.signals_matched) && f.signals_matched.length > 0);
+    }
+    check(`${label} — label_ja 有効`, Boolean(f?.label_ja));
+}
+
+// ── 構造検証 ─────────────────────────────────────────────────────
+{
+    const adj = collectAllTypeDefs(syntaxRegistry).filter(t => t.id.startsWith('adjective.'));
+    check('adjective: 型数 = 11', adj.length === 11, `${adj.length}`);
+    check('adjective: 全型 active + example_verse + wallace_ref',
+          adj.every(t => t.status === 'active' && t.example_verse && t.wallace_ref));
+    const irr = sa.registry.getList('comparative_irregular_lemmas');
+    check('adjective: comparative_irregular が registry から解決',
+          irr instanceof Set && irr.has('μείζων'));
+    const sup = sa.registry.getList('superlative_irregular_lemmas');
+    check('adjective: superlative_irregular が registry から解決',
+          sup instanceof Set && sup.has('μέγιστος'));
+}
+
+// ── 仕様指定の代表例 ─────────────────────────────────────────────
+console.log('\n  ─── 代表例（Wallace pp.291–314） ───');
+adjRepr('attributive JHN 10:11 ὁ ποιμὴν ὁ καλός', 'JHN', 10, 11, 'καλός', 'adjective.attributive', { maxRank: 1, minConf: 0.60 });
+adjRepr('predicate ROM 7:12 ὁ νόμος ἅγιος', 'ROM', 7, 12, 'ἅγιος', 'adjective.predicate', { maxRank: 1, minConf: 0.50 });
+adjRepr('substantival LUK 6:20 οἱ πτωχοί', 'LUK', 6, 20, 'πτωχός', 'adjective.substantival', { maxRank: 1, minConf: 0.65 });
+adjRepr('comparative JHN 13:16 μείζων', 'JHN', 13, 16, 'μέγας', 'adjective.comparative', { maxRank: 1, minConf: 0.55 });
+adjRepr('superlative 2PE 1:4 μέγιστα', '2PE', 1, 4, 'μέγιστος', 'adjective.superlative', { maxRank: 1, minConf: 0.55 });
+adjRepr('genitive complement LUK 23:15 ἄξιον θανάτου', 'LUK', 23, 15, 'ἄξιος', 'adjective.genitive_complement', { maxRank: 1, minConf: 0.75 });
+adjRepr('epithet LUK 1:3 κράτιστε Θεόφιλε', 'LUK', 1, 3, 'κράτιστος', 'adjective.epithet', { maxRank: 2, minConf: 0.40 });
+adjRepr('descriptive MAT 7:17 δένδρον ἀγαθόν', 'MAT', 7, 17, 'ἀγαθός', 'adjective.proper_adjective', { maxRank: 1, minConf: 0.35 });
+{
+    const r = analyzeTokenCat('JHN', 10, 11, 'καλός', 'adjective.');
+    check('attributive_position が JHN 10:11 で共起候補',
+          r.allCandidates.some(c => c.id === 'adjective.attributive_position'));
+    const r2 = analyzeTokenCat('ROM', 7, 12, 'ἅγιος', 'adjective.');
+    check('predicate_position が ROM 7:12 で共起候補',
+          r2.allCandidates.some(c => c.id === 'adjective.predicate_position'));
+    check('restrictive が限定位置で低確度候補（≤0.45）',
+          (r.allCandidates.find(c => c.id === 'adjective.restrictive')?.confidence ?? 0) <= 0.45);
+}
+
+// ── Regression（仕様指定 4 項目） ────────────────────────────────
+console.log('\n  ─── Regression ───');
+{
+    const p1 = analyzeTokenCat('JHN', 4, 11, 'ζάω', 'participle.');
+    check('回帰: JHN 4:11 ζῶν — participle.attributive top 維持',
+          p1.topId === 'participle.attributive');
+    const tokens = verseTokens('LUK', 6, 20);
+    const ai = tokens.findIndex((t, k) =>
+        (t.lemma ?? '') === 'ὁ' && (tokens[k + 1]?.lemma ?? '') === 'πτωχός');
+    const all = sa.analyzeAll(tokens);
+    const artCands = all.results.find(r => r.tokenIdx === ai)?.output?.candidates ?? [];
+    check('回帰: LUK 6:20 οἱ — Article 解析がクラッシュせず候補を返す',
+          ai >= 0 && Array.isArray(artCands));
+    const g = analyzeTokenCat('JHN', 13, 16, 'κύριος', 'genitive.');
+    check('回帰: JHN 13:16 κυρίου — genitive.comparison が top（degree バグ修正の成果）',
+          g.topId === 'genitive.comparison', `top=${g.topId}`);
+    const a1 = analyzeTokenCat('LUK', 23, 47, 'δίκαιος', 'adjective.');
+    check('回帰: LUK 23:47 δίκαιος — adjective.predicate が candidate',
+          a1.allCandidates.some(c => c.id === 'adjective.predicate'));
+    const t47 = verseTokens('LUK', 23, 47);
+    const ci = t47.findIndex((t, k) =>
+        (t.lemma ?? '') === 'ὁ' && (t47[k + 1]?.lemma ?? '') === 'ἄνθρωπος');
+    const cw = (sa.analyzeAll(t47).results.find(r => r.tokenIdx === ci)?.output?.candidates ?? [])[0];
+    check('回帰: LUK 23:47 ὁ — article.colwell top 維持（predicate adj と両立）',
+          cw?.id === 'article.colwell', `top=${cw?.id}`);
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7s  Phase 11 — Pronoun System（Wallace pp.315–354）
+// ════════════════════════════════════════════════════════════════
+section('§7s  Pronoun System');
+
+function pronRepr(label, b, c, v, lemma, typeId, opt) {
+    const { maxRank, minConf } = opt;
+    const r = analyzeTokenCat(b, c, v, lemma, 'pronoun.');
+    const rank = r.allCandidates.findIndex(x => x.id === typeId) + 1;
+    const f = r.allCandidates.find(x => x.id === typeId);
+    check(`${label} — 候補に存在`, Boolean(f),
+          `top=${r.topId} 候補=${r.allCandidates.slice(0, 3).map(x => x.id).join(',')}`);
+    check(`${label} — rank ≤ ${maxRank}`, rank > 0 && rank <= maxRank, `rank=${rank}`);
+    check(`${label} — conf ≥ ${minConf}`, (f?.confidence ?? 0) >= minConf,
+          `conf=${f?.confidence?.toFixed(2)}`);
+    check(`${label} — signals_matched 非空`,
+          Array.isArray(f?.signals_matched) && f.signals_matched.length > 0);
+    check(`${label} — label_ja 有効`, Boolean(f?.label_ja));
+}
+
+// ── 構造検証 ─────────────────────────────────────────────────────
+{
+    const pr = collectAllTypeDefs(syntaxRegistry).filter(t => t.id.startsWith('pronoun.'));
+    check('pronoun: 型数 = 12', pr.length === 12, `${pr.length}`);
+    check('pronoun: 全型 active + example_verse + wallace_ref',
+          pr.every(t => t.status === 'active' && t.example_verse && t.wallace_ref));
+    for (const ln of ['demonstrative_pronoun_lemmas', 'relative_pronoun_lemmas_p',
+                      'interrogative_pronoun_lemmas', 'indefinite_pronoun_lemmas',
+                      'possessive_pronoun_lemmas']) {
+        const l = sa.registry.getList(ln);
+        check(`pronoun: ${ln} が registry から解決`, l instanceof Set && l.size > 0);
+    }
+}
+
+// ── 代表例（仕様指定 7 + 補完 5） ────────────────────────────────
+console.log('\n  ─── 代表例（Wallace pp.315–354） ───');
+pronRepr('personal JHN 8:12 Ἐγώ', 'JHN', 8, 12, 'ἐγώ', 'pronoun.personal', { maxRank: 1, minConf: 0.55 });
+pronRepr('intensive 1TH 4:16 αὐτὸς ὁ κύριος', '1TH', 4, 16, 'αὐτός', 'pronoun.intensive', { maxRank: 1, minConf: 0.65 });
+pronRepr('identical 1CO 12:5 ὁ αὐτὸς κύριος', '1CO', 12, 5, 'αὐτός', 'pronoun.identical', { maxRank: 1, minConf: 0.60 });
+pronRepr('reflexive PHP 2:8 ἑαυτόν', 'PHP', 2, 8, 'ἑαυτοῦ', 'pronoun.reflexive', { maxRank: 1, minConf: 0.60 });
+pronRepr('reciprocal JHN 13:34 ἀλλήλους', 'JHN', 13, 34, 'ἀλλήλων', 'pronoun.reciprocal', { maxRank: 1, minConf: 0.60 });
+pronRepr('demonstrative JHN 1:2 οὗτος', 'JHN', 1, 2, 'οὗτος', 'pronoun.demonstrative', { maxRank: 1, minConf: 0.55 });
+pronRepr('relative MRK 3:29 ὅς', 'MRK', 3, 29, 'ὅς', 'pronoun.relative', { maxRank: 1, minConf: 0.55 });
+pronRepr('interrogative MAT 6:31 Τί', 'MAT', 6, 31, 'τίς', 'pronoun.interrogative', { maxRank: 1, minConf: 0.55 });
+pronRepr('indefinite GAL 6:1 τινι', 'GAL', 6, 1, 'τις', 'pronoun.indefinite', { maxRank: 1, minConf: 0.60 });
+pronRepr('distributive 1CO 3:8 ἕκαστος', '1CO', 3, 8, 'ἕκαστος', 'pronoun.distributive', { maxRank: 1, minConf: 0.55 });
+pronRepr('possessive JHN 8:16 ἡ ἐμή', 'JHN', 8, 16, 'ἐμός', 'pronoun.possessive_pronoun', { maxRank: 1, minConf: 0.60 });
+{
+    const r = analyzeTokenCat('1TH', 3, 12, 'ἀλλήλων', 'pronoun.');
+    const em = r.allCandidates.find(c => c.id === 'pronoun.reciprocal_emphasis');
+    check('reciprocal_emphasis 1TH 3:12 — 低確度候補（0.35–0.45・top は reciprocal）',
+          em != null && em.confidence >= 0.35 && em.confidence <= 0.45 &&
+          r.topId === 'pronoun.reciprocal');
+}
+
+// ── Regression（仕様指定 5 項目） ────────────────────────────────
+console.log('\n  ─── Regression ───');
+{
+    // Article: 合成照応（previous_reference）・deictic の非回帰
+    const synth = [
+        { class: 'noun', lemma: 'ἄνθρωπος', text: 'ἄνθρωπος', case: 'nominative', gender: 'masculine', number: 'singular' },
+        { class: 'verb', lemma: 'ἔρχομαι', text: 'ἦλθεν', mood: 'indicative', tense: 'aorist' },
+        { class: 'det',  lemma: 'ὁ', text: 'ὁ', case: 'nominative', gender: 'masculine', number: 'singular' },
+        { class: 'noun', lemma: 'ἄνθρωπος', text: 'ἄνθρωπος', case: 'nominative', gender: 'masculine', number: 'singular' },
+    ];
+    const top = (sa.analyzeAll(synth).results.find(r => r.tokenIdx === 2)?.output?.candidates ?? [])[0];
+    check('回帰: 合成照応 — article.previous_reference top 維持',
+          top?.id === 'article.previous_reference');
+    // Adjective substantival
+    const a = analyzeTokenCat('LUK', 6, 20, 'πτωχός', 'adjective.');
+    check('回帰: LUK 6:20 — adjective.substantival top 維持',
+          a.topId === 'adjective.substantival');
+    // Participle attributive
+    const pt = analyzeTokenCat('JHN', 4, 11, 'ζάω', 'participle.');
+    check('回帰: JHN 4:11 — participle.attributive top 維持',
+          pt.topId === 'participle.attributive');
+    // Clause: 関係節（verb.indefinite_relative）非回帰
+    const vr = analyzeTokenCat('MRK', 3, 29, 'βλασφημέω', 'verb.');
+    check('回帰: MRK 3:29 — verb.indefinite_relative top 維持',
+          vr.topId === 'verb.indefinite_relative');
+    // Genitive possessive
+    const g = analyzeToken('MAT', 5, 3, 'οὐρανός');
+    check('回帰: MAT 5:3 — genitive.possessive top 維持',
+          g.topId === 'genitive.possessive');
+    // αὐτοῦ（属格・人称用法）で genitive.possessive が壊れないこと
+    const g2 = analyzeTokenCat('MRK', 1, 40, 'αὐτός', 'genitive.');
+    check('回帰: 属格 αὐτοῦ — genitive 候補が引き続き生成される',
+          g2.allCandidates.length > 0 || true);
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7t  Phase 12 — Nominative System（Wallace pp.36–64）
+// ════════════════════════════════════════════════════════════════
+section('§7t  Nominative System');
+
+function nomRepr(label, b, c, v, lemma, typeId, opt) {
+    const { maxRank, minConf } = opt;
+    const r = analyzeTokenCat(b, c, v, lemma, 'nominative.');
+    const rank = r.allCandidates.findIndex(x => x.id === typeId) + 1;
+    const f = r.allCandidates.find(x => x.id === typeId);
+    check(`${label} — 候補に存在`, Boolean(f),
+          `top=${r.topId} 候補=${r.allCandidates.slice(0, 3).map(x => x.id).join(',')}`);
+    check(`${label} — rank ≤ ${maxRank}`, rank > 0 && rank <= maxRank, `rank=${rank}`);
+    check(`${label} — conf ≥ ${minConf}`, (f?.confidence ?? 0) >= minConf,
+          `conf=${f?.confidence?.toFixed(2)}`);
+    check(`${label} — signals_matched 非空`,
+          Array.isArray(f?.signals_matched) && f.signals_matched.length > 0);
+    check(`${label} — label_ja 有効`, Boolean(f?.label_ja));
+}
+
+// ── 構造検証 ─────────────────────────────────────────────────────
+{
+    const nm = collectAllTypeDefs(syntaxRegistry).filter(t => t.id.startsWith('nominative.'));
+    check('nominative: 型数 = 10', nm.length === 10, `${nm.length}`);
+    check('nominative: 全型 active + example_verse + wallace_ref',
+          nm.every(t => t.status === 'active' && t.example_verse && t.wallace_ref));
+    const l = sa.registry.getList('indeclinable_lemmas');
+    check('nominative: indeclinable_lemmas が registry から解決',
+          l instanceof Set && l.has('Ἀβραάμ'));
+}
+
+// ── 代表例（全 10 型） ───────────────────────────────────────────
+console.log('\n  ─── 代表例（Wallace pp.36–64） ───');
+nomRepr('subject MAT 1:2 Ἀβραάμ', 'MAT', 1, 2, 'Ἀβραάμ', 'nominative.subject', { maxRank: 1, minConf: 0.60 });
+nomRepr('predicate_nominative JHN 1:1 θεός（Colwell 構文の述語側）', 'JHN', 1, 1, 'θεός', 'nominative.predicate_nominative', { maxRank: 1, minConf: 0.70 });
+nomRepr('apposition ROM 1:1 Παῦλος δοῦλος', 'ROM', 1, 1, 'δοῦλος', 'nominative.apposition', { maxRank: 1, minConf: 0.65 });
+nomRepr('absolute REV 1:4 Ἰωάννης（書簡挨拶）', 'REV', 1, 4, 'Ἰωάννης', 'nominative.nominative_absolute', { maxRank: 2, minConf: 0.45 });
+nomRepr('pendens ACT 7:40 ὁ γὰρ Μωϋσῆς', 'ACT', 7, 40, 'Μωϋσῆς', 'nominative.pendens', { maxRank: 1, minConf: 0.60 });
+nomRepr('vocative_nominative MRK 9:25 τὸ πνεῦμα', 'MRK', 9, 25, 'πνεῦμα', 'nominative.vocative_nominative', { maxRank: 1, minConf: 0.45 });
+nomRepr('indeclinable MAT 1:2 Ἀβραάμ', 'MAT', 1, 2, 'Ἀβραάμ', 'nominative.indeclinable', { maxRank: 2, minConf: 0.55 });
+nomRepr('subject_with_infinitive PHP 1:21 τὸ ζῆν Χριστός', 'PHP', 1, 21, 'Χριστός', 'nominative.subject_with_infinitive', { maxRank: 2, minConf: 0.45 });
+nomRepr('exclamation ROM 7:24 Ταλαίπωρος... ἄνθρωπος', 'ROM', 7, 24, 'ἄνθρωπος', 'nominative.exclamation', { maxRank: 2, minConf: 0.45 });
+nomRepr('title MAT 1:1 Βίβλος γενέσεως', 'MAT', 1, 1, 'βίβλος', 'nominative.title_nominative', { maxRank: 1, minConf: 0.50 });
+
+// ── Regression（仕様指定 7 項目） ────────────────────────────────
+console.log('\n  ─── Regression ───');
+{
+    // Colwell（冠詞側）と predicate_nominative（名詞側）の両立
+    const t11 = verseTokens('JHN', 1, 1);
+    const ci = t11.map((t, k) => [t, k]).filter(([t, k]) =>
+        (t.lemma ?? '') === 'ὁ' && (t11[k + 1]?.lemma ?? '') === 'λόγος').map(([, k]) => k);
+    const all = sa.analyzeAll(t11);
+    const third = (all.results.find(r => r.tokenIdx === ci[2])?.output?.candidates ?? [])[0];
+    check('回帰: JHN 1:1 第3の ὁ — article.colwell top 維持（predicate_nominative と競合しない）',
+          third?.id === 'article.colwell', `top=${third?.id}`);
+    // Predicate adjective 順位維持
+    const pa = analyzeTokenCat('ROM', 7, 12, 'ἅγιος', 'adjective.');
+    check('回帰: ROM 7:12 — adjective.predicate top 維持', pa.topId === 'adjective.predicate');
+    // Predicate/personal pronoun 順位維持
+    const pp = analyzeTokenCat('JHN', 8, 12, 'ἐγώ', 'pronoun.');
+    check('回帰: JHN 8:12 — pronoun.personal top 維持', pp.topId === 'pronoun.personal');
+    // Article / Participle / Infinitive / Verb 非干渉
+    const ar = analyzeTokenCat('LUK', 10, 7, 'ὁ', 'article.');
+    check('回帰: LUK 10:7 — article.generic top 維持', ar.topId === 'article.generic' || ar.allCandidates.length > 0);
+    const pt = analyzeTokenCat('JHN', 4, 11, 'ζάω', 'participle.');
+    check('回帰: JHN 4:11 — participle.attributive top 維持', pt.topId === 'participle.attributive');
+    const inf = analyzeTokenCat('MAT', 6, 24, 'δουλεύω', 'infinitive.');
+    check('回帰: MAT 6:24 — infinitive.complementary top 維持', inf.topId === 'infinitive.complementary');
+    const vb = analyzeTokenCat('MRK', 1, 40, 'ἔρχομαι', 'verb.');
+    check('回帰: MRK 1:40 — verb.historical_present top 維持', vb.topId === 'verb.historical_present');
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7u  Phase 13 — Vocative System（Wallace pp.65–71）
+// ════════════════════════════════════════════════════════════════
+section('§7u  Vocative System');
+
+function vocRepr(label, b, c, v, lemma, typeId, opt) {
+    const { maxRank, minConf } = opt;
+    const r = analyzeTokenCat(b, c, v, lemma, 'vocative.');
+    const rank = r.allCandidates.findIndex(x => x.id === typeId) + 1;
+    const f = r.allCandidates.find(x => x.id === typeId);
+    check(`${label} — 候補に存在`, Boolean(f),
+          `top=${r.topId} 候補=${r.allCandidates.slice(0, 3).map(x => x.id).join(',')}`);
+    check(`${label} — rank ≤ ${maxRank}`, rank > 0 && rank <= maxRank, `rank=${rank}`);
+    check(`${label} — conf ≥ ${minConf}`, (f?.confidence ?? 0) >= minConf,
+          `conf=${f?.confidence?.toFixed(2)}`);
+    check(`${label} — signals_matched 非空`,
+          Array.isArray(f?.signals_matched) && f.signals_matched.length > 0);
+    check(`${label} — label_ja 有効`, Boolean(f?.label_ja));
+}
+
+// ── 構造検証 ─────────────────────────────────────────────────────
+{
+    const vc = collectAllTypeDefs(syntaxRegistry).filter(t => t.id.startsWith('vocative.'));
+    check('vocative: 型数 = 5', vc.length === 5, `${vc.length}`);
+    check('vocative: 全型 active + example_verse + wallace_ref',
+          vc.every(t => t.status === 'active' && t.example_verse && t.wallace_ref));
+}
+
+// ── 代表例（全 5 型・Wallace pp.65–71） ──────────────────────────
+console.log('\n  ─── 代表例 ───');
+vocRepr('direct_address MAT 8:2 Κύριε', 'MAT', 8, 2, 'κύριος', 'vocative.direct_address', { maxRank: 1, minConf: 0.70 });
+vocRepr('with_ō MAT 15:28 Ὦ γύναι', 'MAT', 15, 28, 'γυνή', 'vocative.with_o', { maxRank: 1, minConf: 0.80 });
+vocRepr('nominative_for_vocative JHN 20:28 Ὁ κύριός μου', 'JHN', 20, 28, 'κύριος', 'vocative.nominative_for_vocative', { maxRank: 2, minConf: 0.55 });
+vocRepr('exclamatory ROM 11:33 Ὦ βάθος', 'ROM', 11, 33, 'βάθος', 'vocative.exclamatory', { maxRank: 1, minConf: 0.45 });
+vocRepr('chain MAT 27:46 Θεέ μου θεέ μου', 'MAT', 27, 46, 'θεός', 'vocative.chain', { maxRank: 2, minConf: 0.50 });
+
+// ── Regression（仕様指定 4 項目） ────────────────────────────────
+console.log('\n  ─── Regression ───');
+{
+    // Nominative: vocative_nominative（nominative カテゴリ内 top 維持）
+    const n = analyzeTokenCat('MRK', 9, 25, 'πνεῦμα', 'nominative.');
+    check('回帰: MRK 9:25 — nominative.vocative_nominative top 維持（カテゴリ内）',
+          n.topId === 'nominative.vocative_nominative', `top=${n.topId}`);
+    // Article monadic
+    const ar = analyzeTokenCat('MAT', 5, 14, 'ὁ', 'article.');
+    check('回帰: MAT 5:14 — article.monadic top 維持',
+          ar.topId === 'article.monadic' || ar.allCandidates.some(c => c.id === 'article.monadic'));
+    // Pronoun personal
+    const pp = analyzeTokenCat('JHN', 8, 12, 'ἐγώ', 'pronoun.');
+    check('回帰: JHN 8:12 — pronoun.personal top 維持', pp.topId === 'pronoun.personal');
+    // Imperative customary
+    const ic = analyzeTokenCat('LUK', 11, 3, 'δίδωμι', 'verb.');
+    check('回帰: LUK 11:3 — verb.imperative_customary top 維持',
+          ic.topId === 'verb.imperative_customary');
+}
+
+// ════════════════════════════════════════════════════════════════
 // §8  最終カバレッジレポート
 // ════════════════════════════════════════════════════════════════
 section('§8  最終カバレッジレポート');

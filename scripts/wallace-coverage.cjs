@@ -25,16 +25,17 @@ const OUT    = path.join(__dirname, 'output');
 
 // ── Wallace 章定義（GGBB 1996 の章構成・監査用の静的定義） ────────────────
 const CHAPTERS = [
-    { key: 'nominative',    label: 'Nominative',     pages: '36–64',    registryCategory: null },
-    { key: 'vocative',      label: 'Vocative',       pages: '65–71',    registryCategory: null },
+    { key: 'nominative',    label: 'Nominative',     pages: '36–64',    registryCategory: 'nominative' },
+    { key: 'vocative',      label: 'Vocative',       pages: '65–71',    registryCategory: 'vocative' },
     { key: 'genitive',      label: 'Genitive',       pages: '72–136',   registryCategory: 'genitive' },
     { key: 'dative',        label: 'Dative',         pages: '137–175',  registryCategory: 'dative' },
     { key: 'accusative',    label: 'Accusative',     pages: '176–205',  registryCategory: 'accusative' },
     { key: 'article',       label: 'Article',        pages: '206–290',  registryCategory: 'article' },
-    { key: 'adjective',     label: 'Adjective',      pages: '291–314',  registryCategory: null },
-    { key: 'pronoun',       label: 'Pronoun',        pages: '315–354',  registryCategory: null },
-    { key: 'infinitive',    label: 'Infinitive',     pages: '587–611',  registryCategory: null },
+    { key: 'adjective',     label: 'Adjective',      pages: '291–314',  registryCategory: 'adjective' },
+    { key: 'pronoun',       label: 'Pronoun',        pages: '315–354',  registryCategory: 'pronoun' },
+    { key: 'infinitive',    label: 'Infinitive',     pages: '587–611',  registryCategory: 'infinitive' },
     { key: 'participle',    label: 'Participle',     pages: '612–655',  registryCategory: 'participle' },
+    { key: 'verb_mood',     label: 'Verb (Mood)',    pages: '443–493',  registryCategory: 'verb' },
     { key: 'clause_syntax', label: 'Clause Syntax',  pages: '656–712',  registryCategory: null },
     { key: 'nominal_syntax',label: 'Nominal Syntax', pages: '31–35',    registryCategory: null },
     { key: 'discourse',     label: 'Discourse',      pages: '—',        registryCategory: null },
