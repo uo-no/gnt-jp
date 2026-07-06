@@ -2587,6 +2587,39 @@ class ParticipleScorer extends CandidateScorer {
 
 
 // =============================================================
+// § 6h.  ClauseScorer — 節構文スコアラー（Phase 14 新設）
+// =============================================================
+//
+// Wallace §Clause Syntax + Conditional Sentences (pp.656–712)。
+// アンカーは従属標識トークン（従属接続詞・関係代名詞）。
+// 下の閉クラス集合は文法機能語の定数（Phase 4.5D の前例に従う）—
+// καί/δέ 等の等位接続詞を除外し、節構文の候補ノイズを防ぐ。
+
+const _CLAUSE_ANCHOR_LEMMAS = new Set([
+    'εἰ', 'εἴπερ', 'ἐάν', 'ἐάνπερ', 'ὅτι', 'ἵνα', 'ὅπως', 'ὥστε',
+    'ὅταν', 'ἐπάν', 'ὅτε', 'καθώς', 'καθάπερ', 'ὥσπερ',
+    'ὅς', 'ὅστις', 'ὅσπερ',
+]);
+
+class ClauseScorer extends CandidateScorer {
+    canHandle(ctx) {
+        if (!['C', 'R'].includes(ctx.posCode)) return false;
+        return _CLAUSE_ANCHOR_LEMMAS.has(ctx.target?.lemma ?? '');
+    }
+
+    score(ctx, registry) {
+        const types = registry.getTypesForCategory('clause');
+        if (!types || types.length === 0) return [];
+        const enrichedCtx = Object.assign(Object.create(ctx), { _registry: registry });
+        return types
+            .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+            .map(typeDef => this._evaluateType(typeDef, enrichedCtx))
+            .filter(result => result !== null && result.rawScore > 0);
+    }
+}
+
+
+// =============================================================
 // § 6g.  VocativeScorer — 呼格スコアラー（Phase 13 新設）
 // =============================================================
 //
@@ -3538,6 +3571,7 @@ class SyntaxAnalyzer {
             new PronounScorer(),      // Phase 11: Wallace Pronouns (pp.315–354)
             new NominativeScorer(),   // Phase 12: Wallace Nominative (pp.36–64)
             new VocativeScorer(),     // Phase 13: Wallace Vocative (pp.65–71)
+            new ClauseScorer(),       // Phase 14: Wallace Clause Syntax (pp.656–712)
         ];
         this.normalizer = new CandidateNormalizer();
         this.woAnalyzer = new WordOrderAnalyzer();
@@ -4537,6 +4571,53 @@ CheckEvaluator.register('relative_clause',
         const s = Number.isInteger(ctx.clauseStart) ? ctx.clauseStart : 0;
         return ['ὅς', 'ὅστις', 'ὅσπερ'].includes((ctx.tokens ?? [])[s]?.lemma ?? '');
     }
+);
+
+// ── Phase 14: Clause Syntax 用ハンドラ（読み取りのみ） ────────────
+
+// 対象レンマがリテラル配列に含まれるか（registry の check 文字列内リスト）
+CheckEvaluator.register('target_lemma_in',
+    (ctx, lemmas) => lemmas.includes(ctx.target?.lemma ?? '')
+);
+
+// 節内に指定の法の定形動詞があるか
+CheckEvaluator.register('clause_has_mood',
+    (ctx, [moodVal]) => _clauseTokens(ctx).some(t => {
+        if (_resolveEntryPos(t) !== 'V') return false;
+        const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
+        return m.mood === moodVal;
+    })
+);
+
+// 節内に過去の直説法（アオリスト・未完了）があるか（第2類条件文の前提節）
+CheckEvaluator.register('clause_has_past_indicative',
+    (ctx) => _clauseTokens(ctx).some(t => {
+        if (_resolveEntryPos(t) !== 'V') return false;
+        const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
+        return m.mood === 'indicative' && ['aorist', 'imperfect', 'pluperfect'].includes(m.tense ?? '');
+    })
+);
+
+// 条件標識より後方に ἄν があるか（第2類条件文の標識・Wallace pp.694–696）。
+// 節分割が前提節と帰結節を切り分けられない場合（εἰ ἦς ὧδε οὐκ ἂν ἀπέθανεν）
+// にも対応するため、対象（εἰ）以降の詩節全域を走査する。
+CheckEvaluator.register('apodosis_has_an',
+    (ctx) => {
+        const toks = ctx.tokens ?? [];
+        for (let i = (ctx.targetIdx ?? 0) + 1; i < toks.length; i++) {
+            if ((toks[i].lemma ?? '') === 'ἄν') return true;
+        }
+        return false;
+    }
+);
+
+// 対象より前方に指定レンマの動詞があるか（内容節の母動詞判定）
+CheckEvaluator.register('verb_before_in',
+    (ctx, lemmas) => (ctx.tokens ?? []).some((t, i) => {
+        if (i >= (ctx.targetIdx ?? 0)) return false;
+        if (_resolveEntryPos(t) !== 'V') return false;
+        return lemmas.includes(t.lemma ?? '');
+    })
 );
 
 // ── Phase 13: Vocative System 用ハンドラ（読み取りのみ） ──────────

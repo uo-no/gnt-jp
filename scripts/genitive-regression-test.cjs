@@ -2218,6 +2218,79 @@ console.log('\n  ─── Regression ───');
 }
 
 // ════════════════════════════════════════════════════════════════
+// §7v  Phase 14 — Clause Syntax（Wallace pp.656–712）
+// ════════════════════════════════════════════════════════════════
+section('§7v  Clause Syntax');
+
+function clRepr(label, b, c, v, lemma, typeId, opt) {
+    const { maxRank, minConf } = opt;
+    const r = analyzeTokenCat(b, c, v, lemma, 'clause.');
+    const rank = r.allCandidates.findIndex(x => x.id === typeId) + 1;
+    const f = r.allCandidates.find(x => x.id === typeId);
+    check(`${label} — 候補に存在`, Boolean(f),
+          `top=${r.topId} 候補=${r.allCandidates.slice(0, 3).map(x => x.id).join(',')}`);
+    check(`${label} — rank ≤ ${maxRank}`, rank > 0 && rank <= maxRank, `rank=${rank}`);
+    check(`${label} — conf ≥ ${minConf}`, (f?.confidence ?? 0) >= minConf,
+          `conf=${f?.confidence?.toFixed(2)}`);
+    check(`${label} — signals_matched 非空`,
+          Array.isArray(f?.signals_matched) && f.signals_matched.length > 0);
+    check(`${label} — label_ja 有効`, Boolean(f?.label_ja));
+}
+
+// ── 構造検証 ─────────────────────────────────────────────────────
+{
+    const cl = collectAllTypeDefs(syntaxRegistry).filter(t => t.id.startsWith('clause.'));
+    check('clause: 型数 = 12', cl.length === 12, `${cl.length}`);
+    check('clause: 全型 active + example_verse + wallace_ref',
+          cl.every(t => t.status === 'active' && t.example_verse && t.wallace_ref));
+    check('clause: 条件文 4 類が揃っている',
+          ['first', 'second', 'third', 'fourth'].every(k =>
+              cl.some(t => t.id === `clause.conditional_${k}_class`)));
+}
+
+// ── 代表例（条件文 4 類・Wallace pp.679–712） ────────────────────
+console.log('\n  ─── 条件文 ───');
+clRepr('第1類 MAT 12:28 εἰ + 直説法', 'MAT', 12, 28, 'εἰ', 'clause.conditional_first_class', { maxRank: 1, minConf: 0.65 });
+clRepr('第2類 JHN 11:21 εἰ ἦς... οὐκ ἂν ἀπέθανεν', 'JHN', 11, 21, 'εἰ', 'clause.conditional_second_class', { maxRank: 1, minConf: 0.85 });
+clRepr('第3類 1JN 1:9 ἐὰν + 接続法', '1JN', 1, 9, 'ἐάν', 'clause.conditional_third_class', { maxRank: 1, minConf: 0.70 });
+clRepr('第4類 1PE 3:14 εἰ + 希求法', '1PE', 3, 14, 'εἰ', 'clause.conditional_fourth_class', { maxRank: 1, minConf: 0.75 });
+
+// ── 代表例（従属節・pp.656–665） ─────────────────────────────────
+console.log('\n  ─── 従属節 ───');
+clRepr('内容節 MAT 5:17 νομίσητε ὅτι', 'MAT', 5, 17, 'ὅτι', 'clause.substantival_hoti', { maxRank: 1, minConf: 0.65 });
+clRepr('理由節 MAT 5:3 μακάριοι... ὅτι', 'MAT', 5, 3, 'ὅτι', 'clause.causal_hoti', { maxRank: 1, minConf: 0.45 });
+clRepr('目的節 JHN 3:16 ἵνα', 'JHN', 3, 16, 'ἵνα', 'clause.purpose_hina', { maxRank: 1, minConf: 0.60 });
+clRepr('結果節 MAT 8:24 ὥστε', 'MAT', 8, 24, 'ὥστε', 'clause.result_hoste', { maxRank: 1, minConf: 0.55 });
+clRepr('時間節 MAT 6:2 ὅταν + 接続法', 'MAT', 6, 2, 'ὅταν', 'clause.temporal_hotan', { maxRank: 1, minConf: 0.60 });
+clRepr('時間節 MAT 7:28 ὅτε + 直説法', 'MAT', 7, 28, 'ὅτε', 'clause.temporal_hote', { maxRank: 1, minConf: 0.60 });
+clRepr('比較節 JHN 13:34 καθώς', 'JHN', 13, 34, 'καθώς', 'clause.comparative_kathos', { maxRank: 1, minConf: 0.60 });
+clRepr('関係節 MAT 2:9 ὁ ἀστὴρ ὅν', 'MAT', 2, 9, 'ὅς', 'clause.adjectival_relative', { maxRank: 1, minConf: 0.75 });
+
+// ── Regression ───────────────────────────────────────────────────
+console.log('\n  ─── Regression ───');
+{
+    // 動詞側の法判定（同一節の別トークン）が不変であること
+    const v1 = analyzeTokenCat('1JN', 1, 9, 'ὁμολογέω', 'verb.');
+    check('回帰: 1JN 1:9 ὁμολογῶμεν — verb.conditional_subjunctive top 維持',
+          v1.topId === 'verb.conditional_subjunctive');
+    const v2 = analyzeTokenCat('JHN', 17, 3, 'γινώσκω', 'verb.');
+    check('回帰: JHN 17:3 — verb.purpose_clause top 維持', v2.topId === 'verb.purpose_clause');
+    const i1 = analyzeTokenCat('MAT', 8, 24, 'καλύπτω', 'infinitive.');
+    check('回帰: MAT 8:24 καλύπτεσθαι — infinitive.result top 維持',
+          i1.topId === 'infinitive.result');
+    const p1 = analyzeTokenCat('MRK', 3, 29, 'ὅς', 'pronoun.');
+    check('回帰: MRK 3:29 ὅς — pronoun.relative top 維持（カテゴリ内）',
+          p1.topId === 'pronoun.relative');
+    const h1 = analyzeTokenCat('MRK', 1, 40, 'ἔρχομαι', 'verb.');
+    check('回帰: MRK 1:40 — verb.historical_present top 維持',
+          h1.topId === 'verb.historical_present');
+    // 第1類が第2類環境（ἄν 後続）で top を取らないこと
+    const c2 = analyzeTokenCat('JHN', 11, 21, 'εἰ', 'clause.');
+    const fc = c2.allCandidates.find(x => x.id === 'clause.conditional_first_class');
+    check('FP: JHN 11:21 — 第1類は第2類より下位', !fc || fc.confidence < (c2.topConf ?? 1));
+}
+
+// ════════════════════════════════════════════════════════════════
 // §8  最終カバレッジレポート
 // ════════════════════════════════════════════════════════════════
 section('§8  最終カバレッジレポート');

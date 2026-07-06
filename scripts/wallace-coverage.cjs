@@ -36,7 +36,7 @@ const CHAPTERS = [
     { key: 'infinitive',    label: 'Infinitive',     pages: '587–611',  registryCategory: 'infinitive' },
     { key: 'participle',    label: 'Participle',     pages: '612–655',  registryCategory: 'participle' },
     { key: 'verb_mood',     label: 'Verb (Mood)',    pages: '443–493',  registryCategory: 'verb' },
-    { key: 'clause_syntax', label: 'Clause Syntax',  pages: '656–712',  registryCategory: null },
+    { key: 'clause_syntax', label: 'Clause Syntax',  pages: '656–712',  registryCategory: 'clause' },
     { key: 'nominal_syntax',label: 'Nominal Syntax', pages: '31–35',    registryCategory: null },
     { key: 'discourse',     label: 'Discourse',      pages: '—',        registryCategory: null },
 ];

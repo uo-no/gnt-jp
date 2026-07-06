@@ -10927,6 +10927,637 @@
           ]
         }
       ]
+    },
+    "clause": {
+      "label_ja": "節構文",
+      "label_en": "Clause Syntax",
+      "wallace_ref": "§Clause Syntax + Conditional Sentences (pp.656–712)",
+      "description": "従属節の統語分類（条件文第1〜4類・内容節・目的節・結果節・時間節・比較節・関係節）。アンカーは従属標識トークン。判定はレンマ・節内の法・後続節の ἄν・先行詞のみ。",
+      "priority_default": 99,
+      "subcategories": [
+        {
+          "group_id": "conditional",
+          "group_label_ja": "条件文",
+          "group_label_en": "Conditional Sentences",
+          "wallace_ref": "pp.679–712",
+          "types": [
+            {
+              "id": "clause.conditional_first_class",
+              "ui_role": "clause",
+              "label_ja": "第1類条件文（事実仮定）",
+              "label_en": "First Class Condition",
+              "wallace_ref": "pp.690–694",
+              "wallace_freq": "very common",
+              "priority": 2,
+              "status": "active",
+              "description_ja": "εἰ + 直説法。議論のため事実と仮定する条件。",
+              "example_verse": "MAT 12:28",
+              "example_greek": "εἰ δὲ ἐν πνεύματι θεοῦ ἐγὼ ἐκβάλλω τὰ δαιμόνια",
+              "example_gloss": "「もし私が神の霊によって悪霊を追い出しているのなら」——第1類（Wallace 引用例）",
+              "hint_ja": "εἰ + 節内直説法（ἄν 帰結なし）。",
+              "detection": {
+                "conditions": [
+                  {
+                    "id": "ei",
+                    "signal": "εἰ",
+                    "check": "target_lemma_in(['εἰ','εἴπερ'])"
+                  },
+                  {
+                    "id": "indicative",
+                    "signal": "節内に直説法",
+                    "check": "target_lemma_in(['εἰ','εἴπερ']) AND clause_has_mood('indicative')"
+                  },
+                  {
+                    "id": "no_an",
+                    "signal": "ἄν が後続しない（第2類の除外）",
+                    "check": "target_lemma_in(['εἰ','εἴπερ']) AND NOT apodosis_has_an()"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 20,
+                "signals": [
+                  {
+                    "id": "ei",
+                    "value": 25,
+                    "label_ja": "εἰ（条件標識）"
+                  },
+                  {
+                    "id": "indicative",
+                    "value": 20,
+                    "label_ja": "直説法（事実仮定）"
+                  },
+                  {
+                    "id": "no_an",
+                    "value": 10,
+                    "label_ja": "ἄν なし（事実仮定）"
+                  }
+                ],
+                "default_confidence": 65
+              },
+              "alternatives": [
+                "clause.conditional_second_class"
+              ]
+            },
+            {
+              "id": "clause.conditional_second_class",
+              "ui_role": "clause",
+              "label_ja": "第2類条件文（反事実）",
+              "label_en": "Second Class Condition",
+              "wallace_ref": "pp.694–696",
+              "wallace_freq": "occasional",
+              "priority": 1,
+              "status": "active",
+              "description_ja": "εἰ + 過去直説法、帰結節に ἄν。事実に反する仮定。",
+              "example_verse": "JHN 11:21",
+              "example_greek": "εἰ ἦς ὧδε οὐκ ἂν ἀπέθανεν ὁ ἀδελφός μου",
+              "example_gloss": "「もしここにいてくださったなら、兄は死ななかったでしょうに」——第2類（Wallace 引用例）",
+              "hint_ja": "εἰ + 節内過去直説法 + 後続節の ἄν。",
+              "detection": {
+                "conditions": [
+                  {
+                    "id": "ei",
+                    "signal": "εἰ",
+                    "check": "target_lemma_in(['εἰ'])"
+                  },
+                  {
+                    "id": "past_ind",
+                    "signal": "節内に過去直説法",
+                    "check": "target_lemma_in(['εἰ']) AND clause_has_past_indicative()"
+                  },
+                  {
+                    "id": "an_apodosis",
+                    "signal": "帰結節に ἄν",
+                    "check": "target_lemma_in(['εἰ']) AND apodosis_has_an()"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 20,
+                "signals": [
+                  {
+                    "id": "ei",
+                    "value": 25,
+                    "label_ja": "εἰ"
+                  },
+                  {
+                    "id": "past_ind",
+                    "value": 15,
+                    "label_ja": "過去直説法（反事実）"
+                  },
+                  {
+                    "id": "an_apodosis",
+                    "value": 25,
+                    "label_ja": "帰結節の ἄν"
+                  }
+                ],
+                "default_confidence": 85
+              },
+              "alternatives": [
+                "clause.conditional_first_class"
+              ]
+            },
+            {
+              "id": "clause.conditional_third_class",
+              "ui_role": "clause",
+              "label_ja": "第3類条件文（未来仮定）",
+              "label_en": "Third Class Condition",
+              "wallace_ref": "pp.696–699",
+              "wallace_freq": "very common",
+              "priority": 1,
+              "status": "active",
+              "description_ja": "ἐάν + 接続法。未来の可能性・一般条件。",
+              "example_verse": "1JN 1:9",
+              "example_greek": "ἐὰν ὁμολογῶμεν τὰς ἁμαρτίας ἡμῶν",
+              "example_gloss": "「もし罪を告白するなら」——第3類（Wallace 引用例）",
+              "hint_ja": "ἐάν + 節内接続法。",
+              "detection": {
+                "conditions": [
+                  {
+                    "id": "ean",
+                    "signal": "ἐάν",
+                    "check": "target_lemma_in(['ἐάν','ἐάνπερ'])"
+                  },
+                  {
+                    "id": "subjunctive",
+                    "signal": "節内に接続法",
+                    "check": "target_lemma_in(['ἐάν','ἐάνπερ']) AND clause_has_mood('subjunctive')"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 20,
+                "signals": [
+                  {
+                    "id": "ean",
+                    "value": 25,
+                    "label_ja": "ἐάν（未来条件標識）"
+                  },
+                  {
+                    "id": "subjunctive",
+                    "value": 25,
+                    "label_ja": "接続法"
+                  }
+                ],
+                "default_confidence": 70
+              },
+              "alternatives": [
+                "clause.conditional_first_class"
+              ]
+            },
+            {
+              "id": "clause.conditional_fourth_class",
+              "ui_role": "clause",
+              "label_ja": "第4類条件文（希求）",
+              "label_en": "Fourth Class Condition",
+              "wallace_ref": "pp.699–701",
+              "wallace_freq": "rare",
+              "priority": 1,
+              "status": "active",
+              "description_ja": "εἰ + 希求法。実現可能性の低い仮定。",
+              "example_verse": "1PE 3:14",
+              "example_greek": "εἰ καὶ πάσχοιτε διὰ δικαιοσύνην",
+              "example_gloss": "「たとえ義のために苦しむことがあっても」——第4類（Wallace 引用例）",
+              "hint_ja": "εἰ + 節内希求法。",
+              "detection": {
+                "conditions": [
+                  {
+                    "id": "ei",
+                    "signal": "εἰ",
+                    "check": "target_lemma_in(['εἰ'])"
+                  },
+                  {
+                    "id": "optative",
+                    "signal": "節内に希求法",
+                    "check": "target_lemma_in(['εἰ']) AND clause_has_mood('optative')"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 20,
+                "signals": [
+                  {
+                    "id": "ei",
+                    "value": 25,
+                    "label_ja": "εἰ"
+                  },
+                  {
+                    "id": "optative",
+                    "value": 30,
+                    "label_ja": "希求法（第4類の標識）"
+                  }
+                ],
+                "default_confidence": 75
+              },
+              "alternatives": [
+                "clause.conditional_first_class"
+              ]
+            }
+          ]
+        },
+        {
+          "group_id": "dependent_clauses",
+          "group_label_ja": "従属節",
+          "group_label_en": "Dependent Clauses",
+          "wallace_ref": "pp.656–665",
+          "types": [
+            {
+              "id": "clause.substantival_hoti",
+              "ui_role": "clause",
+              "label_ja": "内容節（ὅτι・名詞的）",
+              "label_en": "Substantival ὅτι Clause",
+              "wallace_ref": "pp.659–660（名詞節）",
+              "wallace_freq": "very common",
+              "priority": 2,
+              "status": "active",
+              "description_ja": "発話・認識動詞の内容を担う ὅτι 節。",
+              "example_verse": "MAT 5:17",
+              "example_greek": "Μὴ νομίσητε ὅτι ἦλθον καταλῦσαι",
+              "example_gloss": "「廃棄するために来たと思ってはならない」——νομίζω の内容節",
+              "hint_ja": "ὅτι + 前方に発話・認識動詞。",
+              "detection": {
+                "conditions": [
+                  {
+                    "id": "hoti",
+                    "signal": "ὅτι",
+                    "check": "target_lemma_in(['ὅτι'])"
+                  },
+                  {
+                    "id": "matrix",
+                    "signal": "発話・認識動詞が前方",
+                    "check": "target_lemma_in(['ὅτι']) AND verb_before_in(['λέγω','νομίζω','οἶδα','γινώσκω','πιστεύω','δείκνυμι','ἀκούω','ὁράω','μαρτυρέω','ὁμολογέω'])"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 15,
+                "signals": [
+                  {
+                    "id": "hoti",
+                    "value": 20,
+                    "label_ja": "ὅτι（内容節標識）"
+                  },
+                  {
+                    "id": "matrix",
+                    "value": 30,
+                    "label_ja": "発話・認識動詞の支配"
+                  }
+                ],
+                "default_confidence": 65
+              },
+              "alternatives": [
+                "clause.causal_hoti"
+              ]
+            },
+            {
+              "id": "clause.causal_hoti",
+              "ui_role": "clause",
+              "label_ja": "理由節（ὅτι・副詞的）",
+              "label_en": "Causal ὅτι Clause",
+              "wallace_ref": "pp.662–663（副詞節）",
+              "wallace_freq": "common",
+              "priority": 3,
+              "status": "active",
+              "description_ja": "理由を示す ὅτι 節「〜だから」。内容節との弁別は文脈依存のため保守的。",
+              "example_verse": "MAT 5:3",
+              "example_greek": "μακάριοι οἱ πτωχοὶ τῷ πνεύματι, ὅτι αὐτῶν ἐστιν ἡ βασιλεία",
+              "example_gloss": "「幸いだ…その人たちのものだから」——理由の ὅτι（八福の定型）",
+              "hint_ja": "ὅτι + 前方に発話・認識動詞なし。",
+              "detection": {
+                "conditions": [
+                  {
+                    "id": "hoti",
+                    "signal": "ὅτι",
+                    "check": "target_lemma_in(['ὅτι'])"
+                  },
+                  {
+                    "id": "no_matrix",
+                    "signal": "発話・認識動詞が前方にない",
+                    "check": "target_lemma_in(['ὅτι']) AND NOT verb_before_in(['λέγω','νομίζω','οἶδα','γινώσκω','πιστεύω','δείκνυμι','ἀκούω','ὁράω','μαρτυρέω','ὁμολογέω'])"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 10,
+                "signals": [
+                  {
+                    "id": "hoti",
+                    "value": 20,
+                    "label_ja": "ὅτι"
+                  },
+                  {
+                    "id": "no_matrix",
+                    "value": 15,
+                    "label_ja": "理由読み（内容節の母動詞なし）"
+                  }
+                ],
+                "default_confidence": 45
+              },
+              "alternatives": [
+                "clause.substantival_hoti"
+              ]
+            },
+            {
+              "id": "clause.purpose_hina",
+              "ui_role": "clause",
+              "label_ja": "目的節（ἵνα）",
+              "label_en": "Purpose ἵνα Clause",
+              "wallace_ref": "pp.661–662（副詞節）",
+              "wallace_freq": "very common",
+              "priority": 2,
+              "status": "active",
+              "description_ja": "目的を示す ἵνα + 接続法の節。",
+              "example_verse": "JHN 3:16",
+              "example_greek": "ἵνα πᾶς ὁ πιστεύων εἰς αὐτὸν μὴ ἀπόληται",
+              "example_gloss": "「信じる者が滅びないために」——目的の ἵνα（Wallace 引用例）",
+              "hint_ja": "ἵνα + 節内接続法。",
+              "detection": {
+                "conditions": [
+                  {
+                    "id": "hina",
+                    "signal": "ἵνα",
+                    "check": "target_lemma_in(['ἵνα','ὅπως'])"
+                  },
+                  {
+                    "id": "subjunctive",
+                    "signal": "節内に接続法",
+                    "check": "target_lemma_in(['ἵνα','ὅπως']) AND clause_has_mood('subjunctive')"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 15,
+                "signals": [
+                  {
+                    "id": "hina",
+                    "value": 25,
+                    "label_ja": "ἵνα/ὅπως（目的標識）"
+                  },
+                  {
+                    "id": "subjunctive",
+                    "value": 20,
+                    "label_ja": "接続法"
+                  }
+                ],
+                "default_confidence": 60
+              },
+              "alternatives": [
+                "clause.result_hoste"
+              ]
+            },
+            {
+              "id": "clause.result_hoste",
+              "ui_role": "clause",
+              "label_ja": "結果節（ὥστε）",
+              "label_en": "Result ὥστε Clause",
+              "wallace_ref": "pp.662–663（副詞節）",
+              "wallace_freq": "common",
+              "priority": 2,
+              "status": "active",
+              "description_ja": "結果を示す ὥστε 節（+ 不定詞/直説法）。",
+              "example_verse": "MAT 8:24",
+              "example_greek": "ὥστε τὸ πλοῖον καλύπτεσθαι ὑπὸ τῶν κυμάτων",
+              "example_gloss": "「舟が波に呑まれるほどに」——結果の ὥστε（Wallace 引用例）",
+              "hint_ja": "ὥστε + 節内に不定詞または直説法。",
+              "detection": {
+                "conditions": [
+                  {
+                    "id": "hoste",
+                    "signal": "ὥστε",
+                    "check": "target_lemma_in(['ὥστε'])"
+                  },
+                  {
+                    "id": "inf_or_ind",
+                    "signal": "節内に不定詞/直説法",
+                    "check": "target_lemma_in(['ὥστε']) AND clause_has_infinitive() OR clause_has_mood('indicative')"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 15,
+                "signals": [
+                  {
+                    "id": "hoste",
+                    "value": 25,
+                    "label_ja": "ὥστε（結果標識）"
+                  },
+                  {
+                    "id": "inf_or_ind",
+                    "value": 15,
+                    "label_ja": "不定詞/直説法"
+                  }
+                ],
+                "default_confidence": 55
+              },
+              "alternatives": [
+                "clause.purpose_hina"
+              ]
+            },
+            {
+              "id": "clause.temporal_hotan",
+              "ui_role": "clause",
+              "label_ja": "時間節（ὅταν）",
+              "label_en": "Temporal ὅταν Clause",
+              "wallace_ref": "pp.660–661（副詞節）",
+              "wallace_freq": "common",
+              "priority": 2,
+              "status": "active",
+              "description_ja": "不定の時「〜するときはいつでも」。ὅταν + 接続法。",
+              "example_verse": "MAT 6:2",
+              "example_greek": "Ὅταν οὖν ποιῇς ἐλεημοσύνην",
+              "example_gloss": "「施しをするときには」——ὅταν + 接続法",
+              "hint_ja": "ὅταν + 節内接続法。",
+              "detection": {
+                "conditions": [
+                  {
+                    "id": "hotan",
+                    "signal": "ὅταν",
+                    "check": "target_lemma_in(['ὅταν','ἐπάν'])"
+                  },
+                  {
+                    "id": "subjunctive",
+                    "signal": "節内に接続法",
+                    "check": "target_lemma_in(['ὅταν','ἐπάν']) AND clause_has_mood('subjunctive')"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 15,
+                "signals": [
+                  {
+                    "id": "hotan",
+                    "value": 25,
+                    "label_ja": "ὅταν（不定時標識）"
+                  },
+                  {
+                    "id": "subjunctive",
+                    "value": 20,
+                    "label_ja": "接続法"
+                  }
+                ],
+                "default_confidence": 60
+              },
+              "alternatives": [
+                "clause.temporal_hote"
+              ]
+            },
+            {
+              "id": "clause.temporal_hote",
+              "ui_role": "clause",
+              "label_ja": "時間節（ὅτε）",
+              "label_en": "Temporal ὅτε Clause",
+              "wallace_ref": "pp.660–661（副詞節）",
+              "wallace_freq": "common",
+              "priority": 2,
+              "status": "active",
+              "description_ja": "特定の時「〜したとき」。ὅτε + 直説法。",
+              "example_verse": "MAT 7:28",
+              "example_greek": "ὅτε ἐτέλεσεν ὁ Ἰησοῦς τοὺς λόγους τούτους",
+              "example_gloss": "「イエスがこれらの言葉を語り終えられたとき」——ὅτε + 直説法",
+              "hint_ja": "ὅτε + 節内直説法。",
+              "detection": {
+                "conditions": [
+                  {
+                    "id": "hote",
+                    "signal": "ὅτε",
+                    "check": "target_lemma_in(['ὅτε'])"
+                  },
+                  {
+                    "id": "indicative",
+                    "signal": "節内に直説法",
+                    "check": "target_lemma_in(['ὅτε']) AND clause_has_mood('indicative')"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 15,
+                "signals": [
+                  {
+                    "id": "hote",
+                    "value": 25,
+                    "label_ja": "ὅτε（特定時標識）"
+                  },
+                  {
+                    "id": "indicative",
+                    "value": 20,
+                    "label_ja": "直説法"
+                  }
+                ],
+                "default_confidence": 60
+              },
+              "alternatives": [
+                "clause.temporal_hotan"
+              ]
+            },
+            {
+              "id": "clause.comparative_kathos",
+              "ui_role": "clause",
+              "label_ja": "比較節（καθώς）",
+              "label_en": "Comparative καθώς Clause",
+              "wallace_ref": "pp.662–663（副詞節）",
+              "wallace_freq": "common",
+              "priority": 3,
+              "status": "active",
+              "description_ja": "比較・様態「〜のとおりに」。",
+              "example_verse": "JHN 13:34",
+              "example_greek": "καθὼς ἠγάπησα ὑμᾶς",
+              "example_gloss": "「わたしがあなたがたを愛したように」——比較の καθώς",
+              "hint_ja": "καθώς + 節内動詞。",
+              "detection": {
+                "conditions": [
+                  {
+                    "id": "kathos",
+                    "signal": "καθώς",
+                    "check": "target_lemma_in(['καθώς','καθάπερ','ὥσπερ'])"
+                  },
+                  {
+                    "id": "finite",
+                    "signal": "節内に定形動詞",
+                    "check": "target_lemma_in(['καθώς','καθάπερ','ὥσπερ']) AND NOT clause_lacks_finite_verb()"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 15,
+                "signals": [
+                  {
+                    "id": "kathos",
+                    "value": 30,
+                    "label_ja": "καθώς（比較標識）"
+                  },
+                  {
+                    "id": "finite",
+                    "value": 15,
+                    "label_ja": "定形動詞"
+                  }
+                ],
+                "default_confidence": 60
+              },
+              "alternatives": [
+                "clause.result_hoste"
+              ]
+            },
+            {
+              "id": "clause.adjectival_relative",
+              "ui_role": "clause",
+              "label_ja": "形容詞節（関係節）",
+              "label_en": "Adjectival Relative Clause",
+              "wallace_ref": "pp.659–660（形容詞節）",
+              "wallace_freq": "very common",
+              "priority": 2,
+              "status": "active",
+              "description_ja": "先行詞を修飾する関係節。",
+              "example_verse": "MAT 2:9",
+              "example_greek": "ὁ ἀστὴρ ὃν εἶδον ἐν τῇ ἀνατολῇ",
+              "example_gloss": "「彼らが東方で見た星」——先行詞 ἀστήρ を修飾する関係節",
+              "hint_ja": "関係代名詞 + 前方の一致先行詞 + 節内定形動詞。",
+              "detection": {
+                "conditions": [
+                  {
+                    "id": "rel",
+                    "signal": "関係代名詞",
+                    "check": "target_lemma_in(['ὅς','ὅστις','ὅσπερ'])"
+                  },
+                  {
+                    "id": "antecedent",
+                    "signal": "先行詞（性・数一致）",
+                    "check": "target_lemma_in(['ὅς','ὅστις','ὅσπερ']) AND has_antecedent()"
+                  },
+                  {
+                    "id": "finite",
+                    "signal": "節内に定形動詞",
+                    "check": "target_lemma_in(['ὅς','ὅστις','ὅσπερ']) AND NOT clause_lacks_finite_verb()"
+                  }
+                ]
+              },
+              "xsc": {
+                "base_weight": 15,
+                "signals": [
+                  {
+                    "id": "rel",
+                    "value": 25,
+                    "label_ja": "関係代名詞（形容詞節標識）"
+                  },
+                  {
+                    "id": "antecedent",
+                    "value": 20,
+                    "label_ja": "先行詞一致"
+                  },
+                  {
+                    "id": "finite",
+                    "value": 15,
+                    "label_ja": "定形動詞"
+                  }
+                ],
+                "default_confidence": 75
+              },
+              "alternatives": [
+                "pronoun.relative"
+              ]
+            }
+          ]
+        }
+      ]
     }
   }
 }

@@ -1,6 +1,6 @@
 # Wallace Coverage Report
 
-Generated: 2026-07-05T11:48:46.332Z
+Generated: 2026-07-06T22:15:20.204Z
 Engine Version: 0.2.0
 Wallace: Wallace, Daniel B. Greek Grammar Beyond the Basics. Zondervan, 1996.
 
@@ -8,11 +8,11 @@ Wallace: Wallace, Daniel B. Greek Grammar Beyond the Basics. Zondervan, 1996.
 
 ## Summary
 
-- Categories: 11
-- Types: 168 (active 168 / stub 0)
-- Tested types: 168 / 168 (**100%**)
-- Test assertions (call sites): 267
-- Chapter coverage: 11 / 14
+- Categories: 12
+- Types: 180 (active 180 / stub 0)
+- Tested types: 180 / 180 (**100%**)
+- Test assertions (call sites): 281
+- Chapter coverage: 12 / 14
 
 ---
 
@@ -161,7 +161,7 @@ Status: **complete**  |  Pages: 291–314  |  Implemented: 11 / 11  |  Tested: 1
 
 ## Pronoun
 
-Status: **complete**  |  Pages: 315–354  |  Implemented: 12 / 12  |  Tested: 12 (100%)  |  Stub: 0  |  Test mentions: 20  |  Metrics: ✓
+Status: **complete**  |  Pages: 315–354  |  Implemented: 12 / 12  |  Tested: 12 (100%)  |  Stub: 0  |  Test mentions: 22  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -182,7 +182,7 @@ Status: **complete**  |  Pages: 315–354  |  Implemented: 12 / 12  |  Tested: 1
 
 ## Infinitive
 
-Status: **complete**  |  Pages: 587–611  |  Implemented: 11 / 11  |  Tested: 11 (100%)  |  Stub: 0  |  Test mentions: 31  |  Metrics: ✓
+Status: **complete**  |  Pages: 587–611  |  Implemented: 11 / 11  |  Tested: 11 (100%)  |  Stub: 0  |  Test mentions: 33  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -228,7 +228,7 @@ Status: **complete**  |  Pages: 612–655  |  Implemented: 17 / 17  |  Tested: 1
 
 ## Verb (Mood)
 
-Status: **complete**  |  Pages: 443–493  |  Implemented: 48 / 48  |  Tested: 48 (100%)  |  Stub: 0  |  Test mentions: 94  |  Metrics: ✓
+Status: **complete**  |  Pages: 443–493  |  Implemented: 48 / 48  |  Tested: 48 (100%)  |  Stub: 0  |  Test mentions: 100  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -285,7 +285,22 @@ Status: **complete**  |  Pages: 443–493  |  Implemented: 48 / 48  |  Tested: 4
 
 ## Clause Syntax
 
-Status: **planned**  |  Pages: 656–712  |  Implemented: 0 / 0  |  Tested: 0 (0%)  |  Stub: 0  |  Test mentions: 0  |  Metrics: —
+Status: **complete**  |  Pages: 656–712  |  Implemented: 12 / 12  |  Tested: 12 (100%)  |  Stub: 0  |  Test mentions: 19  |  Metrics: ✓
+
+| Type | Wallace | Active | Tested | Examples |
+|------|---------|--------|--------|----------|
+| clause.conditional_first_class | pp.690–694 | ✓ | ✓ | MAT 12:28 |
+| clause.conditional_second_class | pp.694–696 | ✓ | ✓ | JHN 11:21 |
+| clause.conditional_third_class | pp.696–699 | ✓ | ✓ | 1JN 1:9 |
+| clause.conditional_fourth_class | pp.699–701 | ✓ | ✓ | 1PE 3:14 |
+| clause.substantival_hoti | pp.659–660（名詞節） | ✓ | ✓ | MAT 5:17 |
+| clause.causal_hoti | pp.662–663（副詞節） | ✓ | ✓ | MAT 5:3 |
+| clause.purpose_hina | pp.661–662（副詞節） | ✓ | ✓ | JHN 3:16 |
+| clause.result_hoste | pp.662–663（副詞節） | ✓ | ✓ | MAT 8:24 |
+| clause.temporal_hotan | pp.660–661（副詞節） | ✓ | ✓ | MAT 6:2 |
+| clause.temporal_hote | pp.660–661（副詞節） | ✓ | ✓ | MAT 7:28 |
+| clause.comparative_kathos | pp.662–663（副詞節） | ✓ | ✓ | JHN 13:34 |
+| clause.adjectival_relative | pp.659–660（形容詞節） | ✓ | ✓ | MAT 2:9 |
 
 ---
 
@@ -473,6 +488,18 @@ Status: **planned**  |  Pages: —  |  Implemented: 0 / 0  |  Tested: 0 (0%)  | 
 | Verb (Mood) | voice_middle_reciprocal | JHN 9:22 | ✓ |
 | Verb (Mood) | voice_passive | MAT 4:1 | ✓ |
 | Verb (Mood) | voice_permissive_passive | 2CO 5:20 | ✓ |
+| Clause Syntax | conditional_first_class | MAT 12:28 | ✓ |
+| Clause Syntax | conditional_second_class | JHN 11:21 | ✓ |
+| Clause Syntax | conditional_third_class | 1JN 1:9 | ✓ |
+| Clause Syntax | conditional_fourth_class | 1PE 3:14 | ✓ |
+| Clause Syntax | substantival_hoti | MAT 5:17 | ✓ |
+| Clause Syntax | causal_hoti | MAT 5:3 | ✓ |
+| Clause Syntax | purpose_hina | JHN 3:16 | ✓ |
+| Clause Syntax | result_hoste | MAT 8:24 | ✓ |
+| Clause Syntax | temporal_hotan | MAT 6:2 | ✓ |
+| Clause Syntax | temporal_hote | MAT 7:28 | ✓ |
+| Clause Syntax | comparative_kathos | JHN 13:34 | ✓ |
+| Clause Syntax | adjectival_relative | MAT 2:9 | ✓ |
 
 ---
 
@@ -480,21 +507,25 @@ Status: **planned**  |  Pages: —  |  Implemented: 0 / 0  |  Tested: 0 (0%)  | 
 
 - FAIL: 0
 - WARN: 0
-- INFO: 23
+- INFO: 30
+  - ℹ️ 代表節の共有: MAT 5:3 (genitive.possessive, clause.causal_hoti)
   - ℹ️ 代表節の共有: ROM 7:24 (genitive.descriptive, nominative.exclamation)
   - ℹ️ 代表節の共有: MAT 1:1 (genitive.relationship, nominative.title_nominative)
   - ℹ️ 代表節の共有: ROM 6:4 (genitive.attributed, dative.association)
   - ℹ️ 代表節の共有: MAT 3:11 (genitive.comparison, infinitive.epexegetical)
   - ℹ️ 代表節の共有: LUK 23:15 (dative.agent, adjective.genitive_complement)
-  - ℹ️ 代表節の共有: JHN 3:16 (participle.substantival, verb.voice_active)
+  - ℹ️ 代表節の共有: JHN 3:16 (participle.substantival, verb.voice_active, clause.purpose_hina)
   - ℹ️ 代表節の共有: MAT 4:4 (participle.redundant, verb.perfect_intensive)
   - ℹ️ 代表節の共有: JHN 1:1 (article.colwell, verb.declarative, nominative.predicate_nominative)
   - ℹ️ 代表節の共有: MAT 16:13 (accusative.subject_of_infinitive, infinitive.indirect_discourse)
+  - ℹ️ 代表節の共有: MAT 8:24 (infinitive.result, clause.result_hoste)
   - ℹ️ 代表節の共有: PHP 1:21 (infinitive.articular, nominative.subject_with_infinitive)
   - ℹ️ 代表節の共有: MAT 6:31 (verb.deliberative, pronoun.interrogative)
   - ℹ️ 代表節の共有: MRK 3:29 (verb.indefinite_relative, pronoun.relative)
+  - ℹ️ 代表節の共有: 1JN 1:9 (verb.conditional_subjunctive, clause.conditional_third_class)
   - ℹ️ 代表節の共有: JHN 10:11 (adjective.attributive, adjective.attributive_position, adjective.restrictive)
   - ℹ️ 代表節の共有: ROM 7:12 (adjective.predicate, adjective.predicate_position)
+  - ℹ️ 代表節の共有: JHN 13:34 (pronoun.reciprocal, clause.comparative_kathos)
   - ℹ️ 代表節の共有: MAT 1:2 (nominative.subject, nominative.indeclinable)
   - ℹ️ 同一ページ pp.654–655: genitive.absolute, participle.genitive_absolute
   - ℹ️ 同一ページ pp.619–621: participle.predicate, participle.substantival
@@ -504,15 +535,18 @@ Status: **planned**  |  Pages: —  |  Implemented: 0 / 0  |  Tested: 0 (0%)  | 
   - ℹ️ 同一ページ pp.56–59: nominative.vocative_nominative, vocative.nominative_for_vocative
   - ℹ️ 同一ページ pp.67–68: vocative.direct_address, vocative.chain
   - ℹ️ 同一ページ pp.68–69: vocative.with_o, vocative.exclamatory
+  - ℹ️ 同一ページ pp.659–660: clause.substantival_hoti, clause.adjectival_relative
+  - ℹ️ 同一ページ pp.662–663: clause.causal_hoti, clause.result_hoste, clause.comparative_kathos
+  - ℹ️ 同一ページ pp.660–661: clause.temporal_hotan, clause.temporal_hote
 
 ---
 
 ## Corpus Metrics（book_summary.json より引用）
 
-- Representative Examples Verified: 148 / 168
-- Analyzed tokens: 100975
-- Average confidence: 0.5579
-- Unresolved (<0.40): 11705
+- Representative Examples Verified: 160 / 180
+- Analyzed tokens: 104134
+- Average confidence: 0.5618
+- Unresolved (<0.40): 11585
 - Top confusion:
   - article.simple_identification>article.monadic: 12175
   - genitive.possessive>genitive.descriptive: 5951
