@@ -1,24 +1,32 @@
-# Wallace Coverage Report
+# Coverage Report — Wallace Core + Engine Extensions
 
-Generated: 2026-07-06T22:15:20.204Z
+Generated: 2026-07-07T09:53:04.840Z
 Engine Version: 0.2.0
 Wallace: Wallace, Daniel B. Greek Grammar Beyond the Basics. Zondervan, 1996.
+
+> 本エンジンは Wallace GGBB の統語カテゴリ（Wallace Core）を実装し、
+> これに GGBB には章として存在しない独自の横断解析レイヤー
+> （Engine Extensions: Nominal Syntax / Discourse）を加えたものである。
+> 両者は本レポートで区分して集計し、混在させない。
 
 ---
 
 ## Summary
 
-- Categories: 12
-- Types: 180 (active 180 / stub 0)
-- Tested types: 180 / 180 (**100%**)
-- Test assertions (call sites): 281
-- Chapter coverage: 12 / 14
+- Categories: 17（Wallace Core 15 + Engine Extensions 2）
+- Types: 242 (active 242 / stub 0)
+- Tested types: 242 / 242 (**100%**)
+- Test assertions (call sites): 360
+- Wallace Core chapter coverage: 15 / 15
+- Engine Extensions: 2 / 2（GGBB の章ではない独自レイヤー）
 
 ---
 
+# Part I — Wallace Core Grammar（GGBB の章に対応）
+
 ## Nominative
 
-Status: **complete**  |  Pages: 36–64  |  Implemented: 10 / 10  |  Tested: 10 (100%)  |  Stub: 0  |  Test mentions: 14  |  Metrics: ✓
+Status: **complete**  |  Pages: 36–64  |  Implemented: 10 / 10  |  Tested: 10 (100%)  |  Stub: 0  |  Test mentions: 20  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -37,7 +45,7 @@ Status: **complete**  |  Pages: 36–64  |  Implemented: 10 / 10  |  Tested: 10 
 
 ## Vocative
 
-Status: **complete**  |  Pages: 65–71  |  Implemented: 5 / 5  |  Tested: 5 (100%)  |  Stub: 0  |  Test mentions: 7  |  Metrics: ✓
+Status: **complete**  |  Pages: 65–71  |  Implemented: 5 / 5  |  Tested: 5 (100%)  |  Stub: 0  |  Test mentions: 11  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -51,7 +59,7 @@ Status: **complete**  |  Pages: 65–71  |  Implemented: 5 / 5  |  Tested: 5 (10
 
 ## Genitive
 
-Status: **complete**  |  Pages: 72–136  |  Implemented: 22 / 22  |  Tested: 22 (100%)  |  Stub: 0  |  Test mentions: 70  |  Metrics: ✓
+Status: **complete**  |  Pages: 72–136  |  Implemented: 22 / 22  |  Tested: 22 (100%)  |  Stub: 0  |  Test mentions: 74  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -71,7 +79,7 @@ Status: **complete**  |  Pages: 72–136  |  Implemented: 22 / 22  |  Tested: 22
 | genitive.comparison | §4.C.7 (pp.110–112) | ✓ | ✓ | JHN 13:16 |
 | genitive.separation | §4.C.6 (pp.107–109) | ✓ | ✓ | JAS 1:13 |
 | genitive.time | §4.C.1 (pp.122–124) | ✓ | ✓ | JHN 3:2 |
-| genitive.place | §4.C.2 (pp.124–125) | ✓ | ✓ | LUK 16:24 |
+| genitive.place | §4.C.2 (pp.124–125) | ✓ | ✓ | LUK 16:24, MRK 1:10 |
 | genitive.agency | §4.C.5 (pp.126–127) | ✓ | ✓ | JHN 6:45 |
 | genitive.means | §4.C.3 (pp.125) | ✓ | ✓ | — |
 | genitive.source | §4.C.4 (pp.109–110) | ✓ | ✓ | — |
@@ -82,7 +90,7 @@ Status: **complete**  |  Pages: 72–136  |  Implemented: 22 / 22  |  Tested: 22
 
 ## Dative
 
-Status: **complete**  |  Pages: 137–175  |  Implemented: 14 / 14  |  Tested: 14 (100%)  |  Stub: 0  |  Test mentions: 36  |  Metrics: ✓
+Status: **complete**  |  Pages: 137–175  |  Implemented: 14 / 14  |  Tested: 14 (100%)  |  Stub: 0  |  Test mentions: 37  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -105,7 +113,7 @@ Status: **complete**  |  Pages: 137–175  |  Implemented: 14 / 14  |  Tested: 1
 
 ## Accusative
 
-Status: **complete**  |  Pages: 176–205  |  Implemented: 7 / 7  |  Tested: 7 (100%)  |  Stub: 0  |  Test mentions: 44  |  Metrics: ✓
+Status: **complete**  |  Pages: 176–205  |  Implemented: 7 / 7  |  Tested: 7 (100%)  |  Stub: 0  |  Test mentions: 46  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -121,7 +129,7 @@ Status: **complete**  |  Pages: 176–205  |  Implemented: 7 / 7  |  Tested: 7 (
 
 ## Article
 
-Status: **complete**  |  Pages: 206–290  |  Implemented: 11 / 11  |  Tested: 11 (100%)  |  Stub: 0  |  Test mentions: 34  |  Metrics: ✓
+Status: **complete**  |  Pages: 206–290  |  Implemented: 11 / 11  |  Tested: 11 (100%)  |  Stub: 0  |  Test mentions: 38  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -141,7 +149,7 @@ Status: **complete**  |  Pages: 206–290  |  Implemented: 11 / 11  |  Tested: 1
 
 ## Adjective
 
-Status: **complete**  |  Pages: 291–314  |  Implemented: 11 / 11  |  Tested: 11 (100%)  |  Stub: 0  |  Test mentions: 21  |  Metrics: ✓
+Status: **complete**  |  Pages: 291–314  |  Implemented: 11 / 11  |  Tested: 11 (100%)  |  Stub: 0  |  Test mentions: 23  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -161,7 +169,7 @@ Status: **complete**  |  Pages: 291–314  |  Implemented: 11 / 11  |  Tested: 1
 
 ## Pronoun
 
-Status: **complete**  |  Pages: 315–354  |  Implemented: 12 / 12  |  Tested: 12 (100%)  |  Stub: 0  |  Test mentions: 22  |  Metrics: ✓
+Status: **complete**  |  Pages: 315–354  |  Implemented: 12 / 12  |  Tested: 12 (100%)  |  Stub: 0  |  Test mentions: 30  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -177,6 +185,22 @@ Status: **complete**  |  Pages: 315–354  |  Implemented: 12 / 12  |  Tested: 1
 | pronoun.distributive | pp.347–348 | ✓ | ✓ | 1CO 3:8 |
 | pronoun.reciprocal_emphasis | pp.351–352（相互の強調文脈） | ✓ | ✓ | — |
 | pronoun.possessive_pronoun | pp.348（所有形容詞） | ✓ | ✓ | JHN 8:16 |
+
+---
+
+## Preposition
+
+Status: **complete**  |  Pages: 355–389  |  Implemented: 7 / 7  |  Tested: 7 (100%)  |  Stub: 0  |  Test mentions: 34  |  Metrics: ✓
+
+| Type | Wallace | Active | Tested | Examples |
+|------|---------|--------|--------|----------|
+| preposition.proper_with_genitive | pp.360–363 | ✓ | ✓ | MRK 1:10 |
+| preposition.proper_with_dative | pp.360–363 | ✓ | ✓ | MAT 3:11 |
+| preposition.proper_with_accusative | pp.360–363 | ✓ | ✓ | MAT 4:12 |
+| preposition.improper | p.357 | ✓ | ✓ | LUK 1:15, MAT 3:11 |
+| preposition.adverbial_pp | pp.356–357 | ✓ | ✓ | MRK 1:10 |
+| preposition.attributive_pp | pp.356–357 | ✓ | ✓ | MAT 6:9, MAT 3:11, MAT 12:50 |
+| preposition.substantival_pp | pp.356–357 | ✓ | ✓ | GAL 3:7, MAT 14:33 |
 
 ---
 
@@ -202,7 +226,7 @@ Status: **complete**  |  Pages: 587–611  |  Implemented: 11 / 11  |  Tested: 1
 
 ## Participle
 
-Status: **complete**  |  Pages: 612–655  |  Implemented: 17 / 17  |  Tested: 17 (100%)  |  Stub: 0  |  Test mentions: 58  |  Metrics: ✓
+Status: **complete**  |  Pages: 612–655  |  Implemented: 17 / 17  |  Tested: 17 (100%)  |  Stub: 0  |  Test mentions: 60  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -228,7 +252,7 @@ Status: **complete**  |  Pages: 612–655  |  Implemented: 17 / 17  |  Tested: 1
 
 ## Verb (Mood)
 
-Status: **complete**  |  Pages: 443–493  |  Implemented: 48 / 48  |  Tested: 48 (100%)  |  Stub: 0  |  Test mentions: 100  |  Metrics: ✓
+Status: **complete**  |  Pages: 443–493  |  Implemented: 48 / 48  |  Tested: 48 (100%)  |  Stub: 0  |  Test mentions: 110  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -285,7 +309,7 @@ Status: **complete**  |  Pages: 443–493  |  Implemented: 48 / 48  |  Tested: 4
 
 ## Clause Syntax
 
-Status: **complete**  |  Pages: 656–712  |  Implemented: 12 / 12  |  Tested: 12 (100%)  |  Stub: 0  |  Test mentions: 19  |  Metrics: ✓
+Status: **complete**  |  Pages: 656–712  |  Implemented: 12 / 12  |  Tested: 12 (100%)  |  Stub: 0  |  Test mentions: 47  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -304,15 +328,101 @@ Status: **complete**  |  Pages: 656–712  |  Implemented: 12 / 12  |  Tested: 1
 
 ---
 
-## Nominal Syntax
+## Conjunction
 
-Status: **planned**  |  Pages: 31–35  |  Implemented: 0 / 0  |  Tested: 0 (0%)  |  Stub: 0  |  Test mentions: 0  |  Metrics: —
+Status: **complete**  |  Pages: 666–678  |  Implemented: 12 / 12  |  Tested: 12 (100%)  |  Stub: 0  |  Test mentions: 52  |  Metrics: ✓
+
+| Type | Wallace | Active | Tested | Examples |
+|------|---------|--------|--------|----------|
+| conjunction.coordinating_additive | p.671 | ✓ | ✓ | JHN 1:1 |
+| conjunction.coordinating_adversative | p.671 | ✓ | ✓ | 1CO 15:10 |
+| conjunction.coordinating_transition | p.674 | ✓ | ✓ | ROM 1:13 |
+| conjunction.coordinating_inferential | p.673 | ✓ | ✓ | ROM 12:1 |
+| conjunction.coordinating_explanatory | p.673 | ✓ | ✓ | ROM 1:16 |
+| conjunction.correlative_men_de | p.672 | ✓ | ✓ | ROM 6:11 |
+| conjunction.subordinating_purpose | p.676 | ✓ | ✓ | JHN 3:16 |
+| conjunction.subordinating_content | p.678 | ✓ | ✓ | MAT 5:17 |
+| conjunction.subordinating_temporal | p.677 | ✓ | ✓ | MAT 6:2 |
+| conjunction.subordinating_conditional | p.675 | ✓ | ✓ | 1JN 1:9 |
+| conjunction.subordinating_result | p.677 | ✓ | ✓ | MAT 8:24 |
+| conjunction.subordinating_comparative | p.675 | ✓ | ✓ | JHN 13:34 |
 
 ---
 
-## Discourse
+## Particle
 
-Status: **planned**  |  Pages: —  |  Implemented: 0 / 0  |  Tested: 0 (0%)  |  Stub: 0  |  Test mentions: 0  |  Metrics: —
+Status: **complete**  |  Pages: 465–469, 670–674  |  Implemented: 21 / 21  |  Tested: 21 (100%)  |  Stub: 0  |  Test mentions: 38  |  Metrics: ✓
+
+| Type | Wallace | Active | Tested | Examples |
+|------|---------|--------|--------|----------|
+| particle.negative_ou | p.468 | ✓ | ✓ | JHN 1:5 |
+| particle.negative_me | p.468 | ✓ | ✓ | MAT 6:13, MAT 5:34 |
+| particle.double_negative | pp.468–469 | ✓ | ✓ | JHN 10:28 |
+| particle.emphatic_negative | pp.468–469 | ✓ | ✓ | JHN 10:28 |
+| particle.particle_an | p.469 | ✓ | ✓ | JHN 11:21 |
+| particle.particle_ean | p.469 | ✓ | ✓ | 1JN 1:9 |
+| particle.interrogative_particle | pp.467–468 | ✓ | ✓ | MAT 12:23 |
+| particle.deliberative_particle | pp.466–467 | ✓ | ✓ | ROM 6:1 |
+| particle.rhetorical_particle | pp.481–482 | ✓ | ✓ | ROM 6:2 |
+| particle.emphatic_ge | p.673 | ✓ | ✓ | GAL 3:4 |
+| particle.restrictive_monon | p.200 | ✓ | ✓ | MAT 8:8 |
+| particle.continuative_de | p.674 | ✓ | ✓ | ROM 1:13 |
+| particle.inferential_oun | p.673 | ✓ | ✓ | ROM 12:1 |
+| particle.explanatory_gar | p.673 | ✓ | ✓ | ROM 1:16 |
+| particle.correlative_men | p.672 | ✓ | ✓ | ROM 6:11 |
+| particle.correlative_de | p.672 | ✓ | ✓ | ROM 6:11 |
+| particle.connective_te | p.671 | ✓ | ✓ | MAT 22:10 |
+| particle.assertive_de | p.673 | ✓ | ✓ | MAT 13:23 |
+| particle.attention_de | p.673 | ✓ | ✓ | ACT 13:2 |
+| particle.emphasis_per | p.673 | ✓ | ✓ | — |
+| particle.emphasis_toi | p.673 | ✓ | ✓ | — |
+
+---
+
+# Part II — Engine Extensions（GGBB に章は存在しない独自レイヤー）
+
+Nominal Syntax は名詞句（NP）全体を横断解析するための独自レイヤー、
+Discourse / Information Structure は Wallace が各章で個別に扱う語順・強調・
+談話的特徴を横断的に整理したエンジン拡張である。Pages 欄は対応する章では
+なく、エンジンが参照する GGBB の関連箇所を示す。
+
+## Nominal Syntax（Engine Extension）
+
+Status: **complete**  |  GGBB 関連箇所: 206–314 passim  |  Implemented: 12 / 12  |  Tested: 12 (100%)  |  Stub: 0  |  Test mentions: 23  |  Metrics: ✓
+
+| Type | Wallace | Active | Tested | Examples |
+|------|---------|--------|--------|----------|
+| nominal_syntax.simple_np | pp.243–245 | ✓ | ✓ | JHN 1:6 |
+| nominal_syntax.articular_np | pp.206–231 | ✓ | ✓ | JHN 1:1 |
+| nominal_syntax.anarthrous_np | pp.243–254 | ✓ | ✓ | JHN 1:1 |
+| nominal_syntax.modified_np | pp.306–309 | ✓ | ✓ | MAT 12:35, JHN 10:11, LUK 8:11 |
+| nominal_syntax.multiple_modifier_np | pp.306–314 | ✓ | ✓ | MAT 6:11 |
+| nominal_syntax.appositional_np | p.48 | ✓ | ✓ | MAT 1:6 |
+| nominal_syntax.substantival_phrase | pp.231–238 | ✓ | ✓ | MAT 5:3, MAT 7:21, MAT 5:15 |
+| nominal_syntax.head_initial_np | pp.306–307 | ✓ | ✓ | JHN 10:11 |
+| nominal_syntax.head_final_np | pp.306–307 | ✓ | ✓ | MAT 12:35 |
+| nominal_syntax.nested_np | pp.239–240 | ✓ | ✓ | LUK 8:11, MAT 8:20 |
+| nominal_syntax.complex_np | p.87 | ✓ | ✓ | 2CO 4:4 |
+| nominal_syntax.vocative_np | pp.65–71 | ✓ | ✓ | MAT 6:9 |
+
+---
+
+## Discourse（Engine Extension）
+
+Status: **complete**  |  GGBB 関連箇所: 51–53, 526–532, 622–625 passim  |  Implemented: 10 / 10  |  Tested: 10 (100%)  |  Stub: 0  |  Test mentions: 22  |  Metrics: ✓
+
+| Type | Wallace | Active | Tested | Examples |
+|------|---------|--------|--------|----------|
+| discourse.topic_fronting | pp.51–53（語順と主題化） | ✓ | ✓ | 1JN 4:8 |
+| discourse.focus_fronting | passim（語順による強調） | ✓ | ✓ | ROM 10:2 |
+| discourse.emphasis_word_order | passim（語順による強調） | ✓ | ✓ | EPH 2:8 |
+| discourse.left_dislocation | pp.51–53 | ✓ | ✓ | ACT 7:40 |
+| discourse.right_dislocation | pp.51–53（転位構文） | ✓ | ✓ | JHN 9:13 |
+| discourse.parenthetical | p.53 | ✓ | ✓ | ROM 3:5 |
+| discourse.explanatory_parenthesis | p.336 | ✓ | ✓ | MRK 3:17 |
+| discourse.contrast_men_de | p.672 | ✓ | ✓ | MAT 9:37 |
+| discourse.backgrounding | pp.622–625 | ✓ | ✓ | MRK 1:10, 1JN 1:9 |
+| discourse.foregrounding | pp.526–532 | ✓ | ✓ | MRK 1:40 |
 
 ---
 
@@ -412,6 +522,13 @@ Status: **planned**  |  Pages: —  |  Implemented: 0 / 0  |  Tested: 0 (0%)  | 
 | Pronoun | distributive | 1CO 3:8 | ✓ |
 | Pronoun | reciprocal_emphasis | 1TH 3:12 | ✓ |
 | Pronoun | possessive_pronoun | JHN 8:16 | ✓ |
+| Preposition | proper_with_genitive | MRK 1:10 | ✓ |
+| Preposition | proper_with_dative | MAT 3:11 | ✓ |
+| Preposition | proper_with_accusative | MAT 4:12 | ✓ |
+| Preposition | improper | LUK 1:15 | ✓ |
+| Preposition | adverbial_pp | MRK 1:10 | ✓ |
+| Preposition | attributive_pp | MAT 6:9 | ✓ |
+| Preposition | substantival_pp | GAL 3:7 | ✓ |
 | Infinitive | purpose | MAT 13:3 | ✓ |
 | Infinitive | result | MAT 8:24 | ✓ |
 | Infinitive | time | MAT 26:32 | ✓ |
@@ -500,6 +617,61 @@ Status: **planned**  |  Pages: —  |  Implemented: 0 / 0  |  Tested: 0 (0%)  | 
 | Clause Syntax | temporal_hote | MAT 7:28 | ✓ |
 | Clause Syntax | comparative_kathos | JHN 13:34 | ✓ |
 | Clause Syntax | adjectival_relative | MAT 2:9 | ✓ |
+| Conjunction | coordinating_additive | JHN 1:4 | ✓ |
+| Conjunction | coordinating_adversative | 1CO 15:10 | ✓ |
+| Conjunction | coordinating_transition | ROM 1:13 | ✓ |
+| Conjunction | coordinating_inferential | ROM 12:1 | ✓ |
+| Conjunction | coordinating_explanatory | ROM 1:16 | ✓ |
+| Conjunction | correlative_men_de | ROM 6:11 | ✓ |
+| Conjunction | subordinating_purpose | MAT 5:16 | ✓ |
+| Conjunction | subordinating_content | MAT 5:17 | ✓ |
+| Conjunction | subordinating_temporal | MAT 6:2 | ✓ |
+| Conjunction | subordinating_conditional | MAT 12:28 | ✓ |
+| Conjunction | subordinating_result | MAT 8:24 | ✓ |
+| Conjunction | subordinating_comparative | JHN 13:34 | ✓ |
+| Particle | negative_ou | JHN 1:5 | ✓ |
+| Particle | negative_me | MAT 6:13 | ✓ |
+| Particle | double_negative | JHN 10:28 | ✓ |
+| Particle | emphatic_negative | JHN 10:28 | ✓ |
+| Particle | particle_an | JHN 11:21 | ✓ |
+| Particle | particle_ean | 1JN 1:9 | ✓ |
+| Particle | interrogative_particle | MAT 12:23 | ✓ |
+| Particle | deliberative_particle | ROM 6:1 | ✓ |
+| Particle | rhetorical_particle | ROM 6:2 | ✓ |
+| Particle | emphatic_ge | GAL 3:4 | ✓ |
+| Particle | restrictive_monon | MAT 8:8 | ✓ |
+| Particle | continuative_de | ROM 1:13 | ✓ |
+| Particle | inferential_oun | ROM 12:1 | ✓ |
+| Particle | explanatory_gar | ROM 1:16 | ✓ |
+| Particle | correlative_men | MAT 9:37 | ✓ |
+| Particle | correlative_de | MAT 9:37 | ✓ |
+| Particle | connective_te | MAT 22:10 | ✓ |
+| Particle | assertive_de | MAT 13:23 | ✓ |
+| Particle | attention_de | ACT 13:2 | ✓ |
+| Particle | emphasis_per | — | ✓ |
+| Particle | emphasis_toi | — | ✓ |
+| Nominal Syntax | simple_np | JHN 1:6 | ✓ |
+| Nominal Syntax | articular_np | JHN 1:14 | ✓ |
+| Nominal Syntax | anarthrous_np | JHN 1:6 | ✓ |
+| Nominal Syntax | modified_np | MAT 12:35 | ✓ |
+| Nominal Syntax | multiple_modifier_np | MAT 6:11 | ✓ |
+| Nominal Syntax | appositional_np | MAT 1:6 | ✓ |
+| Nominal Syntax | substantival_phrase | MAT 5:3 | ✓ |
+| Nominal Syntax | head_initial_np | LUK 8:11 | ✓ |
+| Nominal Syntax | head_final_np | MAT 12:35 | ✓ |
+| Nominal Syntax | nested_np | MAT 8:20 | ✓ |
+| Nominal Syntax | complex_np | 2CO 4:4 | ✓ |
+| Nominal Syntax | vocative_np | MAT 6:9 | ✓ |
+| Discourse | topic_fronting | 1JN 4:8 | ✓ |
+| Discourse | focus_fronting | ROM 10:2 | ✓ |
+| Discourse | emphasis_word_order | EPH 2:8 | ✓ |
+| Discourse | left_dislocation | ACT 7:40 | ✓ |
+| Discourse | right_dislocation | JHN 9:13 | ✓ |
+| Discourse | parenthetical | ROM 3:5 | ✓ |
+| Discourse | explanatory_parenthesis | MRK 3:17 | ✓ |
+| Discourse | contrast_men_de | MAT 9:37 | ✓ |
+| Discourse | backgrounding | MRK 1:10 | ✓ |
+| Discourse | foregrounding | MRK 1:40 | ✓ |
 
 ---
 
@@ -507,50 +679,84 @@ Status: **planned**  |  Pages: —  |  Implemented: 0 / 0  |  Tested: 0 (0%)  | 
 
 - FAIL: 0
 - WARN: 0
-- INFO: 30
-  - ℹ️ 代表節の共有: MAT 5:3 (genitive.possessive, clause.causal_hoti)
+- INFO: 64
+  - ℹ️ 代表節の共有: MAT 5:3 (genitive.possessive, clause.causal_hoti, nominal_syntax.substantival_phrase)
   - ℹ️ 代表節の共有: ROM 7:24 (genitive.descriptive, nominative.exclamation)
   - ℹ️ 代表節の共有: MAT 1:1 (genitive.relationship, nominative.title_nominative)
   - ℹ️ 代表節の共有: ROM 6:4 (genitive.attributed, dative.association)
-  - ℹ️ 代表節の共有: MAT 3:11 (genitive.comparison, infinitive.epexegetical)
+  - ℹ️ 代表節の共有: MAT 3:11 (genitive.comparison, infinitive.epexegetical, preposition.proper_with_dative)
+  - ℹ️ 代表節の共有: ROM 6:11 (dative.reference, conjunction.correlative_men_de)
   - ℹ️ 代表節の共有: LUK 23:15 (dative.agent, adjective.genitive_complement)
   - ℹ️ 代表節の共有: JHN 3:16 (participle.substantival, verb.voice_active, clause.purpose_hina)
   - ℹ️ 代表節の共有: MAT 4:4 (participle.redundant, verb.perfect_intensive)
   - ℹ️ 代表節の共有: JHN 1:1 (article.colwell, verb.declarative, nominative.predicate_nominative)
   - ℹ️ 代表節の共有: MAT 16:13 (accusative.subject_of_infinitive, infinitive.indirect_discourse)
-  - ℹ️ 代表節の共有: MAT 8:24 (infinitive.result, clause.result_hoste)
+  - ℹ️ 代表節の共有: MAT 8:24 (infinitive.result, clause.result_hoste, conjunction.subordinating_result)
   - ℹ️ 代表節の共有: PHP 1:21 (infinitive.articular, nominative.subject_with_infinitive)
+  - ℹ️ 代表節の共有: MRK 1:40 (verb.historical_present, discourse.foregrounding)
+  - ℹ️ 代表節の共有: MAT 6:11 (verb.imperative_urgency, nominal_syntax.multiple_modifier_np)
+  - ℹ️ 代表節の共有: MAT 6:13 (verb.prohibitory, particle.negative_me)
   - ℹ️ 代表節の共有: MAT 6:31 (verb.deliberative, pronoun.interrogative)
+  - ℹ️ 代表節の共有: JHN 10:28 (verb.emphatic_negation, particle.double_negative, particle.emphatic_negative)
   - ℹ️ 代表節の共有: MRK 3:29 (verb.indefinite_relative, pronoun.relative)
-  - ℹ️ 代表節の共有: 1JN 1:9 (verb.conditional_subjunctive, clause.conditional_third_class)
+  - ℹ️ 代表節の共有: 1JN 1:9 (verb.conditional_subjunctive, clause.conditional_third_class, particle.particle_ean)
+  - ℹ️ 代表節の共有: ROM 6:2 (verb.wish_optative, particle.rhetorical_particle)
+  - ℹ️ 代表節の共有: ROM 6:1 (verb.future_deliberative, particle.deliberative_particle)
   - ℹ️ 代表節の共有: JHN 10:11 (adjective.attributive, adjective.attributive_position, adjective.restrictive)
   - ℹ️ 代表節の共有: ROM 7:12 (adjective.predicate, adjective.predicate_position)
-  - ℹ️ 代表節の共有: JHN 13:34 (pronoun.reciprocal, clause.comparative_kathos)
+  - ℹ️ 代表節の共有: JHN 13:34 (pronoun.reciprocal, clause.comparative_kathos, conjunction.subordinating_comparative)
   - ℹ️ 代表節の共有: MAT 1:2 (nominative.subject, nominative.indeclinable)
+  - ℹ️ 代表節の共有: ACT 7:40 (nominative.pendens, discourse.left_dislocation)
+  - ℹ️ 代表節の共有: MAT 12:28 (clause.conditional_first_class, conjunction.subordinating_conditional)
+  - ℹ️ 代表節の共有: JHN 11:21 (clause.conditional_second_class, particle.particle_an)
+  - ℹ️ 代表節の共有: MAT 5:17 (clause.substantival_hoti, conjunction.subordinating_content)
+  - ℹ️ 代表節の共有: MAT 6:2 (clause.temporal_hotan, conjunction.subordinating_temporal)
+  - ℹ️ 代表節の共有: MRK 1:10 (preposition.proper_with_genitive, preposition.adverbial_pp, discourse.backgrounding)
+  - ℹ️ 代表節の共有: MAT 6:9 (preposition.attributive_pp, nominal_syntax.vocative_np)
+  - ℹ️ 代表節の共有: ROM 1:13 (conjunction.coordinating_transition, particle.continuative_de)
+  - ℹ️ 代表節の共有: ROM 12:1 (conjunction.coordinating_inferential, particle.inferential_oun)
+  - ℹ️ 代表節の共有: ROM 1:16 (conjunction.coordinating_explanatory, particle.explanatory_gar)
+  - ℹ️ 代表節の共有: MAT 9:37 (particle.correlative_men, particle.correlative_de, discourse.contrast_men_de)
+  - ℹ️ 代表節の共有: JHN 1:6 (nominal_syntax.simple_np, nominal_syntax.anarthrous_np)
+  - ℹ️ 代表節の共有: MAT 12:35 (nominal_syntax.modified_np, nominal_syntax.head_final_np)
   - ℹ️ 同一ページ pp.654–655: genitive.absolute, participle.genitive_absolute
   - ℹ️ 同一ページ pp.619–621: participle.predicate, participle.substantival
+  - ℹ️ 同一ページ pp.526–532: verb.historical_present, discourse.foregrounding
   - ℹ️ 同一ページ pp.485–486: verb.imperative_customary, verb.imperative_constative, verb.imperative_ingressive, verb.imperative_permissive
-  - ℹ️ 同一ページ pp.306–307: adjective.attributive_position, adjective.restrictive
+  - ℹ️ 同一ページ p.469: verb.prohibitory, particle.particle_an, particle.particle_ean
+  - ℹ️ 同一ページ p.468: verb.emphatic_negation, particle.negative_ou, particle.negative_me
+  - ℹ️ 同一ページ pp.306–309: adjective.attributive, nominal_syntax.modified_np
+  - ℹ️ 同一ページ pp.306–307: adjective.attributive_position, adjective.restrictive, nominal_syntax.head_initial_np, nominal_syntax.head_final_np
   - ℹ️ 同一ページ pp.351–352: pronoun.reciprocal, pronoun.reciprocal_emphasis
+  - ℹ️ 同一ページ pp.51–53: nominative.pendens, discourse.topic_fronting, discourse.left_dislocation, discourse.right_dislocation
   - ℹ️ 同一ページ pp.56–59: nominative.vocative_nominative, vocative.nominative_for_vocative
   - ℹ️ 同一ページ pp.67–68: vocative.direct_address, vocative.chain
   - ℹ️ 同一ページ pp.68–69: vocative.with_o, vocative.exclamatory
   - ℹ️ 同一ページ pp.659–660: clause.substantival_hoti, clause.adjectival_relative
   - ℹ️ 同一ページ pp.662–663: clause.causal_hoti, clause.result_hoste, clause.comparative_kathos
   - ℹ️ 同一ページ pp.660–661: clause.temporal_hotan, clause.temporal_hote
+  - ℹ️ 同一ページ pp.360–363: preposition.proper_with_genitive, preposition.proper_with_dative, preposition.proper_with_accusative
+  - ℹ️ 同一ページ pp.356–357: preposition.adverbial_pp, preposition.attributive_pp, preposition.substantival_pp
+  - ℹ️ 同一ページ p.671: conjunction.coordinating_additive, conjunction.coordinating_adversative, particle.connective_te
+  - ℹ️ 同一ページ p.674: conjunction.coordinating_transition, particle.continuative_de
+  - ℹ️ 同一ページ p.673: conjunction.coordinating_inferential, conjunction.coordinating_explanatory, particle.emphatic_ge, particle.inferential_oun, particle.explanatory_gar, particle.assertive_de, particle.attention_de, particle.emphasis_per, particle.emphasis_toi
+  - ℹ️ 同一ページ p.672: conjunction.correlative_men_de, particle.correlative_men, particle.correlative_de, discourse.contrast_men_de
+  - ℹ️ 同一ページ p.677: conjunction.subordinating_temporal, conjunction.subordinating_result
+  - ℹ️ 同一ページ p.675: conjunction.subordinating_conditional, conjunction.subordinating_comparative
+  - ℹ️ 同一ページ pp.468–469: particle.double_negative, particle.emphatic_negative
 
 ---
 
 ## Corpus Metrics（book_summary.json より引用）
 
-- Representative Examples Verified: 160 / 180
-- Analyzed tokens: 104134
-- Average confidence: 0.5618
-- Unresolved (<0.40): 11585
+- Representative Examples Verified: 220 / 242
+- Analyzed tokens: 131923
+- Average confidence: 0.613
+- Unresolved (<0.40): 6151
 - Top confusion:
   - article.simple_identification>article.monadic: 12175
-  - genitive.possessive>genitive.descriptive: 5951
-  - verb.declarative>verb.historical_present: 4326
-  - accusative.direct_object>accusative.double_person_thing: 2014
-  - nominative.subject>nominative.vocative_nominative: 1485
+  - conjunction.coordinating_additive>conjunction.subordinating_content: 7995
+  - genitive.possessive>genitive.descriptive: 4964
+  - verb.declarative>discourse.foregrounding: 3673
+  - preposition.proper_with_accusative>preposition.adverbial_pp: 2392
 

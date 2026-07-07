@@ -23,7 +23,11 @@ const ROOT   = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'public');
 const OUT    = path.join(__dirname, 'output');
 
-// ── Wallace 章定義（GGBB 1996 の章構成・監査用の静的定義） ────────────────
+// ── 章定義（監査用の静的定義） ────────────────────────────────────────────
+// Wallace Core: GGBB 1996 に実在する章・節に対応するカテゴリ。
+// Engine Extensions（extension: true）: GGBB には章として存在しない、
+// 本エンジン独自の横断解析レイヤー（Nominal Syntax / Discourse）。
+// pages はエンジンが参照する GGBB の関連箇所（章ではない）。
 const CHAPTERS = [
     { key: 'nominative',    label: 'Nominative',     pages: '36–64',    registryCategory: 'nominative' },
     { key: 'vocative',      label: 'Vocative',       pages: '65–71',    registryCategory: 'vocative' },
@@ -33,19 +37,22 @@ const CHAPTERS = [
     { key: 'article',       label: 'Article',        pages: '206–290',  registryCategory: 'article' },
     { key: 'adjective',     label: 'Adjective',      pages: '291–314',  registryCategory: 'adjective' },
     { key: 'pronoun',       label: 'Pronoun',        pages: '315–354',  registryCategory: 'pronoun' },
+    { key: 'preposition',   label: 'Preposition',    pages: '355–389',  registryCategory: 'preposition' },
     { key: 'infinitive',    label: 'Infinitive',     pages: '587–611',  registryCategory: 'infinitive' },
     { key: 'participle',    label: 'Participle',     pages: '612–655',  registryCategory: 'participle' },
     { key: 'verb_mood',     label: 'Verb (Mood)',    pages: '443–493',  registryCategory: 'verb' },
     { key: 'clause_syntax', label: 'Clause Syntax',  pages: '656–712',  registryCategory: 'clause' },
-    { key: 'nominal_syntax',label: 'Nominal Syntax', pages: '31–35',    registryCategory: null },
-    { key: 'discourse',     label: 'Discourse',      pages: '—',        registryCategory: null },
+    { key: 'conjunction',   label: 'Conjunction',    pages: '666–678',  registryCategory: 'conjunction' },
+    { key: 'particle',      label: 'Particle',       pages: '465–469, 670–674', registryCategory: 'particle' },
+    { key: 'nominal_syntax',label: 'Nominal Syntax', pages: '206–314 passim', registryCategory: 'nominal_syntax', extension: true },
+    { key: 'discourse',     label: 'Discourse',      pages: '51–53, 526–532, 622–625 passim', registryCategory: 'discourse', extension: true },
 ];
 
 // ── 収集ヘルパー ──────────────────────────────────────────────────────────
 function collectTypes(node, out = []) {
     if (!node || typeof node !== 'object') return out;
     if (Array.isArray(node)) { node.forEach(n => collectTypes(n, out)); return out; }
-    if (typeof node.id === 'string' && /^[a-z]+\.[a-z_]+$/.test(node.id) && node.xsc) {
+    if (typeof node.id === 'string' && /^[a-z_]+\.[a-z_]+$/.test(node.id) && node.xsc) {
         out.push(node);
     }
     Object.values(node).forEach(v => collectTypes(v, out));
@@ -81,7 +88,7 @@ function generateCoverage() {
 
     // ── 検査 4/5: registry ⇔ Scorer の参照整合 ──
     const scorerCats = new Set();
-    for (const m of analyzerSrc.matchAll(/getTypesFor(?:Case|Mood|Category)\('([a-z]+)'\)/g)) {
+    for (const m of analyzerSrc.matchAll(/getTypesFor(?:Case|Mood|Category)\('([a-z_]+)'\)/g)) {
         scorerCats.add(m[1]);
     }
     const registryCats = new Set(Object.keys(registry.categories ?? {}));
@@ -116,7 +123,12 @@ function generateCoverage() {
 
     // ── Phase 7.6 検査: 代表例（example_verse）の欠落・重複 ──
     // representative-missing 免除リスト（Wallace 上代表例が稀少で文献確認待ちの型）
-    const NO_REPRESENTATIVE_ALLOWED = new Set(['genitive.means']);
+    const NO_REPRESENTATIVE_ALLOWED = new Set([
+        'genitive.means',
+        // Phase 17: περ/τοι の単独形は SBLGNT 本文に出現しない（dormant 型）
+        'particle.emphasis_per',
+        'particle.emphasis_toi',
+    ]);
     for (const t of types) {
         if (t.status !== 'active') continue;
         if (!t.example_verse && !NO_REPRESENTATIVE_ALLOWED.has(t.id)) {
@@ -171,6 +183,7 @@ function generateCoverage() {
         return {
             key: ch.key,
             label: ch.label,
+            extension: !!ch.extension,
             wallace_pages: ch.pages,
             registry_types: catTypes.length,
             active,
@@ -258,22 +271,33 @@ function toCsv(report) {
 
 function toMarkdown(r) {
     const L = [];
-    L.push('# Wallace Coverage Report', '');
+    L.push('# Coverage Report — Wallace Core + Engine Extensions', '');
     L.push(`Generated: ${r.generated_at}`);
     L.push(`Engine Version: ${r.engine_version}`);
-    L.push(`Wallace: ${r.wallace_version}`, '', '---', '');
+    L.push(`Wallace: ${r.wallace_version}`, '');
+    L.push('> 本エンジンは Wallace GGBB の統語カテゴリ（Wallace Core）を実装し、');
+    L.push('> これに GGBB には章として存在しない独自の横断解析レイヤー');
+    L.push('> （Engine Extensions: Nominal Syntax / Discourse）を加えたものである。');
+    L.push('> 両者は本レポートで区分して集計し、混在させない。', '', '---', '');
+
+    const core = r.chapters.filter(c => !c.extension);
+    const ext  = r.chapters.filter(c => c.extension);
     L.push('## Summary', '');
-    L.push(`- Categories: ${r.summary.implemented_categories}`);
+    L.push(`- Categories: ${r.summary.implemented_categories}` +
+           `（Wallace Core ${core.length} + Engine Extensions ${ext.length}）`);
     L.push(`- Types: ${r.summary.implemented_types} (active ${r.summary.active_types} / stub ${r.summary.stub_types})`);
     L.push(`- Tested types: ${r.summary.tested_types} / ${r.summary.active_types} ` +
            `(**${r.summary.coverage_percent}%**)`);
     L.push(`- Test assertions (call sites): ${r.summary.tests}`);
-    const impl = r.chapters.filter(c => c.status !== 'planned').length;
-    L.push(`- Chapter coverage: ${impl} / ${r.chapters.length}`, '', '---', '');
+    const implCore = core.filter(c => c.status !== 'planned').length;
+    const implExt  = ext.filter(c => c.status !== 'planned').length;
+    L.push(`- Wallace Core chapter coverage: ${implCore} / ${core.length}`);
+    L.push(`- Engine Extensions: ${implExt} / ${ext.length}（GGBB の章ではない独自レイヤー）`,
+           '', '---', '');
 
-    for (const ch of r.chapters) {
-        L.push(`## ${ch.label}`, '');
-        L.push(`Status: **${ch.status}**  |  Pages: ${ch.wallace_pages}  |  ` +
+    const renderChapter = (ch, pagesLabel) => {
+        L.push(`## ${ch.label}${ch.extension ? '（Engine Extension）' : ''}`, '');
+        L.push(`Status: **${ch.status}**  |  ${pagesLabel}: ${ch.wallace_pages}  |  ` +
                `Implemented: ${ch.implemented} / ${ch.registry_types}  |  ` +
                `Tested: ${ch.tested} (${ch.coverage}%)  |  ` +
                `Stub: ${ch.stub}  |  Test mentions: ${ch.regression_test_mentions}  |  ` +
@@ -288,7 +312,16 @@ function toMarkdown(r) {
             L.push('');
         }
         L.push('---', '');
-    }
+    };
+
+    L.push('# Part I — Wallace Core Grammar（GGBB の章に対応）', '');
+    for (const ch of core) renderChapter(ch, 'Pages');
+    L.push('# Part II — Engine Extensions（GGBB に章は存在しない独自レイヤー）', '');
+    L.push('Nominal Syntax は名詞句（NP）全体を横断解析するための独自レイヤー、');
+    L.push('Discourse / Information Structure は Wallace が各章で個別に扱う語順・強調・');
+    L.push('談話的特徴を横断的に整理したエンジン拡張である。Pages 欄は対応する章では');
+    L.push('なく、エンジンが参照する GGBB の関連箇所を示す。', '');
+    for (const ch of ext) renderChapter(ch, 'GGBB 関連箇所');
 
     // ── Regression Matrix ──
     L.push('## Regression Matrix', '');

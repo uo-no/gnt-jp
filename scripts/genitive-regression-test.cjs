@@ -243,7 +243,7 @@ section('§3  構文レジストリ整合性');
         if (!node || typeof node !== 'object') return out;
         if (Array.isArray(node)) { node.forEach(n => allTypeIds(n, out)); return out; }
         // "xxxx.yyyy" 形式 (category.subtype) のみ構文型IDとして収集
-        if (typeof node.id === 'string' && /^[a-z]+\.[a-z_]+$/.test(node.id)) {
+        if (typeof node.id === 'string' && /^[a-z_]+\.[a-z_]+$/.test(node.id)) {
             out.push(node.id);
         }
         Object.values(node).forEach(v => allTypeIds(v, out));
@@ -573,7 +573,7 @@ section('§7a  Registry Lint');
 function collectAllTypeDefs(node, out = []) {
     if (!node || typeof node !== 'object') return out;
     if (Array.isArray(node)) { node.forEach(n => collectAllTypeDefs(n, out)); return out; }
-    if (typeof node.id === 'string' && /^[a-z]+\.[a-z_]+$/.test(node.id) && node.xsc) {
+    if (typeof node.id === 'string' && /^[a-z_]+\.[a-z_]+$/.test(node.id) && node.xsc) {
         out.push(node);
     }
     Object.values(node).forEach(v => collectAllTypeDefs(v, out));
@@ -801,8 +801,11 @@ section('§7d  Discovery Card stub ガード');
     // したがって検証すべき不変条件は
     //   (a) 非 stub の最上位候補が閾値 0.40 未満（カード非表示）
     //   (b) stub はそもそも 0.40 に到達できない（§7a lint と対）
-    const topActive = cands.find(c => (c.status ?? 'active') !== 'stub');
-    check('合成 ἐν+与格 — 非 stub の最上位が UI 閾値 0.40 未満（Discovery Card 非表示）',
+    // Phase 18 注記: この不変条件は「与格の格機能」の抑制を守るもの（P0-1/P0-3）。
+    // 横断カテゴリ（nominal_syntax = NP 構造の記述）は格機能ではないため対象外。
+    const topActive = cands.find(c => (c.status ?? 'active') !== 'stub' &&
+                                      String(c.id).startsWith('dative.'));
+    check('合成 ἐν+与格 — 非 stub の与格最上位が UI 閾値 0.40 未満（Discovery Card 非表示）',
           !topActive || (topActive.confidence ?? 0) < 0.4,
           topActive ? `topActive=${topActive.id}(${topActive.confidence.toFixed(2)})` : '');
 
@@ -2288,6 +2291,554 @@ console.log('\n  ─── Regression ───');
     const c2 = analyzeTokenCat('JHN', 11, 21, 'εἰ', 'clause.');
     const fc = c2.allCandidates.find(x => x.id === 'clause.conditional_first_class');
     check('FP: JHN 11:21 — 第1類は第2類より下位', !fc || fc.confidence < (c2.topConf ?? 1));
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7w  Phase 15 — Preposition System（Wallace pp.355–389）
+// ════════════════════════════════════════════════════════════════
+section('§7w  Preposition System');
+
+function prRepr(label, b, c, v, lemma, typeId, opt) {
+    const { maxRank, minConf } = opt;
+    const r = analyzeTokenCat(b, c, v, lemma, 'preposition.');
+    const rank = r.allCandidates.findIndex(x => x.id === typeId) + 1;
+    const f = r.allCandidates.find(x => x.id === typeId);
+    check(`${label} — 候補に存在`, Boolean(f),
+          `top=${r.topId} 候補=${r.allCandidates.slice(0, 3).map(x => x.id).join(',')}`);
+    check(`${label} — rank ≤ ${maxRank}`, rank > 0 && rank <= maxRank, `rank=${rank}`);
+    check(`${label} — conf ≥ ${minConf}`, (f?.confidence ?? 0) >= minConf,
+          `conf=${f?.confidence?.toFixed(2)}`);
+    check(`${label} — signals_matched 非空`,
+          Array.isArray(f?.signals_matched) && f.signals_matched.length > 0);
+    check(`${label} — label_ja 有効`, Boolean(f?.label_ja));
+}
+
+// ── 構造検証 ─────────────────────────────────────────────────────
+{
+    const pr = collectAllTypeDefs(syntaxRegistry).filter(t => t.id.startsWith('preposition.'));
+    check('preposition: 型数 = 7', pr.length === 7, `${pr.length}`);
+    check('preposition: 全型 active + example_verse + wallace_ref',
+          pr.every(t => t.status === 'active' && t.example_verse && t.wallace_ref));
+    check('preposition: 格支配 3 型が揃っている',
+          ['genitive', 'dative', 'accusative'].every(k =>
+              pr.some(t => t.id === `preposition.proper_with_${k}`)));
+}
+
+// ── 代表例（全 7 型・Wallace pp.355–389） ────────────────────────
+console.log('\n  ─── 種別と格支配 ───');
+prRepr('proper+gen MRK 1:10 ἐκ τοῦ ὕδατος', 'MRK', 1, 10, 'ἐκ', 'preposition.proper_with_genitive', { maxRank: 1, minConf: 0.70 });
+prRepr('proper+dat MAT 3:11 ἐν ὕδατι', 'MAT', 3, 11, 'ἐν', 'preposition.proper_with_dative', { maxRank: 1, minConf: 0.70 });
+prRepr('proper+acc MAT 4:12 εἰς τὴν Γαλιλαίαν', 'MAT', 4, 12, 'εἰς', 'preposition.proper_with_accusative', { maxRank: 1, minConf: 0.70 });
+prRepr('improper LUK 1:15 ἐνώπιον τοῦ κυρίου', 'LUK', 1, 15, 'ἐνώπιον', 'preposition.improper', { maxRank: 1, minConf: 0.65 });
+
+console.log('\n  ─── 前置詞句の統語機能 ───');
+prRepr('adverbial MRK 1:10 ἐκ（無冠詞・既定）', 'MRK', 1, 10, 'ἐκ', 'preposition.adverbial_pp', { maxRank: 2, minConf: 0.50 });
+prRepr('attributive MAT 6:9 Πάτερ ἡμῶν ὁ ἐν τοῖς οὐρανοῖς', 'MAT', 6, 9, 'ἐν', 'preposition.attributive_pp', { maxRank: 1, minConf: 0.75 });
+prRepr('substantival GAL 3:7 οἱ ἐκ πίστεως', 'GAL', 3, 7, 'ἐκ', 'preposition.substantival_pp', { maxRank: 1, minConf: 0.73 });
+
+// ── 追加パターン（後置小辞透過・属格冠詞の主名詞・分詞主名詞） ──
+console.log('\n  ─── 追加パターン ───');
+prRepr('attributive MAT 3:11 ὁ δὲ ὀπίσω μου ἐρχόμενος（δέ 透過＋分詞主名詞）', 'MAT', 3, 11, 'ὀπίσω', 'preposition.attributive_pp', { maxRank: 1, minConf: 0.75 });
+prRepr('improper MAT 3:11 ὀπίσω μου（rank2 併存）', 'MAT', 3, 11, 'ὀπίσω', 'preposition.improper', { maxRank: 2, minConf: 0.65 });
+prRepr('attributive MAT 12:50 τοῦ πατρός μου τοῦ ἐν οὐρανοῖς（属格冠詞の主名詞）', 'MAT', 12, 50, 'ἐν', 'preposition.attributive_pp', { maxRank: 1, minConf: 0.75 });
+prRepr('substantival MAT 14:33 οἱ δὲ ἐν τῷ πλοίῳ（δέ 透過）', 'MAT', 14, 33, 'ἐν', 'preposition.substantival_pp', { maxRank: 1, minConf: 0.73 });
+
+// ── FP 抑制（非該当型は 0.30 床以下） ────────────────────────────
+console.log('\n  ─── FP 抑制 ───');
+{
+    const en = analyzeTokenCat('MAT', 3, 11, 'ἐν', 'preposition.');
+    const imp = en.allCandidates.find(x => x.id === 'preposition.improper');
+    check('FP: MAT 3:11 ἐν（固有）— improper は 0.30 床以下', (imp?.confidence ?? 0) <= 0.31,
+          `conf=${imp?.confidence?.toFixed(2)}`);
+    const eis = analyzeTokenCat('MAT', 4, 12, 'εἰς', 'preposition.');
+    const pg = eis.allCandidates.find(x => x.id === 'preposition.proper_with_genitive');
+    check('FP: MAT 4:12 εἰς（対格支配）— proper_with_genitive は 0.30 床以下',
+          (pg?.confidence ?? 0) <= 0.31, `conf=${pg?.confidence?.toFixed(2)}`);
+    const ek = analyzeTokenCat('MRK', 1, 10, 'ἐκ', 'preposition.');
+    for (const id of ['preposition.attributive_pp', 'preposition.substantival_pp']) {
+        const f = ek.allCandidates.find(x => x.id === id);
+        check(`FP: MRK 1:10 ἐκ（無冠詞）— ${id.split('.')[1]} は 0.30 床以下`,
+              (f?.confidence ?? 0) <= 0.31, `conf=${f?.confidence?.toFixed(2)}`);
+    }
+}
+
+// ── Regression（PP 目的語側・隣接トークンの判定が不変） ──────────
+console.log('\n  ─── Regression ───');
+{
+    const g = analyzeTokenCat('MRK', 1, 10, 'ὕδωρ', 'genitive.');
+    check('回帰: MRK 1:10 ὕδατος — genitive.place top 維持', g.topId === 'genitive.place', `top=${g.topId}`);
+    const a = analyzeTokenCat('MAT', 4, 12, 'Γαλιλαία', 'accusative.');
+    check('回帰: MAT 4:12 Γαλιλαίαν — accusative カテゴリ top 不変',
+          a.topId === 'accusative.direct_object', `top=${a.topId}`);
+    const vv = analyzeTokenCat('MAT', 6, 9, 'πατήρ', 'vocative.');
+    check('回帰: MAT 6:9 Πάτερ — vocative.direct_address top 維持',
+          vv.topId === 'vocative.direct_address', `top=${vv.topId}`);
+    const cl = analyzeTokenCat('GAL', 3, 7, 'ὅτι', 'clause.');
+    check('回帰: GAL 3:7 ὅτι — clause.substantival_hoti top 維持',
+          cl.topId === 'clause.substantival_hoti', `top=${cl.topId}`);
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7x  Phase 16 — Conjunction System（Wallace pp.666–678）
+// ════════════════════════════════════════════════════════════════
+section('§7x  Conjunction System');
+
+function cjRepr(label, b, c, v, lemma, typeId, opt) {
+    const { maxRank, minConf } = opt;
+    const r = analyzeTokenCat(b, c, v, lemma, 'conjunction.');
+    const rank = r.allCandidates.findIndex(x => x.id === typeId) + 1;
+    const f = r.allCandidates.find(x => x.id === typeId);
+    check(`${label} — 候補に存在`, Boolean(f),
+          `top=${r.topId} 候補=${r.allCandidates.slice(0, 3).map(x => x.id).join(',')}`);
+    check(`${label} — rank ≤ ${maxRank}`, rank > 0 && rank <= maxRank, `rank=${rank}`);
+    check(`${label} — conf ≥ ${minConf}`, (f?.confidence ?? 0) >= minConf,
+          `conf=${f?.confidence?.toFixed(2)}`);
+    check(`${label} — signals_matched 非空`,
+          Array.isArray(f?.signals_matched) && f.signals_matched.length > 0);
+    check(`${label} — label_ja 有効`, Boolean(f?.label_ja));
+}
+
+// ── 構造検証 ─────────────────────────────────────────────────────
+{
+    const cj = collectAllTypeDefs(syntaxRegistry).filter(t => t.id.startsWith('conjunction.'));
+    check('conjunction: 型数 = 12', cj.length === 12, `${cj.length}`);
+    check('conjunction: 全型 active + example_verse + wallace_ref',
+          cj.every(t => t.status === 'active' && t.example_verse && t.wallace_ref));
+    check('conjunction: 等位 6 + 従属 6',
+          cj.filter(t => t.id.includes('coordinating_') || t.id.includes('correlative_')).length === 6 &&
+          cj.filter(t => t.id.includes('subordinating_')).length === 6);
+}
+
+// ── 代表例（等位・Wallace pp.670–674） ───────────────────────────
+// 注: 仕様指定の GAL 2:20（ἀλλά）と ROM 1:8（δέ）は SBLGNT 本文に当該レンマが
+// 存在しないため、1CO 15:10 / ROM 1:13 で代替（ROM 1:8 の μέν は
+// μέν solitarium として FP 負例に使用）。
+console.log('\n  ─── 等位接続詞 ───');
+cjRepr('additive JHN 1:1 καί', 'JHN', 1, 1, 'καί', 'conjunction.coordinating_additive', { maxRank: 1, minConf: 0.70 });
+cjRepr('adversative 1CO 15:10 ἀλλά', '1CO', 15, 10, 'ἀλλά', 'conjunction.coordinating_adversative', { maxRank: 1, minConf: 0.70 });
+cjRepr('transition ROM 1:13 δέ', 'ROM', 1, 13, 'δέ', 'conjunction.coordinating_transition', { maxRank: 1, minConf: 0.70 });
+cjRepr('inferential ROM 12:1 οὖν', 'ROM', 12, 1, 'οὖν', 'conjunction.coordinating_inferential', { maxRank: 1, minConf: 0.70 });
+cjRepr('explanatory ROM 1:16 γάρ', 'ROM', 1, 16, 'γάρ', 'conjunction.coordinating_explanatory', { maxRank: 1, minConf: 0.70 });
+cjRepr('men_de ROM 6:11 μέν（前項）', 'ROM', 6, 11, 'μέν', 'conjunction.correlative_men_de', { maxRank: 1, minConf: 0.75 });
+cjRepr('men_de ROM 6:11 δέ（後項）', 'ROM', 6, 11, 'δέ', 'conjunction.correlative_men_de', { maxRank: 1, minConf: 0.75 });
+
+// ── 代表例（従属・Wallace pp.674–678） ───────────────────────────
+console.log('\n  ─── 従属接続詞 ───');
+cjRepr('purpose JHN 3:16 ἵνα', 'JHN', 3, 16, 'ἵνα', 'conjunction.subordinating_purpose', { maxRank: 1, minConf: 0.65 });
+cjRepr('content MAT 5:17 ὅτι', 'MAT', 5, 17, 'ὅτι', 'conjunction.subordinating_content', { maxRank: 1, minConf: 0.65 });
+cjRepr('temporal MAT 6:2 ὅταν', 'MAT', 6, 2, 'ὅταν', 'conjunction.subordinating_temporal', { maxRank: 1, minConf: 0.65 });
+cjRepr('conditional 1JN 1:9 ἐάν', '1JN', 1, 9, 'ἐάν', 'conjunction.subordinating_conditional', { maxRank: 1, minConf: 0.65 });
+cjRepr('result MAT 8:24 ὥστε', 'MAT', 8, 24, 'ὥστε', 'conjunction.subordinating_result', { maxRank: 1, minConf: 0.65 });
+cjRepr('comparative JHN 13:34 καθώς', 'JHN', 13, 34, 'καθώς', 'conjunction.subordinating_comparative', { maxRank: 1, minConf: 0.65 });
+
+// ── 二層構造（接続詞層 + 節層が同一トークンに並立） ──────────────
+console.log('\n  ─── 二層構造 ───');
+{
+    const cj = analyzeTokenCat('JHN', 3, 16, 'ἵνα', 'conjunction.');
+    const cl = analyzeTokenCat('JHN', 3, 16, 'ἵνα', 'clause.');
+    check('二層: JHN 3:16 ἵνα — conjunction.subordinating_purpose top',
+          cj.topId === 'conjunction.subordinating_purpose', `top=${cj.topId}`);
+    check('二層: JHN 3:16 ἵνα — clause.purpose_hina top（節層維持）',
+          cl.topId === 'clause.purpose_hina', `top=${cl.topId}`);
+}
+
+// ── FP 抑制 ──────────────────────────────────────────────────────
+console.log('\n  ─── FP 抑制 ───');
+{
+    // μέν solitarium（ROM 1:8 Πρῶτον μὲν... 後続 δέ なし）→ correlative は床
+    const ms = analyzeTokenCat('ROM', 1, 8, 'μέν', 'conjunction.');
+    const cor = ms.allCandidates.find(x => x.id === 'conjunction.correlative_men_de');
+    check('FP: ROM 1:8 μέν solitarium — correlative は 0.30 床以下',
+          (cor?.confidence ?? 0) <= 0.31, `conf=${cor?.confidence?.toFixed(2)}`);
+    // 相関環境の δέ では transition が correlative に劣後
+    const dd = analyzeTokenCat('ROM', 6, 11, 'δέ', 'conjunction.');
+    const tr = dd.allCandidates.find(x => x.id === 'conjunction.coordinating_transition');
+    check('FP: ROM 6:11 δέ — transition は correlative より下位',
+          (tr?.confidence ?? 0) < (dd.topConf ?? 1), `conf=${tr?.confidence?.toFixed(2)}`);
+    // ὡς は comparative > content の序列（Wallace: ὡς は主に比較）
+    const hs = analyzeTokenCat('MRK', 1, 10, 'ὡς', 'conjunction.');
+    check('FP: MRK 1:10 ὡς — comparative top', hs.topId === 'conjunction.subordinating_comparative',
+          `top=${hs.topId}`);
+    const ct = hs.allCandidates.find(x => x.id === 'conjunction.subordinating_content');
+    check('FP: MRK 1:10 ὡς — content は低確度（≤0.45）',
+          (ct?.confidence ?? 0) <= 0.45, `conf=${ct?.confidence?.toFixed(2)}`);
+}
+
+// ── Regression（仕様指定 8 項目・二層の節層/他カテゴリ不変） ─────
+console.log('\n  ─── Regression ───');
+{
+    const r1 = analyzeTokenCat('JHN', 3, 16, 'ἵνα', 'clause.');
+    check('回帰: clause.purpose_hina top 維持', r1.topId === 'clause.purpose_hina');
+    const r2 = analyzeTokenCat('MAT', 5, 17, 'ὅτι', 'clause.');
+    check('回帰: clause.substantival_hoti top 維持', r2.topId === 'clause.substantival_hoti');
+    const r3 = analyzeTokenCat('MAT', 6, 2, 'ὅταν', 'clause.');
+    check('回帰: clause.temporal_hotan top 維持', r3.topId === 'clause.temporal_hotan');
+    const r4 = analyzeTokenCat('1JN', 1, 9, 'ἐάν', 'clause.');
+    check('回帰: clause.conditional_third_class top 維持', r4.topId === 'clause.conditional_third_class');
+    const r5 = analyzeTokenCat('JHN', 17, 3, 'γινώσκω', 'verb.');
+    check('回帰: verb.purpose_clause top 維持', r5.topId === 'verb.purpose_clause');
+    const r6 = analyzeTokenCat('1JN', 1, 9, 'ὁμολογέω', 'verb.');
+    check('回帰: verb.conditional_subjunctive top 維持', r6.topId === 'verb.conditional_subjunctive');
+    const r7 = analyzeTokenCat('MRK', 3, 29, 'ὅς', 'pronoun.');
+    check('回帰: pronoun.relative top 維持（カテゴリ内）', r7.topId === 'pronoun.relative');
+    const r8 = analyzeTokenCat('MAT', 6, 9, 'ἐν', 'preposition.');
+    check('回帰: preposition.attributive_pp top 維持', r8.topId === 'preposition.attributive_pp');
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7y  Phase 17 — Particle System（Wallace 否定/疑問/強調・談話小辞）
+// ════════════════════════════════════════════════════════════════
+section('§7y  Particle System');
+
+function ptRepr(label, b, c, v, lemma, typeId, opt) {
+    const { maxRank, minConf } = opt;
+    const r = analyzeTokenCat(b, c, v, lemma, 'particle.');
+    const rank = r.allCandidates.findIndex(x => x.id === typeId) + 1;
+    const f = r.allCandidates.find(x => x.id === typeId);
+    check(`${label} — 候補に存在`, Boolean(f),
+          `top=${r.topId} 候補=${r.allCandidates.slice(0, 3).map(x => x.id).join(',')}`);
+    check(`${label} — rank ≤ ${maxRank}`, rank > 0 && rank <= maxRank, `rank=${rank}`);
+    check(`${label} — conf ≥ ${minConf}`, (f?.confidence ?? 0) >= minConf,
+          `conf=${f?.confidence?.toFixed(2)}`);
+    check(`${label} — signals_matched 非空`,
+          Array.isArray(f?.signals_matched) && f.signals_matched.length > 0);
+    check(`${label} — label_ja 有効`, Boolean(f?.label_ja));
+}
+
+// ── 構造検証 ─────────────────────────────────────────────────────
+{
+    const pt = collectAllTypeDefs(syntaxRegistry).filter(t => t.id.startsWith('particle.'));
+    check('particle: 型数 = 21', pt.length === 21, `${pt.length}`);
+    check('particle: 全型 active + wallace_ref', pt.every(t => t.status === 'active' && t.wallace_ref));
+    // dormant 2 型（περ/τοι 単独形は SBLGNT に不出現）以外は example_verse 必須
+    const DORMANT = new Set(['particle.emphasis_per', 'particle.emphasis_toi']);
+    check('particle: example_verse（dormant 2 型を除く）',
+          pt.every(t => DORMANT.has(t.id) || t.example_verse));
+    check('particle: dormant 型が登録されている（emphasis_per / emphasis_toi）',
+          DORMANT.size === 2 && [...DORMANT].every(id => pt.some(t => t.id === id)));
+}
+
+// ── 代表例（否定・Wallace pp.468–469） ───────────────────────────
+// 注: 仕様指定の MAT 5:34 は SBLGNT 本文に οὐ がない（μὴ ὀμόσαι）ため、
+// negative_ou は JHN 1:5 で代表し、MAT 5:34 は negative_me の追加例とする。
+console.log('\n  ─── 否定 ───');
+ptRepr('negative_ou JHN 1:5 οὐ κατέλαβεν', 'JHN', 1, 5, 'οὐ', 'particle.negative_ou', { maxRank: 1, minConf: 0.70 });
+ptRepr('negative_me MAT 6:13 μὴ εἰσενέγκῃς', 'MAT', 6, 13, 'μή', 'particle.negative_me', { maxRank: 1, minConf: 0.70 });
+ptRepr('negative_me MAT 5:34 μὴ ὀμόσαι（仕様指定節）', 'MAT', 5, 34, 'μή', 'particle.negative_me', { maxRank: 1, minConf: 0.70 });
+ptRepr('double_negative JHN 10:28 οὐ μή（οὐ 側）', 'JHN', 10, 28, 'οὐ', 'particle.double_negative', { maxRank: 2, minConf: 0.75 });
+ptRepr('emphatic_negative JHN 10:28 οὐ μή＋接続法', 'JHN', 10, 28, 'οὐ', 'particle.emphatic_negative', { maxRank: 1, minConf: 0.85 });
+ptRepr('emphatic_negative JHN 10:28（μή 側）', 'JHN', 10, 28, 'μή', 'particle.emphatic_negative', { maxRank: 1, minConf: 0.85 });
+
+// ── 代表例（条件・疑問） ─────────────────────────────────────────
+console.log('\n  ─── 条件・疑問 ───');
+ptRepr('particle_an JHN 11:21 οὐκ ἂν ἀπέθανεν', 'JHN', 11, 21, 'ἄν', 'particle.particle_an', { maxRank: 1, minConf: 0.70 });
+ptRepr('particle_ean 1JN 1:9 ἐάν', '1JN', 1, 9, 'ἐάν', 'particle.particle_ean', { maxRank: 1, minConf: 0.60 });
+ptRepr('interrogative MAT 12:23 Μήτι（否定の答えを予期）', 'MAT', 12, 23, 'μήτι', 'particle.interrogative_particle', { maxRank: 1, minConf: 0.70 });
+ptRepr('deliberative ROM 6:1 Τί οὖν ἐροῦμεν;', 'ROM', 6, 1, 'οὖν', 'particle.deliberative_particle', { maxRank: 1, minConf: 0.65 });
+ptRepr('rhetorical ROM 6:2 μὴ γένοιτο', 'ROM', 6, 2, 'μή', 'particle.rhetorical_particle', { maxRank: 1, minConf: 0.70 });
+
+// ── 代表例（焦点化・談話） ───────────────────────────────────────
+// 注: 仕様指定の GAL 2（γε）・JHN 1:1（τε）は SBLGNT に当該レンマがなく、
+// GAL 3:4（εἴ γε）・MAT 22:10（πονηρούς τε καὶ ἀγαθούς）で代表する。
+console.log('\n  ─── 焦点化・談話 ───');
+ptRepr('emphatic_ge GAL 3:4 εἴ γε', 'GAL', 3, 4, 'γέ', 'particle.emphatic_ge', { maxRank: 1, minConf: 0.65 });
+ptRepr('restrictive_monon MAT 8:8 μόνον εἰπὲ λόγῳ', 'MAT', 8, 8, 'μόνος', 'particle.restrictive_monon', { maxRank: 1, minConf: 0.60 });
+ptRepr('continuative_de ROM 1:13 δέ', 'ROM', 1, 13, 'δέ', 'particle.continuative_de', { maxRank: 1, minConf: 0.50 });
+ptRepr('inferential_oun ROM 12:1 οὖν', 'ROM', 12, 1, 'οὖν', 'particle.inferential_oun', { maxRank: 1, minConf: 0.60 });
+ptRepr('explanatory_gar ROM 1:16 γάρ', 'ROM', 1, 16, 'γάρ', 'particle.explanatory_gar', { maxRank: 1, minConf: 0.60 });
+ptRepr('correlative_men ROM 6:11 μέν', 'ROM', 6, 11, 'μέν', 'particle.correlative_men', { maxRank: 1, minConf: 0.65 });
+ptRepr('correlative_de ROM 6:11 δέ', 'ROM', 6, 11, 'δέ', 'particle.correlative_de', { maxRank: 1, minConf: 0.65 });
+ptRepr('connective_te MAT 22:10 πονηρούς τε καὶ ἀγαθούς', 'MAT', 22, 10, 'τέ', 'particle.connective_te', { maxRank: 1, minConf: 0.60 });
+
+// ── 代表例（強意ほか） ───────────────────────────────────────────
+console.log('\n  ─── 強意ほか ───');
+ptRepr('assertive_de MAT 13:23 ὃς δὴ καρποφορεῖ', 'MAT', 13, 23, 'δή', 'particle.assertive_de', { maxRank: 1, minConf: 0.55 });
+ptRepr('attention_de ACT 13:2 ἀφορίσατε δή', 'ACT', 13, 2, 'δή', 'particle.attention_de', { maxRank: 1, minConf: 0.70 });
+
+// ── FP 抑制 ──────────────────────────────────────────────────────
+console.log('\n  ─── FP 抑制 ───');
+{
+    // 単独の οὐ で double/emphatic が立たない
+    const ou = analyzeTokenCat('JHN', 1, 5, 'οὐ', 'particle.');
+    for (const id of ['particle.double_negative', 'particle.emphatic_negative']) {
+        const f = ou.allCandidates.find(x => x.id === id);
+        check(`FP: JHN 1:5 οὐ（単独）— ${id.split('.')[1]} は 0.30 床以下`,
+              (f?.confidence ?? 0) <= 0.31, `conf=${f?.confidence?.toFixed(2)}`);
+    }
+    // 平叙節の οὖν で deliberative が立たない
+    const oun = analyzeTokenCat('ROM', 12, 1, 'οὖν', 'particle.');
+    const del = oun.allCandidates.find(x => x.id === 'particle.deliberative_particle');
+    check('FP: ROM 12:1 οὖν（平叙）— deliberative は 0.30 床以下',
+          (del?.confidence ?? 0) <= 0.31, `conf=${del?.confidence?.toFixed(2)}`);
+    // 直説法環境の δή で attention_de が立たない
+    const da = analyzeTokenCat('MAT', 13, 23, 'δή', 'particle.');
+    const at = da.allCandidates.find(x => x.id === 'particle.attention_de');
+    check('FP: MAT 13:23 δή（直説法）— attention_de は 0.30 床以下',
+          (at?.confidence ?? 0) <= 0.31, `conf=${at?.confidence?.toFixed(2)}`);
+    // μέν solitarium で correlative_men が立たない
+    const ms = analyzeTokenCat('ROM', 1, 8, 'μέν', 'particle.');
+    const cm = ms.allCandidates.find(x => x.id === 'particle.correlative_men');
+    check('FP: ROM 1:8 μέν solitarium — correlative_men は 0.30 床以下',
+          (cm?.confidence ?? 0) <= 0.31, `conf=${cm?.confidence?.toFixed(2)}`);
+}
+
+// ── Regression（仕様指定・多層構造の他層が不変） ─────────────────
+console.log('\n  ─── Regression ───');
+{
+    const checks = [
+        ['1JN', 1, 9, 'ὁμολογέω', 'verb.', 'verb.conditional_subjunctive'],
+        ['JHN', 17, 3, 'γινώσκω', 'verb.', 'verb.purpose_clause'],
+        ['MAT', 12, 28, 'εἰ', 'clause.', 'clause.conditional_first_class'],
+        ['JHN', 11, 21, 'εἰ', 'clause.', 'clause.conditional_second_class'],
+        ['1JN', 1, 9, 'ἐάν', 'clause.', 'clause.conditional_third_class'],
+        ['1PE', 3, 14, 'εἰ', 'clause.', 'clause.conditional_fourth_class'],
+        ['JHN', 3, 16, 'ἵνα', 'clause.', 'clause.purpose_hina'],
+        ['MAT', 8, 24, 'ὥστε', 'clause.', 'clause.result_hoste'],
+        ['JHN', 1, 1, 'καί', 'conjunction.', 'conjunction.coordinating_additive'],
+        ['1CO', 15, 10, 'ἀλλά', 'conjunction.', 'conjunction.coordinating_adversative'],
+        ['ROM', 1, 13, 'δέ', 'conjunction.', 'conjunction.coordinating_transition'],
+        ['ROM', 12, 1, 'οὖν', 'conjunction.', 'conjunction.coordinating_inferential'],
+        ['ROM', 1, 16, 'γάρ', 'conjunction.', 'conjunction.coordinating_explanatory'],
+        ['ROM', 6, 11, 'μέν', 'conjunction.', 'conjunction.correlative_men_de'],
+        ['JHN', 3, 16, 'ἵνα', 'conjunction.', 'conjunction.subordinating_purpose'],
+        ['MAT', 5, 17, 'ὅτι', 'conjunction.', 'conjunction.subordinating_content'],
+        ['MAT', 6, 2, 'ὅταν', 'conjunction.', 'conjunction.subordinating_temporal'],
+        ['1JN', 1, 9, 'ἐάν', 'conjunction.', 'conjunction.subordinating_conditional'],
+        ['MAT', 8, 24, 'ὥστε', 'conjunction.', 'conjunction.subordinating_result'],
+        ['JHN', 13, 34, 'καθώς', 'conjunction.', 'conjunction.subordinating_comparative'],
+        ['MRK', 3, 29, 'ὅς', 'pronoun.', 'pronoun.relative'],
+        ['MAT', 6, 9, 'ἐν', 'preposition.', 'preposition.attributive_pp'],
+        ['MRK', 1, 10, 'ἐκ', 'preposition.', 'preposition.proper_with_genitive'],
+        ['LUK', 1, 15, 'ἐνώπιον', 'preposition.', 'preposition.improper'],
+        ['GAL', 3, 7, 'ἐκ', 'preposition.', 'preposition.substantival_pp'],
+    ];
+    for (const [b, c, v, lm, pre, want] of checks) {
+        const r = analyzeTokenCat(b, c, v, lm, pre);
+        check(`回帰: ${b} ${c}:${v} ${lm} — ${want} top 維持`, r.topId === want, `top=${r.topId}`);
+    }
+    // Article Colwell（JHN 1:1 第3の ὁ: θεὸς ἦν ὁ λόγος）/ Nominative predicate
+    {
+        const toks = verseTokens('JHN', 1, 1);
+        const all = sa.analyzeAll(toks);
+        const artTops = all.results
+            .filter(r => (toks[r.tokenIdx]?.lemma ?? '') === 'ὁ')
+            .map(r => (r.output?.candidates ?? []).filter(c => c.id.startsWith('article.'))[0]?.id);
+        check('回帰: JHN 1:1 — 最終冠詞（θεὸς ἦν ὁ λόγος の ὁ）が article.colwell top 維持',
+              artTops[artTops.length - 1] === 'article.colwell', `tops=${artTops.join(',')}`);
+    }
+    const pn = analyzeTokenCat('JHN', 1, 1, 'θεός', 'nominative.');
+    check('回帰: JHN 1:1 — nominative.predicate_nominative top 維持',
+          pn.topId === 'nominative.predicate_nominative', `top=${pn.topId}`);
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7z  Phase 18 — Nominal Syntax（名詞句構造・横断カテゴリ）
+// ════════════════════════════════════════════════════════════════
+section('§7z  Nominal Syntax');
+
+// nth 出現対応の解析ヘルパー（JHN 1:1 の第2 θεός 等に必要）
+function analyzeNthTokenCat(b, c, v, lemma, nth, prefix) {
+    const tokens = verseTokens(b, c, v);
+    let seen = 0, idx = -1;
+    tokens.forEach((t, i) => {
+        if ((t.lemma ?? '') === lemma) { if (seen === nth) idx = i; seen++; }
+    });
+    if (idx < 0) return { topId: null, topConf: 0, allCandidates: [] };
+    const out = sa.analyze({ target: tokens[idx], tokens, targetIdx: idx });
+    const candidates = (out.candidates || [])
+        .filter(x => x.id && x.id.startsWith(prefix))
+        .sort((a, b2) => (b2.confidence ?? 0) - (a.confidence ?? 0));
+    return { topId: candidates[0]?.id ?? null, topConf: candidates[0]?.confidence ?? 0,
+             allCandidates: candidates };
+}
+
+function nsRepr(label, r, typeId, opt) {
+    const { maxRank, minConf } = opt;
+    const rank = r.allCandidates.findIndex(x => x.id === typeId) + 1;
+    const f = r.allCandidates.find(x => x.id === typeId);
+    check(`${label} — 候補に存在`, Boolean(f),
+          `top=${r.topId} 候補=${r.allCandidates.slice(0, 3).map(x => x.id).join(',')}`);
+    check(`${label} — rank ≤ ${maxRank}`, rank > 0 && rank <= maxRank, `rank=${rank}`);
+    check(`${label} — conf ≥ ${minConf}`, (f?.confidence ?? 0) >= minConf,
+          `conf=${f?.confidence?.toFixed(2)}`);
+    check(`${label} — signals_matched 非空`,
+          Array.isArray(f?.signals_matched) && f.signals_matched.length > 0);
+    check(`${label} — label_ja 有効`, Boolean(f?.label_ja));
+}
+const nsAt = (b, c, v, lm, nth = 0) => analyzeNthTokenCat(b, c, v, lm, nth, 'nominal_syntax.');
+
+// ── 構造検証 ─────────────────────────────────────────────────────
+{
+    const ns = collectAllTypeDefs(syntaxRegistry).filter(t => t.id.startsWith('nominal_syntax.'));
+    check('nominal_syntax: 型数 = 12', ns.length === 12, `${ns.length}`);
+    check('nominal_syntax: 全型 active + example_verse + wallace_ref',
+          ns.every(t => t.status === 'active' && t.example_verse && t.wallace_ref));
+    check('nominal_syntax: stub 0', ns.every(t => t.status !== 'stub'));
+}
+
+// ── 代表例（全 12 型） ───────────────────────────────────────────
+console.log('\n  ─── NP 構造 ───');
+nsRepr('simple_np JHN 1:6 ἄνθρωπος（裸名詞）', nsAt('JHN', 1, 6, 'ἄνθρωπος'), 'nominal_syntax.simple_np', { maxRank: 1, minConf: 0.60 });
+nsRepr('articular_np JHN 1:1 ὁ λόγος', nsAt('JHN', 1, 1, 'λόγος'), 'nominal_syntax.articular_np', { maxRank: 1, minConf: 0.60 });
+nsRepr('anarthrous_np JHN 1:1 θεός（無冠詞述語）', nsAt('JHN', 1, 1, 'θεός', 1), 'nominal_syntax.anarthrous_np', { maxRank: 2, minConf: 0.55 });
+nsRepr('modified_np MAT 12:35 ὁ ἀγαθὸς ἄνθρωπος', nsAt('MAT', 12, 35, 'ἄνθρωπος'), 'nominal_syntax.modified_np', { maxRank: 1, minConf: 0.65 });
+nsRepr('modified_np JHN 10:11 ὁ ποιμὴν ὁ καλός（仕様指定節）', nsAt('JHN', 10, 11, 'ποιμήν'), 'nominal_syntax.modified_np', { maxRank: 2, minConf: 0.65 });
+nsRepr('multiple_modifier MAT 6:11 τὸν ἄρτον ἡμῶν τὸν ἐπιούσιον', nsAt('MAT', 6, 11, 'ἄρτος'), 'nominal_syntax.multiple_modifier_np', { maxRank: 1, minConf: 0.70 });
+nsRepr('appositional MAT 1:6 τὸν Δαυὶδ τὸν βασιλέα', nsAt('MAT', 1, 6, 'Δαυίδ'), 'nominal_syntax.appositional_np', { maxRank: 1, minConf: 0.65 });
+nsRepr('genitive NP LUK 8:11 ὁ λόγος τοῦ θεοῦ（入れ子）', nsAt('LUK', 8, 11, 'λόγος'), 'nominal_syntax.nested_np', { maxRank: 1, minConf: 0.70 });
+nsRepr('genitive NP LUK 8:11 — modified 併存', nsAt('LUK', 8, 11, 'λόγος'), 'nominal_syntax.modified_np', { maxRank: 2, minConf: 0.65 });
+nsRepr('nested_np MAT 8:20 ὁ υἱὸς τοῦ ἀνθρώπου', nsAt('MAT', 8, 20, 'υἱός'), 'nominal_syntax.nested_np', { maxRank: 1, minConf: 0.70 });
+nsRepr('complex_np 2CO 4:4 属格連鎖（4 層）', nsAt('2CO', 4, 4, 'φωτισμός'), 'nominal_syntax.complex_np', { maxRank: 1, minConf: 0.75 });
+nsRepr('vocative_np MAT 6:9 Πάτερ ἡμῶν', nsAt('MAT', 6, 9, 'πατήρ'), 'nominal_syntax.vocative_np', { maxRank: 1, minConf: 0.75 });
+
+console.log('\n  ─── 名詞化句（冠詞の名詞化機能） ───');
+nsRepr('substantival adj MAT 5:3 οἱ πτωχοί', nsAt('MAT', 5, 3, 'πτωχός'), 'nominal_syntax.substantival_phrase', { maxRank: 1, minConf: 0.70 });
+nsRepr('substantival ptc MAT 7:21 ὁ λέγων', nsAt('MAT', 7, 21, 'λέγω'), 'nominal_syntax.substantival_phrase', { maxRank: 1, minConf: 0.70 });
+nsRepr('substantival PP MAT 5:15 τοῖς ἐν τῇ οἰκίᾳ', nsAt('MAT', 5, 15, 'ἐν'), 'nominal_syntax.substantival_phrase', { maxRank: 1, minConf: 0.70 });
+
+console.log('\n  ─── 語順 ───');
+nsRepr('head_initial JHN 10:11 ὁ ποιμὴν ὁ καλός', nsAt('JHN', 10, 11, 'ποιμήν'), 'nominal_syntax.head_initial_np', { maxRank: 4, minConf: 0.55 });
+nsRepr('head_final MAT 12:35 ὁ ἀγαθὸς ἄνθρωπος', nsAt('MAT', 12, 35, 'ἄνθρωπος'), 'nominal_syntax.head_final_np', { maxRank: 3, minConf: 0.55 });
+
+// ── FP 抑制 ──────────────────────────────────────────────────────
+console.log('\n  ─── FP 抑制 ───');
+{
+    // 従属属格（τοῦ θεοῦ の θεοῦ）は NP ヘッドでない → 全型床
+    const dep = nsAt('LUK', 8, 11, 'θεός');
+    check('FP: LUK 8:11 θεοῦ（従属属格）— nominal_syntax は全候補 0.30 床以下',
+          (dep.topConf ?? 0) <= 0.31, `top=${dep.topId}(${dep.topConf?.toFixed(2)})`);
+    // 述語主格（JHN 1:14 σάρξ）は同格でない
+    const sarx = nsAt('JHN', 1, 14, 'σάρξ');
+    const ap = sarx.allCandidates.find(x => x.id === 'nominal_syntax.appositional_np');
+    check('FP: JHN 1:14 σάρξ（述語主格）— appositional は 0.30 床以下',
+          (ap?.confidence ?? 0) <= 0.31, `conf=${ap?.confidence?.toFixed(2)}`);
+    // 限定形容詞（JHN 10:11 καλός）は名詞化句でない（一致主名詞あり）
+    const kal = nsAt('JHN', 10, 11, 'καλός');
+    const sb = kal.allCandidates.find(x => x.id === 'nominal_syntax.substantival_phrase');
+    check('FP: JHN 10:11 καλός（限定形容詞）— substantival は 0.30 床以下',
+          (sb?.confidence ?? 0) <= 0.31, `conf=${sb?.confidence?.toFixed(2)}`);
+}
+
+// ── Regression（全カテゴリ横断・各カテゴリ代表 top 維持） ────────
+console.log('\n  ─── Regression ───');
+{
+    const checks = [
+        ['MRK', 1, 10, 'ὕδωρ', 0, 'genitive.', 'genitive.place'],
+        ['JHN', 10, 11, 'καλός', 0, 'adjective.', 'adjective.attributive'],
+        ['JHN', 8, 12, 'ἐγώ', 0, 'pronoun.', 'pronoun.personal'],
+        ['MAT', 28, 19, 'πορεύομαι', 0, 'participle.', 'participle.adverbial_attendant'],
+        ['MAT', 6, 9, 'ἐν', 0, 'preposition.', 'preposition.attributive_pp'],
+        ['JHN', 1, 1, 'θεός', 1, 'nominative.', 'nominative.predicate_nominative'],
+        ['MAT', 8, 2, 'κύριος', 0, 'vocative.', 'vocative.direct_address'],
+        ['JHN', 3, 16, 'ἵνα', 0, 'clause.', 'clause.purpose_hina'],
+        ['JHN', 10, 28, 'οὐ', 0, 'particle.', 'particle.emphatic_negative'],
+        ['JHN', 1, 1, 'καί', 0, 'conjunction.', 'conjunction.coordinating_additive'],
+    ];
+    for (const [b, c, v, lm, nth, pre, want] of checks) {
+        const r = analyzeNthTokenCat(b, c, v, lm, nth, pre);
+        check(`回帰: ${b} ${c}:${v} ${lm} — ${want} top 維持`, r.topId === want, `top=${r.topId}`);
+    }
+    // Article colwell（JHN 1:1 最終冠詞）
+    {
+        const toks = verseTokens('JHN', 1, 1);
+        const all = sa.analyzeAll(toks);
+        const artTops = all.results
+            .filter(r => (toks[r.tokenIdx]?.lemma ?? '') === 'ὁ')
+            .map(r => (r.output?.candidates ?? []).filter(x => x.id.startsWith('article.'))[0]?.id);
+        check('回帰: JHN 1:1 — 最終冠詞 article.colwell top 維持',
+              artTops[artTops.length - 1] === 'article.colwell', `tops=${artTops.join(',')}`);
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7aa  Phase 19 — Discourse System（談話構造・最終 Wallace 章）
+// ════════════════════════════════════════════════════════════════
+section('§7aa  Discourse System');
+
+function dsRepr(label, b, c, v, lemma, nth, typeId, opt) {
+    const { maxRank, minConf } = opt;
+    const r = analyzeNthTokenCat(b, c, v, lemma, nth, 'discourse.');
+    const rank = r.allCandidates.findIndex(x => x.id === typeId) + 1;
+    const f = r.allCandidates.find(x => x.id === typeId);
+    check(`${label} — 候補に存在`, Boolean(f),
+          `top=${r.topId} 候補=${r.allCandidates.slice(0, 3).map(x => x.id).join(',')}`);
+    check(`${label} — rank ≤ ${maxRank}`, rank > 0 && rank <= maxRank, `rank=${rank}`);
+    check(`${label} — conf ≥ ${minConf}`, (f?.confidence ?? 0) >= minConf,
+          `conf=${f?.confidence?.toFixed(2)}`);
+    check(`${label} — signals_matched 非空`,
+          Array.isArray(f?.signals_matched) && f.signals_matched.length > 0);
+    check(`${label} — label_ja 有効`, Boolean(f?.label_ja));
+}
+
+// ── 構造検証 ─────────────────────────────────────────────────────
+{
+    const ds = collectAllTypeDefs(syntaxRegistry).filter(t => t.id.startsWith('discourse.'));
+    check('discourse: 型数 = 10', ds.length === 10, `${ds.length}`);
+    check('discourse: 全型 active + example_verse + wallace_ref',
+          ds.every(t => t.status === 'active' && t.example_verse && t.wallace_ref));
+    check('discourse: stub 0', ds.every(t => t.status !== 'stub'));
+}
+
+// ── 代表例（情報構造） ───────────────────────────────────────────
+console.log('\n  ─── 情報構造（前置・転位） ───');
+dsRepr('topic_fronting 1JN 4:8 ὁ θεὸς ἀγάπη ἐστίν', '1JN', 4, 8, 'θεός', 1, 'discourse.topic_fronting', { maxRank: 1, minConf: 0.60 });
+dsRepr('focus_fronting ROM 10:2 ζῆλον θεοῦ ἔχουσιν', 'ROM', 10, 2, 'ζῆλος', 0, 'discourse.focus_fronting', { maxRank: 1, minConf: 0.60 });
+dsRepr('emphasis EPH 2:8 Τῇ γὰρ χάριτί ἐστε σεσῳσμένοι', 'EPH', 2, 8, 'χάρις', 0, 'discourse.emphasis_word_order', { maxRank: 1, minConf: 0.55 });
+dsRepr('left_dislocation ACT 7:40 ὁ γὰρ Μωϋσῆς οὗτος…αὐτῷ', 'ACT', 7, 40, 'Μωϋσῆς', 0, 'discourse.left_dislocation', { maxRank: 1, minConf: 0.70 });
+dsRepr('right_dislocation JHN 9:13 αὐτὸν…τόν ποτε τυφλόν', 'JHN', 9, 13, 'τυφλός', 0, 'discourse.right_dislocation', { maxRank: 1, minConf: 0.45 });
+
+// ── 代表例（談話装置） ───────────────────────────────────────────
+console.log('\n  ─── 談話装置（挿入・対比・前景/背景） ───');
+dsRepr('parenthetical ROM 3:5 κατὰ ἄνθρωπον λέγω', 'ROM', 3, 5, 'λέγω', 1, 'discourse.parenthetical', { maxRank: 1, minConf: 0.65 });
+dsRepr('explanatory MRK 3:17 ὅ ἐστιν Υἱοὶ Βροντῆς', 'MRK', 3, 17, 'εἰμί', 0, 'discourse.explanatory_parenthesis', { maxRank: 1, minConf: 0.65 });
+dsRepr('contrast MAT 9:37 μέν（前項）', 'MAT', 9, 37, 'μέν', 0, 'discourse.contrast_men_de', { maxRank: 1, minConf: 0.60 });
+dsRepr('contrast MAT 9:37 δέ（後項）', 'MAT', 9, 37, 'δέ', 0, 'discourse.contrast_men_de', { maxRank: 1, minConf: 0.60 });
+dsRepr('backgrounding MRK 1:10 ἀναβαίνων（状況分詞）', 'MRK', 1, 10, 'ἀναβαίνω', 0, 'discourse.backgrounding', { maxRank: 1, minConf: 0.50 });
+dsRepr('backgrounding 1JN 1:9 ἐὰν ὁμολογῶμεν（従属節）', '1JN', 1, 9, 'ὁμολογέω', 0, 'discourse.backgrounding', { maxRank: 1, minConf: 0.50 });
+dsRepr('foregrounding MRK 1:40 ἔρχεται（歴史的現在）', 'MRK', 1, 40, 'ἔρχομαι', 0, 'discourse.foregrounding', { maxRank: 1, minConf: 0.55 });
+
+// ── FP 抑制 ──────────────────────────────────────────────────────
+console.log('\n  ─── FP 抑制 ───');
+{
+    // 従属節の動詞に foregrounding が立たない
+    const sub = analyzeNthTokenCat('1JN', 1, 9, 'ὁμολογέω', 0, 'discourse.');
+    const fg = sub.allCandidates.find(x => x.id === 'discourse.foregrounding');
+    check('FP: 1JN 1:9 ὁμολογῶμεν（従属）— foregrounding は 0.30 床以下',
+          (fg?.confidence ?? 0) <= 0.31, `conf=${fg?.confidence?.toFixed(2)}`);
+    // 主節の直説法に backgrounding が立たない
+    const mn = analyzeNthTokenCat('MRK', 1, 10, 'ὁράω', 0, 'discourse.');
+    const bg = mn.allCandidates.find(x => x.id === 'discourse.backgrounding');
+    check('FP: MRK 1:10 εἶδεν（主節）— backgrounding は 0.30 床以下',
+          (bg?.confidence ?? 0) <= 0.31, `conf=${bg?.confidence?.toFixed(2)}`);
+    // 前置詞支配の対格に focus_fronting が立たない
+    const pg = analyzeNthTokenCat('JHN', 1, 1, 'θεός', 0, 'discourse.');
+    const fc = pg.allCandidates.find(x => x.id === 'discourse.focus_fronting');
+    check('FP: JHN 1:1 πρὸς τὸν θεόν — focus_fronting は 0.30 床以下',
+          (fc?.confidence ?? 0) <= 0.31, `conf=${fc?.confidence?.toFixed(2)}`);
+    // μέν solitarium に contrast が立たない
+    const ms = analyzeNthTokenCat('ROM', 1, 8, 'μέν', 0, 'discourse.');
+    const ct = ms.allCandidates.find(x => x.id === 'discourse.contrast_men_de');
+    check('FP: ROM 1:8 μέν solitarium — contrast は 0.30 床以下',
+          (ct?.confidence ?? 0) <= 0.31, `conf=${ct?.confidence?.toFixed(2)}`);
+}
+
+// ── Regression（仕様指定 8 カテゴリ・top 維持） ──────────────────
+console.log('\n  ─── Regression ───');
+{
+    const checks = [
+        ['JHN', 1, 1, 'καί', 0, 'conjunction.', 'conjunction.coordinating_additive'],
+        ['JHN', 10, 28, 'οὐ', 0, 'particle.', 'particle.emphatic_negative'],
+        ['JHN', 3, 16, 'ἵνα', 0, 'clause.', 'clause.purpose_hina'],
+        ['MRK', 1, 40, 'ἔρχομαι', 0, 'verb.', 'verb.historical_present'],
+        ['2CO', 4, 4, 'φωτισμός', 0, 'nominal_syntax.', 'nominal_syntax.complex_np'],
+        ['JHN', 1, 1, 'θεός', 1, 'nominative.', 'nominative.predicate_nominative'],
+        ['JHN', 8, 12, 'ἐγώ', 0, 'pronoun.', 'pronoun.personal'],
+        ['MAT', 6, 9, 'ἐν', 0, 'preposition.', 'preposition.attributive_pp'],
+    ];
+    for (const [b, c, v, lm, nth, pre, want] of checks) {
+        const r = analyzeNthTokenCat(b, c, v, lm, nth, pre);
+        check(`回帰: ${b} ${c}:${v} ${lm} — ${want} top 維持`, r.topId === want, `top=${r.topId}`);
+    }
 }
 
 // ════════════════════════════════════════════════════════════════
