@@ -61,28 +61,21 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 
 
-.idx-pill {
-    display: flex; align-items: center; gap: 6px;
-    padding: 4px 10px;
-    background: var(--bg-panel);
-    border: 1px solid var(--border-soft);
-    border-radius: 20px;
-    font-size: 0.62rem; color: var(--text-sub);
-    letter-spacing: 0.06em;
-    transition: opacity 0.4s;
+.idx-status {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    padding-top: 6px;
+    height: 2.5rem;      /* 2行分を確保し高さを固定 — 状態変化で検索欄が動かない */
+    overflow: hidden;
+    font-size: 0.72rem;
+    color: var(--text-sub);
+    opacity: 0.52;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+    transition: opacity 1.2s ease;
 }
-.idx-pill.done { opacity: 0; pointer-events: none; }
-.idx-dot {
-    width: 5px; height: 5px; border-radius: 50%;
-    background: rgba(0,0,0,0.2);
-    flex-shrink: 0;
-}
-.idx-dot.active {
-    background: #5a9a7a;
-    animation: pulse 1.4s ease-in-out infinite;
-}
-.idx-dot.done { background: #5a9a7a; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+.idx-status.done { opacity: 0; pointer-events: none; }
 
 /* ── Left panel: search control ── */
 .search-panel {
@@ -92,6 +85,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     padding: 24px 22px 40px;
     display: flex; flex-direction: column; gap: 0;
     overflow-y: auto;
+    scrollbar-gutter: stable;  /* スクロールバー出現時もパネル幅を保持 */
     flex-shrink: 0;
 }
 
@@ -920,14 +914,14 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 <!-- ═══════════════════════════ Search Panel ═══════════════════════════ -->
 <aside class="search-panel">
     <!-- Header inside sidebar -->
-    <div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-family:'Noto Sans JP',sans-serif;font-size:1rem;font-weight:700;color:var(--text-main);letter-spacing:-0.01em;">聖書原文検索</span>
-        <div style="display:flex;align-items:center;gap:6px;">
+    <div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--border-soft);">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-family:'Noto Sans JP',sans-serif;font-size:1rem;font-weight:700;color:var(--text-main);letter-spacing:-0.01em;">聖書原文検索</span>
             <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
-            <div class="idx-pill" id="idx-pill">
-                <span class="idx-dot active" id="idx-dot"></span>
-                <span id="idx-label">新約を読み込み中…</span>
-            </div>
+        </div>
+        <div class="idx-status" id="idx-pill">
+            <span id="idx-dot">○</span>
+            <span id="idx-label">準備中…</span>
         </div>
     </div>
 
@@ -2069,29 +2063,32 @@ function _initSuggest(){
 function _watchIndexProgress(){
     const dot=document.getElementById('idx-dot');
     const label=document.getElementById('idx-label');
-    const pill=document.getElementById('idx-pill');
+    const status=document.getElementById('idx-pill');
     if(!dot||!label)return;
     const timer=setInterval(()=>{
         if(IDX.l3Ready){
-            dot.className='idx-dot done';
-            label.textContent='全書物インデックス完了';
+            dot.textContent='✓';
+            label.textContent='準備完了';
             /* lemmaIndex / morphIndex は IDX.ready 後に _buildAndExpose* で構築済みのはず。
                冪等化済みの関数を呼ぶことで、万一まだ未構築の場合は補完し、
-               構築済みの場合は即スキップする（二重構築を防ぐ）。
-               l3Ready 後に lemmaIndex / morphIndex を再構築する意味はない
-               （どちらも JP_PARTIAL_INDEX に依存しない）。 */
+               構築済みの場合は即スキップする（二重構築を防ぐ）。 */
             _buildAndExposeLemmaIndex();
             _buildAndExposeMorphIndex();
-            setTimeout(()=>pill&&pill.classList.add('done'),3000);
+            /* 1秒だけ「準備完了」を見せてからフェードアウト → DOM 非表示 */
+            setTimeout(()=>{
+                if(status) status.classList.add('done');
+                setTimeout(()=>{ if(status) status.style.display='none'; },1300);
+            },1000);
             clearInterval(timer);
         }else if(IDX.ready){
-            dot.className='idx-dot active';
-            label.textContent='NTインデックス完了 — LXX・日本語インデックス構築中…';
+            dot.textContent='✓';
+            label.innerHTML='NT検索できます<br><span style="opacity:0.75">LXX・日本語を準備中…</span>';
         }else{
-            dot.className='idx-dot active';
+            dot.textContent='○';
             const total=FLAT_BOOKS.reduce((s,b)=>s+b.ch,0);
             const loaded=Object.keys(tokenCache).length;
-            label.textContent=total?`全書物読み込み中… ${Math.min(Math.round((loaded/total)*100),99)}%`:'書物マスター読み込み中…';
+            const pct=total?Math.min(Math.round((loaded/total)*100),99):0;
+            label.textContent=pct?`読み込み中… ${pct}%`:'準備中…';
         }
     },800);
 }
