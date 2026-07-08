@@ -3758,6 +3758,7 @@ details[open] .study-summary::before {
 <script src="../core/syntax-analyzer.js"></script>
 <script src="../core/phrase-analyzer.js"></script>
 <script src="../core/clause-analyzer.js"></script>
+<script src="../core/reading-projection.js"></script>
 <script>
 let abbottSmithDict = null;
 let _proximityTokens = [];
@@ -5071,10 +5072,24 @@ async function _renderReadingNotes(p) {
        表示すべき内容が無ければ null のまま → 固定文字列で埋めない（静寂優先）。
        ═══════════════════════════════════════════════════════ */
     let wordProseText = null;
+    let phraseReadingHTML = '';
+    let observationHTML = '';
     if (ref && Array.isArray(_wlvWordCache)) {
         const targetIdx = _wlvWordCache.findIndex(t => t.ref === ref);
         if (targetIdx !== -1) {
             wordProseText = await _buildWordResonanceText(_wlvWordCache, targetIdx);
+            /* Phase 25B-2: Phrase Reading（かたまりの読書メモ）。
+               失敗・該当なしは '' = 既存表示のみ（Failure Mode 現状維持）。 */
+            try {
+                phraseReadingHTML =
+                    (await _buildPhraseReadingHTML(_wlvWordCache, targetIdx)) || '';
+            } catch (_) { phraseReadingHTML = ''; }
+            /* Phase 25B-3: Observation（どこを見ると読みやすいかの一文）。
+               失敗・該当なしは '' = 既存表示のみ。 */
+            try {
+                observationHTML = (await _buildObservationHTML(
+                    _wlvWordCache, targetIdx, [wordProseText, phraseReadingHTML])) || '';
+            } catch (_) { observationHTML = ''; }
         }
     }
     const proseHTML = wordProseText
@@ -5223,6 +5238,8 @@ async function _renderReadingNotes(p) {
         </div>
 
         ${proseHTML}
+        ${phraseReadingHTML}
+        ${observationHTML}
 
         ${expLabelHTML}
         ${usageTrendsHTML}
@@ -8416,12 +8433,231 @@ async function _getWallaceClauseAnalysis(words) {
         const syntaxResults = all.results.map(r => r.output);
         const phraseResults = pa.analyze({ tokens: words, syntaxResults });
         const clauseResults = ca.analyze({ tokens: words, syntaxResults, phraseResults });
-        _wallaceClauseCache = { words, clauseResults };
+
+        /* Phase 24: Reading Support Projection を並列生成（additive・読み取り専用）。
+           失敗しても projection = null になるだけで、既存の表示・戻り値は一切変わらない。 */
+        let projection = null;
+        try {
+            const RSP = window.App?.syntax?.ReadingSupportProjection;
+            const CB  = window.App?.syntax?.ContextBuilder;
+            if (RSP) {
+                projection = RSP.build({
+                    tokens: words, syntaxResults, clauseResults,
+                    contextBuilder: CB, registry: sa.registry,
+                });
+            }
+        } catch (_) { projection = null; }
+
+        _wallaceClauseCache = { words, clauseResults, projection };
         return clauseResults;
     } catch (e) {
         console.warn('[Wallace] analysis failed:', e);
         return null;
     }
+}
+
+/* __PHRASE_READING_BEGIN__
+   Phase 25B-2: Phrase Reading（かたまりの読書メモ）
+   目的は Q3「どこまでが一まとまりか」への回答のみ（Mapping §3.2）。
+   ReadingSupportProjection の phrases / genitivePhrases だけを読む。
+   内部構造（種別・位置）は言い回しの選択にのみ使い、
+   画面には本文の引用と日本語の一文しか出さない。
+   静寂条件: Projection null / 語がどの まとまり にも属さない / 1 語のみ /
+   長すぎる まとまり（引用が読書を止める）→ null（既存表示のみ）。 */
+
+/* 言い回し選択の内部キー（画面には出さない）と引用長の上限 */
+const _PHRASE_READING_PRIORITY = { NP: 0, PP: 1, PtcP: 2 };
+const _PHRASE_READING_MAX_SPAN = 7;
+
+function _phraseReadingSentence(kind, quoted) {
+    switch (kind) {
+        case 'PP':   return `「${quoted}」は、ひとつづきのまとまりです。`;
+        case 'PtcP': return `「${quoted}」は、ここまでをまとめて読むと意味がつながります。`;
+        default:     return `「${quoted}」は、ここまでで一つの内容です。`;
+    }
+}
+
+/* 引用品質ガード（Phase 26 編集）: 句検出は句読点・格の変わり目を跨ぐことが
+   あるため、引用時にのみ範囲を安全側へ縮める（判定・Projection は不変）。
+   1) 途中に句読点（. · ; ,）があればそこまで
+   2) 途中で格が変わったら（『〜の』のかたちは透過）その手前まで
+   3) 中心語のあとに、冠詞を伴わない普通名詞が続いたらその手前まで
+      （Σίμων Πέτρος のような呼び名の並びは残す） */
+function _trimPhraseEnd(words, p) {
+    let end = p.end;
+    for (let k = p.start; k < end; k++) {
+        if (/[.\u00b7;,\u037e]/.test(String(words[k]?.after ?? ''))) { end = k; break; }
+    }
+    if (p.type === 'NP') {
+        let baseCase = null, baseNum = null, nounSeen = false;
+        for (let k = p.start; k <= end; k++) {
+            const w = words[k] || {};
+            const c = w.case || '';
+            if (!c) continue;
+            if (c === 'genitive' && baseCase && baseCase !== 'genitive') continue;
+            if (baseCase === null) { baseCase = c; baseNum = w.number || ''; }
+            else if (c !== baseCase || (w.number || '') !== baseNum) { end = k - 1; break; }
+            if (w.class === 'noun') {
+                if (nounSeen) {
+                    const prevIsArt = (words[k - 1] || {}).class === 'det';
+                    const isProper = /^[\u0391-\u03a9\u1f08-\u1fbc]/.test(String(w.lemma ?? w.text ?? ''));
+                    if (!prevIsArt && !isProper) { end = k - 1; break; }
+                }
+                nounSeen = true;
+            }
+        }
+    }
+    return end;
+}
+
+async function _buildPhraseReadingHTML(words, idx) {
+    const proj = await _getReadingSupportProjection(words);
+    if (!proj) return null;
+
+    /* 対象語を含む 2 語以上・上限以内の まとまり（NP / PP / PtcP のみ。
+       『〜の』の連なりは単独では出さず、下の関係文にのみ使う） */
+    const containing = (proj.phrases ?? []).filter(p =>
+        p && (p.end - p.start) >= 1 && (p.end - p.start) < _PHRASE_READING_MAX_SPAN &&
+        idx >= p.start && idx <= p.end &&
+        (p.type in _PHRASE_READING_PRIORITY));
+    if (containing.length === 0) return null;
+    containing.sort((a, b) =>
+        (_PHRASE_READING_PRIORITY[a.type] ?? 9) - (_PHRASE_READING_PRIORITY[b.type] ?? 9) ||
+        (a.end - a.start) - (b.end - b.start));
+
+    const quoteOf = (s, e) => words.slice(s, e + 1)
+        .map(w => _escH((w && w.text) || '')).filter(Boolean).join(' ');
+
+    const seen = new Set();
+    const lines = [];
+    for (const p of containing) {
+        const key = `${p.start}-${p.end}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const trimmedEnd = _trimPhraseEnd(words, p);
+        if (trimmedEnd - p.start < 1 || idx > trimmedEnd) continue;   // 縮めて成立しなければ沈黙
+        const quoted = quoteOf(p.start, trimmedEnd);
+        if (!quoted) continue;
+        lines.push(_phraseReadingSentence(p.type, quoted));
+
+        /* 『〜の』の関係文: まとまり の中心となる語の後に『〜の』の連なりが
+           続く場合のみ、「どれがどれを説明しているか」を一文で示す */
+        if (p.type === 'NP') {
+            let headIdx = -1;
+            for (let k = p.start; k <= trimmedEnd; k++) {
+                if (words[k]?.class === 'noun' && words[k]?.case !== 'genitive') {
+                    headIdx = k; break;
+                }
+            }
+            const inner = (proj.genitivePhrases ?? []).find(g =>
+                headIdx >= 0 && g.start > headIdx && g.end <= trimmedEnd);
+            if (inner && headIdx >= 0) {
+                const genQ = quoteOf(inner.start, inner.end);
+                const headW = _escH(words[headIdx]?.text || '');
+                if (genQ && headW) lines.push(`「${genQ}」が「${headW}」を説明しています。`);
+            }
+        }
+        if (lines.length >= 2) break;
+    }
+    if (lines.length === 0) return null;
+
+    return `<div class="rn-prose reading-block">${
+        lines.slice(0, 2).map(l => `<p class="rn-prose-text reading-prose">${l}</p>`).join('')
+    }</div>`;
+}
+/* __PHRASE_READING_END__ */
+
+/* __OBSERVATION_BEGIN__
+   Phase 25B-3: Observation（本文のどこを見ると読みやすくなるかの指さし）
+   目的は Q2「なぜこのように読めるのか」への入口を一文で示すことのみ。
+   ReadingSupportProjection の words[idx].categories だけを読み、
+   流れをつくる語（理由・結論・転換・目的・条件・対 など）を本文の引用で指す。
+   一文だけ。内部の判定情報は言い回しの選択にのみ使い、画面には出さない。
+   静寂条件: Projection null / 候補なし / 弱い判定 / 指させる語でない /
+   既存の文と同内容 → null（既存表示のみ・フォールバック禁止）。 */
+
+/* 言い回しの選択表（キーは内部専用・画面に出さない） */
+const _OBSERVATION_SENTENCES = {
+    'clause.purpose_hina':                q => `この「${q}」から、『〜するために』という目的が始まります。`,
+    'conjunction.subordinating_purpose':  q => `この「${q}」から、『〜するために』という目的が始まります。`,
+    'clause.substantival_hoti':           q => `この「${q}」から、その中身が語られます。`,
+    'conjunction.subordinating_content':  q => `この「${q}」から、その中身が語られます。`,
+    'clause.causal_hoti':                 q => `この「${q}」から、その理由が語られます。`,
+    'clause.result_hoste':                q => `この「${q}」から、その結果が語られます。`,
+    'conjunction.subordinating_result':   q => `この「${q}」から、その結果が語られます。`,
+    'clause.conditional_first_class':     q => `この「${q}」から、『もし〜なら』の話に入ります。`,
+    'clause.conditional_third_class':     q => `この「${q}」から、『もし〜なら』の話に入ります。`,
+    'conjunction.subordinating_conditional': q => `この「${q}」から、『もし〜なら』の話に入ります。`,
+    'clause.conditional_second_class':    q => `この「${q}」から、実際とは違う『もし〜だったなら』の話に入ります。`,
+    'clause.temporal_hotan':              q => `この「${q}」から、いつのことかが語られます。`,
+    'clause.temporal_hote':               q => `この「${q}」から、いつのことかが語られます。`,
+    'conjunction.subordinating_temporal': q => `この「${q}」から、いつのことかが語られます。`,
+    'clause.comparative_kathos':          q => `この「${q}」から、『〜のように』というたとえが始まります。`,
+    'conjunction.subordinating_comparative': q => `この「${q}」から、『〜のように』というたとえが始まります。`,
+    'conjunction.coordinating_explanatory': q => `この「${q}」が、前の内容の理由を語り始めます。`,
+    'particle.explanatory_gar':           q => `この「${q}」が、前の内容の理由を語り始めます。`,
+    'conjunction.coordinating_inferential': q => `この「${q}」が、前の内容を受けて、だから、と話を進めます。`,
+    'particle.inferential_oun':           q => `この「${q}」が、前の内容を受けて、だから、と話を進めます。`,
+    'conjunction.coordinating_adversative': q => `この「${q}」で、話の向きが変わります。`,
+    'conjunction.coordinating_transition': q => `この「${q}」で、話が次へ進みます。`,
+    'particle.correlative_men':           q => `この「${q}」は、あとに来る語と対になっています。`,
+    'particle.correlative_de':            q => `この「${q}」は、前の語と対になっています。`,
+    'particle.emphatic_negative':         () => `ここでは打ち消しを二つ重ねて、決して、と強く言っています。`,
+    'particle.double_negative':           () => `ここでは打ち消しを二つ重ねて、決して、と強く言っています。`,
+    'particle.particle_an':               q => `この「${q}」が、実際にはそうならなかった、という響きを添えます。`,
+    'particle.rhetorical_particle':       q => `この「${q}」が、断じて、と強く退けます。`,
+};
+
+async function _buildObservationHTML(words, idx, existingTexts) {
+    const proj = await _getReadingSupportProjection(words);
+    const w = proj && proj.words ? proj.words[idx] : null;
+    if (!w || !w.categories) return null;
+
+    /* 指させる語か: 節 → 対・打ち消し → 接続の順で、言い回し表にある判定を探す。
+       弱い判定（0.40 未満）は使わない。 */
+    let make = null;
+    for (const cat of ['clause', 'particle', 'conjunction']) {
+        const c = w.categories[cat];
+        if (c && c.confidence >= 0.40 && _OBSERVATION_SENTENCES[c.id]) {
+            make = _OBSERVATION_SENTENCES[c.id];
+            break;
+        }
+    }
+    if (!make) return null;
+
+    const quoted = _escH((words[idx] && words[idx].text) || '');
+    if (!quoted) return null;
+    const line = make(quoted);
+
+    /* 重複禁止: 既に出ている文（この節の読書メモ・かたまり）と同内容なら沈黙 */
+    if ((existingTexts || []).some(t => t && String(t).includes(line))) return null;
+    /* 言い換え禁止（Phase 26 編集）: 節の読書メモが同じことを別の言い方で
+       述べている場合も沈黙する（役割の重複を避ける） */
+    const rnText = String((existingTexts || [])[0] ?? '');
+    const OVERLAP = [
+        [/なぜ成立|理由/, /理由/],
+        [/対比|転換/, /向きが変わ|次へ進み/],
+        [/内容が具体的/, /中身/],
+        [/目的として何が/, /目的が始まり/],
+    ];
+    if (rnText && OVERLAP.some(([rn, ob]) => rn.test(rnText) && ob.test(line))) return null;
+
+    return `<div class="rn-prose reading-block"><p class="rn-prose-text reading-prose">${line}</p></div>`;
+}
+/* __OBSERVATION_END__ */
+
+/**
+ * Phase 24: words に対する Reading Support Projection を返す（読み取り専用）。
+ * StudyPanel 側は必要な時だけこれを読む（Phase 25 以降の消費者向け API）。
+ * Projection が無い場合は null — 呼び出し側は現状表示のままでよい。
+ * @returns {Promise<Object|null>}
+ */
+async function _getReadingSupportProjection(words) {
+    if (!words || words.length === 0) return null;
+    await _getWallaceClauseAnalysis(words);
+    return (_wallaceClauseCache && _wallaceClauseCache.words === words)
+        ? (_wallaceClauseCache.projection ?? null)
+        : null;
 }
 
 /**
@@ -8546,7 +8782,30 @@ async function _buildWordResonanceText(words, idx) {
         clauseContext: { discourse, type: clause.type },
     };
     const formatted = rf.format(wordContext);
-    return (formatted && formatted.summary) || null;
+    const clauseSentence = (formatted && formatted.summary) || null;
+
+    /* Phase 25B-1: Reading Support Projection の top.id をテンプレート選択キー
+       としてのみ利用し、語粒度の 1 文を節の文に「加える」（Mapping §3.1）。
+       - 帯C（confidence < 0.40）・候補なし・テンプレ未整備・既存文と重複・
+         Projection null では従来どおり節の文のみ（静寂条件 = Phase 25A §5）。
+       - 文の生成は従来どおり ReadingFormatter.format/combine のみが行う。 */
+    let wordSentence = null;
+    try {
+        const proj = await _getReadingSupportProjection(words);   // キャッシュ再利用のみ
+        const pw = proj && proj.words ? proj.words[idx] : null;
+        if (pw && pw.top && pw.top.confidence >= 0.40) {
+            const unclassified = rf.format({}).summary;           // 未整備判定の基準文
+            const f2 = rf.format({ type: pw.top.id });
+            const s2 = (f2 && f2.summary) || null;
+            if (s2 && s2 !== unclassified && s2 !== clauseSentence) wordSentence = s2;
+        }
+    } catch (_) { wordSentence = null; }
+
+    if (clauseSentence && wordSentence) {
+        const combined = rf.combine([clauseSentence, wordSentence]);
+        return combined || clauseSentence;
+    }
+    return clauseSentence || null;
 }
 
 let _wlvResonanceGen = 0; // 古い非同期結果の誤注入を防ぐ世代カウンタ

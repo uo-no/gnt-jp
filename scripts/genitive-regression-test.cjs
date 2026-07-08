@@ -2842,6 +2842,199 @@ console.log('\n  ─── Regression ───');
 }
 
 // ════════════════════════════════════════════════════════════════
+// §7ab  Phase 24 — Reading Support Projection（純粋データ射影）
+// ════════════════════════════════════════════════════════════════
+section('§7ab  Reading Support Projection');
+
+{
+    const rspMod = requireCjs(path.join(PUBLIC, 'core', 'reading-projection.js'));
+    const { ReadingSupportProjection } = rspMod;
+    check('RSP: モジュールが読み込める', typeof ReadingSupportProjection?.build === 'function');
+
+    // ── 実データで構築（JHN 1:1・既存パイプラインの素材のみ使用） ──
+    const toks = verseTokens('JHN', 1, 1);
+    const all = sa.analyzeAll(toks);
+    const syntaxResults = all.results.map(r => r.output);
+    const proj = ReadingSupportProjection.build({
+        tokens: toks, syntaxResults,
+        clauseResults: [{ type: 'clause.content', start: 0, end: toks.length - 1,
+                          anchor: 0, confidence: 0.8 }],
+        contextBuilder: ContextBuilder,
+        registry: sa.registry,
+    });
+    check('RSP: 構築成功（非 null）', proj !== null);
+    check('RSP: words がトークンと index 平行', proj.words.length === toks.length);
+    check('RSP: 解析済み語に top（id/confidence/signals）がある',
+          proj.words.filter(Boolean).every(w =>
+              typeof w.top.id === 'string' && /^[a-z_]+\.[a-z_]+$/.test(w.top.id) &&
+              typeof w.top.confidence === 'number' && Array.isArray(w.top.signals)));
+    check('RSP: categories（多層並走の素材）を保持',
+          proj.words.filter(Boolean).some(w => Object.keys(w.categories).length >= 2));
+    check('RSP: Phrase 層（句境界+head+dependents）を保持',
+          proj.phrases.length > 0 && proj.phrases.every(p =>
+              typeof p.start === 'number' && typeof p.end === 'number' &&
+              typeof p.head === 'number' && Array.isArray(p.dependents)));
+    check('RSP: Clause 層（範囲+anchor+confidence）を保持',
+          proj.clauses.length === 1 && proj.clauses[0].type === 'clause.content');
+    check('RSP: related（関連型 id の集約）が配列',
+          Array.isArray(proj.related));
+    check('RSP: metadata（件数・平均確度）を保持',
+          proj.metadata.tokenCount === toks.length &&
+          proj.metadata.analyzedCount > 0 &&
+          proj.metadata.averageTopConfidence > 0);
+
+    // ── 純粋性: 文章・説明文・HTML・UI を一切保持しない ──
+    const json = JSON.stringify(proj);
+    check('RSP: 日本語文章を保持しない（ここでは/label_ja/hint_ja 不在）',
+          !json.includes('ここでは') && !json.includes('label_ja') &&
+          !json.includes('hint_ja') && !json.includes('されています'));
+    check('RSP: HTML を保持しない', !/<[a-z]+[\s>]/i.test(json));
+    check('RSP: 関数を保持しない（純粋データ = JSON 直列化可能）',
+          JSON.parse(json).version === 1);
+
+    // ── 読み取り専用 ──
+    check('RSP: 凍結済み（読み取り専用）',
+          Object.isFrozen(proj) && Object.isFrozen(proj.words) &&
+          Object.isFrozen(proj.metadata));
+
+    // ── Failure Mode: 「Projection が無い」だけ ──
+    check('RSP: 入力なし → null', ReadingSupportProjection.build() === null);
+    check('RSP: 長さ不一致 → null',
+          ReadingSupportProjection.build({ tokens: [{}], syntaxResults: [] }) === null);
+    check('RSP: 例外入力 → null（throw しない）',
+          ReadingSupportProjection.build({ tokens: [null], syntaxResults: [{ get candidates() { throw new Error('x'); } }] }) === null);
+
+    // ── 副作用なし: 構築後もエンジン出力が不変 ──
+    const again = sa.analyzeAll(toks);
+    check('RSP: 副作用なし（再解析の top が不変）',
+          JSON.stringify(again.results.map(r => r.output?.candidates?.[0]?.id)) ===
+          JSON.stringify(all.results.map(r => r.output?.candidates?.[0]?.id)));
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7ac  Phase 25B-1 — Reading Note Integration（型テンプレの再活性化）
+// ════════════════════════════════════════════════════════════════
+section('§7ac  Reading Note Integration');
+
+{
+    // ── 33 の型キー（genitive 22 + article 11）が format({type:id}) で到達可能 ──
+    const mappedIds = Object.entries(_CLAUSE_TYPE_TO_GLOSS_KEY)
+        .filter(([id, key]) => /^(genitive|article)\./.test(id) && key in _WALLACE_TEXT)
+        .map(([id]) => id);
+    check('25B-1: 型キーが 33 件（genitive 22 + article 11）',
+          mappedIds.length === 33, `${mappedIds.length}`);
+    check('25B-1: 全 33 型が UNCLASSIFIED でない専用文を返す',
+          mappedIds.every(id => {
+              const s = rf.format({ type: id })?.summary;
+              return s && s !== UNCLASSIFIED_TEXT;
+          }));
+
+    // ── 文章方針: 文法用語・型名・数値を含まない ──
+    const FORBIDDEN = ['属格', '冠詞', '分詞', '述語', '主語', '名詞', '動詞',
+                       'コプラ', '修飾', '標識', 'confidence', 'signal',
+                       'genitive', 'article', 'Wallace'];
+    const badTexts = mappedIds.filter(id => {
+        const s = String(rf.format({ type: id })?.summary ?? '');
+        return FORBIDDEN.some(t => s.includes(t)) || /\d/.test(s);
+    });
+    check('25B-1: 全 33 文が文法用語・型名・数値を含まない',
+          badTexts.length === 0, badTexts.join(', '));
+    check('25B-1: 全 33 文が「ここでは、」で始まる自然文',
+          mappedIds.every(id =>
+              String(rf.format({ type: id })?.summary ?? '').startsWith('ここでは、')));
+
+    // ── combine: 節の文 + 語の文が「ここでは、」1 回の 1 文に統合される ──
+    const clauseS = rf.format({ discourse: { type: 'PURPOSE', confidence: 0.9 } }).summary;
+    const wordS   = rf.format({ type: 'genitive.possessive' }).summary;
+    const merged  = rf.combine([clauseS, wordS]);
+    check('25B-1: combine が 1 文に統合（ここでは、が 1 回）',
+          typeof merged === 'string' &&
+          merged.split('ここでは、').length === 2 && merged.endsWith('。'));
+    check('25B-1: 統合文に両方の内容が残る',
+          merged.includes('目的') && merged.includes('誰のもの'));
+
+    // ── 既存出力の不変: discourse 経由の従来パスは従来どおり ──
+    check('25B-1: 従来の discourse パス出力が有効なまま',
+          rf.format({ discourse: { type: 'CONTENT', confidence: 0.9 } }).summary
+              .startsWith('ここでは、'));
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7ad  Phase 25B-2 — Phrase Reading Integration（ソースガード）
+// ════════════════════════════════════════════════════════════════
+section('§7ad  Phrase Reading Integration');
+
+{
+    const uiSrc = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
+    const m = uiSrc.match(/__PHRASE_READING_BEGIN__([\s\S]*?)__PHRASE_READING_END__/);
+    check('25B-2: Phrase Reading ブロックが存在する', Boolean(m));
+    const slice = m ? m[1] : '';
+
+    // 使用フィールドの制限: phrases / genitivePhrases のみ（候補・確度・型名に触れない）
+    check('25B-2: proj.phrases / genitivePhrases のみを参照',
+          slice.includes('proj.phrases') && slice.includes('proj.genitivePhrases') &&
+          !slice.includes('.candidates') && !slice.includes('.top') &&
+          !slice.includes('relatedIds') && !slice.includes('searchParams'));
+    check('25B-2: 内部構造の表示語（confidence/wallace/label）が不在',
+          !/confidence|wallace|label_ja|label_en/i.test(slice));
+
+    // 表示文（バッククォート内テンプレート）の検査
+    const templates = (slice.match(/`[^`]*`/g) ?? [])
+        .filter(t => t.includes('「') || t.includes('ここ'));   // 文のテンプレートのみ
+    check('25B-2: 表示文テンプレートが存在する', templates.length >= 3);
+    const FORBIDDEN = ['属格', '冠詞', '修飾', '述語', '主語', '限定位置',
+                       'Apollonius', 'Wallace', 'Head', 'Dependent', 'NPです'];
+    const stripped = templates.map(t => t.replace(/\$\{[^}]*\}/g, ''));
+    check('25B-2: 表示文に文法用語・内部用語が不在',
+          stripped.every(t => FORBIDDEN.every(f => !t.includes(f))));
+    check('25B-2: 表示文に英語・数値が不在（引用変数を除く）',
+          stripped.every(t => !/[A-Za-z0-9]/.test(t.replace(/[`「」]/g, ''))));
+
+    // 静寂条件がコードに存在（null 返却 = 既存表示のみ）
+    check('25B-2: 静寂条件（該当なし→null）が実装されている',
+          slice.includes('return null') &&
+          slice.includes('(p.end - p.start) >= 1'));
+    // 表示上限（最大 2 文）
+    check('25B-2: 表示は最大 2 文に制限',
+          slice.includes('lines.length >= 2') && slice.includes('slice(0, 2)'));
+}
+
+// ════════════════════════════════════════════════════════════════
+// §7ae  Phase 25B-3 — Observation Integration（ソースガード）
+// ════════════════════════════════════════════════════════════════
+section('§7ae  Observation Integration');
+
+{
+    const uiSrc = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
+    const m = uiSrc.match(/__OBSERVATION_BEGIN__([\s\S]*?)__OBSERVATION_END__/);
+    check('25B-3: Observation ブロックが存在する', Boolean(m));
+    const slice = m ? m[1] : '';
+
+    // 使用データの制限: categories のみ（候補列・確度表示・型名表示に触れない）
+    check('25B-3: w.categories のみを参照（candidates/top/relatedIds 不使用）',
+          slice.includes('.categories') &&
+          !slice.includes('.candidates') && !slice.includes('.top.') &&
+          !slice.includes('relatedIds') && !slice.includes('searchParams'));
+    check('25B-3: 弱い判定の除外（>= 0.40）と静寂（return null）がある',
+          slice.includes('>= 0.40') && slice.includes('return null'));
+    check('25B-3: 重複禁止ガード（既存文と同内容なら沈黙）がある',
+          slice.includes('existingTexts'));
+
+    // 言い回し表の検査: 一文のみ・文法用語なし・型名/数値/英語なし
+    const templates = (slice.match(/`[^`]*`/g) ?? []).filter(t => t.includes('「') || t.includes('ここ'));
+    check('25B-3: 言い回し表が存在する', templates.length >= 15);
+    const FORBIDDEN = ['属格', '冠詞', '目的節', '関係代名詞', '限定位置', '接続法',
+                       '直説法', '希求法', 'Wallace', 'Greek', '信頼度'];
+    const stripped = templates.map(t => t.replace(/\$\{[^}]*\}/g, ''));
+    check('25B-3: 表示文に文法用語が不在',
+          stripped.every(t => FORBIDDEN.every(f => !t.includes(f))));
+    check('25B-3: 表示文に英語・数値が不在（引用変数を除く）',
+          stripped.every(t => !/[A-Za-z0-9]/.test(t.replace(/[`「」]/g, ''))));
+    check('25B-3: 各表示文が一文のみ（句点が 1 個）',
+          stripped.every(t => (t.match(/。/g) ?? []).length <= 1));
+}
+
+// ════════════════════════════════════════════════════════════════
 // §8  最終カバレッジレポート
 // ════════════════════════════════════════════════════════════════
 section('§8  最終カバレッジレポート');

@@ -3854,6 +3854,10 @@ if (typeof window !== 'undefined') {
     window.App.syntax = window.App.syntax || {};
     window.App.syntax.Analyzer = SyntaxAnalyzer;
 
+    /* Phase 24: Reading Support Projection が Phrase API（句検出）を
+       読み取り専用で参照するための追加公開（判定ロジックへの変更なし） */
+    window.App.syntax.ContextBuilder = ContextBuilder;
+
     /* 互換エイリアス（既存の window.SyntaxAnalyzer 参照を壊さない） */
     window.SyntaxAnalyzer = window.App.syntax.Analyzer;
 }

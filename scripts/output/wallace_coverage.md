@@ -1,6 +1,6 @@
 # Coverage Report — Wallace Core + Engine Extensions
 
-Generated: 2026-07-07T09:53:04.840Z
+Generated: 2026-07-07T23:57:33.417Z
 Engine Version: 0.2.0
 Wallace: Wallace, Daniel B. Greek Grammar Beyond the Basics. Zondervan, 1996.
 
@@ -16,7 +16,7 @@ Wallace: Wallace, Daniel B. Greek Grammar Beyond the Basics. Zondervan, 1996.
 - Categories: 17（Wallace Core 15 + Engine Extensions 2）
 - Types: 242 (active 242 / stub 0)
 - Tested types: 242 / 242 (**100%**)
-- Test assertions (call sites): 360
+- Test assertions (call sites): 400
 - Wallace Core chapter coverage: 15 / 15
 - Engine Extensions: 2 / 2（GGBB の章ではない独自レイヤー）
 
@@ -59,7 +59,7 @@ Status: **complete**  |  Pages: 65–71  |  Implemented: 5 / 5  |  Tested: 5 (10
 
 ## Genitive
 
-Status: **complete**  |  Pages: 72–136  |  Implemented: 22 / 22  |  Tested: 22 (100%)  |  Stub: 0  |  Test mentions: 74  |  Metrics: ✓
+Status: **complete**  |  Pages: 72–136  |  Implemented: 22 / 22  |  Tested: 22 (100%)  |  Stub: 0  |  Test mentions: 75  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
@@ -309,7 +309,7 @@ Status: **complete**  |  Pages: 443–493  |  Implemented: 48 / 48  |  Tested: 4
 
 ## Clause Syntax
 
-Status: **complete**  |  Pages: 656–712  |  Implemented: 12 / 12  |  Tested: 12 (100%)  |  Stub: 0  |  Test mentions: 47  |  Metrics: ✓
+Status: **complete**  |  Pages: 656–712  |  Implemented: 12 / 12  |  Tested: 12 (100%)  |  Stub: 0  |  Test mentions: 49  |  Metrics: ✓
 
 | Type | Wallace | Active | Tested | Examples |
 |------|---------|--------|--------|----------|
