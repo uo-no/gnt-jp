@@ -2686,8 +2686,14 @@ function renderOneCandidateItem(cand, rank, total) {
     /* 類似構文検索リンク → search-tool.html に word/lemma + 形態フィルター + syntax_id 付きで遷移 */
     if (!isStub) {
         const _qs = new URLSearchParams();
-        if (params.word)   _qs.set('word',      params.word);
-        if (params.lemma)  _qs.set('lemma',     params.lemma);
+        /* 選択トークンの語形を優先し、なければparamsのwordにフォールバック */
+        const _simSelTok = (_selectedIdx >= 0 && _tokens[_selectedIdx]) ? _tokens[_selectedIdx] : null;
+        const _simWord = (_simSelTok ? (_simSelTok.text || _simSelTok.normalized || '') : '') || params.word || '';
+        if (_simWord)      _qs.set('word',      _simWord);
+        /* 選択トークンのlemmaを優先し、なければparamsのlemmaにフォールバック */
+        const _simSelLemma = _simSelTok ? (_simSelTok.lemma || '').trim() : '';
+        const _simLemma = _simSelLemma || params.lemma;
+        if (_simLemma)     _qs.set('lemma',     _simLemma);
         if (params.pos)    _qs.set('pos',       params.pos);
         if (params.tense)  _qs.set('tense',     params.tense);
         if (params.mood)   _qs.set('mood',      params.mood);
@@ -2696,6 +2702,7 @@ function renderOneCandidateItem(cand, rank, total) {
         if (params.number) _qs.set('number',    params.number);
         if (params.gender) _qs.set('gender',    params.gender);
         if (cand.id)       _qs.set('syntax_id', cand.id);
+        _qs.set('layers', 'lemma,morph');
         const simUrl = `search-tool.html?${_qs.toString()}`;
         bodyHtml += `<a class="similar-syntax-link" href="${simUrl}" target="_blank">🔍 統合検索で探す</a>`;
     }
@@ -3155,12 +3162,18 @@ function navTo(target, e) {
     };
     const qs = new URLSearchParams();
     if (params.ref)   qs.set('ref',   params.ref);
-    if (params.word)  qs.set('word',  params.word);
-    if (params.lemma) qs.set('lemma', params.lemma);
+    /* 選択トークンの語形・lemmaを優先し、なければparamsにフォールバック */
+    const _selTok = (_selectedIdx >= 0 && _tokens[_selectedIdx]) ? _tokens[_selectedIdx] : null;
+    const _selTokWord = _selTok ? (_selTok.text || _selTok.normalized || '') : '';
+    const _wordToSend = _selTokWord || params.word || '';
+    if (_wordToSend)  qs.set('word',  _wordToSend);
+    const _selTokLemma = _selTok ? (_selTok.lemma || '').trim() : '';
+    const _lemmaToSend = _selTokLemma || params.lemma;
+    if (_lemmaToSend) qs.set('lemma', _lemmaToSend);
     if (params.pos)   qs.set('pos',   params.pos);
-    /* 形態情報を引き継ぐ（morph-search.html が受け取れるパラメータ） */
-    if (_selectedIdx >= 0 && _tokens[_selectedIdx]) {
-        const _m = decodeMorph(_tokens[_selectedIdx]);
+    /* 形態情報を引き継ぐ */
+    if (_selTok) {
+        const _m = decodeMorph(_selTok);
         if (_m.tense)  qs.set('tense',  _m.tense);
         if (_m.mood)   qs.set('mood',   _m.mood);
         if (_m.voice)  qs.set('voice',  _m.voice);
@@ -3168,6 +3181,7 @@ function navTo(target, e) {
         if (_m.number) qs.set('number', _m.number);
         if (_m.gender) qs.set('gender', _m.gender);
     }
+    if (target === 'semantics') qs.set('layers', 'lemma,morph');
     const url = `${fileMap[target]}?${qs.toString()}`;
     window.open(url, '_blank');
 }

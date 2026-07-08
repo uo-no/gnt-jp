@@ -1295,10 +1295,10 @@ const SEARCH_INDEX = {
 };
 const TEXT_TO_JP       = new Map();
 const JP_PARTIAL_INDEX = new Map();
-/* IDX.ready: NT27書+OT39書すべてのfetch・索引化が完了したことを示す唯一のフラグ。
-   以前は l1Ready（NT13書のみの部分索引）で検索を許可していたため、
-   未完全な索引に対する検索 = 再現性のないヒット数という構造的バグがあった。
-   優先サブセットの読み込みを廃止し、「全件読み込み完了」を唯一のゲートにする。 */
+/* IDX.ready: NT27書のfetch・索引化が完了したことを示すフラグ。
+   LXXはバックグラウンド構築（IDX.ready=true後に開始）。
+   IDX.l3Ready: NT+LXX全書物のfetch・索引化および日本語インデックス構築が完了したフラグ。
+   検索ゲート（unifiedSearch）は IDX.ready で開くが、LXX 未完了中は NT 結果のみ返る。 */
 const IDX = { ready: false, l3Ready: false };
 const POS_JP = {
     'V':'動詞','N':'名詞','A':'形容詞','R':'関係代名詞',
@@ -1387,27 +1387,190 @@ function _indexChapter(toks){
         if(tok.text&&jpVals.length>0&&!TEXT_TO_JP.has(tok.text))TEXT_TO_JP.set(tok.text,jpVals[0]);
     }
 }
-/* NT27書+OT39書すべてを対象に索引を構築する単一フェーズ。
-   以前は「優先13書だけ読んで検索可能にし、残りをバックグラウンドで読む」
-   二段構成だったため、未完全な索引で検索が実行できてしまっていた。
-   バッチ並列fetch＋yieldで応答性は確保しつつ、ゲート（IDX.ready）は
-   全件完了の1点のみに統一する。 */
-async function _buildFullIndex(){
-    /* fetch とインライン索引化（_indexChapter による SEARCH_INDEX.text/lemma/strong 構築）が
-       バッチループ内で混在しているため、この区間は「data-load」として一括計測する
-       （fetchとインデックス構築だけを個別に分離計測するには本ループの構造変更が必要）。 */
+/* NT27書+OT39書を対象に索引を構築する。
+   corpora: 対象コーパスを ['NT'] / ['LXX'] / [] (全体) で指定する。
+   IDX.ready の設定と _buildL3Background の呼び出しは _ensureFullIndex 側で管理する。
+   ─────────────────────────────────────────────────────────────────
+   【Phase 2 監査】fetch / JSON.parse / tokenMap / indexChapter を個別計測する。
+   fetchChapter は BookMaster.fetchJSON → res.json() で fetch+parse が一体のため、
+   このループ内では res.text() + JSON.parse() を分離して計測し、
+   結果を tokenCache に格納する（fetchChapter との動作は同一）。
+   ───────────────────────────────────────────────────────────────── */
+async function _buildFullIndex(corpora){
+    const corpusSet=corpora&&corpora.length?new Set(corpora):null;
     performance.mark('data-load-start');
-    const tasks=await BookMaster.buildChapterTasks();
+    const allTasks=await BookMaster.buildChapterTasks();
+    const tasks=corpusSet
+        ?allTasks.filter(t=>corpusSet.has(NT_BOOK_KEYS.has(t.key)?'NT':'LXX'))
+        :allTasks;
     const BATCH=20;
+
+    /* 章ごとのフェーズ別タイミング収集 */
+    const _phTimings=[];
+
     for(let i=0;i<tasks.length;i+=BATCH){
         const slice=tasks.slice(i,i+BATCH);
-        const results=await Promise.all(slice.map(t=>fetchChapter(t.key,t.ch)));
-        for(const toks of results)_indexChapter(toks);
+
+        /* ── フェーズ 1+2+2b: 並列 fetch → JSON.parse → token map ── */
+        const batchResults=await Promise.all(slice.map(async t=>{
+            const cacheKey=`${t.key}/${t.ch}`;
+            /* キャッシュ済みの章はスキップ（2回目以降の _buildFullIndex 呼び出し時など） */
+            if(tokenCache[cacheKey]) return {t,toks:tokenCache[cacheKey],fetchMs:0,parseMs:0,mapMs:0,cached:true};
+
+            const path=await BookMaster.pathFor(t.key,t.ch);
+
+            /* フェーズ1: fetch（ネットワーク＋ダウンロード、res.text()完了まで） */
+            const tFetch=performance.now();
+            let text=null;
+            try{
+                const res=await fetch(path);
+                if(res.ok){ text=await res.text(); }
+                else{ console.info(`[buildFullIndex:fetch] ${t.key}/${t.ch} HTTP ${res.status}`); }
+            }catch(e){ console.info(`[buildFullIndex:fetch] ${t.key}/${t.ch} error`,e); }
+            const fetchMs=performance.now()-tFetch;
+
+            if(!text) return {t,toks:[],fetchMs,parseMs:0,mapMs:0,cached:false};
+
+            /* フェーズ2: JSON.parse（CPU、文字列→オブジェクトツリー） */
+            const tParse=performance.now();
+            let rawArr=null;
+            try{ rawArr=JSON.parse(text); }catch(e){ console.info(`[buildFullIndex:parse] ${t.key}/${t.ch} parse error`,e); }
+            const parseMs=performance.now()-tParse;
+
+            if(!Array.isArray(rawArr)) return {t,toks:[],fetchMs,parseMs,mapMs:0,cached:false};
+
+            /* フェーズ2b: token mapping（CPU、生オブジェクト→正規化 token 構造） */
+            const tMap=performance.now();
+            const corpusId=NT_BOOK_KEYS.has(t.key)?'NT':'LXX';
+            const toks=rawArr.map(w=>({
+                ref:      w.ref||`${t.key} ${t.ch}:${w.verse??'?'}`,
+                bookKey:  t.key,
+                ch:       Number(t.ch),
+                verse:    w.verse!=null?Number(w.verse):null,
+                text:     w.text    ||'',
+                lemma:    w.lemma   ||w.text||'',
+                morph:    w.morph   ??null,
+                japanese: w.japanese||w.gloss_ja||w.gloss||null,
+                gloss:    w.gloss   ||w.gloss_ja||null,
+                strong:   w.strong  ||w.strongs ||null,
+                language: 'grc',
+                corpusId,
+                lemmaId:  w.lemmaId??w.lemma_id??null,
+            }));
+            const mapMs=performance.now()-tMap;
+
+            tokenCache[cacheKey]=toks;
+            return {t,toks,fetchMs,parseMs,mapMs,cached:false};
+        }));
+
+        /* ── フェーズ3: _indexChapter（シリアル、SEARCH_INDEX 更新） ── */
+        for(const {t,toks,fetchMs,parseMs,mapMs,cached} of batchResults){
+            const tIdx=performance.now();
+            _indexChapter(toks);
+            const indexMs=performance.now()-tIdx;
+            if(!cached){
+                const corpus=NT_BOOK_KEYS.has(t.key)?'NT':'LXX';
+                _phTimings.push({key:t.key,ch:t.ch,corpus,
+                    fetchMs,parseMs,mapMs,indexMs,tokCount:toks.length});
+            }
+        }
+
         await new Promise(r=>setTimeout(r,0));
     }
-    _logPerfMeasure('data-load', `${tasks.length} chapters, ${ALL_TOKENS.length.toLocaleString()} tokens (fetch+inline SEARCH_INDEX)`);
-    IDX.ready=true;
-    _buildL3Background();
+
+    _logPerfMeasure('data-load',`${tasks.length} chapters (${corpora?.join(',')||'all'}), ${ALL_TOKENS.length.toLocaleString()} tokens`);
+    _logBuildPhaseTimings(_phTimings);
+
+    /* NT の診断: NT 構築時のみ ἀφορίζω チェック */
+    if(!corpusSet||corpusSet.has('NT')){
+        const _diag2=ALL_TOKENS.filter(t=>t&&normalizeGreek(t.lemma||'')===normalizeGreek('ἀφορίζω'));
+        console.info('[_buildFullIndex] ἀφορίζω tokens in ALL_TOKENS:',_diag2.length,
+            _diag2.map(t=>({ref:t.ref,lemma:t.lemma,gi:t.globalIdx})));
+    }
+    /* IDX.ready 設定と _buildL3Background 呼び出しは _ensureFullIndex で管理する */
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   _logBuildPhaseTimings — フェーズ別タイミングの集計・ログ出力
+   呼び出し元: _buildFullIndex（監査用、ロジックに影響しない）
+   ────────────────────────────────────────────────────────────────── */
+function _logBuildPhaseTimings(timings){
+    if(!timings.length){console.warn('[buildPhaseTimings] タイミングデータなし');return;}
+
+    const sumKey=(arr,k)=>arr.reduce((s,v)=>s+(v[k]||0),0);
+    const maxKey=(arr,k)=>arr.reduce((m,v)=>Math.max(m,v[k]||0),0);
+    const pct=(part,total)=>total>0?(part/total*100).toFixed(1)+'%':'—';
+    const f=ms=>ms.toFixed(1)+'ms';
+
+    const nt =timings.filter(t=>t.corpus==='NT');
+    const lxx=timings.filter(t=>t.corpus==='LXX');
+
+    function corpusSummary(label,arr){
+        if(!arr.length) return;
+        const sf=sumKey(arr,'fetchMs'), sp=sumKey(arr,'parseMs'),
+              sm=sumKey(arr,'mapMs'),   si=sumKey(arr,'indexMs');
+        const total=sf+sp+sm+si;
+        const tok=arr.reduce((s,v)=>s+v.tokCount,0);
+        const avgTok=(tok/arr.length).toFixed(0);
+        console.log(
+            `[phase][${label}]`,
+            `ch:${arr.length} tok:${tok.toLocaleString()}(avg${avgTok}/ch)`,
+            `| fetch:${f(sf)}(${pct(sf,total)})`,
+            `  parse:${f(sp)}(${pct(sp,total)})`,
+            `  map:${f(sm)}(${pct(sm,total)})`,
+            `  index:${f(si)}(${pct(si,total)})`,
+            `| 合計:${f(total)}`
+        );
+        console.log(
+            `[phase][${label}] 最大章:`,
+            `fetch_max=${f(maxKey(arr,'fetchMs'))}`,
+            `parse_max=${f(maxKey(arr,'parseMs'))}`,
+            `map_max=${f(maxKey(arr,'mapMs'))}`,
+            `index_max=${f(maxKey(arr,'indexMs'))}`
+        );
+    }
+
+    console.group('[_buildFullIndex] フェーズ別タイミング監査');
+    corpusSummary('NT', nt);
+    corpusSummary('LXX', lxx);
+    corpusSummary('全体', timings);
+
+    /* TOP20: 合計時間（fetch+parse+map+index）の遅い章 */
+    const top20=[...timings]
+        .sort((a,b)=>(b.fetchMs+b.parseMs+b.mapMs+b.indexMs)
+                    -(a.fetchMs+a.parseMs+a.mapMs+a.indexMs))
+        .slice(0,20);
+    console.group('低速章 TOP20（fetch+parse+map+index 合計）');
+    console.table(top20.map(t=>({
+        章:       `${t.key} ${t.ch}`,
+        corpus:   t.corpus,
+        tokens:   t.tokCount,
+        'fetch(ms)': t.fetchMs.toFixed(1),
+        'parse(ms)': t.parseMs.toFixed(1),
+        'map(ms)':   t.mapMs.toFixed(1),
+        'index(ms)': t.indexMs.toFixed(1),
+        'total(ms)': (t.fetchMs+t.parseMs+t.mapMs+t.indexMs).toFixed(1),
+    })));
+    console.groupEnd();
+
+    /* 律速フェーズの自動判定 */
+    const sf=sumKey(timings,'fetchMs'), sp=sumKey(timings,'parseMs'),
+          sm=sumKey(timings,'mapMs'),   si=sumKey(timings,'indexMs');
+    const total=sf+sp+sm+si;
+    const bottleneck=[
+        {name:'fetch', ms:sf},{name:'parse', ms:sp},
+        {name:'tokenMap', ms:sm},{name:'indexChapter', ms:si},
+    ].sort((a,b)=>b.ms-a.ms)[0];
+    console.log(
+        `[phase][律速判定] ボトルネック候補: ${bottleneck.name}`,
+        `(${f(bottleneck.ms)}, ${pct(bottleneck.ms,total)} of total)`
+    );
+    console.log(
+        '[phase][注意] fetch は BATCH=20 の並列実行のため実壁時間≠sum(fetchMs)。',
+        `並列効果は最大${Math.min(20,timings.length)}倍。実効 fetch 時間 ≈ sum/BATCH = ${f(sf/20)}`
+    );
+
+    console.groupEnd();
 }
 async function _buildL3Background(){
     const BATCH=500;
@@ -1428,7 +1591,34 @@ async function _buildL3Background(){
 let _fullIndexPromise=null;
 function _ensureFullIndex(){
     if(!_fullIndexPromise){
-        _fullIndexPromise=ensureBookMasterApplied().then(()=>_buildFullIndex());
+        _fullIndexPromise=ensureBookMasterApplied().then(async ()=>{
+            /* ── フェーズ1: NT のみ構築 → IDX.ready を立て UI 利用可能にする ── */
+            await _buildFullIndex(['NT']);
+            console.info('[search-index] NT ready');
+            IDX.ready=true;
+            _buildAndExposeLemmaIndex();
+            _buildAndExposeMorphIndex();
+
+            /* ── フェーズ2: LXX をバックグラウンド構築 ── */
+            const _buildLxx=async()=>{
+                console.info('[search-index] LXX background build started');
+                await _buildFullIndex(['LXX']);
+                console.info('[search-index] LXX ready');
+                /* NT+LXX 全体で lemmaIndex / morphIndex を再構築する。
+                   _buildAndExpose* は冪等ガードを持つため、null に戻してから呼ぶ。 */
+                window.lemmaIndex=null;
+                window.morphIndex=null;
+                _buildAndExposeLemmaIndex();
+                _buildAndExposeMorphIndex();
+                /* JP_PARTIAL_INDEX を NT+LXX 全体で構築し、IDX.l3Ready を立てる */
+                _buildL3Background();
+            };
+            if(typeof requestIdleCallback==='function'){
+                requestIdleCallback(()=>_buildLxx(),{timeout:2000});
+            }else{
+                setTimeout(()=>_buildLxx(),100);
+            }
+        });
     }
     return _fullIndexPromise;
 }
@@ -1518,11 +1708,32 @@ function buildLemmaIndex(tokens){
 }
 function searchByLemma(lemma){
     const idx = window.lemmaIndex;
-    if (!idx) return [];
+    if (!idx) {
+        console.warn('[searchByLemma] window.lemmaIndex is not built yet');
+        return [];
+    }
 
     const norm = normalizeGreek(String(lemma || ""));
+    const result = idx.get(norm);
 
-    return idx.get(norm) || [];
+    if (!result || result.length === 0) {
+        // Sample up to 5 keys that are close (by norm prefix) to help diagnose
+        const prefix = norm.slice(0, 4);
+        const nearKeys = [];
+        for (const k of idx.keys()) { if (k.startsWith(prefix)) nearKeys.push(k); if (nearKeys.length >= 5) break; }
+        console.warn('[searchByLemma] 0 hits', {
+            inputLemma: lemma,
+            norm,
+            inputBytes: [...lemma].map(c=>'U+'+c.codePointAt(0).toString(16).toUpperCase()),
+            normBytes:  [...norm].map(c=>'U+'+c.codePointAt(0).toString(16).toUpperCase()),
+            idxSize: idx.size,
+            nearKeys,
+        });
+    } else {
+        console.info('[searchByLemma]', {lemma, norm, hits: result.length});
+    }
+
+    return result || [];
 }
 /* 性能計測ヘルパー（監査用。ロジックには影響しない） */
 function _logPerfMeasure(name, note) {
@@ -1534,18 +1745,32 @@ function _logPerfMeasure(name, note) {
     performance.clearMarks(name + '-end');
     performance.clearMeasures(name);
 }
+/* lemmaIndex / morphIndex の構築回数を追跡する（監査用） */
+let _lemmaIndexBuildCount = 0;
+let _morphIndexBuildCount = 0;
+
 function _buildAndExposeLemmaIndex(){
+    if(window.lemmaIndex){
+        console.log(`[perf] lemmaIndex: 構築スキップ（構築済み, 呼び出し #${_lemmaIndexBuildCount+1}）`);
+        return;
+    }
+    _lemmaIndexBuildCount++;
     performance.mark('index-build-start');
     window.lemmaIndex=buildLemmaIndex(ALL_TOKENS);
-    _logPerfMeasure('index-build', `buildLemmaIndex over ${ALL_TOKENS.length.toLocaleString()} tokens, ${window.lemmaIndex.size.toLocaleString()} keys`);
-    console.info('[lemmaIndex] built — lemmas:',window.lemmaIndex.size);
+    _logPerfMeasure('index-build', `buildLemmaIndex [#${_lemmaIndexBuildCount}] ${ALL_TOKENS.length.toLocaleString()} tokens → ${window.lemmaIndex.size.toLocaleString()} keys`);
+    const _diag = normalizeGreek('ἀφορίζω');
+    console.info('[lemmaIndex] 構築完了 #'+_lemmaIndexBuildCount+' — lemmas:',window.lemmaIndex.size,
+        '| ἀφορίζω→', window.lemmaIndex.get(_diag)?.length ?? 'MISSING',
+        '| norm='+_diag);
 }
+/* 明示的な再構築用（データ更新後など）。初回ロードでは呼ばれない */
 function _rebuildLemmaIndexIfNeeded(){
     if(!IDX.ready)return;
-    performance.mark('index-build-start');
-    window.lemmaIndex=buildLemmaIndex(ALL_TOKENS);
-    _logPerfMeasure('index-build', `rebuild over ${ALL_TOKENS.length.toLocaleString()} tokens, ${window.lemmaIndex.size.toLocaleString()} keys`);
-    console.info('[lemmaIndex] rebuilt — lemmas:',window.lemmaIndex.size);
+    if(window.lemmaIndex){
+        console.log('[perf] lemmaIndex: _rebuildLemmaIndexIfNeeded — 構築済みのためスキップ');
+        return;
+    }
+    _buildAndExposeLemmaIndex();
 }
 
 /* morphIndex */
@@ -1565,13 +1790,22 @@ function searchByMorph(morph){
     return window.morphIndex.get(morph)||[];
 }
 function _buildAndExposeMorphIndex(){
+    if(window.morphIndex){
+        console.log(`[perf] morphIndex: 構築スキップ（構築済み, 呼び出し #${_morphIndexBuildCount+1}）`);
+        return;
+    }
+    _morphIndexBuildCount++;
     window.morphIndex=buildMorphIndex(ALL_TOKENS);
-    console.info('[morphIndex] built — morphTags:',window.morphIndex.size);
+    console.info('[morphIndex] 構築完了 #'+_morphIndexBuildCount+' — morphTags:',window.morphIndex.size);
 }
+/* 明示的な再構築用（データ更新後など）。初回ロードでは呼ばれない */
 function _rebuildMorphIndexIfNeeded(){
     if(!IDX.ready)return;
-    window.morphIndex=buildMorphIndex(ALL_TOKENS);
-    console.info('[morphIndex] rebuilt');
+    if(window.morphIndex){
+        console.log('[perf] morphIndex: _rebuildMorphIndexIfNeeded — 構築済みのためスキップ');
+        return;
+    }
+    _buildAndExposeMorphIndex();
 }
 
 /* phraseSearch — globalIdx SSOT版
@@ -1710,26 +1944,36 @@ function groupHitsByLemma(hits){
 /* ============================================================
    Translation fetcher（original — unchanged）
    ============================================================ */
+/* _transCache: cacheKey(bookKey/ch) → Promise<object|null>
+   Promise を直接格納することで、同一章への並行呼び出し全員が同一 Promise を await し
+   「set(null)→他のコールがnullを取得」という競合状態を防ぐ。 */
 const _transCache=new Map();
 async function _fetchTransVerse(bookKey,ch,verseNum){
     const cacheKey=`${bookKey}/${ch}`;
     if(!_transCache.has(cacheKey)){
-        _transCache.set(cacheKey,null);
-        let data=null;
-        for(const transId of['JA1955','KAI17']){
-            /* 複数訳を順に試す意図的なフォールバック（KAI17等が未収録の書物を持つのは
-               仕様であり障害ではない）。__failedFetches には積まないが、追跡可能にする。 */
-            try{
-                const res=await fetch(`../translations/${transId}/${bookKey}/${ch}.json`);
-                if(res.ok){data=await res.json();break;}
-                console.info(`[translation] ${transId}/${bookKey}/${ch} not available (HTTP ${res.status})`);
-            }catch(err){console.info(`[translation] ${transId}/${bookKey}/${ch} fetch error`,err);}
-        }
-        _transCache.set(cacheKey,data);
+        const fetchPromise=(async()=>{
+            for(const transId of['JA1955','KAI17']){
+                /* 複数訳を順に試す意図的なフォールバック（KAI17等が未収録の書物を持つのは
+                   仕様であり障害ではない）。__failedFetches には積まないが、追跡可能にする。 */
+                try{
+                    const res=await fetch(`../translations/${transId}/${bookKey}/${ch}.json`);
+                    if(res.ok)return await res.json();
+                    console.info(`[translation] ${transId}/${bookKey}/${ch} not available (HTTP ${res.status})`);
+                }catch(err){console.info(`[translation] ${transId}/${bookKey}/${ch} fetch error`,err);}
+            }
+            console.warn(`[translation] ${bookKey}/${ch} — 全訳文ソースで取得失敗`);
+            return null;
+        })();
+        _transCache.set(cacheKey,fetchPromise);
     }
-    const data=_transCache.get(cacheKey);
-    if(!data||!data.verses)return null;
-    return data.verses[verseNum]||null;
+    const data=await _transCache.get(cacheKey);
+    if(!data||!data.verses){
+        console.warn(`[translation] ${bookKey}/${ch}:${verseNum} — verses オブジェクト不在`,{data});
+        return null;
+    }
+    const text=data.verses[verseNum]||null;
+    if(!text) console.warn(`[translation] ${bookKey}/${ch}:${verseNum} — 節キー不在`,{keys:Object.keys(data.verses).slice(0,5)});
+    return text;
 }
 
 /* ============================================================
@@ -1831,13 +2075,18 @@ function _watchIndexProgress(){
         if(IDX.l3Ready){
             dot.className='idx-dot done';
             label.textContent='全書物インデックス完了';
-            _rebuildLemmaIndexIfNeeded();
-            _rebuildMorphIndexIfNeeded();
+            /* lemmaIndex / morphIndex は IDX.ready 後に _buildAndExpose* で構築済みのはず。
+               冪等化済みの関数を呼ぶことで、万一まだ未構築の場合は補完し、
+               構築済みの場合は即スキップする（二重構築を防ぐ）。
+               l3Ready 後に lemmaIndex / morphIndex を再構築する意味はない
+               （どちらも JP_PARTIAL_INDEX に依存しない）。 */
+            _buildAndExposeLemmaIndex();
+            _buildAndExposeMorphIndex();
             setTimeout(()=>pill&&pill.classList.add('done'),3000);
             clearInterval(timer);
         }else if(IDX.ready){
             dot.className='idx-dot active';
-            label.textContent='日本語インデックス構築中…';
+            label.textContent='NTインデックス完了 — LXX・日本語インデックス構築中…';
         }else{
             dot.className='idx-dot active';
             const total=FLAT_BOOKS.reduce((s,b)=>s+b.ch,0);
@@ -1848,11 +2097,10 @@ function _watchIndexProgress(){
 }
 
 /* ============================================================
-   検索ゲート（再現性のための必須要件）:
-   IDX.ready（全書物の索引化完了）になるまで unifiedSearch は実行されない
-   （下記 unifiedSearch 冒頭の _ensureFullIndex 完了待ちで保証）。
-   そのため「索引が未完成のまま検索が走り、後から件数が増える」という
-   旧 L2 refinement banner が前提としていた状況は構造的に発生しなくなった。
+   検索ゲート:
+   IDX.ready（NT索引化完了）になるまで unifiedSearch は実行されない。
+   NT完了後に LXX をバックグラウンド構築するため、LXX 構築中に検索が
+   実行された場合は NT 範囲のみ結果を返す（再現性は NT 完了時点で保証）。
    ============================================================ */
 /* ============================================================
    UI state — Layer toggles
@@ -1971,12 +2219,12 @@ async function unifiedSearch(){
     // Close mobile panel when search fires
     if(window.innerWidth<=680) _closeMobilePanel();
 
-    /* 検索実行ゲート（再現性のための必須要件）:
-       IDX.ready（NT27書+OT39書すべての索引化完了）になるまで実際の検索は実行しない。
-       「未完成の索引を検索して0件/部分的な結果を返す」ことを許すと、ロード状況という
-       検索条件と無関係な外部要因でヒット数が変動してしまうため、ここで完全にブロックする。 */
+    /* 検索実行ゲート:
+       IDX.ready（NT索引化完了）になるまで検索を実行しない。
+       NT完了後は LXX バックグラウンド構築中でも NT 範囲で検索できる。
+       IDX.l3Ready（全書物+日本語索引完了）後は NT+LXX を全文検索できる。 */
     if(!IDX.ready){
-        _showLoading('全書物のインデックスを構築中です。完了まで検索は実行されません…');
+        _showLoading('NT・LXXのインデックスを構築中です。完了まで検索は実行されません…');
     } else {
         _showLoading();
     }
@@ -2063,10 +2311,69 @@ async function unifiedSearch(){
 
     // --- Morph post-filter ---
     if(morphFilter&&merged.size>0){
+        const _beforeMorph=merged.size;
+        /* [DIAG] フィルター適用前: 最初のヒットの morph を表示 */
+        const _firstEntry = merged.values().next().value;
+        const _firstMorph = _firstEntry?.tok?.morph ?? '(morph なし)';
+        console.info('[morphFilter] 適用前: hits='+_beforeMorph+', 最初のヒット morph='+_firstMorph, {
+            filterPattern: {
+                pos:   morphFilter.pos   ? [...morphFilter.pos]   : null,
+                tense: morphFilter.tense ? [...morphFilter.tense] : null,
+                voice: morphFilter.voice ? [...morphFilter.voice] : null,
+                mood:  morphFilter.mood  ? [...morphFilter.mood]  : null,
+                num:   morphFilter.num   ? [...morphFilter.num]   : null,
+                case:  morphFilter.case  ? [...morphFilter.case]  : null,
+                gen:   morphFilter.gen   ? [...morphFilter.gen]   : null,
+            }
+        });
+        /* [DIAG] 最初の1件を詳細トレース + V-AAI-* トークンを優先して探す */
+        {
+            // まず V-AAI-* に一致するトークンを探す（なければ先頭のトークン）
+            let _traceEntry = _firstEntry;
+            for (const [,e] of merged) {
+                if (e.tok && /^V-[0-9]?AA/.test(e.tok.morph || '')) { _traceEntry = e; break; }
+            }
+            const _traceMorph = _traceEntry?.tok?.morph;
+            if (_traceMorph) {
+                const _tv = _morphMatchesPatternVerbose(_traceMorph, morphFilter);
+                console.info(
+                    '[morphFilter][詳細トレース] morphTag=' + _traceMorph + '\n' + _tv.log
+                );
+            }
+        }
+        /* [DIAG] 最初の除外トークンで不一致フィールドを特定 */
+        let _firstReject = null;
+        let _firstRejectCount = 0;
         for(const[gi,entry]of merged){
             const tok=entry.tok;
-            if(!tok||!tok.morph||!_morphMatchesPattern(tok.morph,morphFilter)){merged.delete(gi);}
-            else{entry.hitTypes.add('morph');}
+            const _match = tok && tok.morph && _morphMatchesPattern(tok.morph, morphFilter);
+            if(!_match){
+                _firstRejectCount++;
+                if(!_firstReject && tok && tok.morph) {
+                    _firstReject = _morphRejectReason(tok.morph, morphFilter);
+                }
+                merged.delete(gi);
+            } else {
+                entry.hitTypes.add('morph');
+            }
+        }
+        if(_firstReject){
+            console.warn('[morphFilter] 最初の不一致: フィールド='+_firstReject.field,
+                '| トークン値='+_firstReject.tokenVal,
+                '| フィルター値='+JSON.stringify(_firstReject.filterVals),
+                '| morphTag='+_firstReject.morphTag);
+        }
+        if(merged.size===0&&_beforeMorph>0){
+            console.warn('[morphFilter] 全件削除: before='+_beforeMorph+' after=0 (除外件数='+_firstRejectCount+')',
+                {morphFilter, activePattern: JSON.stringify({
+                    pos:  morphFilter.pos  ? [...morphFilter.pos]  : null,
+                    tense:morphFilter.tense? [...morphFilter.tense]: null,
+                    mood: morphFilter.mood ? [...morphFilter.mood] : null,
+                    voice:morphFilter.voice? [...morphFilter.voice]: null,
+                    case: morphFilter.case ? [...morphFilter.case] : null,
+                    num:  morphFilter.num  ? [...morphFilter.num]  : null,
+                    gen:  morphFilter.gen  ? [...morphFilter.gen]  : null,
+                })});
         }
     }
 
@@ -2459,9 +2766,16 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
     // Auto-load translation
     (async()=>{
         if(tok.bookKey && tok.ch != null && tok.verse != null){
-            const text=await _fetchTransVerse(tok.bookKey, String(tok.ch), String(tok.verse));
+            const _chKey=`${tok.bookKey}/${tok.ch}`;
+            const _vKey=String(tok.verse);
+            console.debug('[trans] fetch req',{ref:tok.ref,globalIdx:tok.globalIdx,greek:tok.text,cacheKey:_chKey,verseKey:_vKey});
+            const text=await _fetchTransVerse(tok.bookKey, String(tok.ch), _vKey);
+            console.debug('[trans] fetch res',{ref:tok.ref,verseKey:_vKey,found:!!text,preview:text?.slice(0,30)});
             transText.textContent=text||'（訳が見つかりません）';
-        }else{transText.textContent='（位置情報が不足しています）';}
+        }else{
+            console.warn('[trans] 位置情報不足',{ref:tok.ref,bookKey:tok.bookKey,ch:tok.ch,verse:tok.verse});
+            transText.textContent='（位置情報が不足しています）';
+        }
         transLoading.style.display='none';
         transText.classList.add('visible');
     })();
@@ -2757,6 +3071,92 @@ function _getMorphFilterPattern(){
  * Parts: [POS]-[case][num][gen] for nominals
  *        [POS]-[tense][voice][mood][-person][num] for verbals
  */
+/* [DIAG] morphTag の全フィールドをフィルターと比較し、1行ずつログ用文字列を返す */
+function _morphMatchesPatternVerbose(morphTag, pattern) {
+    const parts    = morphTag.split('-');
+    const posCode  = parts[0];
+    const isVerbal = posCode === 'V';
+    const lines    = [];
+    let passed     = true;
+
+    const row = (field, tokenVal, filterSet) => {
+        const fStr = filterSet ? '{' + [...filterSet].join('|') + '}' : '(指定なし)';
+        if (!filterSet) {
+            lines.push('  ' + field.padEnd(8) + '  "' + tokenVal + '"  filter=' + fStr + '  → skip（チェックなし）');
+            return true;
+        }
+        const ok = filterSet.has(tokenVal);
+        const verdict = ok ? 'true  ✓' : 'FALSE ✗  ← ここで除外';
+        lines.push('  ' + field.padEnd(8) + '  "' + tokenVal + '" ∈ ' + fStr + '  → ' + verdict);
+        if (!ok) passed = false;
+        return ok;
+    };
+
+    row('pos', posCode, pattern.pos);
+
+    if (isVerbal) {
+        // NOTE: _morphMatchesPattern は parts[1][0..2] をそのまま使う（先頭数字オフセットなし）
+        const tvm       = parts[1] || '';
+        const t = tvm[0]||'', v = tvm[1]||'', m = tvm[2]||'';
+        const pn        = parts[2] || '';
+        const personRaw = pn.length >= 2 ? pn[0] : '(なし)';
+        const numRaw    = pn.length >  0 ? pn[pn.length - 1] : '(なし)';
+
+        row('tense',  t,        pattern.tense);
+        row('voice',  v,        pattern.voice);
+        row('mood',   m,        pattern.mood);
+        lines.push('  ' + 'person'.padEnd(8) + '  "' + personRaw
+            + '"  filter=(スロットなし・_morphSel に person 未定義)  → skip（チェックなし）');
+        row('num',    numRaw,   pattern.num);
+    } else {
+        const cng = parts[1] || '';
+        const c = cng[0]||'', n = cng[1]||'', g = cng[2]||'';
+        row('case', c, pattern.case);
+        row('num',  n, pattern.num);
+        row('gen',  g, pattern.gen);
+    }
+
+    lines.push('  ' + '→ 判定'.padEnd(8) + '  ' +
+        (passed ? 'true  — 一致（保持）' : 'false — 不一致（除外）'));
+    return { passed, log: lines.join('\n') };
+}
+
+/* [DIAG] morph フィルター除外理由を返す。一致する場合は null を返す */
+function _morphRejectReason(morphTag, pattern) {
+    if (!morphTag || !pattern) return null;
+    const parts = morphTag.split('-');
+    const posCode = parts[0];
+    if (pattern.pos && !pattern.pos.has(posCode))
+        return { field: 'pos', tokenVal: posCode, filterVals: [...pattern.pos], morphTag };
+    const isVerbal = posCode === 'V';
+    if (!isVerbal) {
+        const cng = parts[1] || '';
+        const c = cng[0]||'', n = cng[1]||'', g = cng[2]||'';
+        if (pattern.case && !pattern.case.has(c))
+            return { field: 'case', tokenVal: c, filterVals: [...pattern.case], morphTag };
+        if (pattern.num  && !pattern.num.has(n))
+            return { field: 'num',  tokenVal: n, filterVals: [...pattern.num],  morphTag };
+        if (pattern.gen  && !pattern.gen.has(g))
+            return { field: 'gen',  tokenVal: g, filterVals: [...pattern.gen],  morphTag };
+    } else {
+        const tvm = parts[1] || '';
+        const t = tvm[0]||'', v = tvm[1]||'', m = tvm[2]||'';
+        if (pattern.tense && !pattern.tense.has(t))
+            return { field: 'tense', tokenVal: t, filterVals: [...pattern.tense], morphTag };
+        if (pattern.voice && !pattern.voice.has(v))
+            return { field: 'voice', tokenVal: v, filterVals: [...pattern.voice], morphTag };
+        if (pattern.mood  && !pattern.mood.has(m))
+            return { field: 'mood',  tokenVal: m, filterVals: [...pattern.mood],  morphTag };
+        if (pattern.num) {
+            const pn = parts[2]||'';
+            const numCode = pn.length > 0 ? pn[pn.length-1] : '';
+            if (!pattern.num.has(numCode))
+                return { field: 'num', tokenVal: numCode, filterVals: [...pattern.num], morphTag };
+        }
+    }
+    return null;
+}
+
 function _morphMatchesPattern(morphTag, pattern){
     if(!morphTag||!pattern) return true;
     const parts = morphTag.split('-');
@@ -3306,15 +3706,31 @@ async function _synInit(syntaxId) {
         num:   splitVals(p.get('number')).map(v => toCode('num', v)),
         gen:   splitVals(p.get('gender')).map(v => toCode('gen', v)),
     };
+    /* [DIAG] 受信 URL パラメータ */
+    console.info('[initFromUrl] 受信パラメータ:', {
+        lemma:  p.get('lemma'), word:   p.get('word'), layers: p.get('layers'),
+        pos:    p.get('pos'),   tense:  p.get('tense'),  voice:  p.get('voice'),
+        mood:   p.get('mood'),  number: p.get('number'), case:   p.get('case'),
+        gender: p.get('gender'), person: '(URLには付与されない)',
+    });
     let hasMorph = false;
     for (const [slot, vals] of Object.entries(morphFromUrl)) {
         vals.forEach(v => { if (v) { _morphSel[slot].add(v); hasMorph = true; } });
     }
+    /* [DIAG] _morphSel への変換結果 */
+    console.info('[initFromUrl] _morphSel (コード変換後):', {
+        pos:   [..._morphSel.pos],   tense: [..._morphSel.tense],
+        voice: [..._morphSel.voice], mood:  [..._morphSel.mood],
+        num:   [..._morphSel.num],   case:  [..._morphSel.case],  gen: [..._morphSel.gen],
+    });
     if (hasMorph) {
         _initMorphChips();          // チップを選択状態で再描画
         _updateMorphSubSections();
         _updateMorphClearBtn();
-        _layers.morph = true;
+        // morphレイヤーの有効化は layers= パラメータの明示指定にのみ従う。
+        // morph パラメータ（pos/tense/mood等）が URL にあってもレイヤーを
+        // 自動ONにしない。チップは選択状態で表示されるが、検索には適用されない。
+        // （layersParam に 'morph' が含まれる場合は後段の処理で ONになる）
         _syncLayerUI('morph');
     }
 

@@ -5127,10 +5127,37 @@ async function _renderReadingNotes(p) {
     const morphSearchURL = `morph-search.html?${qsMorphM.toString()}`;
     const syntaxURL      = `syntax-search.html?${qsMorphS.toString()}`;
     const qsConcord = new URLSearchParams();
-    if (p.word) qsConcord.set('word1', p.word);
-    if (ref)    qsConcord.set('ref',   ref);
-    qsConcord.set('tool', 'search');
+    if (p.word)   qsConcord.set('word',   p.word);
+    if (lemma)    qsConcord.set('lemma',  lemma);
+    if (ref)      qsConcord.set('ref',    ref);
+    if (p.pos)    qsConcord.set('pos',    p.pos);
+    if (p.tense)  qsConcord.set('tense',  p.tense);
+    if (p.mood)   qsConcord.set('mood',   p.mood);
+    if (p.voice)  qsConcord.set('voice',  p.voice);
+    /* 動詞形（分詞含む）では格・数・性を送らない。名詞的品詞のみ */
+    if (p.pos !== 'V') {
+        if (p.gender) qsConcord.set('gender', p.gender);
+        if (p.number) qsConcord.set('number', p.number);
+        if (p.case)   qsConcord.set('case',   p.case);
+    }
+    qsConcord.set('layers', 'lemma,morph');
+    qsConcord.set('tool',   'search');
     const concordURL = `search-tool.html?${qsConcord.toString()}`;
+
+    /* [DIAG] StudyPanel → search-tool 遷移ログ */
+    console.info('[StudyPanel→search] 元トークン rawMorph:', p._rawMorph);
+    console.info('[StudyPanel→search] parseMorphForSearch 入力:', p._rawMorph);
+    console.info('[StudyPanel→search] parseMorphForSearch 出力 (openStudyPanel 済):', {
+        pos: p.pos, tense: p.tense, mood: p.mood, voice: p.voice,
+        case: p.case, number: p.number, gender: p.gender,
+    });
+    console.info('[StudyPanel→search] concordURL パラメータ:', {
+        word: p.word || '', lemma: lemma || '',
+        pos: p.pos || '', tense: p.tense || '', mood: p.mood || '', voice: p.voice || '',
+        number: p.number || '', case: p.case || '', gender: p.gender || '',
+        person: '(URLには付与しない)', layers: 'lemma,morph',
+    });
+    console.info('[StudyPanel→search] concordURL:', concordURL);
 
     /* ── Morph grid (Level 2) ── */
     const JPN_FULL = {
@@ -5840,13 +5867,14 @@ async function _injectStudyPanelContent(semContainer, strong, lemmaId, word) {
             const hw = chip.dataset.headword || '';
             if (!hw) return;
             const p = new URLSearchParams();
-            p.set('word1', hw);
+            p.set('lemma', hw);
             const refLemmaId = AppState.inspect.data?.lemmaId;
             if (refLemmaId) p.set('ref_lemma', refLemmaId);
             const cmpLemmaId = chip.dataset.lemmaId;
             if (cmpLemmaId) p.set('cmp_lemma', cmpLemmaId);
             const clusterId = chip.dataset.clusterId;
             if (clusterId) p.set('cluster', clusterId);
+            p.set('layers', 'lemma');
             window.open(`search-tool.html?${p.toString()}`, '_blank');
         });
 
@@ -9515,7 +9543,24 @@ function goProximityPage() {
     /* AppState.inspect.data から語を取得（後方互換: _inspectData も同じ参照） */
     const inspData = AppState.inspect.data;
     if (inspData && inspData.greek) {
-        p.set('word1', inspData.greek);
+        p.set('word',  inspData.greek);
+        if (inspData.lemma) p.set('lemma', inspData.lemma);
+        const _gpm = parseMorphForSearch(inspData.rawMorph || '');
+        console.info('[goProximityPage→search] 元トークン rawMorph:', inspData.rawMorph);
+        console.info('[goProximityPage→search] parseMorphForSearch 入力:', inspData.rawMorph);
+        console.info('[goProximityPage→search] parseMorphForSearch 出力:', _gpm);
+        if (_gpm.pos)    p.set('pos',    _gpm.pos);
+        if (_gpm.tense)  p.set('tense',  _gpm.tense);
+        if (_gpm.mood)   p.set('mood',   _gpm.mood);
+        if (_gpm.voice)  p.set('voice',  _gpm.voice);
+        /* 動詞形（分詞含む）では格・数・性を送らない */
+        if (_gpm.pos !== 'V') {
+            if (_gpm.case)   p.set('case',   _gpm.case);
+            if (_gpm.number) p.set('number', _gpm.number);
+            if (_gpm.gender) p.set('gender', _gpm.gender);
+        }
+        p.set('layers', 'lemma,morph');
+        console.info('[goProximityPage→search] URL パラメータ:', Object.fromEntries(p.entries()));
     }
 
     if (book && ch) {
