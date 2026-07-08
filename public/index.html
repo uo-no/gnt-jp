@@ -1134,7 +1134,7 @@ border-bottom: 1px dotted rgba(0,0,0,0.15);
 .rn-ref-body {
     display: none;
     margin-top: 0;
-    padding-left: var(--space-xs);
+    padding-left: 0;              /* 幅統一: 追加インデントなし */
     padding-top: var(--space-sm);
     animation: depthUnfold var(--transition-base) both;
 }
@@ -1252,7 +1252,7 @@ opacity: var(--opacity-secondary);
 
 .rn-layer-body {
     display: none;
-    padding: var(--space-sm) var(--space-md);
+    padding: var(--space-sm) 0;   /* 水平 padding は #reading-notes-area が担保 */
     border-top: 1px solid var(--border);
     animation: rnLayerOpen var(--transition-base) both;
 }
@@ -2357,7 +2357,7 @@ details[open] .study-summary::before {
     transform: rotate(90deg);
 }
 .study-details-body {
-    padding: 0 0 var(--rhythm-medium-y) var(--rhythm-medium-x);
+    padding: 0 0 var(--rhythm-medium-y) 0; /* 幅統一: 左インデントなし */
 }
 
 /* ══════════════════════════════════════════
@@ -4370,8 +4370,8 @@ function renderGlobalBreadcrumb() {
 
     if (loc.book) {
         items.push(`<span class="gbc-sep">›</span>`);
-        /* 書物 - クリックで章一覧へ */
-        items.push(`<button class="gbc-item" onclick="_gbcGoBook()">${loc.book.name}</button>`);
+        /* 書物 - クリックで章一覧へ（BOOK_SHORT 経由の略称を使用） */
+        items.push(`<button class="gbc-item" onclick="_gbcGoBook()">${_bookShortTitle(loc.book)}</button>`);
     }
 
     if (loc.chapter !== null) {
@@ -4392,14 +4392,24 @@ function renderGlobalBreadcrumb() {
 }
 
 function _gbcGoTestament() {
-    if (!_isSidebarOpen()) { _openSidebar(); return; }
-    sbGoTo(1);
+    const loc = AppState.location;
+    if (loc && loc.testament) sbSection = loc.testament;
+    if (!_isSidebarOpen()) _openSidebar();
+    sbGoTo(1, sbSection);
     AppState.clearDepth();
     renderDepthHistory();
 }
 
 function _gbcGoBook() {
-    if (!_isSidebarOpen()) { _openSidebar(); return; }
+    const loc = AppState.location;
+    if (loc && loc.book) {
+        const inNt = SB_BOOKS.nt.some(b => b.key === loc.book.key);
+        sbSection  = inNt ? 'nt' : 'ot';
+        sbBookKey  = loc.book.key;
+        sbBookName = loc.book.name;
+        sbMaxCh    = loc.book.ch;
+    }
+    if (!_isSidebarOpen()) _openSidebar();
     sbGoTo(2);
     AppState.clearDepth();
     renderDepthHistory();
