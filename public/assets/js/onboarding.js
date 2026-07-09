@@ -660,6 +660,12 @@
             }
         },
 
+        onStudyPanelClosed() {
+            if (_state.onboardingComplete) return;
+            if (_state.onboardingSkipped) return;
+            _hideOnboardingCard();
+        },
+
         onStudyPanelOpened(isMobile, vNum) {
             if (_state.onboardingComplete) return;
             if (_state.onboardingSkipped) return;

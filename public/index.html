@@ -371,14 +371,25 @@ pointer-events: auto;
     }
 
     /* ── StudyPanel 全画面オーバーレイ（768px以下） ── */
+    /* top:100%/0 で開閉、top:0+bottom:0+height:auto でビューポート全高を確保
+       （dvh/vh/ビューポート単位に依存せず、JS の style.height も不要） */
     #bottom-depth-panel {
-        /* 900px breakpoint の border-radius / border-top を上書きして全画面化 */
-        inset: 0;
-        height: 100dvh;
+        top: 100%;       /* closed: パネル上端 = ビューポート下端 → 画面外 */
+        bottom: auto;    /* closed: open 時に bottom:0 で上書きする */
+        left: 0;
+        right: 0;
+        height: auto;    /* base の height:40vh を解除；open 時は top+bottom で確定 */
         max-height: none;
         min-height: 0;
         border-radius: 0;
         border-top: none;
+        transform: none;
+        transition: top var(--transition-slow);
+    }
+    #bottom-depth-panel.open {
+        top: 0;
+        bottom: 0;       /* top:0 + bottom:0 + height:auto = containing block 全高 */
+        transform: none;
     }
     /* リサイズバー非表示（ドラッグ不要） */
     #panel-resize-handle {
@@ -4765,6 +4776,7 @@ function _closeStudyPanelInternal() {
         panelEl.style.height = '';
     }
 
+    if (window.App.onboarding) window.App.onboarding.onStudyPanelClosed();
     AppState.toReading();
     AppState.restoreScroll();
 }
@@ -4850,6 +4862,12 @@ function _mobileOpenPanel(titleText, wasAlreadyOpen) {
         document.getElementById('app').classList.add('mobile-study-open');
         const navTitle = document.getElementById('mobile-nav-title');
         if (navTitle) navTitle.textContent = titleText || '語を読む';
+    }
+    /* 768px以下：CSS の top/bottom が環境によって効かない場合に備え
+       window.innerHeight で高さを確定する（dvh/auto の非依存フォールバック） */
+    if (window.innerWidth <= 768) {
+        const panel = document.getElementById('bottom-depth-panel');
+        if (panel) panel.style.height = window.innerHeight + 'px';
     }
 }
 
@@ -9590,11 +9608,13 @@ let _wlvWordCache = [];
         /* clamp：max/min 状態でも反対方向にドラッグすれば必ず動く */
         const nh = Math.min(maxH, Math.max(minH, startH + (startY - e.clientY)));
         StudyPanelState.height = nh;
-        if (isMobile) {
+        if (isMobile && window.innerWidth > 768) {
+            /* 769–900px：!important でドラッグ中の高さを反映 */
             panel.style.setProperty('height', nh + 'px', 'important');
-        } else {
+        } else if (!isMobile) {
             panel.style.height = nh + 'px';
         }
+        /* ≤768px：全画面は CSS top/bottom で管理するため height を書かない */
         _syncReadingPanelPadding();
     });
 
@@ -9605,8 +9625,9 @@ let _wlvWordCache = [];
         document.body.style.userSelect = '';
         /* capture を必ず解放する（pointerup/cancel 両方から呼ばれる） */
         try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
-        /* モバイル：指を離した時に 40vh か拡張上限のどちらか近い方へスナップ */
-        if (_isMobile()) {
+        /* 769–900px：指を離した時に 40vh か拡張上限のどちらか近い方へスナップ
+           ≤768px は全画面モード（CSS top/bottom 管理）のため height を書かない */
+        if (_isMobile() && window.innerWidth > 768) {
             const expandedFrac = _panelExpandedVh();
             const mid    = window.innerHeight * ((0.40 + expandedFrac) / 2);
             const target = panel.offsetHeight > mid ? (expandedFrac * 100 + 'vh') : '40vh';
