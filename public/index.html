@@ -369,6 +369,25 @@ pointer-events: auto;
     #main-reading-area.compare-mode #parallel-text-area {
         display: none !important;
     }
+
+    /* ── StudyPanel 全画面オーバーレイ（768px以下） ── */
+    #bottom-depth-panel {
+        /* 900px breakpoint の border-radius / border-top を上書きして全画面化 */
+        inset: 0;
+        height: 100dvh;
+        max-height: none;
+        min-height: 0;
+        border-radius: 0;
+        border-top: none;
+    }
+    /* リサイズバー非表示（ドラッグ不要） */
+    #panel-resize-handle {
+        display: none !important;
+    }
+    /* パネル表示中は背面スクロールを無効化 */
+    #app.mobile-study-open #main-reading-area {
+        overflow-y: hidden;
+    }
 }
 
 @media (min-width: 901px) {
@@ -629,9 +648,7 @@ border-radius: var(--radius-s); cursor: pointer; transition: all var(--transitio
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 44px;
-    min-height: 44px;
-    padding: 2px 5px;
+    padding: 2px 6px;
     background: none;
     border: none;
     cursor: pointer;
@@ -642,6 +659,9 @@ border-radius: var(--radius-s); cursor: pointer; transition: all var(--transitio
     transition: background var(--transition-fast), color var(--transition-fast);
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+}
+@media (max-width: 768px) {
+    .gbc-ch-arrow { min-width: 36px; min-height: 36px; padding: 4px 6px; }
 }
 .gbc-ch-arrow:hover:not(:disabled) {
     background: rgba(0,0,0,0.06);
@@ -1765,6 +1785,16 @@ animation: ac-blink 1.2s ease-in-out infinite;
 .static-page p { color: var(--text-sub); margin: var(--space-sm) 0; }
 /* Changelog: 各リリースの「なぜ変えたか」を表す1行。区切り線は使わず余白のみで区切る。 */
 .static-page p.changelog-story { font-size: var(--text-caption); }
+/* Roadmap: イントロ文 */
+.static-page p.roadmap-intro { color: var(--text-sub); margin-bottom: var(--space-lg); }
+/* Roadmap: 各項目カード */
+.static-page .roadmap-item {
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid var(--border-light, rgba(0,0,0,.06));
+}
+.static-page .roadmap-item:last-child { border-bottom: none; }
+.static-page .roadmap-item-title { color: var(--text-main); font-size: var(--text-body); margin-bottom: 2px; }
+.static-page .roadmap-item-detail { color: var(--text-sub); font-size: var(--text-caption); line-height: 1.6; }
 .static-page ul { padding-left: var(--space-md); color: var(--text-sub); }
 .static-page li { margin-bottom: var(--space-sm); }
 .static-page strong { color: var(--text-main); }
@@ -1873,6 +1903,32 @@ animation: ac-blink 1.2s ease-in-out infinite;
 .static-page .tab-content { display: none; }
 .static-page .tab-content.active { display: block; animation: spFadeIn var(--transition-base); }
 @keyframes spFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: var(--opacity-primary); transform: translateY(0); } }
+/* ── モバイル（768px以下）静的ページ余白最適化 ── */
+@media (max-width: 768px) {
+    /* 親コンテナの横 padding をゼロにして静的ページ側で制御 */
+    #main-reading-area.static-view #bible-text-area {
+        padding-left: 0;
+        padding-right: 0;
+    }
+    /* 静的ページ本体：max-width を解除し、左右 14px 余白のみ */
+    .static-page {
+        max-width: none;
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+    /* タブバーを画面幅いっぱいに広げる（sticky 背景も端まで届かせる） */
+    .static-page .tabs {
+        margin-left: -14px;
+        margin-right: -14px;
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+    /* Card の余分な左右余白を除去 */
+    .static-page .card {
+        margin-left: 0;
+        margin-right: 0;
+    }
+}
 
 /* - 語形リスト行（Study panel内の一覧用：既存互換のため残す） -
    箱型カードではなく、下線区切りのみのフラットな行にする（card乱立を避ける）。
@@ -3758,6 +3814,10 @@ details[open] .study-summary::before {
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
             <span>まめ知識</span>
         </button>
+        <button class="info-card-item" onclick="closeInfoCard();showRoadmap()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>ロードマップ</span>
+        </button>
         <button class="info-card-item" onclick="closeInfoCard();showChangelog()">
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
             <span>更新情報</span>
@@ -3993,7 +4053,7 @@ const AppState = {
     scrollTop: 0,
 
     /* UI状態（ヘッダー/パンくず/サイドバーの選択表示の唯一のソース）。
-       'bible' | 'bookmarks' | 'notes' | 'recentVerses' | 'recentWords' | 'sourcePolicy' | 'knowledge' */
+       'bible' | 'bookmarks' | 'notes' | 'recentVerses' | 'recentWords' | 'sourcePolicy' | 'knowledge' | 'roadmap' | 'changelog' */
     ui: {
         view: 'bible',
     },
@@ -4658,6 +4718,8 @@ function panelGoBack() {
 
 /* 内部: パネルを閉じてReadingへ（depth stackは変えない） */
 function _syncReadingPanelPadding() {
+    /* 全画面モードではパネルが背面を覆うため padding 補正は不要 */
+    if (window.innerWidth <= 768) return;
     const area  = document.getElementById('main-reading-area');
     const panel = document.getElementById('bottom-depth-panel');
     if (!area || !panel) return;
@@ -4761,6 +4823,8 @@ function _findVisibleVerseBlock(vNum) {
  */
 function _adjustReadingAreaForPanel(wasOpen) {
     if (wasOpen) return;
+    /* 全画面モードではパネルが画面全体を覆うため位置調整不要 */
+    if (window.innerWidth <= 768) return;
 
     const mainArea = document.getElementById('main-reading-area');
     if (!mainArea) return;
@@ -7604,6 +7668,58 @@ function showAppInfo() {
 }
 
 /* ══════════════════════════════════════════
+   Roadmap（ロードマップ）
+   データは ./assets/data/roadmap.json から取得する（コードへのハードコード禁止）。
+   各カテゴリは { category, summary, items[] } の形をとる。
+   items は { title, detail } を持つ。
+   ══════════════════════════════════════════ */
+
+async function showRoadmap() {
+    closeMobileSidebar();
+    const app = document.getElementById('bible-text-area');
+
+    document.getElementById('main-reading-area').classList.add('single-mode');
+    document.getElementById('main-reading-area').classList.add('static-view');
+    document.getElementById('main-reading-area').scrollTop = 0;
+
+    AppState.ui.view = 'roadmap';
+    syncUIFromState();
+
+    let categories = [];
+    try {
+        const res = await fetch('../assets/data/roadmap.json');
+        if (res.ok) categories = await res.json();
+    } catch (e) {
+        console.warn('[Roadmap] roadmap.json の取得に失敗しました:', e);
+    }
+
+    const sectionsHtml = categories.map(cat => {
+        const itemsHtml = (cat.items || []).map(item => `
+            <div class="roadmap-item">
+                <div class="roadmap-item-title">${_escH(item.title)}</div>
+                <div class="roadmap-item-detail">${_escH(item.detail)}</div>
+            </div>`).join('');
+        return `
+            <section>
+                <h3>${_escH(cat.category)}</h3>
+                <p class="changelog-story">${_escH(cat.summary)}</p>
+                ${itemsHtml}
+            </section>`;
+    }).join('');
+
+    const html = `
+        <div class="static-page">
+            <p class="roadmap-intro">このアプリが今後どのように成長するかをお伝えします。β版として利用いただいているあなたへの、現時点の見通しです。</p>
+            ${sectionsHtml}
+            <div class="back-wrap">
+                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+            </div>
+        </div>
+    `;
+    app.innerHTML = html;
+}
+
+/* ══════════════════════════════════════════
    Changelog（更新情報）
    データは ./assets/data/changelog.json から取得する（コードへのハードコード禁止）。
    各リリースは { version, date, title, story, changes[] } の形をとる
@@ -8537,6 +8653,95 @@ async function _getWallaceClauseAnalysis(words) {
 const _PHRASE_READING_PRIORITY = { NP: 0, PP: 1, PtcP: 2 };
 const _PHRASE_READING_MAX_SPAN = 7;
 
+/* ── PhraseRenderer v0.1: 前置詞句（PP）の日本語化 ──────────────────
+   PP のみ語順を組み替え「modifier + head + 前置詞訳」で自然な日本語を生成。
+   その他の句種はトークンの w.japanese → w.text を連結する（フォールバック）。 */
+const _PP_TRANS_JP = {
+    'ἐν':  ()  => 'の中で',
+    'εἰς': ()  => 'へ',
+    'ἐκ':  ()  => 'から',
+    'ἀπό': ()  => 'から',
+    'διά': (c) => c === 'genitive' ? 'によって' : 'を通して',
+    'μετά':(c) => c === 'genitive' ? 'とともに' : 'の後で',
+    'κατά':()  => 'に従って',
+};
+
+function _buildPhraseContext(p, end, words) {
+    const jaOf   = w => _escH((w && (w.japanese || w.text)) || '');
+    const tokens = words.slice(p.start, end + 1);
+
+    let prep      = null;
+    let head      = null;
+    const modifiers = [];
+
+    if (p.type === 'PP') {
+        const prepWord  = words[p.start];
+        const prepLemma = (prepWord && prepWord.lemma) || (prepWord && prepWord.text) || '';
+        if (prepWord) prep = { lemma: prepLemma, ja: jaOf(prepWord) };
+
+        const headIdx  = (p.head != null && p.head <= end) ? p.head : end;
+        const headWord = words[headIdx];
+        if (headWord) head = { ja: jaOf(headWord) };
+
+        for (let k = p.start + 1; k < headIdx; k++) {
+            const t = jaOf(words[k]);
+            if (t) modifiers.push({ ja: t });
+        }
+    } else if (p.type === 'NP' || p.type === 'PtcP') {
+        // NP : head = 最後の N（p.head）、modifiers = 先行する T/A
+        // PtcP: head = 分詞（p.end）、  modifiers = 先行冠詞（あれば）
+        const headIdx  = (p.head != null && p.head <= end) ? p.head : end;
+        const headWord = words[headIdx];
+        if (headWord) head = { ja: jaOf(headWord) };
+
+        for (let k = p.start; k < headIdx; k++) {
+            const t = jaOf(words[k]);
+            if (t) modifiers.push({ ja: t });
+        }
+    }
+
+    return { type: p.type, tokens, prep, head, modifiers,
+             start: p.start, end, case: p.case || '' };
+}
+
+function _renderDefault(ctx) {
+    return ctx.tokens
+        .map(w => _escH((w && (w.japanese || w.text)) || ''))
+        .filter(Boolean).join('');
+}
+
+function _renderPP(ctx) {
+    const modJa    = ctx.modifiers.map(m => m.ja).join('');
+    const headJa   = ctx.head ? ctx.head.ja : '';
+    const suffixFn = ctx.prep ? _PP_TRANS_JP[ctx.prep.lemma] : null;
+    const suffix   = suffixFn ? suffixFn(ctx.case) : (ctx.prep ? ctx.prep.ja : '');
+    return modJa + headJa + suffix;
+}
+
+function _renderNP(ctx) {
+    const modJa  = ctx.modifiers.map(m => m.ja).filter(Boolean).join('');
+    const headJa = ctx.head ? ctx.head.ja : '';
+    return modJa + headJa;
+}
+
+function _renderParticipial(ctx) {
+    const modJa  = ctx.modifiers.map(m => m.ja).filter(Boolean).join('');
+    const headJa = ctx.head ? ctx.head.ja : '';
+    return modJa + headJa;
+}
+
+const _PHRASE_RENDERERS = {
+    PP:   _renderPP,
+    NP:   _renderNP,
+    PtcP: _renderParticipial,
+};
+
+function renderPhraseJP(p, end, words) {
+    const ctx    = _buildPhraseContext(p, end, words);
+    const render = _PHRASE_RENDERERS[ctx.type] || _renderDefault;
+    return render(ctx);
+}
+
 function _phraseReadingSentence(kind, quoted) {
     switch (kind) {
         case 'PP':   return `「${quoted}」は、ひとつづきのまとまりです。`;
@@ -8594,7 +8799,7 @@ async function _buildPhraseReadingHTML(words, idx) {
         (a.end - a.start) - (b.end - b.start));
 
     const quoteOf = (s, e) => words.slice(s, e + 1)
-        .map(w => _escH((w && w.text) || '')).filter(Boolean).join(' ');
+        .map(w => _escH((w && (w.japanese || w.text)) || '')).filter(Boolean).join('');
 
     const seen = new Set();
     const lines = [];
@@ -8604,7 +8809,7 @@ async function _buildPhraseReadingHTML(words, idx) {
         seen.add(key);
         const trimmedEnd = _trimPhraseEnd(words, p);
         if (trimmedEnd - p.start < 1 || idx > trimmedEnd) continue;   // 縮めて成立しなければ沈黙
-        const quoted = quoteOf(p.start, trimmedEnd);
+        const quoted = renderPhraseJP(p, trimmedEnd, words);
         if (!quoted) continue;
         lines.push(_phraseReadingSentence(p.type, quoted));
 
@@ -8621,7 +8826,7 @@ async function _buildPhraseReadingHTML(words, idx) {
                 headIdx >= 0 && g.start > headIdx && g.end <= trimmedEnd);
             if (inner && headIdx >= 0) {
                 const genQ = quoteOf(inner.start, inner.end);
-                const headW = _escH(words[headIdx]?.text || '');
+                const headW = _escH(words[headIdx]?.japanese || words[headIdx]?.text || '');
                 if (genQ && headW) lines.push(`「${genQ}」が「${headW}」を説明しています。`);
             }
         }
@@ -8693,7 +8898,7 @@ async function _buildObservationHTML(words, idx, existingTexts) {
     }
     if (!make) return null;
 
-    const quoted = _escH((words[idx] && words[idx].text) || '');
+    const quoted = _escH((words[idx] && (words[idx].japanese || words[idx].text)) || '');
     if (!quoted) return null;
     const line = make(quoted);
 
@@ -8789,6 +8994,21 @@ async function _fillWallacePassageNote(words, container) {
     if (!html) return;                                   // 静寂優先：空スロットのまま
     const slot = container && container.querySelector('#wlv-passage-note-slot');
     if (slot) slot.outerHTML = html;
+    /* 語ドロワーと同一文なら非表示（_fillWlvResonance より後に完了した場合の再チェック） */
+    const ddReso = document.getElementById('wlv-dd-resonance');
+    _syncWlvPassageNoteVisibility((ddReso?.textContent || '').trim());
+}
+
+/**
+ * 語ドロワーの resonance テキストと「この節の読書メモ」を比較し、
+ * 同一文の場合は読書メモを非表示にする。
+ * @param {string} resoText - #wlv-dd-resonance の現在のテキスト（trim済み）
+ */
+function _syncWlvPassageNoteVisibility(resoText) {
+    const pnEl = document.querySelector('.wlv-reading-passage-note');
+    if (!pnEl) return;
+    const pnText = (pnEl.querySelector('.wlv-pn-prose p')?.textContent || '').trim();
+    pnEl.style.display = (resoText && pnText && resoText === pnText) ? 'none' : '';
 }
 
 /* ═════════════════════════════════════════════════════════════════
@@ -8889,6 +9109,8 @@ async function _fillWlvResonance(ddReso, words, idx) {
     const sentence = await _buildWordResonanceText(words, idx);
     if (myGen !== _wlvResonanceGen) return; // 既に別の語に移動済み
     if (sentence) ddReso.textContent = sentence;
+    /* 節全体の読書メモと同一文なら非表示 */
+    _syncWlvPassageNoteVisibility((sentence || '').trim());
 }
 
 
@@ -9340,6 +9562,8 @@ let _wlvWordCache = [];
     let startY = 0, startH = 0;
 
     handle.addEventListener('pointerdown', (e) => {
+        /* 768px以下は全画面モードのためリサイズ不要 */
+        if (window.innerWidth <= 768) return;
         StudyPanelState.isDragging = true;
         startY = e.clientY;
         startH = panel.offsetHeight;
