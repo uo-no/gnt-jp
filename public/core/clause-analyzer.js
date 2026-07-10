@@ -1105,8 +1105,10 @@ const _WALLACE_TEXT = {
     CONTENT:
         'ここでは、その内容が具体的に明らかにされています。',
 
+    /* v1.0監査: 「補足的に」→「中身」へ。ὅτι 補語節は背景ではなく中身であり、
+       「補足」は背景系（UNCLASSIFIED / TRUE_NARRATIVE）専用の用語とする。 */
     COMPLEMENT:
-        'ここでは、その内容が補足的に示されています。',
+        'ここでは、その中身が示されています。',
 
     PURPOSE:
         'ここでは、その目的として何が意図されているかが示されています。',
@@ -1224,17 +1226,18 @@ const _CLAUSE_TYPE_TO_GLOSS_KEY = {
 //   - 「対比」「転換」を含む → B（CONTRAST_EXPLANATIONは自身の文に
 //     既に「転換されています」とあり、明確な意味の転換）
 //   - SIMILEはたとえ話への切替＝説明の仕方自体が変わるためBとした
-//   - 「補足」「展開」を含む → C（COMPLEMENT/UNCLASSIFIED/
-//     TRUE_NARRATIVEは文中に「補足」、EXPLANATORY_PURPOSEは目的の
-//     「展開」＝既出の目的を掘り下げる付加情報）
-//   - それ以外（理由・内容・目的・結果・条件など、新規の事実を
-//     ストレートに足すもの）→ A
+//   - 「補足」「展開」を含む → C（UNCLASSIFIED/TRUE_NARRATIVEは文中に
+//     「補足」、EXPLANATORY_PURPOSEは目的の「展開」＝既出の目的を
+//     掘り下げる付加情報）
+//   - それ以外（理由・内容・中身・目的・結果・条件など、新規の事実を
+//     ストレートに足すもの）→ A（COMPLEMENT は v1.0監査で「補足的に」→
+//     「中身」へ改めたため C から A に変更）
 // 未知のキー（将来追加分・combine()に渡された非_WALLACE_TEXT文）は
 // 既定で 'A'（最も控えめな「、」）にフォールバックする。
 const _CONNECTOR_TYPE_BY_KEY = {
     DISCOURSE_EXPLANATION: 'A',
     CONTENT:               'A',
-    COMPLEMENT:             'C',
+    COMPLEMENT:             'A',
     PURPOSE:                'A',
     EXPLANATORY_PURPOSE:    'C',
     RESULT:                 'A',
