@@ -1,6 +1,6 @@
 # Concept Coverage Report
 
-生成: 2026-07-11T23:22:50.953Z / コーパス: NT+LXX（617,364 トークン・31,090 節）
+生成: 2026-07-12T06:49:11.499Z / コーパス: NT+LXX（617,364 トークン・31,090 節）
 
 ## Current Concepts（監査1）
 
@@ -21,17 +21,44 @@
 | truth | 真理 | 4 | 350 | 51 | 323 |
 | peace | 平安 | 5 | 360 | 57 | 327 |
 | repentance | 悔い改め | 3 | 63 | 11 | 58 |
+| god | 神 | 2 | 4481 | 64 | 3835 |
+| holy-spirit | 御霊 | 2 | 697 | 58 | 631 |
+| christ | キリスト | 1 | 528 | 26 | 498 |
+| gospel | 福音 | 3 | 155 | 28 | 141 |
+| cross | 十字架 | 2 | 75 | 14 | 70 |
+| redemption | 贖い | 3 | 37 | 15 | 36 |
+| eternal-life | 永遠の命 | 1 | 319 | 44 | 301 |
+| reconciliation | 和解 | 2 | 11 | 4 | 8 |
+| church | 教会 | 1 | 191 | 32 | 184 |
+| disciple | 弟子 | 2 | 266 | 5 | 250 |
+| mission | 宣教 | 2 | 98 | 30 | 96 |
+| obedience | 従順 | 3 | 43 | 16 | 41 |
+| thanksgiving | 感謝 | 2 | 54 | 17 | 53 |
+| joy | 喜び | 2 | 197 | 40 | 175 |
+| perseverance | 忍耐 | 2 | 58 | 23 | 55 |
 
 ### Concept 内 lemma 別出現（監査4の根拠）
 
 | Concept | Lemma | Hits |
 |---|---|---|
+| christ | Χριστός | 528 |
+| church | ἐκκλησία | 191 |
+| cross | σταυρόω | 48 |
+| cross | σταυρός | 27 |
+| disciple | μαθητής | 262 |
+| disciple | μαθητεύω | 4 ⚠️ |
+| eternal-life | ζωή | 319 |
 | faith | πιστεύω | 290 |
 | faith | πίστις | 275 |
 | faith | πιστός | 112 |
 | glory | δόξα | 445 |
 | glory | δοξάζω | 132 |
 | glory | ἔνδοξος | 47 |
+| god | θεός | 4480 |
+| god | θεότης | 1 ⚠️ |
+| gospel | εὐαγγέλιον | 76 |
+| gospel | εὐαγγελίζω | 76 |
+| gospel | εὐαγγελιστής | 3 ⚠️ |
 | grace | χάρις | 232 |
 | grace | χαρίζομαι | 24 |
 | grace | χάρισμα | 17 |
@@ -40,20 +67,31 @@
 | holy | ὅσιος | 50 |
 | holy | ἁγιασμός | 12 |
 | holy | ἁγιωσύνη | 7 |
+| holy-spirit | πνεῦμα | 671 |
+| holy-spirit | πνευματικός | 26 |
 | hope | ἐλπίς | 131 |
 | hope | ἐλπίζω | 127 |
 | hope | προελπίζω | 1 ⚠️ |
+| joy | χαίρω | 115 |
+| joy | χαρά | 82 |
 | kingdom | βασιλεία | 453 |
 | kingdom | βασιλεύω | 363 |
 | love | ἀγαπάω | 353 |
 | love | ἀγάπη | 131 |
 | love | φιλέω | 53 |
 | love | φιλία | 10 |
+| mission | κηρύσσω | 87 |
+| mission | κήρυγμα | 11 |
+| obedience | ὑπακούω | 21 |
+| obedience | ὑπακοή | 15 |
+| obedience | ὑπήκοος | 7 |
 | peace | εἰρήνη | 306 |
 | peace | εἰρηνικός | 38 |
 | peace | εἰρηνεύω | 13 |
 | peace | εἰρηνοποιέω | 2 ⚠️ |
 | peace | εἰρηνοποιός | 1 ⚠️ |
+| perseverance | ὑπομονή | 41 |
+| perseverance | ὑπομένω | 17 |
 | prayer | προσευχή | 102 |
 | prayer | προσεύχομαι | 85 |
 | prayer | εὐχή | 77 |
@@ -61,6 +99,11 @@
 | prayer | εὔχομαι | 64 |
 | prayer | δέομαι | 26 |
 | prayer | ἔντευξις | 2 ⚠️ |
+| reconciliation | καταλλάσσω | 6 |
+| reconciliation | καταλλαγή | 5 |
+| redemption | λύτρον | 22 |
+| redemption | ἀπολύτρωσις | 10 |
+| redemption | λυτρωτής | 5 |
 | repentance | μετανοέω | 34 |
 | repentance | μετάνοια | 23 |
 | repentance | μεταμέλομαι | 6 |
@@ -80,6 +123,8 @@
 | sin | ἁμαρτάνω | 239 |
 | sin | ἁμαρτωλός | 136 |
 | sin | ἁμάρτημα | 24 |
+| thanksgiving | εὐχαριστέω | 38 |
+| thanksgiving | εὐχαριστία | 16 |
 | truth | ἀλήθεια | 240 |
 | truth | ἀληθινός | 66 |
 | truth | ἀληθής | 38 |
@@ -94,7 +139,6 @@
 | 主 | 8226 | 7 | κύριος κυριεύω παράκλητος χρεοφειλέτης κυριακός | repeated gloss cluster |
 | 子 | 5362 | 13 | υἱός τέκνον παιδίον ἔριφος πῶλος | repeated gloss cluster |
 | 行 | 4748 | 31 | ποιέω πορεύομαι ἀδικέω πράσσω κακοποιέω | repeated gloss cluster |
-| 神 | 4505 | 9 | θεός θεῖος θεοσεβής θεομάχος θεοστυγής | repeated gloss cluster |
 | 言 | 4490 | 18 | λέγω φημί ῥέω κωφός παράδοσις | repeated gloss cluster |
 | 人 | 2974 | 64 | ἄνθρωπος Ἰουδαῖος Λευίτης Αἰγύπτιος Φαρισαῖος | repeated gloss cluster |
 | 王 | 2760 | 3 | βασιλεύς βασιλικός βασίλειος | repeated gloss cluster |
@@ -116,15 +160,15 @@
 | 名 | 1112 | 2 | ὄνομα τοὔνομα | repeated gloss cluster |
 | 女 | 1039 | 8 | γυνή θῆλυς γυναικεῖος γυνή μόδιος | repeated gloss cluster |
 | 生 | 1016 | 21 | ζάω γεννάω ζῷον φύω ζῳοποιέω | repeated gloss cluster |
+| 持 | 1006 | 8 | ἔχω κομίζω εἰσφέρω ἀντέχομαι καταφέρω | repeated gloss cluster |
 
 ### (a2) シードテーマの実測（神学的候補・自動追加はしない）
 
 | Theme | Hits | Lemma数 | 代表 lemma | reason |
 |---|---|---|---|---|
-| 霊 | 672 | 2 | πνεῦμα πύθων | repeated gloss cluster |
+| 霊 | 1 | 1 | πύθων | repeated gloss cluster |
 | 命 | 118 | 11 | παραγγέλλω κελεύω διατάσσω ἐντέλλομαι ἐπιτάσσω | repeated gloss cluster |
 | 死 | 935 | 14 | θάνατος νεκρός θανατόω ἀποθνῄσκω τελευτάω | repeated gloss cluster |
-| 従順 | 23 | 3 | ὑπακοή ὑπήκοος εὐπειθής | repeated gloss cluster |
 
 ### (b) 高頻度 Louw-Nida ドメイン（参考: domain 軸は未公開）
 
@@ -154,7 +198,6 @@
 | εἰμί | 〜である | 7824 |
 | πᾶς | すべての | 6495 |
 | υἱός | 子 | 4861 |
-| θεός | 神 | 4480 |
 | λέγω | 言う | 4258 |
 | εἶπον |  | 3813 |
 | ποιέω | 行う | 3285 |
@@ -170,10 +213,11 @@
 | ὁράω | 見る | 1672 |
 | ἄνθρωπος | 人 | 1643 |
 | ἀνήρ | 男 | 1592 |
+| πατήρ | 父 | 1525 |
 
 ## Balance（監査3）
 
-High: holy 1128 ／ Low: resurrection 52 ／ 比率 21.7倍
+High: god 4481 ／ Low: reconciliation 11 ／ 比率 407.4倍
 
 ## WARNING
 
@@ -184,6 +228,9 @@ High: holy 1128 ／ Low: resurrection 52 ／ 比率 21.7倍
 - ⚠️ [lemma] hope: προελπίζω の出現はわずか 1 回（孤立 lemma）
 - ⚠️ [lemma] peace: εἰρηνοποιέω の出現はわずか 2 回（孤立 lemma）
 - ⚠️ [lemma] peace: εἰρηνοποιός の出現はわずか 1 回（孤立 lemma）
-- ⚠️ [balance] 出現数の偏りが 21.7倍: High holy 1128 / Low resurrection 52
+- ⚠️ [lemma] god: θεότης の出現はわずか 1 回（孤立 lemma）
+- ⚠️ [lemma] gospel: εὐαγγελιστής の出現はわずか 3 回（孤立 lemma）
+- ⚠️ [lemma] disciple: μαθητεύω の出現はわずか 4 回（孤立 lemma）
+- ⚠️ [balance] 出現数の偏りが 407.4倍: High god 4481 / Low reconciliation 11
 
-**STATUS: PASS**（FAIL 0 / WARNING 8）
+**STATUS: PASS**（FAIL 0 / WARNING 11）

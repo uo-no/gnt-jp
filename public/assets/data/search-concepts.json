@@ -1,8 +1,8 @@
 {
-  "version": 5,
+  "version": 7,
   "description": "概念検索（Concept Search）。Phase 4-1: Concept は検索を実行せず、日本語の検索語を Term[] へ展開するだけの層（Concept → Term[] → 既存 resolveTerm → 既存検索 の一方向）。label / aliases への完全一致でのみ発火し、未登録語の検索は従来と100%同一。Phase 4-2: Knowledge Graph の土台として schema を拡張。Phase 5-1: 15概念へ拡張（terms の lemma は全て bible_data/lemma_dict.json の実在キーで検証済み。追加・編集時は scripts/concept-audit.cjs と scripts/concept-coverage-audit.cjs を必ず実行する）。検索に使うのは terms のみ。",
   "schema_note": {
-    "aliases": "検索語の揺れ（label と同じく完全一致で発火）。日本語の概念揺れ（動詞形・受身・表記揺れ・定型句）を吸収する入口であり、語形変化の網羅ではない。高信頼（その語が当該概念以外を指さない）のもののみ登録し、曖昧語（例: 正しい/誉れ/まこと/清い/和解/天国）は登録しない。追加時は scripts/concept-audit.cjs の alias 品質検査（衝突・重複・空文字・1文字）を必ず通す。",
+    "aliases": "検索語の揺れ（label と同じく完全一致で発火）。日本語の概念揺れ（動詞形・受身・表記揺れ・定型句）を吸収する入口であり、語形変化の網羅ではない。高信頼（その語が当該概念以外を指さない）のもののみ登録し、曖昧語（例: 正しい/誉れ/まこと/清い/和解/天国）は登録しない。追加時は scripts/concept-audit.cjs の alias 品質検査（衝突・重複・空文字・1文字）を必ず通す。また、将来独立 Concept として成立し得る語（例: 賜物・赦し・礼拝など）は既存 Concept の alias として安易に吸収しない。",
     "terms": "既存どおり resolveTerm() に渡す Term 群（唯一の検索使用フィールド）",
     "patterns": "search-patterns.json の Pattern ID。Concept Insight（Phase 4-3）が『関連する検索』として表示し、クリックは既存 runPatternSearch() を呼ぶだけ",
     "domains": "Louw-Nida domain コード（Concept Graph の意味情報層・Phase 5-3 方針）。【責務】内部メタデータ専用: ユーザー検索の入口には追加しない・resolveTerm の domain 軸は作らない・検索件数に影響してはならない。将来の用途は Concept Insight での意味情報表示（表示のみ）に限る — ただし表示ラベルの正典が必要なため、semantic-domain-labels.json のタイトルずれ（クラスタ索引と不一致）を修復するまで表示にも使わない。【投入条件】①domains-cluster-index.json のクラスタに概念の主要 lemma（Strong ID）が所属 ②実測分布（concept-coverage）で占有率 ≥30% の二重検証を通ったコードのみ。表示ラベルの写しは持たない（コードのみが正。{id,label} 形式も許容し、audit が写し一致を検査する）。曖昧な概念（glory）は空のまま。",
@@ -62,7 +62,8 @@
         }
       ],
       "related": [
-        "faith"
+        "faith",
+        "thanksgiving"
       ],
       "children": []
     },
@@ -110,7 +111,9 @@
       "label": "信仰",
       "aliases": [
         "信じる",
-        "信頼"
+        "信頼",
+        "忠実",
+        "忠実な"
       ],
       "terms": [
         {
@@ -138,7 +141,9 @@
         "prayer",
         "righteousness",
         "hope",
-        "truth"
+        "truth",
+        "obedience",
+        "perseverance"
       ],
       "children": []
     },
@@ -182,7 +187,13 @@
         "sin",
         "resurrection",
         "hope",
-        "repentance"
+        "repentance",
+        "christ",
+        "gospel",
+        "cross",
+        "redemption",
+        "eternal-life",
+        "reconciliation"
       ],
       "children": []
     },
@@ -215,7 +226,9 @@
       "related": [
         "love",
         "salvation",
-        "peace"
+        "peace",
+        "god",
+        "redemption"
       ],
       "children": []
     },
@@ -329,7 +342,8 @@
       ],
       "syntaxTypes": [],
       "related": [
-        "glory"
+        "glory",
+        "holy-spirit"
       ],
       "children": []
     },
@@ -358,7 +372,9 @@
       "syntaxTypes": [],
       "related": [
         "righteousness",
-        "glory"
+        "glory",
+        "god",
+        "gospel"
       ],
       "children": []
     },
@@ -387,7 +403,8 @@
       "syntaxTypes": [],
       "related": [
         "holy",
-        "kingdom"
+        "kingdom",
+        "god"
       ],
       "children": []
     },
@@ -423,7 +440,8 @@
       "syntaxTypes": [],
       "related": [
         "hope",
-        "salvation"
+        "salvation",
+        "eternal-life"
       ],
       "children": []
     },
@@ -432,7 +450,8 @@
       "label": "希望",
       "aliases": [
         "望み",
-        "望む"
+        "望む",
+        "希望する"
       ],
       "terms": [
         {
@@ -456,7 +475,10 @@
       "related": [
         "faith",
         "resurrection",
-        "salvation"
+        "salvation",
+        "eternal-life",
+        "joy",
+        "perseverance"
       ],
       "children": []
     },
@@ -528,7 +550,9 @@
       ],
       "syntaxTypes": [],
       "related": [
-        "grace"
+        "grace",
+        "reconciliation",
+        "joy"
       ],
       "children": []
     },
@@ -561,6 +585,393 @@
       "related": [
         "sin",
         "salvation"
+      ],
+      "children": []
+    },
+    {
+      "id": "god",
+      "label": "神",
+      "aliases": [
+        "神性"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "θεός"
+        },
+        {
+          "axis": "lemma",
+          "value": "θεότης"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "glory",
+        "kingdom",
+        "grace",
+        "holy-spirit"
+      ],
+      "children": []
+    },
+    {
+      "id": "holy-spirit",
+      "label": "御霊",
+      "aliases": [
+        "聖霊"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "πνεῦμα"
+        },
+        {
+          "axis": "lemma",
+          "value": "πνευματικός"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "holy",
+        "god"
+      ],
+      "children": []
+    },
+    {
+      "id": "christ",
+      "label": "キリスト",
+      "aliases": [
+        "メシア"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "Χριστός"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "salvation",
+        "gospel"
+      ],
+      "children": []
+    },
+    {
+      "id": "gospel",
+      "label": "福音",
+      "aliases": [
+        "良い知らせ",
+        "福音を伝える"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "εὐαγγέλιον"
+        },
+        {
+          "axis": "lemma",
+          "value": "εὐαγγελίζω"
+        },
+        {
+          "axis": "lemma",
+          "value": "εὐαγγελιστής"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "salvation",
+        "kingdom",
+        "christ",
+        "mission"
+      ],
+      "children": []
+    },
+    {
+      "id": "cross",
+      "label": "十字架",
+      "aliases": [
+        "十字架につける"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "σταυρός"
+        },
+        {
+          "axis": "lemma",
+          "value": "σταυρόω"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "salvation",
+        "redemption"
+      ],
+      "children": []
+    },
+    {
+      "id": "redemption",
+      "label": "贖い",
+      "aliases": [
+        "あがない",
+        "贖う"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "ἀπολύτρωσις"
+        },
+        {
+          "axis": "lemma",
+          "value": "λύτρον"
+        },
+        {
+          "axis": "lemma",
+          "value": "λυτρωτής"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "salvation",
+        "grace",
+        "cross"
+      ],
+      "children": []
+    },
+    {
+      "id": "eternal-life",
+      "label": "永遠の命",
+      "aliases": [
+        "いのち",
+        "永遠のいのち"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "ζωή"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "salvation",
+        "resurrection",
+        "hope"
+      ],
+      "children": []
+    },
+    {
+      "id": "reconciliation",
+      "label": "和解",
+      "aliases": [
+        "和解する"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "καταλλαγή"
+        },
+        {
+          "axis": "lemma",
+          "value": "καταλλάσσω"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "peace",
+        "salvation"
+      ],
+      "children": []
+    },
+    {
+      "id": "church",
+      "label": "教会",
+      "aliases": [
+        "集会"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "ἐκκλησία"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "disciple",
+        "mission"
+      ],
+      "children": []
+    },
+    {
+      "id": "disciple",
+      "label": "弟子",
+      "aliases": [
+        "弟子とする"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "μαθητής"
+        },
+        {
+          "axis": "lemma",
+          "value": "μαθητεύω"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "church",
+        "obedience"
+      ],
+      "children": []
+    },
+    {
+      "id": "mission",
+      "label": "宣教",
+      "aliases": [
+        "宣べ伝える",
+        "伝道"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "κηρύσσω"
+        },
+        {
+          "axis": "lemma",
+          "value": "κήρυγμα"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "gospel",
+        "church"
+      ],
+      "children": []
+    },
+    {
+      "id": "obedience",
+      "label": "従順",
+      "aliases": [
+        "従う"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "ὑπακοή"
+        },
+        {
+          "axis": "lemma",
+          "value": "ὑπακούω"
+        },
+        {
+          "axis": "lemma",
+          "value": "ὑπήκοος"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "faith",
+        "disciple"
+      ],
+      "children": []
+    },
+    {
+      "id": "thanksgiving",
+      "label": "感謝",
+      "aliases": [
+        "感謝する"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "εὐχαριστία"
+        },
+        {
+          "axis": "lemma",
+          "value": "εὐχαριστέω"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "joy",
+        "prayer"
+      ],
+      "children": []
+    },
+    {
+      "id": "joy",
+      "label": "喜び",
+      "aliases": [
+        "喜ぶ"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "χαρά"
+        },
+        {
+          "axis": "lemma",
+          "value": "χαίρω"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "thanksgiving",
+        "peace",
+        "hope"
+      ],
+      "children": []
+    },
+    {
+      "id": "perseverance",
+      "label": "忍耐",
+      "aliases": [
+        "耐え忍ぶ",
+        "忍耐する"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "ὑπομονή"
+        },
+        {
+          "axis": "lemma",
+          "value": "ὑπομένω"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "hope",
+        "faith"
       ],
       "children": []
     }
