@@ -503,6 +503,62 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .layer-chip.morph  { background: var(--morph-bg);  color: var(--morph);  border-color: var(--morph-border); }
 .layer-chip:hover { opacity: 0.75; }
 
+/* ── Concept Insight（Phase 4-3）: 表示専用の知識カード。
+      値はすべて既存 tokens.css のトークンのみ（新色・新余白値なし）。
+      チップは既存 .layer-chip 体系を流用する ── */
+#concept-insight {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-m);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+.ci-header {
+    font-size: var(--text-caption);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--text-sub);
+    opacity: var(--opacity-secondary);
+    margin-bottom: var(--space-sm);
+}
+.ci-section { margin-top: var(--space-sm); }
+.ci-section:first-of-type { margin-top: 0; }
+.ci-section-title {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    margin-bottom: var(--space-xs);
+}
+.ci-chips { justify-content: flex-start; }
+
+/* 関連するギリシャ語（Phase 6-2）: 語彙 → 語義 → 出現数 → 辞書の導線行。
+   値はすべて既存トークンのみ */
+.ci-lex { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.ci-lex-row {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-s);
+    background: var(--bg);
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+}
+.ci-lex-row:hover { opacity: var(--opacity-secondary); }
+.ci-lex-greek {
+    font-family: var(--font-greek);
+    font-size: var(--text-body-lg);
+    color: var(--text-main);
+}
+.ci-lex-gloss {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+}
+.ci-lex-count {
+    font-size: var(--text-caption);
+    color: var(--text-hint);
+}
+
 .spinner {
     width: 32px; height: 32px; border-radius: 50%;
     border: 3px solid var(--bg-panel);
@@ -1075,6 +1131,14 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
             <span class="layer-chip prox"   onclick="activateLayer('prox')">近くに出てくる語</span>
             <span class="layer-chip morph"  onclick="activateLayer('morph')">品詞・語形で絞る</span>
         </div>
+        <!-- パターン検索（Pattern Search Phase 3）: 保存された Term クエリの入口。
+             search-patterns.json の読み込みに失敗した場合は非表示のまま
+             （既存UIへの影響ゼロ）。チップは既存 layer-chip の体系を流用し、
+             共起検索の prox 色を使う（新しい色は追加しない）。 -->
+        <div id="pattern-search-section" style="display:none;margin-top:var(--space-lg);">
+            <div class="empty-desc" style="margin-bottom:var(--space-sm);">パターン検索 — 文法的な問いから探す</div>
+            <div class="layer-chips" id="pattern-chips"></div>
+        </div>
     </div>
 
     <!-- Loading state -->
@@ -1089,6 +1153,10 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
         <span class="result-count" id="result-count"></span>
         <div class="result-layer-badges" id="result-layer-badges"></div>
     </div>
+
+    <!-- Concept Insight（Phase 4-3）: Concept 発火時のみ表示される知識カード。
+         表示専用 — 検索件数・順位・ロジックには一切関与しない -->
+    <div id="concept-insight" style="display:none;"></div>
 
     <!-- Results body -->
     <div id="result-body" style="display:none;">
@@ -1663,11 +1731,136 @@ function searchStrong(tokens,word){
     tokens.forEach(t=>{if(normalizeStrong(t.strong)===normWord)s.add(t.globalIdx);});
     return s;
 }
+/* ============================================================
+   Term 抽象（Pattern Search Phase 1）
+   検索条件を「軸 + 値」の Term オブジェクトで表す共通モデル。
+   resolveTerm() が唯一の解決器（Term → Set<globalIdx>）で、
+   既存の resolveIndices() はクエリ文字列を termFromQuery() で
+   Term へ変換してここに委譲する（挙動は完全に不変 — 委譲先は
+   従来と同じ searchGreek / searchJapanese / searchStrong）。
+
+   Term 形式:
+     { axis: 'lemma'|'japanese'|'strong'|'morph', value: string }
+     morph は2形式:
+       { axis:'morph', value:'V-PAM-2P' }                 … morphタグ完全一致
+       { axis:'morph', field:'mood', value:'imperative' } … 分解フィールド一致
+         field: pos | tense | voice | mood | case | number | gender | person
+         value: トークンの英語小文字値（例 imperative / subjunctive / aorist）
+
+   将来の共起検索（Phase 2）は、resolveTerm が返す Set<globalIdx>
+   同士の距離/節スコープの集合演算としてこの上に載せる。
+   解決ロジックを resolveTerm の外に増やさないこと。
+   ============================================================ */
+const _MORPH_TERM_FIELDS = ['tense','voice','mood','case','number','gender','person'];
+
+/* 英語値 → morphタグ1文字（Robinson-Pierpont。_morphMatchesPatternVerbose と同じ体系） */
+const _MORPH_TAG_CODE = {
+    tense:  { present:'P', imperfect:'I', future:'F', aorist:'A', perfect:'X', pluperfect:'Z' },
+    voice:  { active:'A', middle:'M', passive:'P' },
+    mood:   { indicative:'I', subjunctive:'S', optative:'O', imperative:'M', infinitive:'N', participle:'P' },
+    case:   { nominative:'N', genitive:'G', dative:'D', accusative:'A', vocative:'V' },
+    number: { singular:'S', plural:'P' },
+    gender: { masculine:'M', feminine:'F', neuter:'N' },
+    person: { '1':'1', '2':'2', '3':'3' },
+};
+
+/* morphタグから分解フィールドの1文字コードを取り出す。
+   動詞: V-[tense][voice][mood](-[person][num] | 分詞は -[case][num][gen])
+   名詞類: POS-([person])[case][num][gen] */
+function _morphFieldFromTag(morph, field) {
+    const parts = String(morph || '').split('-');
+    if ((parts[0] || '') === 'V') {
+        const tvm = parts[1] || '', tail = parts[2] || '';
+        if (field === 'tense') return tvm[0] || '';
+        if (field === 'voice') return tvm[1] || '';
+        if (field === 'mood')  return tvm[2] || '';
+        if (tvm[2] === 'P') {   /* 分詞: tail = case/num/gen */
+            if (field === 'case')   return tail[0] || '';
+            if (field === 'number') return tail[1] || '';
+            if (field === 'gender') return tail[2] || '';
+            return '';
+        }
+        if (field === 'person') return tail.length >= 2 ? tail[0] : '';
+        if (field === 'number') return tail ? tail[tail.length - 1] : '';
+        return '';
+    }
+    const seg = parts[1] || '';
+    const hasPerson = ['1', '2', '3'].includes(seg[0]);
+    const b = hasPerson ? seg.slice(1) : seg;
+    if (field === 'case')   return b[0] || '';
+    if (field === 'number') return b[1] || '';
+    if (field === 'gender') return b[2] || '';
+    if (field === 'person') return hasPerson ? seg[0] : '';
+    return '';
+}
+
+function _resolveMorphTerm(tokens, term) {
+    const s = new Set();
+    /* 形式1: morphタグ完全一致。全トークン対象なら既存 morphIndex を利用 */
+    if (!term.field) {
+        if (tokens === ALL_TOKENS && window.morphIndex) {
+            for (const gi of (window.morphIndex.get(term.value) || [])) s.add(gi);
+            return s;
+        }
+        for (const t of tokens) { if (t.morph === term.value) s.add(t.globalIdx); }
+        return s;
+    }
+    /* 形式2: 分解フィールド一致。
+       トークンに平坦フィールド（mood 等）があればそれを照合し、
+       無ければ morphタグから解読する（search-tool の軽量トークンはタグのみ）。
+       value は英語小文字（imperative 等）またはタグ1文字（M 等）を受ける */
+    const field = String(term.field).toLowerCase();
+    const val   = String(term.value).toLowerCase();
+    if (field === 'pos') {
+        for (const t of tokens) {
+            const posTag = String(t.morph || '').split('-')[0].toLowerCase();
+            if (posTag === val || String(t.class || '').toLowerCase() === val) s.add(t.globalIdx);
+        }
+        return s;
+    }
+    if (!_MORPH_TERM_FIELDS.includes(field)) return s;
+    const code = (_MORPH_TAG_CODE[field] || {})[val]
+        || (String(term.value).length === 1 ? String(term.value).toUpperCase() : null);
+    for (const t of tokens) {
+        const flat = t[field];
+        if (flat) {
+            /* 英語値の直接一致に加え、タグ1文字指定（M 等）でも
+               平坦フィールドを英語→コード変換して一致させる */
+            const flatLower = String(flat).toLowerCase();
+            if (flatLower === val ||
+                (code && (_MORPH_TAG_CODE[field] || {})[flatLower] === code)) {
+                s.add(t.globalIdx);
+            }
+            continue;
+        }
+        if (code && _morphFieldFromTag(t.morph, field) === code) s.add(t.globalIdx);
+    }
+    return s;
+}
+
+function resolveTerm(tokens, term) {
+    if (!term || !term.axis || term.value == null || term.value === '') return new Set();
+    switch (term.axis) {
+        /* lemma 軸は既存 searchGreek と同一挙動（表層形/lemma の正規化一致）。
+           resolveIndices の後方互換を最優先し Phase 1 では分離しない */
+        case 'lemma':    return searchGreek(tokens, term.value);
+        case 'japanese': return searchJapanese(tokens, term.value);
+        case 'strong':   return searchStrong(tokens, term.value);
+        case 'morph':    return _resolveMorphTerm(tokens, term);
+        default:         return new Set();
+    }
+}
+
+/* クエリ文字列 → Term（既存 detectQueryType の分類をそのまま写像） */
+function termFromQuery(word) {
+    const qtype = detectQueryType(word);
+    if (qtype === 'japanese') return { axis: 'japanese', value: word };
+    if (qtype === 'strong')   return { axis: 'strong',   value: word };
+    return { axis: 'lemma', value: word };
+}
+
 function resolveIndices(tokens,word){
-    const qtype=detectQueryType(word);
-    if(qtype==='japanese')return searchJapanese(tokens,word);
-    if(qtype==='strong')return searchStrong(tokens,word);
-    return searchGreek(tokens,word);
+    return resolveTerm(tokens, termFromQuery(word));
 }
 function matchToken(tok,word){
     if(!word)return false;
@@ -1908,6 +2101,342 @@ async function runProximitySearch({word1,word2=null,distance=5,scope='all',ref:_
         }
     }
     return{coocMap,hits,totalW1:w1GiList.length};
+}
+
+/* ============================================================
+   Term 共起検索（Pattern Search Phase 2）
+   Phase 1 の resolveTerm を使い、Term × Term の共起を検索する。
+   runProximitySearch（語×語）は変更しない並行実装で、戻り値は
+   同じ形式 {coocMap, hits, totalW1}（hits[].anchorIdx/start/end/tokens）。
+   既存の描画・グルーピング（groupHitsByLemma 等）がそのまま使える。
+
+   options:
+     scope:    'verse'（既定）… 同一節内（token.ref の節キー）に
+                termB のトークンが（anchor 自身とは別に）存在する
+               'window'        … 既存と同一の globalIdx 距離窓
+     distance: 窓の半径（scope='window' のみ・既定 5）
+
+   例（互いに＋命令形）:
+     runTermProximitySearch(
+         { axis:'lemma', value:'ἀλλήλων' },
+         { axis:'morph', field:'mood', value:'imperative' },
+         { scope:'verse' })
+
+   制約: 新インデックス禁止（実行時の集合演算のみ）。
+         Wallace registry / ClauseAnalyzer には触れない。
+   ============================================================ */
+function _verseKeyOf(tok) {
+    /* ref 'MAT 2:13!22' → 'MAT 2:13'。ref が無い場合は構造フィールドから組み立てる */
+    if (tok.ref) return String(tok.ref).split('!')[0];
+    return `${tok.bookKey || tok.book || ''} ${tok.ch ?? tok.chapter ?? ''}:${tok.verse ?? ''}`;
+}
+
+async function runTermProximitySearch(termA, termB, options = {}) {
+    const scope    = options.scope || 'verse';
+    const distance = options.distance ?? 5;
+    await _ensureFullIndex();
+    const _allToks = ALL_TOKENS;
+    const _giToTok = gi => _allToks[gi];
+
+    const aSet = resolveTerm(_allToks, termA);
+    const bSet = termB ? resolveTerm(_allToks, termB) : new Set();
+    const aGiList = [...aSet].sort((x, y) => x - y);
+    const coocMap = new Map(), hits = [];
+
+    /* verse スコープ用: 節キー → termB トークンの globalIdx 一覧 */
+    let bByVerse = null;
+    if (scope === 'verse' && termB) {
+        bByVerse = new Map();
+        for (const gi of bSet) {
+            const t = _giToTok(gi);
+            if (!t) continue;
+            const key = _verseKeyOf(t);
+            let arr = bByVerse.get(key);
+            if (!arr) { arr = []; bByVerse.set(key, arr); }
+            arr.push(gi);
+        }
+    }
+
+    /* anchor の節境界を globalIdx 連番上で前後に歩いて求める（節は連続配置） */
+    function _verseBounds(anchorGi) {
+        const key = _verseKeyOf(_giToTok(anchorGi));
+        let s = anchorGi, e = anchorGi;
+        while (s > 0 && _giToTok(s - 1) && _verseKeyOf(_giToTok(s - 1)) === key) s--;
+        while (e < _allToks.length - 1 && _giToTok(e + 1) && _verseKeyOf(_giToTok(e + 1)) === key) e++;
+        return [s, e];
+    }
+
+    for (const anchorGi of aGiList) {
+        let winStart, winEnd;
+        if (scope === 'verse') {
+            /* 共起判定: 同じ節に anchor 自身以外の termB トークンがあるか */
+            if (termB) {
+                const arr = bByVerse.get(_verseKeyOf(_giToTok(anchorGi)));
+                if (!arr || !arr.some(gi => gi !== anchorGi)) continue;
+            }
+            [winStart, winEnd] = _verseBounds(anchorGi);
+        } else {
+            winStart = Math.max(0, anchorGi - distance);
+            winEnd   = Math.min(_allToks.length - 1, anchorGi + distance);
+            if (termB) {
+                let found = false;
+                for (let gi = winStart; gi <= winEnd; gi++) {
+                    if (gi !== anchorGi && bSet.has(gi)) { found = true; break; }
+                }
+                if (!found) continue;
+            }
+        }
+        hits.push({ anchorIdx: anchorGi, start: winStart, end: winEnd, tokens: _allToks });
+        /* coocMap は既存 runProximitySearch と同じ重み付け・除外規則 */
+        for (let gi = winStart; gi <= winEnd; gi++) {
+            if (gi === anchorGi) continue;
+            const t = _giToTok(gi);
+            if (!t || !t.text || t.text.length < 2) continue;
+            if (STOP_WORDS.has(t.text)) continue;
+            if (aSet.has(gi)) continue;
+            const dist = Math.abs(gi - anchorGi);
+            const w = 1 / (dist + 1), key = t.text;
+            const e = coocMap.get(key) || { weightedScore: 0, rawCount: 0 };
+            e.weightedScore += w; e.rawCount += 1;
+            coocMap.set(key, e);
+        }
+    }
+    return { coocMap, hits, totalW1: aGiList.length };
+}
+
+/* ============================================================
+   パターン検索プリセット（Pattern Search Phase 3）
+   search-patterns.json（保存された Term クエリ）を読み込み、
+   空状態画面にチップとして表示する。実行は
+   runTermProximitySearch（Phase 2）のみ — 新しい検索エンジン・
+   インデックス・Wallace registry / ClauseAnalyzer には触れない。
+   結果表示は既存の統合検索レンダラ（_renderUnifiedResults）を
+   そのまま再利用する（prox レイヤーと同じグローバル形状に詰める）。
+   読み込み失敗時は入口が出ないだけで、既存UI・既存検索は不変。
+   ============================================================ */
+let SEARCH_PATTERNS = [];
+
+/* ============================================================
+   概念検索（Concept Search Phase 4-1）
+   Concept は「日本語の検索語 → Term[]」への展開だけを担う層。
+   検索は実行しない（実行は既存 resolveTerm / 既存レイヤーのみ）。
+   一方向: query → resolveConcept() → Term[] → resolveTerm() → 検索。
+   label / aliases への完全一致でのみ発火し、未登録語は null を返す
+   （＝既存検索を100%維持する後方互換が絶対条件）。
+   ============================================================ */
+let SEARCH_CONCEPTS = [];
+
+async function _loadSearchConcepts() {
+    try {
+        const r = await fetch('../assets/data/search-concepts.json');
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!data || !Array.isArray(data.concepts)) return;
+        /* Phase 4-2 schema: terms 以外（patterns/domains/syntaxTypes/related/children）
+           は Knowledge Graph の土台としてデータのみ保持し、検索には使わない。
+           型検証: 必須（id/label/terms）を満たすものだけ採用し、
+           拡張フィールドは常に配列へ正規化する（欠落・型違いは空配列）。 */
+        const arr = v => (Array.isArray(v) ? v : []);
+        SEARCH_CONCEPTS = data.concepts
+            .filter(c => c && c.id && c.label && Array.isArray(c.terms) && c.terms.length > 0)
+            .map(c => ({
+                id:          c.id,
+                label:       c.label,
+                aliases:     arr(c.aliases),
+                terms:       c.terms,
+                patterns:    arr(c.patterns),
+                domains:     arr(c.domains),
+                syntaxTypes: arr(c.syntaxTypes),
+                related:     arr(c.related),
+                children:    arr(c.children),
+            }));
+    } catch (_) { /* 失敗 = Concept 層が無いだけ（既存検索は不変） */ }
+}
+
+/* 検索語 → Term[]（Concept 未登録なら null）。検索は実行しない */
+function resolveConcept(query) {
+    const q = String(query || '').trim();
+    if (!q || SEARCH_CONCEPTS.length === 0) return null;
+    for (const c of SEARCH_CONCEPTS) {
+        if (c.label === q || (Array.isArray(c.aliases) && c.aliases.includes(q))) {
+            return c.terms.slice();
+        }
+    }
+    return null;
+}
+
+/* ============================================================
+   Concept Insight（Phase 4-3・表示のみ）
+   Concept 発火時に検索結果の上部へ知識カードを描くだけの層。
+   検索件数・順位・ロジックには一切関与しない（データ源は
+   search-concepts.json のみ。Wallace Registry は参照しない —
+   syntaxTypes の表示ラベルは JSON 側に写しを持つ）。
+   クリックは既存機能の呼び出しのみ:
+     関連する概念 → 検索ボックスへ label を入れて unifiedSearch()
+     関連する検索 → runPatternSearch()
+     関連する文法 → _synInit()（既存の Wallace 型検索）
+   ============================================================ */
+let _activeInsightConcept = null;
+
+function _findConceptByQuery(q) {
+    q = String(q || '').trim();
+    if (!q) return null;
+    return SEARCH_CONCEPTS.find(c =>
+        c.label === q || (Array.isArray(c.aliases) && c.aliases.includes(q))) || null;
+}
+function _conceptById(id) {
+    return SEARCH_CONCEPTS.find(c => c.id === id) || null;
+}
+
+function _renderConceptInsight(concept) {
+    const el = document.getElementById('concept-insight');
+    if (!el) return;
+    if (!concept) { el.style.display = 'none'; el.innerHTML = ''; return; }
+
+    const rel = (concept.related || []).map(id => _conceptById(id)).filter(Boolean);
+    const pats = (concept.patterns || []).map(pid => {
+        const i = SEARCH_PATTERNS.findIndex(p => p.id === pid);
+        return i >= 0 ? { i, label: SEARCH_PATTERNS[i].label } : null;
+    }).filter(Boolean);
+    const syns = (concept.syntaxTypes || []).map(s =>
+        typeof s === 'string' ? { id: s, label: s }
+        : (s && s.id ? { id: s.id, label: s.label || s.id } : null)).filter(Boolean);
+
+    /* 空のセクションは見出しごと出さない（「関連する文法」空配列時の非表示を含む） */
+    const sec = (title, chips) => chips
+        ? `<div class="ci-section"><div class="ci-section-title">${title}</div>
+           <div class="layer-chips ci-chips">${chips}</div></div>` : '';
+    const relHtml = rel.map(c =>
+        `<span class="layer-chip lemma" onclick="_ciConceptClick('${_escH(c.label)}')">${_escH(c.label)}</span>`).join('');
+    const patHtml = pats.map(p =>
+        `<span class="layer-chip prox" onclick="runPatternSearch(${p.i})">${_escH(p.label)}</span>`).join('');
+    const synHtml = syns.map(s =>
+        `<span class="layer-chip morph" onclick="_ciSyntaxClick('${_escH(s.id)}')">${_escH(s.label)}</span>`).join('');
+
+    /* 関連するギリシャ語（Phase 6-2）: 「日本語概念 → ギリシャ語語彙 → 語義 →
+       文法/用例」の読書導線。件数は既存 resolveTerm を呼ぶだけ（表示専用 —
+       検索結果・件数には一切関与しない）。グロス未取得・出現0の行は非表示。
+       行クリックは既存の Abbott-Smith 辞書モーダル（_asOpen）を再利用する */
+    let lexHtml = '';
+    try {
+        if (typeof ALL_TOKENS !== 'undefined' && ALL_TOKENS.length > 0) {
+            const rows = [];
+            for (const t of (concept.terms || [])) {
+                if (!t || t.axis !== 'lemma') continue;
+                const set = resolveTerm(ALL_TOKENS, t);
+                if (set.size === 0) continue;                     /* 未出現は非表示 */
+                /* 語義: グロスを持つ出現を探す（LXX トークンは japanese が無い
+                   ことがあるため、先頭1件でなく上限つきで走査する） */
+                let gloss = '';
+                let probes = 0;
+                for (const gi of set) {
+                    const tok = ALL_TOKENS[gi];
+                    gloss = (tok && (tok.japanese || tok.gloss)) || '';
+                    if (gloss || ++probes >= 200) break;
+                }
+                if (!gloss) continue;                             /* 語義未取得は非表示 */
+                rows.push({ lemma: t.value, gloss, n: set.size });
+            }
+            rows.sort((a, b) => b.n - a.n);
+            if (rows.length) {
+                lexHtml = `<div class="ci-section"><div class="ci-section-title">関連するギリシャ語</div>
+                    <div class="ci-lex">${rows.map(r =>
+                        `<span class="ci-lex-row" onclick="_ciLexiconClick('${_escH(r.lemma)}')" title="Abbott-Smith 辞書を開く">
+                            <span class="ci-lex-greek">${_escH(r.lemma)}</span
+                            ><span class="ci-lex-gloss">${_escH(r.gloss)}</span
+                            ><span class="ci-lex-count">${r.n}回</span>
+                        </span>`).join('')}</div></div>`;
+            }
+        }
+    } catch (_) { lexHtml = ''; }   /* 失敗はセクション非表示のみ（静寂） */
+
+    const body = lexHtml + sec('関連する概念', relHtml) + sec('関連する検索', patHtml) + sec('関連する文法', synHtml);
+    if (!body) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.innerHTML = `<div class="ci-header">Concept Insight — ${_escH(concept.label)}</div>` + body;
+    el.style.display = '';
+}
+
+/* 語彙行クリック → 既存 Abbott-Smith モーダルを開く。
+   _asOpen は _lastQuery を読むため、一時的に差し替えて即復元する
+   （_asOpen 冒頭で同期的に読まれるので安全。既存関数は無変更） */
+function _ciLexiconClick(lemma) {
+    const prev = typeof _lastQuery !== 'undefined' ? _lastQuery : '';
+    try {
+        _lastQuery = lemma;
+        _asOpen();
+    } finally {
+        _lastQuery = prev;
+    }
+}
+
+function _ciConceptClick(label) {
+    const input = document.getElementById('unified-search-input');
+    if (input) input.value = label;
+    unifiedSearch();   /* 既存の検索を呼ぶだけ（Concept 展開は既存経路が行う） */
+}
+function _ciSyntaxClick(id) {
+    _synInit(id);      /* 既存の Wallace 型検索を呼ぶだけ */
+}
+
+async function _loadSearchPatterns() {
+    try {
+        const r = await fetch('../assets/data/search-patterns.json');
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!data || !Array.isArray(data.patterns)) return;
+        SEARCH_PATTERNS = data.patterns.filter(p =>
+            p && p.id && p.label && p.query && p.query.type === 'cooccurrence' &&
+            p.query.termA && p.query.termB);
+        _renderPatternChips();
+    } catch (_) { /* 失敗 = 入口非表示のまま（静寂） */ }
+}
+
+function _renderPatternChips() {
+    const sec  = document.getElementById('pattern-search-section');
+    const wrap = document.getElementById('pattern-chips');
+    if (!sec || !wrap || SEARCH_PATTERNS.length === 0) return;
+    wrap.innerHTML = SEARCH_PATTERNS.map((p, i) =>
+        `<span class="layer-chip prox" title="${_escH(p.description || '')}"
+            onclick="runPatternSearch(${i})">${_escH(p.label)}</span>`).join('');
+    sec.style.display = '';
+}
+
+async function runPatternSearch(i) {
+    const p = SEARCH_PATTERNS[i];
+    if (!p || !p.query || p.query.type !== 'cooccurrence') return;
+    if (isSearching) return;
+    isSearching = true;
+    const runBtn = document.getElementById('run-btn');
+    if (runBtn) runBtn.disabled = true;
+    try {
+        if (!IDX.ready) {
+            _showLoading('NT・LXXのインデックスを構築中です。完了までパターン検索は実行されません…');
+        } else {
+            _showLoading();
+        }
+        const res = await runTermProximitySearch(
+            p.query.termA, p.query.termB, { scope: p.query.scope || 'verse' });
+        /* 統合検索と同じグローバル形状に詰め替え、既存レンダラを再利用する。
+           anchor（termA）のみ merged に載せる = prox レイヤーの表示形と同じ */
+        const merged = new Map();
+        for (const h of res.hits) {
+            const tok = ALL_TOKENS[h.anchorIdx];
+            if (!tok) continue;
+            merged.set(h.anchorIdx, { tok, hitTypes: new Set(['prox']), proxHit: h });
+        }
+        _allMergedResults = merged;
+        _proxCoocMap      = res.coocMap;
+        _activeLayerSet   = { lemma: false, phrase: false, prox: true, morph: false };
+        /* Pattern 検索は Concept ではないため Insight は消す（表示のみの状態） */
+        _activeInsightConcept = null;
+        /* query = 日本語ラベル（lemma グループ表示になる）、
+           words = termA の値（anchor のハイライト用）、word2 = なし
+           （termB は morph 条件のことがあり文字列で表せないため） */
+        _renderUnifiedResults(p.label, [p.query.termA.value], null);
+    } finally {
+        isSearching = false;
+        if (runBtn) runBtn.disabled = false;
+    }
 }
 
 function groupHitsByLemma(hits){
@@ -2240,6 +2769,12 @@ async function unifiedSearch(){
     const word1=words[0];
     const word2=words[1]||null;
 
+    /* Concept 展開（Phase 4-1）: 検索開始前に1回だけ判定する。
+       登録語なら Term[]、未登録語なら null（＝以降は完全に従来どおり） */
+    const conceptTerms = resolveConcept(word1);
+    /* Concept Insight（Phase 4-3・表示のみ）: 発火時だけカード用の概念を保持 */
+    _activeInsightConcept = conceptTerms ? _findConceptByQuery(word1) : null;
+
     // --- Merged result map: globalIdx → {tok, hitTypes, proxHit?} ---
     const merged=new Map();
     let proxCoocMap=new Map();
@@ -2263,6 +2798,20 @@ async function unifiedSearch(){
                 const tok=ALL_TOKENS[gi];if(!tok)continue;
                 if(!merged.has(gi))merged.set(gi,{tok,hitTypes:new Set(),proxHit:null});
                 merged.get(gi).hitTypes.add('lemma');
+            }
+            /* Concept 展開（Phase 4-1）: 概念に一致した場合のみ、Term 群を
+               既存 resolveTerm で解決し従来結果へ和集合で追加する。
+               （コピー実装禁止 — 解決は必ず resolveTerm を通す。
+                 未登録語は conceptTerms=null でこのブロック自体が走らない） */
+            if(conceptTerms){
+                await _ensureFullIndex();
+                for(const term of conceptTerms){
+                    for(const gi of resolveTerm(ALL_TOKENS,term)){
+                        const tok=ALL_TOKENS[gi];if(!tok)continue;
+                        if(!merged.has(gi))merged.set(gi,{tok,hitTypes:new Set(),proxHit:null});
+                        merged.get(gi).hitTypes.add('lemma');
+                    }
+                }
             }
         })());
     }
@@ -2452,6 +3001,10 @@ function _renderUnifiedResults(query,words,word2){
     _filterWord=null;
     const merged=_allMergedResults;
     const total=merged.size;
+
+    /* Concept Insight（Phase 4-3・表示のみ）: 概念発火時のみカードを描く。
+       検索件数・順位には一切関与しない */
+    _renderConceptInsight(_activeInsightConcept);
 
     // Header
     document.getElementById('state-empty').style.display='none';
@@ -2998,6 +3551,10 @@ function init(){
     _watchIndexProgress();
     // Initial prox slider
     onProxSlider(currentDist);
+    // パターン検索プリセット（Phase 3・失敗しても既存UIに影響なし）
+    _loadSearchPatterns();
+    // 概念定義（Phase 4-1・失敗しても既存検索に影響なし）
+    _loadSearchConcepts();
 }
 /* ============================================================
    Morph filter — checkbox chip UI

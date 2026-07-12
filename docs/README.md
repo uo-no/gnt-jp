@@ -106,6 +106,17 @@ scripts/                — ビルド・データ生成スクリプト
 docs/                   — 設計ドキュメント・本README
 ```
 
+### データ品質監査
+
+```bash
+# Concept データ（search-concepts.json）の整合性監査
+# schema / ID・発火語の重複 / lemma 実在 / related・patterns・syntaxTypes の
+# 参照整合 / children 循環 / 孤児概念 を検査し
+# scripts/output/concept-audit.{md,json} を出力する。FAIL があれば終了コード 1。
+# 概念を追加・編集したら必ず実行する。
+node scripts/concept-audit.cjs
+```
+
 ---
 
 ## 今後の予定

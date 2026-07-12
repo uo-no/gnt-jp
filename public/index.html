@@ -131,6 +131,22 @@ pointer-events: auto;
 .sidebar-top { padding: var(--space-lg) var(--space-md) var(--space-md); display: flex; align-items: center; gap: var(--space-sm); }
 .sidebar-logo { font-weight: 700; font-size: var(--text-body); white-space: nowrap; letter-spacing: -0.01em; color: var(--text-main); }
 
+/* ── Panel Geometry SSOT（デスクトップ既定値） ──
+   パネル高さの数値定義は、この規則と ≤900px メディア内の上書きだけ。
+   JS は _panelGeomLimits() が getComputedStyle で読む — JS 側に vh/px の
+   値を直接書くことは禁止（CSS/JS 二重定義の再発防止）。
+   drag-min / expanded / word-max はドラッグと高さ復元の clamp 用
+   （デスクトップは拡張なし＝ max と同じ値）。
+   ※ この定義はメディアブロックより前に置くこと（カスケード順で
+      ≤900px の上書きが勝つため）。 */
+#bottom-depth-panel {
+    --panel-default-h:  46vh;
+    --panel-min-h:      220px;
+    --panel-max-h:      70vh;
+    --panel-drag-min-h: 220px;
+    --panel-expanded-h: 70vh;
+    --panel-word-max-h: 70vh;
+}
 
 @media (max-width: 900px) {
     .app-header { position: relative; }
@@ -147,9 +163,13 @@ pointer-events: auto;
        CSS 変数でサイズを差し替えるため !important 不要。
        位置・表示・transform 制御はすべて共通ルール（#bottom-depth-panel）で管理する。 */
     #bottom-depth-panel {
-        --panel-default-h: 40vh;
-        --panel-min-h: 0px;
-        --panel-max-h: 98vh;
+        --panel-default-h:  40vh;
+        --panel-min-h:      0px;
+        --panel-max-h:      98vh;
+        /* Geometry SSOT（769–900px帯）: ドラッグ/復元の clamp 値 */
+        --panel-drag-min-h: 40vh;
+        --panel-expanded-h: 98vh;
+        --panel-word-max-h: 80vh;
         border-top: none;
         padding-bottom: env(safe-area-inset-bottom, 0px);
         background: var(--bg-paper);
@@ -846,14 +866,17 @@ font-size: var(--text-title); transition: transform var(--transition-base), opac
    sidebar（X 軸）と空間を共有しない。display:none による状態制御は禁止。
    モバイルではCSS変数（--panel-default-h 等）で高さを差し替える。 */
 #bottom-depth-panel {
+/* 高さの数値定義は Panel Geometry SSOT（スタイルシート前方の
+   #bottom-depth-panel 定義と ≤900px メディアの上書き）にある。
+   ここでは var() で参照するだけ（値の直書き禁止）。 */
 position: fixed;
 bottom: 0;
 left: 0;
 right: 0;
 width: 100%;
-height: var(--panel-default-h, 46vh);
-min-height: var(--panel-min-h, 220px);
-max-height: var(--panel-max-h, 70vh);
+height: var(--panel-default-h);
+min-height: var(--panel-min-h);
+max-height: var(--panel-max-h);
 background: var(--bg-panel);
 border-top: 1px solid var(--border-soft);
 padding: 0;
@@ -993,12 +1016,19 @@ font-size: var(--text-caption); opacity: 0; pointer-events: none; transition: op
 #reading-notes-wrap {
 display: flex;
 flex-direction: column;
+/* スクロールバー出現による横幅変化（chips再ラップ・カラムずれ）を防ぐ。
+   both-edges で左右対称に予約し、中心軸を真中心に保つ */
+scrollbar-gutter: stable both-edges;
 }
 #reading-notes-area {
 padding: 0 var(--rhythm-macro-min) 60px;
 width: 100%;
 max-width: 44em;
 box-sizing: border-box;
+/* Level 2（#word-list-view）と同じ中央カラムに揃える。
+   これが無いと Level 2⇄3 遷移で視線の中心軸が跳ぶ（UX監査 実測287px） */
+margin-left: auto;
+margin-right: auto;
 }
 
 .rn-word-head {
@@ -2686,6 +2716,9 @@ details[open] .study-summary::before {
     width: 100%;
     max-width: 640px;
     margin: 0 auto;
+    /* スクロールバー出現による横幅変化（chips再ラップ・カラムずれ）を防ぐ。
+       both-edges で左右対称に予約し、中心軸を真中心に保つ */
+    scrollbar-gutter: stable both-edges;
 }
 
 /* ── 流れUI：ギリシャ語順日本語chip列 ── */
@@ -4382,33 +4415,63 @@ function _saveCurrentNote(idSuffix) {
 }
 
 function applyShareState(state) {
-    if (!state.verse) return;
+    if (!state.verse) return;   /* verse なし → 従来どおり章の先頭表示 */
 
+    /* 1. verse復元 = 「本文をタップした場合と同じコードパス」に委譲する。
+       可視の節ブロック（左カラム。旧実装の [data-vnum] は非表示の右カラム
+       しか拾えなかった）を _findVisibleVerseBlock で特定し、その onclick を
+       そのまま実行する。selected クラス・active-v 表示・AppState.toBrowsing・
+       StudyPanel オープン・notifyAppStateChange（URL書き戻し）のすべてが
+       通常の節タップ処理側で行われる — 検索専用の状態・分岐は持たない。
+       スクロールは節を中央へ置き、パネル表示後の重なりは既存の
+       _adjustReadingAreaForPanel（openStudyPanel 系の通常処理）が最小調整する。 */
     const words = _cachedElByVerse[state.verse] || [];
-    const target = document.querySelector('[data-vnum="' + state.verse + '"]');
+    const target = _findVisibleVerseBlock(state.verse);
 
     if (!target) {
         console.warn('applyShareState: verse not found:', state.verse);
         return;
     }
 
-    /* 1. verse復元 */
     target.scrollIntoView({ block: 'center' });
-    AppState.toBrowsing(state.verse, words);
 
-    /* verse復元をURLへ書き戻す（init()冒頭のsyncUrlState()が空のAppStateで
-       既にverseを消しているため、ここで書き戻さないとアドレスバーにverseが残らない） */
-    notifyAppStateChange();
+    if (typeof target.onclick === 'function') {
+        target.click();   /* ← ユーザーの節タップと同一経路 */
 
-    /* 2. panel復元 */
-    if (state.panel !== 'study') return;
-    openWordListInStudyPanel(state.verse, words);
+        /* 位置の微調整: パネルが開いた後、節を「パネル上端より上の可視領域」の
+           中央へ置き、節と StudyPanel を同時に読める位置にする。調整後の位置を
+           既存の AppState.saveScroll() で保存し直すことで、パネルを閉じた時も
+           この読書位置へ戻る（既存のスクロール復元機構をそのまま利用）。 */
+        requestAnimationFrame(() => {
+            const area  = document.getElementById('main-reading-area');
+            const panel = document.getElementById('bottom-depth-panel');
+            if (!area || !panel) return;
+            const aRect = area.getBoundingClientRect();
+            const vRect = target.getBoundingClientRect();
+            /* パネルはスライドイン中（transform 遷移）で getBoundingClientRect が
+               まだ画面外を指すため、transform の影響を受けない offsetHeight から
+               最終位置（ビューポート下端 − パネル高さ）を計算する */
+            const visibleBottom = panel.classList.contains('open')
+                ? Math.max(aRect.top + 40, window.innerHeight - panel.offsetHeight)
+                : aRect.bottom;
+            const desiredCenter = (aRect.top + visibleBottom) / 2;
+            const delta = (vRect.top + vRect.height / 2) - desiredCenter;
+            if (Math.abs(delta) > 1) area.scrollTop += delta;
+            AppState.saveScroll();
+        });
+    } else {
+        /* ギリシャ語データの無い本文などタップ不可の節: 従来どおり選択状態のみ
+           復元する（タップしても何も起きない節でパネルを無理に開かない） */
+        AppState.toBrowsing(state.verse, words);
+        notifyAppStateChange();
+        return;
+    }
 
-    /* 3. word復元（StudyPanel描画後に1フレーム遅延）
+    /* 2. word復元（StudyPanel描画後に1フレーム遅延・従来どおり panel=study 時のみ）
        注: StudyPanelの語一覧は .word-card ではなく .wlv-chip（data-idx属性）で
        構成されている（実機検証で確認済み）。既存の _wlvChipClick / _wlvStudyBtnClick
        経路（「詳しく見る」ボタンと同じ処理）を再利用する。 */
-    if (!state.word) return;
+    if (state.panel !== 'study' || !state.word) return;
     requestAnimationFrame(() => {
         const idx = words.findIndex(w => normalizeStrong(w.strong) === 'G' + state.word);
         if (idx === -1) {
@@ -4772,7 +4835,8 @@ function _closeStudyPanelInternal() {
     if (panelEl) {
         panelEl.style.transform = '';
         panelEl.style.transition = '';
-        /* Bottom Sheetのドラッグで変更した高さをクリアし、次回openは必ずCSS既定の高さから始まるようにする */
+        /* inline height は消すが、ユーザー調整高さは StudyPanelState.height（SSOT）に
+           保持されており、次回 open 時に _applyPanelHeightFromState() が復元する */
         panelEl.style.height = '';
     }
 
@@ -4787,11 +4851,27 @@ function _isMobile() {
 }
 
 /* Study Panel（Bottom Sheet）の現在のコンテンツ種別。ドラッグ時の拡張上限を決めるためだけに使う。
-   'verse' = 節全体の研究モード（_openWordListInternal）→ 拡張上限 98vh
-   'word'  = 単語詳細（openStudyPanel）                  → 拡張上限 80vh */
+   'verse' = 節全体の研究モード（_openWordListInternal）→ 拡張上限 --panel-expanded-h
+   'word'  = 単語詳細（openStudyPanel）                  → 拡張上限 --panel-word-max-h */
 let _panelContentMode = 'verse';
-function _panelExpandedVh() {
-    return _panelContentMode === 'word' ? 0.80 : 0.98;
+
+/* ── Panel Geometry SSOT ──
+   高さの数値定義は CSS（#bottom-depth-panel のカスタムプロパティ）が唯一の真実。
+   JS は本関数で getComputedStyle から読むだけで、vh/px の値を直接書かない。
+   ドラッグ・高さ復元の clamp（min/max）はすべてここを通す。 */
+function _panelGeomLimits(panel) {
+    const cs = getComputedStyle(panel);
+    const px = (v) => {
+        v = String(v).trim();
+        if (v.endsWith('vh')) return window.innerHeight * parseFloat(v) / 100;
+        return parseFloat(v) || 0;
+    };
+    const maxProp = _panelContentMode === 'word'
+        ? '--panel-word-max-h' : '--panel-expanded-h';
+    return {
+        minH: px(cs.getPropertyValue('--panel-drag-min-h')),
+        maxH: px(cs.getPropertyValue(maxProp)),
+    };
 }
 
 /* Level 2（節Panel）→ Level 3（単語詳細）へ進む直前の #word-list-view のスクロール位置。
@@ -4807,10 +4887,27 @@ let _versePanelScrollTop = null;
    isDragging: pointer capture 中のみ true。pointerup/cancel で必ず false に戻す。 */
 const StudyPanelState = {
     isOpen:    false,
-    height:    0,
+    height:    0,   /* ユーザーが調整したパネル高さ（px）。0 = 未調整（CSS既定）。SSOT */
     scrollTop: 0,
     isDragging: false,
 };
+
+/* StudyPanelState.height（SSOT）を open 時にパネルへ適用する。
+   - 0（未調整）なら inline height を消して CSS 既定に任せる
+   - ≤768px は全画面モード（CSS top/bottom 管理）のため height を書かない
+   - 適用時のみ現在の帯域の min/max へ clamp する（state の値は上書きしない —
+     Level 3 の上限 80vh で縮んでも、Level 2 へ戻れば元の高さに復元される） */
+function _applyPanelHeightFromState(panel) {
+    if (!panel) return;
+    if (window.innerWidth <= 768) { panel.style.height = ''; return; }
+    const h = StudyPanelState.height;
+    if (!h) { panel.style.height = ''; return; }
+    const isMobile = _isMobile();
+    const { minH, maxH } = _panelGeomLimits(panel);   /* Geometry SSOT（CSS）から取得 */
+    const nh = Math.min(maxH, Math.max(minH, h));
+    if (isMobile) panel.style.setProperty('height', nh + 'px', 'important');
+    else panel.style.height = nh + 'px';
+}
 
 /* 本文（左カラム）の節要素を節番号から特定する。
    注意：左カラムの .verse-block には data-vnum 属性が付与されない（data-vnumがあるのは
@@ -4876,9 +4973,16 @@ function _openWordListInternal(vNum, words) {
     closeMobileSidebar();
     _wlvWordCache = words || [];
     const sidePanel    = document.getElementById('bottom-depth-panel');
-    sidePanel.style.height = '';
     const wasOpen = sidePanel.classList.contains('open');
+    /* 読書位置の保存: 閉→開の遷移時のみ。close 時の AppState.restoreScroll() は
+       ここで保存した位置へ戻す。保存しないと初期値 0（＝最上部）や古い位置が
+       復元されてしまう。Level間遷移（wasOpen=true）では保存しない —
+       「パネルを開く前の位置」を上書きしないため。 */
+    if (!wasOpen) AppState.saveScroll();
     _panelContentMode = 'verse';
+    /* 高さの SSOT: ユーザーが調整した高さ（StudyPanelState.height）を尊重する。
+       未調整なら CSS 既定。従来の style.height='' 一律リセットは廃止 */
+    _applyPanelHeightFromState(sidePanel);
     sidePanel.classList.add('open');
     _syncReadingPanelPadding();
     document.getElementById('open-panel-btn').style.display = 'none';
@@ -8673,9 +8777,11 @@ async function _getWallaceClauseAnalysis(words) {
 }
 
 /* __PHRASE_READING_BEGIN__
-   Phase 25B-2: Phrase Reading（かたまりの読書メモ）
-   目的は Q3「どこまでが一まとまりか」への回答のみ（Mapping §3.2）。
-   ReadingSupportProjection の phrases / genitivePhrases だけを読む。
+   Phase 25B-2: Phrase Reading（かたまりの読書メモ）— 二層構成
+   構造層: Q3「どこまでが一まとまりか」への回答（Mapping §3.2）。
+   意味層 (v1.1): そのまとまりをどう読むか（docs/phrase-reading.md が設計正典。
+   現象 → Reading Intent → 文章。解釈・文法用語・翻訳は出さない）。
+   ReadingSupportProjection の phrases / genitivePhrases / words だけを読む。
    内部構造（種別・位置）は言い回しの選択にのみ使い、
    画面には本文の引用と日本語の一文しか出さない。
    静寂条件: Projection null / 語がどの まとまり にも属さない / 1 語のみ /
@@ -8782,6 +8888,94 @@ function _phraseReadingSentence(kind, quoted) {
     }
 }
 
+/* ── Phrase Reading 意味層（v1.1・docs/phrase-reading.md）─────────────
+   生成の型は「現象 → Reading Intent → 文章」。本テーブルは Intent → 2文
+   （1文目=役割、2文目=読むコツ）のみを持ち、現象名・scope・priority は
+   一切書かない。どの現象がどの Intent を持つかは reading-policy.json の
+   intent フィールドが決める（唯一の機械可読定義源）。
+   Intent キーは内部専用で画面には出さない。文言の正典は
+   docs/phrase-reading.md Phase D の表 — 変更は必ず正典から。 */
+const _PHRASE_INTENT_TEXT = {
+    background: ['このまとまりは、背景となる状況を先に示しています。',
+                 'ここを読んでから本文へ進むと、流れがつかみやすくなります。'],
+    reason: ['このまとまりは、その理由を添えています。',
+             '前の内容と結び付けながら読むと理解しやすくなります。'],
+    purpose: ['このまとまりは、何のためなのかを示しています。',
+              '動きの向かう先を意識して読むと流れがつながります。'],
+    result: ['このまとまりは、その結果どうなるかを示しています。',
+             '前の内容の流れを受けて読むとつながりが見えます。'],
+    condition: ['このまとまりは、「もし〜なら」の条件を示しています。',
+                'この条件を頭に置いて本文を読むと流れがつかめます。'],
+    concession: ['このまとまりは、予想とは逆の展開になることを知らせています。',
+                 '「それでも」と心に置いて読むと流れが見えてきます。'],
+    comparison: ['このまとまりは、何かと比べる形になっています。',
+                 '比べながら読むと意味が見えやすくなります。'],
+    contrast: ['このまとまりは、前の内容との対比を示しています。',
+               '違いを並べて読むと流れがはっきりします。'],
+    explanation: ['このまとまりは、中心の語の中身や性質を説明しています。',
+                  'どの語を説明しているかを意識すると読みやすくなります。'],
+    identification: ['このまとまりは、だれのこと・何のことかを指しています。',
+                     '同じ人やものを思い浮かべながら読むとつながりが見えます。'],
+    progression: ['このまとまりは、話が次へ進む合図になっています。',
+                  '展開の変わり目として読むと流れが追いやすくなります。'],
+    single_action: ['このまとまりは、全体で一つの動きを表しています。',
+                    '分けずにひとまとめで読むと意味が入りやすくなります。'],
+};
+
+/* 意味層の選択（1句1現象の原則・docs/phrase-reading.md Phase E）:
+   対象語の categories から「phrase scope × phrase_reading の priority ×
+   confidence ≥ min_confidence × intent 定義済み」の現象を探し、
+   priority（phrase_reading.priorities の並び順）→ confidence で
+   ただ1つの Intent を選ぶ。該当なしは空配列（静寂）。 */
+function _phraseIntentLines(proj, idx) {
+    const w = proj && proj.words ? proj.words[idx] : null;
+    if (!w || !w.categories) return [];
+    const policy = _wallacePipeline?.policy;
+    const rule   = policy?.rules?.phrase_reading;
+    if (!policy || !rule) return [];
+    const minConf = policy.rules?.min_confidence ?? 0.40;
+    const prios   = rule.priorities || [];
+    let best = null;
+    for (const c of Object.values(w.categories)) {
+        if (!c || c.confidence < minConf) continue;
+        const ph = policy.byId[c.id];
+        if (!ph || !ph.intent || !_PHRASE_INTENT_TEXT[ph.intent]) continue;
+        if (!_policyScopes(ph).includes('phrase')) continue;
+        const rank = prios.indexOf(ph.priority);
+        if (rank < 0) continue;
+        if (!best || rank < best.rank ||
+            (rank === best.rank && c.confidence > best.confidence)) {
+            best = { rank, confidence: c.confidence, intent: ph.intent };
+        }
+    }
+    return best ? _PHRASE_INTENT_TEXT[best.intent].slice(0, 2) : [];
+}
+
+/* ── v1.2 対象語引用型（docs/phrase-reading.md Phase H → v1.2）──────────
+   構造層（NP/PP/PtcP）の引用が成立しない語でも、意味層候補があれば
+   対象語を引用して案内する。構造層が検出しない不定詞句・無冠詞の
+   副詞的分詞句（属格絶対・迂言法・目的/結果不定詞・理由/条件/譲歩分詞）が
+   これで表示に入る。文言は文テーブル（正典）から変えず、1文目の
+   「このまとまりは、」を「「◯◯」のまとまりは、」に置き換えるだけ。 */
+const _PHRASE_INTENT_LEAD = 'このまとまりは、';
+function _phraseIntentStandaloneHTML(words, idx, proj) {
+    try {
+        const intentLines = _phraseIntentLines(proj, idx);
+        if (intentLines.length === 0) return null;
+        const quoted = _escH((words[idx] && (words[idx].japanese || words[idx].text)) || '');
+        if (!quoted) return null;
+        const first = intentLines[0].startsWith(_PHRASE_INTENT_LEAD)
+            ? `「${quoted}」のまとまりは、` + intentLines[0].slice(_PHRASE_INTENT_LEAD.length)
+            : intentLines[0];
+        const shown = [first, ...intentLines.slice(1)];
+        return `<div class="rn-prose reading-block">${
+            shown.map(l => `<p class="rn-prose-text reading-prose">${l}</p>`).join('')
+        }</div>`;
+    } catch (_) {
+        return null;   // Failure Mode: 静寂
+    }
+}
+
 /* 引用品質ガード（Phase 26 編集）: 句検出は句読点・格の変わり目を跨ぐことが
    あるため、引用時にのみ範囲を安全側へ縮める（判定・Projection は不変）。
    1) 途中に句読点（. · ; ,）があればそこまで
@@ -8825,7 +9019,7 @@ async function _buildPhraseReadingHTML(words, idx) {
         p && (p.end - p.start) >= 1 && (p.end - p.start) < _PHRASE_READING_MAX_SPAN &&
         idx >= p.start && idx <= p.end &&
         (p.type in _PHRASE_READING_PRIORITY));
-    if (containing.length === 0) return null;
+    if (containing.length === 0) return _phraseIntentStandaloneHTML(words, idx, proj);
     containing.sort((a, b) =>
         (_PHRASE_READING_PRIORITY[a.type] ?? 9) - (_PHRASE_READING_PRIORITY[b.type] ?? 9) ||
         (a.end - a.start) - (b.end - b.start));
@@ -8864,10 +9058,20 @@ async function _buildPhraseReadingHTML(words, idx) {
         }
         if (lines.length >= 2) break;
     }
-    if (lines.length === 0) return null;
+    if (lines.length === 0) return _phraseIntentStandaloneHTML(words, idx, proj);
+
+    /* 意味層（v1.1・docs/phrase-reading.md Phase E）: 最大2文（役割＋読むコツ）。
+       構造層が成立した語では構造層第1文＋意味層2文（最大3文）。
+       構造層が沈黙した語は上の対象語引用型（v1.2）が担当する。
+       意味層該当なしは従来表示のまま。 */
+    let shown = lines.slice(0, 2);
+    try {
+        const intentLines = _phraseIntentLines(proj, idx);
+        if (intentLines.length > 0) shown = [lines[0], ...intentLines];
+    } catch (_) { /* 意味層の失敗は静寂（構造層はそのまま） */ }
 
     return `<div class="rn-prose reading-block">${
-        lines.slice(0, 2).map(l => `<p class="rn-prose-text reading-prose">${l}</p>`).join('')
+        shown.map(l => `<p class="rn-prose-text reading-prose">${l}</p>`).join('')
     }</div>`;
 }
 /* __PHRASE_READING_END__ */
@@ -8921,21 +9125,25 @@ const _OBSERVATION_SENTENCES = {
    現象を増やすときは reading-policy.json の scope を配列にし、
    ここに「現象名 → (token) => 一文」を1件足すだけでよい。 */
 const _WORD_ROLE_TEXT = {
+    /* 原語表記の原則（reading-policy.md §12）: 日本語を入口とし、
+       クリックした語と対になる「まだ選択されていない語」を本文から
+       探させる時だけ、括弧内にギリシャ語を添える（指さし）。
+       ギリシャ語を文の主語・目的語にしない。 */
     negative_emphasis: (token) => {
         const lm = (token && token.lemma) || '';
         if (['οὐ', 'οὐκ', 'οὐχ'].includes(lm)) {
-            return '通常は単なる否定辞ですが、この箇所では μή と組み合わさり、強い否定表現を作っています。';
+            return 'ふだんは「〜ない」を表すことばですが、ここではあとに来るもう一つの打ち消し（μή）と重なり、『決して〜ない』という強い言い方を作っています。';
         }
         if (lm === 'μή') {
-            return 'οὐ と組み合わさることで、単独の否定より強い『決して〜ない』という意味になります。';
+            return 'すぐ前の打ち消し（οὐ）と重なることで、単独のときより強い『決して〜ない』という意味になります。';
         }
-        return 'οὐ μή の二重否定に続く動詞で、『決して〜しない』という最も強い言い方で否定されています。';
+        return '二重の打ち消し（οὐ μή）を受けることばで、『決して〜しない』という最も強い言い方で否定されています。';
     },
     men_de_contrast: (token) => {
         const lm = (token && token.lemma) || '';
-        if (lm === 'μέν') return 'あとに来る δέ と対になり、『一方では』と対比の前半を開きます。';
-        if (lm === 'δέ')  return '前の μέν と対になり、『他方では』と対比の後半を受けます。';
-        return 'μέν…δέ の対の一部として、二つのことを対比して示しています。';
+        if (lm === 'μέν') return '『一方では』と対比の前半を開くことばです。あとに来る『他方では』の合図（δέ）と対になります。';
+        if (lm === 'δέ')  return '『他方では』と対比の後半を受けることばです。前にある『一方では』の合図（μέν）と対になります。';
+        return '『一方では…他方では』という対（μέν…δέ）の一部として、二つのことを対比して示しています。';
     },
     parenthesis: (token) => {
         const lm = (token && token.lemma) || '';
@@ -9040,14 +9248,16 @@ async function _getReadingSupportProjection(words) {
      2. verse スコープなら本テーブルに「現象名 → 一文」を1行追加
    コード側のロジック変更は不要。 */
 const _VERSE_NOTE_TEXT = {
+    /* 原語表記の原則（reading-policy.md §12）: 節文は語が未選択の場面なので、
+       本文から探させたい語にだけ 日本語（ギリシャ語）の指さしを添える。 */
     negative_emphasis:
-        'ここでは打ち消しを二つ重ねて、『決して〜ない』と強く断言しています。',
+        'ここでは打ち消しのことば（οὐ μή）を二つ重ねて、『決して〜ない』と強く断言しています。',
     conditional_counterfactual:
         'ここでは、実際にはそうならなかった『もし〜だったなら』という仮定で語られています。',
     conditional_assumed_true:
         'ここでは、『もし〜なら』の条件が、事実として受け止められて話が進みます。',
     men_de_contrast:
-        'ここでは、二つのことが対に置かれて語られています。',
+        'ここでは、二つのことが対（μέν…δέ）に置かれて語られています。',
     emphasis_word_order:
         'ここでは、ことばの順序によって、あることばが際立たされています。',
     parenthesis:
@@ -9729,7 +9939,10 @@ let _wlvWordCache = [];
    - setPointerCapture で捕捉 → pointerup/cancel で必ず releasePointerCapture
    - ドラッグ中は window/document 依存なし（capture で完結）
    - 高さは常に clamp で処理（状態依存でイベントを止めない）
-   - isDragging は StudyPanelState で一元管理
+   - isDragging / height は StudyPanelState で一元管理（height が SSOT）
+   - DOM 反映は requestAnimationFrame で 1 フレーム 1 回にまとめる
+   - offsetHeight の read-after-write 禁止（計算済みの値だけを書く）
+   - 離した位置で停止する（スナップ・慣性なし）。次回 open も同じ高さ
    ══════════════════════════════════════════ */
 (function() {
     const handle = document.getElementById('panel-resize-handle');
@@ -9737,6 +9950,30 @@ let _wlvWordCache = [];
     if (!handle || !panel) return;
 
     let startY = 0, startH = 0;
+    let pendingH = null;   /* rAF 反映待ちの高さ（null = なし） */
+    let rafId    = 0;
+
+    /* 計算済みの高さ h を DOM へ反映する（読み取りなし・書き込みのみ）。
+       本文 padding も同じ h で直接同期し、offsetHeight の強制レイアウトを避ける */
+    function _applyHeight(h) {
+        if (window.innerWidth <= 768) return;   /* 全画面は CSS top/bottom 管理 */
+        if (_isMobile()) {
+            /* 769–900px：!important でドラッグ中の高さを反映 */
+            panel.style.setProperty('height', h + 'px', 'important');
+        } else {
+            panel.style.height = h + 'px';
+        }
+        const area = document.getElementById('main-reading-area');
+        if (area) area.style.paddingBottom = h + 'px';
+    }
+
+    function _flush() {
+        rafId = 0;
+        if (pendingH == null) return;
+        const h = pendingH;
+        pendingH = null;
+        _applyHeight(h);
+    }
 
     handle.addEventListener('pointerdown', (e) => {
         /* 768px以下は全画面モードのためリサイズ不要 */
@@ -9753,20 +9990,15 @@ let _wlvWordCache = [];
 
     handle.addEventListener('pointermove', (e) => {
         if (!StudyPanelState.isDragging) return;
-        const isMobile = _isMobile();
-        const minH = isMobile ? window.innerHeight * 0.40 : 220;
-        const maxH = isMobile ? window.innerHeight * _panelExpandedVh() : window.innerHeight * 0.70;
+        /* min/max は Geometry SSOT（CSS カスタムプロパティ）から取得。
+           従来どおり move 毎に評価する（ドラッグ中のウィンドウリサイズ・
+           帯域跨ぎでも旧実装と同じ振る舞いを保つ） */
+        const { minH, maxH } = _panelGeomLimits(panel);
         /* clamp：max/min 状態でも反対方向にドラッグすれば必ず動く */
         const nh = Math.min(maxH, Math.max(minH, startH + (startY - e.clientY)));
-        StudyPanelState.height = nh;
-        if (isMobile && window.innerWidth > 768) {
-            /* 769–900px：!important でドラッグ中の高さを反映 */
-            panel.style.setProperty('height', nh + 'px', 'important');
-        } else if (!isMobile) {
-            panel.style.height = nh + 'px';
-        }
-        /* ≤768px：全画面は CSS top/bottom で管理するため height を書かない */
-        _syncReadingPanelPadding();
+        StudyPanelState.height = nh;   /* SSOT: 次回 open もこの高さで復元される */
+        pendingH = nh;
+        if (!rafId) rafId = requestAnimationFrame(_flush);
     });
 
     function _finishDrag(e) {
@@ -9776,24 +10008,16 @@ let _wlvWordCache = [];
         document.body.style.userSelect = '';
         /* capture を必ず解放する（pointerup/cancel 両方から呼ばれる） */
         try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
-        /* 769–900px：指を離した時に 40vh か拡張上限のどちらか近い方へスナップ
-           ≤768px は全画面モード（CSS top/bottom 管理）のため height を書かない */
-        if (_isMobile() && window.innerWidth > 768) {
-            const expandedFrac = _panelExpandedVh();
-            const mid    = window.innerHeight * ((0.40 + expandedFrac) / 2);
-            const target = panel.offsetHeight > mid ? (expandedFrac * 100 + 'vh') : '40vh';
-            panel.style.transition = 'height 0.25s ease';
-            panel.style.setProperty('height', target, 'important');
-            setTimeout(() => { panel.style.transition = ''; _syncReadingPanelPadding(); }, 260);
-        }
+        /* スナップ廃止（UX監査による）: 離した位置でそのまま停止する。
+           rAF 待ちの高さがあれば即時反映して確定する */
+        if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+        if (pendingH != null) { const h = pendingH; pendingH = null; _applyHeight(h); }
+        _syncReadingPanelPadding();   /* 終了時に1回だけ実測で最終同期 */
     }
 
     function _cancelDrag(e) {
-        /* 着信・OSジェスチャーなどでキャンセルされた場合。スナップはしない */
-        StudyPanelState.isDragging = false;
-        handle.classList.remove('dragging');
-        document.body.style.userSelect = '';
-        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+        /* 着信・OSジェスチャーなどでキャンセルされた場合。高さはその場のまま */
+        _finishDrag(e);
     }
 
     handle.addEventListener('pointerup',     _finishDrag);
@@ -9815,7 +10039,8 @@ let _wlvWordCache = [];
    ══════════════════════════════════════════ */
 function openStudyPanel(greek, rawMorph, ref, lemma, options = {}) {
     closeMobileSidebar();
-    document.getElementById('bottom-depth-panel').style.height = '';
+    /* 高さの一律リセットは廃止 — StudyPanelState.height（SSOT）を
+       下の _applyPanelHeightFromState() が適用する */
     const listEl = document.getElementById('word-list-view');
     /* 節Panel（Level 2）から来た場合のみ、破棄する直前のスクロール位置を保存しておく
        （panelGoBack() で Level 2 に戻った時に復元する。スクロール保持のための唯一の保存箇所）。 */
@@ -9837,7 +10062,12 @@ function openStudyPanel(greek, rawMorph, ref, lemma, options = {}) {
         case:      m.case   || '',
     };
 
-    AppState.saveScroll();
+    /* 読書位置の保存: 閉→開の遷移時のみ。節Panel（Level 2）から単語詳細へ
+       進む時に保存すると「パネルを開く前の位置」が open 中の位置で
+       上書きされ、close 時に開く前へ戻れなくなる。 */
+    if (!document.getElementById('bottom-depth-panel').classList.contains('open')) {
+        AppState.saveScroll();
+    }
     AppState.toStudy(params, 'notes');
 
     /* depth stack に追加（重複しないよう、top が同じなら追加しない） */
@@ -9855,6 +10085,9 @@ function openStudyPanel(greek, rawMorph, ref, lemma, options = {}) {
     const sidePanel    = document.getElementById('bottom-depth-panel');
     const wasOpen = sidePanel.classList.contains('open');
     _panelContentMode = 'word';
+    /* 高さの SSOT: Level 2⇄3 遷移でもユーザー調整高さを維持する
+       （word モードの上限 80vh へは適用時のみ clamp。state は保持） */
+    _applyPanelHeightFromState(sidePanel);
     sidePanel.classList.add('open');
     _syncReadingPanelPadding();
 const activeVEl = document.getElementById('active-v');

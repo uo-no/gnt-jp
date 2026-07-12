@@ -1,0 +1,568 @@
+{
+  "version": 5,
+  "description": "概念検索（Concept Search）。Phase 4-1: Concept は検索を実行せず、日本語の検索語を Term[] へ展開するだけの層（Concept → Term[] → 既存 resolveTerm → 既存検索 の一方向）。label / aliases への完全一致でのみ発火し、未登録語の検索は従来と100%同一。Phase 4-2: Knowledge Graph の土台として schema を拡張。Phase 5-1: 15概念へ拡張（terms の lemma は全て bible_data/lemma_dict.json の実在キーで検証済み。追加・編集時は scripts/concept-audit.cjs と scripts/concept-coverage-audit.cjs を必ず実行する）。検索に使うのは terms のみ。",
+  "schema_note": {
+    "aliases": "検索語の揺れ（label と同じく完全一致で発火）。日本語の概念揺れ（動詞形・受身・表記揺れ・定型句）を吸収する入口であり、語形変化の網羅ではない。高信頼（その語が当該概念以外を指さない）のもののみ登録し、曖昧語（例: 正しい/誉れ/まこと/清い/和解/天国）は登録しない。追加時は scripts/concept-audit.cjs の alias 品質検査（衝突・重複・空文字・1文字）を必ず通す。",
+    "terms": "既存どおり resolveTerm() に渡す Term 群（唯一の検索使用フィールド）",
+    "patterns": "search-patterns.json の Pattern ID。Concept Insight（Phase 4-3）が『関連する検索』として表示し、クリックは既存 runPatternSearch() を呼ぶだけ",
+    "domains": "Louw-Nida domain コード（Concept Graph の意味情報層・Phase 5-3 方針）。【責務】内部メタデータ専用: ユーザー検索の入口には追加しない・resolveTerm の domain 軸は作らない・検索件数に影響してはならない。将来の用途は Concept Insight での意味情報表示（表示のみ）に限る — ただし表示ラベルの正典が必要なため、semantic-domain-labels.json のタイトルずれ（クラスタ索引と不一致）を修復するまで表示にも使わない。【投入条件】①domains-cluster-index.json のクラスタに概念の主要 lemma（Strong ID）が所属 ②実測分布（concept-coverage）で占有率 ≥30% の二重検証を通ったコードのみ。表示ラベルの写しは持たない（コードのみが正。{id,label} 形式も許容し、audit が写し一致を検査する）。曖昧な概念（glory）は空のまま。",
+    "syntaxTypes": "Wallace の typeId。文字列 'clause.purpose_hina' または {id, label} 形式（label は表示用の写し — 実行時に Wallace Registry は参照しない）。Concept Insight が『関連する文法』として表示し、クリックは既存の型検索（_synInit）を呼ぶだけ",
+    "related": "関連 Concept ID（本ファイル内に実在する id のみ。原則として双方向に張る）",
+    "children": "Concept Tree の子 Concept ID（未使用）"
+  },
+  "concepts": [
+    {
+      "id": "prayer",
+      "label": "祈り",
+      "aliases": [
+        "祈る",
+        "祈願",
+        "願う"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "προσεύχομαι"
+        },
+        {
+          "axis": "lemma",
+          "value": "προσευχή"
+        },
+        {
+          "axis": "lemma",
+          "value": "δέομαι"
+        },
+        {
+          "axis": "lemma",
+          "value": "δέησις"
+        },
+        {
+          "axis": "lemma",
+          "value": "εὐχή"
+        },
+        {
+          "axis": "lemma",
+          "value": "εὔχομαι"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἔντευξις"
+        }
+      ],
+      "patterns": [
+        "hina-subjunctive"
+      ],
+      "domains": [
+        "33013"
+      ],
+      "syntaxTypes": [
+        {
+          "id": "verb.wish_optative",
+          "label": "祈願の希求法"
+        }
+      ],
+      "related": [
+        "faith"
+      ],
+      "children": []
+    },
+    {
+      "id": "love",
+      "label": "愛",
+      "aliases": [
+        "愛する",
+        "愛情",
+        "愛される"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "ἀγαπάω"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἀγάπη"
+        },
+        {
+          "axis": "lemma",
+          "value": "φιλέω"
+        },
+        {
+          "axis": "lemma",
+          "value": "φιλία"
+        }
+      ],
+      "patterns": [
+        "reciprocal-command"
+      ],
+      "domains": [
+        "25003"
+      ],
+      "syntaxTypes": [],
+      "related": [
+        "grace",
+        "faith"
+      ],
+      "children": []
+    },
+    {
+      "id": "faith",
+      "label": "信仰",
+      "aliases": [
+        "信じる",
+        "信頼"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "πίστις"
+        },
+        {
+          "axis": "lemma",
+          "value": "πιστεύω"
+        },
+        {
+          "axis": "lemma",
+          "value": "πιστός"
+        }
+      ],
+      "patterns": [],
+      "domains": [
+        "31009",
+        "31010"
+      ],
+      "syntaxTypes": [],
+      "related": [
+        "salvation",
+        "love",
+        "prayer",
+        "righteousness",
+        "hope",
+        "truth"
+      ],
+      "children": []
+    },
+    {
+      "id": "salvation",
+      "label": "救い",
+      "aliases": [
+        "救う",
+        "救済",
+        "救われる",
+        "救い主"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "σῴζω"
+        },
+        {
+          "axis": "lemma",
+          "value": "σωτηρία"
+        },
+        {
+          "axis": "lemma",
+          "value": "σωτήρ"
+        },
+        {
+          "axis": "lemma",
+          "value": "σωτήριος"
+        }
+      ],
+      "patterns": [
+        "ean-subjunctive"
+      ],
+      "domains": [
+        "21006"
+      ],
+      "syntaxTypes": [],
+      "related": [
+        "faith",
+        "grace",
+        "sin",
+        "resurrection",
+        "hope",
+        "repentance"
+      ],
+      "children": []
+    },
+    {
+      "id": "grace",
+      "label": "恵み",
+      "aliases": [
+        "恩恵",
+        "恵む"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "χάρις"
+        },
+        {
+          "axis": "lemma",
+          "value": "χαρίζομαι"
+        },
+        {
+          "axis": "lemma",
+          "value": "χάρισμα"
+        }
+      ],
+      "patterns": [],
+      "domains": [
+        "88009"
+      ],
+      "syntaxTypes": [],
+      "related": [
+        "love",
+        "salvation",
+        "peace"
+      ],
+      "children": []
+    },
+    {
+      "id": "righteousness",
+      "label": "義",
+      "aliases": [
+        "正義",
+        "義認"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "δικαιοσύνη"
+        },
+        {
+          "axis": "lemma",
+          "value": "δίκαιος"
+        },
+        {
+          "axis": "lemma",
+          "value": "δικαιόω"
+        },
+        {
+          "axis": "lemma",
+          "value": "δικαίωμα"
+        }
+      ],
+      "patterns": [],
+      "domains": [
+        "88002"
+      ],
+      "syntaxTypes": [],
+      "related": [
+        "faith",
+        "sin",
+        "kingdom"
+      ],
+      "children": []
+    },
+    {
+      "id": "sin",
+      "label": "罪",
+      "aliases": [
+        "罪人",
+        "罪を犯す"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "ἁμαρτία"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἁμαρτάνω"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἁμάρτημα"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἁμαρτωλός"
+        }
+      ],
+      "patterns": [],
+      "domains": [
+        "88038"
+      ],
+      "syntaxTypes": [],
+      "related": [
+        "righteousness",
+        "repentance",
+        "salvation"
+      ],
+      "children": []
+    },
+    {
+      "id": "holy",
+      "label": "聖",
+      "aliases": [
+        "聖なる",
+        "聖化",
+        "聖徒"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "ἅγιος"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἁγιάζω"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἁγιασμός"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἁγιωσύνη"
+        },
+        {
+          "axis": "lemma",
+          "value": "ὅσιος"
+        }
+      ],
+      "patterns": [],
+      "domains": [
+        "88003"
+      ],
+      "syntaxTypes": [],
+      "related": [
+        "glory"
+      ],
+      "children": []
+    },
+    {
+      "id": "kingdom",
+      "label": "御国",
+      "aliases": [
+        "神の国",
+        "王国",
+        "天の国"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "βασιλεία"
+        },
+        {
+          "axis": "lemma",
+          "value": "βασιλεύω"
+        }
+      ],
+      "patterns": [],
+      "domains": [
+        "37004"
+      ],
+      "syntaxTypes": [],
+      "related": [
+        "righteousness",
+        "glory"
+      ],
+      "children": []
+    },
+    {
+      "id": "glory",
+      "label": "栄光",
+      "aliases": [
+        "栄光を帰す"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "δόξα"
+        },
+        {
+          "axis": "lemma",
+          "value": "δοξάζω"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἔνδοξος"
+        }
+      ],
+      "patterns": [],
+      "domains": [],
+      "syntaxTypes": [],
+      "related": [
+        "holy",
+        "kingdom"
+      ],
+      "children": []
+    },
+    {
+      "id": "resurrection",
+      "label": "復活",
+      "aliases": [
+        "よみがえり",
+        "甦り"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "ἀνάστασις"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἔγερσις"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἐξανάστασις"
+        },
+        {
+          "axis": "lemma",
+          "value": "συνεγείρω"
+        }
+      ],
+      "patterns": [],
+      "domains": [
+        "23007"
+      ],
+      "syntaxTypes": [],
+      "related": [
+        "hope",
+        "salvation"
+      ],
+      "children": []
+    },
+    {
+      "id": "hope",
+      "label": "希望",
+      "aliases": [
+        "望み",
+        "望む"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "ἐλπίς"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἐλπίζω"
+        },
+        {
+          "axis": "lemma",
+          "value": "προελπίζω"
+        }
+      ],
+      "patterns": [],
+      "domains": [
+        "25004"
+      ],
+      "syntaxTypes": [],
+      "related": [
+        "faith",
+        "resurrection",
+        "salvation"
+      ],
+      "children": []
+    },
+    {
+      "id": "truth",
+      "label": "真理",
+      "aliases": [
+        "真実"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "ἀλήθεια"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἀληθής"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἀληθινός"
+        },
+        {
+          "axis": "lemma",
+          "value": "ἀληθεύω"
+        }
+      ],
+      "patterns": [],
+      "domains": [
+        "72001"
+      ],
+      "syntaxTypes": [],
+      "related": [
+        "faith"
+      ],
+      "children": []
+    },
+    {
+      "id": "peace",
+      "label": "平安",
+      "aliases": [
+        "平和"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "εἰρήνη"
+        },
+        {
+          "axis": "lemma",
+          "value": "εἰρηνεύω"
+        },
+        {
+          "axis": "lemma",
+          "value": "εἰρηνικός"
+        },
+        {
+          "axis": "lemma",
+          "value": "εἰρηνοποιέω"
+        },
+        {
+          "axis": "lemma",
+          "value": "εἰρηνοποιός"
+        }
+      ],
+      "patterns": [],
+      "domains": [
+        "22007"
+      ],
+      "syntaxTypes": [],
+      "related": [
+        "grace"
+      ],
+      "children": []
+    },
+    {
+      "id": "repentance",
+      "label": "悔い改め",
+      "aliases": [
+        "悔い改める",
+        "悔改め"
+      ],
+      "terms": [
+        {
+          "axis": "lemma",
+          "value": "μετάνοια"
+        },
+        {
+          "axis": "lemma",
+          "value": "μετανοέω"
+        },
+        {
+          "axis": "lemma",
+          "value": "μεταμέλομαι"
+        }
+      ],
+      "patterns": [],
+      "domains": [
+        "41005"
+      ],
+      "syntaxTypes": [],
+      "related": [
+        "sin",
+        "salvation"
+      ],
+      "children": []
+    }
+  ]
+}
