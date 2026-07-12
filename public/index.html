@@ -4535,9 +4535,9 @@ function renderGlobalBreadcrumb() {
         /* 章 - 左右矢印で前後章へ、中央クリックで現在章を再表示 */
         items.push(
             `<span class="gbc-item current gbc-chapter-nav">` +
-            `<button class="gbc-ch-arrow" onclick="_gbcPrevChapter()" aria-label="前の章"${_ch <= 1 ? ' disabled' : ''}>◀</button>` +
+            `<button class="gbc-ch-arrow" onclick="event.stopPropagation();_gbcPrevChapter()" aria-label="前の章"${_ch <= 1 ? ' disabled' : ''}>◀</button>` +
             `<button class="gbc-ch-label" onclick="_gbcGoChapter()">${_ch}章</button>` +
-            `<button class="gbc-ch-arrow" onclick="_gbcNextChapter()" aria-label="次の章"${_ch >= _maxCh ? ' disabled' : ''}>▶</button>` +
+            `<button class="gbc-ch-arrow" onclick="event.stopPropagation();_gbcNextChapter()" aria-label="次の章"${_ch >= _maxCh ? ' disabled' : ''}>▶</button>` +
             `</span>`
         );
     }
@@ -7449,10 +7449,16 @@ document.querySelector('.container')?.addEventListener('click', (e) => {
 
 /* パンくず: メニュー閉時のみクリックでサイドバーを開く。開時は何もしない。
    stopPropagation で .container の閉じるハンドラへのバブリングを防ぐ。
-   子ボタン（testament/book/chapter）のクリックも同様に伝播を止める。 */
+   子ボタン（testament/book/chapter）のクリックも同様に伝播を止める。
+   章矢印ボタン（.gbc-ch-arrow）は inline onclick 側で stopPropagation 済みだが、
+   pointerdown/touchstart でも念のため委任ハンドラで止める。 */
 document.getElementById('global-breadcrumb')?.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (e.target.closest('.gbc-ch-arrow')) return;
     if (!_isSidebarOpen()) openSidebar();
+});
+document.getElementById('global-breadcrumb')?.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.gbc-ch-arrow')) e.stopPropagation();
 });
 
 function toggleInfoCard() {
