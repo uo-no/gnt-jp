@@ -203,11 +203,11 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 .unified-input {
     width: 100%;
-    padding: 14px 16px 14px 44px;
+    padding: 14px 44px 14px 16px;
     font-family: 'Gentium Plus', serif;
     font-size: 1.15rem;
     line-height: 1.4;
-    border: 1px solid var(--border-soft);
+    border: 1px solid rgba(0,0,0,0.14);
     border-radius: 10px;
     background: var(--bg-paper);
     color: var(--text-main);
@@ -224,10 +224,16 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     border-color: var(--highlight);
     box-shadow: 0 0 0 3px var(--highlight-light);
 }
-.search-icon {
-    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-    color: var(--text-sub); font-size: 0.9rem; pointer-events: none;
+.search-icon-btn {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--text-sub); padding: 4px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px;
+    transition: color var(--transition-fast);
 }
+.search-icon-btn:hover { color: var(--text-main); }
+.search-icon-btn svg { width: 16px; height: 16px; display: block; }
 /* Suggest dropdown */
 .suggest-dropdown {
     position: absolute; top: calc(100% + 4px); left: 0; right: 0;
@@ -252,20 +258,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .suggest-pos { font-size: 0.65rem; color: var(--text-sub); margin-left: 5px; opacity: 0.7; }
 .suggest-count { font-size: 0.65rem; color: var(--text-sub); white-space: nowrap; flex-shrink: 0; }
 
-/* Search button */
-.run-btn {
-    width: 100%; padding: 13px 0;
-    background: var(--highlight); color: #fff;
-    border: none; border-radius: 8px;
-    font-family: inherit; font-size: 0.88rem; font-weight: 700;
-    letter-spacing: 0.05em; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 9px;
-    transition: opacity 0.15s, transform 0.1s;
-    margin-bottom: 22px;
-}
-.run-btn:hover { opacity: 0.87; transform: translateY(-1px); }
-.run-btn:active { transform: scale(0.98); }
-.run-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
 
 /* ============================================================
    Interpretation layers
@@ -288,10 +280,10 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     user-select: none;
 }
 .layer-row:hover { background: var(--bg-panel); }
-.layer-row.active-lemma  { border-color: rgba(26,95,168,0.3);  background: var(--lemma-bg); }
-.layer-row.active-phrase { border-color: rgba(46,125,70,0.3); background: var(--phrase-bg); }
-.layer-row.active-prox   { border-color: rgba(184,74,26,0.3);   background: var(--prox-bg); }
-.layer-row.active-morph  { border-color: rgba(123,61,154,0.3);  background: var(--morph-bg); }
+.layer-row.active-lemma  { border-color: rgba(26,95,168,0.22); }
+.layer-row.active-phrase { border-color: rgba(46,125,70,0.22); }
+.layer-row.active-prox   { border-color: rgba(184,74,26,0.22); }
+.layer-row.active-morph  { border-color: rgba(123,61,154,0.22); }
 
 .layer-check {
     width: 16px; height: 16px; border-radius: 4px;
@@ -309,12 +301,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .layer-info { flex: 1; min-width: 0; }
 .layer-name {
     font-size: 0.78rem; font-weight: 700;
-    color: var(--text-sub); letter-spacing: 0.04em;
+    color: var(--text-main); letter-spacing: 0.04em;
 }
-.layer-row.active-lemma  .layer-name { color: var(--lemma); }
-.layer-row.active-phrase .layer-name { color: var(--phrase); }
-.layer-row.active-prox   .layer-name { color: var(--prox); }
-.layer-row.active-morph  .layer-name { color: var(--morph); }
 
 .layer-desc {
     font-size: 0.65rem; color: var(--text-sub);
@@ -502,6 +490,14 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .layer-chip.prox   { background: var(--prox-bg);   color: var(--prox);   border-color: var(--prox-border); }
 .layer-chip.morph  { background: var(--morph-bg);  color: var(--morph);  border-color: var(--morph-border); }
 .layer-chip:hover { opacity: 0.75; }
+/* Pattern chips reuse class="layer-chip prox" in JS — override in context to phrase-green.
+   Prox (orange) = word-distance condition; Pattern (green) = biblical expression preset. */
+#pattern-chips .layer-chip.prox,
+.ci-advanced .layer-chip.prox {
+    background: var(--phrase-bg);
+    color: var(--phrase);
+    border-color: var(--phrase-border);
+}
 
 /* ── Concept Insight（Phase 4-3）: 表示専用の知識カード。
       値はすべて既存 tokens.css のトークンのみ（新色・新余白値なし）。
@@ -525,10 +521,27 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .ci-section:first-of-type { margin-top: 0; }
 .ci-section-title {
     font-size: var(--text-caption);
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
     color: var(--text-sub);
+    opacity: 0.6;
     margin-bottom: var(--space-xs);
 }
 .ci-chips { justify-content: flex-start; }
+.ci-related-more-btn {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    cursor: pointer;
+    background: none;
+    border: 1px dashed var(--border-soft);
+    border-radius: var(--radius-s);
+    padding: var(--space-xs) var(--space-sm);
+    font-family: inherit;
+    line-height: 1;
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+.ci-related-more-btn:hover { border-color: var(--highlight); color: var(--highlight); }
 
 /* 関連するギリシャ語（Phase 6-2）: 語彙 → 語義 → 出現数 → 辞書の導線行。
    値はすべて既存トークンのみ */
@@ -630,8 +643,13 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .result-count {
     font-size: 0.78rem; font-weight: 700;
     color: var(--text-sub);
+    display: inline-flex; flex-direction: column; align-items: flex-end; gap: 1px;
 }
-.result-layer-badges { display: none; }
+.result-count-sub {
+    font-size: var(--text-caption);
+    font-weight: 400;
+    opacity: 0.75;
+}
 .r-badge {
     font-size: 0.6rem; font-weight: 700; padding: 3px 8px;
     border-radius: 10px; letter-spacing: 0.06em; text-transform: uppercase;
@@ -702,6 +720,21 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     font-size: 0.6rem; font-weight: 700; color: var(--text-sub);
     letter-spacing: 0.12em; text-transform: uppercase;
     margin-bottom: 8px; opacity: 0.6;
+}
+.dist-section-title {
+    font-size: var(--text-caption); font-weight: 700;
+    letter-spacing: 0.10em; text-transform: uppercase;
+    color: var(--text-sub); opacity: 0.6;
+    margin-top: var(--space-sm); margin-bottom: var(--space-xs);
+}
+.dist-title + .dist-section-title { margin-top: 0; }
+.dist-section-divider {
+    border: none; border-top: 1px solid var(--border-soft);
+    margin: var(--space-sm) 0;
+}
+.dist-overflow-note {
+    font-size: var(--text-caption); color: var(--text-sub);
+    opacity: 0.5; padding: 2px 5px;
 }
 .dist-bar-list { display: flex; flex-direction: column; gap: 4px; }
 .dist-bar-row {
@@ -931,6 +964,287 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 .zero-hits-icon { font-size: 2rem; opacity: 0.18; }
 .zero-hits-msg { font-size: 0.8rem; color: var(--text-sub); }
+.zero-recovery {
+    margin-top: var(--space-xl);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--border-soft);
+    width: 100%;
+    max-width: 420px;
+}
+.zero-hint {
+    margin-top: var(--space-md);
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    opacity: 0.65;
+    line-height: 1.7;
+}
+
+/* ── Example query pills (empty state) ── */
+.empty-examples {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    justify-content: center; margin-top: 16px;
+}
+.ex-chip {
+    padding: 6px 14px;
+    border: 1.5px solid var(--border-soft);
+    border-radius: 20px;
+    font-family: 'Gentium Plus', serif;
+    font-size: 0.9rem;
+    color: var(--text-sub);
+    cursor: pointer;
+    background: var(--bg-paper);
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    user-select: none;
+}
+.ex-chip:hover {
+    border-color: var(--highlight);
+    color: var(--highlight);
+    background: var(--highlight-light);
+}
+.empty-section-label {
+    font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.10em; text-transform: uppercase;
+    color: var(--text-sub); margin-bottom: 8px;
+    opacity: 0.6;
+}
+
+/* ── Discovery Lobby (UX-10-1C / UX-10-1D / UX-10-2B) ── */
+#discovery-lobby {
+    display: flex; flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 48px var(--space-md) var(--space-xl);
+}
+.discovery-title {
+    font-size: 1rem; font-weight: 400;
+    color: var(--text-sub);
+    text-align: center;
+    line-height: 1.75;
+    margin: 0 0 20px;
+}
+.discovery-verse-card {
+    background: var(--bg-paper);
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 16px;
+    padding: 28px 24px;
+    max-width: 450px;
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+}
+.discovery-verse-text {
+    font-size: 1.15rem;
+    line-height: 1.8;
+    color: var(--text-main);
+    margin: 0 0 12px;
+    font-weight: 400;
+}
+.discovery-verse-ref {
+    font-size: 0.72rem;
+    color: var(--text-sub);
+    letter-spacing: 0.06em;
+    margin: 0;
+}
+.discovery-verse-themes {
+    margin-top: 20px;
+    padding-bottom: 10px;
+    display: flex; flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+.discovery-verse-label {
+    font-size: 0.62rem;
+    color: var(--text-sub);
+    letter-spacing: 0.08em;
+    opacity: 0.75;
+}
+.discovery-verse-pills {
+    display: flex; flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+}
+.discovery-verse-pill {
+    padding: 4px 12px;
+    border: 1px solid var(--border-soft);
+    border-radius: 20px;
+    background: transparent;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 0.72rem;
+    color: var(--text-sub);
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+}
+.discovery-verse-pill:hover,
+.discovery-verse-pill:focus-visible {
+    background: var(--bg-panel);
+    outline: none;
+}
+
+/* ── Hit card redesign ── */
+.hit-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 10px;
+}
+.hit-ref {
+    font-size: 0.72rem; font-weight: 700;
+    color: var(--highlight); letter-spacing: 0.04em;
+}
+.hit-badges-subtle {
+    display: flex; gap: 3px; margin-left: auto; flex-shrink: 0;
+}
+.hit-badges-subtle .ht-badge {
+    font-size: 0.60rem; padding: 1px 5px;
+    opacity: 0.55; font-weight: 600;
+}
+.corpus-badge {
+    font-size: var(--text-caption);
+    font-weight: 400;
+    padding: 1px 5px;
+    border-radius: var(--radius-s);
+    border: 1px solid var(--border);
+    color: var(--text-sub);
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+.hit-body {
+    margin-bottom: 10px;
+}
+.hit-footer {
+    display: flex; align-items: center; gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-soft);
+}
+.hit-open-btn-lg {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-left: auto;
+    padding: 5px 14px;
+    background: var(--highlight);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 0.75rem; font-weight: 700;
+    font-family: inherit;
+    text-decoration: none;
+    transition: opacity 0.15s, transform 0.1s;
+    flex-shrink: 0;
+    letter-spacing: 0.02em;
+}
+.hit-open-btn-lg:hover { opacity: 0.85; transform: translateY(-1px); }
+.hit-open-btn-lg:active { transform: scale(0.97); }
+.hit-snippet-body {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: var(--bg-panel);
+    border-radius: var(--radius-s);
+    display: none;
+}
+.hit-snippet-body.open { display: block; }
+
+/* ── Concept Insight redesign ── */
+.ci-concept-title {
+    font-size: var(--text-body-lg);
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: var(--space-md);
+    letter-spacing: -0.01em;
+}
+.ci-advanced {
+    margin-top: var(--space-sm);
+    border-top: 1px solid var(--border-soft);
+    padding-top: var(--space-sm);
+}
+.ci-advanced-toggle {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    cursor: pointer;
+    list-style: none;
+    display: flex; align-items: center; gap: 4px;
+    user-select: none;
+    padding: 2px 0;
+    transition: color 0.15s;
+}
+.ci-advanced-toggle::-webkit-details-marker { display: none; }
+.ci-advanced-toggle::before {
+    content: '›';
+    font-size: 1rem;
+    line-height: 1;
+    transition: transform 0.2s var(--ease-out);
+    flex-shrink: 0;
+}
+.ci-advanced[open] .ci-advanced-toggle::before { transform: rotate(90deg); }
+.ci-advanced-toggle:hover { color: var(--highlight); }
+.ci-advanced-body { padding-top: var(--space-sm); }
+
+/* ── Advanced layers collapsible ── */
+.advanced-layers {
+    margin-top: var(--space-xs);
+}
+.advanced-layers-toggle {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--text-sub);
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    user-select: none;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+.advanced-layers-toggle::-webkit-details-marker { display: none; }
+.advanced-layers-toggle::before {
+    content: '›';
+    font-size: 1rem;
+    line-height: 1;
+    transition: transform 0.2s var(--ease-out);
+    flex-shrink: 0;
+}
+.advanced-layers[open] > .advanced-layers-toggle::before { transform: rotate(90deg); }
+.advanced-layers-toggle:hover { color: var(--highlight); border-color: var(--highlight); }
+.advanced-layers-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px; height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--highlight);
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    margin-left: auto;
+}
+.advanced-layers-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 6px;
+}
+
+/* ── Distribution panel (moved to after hits) ── */
+.dist-panel { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-soft); }
+
+/* ── Mobile enhancements ── */
+@media (max-width: 680px) {
+    .hit-card { padding: 14px 14px; }
+    .hit-open-btn-lg {
+        padding: 7px 16px;
+        font-size: 0.8rem;
+    }
+    .hit-footer { padding-top: 10px; }
+    .hit-trans-toggle {
+        font-size: 0.7rem;
+        padding: 5px 10px;
+    }
+    #concept-insight {
+        padding: var(--space-sm);
+    }
+}
 
 /* ============================================================
    Mobile responsive
@@ -955,6 +1269,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .share-url-btn:hover { opacity: 1; background: rgba(0,0,0,0.05); }
 .share-url-btn svg { width: 16px; height: 16px; display: block; }
 .lg-toggle svg { width: 9px; height: 9px; display: block; }
+/* syn-filter: override components.css '▶' → '›' to align with advanced-layers › pattern */
+.syn-filter summary::before { content: '›'; font-size: 1rem; }
 
 .share-toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px);
@@ -984,72 +1300,24 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 
     <!-- Search input -->
     <div class="s-label">検索語</div>
-    <div class="search-input-wrap" style="margin-bottom:10px;">
-        <span class="search-icon"><span class="material-symbols-outlined">search</span></span>
+    <div class="search-input-wrap" style="margin-bottom:22px;">
         <input class="unified-input" id="unified-search-input"
             type="text"
-            placeholder="例：ἀγαπάω / πίστις / 愛 / 信じる"
+            placeholder="愛・信じる・ἀγαπάω …"
             autocomplete="off" spellcheck="false">
+        <button class="search-icon-btn" onclick="unifiedSearch()" tabindex="-1" aria-label="検索" title="検索する">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </button>
         <div class="suggest-dropdown" id="suggest-dropdown"></div>
     </div>
-
-    <button class="run-btn" id="run-btn" onclick="unifiedSearch()">
-        <span class="material-symbols-outlined">layers</span>
-        <span>検索する</span>
-    </button>
 
     <!-- データ取得の警告（失敗ファイル・章数不整合） -->
     <div id="fetch-warning-panel" style="margin-top:8px;"></div>
 
     <!-- Interpretation layers -->
     <div class="layers-block">
-        <div class="s-label">解釈レイヤー</div>
+        <div class="s-label">探し方</div>
         <div class="layers-grid">
-
-            <!-- lemma -->
-            <div class="layer-row active-lemma" id="layer-lemma" onclick="toggleLayer('lemma')" title="活用形を問わず同一語根の全出現">
-                <div class="layer-check" id="chk-lemma"></div>
-                <div class="layer-info">
-                    <div class="layer-name">語根で探す</div>
-                    <div class="layer-desc">活用形・格変化を無視して同じ語根の箇所をすべて検索</div>
-                </div>
-            </div>
-
-            <!-- phrase -->
-            <div class="layer-row" id="layer-phrase" onclick="toggleLayer('phrase')" title="lemmaの連続一致">
-                <div class="layer-check" id="chk-phrase"></div>
-                <div class="layer-info">
-                    <div class="layer-name">フレーズで探す</div>
-                    <div class="layer-desc">入力した語をそのままの順番・並びで完全一致検索</div>
-                </div>
-            </div>
-            <div class="phrase-sub" id="phrase-sub">
-                複数語を空白で区切って入力すると連続一致を検索します。<br>
-                例：<code style="font-family:'JetBrains Mono',monospace;">ἀγαπάω θεός</code>
-            </div>
-
-            <!-- proximity -->
-            <div class="layer-row" id="layer-prox" onclick="toggleLayer('prox')" title="距離ベース共起">
-                <div class="layer-check" id="chk-prox"></div>
-                <div class="layer-info">
-                    <div class="layer-name">近くに出てくる語</div>
-                    <div class="layer-desc">指定した語が ±<span id="prox-label-inline">5</span> 語以内に一緒に現れる箇所を検索</div>
-                </div>
-            </div>
-            <div class="prox-sub" id="prox-sub">
-                <div class="prox-sub-row">
-                    <span class="prox-sub-label">距離</span>
-                    <span class="prox-sub-val" id="prox-val-label">±5語</span>
-                </div>
-                <input type="range" class="prox-slider" id="prox-slider"
-                    min="1" max="15" value="5"
-                    oninput="onProxSlider(this.value)">
-                <div class="prox-presets">
-                    <button class="prox-preset" data-d="3" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;">狭い</span></button>
-                    <button class="prox-preset active" data-d="5" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;">標準</span></button>
-                    <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
-                </div>
-            </div>
 
             <!-- morph -->
             <div class="layer-row" id="layer-morph" onclick="toggleLayer('morph')" title="形態素フィルタ">
@@ -1099,6 +1367,51 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
                 <div class="morph-hint" id="morph-hint-text">品詞を選ぶとさらに絞り込めます</div>
             </div>
 
+            <!-- phrase -->
+            <div class="layer-row" id="layer-phrase" onclick="toggleLayer('phrase')" title="lemmaの連続一致">
+                <div class="layer-check" id="chk-phrase"></div>
+                <div class="layer-info">
+                    <div class="layer-name">フレーズで探す</div>
+                    <div class="layer-desc">入力した語をそのままの順番・並びで完全一致検索</div>
+                </div>
+            </div>
+            <div class="phrase-sub" id="phrase-sub">
+                複数語を空白で区切って入力すると連続一致を検索します。<br>
+                例：<code style="font-family:'JetBrains Mono',monospace;">ἀγαπάω θεός</code>
+            </div>
+
+            <!-- proximity -->
+            <div class="layer-row" id="layer-prox" onclick="toggleLayer('prox')" title="距離ベース共起">
+                <div class="layer-check" id="chk-prox"></div>
+                <div class="layer-info">
+                    <div class="layer-name">近くに出てくる語</div>
+                    <div class="layer-desc">指定した語が ±<span id="prox-label-inline">5</span> 語以内に一緒に現れる箇所を検索</div>
+                </div>
+            </div>
+            <div class="prox-sub" id="prox-sub">
+                <div class="prox-sub-row">
+                    <span class="prox-sub-label">距離</span>
+                    <span class="prox-sub-val" id="prox-val-label">±5語</span>
+                </div>
+                <input type="range" class="prox-slider" id="prox-slider"
+                    min="1" max="15" value="5"
+                    oninput="onProxSlider(this.value)">
+                <div class="prox-presets">
+                    <button class="prox-preset" data-d="3" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;">狭い</span></button>
+                    <button class="prox-preset active" data-d="5" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;">標準</span></button>
+                    <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
+                </div>
+            </div>
+
+            <!-- lemma -->
+            <div class="layer-row active-lemma" id="layer-lemma" onclick="toggleLayer('lemma')" title="活用形を問わず同一語根の全出現">
+                <div class="layer-check" id="chk-lemma"></div>
+                <div class="layer-info">
+                    <div class="layer-name">語根で探す</div>
+                    <div class="layer-desc">活用形・格変化を無視して同じ語根の箇所をすべて検索</div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -1119,25 +1432,17 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 
     <!-- Empty state -->
     <div class="state-empty" id="state-empty">
-        <div class="empty-glyph">λόγος</div>
-        <div class="empty-title">語を入力して検索する</div>
-        <div class="empty-desc">
-            1つの入力が複数の認知レイヤーで同時に解釈されます。
-            有効なレイヤーをすべて並列実行し、結果を統合します。
+        <!-- Discovery Lobby (UX-10-1D): 初期表示。_showEmpty() 呼び出し時は hidden になる -->
+        <div id="discovery-lobby">
+            <h2 class="discovery-title">今日のことば</h2>
         </div>
-        <div class="layer-chips">
-            <span class="layer-chip lemma"  onclick="activateLayer('lemma')">語根で探す</span>
-            <span class="layer-chip phrase" onclick="activateLayer('phrase')">フレーズで探す</span>
-            <span class="layer-chip prox"   onclick="activateLayer('prox')">近くに出てくる語</span>
-            <span class="layer-chip morph"  onclick="activateLayer('morph')">品詞・語形で絞る</span>
-        </div>
-        <!-- パターン検索（Pattern Search Phase 3）: 保存された Term クエリの入口。
-             search-patterns.json の読み込みに失敗した場合は非表示のまま
-             （既存UIへの影響ゼロ）。チップは既存 layer-chip の体系を流用し、
-             共起検索の prox 色を使う（新しい色は追加しない）。 -->
-        <div id="pattern-search-section" style="display:none;margin-top:var(--space-lg);">
-            <div class="empty-desc" style="margin-bottom:var(--space-sm);">パターン検索 — 文法的な問いから探す</div>
-            <div class="layer-chips" id="pattern-chips"></div>
+        <!-- 以下は温存。Discovery Lobby 非表示時（エラー等）に _showEmpty() が復元する -->
+        <div class="empty-glyph" style="display:none">λόγος</div>
+        <div class="empty-title" style="display:none">聖書を検索する</div>
+        <div class="empty-desc" style="display:none">日本語・ギリシャ語・Strong番号で検索できます</div>
+        <div id="history-recent-section" style="display:none;margin-top:var(--space-lg);">
+            <div class="empty-section-label">最近の検索</div>
+            <div class="empty-examples" id="history-recent-chips"></div>
         </div>
     </div>
 
@@ -1151,7 +1456,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     <div class="result-header" id="result-header">
         <span class="result-query" id="result-query-label"></span>
         <span class="result-count" id="result-count"></span>
-        <div class="result-layer-badges" id="result-layer-badges"></div>
     </div>
 
     <!-- Concept Insight（Phase 4-3）: Concept 発火時のみ表示される知識カード。
@@ -1168,10 +1472,14 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
             </div>
             <!-- Hits column -->
             <div class="hits-col">
-                <div class="dist-panel" id="dist-panel" style="display:none;"></div>
                 <div class="hits-count" id="hits-count"></div>
                 <div class="lemma-groups" id="lemma-groups" style="display:none;"></div>
                 <div class="hits-list" id="hits-list"></div>
+                <div class="dist-panel" id="dist-panel" style="display:none;"></div>
+                <div id="pattern-explore-section" style="display:none;margin-top:var(--space-xl);padding-top:var(--space-lg);border-top:1px solid var(--border-soft);">
+                    <div class="empty-section-label">文法で深める</div>
+                    <div class="layer-chips" id="pattern-explore-chips"></div>
+                </div>
             </div>
         </div>
     </div><!-- /#result-body -->
@@ -2250,7 +2558,30 @@ async function _loadSearchConcepts() {
                 related:     arr(c.related),
                 children:    arr(c.children),
             }));
+        _renderConceptDiscoveryChips();
     } catch (_) { /* 失敗 = Concept 層が無いだけ（既存検索は不変） */ }
+}
+
+/* 空き状態「テーマから探す」チップ — Top 8 Concept を発見入口として提示 */
+const CONCEPT_DISCOVERY_IDS = ['love','prayer','faith','salvation','sin','christ','cross','resurrection'];
+
+function _renderConceptDiscoveryChips() {
+    const sec  = document.getElementById('concept-discovery-section');
+    const wrap = document.getElementById('concept-discovery-chips');
+    if (!sec || !wrap || SEARCH_CONCEPTS.length === 0) return;
+    const top = CONCEPT_DISCOVERY_IDS
+        .map(id => SEARCH_CONCEPTS.find(c => c.id === id))
+        .filter(Boolean);
+    if (top.length === 0) return;
+    wrap.innerHTML = '';
+    top.forEach(concept => {
+        const chip = document.createElement('span');
+        chip.className = 'ex-chip';
+        chip.textContent = concept.label;
+        chip.addEventListener('click', () => _exampleSearch(concept.label));
+        wrap.appendChild(chip);
+    });
+    sec.style.display = '';
 }
 
 /* 検索語 → Term[]（Concept 未登録なら null）。検索は実行しない */
@@ -2306,8 +2637,14 @@ function _renderConceptInsight(concept) {
     const sec = (title, chips) => chips
         ? `<div class="ci-section"><div class="ci-section-title">${title}</div>
            <div class="layer-chips ci-chips">${chips}</div></div>` : '';
-    const relHtml = rel.map(c =>
-        `<span class="layer-chip lemma" onclick="_ciConceptClick('${_escH(c.label)}')">${_escH(c.label)}</span>`).join('');
+    const _REL_FOLD = 8;
+    const _mkRelChip = c =>
+        `<span class="layer-chip lemma" onclick="_ciConceptClick('${_escH(c.label)}')">${_escH(c.label)}</span>`;
+    const relHtml = rel.length <= _REL_FOLD
+        ? rel.map(_mkRelChip).join('')
+        : rel.slice(0, _REL_FOLD).map(_mkRelChip).join('')
+            + `<button class="ci-related-more-btn" onclick="this.style.display='none';this.nextElementSibling.style.display='contents'">さらに表示 (${rel.length - _REL_FOLD})</button>`
+            + `<span style="display:none">${rel.slice(_REL_FOLD).map(_mkRelChip).join('')}</span>`;
     const patHtml = pats.map(p =>
         `<span class="layer-chip prox" onclick="runPatternSearch(${p.i})">${_escH(p.label)}</span>`).join('');
     const synHtml = syns.map(s =>
@@ -2350,9 +2687,20 @@ function _renderConceptInsight(concept) {
         }
     } catch (_) { lexHtml = ''; }   /* 失敗はセクション非表示のみ（静寂） */
 
-    const body = lexHtml + sec('関連する概念', relHtml) + sec('関連する検索', patHtml) + sec('関連する文法', synHtml);
+    /* Advanced sections (patterns / syntax) go into a collapsible details block */
+    const advancedSections = [
+        patHtml  ? `<div class="ci-section"><div class="ci-section-title">パターンで探す</div><div class="layer-chips ci-chips">${patHtml}</div></div>` : '',
+        synHtml  ? `<div class="ci-section"><div class="ci-section-title">構文で探す</div><div class="layer-chips ci-chips">${synHtml}</div></div>` : '',
+    ].join('');
+    const advancedHtml = advancedSections
+        ? `<details class="ci-advanced">
+               <summary class="ci-advanced-toggle">さらに詳しく</summary>
+               <div class="ci-advanced-body">${advancedSections}</div>
+           </details>` : '';
+
+    const body = lexHtml + sec('関連する概念', relHtml) + advancedHtml;
     if (!body) { el.style.display = 'none'; el.innerHTML = ''; return; }
-    el.innerHTML = `<div class="ci-header">Concept Insight — ${_escH(concept.label)}</div>` + body;
+    el.innerHTML = `<div class="ci-concept-title">「${_escH(concept.label)}」について</div>` + body;
     el.style.display = '';
 }
 
@@ -2387,8 +2735,7 @@ async function _loadSearchPatterns() {
         SEARCH_PATTERNS = data.patterns.filter(p =>
             p && p.id && p.label && p.query && p.query.type === 'cooccurrence' &&
             p.query.termA && p.query.termB);
-        _renderPatternChips();
-    } catch (_) { /* 失敗 = 入口非表示のまま（静寂） */ }
+    } catch (_) { /* 失敗 = パターン非表示のまま（静寂） */ }
 }
 
 function _renderPatternChips() {
@@ -2401,13 +2748,21 @@ function _renderPatternChips() {
     sec.style.display = '';
 }
 
+function _renderPatternExplore() {
+    const sec  = document.getElementById('pattern-explore-section');
+    const wrap = document.getElementById('pattern-explore-chips');
+    if (!sec || !wrap || SEARCH_PATTERNS.length === 0) return;
+    wrap.innerHTML = SEARCH_PATTERNS.map((p, i) =>
+        `<span class="layer-chip phrase" title="${_escH(p.description || '')}"
+            onclick="runPatternSearch(${i})">${_escH(p.label)}</span>`).join('');
+    sec.style.display = '';
+}
+
 async function runPatternSearch(i) {
     const p = SEARCH_PATTERNS[i];
     if (!p || !p.query || p.query.type !== 'cooccurrence') return;
     if (isSearching) return;
     isSearching = true;
-    const runBtn = document.getElementById('run-btn');
-    if (runBtn) runBtn.disabled = true;
     try {
         if (!IDX.ready) {
             _showLoading('NT・LXXのインデックスを構築中です。完了までパターン検索は実行されません…');
@@ -2580,7 +2935,11 @@ function _initSuggest(){
         if(qtype!=='japanese'||!val){document.getElementById('suggest-dropdown').classList.remove('open');return;}
         _showSuggest(_getSuggestions(val));
     });
-    inp.addEventListener('blur',()=>setTimeout(()=>document.getElementById('suggest-dropdown').classList.remove('open'),150));
+    inp.addEventListener('focus',()=>_renderEmptyStateHistory());
+    inp.addEventListener('blur',()=>{
+        setTimeout(()=>document.getElementById('suggest-dropdown').classList.remove('open'),150);
+        setTimeout(()=>{const s=document.getElementById('history-recent-section');if(s)s.style.display='none';},150);
+    });
     inp.addEventListener('keydown',e=>{
         if(e.key==='Escape'){document.getElementById('suggest-dropdown').classList.remove('open');return;}
         if(e.key==='Enter'){document.getElementById('suggest-dropdown').classList.remove('open');unifiedSearch();}
@@ -2643,6 +3002,11 @@ function activateLayer(name){
     _syncLayerUI(name);
     document.getElementById('unified-search-input').focus();
 }
+function _exampleSearch(term) {
+    const input = document.getElementById('unified-search-input');
+    if (input) { input.value = term; input.dispatchEvent(new Event('input')); }
+    unifiedSearch();
+}
 function _syncLayerUI(name){
     const active=_layers[name];
     const row=document.getElementById(`layer-${name}`);
@@ -2659,6 +3023,29 @@ function _syncLayerUI(name){
     }
     if(name==='phrase'){
         document.getElementById('phrase-sub').classList.toggle('visible',active);
+    }
+    // Advanced layers panel: auto-open when any advanced layer is active; update badge
+    _syncAdvancedLayersPanel();
+}
+function _syncAdvancedLayersPanel(){
+    const details = document.getElementById('advanced-layers');
+    if(!details) return;
+    const advCount = ['phrase','prox','morph'].filter(n=>_layers[n]).length;
+    if(advCount > 0) details.open = true;
+    // Update summary badge
+    const summary = details.querySelector('.advanced-layers-toggle');
+    if(!summary) return;
+    const existing = summary.querySelector('.advanced-layers-badge');
+    if(advCount > 0){
+        if(existing){ existing.textContent = advCount; }
+        else {
+            const badge = document.createElement('span');
+            badge.className = 'advanced-layers-badge';
+            badge.textContent = advCount;
+            summary.appendChild(badge);
+        }
+    } else {
+        if(existing) existing.remove();
     }
 }
 
@@ -2680,43 +3067,98 @@ function setProxPreset(v){
 }
 
 /* ============================================================
-   Unified Search History
+   Unified Search History（localStorage 永続化）
    ============================================================ */
-const _history=[];
-function _addHistory(query,layers){
-    const key=`${query}|${JSON.stringify(layers)}`;
-    const idx=_history.findIndex(h=>h.key===key);
-    if(idx>=0)_history.splice(idx,1);
-    _history.unshift({key,query,layers:{...layers}});
-    if(_history.length>8)_history.pop();
+const _HISTORY_KEY = 'gnt-search-history';
+const _HISTORY_MAX = 10;
+const _history = [];
+
+/* localStorage への書き込み（失敗は静寂 — 検索本体に影響させない） */
+function _saveHistory() {
+    try {
+        localStorage.setItem(_HISTORY_KEY,
+            JSON.stringify(_history.map(({query,layers,ts}) => ({query,layers,ts}))));
+    } catch(_) {}
+}
+
+/* localStorage から読み込み → _history を復元 */
+function _loadHistory() {
+    try {
+        const raw = localStorage.getItem(_HISTORY_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (!Array.isArray(saved)) return;
+        for (const item of saved.slice(0, _HISTORY_MAX)) {
+            if (item && item.query) {
+                _history.push({
+                    key:    item.query,
+                    query:  item.query,
+                    layers: item.layers || {lemma:true,phrase:false,prox:false,morph:false},
+                    ts:     item.ts || 0,
+                });
+            }
+        }
+    } catch(_) {}
     _renderHistory();
 }
+
+function _addHistory(query,layers){
+    if(!query) return;
+    // query ベースで重複排除（レイヤーが違っても同語を移動）
+    const idx = _history.findIndex(h => h.query === query);
+    if(idx >= 0) _history.splice(idx, 1);
+    _history.unshift({key:query, query, layers:{...layers}, ts:Date.now()});
+    if(_history.length > _HISTORY_MAX) _history.pop();
+    _saveHistory();
+    _renderHistory();
+}
+
 /* 表示専用のHTMLエスケープ。_renderHistory()のquery展開のみに使用する。 */
 function _escH(s){
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+const _BADGE_JP_HIST = {lemma:'語根', phrase:'フレーズ', prox:'近接', morph:'品詞'};
+
 function _renderHistory(){
-    const block=document.getElementById('history-block');
-    const list=document.getElementById('history-list');
-    if(_history.length===0){block.style.display='none';return;}
-    block.style.display='';
-    list.innerHTML='';
-    _history.slice(0,6).forEach(({query,layers})=>{
-        const item=document.createElement('div');
-        item.className='history-item';
-        const badges=['lemma','phrase','prox','morph']
-            .filter(l=>layers[l])
-            .map(l=>`<span class="h-badge ${l}">${l}</span>`).join('');
-        item.innerHTML=`
+    const block = document.getElementById('history-block');
+    const list  = document.getElementById('history-list');
+    if(_history.length === 0){ block.style.display='none'; return; }
+    block.style.display = '';
+    list.innerHTML = '';
+    _history.slice(0, 6).forEach(({query,layers}) => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        const badges = ['lemma','phrase','prox','morph']
+            .filter(l => layers[l])
+            .map(l => `<span class="h-badge ${l}">${_BADGE_JP_HIST[l]||l}</span>`).join('');
+        item.innerHTML = `
             <div class="history-badges">${badges}</div>
             <span class="h-query">${_escH(query)}</span>`;
-        item.addEventListener('click',()=>{
-            document.getElementById('unified-search-input').value=query;
-            Object.keys(_layers).forEach(k=>{_layers[k]=!!layers[k];_syncLayerUI(k);});
+        item.addEventListener('click', () => {
+            document.getElementById('unified-search-input').value = query;
+            Object.keys(_layers).forEach(k => { _layers[k] = !!layers[k]; _syncLayerUI(k); });
             unifiedSearch();
         });
         list.appendChild(item);
     });
+}
+
+/* 空き状態の「最近の検索」チップ（最大5件） */
+function _renderEmptyStateHistory() {
+    const sec  = document.getElementById('history-recent-section');
+    const wrap = document.getElementById('history-recent-chips');
+    if(!sec || !wrap) return;
+    if(_history.length === 0){ sec.style.display = 'none'; return; }
+    wrap.innerHTML = '';
+    _history.slice(0, 5).forEach(({query}) => {
+        const chip = document.createElement('span');
+        chip.className = 'ex-chip';
+        chip.textContent = query;
+        chip.addEventListener('click', () => _exampleSearch(query));
+        wrap.appendChild(chip);
+    });
+    sec.style.display = '';
 }
 
 /* ============================================================
@@ -2742,7 +3184,6 @@ async function unifiedSearch(){
 
     _activeLayerSet={..._layers};
     isSearching=true;
-    document.getElementById('run-btn').disabled=true;
     // Close mobile panel when search fires
     if(window.innerWidth<=680) _closeMobilePanel();
 
@@ -2927,7 +3368,6 @@ async function unifiedSearch(){
     _allMergedResults=merged;
     _proxCoocMap=proxCoocMap;
     isSearching=false;
-    document.getElementById('run-btn').disabled=false;
 
     _addHistory(query,_activeLayerSet);
     _lastQuery=query;
@@ -3002,6 +3442,14 @@ function _renderUnifiedResults(query,words,word2){
     const merged=_allMergedResults;
     const total=merged.size;
 
+    // Pattern explore: 各検索の先頭でリセット（0件 or 次検索で残留しない）
+    const _patEx=document.getElementById('pattern-explore-section');
+    if(_patEx) _patEx.style.display='none';
+
+    // Corpus breakdown count (corpusId が唯一の判定ソース。book名推測禁止)
+    let ntCount=0,lxxCount=0;
+    for(const[,{tok}] of merged){ if(tok.corpusId==='LXX') lxxCount++; else ntCount++; }
+
     /* Concept Insight（Phase 4-3・表示のみ）: 概念発火時のみカードを描く。
        検索件数・順位には一切関与しない */
     _renderConceptInsight(_activeInsightConcept);
@@ -3011,13 +3459,18 @@ function _renderUnifiedResults(query,words,word2){
     document.getElementById('state-loading').style.display='none';
     document.getElementById('result-header').classList.add('visible');
     document.getElementById('result-query-label').textContent=query;
-    document.getElementById('result-count').textContent=`${total.toLocaleString()} 件`;
-
-    // Layer badges in header
-    const badgesEl=document.getElementById('result-layer-badges');
-    badgesEl.innerHTML=['lemma','phrase','prox','morph']
-        .filter(l=>_activeLayerSet[l])
-        .map(l=>`<span class="r-badge ${l}">${l.toUpperCase()}</span>`).join('');
+    // 件数表示: LXX>0 の場合のみ内訳を追加。NT のみなら従来表示を維持。
+    const _countEl=document.getElementById('result-count');
+    if(lxxCount>0){
+        const _parts=[];
+        if(ntCount>0) _parts.push(`新約聖書 ${ntCount.toLocaleString()}件`);
+        _parts.push(`旧約ギリシア語訳（LXX） ${lxxCount.toLocaleString()}件`);
+        _countEl.innerHTML=
+            `<span>${total.toLocaleString()} 件</span>`+
+            `<span class="result-count-sub">${_parts.join(' ／ ')}</span>`;
+    } else {
+        _countEl.textContent=`${total.toLocaleString()} 件`;
+    }
 
     // Result body
     document.getElementById('result-body').style.display='';
@@ -3034,6 +3487,17 @@ function _renderUnifiedResults(query,words,word2){
             <div class="zero-hits">
                 <div class="zero-hits-icon">∅</div>
                 <div class="zero-hits-msg">「${_escH(query)}」に該当する箇所がありませんでした</div>
+                <div class="zero-recovery">
+                    <div class="empty-section-label">試してみる</div>
+                    <div style="font-size:0.78rem;color:var(--text-sub);margin-top:4px;">次のテーマから検索できます。</div>
+                    <div class="empty-examples">
+                        <span class="ex-chip" onclick="_exampleSearch('愛')">愛</span>
+                        <span class="ex-chip" onclick="_exampleSearch('祈り')">祈り</span>
+                        <span class="ex-chip" onclick="_exampleSearch('救い')">救い</span>
+                        <span class="ex-chip" onclick="_exampleSearch('キリスト')">キリスト</span>
+                    </div>
+                    <div class="zero-hint">例：「神」「恵み」「希望」などの言葉で検索できます<br>ギリシャ語や Strong 番号でも検索できます</div>
+                </div>
             </div>`;
         document.getElementById('hits-count').textContent='';
         document.getElementById('lemma-groups').style.display='none';
@@ -3058,6 +3522,9 @@ function _renderUnifiedResults(query,words,word2){
 
     // Book distribution
     _renderBookDist(entries);
+
+    // Grammar explore: 検索結果あり時のみ表示
+    _renderPatternExplore();
 }
 
 function _buildPseudoHitsFromMerged(merged,words){
@@ -3098,7 +3565,7 @@ function _renderHitCards(entries,words,word2){
         ?`「${_filterWord}」との共起：?件 / 全${byRef.size}件`
         :`${byRef.size.toLocaleString()} 節`;
 
-    const FOLD = 3; // 最初に表示する件数
+    const FOLD = 8; // 最初に表示する件数
     const allEntries = [...byRef.values()].slice(0, SHOW);
     const visible = allEntries.slice(0, FOLD);
     const folded  = allEntries.slice(FOLD);
@@ -3164,6 +3631,8 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
     const bookKey=tok.bookKey||'';
     const ch=tok.ch||'';
     const verse=tok.verse!=null?tok.verse:'';
+    const corpusId=tok.corpusId||'NT';
+    card.dataset.corpus=corpusId;
 
     // 節参照ラベル — StudyPanelと同じ「ローマ5章5節」形式
     const BOOK_SHORT_SEARCH = {
@@ -3195,16 +3664,11 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         const short=BOOK_SHORT_SEARCH[m[1]]||_bookNameMap.get(m[1])||m[1];
         return `${short}${m[2]}章${m[3]}節`;
     })();
-    const refHtml=`<span class="hit-ref-plain">${_jpRef}</span>`;
-
     // 「本文で見る」ボタン（verse付きURL）
     const openHref=bookKey&&ch
         ?(verse!==''
             ?`index.html?book=${bookKey}&ch=${ch}&verse=${verse}`
             :`index.html?book=${bookKey}&ch=${ch}`)
-        :'';
-    const openBtnHtml=openHref
-        ?`<a class="hit-open-btn" href="${openHref}" target="_blank"><span class="material-symbols-outlined" style="font-size:0.85rem;vertical-align:middle;">open_in_new</span>本文で見る</a>`
         :'';
 
     // Hit-type badges — Japanese short labels matching menu names
@@ -3287,24 +3751,28 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         }).join('');
     })();
 
+    const openBtnLgHtml = openHref
+        ? `<a class="hit-open-btn-lg" href="${openHref}" target="_blank" rel="noopener noreferrer">本文で読む</a>`
+        : '';
+    const lxxBadgeHtml=corpusId==='LXX'?'<span class="corpus-badge">LXX</span>':'';
     card.innerHTML=`
-        <div class="hit-top">
-            ${refHtml}
-            <div class="hit-top-right">
-                <div class="hit-type-badges">${badgesHtml}</div>
-                ${openBtnHtml}
-            </div>
+        <div class="hit-header">
+            <span class="hit-ref">${_jpRef}</span>${lxxBadgeHtml}
+            <div class="hit-badges-subtle">${badgesHtml}</div>
         </div>
         ${proxVizHtml}
-        <div class="hit-trans-row">
-            <span class="hit-trans-text hit-trans-main"></span>
-            <span class="hit-trans-loading" style="font-size:0.72rem;color:var(--ink-muted);">読み込み中…</span>
-        </div>
-        <div class="hit-greek-row">
-            <button class="hit-trans-toggle">原文を見る</button>
-            <div class="hit-snippet hit-snippet-hidden">
-                <div class="wlv-flow-stream">${flowChipsHtml}</div>
+        <div class="hit-body">
+            <div class="hit-trans-row">
+                <span class="hit-trans-text hit-trans-main"></span>
+                <span class="hit-trans-loading" style="font-size:0.72rem;color:var(--ink-muted);">読み込み中…</span>
             </div>
+        </div>
+        <div class="hit-footer">
+            <button class="hit-trans-toggle">原語の流れを見る</button>
+            ${openBtnLgHtml}
+        </div>
+        <div class="hit-snippet-body">
+            <div class="wlv-flow-stream">${flowChipsHtml}</div>
         </div>`;
     // ★ data-ref 属性を使わない。翻訳フェッチは bookKey / ch / verse（globalIdx 由来）で行う。
 
@@ -3312,10 +3780,17 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
     const transText=card.querySelector('.hit-trans-main');
     const transLoading=card.querySelector('.hit-trans-loading');
     const toggleBtn=card.querySelector('.hit-trans-toggle');
-    const snippetEl=card.querySelector('.hit-snippet-hidden');
+    const snippetEl=card.querySelector('.hit-snippet-body');
 
     // Auto-load translation
     (async()=>{
+        if(corpusId==='LXX'){
+            // LXX に日本語訳ファイルなし — 404 を出さずにプレースホルダーを表示
+            transText.textContent='（翻訳テキストなし）';
+            transLoading.style.display='none';
+            transText.classList.add('visible');
+            return;
+        }
         if(tok.bookKey && tok.ch != null && tok.verse != null){
             const _chKey=`${tok.bookKey}/${tok.ch}`;
             const _vKey=String(tok.verse);
@@ -3334,8 +3809,8 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
     // Greek snippet toggle
     toggleBtn.addEventListener('click',()=>{
         const isOpen=snippetEl.classList.contains('open');
-        if(isOpen){snippetEl.classList.remove('open');toggleBtn.textContent='原文を見る';}
-        else{snippetEl.classList.add('open');toggleBtn.textContent='原文を閉じる';}
+        if(isOpen){snippetEl.classList.remove('open');toggleBtn.textContent='原語の流れを見る';}
+        else{snippetEl.classList.add('open');toggleBtn.textContent='原語の流れを閉じる';}
     });
 
     return card;
@@ -3397,7 +3872,7 @@ function _renderLemmaGroups(groups,query,word2,words){
     container.innerHTML='';list.innerHTML='';
     document.getElementById('hits-count').textContent=
         `${groups.reduce((s,g)=>s+g.hits.length,0)}件（${groups.length} lemma）`;
-    groups.forEach(group=>{
+    groups.forEach((group,groupIdx)=>{
         let glossStr='';
         if(group.japanese){
             const vals=Array.isArray(group.japanese)?group.japanese:[group.japanese];
@@ -3416,7 +3891,7 @@ function _renderLemmaGroups(groups,query,word2,words){
         // cooc chips
         const topCooc=[...group.coocMap.entries()].sort((a,b)=>b[1].weightedScore-a[1].weightedScore).slice(0,3);
         const coocSec=document.createElement('div');
-        coocSec.innerHTML='<div class="lg-cooc-title">特徴共起</div>';
+        coocSec.innerHTML='<div class="lg-cooc-title">よく一緒に出る語</div>';
         const chipWrap=document.createElement('div');chipWrap.className='lg-cooc-list';
         if(topCooc.length===0){chipWrap.innerHTML='<span style="font-size:0.75rem;color:var(--ink-soft);opacity:0.4;">—</span>';}
         else{
@@ -3458,6 +3933,11 @@ function _renderLemmaGroups(groups,query,word2,words){
             const open=panel.classList.toggle('open');
             bar.classList.toggle('open',open);
         });
+        // 最大ヒット数グループ（groups[0]）を自動展開
+        if(groupIdx===0){
+            panel.classList.add('open');
+            bar.classList.add('open');
+        }
         row.appendChild(bar);row.appendChild(panel);
         container.appendChild(row);
     });
@@ -3470,50 +3950,81 @@ function _renderLgHitSlice(container,hits,query,word2,from,to,words){
     });
 }
 
-/* ── Book distribution ── */
+/* ── Book distribution (NT / LXX 2-section) ── */
 function _renderBookDist(entries){
     const panel=document.getElementById('dist-panel');
     if(!entries||entries.length===0){panel.style.display='none';return;}
-    // ★ 書物キーは tok.bookKey（構造フィールド）から取得。tok.ref のパースは不使用。
-    const countMap=new Map();
+
+    // ★ corpusId を唯一の corpus 判定ソースとする。bookKey・book名からの推測禁止。
+    const ntMap=new Map(),lxxMap=new Map();
     for(const[,{tok}]of entries){
         const key=tok.bookKey||'?';
-        countMap.set(key,(countMap.get(key)||0)+1);
+        if(tok.corpusId==='LXX') lxxMap.set(key,(lxxMap.get(key)||0)+1);
+        else                      ntMap.set(key,(ntMap.get(key)||0)+1);
     }
-    if(countMap.size<2){panel.style.display='none';return;}
-    const sorted=[...countMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12);
-    const totalCount=[...countMap.values()].reduce((a,b)=>a+b,0);
+    if(ntMap.size+lxxMap.size<2){panel.style.display='none';return;}
+
     const bookNameMap=new Map(FLAT_BOOKS.map(b=>[b.key,b.name]));
+    const MAX_BARS=8;
     panel.innerHTML='';panel.style.display='block';
-    const title=document.createElement('div');title.className='dist-title';
-    title.textContent='出現分布（書物別）';panel.appendChild(title);
-    const list=document.createElement('div');list.className='dist-bar-list';
+
+    const panelTitle=document.createElement('div');panelTitle.className='dist-title';
+    panelTitle.textContent='出現分布（書物別）';panel.appendChild(panelTitle);
+
+    // activeRow はセクションをまたいで共有（NT行選択中にLXX行を選ぶと自動解除）
     let activeRow=null;
-    sorted.forEach(([bookKey,count])=>{
-        const pct=Math.round((count/totalCount)*100);
-        const bookName=bookNameMap.get(bookKey)||bookKey;
-        const shortName=bookName.length>10?bookName.slice(0,10)+'…':bookName;
-        const row=document.createElement('div');row.className='dist-bar-row';
-        row.title=`${bookName}：${count}件`;
-        row.innerHTML=`
-            <span class="dist-bar-name">${shortName}</span>
-            <div class="dist-bar-track"><div class="dist-bar-fill" style="width:${pct}%"></div></div>
-            <span class="dist-bar-count">${count}</span>`;
-        row.addEventListener('click',()=>{
-            if(activeRow===row){
-                row.classList.remove('active');activeRow=null;
-                _renderHitCards([..._allMergedResults.entries()],
-                    _lastQuery.split(/\s+/),_lastQuery.split(/\s+/)[1]||null);
-            }else{
-                if(activeRow)activeRow.classList.remove('active');
-                row.classList.add('active');activeRow=row;
-                const filtered=[..._allMergedResults.entries()].filter(([,e])=>(e.tok.bookKey||'')===bookKey);
-                _renderHitCards(filtered,_lastQuery.split(/\s+/),_lastQuery.split(/\s+/)[1]||null);
-            }
+
+    // セクション描画ヘルパー
+    const _buildSection=(countMap,sectionLabel)=>{
+        if(countMap.size===0) return;
+        const sectionTotal=[...countMap.values()].reduce((a,b)=>a+b,0);
+        const sorted=[...countMap.entries()].sort((a,b)=>b[1]-a[1]);
+        const shown=sorted.slice(0,MAX_BARS);
+        const rest=sorted.length-MAX_BARS;
+        const maxCount=shown[0]?shown[0][1]:1; // セクション内相対スケール
+
+        const sh=document.createElement('div');sh.className='dist-section-title';
+        sh.textContent=`${sectionLabel}（${sectionTotal.toLocaleString()}件）`;
+        panel.appendChild(sh);
+
+        const list=document.createElement('div');list.className='dist-bar-list';
+        shown.forEach(([bookKey,count])=>{
+            const pct=Math.round((count/maxCount)*100);
+            const bookName=bookNameMap.get(bookKey)||bookKey;
+            const shortName=bookName.length>10?bookName.slice(0,10)+'…':bookName;
+            const row=document.createElement('div');row.className='dist-bar-row';
+            row.title=`${bookName}：${count}件`;
+            row.innerHTML=`
+                <span class="dist-bar-name">${shortName}</span>
+                <div class="dist-bar-track"><div class="dist-bar-fill" style="width:${pct}%"></div></div>
+                <span class="dist-bar-count">${count}</span>`;
+            row.addEventListener('click',()=>{
+                if(activeRow===row){
+                    row.classList.remove('active');activeRow=null;
+                    _renderHitCards([..._allMergedResults.entries()],
+                        _lastQuery.split(/\s+/),_lastQuery.split(/\s+/)[1]||null);
+                }else{
+                    if(activeRow)activeRow.classList.remove('active');
+                    row.classList.add('active');activeRow=row;
+                    const filtered=[..._allMergedResults.entries()].filter(([,e])=>(e.tok.bookKey||'')===bookKey);
+                    _renderHitCards(filtered,_lastQuery.split(/\s+/),_lastQuery.split(/\s+/)[1]||null);
+                }
+            });
+            list.appendChild(row);
         });
-        list.appendChild(row);
-    });
-    panel.appendChild(list);
+        if(rest>0){
+            const more=document.createElement('div');more.className='dist-overflow-note';
+            more.textContent=`他 ${rest} 書物`;list.appendChild(more);
+        }
+        panel.appendChild(list);
+    };
+
+    _buildSection(ntMap,'新約聖書');
+    if(ntMap.size>0&&lxxMap.size>0){
+        const hr=document.createElement('hr');hr.className='dist-section-divider';
+        panel.appendChild(hr);
+    }
+    _buildSection(lxxMap,'旧約ギリシア語訳（LXX）');
 }
 
 /* ── UI helpers ── */
@@ -3529,8 +4040,14 @@ function _showEmpty(title,desc){
     document.getElementById('result-body').style.display='none';
     const es=document.getElementById('state-empty');
     es.style.display='flex';
-    es.querySelector('.empty-title').textContent=title||'語を入力して検索する';
-    es.querySelector('.empty-desc').textContent=desc||'有効なレイヤーをONにして検索してください';
+    // Discovery Lobby を隠してエラーコンテンツを前面へ
+    document.getElementById('discovery-lobby').hidden=true;
+    const _et=es.querySelector('.empty-title');
+    const _ed=es.querySelector('.empty-desc');
+    const _eg=es.querySelector('.empty-glyph');
+    if(_eg)_eg.style.display='';
+    if(_et){_et.style.display='';_et.textContent=title||'語を入力して検索する';}
+    if(_ed){_ed.style.display='';_ed.textContent=desc||'有効なレイヤーをONにして検索してください';}
 }
 
 /* ============================================================
@@ -3555,6 +4072,8 @@ function init(){
     _loadSearchPatterns();
     // 概念定義（Phase 4-1・失敗しても既存検索に影響なし）
     _loadSearchConcepts();
+    // 検索履歴を localStorage から復元（UX-4-2）
+    _loadHistory();
 }
 /* ============================================================
    Morph filter — checkbox chip UI
@@ -4386,6 +4905,810 @@ function _asOpen() {
 function _asClose() {
     document.getElementById('as-backdrop').classList.remove('open');
 }
+
+/* ============================================================
+   Daily Verses — DAILY_VERSES_365 (Phase D-4)
+   配列長: 365。インデックス 0–99 に実データ（救済史の流れ順）。
+   インデックス 100–364 は null プレースホルダ（D-2 以降で順次追加）。
+   corpus:     "NT" | "LXX"
+   lines:      表示行（<br> 区切り）
+   ref:        聖書箇所（書名 章:節 形式）
+   keywords:   NT 索引で 1件以上ヒット（Phase D-3 で全件検証）
+   theme:      日のテーマ
+   storyStage: 救済史ステージ
+   ============================================================ */
+const DAILY_VERSES_365 = [
+    // ── SECTION 1: 創造の言 (V001–V005) ────────────────────
+    {
+        corpus: 'NT', ref: 'ヨハネ 1:1',
+        lines:    ['初めに言があった。', '言は神とともにあった。言は神であった。'],
+        keywords: ['ことば', '神'],
+        theme: 'すべての初めにある言—創造の起源', storyStage: '創造',
+    },
+    {
+        corpus: 'NT', ref: 'コロサイ 1:16',
+        lines:    ['天にあるものも地にあるものも、', 'すべてのものはキリストによって造られた。'],
+        keywords: ['キリスト', '天'],
+        theme: '万物の創造者キリスト—御子を通じて造られた', storyStage: '創造',
+    },
+    {
+        corpus: 'NT', ref: 'ヘブル 1:3',
+        lines:    ['御子は神の栄光の輝き、神の本質の完全な現れです。', 'その力あるみことばによって万物を保っておられます。'],
+        keywords: ['神', '栄光', '力'],
+        theme: '神の栄光の輝き—力あるみことばによる万物の維持', storyStage: '創造',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 1:4',
+        lines:    ['この言の中にいのちがあった。', 'そのいのちは人の光であった。'],
+        keywords: ['いのち', '光'],
+        theme: '言のうちにいのちがあった—光のいのち', storyStage: '創造',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 1:5',
+        lines:    ['光は闇の中に輝いている。', '闇はこれに打ち勝たなかった。'],
+        keywords: ['光'],
+        theme: '闇に打ち勝つ光—克服の宣言', storyStage: '創造',
+    },
+    // ── SECTION 2: 受肉 (V006–V015) ────────────────────────
+    {
+        corpus: 'NT', ref: 'ヨハネ 1:14',
+        lines:    ['ことばは人となって、', '私たちの間に住まわれた。', '私たちはこの方の栄光を見た。'],
+        keywords: ['ことば', '栄光'],
+        theme: '言は肉となった—受肉の神秘', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'ガラテヤ 4:4',
+        lines:    ['しかし、時が満ちると、', '神は御子を女から生まれた者として遣わされました。'],
+        keywords: ['神'],
+        theme: '時が満ちた—神の時における御子の派遣', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'ルカ 2:11',
+        lines:    ['今日ダビデの町に、', 'あなたがたのために救い主がお生まれになりました。', 'この方こそ、主キリストです。'],
+        keywords: ['救い', 'キリスト', '主'],
+        theme: '救い主の誕生—ダビデの町からの告知', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'ルカ 2:14',
+        lines:    ['いと高き所に栄光が、神にあるように。', '地の上に平和が、', 'み心にかなう人々にあるように。'],
+        keywords: ['栄光', '神', '平和'],
+        theme: '天使の賛歌—栄光と平和の宣言', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'マタイ 1:23',
+        lines:    ['見よ、おとめが身ごもって男の子を産む。', 'その名はインマヌエルと呼ばれる。', '神が私たちとともにおられるという意味である。'],
+        keywords: ['神'],
+        theme: 'インマヌエル—神がともにおられる', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'ピリピ 2:7',
+        lines:    ['キリストはご自分を空しくして、', '仕える者の姿をとり、', '人間と同じようになられました。'],
+        keywords: ['キリスト', '仕える'],
+        theme: '自分を空にした神の子—謙りの受肉', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'コリント第二 8:9',
+        lines:    ['主イエス・キリストの恵みを知っているからです。', 'キリストは豊かであられたのに、', 'あなたがたのために貧しくなられました。'],
+        keywords: ['キリスト', '恵み'],
+        theme: '豊かさから貧しさへ—愛の自己放棄', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 3:16',
+        lines:    ['神は世を愛された。', 'ひとり子をお与えになったほどに。', '御子を信じる者は滅びないで、永遠のいのちを持つ。'],
+        keywords: ['神', '愛', '永遠', 'いのち'],
+        theme: '神の愛の極点—独り子を与えるほどに', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'ヘブル 2:17',
+        lines:    ['キリストはすべての点で、', '兄弟たちと同じようにならなければなりませんでした。'],
+        keywords: ['キリスト'],
+        theme: 'すべての点で同じになられた—共感する大祭司', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'ヘブル 4:15',
+        lines:    ['私たちの大祭司は、', '私たちの弱さに同情できない方ではありません。', 'すべての点において、私たちと同じように試みにあわれたのです。'],
+        keywords: ['弱さ'],
+        theme: '弱さに同情する大祭司—受肉の共感', storyStage: '受肉',
+    },
+    // ── SECTION 3: 宣教の開始 (V016–V022) ─────────────────
+    {
+        corpus: 'NT', ref: 'ヨハネ 1:29',
+        lines:    ['見よ、世の罪を取り除く神の小羊。'],
+        keywords: ['罪', '世'],
+        theme: '世の罪を取り除く神の小羊—受難への伏線', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'マルコ 1:15',
+        lines:    ['時が満ちた。神の国は近づいた。', '悔い改めて福音を信じなさい。'],
+        keywords: ['神', '悔い改め'],
+        theme: '神の国は近づいた—宣教開始の宣言', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'ルカ 4:18',
+        lines:    ['主の霊がわたしに臨んでいる。', '貧しい人々に福音を伝えるために、', '主がわたしに油を注がれたのである。'],
+        keywords: ['主', '御霊'],
+        theme: '主の霊がわたしに臨んでいる—油注がれた者の宣言', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 10:10',
+        lines:    ['わたしが来たのは、', '羊がいのちを得、', 'またそれを豊かに持つためです。'],
+        keywords: ['いのち'],
+        theme: 'いのちを豊かに持たせるために—来た目的の宣言', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'マタイ 4:19',
+        lines:    ['わたしについて来なさい。', '人間をとる漁師にしよう。'],
+        keywords: ['人'],
+        theme: 'わたしについて来なさい—弟子道の招き', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'マタイ 11:28',
+        lines:    ['疲れた人、重荷を負っている人は、', 'わたしのもとに来なさい。', 'わたしがあなたがたを休ませてあげます。'],
+        keywords: ['重荷'],
+        theme: '重荷を負う人への招き—休みの約束', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'ルカ 19:10',
+        lines:    ['人の子は、', '失われた人を探して救うために来たのです。'],
+        keywords: ['救い'],
+        theme: '失われた者を探す—救いの目的の要約', storyStage: '受肉',
+    },
+    // ── SECTION 4: 神の国の教え (V023–V030) ────────────────
+    {
+        corpus: 'NT', ref: 'マタイ 5:3',
+        lines:    ['心の貧しい人は幸いです。', '天の御国はその人たちのものです。'],
+        keywords: ['幸い', '天'],
+        theme: '心の貧しい人の幸い—神の国の逆転', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'マタイ 5:9',
+        lines:    ['平和をつくる人たちは幸いです。', '彼らは神の子どもと呼ばれます。'],
+        keywords: ['平和', '幸い', '神'],
+        theme: '平和をつくる人の幸い—神の子の使命', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'マタイ 5:16',
+        lines:    ['あなたがたの光を人々の前で輝かせなさい。', '人々があなたがたの良い行いを見て、', '天にいるあなたがたの父に栄光を帰するように。'],
+        keywords: ['光', '神', '栄光'],
+        theme: '光を輝かせる—神への栄光のために', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'マタイ 6:33',
+        lines:    ['まず神の国と神の義を求めなさい。', 'そうすれば、これらのものはすべて加えて与えられます。'],
+        keywords: ['神'],
+        theme: 'まず神の国を求めよ—優先順位の転換', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'マタイ 22:37',
+        lines:    ['心を尽くし、魂を尽くし、知性を尽くして、', 'あなたの神、主を愛せよ。'],
+        keywords: ['心', '神', '愛'],
+        theme: '大いなる戒め—神を愛することの全人格的要求', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'マタイ 22:39',
+        lines:    ['隣人を愛せよ。', 'この二つの戒めに律法と預言者全体がかかっています。'],
+        keywords: ['愛'],
+        theme: '隣人を愛せよ—律法の第二の要約', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'マルコ 10:45',
+        lines:    ['人の子も仕えるために来ました。', '多くの人のために、', '自分のいのちを与えるために来たのです。'],
+        keywords: ['仕える', 'いのち'],
+        theme: '仕えるために来た—キリストの奉仕の模範', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'ルカ 15:7',
+        lines:    ['一人の罪人が悔い改めるなら、', '天では大きな喜びがあります。'],
+        keywords: ['悔い改め', '喜び', '天'],
+        theme: '一人の罪人の回心—天の喜び', storyStage: '律法の成就',
+    },
+    // ── SECTION 5: キリストの自己啓示 (V031–V038) ──────────
+    {
+        corpus: 'NT', ref: 'ヨハネ 6:35',
+        lines:    ['わたしはいのちのパンです。', 'わたしのもとに来る者は決して空腹にならず、', 'わたしを信じる者は決して渇くことがありません。'],
+        keywords: ['いのち', '信仰'],
+        theme: 'わたしはいのちのパン—霊的飢えへの答え', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 8:12',
+        lines:    ['わたしは世の光です。', 'わたしに従う者は闇の中を歩まず、', 'いのちの光を持ちます。'],
+        keywords: ['光', 'いのち'],
+        theme: 'わたしは世の光—従う者へのいのちの光', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 10:11',
+        lines:    ['わたしは良い羊飼いです。', '良い羊飼いは羊のためにいのちを捨てます。'],
+        keywords: ['いのち'],
+        theme: 'わたしは良い羊飼い—いのちを捨てる愛', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 11:25',
+        lines:    ['わたしはよみがえりであり、いのちです。', 'わたしを信じる者は、死んでも生きるのです。'],
+        keywords: ['よみがえり', 'いのち'],
+        theme: 'わたしはよみがえりといのち—死に勝つ宣言', storyStage: '復活',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 14:6',
+        lines:    ['わたしは道であり、真理であり、命です。', 'わたしを通してでなければ、', 'だれも父のみもとに行くことができません。'],
+        keywords: ['道', '真理', '命'],
+        theme: '道・真理・命—唯一の道の宣言', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 15:13',
+        lines:    ['友のためにいのちを捨てること、', 'これよりも大きな愛はありません。'],
+        keywords: ['愛', '友', 'いのち'],
+        theme: '最大の愛—友のためのいのち', storyStage: '受難と贖い',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 17:3',
+        lines:    ['永遠のいのちとは、', '唯一のまことの神であるあなたと、', 'あなたが遣わされたイエス・キリストを知ることです。'],
+        keywords: ['永遠', 'いのち', 'キリスト', '神'],
+        theme: '永遠のいのちの定義—神を知ること', storyStage: '受肉',
+    },
+    {
+        corpus: 'NT', ref: 'マルコ 5:36',
+        lines:    ['恐れることはない。ただ信じなさい。'],
+        keywords: ['信仰'],
+        theme: '恐れるな、信じよ—信仰の核心', storyStage: '律法の成就',
+    },
+    // ── SECTION 6: 最後の晩餐と十字架への道 (V039–V044) ────
+    {
+        corpus: 'NT', ref: 'ヨハネ 13:34',
+        lines:    ['わたしはあなたがたに新しい戒めを与えます。互いに愛し合いなさい。', 'わたしがあなたがたを愛したように、', 'あなたがたも互いに愛し合いなさい。'],
+        keywords: ['愛'],
+        theme: '新しい戒め—わたしが愛したように', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 14:1',
+        lines:    ['心を騒がせてはなりません。', '神を信じ、またわたしを信じなさい。'],
+        keywords: ['心', '神', '信仰'],
+        theme: '心を騒がせるな—神への信頼の招き', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 14:27',
+        lines:    ['わたしはあなたがたに平和を残します。', 'わたしの平和を与えます。'],
+        keywords: ['平和'],
+        theme: 'キリストの平和—世の与える平和とは異なる', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'マタイ 26:28',
+        lines:    ['これは罪の赦しのために多くの人のために流す、', 'わたしの契約の血です。'],
+        keywords: ['罪', '赦し'],
+        theme: '新しい契約の血—赦しのための血', storyStage: '受難と贖い',
+    },
+    {
+        corpus: 'NT', ref: 'ルカ 22:42',
+        lines:    ['父よ、みこころならば、この杯をわたしから取り去ってください。', 'しかし、わたしの願いではなく、', 'みこころが行われますように。'],
+        keywords: ['心'],
+        theme: 'ゲッセマネの祈り—みこころへの服従', storyStage: '受難と贖い',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 12:24',
+        lines:    ['一粒の麦は地に落ちて死ななければ、一つのままです。', 'しかし、死ねば、多くの実を結びます。'],
+        keywords: ['死'],
+        theme: '麦の粒の死—実りのための死', storyStage: '受難と贖い',
+    },
+    // ── SECTION 7: 十字架と贖い (V045–V051) ────────────────
+    {
+        corpus: 'NT', ref: 'ロマ 5:8',
+        lines:    ['私たちがまだ罪人であったとき、', 'キリストが私たちのために死んでくださったのです。', '神はこれによってご自身の愛を示してくださいました。'],
+        keywords: ['神', '愛', '罪人', 'キリスト', '死'],
+        theme: '罪人のためのキリストの死—愛の証明', storyStage: '受難と贖い',
+    },
+    {
+        corpus: 'NT', ref: 'コリント第一 1:18',
+        lines:    ['十字架のことばは、', '滅んでいく者たちには愚かなものですが、', '救われる私たちには神の力です。'],
+        keywords: ['救い', '神', '力'],
+        theme: '十字架の言葉は神の力—逆説の知恵', storyStage: '受難と贖い',
+    },
+    {
+        corpus: 'NT', ref: 'コリント第一 15:3-4',
+        lines:    ['キリストは、聖書に書いてあるとおりに', '私たちの罪のために死なれ、葬られ、', '三日目によみがえられた。'],
+        keywords: ['キリスト', '罪', '死'],
+        theme: '福音の核心—死んで、葬られ、よみがえった', storyStage: '受難と贖い',
+    },
+    {
+        corpus: 'NT', ref: 'ガラテヤ 2:20',
+        lines:    ['キリストとともに私は十字架につけられました。', 'もはや私が生きているのではなく、', 'キリストが私のうちに生きておられるのです。'],
+        keywords: ['キリスト'],
+        theme: 'キリストとともに十字架につけられた—古い自分の死', storyStage: '受難と贖い',
+    },
+    {
+        corpus: 'NT', ref: 'ヘブル 9:22',
+        lines:    ['血を流すことなしに、', '罪の赦しはありません。'],
+        keywords: ['罪', '赦し'],
+        theme: '血による赦し—赦しの代価', storyStage: '受難と贖い',
+    },
+    {
+        corpus: 'NT', ref: 'エペソ 2:13',
+        lines:    ['しかし今は、キリスト・イエスにあって、', 'かつて遠かったあなたがたが、', 'キリストの血によって近い者とされました。'],
+        keywords: ['キリスト'],
+        theme: '遠かった者が近くなった—キリストの血による和解', storyStage: '受難と贖い',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ第一 2:2',
+        lines:    ['この方こそ、私たちの罪のための、', 'また私たちの罪だけでなく、', '世全体のための宥めのいけにえです。'],
+        keywords: ['罪', '世'],
+        theme: '世全体のための宥め—贖いの普遍性', storyStage: '受難と贖い',
+    },
+    // ── SECTION 8: 復活と大使命 (V052–V059) ────────────────
+    {
+        corpus: 'NT', ref: 'コリント第一 15:20',
+        lines:    ['しかし、今やキリストは死者の中からよみがえられました。', '眠った者たちの初穂として。'],
+        keywords: ['キリスト', '死'],
+        theme: '復活した最初の実—死者のための初穂', storyStage: '復活',
+    },
+    {
+        corpus: 'NT', ref: 'コリント第一 15:55',
+        lines:    ['死よ、あなたの勝利はどこにあるのか。', '死よ、あなたの棘はどこにあるのか。'],
+        keywords: ['死'],
+        theme: '死に勝つ勝利の叫び—復活の宣言', storyStage: '終末的希望',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 20:28',
+        lines:    ['トマスはイエスに答えた。', '「わが主、わが神よ。」'],
+        keywords: ['主', '神'],
+        theme: 'わが主、わが神—信仰の告白の頂点', storyStage: '復活',
+    },
+    {
+        corpus: 'NT', ref: 'ロマ 4:25',
+        lines:    ['キリストは私たちの罪のために死に渡され、', '私たちが義と認められるためによみがえられたのです。'],
+        keywords: ['キリスト', '罪'],
+        theme: '義とされるためによみがえった—復活の法廷的意味', storyStage: '復活',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ 17:18',
+        lines:    ['あなたがわたしを世に遣わされたように、', 'わたしも彼らを世に遣わしました。'],
+        keywords: ['世'],
+        theme: '遣わされた者が遣わす—派遣の連鎖', storyStage: '復活',
+    },
+    {
+        corpus: 'NT', ref: 'マタイ 28:19',
+        lines:    ['ですから、あなたがたは行って、', 'あらゆる民族を弟子にしなさい。'],
+        keywords: ['人'],
+        theme: 'すべての民族を弟子に—大使命の呼びかけ', storyStage: '宣教',
+    },
+    {
+        corpus: 'NT', ref: 'マタイ 28:20',
+        lines:    ['見よ、わたしは世の終わりまで、', 'いつもあなたがたとともにいます。'],
+        keywords: ['世'],
+        theme: 'いつもともにいる—大使命への保証', storyStage: '復活',
+    },
+    {
+        corpus: 'NT', ref: 'ルカ 24:45',
+        lines:    ['そのとき、イエスは、聖書を理解できるように', '彼らの心を開いてくださった。'],
+        keywords: ['心'],
+        theme: '聖書を理解できるように—心を開かれた弟子たち', storyStage: '復活',
+    },
+    // ── SECTION 9: 聖霊と教会 (V060–V067) ──────────────────
+    {
+        corpus: 'NT', ref: '使徒 1:8',
+        lines:    ['聖霊があなたがたに臨まれるとき、あなたがたは力を受けます。', 'そして、地の果てまでわたしの証人となります。'],
+        keywords: ['御霊', '力'],
+        theme: '御霊が降るとき力を受ける—宣教の動力', storyStage: '聖霊と教会',
+    },
+    {
+        corpus: 'NT', ref: '使徒 2:38',
+        lines:    ['悔い改めなさい。', 'そして、それぞれ罪の赦しのために、', 'イエス・キリストの名によってバプテスマを受けなさい。'],
+        keywords: ['悔い改め', '罪', '赦し', '御霊'],
+        theme: '悔い改め・バプテスマ・御霊—三つの応答', storyStage: '聖霊と教会',
+    },
+    {
+        corpus: 'NT', ref: '使徒 2:42',
+        lines:    ['彼らはひたすら使徒たちの教えを守り、', '交わりを続け、パンを裂き、', '祈りをしていた。'],
+        keywords: ['祈り'],
+        theme: '初代教会の生活—四つの柱', storyStage: '聖霊と教会',
+    },
+    {
+        corpus: 'NT', ref: 'コリント第一 12:13',
+        lines:    ['私たちはみな、', 'ユダヤ人もギリシャ人も、奴隷も自由人も、', '一つの御霊によって一つのからだとなりました。'],
+        keywords: ['御霊'],
+        theme: '一つの御霊、一つのからだ—多様性の中の一致', storyStage: '聖霊と教会',
+    },
+    {
+        corpus: 'NT', ref: 'エペソ 2:19',
+        lines:    ['あなたがたはもはや他国人でも寄留者でもなく、', '聖徒たちと同じ市民であり、', '神の家族なのです。'],
+        keywords: ['神'],
+        theme: '神の家族となった—外国人から市民へ', storyStage: '聖霊と教会',
+    },
+    {
+        corpus: 'NT', ref: 'コリント第一 3:16',
+        lines:    ['あなたがたは神の宮であり、', '神の御霊があなたがたの中に住んでおられることを', '知らないのですか。'],
+        keywords: ['神', '御霊'],
+        theme: 'あなたがたは神の宮—御霊の住まい', storyStage: '聖霊と教会',
+    },
+    {
+        corpus: 'NT', ref: '使徒 4:12',
+        lines:    ['この方以外には、だれによっても救いはありません。', '世界中で、この御名のほか、', '救われるべき名は一つもありません。'],
+        keywords: ['救い'],
+        theme: '救いはキリストのほかにない—排他的な救い', storyStage: '宣教',
+    },
+    {
+        corpus: 'NT', ref: 'ガラテヤ 5:22',
+        lines:    ['御霊の実は、', '愛、喜び、平和、寛容、親切、善意、', '誠実、柔和、自制です。'],
+        keywords: ['御霊', '愛', '喜び', '平和'],
+        theme: '御霊の実—九つの徳', storyStage: '聖霊と教会',
+    },
+    // ── SECTION 10: 義認と福音 (V068–V075) ─────────────────
+    {
+        corpus: 'NT', ref: 'ロマ 1:17',
+        lines:    ['福音のうちには神の義が啓示されています。', '信仰に始まり信仰に進む義です。', '「義人は信仰によって生きる」と書いてあるとおりです。'],
+        keywords: ['神', '信仰'],
+        theme: '義人は信仰によって生きる—義認の宣言', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'ロマ 3:23',
+        lines:    ['すべての人は罪を犯したので、', '神の栄光を受けることができず、'],
+        keywords: ['罪', '神', '栄光'],
+        theme: 'すべての人は罪を犯した—義認の前提', storyStage: '堕落',
+    },
+    {
+        corpus: 'NT', ref: 'ロマ 3:24',
+        lines:    ['神の恵みにより、', 'キリスト・イエスによる贖いを通して、', '価なしに義と認められるのです。'],
+        keywords: ['神', '恵み', 'キリスト'],
+        theme: '価なしに義とされる—恵みによる義認', storyStage: '受難と贖い',
+    },
+    {
+        corpus: 'NT', ref: 'ロマ 5:1',
+        lines:    ['信仰によって義とされた私たちは、', '私たちの主イエス・キリストによって、', '神との平和を持っています。'],
+        keywords: ['信仰', '主', 'キリスト', '神', '平和'],
+        theme: '神との平和—義認の結果', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'エペソ 2:8',
+        lines:    ['あなたがたは恵みによって、', '信仰によって救われたのです。', 'それはあなたがた自身から出たことではなく、神の賜物です。'],
+        keywords: ['恵み', '信仰', '救い', '神'],
+        theme: '恵みによって、信仰によって—救いの根拠', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'ロマ 8:1',
+        lines:    ['今や、キリスト・イエスにある者は、', '罪に定められることがありません。'],
+        keywords: ['キリスト', '罪'],
+        theme: '罪に定められることがない—義認の確実性', storyStage: '新創造',
+    },
+    {
+        corpus: 'NT', ref: 'ロマ 8:28',
+        lines:    ['神を愛する人たちには、', 'すべてのことが益となるように働きます。'],
+        keywords: ['神', '愛', '益'],
+        theme: 'すべてが益となる—神の摂理の約束', storyStage: '信仰の旅路',
+    },
+    {
+        corpus: 'NT', ref: 'ロマ 8:39',
+        lines:    ['何ものも私たちの主キリスト・イエスにある', '神の愛から私たちを引き離すことはできません。'],
+        keywords: ['神', '愛', '主', 'キリスト'],
+        theme: '神の愛から引き離せない—愛の絶対性', storyStage: '信仰の旅路',
+    },
+    // ── SECTION 11: 愛と共同体 (V076–V082) ─────────────────
+    {
+        corpus: 'NT', ref: 'コリント第一 13:4',
+        lines:    ['愛は忍耐強く、親切です。', '愛は妬まず、自慢せず、高ぶりません。'],
+        keywords: ['愛'],
+        theme: '愛の性質—忍耐と親切', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'コリント第一 13:13',
+        lines:    ['いつまでも残るのは、', '信仰と希望と愛です。', 'その中で最も優れているのは愛です。'],
+        keywords: ['信仰', '希望', '愛'],
+        theme: '愛は最大—永遠に残る三つ', storyStage: '終末的希望',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ第一 4:7',
+        lines:    ['愛する者たち、私たちは互いに愛し合いましょう。', '愛は神から出るもので、', '愛する者はみな神から生まれており、神を知っています。'],
+        keywords: ['愛', '神'],
+        theme: '愛は神から来る—愛の源', storyStage: '契約',
+    },
+    {
+        corpus: 'NT', ref: 'ヨハネ第一 4:19',
+        lines:    ['私たちが愛するのは、', '神がまず私たちを愛してくださったからです。'],
+        keywords: ['愛', '神'],
+        theme: '先に愛してくださった—愛の先行性', storyStage: '契約',
+    },
+    {
+        corpus: 'NT', ref: 'ガラテヤ 6:2',
+        lines:    ['互いに重荷を担いなさい。', 'そのようにしてこそ、', 'キリストの律法を全うすることになります。'],
+        keywords: ['重荷', 'キリスト'],
+        theme: '重荷を担い合う—キリストの律法の実践', storyStage: '聖霊と教会',
+    },
+    {
+        corpus: 'NT', ref: 'エペソ 4:32',
+        lines:    ['互いに親切にし、思いやりを持ち、', '神がキリストにあってあなたがたを赦してくださったように、', '互いに赦し合いなさい。'],
+        keywords: ['神', 'キリスト', '赦し'],
+        theme: '赦されたように赦す—赦しの連鎖', storyStage: '律法の成就',
+    },
+    {
+        corpus: 'NT', ref: 'ヤコブ 2:17',
+        lines:    ['同じように、信仰も、', 'それだけで行いが伴わなければ、', 'それ自体は死んでいます。'],
+        keywords: ['信仰', '死'],
+        theme: '行いを伴わない信仰は死んでいる—信仰の実践性', storyStage: '律法の成就',
+    },
+    // ── SECTION 12: 信仰の旅路 (V083–V089) ─────────────────
+    {
+        corpus: 'NT', ref: 'ヘブル 11:1',
+        lines:    ['信仰は望んでいることを保証し、', '見えないものを確信させるものです。'],
+        keywords: ['信仰', '望み'],
+        theme: '信仰の定義—見えないものを確信させる', storyStage: '信仰の旅路',
+    },
+    {
+        corpus: 'NT', ref: 'ヘブル 12:1',
+        lines:    ['こういうわけで、私たちもこのように', '多くの証人の雲に囲まれているのですから、', '忍耐をもって私たちの前に置かれた競走を走り続けましょう。'],
+        keywords: ['罪', '重荷'],
+        theme: '証人の雲に囲まれて走る—信仰のマラソン', storyStage: '信仰の旅路',
+    },
+    {
+        corpus: 'NT', ref: 'ヘブル 12:2',
+        lines:    ['信仰の創始者であり完成者であるイエスから、', '目を離さないようにしましょう。'],
+        keywords: ['信仰'],
+        theme: 'イエスから目を離さない—視線の問題', storyStage: '信仰の旅路',
+    },
+    {
+        corpus: 'NT', ref: 'ロマ 5:3',
+        lines:    ['そればかりでなく、苦しみの中でも喜んでいます。', '苦しみが忍耐を生み出し、'],
+        keywords: ['喜び'],
+        theme: '苦しみの中の喜び—忍耐の成長', storyStage: '信仰の旅路',
+    },
+    {
+        corpus: 'NT', ref: 'ピリピ 4:7',
+        lines:    ['人のすべての理解を超えた神の平和が、', 'キリスト・イエスにあって、', 'あなたがたの心と思いを守ってくれます。'],
+        keywords: ['神', '平和', 'キリスト', '心'],
+        theme: '理解を超えた神の平和—心を守る平和', storyStage: '信仰の旅路',
+    },
+    {
+        corpus: 'NT', ref: 'ピリピ 4:13',
+        lines:    ['私は、私を強くしてくださる方によって、', 'どんなことでもできます。'],
+        keywords: ['強く'],
+        theme: 'キリストによって何でもできる—強くしてくださる方', storyStage: '信仰の旅路',
+    },
+    {
+        corpus: 'NT', ref: 'コリント第二 12:9',
+        lines:    ['わたしの恵みはあなたに十分です。', '力は弱さのうちに完全に現れるからです。'],
+        keywords: ['恵み', '力', '弱さ'],
+        theme: '弱さの中に完全な力—弱さの逆説', storyStage: '信仰の旅路',
+    },
+    // ── SECTION 13: 宣教と証し (V090–V094) ─────────────────
+    {
+        corpus: 'NT', ref: 'ロマ 10:14',
+        lines:    ['信じたことのない方を、どうして呼び求められるでしょう。', '聞いたことのない方を、どうして信じられるでしょう。', '宣べ伝える人がいなければ、どうして聞くことができるでしょう。'],
+        keywords: ['信仰'],
+        theme: '聞かなければ信じられない—宣教の連鎖', storyStage: '宣教',
+    },
+    {
+        corpus: 'NT', ref: 'コリント第二 5:20',
+        lines:    ['私たちはキリストの使者として、', '神があなたがたに懇願しておられるように、', 'キリストに代わって「神と和解してください」とお願いします。'],
+        keywords: ['キリスト', '神'],
+        theme: 'キリストの使者として—和解の奉仕', storyStage: '宣教',
+    },
+    {
+        corpus: 'NT', ref: 'マタイ 9:37',
+        lines:    ['収穫は多いが、働き手が少ない。', 'だから、収穫の主に、', '収穫のために働き手を遣わしてくださるように祈りなさい。'],
+        keywords: ['主', '祈り'],
+        theme: '収穫は多いが働き手が少ない—宣教の祈り', storyStage: '宣教',
+    },
+    {
+        corpus: 'NT', ref: '使徒 13:47',
+        lines:    ['主は私たちにこのように命じておられます。', '「わたしはあなたを諸国の民への光として置いた。', 'あなたが地の果てまでも救いをもたらすために。」'],
+        keywords: ['主', '救い', '光'],
+        theme: '地の果てまでの救い—諸国への光', storyStage: '宣教',
+    },
+    {
+        corpus: 'NT', ref: 'ペテロ第一 3:15',
+        lines:    ['心の中でキリストを主と崇め、', 'あなたがたの中にある希望について問われる人には、', 'いつでも弁明できる用意をしていなさい。'],
+        keywords: ['キリスト', '主', '希望'],
+        theme: '希望についての弁明—日常の証し', storyStage: '宣教',
+    },
+    // ── SECTION 14: 終末的希望 (V095–V100) ─────────────────
+    {
+        corpus: 'NT', ref: 'コリント第一 15:57',
+        lines:    ['しかし、神に感謝します。', '神は私たちの主イエス・キリストによって、', '私たちに勝利を与えてくださいます。'],
+        keywords: ['神', '主', 'キリスト'],
+        theme: '神が勝利を与えてくださる—終末的勝利', storyStage: '終末的希望',
+    },
+    {
+        corpus: 'NT', ref: 'テサロニケ第一 4:17',
+        lines:    ['私たちはいつまでも主とともにいることになります。'],
+        keywords: ['主'],
+        theme: 'いつまでも主とともに—終末的再会', storyStage: '終末的希望',
+    },
+    {
+        corpus: 'NT', ref: 'ペテロ第二 3:9',
+        lines:    ['主は約束の実現を遅らせておられるのではありません。', 'ひとりも滅びることなく、', 'すべての人が悔い改めに進むことを望んでおられるのです。'],
+        keywords: ['主', '悔い改め'],
+        theme: '主は忍耐される—すべての人の悔い改めを待つ', storyStage: '終末的希望',
+    },
+    {
+        corpus: 'NT', ref: '黙示録 21:4',
+        lines:    ['神は彼らの目から涙をことごとくぬぐい取ってくださる。', 'もはや死はなく、悲しみも、叫び声も、苦しみもない。', '以前のものが過ぎ去ったのです。'],
+        keywords: ['神', '涙', '死'],
+        theme: '涙をぬぐい取られる—新天新地の慰め', storyStage: '新創造',
+    },
+    {
+        corpus: 'NT', ref: '黙示録 21:5',
+        lines:    ['「見よ。わたしはすべてのものを新しくする。', 'このことばは真実であり、信頼できる。」'],
+        keywords: ['ことば'],
+        theme: 'すべてを新しくする—新創造の宣言', storyStage: '新創造',
+    },
+    {
+        corpus: 'NT', ref: '黙示録 22:20',
+        lines:    ['「しかり、わたしはすぐに来る。」', 'アーメン。来てください、主イエスよ。'],
+        keywords: ['主'],
+        theme: '来てください、主イエスよ—マラナタ', storyStage: '終末的希望',
+    },
+    // ── V101–V365: プレースホルダ（Phase D-2 以降で順次追加）─
+    ...Array(265).fill(null),
+];
+
+/* 日付ベースで決定的に1件選択（UTC日付 mod 365）
+   null スロット（未選定）は実データ100件からフォールバック */
+function getDailyVerse() {
+    const today    = new Date();
+    const dayIndex = Math.floor(
+        Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 86400000
+    );
+    const slot = DAILY_VERSES_365[dayIndex % 365];
+    return slot ?? DAILY_VERSES_365[dayIndex % 100];
+}
+
+/* ============================================================
+   Discovery Lobby Renderer (UX-10-1C)
+   まだ呼び出さない。表示切替なし。イベント登録なし。
+   ============================================================ */
+
+function renderDiscoveryLobby() {
+    const lobby = document.getElementById('discovery-lobby');
+    if (!lobby) return;
+
+    // Verse card — idempotent（二重挿入防止）
+    if (lobby.querySelector('.discovery-verse-card')) return;
+
+    const verse = getDailyVerse();
+
+    const card = document.createElement('div');
+    card.className = 'discovery-verse-card';
+
+    // 一節本文
+    const vText = document.createElement('p');
+    vText.className = 'discovery-verse-text';
+    vText.innerHTML = verse.lines.join('<br>');
+
+    // 聖書箇所
+    const vRef = document.createElement('p');
+    vRef.className = 'discovery-verse-ref';
+    vRef.textContent = verse.ref;
+
+    // この一節のことばセクション
+    const themesSection = document.createElement('div');
+    themesSection.className = 'discovery-verse-themes';
+
+    const label = document.createElement('p');
+    label.className = 'discovery-verse-label';
+    label.textContent = 'この一節のことば';
+
+    const pills = document.createElement('div');
+    pills.className = 'discovery-verse-pills';
+    verse.keywords.forEach(word => {
+        const pill = document.createElement('button');
+        pill.className = 'discovery-verse-pill';
+        pill.textContent = word;
+        pill.addEventListener('click', () => _exampleSearch(word));
+        pills.appendChild(pill);
+    });
+
+    themesSection.appendChild(label);
+    themesSection.appendChild(pills);
+    card.appendChild(vText);
+    card.appendChild(vRef);
+    card.appendChild(themesSection);
+    lobby.appendChild(card);
+}
+
+/* ============================================================
+   Discovery Theme Resolver (UX-10-1B)
+   純粋関数・副作用なし・DOM操作なし・console出力なし
+   同じ date を渡すと常に同じ 4件を返す（決定的アルゴリズム）
+   ============================================================ */
+
+// discovery-themes.json のミラー（ランタイム用インライン定義）
+// JSONファイルを変更した場合はこの定数も同期させること
+const _DISCOVERY_THEMES = {
+    core: ['愛','祈り','信仰','希望','救い','平安','恵み','喜び'],
+    discovery: ['知恵','契約','義','慰め','証し','栄光','弟子','教会','永遠の命','悔い改め'],
+    seasonal: {
+        advent:    ['希望','光','約束','待ち望む'],
+        lent:      ['十字架','悔い改め','従う','赦し'],
+        easter:    ['復活','いのち','喜び','勝利'],
+        pentecost: ['聖霊','教会','証し','賜物'],
+        ordinary:  ['感謝','導き','忍耐','賛美'],
+    },
+};
+
+// UTC Easter Sunday — Meeus/Jones/Butcher algorithm（外部ライブラリ不使用）
+function _easterUTC(year) {
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31) - 1; // 0-indexed
+    const day   = ((h + l - 7 * m + 114) % 31) + 1;
+    return Date.UTC(year, month, day);
+}
+
+// Advent 開始: クリスマス(12/25)から4週前の日曜
+function _adventStartUTC(year) {
+    const dow = new Date(Date.UTC(year, 11, 25)).getUTCDay(); // 0=日曜
+    return Date.UTC(year, 11, 25) - (dow + 21) * 86400000;
+}
+
+// 教会暦シーズン判定（UTC 統一。_dayOfYear と同じ基準）
+function getCurrentSeason(date = new Date()) {
+    const y      = date.getUTCFullYear();
+    const ts     = Date.UTC(y, date.getUTCMonth(), date.getUTCDate());
+    const D      = 86400000; // ms/day
+    const easter = _easterUTC(y);
+    // Lent: 灰の水曜（復活-46日）〜 聖土曜日（復活-1日）
+    if (ts >= easter - 46 * D && ts < easter)           return 'lent';
+    // Easter: 復活日曜〜 ペンテコステ前日（復活+48日）
+    if (ts >= easter           && ts < easter + 49 * D) return 'easter';
+    // Pentecost: ペンテコステ日曜〜 三位一体後1週（復活+62日）計14日
+    if (ts >= easter + 49 * D && ts < easter + 63 * D)  return 'pentecost';
+    // Advent: 第1主日〜 12/24
+    if (ts >= _adventStartUTC(y) && ts <= Date.UTC(y, 11, 24)) return 'advent';
+    return 'ordinary';
+}
+
+// UTC 日付から year-day（0始まり）を返す決定的ヘルパー
+function _dayOfYear(date) {
+    const y   = date.getUTCFullYear();
+    const jan1 = Date.UTC(y, 0, 1);
+    const today = Date.UTC(y, date.getUTCMonth(), date.getUTCDate());
+    return Math.floor((today - jan1) / 86400000); // 0–364/365
+}
+
+/**
+ * getDiscoveryThemes(date?)
+ * 「今日の 4 テーマ」を返す純粋関数。
+ * 返却順: [seasonal 1件, core 2件, discovery 1件]
+ * 同じ date → 同じ配列（決定的）。Math.random() 不使用。
+ * @param {Date} date - 基準日（省略時: 今日）
+ * @returns {string[]} length === 4 の文字列配列
+ */
+function getDiscoveryThemes(date = new Date()) {
+    const data   = _DISCOVERY_THEMES;
+    const season = getCurrentSeason(date);
+    const day    = _dayOfYear(date);
+    const picked = [];
+
+    // ① seasonal: 1件（シーズンプールを day で決定的に選択）
+    const sPool = data.seasonal[season] || data.seasonal.ordinary;
+    picked.push(sPool[day % sPool.length]);
+
+    // ② core: 2件（day+offset でスキャン。重複は次候補へ）
+    const cPool = data.core;
+    for (let i = 0; picked.length < 3; i++) {
+        const c = cPool[(day + i) % cPool.length];
+        if (!picked.includes(c)) picked.push(c);
+        if (i >= cPool.length) break; // 安全ガード（完全重複時）
+    }
+
+    // ③ discovery: 1件（day+offset でスキャン。重複は次候補へ）
+    const dPool = data.discovery;
+    for (let i = 0; picked.length < 4; i++) {
+        const c = dPool[(day + i) % dPool.length];
+        if (!picked.includes(c)) picked.push(c);
+        if (i >= dPool.length) break; // 安全ガード
+    }
+
+    return picked;
+}
+
+// _DISCOVERY_THEMES 初期化後に呼び出す（TDZ 回避。init() より後に実行される）
+renderDiscoveryLobby();
 </script>
 </body>
 </html>

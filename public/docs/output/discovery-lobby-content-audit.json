@@ -1,0 +1,221 @@
+{
+  "phase": "UX-10.8",
+  "title": "Discovery Lobby Content Audit",
+  "date": "2026-07-14",
+  "implementation_changes": false,
+
+  "design_principles": {
+    "DS-DISCOVERY-01": "検索前画面では「検索方法」を教えない。「今日、聖書を読み始めるきっかけ」を静かに差し出す",
+    "DS-DISCOVERY-02": "Discovery Lobby は検索メニューではなく、聖書との出会いの入口である"
+  },
+
+  "container_structure": {
+    "element": "#state-empty",
+    "note": "単一コンテナ内に複数の子要素が異なるタイミングで表示される"
+  },
+
+  "display_timing": [
+    {
+      "element": "#discovery-lobby",
+      "initial_display": "visible",
+      "trigger": "常時表示（renderDiscoveryLobby() by script load）"
+    },
+    {
+      "element": "#history-recent-section",
+      "initial_display": "none",
+      "trigger": "_loadHistory() が localStorage の履歴を検出した時"
+    },
+    {
+      "element": "#empty-examples-section",
+      "initial_display": "none",
+      "trigger": "なし（表示するコードが存在しない — dead element）"
+    },
+    {
+      "element": "#concept-discovery-section",
+      "initial_display": "none",
+      "trigger": "search-concepts.json 読込後 → _renderConceptDiscoveryChips()"
+    },
+    {
+      "element": "#pattern-search-section",
+      "initial_display": "none",
+      "trigger": "search-patterns.json 読込後 → _renderPatternChips()"
+    },
+    {
+      "element": ".empty-glyph/.empty-title/.empty-desc",
+      "initial_display": "none",
+      "trigger": "_showEmpty() 呼び出し時のみ（エラー専用）"
+    }
+  ],
+
+  "items": [
+    {
+      "id": "E-01",
+      "name": "Discovery Title",
+      "text": "今日は、どんなことばを読みますか？",
+      "location": ".discovery-title（#discovery-lobby 内）",
+      "role": "Discovery Lobby の問いかけ。テーマチップに「今日、聖書と出会う」コンテキストを与える",
+      "display_state": "常時表示",
+      "lobby_fit": "高",
+      "verdict": "KEEP",
+      "reason": "DS-DISCOVERY-01 の核心。削除するとテーマチップが文脈なしに並び検索候補リストと区別がつかなくなる",
+      "priority": null
+    },
+    {
+      "id": "E-02",
+      "name": "Discovery Theme Chips",
+      "text": "今日のテーマ 4件（教会暦アルゴリズムで決定）",
+      "location": ".discovery-theme-chip × 4（#discovery-lobby .discovery-themes 内）",
+      "role": "今日の聖書テーマ語。クリックで unifiedSearch() を起動する",
+      "display_state": "常時表示",
+      "lobby_fit": "最高",
+      "verdict": "KEEP",
+      "reason": "「今日、聖書を読み始めるきっかけ」を 1 語で差し出す。DS-DISCOVERY-01 の本体。Gentium Plus serif / 20px / text-main 色（UX-10.7-B 適用済み）",
+      "priority": null
+    },
+    {
+      "id": "E-03",
+      "name": "最近の検索",
+      "text": "最近の検索（ラベル + ex-chips 最大5件）",
+      "location": "#history-recent-section（#state-empty 直下）",
+      "role": "localStorage から最大 5 件の検索履歴を .ex-chip で表示",
+      "display_state": "履歴が存在する場合のみ表示",
+      "lobby_fit": "低",
+      "verdict": "MOVE",
+      "reason": "過去操作の記録は「発見（Discovery）」ではない。Discovery Lobby の直下に置くと「検索方法の選択肢」として読まれ DS-DISCOVERY-02 に反する",
+      "move_destination": "検索入力フォーカス時のサジェスト（.suggest-dropdown）に統合",
+      "implementation_note": "_renderEmptyStateHistory() の呼び出しを検索入力フォーカスイベントへ移動するだけ。ロジック変更なし",
+      "priority": "P1"
+    },
+    {
+      "id": "E-04",
+      "name": "例（dead element）",
+      "text": "ἀγαπάω / πιστεύω / G3056",
+      "location": "#empty-examples-section",
+      "role": "ギリシャ語・Strong番号の入力例（設計意図）",
+      "display_state": "常時 display:none。表示するコードが存在しない（dead element）",
+      "lobby_fit": "なし",
+      "verdict": "REMOVE",
+      "reason": "コードで表示されることがない dead element。仮に復元してもギリシャ語・番号例は「操作説明」であり DS-DISCOVERY-01 / P-09 に反する",
+      "implementation_note": "HTML から 4 行削除。JS・検索ロジックへの依存なし",
+      "priority": "P0"
+    },
+    {
+      "id": "E-05",
+      "name": "テーマから探す（Concept Discovery）",
+      "text": "テーマから探す（ラベル + 説明文 + 愛/祈り/信仰/救い/罪/キリスト/十字架/復活）",
+      "location": "#concept-discovery-section",
+      "role": "Top 8 Concept（Concept Search エンジン経由）への入口",
+      "display_state": "search-concepts.json 読込後に表示",
+      "lobby_fit": "中（機能重複・説明過剰）",
+      "verdict": "MOVE",
+      "reason": [
+        "Discovery Lobby の theme chip と「テーマ語クリック → 検索」が重複し、同画面に同種の選択肢が 2 セット並ぶ",
+        "「テーマから探す」「聖書の大切なテーマから探すことができます」は検索方法の説明 → DS-DISCOVERY-01 違反",
+        "Concept 検索の質的差異（Term[] 展開・横断検索）が .ex-chip では伝わらない"
+      ],
+      "move_destination": "検索後のゼロヒット画面（「見つからない場合は」）or 検索結果下部の「関連テーマ」セクション",
+      "implementation_note": "_renderConceptDiscoveryChips() の呼び出しを unifiedSearch() 後 or ゼロヒット検出後に移動",
+      "priority": "P1"
+    },
+    {
+      "id": "E-05a",
+      "name": "説明文「聖書の大切なテーマから探すことができます」",
+      "text": "聖書の大切なテーマから探すことができます",
+      "location": "#concept-discovery-section 内 div",
+      "role": "E-05 の補足説明",
+      "display_state": "E-05 と同タイミング",
+      "lobby_fit": "なし",
+      "verdict": "REMOVE",
+      "reason": "「説明で理解させる」設計は DS-DISCOVERY-01 に反する。E-05 の MOVE に付随して消滅",
+      "priority": "P0（E-05 付随）"
+    },
+    {
+      "id": "E-06",
+      "name": "文法パターン",
+      "text": "文法パターン（互いに＋命令形 / μή＋命令形 / ἵνα＋接続法 / ἐάν＋接続法）",
+      "location": "#pattern-search-section",
+      "role": "search-patterns.json のプリセット。runPatternSearch() で共起検索を起動",
+      "display_state": "search-patterns.json 読込後に表示",
+      "lobby_fit": "最低",
+      "verdict": "MOVE",
+      "reason": [
+        "文法パターンは「読んだ後に深める」機能。「読み始めるきっかけ」ではない",
+        "命令形・接続法という文法用語は初回訪問者への障壁",
+        ".layer-chip.prox（紫系アクセントチップ）が無装飾の Discovery Lobby と視覚的に競合する"
+      ],
+      "move_destination": "検索結果ページ下部「パターンで深める」セクション、または morph-search.html への導線",
+      "implementation_note": "_renderPatternChips() の呼び出しを検索結果レンダリング後に移動",
+      "priority": "P1"
+    },
+    {
+      "id": "E-07",
+      "name": "エラーフォールバック",
+      "text": "λόγος / 聖書を検索する / 日本語・ギリシャ語・Strong番号で検索できます",
+      "location": ".empty-glyph / .empty-title / .empty-desc",
+      "role": "_showEmpty() 呼び出し時のみ表示されるエラー時フォールバック UI",
+      "display_state": "通常は display:none。_showEmpty() 時のみ",
+      "lobby_fit": "N/A（Discovery Lobby とは別の責務）",
+      "verdict": "KEEP",
+      "reason": "エラー時のリカバリ UI。Discovery Lobby の改善対象外",
+      "priority": null
+    }
+  ],
+
+  "summary": {
+    "keep": ["E-01", "E-02", "E-07"],
+    "move": ["E-03", "E-05", "E-06"],
+    "remove": ["E-04", "E-05a"]
+  },
+
+  "ideal_state": {
+    "description": "Discovery Lobby の最終理想構成",
+    "visible_elements": ["E-01 (title)", "E-02 (theme chips × 4)"],
+    "example": "今日は、\nどんなことばを読みますか？\n\n忍耐\n\n信仰\n\n希望\n\n証し",
+    "note": "説明なし。ラベルなし。セクションなし。4 語のみ。"
+  },
+
+  "implementation_plan": {
+    "P0": {
+      "label": "即時（影響なし）",
+      "items": [
+        {
+          "target": "#empty-examples-section",
+          "action": "DOM 削除（HTML 4行）",
+          "impact": "なし（dead element）"
+        }
+      ]
+    },
+    "P1": {
+      "label": "次フェーズ（機能移動）",
+      "items": [
+        {
+          "target": "E-03 最近の検索",
+          "action": "_renderEmptyStateHistory() の呼び出しを検索入力フォーカスイベントへ移動",
+          "impact": "中（JS 表示タイミング変更のみ。ロジック不変）"
+        },
+        {
+          "target": "E-05 テーマから探す",
+          "action": "_renderConceptDiscoveryChips() の呼び出しをゼロヒット検出後に移動",
+          "impact": "中（render 関数の呼び出し先変更のみ。Concept 検索ロジック不変）"
+        },
+        {
+          "target": "E-06 文法パターン",
+          "action": "_renderPatternChips() の呼び出しを検索結果レンダリング後に移動",
+          "impact": "中（render 関数の呼び出し先変更のみ。Pattern 検索ロジック不変）"
+        }
+      ]
+    }
+  },
+
+  "constraints": {
+    "forbidden": [
+      "検索ロジック変更",
+      "resolveTerm / resolveConcept 変更",
+      "Pattern Engine / runPatternSearch 変更",
+      "Wallace Engine 変更",
+      "StudyPanel 変更",
+      "データ構造（JSON）変更"
+    ],
+    "note": "P1 の「移動」は render 関数の呼び出し箇所を変えるだけ。検索ロジック自体は不変"
+  }
+}

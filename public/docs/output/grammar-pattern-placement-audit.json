@@ -1,0 +1,167 @@
+{
+  "phase": "UX-10.8-C",
+  "title": "Grammar Pattern Placement Audit",
+  "date": "2026-07-15",
+  "implementation_changes": false,
+
+  "current_state": {
+    "location": "#pattern-search-section（#state-empty 内 — Discovery Lobby と同コンテナ）",
+    "render_function": "_renderPatternChips()",
+    "load_trigger": "_loadSearchPatterns() → search-patterns.json 非同期ロード後",
+    "chip_style": ".layer-chip.prox（紫系アクセント）",
+    "click_handler": "runPatternSearch(i)",
+    "click_pipeline": "runTermProximitySearch(termA, termB) → _renderUnifiedResults()"
+  },
+
+  "data_source": {
+    "file": "assets/data/search-patterns.json",
+    "pattern_count": 4,
+    "patterns": [
+      {
+        "id": "reciprocal-command",
+        "label": "互いに＋命令形",
+        "description": "「互いに」（ἀλλήλων）と命令形の動詞が同じ節に現れる箇所",
+        "termA": {"axis": "lemma", "value": "ἀλλήλων"},
+        "termB": {"axis": "morph", "field": "mood", "value": "imperative"}
+      },
+      {
+        "id": "me-command",
+        "label": "μή＋命令形",
+        "description": "打ち消しの μή と命令形が同じ節に現れる箇所",
+        "termA": {"axis": "lemma", "value": "μή"},
+        "termB": {"axis": "morph", "field": "mood", "value": "imperative"}
+      },
+      {
+        "id": "hina-subjunctive",
+        "label": "ἵνα＋接続法",
+        "description": "ἵνα（〜するために）と接続法の動詞が同じ節に現れる箇所",
+        "termA": {"axis": "lemma", "value": "ἵνα"},
+        "termB": {"axis": "morph", "field": "mood", "value": "subjunctive"}
+      },
+      {
+        "id": "ean-subjunctive",
+        "label": "ἐάν＋接続法",
+        "description": "ἐάν（もし〜なら）と接続法の動詞が同じ節に現れる箇所",
+        "termA": {"axis": "lemma", "value": "ἐάν"},
+        "termB": {"axis": "morph", "field": "mood", "value": "subjunctive"}
+      }
+    ]
+  },
+
+  "click_processing": {
+    "function": "runPatternSearch(i)",
+    "calls": "runTermProximitySearch(termA, termB, {scope:'verse'})",
+    "result_rendering": "_renderUnifiedResults(p.label, [termA.value], null)",
+    "index_dependency": "IDX.ready が必要。未完了時は loading 表示",
+    "insight": "Concept Insight は非表示（_activeInsightConcept = null）",
+    "note": "通常の統合検索と同一パイプライン。変更不要"
+  },
+
+  "existing_connection": {
+    "concept_insight": {
+      "element": "#concept-insight",
+      "section_title": "パターンで探す",
+      "trigger": "Concept 検索発火時（_renderConceptInsight()）",
+      "implementation": "_renderUnifiedResults() の先頭で呼ばれる",
+      "note": "配置 B（検索後表示）の先例。Concept 紐づきパターンのみ表示する"
+    }
+  },
+
+  "candidates": [
+    {
+      "id": "A",
+      "name": "検索サジェスト",
+      "description": "検索入力フォーカス後のサジェストドロップダウンに追加",
+      "scores": {
+        "context_fit": "低",
+        "ds_discovery_01": "違反",
+        "implementation_cost": "中",
+        "ux": "弱い"
+      },
+      "pros": ["フォーカス時 = 探索意欲があるタイミング"],
+      "cons": [
+        "入力前に文法パターンを見せる = 検索方法の説明（DS-DISCOVERY-01 違反）",
+        "suggest-dropdown は lemma サジェスト専用。構造変更が必要",
+        "UX-10.8-B で history-recent-section が focus に追加済み。情報過多になる",
+        "文法用語が初心者の障壁になる"
+      ],
+      "verdict": "不採用"
+    },
+    {
+      "id": "B",
+      "name": "検索結果後",
+      "description": "result-body 内、hit cards の下部に「文法で深める」セクション追加",
+      "scores": {
+        "context_fit": "高",
+        "ds_discovery_01": "準拠",
+        "implementation_cost": "低",
+        "ux": "良い"
+      },
+      "pros": [
+        "検索結果閲覧後 = 深掘りニーズが自然に発生するタイミング",
+        "Concept Insight の「パターンで探す」が同設計で既に動作（先例）",
+        "_renderPatternChips() のターゲットを変えるだけ",
+        "runPatternSearch() は変更不要"
+      ],
+      "cons": [
+        "4パターン全てが検索クエリに関係するとは限らない（汎用パターン）",
+        "常時表示するか条件付きかを設計で決める必要がある"
+      ],
+      "verdict": "採用",
+      "implementation_sketch": {
+        "new_dom": "<div id='pattern-explore-section'> 内に <div class='layer-chips' id='pattern-explore-chips'>",
+        "placement": "result-body 内 hits-list の後",
+        "render_call": "_renderPatternExplore() を _renderUnifiedResults() の末尾で呼ぶ",
+        "section_label": "文法で深める",
+        "changes_to_engine": "なし"
+      }
+    },
+    {
+      "id": "C",
+      "name": "StudyPanel",
+      "description": "index.html の StudyPanel（本文読解画面）内に追加",
+      "scores": {
+        "context_fit": "高",
+        "ds_discovery_01": "準拠",
+        "implementation_cost": "高",
+        "ux": "理想的"
+      },
+      "pros": [
+        "本文を読んだ後 = 文法構造を探るのに最適なタイミング",
+        "ユーザーが既に聖書テキストを読んでいる"
+      ],
+      "cons": [
+        "runPatternSearch() と SEARCH_PATTERNS は search-tool.html に存在。StudyPanel は index.html",
+        "クロスファイル通信（postMessage 等）が必要",
+        "UX-10 系のスコープを大きく超える"
+      ],
+      "verdict": "将来フェーズ候補。本フェーズ対象外"
+    }
+  ],
+
+  "decision": {
+    "move_destination": "B — 検索結果後（result-body 内）",
+    "display_condition": "全検索後（常時表示）",
+    "section_label": "文法で深める",
+    "chip_style": "既存 .layer-chip.prox を踏襲",
+    "priority_ranking": ["B（採用）", "C（将来）", "A（不採用）"],
+    "implementation_phase": "UX-10.8-D",
+    "discovery_lobby_cleanup": "UX-10.8-D で #pattern-search-section を DOM 削除 + _renderPatternChips() 呼び出しを _renderPatternExplore() に置換"
+  },
+
+  "constraints": {
+    "forbidden_changes": [
+      "Pattern Engine（runTermProximitySearch）",
+      "Wallace Engine",
+      "syntax registry",
+      "syntax-search",
+      "search-patterns.json",
+      "runPatternSearch()"
+    ],
+    "allowed_changes": [
+      "_renderPatternChips() のターゲット DOM 変更（表示場所のみ）",
+      "_renderUnifiedResults() 末尾での新 render 関数呼び出し追加",
+      "#pattern-search-section DOM 削除"
+    ]
+  }
+}

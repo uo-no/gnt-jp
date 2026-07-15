@@ -1,0 +1,194 @@
+{
+  "phase": "UX-10-4A",
+  "title": "Discovery Lobby Visual Audit",
+  "date": "2026-07-14",
+  "implementation_changes": false,
+
+  "design_principles": {
+    "DS-DISCOVERY-01": "テーマ語が主役。ラベル・タイトル・UI装飾よりテーマ語が視覚的に優位であること",
+    "DS-DISCOVERY-02": "検索候補リストに見えない。ボーダー・背景・ピル形状を持たず、サジェスト一覧と区別できること"
+  },
+
+  "css_snapshot": {
+    "discovery_lobby": {
+      "selector": "#discovery-lobby",
+      "display": "flex flex-direction:column align-items:center",
+      "padding": "var(--space-xl) var(--space-md)",
+      "gap": "var(--space-lg)"
+    },
+    "discovery_title": {
+      "selector": ".discovery-title",
+      "font_size": "1rem (raw — NOT var(--text-body-lg))",
+      "font_weight": "700",
+      "color": "var(--text-main)",
+      "line_height": "1.75",
+      "margin": "0"
+    },
+    "discovery_themes": {
+      "selector": ".discovery-themes",
+      "display": "flex flex-direction:column align-items:center",
+      "gap": "var(--space-md)"
+    },
+    "discovery_theme_chip": {
+      "selector": ".discovery-theme-chip",
+      "padding": "4px 0",
+      "border": "none",
+      "background": "transparent",
+      "font_size": "var(--text-body-lg)",
+      "font_weight": "unset (inherits 400)",
+      "color": "var(--text-main)",
+      "cursor": "pointer",
+      "transition": "opacity 0.15s, transform 0.15s (raw s, no ease-out token)"
+    },
+    "discovery_theme_chip_hover": {
+      "opacity": "0.55 (NOT a token — closest: --opacity-secondary=0.6)",
+      "transform": "translateY(-1px)"
+    },
+    "state_empty": {
+      "selector": ".state-empty",
+      "gap": "14px (raw px — NOT on token scale: 4/8/16/24/32)"
+    }
+  },
+
+  "token_reference": {
+    "--text-body-lg": "1rem",
+    "--text-body": "0.9rem",
+    "--text-title": "1.25rem",
+    "--space-xs": "4px",
+    "--space-sm": "8px",
+    "--space-md": "16px",
+    "--space-lg": "24px",
+    "--space-xl": "32px",
+    "--opacity-primary": "1",
+    "--opacity-secondary": "0.6",
+    "--opacity-tertiary": "0.3",
+    "--opacity-disabled": "0.15",
+    "--duration-fast": "0.15s",
+    "--ease-out": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+    "--transition-fast": "0.15s cubic-bezier(0.2, 0.8, 0.2, 1)"
+  },
+
+  "audit_items": [
+    {
+      "id": "A-01",
+      "category": "identity",
+      "check": "Discovery Lobby が検索候補一覧に見えていないか（DS-DISCOVERY-02）",
+      "verdict": "GOOD",
+      "detail": "border: none / background: transparent / border-radius なし。pill/chip 形状を持たず、.ex-chip（border 1.5px solid / border-radius 20px）との視覚的差別化は達成されている。縦列レイアウトもサジェストドロップダウンとは明確に異なる。",
+      "concern": "cursor: pointer 以外のインタラクション示唆がなく、クリック可能と気づかない可能性がある（A-07 参照）。"
+    },
+    {
+      "id": "A-02",
+      "category": "hierarchy",
+      "check": "テーマ語が主役になっているか（DS-DISCOVERY-01）",
+      "verdict": "IMPROVE",
+      "detail": ".discovery-title（h2）と .discovery-theme-chip の font-size がともに 1rem で同一。サイズ階層なし。title が font-weight:700（太字）であるため、weight 差はあるが size 差がない。テーマ語がタイトル文と同格に見え、主役感が薄い。",
+      "recommendation": ".discovery-theme-chip の font-size を var(--text-title)=1.25rem に昇格させる。または .discovery-title を var(--text-body)=0.9rem に引き下げる。前者推奨（テーマ語を能動的に大きくする）。"
+    },
+    {
+      "id": "A-03",
+      "category": "hierarchy",
+      "check": "検索入力との視覚的優先順位",
+      "verdict": "GOOD",
+      "detail": "Desktop: 検索入力は左サイドバー、Discovery Lobby は右リザルトパネル。物理的に別レーンのため競合なし。Mobile: 後述 A-05 で評価。"
+    },
+    {
+      "id": "A-04",
+      "category": "spacing",
+      "check": "Empty State 全体の余白",
+      "verdict": "IMPROVE",
+      "detail": ".state-empty の gap が 14px（raw px）。デザイントークンのスペーシングスケール（4/8/16/24/32）に存在しない値。最近傍は --space-sm=8px または --space-md=16px。14px はどちらでもない中途半端な値。",
+      "recommendation": "gap: var(--space-md) = 16px に変更する。Discovery Lobby 単独表示時は #discovery-lobby 内の gap で制御されているため外側 gap の影響は現状限定的だが、tokens 準拠のため修正すべき。"
+    },
+    {
+      "id": "A-05",
+      "category": "mobile",
+      "check": "Mobile 390px 表示",
+      "verdict": "BLOCK",
+      "detail": ".discovery-theme-chip の tap target が不足。padding: 4px 0 → 縦方向タッチ領域 ≒ 4 + 16(1rem) + 4 = 24px。Apple HIG / Material Design 最小タップ目標は 44px。現在 24px は最小値の55%。誤タップ・タップ失敗のリスクが高い。",
+      "recommendation": "padding を 4px 0 → 12px 0 (上下12px) に変更。タッチ領域 12+16+12 = 40px。または display:block + min-height:44px。",
+      "tap_target_current_px": 24,
+      "tap_target_minimum_px": 44,
+      "severity": "BLOCK — モバイルユーザーが主要テーマをタップできない可能性"
+    },
+    {
+      "id": "A-06",
+      "category": "interaction",
+      "check": "hover 表現",
+      "verdict": "IMPROVE",
+      "detail": [
+        "opacity: 0.55 → トークン外の値。--opacity-secondary=0.6 が最近傍。差は0.05で視覚的に検知困難だが原則違反。",
+        "transition: 'opacity 0.15s, transform 0.15s' → duration は --duration-fast=0.15s に合致するが ease-out が未指定（ブラウザデフォルト ease を使用）。--ease-out=cubic-bezier(0.2,0.8,0.2,1) が未適用。",
+        "translateY(-1px): 微細で品質高い。問題なし。"
+      ],
+      "recommendation": "transition: opacity var(--transition-fast), transform var(--transition-fast); opacity: var(--opacity-secondary);"
+    },
+    {
+      "id": "A-07",
+      "category": "affordance",
+      "check": "インタラクション示唆（観察的所見）",
+      "verdict": "IMPROVE",
+      "detail": ".discovery-theme-chip は cursor:pointer のみでクリック可能性を示す。hover 時の opacity 変化は効果的だが、初見ユーザーがホバー前にクリック可能と認識できるかが課題。テキストリンク的な下線・色変化のような常時表示の affordance がない。",
+      "recommendation": "常時表示の affordance を1つ追加を検討: (a) テキストに薄いunderline; (b) 語頭に固定記号（→ など）; (c) font-weight を少し上げる（500 → 600）。ただし DS-DISCOVERY-02 との兼ね合いで chip 化は禁止。"
+    },
+    {
+      "id": "A-08",
+      "category": "design_system",
+      "check": "既存 Design System との整合",
+      "verdict": "IMPROVE",
+      "violations": [
+        {
+          "location": ".discovery-title",
+          "property": "font-size",
+          "current": "1rem (raw)",
+          "expected": "var(--text-body-lg)",
+          "severity": "minor — 値は同じだが var() 参照すべき"
+        },
+        {
+          "location": ".discovery-theme-chip",
+          "property": "transition",
+          "current": "opacity 0.15s, transform 0.15s",
+          "expected": "opacity var(--transition-fast), transform var(--transition-fast)",
+          "severity": "minor"
+        },
+        {
+          "location": ".discovery-theme-chip:hover",
+          "property": "opacity",
+          "current": "0.55",
+          "expected": "var(--opacity-secondary) = 0.6",
+          "severity": "minor"
+        },
+        {
+          "location": ".state-empty",
+          "property": "gap",
+          "current": "14px",
+          "expected": "var(--space-md) = 16px",
+          "severity": "minor"
+        }
+      ],
+      "conformant": [
+        ".discovery-theme-chip font-size: var(--text-body-lg) ✅",
+        ".discovery-theme-chip color: var(--text-main) ✅",
+        "#discovery-lobby padding: var(--space-xl) var(--space-md) ✅",
+        "#discovery-lobby gap: var(--space-lg) ✅",
+        ".discovery-themes gap: var(--space-md) ✅",
+        ".discovery-title color: var(--text-main) ✅"
+      ]
+    }
+  ],
+
+  "summary": {
+    "GOOD": ["A-01 (DS-DISCOVERY-02 達成)", "A-03 (検索入力との優先順位 / desktop)"],
+    "IMPROVE": ["A-02 (テーマ語 size 階層)", "A-04 (state-empty gap token 違反)", "A-06 (hover opacity/easing)", "A-07 (affordance)", "A-08 (DS 整合 minor 4件)"],
+    "BLOCK": ["A-05 (mobile tap target 24px < 44px)"]
+  },
+
+  "priority_order": [
+    { "priority": 1, "id": "A-05", "verdict": "BLOCK",   "action": "tap target を min 44px に拡張。padding-top/bottom を 4px → 12px" },
+    { "priority": 2, "id": "A-02", "verdict": "IMPROVE", "action": ".discovery-theme-chip font-size を var(--text-title)=1.25rem へ昇格" },
+    { "priority": 3, "id": "A-06", "verdict": "IMPROVE", "action": "transition を var(--transition-fast) へ、opacity を var(--opacity-secondary) へ" },
+    { "priority": 4, "id": "A-04", "verdict": "IMPROVE", "action": ".state-empty gap: 14px → var(--space-md)" },
+    { "priority": 5, "id": "A-07", "verdict": "IMPROVE", "action": "常時表示 affordance の検討（下線 or weight 強調）" },
+    { "priority": 6, "id": "A-08", "verdict": "IMPROVE", "action": ".discovery-title font-size を生値 → var(--text-body-lg)" }
+  ]
+}

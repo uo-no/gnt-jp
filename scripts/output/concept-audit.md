@@ -1,6 +1,6 @@
 # Concept Audit — search-concepts.json 品質監査
 
-生成: 2026-07-12T21:34:14.271Z
+生成: 2026-07-14T01:58:45.077Z
 
 ## Summary
 
@@ -25,7 +25,7 @@
 | 3.5 | Alias 品質（型・空・空白・概念内重複） | PASS |
 | 4 | Term 存在確認（lemma 115 件を lemma_dict と照合） | PASS |
 | 5 | Related Integrity | PASS |
-| 6 | Related Symmetry | 双方向 86 / 片方向 0（報告のみ） |
+| 6 | Related Symmetry | 双方向 88 / 片方向 0（報告のみ） |
 | 7 | Children Cycle Detection | PASS |
 | 8 | Pattern Integrity | PASS |
 | 9 | Syntax Type Integrity | PASS |
@@ -42,6 +42,7 @@
 - symmetric: love ↔ grace
 - symmetric: love ↔ faith
 - symmetric: love ↔ joy
+- symmetric: love ↔ god
 - symmetric: faith ↔ salvation
 - symmetric: faith ↔ righteousness
 - symmetric: faith ↔ hope
@@ -51,15 +52,15 @@
 - symmetric: faith ↔ law
 - symmetric: faith ↔ witness
 - symmetric: faith ↔ temptation
-- symmetric: salvation ↔ grace
-- symmetric: salvation ↔ sin
+- symmetric: salvation ↔ christ
+- symmetric: salvation ↔ cross
 - symmetric: salvation ↔ resurrection
+- symmetric: salvation ↔ grace
+- symmetric: salvation ↔ redemption
+- symmetric: salvation ↔ sin
 - symmetric: salvation ↔ hope
 - symmetric: salvation ↔ repentance
-- symmetric: salvation ↔ christ
 - symmetric: salvation ↔ gospel
-- symmetric: salvation ↔ cross
-- symmetric: salvation ↔ redemption
 - symmetric: salvation ↔ eternal-life
 - symmetric: salvation ↔ reconciliation
 - symmetric: salvation ↔ death
@@ -91,6 +92,7 @@
 - symmetric: resurrection ↔ eternal-life
 - symmetric: resurrection ↔ death
 - symmetric: resurrection ↔ christ
+- symmetric: resurrection ↔ cross
 - symmetric: hope ↔ eternal-life
 - symmetric: hope ↔ joy
 - symmetric: hope ↔ perseverance

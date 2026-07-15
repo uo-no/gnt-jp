@@ -1,0 +1,142 @@
+{
+  "phase": "UX-10-3A",
+  "title": "Today's Discovery Selection Specification",
+  "date": "2026-07-14",
+  "implementation_changes": false,
+
+  "selection_priority": {
+    "order": [
+      {
+        "level": 1,
+        "concept": "教会暦",
+        "implementation": "getCurrentSeason(date)",
+        "status": "stub",
+        "stub_returns": "ordinary"
+      },
+      {
+        "level": 2,
+        "concept": "季節テーマ",
+        "implementation": "_DISCOVERY_THEMES.seasonal[season]",
+        "status": "implemented"
+      },
+      {
+        "level": 3,
+        "concept": "編集セット",
+        "implementation": "_DISCOVERY_THEMES.core + _DISCOVERY_THEMES.discovery",
+        "status": "implemented"
+      },
+      {
+        "level": 4,
+        "concept": "日次微調整",
+        "implementation": "_dayOfYear(date) → modulo index",
+        "status": "implemented"
+      }
+    ]
+  },
+
+  "theme_composition": {
+    "total": 4,
+    "slots": [
+      { "position": 1, "type": "seasonal", "pool": "seasonal[season]", "count": 1 },
+      { "position": 2, "type": "core",     "pool": "core",             "count": 1 },
+      { "position": 3, "type": "core",     "pool": "core",             "count": 1 },
+      { "position": 4, "type": "discovery","pool": "discovery",        "count": 1 }
+    ],
+    "deduplication": "重複語は各プールの次候補へ進む。安全ガード: i >= pool.length で break"
+  },
+
+  "determinism": {
+    "math_random": "禁止・未使用",
+    "seed": "UTC day-of-year (0–364/365)",
+    "seed_formula": "Math.floor((Date.UTC(y, m, d) - Date.UTC(y, 0, 1)) / 86400000)",
+    "timezone": "UTC 固定（タイムゾーン非依存）",
+    "guarantees": {
+      "same_date_same_result": true,
+      "next_day_different": true,
+      "no_consecutive_duplicate_set": true,
+      "unique_sets_per_year_ordinary": 40
+    }
+  },
+
+  "seasons": {
+    "defined": ["advent", "lent", "easter", "pentecost", "ordinary"],
+    "data_complete": true,
+    "judgment_implemented": false,
+    "currently_active": "ordinary",
+    "schedule_reference": {
+      "advent":    "11月末第4日曜〜12月24日（4週間。可動）",
+      "lent":      "灰の水曜〜聖土曜日（40日。復活祭可動）",
+      "easter":    "復活日曜〜聖霊降臨50日後（50日）",
+      "pentecost": "聖霊降臨日曜〜次のadvent前",
+      "ordinary":  "上記以外（現在は全年間）"
+    },
+    "implementation_challenge": "Lent・Easter は Computus アルゴリズム or ルックアップテーブルが必要"
+  },
+
+  "cross_pool_overlaps": [
+    { "season": "advent",    "term": "希望",    "overlaps_with": "core",      "impact": "core が次候補に進む" },
+    { "season": "easter",    "term": "喜び",    "overlaps_with": "core",      "impact": "core が次候補に進む" },
+    { "season": "ordinary",  "term": "祈り",    "overlaps_with": "core",      "impact": "core が次候補に進む" },
+    { "season": "ordinary",  "term": "平安",    "overlaps_with": "core",      "impact": "core が次候補に進む" },
+    { "season": "ordinary",  "term": "知恵",    "overlaps_with": "discovery", "impact": "discovery が次候補に進む" },
+    { "season": "lent",      "term": "悔い改め","overlaps_with": "discovery", "impact": "discovery が次候補に進む" },
+    { "season": "pentecost", "term": "教会",    "overlaps_with": "discovery", "impact": "discovery が次候補に進む" },
+    { "season": "pentecost", "term": "証し",    "overlaps_with": "discovery", "impact": "discovery が次候補に進む" }
+  ],
+
+  "frequency_analysis": {
+    "basis": "ordinary 全日・2026年（365日）",
+    "by_theme": [
+      { "term": "平安",    "type": "seasonal+core",      "days": 182, "pct": 50 },
+      { "term": "祈り",    "type": "seasonal+core",      "days": 138, "pct": 38 },
+      { "term": "信仰",    "type": "core",               "days": 138, "pct": 38 },
+      { "term": "知恵",    "type": "seasonal+discovery", "days": 128, "pct": 35 },
+      { "term": "希望",    "type": "core",               "days": 92,  "pct": 25 },
+      { "term": "救い",    "type": "core",               "days": 92,  "pct": 25 },
+      { "term": "愛",      "type": "core",               "days": 91,  "pct": 25 },
+      { "term": "感謝",    "type": "seasonal",           "days": 91,  "pct": 25 },
+      { "term": "恵み",    "type": "core",               "days": 90,  "pct": 25 },
+      { "term": "喜び",    "type": "core",               "days": 90,  "pct": 25 },
+      { "term": "契約",    "type": "discovery",          "days": 37,  "pct": 10 },
+      { "term": "義",      "type": "discovery",          "days": 37,  "pct": 10 },
+      { "term": "慰め",    "type": "discovery",          "days": 37,  "pct": 10 },
+      { "term": "証し",    "type": "discovery",          "days": 37,  "pct": 10 },
+      { "term": "栄光",    "type": "discovery",          "days": 36,  "pct": 10 },
+      { "term": "弟子",    "type": "discovery",          "days": 36,  "pct": 10 },
+      { "term": "教会",    "type": "discovery",          "days": 36,  "pct": 10 },
+      { "term": "永遠の命","type": "discovery",          "days": 36,  "pct": 10 },
+      { "term": "悔い改め","type": "discovery",          "days": 36,  "pct": 10 }
+    ],
+    "observation": "ordinary シーズン固定のため 平安・祈り・知恵 が seasonal と他プール両方から選ばれ頻度高。シーズン切り替えにより緩和される。"
+  },
+
+  "data_extensibility": {
+    "current_schema_version": 1,
+    "current_structure": "seasonal[season]: string[]（フラット配列）",
+    "v1_compatible_extensions": [
+      "シーズン追加（christmas, epiphany 等）: JSON の seasonal キー追加のみ",
+      "テーマ追加: 各配列に追記のみ。JS 変更不要"
+    ],
+    "v2_proposal": {
+      "schema_version": 2,
+      "change": "seasonal[season]: { primary: string[], secondary: string[] }",
+      "benefit": "高優先テーマを分離・優先選択可能",
+      "backward_compat_strategy": "version フィールドで分岐 or seasonal_v2 キー追加"
+    }
+  },
+
+  "implementation_status": {
+    "theme_composition": "implemented",
+    "deterministic_algorithm": "implemented",
+    "deduplication": "implemented",
+    "ordinary_season": "implemented",
+    "getCurrentSeason_judgment": "stub",
+    "advent_lent_easter_pentecost": "not_implemented",
+    "schema_v2": "not_implemented"
+  },
+
+  "next_phases": [
+    { "phase": "UX-10-3B", "content": "getCurrentSeason() に実際の教会暦判定を実装" },
+    { "phase": "UX-10-3C", "content": "データスキーマ v2（primary/secondary 分離）を検討・実装" }
+  ]
+}

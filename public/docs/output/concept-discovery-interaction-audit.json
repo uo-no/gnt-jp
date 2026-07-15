@@ -1,0 +1,358 @@
+{
+  "_meta": {
+    "generated": "2026-07-14",
+    "phase": "UX-5-5",
+    "source": "search-tool.html @ localhost:8765",
+    "viewport_desktop": "1280x900",
+    "viewport_mobile": "390x844",
+    "evaluator": "Playwright headless + screenshot review",
+    "note": "実装変更なし。監査のみ。"
+  },
+  "summary": {
+    "flows_tested": 3,
+    "total_steps": 12,
+    "good_count": 15,
+    "improve_count": 5,
+    "block_count": 0,
+    "critical_path_status": "PASS",
+    "ux54_validation": "十字架↔復活 直接リンクが Flow B・C で正常機能を確認"
+  },
+  "empty_state": {
+    "discovery_section": {
+      "visible": true,
+      "chips": ["愛", "祈り", "信仰", "救い", "罪", "キリスト", "十字架", "復活"],
+      "chip_count": 8,
+      "evaluation": "GOOD"
+    },
+    "example_section": {
+      "chips": ["ἀγαπάω", "πιστεύω", "G3056"],
+      "role": "ギリシャ語専用（テーマチップと役割分離済み）",
+      "evaluation": "GOOD"
+    },
+    "pattern_section": {
+      "chip_count": 4,
+      "evaluation": "GOOD"
+    },
+    "history_section": {
+      "visible_on_first_load": false,
+      "evaluation": "GOOD"
+    }
+  },
+  "flows": {
+    "flow_a": {
+      "name": "初心者テーマ探索",
+      "scenario": "愛 → Insight → 本文で見る",
+      "status": "PASS",
+      "steps": [
+        {
+          "step": 1,
+          "action": "空き状態確認",
+          "result": "3セクション可視",
+          "evaluation": "GOOD"
+        },
+        {
+          "step": 2,
+          "action": "「愛」チップクリック",
+          "result": "Insight表示, 631件",
+          "evaluation": "GOOD"
+        },
+        {
+          "step": 3,
+          "action": "愛 Insight確認",
+          "result": "ギリシャ語4行, related 3件 [恵み, 信仰, 喜び]",
+          "evaluation": "IMPROVE",
+          "issue": "related 3件のみ。神・キリストへの導線なし（love↔god エッジ未追加）"
+        },
+        {
+          "step": 4,
+          "action": "本文で見るクリック",
+          "result": {
+            "href": "index.html?book=MAT&ch=5&verse=43",
+            "target": "_blank",
+            "rel": "noopener noreferrer"
+          },
+          "evaluation": "GOOD"
+        }
+      ],
+      "insight_detail": {
+        "concept": "愛",
+        "greek_rows": 4,
+        "related_chips": ["恵み", "信仰", "喜び"],
+        "related_count": 3,
+        "has_advanced": true
+      }
+    },
+    "flow_b": {
+      "name": "救済テーマ探索",
+      "scenario": "救い → キリスト → 十字架 → 復活",
+      "status": "PASS",
+      "steps": [
+        {
+          "step": 1,
+          "query": "救い",
+          "count": "628件",
+          "related_count": 14,
+          "evaluation": "IMPROVE",
+          "issue": "related 14件は多すぎる。キリストへの経路は存在するが見つけにくい"
+        },
+        {
+          "step": 2,
+          "query": "キリスト",
+          "count": "576件",
+          "related_chips": ["救い", "福音", "十字架", "復活"],
+          "related_count": 4,
+          "evaluation": "GOOD"
+        },
+        {
+          "step": 3,
+          "query": "十字架",
+          "count": "82件",
+          "related_chips": ["救い", "贖い", "キリスト", "復活"],
+          "related_count": 4,
+          "evaluation": "GOOD",
+          "note": "UX-5-4で追加した復活への直接リンクが正常機能"
+        },
+        {
+          "step": 4,
+          "query": "復活",
+          "count": "52件",
+          "related_chips": ["希望", "救い", "永遠の命", "死", "キリスト", "十字架"],
+          "related_count": 6,
+          "evaluation": "GOOD"
+        }
+      ]
+    },
+    "flow_c": {
+      "name": "深掘り探索",
+      "scenario": "キリスト → 十字架 → 復活 → 希望 → 永遠の命",
+      "status": "PASS",
+      "steps": [
+        {
+          "step": 1,
+          "query": "キリスト",
+          "count": "576件",
+          "next_reachable": true,
+          "evaluation": "GOOD"
+        },
+        {
+          "step": 2,
+          "query": "十字架",
+          "count": "82件",
+          "next_reachable": true,
+          "evaluation": "GOOD"
+        },
+        {
+          "step": 3,
+          "query": "復活",
+          "count": "52件",
+          "next_reachable": true,
+          "evaluation": "GOOD"
+        },
+        {
+          "step": 4,
+          "query": "希望",
+          "count": "259件",
+          "related_chips": ["信仰", "復活", "救い", "永遠の命", "喜び", "忍耐"],
+          "next_reachable": true,
+          "evaluation": "GOOD"
+        },
+        {
+          "step": 5,
+          "query": "永遠の命",
+          "count": "319件",
+          "evaluation": "GOOD"
+        }
+      ]
+    }
+  },
+  "related_order_audit": {
+    "note": "表示順は search-concepts.json の related 配列順に依存。並び替えロジック未実装。",
+    "optimal_range": "4〜6件",
+    "concepts": [
+      {
+        "label": "愛",
+        "related": ["恵み", "信仰", "喜び"],
+        "count": 3,
+        "evaluation": "IMPROVE",
+        "issue": "Discovery UIのTop概念として3件は少なすぎる。love↔god エッジ追加で4件になる"
+      },
+      {
+        "label": "祈り",
+        "related": ["信仰", "感謝", "礼拝", "誘惑", "御霊"],
+        "count": 5,
+        "evaluation": "GOOD"
+      },
+      {
+        "label": "信仰",
+        "related": ["救い", "愛", "祈り", "義", "希望", "真理", "従順", "忍耐", "律法", "証し", "誘惑"],
+        "count": 11,
+        "evaluation": "IMPROVE",
+        "issue": "11件は過負荷。律法・誘惑など初心者には上級テーマが混在。表示上限が必要"
+      },
+      {
+        "label": "救い",
+        "count": 14,
+        "evaluation": "IMPROVE",
+        "issue": "グラフのハブ（39%と接続）のため14件になる。表示上限または JSON整理が必要"
+      },
+      {
+        "label": "罪",
+        "related": ["義", "悔い改め", "救い", "死", "裁き", "律法", "赦し"],
+        "count": 7,
+        "evaluation": "許容"
+      },
+      {
+        "label": "キリスト",
+        "related": ["救い", "福音", "十字架", "復活"],
+        "count": 4,
+        "evaluation": "GOOD"
+      },
+      {
+        "label": "十字架",
+        "related": ["救い", "贖い", "キリスト", "復活"],
+        "count": 4,
+        "evaluation": "GOOD"
+      },
+      {
+        "label": "復活",
+        "related": ["希望", "救い", "永遠の命", "死", "キリスト", "十字架"],
+        "count": 6,
+        "evaluation": "GOOD"
+      }
+    ]
+  },
+  "insight_hierarchy": {
+    "example_concept": "信仰",
+    "structure": {
+      "greek_section": {
+        "label": "関連するギリシャ語",
+        "format": "ci-lex-row（語形 + 語義 + 出現数）",
+        "rows": [
+          { "lemma": "πιστεύω", "gloss": "信じる", "count": "290件" },
+          { "lemma": "πίστις",  "gloss": "信仰",   "count": "275件" },
+          { "lemma": "πιστός",  "gloss": "忠実な",  "count": "112件" }
+        ],
+        "evaluation": "GOOD"
+      },
+      "related_section": {
+        "label": "関連する概念",
+        "chip_count": 11,
+        "evaluation": "IMPROVE",
+        "issue": "11件が横並びで複数行に折り返し、視覚的に重い"
+      },
+      "advanced_section": {
+        "label": "さらに詳しく",
+        "present": false,
+        "note": "信仰のpatterns/syntaxTypesが未設定のためアコーディオン空。設計上は正常（データ依存）",
+        "evaluation": "GOOD（設計として正常）"
+      }
+    },
+    "order_evaluation": "ギリシャ語→関連概念→さらに詳しく の順番は自然で維持すべき"
+  },
+  "mobile_audit": {
+    "viewport": "390x844",
+    "tap_targets": {
+      "related_chip": {
+        "width": 47,
+        "height": 26,
+        "recommended_min_height": 44,
+        "evaluation": "IMPROVE",
+        "gap": 18
+      },
+      "open_btn": {
+        "width": 97,
+        "height": 33,
+        "recommended_min_height": 36,
+        "evaluation": "IMPROVE",
+        "gap": 3
+      }
+    },
+    "layout": {
+      "body_overflow_x": false,
+      "evaluation": "GOOD"
+    },
+    "insight_mobile": {
+      "greek_rows": 4,
+      "related_chips": 3,
+      "evaluation": "GOOD"
+    }
+  },
+  "improvement_candidates": [
+    {
+      "rank": 1,
+      "priority": "★★★★★",
+      "title": "love↔god エッジ追加",
+      "target_file": "assets/data/search-concepts.json",
+      "change": "love.related に 'god' 追加、god.related に 'love' 追加",
+      "rationale": "Discovery UIのTop概念「愛」から「神」への導線が存在しない。1ヨハネ4:8「神は愛である」の基礎接続。3件→4件になり適切なボリュームに",
+      "reference": "concept-chain-audit.json > edge_candidates.add[2]",
+      "risk": "low"
+    },
+    {
+      "rank": 2,
+      "priority": "★★★★☆",
+      "title": "Related chip 表示上限の実装",
+      "target_file": "search-tool.html",
+      "change": "_renderConceptInsight で related chip を最大6件表示し「他+X件」で残りを開示",
+      "rationale": "信仰11件・救い14件は過負荷。4〜6件が認知的に処理できる上限（キリスト・十字架の4件が参照点）",
+      "risk": "medium（実装変更、方針決定が先決）"
+    },
+    {
+      "rank": 3,
+      "priority": "★★★★☆",
+      "title": "faith↔grace エッジ追加",
+      "target_file": "assets/data/search-concepts.json",
+      "change": "faith.related に 'grace' 追加、grace.related に 'faith' 追加",
+      "rationale": "エペソ2:8「信仰によって、恵みにより救われた」。信仰連鎖（信仰→恵み→救い）が繋がる",
+      "reference": "concept-chain-audit.json > edge_candidates.add[1]",
+      "risk": "low",
+      "prerequisite": "表示上限実装後に追加すること（信仰がすでに11件のため）"
+    },
+    {
+      "rank": 4,
+      "priority": "★★★☆☆",
+      "title": "Mobile: related chip タップ高さ改善",
+      "target_file": "search-tool.html（CSS）",
+      "change": "Insight内 .layer-chip.lemma の padding-block を増加し高さ36〜44px以上に",
+      "rationale": "現在26px。iOS HIG 44pt・Material 48dp に対して18px不足",
+      "risk": "low"
+    },
+    {
+      "rank": 5,
+      "priority": "★★★☆☆",
+      "title": "Mobile: 本文で見るボタン高さ改善",
+      "target_file": "search-tool.html（CSS）",
+      "change": ".hit-open-btn-lg の min-height を44px以上に引き上げ",
+      "rationale": "現在33px。ヒットカード内の最重要CTAとしてミスタップリスクあり",
+      "risk": "low"
+    }
+  ],
+  "ux6_proposals": [
+    {
+      "phase": "UX-6-1",
+      "name": "love↔god エッジ追加",
+      "target": "assets/data/search-concepts.json のみ",
+      "risk": "low",
+      "estimated_effort": "small（JSON 2エントリー変更）",
+      "validation": "concept-audit.cjs / concept-coverage-audit.cjs / Browser確認"
+    },
+    {
+      "phase": "UX-6-2",
+      "name": "Related chip 表示方針決定と実装",
+      "target": "search-tool.html（方針A: UI上限）または assets/data/search-concepts.json（方針B: JSON整理）",
+      "risk": "medium",
+      "prerequisite": "方針A/B の選択が先決",
+      "options": {
+        "A": "UIで最大6件表示 + 「他+X件を表示」折りたたみ（search-tool.html変更）",
+        "B": "JSONのrelated配列を「初心者向け優先順」に手動整理（データのみ変更）"
+      }
+    },
+    {
+      "phase": "UX-6-3",
+      "name": "Mobile タップターゲット改善",
+      "target": "search-tool.html（CSS）",
+      "risk": "low",
+      "note": "UX-6-1/2 と独立して実施可能"
+    }
+  ]
+}

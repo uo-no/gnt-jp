@@ -1,0 +1,244 @@
+{
+  "_meta": {
+    "generated": "2026-07-14",
+    "phase": "UX-8.5",
+    "method": "code review: search-tool.html + index.html (11028 lines)",
+    "implementation_change": false
+  },
+  "user_flows": [
+    {
+      "id": "flow-a",
+      "name": "探す → 読む → 理解する",
+      "steps": [
+        "search-tool.html: 検索入力",
+        "Hit card: 検索結果確認",
+        "「本文で読む」: index.html へ遷移",
+        "index.html: 節をタップ",
+        "StudyPanel Level 2: ことばの流れ（語順フロー）",
+        "chip タップ: ドロワー → 「詳しく見る」",
+        "StudyPanel Level 3: 単語詳細（読書メモ・形態素・辞書）"
+      ],
+      "evaluation": "GOOD",
+      "detail": "各画面の責務が明確に連鎖。探す→読む→理解するの3段が自然な深さで接続"
+    },
+    {
+      "id": "flow-b",
+      "name": "探す → 語順プレビュー（検索ページ内）",
+      "steps": [
+        "search-tool.html: 検索入力",
+        "Hit card: 「原文を見る」クリック",
+        "hit-snippet-body 展開: wlv-flow-stream（表示専用・非クリック）"
+      ],
+      "evaluation": "IMPROVE",
+      "issues": [
+        "同一の .wlv-chip クラスが index.html ではクリック可能、search-tool では非クリック",
+        "「原文を見る」ラベルはギリシャ語テキストを連想させるが、実際は日本語グロスの語順表示",
+        "インタラクティブでないため「中途半端な深さ」で止まる"
+      ]
+    },
+    {
+      "id": "flow-c",
+      "name": "探す → テーマを知る → 探す（循環）",
+      "steps": [
+        "search-tool.html: 日本語キーワード（concept）検索",
+        "Concept Insight 表示: 概念名・関連ギリシャ語・関連テーマ",
+        "関連する概念チップクリック: 別テーマの再検索",
+        "（繰り返し）"
+      ],
+      "evaluation": "GOOD",
+      "detail": "テーマの網をたどる循環探索が機能。ただしInsightと検索結果の関係が初見で不明確"
+    }
+  ],
+  "screen_responsibilities": {
+    "search_tool": {
+      "one_line": "「探す」——語・テーマ・番号で聖書全文を横断検索する場所",
+      "does": ["探す（検索・絞り込み）", "発見する（件数・分布・書物）", "テーマを知る（Concept Insight）"],
+      "does_not": ["本文を読む", "語を深く理解する", "訳を比較する"],
+      "current_violations": [
+        "Hit card に日本語翻訳が表示される（「読む」要素の侵入）",
+        "「原文を見る」で語順チップを展開するが非インタラクティブ（「分析途中」状態）"
+      ]
+    },
+    "index_html": {
+      "one_line": "「読む」——ギリシャ語と日本語訳を並べて本文を精読する場所",
+      "does": ["本文を読む", "節単位でナビゲート", "StudyPanel を起動する（入口）"],
+      "does_not": ["検索・絞り込み", "語義の深掘り"]
+    },
+    "word_order_flow": {
+      "one_line": "「追う」——ギリシャ語順に沿って節のことばの流れを体感する場所",
+      "technical_name": "語順フロー / ことばの流れ / wlv-flow-stream（index.html内）",
+      "does": ["ギリシャ語順の日本語グロスを表示", "chip タップで単語を選択", "「読む」から「理解する」への橋渡し"],
+      "depth_position": "StudyPanel Level 2（verse-flow type）",
+      "code_comment": "流れ（デフォルト） … ギリシャ語順の日本語chip列。「読解UI」のメイン (index.html:8534)"
+    },
+    "study_panel": {
+      "one_line": "「理解する」——単語の語義・形態・意味的位置を深掘りする場所",
+      "four_levels": {
+        "level_1": "語義 + 読書メモ（散文） + 使用傾向（常時表示）",
+        "level_2": "単語を詳しく調べる（形態素グリッド・語源・辞書全文）",
+        "level_3": "意味が近い語と比べる（セマンティックレイヤー）",
+        "research": "さらに調べる → search-tool / morph-search / syntax-search"
+      },
+      "does": ["理解する", "分析する", "学ぶ", "比較する", "外部ツールへ委譲する"]
+    },
+    "concept_insight": {
+      "one_line": "「知る」——聖書のテーマと関連語の地図を一覧する場所",
+      "does": ["テーマを知る", "関連ギリシャ語を把握する", "関連テーマへの発見を導く"],
+      "does_not": ["検索件数・ランキングへの関与", "読書行為"],
+      "position": "search-tool.html 内の検索結果上部。検索結果とは別物（表示専用）"
+    }
+  },
+  "responsibility_matrix": {
+    "columns": ["search_tool", "index_html", "study_panel", "word_order_flow", "concept_insight"],
+    "rows": {
+      "探す（検索・絞り込み）": ["◎", "✗", "✗", "✗", "✗"],
+      "発見する（件数・分布）": ["◎", "✗", "✗", "✗", "✗"],
+      "理解する（テーマ・概念）": ["△", "✗", "◎", "△", "◎"],
+      "読む（本文精読）": ["✗", "◎", "✗", "○", "✗"],
+      "分析する（形態素・語源）": ["✗", "✗", "◎", "✗", "✗"],
+      "学ぶ（語義・文法）": ["✗", "✗", "◎", "△", "✗"],
+      "比較する（類義語・語形）": ["✗", "✗", "○", "✗", "△"]
+    },
+    "legend": "◎=主担当 ○=副担当 △=補助的 ✗=担当外"
+  },
+  "button_audit": {
+    "current_buttons": [
+      {
+        "label": "本文で見る",
+        "action": "index.html?book=X&ch=N&verse=M へ新規タブ遷移",
+        "class": ".hit-open-btn-lg",
+        "evaluation": "GOOD — 意図は伝わる",
+        "improvement": "「見る」→「読む」への変更で行為がより明確になる"
+      },
+      {
+        "label": "原文を見る",
+        "action": "hit-snippet-body が展開。wlv-flow-stream（非クリック）を表示",
+        "class": ".hit-trans-toggle",
+        "evaluation": "IMPROVE",
+        "problems": [
+          "「原文」はギリシャ語テキストを連想させるが、表示されるのは日本語グロスの語順列",
+          "chips が非クリックのため体験が「途中で止まる」",
+          "index.html の語順フローと同じ見た目だが挙動が異なる（UI不一貫）"
+        ]
+      }
+    ],
+    "alternatives": [
+      {
+        "id": "A",
+        "primary": "本文で読む",
+        "secondary": "語順フロー",
+        "persona_scores": {
+          "初心者": "✗（専門用語）",
+          "一般信徒": "△",
+          "牧師": "○",
+          "神学生": "○"
+        }
+      },
+      {
+        "id": "B",
+        "primary": "本文で読む",
+        "secondary": "語順で読む",
+        "persona_scores": {
+          "初心者": "△（「読む」がミスリード：クリック不可）",
+          "一般信徒": "△",
+          "牧師": "△",
+          "神学生": "△（動詞がインタラクションと不整合）"
+        }
+      },
+      {
+        "id": "C",
+        "primary": "本文で読む",
+        "secondary": "原語の流れを見る",
+        "persona_scores": {
+          "初心者": "△",
+          "一般信徒": "△",
+          "牧師": "○",
+          "神学生": "○"
+        },
+        "note": "「流れ」が index.html の「ことばの流れ」と語彙統一できる。維持方針ならこれを推奨"
+      },
+      {
+        "id": "D",
+        "primary": "本文で読む",
+        "secondary": "語順を見る",
+        "persona_scores": {
+          "初心者": "△",
+          "一般信徒": "○",
+          "牧師": "○",
+          "神学生": "○"
+        },
+        "note": "「見る」が非クリックと整合。「語順」は一定の専門性があるが比較的アクセスしやすい"
+      },
+      {
+        "id": "E",
+        "primary": "本文で読む",
+        "secondary": null,
+        "persona_scores": {
+          "初心者": "○（シンプル・混乱なし）",
+          "一般信徒": "○",
+          "牧師": "△（機能が消える）",
+          "神学生": "△（機能が消える）"
+        },
+        "note": "廃止方針。正規ルートは index.html。インタラクティブでない途中体験を廃止してクリーンに"
+      }
+    ],
+    "recommendation": {
+      "primary_button": "本文で読む（「見る」→「読む」）",
+      "secondary_button_if_kept": "原語の流れを見る（C案）",
+      "secondary_button_if_removed": "なし（E案）— index.html の語順フローが正規体験",
+      "design_decision": "secondary を維持するなら C。廃止するなら E。どちらも P3・P4 の原則から正当化できる"
+    }
+  },
+  "design_principles": [
+    {
+      "id": "P1",
+      "title": "search-tool は「探す」専業にする",
+      "detail": "「読む」「理解する」「分析する」は別画面が担う。Hit card の翻訳は「発見の補助」として許容するが読書行為の代替にしてはならない"
+    },
+    {
+      "id": "P2",
+      "title": "「本文で読む」が「読む」への唯一の正規ルートである",
+      "detail": "search-tool から読書体験への入口は「本文で読む」→ index.html のみ。search-tool 内で読書体験を完結させない"
+    },
+    {
+      "id": "P3",
+      "title": "語順フローは index.html に属する",
+      "detail": "語順フローはインタラクティブな読解 UI。search-tool の非インタラクティブ語順表示とは性質が異なる。同一 UI 要素を使うべきでない"
+    },
+    {
+      "id": "P4",
+      "title": "同一の UI 要素は同一の挙動を持つ",
+      "detail": ".wlv-chip が index.html でクリック可能・search-tool で非クリックという状態は UI の一貫性を壊す。挙動を統一するか視覚的に区別する"
+    },
+    {
+      "id": "P5",
+      "title": "Concept Insight は「検索結果」ではなく「文脈の地図」である",
+      "detail": "検索件数・ランキングに関与しない表示専用。検索結果リストとの視覚的差別化を維持する"
+    },
+    {
+      "id": "P6",
+      "title": "「探す」から「読む」へは1アクションで遷移できる",
+      "detail": "「本文で読む」1クリックで読書体験へ。中間ステップを増やさない"
+    },
+    {
+      "id": "P7",
+      "title": "「読む」から「探す」へは明示的なアクションで遷移する",
+      "detail": "StudyPanel「さらに調べる」→ search-tool が唯一の正規ルート。読書中に意図せず検索ページへ飛ぶことを避ける"
+    },
+    {
+      "id": "P8",
+      "title": "各画面は「どこへ進むか」を1方向にする",
+      "detail": "search-tool→index.html / index.html→StudyPanel / StudyPanel→search-tool / ConceptInsight→search-tool（同一画面再検索）"
+    },
+    {
+      "id": "P9",
+      "title": "「探す」「読む」「理解する」の3段を段落として意識する",
+      "detail": "ユーザーがどの段階にいるかを UI が支持する。段落の混在はユーザーを迷子にする"
+    },
+    {
+      "id": "P10",
+      "title": "「探す」の成果は「読む」への招待状である",
+      "detail": "Hit card は「この場所に探していた語がある」という発見の報告。それ自体が目的地ではなく index.html への招待状。「本文で読む」はその返答"
+    }
+  ]
+}

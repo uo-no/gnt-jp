@@ -1,0 +1,237 @@
+{
+  "_meta": {
+    "generated": "2026-07-14",
+    "phase": "UX-9.9",
+    "type": "specification",
+    "based_on": "docs/search-corpus-boundary-audit.md",
+    "implementation_change": false,
+    "policy": "Case C — Default NT + LXX toggle"
+  },
+  "corpus_hierarchy": {
+    "primary": {
+      "id": "NT",
+      "label": "新約聖書",
+      "abbr": "NT",
+      "books": 27,
+      "tokens": 137741,
+      "token_ratio_pct": 22.3,
+      "default_display": true,
+      "role": "primary — the subject of study"
+    },
+    "secondary": {
+      "id": "LXX",
+      "label": "旧約ギリシア語訳",
+      "abbr": "LXX",
+      "books": 39,
+      "tokens": 479623,
+      "token_ratio_pct": 77.7,
+      "default_display": false,
+      "role": "reference — NT vocabulary background; shown on user request"
+    }
+  },
+  "result_ordering": {
+    "rule": "NT results precede LXX results",
+    "implementation": "Current canonical sort (MAT→REV → GEN→MAL) satisfies this rule; no sort change needed",
+    "boundary_display": "C-1_collapsible",
+    "boundary_spec": {
+      "id": "C-1",
+      "name": "折りたたみ（collapsible）",
+      "default_state": "NT visible, LXX collapsed",
+      "expand_control": "button: '▶ 旧約ギリシア語訳（LXX）の結果を表示  N件'",
+      "rationale": "LXX is 77.7% of corpus; always-visible would make LXX dominant"
+    }
+  },
+  "result_count": {
+    "cases": [
+      {
+        "condition": "LXX = 0 (or LXX toggle OFF)",
+        "format": "{nt} 件",
+        "example": "714 件"
+      },
+      {
+        "condition": "NT > 0 AND LXX > 0",
+        "format": "NT {nt}件 + LXX {lxx}件",
+        "example": "NT 714件 + LXX 7,458件"
+      },
+      {
+        "condition": "NT = 0 AND LXX > 0 (LXX toggle ON)",
+        "format": "LXX {lxx}件（新約聖書は 0 件）",
+        "example": "LXX 7,458件（新約聖書は 0 件）"
+      }
+    ],
+    "display_element": "#result-count",
+    "timing": "NT count at IDX.ready; LXX count added at IDX.l3Ready"
+  },
+  "hit_card": {
+    "minimum_requirement": {
+      "priority": "P1_MUST",
+      "change": "Add data-corpus attribute to .hit-card",
+      "values": ["NT", "LXX"]
+    },
+    "corpus_badge": {
+      "priority": "P2_SHOULD",
+      "show_lxx": true,
+      "show_nt": false,
+      "badge_text": "LXX",
+      "position": "inline after hit-ref",
+      "design": {
+        "font_size": "--text-caption (0.75rem)",
+        "font_weight": 400,
+        "color": "--text-sub",
+        "border": "1px solid var(--border)",
+        "padding": "1px 4px",
+        "border_radius": "--radius-s (6px)",
+        "background": "transparent"
+      },
+      "new_tokens_required": false
+    },
+    "lxx_japanese_null": {
+      "current": "blank (broken visual)",
+      "spec": "Show placeholder: （翻訳テキストなし）",
+      "style": "color: --text-sub; font-style: italic"
+    }
+  },
+  "distribution_panel": {
+    "structure": "two_sections",
+    "sections": [
+      {
+        "corpus": "NT",
+        "label": "新約聖書",
+        "sort": "frequency_desc",
+        "max_books": 8,
+        "overflow_label": "他 N 書物",
+        "zero_hit": "collapse section"
+      },
+      {
+        "corpus": "LXX",
+        "label": "旧約ギリシア語訳（LXX）",
+        "sort": "frequency_desc",
+        "max_books": 8,
+        "overflow_label": "他 N 書物",
+        "zero_hit": "collapse section"
+      }
+    ],
+    "bar_scale": "per_section_relative",
+    "bar_scale_rationale": "Cross-section absolute scale makes NT bars unreadably thin (e.g. 107 vs 818 = 13%)",
+    "section_header_class": "dist-section-title",
+    "section_header_style": {
+      "font_size": "--text-caption",
+      "font_weight": 700,
+      "letter_spacing": "0.10em",
+      "text_transform": "uppercase",
+      "color": "--text-sub",
+      "opacity": 0.6,
+      "pattern": "same as §4-6 Section Label Rule"
+    },
+    "click_behavior": "filter hits by book (same as current)"
+  },
+  "corpus_filter_ui": {
+    "location": "Advanced Layers panel (詳細検索)",
+    "type": "checkbox",
+    "label": "旧約ギリシア語訳（LXX）を含む",
+    "default": "OFF",
+    "persistence": "localStorage (optional; decide at implementation)",
+    "effect_when_on": [
+      "Re-search with full corpus (NT + LXX)",
+      "Show NT+LXX result count (§result_count)",
+      "Show LXX collapsed section in results (§result_ordering)",
+      "Show LXX badge on LXX hit cards (§hit_card)",
+      "Show NT + LXX sections in distribution panel (§distribution_panel)"
+    ]
+  },
+  "empty_zero_hit": {
+    "cases": [
+      {
+        "id": "A",
+        "condition": "NT=0, LXX=0 (or LXX not searched)",
+        "change": "none",
+        "display": "current zero-hits UI unchanged"
+      },
+      {
+        "id": "B",
+        "condition": "NT=0, LXX>0, LXX toggle OFF",
+        "change": "add LXX hint below zero-hits UI",
+        "hint_text": "旧約ギリシア語訳（LXX）には {N} 件の用例があります。詳細検索から「LXX を含む」を選択すると表示できます。",
+        "show_condition": "IDX.l3Ready === true AND lxx_count > 0"
+      },
+      {
+        "id": "C",
+        "condition": "NT=0, LXX>0, LXX toggle ON",
+        "change": "show LXX results as primary result set",
+        "count_format": "LXX {lxx}件（新約聖書は 0 件）"
+      },
+      {
+        "id": "D",
+        "condition": "NT>0, LXX=0, LXX toggle ON",
+        "change": "LXX section in dist panel shows 0 (or collapsed)",
+        "count_format": "{nt} 件"
+      },
+      {
+        "id": "E",
+        "condition": "NT>0, LXX>0",
+        "change": "full corpus presentation per spec",
+        "count_format": "NT {nt}件 + LXX {lxx}件"
+      }
+    ]
+  },
+  "concept_insight": {
+    "corpus_dependency": "none",
+    "note": "SEARCH_CONCEPTS is NT-theology-based; CI logic unchanged. Default NT display minimizes semantic gap between CI and results for BLOCK words (κύριος, διαθήκη)."
+  },
+  "design_system_addition": {
+    "section": "§11",
+    "title": "Corpus Visibility Rules",
+    "rules": [
+      {
+        "id": "11-1",
+        "rule": "複数 corpus 検索時、件数に corpus 別内訳を明示する",
+        "example": "NT 714件 + LXX 7,458件"
+      },
+      {
+        "id": "11-2",
+        "rule": "分布パネルは corpus ごとにセクションを分ける。NT/LXX 混合リストは禁止"
+      },
+      {
+        "id": "11-3",
+        "rule": "全 hit-card に data-corpus 属性を付与する。LXX badge を表示する（SHOULD）"
+      },
+      {
+        "id": "11-4",
+        "rule": "このアプリの一次 corpus は NT である。検索デフォルトは NT のみ"
+      },
+      {
+        "id": "11-5",
+        "rule": "LXX は比較参照 corpus。NT 結果の後方にセクション境界とともに表示する"
+      },
+      {
+        "id": "11-6",
+        "rule": "LXX トークンの japanese=null 時、空欄禁止。プレースホルダー表示必須"
+      },
+      {
+        "id": "11-7",
+        "rule": "corpus 識別のための新規カラートークン・badge クラス追加前に既存トークンで代替できないか確認する"
+      }
+    ]
+  },
+  "implementation_roadmap": [
+    { "phase": "UX-9.9-A", "task": "Hit Card に data-corpus 属性付与", "spec_ref": "hit_card.minimum_requirement", "size": "S", "priority": "P1_MUST" },
+    { "phase": "UX-9.9-B", "task": "件数表示の corpus 内訳追加", "spec_ref": "result_count", "size": "S", "priority": "P1_MUST" },
+    { "phase": "UX-9.9-C", "task": "分布パネルの NT/LXX 2セクション分割", "spec_ref": "distribution_panel", "size": "M", "priority": "P1_MUST" },
+    { "phase": "UX-9.9-D", "task": "LXX Hit Card に badge 表示", "spec_ref": "hit_card.corpus_badge", "size": "M", "priority": "P2_SHOULD" },
+    { "phase": "UX-9.9-E", "task": "LXX 結果の折りたたみセクション", "spec_ref": "result_ordering.boundary_spec", "size": "L", "priority": "P2_SHOULD" },
+    { "phase": "UX-9.9-F", "task": "Advanced Layers に LXX トグル追加", "spec_ref": "corpus_filter_ui", "size": "L", "priority": "P2_SHOULD" },
+    { "phase": "UX-9.9-G", "task": "Zero hit corpus ヒント表示", "spec_ref": "empty_zero_hit.B", "size": "S", "priority": "P3" },
+    { "phase": "UX-9.9-H", "task": "Design System §11 追加", "spec_ref": "design_system_addition", "size": "XS", "priority": "P3" }
+  ],
+  "mvp": ["UX-9.9-A", "UX-9.9-B", "UX-9.9-C"],
+  "forbidden_changes": [
+    "resolveTerm",
+    "resolveConcept",
+    "Pattern Engine",
+    "Wallace Engine",
+    "search-concepts.json",
+    "index.html",
+    "StudyPanel",
+    "Knowledge Graph internal structure"
+  ]
+}

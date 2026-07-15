@@ -1,0 +1,343 @@
+{
+  "phase": "UX-10.7-A",
+  "title": "Discovery Lobby Visual Polish Audit",
+  "date": "2026-07-14",
+  "implementation_changes": false,
+  "goal": "「よく設計されたWebアプリ」から「静かな読書アプリの入口」へ",
+
+  "baseline": {
+    "viewport": "Desktop 1280×800 (Playwright 実測)",
+    "css_snapshot": {
+      "discovery_lobby": {
+        "padding": "48px 16px 32px",
+        "gap": "24px (var(--space-lg))"
+      },
+      "discovery_title": {
+        "font-size": "1rem (生値)",
+        "font-weight": "400",
+        "color": "var(--text-main) = #1d1d1f",
+        "line-height": "1.75"
+      },
+      "discovery_themes": {
+        "gap": "16px (var(--space-md))"
+      },
+      "discovery_theme_chip": {
+        "padding": "12px 0",
+        "border": "none",
+        "background": "transparent",
+        "font-size": "var(--text-title) = 1.25rem / 20px",
+        "font-family": "inherit (system UI)",
+        "font-weight": "400 (unset/inherited)",
+        "color": "var(--text-main) = #1d1d1f",
+        "transition": "opacity 0.15s, transform 0.15s"
+      },
+      "discovery_theme_chip_hover": {
+        "opacity": "0.55",
+        "transform": "translateY(-1px)"
+      },
+      "state_empty": {
+        "gap": "14px (raw)",
+        "min-height": "60vh"
+      }
+    },
+    "measurements": {
+      "title_y": 76,
+      "chip0_y": 156,
+      "sidebar_input_y": 143,
+      "chip0_minus_input": 13,
+      "tap_target_height_px": 53,
+      "lobby_center_y": 238,
+      "panel_center_y": 400
+    }
+  },
+
+  "tokens_reference": {
+    "text-body-lg": "1rem",
+    "text-title": "1.25rem",
+    "text-sub": "#6e6e73",
+    "text-main": "#1d1d1f",
+    "opacity-secondary": 0.6,
+    "opacity-tertiary": 0.3,
+    "transition-fast": "0.15s cubic-bezier(0.2,0.8,0.2,1)",
+    "space-md": "16px",
+    "space-lg": "24px",
+    "space-xl": "32px",
+    "accent": "#5a6e82"
+  },
+
+  "section_1_typography": {
+    "items": [
+      {
+        "id": "T-01",
+        "name": "discovery-title font-size 生値",
+        "severity": "IMPROVE",
+        "selector": ".discovery-title",
+        "property": "font-size",
+        "current": "1rem (生値)",
+        "issue": "var(--text-body-lg) = 1rem が存在するが未参照",
+        "recommendation": "font-size: var(--text-body-lg)",
+        "effort": "1行",
+        "functional_change": false
+      },
+      {
+        "id": "T-02",
+        "name": "title と chip が同色（color hierarchy なし）",
+        "severity": "IMPROVE",
+        "selector": ".discovery-title",
+        "property": "color",
+        "current": "var(--text-main) = #1d1d1f（chip と同値）",
+        "issue": "DS-DISCOVERY-01「テーマ語が主役」を color 階層でも補強できていない。サイズ優位性（20px vs 16px）はあるが、color での分化がない",
+        "recommendation": "color: var(--text-sub) = #6e6e73",
+        "effort": "1行",
+        "functional_change": false
+      },
+      {
+        "id": "T-03",
+        "name": "discovery-theme-chip font-family がシステム UI",
+        "severity": "IMPROVE",
+        "selector": ".discovery-theme-chip",
+        "property": "font-family",
+        "current": "inherit（system UI sans-serif）",
+        "issue": "unified-input と ex-chip は 'Gentium Plus', serif を使用（フォント読込済）。テーマ語が UI フォントで表示されると「scripture word」ではなく「メニュー項目」に見える",
+        "recommendation": "font-family: 'Gentium Plus', serif",
+        "effort": "1行",
+        "functional_change": false,
+        "note": "Gentium Plus は検索入力・例チップで既に使用中。追加読み込みなし"
+      },
+      {
+        "id": "T-04",
+        "name": "discovery-title line-height: 1.75",
+        "severity": "GOOD",
+        "selector": ".discovery-title",
+        "property": "line-height",
+        "current": "1.75",
+        "assessment": "日本語 body text 1.7-1.9 が標準範囲。2行の問いかけ文に適切なブレス"
+      },
+      {
+        "id": "T-05",
+        "name": "discovery-theme-chip font-weight 400（暗黙・継承）",
+        "severity": "IMPROVE",
+        "selector": ".discovery-theme-chip",
+        "property": "font-weight",
+        "current": "400（明示定義なし、継承）",
+        "issue": "20px/400 の日本語テキストは常時 affordance がない。font-weight: 500 が最も DS-DISCOVERY-02 と競合しない affordance 追加手段",
+        "recommendation": "font-weight: 500（または明示的に 400 を記述して intent を文書化）",
+        "effort": "1行",
+        "requires_design_decision": true
+      }
+    ]
+  },
+
+  "section_2_color": {
+    "items": [
+      {
+        "id": "C-01",
+        "name": "hover opacity: 0.55 トークン外",
+        "severity": "IMPROVE",
+        "selector": ".discovery-theme-chip:hover",
+        "property": "opacity",
+        "current": "0.55",
+        "issue": "var(--opacity-secondary) = 0.6 が存在するが未参照。視覚差 8% だが token 逸脱",
+        "recommendation": "opacity: var(--opacity-secondary)",
+        "effort": "1行"
+      },
+      {
+        "id": "C-02",
+        "name": "chip background transparent",
+        "severity": "GOOD",
+        "assessment": "panel 背景 #f5f5f7 にフラットに乗る。DS-DISCOVERY-02 準拠"
+      },
+      {
+        "id": "C-03",
+        "name": "アクセント色の非使用",
+        "severity": "GOOD",
+        "assessment": "accent = #5a6e82 は chip に使用なし。静かなモノクロームの入口として正しい判断"
+      }
+    ]
+  },
+
+  "section_3_spacing": {
+    "items": [
+      {
+        "id": "S-01",
+        "name": "padding-top: 48px 生値",
+        "severity": "IMPROVE",
+        "selector": "#discovery-lobby",
+        "property": "padding-top",
+        "current": "48px（token スケール外）",
+        "issue": "token スケール（4/8/16/24/32px）に 48px なし",
+        "recommendation": "calc(var(--space-xl) + var(--space-md)) または --space-2xl トークン追加",
+        "effort": "1行（機能変化なし）"
+      },
+      {
+        "id": "S-02",
+        "name": "chip と sidebar input の垂直差 13px（目標 30px）",
+        "severity": "IMPROVE",
+        "selector": "#discovery-lobby",
+        "property": "padding-top",
+        "current": "chip[0] y=156、input y=143、差=+13px",
+        "issue": "ほぼ同水平ライン。「検索補完候補」感が残る",
+        "recommendation": "padding-top: 64px → chip[0] y≈172、差≈29px",
+        "effort": "1行"
+      },
+      {
+        "id": "S-03",
+        "name": ".state-empty gap: 14px トークン外",
+        "severity": "IMPROVE",
+        "selector": ".state-empty",
+        "property": "gap",
+        "current": "14px（生値）",
+        "recommendation": "gap: var(--space-md) = 16px",
+        "effort": "1行",
+        "note": "既存 R-01（UX-10-6）と同一"
+      },
+      {
+        "id": "S-04",
+        "name": ".discovery-themes gap: var(--space-md)",
+        "severity": "GOOD",
+        "assessment": "16px チップ間ギャップ。トークン準拠。自然な縦列リズム"
+      },
+      {
+        "id": "S-05",
+        "name": "title → themes gap: var(--space-lg)",
+        "severity": "GOOD",
+        "assessment": "実測 24px（title bottom ≈ 132 → chip[0] ≈ 156）。トークン準拠。適切なブレス"
+      }
+    ]
+  },
+
+  "section_4_interaction": {
+    "items": [
+      {
+        "id": "I-01",
+        "name": "transition に ease-out トークン未使用",
+        "severity": "IMPROVE",
+        "selector": ".discovery-theme-chip",
+        "property": "transition",
+        "current": "opacity 0.15s, transform 0.15s（CSS default ease）",
+        "issue": "var(--transition-fast) = 0.15s cubic-bezier(0.2,0.8,0.2,1) が存在。hover-off 時の戻りが特に違いが出る",
+        "recommendation": "transition: opacity var(--transition-fast), transform var(--transition-fast)",
+        "effort": "1行",
+        "note": "既存 R-02（UX-10-6）と同一"
+      },
+      {
+        "id": "I-02",
+        "name": "hover translateY(-1px) がボタン感",
+        "severity": "IMPROVE",
+        "selector": ".discovery-theme-chip:hover",
+        "property": "transform",
+        "current": "translateY(-1px)",
+        "issue": "微小上昇はクリッカブルボタンの慣例表現。DS-DISCOVERY-02「検索候補リストに見えない」設計と緊張関係にある。opacity フェードのみが「静かな応答」として純粋",
+        "recommendation": "transform 削除。hover は opacity のみに絞る",
+        "effort": "1行（プロパティ削除）"
+      },
+      {
+        "id": "I-03",
+        "name": ":active 状態なし",
+        "severity": "IMPROVE",
+        "selector": ".discovery-theme-chip:active（未定義）",
+        "current": "なし",
+        "issue": "モバイルタップ時に視覚フィードバックなし。search 起動まで 100-300ms ラグがあるため特に重要",
+        "recommendation": ".discovery-theme-chip:active { opacity: var(--opacity-tertiary); } = 0.3",
+        "effort": "3行（新規ルール）"
+      },
+      {
+        "id": "I-04",
+        "name": "常時 affordance なし",
+        "severity": "IMPROVE",
+        "selector": ".discovery-theme-chip（static）",
+        "current": "cursor: pointer のみ",
+        "issue": "モバイル・タブレットでタップ可能性が視覚的に不明",
+        "recommendation": "T-05（font-weight: 500）との統合で対応",
+        "effort": "1行（T-05 に統合）",
+        "requires_design_decision": true
+      }
+    ]
+  },
+
+  "section_5_search_area": {
+    "items": [
+      {
+        "id": "SA-01",
+        "name": "入力 vs chip の視覚的差別化",
+        "severity": "GOOD",
+        "assessment": "unified-input（border + bg + serif + 0.88rem）vs chip（no border + transparent + 20px）。視覚差十分。水平距離 ≈ 300px でさらに分離"
+      },
+      {
+        "id": "SA-02",
+        "name": "chip と input の y 近接",
+        "severity": "IMPROVE",
+        "note": "S-02 と同一根拠。S-02 を参照"
+      }
+    ]
+  },
+
+  "section_6_quality": {
+    "items": [
+      {
+        "id": "Q-01",
+        "name": "フォント family 整合性",
+        "severity": "IMPROVE",
+        "note": "T-03 と同一"
+      },
+      {
+        "id": "Q-02",
+        "name": "装飾ゼロ",
+        "severity": "GOOD",
+        "assessment": "shadow / border-radius / background / border なし。Apple 'content over chrome' 原則に沿う"
+      },
+      {
+        "id": "Q-03",
+        "name": "whitespace 充足感",
+        "severity": "GOOD",
+        "assessment": "padding-top 48px + gap 24px + chip gap 16px。過密感なし"
+      },
+      {
+        "id": "Q-04",
+        "name": "垂直 visual center",
+        "severity": "IMPROVE",
+        "current": "lobby center y=238、panel center y=400（170px 上方ずれ）",
+        "issue": "lobby が画面上部 30% 付近に集中。「腰を落ち着けた入口」よりナビゲーションバー印象",
+        "recommendation": "min-height: 80vh 化 または justify-content: center の修正。DOM 構造変更を要するため本フェーズ範囲外",
+        "effort": "中（DOM 構造確認が必要）"
+      }
+    ]
+  },
+
+  "summary": {
+    "good_count": 8,
+    "improve_count": 12,
+    "block_count": 0,
+    "good_ids": ["T-04", "C-02", "C-03", "S-04", "S-05", "SA-01", "Q-02", "Q-03"],
+    "improve_ids": ["T-01", "T-02", "T-03", "T-05", "C-01", "S-01", "S-02", "S-03", "I-01", "I-02", "I-03", "I-04"]
+  },
+
+  "recommendations": {
+    "P0": {
+      "label": "トークン整合（機能変化なし、各1行）",
+      "items": [
+        { "id": "T-01", "change": "font-size: var(--text-body-lg)" },
+        { "id": "C-01", "change": "opacity: var(--opacity-secondary)" },
+        { "id": "I-01", "change": "transition: opacity var(--transition-fast), transform var(--transition-fast)" },
+        { "id": "S-03", "change": "gap: var(--space-md)" }
+      ]
+    },
+    "P1": {
+      "label": "読書アプリ質感向上（体験が変わる）",
+      "items": [
+        { "id": "T-02", "change": "color: var(--text-sub)", "effect": "title が脇役化 → chip が際立つ" },
+        { "id": "T-03", "change": "font-family: 'Gentium Plus', serif", "effect": "scripture word 感 — 最大効果" },
+        { "id": "I-02", "change": "translateY(-1px) 削除", "effect": "ボタン感排除、DS-DISCOVERY-02 徹底" },
+        { "id": "I-03", "change": ".discovery-theme-chip:active { opacity: var(--opacity-tertiary) }", "effect": "モバイル tap feedback" }
+      ]
+    },
+    "P2": {
+      "label": "微調整（設計判断が必要）",
+      "items": [
+        { "id": "S-02", "change": "padding-top: 64px", "effect": "chip-input 垂直分離完全化" },
+        { "id": "T-05", "change": "font-weight: 500", "effect": "常時 affordance（I-04 統合）" },
+        { "id": "S-01", "change": "calc(var(--space-xl) + var(--space-md))", "effect": "token 式化（機能変化なし）" }
+      ]
+    }
+  }
+}

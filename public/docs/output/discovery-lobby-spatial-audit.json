@@ -1,0 +1,194 @@
+{
+  "phase": "UX-10-5A",
+  "title": "Discovery Lobby Spatial Audit",
+  "date": "2026-07-14",
+  "implementation_changes": false,
+
+  "measurements": {
+    "desktop_1280x800": {
+      "viewport": { "w": 1280, "h": 800 },
+      "sidebar_width": 300,
+      "result_panel": { "top": 0, "left": 300, "width": 980, "height": 800 },
+      "lobby": { "top": 28, "height": 404 },
+      "title": { "top": 60, "bottom": 116, "height": 56, "font_size": "16px", "font_weight": "700" },
+      "themes_container": { "top": 140, "bottom": 400, "height": 260 },
+      "chip_first": { "top": 140, "height": 53, "font_size": "20px" },
+      "chip_last_bottom": 400,
+      "search_input": { "top": 143, "left": 22, "panel": "sidebar (left)" },
+      "panel_vertical_center": 400,
+      "lobby_vertical_center": 230,
+      "dist_panelTop_to_lobbyTop": 28,
+      "dist_titleBottom_to_chip0Top": 24,
+      "chip_texts": ["忍耐", "信仰", "希望", "証し"]
+    },
+    "mobile_390x844": {
+      "viewport": { "w": 390, "h": 844 },
+      "result_panel": { "top": 0, "width": 390, "height": 844 },
+      "lobby": { "top": 20, "bottom": 424, "height": 404 },
+      "title": { "top": 52, "bottom": 108 },
+      "chip_first": { "top": 132, "height": 53 },
+      "chip_last_bottom": 392,
+      "search_input": { "top": 1010, "panel": "sidebar (off-screen on mobile)" },
+      "dist_panelTop_to_lobbyTop": 20,
+      "dist_titleBottom_to_chip0Top": 24,
+      "dist_chipLastBottom_to_inputTop": 618,
+      "lobby_visible_in_viewport": true,
+      "scroll_needed_for_lobby": false,
+      "chip_texts": ["忍耐", "信仰", "希望", "証し"]
+    }
+  },
+
+  "audit": [
+    {
+      "section": "A",
+      "label": "Vertical Rhythm",
+      "verdict": "IMPROVE",
+      "items": [
+        {
+          "id": "A-1",
+          "check": "画面上端 → Discovery title",
+          "measured_desktop": "panel top(0) + panel padding(28) + 0 = title top 60px",
+          "measured_mobile": "panel top(0) + 20px = lobby top 20px; title top 52px",
+          "analysis": "ロビーがパネル最上部に貼り付いている。state-empty の justify-content: center が有効に機能していない（lobby 404px が min-height 60vh=480px のほぼ全域を占め、中央寄せのギャップが 38px しかなく panel padding=28px に埋もれる）。",
+          "verdict": "IMPROVE",
+          "recommendation": "#discovery-lobby の padding-top を var(--space-xl)=32px から大きくするか、state-empty の min-height を増やして視覚的な余白を確保する。"
+        },
+        {
+          "id": "A-2",
+          "check": "title bottom → first theme",
+          "measured": "24px = var(--space-lg)",
+          "verdict": "GOOD",
+          "analysis": "タイトルとテーマ一覧のギャップはトークン準拠（24px）。読み取りリズムとして適切。"
+        },
+        {
+          "id": "A-3",
+          "check": "lobby vertical center vs panel vertical center",
+          "measured_desktop": "lobby center: y=230 / panel center: y=400",
+          "offset": "170px 上方にずれ（パネル中央の43%位置）",
+          "verdict": "IMPROVE",
+          "analysis": "ロビーの重心が画面上方 30% 付近。「入口（foyer）」として腰を落ち着けた感覚がなく、ヘッダーまたはナビゲーション要素として読まれるリスクがある。"
+        }
+      ]
+    },
+    {
+      "section": "B",
+      "label": "Visual Center",
+      "verdict": "IMPROVE",
+      "analysis": "初期視線着地点の期待順: 今日のテーマ→テーマ語→検索入力。実際の視線着地点: title（y=60, bold 700）が最初の視覚ヒット。chips（y=140-400, 20px/400）はその下に続く。bold weight のタイトルが 20px chips より先に目に入るため、テーマ語が主役として機能していない。",
+      "items": [
+        {
+          "element": ".discovery-title",
+          "position_desktop": "y=60",
+          "font": "16px / 700",
+          "visual_weight": "高（bold）"
+        },
+        {
+          "element": ".discovery-theme-chip (first)",
+          "position_desktop": "y=140",
+          "font": "20px / 400",
+          "visual_weight": "中（大きいが細字）"
+        }
+      ],
+      "recommendation": "タイトルのフォントウェイトを 700 → 400 または --opacity-secondary で淡くし、テーマ語との重量差を逆転させる。または chips を上へ移動（title を chip の下に配置する構造変更）。"
+    },
+    {
+      "section": "C",
+      "label": "Mobile Layout (390×844)",
+      "verdict": "GOOD",
+      "items": [
+        {
+          "check": "テーマが上部に詰まりすぎていないか",
+          "result": "title top=52px。lobby は 20px から始まり上端から一定の余白がある。",
+          "verdict": "GOOD"
+        },
+        {
+          "check": "検索入力が近すぎないか",
+          "result": "モバイルでは検索入力はオフスクリーン（y=1010）。lobby との距離 618px。競合なし。",
+          "verdict": "GOOD"
+        },
+        {
+          "check": "スクロールなしで入口感があるか",
+          "result": "lobby 全体（top=20, bottom=424）が 844px viewport 内に収まる。scroll 不要。",
+          "verdict": "GOOD"
+        }
+      ]
+    },
+    {
+      "section": "D",
+      "label": "Relationship with Search Input",
+      "verdict": "IMPROVE",
+      "items": [
+        {
+          "viewport": "desktop",
+          "search_input_y": 143,
+          "first_chip_y": 140,
+          "diff": "3px（実質同じ高さ）",
+          "analysis": "検索入力（左サイドバー y=143）と最初のテーマ語（右パネル y=140）が画面上でほぼ同一の水平ライン上に並ぶ。ユーザーの目が左から右にスキャンすると「入力欄 → テーマ語」の順に自然につながり、テーマ語が『フォームの選択肢』として読まれるリスクがある。",
+          "verdict": "IMPROVE",
+          "recommendation": "Discovery Lobby の開始位置を下げる（title の上に gap を追加）か、padding-top を増やしてテーマ語を検索入力より明確に下に配置する。"
+        },
+        {
+          "viewport": "mobile",
+          "analysis": "モバイルでは検索入力がオフスクリーンのため競合なし。",
+          "verdict": "GOOD"
+        }
+      ]
+    },
+    {
+      "section": "E",
+      "label": "Design System Conformance",
+      "verdict": "GOOD",
+      "items": [
+        {
+          "principle": "DS-DISCOVERY-01（検索方法を教えない）",
+          "assessment": "chips に border / background なし。フォーム要素に見えない。font-size 20px でテーマ語の存在感はある。",
+          "verdict": "GOOD",
+          "caveat": "ただし、デスクトップで検索入力と水平に並ぶことで暗黙の「入力補助」感が生まれている（D参照）。"
+        },
+        {
+          "principle": "DS-DISCOVERY-02（入口は静かである）",
+          "assessment": "余分なボーダー・影・色装飾なし。縦列の静かなレイアウト。",
+          "verdict": "GOOD",
+          "caveat": "ロビーの重心が画面上部（y=230）にあるため、全体的な静けさが損なわれている（A参照）。"
+        },
+        {
+          "check": "token 準拠",
+          "conformant": [
+            "lobby padding: var(--space-xl) var(--space-md) ✅",
+            "lobby gap: var(--space-lg) ✅",
+            "themes gap: var(--space-md) ✅",
+            "chip font-size: var(--text-title) ✅",
+            "chip color: var(--text-main) ✅"
+          ],
+          "violations": [
+            ".state-empty gap: 14px（未修正・A-04 持越し）"
+          ]
+        }
+      ]
+    }
+  ],
+
+  "summary": {
+    "GOOD":    ["A-2（title→chip gap 24px）", "C（mobile layout）", "E（DS-DISCOVERY-01/02 CSS）"],
+    "IMPROVE": ["A-1（lobby 上部貼り付き）", "A-3（lobby 重心 上30%）", "B（visual center がタイトル優位）", "D desktop（検索入力と同一水平ライン）"],
+    "BLOCK":   []
+  },
+
+  "priority": [
+    {
+      "rank": 1, "section": "A+D", "verdict": "IMPROVE",
+      "issue": "ロビーが画面最上部（パネル padding 直後）に位置し、検索入力と同水平ライン上に並ぶ",
+      "recommendation": "#discovery-lobby padding-top を var(--space-xl)=32px → 48px または 64px に増加。テーマ語開始 y を 140px → 160-180px 以降に下げ、検索入力（y=143）と明確な水平差をつける。"
+    },
+    {
+      "rank": 2, "section": "B", "verdict": "IMPROVE",
+      "issue": ".discovery-title（700 bold）が視覚的に先行。テーマ語（400 normal）が主役になれていない",
+      "recommendation": ".discovery-title font-weight を 400 または color を var(--text-sub) に変更し、重量をテーマ語へ移す。"
+    },
+    {
+      "rank": 3, "section": "A-04 holdover", "verdict": "IMPROVE",
+      "issue": ".state-empty gap: 14px（トークン外・前フェーズから未修正）",
+      "recommendation": "gap: var(--space-md)"
+    }
+  ]
+}
