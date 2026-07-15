@@ -472,6 +472,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     min-height: 60vh; gap: 14px; text-align: center;
 }
 .state-loading { display: none; }
+.logo-home-btn { cursor: pointer; user-select: none; transition: opacity var(--transition-fast); }
+.logo-home-btn:hover { opacity: var(--opacity-secondary); }
 .empty-glyph {
     font-family: 'Gentium Plus', serif;
     font-size: 3.5rem; opacity: 0.12; letter-spacing: -0.05em;
@@ -499,6 +501,32 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     border-color: var(--phrase-border);
 }
 
+/* ── Pattern Explore cards（ことばの構造を見る）── */
+#pattern-explore-chips {
+    gap: var(--space-sm);
+    justify-content: flex-start;
+}
+.pe-card {
+    flex: 1 1 160px; max-width: 220px;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-m);
+    background: var(--bg-paper);
+    cursor: pointer; text-align: left;
+    font-family: 'Noto Sans JP', sans-serif;
+    transition: background var(--transition-fast);
+}
+.pe-card:hover { background: var(--bg-panel); }
+.pe-label {
+    font-size: var(--text-body); font-weight: 700;
+    color: var(--text); margin-bottom: var(--space-xs);
+}
+.pe-pattern {
+    font-size: var(--text-caption);
+    color: var(--text-sub); margin-bottom: var(--space-xs);
+}
+.pe-desc { font-size: var(--text-caption); color: var(--text-hint); line-height: 1.5; }
+
 /* ── Concept Insight（Phase 4-3）: 表示専用の知識カード。
       値はすべて既存 tokens.css のトークンのみ（新色・新余白値なし）。
       チップは既存 .layer-chip 体系を流用する ── */
@@ -506,9 +534,30 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     background: var(--bg-panel);
     border: 1px solid var(--border-soft);
     border-radius: var(--radius-m);
-    padding: var(--space-md);
+    padding: 0;
     margin-bottom: var(--space-md);
 }
+.ci-summary {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--space-md);
+    cursor: pointer; list-style: none; user-select: none;
+    border-radius: var(--radius-m);
+    transition: background var(--transition-fast);
+}
+.ci-summary::-webkit-details-marker { display: none; }
+.ci-summary:hover { background: var(--bg-paper); }
+.ci-outer[open] .ci-summary {
+    border-bottom: 1px solid var(--border-soft);
+    border-radius: var(--radius-m) var(--radius-m) 0 0;
+}
+.ci-summary-label { font-size: var(--text-body); font-weight: 700; color: var(--text-main); letter-spacing: -0.01em; }
+.ci-summary-hint {
+    font-size: var(--text-caption); color: var(--text-sub);
+    display: flex; align-items: center; gap: 4px;
+}
+.ci-summary-hint::after { content: '›'; font-size: 1rem; line-height: 1; transition: transform 0.2s var(--ease-out); }
+.ci-outer[open] .ci-summary-hint::after { transform: rotate(90deg); }
+.ci-outer-body { padding: 0 var(--space-md) var(--space-md); }
 .ci-header {
     font-size: var(--text-caption);
     font-weight: 600;
@@ -751,8 +800,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 
 /* ── Hits count ── */
 .hits-count {
-    font-size: 0.68rem; color: var(--text-sub);
-    margin-bottom: 12px; line-height: 1.5;
+    font-size: var(--text-body); color: var(--text);
+    margin-bottom: var(--space-md); line-height: 1.5;
 }
 
 /* ── Lemma groups (Japanese query) ── */
@@ -771,7 +820,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .lg-bar.open .lg-toggle { transform: rotate(90deg); }
 .lg-form { font-size: 0.82rem; font-weight: 700; color: var(--text-main); }
 .lg-greek { font-family: 'Gentium Plus', serif; font-size: 0.88rem; color: var(--text-sub); }
-.lg-count { font-size: 0.65rem; color: var(--text-sub); margin-left: auto; }
+.lg-count { font-size: var(--text-caption); color: var(--text-sub); margin-left: auto; }
 .lg-panel {
     display: none; padding: 10px 12px;
     background: var(--bg-panel); border: 1px solid var(--border-soft); border-top: none;
@@ -783,7 +832,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     letter-spacing: 0.1em; text-transform: uppercase;
     margin-bottom: 5px; opacity: 0.55;
 }
-.lg-cooc-list { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.lg-cooc-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.lg-cooc-sec { margin-top: var(--space-sm); padding-top: var(--space-sm); border-top: 1px solid var(--border-soft); }
 .lg-chip {
     display: inline-flex; align-items: center; gap: 4px;
     padding: 3px 8px; border-radius: 10px;
@@ -1020,18 +1070,26 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     color: var(--text-sub);
     text-align: center;
     line-height: 1.75;
+    margin: 0 0 4px;
+}
+.discovery-date {
+    font-size: 0.72rem;
+    color: var(--text-sub);
+    opacity: 0.6;
+    text-align: center;
     margin: 0 0 20px;
+    letter-spacing: 0.04em;
 }
 .discovery-verse-card {
     background: var(--bg-paper);
-    border: 1px solid rgba(0,0,0,0.05);
-    border-radius: 16px;
-    padding: 28px 24px;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-l);
+    padding: var(--space-xl) var(--space-lg);
     max-width: 450px;
     width: 100%;
     text-align: center;
     box-sizing: border-box;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+    box-shadow: var(--shadow-card);
 }
 .discovery-verse-text {
     font-size: 1.15rem;
@@ -1052,6 +1110,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     display: flex; flex-direction: column;
     align-items: center;
     gap: 8px;
+    max-width: 450px;
+    width: 100%;
 }
 .discovery-verse-label {
     font-size: 0.62rem;
@@ -1241,9 +1301,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
         font-size: 0.7rem;
         padding: 5px 10px;
     }
-    #concept-insight {
-        padding: var(--space-sm);
-    }
+    .ci-summary { padding: var(--space-sm); }
+    .ci-outer-body { padding: 0 var(--space-sm) var(--space-sm); }
 }
 
 /* ============================================================
@@ -1289,7 +1348,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     <!-- Header inside sidebar -->
     <div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--border-soft);">
         <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="font-family:'Noto Sans JP',sans-serif;font-size:1rem;font-weight:700;color:var(--text-main);letter-spacing:-0.01em;">聖書原文検索</span>
+            <span class="logo-home-btn" onclick="_returnToLobby()" title="今日のみことばへ戻る"
+                style="font-family:'Noto Sans JP',sans-serif;font-size:1rem;font-weight:700;color:var(--text-main);letter-spacing:-0.01em;">聖書原文検索</span>
             <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
         </div>
         <div class="idx-status" id="idx-pill">
@@ -1434,7 +1494,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     <div class="state-empty" id="state-empty">
         <!-- Discovery Lobby (UX-10-1D): 初期表示。_showEmpty() 呼び出し時は hidden になる -->
         <div id="discovery-lobby">
-            <h2 class="discovery-title">今日のことば</h2>
+            <h2 class="discovery-title">今日のみことば</h2>
+            <p class="discovery-date" id="discovery-date"></p>
         </div>
         <!-- 以下は温存。Discovery Lobby 非表示時（エラー等）に _showEmpty() が復元する -->
         <div class="empty-glyph" style="display:none">λόγος</div>
@@ -1477,7 +1538,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
                 <div class="hits-list" id="hits-list"></div>
                 <div class="dist-panel" id="dist-panel" style="display:none;"></div>
                 <div id="pattern-explore-section" style="display:none;margin-top:var(--space-xl);padding-top:var(--space-lg);border-top:1px solid var(--border-soft);">
-                    <div class="empty-section-label">文法で深める</div>
+                    <div class="empty-section-label">ことばの構造を見る</div>
                     <div class="layer-chips" id="pattern-explore-chips"></div>
                 </div>
             </div>
@@ -1557,6 +1618,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
      ═══════════════════════════════════════════════════════════════ -->
 <script src="../assets/js/book-master.js"></script>
 <script src="../assets/js/shared-ui.js"></script>
+<script src="../assets/data/daily-verses.js"></script>
 <script>
 /* ============================================================
    書物マスター: books.json が唯一の出典（book-master.js 経由）。
@@ -2700,7 +2762,13 @@ function _renderConceptInsight(concept) {
 
     const body = lexHtml + sec('関連する概念', relHtml) + advancedHtml;
     if (!body) { el.style.display = 'none'; el.innerHTML = ''; return; }
-    el.innerHTML = `<div class="ci-concept-title">「${_escH(concept.label)}」について</div>` + body;
+    el.innerHTML = `<details class="ci-outer">
+        <summary class="ci-summary">
+            <span class="ci-summary-label">「${_escH(concept.label)}」について</span>
+            <span class="ci-summary-hint">ことばを深める</span>
+        </summary>
+        <div class="ci-outer-body">${body}</div>
+    </details>`;
     el.style.display = '';
 }
 
@@ -2753,8 +2821,11 @@ function _renderPatternExplore() {
     const wrap = document.getElementById('pattern-explore-chips');
     if (!sec || !wrap || SEARCH_PATTERNS.length === 0) return;
     wrap.innerHTML = SEARCH_PATTERNS.map((p, i) =>
-        `<span class="layer-chip phrase" title="${_escH(p.description || '')}"
-            onclick="runPatternSearch(${i})">${_escH(p.label)}</span>`).join('');
+        `<button class="pe-card" onclick="runPatternSearch(${i})">
+            <div class="pe-label">${_escH(p.label)}</div>
+            <div class="pe-pattern">${_escH(p.pattern || '')}</div>
+            <div class="pe-desc">${_escH(p.description || '')}</div>
+        </button>`).join('');
     sec.style.display = '';
 }
 
@@ -3523,8 +3594,11 @@ function _renderUnifiedResults(query,words,word2){
     // Book distribution
     _renderBookDist(entries);
 
-    // Grammar explore: 検索結果あり時のみ表示
-    _renderPatternExplore();
+    // Grammar explore: ギリシャ語・Strong番号検索時のみ表示
+    // 日本語検索（語義・概念）では文法パターンは文脈と無関係のため非表示
+    if (qtype === 'greek' || qtype === 'strong') {
+        _renderPatternExplore();
+    }
 }
 
 function _buildPseudoHitsFromMerged(merged,words){
@@ -3871,7 +3945,7 @@ function _renderLemmaGroups(groups,query,word2,words){
     const list=document.getElementById('hits-list');
     container.innerHTML='';list.innerHTML='';
     document.getElementById('hits-count').textContent=
-        `${groups.reduce((s,g)=>s+g.hits.length,0)}件（${groups.length} lemma）`;
+        `${groups.reduce((s,g)=>s+g.hits.length,0)}件（${groups.length}語形に分類）`;
     groups.forEach((group,groupIdx)=>{
         let glossStr='';
         if(group.japanese){
@@ -3891,6 +3965,7 @@ function _renderLemmaGroups(groups,query,word2,words){
         // cooc chips
         const topCooc=[...group.coocMap.entries()].sort((a,b)=>b[1].weightedScore-a[1].weightedScore).slice(0,3);
         const coocSec=document.createElement('div');
+        coocSec.className='lg-cooc-sec';
         coocSec.innerHTML='<div class="lg-cooc-title">よく一緒に出る語</div>';
         const chipWrap=document.createElement('div');chipWrap.className='lg-cooc-list';
         if(topCooc.length===0){chipWrap.innerHTML='<span style="font-size:0.75rem;color:var(--ink-soft);opacity:0.4;">—</span>';}
@@ -3909,8 +3984,8 @@ function _renderLemmaGroups(groups,query,word2,words){
                 chipWrap.appendChild(chip);
             });
         }
-        coocSec.appendChild(chipWrap);panel.appendChild(coocSec);
-        // sample hits
+        coocSec.appendChild(chipWrap);
+        // sample hits（代表例を先、共起語を後に）
         const hitsSec=document.createElement('div');
         hitsSec.innerHTML='<div class="lg-hits-title">代表例</div>';
         const hitsWrap=document.createElement('div');
@@ -3929,6 +4004,7 @@ function _renderLemmaGroups(groups,query,word2,words){
             });
             panel.appendChild(moreBtn);
         }
+        panel.appendChild(coocSec);
         bar.addEventListener('click',()=>{
             const open=panel.classList.toggle('open');
             bar.classList.toggle('open',open);
@@ -4034,6 +4110,16 @@ function _showLoading(msg){
     document.getElementById('result-body').style.display='none';
     document.getElementById('state-loading').style.display='flex';
     if(msg)document.getElementById('loading-label').textContent=msg;
+}
+function _returnToLobby() {
+    document.getElementById('unified-search-input').value = '';
+    document.getElementById('result-header').classList.remove('visible');
+    document.getElementById('result-body').style.display = 'none';
+    document.getElementById('state-loading').style.display = 'none';
+    const es = document.getElementById('state-empty');
+    es.style.display = 'flex';
+    document.getElementById('discovery-lobby').hidden = false;
+    _renderEmptyStateHistory();
 }
 function _showEmpty(title,desc){
     document.getElementById('state-loading').style.display='none';
@@ -4906,645 +4992,38 @@ function _asClose() {
     document.getElementById('as-backdrop').classList.remove('open');
 }
 
-/* ============================================================
-   Daily Verses — DAILY_VERSES_365 (Phase D-4)
-   配列長: 365。インデックス 0–99 に実データ（救済史の流れ順）。
-   インデックス 100–364 は null プレースホルダ（D-2 以降で順次追加）。
-   corpus:     "NT" | "LXX"
-   lines:      表示行（<br> 区切り）
-   ref:        聖書箇所（書名 章:節 形式）
-   keywords:   NT 索引で 1件以上ヒット（Phase D-3 で全件検証）
-   theme:      日のテーマ
-   storyStage: 救済史ステージ
-   ============================================================ */
-const DAILY_VERSES_365 = [
-    // ── SECTION 1: 創造の言 (V001–V005) ────────────────────
-    {
-        corpus: 'NT', ref: 'ヨハネ 1:1',
-        lines:    ['初めに言があった。', '言は神とともにあった。言は神であった。'],
-        keywords: ['ことば', '神'],
-        theme: 'すべての初めにある言—創造の起源', storyStage: '創造',
-    },
-    {
-        corpus: 'NT', ref: 'コロサイ 1:16',
-        lines:    ['天にあるものも地にあるものも、', 'すべてのものはキリストによって造られた。'],
-        keywords: ['キリスト', '天'],
-        theme: '万物の創造者キリスト—御子を通じて造られた', storyStage: '創造',
-    },
-    {
-        corpus: 'NT', ref: 'ヘブル 1:3',
-        lines:    ['御子は神の栄光の輝き、神の本質の完全な現れです。', 'その力あるみことばによって万物を保っておられます。'],
-        keywords: ['神', '栄光', '力'],
-        theme: '神の栄光の輝き—力あるみことばによる万物の維持', storyStage: '創造',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 1:4',
-        lines:    ['この言の中にいのちがあった。', 'そのいのちは人の光であった。'],
-        keywords: ['いのち', '光'],
-        theme: '言のうちにいのちがあった—光のいのち', storyStage: '創造',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 1:5',
-        lines:    ['光は闇の中に輝いている。', '闇はこれに打ち勝たなかった。'],
-        keywords: ['光'],
-        theme: '闇に打ち勝つ光—克服の宣言', storyStage: '創造',
-    },
-    // ── SECTION 2: 受肉 (V006–V015) ────────────────────────
-    {
-        corpus: 'NT', ref: 'ヨハネ 1:14',
-        lines:    ['ことばは人となって、', '私たちの間に住まわれた。', '私たちはこの方の栄光を見た。'],
-        keywords: ['ことば', '栄光'],
-        theme: '言は肉となった—受肉の神秘', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'ガラテヤ 4:4',
-        lines:    ['しかし、時が満ちると、', '神は御子を女から生まれた者として遣わされました。'],
-        keywords: ['神'],
-        theme: '時が満ちた—神の時における御子の派遣', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'ルカ 2:11',
-        lines:    ['今日ダビデの町に、', 'あなたがたのために救い主がお生まれになりました。', 'この方こそ、主キリストです。'],
-        keywords: ['救い', 'キリスト', '主'],
-        theme: '救い主の誕生—ダビデの町からの告知', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'ルカ 2:14',
-        lines:    ['いと高き所に栄光が、神にあるように。', '地の上に平和が、', 'み心にかなう人々にあるように。'],
-        keywords: ['栄光', '神', '平和'],
-        theme: '天使の賛歌—栄光と平和の宣言', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'マタイ 1:23',
-        lines:    ['見よ、おとめが身ごもって男の子を産む。', 'その名はインマヌエルと呼ばれる。', '神が私たちとともにおられるという意味である。'],
-        keywords: ['神'],
-        theme: 'インマヌエル—神がともにおられる', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'ピリピ 2:7',
-        lines:    ['キリストはご自分を空しくして、', '仕える者の姿をとり、', '人間と同じようになられました。'],
-        keywords: ['キリスト', '仕える'],
-        theme: '自分を空にした神の子—謙りの受肉', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'コリント第二 8:9',
-        lines:    ['主イエス・キリストの恵みを知っているからです。', 'キリストは豊かであられたのに、', 'あなたがたのために貧しくなられました。'],
-        keywords: ['キリスト', '恵み'],
-        theme: '豊かさから貧しさへ—愛の自己放棄', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 3:16',
-        lines:    ['神は世を愛された。', 'ひとり子をお与えになったほどに。', '御子を信じる者は滅びないで、永遠のいのちを持つ。'],
-        keywords: ['神', '愛', '永遠', 'いのち'],
-        theme: '神の愛の極点—独り子を与えるほどに', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'ヘブル 2:17',
-        lines:    ['キリストはすべての点で、', '兄弟たちと同じようにならなければなりませんでした。'],
-        keywords: ['キリスト'],
-        theme: 'すべての点で同じになられた—共感する大祭司', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'ヘブル 4:15',
-        lines:    ['私たちの大祭司は、', '私たちの弱さに同情できない方ではありません。', 'すべての点において、私たちと同じように試みにあわれたのです。'],
-        keywords: ['弱さ'],
-        theme: '弱さに同情する大祭司—受肉の共感', storyStage: '受肉',
-    },
-    // ── SECTION 3: 宣教の開始 (V016–V022) ─────────────────
-    {
-        corpus: 'NT', ref: 'ヨハネ 1:29',
-        lines:    ['見よ、世の罪を取り除く神の小羊。'],
-        keywords: ['罪', '世'],
-        theme: '世の罪を取り除く神の小羊—受難への伏線', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'マルコ 1:15',
-        lines:    ['時が満ちた。神の国は近づいた。', '悔い改めて福音を信じなさい。'],
-        keywords: ['神', '悔い改め'],
-        theme: '神の国は近づいた—宣教開始の宣言', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'ルカ 4:18',
-        lines:    ['主の霊がわたしに臨んでいる。', '貧しい人々に福音を伝えるために、', '主がわたしに油を注がれたのである。'],
-        keywords: ['主', '御霊'],
-        theme: '主の霊がわたしに臨んでいる—油注がれた者の宣言', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 10:10',
-        lines:    ['わたしが来たのは、', '羊がいのちを得、', 'またそれを豊かに持つためです。'],
-        keywords: ['いのち'],
-        theme: 'いのちを豊かに持たせるために—来た目的の宣言', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'マタイ 4:19',
-        lines:    ['わたしについて来なさい。', '人間をとる漁師にしよう。'],
-        keywords: ['人'],
-        theme: 'わたしについて来なさい—弟子道の招き', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'マタイ 11:28',
-        lines:    ['疲れた人、重荷を負っている人は、', 'わたしのもとに来なさい。', 'わたしがあなたがたを休ませてあげます。'],
-        keywords: ['重荷'],
-        theme: '重荷を負う人への招き—休みの約束', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'ルカ 19:10',
-        lines:    ['人の子は、', '失われた人を探して救うために来たのです。'],
-        keywords: ['救い'],
-        theme: '失われた者を探す—救いの目的の要約', storyStage: '受肉',
-    },
-    // ── SECTION 4: 神の国の教え (V023–V030) ────────────────
-    {
-        corpus: 'NT', ref: 'マタイ 5:3',
-        lines:    ['心の貧しい人は幸いです。', '天の御国はその人たちのものです。'],
-        keywords: ['幸い', '天'],
-        theme: '心の貧しい人の幸い—神の国の逆転', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'マタイ 5:9',
-        lines:    ['平和をつくる人たちは幸いです。', '彼らは神の子どもと呼ばれます。'],
-        keywords: ['平和', '幸い', '神'],
-        theme: '平和をつくる人の幸い—神の子の使命', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'マタイ 5:16',
-        lines:    ['あなたがたの光を人々の前で輝かせなさい。', '人々があなたがたの良い行いを見て、', '天にいるあなたがたの父に栄光を帰するように。'],
-        keywords: ['光', '神', '栄光'],
-        theme: '光を輝かせる—神への栄光のために', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'マタイ 6:33',
-        lines:    ['まず神の国と神の義を求めなさい。', 'そうすれば、これらのものはすべて加えて与えられます。'],
-        keywords: ['神'],
-        theme: 'まず神の国を求めよ—優先順位の転換', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'マタイ 22:37',
-        lines:    ['心を尽くし、魂を尽くし、知性を尽くして、', 'あなたの神、主を愛せよ。'],
-        keywords: ['心', '神', '愛'],
-        theme: '大いなる戒め—神を愛することの全人格的要求', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'マタイ 22:39',
-        lines:    ['隣人を愛せよ。', 'この二つの戒めに律法と預言者全体がかかっています。'],
-        keywords: ['愛'],
-        theme: '隣人を愛せよ—律法の第二の要約', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'マルコ 10:45',
-        lines:    ['人の子も仕えるために来ました。', '多くの人のために、', '自分のいのちを与えるために来たのです。'],
-        keywords: ['仕える', 'いのち'],
-        theme: '仕えるために来た—キリストの奉仕の模範', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'ルカ 15:7',
-        lines:    ['一人の罪人が悔い改めるなら、', '天では大きな喜びがあります。'],
-        keywords: ['悔い改め', '喜び', '天'],
-        theme: '一人の罪人の回心—天の喜び', storyStage: '律法の成就',
-    },
-    // ── SECTION 5: キリストの自己啓示 (V031–V038) ──────────
-    {
-        corpus: 'NT', ref: 'ヨハネ 6:35',
-        lines:    ['わたしはいのちのパンです。', 'わたしのもとに来る者は決して空腹にならず、', 'わたしを信じる者は決して渇くことがありません。'],
-        keywords: ['いのち', '信仰'],
-        theme: 'わたしはいのちのパン—霊的飢えへの答え', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 8:12',
-        lines:    ['わたしは世の光です。', 'わたしに従う者は闇の中を歩まず、', 'いのちの光を持ちます。'],
-        keywords: ['光', 'いのち'],
-        theme: 'わたしは世の光—従う者へのいのちの光', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 10:11',
-        lines:    ['わたしは良い羊飼いです。', '良い羊飼いは羊のためにいのちを捨てます。'],
-        keywords: ['いのち'],
-        theme: 'わたしは良い羊飼い—いのちを捨てる愛', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 11:25',
-        lines:    ['わたしはよみがえりであり、いのちです。', 'わたしを信じる者は、死んでも生きるのです。'],
-        keywords: ['よみがえり', 'いのち'],
-        theme: 'わたしはよみがえりといのち—死に勝つ宣言', storyStage: '復活',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 14:6',
-        lines:    ['わたしは道であり、真理であり、命です。', 'わたしを通してでなければ、', 'だれも父のみもとに行くことができません。'],
-        keywords: ['道', '真理', '命'],
-        theme: '道・真理・命—唯一の道の宣言', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 15:13',
-        lines:    ['友のためにいのちを捨てること、', 'これよりも大きな愛はありません。'],
-        keywords: ['愛', '友', 'いのち'],
-        theme: '最大の愛—友のためのいのち', storyStage: '受難と贖い',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 17:3',
-        lines:    ['永遠のいのちとは、', '唯一のまことの神であるあなたと、', 'あなたが遣わされたイエス・キリストを知ることです。'],
-        keywords: ['永遠', 'いのち', 'キリスト', '神'],
-        theme: '永遠のいのちの定義—神を知ること', storyStage: '受肉',
-    },
-    {
-        corpus: 'NT', ref: 'マルコ 5:36',
-        lines:    ['恐れることはない。ただ信じなさい。'],
-        keywords: ['信仰'],
-        theme: '恐れるな、信じよ—信仰の核心', storyStage: '律法の成就',
-    },
-    // ── SECTION 6: 最後の晩餐と十字架への道 (V039–V044) ────
-    {
-        corpus: 'NT', ref: 'ヨハネ 13:34',
-        lines:    ['わたしはあなたがたに新しい戒めを与えます。互いに愛し合いなさい。', 'わたしがあなたがたを愛したように、', 'あなたがたも互いに愛し合いなさい。'],
-        keywords: ['愛'],
-        theme: '新しい戒め—わたしが愛したように', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 14:1',
-        lines:    ['心を騒がせてはなりません。', '神を信じ、またわたしを信じなさい。'],
-        keywords: ['心', '神', '信仰'],
-        theme: '心を騒がせるな—神への信頼の招き', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 14:27',
-        lines:    ['わたしはあなたがたに平和を残します。', 'わたしの平和を与えます。'],
-        keywords: ['平和'],
-        theme: 'キリストの平和—世の与える平和とは異なる', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'マタイ 26:28',
-        lines:    ['これは罪の赦しのために多くの人のために流す、', 'わたしの契約の血です。'],
-        keywords: ['罪', '赦し'],
-        theme: '新しい契約の血—赦しのための血', storyStage: '受難と贖い',
-    },
-    {
-        corpus: 'NT', ref: 'ルカ 22:42',
-        lines:    ['父よ、みこころならば、この杯をわたしから取り去ってください。', 'しかし、わたしの願いではなく、', 'みこころが行われますように。'],
-        keywords: ['心'],
-        theme: 'ゲッセマネの祈り—みこころへの服従', storyStage: '受難と贖い',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 12:24',
-        lines:    ['一粒の麦は地に落ちて死ななければ、一つのままです。', 'しかし、死ねば、多くの実を結びます。'],
-        keywords: ['死'],
-        theme: '麦の粒の死—実りのための死', storyStage: '受難と贖い',
-    },
-    // ── SECTION 7: 十字架と贖い (V045–V051) ────────────────
-    {
-        corpus: 'NT', ref: 'ロマ 5:8',
-        lines:    ['私たちがまだ罪人であったとき、', 'キリストが私たちのために死んでくださったのです。', '神はこれによってご自身の愛を示してくださいました。'],
-        keywords: ['神', '愛', '罪人', 'キリスト', '死'],
-        theme: '罪人のためのキリストの死—愛の証明', storyStage: '受難と贖い',
-    },
-    {
-        corpus: 'NT', ref: 'コリント第一 1:18',
-        lines:    ['十字架のことばは、', '滅んでいく者たちには愚かなものですが、', '救われる私たちには神の力です。'],
-        keywords: ['救い', '神', '力'],
-        theme: '十字架の言葉は神の力—逆説の知恵', storyStage: '受難と贖い',
-    },
-    {
-        corpus: 'NT', ref: 'コリント第一 15:3-4',
-        lines:    ['キリストは、聖書に書いてあるとおりに', '私たちの罪のために死なれ、葬られ、', '三日目によみがえられた。'],
-        keywords: ['キリスト', '罪', '死'],
-        theme: '福音の核心—死んで、葬られ、よみがえった', storyStage: '受難と贖い',
-    },
-    {
-        corpus: 'NT', ref: 'ガラテヤ 2:20',
-        lines:    ['キリストとともに私は十字架につけられました。', 'もはや私が生きているのではなく、', 'キリストが私のうちに生きておられるのです。'],
-        keywords: ['キリスト'],
-        theme: 'キリストとともに十字架につけられた—古い自分の死', storyStage: '受難と贖い',
-    },
-    {
-        corpus: 'NT', ref: 'ヘブル 9:22',
-        lines:    ['血を流すことなしに、', '罪の赦しはありません。'],
-        keywords: ['罪', '赦し'],
-        theme: '血による赦し—赦しの代価', storyStage: '受難と贖い',
-    },
-    {
-        corpus: 'NT', ref: 'エペソ 2:13',
-        lines:    ['しかし今は、キリスト・イエスにあって、', 'かつて遠かったあなたがたが、', 'キリストの血によって近い者とされました。'],
-        keywords: ['キリスト'],
-        theme: '遠かった者が近くなった—キリストの血による和解', storyStage: '受難と贖い',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ第一 2:2',
-        lines:    ['この方こそ、私たちの罪のための、', 'また私たちの罪だけでなく、', '世全体のための宥めのいけにえです。'],
-        keywords: ['罪', '世'],
-        theme: '世全体のための宥め—贖いの普遍性', storyStage: '受難と贖い',
-    },
-    // ── SECTION 8: 復活と大使命 (V052–V059) ────────────────
-    {
-        corpus: 'NT', ref: 'コリント第一 15:20',
-        lines:    ['しかし、今やキリストは死者の中からよみがえられました。', '眠った者たちの初穂として。'],
-        keywords: ['キリスト', '死'],
-        theme: '復活した最初の実—死者のための初穂', storyStage: '復活',
-    },
-    {
-        corpus: 'NT', ref: 'コリント第一 15:55',
-        lines:    ['死よ、あなたの勝利はどこにあるのか。', '死よ、あなたの棘はどこにあるのか。'],
-        keywords: ['死'],
-        theme: '死に勝つ勝利の叫び—復活の宣言', storyStage: '終末的希望',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 20:28',
-        lines:    ['トマスはイエスに答えた。', '「わが主、わが神よ。」'],
-        keywords: ['主', '神'],
-        theme: 'わが主、わが神—信仰の告白の頂点', storyStage: '復活',
-    },
-    {
-        corpus: 'NT', ref: 'ロマ 4:25',
-        lines:    ['キリストは私たちの罪のために死に渡され、', '私たちが義と認められるためによみがえられたのです。'],
-        keywords: ['キリスト', '罪'],
-        theme: '義とされるためによみがえった—復活の法廷的意味', storyStage: '復活',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ 17:18',
-        lines:    ['あなたがわたしを世に遣わされたように、', 'わたしも彼らを世に遣わしました。'],
-        keywords: ['世'],
-        theme: '遣わされた者が遣わす—派遣の連鎖', storyStage: '復活',
-    },
-    {
-        corpus: 'NT', ref: 'マタイ 28:19',
-        lines:    ['ですから、あなたがたは行って、', 'あらゆる民族を弟子にしなさい。'],
-        keywords: ['人'],
-        theme: 'すべての民族を弟子に—大使命の呼びかけ', storyStage: '宣教',
-    },
-    {
-        corpus: 'NT', ref: 'マタイ 28:20',
-        lines:    ['見よ、わたしは世の終わりまで、', 'いつもあなたがたとともにいます。'],
-        keywords: ['世'],
-        theme: 'いつもともにいる—大使命への保証', storyStage: '復活',
-    },
-    {
-        corpus: 'NT', ref: 'ルカ 24:45',
-        lines:    ['そのとき、イエスは、聖書を理解できるように', '彼らの心を開いてくださった。'],
-        keywords: ['心'],
-        theme: '聖書を理解できるように—心を開かれた弟子たち', storyStage: '復活',
-    },
-    // ── SECTION 9: 聖霊と教会 (V060–V067) ──────────────────
-    {
-        corpus: 'NT', ref: '使徒 1:8',
-        lines:    ['聖霊があなたがたに臨まれるとき、あなたがたは力を受けます。', 'そして、地の果てまでわたしの証人となります。'],
-        keywords: ['御霊', '力'],
-        theme: '御霊が降るとき力を受ける—宣教の動力', storyStage: '聖霊と教会',
-    },
-    {
-        corpus: 'NT', ref: '使徒 2:38',
-        lines:    ['悔い改めなさい。', 'そして、それぞれ罪の赦しのために、', 'イエス・キリストの名によってバプテスマを受けなさい。'],
-        keywords: ['悔い改め', '罪', '赦し', '御霊'],
-        theme: '悔い改め・バプテスマ・御霊—三つの応答', storyStage: '聖霊と教会',
-    },
-    {
-        corpus: 'NT', ref: '使徒 2:42',
-        lines:    ['彼らはひたすら使徒たちの教えを守り、', '交わりを続け、パンを裂き、', '祈りをしていた。'],
-        keywords: ['祈り'],
-        theme: '初代教会の生活—四つの柱', storyStage: '聖霊と教会',
-    },
-    {
-        corpus: 'NT', ref: 'コリント第一 12:13',
-        lines:    ['私たちはみな、', 'ユダヤ人もギリシャ人も、奴隷も自由人も、', '一つの御霊によって一つのからだとなりました。'],
-        keywords: ['御霊'],
-        theme: '一つの御霊、一つのからだ—多様性の中の一致', storyStage: '聖霊と教会',
-    },
-    {
-        corpus: 'NT', ref: 'エペソ 2:19',
-        lines:    ['あなたがたはもはや他国人でも寄留者でもなく、', '聖徒たちと同じ市民であり、', '神の家族なのです。'],
-        keywords: ['神'],
-        theme: '神の家族となった—外国人から市民へ', storyStage: '聖霊と教会',
-    },
-    {
-        corpus: 'NT', ref: 'コリント第一 3:16',
-        lines:    ['あなたがたは神の宮であり、', '神の御霊があなたがたの中に住んでおられることを', '知らないのですか。'],
-        keywords: ['神', '御霊'],
-        theme: 'あなたがたは神の宮—御霊の住まい', storyStage: '聖霊と教会',
-    },
-    {
-        corpus: 'NT', ref: '使徒 4:12',
-        lines:    ['この方以外には、だれによっても救いはありません。', '世界中で、この御名のほか、', '救われるべき名は一つもありません。'],
-        keywords: ['救い'],
-        theme: '救いはキリストのほかにない—排他的な救い', storyStage: '宣教',
-    },
-    {
-        corpus: 'NT', ref: 'ガラテヤ 5:22',
-        lines:    ['御霊の実は、', '愛、喜び、平和、寛容、親切、善意、', '誠実、柔和、自制です。'],
-        keywords: ['御霊', '愛', '喜び', '平和'],
-        theme: '御霊の実—九つの徳', storyStage: '聖霊と教会',
-    },
-    // ── SECTION 10: 義認と福音 (V068–V075) ─────────────────
-    {
-        corpus: 'NT', ref: 'ロマ 1:17',
-        lines:    ['福音のうちには神の義が啓示されています。', '信仰に始まり信仰に進む義です。', '「義人は信仰によって生きる」と書いてあるとおりです。'],
-        keywords: ['神', '信仰'],
-        theme: '義人は信仰によって生きる—義認の宣言', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'ロマ 3:23',
-        lines:    ['すべての人は罪を犯したので、', '神の栄光を受けることができず、'],
-        keywords: ['罪', '神', '栄光'],
-        theme: 'すべての人は罪を犯した—義認の前提', storyStage: '堕落',
-    },
-    {
-        corpus: 'NT', ref: 'ロマ 3:24',
-        lines:    ['神の恵みにより、', 'キリスト・イエスによる贖いを通して、', '価なしに義と認められるのです。'],
-        keywords: ['神', '恵み', 'キリスト'],
-        theme: '価なしに義とされる—恵みによる義認', storyStage: '受難と贖い',
-    },
-    {
-        corpus: 'NT', ref: 'ロマ 5:1',
-        lines:    ['信仰によって義とされた私たちは、', '私たちの主イエス・キリストによって、', '神との平和を持っています。'],
-        keywords: ['信仰', '主', 'キリスト', '神', '平和'],
-        theme: '神との平和—義認の結果', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'エペソ 2:8',
-        lines:    ['あなたがたは恵みによって、', '信仰によって救われたのです。', 'それはあなたがた自身から出たことではなく、神の賜物です。'],
-        keywords: ['恵み', '信仰', '救い', '神'],
-        theme: '恵みによって、信仰によって—救いの根拠', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'ロマ 8:1',
-        lines:    ['今や、キリスト・イエスにある者は、', '罪に定められることがありません。'],
-        keywords: ['キリスト', '罪'],
-        theme: '罪に定められることがない—義認の確実性', storyStage: '新創造',
-    },
-    {
-        corpus: 'NT', ref: 'ロマ 8:28',
-        lines:    ['神を愛する人たちには、', 'すべてのことが益となるように働きます。'],
-        keywords: ['神', '愛', '益'],
-        theme: 'すべてが益となる—神の摂理の約束', storyStage: '信仰の旅路',
-    },
-    {
-        corpus: 'NT', ref: 'ロマ 8:39',
-        lines:    ['何ものも私たちの主キリスト・イエスにある', '神の愛から私たちを引き離すことはできません。'],
-        keywords: ['神', '愛', '主', 'キリスト'],
-        theme: '神の愛から引き離せない—愛の絶対性', storyStage: '信仰の旅路',
-    },
-    // ── SECTION 11: 愛と共同体 (V076–V082) ─────────────────
-    {
-        corpus: 'NT', ref: 'コリント第一 13:4',
-        lines:    ['愛は忍耐強く、親切です。', '愛は妬まず、自慢せず、高ぶりません。'],
-        keywords: ['愛'],
-        theme: '愛の性質—忍耐と親切', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'コリント第一 13:13',
-        lines:    ['いつまでも残るのは、', '信仰と希望と愛です。', 'その中で最も優れているのは愛です。'],
-        keywords: ['信仰', '希望', '愛'],
-        theme: '愛は最大—永遠に残る三つ', storyStage: '終末的希望',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ第一 4:7',
-        lines:    ['愛する者たち、私たちは互いに愛し合いましょう。', '愛は神から出るもので、', '愛する者はみな神から生まれており、神を知っています。'],
-        keywords: ['愛', '神'],
-        theme: '愛は神から来る—愛の源', storyStage: '契約',
-    },
-    {
-        corpus: 'NT', ref: 'ヨハネ第一 4:19',
-        lines:    ['私たちが愛するのは、', '神がまず私たちを愛してくださったからです。'],
-        keywords: ['愛', '神'],
-        theme: '先に愛してくださった—愛の先行性', storyStage: '契約',
-    },
-    {
-        corpus: 'NT', ref: 'ガラテヤ 6:2',
-        lines:    ['互いに重荷を担いなさい。', 'そのようにしてこそ、', 'キリストの律法を全うすることになります。'],
-        keywords: ['重荷', 'キリスト'],
-        theme: '重荷を担い合う—キリストの律法の実践', storyStage: '聖霊と教会',
-    },
-    {
-        corpus: 'NT', ref: 'エペソ 4:32',
-        lines:    ['互いに親切にし、思いやりを持ち、', '神がキリストにあってあなたがたを赦してくださったように、', '互いに赦し合いなさい。'],
-        keywords: ['神', 'キリスト', '赦し'],
-        theme: '赦されたように赦す—赦しの連鎖', storyStage: '律法の成就',
-    },
-    {
-        corpus: 'NT', ref: 'ヤコブ 2:17',
-        lines:    ['同じように、信仰も、', 'それだけで行いが伴わなければ、', 'それ自体は死んでいます。'],
-        keywords: ['信仰', '死'],
-        theme: '行いを伴わない信仰は死んでいる—信仰の実践性', storyStage: '律法の成就',
-    },
-    // ── SECTION 12: 信仰の旅路 (V083–V089) ─────────────────
-    {
-        corpus: 'NT', ref: 'ヘブル 11:1',
-        lines:    ['信仰は望んでいることを保証し、', '見えないものを確信させるものです。'],
-        keywords: ['信仰', '望み'],
-        theme: '信仰の定義—見えないものを確信させる', storyStage: '信仰の旅路',
-    },
-    {
-        corpus: 'NT', ref: 'ヘブル 12:1',
-        lines:    ['こういうわけで、私たちもこのように', '多くの証人の雲に囲まれているのですから、', '忍耐をもって私たちの前に置かれた競走を走り続けましょう。'],
-        keywords: ['罪', '重荷'],
-        theme: '証人の雲に囲まれて走る—信仰のマラソン', storyStage: '信仰の旅路',
-    },
-    {
-        corpus: 'NT', ref: 'ヘブル 12:2',
-        lines:    ['信仰の創始者であり完成者であるイエスから、', '目を離さないようにしましょう。'],
-        keywords: ['信仰'],
-        theme: 'イエスから目を離さない—視線の問題', storyStage: '信仰の旅路',
-    },
-    {
-        corpus: 'NT', ref: 'ロマ 5:3',
-        lines:    ['そればかりでなく、苦しみの中でも喜んでいます。', '苦しみが忍耐を生み出し、'],
-        keywords: ['喜び'],
-        theme: '苦しみの中の喜び—忍耐の成長', storyStage: '信仰の旅路',
-    },
-    {
-        corpus: 'NT', ref: 'ピリピ 4:7',
-        lines:    ['人のすべての理解を超えた神の平和が、', 'キリスト・イエスにあって、', 'あなたがたの心と思いを守ってくれます。'],
-        keywords: ['神', '平和', 'キリスト', '心'],
-        theme: '理解を超えた神の平和—心を守る平和', storyStage: '信仰の旅路',
-    },
-    {
-        corpus: 'NT', ref: 'ピリピ 4:13',
-        lines:    ['私は、私を強くしてくださる方によって、', 'どんなことでもできます。'],
-        keywords: ['強く'],
-        theme: 'キリストによって何でもできる—強くしてくださる方', storyStage: '信仰の旅路',
-    },
-    {
-        corpus: 'NT', ref: 'コリント第二 12:9',
-        lines:    ['わたしの恵みはあなたに十分です。', '力は弱さのうちに完全に現れるからです。'],
-        keywords: ['恵み', '力', '弱さ'],
-        theme: '弱さの中に完全な力—弱さの逆説', storyStage: '信仰の旅路',
-    },
-    // ── SECTION 13: 宣教と証し (V090–V094) ─────────────────
-    {
-        corpus: 'NT', ref: 'ロマ 10:14',
-        lines:    ['信じたことのない方を、どうして呼び求められるでしょう。', '聞いたことのない方を、どうして信じられるでしょう。', '宣べ伝える人がいなければ、どうして聞くことができるでしょう。'],
-        keywords: ['信仰'],
-        theme: '聞かなければ信じられない—宣教の連鎖', storyStage: '宣教',
-    },
-    {
-        corpus: 'NT', ref: 'コリント第二 5:20',
-        lines:    ['私たちはキリストの使者として、', '神があなたがたに懇願しておられるように、', 'キリストに代わって「神と和解してください」とお願いします。'],
-        keywords: ['キリスト', '神'],
-        theme: 'キリストの使者として—和解の奉仕', storyStage: '宣教',
-    },
-    {
-        corpus: 'NT', ref: 'マタイ 9:37',
-        lines:    ['収穫は多いが、働き手が少ない。', 'だから、収穫の主に、', '収穫のために働き手を遣わしてくださるように祈りなさい。'],
-        keywords: ['主', '祈り'],
-        theme: '収穫は多いが働き手が少ない—宣教の祈り', storyStage: '宣教',
-    },
-    {
-        corpus: 'NT', ref: '使徒 13:47',
-        lines:    ['主は私たちにこのように命じておられます。', '「わたしはあなたを諸国の民への光として置いた。', 'あなたが地の果てまでも救いをもたらすために。」'],
-        keywords: ['主', '救い', '光'],
-        theme: '地の果てまでの救い—諸国への光', storyStage: '宣教',
-    },
-    {
-        corpus: 'NT', ref: 'ペテロ第一 3:15',
-        lines:    ['心の中でキリストを主と崇め、', 'あなたがたの中にある希望について問われる人には、', 'いつでも弁明できる用意をしていなさい。'],
-        keywords: ['キリスト', '主', '希望'],
-        theme: '希望についての弁明—日常の証し', storyStage: '宣教',
-    },
-    // ── SECTION 14: 終末的希望 (V095–V100) ─────────────────
-    {
-        corpus: 'NT', ref: 'コリント第一 15:57',
-        lines:    ['しかし、神に感謝します。', '神は私たちの主イエス・キリストによって、', '私たちに勝利を与えてくださいます。'],
-        keywords: ['神', '主', 'キリスト'],
-        theme: '神が勝利を与えてくださる—終末的勝利', storyStage: '終末的希望',
-    },
-    {
-        corpus: 'NT', ref: 'テサロニケ第一 4:17',
-        lines:    ['私たちはいつまでも主とともにいることになります。'],
-        keywords: ['主'],
-        theme: 'いつまでも主とともに—終末的再会', storyStage: '終末的希望',
-    },
-    {
-        corpus: 'NT', ref: 'ペテロ第二 3:9',
-        lines:    ['主は約束の実現を遅らせておられるのではありません。', 'ひとりも滅びることなく、', 'すべての人が悔い改めに進むことを望んでおられるのです。'],
-        keywords: ['主', '悔い改め'],
-        theme: '主は忍耐される—すべての人の悔い改めを待つ', storyStage: '終末的希望',
-    },
-    {
-        corpus: 'NT', ref: '黙示録 21:4',
-        lines:    ['神は彼らの目から涙をことごとくぬぐい取ってくださる。', 'もはや死はなく、悲しみも、叫び声も、苦しみもない。', '以前のものが過ぎ去ったのです。'],
-        keywords: ['神', '涙', '死'],
-        theme: '涙をぬぐい取られる—新天新地の慰め', storyStage: '新創造',
-    },
-    {
-        corpus: 'NT', ref: '黙示録 21:5',
-        lines:    ['「見よ。わたしはすべてのものを新しくする。', 'このことばは真実であり、信頼できる。」'],
-        keywords: ['ことば'],
-        theme: 'すべてを新しくする—新創造の宣言', storyStage: '新創造',
-    },
-    {
-        corpus: 'NT', ref: '黙示録 22:20',
-        lines:    ['「しかり、わたしはすぐに来る。」', 'アーメン。来てください、主イエスよ。'],
-        keywords: ['主'],
-        theme: '来てください、主イエスよ—マラナタ', storyStage: '終末的希望',
-    },
-    // ── V101–V365: プレースホルダ（Phase D-2 以降で順次追加）─
-    ...Array(265).fill(null),
-];
 
-/* 日付ベースで決定的に1件選択（UTC日付 mod 365）
-   null スロット（未選定）は実データ100件からフォールバック */
-function getDailyVerse() {
-    const today    = new Date();
-    const dayIndex = Math.floor(
-        Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 86400000
-    );
-    const slot = DAILY_VERSES_365[dayIndex % 365];
-    return slot ?? DAILY_VERSES_365[dayIndex % 100];
+/* ============================================================
+   Daily Verse Ref Formatter
+   DAILY_VERSES_365 の "書名 章:節" 形式を日本語正式表示に変換する。
+   書名の正規化は FLAT_BOOKS（books.json）のカノニカル名を参照。
+   ============================================================ */
+function _formatDailyRef(ref) {
+    const m = ref.match(/^(.+?)\s+(\d+):(\d+(?:-\d+)?)$/);
+    if (!m) return ref;
+    const [, abbr, ch, vs] = m;
+
+    // FLAT_BOOKS の正式書名セット
+    const byName = new Map(FLAT_BOOKS.map(b => [b.name, b]));
+
+    // 1. 完全一致（マタイ、ヨハネ、使徒 等）
+    if (byName.has(abbr)) return `${abbr}${ch}章${vs}節`;
+
+    // 2. 「第一/第二/第三」→「Ⅰ/Ⅱ/Ⅲ」前置形に変換して FLAT_BOOKS を参照
+    for (const [suf, pre] of [['第一', 'Ⅰ'], ['第二', 'Ⅱ'], ['第三', 'Ⅲ']]) {
+        if (abbr.endsWith(suf)) {
+            const candidate = pre + abbr.slice(0, -suf.length);
+            if (byName.has(candidate)) return `${candidate}${ch}章${vs}節`;
+        }
+    }
+
+    // 3. 長音符省略形の照合（例: 「ロマ」→「ローマ」）
+    //    各文字間に ー? を挿入した正規表現で FLAT_BOOKS を走査
+    const re = new RegExp('^' + [...abbr].join('ー?') + '$');
+    const found = FLAT_BOOKS.find(b => re.test(b.name));
+    if (found) return `${found.name}${ch}章${vs}節`;
+
+    return `${abbr}${ch}章${vs}節`;
 }
 
 /* ============================================================
@@ -5559,6 +5038,14 @@ function renderDiscoveryLobby() {
     // Verse card — idempotent（二重挿入防止）
     if (lobby.querySelector('.discovery-verse-card')) return;
 
+    // 現在日付を日本語で表示（getDailyVerse() とは独立して取得）
+    const _today = new Date();
+    const _days = ['日', '月', '火', '水', '木', '金', '土'];
+    const _dateEl = document.getElementById('discovery-date');
+    if (_dateEl) {
+        _dateEl.textContent = `${_today.getFullYear()}年${_today.getMonth() + 1}月${_today.getDate()}日（${_days[_today.getDay()]}）`;
+    }
+
     const verse = getDailyVerse();
 
     const card = document.createElement('div');
@@ -5572,7 +5059,10 @@ function renderDiscoveryLobby() {
     // 聖書箇所
     const vRef = document.createElement('p');
     vRef.className = 'discovery-verse-ref';
+    // FLAT_BOOKS はこの時点では未ロードの可能性があるため、
+    // books.json ロード完了後に正式書名へ更新する
     vRef.textContent = verse.ref;
+    ensureBookMasterApplied().then(() => { vRef.textContent = _formatDailyRef(verse.ref); });
 
     // この一節のことばセクション
     const themesSection = document.createElement('div');
@@ -5596,8 +5086,8 @@ function renderDiscoveryLobby() {
     themesSection.appendChild(pills);
     card.appendChild(vText);
     card.appendChild(vRef);
-    card.appendChild(themesSection);
     lobby.appendChild(card);
+    lobby.appendChild(themesSection);
 }
 
 /* ============================================================
