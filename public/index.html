@@ -3880,9 +3880,17 @@ details[open] .study-summary::before {
 
 <script src="../assets/js/shared-ui.js"></script>
 <script src="../core/syntax-analyzer.js"></script>
+<script src="../core/reading-context.js"></script>
 <script src="../core/phrase-analyzer.js"></script>
 <script src="../core/clause-analyzer.js"></script>
 <script src="../core/reading-projection.js"></script>
+<script src="../assets/data/reading-lexicon-data.js"></script>
+<script src="../assets/data/reading-semantic-data.js"></script>
+<script src="../assets/data/reading-ln-final-data.js"></script>
+<script src="../core/reading-lexicon.js"></script>
+<script src="../core/reading-engine.js"></script>
+<script src="../core/phrase-renderer.js"></script>
+<script src="../core/presentation-policy.js"></script>
 <script>
 let abbottSmithDict = null;
 let _proximityTokens = [];
@@ -3936,6 +3944,10 @@ async function _ensureSemanticData() {
             fetch('../assets/data/index/semantic-domain-labels.json'),
         ]);
         _lexiconData          = lexRes.ok   ? await lexRes.json()   : {};
+        /* Phase 4-C: ReadingLexicon を lexicon-lite で補強する
+           （glossJa / abbottSmith / semanticDomains — Phase 5 Semantic の語彙情報源）。
+           失敗しても ReadingEngine の挙動には影響しない（deponent は基本層にある）。 */
+        try { window.App?.readingLexicon?.enrich(_lexiconData); } catch (_) {}
         _lnIndexData          = lnRes.ok    ? await lnRes.json()    : {};
         _clusterIndexData     = clRes.ok    ? await clRes.json()    : {};
         _compositionData      = compRes.ok  ? await compRes.json()  : {};
@@ -5122,7 +5134,7 @@ function decorate(wordText, wordData) {
 
     const strong = normalizeStrong(m.strong);
     const strongDigits = strong.slice(1); // abbottSmithDict キー用（数字のみ）
-    const jaWord  = m.japanese || "-";
+    const jaWord  = (window.App?.readingEngine?.resolve(m)?.japanese) || m.japanese || "-";
     const desc    = m.description || (abbottSmithDict && abbottSmithDict[strongDigits]?.description) || "解説なし";
     const lemma   = String(m.lemma || "").replace(/'/g, "\\'");
     const jaWordE = jaWord.replace(/'/g, "\\'");
@@ -5320,7 +5332,13 @@ async function _renderReadingNotes(p) {
     const resolvedId  = (AppState.inspect.data?.lemmaId) || _resolveLemmaId(strong);
     const lexEntry    = resolvedId ? _lexiconData?.[resolvedId] : null;
 
-    const gloss_ja        = lexEntry?.gloss_ja || jaWord || '';
+    /* Stage E: 3 層分離（docs/display-label.md）
+       ② 語義見出し(Display Label) = ReadingLexicon.getDisplayLabel（lemma 単位・
+          文脈非依存・短い代表訳）。gloss_ja(③説明) も jaWord(①読む日本語) も見出しの
+          SSOT にしない。getDisplayLabel は NT 全トークン 100% 供給（未供給は
+          jaWord への安全網のみ・実トークンでは発火しない）。 */
+    const displayLabel    = (window.App?.readingLexicon?.getDisplayLabel(resolvedId)) || jaWord || '';
+    /* ③ 語義説明は abbottSmith（下の語義セクション）が担う。gloss_ja は見出しに使わない */
     const abbottSmithText = lexEntry?.abbottSmith || '';
     const contexts        = lexEntry?.contexts || {};
     const synopticRefs    = contexts.synoptic_refs || [];
@@ -5478,7 +5496,7 @@ async function _renderReadingNotes(p) {
         <!-- LEVEL 1: まず聖書を読む（常時表示） -->
         <div class="rn-word-head">
             <span class="rn-greek greek-headword">${word}</span>
-            ${gloss_ja ? `<span class="rn-ja">${gloss_ja}</span>` : ''}
+            ${displayLabel ? `<span class="rn-ja">${displayLabel}</span>` : ''}
         </div>
 
         ${proseHTML}
@@ -8354,7 +8372,12 @@ app.innerHTML = '';
                 // ★ SSOT: bookKey / ch を _wordToFlowChip に渡す（ref パース禁止）
                 const _chipBookKey = AppState.location.book ? AppState.location.book.key : '';
                 const _chipCh = AppState.location.chapter != null ? AppState.location.chapter : null;
-                const chips = words.map((w, i) => _wordToFlowChip(w, i, _chipBookKey, _chipCh));
+                /* Stage B: 節単位 resolve cache（Engine が日本語の SSOT。
+                   null = Tier 2 rollback → resolved 未指定の従来動作） */
+                const _flowResolved = _getVerseResolved(words);
+                block._flowResolved = _flowResolved;
+                const chips = words.map((w, i) => _wordToFlowChip(w, i, _chipBookKey, _chipCh,
+                    _flowResolved ? _flowResolved[i] : undefined, words));
                 /* 複数節が同時に描画されるため、idx は節内でのみ有効。
                    block 単位でchipデータを保持し、_wlvChipClick から節を跨いだ取り違えなく参照できるようにする。 */
                 block._flowChips = chips;
@@ -8601,7 +8624,10 @@ function _buildFlowTabHTML(words) {
        ★ SSOT: bookKey / ch を渡す（AppState.location 経由）*/
     const _fbkKey = AppState.location.book ? AppState.location.book.key : '';
     const _fbkCh  = AppState.location.chapter != null ? AppState.location.chapter : null;
-    const chips = words.map((w, i) => _wordToFlowChip(w, i, _fbkKey, _fbkCh));
+    /* Stage B: Engine が日本語の SSOT（cache 失敗時は従来動作へ rollback） */
+    const _ftResolved = _getVerseResolved(words);
+    const chips = words.map((w, i) => _wordToFlowChip(w, i, _fbkKey, _fbkCh,
+        _ftResolved ? _ftResolved[i] : undefined, words));
 
     /* ── chip HTML（補助として小さく） ── */
     const chipsHTML = chips.map((c, i) => {
@@ -8797,6 +8823,28 @@ async function _getWallaceClauseAnalysis(words) {
 const _PHRASE_READING_PRIORITY = { NP: 0, PP: 1, PtcP: 2 };
 const _PHRASE_READING_MAX_SPAN = 7;
 
+/* ── Stage A: Phrase Renderer 用の語解決（docs/phrase-rendering.md §4）──
+   引用の日本語ソースは Reading Engine の resolve 出力（唯一のソース）。
+   失敗・改善なしは null を返し、Renderer 側が w.japanese へ fallback する。 */
+function _phraseResolveWord(words, idx) {
+    try {
+        const ctx = _buildReadingContext(words, idx);
+        const r = window.App?.readingEngine?.resolve(words[idx], ctx);
+        return r ? r.japanese : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+/* Stage A: 引用生成の新経路。PhraseRenderer 未ロード時は旧 renderPhraseJP へ
+   fallback（旧実装は比較・切戻し用に残置 — 削除しない）。戻り値は HTML エスケープ済み。 */
+function _renderQuoteViaEngine(p, endIdx, words) {
+    const PR = window.App?.PhraseRenderer;
+    if (!PR) return renderPhraseJP(p, endIdx, words);
+    const q = PR.renderQuote(p, endIdx, words, i => _phraseResolveWord(words, i));
+    return q ? _escH(q) : '';
+}
+
 /* ── PhraseRenderer v0.1: 前置詞句（PP）の日本語化 ──────────────────
    PP のみ語順を組み替え「modifier + head + 前置詞訳」で自然な日本語を生成。
    その他の句種はトークンの w.japanese → w.text を連結する（フォールバック）。 */
@@ -8968,7 +9016,8 @@ function _phraseIntentStandaloneHTML(words, idx, proj) {
     try {
         const intentLines = _phraseIntentLines(proj, idx);
         if (intentLines.length === 0) return null;
-        const quoted = _escH((words[idx] && (words[idx].japanese || words[idx].text)) || '');
+        /* Stage A: 対象語引用も Engine 出力ベース（単語の擬似句として整形） */
+        const quoted = _renderQuoteViaEngine({ type: '', start: idx, end: idx }, idx, words);
         if (!quoted) return null;
         const first = intentLines[0].startsWith(_PHRASE_INTENT_LEAD)
             ? `「${quoted}」のまとまりは、` + intentLines[0].slice(_PHRASE_INTENT_LEAD.length)
@@ -9030,8 +9079,9 @@ async function _buildPhraseReadingHTML(words, idx) {
         (_PHRASE_READING_PRIORITY[a.type] ?? 9) - (_PHRASE_READING_PRIORITY[b.type] ?? 9) ||
         (a.end - a.start) - (b.end - b.start));
 
-    const quoteOf = (s, e) => words.slice(s, e + 1)
-        .map(w => _escH((w && (w.japanese || w.text)) || '')).filter(Boolean).join('');
+    /* Stage A: 『〜の』関係文の引用も Engine 出力ベース（GenP は並べ替えなし・
+       句末の「の」は保持 — docs/phrase-rendering.md §2-5） */
+    const quoteOf = (s, e) => _renderQuoteViaEngine({ type: 'GenP', start: s, end: e }, e, words);
 
     const seen = new Set();
     const lines = [];
@@ -9041,7 +9091,8 @@ async function _buildPhraseReadingHTML(words, idx) {
         seen.add(key);
         const trimmedEnd = _trimPhraseEnd(words, p);
         if (trimmedEnd - p.start < 1 || idx > trimmedEnd) continue;   // 縮めて成立しなければ沈黙
-        const quoted = renderPhraseJP(p, trimmedEnd, words);
+        /* Stage A: Engine 出力ベースの引用（旧 renderPhraseJP は残置・fallback） */
+        const quoted = _renderQuoteViaEngine(p, trimmedEnd, words);
         if (!quoted) continue;
         lines.push(_phraseReadingSentence(p.type, quoted));
 
@@ -9206,7 +9257,8 @@ async function _buildObservationHTML(words, idx, existingTexts) {
     }
     if (!make) return null;
 
-    const quoted = _escH((words[idx] && (words[idx].japanese || words[idx].text)) || '');
+    /* Stage A: Observation の対象語引用も Engine 出力ベース */
+    const quoted = _renderQuoteViaEngine({ type: '', start: idx, end: idx }, idx, words);
     if (!quoted) return null;
     const line = make(quoted);
 
@@ -9514,13 +9566,55 @@ async function _fillWlvResonance(ddReso, words, idx) {
  * @param {number} i   index
  * @returns {{ greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong }}
  */
+/* __FLOW_CHIP_BEGIN__
+   Stage B: Flow Renderer（docs/flow-rendering.md）[FROZEN 2026-07-17]
+   基準値: NT 137,741 トークン / チップ変更 39,485 / 破損形（新）0 /
+           chip⇔StudyPanel 一致率 100%。
+   変更時は scripts/re-stageB-regression.cjs へ回帰ケース追加 →
+   npm run test:re-stageB 全 PASS を確認すること。
+   Flow Renderer は日本語を生成しない。日本語の SSOT は Reading Engine。
+   Fallback 3 層:
+     Tier 0: resolve 結果あり → resolved.japanese
+     Tier 1: resolve null    → 素の w.japanese（_naturalize は適用しない —
+             StudyPanel・Phrase 引用と同一の fallback = SSOT 一致）
+     Tier 2: Engine 未ロード / cache 生成失敗 / resolved 未指定の旧呼び出し
+             → 旧経路（_naturalize 含む）へ rollback */
+
+/* 節単位 resolve cache（単一スロット・words 参照キー）。
+   ContextBuilder の実行はこのキャッシュ生成時の 1 回のみで、
+   チップ・ドロワー・原語タブはすべてこれを再利用する（再実行禁止）。 */
+let _verseResolveCache = null;   // { words, resolved }
+function _getVerseResolved(words) {
+    try {
+        if (!window.App?.readingEngine || !Array.isArray(words) || words.length === 0) return null;
+        if (_verseResolveCache && _verseResolveCache.words === words) {
+            return _verseResolveCache.resolved;
+        }
+        const resolved = new Array(words.length).fill(null);
+        for (let k = 0; k < words.length; k++) {
+            const ctx = _buildReadingContext(words, k);
+            if (!ctx) continue;
+            resolved[k] = window.App.readingEngine.resolve(words[k], ctx) || null;
+        }
+        _verseResolveCache = { words, resolved };
+        return resolved;
+    } catch (_) {
+        return null;   // Tier 2（呼び出し側は resolved 未指定で旧経路へ）
+    }
+}
+
 /**
  * @param {Object} w       - 語トークン（生JSON）
  * @param {number} i       - 節内インデックス
  * @param {string} [_bookKey] - 書物キー（呼び出し元が持つ構造フィールド）
  * @param {number} [_ch]      - 章番号（呼び出し元が持つ構造フィールド）
+ * @param {Object|null} [_resolved] - Engine resolve 結果（Stage B）。
+ *        指定時: Tier 0/1（Engine が日本語の SSOT）。
+ *        未指定（undefined）: Tier 2 = 従来動作（既存呼び出し互換）。
+ * @param {Object[]} [_words] - 節トークン配列（Stage C P1: 表示整形用。
+ *        省略時は整形なし = 従来表示）。
  */
-function _wordToFlowChip(w, i, _bookKey, _ch) {
+function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
     const greek    = w.text   || '-';
     const rawMorph = w.morph  || '';
     const lemma    = w.lemma  || '';
@@ -9535,18 +9629,32 @@ function _wordToFlowChip(w, i, _bookKey, _ch) {
                    : null;
     const verse    = w.verse    != null ? w.verse    : null;
     const strong   = normalizeStrong(w.strong);
-    // 表示言語の優先順位: gloss → lemma → '—'
-    // 表示変更したい場合はここを w.japanese || w.gloss || w.lemma || '—' などに変更する
-    const jaWord   = w.japanese || '—';
+    // Stage B: 日本語の決定は Reading Engine（docs/flow-rendering.md §0）。
+    //   Tier 0: _resolved.japanese / Tier 1: 素の w.japanese /
+    //   Tier 2（_resolved === undefined = 旧呼び出し）: 従来経路
+    const _engineJa = (_resolved !== undefined)
+        ? ((_resolved && typeof _resolved.japanese === 'string') ? _resolved.japanese : null)
+        : undefined;
+    const jaWord = (_engineJa !== undefined && _engineJa !== null)
+        ? _engineJa
+        : (w.japanese || '—');
 
     const parts    = rawMorph.split('-');
     const pos      = parts[0] || '';
 
-    /* ── グロス自然化 ── */
+    /* ── グロス自然化（Tier 2 = 旧経路のみ。Tier 0/1 では適用しない） ── */
     let gloss = jaWord;
 
+    /* Stage C P1: 表示整形（Presentation Policy — 表示のみ。jaWord は生のまま。
+       docs/presentation-policy.md。_words 省略時・Policy 未ロード時は整形なし） */
+    if (_engineJa !== undefined && _engineJa !== null &&
+        _words && window.App?.PresentationPolicy) {
+        gloss = window.App.PresentationPolicy.formatDisplay(
+            gloss, _resolved.source, _words, i);
+    }
+
     /* 動詞の法・時制に応じた接尾調整 */
-    if (pos === 'V' && parts[1]) {
+    if (_engineJa === undefined && pos === 'V' && parts[1]) {
         const off       = /^[0-9]/.test(parts[1]) ? 1 : 0;
         const tenseCode = parts[1][off]     || '';
         const voiceCode = parts[1][off + 1] || '';
@@ -9680,6 +9788,62 @@ function _wordToFlowChip(w, i, _bookKey, _ch) {
 }
 
 /**
+ * ReadingEngine 用の ResolveContext を構築する（Phase 2 Syntax Layer）。
+ * ContextBuilder.build()（同期・O(n)）の結果から純粋データのみを抽出する。
+ * ReadingEngine は SyntaxAnalyzer / ContextBuilder を直接呼ばない設計のため、
+ * 注入するデータはここで組み立てる（設計正典: resolve(token, context?)）。
+ * 失敗・未ロード時は null（ReadingEngine は Phase 1 Morphology のみで動作する）。
+ */
+/* __READING_CTX_BEGIN__
+   Stage D: Reading Context Layer — 唯一の Context Source（docs/context-layer.md）
+   Flow / StudyPanel / Phrase Reading / Presentation はすべて本関数を共有し、
+   ReadingContext が供給する ResolveContext を使う。出力は従来とバイト等価。
+   観測: ReadingContext が使えず旧経路へ落ちた回数を _readingCtxStats.rcFallback に
+   集計する（将来の警告表示の土台。通常 0 = SSOT 維持）。 */
+if (typeof window !== 'undefined') {
+    window.App = window.App || {};
+    window.App._readingCtxStats = window.App._readingCtxStats || { rcFallback: 0 };
+}
+function _buildReadingContext(words, idx) {
+    try {
+        /* Stage D: ReadingContext が唯一の Context Source */
+        const RC = window.App?.readingContext;
+        if (RC) {
+            const c = RC.getContext(words, idx);
+            if (c) return c;
+        }
+        /* fallback（観測可能）: Context Layer 未ロード or getContext null のときのみ
+           従来ロジックへ。比較・rollback 用に残置し、使用回数を集計する。 */
+        if (window.App?._readingCtxStats) window.App._readingCtxStats.rcFallback++;
+        const CB = window.App?.syntax?.ContextBuilder;
+        if (!CB || !Array.isArray(words) || !words[idx]) return null;
+        const ctx = CB.build(words[idx], words, idx);
+        return {
+            tokens:    words,
+            targetIdx: idx,
+            phrases:   Array.isArray(ctx?.phrases) ? ctx.phrases : [],
+            hasPassiveVerb: words.some(w =>
+                (w.class || '') === 'verb' && (w.voice || '') === 'passive'),
+            /* Phase 3-A: 主格の は/が 判定用（純粋データのみ） */
+            mainVerb: ctx?.mainVerb ? {
+                lemma:  ctx.mainVerb.lemma  || '',
+                person: ctx.mainVerb.person || '',
+                number: ctx.mainVerb.number || '',
+                mood:   ctx.mainVerb.mood   || '',
+            } : null,
+            clause: ctx?.clause ? {
+                start: ctx.clause.start,
+                end:   ctx.clause.end,
+                subordinate: ctx.clause.subordinate === true,
+            } : null,
+        };
+    } catch (_) {
+        return null;
+    }
+}
+/* __READING_CTX_END__ */
+
+/**
  * 日本語グロスを品詞・法に応じて自然化する。
  * グロスの末尾をルールベースで変換する。複雑な形態素分析は行わない。
  * 変換できなければ元の gloss をそのまま返す。
@@ -9804,6 +9968,7 @@ function _buildMorphText(rawMorph, pos, parts) {
     }
     return '';
 }
+/* __FLOW_CHIP_END__ */
 
 /* ── chip クリック：詳細ドロワーを展開 ── */
 /* グローバルに現在選択中の chipIdx を保持（ドロワーから「詳しく見る」するため） */
@@ -9828,6 +9993,21 @@ function _wlvChipClick(chipEl, idx) {
     const chip = (verseBlock && verseBlock._flowChips) ? verseBlock._flowChips[idx] : _wlvGetChipData(idx);
     if (!chip) return;
 
+    /* ReadingEngine: 生トークン（decoded フィールドを持つ）から改善済み日本語を取得。
+       verseBlock._flowWords は生トークン配列（block._flowWords = words で保持済み）。
+       パネル内フロータブの場合は _wlvWordCache[idx] を使う。
+       Phase 2: 節トークン配列から ResolveContext を構築して注入する（同期・軽量）。 */
+    const _reWords  = (verseBlock?._flowWords) || _wlvWordCache;
+    const _rawToken = _reWords?.[idx];
+    const _reCtx    = _buildReadingContext(_reWords, idx);
+    const _reResolved = window.App?.readingEngine?.resolve(_rawToken, _reCtx);
+    const _resolvedJa = _reResolved?.japanese;
+    /* Stage C P1: StudyPanel 用の表示整形（内部値 jaWord は生のまま保持） */
+    const _resolvedJaDisplay = (_resolvedJa && window.App?.PresentationPolicy)
+        ? window.App.PresentationPolicy.formatDisplay(
+            _resolvedJa, _reResolved.source, _reWords, idx)
+        : _resolvedJa;
+
     /* AppState の inspect を更新
        ★ SSOT: ref は表示専用として保持。ロジックには bookKey / ch / verse を使う。 */
     AppState.inspect.data = {
@@ -9836,7 +10016,9 @@ function _wlvChipClick(chipEl, idx) {
         jpMorph:  chip.morphText,
         rawMorph: chip.rawMorph,
         lemma:    chip.lemma,
-        jaWord:   chip.jaWord,
+        jaWord:   _resolvedJa || chip.jaWord,
+        /* Stage C P1: 表示用整形値（生の jaWord とは別に保持 — SSOT は不変） */
+        jaWordDisplay: _resolvedJaDisplay || _resolvedJa || chip.jaWord,
         desc:     (abbottSmithDict && abbottSmithDict[chip.strong.slice(1)]?.description) || '',
         ref:      chip.ref,      // 表示専用（ラベル・URL クエリ文字列のみ）
         bookKey:  chip.bookKey  || '',
@@ -9873,7 +10055,8 @@ function _wlvChipClick(chipEl, idx) {
         const ddJa    = document.getElementById('wlv-dd-ja');
         const ddReso  = document.getElementById('wlv-dd-resonance');
         if (ddGreek) ddGreek.textContent = chip.greek || '-';
-        if (ddJa)    ddJa.textContent    = chip.jaWord || chip.gloss || '-';
+        /* Stage C P1: ドロワーも Flow と同じ表示規則（chip.gloss = 整形済み表示） */
+        if (ddJa)    ddJa.textContent    = chip.gloss || chip.jaWord || '-';
         /* ReadingFormatter駆動・非同期（静寂優先：意味のある節文脈が無ければ何も表示しない） */
         _fillWlvResonance(ddReso, _wlvWordCache, idx);
         drawer.classList.add('visible');
@@ -9916,11 +10099,16 @@ function _wlvStudyBtnClick() {
 /* ── 原語タブ ── */
 function _buildGreekTabHTML(words) {
     const JPN_POS = { V:'動詞', N:'名詞', A:'形容詞', R:'関代', P:'代名', T:'冠詞', D:'指代', ADV:'副詞', PREP:'前置', CONJ:'接続', PRT:'添語' };
-    const rows = words.map(w => {
+    /* Stage B: 原語タブも Engine を日本語の SSOT にする（cache 再利用） */
+    const _gtResolved = _getVerseResolved(words);
+    const rows = words.map((w, _gi) => {
         const pos     = (w.morph || '').split('-')[0];
         const posJpn  = JPN_POS[pos] || pos;
         const strong  = normalizeStrong(w.strong);
-        const jaWord  = w.japanese || '—';
+        const jaWord  = (_gtResolved && _gtResolved[_gi] &&
+                         typeof _gtResolved[_gi].japanese === 'string')
+            ? _gtResolved[_gi].japanese
+            : (w.japanese || '—');
         return `<div style="display:flex;align-items:baseline;gap: var(--space-sm);padding: var(--space-xs) 0;border-bottom:1px solid rgba(0,0,0,0.04);">
             <span style="font-family:'Gentium Plus',serif;font-size:var(--text-title);color:var(--text-main);min-width:80px;flex-shrink:0;">${w.text || ''}</span>
             <span style="font-size: var(--text-caption);color:var(--text-sub);flex:1;">${jaWord}</span>
@@ -10106,7 +10294,10 @@ const activeVEl = document.getElementById('active-v');
     const rcbWord  = document.getElementById('rcb-main-word');
     const rcbGloss = document.getElementById('rcb-main-gloss');
     if (rcbWord)  rcbWord.textContent  = greek || '-';
-    if (rcbGloss) rcbGloss.textContent = (AppState.inspect.data?.jaWord) || '';
+    /* Stage C P1: StudyPanel ヘッダも Flow と同じ表示規則を共有
+       （jaWordDisplay = Presentation Policy 適用済み。なければ生 jaWord） */
+    if (rcbGloss) rcbGloss.textContent =
+        (AppState.inspect.data?.jaWordDisplay) || (AppState.inspect.data?.jaWord) || '';
     if (rcb) rcb.classList.add('visible');
 
     /* 読書メモエリアを表示 */
@@ -10705,7 +10896,10 @@ function _buildGfVerseBlock(vNum, words) {
        ★ SSOT: bookKey / ch を渡す（AppState.location 経由）*/
     const _gfBkKey = AppState.location.book ? AppState.location.book.key : '';
     const _gfBkCh  = AppState.location.chapter != null ? AppState.location.chapter : null;
-    const chips = words.map((w, i) => _wordToFlowChip(w, i, _gfBkKey, _gfBkCh));
+    /* Stage B: Engine が日本語の SSOT（cache 失敗時は従来動作へ rollback） */
+    const _gfResolved = _getVerseResolved(words);
+    const chips = words.map((w, i) => _wordToFlowChip(w, i, _gfBkKey, _gfBkCh,
+        _gfResolved ? _gfResolved[i] : undefined, words));
     const chipsHTML = chips.map((c, i) => {
         const sepBefore = c.phraseBreakBefore ? `<span class="wlv-phrase-sep"></span>` : '';
         return `${sepBefore}<span class="wlv-chip ${c.roleClass}"
