@@ -34,8 +34,10 @@ const PUBLIC = path.join(ROOT, 'public');
 // ── Stage A 凍結基準値（2026-07-17 NT全巻差分監査） ─────────────────
 const STAGEA_BASELINE = {
     quotes:    23101,
-    identical:  2163,
-    changed:   20936,
+    // M-15 反映移行(2026-07-22): 固定点2,537反映で一部が反映後 Data と一致化。
+    // identical 2163→2174 / changed 20936→20925。pre-reflection historical=2163/20936（削除しない）。
+    identical:  2174,
+    changed:   20925,
     newSilent:     2,   // 旧「［冠詞］［冠詞］」のみの引用 2 件が正しく沈黙
     newKanshi:     0,   // 新引用への ［冠詞］ 混入は常に 0
 };

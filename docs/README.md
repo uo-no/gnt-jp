@@ -45,6 +45,18 @@
 
 UIは 情報密度・余白・強調の重ね掛けを抑えた「静かな読書体験」を志向しています（`css/tokens.css` に定義したデザイントークンに沿って統一）。
 
+### 読むための日本語（Reading Japanese）
+
+本文の日本語表示は「翻訳」ではなく、**ギリシャ語の構造（数・性・人称・格・指示など）を読むための日本語表示**です。原文を起点として保持し、決定的に定まる構造のみを反映します（推論・語義選択・翻訳化はしません）。
+
+読みを支える情報は責務ごとに分かれています。
+
+- **Reading（読む）**：本文の読み・この節の読書メモ・段落を読み始める入口（Reading Hint）
+- **Word（調べる）**：語を詳しく調べる StudyPanel
+- **Passage（研究）**：段落構造（将来）
+
+Reading Hint は実行時に自動生成されるものではなく、**編集済みの静的なメモ（Editorial Asset）**として管理されます。詳細仕様は [reading-japanese-specification.md](../public/docs/reading-japanese-specification.md) を参照してください。
+
 ---
 
 ## 現在の状態（Pre-Release）

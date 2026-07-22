@@ -46,10 +46,18 @@ const PUBLIC = path.join(ROOT, 'public');
 // 2026-07-19 J-5: τίς(G5101) neuter→何 で主格 neuter τίς 16件が morph 短絡し
 // particle 非到達。particle 3,079 → 3,063（は −16）。旧「誰は」は疑問詞への は 付与で
 // 不自然（H-3a Phase 4 が指摘）であり、新「何」への解消は改善（悪化 0）。
+// 2026-07-20 J-6b: 関係詞 ὅς/ὅστις/ὅσος の neuter→もの・ὅσος masc→者 で、主格の関係詞 46件が
+// morph 短絡し particle 非到達。particle 3,063 → 3,017（が −46）。旧「〜する者が」は関係詞を
+// 名詞句主語化する が 付与（H-3a Phase 4/5 が指摘）で、格役割は Syntax 責務。解消は悪化 0。
+// 2026-07-20 M-7c: 純複数人称代名詞（私→私たち/あなた→あなたがた）で主格複数 2件が morph 短絡し
+// particle 非到達。particle 3,017 → 3,015（は −1 / が −1）。旧「私は/あなたが」（単数扱い）より
+// 新「私たち/あなたがた」の方が number に適合（悪化 0）。
 const PHASE3A_BASELINE = {
     totalTokens: 137741,
-    particle:    3063,
-    byParticle: { 'は': 2171, 'が': 892 },
+    // M-15 反映移行(2026-07-22): 固定点2,537反映で主語代名詞(私たち/彼ら/これ 等)が は/が を得た。
+    // 3015→3084（は 2170→2202 / が 845→882）。pre-reflection historical=3015（削除しない）。
+    particle:    3084,
+    byParticle: { 'は': 2202, 'が': 882 },
     zeroFlags: ['doubleParticle', 'brokenWaGa', 'morphMismatch'],
 };
 

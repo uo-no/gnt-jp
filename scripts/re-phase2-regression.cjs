@@ -44,10 +44,13 @@ const PUBLIC = path.join(ROOT, 'public');
 // 「世から」等の前置詞助詞は維持される）。
 const PHASE2A_BASELINE = {
     totalTokens: 137741,
-    syntax:      4194,
+    // M-15 反映移行(2026-07-22): 固定点2,537反映で一部トークンの base 変化により syntax 再利用が増加。
+    // 4194→4208。pre-reflection historical=4194（data-role-migration-freeze・削除しない）。
+    syntax:      4208,
     byPrep: {
         // Phase 2-A（FROZEN）※ εἰς/ἐκ/ἀπό は 5-A/5-D の semantic 昇格分を控除
-        'εἰς|accusative': 1449,
+        // M-15 反映移行: εἰς|accusative 1449→1458 / περί|genitive 226→229 / μετά|accusative 35→37
+        'εἰς|accusative': 1458,
         'ἐκ|genitive':     752,
         'ἀπό|genitive':    545,
         'ἐν|dative':       146,
@@ -56,9 +59,9 @@ const PHASE2A_BASELINE = {
         // Phase 2-B（FROZEN）
         'διά|genitive':    351,
         'μετά|genitive':   336,
-        'περί|genitive':   226,
+        'περί|genitive':   229,
         'παρά|genitive':    78,
-        'μετά|accusative':  35,
+        'μετά|accusative':  37,
         'πρό|genitive':     30,
     },
     zeroFlags: ['doubleParticle', 'morphMismatch'],

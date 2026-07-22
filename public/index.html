@@ -1703,6 +1703,17 @@ animation: ac-blink 1.2s ease-in-out infinite;
 .verse-pair-left  { border-radius: var(--radius-s) 0 0 var(--radius-s); }
 .verse-pair-right { border-radius: 0 var(--radius-s) var(--radius-s) 0; }
 .verse-block.selected { background: var(--accent-light); }
+/* Reading Hint v1（SP-12）: 静かな読書の入口。大きなカードにしない・既存トークンのみ使用 */
+.reading-hint {
+    font-family: 'Noto Serif JP', serif;
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    opacity: var(--opacity-secondary);
+    line-height: 1.9;
+    margin: var(--space-xs) 0 var(--space-md);
+    padding-left: var(--space-sm);
+    border-left: 2px solid var(--border-soft, var(--border));
+}
 .jp-section { padding: var(--space-xs) var(--space-sm); cursor: pointer; display: flex; align-items: baseline; border-radius: var(--radius-s); }
 .jp-section:hover { background: rgba(0,0,0,0.03); }
 .v-num { color: var(--text-hint, #8e8e93); margin-right: var(--space-md); font-size: var(--text-caption); font-weight: 400; min-width: 20px; text-align: right; letter-spacing: 0.02em; flex-shrink: 0; }
@@ -7772,6 +7783,13 @@ function showAppInfo() {
             </section>
 
             <section>
+                <h3>日本語表示について（Reading Japanese）</h3>
+                <p>このアプリの日本語表示は、一般的な「翻訳」とは異なります。ギリシャ語本文の構造（数・性・人称・格・指示など）を読むための日本語表示です。</p>
+                <p>語形や構造など、本文から決定できる情報だけを反映し、推測による補完や一方的な語義の選択は行いません。原文を起点として保ちながら、読みでたどれる形にしています。</p>
+                <p>詳細な考え方は「Reading Japanese Specification」として公開しています。</p>
+            </section>
+
+            <section>
                 <h3>出典</h3>
                 <table>
                     <tr><th>ギリシャ語底本</th><td>SBL Greek New Testament (SBLGNT)</td></tr>
@@ -8198,9 +8216,60 @@ function _purgeNoteAndRefresh(refEncoded) {
     showNotesTrash();
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   Reading Hint v1（SP-12）— 編集済み Editorial Asset の加算表示のみ。
+   解析・生成・推論はしない（Runtime に AI なし）。engine / ReadingFormatter /
+   Reading Memo / bible_data / StudyPanel には一切関与しない。
+   失敗しても本文表示は不変（Hint を出さないだけ）。
+   ════════════════════════════════════════════════════════════════ */
+let _readingHintIndex = null; // Map: `${bookKey}|${chapter}` -> [published hint, ...]
+async function _loadReadingHints() {
+    if (_readingHintIndex) return;
+    try {
+        const res = await fetch('../assets/data/reading-hints.json');
+        const arr = res.ok ? await res.json() : [];
+        const idx = new Map();
+        for (const h of (Array.isArray(arr) ? arr : [])) {
+            if (!h || h.status !== 'published' || !h.book || h.chapter == null) continue;
+            const k = h.book + '|' + h.chapter;
+            if (!idx.has(k)) idx.set(k, []);
+            idx.get(k).push(h);
+        }
+        _readingHintIndex = idx;
+    } catch (_) {
+        _readingHintIndex = new Map(); /* 失敗しても継続（Hint 非表示） */
+    }
+}
+/* 現在の book/chapter/verse が pericope の冒頭節（verseStart 一致）なら Hint を返す。無ければ null。 */
+function _getReadingHintForVerse(bookKey, chapter, vNum) {
+    if (!_readingHintIndex) return null;
+    const list = _readingHintIndex.get(bookKey + '|' + chapter);
+    if (!list) return null;
+    const v = parseInt(vNum, 10);
+    return list.find(h => parseInt(h.verseStart, 10) === v) || null;
+}
+/* Reading 本文の該当節ブロックの後に、静かな Hint 要素を加算する（hintText のみ）。 */
+function _appendReadingHint(container, vNum) {
+    try {
+        if (!container) return;
+        const bookKey = AppState.location.book ? AppState.location.book.key : '';
+        const chapter = AppState.location.chapter;
+        if (!bookKey || chapter == null) return;
+        const hint = _getReadingHintForVerse(bookKey, chapter, vNum);
+        if (!hint || !hint.hintText) return;
+        const el = document.createElement('div');
+        el.className = 'reading-hint';
+        el.setAttribute('data-reading-hint', hint.id || '');
+        el.textContent = hint.hintText; /* hintText のみ。Greek/lemma/数値/ラベルは出さない */
+        container.appendChild(el);
+    } catch (_) { /* 失敗しても本文表示は不変 */ }
+}
+
 async function init() {
     /* アイコンレジストリから data-icon 要素へSVGを挿入する（☆🔗📝☰ 等の絵文字置き換え） */
     _renderStaticIcons();
+    /* Reading Hint v1（加算表示・非ブロッキング・失敗許容） */
+    _loadReadingHints();
 
     /* onboarding未完了なら、render/applyShareState/onPageRendered実行前に
        フラグを立てておく（onboarding.js の自動デモによるURL書き換えを防ぐ） */
@@ -8497,6 +8566,8 @@ app.innerHTML = '';
         } else {
             app.appendChild(block);
             parallel.appendChild(pBlock);
+            /* Reading Hint v1: 主 Reading ビュー（非比較）の該当節冒頭に加算表示 */
+            _appendReadingHint(app, vNum);
         }
     });
 

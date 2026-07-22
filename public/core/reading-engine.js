@@ -237,6 +237,77 @@ const _MORPH_STEM_RULES = {
             'neuter|plural':      '何',
         },
     },
+    // J-6b: 関係詞 ὅς(G3739)/ ὅστις(G3748)。gender で頭語(substantive head)の
+    // 種別のみを選ぶ。masculine=人→者（Data 代表語のまま）/ neuter=事物→もの
+    //（〜する者 → 〜するもの）。feminine は stems に登録しない → 「〜する者」のまま
+    //（女性名詞が人か事物か referent 依存のため Semantic 責務）。number は語幹を
+    // 変えない（単複とも同一）。**関係節・先行詞・格役割・格助詞の適否は Syntax の責務で
+    // 本 Rule の対象外**（設計: docs/relative-morph-rule-design.md）。case 助詞の付与は
+    // Phase 1 既存挙動であり本 Rule は頭語の種別選択のみを行う。
+    'G3739': {
+        base: '〜する者',
+        stems: {
+            'masculine|singular': '〜する者',
+            'masculine|plural':   '〜する者',
+            'neuter|singular':    '〜するもの',
+            'neuter|plural':      '〜するもの',
+        },
+    },
+    'G3748': {
+        base: '〜する者',
+        stems: {
+            'masculine|singular': '〜する者',
+            'masculine|plural':   '〜する者',
+            'neuter|singular':    '〜するもの',
+            'neuter|plural':      '〜するもの',
+        },
+    },
+    // ὅσος(G3745)。数量表現「〜するだけ」を代表語とするが、gender→頭語のみ Morph が担う。
+    // masculine=人→〜する者 / neuter=事物→〜するもの。数量（as many/how much）は Semantic の
+    // 責務で本 Rule では扱わない（頭語の種別のみ）。feminine(1件)は未登録＝既定「〜するだけ」のまま。
+    'G3745': {
+        base: '〜するだけ',
+        stems: {
+            'masculine|singular': '〜する者',
+            'masculine|plural':   '〜する者',
+            'neuter|singular':    '〜するもの',
+            'neuter|plural':      '〜するもの',
+        },
+    },
+    // J-8b: 再帰代名詞 ἐμαυτοῦ(G1683)/ σεαυτοῦ(G4572)。person が strong で一意
+    //（morph 文字列 F-1 / F-2・常に単数）。ἐμαυτοῦ=1 人称→私自身 / σεαυτοῦ=2 人称→あなた自身。
+    // 実データは全件 masculine singular。person は gender/number でなく strong で決まるため、
+    // 単数の性別各値を同一値へ写す（安全側）。ἑαυτοῦ(G1438/G848)は person-leveling
+    //（yourselves/ourselves に流用）で不一意のため対象外＝Semantic 責務（汎用「自分自身/自分」維持）。
+    // case 助詞は Phase 1 既存挙動。設計: docs/reflexive-morph-rule-design.md。
+    'G1683': {
+        base: '自分自身',
+        stems: {
+            'masculine|singular': '私自身',
+            'feminine|singular':  '私自身',
+            'neuter|singular':    '私自身',
+        },
+    },
+    'G4572': {
+        base: '自分自身',
+        stems: {
+            'masculine|singular': 'あなた自身',
+            'feminine|singular':  'あなた自身',
+            'neuter|singular':    'あなた自身',
+        },
+    },
+    // M-7c: 純複数人称代名詞の number 反映（Morph Gap 解消）。person+number は strong で
+    // 一意（1複 ἐγώ→私たち / 2複 σύ→あなたがた）。人称代名詞は gender 無（空）のため
+    // stems キーは '|plural'。base 一致（私/あなた）時のみ発火。
+    //   対象外: G5213（既に あなたがた・H-5）/ G4675（混在=単数 σου・誤変換防止）/ 単数人称。
+    // number は形態由来の決定的変換で推論なし。設計: docs/morph-gap-resolution-design.md。
+    'G2257': { base: '私', stems: { '|plural': '私たち' } },       // ἡμῶν  P-1GP
+    'G2254': { base: '私', stems: { '|plural': '私たち' } },       // ἡμῖν  P-1DP
+    'G2248': { base: '私', stems: { '|plural': '私たち' } },       // ἡμᾶς  P-1AP
+    'G2249': { base: '私', stems: { '|plural': '私たち' } },       // ἡμεῖς P-1NP
+    'G5216': { base: 'あなた', stems: { '|plural': 'あなたがた' } }, // ὑμῶν  P-2GP
+    'G5209': { base: 'あなた', stems: { '|plural': 'あなたがた' } }, // ὑμᾶς  P-2AP
+    'G5210': { base: 'あなた', stems: { '|plural': 'あなたがた' } }, // ὑμεῖς P-2NP
 };
 
 // Morph Rule Registry による語幹選択。未登録 lemma・base 不一致・未定義の
@@ -249,6 +320,22 @@ function _morphStem(token, base) {
     const n = (token.number || '').toLowerCase();
     return rule.stems[g + '|' + n] || base;
 }
+
+// ── K-3: 関係詞 Syntax Rule Engine Phase 1（role/referent 読み取り・保持）──
+// 関係詞 ὅς(G3739)/ ὅστις(G3748)/ ὅσος(G3745)。bible_data の注釈済み構造情報
+// （role=節内役割 / referent=先行詞トークンID）を **読み取るのみ**。
+// 推論しない・日本語出力を変えない（resolve() は不変・バイト等価）。
+// 設計: docs/relative-syntax-rule-design.md / -implementation-plan.md。
+const _RELATIVE_STRONGS = new Set(['G3739', 'G3748', 'G3745']);
+
+// ── L-3c: 指示詞 Syntax Completion（role/referent 読み取り・保持）──
+// 指示詞 οὗτος / ἐκεῖνος / τοιοῦτος（格形で strong が分散するため lemma で判定）。
+// bible_data の注釈済み構造情報（role=節内役割 / referent=参照先トークンID）を
+// **読み取るのみ**。推論しない・日本語出力を変えない（resolve 不変・バイト等価）。
+// **連体/代名詞の区別は参照先の class（noun/verb 等）に依存し、それは corpus 索引を
+// 要する（per-token では確定できない）ため、engine では「未判定」とし consumer 側の
+// 決定的導出に委ねる**（推論しない・安全 fallback）。設計: docs/syntax-completion-design.md。
+const _DEMONSTRATIVE_LEMMAS = new Set(['οὗτος', 'ἐκεῖνος', 'τοιοῦτος']);
 
 // 受動変換スキップの語彙知識（デポネント・自動詞グロス）は Phase 4-A で
 // ReadingLexicon（assets/data/reading-lexicon-data.js・lemmaId キー）へ
@@ -444,6 +531,110 @@ class ReadingEngine {
     }
 
     /**
+     * 関係詞 Syntax 情報の読み取り（K-3・Phase 1）。
+     * bible_data に注釈済みの構造情報（role=節内役割 / referent=先行詞トークンID）を
+     * **読み取って返すのみ**。日本語出力（resolve）は一切変えない・推論しない。
+     *   - 対象: 関係詞 ὅς/ὅστις/ὅσος（G3739/G3748/G3745）
+     *   - 束縛関係のみ（referent 有）。**自由関係（referent 無）は null＝対象外（Semantic 責務）**
+     *   - role は s/o/io/adv/p/o2 等の注釈。未注釈（''/'-'）は null
+     * 未対象・欠落時はすべて null（安全 fallback）。
+     * @returns {{ strong: string, role: string|null, referent: string } | null}
+     */
+    getRelativeSyntax(token) {
+        try {
+            if (!token || typeof token !== 'object') return null;
+            const strong = (token.strong || '').replace(/^G0*/, 'G');
+            if (!_RELATIVE_STRONGS.has(strong)) return null;
+            const referent = (typeof token.referent === 'string' && token.referent)
+                ? token.referent : null;
+            if (!referent) return null; // 自由関係（先行詞なし）は対象外 = Semantic
+            const role = (typeof token.role === 'string' && token.role && token.role !== '-')
+                ? token.role : null;
+            return { strong, role, referent };
+        } catch (_) {
+            return null;
+        }
+    }
+
+    /**
+     * 指示詞 Syntax 情報の読み取り（L-3c・Syntax Completion）。
+     * bible_data に注釈済みの構造情報（role=節内役割 / referent=参照先トークンID）を
+     * **読み取って返すのみ**。日本語出力（resolve）は一切変えない・推論しない。
+     *   - 対象: 指示詞 οὗτος / ἐκεῖνος / τοιοῦτος（lemma 判定・格形 strong 分散のため）
+     *   - referent 有のみ（参照先注釈あり）。referent 無は null＝対象外
+     *   - role は s/o/io/adv/p/o2 等の注釈。未注釈（''/'-'）は null
+     *   - adnominal（未判定）: 連体/代名詞の区別は参照先 class 依存で per-token 決定不可。
+     *     engine では常に null（未判定）＝ consumer 側の決定的導出に委ねる（推論しない）。
+     * 未対象・欠落時はすべて null（安全 fallback）。
+     * @returns {{ lemma: string, role: string|null, referent: string, adnominal: null } | null}
+     */
+    getDemonstrativeSyntax(token) {
+        try {
+            if (!token || typeof token !== 'object') return null;
+            const lemma = (typeof token.lemma === 'string') ? token.lemma.normalize('NFC') : '';
+            if (!_DEMONSTRATIVE_LEMMAS.has(lemma)) return null;
+            const referent = (typeof token.referent === 'string' && token.referent)
+                ? token.referent : null;
+            if (!referent) return null;
+            const role = (typeof token.role === 'string' && token.role && token.role !== '-')
+                ? token.role : null;
+            return { lemma, role, referent, adnominal: null };
+        } catch (_) {
+            return null;
+        }
+    }
+
+    /**
+     * 決定的意味情報の読み取り（L-4c・Semantic Completion）。
+     * 既存注釈・形態・構造（ln / strong / morph / class / role / lemma）から
+     * **決定的に導ける意味情報のみ**を読み取って返す。日本語出力（resolve）は一切
+     * 変えない・**推論しない**。決定的信号のない部分は付与しない（未判定 = 欠落）。
+     *   - lnDomain: Louw-Nida 主ドメイン（多義語語義の骨格・ln 注釈）
+     *   - pronType: interrogative(τίς G5101) / indefinite(τις G5100)（strong 分離）
+     *   - reflexivePerson: 1/2/3（morph F-1/2/3）。person 無（G848 等）は付与しない
+     *   - intensive: αὐτός で class=adj のとき true（pron の残は未判定＝付与しない）
+     *   - deixis: near(οὗτος) / far(ἐκεῖνος) / qualitative(τοιοῦτος)（lemma）
+     *   - adverbial: τίς(G5101) で role=adv のとき true（副詞的 τί: なぜ/どう）
+     * いずれの決定的信号もなければ null（安全 fallback）。
+     * @returns {Object|null} 決定的意味情報（推論なし）
+     */
+    getSemanticInfo(token) {
+        try {
+            if (!token || typeof token !== 'object') return null;
+            const strong = (token.strong || '').replace(/^G0*/, 'G');
+            const lemma  = (typeof token.lemma === 'string') ? token.lemma.normalize('NFC') : '';
+            const cls    = (token.class || '').toLowerCase();
+            const role   = (token.role  || '').toLowerCase();
+            const morph  = (typeof token.morph === 'string') ? token.morph : '';
+            const info = {};
+
+            // LN 語義（主ドメイン）
+            if (typeof token.ln === 'string' && token.ln) {
+                const dom = token.ln.split(' ')[0];
+                if (dom) info.lnDomain = dom;
+            }
+            // interrogative / indefinite（strong 分離）
+            if (strong === 'G5101') info.pronType = 'interrogative';
+            else if (strong === 'G5100') info.pronType = 'indefinite';
+            // reflexive person（morph F-1/2/3）
+            const fm = morph.match(/^F-([123])/);
+            if (fm) info.reflexivePerson = Number(fm[1]);
+            // intensive（αὐτός class=adj のみ・決定的。pron の残は未判定）
+            if (strong === 'G846' && cls === 'adj') info.intensive = true;
+            // deixis（lemma）
+            if (lemma === 'οὗτος') info.deixis = 'near';
+            else if (lemma === 'ἐκεῖνος') info.deixis = 'far';
+            else if (lemma === 'τοιοῦτος') info.deixis = 'qualitative';
+            // 副詞的 τί（τίς role=adv）
+            if (strong === 'G5101' && role === 'adv') info.adverbial = true;
+
+            return Object.keys(info).length ? info : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    /**
      * ReadingLexicon を注入する（Phase 4-A）。
      * lexicon はアプリ全体で共通のため、ResolveContext ではなく
      * インスタンスへ注入する。未注入の間は劣化モード
@@ -478,7 +669,24 @@ class ReadingEngine {
      */
     resolve(token, context) {
         try {
-            return this._resolveUnsafe(token, context);
+            const result = this._resolveUnsafe(token, context);
+            // K-4 Phase 2-A: 束縛関係の関係詞に構造情報（role/referent）を read-only で付帯する。
+            // result.japanese は一切変えない（バイト等価）。pipeline 順序・語幹決定・助詞も不変。
+            // 描画側が節内役割を参照可能にするための情報保持のみ（文字列生成・語順変更はしない）。
+            // 自由関係・非関係詞は getRelativeSyntax が null を返すため付帯されない。
+            if (result) {
+                const rs = this.getRelativeSyntax(token);
+                if (rs) result.relativeSyntax = rs;
+                // L-3c: 指示詞の構造情報（role/referent）も read-only で付帯する。
+                // result.japanese は不変（バイト等価）。adnominal は未判定（null）。
+                const ds = this.getDemonstrativeSyntax(token);
+                if (ds) result.demonstrativeSyntax = ds;
+                // L-4c: 決定的意味情報（Semantic Completion）を read-only で付帯する。
+                // result.japanese は不変（バイト等価）。推論しない・未判定は付与しない。
+                const si = this.getSemanticInfo(token);
+                if (si) result.semanticInfo = si;
+            }
+            return result;
         } catch (_) {
             return null;
         }

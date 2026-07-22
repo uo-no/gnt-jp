@@ -1,6 +1,6 @@
 # Coverage Report — Wallace Core + Engine Extensions
 
-Generated: 2026-07-18T23:44:32.985Z
+Generated: 2026-07-21T11:24:09.296Z
 Engine Version: 0.2.0
 Wallace: Wallace, Daniel B. Greek Grammar Beyond the Basics. Zondervan, 1996.
 

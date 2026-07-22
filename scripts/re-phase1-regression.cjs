@@ -54,7 +54,19 @@ const PHASE1_BASELINE = {
     // 2026-07-19 J-5: τίς(G5101) Morph Rule 追加: 44,035 + 79 = 44,114。
     // neuter→何（誰→何）で主格 neuter τίς 79件が新たに morph 解決。neuter 全354件改善
     // （誰を→何を 等）・masculine 177・feminine 24 は誰のまま（悪化 0）。
-    morph:       44114,
+    // 2026-07-20 M-7c: 純複数人称代名詞（1複 ἐγώ G2257/G2254/G2248/G2249→私たち・2複 σύ
+    // G5216/G5209/G5210→あなたがた）追加: 44,251 + 363 = 44,614。主格複数 ἡμεῖς(127)+ὑμεῖς(236)
+    // が新たに morph 解決（従来 null）。非主格1,724件は coverage 不変で出力のみ改善（私の→私たちの 等）。
+    // クリーン NT で対象 2,087件が私/あなた→私たち/あなたがた（number 反映）・悪化 0・G4675(単数σου)/
+    // G5213(既正)/単数人称は不変。設計: docs/morph-gap-resolution-design.md。
+    // 2026-07-20 J-6b: 関係詞 ὅς/ὅστις/ὅσος Morph Rule（gender→頭語）追加: 44,114 + 137 = 44,251。
+    // neuter→もの（〜する者→〜するもの）・ὅσος は だけ→者/もの。主格の neuter 関係詞 108件と
+    // ὅσος masculine 主格 29件が新たに morph 解決（頭語 swap で stem 変化）。ὅς neuter 489・
+    // ὅστις neuter 5・ὅσος 110 改善、masculine(ὅς/ὅστις)・feminine は非変更（悪化 0）。
+    // 関係節・先行詞・格役割は Syntax 責務で対象外（docs/relative-morph-rule-design.md）。
+    // M-15 反映移行(2026-07-22): 固定点2,537反映で該当語形がData化し morph 解決から外れた。
+    // 44614→44396。pre-reflection historical=44614（data-role-migration-freeze・削除しない）。
+    morph:       44396,
     // 悪化ケース検出フラグはすべて 0 であること（tildeGloss / longGloss は
     // 精査済みの許容範囲なので基準に含めない）
     zeroFlags: ['doubleParticle', 'weirdPassive', 'brokenImperative'],
@@ -138,6 +150,34 @@ const CASES = [
     ['τίς 中性 対格 → 何を',          () => engine.resolve({ class:'pron', japanese:'誰', strong:'G5101', gender:'neuter',    number:'singular', case:'accusative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '何を'],
     ['τίς 中性 与格 → 何に',          () => engine.resolve({ class:'pron', japanese:'誰', strong:'G5101', gender:'neuter',    number:'singular', case:'dative',     tense:'',voice:'',mood:'',lemma:'' })?.japanese, '何に'],
     ['τίς 女性 対格 → 誰を（Morph非変更）', () => engine.resolve({ class:'pron', japanese:'誰', strong:'G5101', gender:'feminine', number:'singular', case:'accusative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '誰を'],
+
+    // ── J-6b: 関係詞 ὅς(G3739)/ὅστις(G3748)/ὅσος(G3745) Morph Rule（gender→頭語のみ）
+    // masculine→者（ὅς/ὅστις は不変）/ neuter→もの / feminine 非変更。case 助詞は Phase1 既存挙動。
+    ['ὅς 男性 対格 → 〜する者を（不変）', () => engine.resolve({ class:'pron', japanese:'〜する者', strong:'G3739', gender:'masculine', number:'singular', case:'accusative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '〜する者を'],
+    ['ὅς 中性 主格 → 〜するもの',        () => engine.resolve({ class:'pron', japanese:'〜する者', strong:'G3739', gender:'neuter', number:'singular', case:'nominative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '〜するもの'],
+    ['ὅς 中性 対格 → 〜するものを',      () => engine.resolve({ class:'pron', japanese:'〜する者', strong:'G3739', gender:'neuter', number:'singular', case:'accusative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '〜するものを'],
+    ['ὅς 女性 対格 → 〜する者を（非変更）', () => engine.resolve({ class:'pron', japanese:'〜する者', strong:'G3739', gender:'feminine', number:'singular', case:'accusative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '〜する者を'],
+    ['ὅστις 中性 主格 → 〜するもの',     () => engine.resolve({ class:'pron', japanese:'〜する者', strong:'G3748', gender:'neuter', number:'singular', case:'nominative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '〜するもの'],
+    ['ὅσος 男性 主格 → 〜する者',        () => engine.resolve({ class:'pron', japanese:'〜するだけ', strong:'G3745', gender:'masculine', number:'plural', case:'nominative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '〜する者'],
+    ['ὅσος 中性 対格 → 〜するものを',    () => engine.resolve({ class:'pron', japanese:'〜するだけ', strong:'G3745', gender:'neuter', number:'plural', case:'accusative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '〜するものを'],
+
+    // ── J-8b: 再帰代名詞 ἐμαυτοῦ(G1683)→私自身 / σεαυτοῦ(G4572)→あなた自身（person は strong で一意）
+    // ἑαυτοῦ(G1438/G848)は person-leveling で対象外＝Semantic 責務（自分自身/自分 維持）。case 助詞は Phase1。
+    ['ἐμαυτοῦ 対格 → 私自身を',     () => engine.resolve({ class:'pron', japanese:'自分自身', strong:'G1683', gender:'masculine', number:'singular', case:'accusative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '私自身を'],
+    ['ἐμαυτοῦ 属格 → 私自身の',     () => engine.resolve({ class:'pron', japanese:'自分自身', strong:'G1683', gender:'masculine', number:'singular', case:'genitive', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '私自身の'],
+    ['σεαυτοῦ 対格 → あなた自身を', () => engine.resolve({ class:'pron', japanese:'自分自身', strong:'G4572', gender:'masculine', number:'singular', case:'accusative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, 'あなた自身を'],
+    ['σεαυτοῦ 与格 → あなた自身に', () => engine.resolve({ class:'pron', japanese:'自分自身', strong:'G4572', gender:'masculine', number:'singular', case:'dative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, 'あなた自身に'],
+    ['ἑαυτοῦ G1438 対格 → 自分自身を（対象外・不変）', () => engine.resolve({ class:'pron', japanese:'自分自身', strong:'G1438', gender:'masculine', number:'singular', case:'accusative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '自分自身を'],
+
+    // ── M-7c: 純複数人称代名詞の number 反映（1複 ἐγώ→私たち / 2複 σύ→あなたがた・gender 空・'|plural'）
+    ['ἡμῶν G2257 属格 → 私たちの',   () => engine.resolve({ class:'pron', japanese:'私', strong:'G2257', gender:'', number:'plural', case:'genitive', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '私たちの'],
+    ['ἡμεῖς G2249 主格 → 私たち',    () => engine.resolve({ class:'pron', japanese:'私', strong:'G2249', gender:'', number:'plural', case:'nominative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '私たち'],
+    ['ὑμᾶς G5209 対格 → あなたがたを', () => engine.resolve({ class:'pron', japanese:'あなた', strong:'G5209', gender:'', number:'plural', case:'accusative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, 'あなたがたを'],
+    ['ὑμῶν G5216 属格 → あなたがたの', () => engine.resolve({ class:'pron', japanese:'あなた', strong:'G5216', gender:'', number:'plural', case:'genitive', tense:'',voice:'',mood:'',lemma:'' })?.japanese, 'あなたがたの'],
+    // 対象外: G5213(既にあなたがた)・G4675(単数σου・誤変換防止)・単数人称は不変
+    ['G5213 与格 → あなたがたに（既正・不変）', () => engine.resolve({ class:'pron', japanese:'あなたがた', strong:'G5213', gender:'', number:'plural', case:'dative', tense:'',voice:'',mood:'',lemma:'' })?.japanese, 'あなたがたに'],
+    ['G4675 単数σου 属格 → あなたの（誤変換なし）', () => engine.resolve({ class:'pron', japanese:'あなた', strong:'G4675', gender:'', number:'singular', case:'genitive', tense:'',voice:'',mood:'',lemma:'' })?.japanese, 'あなたの'],
+    ['単数 ἐγώ G3450 属格 → 私の（不変）', () => engine.resolve({ class:'pron', japanese:'私', strong:'G3450', gender:'', number:'singular', case:'genitive', tense:'',voice:'',mood:'',lemma:'' })?.japanese, '私の'],
 
     // ── P2 回帰: 末尾助詞ガード（子よよ・滅びのを 等の再発防止）
     ['「子よ」呼格 → fallback',       () => engine.resolve(N('子よ', 'vocative')), null],
