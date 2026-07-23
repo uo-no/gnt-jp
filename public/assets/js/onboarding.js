@@ -365,6 +365,22 @@
         catch (_) {}
     }
 
+    /* ── オンボーディング起動ゲート（自由閲覧優先） ────────
+       初回訪問は自由閲覧を既定とし、オンボーディングは
+       「明示要求（resetAndReload）」または「進行中セッション」の
+       ときのみ動作する。真の初回訪問では自動起動・強制移動・演出を一切行わない。
+       ※ 既存のステップ機構は削除せず保全する（無効化＝ゲートで止めるだけ。rollback 可）。 */
+    const ONBOARDING_REQUEST_KEY = 'app_onboarding_request';
+    function _isOnboardingRequested() {
+        try { return sessionStorage.getItem(ONBOARDING_REQUEST_KEY) === '1'; }
+        catch (_) { return false; }
+    }
+    function _isOnboardingActive() {
+        if (!_state) return false;
+        if (_state.onboardingComplete || _state.onboardingSkipped) return false;
+        return _isOnboardingRequested() || (_state.onboardingStep >= 1);
+    }
+
     /* ── 即時初期化（Public APIが呼ばれる前に完了させる） */
     try {
         const _raw = localStorage.getItem(STORAGE_KEY);
@@ -407,6 +423,9 @@
     ───────────────────────────────────────────────── */
     (function _guardOnboardingUrl() {
         try {
+            // 自由閲覧優先：明示要求 or 進行中セッションのときだけ強制移動する。
+            // 真の初回訪問（未要求・未進行）では一切リダイレクトしない。
+            if (!_isOnboardingActive()) return;
             if (_state.onboardingComplete || _state.onboardingSkipped) return;
 
             // JOH 3:16 onboarding steps は JHN 3 で動作する
@@ -482,6 +501,8 @@
         // 設定画面の「チュートリアルをもう一度」から呼ぶ（F3-B）
         resetAndReload() {
             localStorage.removeItem(STORAGE_KEY);
+            // 明示要求フラグを立てる。これがある時のみ次回ロードでオンボーディングが起動する。
+            try { sessionStorage.setItem(ONBOARDING_REQUEST_KEY, '1'); } catch (_) {}
             _state = { ...DEFAULT_STATE };
             location.reload();
         },
@@ -489,6 +510,12 @@
         getState() {
             // 読み取り専用コピーを返す（外部からの直接書き換えを防ぐ）
             return Object.assign({}, _state);
+        },
+
+        // オンボーディングが実際に動作中か（自由閲覧時は false）。
+        // index.html の URL 同期凍結判定（_syncOnboardingActiveFlag）が参照する。
+        isActive() {
+            return _isOnboardingActive();
         },
 
         // デバッグ情報出力
@@ -517,8 +544,14 @@
             _saveState();
 
             if (!_state.onboardingComplete) {
-                if (_state.onboardingStep === 0 && _state.firstLaunch) {
-                    // 真の初回訪問のみオンボーディングを開始
+                // 自由閲覧優先：明示要求 or 進行中セッションのときのみ進行する。
+                // 真の初回訪問（未要求・未進行）ではオンボーディングを自動起動しない。
+                if (!_isOnboardingActive()) {
+                    // 何もしない（自由閲覧）。
+                }
+                else if (_state.onboardingStep === 0 && _isOnboardingRequested()) {
+                    // 明示要求された場合のみオンボーディングを開始（要求フラグは消費する）
+                    try { sessionStorage.removeItem(ONBOARDING_REQUEST_KEY); } catch (_) {}
                     _state.firstLaunch = false;
                     _state.onboardingStep = 1;
                     _saveState();
@@ -596,6 +629,7 @@
         },
 
         onWordClicked(clickedEl) {
+            if (!_isOnboardingActive()) return;   // 自由閲覧時は演出を起こさない
             if (_state.onboardingComplete) return;
             if (_state.onboardingSkipped) return;
             if (_isProcessingClick) return;
@@ -667,6 +701,7 @@
         },
 
         onStudyPanelOpened(isMobile, vNum) {
+            if (!_isOnboardingActive()) return;   // 自由閲覧時は演出・自動遷移を起こさない
             if (_state.onboardingComplete) return;
             if (_state.onboardingSkipped) return;
 
@@ -731,6 +766,7 @@
         },
 
         onFlowTabOpened() {
+            if (!_isOnboardingActive()) return;   // 自由閲覧時はFlowタブ操作で遷移しない
             // Rev.5: GAR17_CLICKED ステップのガードを削除。
             // _renderVerse17GarStep の「流れを見る」ボタンが openFlowTab() を呼び、
             // Flow タブが開いた後ここを通って _goToStep(OB_STEP.FLOW) へ進む。

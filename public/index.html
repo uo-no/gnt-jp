@@ -4301,29 +4301,21 @@ window.__onboardingActive = false;
 window.__onboardingPrevState = null;
 
 /* 前回値との比較による遷移検知。false→trueのエッジを検知した瞬間にのみ
-   onboardingActiveをfalseへ戻し、最終状態を1回だけURLに反映する。 */
+   onboardingActiveをfalseへ戻し、最終状態を1回だけURLに反映する。
+   ※ 変更: 判定基準を「!onboardingComplete」から「onboarding.isActive()」へ。
+     旧実装はオンボーディングを起動しない新規ユーザー（onboardingComplete=false）で
+     URL同期が永久凍結され URL共有が壊れるため。isActive()=実際に動作中かを見る。 */
 function _syncOnboardingActiveFlag() {
     if (!window.App.onboarding) return;
-    const current = window.App?.onboarding?.getState?.()?.onboardingComplete;
+    const active = !!(window.App.onboarding.isActive && window.App.onboarding.isActive());
 
-    if (window.__onboardingPrevState === null) {
-        window.__onboardingPrevState = current;
-        window.__onboardingActive = !current;
+    // オンボーディング終了エッジ（true→false）で最終状態を1回だけURLへ反映する。
+    if (window.__onboardingActive && !active) {
+        window.__onboardingActive = false;
+        syncUrlState();
         return;
     }
-
-    if (window.__onboardingPrevState !== current) {
-        window.__onboardingPrevState = current;
-
-        if (current === true) {
-            window.__onboardingActive = false;
-
-            // onboarding完了直後に必ず1回URL同期
-            syncUrlState();
-        } else {
-            window.__onboardingActive = true;
-        }
-    }
+    window.__onboardingActive = active;
 }
 
 function syncUrlState() {
