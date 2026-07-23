@@ -15,7 +15,7 @@ reading-word-separation-design.md(SP-4)・reading-hint-v1-release-freeze-audit.m
 > **Reading Japanese は「翻訳」ではない。ギリシャ語の構造(数・性・人称・格・指示・語形・節構造)を
 > 読むための日本語表示である。**
 
-- **原文(新改訳)を起点(Data 代表語)として保持**し、**決定的に定まる構造のみ**を日本語の読みに反映する。
+- **基本語を起点(Data 代表語)として保持**し、**決定的に定まる構造のみ**を日本語の読みに反映する。
 - **推論しない・翻訳しない・語義を勝手に選ばない・自然な日本語へ整えない**(L-0)。目的は「自然な訳文」でなく
   「ギリシャ語構造を追える読み」。
 
@@ -25,7 +25,7 @@ reading-word-separation-design.md(SP-4)・reading-hint-v1-release-freeze-audit.m
 
 | 層 | 責務 | 例 |
 |---|---|---|
-| **Data(代表語)** | 起点の日本語(新改訳由来)を保持 | 私・あなた・この |
+| **Data(代表語)** | 起点の日本語を保持 | 私・あなた・この |
 | **Morph** | 語形(数/性/人称/格/語形)を決定 | 私→私たち・彼→彼ら・〜する者→〜するもの |
 | **Syntax** | 構造(節役割/referent/指示のはたらき)を決定 | 関係詞・pronominal 指示詞(この→これ) |
 | **Semantic** | 決定的意味情報を提供(**語義選択はしない**) | LN ドメイン・慣用句(source=semantic) |
@@ -42,7 +42,7 @@ reading-word-separation-design.md(SP-4)・reading-hint-v1-release-freeze-audit.m
 - **bible_data.japanese = 採用済み Reading Japanese の単一正規値**(Data 代表語 + 固定点の Morph/Syntax 採用)。
 - **反映は「固定点」のみ**——代名詞/関係詞/指示詞の数・性・人称(engine 再処理後も値が変わらない語形)。
   **動詞屈折は Data 層に固定せず、engine が表示時に動的生成**(reading-japanese-data-layer-boundary-freeze)。
-- **原文(新改訳)は Data の起点として不変**。旧値は adoption diff / git / Editorial 台帳で保持
+- **基本語は Data の起点として不変**。旧値は adoption diff / git / Editorial 台帳で保持
   (bible_data に `japanese_old/new` を持たない)。
 - 反映実績(M-15): 固定点 2,537 token(代名詞/関係詞/指示詞)。動詞屈折は Data 層保持対象外。
 
@@ -108,7 +108,7 @@ reading-word-separation-design.md(SP-4)・reading-hint-v1-release-freeze-audit.m
 
 ```
 [reading-japanese-specification 正典 2026-07-22]
-根幹テーゼ: Reading Japaneseは翻訳でなくギリシャ語構造(数/性/人称/格/指示/語形/節構造)を読むための日本語表示。原文(新改訳)をData起点に保持し決定的構造のみ反映・推論/翻訳/語義選択/自然化しない(L-0)
+根幹テーゼ: Reading Japaneseは翻訳でなくギリシャ語構造(数/性/人称/格/指示/語形/節構造)を読むための日本語表示。基本語をData起点に保持し決定的構造のみ反映・推論/翻訳/語義選択/自然化しない(L-0)
 レイヤ: Data代表語 / Morph語形 / Syntax構造 / Semantic意味情報(語義選択せず) / Builder決定fact採用(判定なし) / Presentation表示。一意性の勾配Morph>Syntax>Semantic
 bible_data.japanese: 採用済みReading Japanese単一正規値(M-15)。固定点(代名詞/関係詞/指示詞の数性人称)のみ反映・動詞屈折はData非固定でengine動的生成。原文Data不変・旧値はdiff/git/台帳
 三つの家(SP-4): Reading(読む=RJ/Phrase/Memo/Hint) / Word(調べる=StudyPanel) / Passage(研究=別View)。読む面上/分析面下
