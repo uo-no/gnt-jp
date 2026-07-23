@@ -1704,15 +1704,50 @@ animation: ac-blink 1.2s ease-in-out infinite;
 .verse-pair-right { border-radius: 0 var(--radius-s) var(--radius-s) 0; }
 .verse-block.selected { background: var(--accent-light); }
 /* Reading Hint v1（SP-12）: 静かな読書の入口。大きなカードにしない・既存トークンのみ使用 */
-.reading-hint {
-    font-family: 'Noto Serif JP', serif;
+/* Reading Hint（SP-12D）— 節番号自体を入口(Verse Anchor)にする。
+   DOM追加・本文文字への装飾なし。色/opacity/cursor のみで操作可能を示す。
+   font-size / font-weight / min-width は据え置き＝節番号幅・本文開始位置・行送りは不変。 */
+.v-num.verse-anchor {
+    cursor: pointer;
+    color: var(--accent);
+    opacity: var(--opacity-primary);
+    /* 控えめな点線下線で「クリック可能」を示す。text-decoration は行box内で描画され、
+       節番号幅・行高・本文開始位置を変えない。 */
+    text-decoration: underline dotted;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+    transition: color var(--transition-fast), opacity var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+}
+.v-num.verse-anchor:hover,
+.v-num.verse-anchor[aria-expanded="true"] { color: var(--accent-dark); }
+.reading-hint-popover {
+    position: fixed;
+    max-width: 280px;
+    background: var(--bg-paper);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-m);
+    box-shadow: var(--shadow-card);
+    z-index: 500;
+    padding: var(--space-sm) var(--space-md);
+}
+.reading-hint-popover-title {
     font-size: var(--text-caption);
+    font-weight: 600;
     color: var(--text-sub);
-    opacity: var(--opacity-secondary);
+    letter-spacing: 0.04em;
+    margin-bottom: var(--space-xs);
+}
+.reading-hint-popover-range {
+    font-size: var(--text-caption);
+    color: var(--text-hint);
+    margin-bottom: var(--space-xs);
+}
+.reading-hint-popover-text {
+    font-family: 'Noto Serif JP', serif;
+    font-size: var(--text-body);
     line-height: 1.9;
-    margin: var(--space-xs) 0 var(--space-md);
-    padding-left: var(--space-sm);
-    border-left: 2px solid var(--border-soft, var(--border));
+    color: var(--text-main);
 }
 .jp-section { padding: var(--space-xs) var(--space-sm); cursor: pointer; display: flex; align-items: baseline; border-radius: var(--radius-s); }
 .jp-section:hover { background: rgba(0,0,0,0.03); }
@@ -3342,47 +3377,56 @@ details[open] .study-summary::before {
 
 /* ══════════════════════════════════════════
    Depth Panel 文法装飾 namespace
-   Depth Panel（#bottom-depth-panel = StudyPanel）限定。
-   本文（Reading層: 左ペインFLOW表示・gf-verse-block）には適用しない。
+   適用先：#bottom-depth-panel（StudyPanel）＋ .wlv-chip（フローチップ）。
    ★ Phase: Reading/Inspect/StudyPanel 3層分離。
-   旧実装はこのコメントの意図どおりにスコープされておらず、
-   _wordToFlowChip() が dpGrammarClasses を本文側のチップにも
-   付与していたため、grep上は同じクラス名でも本文側に色・下線が
-   漏れて適用されていた。ここで実際に #bottom-depth-panel 配下のみに
-   限定する（JS側のチップ生成ロジックは変更せず、CSS側のスコープのみ
-   修正— クラス自体は本文チップにも付くが、StudyPanel外では
-   何の見た目の効果も持たなくなる）。
+   装飾クラス（dp-*）の判定は buildDepthGrammarClasses() が唯一の SSOT で、
+   _wordToFlowChip() が生成する dpGrammarClasses を通じて StudyPanel・
+   読解フロー双方のチップに同一クラスが付与される（HTML・クラスは共通）。
+   dp-* span は必ず .wlv-chip（フローチップ）配下に生成されるため、
+   .wlv-chip をスコープにすることで読解フロー本体（_transA==='FLOW'）・
+   右カラム Greek Flow View・StudyPanel 内 flow tab のすべてに同一の
+   装飾ルールが適用され、同一の語が両モードで完全に一致する。
+   #bottom-depth-panel は StudyPanel 側の従来スコープを不変のまま保持する。
+   .wlv-chip を伴わない通常訳の本文（jp-text 直書き）には付かない。
    ══════════════════════════════════════════ */
-#bottom-depth-panel .dp-word {
+#bottom-depth-panel .dp-word,
+.wlv-chip .dp-word {
     display: inline;
 }
-#bottom-depth-panel .dp-mood-imperative {
+#bottom-depth-panel .dp-mood-imperative,
+.wlv-chip .dp-mood-imperative {
     background: var(--accent-light);
     border-radius: var(--radius-s);
     padding: 0 var(--space-xs);
 }
-#bottom-depth-panel .dp-mood-indicative {
+#bottom-depth-panel .dp-mood-indicative,
+.wlv-chip .dp-mood-indicative {
     background: rgba(0,0,0,0.05);
     border-radius: var(--radius-s);
     padding: 0 var(--space-xs);
 }
-#bottom-depth-panel .dp-tense-present {
+#bottom-depth-panel .dp-tense-present,
+.wlv-chip .dp-tense-present {
     text-decoration: underline;
     text-decoration-style: solid;
     text-underline-offset: 3px;
 }
-#bottom-depth-panel .dp-tense-aorist {
+#bottom-depth-panel .dp-tense-aorist,
+.wlv-chip .dp-tense-aorist {
     text-decoration-line: underline;
     text-decoration-style: dotted;
     text-underline-offset: 3px;
 }
-#bottom-depth-panel .dp-tense-perfect {
+#bottom-depth-panel .dp-tense-perfect,
+.wlv-chip .dp-tense-perfect {
     text-decoration-line: underline;
     text-decoration-style: wavy;
     text-underline-offset: 3px;
 }
 #bottom-depth-panel .dp-voice-middle::after,
-#bottom-depth-panel .dp-voice-passive::after {
+#bottom-depth-panel .dp-voice-passive::after,
+.wlv-chip .dp-voice-middle::after,
+.wlv-chip .dp-voice-passive::after {
     content: '*';
     font-size: var(--text-caption);
     color: var(--highlight);
@@ -8248,20 +8292,93 @@ function _getReadingHintForVerse(bookKey, chapter, vNum) {
     const v = parseInt(vNum, 10);
     return list.find(h => parseInt(h.verseStart, 10) === v) || null;
 }
-/* Reading 本文の該当節ブロックの後に、静かな Hint 要素を加算する（hintText のみ）。 */
-function _appendReadingHint(container, vNum) {
+/* ── Reading Hint Popover（本文位置を崩さない fixed カード。単一で使い回す） ── */
+let _readingHintPopoverEl = null;
+let _readingHintPopoverBtn = null;
+function _closeReadingHintPopover() {
+    if (_readingHintPopoverEl) { _readingHintPopoverEl.remove(); _readingHintPopoverEl = null; }
+    if (_readingHintPopoverBtn) { _readingHintPopoverBtn.setAttribute('aria-expanded', 'false'); _readingHintPopoverBtn = null; }
+    document.removeEventListener('keydown', _readingHintPopoverKeydown, true);
+    document.removeEventListener('click', _readingHintPopoverOutside, true);
+}
+function _readingHintPopoverKeydown(e) { if (e.key === 'Escape') _closeReadingHintPopover(); }
+function _readingHintPopoverOutside(e) {
+    if (_readingHintPopoverEl && !_readingHintPopoverEl.contains(e.target)
+        && (!_readingHintPopoverBtn || !_readingHintPopoverBtn.contains(e.target))) {
+        _closeReadingHintPopover();
+    }
+}
+function _toggleReadingHintPopover(btn, hintText, rangeText) {
+    if (_readingHintPopoverBtn === btn) { _closeReadingHintPopover(); return; } /* 再クリックで閉じる */
+    _closeReadingHintPopover();
+    const pop = document.createElement('div');
+    pop.className = 'reading-hint-popover';
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-label', '読書ヒント');
+    const title = document.createElement('div');
+    title.className = 'reading-hint-popover-title';
+    title.textContent = '読書ヒント';
+    pop.appendChild(title);
+    if (rangeText) { /* 対象範囲（verseStart–verseEnd）を hintText の前に控えめに表示 */
+        const range = document.createElement('div');
+        range.className = 'reading-hint-popover-range';
+        range.textContent = rangeText;
+        pop.appendChild(range);
+    }
+    const body = document.createElement('div');
+    body.className = 'reading-hint-popover-text';
+    body.textContent = hintText; /* hintText のみ。Greek/lemma/数値/ラベルは出さない */
+    pop.appendChild(body);
+    document.body.appendChild(pop); /* DOM 最上位に置き z-index 競合を避ける（本文位置は不変） */
+    /* ボタン基準で配置。画面端は内側へ寄せる */
+    const r = btn.getBoundingClientRect();
+    let left = r.right - pop.offsetWidth;
+    if (left < 8) left = 8;
+    let top = r.bottom + 6;
+    if (top + pop.offsetHeight > window.innerHeight - 8) top = r.top - pop.offsetHeight - 6;
+    if (top < 8) top = 8;
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+    _readingHintPopoverEl = pop;
+    _readingHintPopoverBtn = btn;
+    btn.setAttribute('aria-expanded', 'true');
+    /* 開いた瞬間のクリックで即閉じしないよう次tickで購読（capture で確実に拾う） */
+    setTimeout(() => {
+        document.addEventListener('keydown', _readingHintPopoverKeydown, true);
+        document.addEventListener('click', _readingHintPopoverOutside, true);
+    }, 0);
+}
+/* ヒントがある節のみ、既存の節番号(.v-num)自体を Reading Hint の入口(Verse Anchor)にする。
+   DOMは一切追加せず、本文開始位置・節番号幅・行送りを変えない。
+   将来は同じ Verse Anchor から Passage Note / Reading Memo / Original Text / Share 等へ拡張可能。 */
+function _appendReadingHint(block, vNum) {
     try {
-        if (!container) return;
+        if (!block) return;
         const bookKey = AppState.location.book ? AppState.location.book.key : '';
         const chapter = AppState.location.chapter;
         if (!bookKey || chapter == null) return;
         const hint = _getReadingHintForVerse(bookKey, chapter, vNum);
         if (!hint || !hint.hintText) return;
-        const el = document.createElement('div');
-        el.className = 'reading-hint';
-        el.setAttribute('data-reading-hint', hint.id || '');
-        el.textContent = hint.hintText; /* hintText のみ。Greek/lemma/数値/ラベルは出さない */
-        container.appendChild(el);
+        const vnumEl = block.querySelector('.v-num');
+        if (!vnumEl) return;
+        vnumEl.classList.add('verse-anchor');
+        vnumEl.setAttribute('role', 'button');
+        vnumEl.setAttribute('tabindex', '0');
+        vnumEl.setAttribute('aria-expanded', 'false');
+        vnumEl.setAttribute('aria-label', vNum + '節の読書ヒントを開く');
+        vnumEl.setAttribute('data-reading-hint', hint.id || '');
+        const hintText = hint.hintText;
+        /* 対象範囲：verseStart/verseEnd（既存フォーマット）から生成。同一節は「対象：N節」、範囲は「対象：S–E節」。 */
+        const vs = parseInt(hint.verseStart, 10);
+        const ve = parseInt(hint.verseEnd, 10);
+        const rangeText = isFinite(vs)
+            ? '対象：' + (isFinite(ve) && ve !== vs ? vs + '–' + ve : vs) + '節'
+            : '';
+        /* stopPropagation で節選択(.jp-section/verse-block の onclick)を発火させない */
+        vnumEl.addEventListener('click', (e) => { e.stopPropagation(); _toggleReadingHintPopover(vnumEl, hintText, rangeText); });
+        vnumEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); _toggleReadingHintPopover(vnumEl, hintText, rangeText); }
+        });
     } catch (_) { /* 失敗しても本文表示は不変 */ }
 }
 
@@ -8398,6 +8515,7 @@ function render(jpData, elData, hasGreek, jpDataB) {
 
     // ── Study panel を閉じて Reading 状態に戻す ──
     closeStudyPanel();
+    _closeReadingHintPopover(); /* 章移動などの再描画で開いていた Hint Popover を閉じる */
     /* 章が変わった場合は AppState を完全リセット（study.params も破棄） */
     AppState.mode                = 'reading';
     AppState.selectedVerse       = { vNum: null, elWords: [] };
@@ -8566,8 +8684,8 @@ app.innerHTML = '';
         } else {
             app.appendChild(block);
             parallel.appendChild(pBlock);
-            /* Reading Hint v1: 主 Reading ビュー（非比較）の該当節冒頭に加算表示 */
-            _appendReadingHint(app, vNum);
+            /* Reading Hint: 主 Reading ビュー（非比較）の該当節 verse-block 右端に info アイコンを加算 */
+            _appendReadingHint(block, vNum);
         }
     });
 
