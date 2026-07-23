@@ -66,7 +66,13 @@ const PHASE1_BASELINE = {
     // 関係節・先行詞・格役割は Syntax 責務で対象外（docs/relative-morph-rule-design.md）。
     // M-15 反映移行(2026-07-22): 固定点2,537反映で該当語形がData化し morph 解決から外れた。
     // 44614→44396。pre-reflection historical=44614（data-role-migration-freeze・削除しない）。
-    morph:       44396,
+    // 2026-07-23 1・2人称複数代名詞 number Data 固定点 adoption: 44396→44187（−209）。
+    // 1・2人称複数代名詞の Data 層固定点 adoption により、主格209件（P-1NP 101 + P-2NP 108）で
+    // engine morph 変換発火が不要化したため（stored が既に複数形→番号ルール不発火・主格は格助詞なしで
+    // resolve=null）。表示・意味回帰なしを確認済み（display-equivalence 0・対象strong/lemmaはsemantic
+    // データ非出現）。engine code 非改変の Data adoption 由来の意図的更新（FROZEN 破壊ではない）。
+    // 設計・監査記録: docs/development/reading-japanese-plural-pronoun-number-adoption.md §2.1。
+    morph:       44187,
     // 悪化ケース検出フラグはすべて 0 であること（tildeGloss / longGloss は
     // 精査済みの許容範囲なので基準に含めない）
     zeroFlags: ['doubleParticle', 'weirdPassive', 'brokenImperative'],
