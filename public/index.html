@@ -485,6 +485,58 @@ pointer-events: auto;
         cursor: pointer;
         -webkit-tap-highlight-color: transparent;
     }
+    /* Phase G-1: ⋮ アクションボタン（バー右端・44px タップ領域） */
+    #mobile-verse-view-action {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        min-height: 44px;
+        margin-left: auto;
+        font-size: var(--text-title);
+        line-height: 1;
+        color: var(--text-sub);
+        background: none;
+        border: none;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    /* Phase G-1: アクションメニュー（バー右下にドロップ・初期非表示） */
+    #mobile-verse-action-menu {
+        position: absolute;
+        top: 100%;
+        right: var(--space-xs);
+        min-width: 200px;
+        max-width: calc(100vw - 24px);
+        background: var(--bg-paper);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-m);
+        box-shadow: var(--shadow-card);
+        padding: var(--space-xs);
+        display: none;
+        flex-direction: column;
+        z-index: 10;
+    }
+    #mobile-verse-action-menu.open { display: flex; }
+    #mobile-verse-view .mvv-action-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        width: 100%;
+        min-height: 44px;
+        padding: 0 var(--space-md);
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: var(--text-body);
+        color: var(--text-main);
+        text-align: left;
+        border-radius: var(--radius-s);
+        -webkit-tap-highlight-color: transparent;
+    }
+    #mobile-verse-view .mvv-action-item:active { background: rgba(0,0,0,0.05); }
+    #mobile-verse-view .mvv-action-item svg { width: 1.1em; height: 1.1em; flex-shrink: 0; }
     /* Phase D-3C: MVV バー中央の現在地表示（節ref / 語）。左右のボタンに重ならないよう中央固定・省略表示 */
     #mobile-verse-view-title {
         position: absolute;
@@ -4061,10 +4113,18 @@ details[open] .study-summary::before {
                 </button>
                 <!-- Phase D-3C: 現在地表示（Level2=節ref / Level3=語）。_syncMobileVerseTitle で更新 -->
                 <span id="mobile-verse-view-title"></span>
-                <!-- Phase D-1: ユーザー手書きメモの開閉（既存 note-btn / _toggleNoteUI を再利用） -->
-                <button class="share-url-btn note-btn" id="mobile-verse-view-note" data-icon="note" onclick="_toggleNoteUI()" title="この節にメモを書く" style="margin-left:auto;">
-                    <span class="note-dot"></span>
+                <!-- Phase G-1: バーは静かに。アクション（メモ/ブックマーク/共有）は ⋮ メニューへ集約。 -->
+                <button id="mobile-verse-view-action" onclick="_toggleMvvActionMenu(event)" aria-label="操作メニュー" aria-haspopup="true" aria-expanded="false">
+                    <span aria-hidden="true">⋮</span>
                 </button>
+                <!-- Phase G-1: アクションメニュー（既存関数を呼ぶだけ）。初期非表示。 -->
+                <div id="mobile-verse-action-menu" role="menu" aria-label="節の操作">
+                    <button class="mvv-action-item note-btn" data-icon="note" role="menuitem" onclick="_mvvMenuAction('note')">
+                        <span class="note-dot"></span>メモ
+                    </button>
+                    <button class="mvv-action-item bookmark-btn" data-icon="bookmark" role="menuitem" onclick="_mvvMenuAction('bookmark')">ブックマーク</button>
+                    <button class="mvv-action-item" data-icon="link" role="menuitem" onclick="_mvvMenuAction('share')">共有</button>
+                </div>
             </div>
             <div id="mobile-verse-area">placeholder</div>
             <div id="mobile-inspector-area">placeholder</div>
@@ -9007,9 +9067,55 @@ function _mvvPushHistory() {
 function _doCloseMobileVerseView() {
     const view = document.getElementById('mobile-verse-view');
     if (view) view.classList.remove('open');
+    _closeMvvActionMenu();   /* Phase G-1: MVV クローズ時はアクションメニューも閉じる */
     /* 次回 open 時は openMobileVerseView が 'list' を再設定するが、閉じた時点でも
        内部状態を list に戻しておく（状態リセットの明示・防御的ハイジーン）。 */
     _mobileVerseInspectorMode = 'list';
+}
+
+/* ── Phase G-1: MobileVerseView アクションメニュー（メモ / ブックマーク / 共有） ──
+   バーを静かに保つため、アクションは ⋮ メニューへ集約。既存関数を呼ぶだけで、
+   toggleBookmark / copyShareUrl / _toggleNoteUI / storage / AppState / URL は一切変更しない。 */
+function _mvvOutsideCloseActionMenu(e) {
+    const menu = document.getElementById('mobile-verse-action-menu');
+    const btn  = document.getElementById('mobile-verse-view-action');
+    if (menu && (menu.contains(e.target) || (btn && btn.contains(e.target)))) return;
+    _closeMvvActionMenu();
+}
+
+function _closeMvvActionMenu() {
+    const menu = document.getElementById('mobile-verse-action-menu');
+    if (menu) menu.classList.remove('open');
+    const btn = document.getElementById('mobile-verse-view-action');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', _mvvOutsideCloseActionMenu);
+}
+
+function _toggleMvvActionMenu(e) {
+    if (e) e.stopPropagation();   /* 開くクリックが直後の outside-close に拾われないように */
+    const menu = document.getElementById('mobile-verse-action-menu');
+    if (!menu) return;
+    if (menu.classList.contains('open')) { _closeMvvActionMenu(); return; }
+
+    /* 保存済み状態を反映（既存の read-only sync 関数を呼ぶだけ）。 */
+    const ref = _currentVerseRef();
+    if (window.App && window.App.storage) {
+        _syncBookmarkButtons(ref);
+        _syncNoteButtons(ref);
+    }
+    menu.classList.add('open');
+    const btn = document.getElementById('mobile-verse-view-action');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    /* 外側タップで閉じる（開いた後に登録） */
+    document.addEventListener('click', _mvvOutsideCloseActionMenu);
+}
+
+/* メニュー項目 → 既存機能へ委譲（メニューは先に閉じる）。 */
+function _mvvMenuAction(kind) {
+    _closeMvvActionMenu();
+    if (kind === 'note')          _toggleNoteUI();
+    else if (kind === 'bookmark') toggleBookmark();
+    else if (kind === 'share')    copyShareUrl();
 }
 
 /* Android/ブラウザの戻る操作。MVV が積んだエントリを popstate で受けて閉じる。 */
