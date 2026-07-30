@@ -435,6 +435,155 @@ pointer-events: auto;
     }
 }
 
+/* ── Mobile Verse View（Phase A-2: 器のみ） ──
+   モバイル専用Inspector画面の新規コンテナ。既存 #bottom-depth-panel の
+   ルールには一切触れない独立スタイル。
+   ・基底は display:none（closed = 非表示）
+   ・.open かつ ≤900px のときだけ表示（mobile時のみ表示可能。desktopでは
+     クラスが付いても表示されない） */
+#mobile-verse-view {
+    display: none;
+}
+@media (max-width: 900px) {
+    #mobile-verse-view.open {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 200;
+        background: var(--bg-paper);
+        /* Phase D-3A: 下端 safe-area（ホームインジケータ）分を確保。ノッチ無し端末では env=0。 */
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        box-sizing: border-box;
+    }
+    #mobile-verse-view-bar {
+        display: flex;
+        align-items: center;
+        /* Phase D-3A: 上端 safe-area（ノッチ/ステータスバー）分をバー高さに加算。env=0 で従来の 52px。 */
+        height: calc(52px + env(safe-area-inset-top, 0px));
+        padding: env(safe-area-inset-top, 0px) var(--space-sm) 0 var(--space-xs);
+        box-sizing: border-box;
+        border-bottom: 1px solid var(--border-soft);
+        flex-shrink: 0;
+        /* Phase D-3C: 中央タイトルの絶対配置基準 */
+        position: relative;
+    }
+    #mobile-verse-view-back {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        min-height: 44px;
+        font-size: var(--text-title);
+        line-height: 1;
+        color: var(--highlight);
+        background: none;
+        border: none;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    /* Phase D-3C: MVV バー中央の現在地表示（節ref / 語）。左右のボタンに重ならないよう中央固定・省略表示 */
+    #mobile-verse-view-title {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        max-width: 60%;
+        font-size: var(--text-body);
+        font-weight: 600;
+        color: var(--text-main);
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        pointer-events: none;
+    }
+    #mobile-verse-area,
+    #mobile-inspector-area {
+        min-height: 0;
+        padding: var(--space-md);
+        color: var(--text-sub);
+        font-size: var(--text-caption);
+    }
+    /* Phase D-3A: 上下比率改善。上（本文）は内容に応じて縮み、最大 35%。残りは Inspector が占有。 */
+    #mobile-verse-area {
+        flex: 0 1 auto;
+        max-height: 35%;
+        border-bottom: 1px solid var(--border-soft);
+        overflow-y: auto;
+    }
+    /* Phase C-1: 下半分 Inspector（Level2）は独立スクロール／残り高さを占有 */
+    #mobile-inspector-area {
+        flex: 1;
+        overflow-y: auto;
+    }
+    /* Phase D-3B: 固定メモ領域。折りたたみ時は中身が display:none なので高さ 0。展開時のみ下端に表示。 */
+    #mobile-verse-note-area {
+        flex-shrink: 0;
+        overflow-y: auto;
+        max-height: 50%;
+    }
+    /* Phase D-3A: iOS Safari のフォーカス時自動ズーム抑止（16px 以上）。
+       _noteBlockHtml の textarea はインライン font-size を持つため !important で上書きする。
+       セレクタは #mobile-verse-view 配下に限定するため desktop（StudyPanel）の textarea は非影響。 */
+    #mobile-verse-view textarea {
+        font-size: 16px !important;
+    }
+    /* Phase F-2: Level3 区画スケルトン（折りたたみセクション）。#mobile-verse-view 配下限定。 */
+    #mobile-verse-view .mvv-l3-section {
+        margin-top: var(--space-md);
+        border-top: 1px solid var(--border-soft);
+    }
+    #mobile-verse-view .mvv-l3-summary {
+        list-style: none;
+        cursor: pointer;
+        padding: var(--space-sm) 0;
+        font-size: var(--text-caption);
+        font-weight: 600;
+        color: var(--text-sub);
+        letter-spacing: 0.02em;
+        display: flex;
+        align-items: center;
+        gap: var(--space-xs);
+        -webkit-tap-highlight-color: transparent;
+    }
+    #mobile-verse-view .mvv-l3-summary::-webkit-details-marker { display: none; }
+    /* 開閉インジケータ（▶ / 開いたら▼）。native details の open 状態で回転。 */
+    #mobile-verse-view .mvv-l3-summary::before {
+        content: '';
+        width: 0; height: 0;
+        border-left: 5px solid currentColor;
+        border-top: 4px solid transparent;
+        border-bottom: 4px solid transparent;
+        transition: transform var(--transition-fast);
+        flex-shrink: 0;
+    }
+    #mobile-verse-view .mvv-l3-section[open] .mvv-l3-summary::before {
+        transform: rotate(90deg);
+    }
+    #mobile-verse-view .mvv-l3-slot {
+        padding: 0 0 var(--space-sm);
+        /* Phase F-3: 読書メモ本文の可読スタイル（本文と同等の落ち着いた読み） */
+        font-size: var(--text-caption);
+        line-height: 1.9;
+        color: var(--text-sub);
+    }
+    /* Phase B: 節本文の最小表示（書名章節 + 本文） */
+    #mobile-verse-area .mvv-ref {
+        font-size: var(--text-caption);
+        color: var(--text-sub);
+        margin-bottom: var(--space-sm);
+    }
+    #mobile-verse-area .mvv-body {
+        font-size: var(--text-body);
+        color: var(--text-main);
+        line-height: 1.9;
+    }
+}
+
 /* sidebar/menu: 全項目を medium（縦8px/横16px）ベースで統一し、グルーピングのみ macro（24px）を使う。 */
 .sidebar-menu { flex: 1; padding: var(--rhythm-medium-y) var(--rhythm-medium-y); overflow-y: auto; }
 .sidebar-section { margin-bottom: var(--rhythm-macro-min); }
@@ -3902,6 +4051,27 @@ details[open] .study-summary::before {
                 <div id="analysis-content-area" style="display:none;"></div>
             </div>
         </div>
+
+        <!-- Mobile Verse View（Phase A-2: 器のみ。本文/Inspector の中身は次Phase以降）
+             モバイル専用Inspector画面。closed 時は非表示。既存 StudyPanel とは独立。 -->
+        <div id="mobile-verse-view">
+            <div id="mobile-verse-view-bar">
+                <button id="mobile-verse-view-back" onclick="_mobileVerseViewBack()" aria-label="戻る">
+                    <span aria-hidden="true">‹</span>
+                </button>
+                <!-- Phase D-3C: 現在地表示（Level2=節ref / Level3=語）。_syncMobileVerseTitle で更新 -->
+                <span id="mobile-verse-view-title"></span>
+                <!-- Phase D-1: ユーザー手書きメモの開閉（既存 note-btn / _toggleNoteUI を再利用） -->
+                <button class="share-url-btn note-btn" id="mobile-verse-view-note" data-icon="note" onclick="_toggleNoteUI()" title="この節にメモを書く" style="margin-left:auto;">
+                    <span class="note-dot"></span>
+                </button>
+            </div>
+            <div id="mobile-verse-area">placeholder</div>
+            <div id="mobile-inspector-area">placeholder</div>
+            <!-- Phase D-3B: MobileVerseView 専用の固定メモ領域。Level2/Level3 の innerHTML 全置換の
+                 影響を受けず、textarea 内容・開閉状態を保持する（#mobile-inspector-area の兄弟）。 -->
+            <div id="mobile-verse-note-area"></div>
+        </div>
     </div>
 </div>
 
@@ -4401,7 +4571,14 @@ function _syncBookmarkButtons(ref) {
    片方のみ）を開閉する。読書の主役は本文なので、メモは既定では折りたたんでおき、
    ここでのクリック時のみ展開する。 */
 function _toggleNoteUI() {
-    const block = document.getElementById('reading-note-block-wlv') || document.getElementById('reading-note-block-rn');
+    /* Phase D-1: MobileVerseView 表示中はその 'mvv' メモ欄を優先。
+       MVV 非表示（＝Desktop / 通常モバイル）では従来どおり wlv / rn を対象にする
+       （mvv を open ガードで限定するため Desktop 挙動は不変）。 */
+    const mvvView = document.getElementById('mobile-verse-view');
+    const mvvOpen = mvvView && mvvView.classList.contains('open');
+    const block = (mvvOpen && document.getElementById('reading-note-block-mvv'))
+        || document.getElementById('reading-note-block-wlv')
+        || document.getElementById('reading-note-block-rn');
     if (!block) return;
     block.style.display = (block.style.display === 'block') ? 'none' : 'block';
 }
@@ -8581,7 +8758,7 @@ app.innerHTML = '';
                     block.classList.add('selected');
                     document.getElementById('active-v').innerText = `${vNum} 節`;
                     AppState.toBrowsing(vNum, words);
-                    openWordListInStudyPanel(vNum, words);
+                    openVerseInspector(vNum, words);
                     notifyAppStateChange();
                 };
             }
@@ -8611,7 +8788,7 @@ app.innerHTML = '';
                     pBlock.classList.add('selected');
                     document.getElementById('active-v').innerText = `${vNum} 節`;
                     AppState.toBrowsing(vNum, elByVerse[vNum] || []);
-                    openWordListInStudyPanel(vNum, elByVerse[vNum] || []);
+                    openVerseInspector(vNum, elByVerse[vNum] || []);
                     notifyAppStateChange();
                 };
             }
@@ -8624,7 +8801,7 @@ app.innerHTML = '';
                 pBlock.classList.add('selected');
                 document.getElementById('active-v').innerText = `${vNum} 節`;
                 AppState.toBrowsing(vNum, elByVerse[vNum] || []);
-                openWordListInStudyPanel(vNum, elByVerse[vNum] || []);
+                openVerseInspector(vNum, elByVerse[vNum] || []);
                 notifyAppStateChange();
             };
         }
@@ -8732,6 +8909,331 @@ _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma
 }
 
 /**
+ * openVerseInspector — 節タップの単一入口（Adapter Layer）。
+ *
+ * 責務: 「節タップ後に適切な表示方式へ振り分ける」こと。
+ * 節タップは必ずこの関数を経由し、以降の分岐（Desktop / Mobile）はここに閉じ込める。
+ *
+ * 振り分け:
+ *   Desktop → openWordListInStudyPanel()（従来どおり）
+ *   Mobile  → openMobileVerseView()（Phase A-2 で追加した器。中身は placeholder）
+ *
+ * モバイル判定は既存の _isMobile()（innerWidth <= 900）をそのまま使う。
+ * 新しい判定方式は作らない。
+ */
+function openVerseInspector(vNum, words) {
+    if (_isMobile()) {
+        return openMobileVerseView(vNum, words);
+    }
+    return openWordListInStudyPanel(vNum, words);
+}
+
+/**
+ * openMobileVerseView — モバイル専用 Verse Inspector の器（Phase A-2 / B）。
+ *
+ * Phase B: 上半分 #mobile-verse-area にタップした節の本文を表示する。
+ * 下半分 #mobile-inspector-area は placeholder のまま（次 Phase）。
+ * 既存 StudyPanel / Bottom Sheet には一切触れない。
+ */
+/* ── MobileVerseView 内部の階層状態（Phase C-4） ──
+   AppState / depth stack / panelGoBack とは独立した、MobileVerseView 専用の UI 状態。
+   'list'   = Level2（語順フロー・単語一覧）
+   'detail' = Level3（単語詳細）
+   戻るボタンはこの値だけを見て「詳細→一覧」か「一覧→クローズ」かを決める。 */
+let _mobileVerseInspectorMode = 'list';
+/* 一覧へ戻す際の再描画に必要な現在節のコンテキスト（AppState には持たせない）。 */
+let _mvvVNum  = null;
+let _mvvWords = [];
+/* E-1B: Level2→Level3→戻る で復元する #mobile-inspector-area のスクロール位置。 */
+let _mvvInspectorScrollTop = 0;
+/* E-1C: MVV が積んだ history エントリの管理フラグ（AppState / URL は変更しない）。 */
+let _mvvHistoryActive = false;
+let _mvvIgnoreNextPop = false;
+
+function openMobileVerseView(vNum, words) {
+    closeMobileSidebar();
+    const view = document.getElementById('mobile-verse-view');
+    if (!view) return;
+    view.classList.add('open');
+    /* E-1C: Android/ブラウザの戻るで MVV を閉じられるよう履歴エントリを1つ積む（URL は不変）。 */
+    _mvvPushHistory();
+    /* 内部状態を初期化: 節を開いた直後は必ず Level2（一覧）。戻り再描画用に節情報も保持。 */
+    _mvvVNum  = vNum;
+    _mvvWords = words || [];
+    _mvvInspectorScrollTop = 0;   /* E-1B: 新しい節を開いたら復元位置はリセット */
+    _mobileVerseInspectorMode = 'list';
+    /* Phase D-3B: 固定メモ領域を節オープン時に一度だけ初期化（この節の ref のメモを読み込み・折りたたみ）。
+       以降 Level2/Level3 を行き来しても内容・開閉状態は保持される。 */
+    _initMobileNoteArea();
+    /* 上半分に節本文を描画（DOM取得は同期・FLOW時のfetchは非同期のため fire-and-forget）。
+       下半分の Inspector（Level2）描画も _renderMobileVerseArea 内から続けて呼ぶ。 */
+    _renderMobileVerseArea(vNum, words);
+    return view;
+}
+
+/**
+ * _mobileVerseViewBack — MobileVerseView の戻るボタン（#mobile-verse-view-back）専用ハンドラ。
+ *
+ * detail（Level3・単語詳細）→ list（Level2・語形一覧）へ戻す。
+ * list（Level2）→ MobileVerseView 自体を閉じる。
+ * AppState の depth stack / panelGoBack は使わない（MobileVerseView 内部で完結）。
+ */
+function _mobileVerseViewBack() {
+    if (_mobileVerseInspectorMode === 'detail') {
+        /* Level3 → Level2: 保持しておいた節コンテキストで一覧を再描画 */
+        _mobileInspectorRender(_mvvVNum, _mvvWords);
+        _mobileVerseInspectorMode = 'list';
+        /* E-1B: Level3 へ入る前の Level2 スクロール位置を復元（描画後の 1 フレームで適用） */
+        const area = document.getElementById('mobile-inspector-area');
+        if (area) {
+            const y = _mvvInspectorScrollTop;
+            requestAnimationFrame(function () { area.scrollTop = y; });
+        }
+        return;
+    }
+    /* Level2 → クローズ */
+    closeMobileVerseView();
+}
+
+/* ── E-1C: MobileVerseView の履歴連携（Android/ブラウザ戻る対応。URL・AppState は不変） ── */
+function _mvvPushHistory() {
+    if (_mvvHistoryActive) return;
+    _mvvHistoryActive = true;
+    /* URL は変えず（第3引数省略）、state マーカーのみのエントリを積む。失敗しても致命でない。 */
+    try { history.pushState({ __mvv: true }, ''); } catch (_) {}
+}
+
+/* DOM を閉じるだけの内部処理（履歴操作を伴わない）。popstate と UI 戻るの共通処理。 */
+function _doCloseMobileVerseView() {
+    const view = document.getElementById('mobile-verse-view');
+    if (view) view.classList.remove('open');
+    /* 次回 open 時は openMobileVerseView が 'list' を再設定するが、閉じた時点でも
+       内部状態を list に戻しておく（状態リセットの明示・防御的ハイジーン）。 */
+    _mobileVerseInspectorMode = 'list';
+}
+
+/* Android/ブラウザの戻る操作。MVV が積んだエントリを popstate で受けて閉じる。 */
+window.addEventListener('popstate', function () {
+    if (_mvvIgnoreNextPop) { _mvvIgnoreNextPop = false; return; }  /* UI 戻るが誘発した pop は無視 */
+    if (!_mvvHistoryActive) return;                                /* MVV 由来でなければ関与しない */
+    _mvvHistoryActive = false;
+    _doCloseMobileVerseView();
+});
+
+/* ── E-1A: MobileVerseView 限定のキーボード回避（visualViewport）。desktop / StudyPanel 非影響。 ── */
+(function _setupMvvKeyboard() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let active = false;
+    function apply() {
+        const view = document.getElementById('mobile-verse-view');
+        if (!view) return;
+        if (!active) { view.style.paddingBottom = ''; return; }
+        /* キーボード高さ ≒ レイアウトビューポート − ビジュアルビューポート（下端）。 */
+        const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+        view.style.paddingBottom = kb > 0 ? (kb + 'px') : '';
+    }
+    document.addEventListener('focusin', function (e) {
+        const t = e.target;
+        if (!t || t.tagName !== 'TEXTAREA' || !t.closest || !t.closest('#mobile-verse-view')) return;
+        active = true;
+        vv.addEventListener('resize', apply);
+        vv.addEventListener('scroll', apply);
+        apply();
+        setTimeout(function () { try { t.scrollIntoView({ block: 'center' }); } catch (_) {} }, 100);
+    });
+    document.addEventListener('focusout', function (e) {
+        const t = e.target;
+        if (!t || t.tagName !== 'TEXTAREA' || !t.closest || !t.closest('#mobile-verse-view')) return;
+        active = false;
+        vv.removeEventListener('resize', apply);
+        vv.removeEventListener('scroll', apply);
+        apply();   /* paddingBottom を '' に戻し、CSS の env(safe-area) を復帰 */
+    });
+})();
+
+/**
+ * _syncMobileVerseViewBackLabel — 戻るボタンのラベルを内部状態に合わせて更新する（Phase C-5）。
+ *   detail（Level3）: 「一覧」へ戻る
+ *   list（Level2）  : 「読書に戻る」（＝閉じる）
+ * 表示改善のみ。挙動は _mobileVerseViewBack() が担う。
+ */
+function _syncMobileVerseViewBackLabel() {
+    const btn = document.getElementById('mobile-verse-view-back');
+    if (!btn) return;
+    const isDetail = _mobileVerseInspectorMode === 'detail';
+    const label = isDetail ? '一覧' : '読書に戻る';
+    btn.innerHTML =
+        `<span aria-hidden="true">‹</span>` +
+        `<span style="margin-left:4px;font-size:var(--text-body);">${label}</span>`;
+    btn.setAttribute('aria-label', isDetail ? '一覧に戻る' : '読書に戻る');
+}
+
+/**
+ * _mvvDisplayTrans — MobileVerseView で表示する翻訳を決定する唯一の責務。
+ *
+ * 「現在ユーザーが読んでいるモード（_transA）から、MobileVerseView で
+ *  表示する翻訳 ID を決める」。ルール:
+ *    JA1955 → JA1955
+ *    BUN    → BUN
+ *    FLOW   → JA1955（語順フローには訳文が無いので口語訳へフォールバック）
+ * それ以外の翻訳が来た場合も _transA をそのまま返す（将来の翻訳追加に追随）。
+ */
+function _mvvDisplayTrans() {
+    return (_transA === 'FLOW') ? 'JA1955' : _transA;
+}
+
+/**
+ * _mvvGetVerseText — 表示すべき節本文（プレーンテキスト）を取得する。
+ *
+ * 優先順位:
+ *   1) FLOW 以外（_transA が実際の訳文）: 現在表示中の DOM（左節ブロックの
+ *      .jp-text）からそのまま読む。追加 fetch を避ける。
+ *   2) FLOW（DOM に訳文が無い）または DOM 取得不可: 既存の翻訳データ取得経路
+ *      _fetchTranslation() で _mvvDisplayTrans()（=JA1955）を読む。
+ */
+async function _mvvGetVerseText(vNum) {
+    if (_transA !== 'FLOW') {
+        const block = _findVisibleVerseBlock(vNum);
+        if (block) {
+            const jt = block.querySelector('.jp-text');
+            if (jt) {
+                const t = jt.textContent.trim();
+                if (t) return t;
+            }
+        }
+    }
+    /* FLOW もしくは DOM から取れない場合のみ、既存 fetch 経路を使う */
+    const bookKey = AppState.location.book ? AppState.location.book.key : '';
+    const ch = AppState.location.chapter;
+    if (!bookKey || ch == null) return '';
+    const data = await _fetchTranslation(_mvvDisplayTrans(), bookKey, String(ch));
+    if (data && data.verses && data.verses[vNum] != null) return String(data.verses[vNum]);
+    return '';
+}
+
+/**
+ * _renderMobileVerseArea — #mobile-verse-area に「書名・章節・本文」を描画する。
+ * 続けて下半分の Inspector（Level2）を _mobileInspectorRender() で描画する。
+ * 上半分の本文取得は非同期のため、Inspector 描画は本文を待たずに先行させる
+ * （両者は独立した領域で、描画順に依存しない）。
+ */
+async function _renderMobileVerseArea(vNum, words) {
+    /* 下半分（Level2: 語順フロー・単語一覧）を先に描画（同期・本文fetchを待たない） */
+    _mobileInspectorRender(vNum, words);
+
+    const area = document.getElementById('mobile-verse-area');
+    if (!area) return;
+
+    const book = AppState.location.book;
+    const bookName = book ? (book.name || book.key || '') : '';
+    const ch = AppState.location.chapter;
+    const ref = (bookName && ch != null && vNum != null) ? `${bookName} ${ch}:${vNum}` : '';
+
+    const text = await _mvvGetVerseText(vNum);
+
+    area.innerHTML =
+        `<div class="mvv-ref">${_escH(ref)}</div>` +
+        `<div class="mvv-body">${_escH(text)}</div>`;
+}
+
+/**
+ * _mobileInspectorRender — #mobile-inspector-area に Level2 内容を描画する。
+ *
+ * 既存の Level2 描画ロジックをそのまま再利用する:
+ *   - _buildFlowTabHTML(words) … 語順フロー + 単語一覧（chip 列 + 詳細ドロワー等）
+ *   - _fillWallacePassageNote(words, area) … 節読書メモスロットの非同期充填
+ * StudyPanel（#bottom-depth-panel）や _openWordListInternal のコードは複製せず、
+ * 同じ生成関数を別コンテナへ出力するだけ。
+ *
+ * 注:
+ *   - 語形メモ入力欄（_noteBlockHtml/_loadNoteUI）は今回対象外（Reading Notes は次Phase）。
+ *   - chip クリックは既存 _wlvChipClick が使う _wlvWordCache を SSOT とするため、
+ *     ここで従来どおり words をセットする（_openWordListInternal と同じ振る舞い）。
+ */
+function _mobileInspectorRender(vNum, words) {
+    const area = document.getElementById('mobile-inspector-area');
+    if (!area) return;
+
+    /* Level2（一覧）を描画するので内部状態は list */
+    _mobileVerseInspectorMode = 'list';
+    _syncMobileVerseViewBackLabel();
+    _syncMobileVerseTitle();
+
+    /* chip クリック（_wlvChipClick）が参照するグローバルキャッシュ。
+       モバイルでは desktop の #word-list-view を描画しないため衝突しない。 */
+    _wlvWordCache = words || [];
+
+    if (!words || !words.length) {
+        area.innerHTML =
+            `<p style="color:var(--text-sub);font-size:var(--text-caption);text-align:center;padding:var(--space-xl) var(--space-md);">この節では語形表示はまだ利用できません</p>`;
+        /* メモは固定領域 #mobile-verse-note-area（open 時に初期化）にあり、
+           ここでは触れない（Level 遷移で内容・開閉状態を保持するため）。 */
+        return;
+    }
+
+    area.innerHTML = _buildFlowTabHTML(words);
+    /* 節読書メモ（ReadingFormatter 駆動）を非同期に注入。無ければ静寂（現状維持）。 */
+    _fillWallacePassageNote(words, area);
+}
+
+/**
+ * _initMobileNoteArea — MVV 専用の固定メモ領域（#mobile-verse-note-area）を初期化する（Phase D-3B）。
+ *
+ * 節を開いた時（openMobileVerseView）に一度だけ呼ぶ。ここに置いたメモ欄は
+ * #mobile-inspector-area の innerHTML 全置換（Level2/Level3 遷移）の影響を受けないため、
+ * textarea 内容・開閉状態が節セッション中は保持される。
+ *
+ * 既存のメモ機能を suffix='mvv' でそのまま再利用する（新規ロジックなし）:
+ *   _noteBlockHtml('mvv') … デスクトップと同一の生成関数（保存ボタンは _saveCurrentNote('mvv') に自動配線）
+ *   _loadNoteUI('mvv')    … 現在節 ref のメモを読み込み・折りたたみ初期化
+ * ref は _currentVerseRef()（AppState 由来）で解決するため、コンテナ非依存。
+ */
+function _initMobileNoteArea() {
+    const noteArea = document.getElementById('mobile-verse-note-area');
+    if (!noteArea) return;
+    noteArea.innerHTML = _noteBlockHtml('mvv');
+    _loadNoteUI('mvv');
+}
+
+/**
+ * _syncMobileVerseTitle — MVV バー中央の現在地表示を内部状態に合わせて更新する（Phase D-3C）。
+ *   list（Level2）  : 「書名 章:節」（AppState.location + _mvvVNum）
+ *   detail（Level3）: 選択語（AppState.inspect.data.greek）
+ * 表示のみ。戻る/メモの動作には関与しない。
+ */
+function _syncMobileVerseTitle() {
+    const el = document.getElementById('mobile-verse-view-title');
+    if (!el) return;
+    let title = '';
+    if (_mobileVerseInspectorMode === 'detail') {
+        title = (AppState.inspect.data && AppState.inspect.data.greek) || '';
+    } else {
+        const book = AppState.location.book;
+        const bookName = book ? (book.name || book.key || '') : '';
+        const ch = AppState.location.chapter;
+        if (bookName && ch != null && _mvvVNum != null) title = `${bookName} ${ch}:${_mvvVNum}`;
+    }
+    el.textContent = title;
+}
+
+/**
+ * closeMobileVerseView — #mobile-verse-view を非表示にする（Phase A-2）。
+ * closeStudyPanel() には触れない独立の閉じ処理。
+ */
+function closeMobileVerseView() {
+    /* まず DOM を閉じる。 */
+    _doCloseMobileVerseView();
+    /* E-1C: UI 戻る/クローズで閉じた場合は、MVV が積んだ履歴エントリも戻して整合を取る。
+       この history.back() が誘発する popstate は _mvvIgnoreNextPop で無視する（二重クローズ防止）。 */
+    if (_mvvHistoryActive) {
+        _mvvHistoryActive = false;
+        _mvvIgnoreNextPop = true;
+        history.back();
+    }
+}
+
+/**
  * 節クリック時に side-panel を開き、語形リストを3タブで表示する。
  *
  * タブ構成:
@@ -8742,6 +9244,9 @@ _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma
  * 既存の AppState / openStudyPanel との接続はそのまま。
  * word-card の onclick（onWordCardClick）も通常タブでは変わらず動作する。
  * 流れタブのchipクリックは _wlvChipClick() を経由して同じ AppState を更新する。
+ *
+ * 注: 節タップの入口は openVerseInspector()。この関数を直接呼ぶのは
+ *     Adapter（openVerseInspector）と panelGoBack 経由の内部再描画のみ。
  */
 function openWordListInStudyPanel(vNum, words) {
     /* words をキャッシュ（chip クリック時の詳細参照用） */
@@ -10221,8 +10726,23 @@ function _wlvChipClick(chipEl, idx) {
     }
 
     if (verseBlock) {
-        /* 本文を読んでいる最中の chip タップ：StudyPanel に直接表示する。 */
-        openStudyPanel(chip.greek, chip.rawMorph, chip.ref, chip.lemma);
+        /* 本文を読んでいる最中の chip タップ：Level3 詳細へ。 */
+        if (_isMobile()) {
+            /* E-1D: Mobile では FLOW 本文 chip も MobileVerseView 経路へ統一（Bottom Sheet を出さない）。
+               当該節の MVV を開いて（Level2 器・メモ・タイトル・履歴を準備）から Level3 詳細を表示する。
+               AppState.toBrowsing は通常の節タップと同じ既存セッタ（selectedVerse を確定＝メモ ref 用）。 */
+            const _mvWords = verseBlock._flowWords || _wlvWordCache || [];
+            const _mvVNum  = (chip.verse != null) ? chip.verse
+                           : ((_mvWords[idx] && _mvWords[idx].verse != null) ? _mvWords[idx].verse : null);
+            AppState.toBrowsing(_mvVNum, _mvWords);
+            openMobileVerseView(_mvVNum, _mvWords);
+            openInspectorDetail(chip.greek, chip.rawMorph, chip.ref, chip.lemma);
+            window.App.onboarding?.onWordClicked(chipEl);
+            _syncOnboardingActiveFlag();
+            return;
+        }
+        /* Desktop は従来どおり openStudyPanel（openInspectorDetail 経由・挙動不変）。 */
+        openInspectorDetail(chip.greek, chip.rawMorph, chip.ref, chip.lemma);
         window.App.onboarding?.onWordClicked(chipEl);
         _syncOnboardingActiveFlag();
         return;
@@ -10274,7 +10794,193 @@ function _wlvStudyBtnClick() {
         });
     }
 
-    openStudyPanel(greek, rawMorph, ref, lemma);
+    openInspectorDetail(greek, rawMorph, ref, lemma);
+}
+
+/**
+ * openInspectorDetail — 単語詳細（Level3）表示の単一入口（Adapter Layer / Phase C-2）。
+ *
+ * chip 経路の Level3 遷移はこの関数を経由し、Desktop / Mobile の振り分けをここに閉じ込める。
+ *   Desktop → openStudyPanel()（従来どおり Bottom Sheet）
+ *   Mobile（かつ MobileVerseView 表示中）→ #mobile-inspector-area 内で詳細表示（今回は仮実装）
+ *
+ * モバイル判定は既存 _isMobile()（≤900px）を使う。
+ * ガード: MobileVerseView が開いていないモバイル文脈（本文 FLOW チップ直タップ等）では、
+ *         非表示コンテナへ書いても見えないため従来どおり openStudyPanel にフォールバックする
+ *         （既存挙動の非改変を優先）。openStudyPanel は削除しない。
+ */
+function openInspectorDetail(greek, rawMorph, ref, lemma) {
+    const mvv = document.getElementById('mobile-verse-view');
+    if (_isMobile() && mvv && mvv.classList.contains('open')) {
+        return _mobileInspectorDetail(greek, rawMorph, ref, lemma);
+    }
+    return openStudyPanel(greek, rawMorph, ref, lemma);
+}
+
+/**
+ * _mobileInspectorDetail — MobileVerseView 下部に単語詳細（Level3）を表示する（Phase C-3）。
+ *
+ * データは呼び出し直前に既存コード（_wlvChipClick）が設定した AppState.inspect.data を
+ * SSOT とし、引数は fallback として使う。表示 HTML の生成は _renderMobileWordDetail に分離。
+ * openStudyPanel / Bottom Sheet / AppState には触れない（inspect.data は読むだけ）。
+ * 自動生成 Reading Notes（_renderReadingNotes）は移植しない。ユーザー手書きメモ（mvv）のみ末尾に追加。
+ */
+function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
+    const area = document.getElementById('mobile-inspector-area');
+    if (!area) return;
+    /* E-1B: Level2（一覧）から詳細へ入る直前に、一覧のスクロール位置を保存（戻る時に復元） */
+    if (_mobileVerseInspectorMode === 'list') _mvvInspectorScrollTop = area.scrollTop;
+    /* Level3（単語詳細）を描画するので内部状態は detail（戻るボタンが一覧へ戻す判定に使う） */
+    _mobileVerseInspectorMode = 'detail';
+    _syncMobileVerseViewBackLabel();
+    _syncMobileVerseTitle();
+    const d = AppState.inspect.data || {};
+    area.innerHTML = _renderMobileWordDetail({
+        greek:    d.greek    || greek    || '',
+        lemma:    d.lemma    || lemma    || '',
+        rawMorph: d.rawMorph || rawMorph || '',
+        /* 表示用日本語（Presentation Policy 適用済みを優先） */
+        gloss:    d.jaWordDisplay || d.jaWord || '',
+        strong:   d.strong   || '',
+    });
+    /* Phase D-3B: メモは固定領域 #mobile-verse-note-area にあり、Level3 でも同じ ref を編集する。
+       ここでは動的領域に注入しない（Level 遷移で内容・開閉状態を保持するため）。 */
+
+    /* Phase F-3: 「読みを深める」スロットへ語レベル Reading Notes を非同期注入（fire-and-forget）。
+       文章生成は ReadingFormatter のみ（_buildWordResonanceText）。該当なしはセクションごと非表示。 */
+    _fillMvvReadingSlot(_wlvWordCache, _wlvActiveChipIdx);
+    /* Phase F-4: 「意味を見る」スロットへ semantic ドメインラベルを非同期注入（情報提供のみ）。 */
+    _fillMvvSemanticSlot(_wlvWordCache, _wlvActiveChipIdx);
+}
+
+/* Phase F-3: 語A解析中に語Bへ移動した場合、古い非同期結果の誤注入を防ぐ世代カウンタ。
+   Level2 ドロワー用 _wlvResonanceGen とは独立させ、相互キャンセルを避ける。 */
+let _mvvReadingGen = 0;
+
+/**
+ * _fillMvvReadingSlot — Level3「読みを深める」（#mvv-reading-slot）へ
+ * 既存 ReadingFormatter 経由の語レベル読書メモを非同期注入する（Phase F-3）。
+ *
+ * 原則:
+ *   - 文章生成は _buildWordResonanceText（＝ReadingFormatter.format/combine）のみ。ここでは作らない。
+ *   - Guard Rule は ReadingFormatter 側（assertReadingTextSafe）で保証済み。注入は textContent のみ。
+ *   - 該当なし（null＝静寂）のときは「読みを深める」セクションごと非表示（空の展開を出さない）。
+ *   - AppState / storage / URL は触れない。世代カウンタで stale 結果を破棄する。
+ */
+async function _fillMvvReadingSlot(words, idx) {
+    const slot = document.getElementById('mvv-reading-slot');
+    if (!slot) return;
+    const section = slot.closest('.mvv-l3-section');
+    const myGen = ++_mvvReadingGen;
+    /* 開始時はいったん空＋非表示（内容が確定するまで見せない） */
+    slot.textContent = '';
+    if (section) section.style.display = 'none';
+
+    let sentence = null;
+    try {
+        sentence = await _buildWordResonanceText(words, idx);
+    } catch (_) {
+        sentence = null;
+    }
+    if (myGen !== _mvvReadingGen) return;   /* 既に別の語へ移動済み → 破棄 */
+
+    if (sentence) {
+        slot.textContent = sentence;         /* textContent のみ（innerHTML 禁止） */
+        if (section) section.style.display = '';
+    } else {
+        if (section) section.style.display = 'none';   /* 静寂：セクションごと非表示 */
+    }
+}
+
+/* Phase F-4: 語A検索中に語Bへ移動した場合、古い semantic 結果の誤注入を防ぐ世代カウンタ。
+   Reading Notes 用 _mvvReadingGen とは独立。 */
+let _mvvSemanticGen = 0;
+
+/**
+ * _fillMvvSemanticSlot — Level3「意味を見る」（#mvv-semantic-slot）へ
+ * 既存 semantic lookup 経路のドメインラベルを非同期注入する（Phase F-4）。
+ *
+ * 原則（semantic = 情報提供のみ）:
+ *   - 既存経路（_ensureSemanticData → _resolveLemmaId → _lexiconData[id].domains → _getDomainLabel）
+ *     のラベルをそのまま列挙するだけ。文脈解釈・意味決定・教理説明・補足文章は行わない。
+ *   - 注入は textContent のみ（innerHTML 禁止）。
+ *   - 該当なし（ラベルなし＝静寂）のときは「意味を見る」セクションごと非表示。
+ *   - AppState / storage / URL は触れない。世代カウンタで stale 結果を破棄する。
+ *   - Reading Notes（読みを深める）とは別スロット・別役割（こちらは語義の分類ラベル）。
+ */
+async function _fillMvvSemanticSlot(words, idx) {
+    const slot = document.getElementById('mvv-semantic-slot');
+    if (!slot) return;
+    const section = slot.closest('.mvv-l3-section');
+    const myGen = ++_mvvSemanticGen;
+    slot.textContent = '';
+    if (section) section.style.display = 'none';
+
+    let text = '';
+    try {
+        await _ensureSemanticData();
+        /* 現在語の同定は AppState.inspect.data（_wlvChipClick が設定・読み取りのみ）。 */
+        const d = AppState.inspect.data || {};
+        const strong  = d.strong || '';
+        const lemmaId = (d.lemmaId != null) ? d.lemmaId : null;
+        const resolvedId = lemmaId || _resolveLemmaId(strong);
+        const lexEntry   = resolvedId ? _lexiconData[resolvedId] : null;
+        const domainCodes = (lexEntry && lexEntry.domains) ? lexEntry.domains : [];
+
+        const labels = [];
+        for (const code of domainCodes) {
+            const label = _getDomainLabel(code);                 /* 生コード→ラベル（内部で正規化） */
+            if (!label || /^分類\s/.test(label)) continue;        /* 未解決の技術コードは出さない */
+            if (labels.indexOf(label) === -1) labels.push(label); /* 重複ラベルは1つに */
+        }
+        text = labels.join('、');
+    } catch (_) {
+        text = '';
+    }
+    if (myGen !== _mvvSemanticGen) return;   /* 既に別の語へ移動済み → 破棄 */
+
+    if (text) {
+        slot.textContent = text;             /* textContent のみ（innerHTML 禁止） */
+        if (section) section.style.display = '';
+    } else {
+        if (section) section.style.display = 'none';   /* 静寂：セクションごと非表示 */
+    }
+}
+
+/**
+ * _renderMobileWordDetail — 単語詳細（Level3）の HTML を生成する。
+ *
+ * 役割は「読書補助」。研究画面化しない。構造（Phase F-2 区画スケルトン）:
+ *   【語】…常時表示（既存の表示内容・文言を不変で維持）
+ *   〔意味を見る〕…折りたたみ（native details・既定閉）＋空スロット #mvv-semantic-slot（未実装）
+ *   〔読みを深める〕…折りたたみ（native details・既定閉）＋空スロット #mvv-reading-slot（未実装）
+ *
+ * 折りたたみは native <details>/<summary> のみで実現（新規 AppState / storage / URL 状態なし）。
+ * スロットは将来の非同期注入用に識別子だけ確保し、今は空（データ取得・文章生成は行わない）。
+ * 形態情報タグは既存 buildMorphTagsHTML() を再利用（HTML の二重実装を避ける）。
+ */
+function _renderMobileWordDetail(d) {
+    const morphTags = d.rawMorph ? buildMorphTagsHTML(d.rawMorph) : '';
+    return `
+      <div class="mvv-word-detail" style="padding:var(--space-lg) var(--space-md);">
+        <div class="mvv-l3-word">
+          <div style="font-size:var(--text-title);color:var(--text-main);font-weight:600;line-height:1.3;">${_escH(d.greek)}</div>
+          ${d.gloss ? `<div style="margin-top:var(--space-xs);font-size:var(--text-body);color:var(--text-sub);">${_escH(d.gloss)}</div>` : ''}
+          ${d.lemma ? `<div style="margin-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">見出し語: <span style="color:var(--text-main);">${_escH(d.lemma)}</span></div>` : ''}
+          ${d.strong ? `<div style="margin-top:var(--space-xs);font-size:var(--text-caption);color:var(--text-hint);">Strong: ${_escH(String(d.strong))}</div>` : ''}
+          ${morphTags ? `<div style="margin-top:var(--space-md);">${morphTags}</div>` : ''}
+        </div>
+
+        <details class="mvv-l3-section">
+          <summary class="mvv-l3-summary">意味を見る</summary>
+          <div class="mvv-l3-slot" id="mvv-semantic-slot"></div>
+        </details>
+
+        <details class="mvv-l3-section">
+          <summary class="mvv-l3-summary">読みを深める</summary>
+          <div class="mvv-l3-slot" id="mvv-reading-slot"></div>
+        </details>
+      </div>`;
 }
 
 /* ── 原語タブ ── */
