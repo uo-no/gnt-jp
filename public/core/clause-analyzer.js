@@ -1135,6 +1135,11 @@ const _WALLACE_TEXT = {
     TEMPORAL:       'ここでは、出来事の前後関係が示されています。',
     APPROX_CAUSE:   'ここでは、おおよその理由が示されています。',
 
+    // Phase W-2B: 関係詞節（ὅς/ὅστις/ὅσπερ）。先行詞（referent）を特定せず、
+    // 「関係詞」「先行詞」等の研究用語も出さない。先行詞が検出できない
+    // headless relative（NT で約半数）でも成立する構造のみの一文とする。
+    RELATIVE:       'ここでは、ある内容について、続くことばが詳しく述べられています。',
+
     // Wallace 属格詳細分類（§4）ごとのテンプレート
     // Phase 25B-1: 文法用語（属格・分詞・述語・冠詞 等）を使わない読書文へ改訂。
     // これらのキーは従来到達不能（死蔵）だったため、既存出力への影響はない。
@@ -1181,6 +1186,17 @@ const _WALLACE_TEXT = {
 const _CLAUSE_TYPE_TO_GLOSS_KEY = {
     'clause.condition': 'CONDITION',
     'clause.contrast':  'CONTRAST_EXPLANATION',
+
+    // Phase W-2A: ὅτε / ὅταν 時間節。classifyDiscourseRelation() は ὅτε/ὅταν を
+    // 専用処理しないため discourse.type は常に 'UNCLASSIFIED' になる（εἰ/ἀλλά と
+    // 同じ到達経路）。clause.type から既存の TEMPORAL 文へ橋渡しして UNCLASSIFIED
+    // 汎用文への潰れを防ぐ。TEMPORAL テンプレート・engine ロジックは非改変。
+    'clause.temporal':  'TEMPORAL',
+
+    // Phase W-2B: ὅς/ὅστις/ὅσπερ 関係詞節。ὅτε/ὅταん と同じく discourse.type は
+    // UNCLASSIFIED になるため clause.type から RELATIVE 文へ橋渡しする。
+    // referent 解決はしない（headless でも成立する構造のみの文）。
+    'clause.relative':  'RELATIVE',
 
     // 属格詳細分類 → _WALLACE_TEXT キー
     'genitive.possessive':   'GENITIVE_POSSESSIVE',
@@ -1249,6 +1265,8 @@ const _CONNECTOR_TYPE_BY_KEY = {
     SIMILE:                 'B',
     TEMPORAL:               'A',
     APPROX_CAUSE:           'A',
+    // Phase W-2B: 関係詞節は先行内容への補足的な描写 → C（「、さらに」）
+    RELATIVE:               'C',
 
     // 属格分類は新規の統語的事実を提示するものがほとんど → A
     // 「補足」色の強いもの（属性描写・背景）→ C
