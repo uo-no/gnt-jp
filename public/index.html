@@ -4640,14 +4640,30 @@ const COMPARE_TARGETS = [
     { id: 'biblecom-kyodo',  label: '新共同訳（Bible.com）' },
 ];
 
-/* 比較対象クリック時。クリック時点の最新状態から都度URLを生成する
+/* 比較対象クリック時（案B）。クリック時点の最新状態から都度URLを生成する
    （事前計算したhrefを保持しない。節選択はリロード無しで変わりうるため）。
-   生成できない場合は何もしない。 */
-function _openCompareTarget(targetId) {
+   生成できない場合は何もしない。
+   外部サイトを新規タブで開いた後、自分側は既存の正規経路（window.App.bridge.
+   openFlowTab()）でFLOW表示へ切り替える。openFlowTab()はrenderCurrentPage()
+   経由でAppState.selectedVerseをリセットする（render()の既存仕様）ため、
+   節が選択されていた場合は既存のapplyShareState()（URL Import時の節復元と
+   同一経路）で同じverseへ復元する。url-import-engine.js・COMPARE_TARGETS・
+   generateExternalUrl()・Router/AppState/transA・transB/MobileVerseViewは
+   一切変更しない（既存の公開APIを呼ぶだけ）。 */
+async function _openCompareTarget(targetId) {
     const engine = window.App && window.App.urlImport;
-    const url = engine ? engine.generateExternalUrl(targetId, getShareState()) : null;
+    const state = getShareState();
+    const url = engine ? engine.generateExternalUrl(targetId, state) : null;
     if (!url) return;
+
     window.open(url, '_blank', 'noopener,noreferrer');
+
+    closeBiblePicker();
+
+    if (window.App.bridge && typeof window.App.bridge.openFlowTab === 'function') {
+        await window.App.bridge.openFlowTab();
+        if (state.verse) applyShareState({ verse: state.verse });
+    }
 }
 
 function getShareState() {
