@@ -1047,12 +1047,12 @@ transition: color var(--transition-fast);
 }
 .footer-links button:hover { color: var(--text-main); }
 
-#open-panel-btn, #open-source-btn {
+#open-panel-btn, #open-source-btn, #open-biblecom-btn {
 background: transparent; border: none; padding: 0 var(--space-sm); cursor: pointer; color: var(--highlight);
 font-size: var(--text-title); transition: transform var(--transition-base), opacity var(--transition-base); line-height: 1;
 }
-#open-panel-btn:hover, #open-source-btn:hover { opacity: var(--opacity-secondary); transform: scale(1.1); }
-#open-source-btn { font-size: var(--text-caption); }
+#open-panel-btn:hover, #open-source-btn:hover, #open-biblecom-btn:hover { opacity: var(--opacity-secondary); transform: scale(1.1); }
+#open-source-btn, #open-biblecom-btn { font-size: var(--text-caption); }
 
 /* ★ Apple風カードUI（StudyPanel）。
    高さは既存の46vh/220px/70vh＋ドラッグハンドルによるユーザー操作の
@@ -4029,6 +4029,14 @@ details[open] .study-summary::before {
             <button id="open-source-btn" onclick="_openUrlImportSource()" style="display:none;" title="元の聖書サイトを開く">
                 <span style="font-family:inherit;color:var(--text-sub);">元の聖書サイトを開く</span>
             </button>
+            <!-- open-biblecom-btn: URL Importとは逆方向（アプリ→外部サイト）の導線。
+                 #open-source-btn とは独立（importしていなくても現在地さえあれば使える）。
+                 非表示スタート。表示可否は _syncOpenBibleComButton() が
+                 url-import-engine.js の generateExternalUrl('biblecom', state) の
+                 成否（book/chapter有無・対応訳の有無を1点で判定）で決める。 -->
+            <button id="open-biblecom-btn" onclick="_openCurrentVerseOnBibleCom()" style="display:none;" title="現在の節をBible.comで開く">
+                <span style="font-family:inherit;color:var(--text-sub);">現在の節をBible.comで開く</span>
+            </button>
         </div>
     </header>
     <div id="app">
@@ -4601,6 +4609,35 @@ function _openUrlImportSource() {
     const sourceUrl = _getValidUrlImportSource();
     if (!sourceUrl) return;
     window.open(sourceUrl, '_blank', 'noopener,noreferrer');
+}
+
+/* ══════════════════════════════════════════
+   URL Import の逆方向: アプリ → Bible.com（Phase 1）
+   現在地（getShareState()の読み取りのみ）から url-import-engine.js の
+   generateExternalUrl('biblecom', state) を呼びURLを生成する。
+   AppState/Router/transA・transBへの書き込みは一切行わない。
+   ══════════════════════════════════════════ */
+
+/* #open-biblecom-btn の表示可否を同期する。generateExternalUrl() が非nullを
+   返すか（book/chapter有無・対応訳の有無を1点で判定）だけを見る。
+   init() から1回呼ぶ。翻訳切り替え等リロードを伴わない状態変化への
+   追従はPhase1のスコープ外（既知の限定事項）。 */
+function _syncOpenBibleComButton() {
+    const btn = document.getElementById('open-biblecom-btn');
+    if (!btn) return;
+    const engine = window.App && window.App.urlImport;
+    const url = engine ? engine.generateExternalUrl('biblecom', getShareState()) : null;
+    btn.style.display = url ? 'block' : 'none';
+}
+
+/* #open-biblecom-btn クリック時。クリック時点の最新状態から都度URLを
+   生成する（事前計算したhrefを保持しない。節選択はリロード無しで
+   変わりうるため）。生成できない場合は何もしない。 */
+function _openCurrentVerseOnBibleCom() {
+    const engine = window.App && window.App.urlImport;
+    const url = engine ? engine.generateExternalUrl('biblecom', getShareState()) : null;
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 function getShareState() {
@@ -8751,6 +8788,11 @@ async function init() {
     AppState.location.testament = isNt ? 'nt' : 'ot';
     AppState.location.book      = found || null;
     AppState.location.chapter   = chNum;
+
+    /* #open-biblecom-btn の表示同期は AppState.location / _transA が確定した直後に行う
+       （_syncUrlImportSourceButton() と異なり、book/chapterの実値が必要なため、
+       init() 冒頭ではなくこの時点で呼ぶ）。AppState/Routerへの書き込みは発生しない。 */
+    _syncOpenBibleComButton();
 
     /* ヘッダー/パンくず/サイドバー選択状態は AppState.ui.view から一括同期する */
     AppState.ui.view = 'bible';

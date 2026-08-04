@@ -9,7 +9,7 @@
  * 制約:  DOM / window に依存しない（Node.js 単体で動作する純関数）。
  *         対応サイトを増やす場合は SITE_PARSERS に解析関数を追加するだけでよい。
  *         書物名（日本語含む）を増やす場合は BOOK_NAME_ALIASES に追加するだけでよい。
- * バージョン: 1.3.0（Bible.com対応）
+ * バージョン: 1.4.0（Bible.com向け逆方向URL生成 = SITE_GENERATORS 対応）
  */
 
 'use strict';
@@ -202,6 +202,44 @@ const SITE_PARSERS = [
 ];
 
 // =============================================================
+// § 3.5  サイト別ジェネレーター（SITE_PARSERSの逆方向）
+//        各関数は state（book/chapter/verse/transA）を受け取り、
+//        その外部サイトで同じ箇所を開けるURLを返す。生成できない
+//        （書物名解決に必要な情報が無い／対応訳が無い等）場合は null。
+//        サイト追加時はここへ生成関数を1つ足し、SITE_GENERATORS へ
+//        登録するだけでよい（SITE_PARSERSと対称の構成）。
+// =============================================================
+
+/* Bible.com（YouVersion）の訳コード対応表。
+   本アプリの transA 値 → Bible.comの{versionId, code}。
+   versionIdはBible.com側のURLパス必須セグメントで、実URLを直接確認した値のみを登録する
+   （codeが本アプリのtransA値と偶然一致する場合でも、versionIdは別途裏取りが必要）。
+   対応表に無い訳（BUN=文語訳はBible.com未提供、FLOW=読解フローは実訳文が無いため対象外）は
+   生成不可（null）として扱う。訳が増えたらここに1行足すだけでよい。 */
+const BIBLE_COM_VERSION_MAP = {
+    JA1955: { versionId: 81, code: 'JA1955' },
+};
+
+/* state（{book, chapter, verse, transA}）→ Bible.com URL | null。
+   book/chapterが無い、または対応訳が無い場合は null。
+   書物コードはPRS.appと同様、内部キー（USFM準拠3文字）をそのまま使う（変換不要）。 */
+function _generateBibleCom(state) {
+    if (!state || !state.book || !state.chapter) return null;
+    const versionInfo = BIBLE_COM_VERSION_MAP[state.transA];
+    if (!versionInfo) return null;
+
+    let path = `/ja/bible/${versionInfo.versionId}/${state.book}.${state.chapter}`;
+    if (state.verse) path += `.${state.verse}`;
+    path += `.${versionInfo.code}`;
+
+    return `https://www.bible.com${path}`;
+}
+
+const SITE_GENERATORS = [
+    { id: 'biblecom', generate: _generateBibleCom },
+];
+
+// =============================================================
 // § 4.  公開API
 // =============================================================
 
@@ -232,15 +270,32 @@ function parseBibleUrl(rawUrl) {
     return null;
 }
 
+/**
+ * 現在地（state）から、指定した外部サイトで同じ箇所を開けるURLを生成する
+ * （parseBibleUrl の逆方向）。
+ * @param {string} siteId  SITE_GENERATORS に登録された id（例: 'biblecom'）
+ * @param {{book: string, chapter: (number|string), verse: (number|string|null), transA: string}} state
+ * @returns {string|null}  生成できない場合（対応サイト外・情報不足・対応訳なし）は null。
+ */
+function generateExternalUrl(siteId, state) {
+    const site = SITE_GENERATORS.find(s => s.id === siteId);
+    if (!site) return null;
+    try {
+        return site.generate(state) || null;
+    } catch (_) {
+        return null;
+    }
+}
+
 // =============================================================
 // § 5.  エクスポート
 // =============================================================
 
 if (typeof window !== 'undefined') {
     window.App = window.App || {};
-    window.App.urlImport = { parseBibleUrl };
+    window.App.urlImport = { parseBibleUrl, generateExternalUrl };
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseBibleUrl };
+    module.exports = { parseBibleUrl, generateExternalUrl };
 }
