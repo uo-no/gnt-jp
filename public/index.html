@@ -1047,88 +1047,12 @@ transition: color var(--transition-fast);
 }
 .footer-links button:hover { color: var(--text-main); }
 
-#open-panel-btn, #open-source-btn, #open-split-btn {
+#open-panel-btn, #open-source-btn {
 background: transparent; border: none; padding: 0 var(--space-sm); cursor: pointer; color: var(--highlight);
 font-size: var(--text-title); transition: transform var(--transition-base), opacity var(--transition-base); line-height: 1;
 }
-#open-panel-btn:hover, #open-source-btn:hover, #open-split-btn:hover { opacity: var(--opacity-secondary); transform: scale(1.1); }
-#open-source-btn, #open-split-btn { font-size: var(--text-caption); }
-
-/* ══════════════════════════════════════════
-   URL Import 分割ビュー（Phase 2a）: PC限定・compare-modeとは独立したクラス。
-   既存の compare-mode / #parallel-text-area は一切変更しない（新規要素のみ）。
-   ══════════════════════════════════════════ */
-#external-frame-area {
-    display: none;
-    flex-direction: column;
-    min-width: 0;
-    overflow: hidden;
-    border-left: 1px solid var(--border-soft);
-    background: var(--bg-paper);
-}
-#external-frame-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-    padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-md);
-    border-bottom: 1px solid var(--border-soft);
-    background: var(--bg-inset);
-    font-size: var(--text-caption);
-    color: var(--text-sub);
-}
-#external-frame-close-btn {
-    background: none; border: none; cursor: pointer; color: var(--text-sub);
-    font-size: var(--text-body-lg); line-height: 1; padding: 0 var(--space-xs);
-}
-#external-frame-close-btn:hover { color: var(--text-main); }
-#external-frame-iframe { flex: 1; width: 100%; border: none; }
-
-/* !important: .single-mode/.compare-mode（本ブロックより後方で定義・同じ特異度）に
-   列幅を上書きされないようにするため。#main-reading-area は必ず single-mode か
-   compare-mode のどちらかを伴っており、split-external-mode は常にその上に重ねて
-   使われる（単独では使わない）ため、後勝ちの上書きを確実に防ぐ必要がある。 */
-#main-reading-area.split-external-mode {
-    grid-template-columns: 1fr 1fr !important;
-}
-/* grid行(row 2)の高さは列1（FLOW本文。節数に応じて非常に長くなる）に合わせて auto 決定される。
-   iframe側をそれに追従させて巨大化させないよう、position:sticky + 固定高さで
-   ビューポート相当の高さに留め、#main-reading-area のスクロールに対して独立して
-   その場に留まりつつ、内部（iframe自身）はそのままスクロール可能にする。 */
-#main-reading-area.split-external-mode #external-frame-area {
-    display: flex;
-    grid-column: 2;
-    grid-row: 2;
-    position: sticky;
-    top: 0;
-    align-self: start;
-    height: calc(100vh - var(--app-header-h, 60px) - 36px);
-}
-/* StudyPanel展開時は既存compare-modeと同様に列2を収縮させる（compare-mode自体は変更しない）。 */
-#main-reading-area.split-external-mode.panel-open {
-    grid-template-columns: 1fr 0 !important;
-}
-#main-reading-area.split-external-mode.panel-open #external-frame-area {
-    display: none;
-}
-/* compare-mode（翻訳比較）と分割ビューが同時に有効化された場合、列2の奪い合いを防ぐため
-   分割ビュー側を優先的に隠す（compare-mode自体のルールは変更しない、複合セレクタの追加のみ）。 */
-#main-reading-area.compare-mode.split-external-mode #external-frame-area {
-    display: none;
-}
-
-/* 分割ビューはPC限定（900px以下では既存compare-modeも強制単一化される幅のため、
-   同じ境界に合わせる）。既存の @media (max-width:900px) ブロックは変更せず、
-   新しいブロックとして追加する。 */
-@media (max-width: 900px) {
-    #open-split-btn { display: none !important; }
-    #main-reading-area.split-external-mode {
-        grid-template-columns: 1fr !important;
-    }
-    #main-reading-area.split-external-mode #external-frame-area {
-        display: none !important;
-    }
-}
+#open-panel-btn:hover, #open-source-btn:hover { opacity: var(--opacity-secondary); transform: scale(1.1); }
+#open-source-btn { font-size: var(--text-caption); }
 
 /* ★ Apple風カードUI（StudyPanel）。
    高さは既存の46vh/220px/70vh＋ドラッグハンドルによるユーザー操作の
@@ -4105,13 +4029,6 @@ details[open] .study-summary::before {
             <button id="open-source-btn" onclick="_openUrlImportSource()" style="display:none;" title="元の聖書サイトを開く">
                 <span style="font-family:inherit;color:var(--text-sub);">元の聖書サイトを開く</span>
             </button>
-            <!-- open-split-btn: URL Import経由のセッションでのみ表示する分割ビュー（Phase 2a）起動ボタン。
-                 非表示スタート。表示可否は _syncExternalSplitButton() が #open-source-btn と同じ
-                 sessionStorage（app_url_import_source）を見て決める。PC幅（900px超）のみ
-                 CSS側でも表示を許可する（@media (max-width:900px) で強制非表示）。 -->
-            <button id="open-split-btn" onclick="_openExternalSplitView()" style="display:none;" title="外部サイトと並べて読む">
-                <span style="font-family:inherit;color:var(--text-sub);">外部サイトと並べて読む</span>
-            </button>
         </div>
     </header>
     <div id="app">
@@ -4128,16 +4045,6 @@ details[open] .study-summary::before {
             <div id="bible-text-area">
             </div>
             <div id="parallel-text-area"></div>
-            <!-- external-frame-area: URL Import 分割ビュー（Phase 2a）専用。#main-reading-area に
-                 .split-external-mode が付いている間だけ表示される（既存の #parallel-text-area の
-                 表示制御・翻訳描画パイプラインには一切触れない、独立した新規要素）。 -->
-            <div id="external-frame-area">
-                <div id="external-frame-toolbar">
-                    <span>外部サイト</span>
-                    <button id="external-frame-close-btn" onclick="_closeExternalSplitView()" title="閉じる">×</button>
-                </div>
-                <iframe id="external-frame-iframe" title="外部の聖書サイト"></iframe>
-            </div>
         </div>
         <!-- bottom-word-panel は廃止。DOMは残すが非表示 -->
         <div id="bottom-word-panel" style="display:none;">
@@ -4670,7 +4577,7 @@ function _syncUrlImportSourceButton() {
 }
 
 /* app_url_import_source を http/https URL として検証済みの形で返す。
-   改ざん・想定外の値混入時は null（_openUrlImportSource / _openExternalSplitView 共通）。 */
+   改ざん・想定外の値混入時は null（_openUrlImportSource が利用）。 */
 function _getValidUrlImportSource() {
     let sourceUrl = null;
     try {
@@ -4694,63 +4601,6 @@ function _openUrlImportSource() {
     const sourceUrl = _getValidUrlImportSource();
     if (!sourceUrl) return;
     window.open(sourceUrl, '_blank', 'noopener,noreferrer');
-}
-
-/* ══════════════════════════════════════════
-   URL Import 分割ビュー（Phase 2a）
-   sourceUrl を #external-frame-iframe の src としてそのまま使い、
-   #main-reading-area に .split-external-mode を付け外しするだけで開閉する
-   （既存の compare-mode / Router / AppState / transA・transB / MobileVerseView は
-   一切変更しない。iframeがブロックされた場合の自動判定は行わない）。
-   開閉状態は sessionStorage（app_url_import_split_open）で管理し、
-   sourceUrl 自体と同じくチャプター送り（フルリロード）をまたいで保持する。
-   PC幅（900px超）限定。900px以下では _openExternalSplitView() 自体が何もしない
-   （CSS側の @media (max-width:900px) でも #open-split-btn/.split-external-mode を
-   強制非表示にし、二重に保険をかけている）。
-   ══════════════════════════════════════════ */
-const URL_IMPORT_SPLIT_KEY = 'app_url_import_split_open';
-
-/* #open-split-btn の表示可否を同期する。#open-source-btn と同じ判定条件（sourceUrlの有無）。 */
-function _syncExternalSplitButton() {
-    const btn = document.getElementById('open-split-btn');
-    if (!btn) return;
-    let sourceUrl = null;
-    try {
-        sourceUrl = sessionStorage.getItem('app_url_import_source');
-    } catch (_) { /* 読み取り不可時は非表示のまま安全側に倒す */ }
-    btn.style.display = sourceUrl ? 'block' : 'none';
-}
-
-function _openExternalSplitView() {
-    if (window.innerWidth < 901) return; /* PC限定 */
-    const sourceUrl = _getValidUrlImportSource();
-    if (!sourceUrl) return;
-
-    const area = document.getElementById('main-reading-area');
-    const iframe = document.getElementById('external-frame-iframe');
-    if (!area || !iframe) return;
-
-    if (!iframe.src) iframe.src = sourceUrl;
-    area.classList.add('split-external-mode');
-    try { sessionStorage.setItem(URL_IMPORT_SPLIT_KEY, '1'); } catch (_) { /* 保存できなくても表示自体は継続 */ }
-}
-
-function _closeExternalSplitView() {
-    const area = document.getElementById('main-reading-area');
-    if (area) area.classList.remove('split-external-mode');
-    try { sessionStorage.removeItem(URL_IMPORT_SPLIT_KEY); } catch (_) {}
-}
-
-/* init() から1回呼ぶ。前回このタブで分割ビューを開いたまま次章へ進んだ場合等、
-   sessionStorageのフラグが残っていればPC幅の範囲内でのみ再度開いた状態に復元する。 */
-function _restoreExternalSplitViewIfNeeded() {
-    let wasOpen = false;
-    try {
-        wasOpen = sessionStorage.getItem(URL_IMPORT_SPLIT_KEY) === '1';
-    } catch (_) { return; }
-    if (wasOpen && window.innerWidth >= 901) {
-        _openExternalSplitView();
-    }
 }
 
 function getShareState() {
@@ -8868,9 +8718,6 @@ async function init() {
        （importが起きたその場のロードだけでなく、以降のチャプター送り等でも表示し続けるため
        _applyUrlImportIfPresent() の成否とは切り離して毎回呼ぶ）。 */
     _syncUrlImportSourceButton();
-    /* 分割ビュー（Phase 2a）: ボタン表示同期＋前回開いたままだった場合の復元。 */
-    _syncExternalSplitButton();
-    _restoreExternalSplitViewIfNeeded();
 
     /* アイコンレジストリから data-icon 要素へSVGを挿入する（☆🔗📝☰ 等の絵文字置き換え） */
     _renderStaticIcons();
