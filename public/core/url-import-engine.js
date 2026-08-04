@@ -8,84 +8,87 @@
  *         遷移・表示・DOM操作は呼び出し側（index.html）が行う。
  * 制約:  DOM / window に依存しない（Node.js 単体で動作する純関数）。
  *         対応サイトを増やす場合は SITE_PARSERS に解析関数を追加するだけでよい。
- * バージョン: 1.0.0
+ *         書物名（日本語含む）を増やす場合は BOOK_NAME_ALIASES に追加するだけでよい。
+ * バージョン: 1.1.0（日本語書名エイリアス対応）
  */
 
 'use strict';
 
 // =============================================================
-// § 1.  書物名解決テーブル（内部キー ← 英語の書物名・略称）
+// § 1.  書物名解決テーブル（内部キー ← 英語/日本語の書物名・略称）
 //       内部キーは SB_BOOKS（index.html）と同一の3文字キー。
-//       対応サイトが増えても、この表だけを参照すればよい。
+//       日本語エイリアスは index.html の SB_BOOKS.name / BOOK_SHORT と
+//       同一の表記を転記したもの（新たな訳語は作らない）。
+//       対応サイト・対応言語が増えても、この表だけを参照すればよい。
 // =============================================================
 
 const BOOK_NAME_ALIASES = [
-    ['MAT', ['matthew', 'matt', 'mt']],
-    ['MRK', ['mark', 'mk']],
-    ['LUK', ['luke', 'lk']],
-    ['JHN', ['john', 'jn']],
-    ['ACT', ['acts', 'act']],
-    ['ROM', ['romans', 'rom']],
-    ['1CO', ['1 corinthians', '1 cor', '1cor']],
-    ['2CO', ['2 corinthians', '2 cor', '2cor']],
-    ['GAL', ['galatians', 'gal']],
-    ['EPH', ['ephesians', 'eph']],
-    ['PHP', ['philippians', 'phil', 'php']],
-    ['COL', ['colossians', 'col']],
-    ['1TH', ['1 thessalonians', '1 thess', '1thess']],
-    ['2TH', ['2 thessalonians', '2 thess', '2thess']],
-    ['1TI', ['1 timothy', '1 tim', '1tim']],
-    ['2TI', ['2 timothy', '2 tim', '2tim']],
-    ['TIT', ['titus', 'tit']],
-    ['PHM', ['philemon', 'phlm', 'phm']],
-    ['HEB', ['hebrews', 'heb']],
-    ['JAS', ['james', 'jas']],
-    ['1PE', ['1 peter', '1 pet', '1pet']],
-    ['2PE', ['2 peter', '2 pet', '2pet']],
-    ['1JN', ['1 john', '1 jn', '1jn']],
-    ['2JN', ['2 john', '2 jn', '2jn']],
-    ['3JN', ['3 john', '3 jn', '3jn']],
-    ['JUD', ['jude']],
-    ['REV', ['revelation', 'rev']],
-    ['GEN', ['genesis', 'gen']],
-    ['EXO', ['exodus', 'exod', 'ex']],
-    ['LEV', ['leviticus', 'lev']],
-    ['NUM', ['numbers', 'num']],
-    ['DEU', ['deuteronomy', 'deut', 'dt']],
-    ['JOS', ['joshua', 'josh']],
-    ['JDG', ['judges', 'judg']],
-    ['RUT', ['ruth']],
-    ['1SA', ['1 samuel', '1 sam', '1sam']],
-    ['2SA', ['2 samuel', '2 sam', '2sam']],
-    ['1KI', ['1 kings', '1 kgs', '1kgs']],
-    ['2KI', ['2 kings', '2 kgs', '2kgs']],
-    ['1CH', ['1 chronicles', '1 chr', '1chr']],
-    ['2CH', ['2 chronicles', '2 chr', '2chr']],
-    ['EZR', ['ezra']],
-    ['NEH', ['nehemiah', 'neh']],
-    ['EST', ['esther', 'esth']],
-    ['JOB', ['job']],
-    ['PSA', ['psalm', 'psalms', 'ps']],
-    ['PRO', ['proverbs', 'prov']],
-    ['ECC', ['ecclesiastes', 'eccl']],
-    ['SNG', ['song of solomon', 'song of songs', 'canticles', 'song']],
-    ['ISA', ['isaiah', 'isa']],
-    ['JER', ['jeremiah', 'jer']],
-    ['LAM', ['lamentations', 'lam']],
-    ['EZK', ['ezekiel', 'ezek']],
-    ['DAN', ['daniel', 'dan']],
-    ['HOS', ['hosea', 'hos']],
-    ['JOL', ['joel']],
-    ['AMO', ['amos']],
-    ['OBA', ['obadiah', 'obad']],
-    ['JON', ['jonah']],
-    ['MIC', ['micah', 'mic']],
-    ['NAH', ['nahum', 'nah']],
-    ['HAB', ['habakkuk', 'hab']],
-    ['ZEP', ['zephaniah', 'zeph']],
-    ['HAG', ['haggai', 'hag']],
-    ['ZEC', ['zechariah', 'zech']],
-    ['MAL', ['malachi', 'mal']],
+    ['MAT', ['matthew', 'matt', 'mt', 'マタイ', 'マタイの福音書']],
+    ['MRK', ['mark', 'mk', 'マルコ', 'マルコの福音書']],
+    ['LUK', ['luke', 'lk', 'ルカ', 'ルカの福音書']],
+    ['JHN', ['john', 'jn', 'ヨハネ', 'ヨハネの福音書']],
+    ['ACT', ['acts', 'act', '使徒', '使徒の働き']],
+    ['ROM', ['romans', 'rom', 'ローマ', 'ローマ人への手紙']],
+    ['1CO', ['1 corinthians', '1 cor', '1cor', 'Ⅰコリント', 'コリント人への手紙 第一']],
+    ['2CO', ['2 corinthians', '2 cor', '2cor', 'Ⅱコリント', 'コリント人への手紙 第二']],
+    ['GAL', ['galatians', 'gal', 'ガラテヤ', 'ガラテヤ人への手紙']],
+    ['EPH', ['ephesians', 'eph', 'エペソ', 'エペソ人への手紙']],
+    ['PHP', ['philippians', 'phil', 'php', 'ピリピ', 'ピリピ人への手紙']],
+    ['COL', ['colossians', 'col', 'コロサイ', 'コロサイ人への手紙']],
+    ['1TH', ['1 thessalonians', '1 thess', '1thess', 'Ⅰテサロニケ', 'テサロニケ人への手紙 第一']],
+    ['2TH', ['2 thessalonians', '2 thess', '2thess', 'Ⅱテサロニケ', 'テサロニケ人への手紙 第二']],
+    ['1TI', ['1 timothy', '1 tim', '1tim', 'Ⅰテモテ', 'テモテへの手紙 第一']],
+    ['2TI', ['2 timothy', '2 tim', '2tim', 'Ⅱテモテ', 'テモテへの手紙 第二']],
+    ['TIT', ['titus', 'tit', 'テトス', 'テトスへの手紙']],
+    ['PHM', ['philemon', 'phlm', 'phm', 'ピレモン', 'ピレモンへの手紙']],
+    ['HEB', ['hebrews', 'heb', 'ヘブル', 'ヘブル人への手紙']],
+    ['JAS', ['james', 'jas', 'ヤコブ', 'ヤコブの手紙']],
+    ['1PE', ['1 peter', '1 pet', '1pet', 'Ⅰペテロ', 'ペテロの手紙 第一']],
+    ['2PE', ['2 peter', '2 pet', '2pet', 'Ⅱペテロ', 'ペテロの手紙 第二']],
+    ['1JN', ['1 john', '1 jn', '1jn', 'Ⅰヨハネ', 'ヨハネの手紙 第一']],
+    ['2JN', ['2 john', '2 jn', '2jn', 'Ⅱヨハネ', 'ヨハネの手紙 第二']],
+    ['3JN', ['3 john', '3 jn', '3jn', 'Ⅲヨハネ', 'ヨハネの手紙 第三']],
+    ['JUD', ['jude', 'ユダ', 'ユダの手紙']],
+    ['REV', ['revelation', 'rev', '黙示録']],
+    ['GEN', ['genesis', 'gen', '創世記']],
+    ['EXO', ['exodus', 'exod', 'ex', '出エジプト', '出エジプト記']],
+    ['LEV', ['leviticus', 'lev', 'レビ', 'レビ記']],
+    ['NUM', ['numbers', 'num', '民数', '民数記']],
+    ['DEU', ['deuteronomy', 'deut', 'dt', '申命', '申命記']],
+    ['JOS', ['joshua', 'josh', 'ヨシュア', 'ヨシュア記']],
+    ['JDG', ['judges', 'judg', '士師', '士師記']],
+    ['RUT', ['ruth', 'ルツ', 'ルツ記']],
+    ['1SA', ['1 samuel', '1 sam', '1sam', 'Ⅰサムエル', 'サムエル記 第一']],
+    ['2SA', ['2 samuel', '2 sam', '2sam', 'Ⅱサムエル', 'サムエル記 第二']],
+    ['1KI', ['1 kings', '1 kgs', '1kgs', 'Ⅰ列王', '列王記 第一']],
+    ['2KI', ['2 kings', '2 kgs', '2kgs', 'Ⅱ列王', '列王記 第二']],
+    ['1CH', ['1 chronicles', '1 chr', '1chr', 'Ⅰ歴代', '歴代誌 第一']],
+    ['2CH', ['2 chronicles', '2 chr', '2chr', 'Ⅱ歴代', '歴代誌 第二']],
+    ['EZR', ['ezra', 'エズラ', 'エズラ記']],
+    ['NEH', ['nehemiah', 'neh', 'ネヘミヤ', 'ネヘミヤ記']],
+    ['EST', ['esther', 'esth', 'エステル', 'エステル記']],
+    ['JOB', ['job', 'ヨブ', 'ヨブ記']],
+    ['PSA', ['psalm', 'psalms', 'ps', '詩篇']],
+    ['PRO', ['proverbs', 'prov', '箴言']],
+    ['ECC', ['ecclesiastes', 'eccl', '伝道', '伝道者の書']],
+    ['SNG', ['song of solomon', 'song of songs', 'canticles', 'song', '雅歌']],
+    ['ISA', ['isaiah', 'isa', 'イザヤ', 'イザヤ書']],
+    ['JER', ['jeremiah', 'jer', 'エレミヤ', 'エレミヤ書']],
+    ['LAM', ['lamentations', 'lam', '哀歌']],
+    ['EZK', ['ezekiel', 'ezek', 'エゼキエル', 'エゼキエル書']],
+    ['DAN', ['daniel', 'dan', 'ダニエル', 'ダニエル書']],
+    ['HOS', ['hosea', 'hos', 'ホセア', 'ホセア書']],
+    ['JOL', ['joel', 'ヨエル', 'ヨエル書']],
+    ['AMO', ['amos', 'アモス', 'アモス書']],
+    ['OBA', ['obadiah', 'obad', 'オバデヤ', 'オバデヤ書']],
+    ['JON', ['jonah', 'ヨナ', 'ヨナ書']],
+    ['MIC', ['micah', 'mic', 'ミカ', 'ミカ書']],
+    ['NAH', ['nahum', 'nah', 'ナホム', 'ナホム書']],
+    ['HAB', ['habakkuk', 'hab', 'ハバクク', 'ハバクク書']],
+    ['ZEP', ['zephaniah', 'zeph', 'ゼパニヤ', 'ゼパニヤ書']],
+    ['HAG', ['haggai', 'hag', 'ハガイ', 'ハガイ書']],
+    ['ZEC', ['zechariah', 'zech', 'ゼカリヤ', 'ゼカリヤ書']],
+    ['MAL', ['malachi', 'mal', 'マラキ', 'マラキ書']],
 ];
 
 function _normalizeBookName(name) {
@@ -111,12 +114,19 @@ function _resolveBookKey(name) {
 // § 2.  箇所文字列（例: "1 Corinthians 13:4-7"）→ book/chapter/verse
 // =============================================================
 
+/* 書物名の文字クラス。英字に加え、日本語書名を構成するひらがな・カタカナ・漢字・
+   （Ⅰ/Ⅱ/Ⅲ等の）ローマ数字を許可する（BOOK_NAME_ALIASESの日本語エイリアスに合わせる）。 */
+const _BOOK_NAME_CHARS = 'A-Za-z\\u3040-\\u30FF\\u4E00-\\u9FFF\\u2160-\\u2169';
+
 /* 「(数字+空白省略可)書物名 章[:節[-節]]」形式を解析する。
    複数箇所（; , 区切り）は先頭のみを採用する。範囲指定は開始節のみ採用する。 */
 function _parsePassageRef(raw) {
     if (!raw) return null;
     const first = String(raw).split(/[;,]/)[0].trim();
-    const m = first.match(/^((?:[1-3]\s+)?[A-Za-z][A-Za-z\s]*?)\s+(\d{1,3})(?::(\d{1,3}))?/);
+    const pattern = new RegExp(
+        `^((?:[1-3]\\s+)?[${_BOOK_NAME_CHARS}][${_BOOK_NAME_CHARS}\\s]*?)\\s+(\\d{1,3})(?::(\\d{1,3}))?`
+    );
+    const m = first.match(pattern);
     if (!m) return null;
 
     const book = _resolveBookKey(m[1]);
