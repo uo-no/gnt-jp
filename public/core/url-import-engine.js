@@ -9,7 +9,7 @@
  * 制約:  DOM / window に依存しない（Node.js 単体で動作する純関数）。
  *         対応サイトを増やす場合は SITE_PARSERS に解析関数を追加するだけでよい。
  *         書物名（日本語含む）を増やす場合は BOOK_NAME_ALIASES に追加するだけでよい。
- * バージョン: 1.1.0（日本語書名エイリアス対応）
+ * バージョン: 1.2.0（PRS.app対応）
  */
 
 'use strict';
@@ -101,6 +101,9 @@ function _normalizeBookName(name) {
 
 const BOOK_NAME_TO_KEY = new Map();
 for (const [key, aliases] of BOOK_NAME_ALIASES) {
+    /* 内部キー自身も別名として登録する（USFM準拠の3文字コードをそのままパスに
+       使うサイト向け。例: PRS.app の "jhn" → JHN）。66書とも一意なため衝突しない。 */
+    BOOK_NAME_TO_KEY.set(_normalizeBookName(key), key);
     for (const alias of aliases) {
         BOOK_NAME_TO_KEY.set(_normalizeBookName(alias), key);
     }
@@ -153,8 +156,26 @@ function _parseBibleGateway(url) {
     return _parsePassageRef(search);
 }
 
+/* PRS.app: https://prs.app/ja/bible/jhn.1.jdb （末尾の16.jdbのように節を含む場合もある）
+   パスの書物コードはUSFM準拠の3文字（内部キーと同一・大小区別なし）。 */
+function _parsePRS(url) {
+    if (!/(^|\.)prs\.app$/i.test(url.hostname)) return null;
+    const m = url.pathname.match(/^\/[a-z]{2}\/bible\/([a-z0-9]+)\.(\d{1,3})(?:\.(\d{1,3}))?\.[a-z0-9]+$/i);
+    if (!m) return null;
+
+    const book = _resolveBookKey(m[1]);
+    if (!book) return null;
+
+    return {
+        book,
+        chapter: parseInt(m[2], 10),
+        verse: m[3] ? parseInt(m[3], 10) : null,
+    };
+}
+
 const SITE_PARSERS = [
     _parseBibleGateway,
+    _parsePRS,
 ];
 
 // =============================================================
