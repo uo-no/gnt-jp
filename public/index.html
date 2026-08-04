@@ -1047,11 +1047,12 @@ transition: color var(--transition-fast);
 }
 .footer-links button:hover { color: var(--text-main); }
 
-#open-panel-btn {
+#open-panel-btn, #open-source-btn {
 background: transparent; border: none; padding: 0 var(--space-sm); cursor: pointer; color: var(--highlight);
 font-size: var(--text-title); transition: transform var(--transition-base), opacity var(--transition-base); line-height: 1;
 }
-#open-panel-btn:hover { opacity: var(--opacity-secondary); transform: scale(1.1); }
+#open-panel-btn:hover, #open-source-btn:hover { opacity: var(--opacity-secondary); transform: scale(1.1); }
+#open-source-btn { font-size: var(--text-caption); }
 
 /* ★ Apple風カードUI（StudyPanel）。
    高さは既存の46vh/220px/70vh＋ドラッグハンドルによるユーザー操作の
@@ -4022,6 +4023,12 @@ details[open] .study-summary::before {
             <button id="open-panel-btn" onclick="reopenStudyPanel()" style="display:none;" title="前の語の読解に戻る">
                 <span class="material-symbols-outlined" style="font-size: var(--text-body-lg);vertical-align:middle;">info</span><span style="font-size: var(--text-caption);margin-left: var(--space-xs);font-family:inherit;color:var(--text-sub);">読解に戻る</span>
             </button>
+            <!-- open-source-btn: URL Import経由のセッションでのみ表示する「元の聖書サイトを開く」導線。
+                 非表示スタート。表示可否は _syncUrlImportSourceButton() が sessionStorage を見て決める
+                 （#open-panel-btn と同じ「条件付き表示」方式）。 -->
+            <button id="open-source-btn" onclick="_openUrlImportSource()" style="display:none;" title="元の聖書サイトを開く">
+                <span style="font-family:inherit;color:var(--text-sub);">元の聖書サイトを開く</span>
+            </button>
         </div>
     </header>
     <div id="app">
@@ -4539,10 +4546,53 @@ function _applyUrlImportIfPresent() {
         if (!params.has('transA')) {
             url.searchParams.set('transA', 'FLOW');
         }
+
+        /* 「外部サイト＋聖書アプリ並列利用」の基盤として、import元の外部URLを
+           このタブのセッション限りで保持する（sessionStorage。localStorageは使わない
+           ＝ app-storage.js が扱う永続ユーザーデータとは責務が異なる一時情報のため）。
+           保存に失敗しても（private mode等）本文表示には影響させない。
+           読み出し・表示は _syncUrlImportSourceButton() / _openUrlImportSource() が担う。 */
+        try {
+            sessionStorage.setItem('app_url_import_source', imported);
+        } catch (_) { /* 保存できなくてもアプリ動作は継続する */ }
     } else {
         _showToast('この聖書サービスには現在対応していません。', 3200);
     }
     history.replaceState(null, '', url);
+}
+
+/* #open-source-btn の表示可否を同期する。app_url_import_source が今回の
+   タブセッションに存在する限り表示し続ける（#open-panel-btnと同じ「値の有無だけで
+   判定する条件付き表示」方式）。URL Import Engineの再解析・Router操作は行わない。
+   init() から1回呼べば、以降のチャプター送り等はフルリロードのため再度init()が
+   走り、この関数も再実行される（値はsessionStorageに残り続けるので表示も保持される）。 */
+function _syncUrlImportSourceButton() {
+    const btn = document.getElementById('open-source-btn');
+    if (!btn) return;
+    let sourceUrl = null;
+    try {
+        sourceUrl = sessionStorage.getItem('app_url_import_source');
+    } catch (_) { /* 読み取り不可時は非表示のまま安全側に倒す */ }
+    btn.style.display = sourceUrl ? 'block' : 'none';
+}
+
+/* #open-source-btn クリック時。sessionStorageの値が http/https URL として
+   不正な場合（改ざん・想定外の値混入等）は window.open を呼ばず安全に無視する。
+   新規タブで開くのみで、このアプリ自身のRouter/表示状態には一切触れない。 */
+function _openUrlImportSource() {
+    let sourceUrl = null;
+    try {
+        sourceUrl = sessionStorage.getItem('app_url_import_source');
+    } catch (_) { return; }
+    if (!sourceUrl) return;
+
+    let parsed;
+    try {
+        parsed = new URL(sourceUrl);
+    } catch (_) { return; }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+
+    window.open(sourceUrl, '_blank', 'noopener,noreferrer');
 }
 
 function getShareState() {
@@ -8656,6 +8706,10 @@ async function init() {
     /* URL Import: ?import= があれば book/ch/verse へ変換し、通常のURL形式へ
        書き換えてから以降の初期化（Router.parse 以降）へ引き継ぐ。 */
     _applyUrlImportIfPresent();
+    /* 今回のimportに関わらず、セッション中に保存済みのsourceUrlがあればボタンを出す
+       （importが起きたその場のロードだけでなく、以降のチャプター送り等でも表示し続けるため
+       _applyUrlImportIfPresent() の成否とは切り離して毎回呼ぶ）。 */
+    _syncUrlImportSourceButton();
 
     /* アイコンレジストリから data-icon 要素へSVGを挿入する（☆🔗📝☰ 等の絵文字置き換え） */
     _renderStaticIcons();
