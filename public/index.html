@@ -4164,6 +4164,7 @@ details[open] .study-summary::before {
 </div>
 
 <script src="../assets/js/shared-ui.js"></script>
+<script src="../core/url-import-engine.js"></script>
 <script src="../core/syntax-analyzer.js"></script>
 <script src="../core/reading-context.js"></script>
 <script src="../core/phrase-analyzer.js"></script>
@@ -4506,6 +4507,37 @@ const Router = {
     }
 };
 
+/* ══════════════════════════════════════════
+   URL Import: 外部の聖書Webサービス（ブックマークレット等）から渡された
+   ?import=<URLエンコード済URL> を、通常の共有URL形式（?book/?ch/?verse）へ
+   変換する。解析ロジックは core/url-import-engine.js に集約し、ここでは
+   結果をURLへ書き戻す配線のみを行う（既存のRouter/init経路をそのまま使う）。
+   init() の最初、Router.parse() より前に1回だけ呼ぶ。 ══════════════════════════════════════════ */
+function _applyUrlImportIfPresent() {
+    const params = new URLSearchParams(location.search);
+    const imported = params.get('import');
+    if (!imported) return;
+
+    const engine = window.App && window.App.urlImport;
+    const result = engine ? engine.parseBibleUrl(imported) : null;
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('import');
+
+    if (result && result.book) {
+        url.searchParams.set('book', result.book);
+        url.searchParams.set('ch', String(result.chapter));
+        if (result.verse != null) {
+            url.searchParams.set('verse', String(result.verse));
+        } else {
+            url.searchParams.delete('verse');
+        }
+    } else {
+        _showToast('この聖書サービスには現在対応していません。', 3200);
+    }
+    history.replaceState(null, '', url);
+}
+
 function getShareState() {
     const panelOpen = AppState.depth?.stack?.length > 0;
 
@@ -4581,14 +4613,16 @@ async function copyShareUrl() {
         }
     }
 }
-function _showShareToast() {
+/* 画面下部の簡易トースト表示。#share-toast を共有部品として複数機能から利用する。 */
+function _showToast(message, duration = 2000) {
     const t = document.getElementById('share-toast');
     if (!t) return;
-    t.textContent = 'URLをコピーしました';
+    t.textContent = message;
     t.classList.add('visible');
     clearTimeout(t._hideTimer);
-    t._hideTimer = setTimeout(() => t.classList.remove('visible'), 2000);
+    t._hideTimer = setTimeout(() => t.classList.remove('visible'), duration);
 }
+function _showShareToast() { _showToast('URLをコピーしました'); }
 
 /* 現在開いている節の ref を構造フィールド（bookKey/ch/verse）から組み立てる（ref パース禁止のSSOT原則に従う） */
 function _currentVerseRef() {
@@ -8612,6 +8646,10 @@ function _appendReadingHint(block, vNum) {
 }
 
 async function init() {
+    /* URL Import: ?import= があれば book/ch/verse へ変換し、通常のURL形式へ
+       書き換えてから以降の初期化（Router.parse 以降）へ引き継ぐ。 */
+    _applyUrlImportIfPresent();
+
     /* アイコンレジストリから data-icon 要素へSVGを挿入する（☆🔗📝☰ 等の絵文字置き換え） */
     _renderStaticIcons();
     /* Reading Hint v1（加算表示・非ブロッキング・失敗許容） */
