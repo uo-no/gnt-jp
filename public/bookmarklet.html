@@ -78,10 +78,12 @@
    解析は一切行わない（解析は core/url-import-engine.js に集約し、index.html側の
    ?import= 受け口が担う）。ここで行うのはリンク先URLの組み立てのみ。
    index.htmlの場所は new URL('index.html', location.href) で解決するため、
-   このファイルの配置場所やドメインをハードコードしない。 */
+   このファイルの配置場所やドメインをハードコードしない。
+   window.open(...,'_blank') で新規タブに開くため、元の外部サイトのタブは
+   そのまま残る（location.href= による同一タブ遷移はしない）。 */
 (function () {
     const target = new URL('index.html', location.href).href;
-    const code = "(function(){location.href='" + target + "'+'?import='+encodeURIComponent(location.href);})();";
+    const code = "(function(){window.open('" + target + "'+'?import='+encodeURIComponent(location.href),'_blank');})();";
     const link = document.getElementById('bm-bookmarklet-link');
     if (link) link.setAttribute('href', 'javascript:' + code);
 })();
