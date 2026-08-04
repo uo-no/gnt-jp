@@ -9,7 +9,9 @@
  * 制約:  DOM / window に依存しない（Node.js 単体で動作する純関数）。
  *         対応サイトを増やす場合は SITE_PARSERS に解析関数を追加するだけでよい。
  *         書物名（日本語含む）を増やす場合は BOOK_NAME_ALIASES に追加するだけでよい。
- * バージョン: 1.4.0（Bible.com向け逆方向URL生成 = SITE_GENERATORS 対応）
+ *         比較対象（逆方向URL生成）を増やす場合は COMPARE_TARGET_GENERATORS に
+ *         生成関数を追加するだけでよい（呼び出し側=UIはtargetIdしか知らない）。
+ * バージョン: 1.5.0（比較対象=targetId方式の逆方向URL生成 generateExternalUrl 対応）
  */
 
 'use strict';
@@ -202,42 +204,47 @@ const SITE_PARSERS = [
 ];
 
 // =============================================================
-// § 3.5  サイト別ジェネレーター（SITE_PARSERSの逆方向）
-//        各関数は state（book/chapter/verse/transA）を受け取り、
-//        その外部サイトで同じ箇所を開けるURLを返す。生成できない
-//        （書物名解決に必要な情報が無い／対応訳が無い等）場合は null。
-//        サイト追加時はここへ生成関数を1つ足し、SITE_GENERATORS へ
-//        登録するだけでよい（SITE_PARSERSと対称の構成）。
+// § 3.5  比較対象（COMPARE TARGETS。SITE_PARSERSの逆方向）
+//        「どのサイトの、どの訳を開くか」は本エンジン内に閉じた責務であり、
+//        呼び出し側（index.html のUI）は targetId という不透明な識別子しか
+//        扱わない（サイト種別・version ID・URL構造はUI側に一切露出しない）。
+//        各生成関数は state（book/chapter/verse。transAは無視してよい —
+//        比較対象は「今アプリで表示中の訳」ではなく「常に決まった特定の訳」を
+//        開くため）を受け取り、その訳で同じ箇所を開けるURLを返す。
+//        生成できない場合（book/chapter不足等）は null。
+//        比較対象を増やす場合はここへ生成関数を1つ足し、
+//        COMPARE_TARGET_GENERATORS へ1行登録するだけでよい
+//        （index.html側のswitch/if分岐は一切不要）。
 // =============================================================
 
-/* Bible.com（YouVersion）の訳コード対応表。
-   本アプリの transA 値 → Bible.comの{versionId, code}。
-   versionIdはBible.com側のURLパス必須セグメントで、実URLを直接確認した値のみを登録する
-   （codeが本アプリのtransA値と偶然一致する場合でも、versionIdは別途裏取りが必要）。
-   対応表に無い訳（BUN=文語訳はBible.com未提供、FLOW=読解フローは実訳文が無いため対象外）は
-   生成不可（null）として扱う。訳が増えたらここに1行足すだけでよい。 */
-const BIBLE_COM_VERSION_MAP = {
-    JA1955: { versionId: 81, code: 'JA1955' },
-};
-
-/* state（{book, chapter, verse, transA}）→ Bible.com URL | null。
-   book/chapterが無い、または対応訳が無い場合は null。
-   書物コードはPRS.appと同様、内部キー（USFM準拠3文字）をそのまま使う（変換不要）。 */
-function _generateBibleCom(state) {
+/* PRS.app: 新改訳2017（訳コード "jdb"。実機で "聖書 新改訳2017" 表記・
+   ©新日本聖書刊行会 と一致することを確認済み）。 */
+function _generatePrsShinkai2017(state) {
     if (!state || !state.book || !state.chapter) return null;
-    const versionInfo = BIBLE_COM_VERSION_MAP[state.transA];
-    if (!versionInfo) return null;
-
-    let path = `/ja/bible/${versionInfo.versionId}/${state.book}.${state.chapter}`;
+    const book = String(state.book).toLowerCase();
+    let path = `/ja/bible/${book}.${state.chapter}`;
     if (state.verse) path += `.${state.verse}`;
-    path += `.${versionInfo.code}`;
+    path += '.jdb';
+    return `https://prs.app${path}`;
+}
 
+/* Bible.com（YouVersion）: 新共同訳（versionId 1819・訳コードは日本語表記
+   "新共同訳" そのもの。実URLで直接確認済み）。 */
+function _generateBibleComKyodo(state) {
+    if (!state || !state.book || !state.chapter) return null;
+    let path = `/ja/bible/1819/${state.book}.${state.chapter}`;
+    if (state.verse) path += `.${state.verse}`;
+    path += '.新共同訳';
     return `https://www.bible.com${path}`;
 }
 
-const SITE_GENERATORS = [
-    { id: 'biblecom', generate: _generateBibleCom },
-];
+/* targetId → 生成関数。UIはこのオブジェクトの中身（サイト・訳・URL構造）を
+   一切知らない。将来 ESV・NIV・口語訳等を増やす場合は、ここへ生成関数を
+   1つ足してキーを1行追加するだけでよい。 */
+const COMPARE_TARGET_GENERATORS = {
+    'prs-shinkai2017': _generatePrsShinkai2017,
+    'biblecom-kyodo': _generateBibleComKyodo,
+};
 
 // =============================================================
 // § 4.  公開API
@@ -271,17 +278,19 @@ function parseBibleUrl(rawUrl) {
 }
 
 /**
- * 現在地（state）から、指定した外部サイトで同じ箇所を開けるURLを生成する
- * （parseBibleUrl の逆方向）。
- * @param {string} siteId  SITE_GENERATORS に登録された id（例: 'biblecom'）
- * @param {{book: string, chapter: (number|string), verse: (number|string|null), transA: string}} state
- * @returns {string|null}  生成できない場合（対応サイト外・情報不足・対応訳なし）は null。
+ * 現在地（state）から、指定した比較対象（targetId）で同じ箇所を開けるURLを
+ * 生成する（parseBibleUrl の逆方向）。targetIdが「どのサイトの、どの訳か」を
+ * 解決するのは本関数の内部（COMPARE_TARGET_GENERATORS）だけであり、
+ * 呼び出し側はサイト種別・version ID・URL構造を一切知らなくてよい。
+ * @param {string} targetId  COMPARE_TARGET_GENERATORS に登録されたキー（例: 'prs-shinkai2017'）
+ * @param {{book: string, chapter: (number|string), verse: (number|string|null)}} state
+ * @returns {string|null}  生成できない場合（未知のtargetId・情報不足）は null。
  */
-function generateExternalUrl(siteId, state) {
-    const site = SITE_GENERATORS.find(s => s.id === siteId);
-    if (!site) return null;
+function generateExternalUrl(targetId, state) {
+    const generate = COMPARE_TARGET_GENERATORS[targetId];
+    if (!generate) return null;
     try {
-        return site.generate(state) || null;
+        return generate(state) || null;
     } catch (_) {
         return null;
     }
