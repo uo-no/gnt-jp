@@ -704,7 +704,7 @@ border-radius: var(--radius-s); margin-bottom: var(--space-xs); transition: back
 }
 #sb-info-btn:hover { background: var(--highlight-light); color: var(--highlight); }
 #sb-info-btn:active { transform: scale(0.93); }
-#info-overlay-card, #compare-overlay-card {
+#info-overlay-card {
     position: fixed;
     width: 210px;
     background: var(--bg-paper);
@@ -719,19 +719,10 @@ border-radius: var(--radius-s); margin-bottom: var(--space-xs); transition: back
     transition: opacity var(--transition-fast),
                 transform var(--transition-fast);
 }
-#info-overlay-card.visible, #compare-overlay-card.visible {
+#info-overlay-card.visible {
     opacity: 1;
     transform: translateY(0) scale(1);
     pointer-events: auto;
-}
-/* 比較先メニュー項目のうち、現在地では生成不可（book/chapter不足等）なものを
-   グレーアウトする。クリックは _openCompareTarget() 側でも null チェックするため
-   二重に安全（CSSはあくまで視覚的なヒント）。 */
-.info-card-item[disabled] {
-    color: var(--text-hint, #999);
-    cursor: default;
-    pointer-events: none;
-    opacity: var(--opacity-tertiary, 0.5);
 }
 .info-card-items { padding: var(--space-xs) 0; }
 .info-card-item {
@@ -1056,12 +1047,12 @@ transition: color var(--transition-fast);
 }
 .footer-links button:hover { color: var(--text-main); }
 
-#open-panel-btn, #open-source-btn, #open-compare-btn {
+#open-panel-btn, #open-source-btn {
 background: transparent; border: none; padding: 0 var(--space-sm); cursor: pointer; color: var(--highlight);
 font-size: var(--text-title); transition: transform var(--transition-base), opacity var(--transition-base); line-height: 1;
 }
-#open-panel-btn:hover, #open-source-btn:hover, #open-compare-btn:hover { opacity: var(--opacity-secondary); transform: scale(1.1); }
-#open-source-btn, #open-compare-btn { font-size: var(--text-caption); }
+#open-panel-btn:hover, #open-source-btn:hover { opacity: var(--opacity-secondary); transform: scale(1.1); }
+#open-source-btn { font-size: var(--text-caption); }
 
 /* ★ Apple風カードUI（StudyPanel）。
    高さは既存の46vh/220px/70vh＋ドラッグハンドルによるユーザー操作の
@@ -3568,6 +3559,12 @@ details[open] .study-summary::before {
     font-size: var(--text-body);
     color: var(--text-main);
 }
+/* 外部の翻訳で比較（.bp-compare-opt を流用。現在地では生成不可な項目の
+   グレーアウトのみ追加。クリック不可はJS側で addEventListener を付けない
+   ことで担保するため、ここは視覚的なヒントに徹する）。 */
+.bp-compare-external { margin-top: var(--space-md); }
+.bp-compare-opt.disabled { cursor: default; opacity: var(--opacity-tertiary, 0.4); }
+.bp-compare-opt.disabled:hover { background: none; }
 .bp-footer { padding: 0 var(--space-md) var(--space-md); }
 .bp-confirm-btn {
     width: 100%;
@@ -3929,6 +3926,13 @@ details[open] .study-summary::before {
                     <div class="bp-compare-options" id="bp-col-b"></div>
                 </div>
             </div>
+            <!-- 外部の翻訳で比較: アプリ内の左右列（A/B）とは別軸。COMPARE_TARGETS
+                 （データ駆動リスト）から _bpRenderCompareExternal() が毎回描画し、
+                 クリックすると新規タブで外部サイトを開く（_transA・_transBは変更しない）。 -->
+            <div class="bp-compare-external">
+                <span class="bp-compare-side-label">外部の翻訳で比較</span>
+                <div class="bp-compare-options" id="bp-compare-external-list"></div>
+            </div>
         </div>
         <div class="bp-footer">
             <button class="bp-confirm-btn" onclick="bpConfirm()">決定</button>
@@ -4037,15 +4041,6 @@ details[open] .study-summary::before {
                  （#open-panel-btn と同じ「条件付き表示」方式）。 -->
             <button id="open-source-btn" onclick="_openUrlImportSource()" style="display:none;" title="元の聖書サイトを開く">
                 <span style="font-family:inherit;color:var(--text-sub);">元の聖書サイトを開く</span>
-            </button>
-            <!-- open-compare-btn: URL Importとは逆方向（アプリ→外部サイト）の導線。
-                 #open-source-btn とは独立（importしていなくても現在地さえあれば使える）。
-                 クリックすると #compare-overlay-card（#info-overlay-cardと同じUIパターンの
-                 ポップオーバー）を開き、COMPARE_TARGETS から選んだ訳を新規タブで開く。
-                 非表示スタート。表示可否は _syncCompareButton() が決める
-                 （COMPARE_TARGETSのうち最低1件が生成可能かどうかの1点で判定）。 -->
-            <button id="open-compare-btn" onclick="_toggleCompareMenu()" style="display:none;" title="比較して読む">
-                <span style="font-family:inherit;color:var(--text-sub);">📖 比較して読む</span>
             </button>
         </div>
     </header>
@@ -4186,14 +4181,6 @@ details[open] .study-summary::before {
             <span class="info-beta-badge" aria-label="ベータ版">β</span>
         </button>
     </div>
-</div>
-
-<!-- compare-overlay-card: 「📖 比較して読む」のポップオーバー。#info-overlay-cardと
-     同じCSS・同じ開閉パターンを使う。中身（.info-card-items内のボタン）は静的に
-     書かず、COMPARE_TARGETS（データ駆動リスト）から _toggleCompareMenu() が
-     毎回描画する（比較対象を増やす際、この周辺のHTML/JSには一切手を入れない）。 -->
-<div id="compare-overlay-card" role="dialog" aria-label="比較して読む">
-    <div class="info-card-items" id="compare-target-list"></div>
 </div>
 
 <script src="../assets/js/shared-ui.js"></script>
@@ -4630,13 +4617,15 @@ function _openUrlImportSource() {
 }
 
 /* ══════════════════════════════════════════
-   URL Import の逆方向: アプリ → 外部サイト（「📖 比較して読む」）
+   URL Import の逆方向: アプリ → 外部サイト（「外部の翻訳で比較」）
    現在地（getShareState()の読み取りのみ）を url-import-engine.js の
    generateExternalUrl(targetId, state) へそのまま渡してURLを生成する。
    UI（このファイル）は targetId という不透明な識別子しか扱わず、
    どのサイトか・どの訳か・version ID・URL構造は一切知らない
    （それらは url-import-engine.js 内に閉じている）。
    AppState/Router/transA・transBへの書き込みは一切行わない。
+   独立したヘッダーボタンは持たず、既存の「聖書・翻訳を選ぶ」ポップアップの
+   比較表示タブ内（#bp-compare-external-list）に統合する。
 
    比較対象を増やす場合:
      1) url-import-engine.js の COMPARE_TARGET_GENERATORS に生成関数を1つ追加
@@ -4651,88 +4640,9 @@ const COMPARE_TARGETS = [
     { id: 'biblecom-kyodo',  label: '新共同訳（Bible.com）' },
 ];
 
-/* #open-compare-btn の表示可否を同期する。COMPARE_TARGETSのうち
-   最低1件がgenerateExternalUrl()で非nullを返すかだけを見る
-   （book/chapter有無を1点で判定。個々の訳の対応可否は開いた後の
-   メニュー側で項目ごとに反映する）。
-   init() から1回呼ぶ。翻訳切り替え等リロードを伴わない状態変化への
-   追従はPhase1のスコープ外（既知の限定事項）。 */
-function _syncCompareButton() {
-    const btn = document.getElementById('open-compare-btn');
-    if (!btn) return;
-    const engine = window.App && window.App.urlImport;
-    const state = getShareState();
-    const anyAvailable = !!engine && COMPARE_TARGETS.some(
-        t => engine.generateExternalUrl(t.id, state)
-    );
-    btn.style.display = anyAvailable ? 'block' : 'none';
-}
-
-/* #compare-overlay-card の中身を COMPARE_TARGETS から毎回描画する。
-   現在地で生成不可な項目（book/chapter不足等）は無効化（グレーアウト）する。
-   項目を増やしてもここのループ構造は変わらない。 */
-function _renderCompareMenu() {
-    const list = document.getElementById('compare-target-list');
-    if (!list) return;
-    const engine = window.App && window.App.urlImport;
-    const state = getShareState();
-
-    list.replaceChildren();
-    COMPARE_TARGETS.forEach(target => {
-        const available = !!engine && !!engine.generateExternalUrl(target.id, state);
-        const btn = document.createElement('button');
-        btn.className = 'info-card-item';
-        btn.textContent = target.label;
-        if (available) {
-            btn.addEventListener('click', () => {
-                _closeCompareMenu();
-                _openCompareTarget(target.id);
-            });
-        } else {
-            btn.disabled = true;
-        }
-        list.appendChild(btn);
-    });
-}
-
-/* #open-compare-btn クリック時。#toggleInfoCard() と同じ「ボタン位置に
-   合わせて浮動表示・再クリックで閉じる」パターン。開くたびに
-   _renderCompareMenu() で最新状態を反映する。 */
-function _toggleCompareMenu() {
-    const card = document.getElementById('compare-overlay-card');
-    if (!card) return;
-    if (card.classList.contains('visible')) { card.classList.remove('visible'); return; }
-
-    _renderCompareMenu();
-
-    /* #open-compare-btn はapp-header（画面上部）にあるため、#sb-info-btn（サイドバー
-       下部）向けの「上方向に開く」計算式（bottom基準）はそのまま流用できない。
-       ここではボタンの直下（下方向）に開く。右端がはみ出す場合はボタン右端に揃える。 */
-    const btn = document.getElementById('open-compare-btn');
-    if (btn) {
-        const r = btn.getBoundingClientRect();
-        const cardWidth = card.offsetWidth || 210;
-        const left = Math.min(r.left, window.innerWidth - cardWidth - 8);
-        card.style.left   = Math.max(8, left) + 'px';
-        card.style.top    = (r.bottom + 8) + 'px';
-        card.style.bottom = 'auto';
-        card.style.right  = 'auto';
-    }
-    card.classList.add('visible');
-}
-function _closeCompareMenu() {
-    document.getElementById('compare-overlay-card')?.classList.remove('visible');
-}
-document.addEventListener('click', function(e) {
-    const card = document.getElementById('compare-overlay-card');
-    if (!card?.classList.contains('visible')) return;
-    const btn = document.getElementById('open-compare-btn');
-    if (!card.contains(e.target) && !btn?.contains(e.target)) _closeCompareMenu();
-});
-
-/* 比較対象メニューの項目クリック時。クリック時点の最新状態から都度URLを
-   生成する（事前計算したhrefを保持しない。節選択はリロード無しで
-   変わりうるため）。生成できない場合は何もしない。 */
+/* 比較対象クリック時。クリック時点の最新状態から都度URLを生成する
+   （事前計算したhrefを保持しない。節選択はリロード無しで変わりうるため）。
+   生成できない場合は何もしない。 */
 function _openCompareTarget(targetId) {
     const engine = window.App && window.App.urlImport;
     const url = engine ? engine.generateExternalUrl(targetId, getShareState()) : null;
@@ -8889,11 +8799,6 @@ async function init() {
     AppState.location.book      = found || null;
     AppState.location.chapter   = chNum;
 
-    /* #open-compare-btn の表示同期は AppState.location が確定した直後に行う
-       （_syncUrlImportSourceButton() と異なり、book/chapterの実値が必要なため、
-       init() 冒頭ではなくこの時点で呼ぶ）。AppState/Routerへの書き込みは発生しない。 */
-    _syncCompareButton();
-
     /* ヘッダー/パンくず/サイドバー選択状態は AppState.ui.view から一括同期する */
     AppState.ui.view = 'bible';
     syncUIFromState();
@@ -12239,6 +12144,32 @@ function _bpRenderCompare() {
             <span class="bp-compare-opt-name">${t.name}</span>
         </div>`
     ).join('');
+    _bpRenderCompareExternal();
+}
+
+/* 「外部の翻訳で比較」欄。COMPARE_TARGETS（url-import-engine.jsのURL生成と対）を
+   毎回描画する。アプリ内のA/B列（_bpSelA/_bpSelB）とは独立しており、選択状態を
+   持たない（クリック＝即座に新規タブで開く、決定ボタンは不要）。
+   現在地で生成不可な項目（book/chapter不足等）はグレーアウトしクリック不可にする。
+   比較対象を増やしてもこの関数のループ構造は変わらない。 */
+function _bpRenderCompareExternal() {
+    const list = document.getElementById('bp-compare-external-list');
+    if (!list) return;
+    const engine = window.App && window.App.urlImport;
+    const state = getShareState();
+
+    list.replaceChildren();
+    COMPARE_TARGETS.forEach(target => {
+        const available = !!engine && !!engine.generateExternalUrl(target.id, state);
+        const opt = document.createElement('div');
+        opt.className = 'bp-compare-opt' + (available ? '' : ' disabled');
+        opt.innerHTML = '<span class="bp-compare-opt-dot"></span><span class="bp-compare-opt-name"></span>';
+        opt.querySelector('.bp-compare-opt-name').textContent = target.label;
+        if (available) {
+            opt.addEventListener('click', () => _openCompareTarget(target.id));
+        }
+        list.appendChild(opt);
+    });
 }
 
 function bpSelectA(id) {
