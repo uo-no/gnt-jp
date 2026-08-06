@@ -210,7 +210,7 @@ reading-engine.js（Reading Engine v2）: resolve(token, context?) を 7 フェ�
 ## 10. Things Never To Break
 
 1. **L-0 境界** — 翻訳 / 推論 / 語義選択 / 自然化 / 未判定補完をしない（§3）。すべての上位。
-2. **FROZEN 層** — `reading-engine.js` Phase 1–7 / `reading-context.js` Stage D / `presentation-policy.js` Stage C-P1 / `phrase-renderer.js` Stage A / `morph-rule-engine-v1`。基準値を割らず、変更時は回帰テスト追加 + 全 PASS。
+2. **FROZEN 層** — `reading-engine.js` Phase 1–7・Syntax Completion（K-3/L-3c）・Semantic Completion（L-4c） / `reading-context.js` Stage D / `presentation-policy.js` Stage C-P1 / `phrase-renderer.js` Stage A / `morph-rule-engine-v1`。基準値を割らず、変更時は回帰テスト追加 + 全 PASS。
 3. **自然文生成源の単一性** — ReadingFormatter 以外で日本語文章を生成しない。
 4. **ResolveContext の SSOT** — `reading-context.js` を唯一の Context 供給源とする。
 5. **ディレクトリ責務境界** — `core/` は DOM 非依存、`assets/data/` は直接編集禁止、`scripts/` は本番から参照禁止（§9）。

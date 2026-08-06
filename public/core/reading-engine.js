@@ -85,7 +85,52 @@
  *           reading-ln-curation.js → npm run build:ln-final で反映）
  *   検証: npm run test:re-phase5 + 実表示監査
  *         （scripts/re-phase5d-display-audit.cjs・600 節）
- *   判定基準: docs/reading-flow-gloss-policy.md（replace/assist/preserve）
+ *   判定基準: docs/development/reading-flow-gloss-policy.md（replace/assist/preserve）
+ *
+ * Stage K-3: Relative Syntax   [FROZEN 2026-07-20]
+ *   基準値: 関係詞 1,658 件 / 束縛(referent有) 1,071 / 自由(referent無→null) 587 /
+ *           role内訳(bound内) s:379 o:348 adv:71 io:22 p:10 o2:4 /
+ *           referent解決率 1,006/1,071 / 悪化ケース 0（reading バイト等価）
+ *   対象: _RELATIVE_STRONGS / getRelativeSyntax（ὅς/ὅστις/ὅσος の role/referent を
+ *         read-only で読み取り、resolve() 結果へ relativeSyntax として付帯）
+ *   設計: docs/development/relative-syntax-rule-design.md
+ *   報告: docs/archive/relative-syntax-rule-implementation-report.md
+ *   検証: npm run test:re-syntax-completion
+ *   role/referent は既存注釈の転写のみ。推論しない・resolve() の japanese は不変。
+ *
+ * Stage L-3c: Demonstrative Syntax Completion   [FROZEN 2026-07-20]
+ *   基準値: 束縛指示詞(referent有) 1,104 / role注釈あり(bound内) 576 /
+ *           referent解決率 919/1,104 / adnominal判定済み 0（全件未判定・安全fallback）/
+ *           悪化ケース 0（reading バイト等価）
+ *   対象: _DEMONSTRATIVE_LEMMAS / getDemonstrativeSyntax（οὗτος/ἐκεῖνος/τοιοῦτος の
+ *         role/referent を read-only で読み取り、resolve() 結果へ demonstrativeSyntax
+ *         として付帯。adnominal は連体/代名詞の区別が per-token では確定不能なため
+ *         常に null＝未判定とし、corpus を持つ consumer 側の決定的導出に委ねる）
+ *   設計: docs/development/syntax-completion-design.md
+ *   報告: docs/archive/syntax-completion-implementation-report.md
+ *   検証: npm run test:re-syntax-completion
+ *   K-3（relativeSyntax）とは独立の別アクセサ。互いに非干渉。
+ *
+ * Stage L-4c: Semantic Completion   [FROZEN 2026-07-20]
+ *   基準値: semanticInfo付与 129,022(93.7%) / lnDomain 128,493(93.3%) /
+ *           interrogative 555 / indefinite 530 / reflexivePerson 408 /
+ *           intensive 85 / deixis 1,687 / adverbial 79 / 悪化ケース 0
+ *           （reading バイト等価・意味推論の混入 0）
+ *   対象: getSemanticInfo（ln/strong/morph/class/role/lemma の決定的信号のみから
+ *         lnDomain/pronType/reflexivePerson/intensive/deixis/adverbial を read-only
+ *         で読み取り、resolve() 結果へ semanticInfo として付帯。非決定的信号
+ *         （αὐτός の pron 内 intensive・ἑαυτοῦ の person-leveling 残・LN 非該当・
+ *         discourse 依存）は一律未判定＝付与しない）
+ *   設計: docs/development/semantic-completion-design.md
+ *   報告: docs/archive/semantic-completion-implementation-report.md
+ *   検証: npm run test:re-semantic-completion
+ *   Morph/Syntax accessor（K-3/K-4/L-3c）を侵さない。Builder（未実装）が意味推論を
+ *   持たず読み取るだけで利用できる決定的意味情報の提供に責務を閉じる。
+ *
+ * ※ K-3/L-3c/L-4c は 2026-07-20 に FROZEN候補として実装・全回帰 ALL PASS 済みだったが、
+ *   専用回帰テストの整備（Phase ESM-54-A）を経て 2026-08-05（Phase ESM-55-A）に本登記簿へ
+ *   正式登録した。登記整合の経緯は docs/development/reading-japanese-improvement-framework.md
+ *   および各実装報告の改訂履歴を参照。
  *
  * Phase 6 以降は semantic データ・照合種別を追加方式で拡張する。
  * 凍結済みコードには触れない。
@@ -200,8 +245,8 @@ const _PARTICLE_SKIP_GLOSSES = new Set(['ある']);
 
 // ── Morph Rule Registry（lemma 単位・strong キー）──────────────────
 // J-3: αὐτός(G846)の gender/number 語幹選択。Data 代表語「彼」を起点に、
-// 形態情報だけで語幹を分岐する（設計: docs/alphautos-morph-rule-design.md /
-// docs/morph-rule-engine-implementation-spec.md）。
+// 形態情報だけで語幹を分岐する（設計: docs/development/alphautos-morph-rule-design.md /
+// docs/development/morph-rule-engine-implementation-spec.md）。
 //   base（= Data 代表語）が rule.base と一致する時のみ発火する。これにより、
 //   Semantic（lnGloss 等）が別の語を代入した token では Morph が語を上書きせず、
 //   「Semantic > Morph」の優先関係を保つ。
@@ -227,7 +272,7 @@ const _MORPH_STEM_RULES = {
     // （女性名詞への一致で人/物が referent 依存のため Semantic の責務。J-5 では変更しない）。
     // number は τίς の語幹をほぼ変えないため単複とも同一語幹。
     // why→なぜ / which→どれ・どの は Semantic が「何」を上書き（Semantic > Morph）。
-    // 設計: docs/tis-morph-rule-design.md。
+    // 設計: docs/development/tis-morph-rule-design.md。
     'G5101': {
         base: '誰',
         stems: {
@@ -242,7 +287,7 @@ const _MORPH_STEM_RULES = {
     //（〜する者 → 〜するもの）。feminine は stems に登録しない → 「〜する者」のまま
     //（女性名詞が人か事物か referent 依存のため Semantic 責務）。number は語幹を
     // 変えない（単複とも同一）。**関係節・先行詞・格役割・格助詞の適否は Syntax の責務で
-    // 本 Rule の対象外**（設計: docs/relative-morph-rule-design.md）。case 助詞の付与は
+    // 本 Rule の対象外**（設計: docs/development/relative-morph-rule-design.md）。case 助詞の付与は
     // Phase 1 既存挙動であり本 Rule は頭語の種別選択のみを行う。
     'G3739': {
         base: '〜する者',
@@ -279,7 +324,7 @@ const _MORPH_STEM_RULES = {
     // 実データは全件 masculine singular。person は gender/number でなく strong で決まるため、
     // 単数の性別各値を同一値へ写す（安全側）。ἑαυτοῦ(G1438/G848)は person-leveling
     //（yourselves/ourselves に流用）で不一意のため対象外＝Semantic 責務（汎用「自分自身/自分」維持）。
-    // case 助詞は Phase 1 既存挙動。設計: docs/reflexive-morph-rule-design.md。
+    // case 助詞は Phase 1 既存挙動。設計: docs/development/reflexive-morph-rule-design.md。
     'G1683': {
         base: '自分自身',
         stems: {
@@ -300,7 +345,7 @@ const _MORPH_STEM_RULES = {
     // 一意（1複 ἐγώ→私たち / 2複 σύ→あなたがた）。人称代名詞は gender 無（空）のため
     // stems キーは '|plural'。base 一致（私/あなた）時のみ発火。
     //   対象外: G5213（既に あなたがた・H-5）/ G4675（混在=単数 σου・誤変換防止）/ 単数人称。
-    // number は形態由来の決定的変換で推論なし。設計: docs/morph-gap-resolution-design.md。
+    // number は形態由来の決定的変換で推論なし。設計: docs/development/morph-gap-resolution-design.md。
     'G2257': { base: '私', stems: { '|plural': '私たち' } },       // ἡμῶν  P-1GP
     'G2254': { base: '私', stems: { '|plural': '私たち' } },       // ἡμῖν  P-1DP
     'G2248': { base: '私', stems: { '|plural': '私たち' } },       // ἡμᾶς  P-1AP
@@ -436,7 +481,7 @@ const _FINITE_MOODS  = new Set(['indicative', 'subjunctive', 'imperative', 'opta
 // ══════════════════════════════════════════════════════════════════
 // Phase 5-A: Semantic Layer — 慣用句・固定表現（完全一致のみ）
 //
-// 設計原則（docs/reading-semantic.md）:
+// 設計原則（docs/development/reading-semantic.md）:
 //   - 推論を行わない。照合するのは lemma 連鎖（NFC 正規化）と
 //     形態制約（case/mood 等 = Macula の既存注釈）のみ
 //   - テーブルは assets/data/reading-semantic-data.js（独立データ・
@@ -468,7 +513,7 @@ function _idiomItemMatch(t, c) {
 /**
  * domain コード → LN ドメイン番号。
  * コードは桁数不統一（'93001' と '033005'）のため「末尾 3 桁がサブ
- * ドメイン」として正規化する（docs/reading-semantic.md 監査で確定）。
+ * ドメイン」として正規化する（docs/development/reading-semantic.md 監査で確定）。
  * 複数コードはスペース区切りの先頭を使う。不正は null。
  */
 function _domainNumber(domain) {
