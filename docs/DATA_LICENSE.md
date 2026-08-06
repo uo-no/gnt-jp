@@ -8,6 +8,9 @@
 
 ## 1. macula-greek-SBLGNT
 
+### ■ 出典
+MACULA Greek Linguistic Datasets, available at https://github.com/Clear-Bible/macula-greek/
+
 ### ■ データ概要
 macula-greek-SBLGNTを基にした派生データ。
 
