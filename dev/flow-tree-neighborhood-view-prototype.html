@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Flow Tree NeighborhoodView Prototype — MAT 1:1（検証専用）</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Hiragino Mincho ProN', 'Yu Mincho', 'Hiragino Sans', 'Yu Gothic UI', serif;
+    background: #f7f5f2; color: #2b2b28; line-height: 1.9;
+    max-width: 760px; margin: 40px auto; padding: 0 24px 80px;
+  }
+  h1 { font-size: 15px; color: #8a8378; font-weight: 400; letter-spacing: .04em; margin-bottom: 4px; }
+  .subtitle { font-size: 12px; color: #a49c8e; margin-bottom: 36px; }
+
+  /* --- Reading Surface（本文, 読む面） --- */
+  .reading-surface {
+    background: #fffdfa; border: 1px solid #eae5db; border-radius: 4px;
+    padding: 28px 32px; font-size: 20px; letter-spacing: .02em;
+  }
+  .reading-surface .label { font-size: 11px; color: #b3ac9d; margin-bottom: 14px; letter-spacing: .08em; }
+  .tok { cursor: pointer; border-bottom: 1px dotted transparent; padding: 0 1px; }
+  .tok:hover { border-bottom-color: #c9c0ac; }
+  .tok.tapped { color: #7d6b4f; border-bottom-color: #7d6b4f; }
+
+  /* --- StudyPanel（調べる面） --- */
+  .study-panel {
+    margin-top: 18px; border: 1px solid #eae5db; border-radius: 4px;
+    background: #fdfbf8; display: none; font-family: 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+  }
+  .study-panel.open { display: block; }
+  .study-panel .sp-header { padding: 14px 20px; font-size: 12px; color: #b3ac9d; letter-spacing: .06em; border-bottom: 1px solid #f0ece4; }
+
+  .word-info { padding: 16px 20px; font-size: 13px; color: #6b6459; border-bottom: 1px solid #f0ece4; }
+  .word-info .wi-japanese { font-size: 17px; color: #2b2b28; margin-bottom: 2px; }
+  .word-info .wi-caption { font-size: 11px; color: #b3ac9d; }
+
+  /* --- NeighborhoodView カード（既定: 折りたたみ） --- */
+  .nv-card { }
+  .nv-toggle {
+    width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+    padding: 14px 20px; font-size: 12px; color: #8a8378; font-family: inherit;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .nv-toggle .caret { display: inline-block; transition: transform .15s; font-size: 10px; }
+  .nv-toggle[aria-expanded="true"] .caret { transform: rotate(90deg); }
+  .nv-body { display: none; padding: 4px 20px 20px 20px; }
+  .nv-body.open { display: block; }
+  .nv-origin { font-size: 10px; color: #c2bcae; margin-bottom: 14px; }
+
+  .nv-list { list-style: none; }
+  .nv-item { padding: 6px 0 6px 14px; border-left: 2px solid #eee7da; font-size: 15px; }
+  .nv-item.is-focus { border-left-color: #a3906a; color: #2b2b28; }
+  .nv-item.is-focus .nv-item-label { font-weight: 600; }
+  .nv-item:not(.is-focus) { color: #6b6459; }
+  .nv-sublist { list-style: none; margin-top: 4px; padding-left: 16px; }
+  .nv-sublist .nv-item { border-left-color: #f0ece4; font-size: 14px; }
+
+  /* --- 検証パネル（開発者用。読者には見せない領域） --- */
+  .verify {
+    margin-top: 48px; border-top: 1px dashed #d8d2c4; padding-top: 20px;
+    font-family: 'Hiragino Sans', 'Yu Gothic UI', sans-serif; font-size: 12px; color: #6b6459;
+  }
+  .verify h2 { font-size: 12px; color: #8a8378; margin-bottom: 10px; letter-spacing: .05em; }
+  .verify table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  .verify td, .verify th { text-align: left; padding: 5px 8px; border-bottom: 1px solid #f0ece4; vertical-align: top; }
+  .verify .pass { color: #4a7a4a; font-weight: 600; }
+  .verify .fail { color: #b04a3a; font-weight: 600; }
+  .verify pre { white-space: pre-wrap; word-break: break-all; background: #f7f5f2; padding: 8px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>FLOW-TREE-10-A — Flow Tree NeighborhoodView Prototype</h1>
+<div class="subtitle">対象: Matthew 1:1 のみ ／ 目的: UI 契約確認のみ ／ 本番コード・データは無変更</div>
+
+<div class="reading-surface">
+  <div class="label">本文（Reading Surface）— 日本語のみ表示</div>
+  <div id="verse-text"></div>
+</div>
+
+<div class="study-panel" id="study-panel">
+  <div class="sp-header">StudyPanel（調べる面）</div>
+  <div class="word-info" id="word-info"></div>
+  <div class="nv-card">
+    <button class="nv-toggle" id="nv-toggle" aria-expanded="false">
+      <span class="caret">▶</span> 構造を見る（Lowfat由来）
+    </button>
+    <div class="nv-body" id="nv-body"></div>
+  </div>
+</div>
+
+<div class="verify">
+  <h2>検証パネル（開発者用。読者向け画面には含まれない）</h2>
+  <table id="verify-table"></table>
+  <h2>直近の NeighborhoodView（生データ, 開発者用）</h2>
+  <pre id="verify-json"></pre>
+</div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+ * 0. 読み取り専用データ
+ *    Lowfat XML（work/SBLGNT/lowfat/01-matthew.xml の MAT 1:1 部分そのまま）
+ *    と、既存 bible_data（public/bible_data/nt/MAT/1.json）の japanese 値を
+ *    そのまま埋め込む。どちらも生成時点でのコピーであり、原本は無変更。
+ * ===================================================================== */
+const SENTENCE_XML = "<sentence>\n      <p>\n         <milestone unit=\"verse\" id=\"MAT 1:1\">MAT 1:1</milestone> \u0392\u03af\u03b2\u03bb\u03bf\u03c2 \u03b3\u03b5\u03bd\u03ad\u03c3\u03b5\u03c9\u03c2 \u1f38\u03b7\u03c3\u03bf\u1fe6 \u03c7\u03c1\u03b9\u03c3\u03c4\u03bf\u1fe6 \u03c5\u1f31\u03bf\u1fe6 \u0394\u03b1\u03c5\u1f76\u03b4 \u03c5\u1f31\u03bf\u1fe6 \u1f08\u03b2\u03c1\u03b1\u03ac\u03bc.</p>\n      <wg class=\"np\" rule=\"NPofNP\" role=\"p\">\n         <w ref=\"MAT 1:1!1\"\n            after=\" \"\n            class=\"noun\"\n            type=\"common\"\n            xml:id=\"n40001001001\"\n            lemma=\"\u03b2\u03af\u03b2\u03bb\u03bf\u03c2\"\n            normalized=\"\u0392\u03af\u03b2\u03bb\u03bf\u03c2\"\n            strong=\"976\"\n            number=\"singular\"\n            gender=\"feminine\"\n            case=\"nominative\"\n            english=\"book\"\n            mandarin=\"\u8c31\"\n            gloss=\"[The] book\"\n            domain=\"033005\"\n            ln=\"33.38\"\n            morph=\"N-NSF\"\n            unicode=\"\u0392\u03af\u03b2\u03bb\u03bf\u03c2\">\u0392\u03af\u03b2\u03bb\u03bf\u03c2</w>\n         <wg class=\"np\" rule=\"NPofNP\">\n            <w ref=\"MAT 1:1!2\"\n               after=\" \"\n               class=\"noun\"\n               type=\"common\"\n               xml:id=\"n40001001002\"\n               lemma=\"\u03b3\u03ad\u03bd\u03b5\u03c3\u03b9\u03c2\"\n               normalized=\"\u03b3\u03b5\u03bd\u03ad\u03c3\u03b5\u03c9\u03c2\"\n               strong=\"1078\"\n               number=\"singular\"\n               gender=\"feminine\"\n               case=\"genitive\"\n               english=\"genealogy\"\n               mandarin=\"\u65cf\"\n               gloss=\"of [the] genealogy\"\n               domain=\"010002 033003\"\n               ln=\"10.24 33.19\"\n               morph=\"N-GSF\"\n               unicode=\"\u03b3\u03b5\u03bd\u03ad\u03c3\u03b5\u03c9\u03c2\">\u03b3\u03b5\u03bd\u03ad\u03c3\u03b5\u03c9\u03c2</w>\n            <wg type=\"apposition\" class=\"np\" rule=\"Np-Appos\">\n               <wg type=\"apposition\" class=\"np\" rule=\"Np-Appos\">\n                  <wg type=\"apposition\" class=\"np\" rule=\"Np-Appos\">\n                     <w ref=\"MAT 1:1!3\"\n                        after=\" \"\n                        class=\"noun\"\n                        type=\"proper\"\n                        xml:id=\"n40001001003\"\n                        lemma=\"\u1f38\u03b7\u03c3\u03bf\u1fe6\u03c2\"\n                        normalized=\"\u1f38\u03b7\u03c3\u03bf\u1fe6\"\n                        strong=\"2424\"\n                        number=\"singular\"\n                        gender=\"masculine\"\n                        case=\"genitive\"\n                        english=\"Jesus\"\n                        mandarin=\"\u8036\u7a23\"\n                        gloss=\"of Jesus\"\n                        domain=\"093001\"\n                        ln=\"93.169a\"\n                        morph=\"N-GSM\"\n                        unicode=\"\u1f38\u03b7\u03c3\u03bf\u1fe6\">\u1f38\u03b7\u03c3\u03bf\u1fe6</w>\n                     <w ref=\"MAT 1:1!4\"\n                        after=\" \"\n                        class=\"noun\"\n                        type=\"proper\"\n                        xml:id=\"n40001001004\"\n                        lemma=\"\u03a7\u03c1\u03b9\u03c3\u03c4\u03cc\u03c2\"\n                        normalized=\"\u03c7\u03c1\u03b9\u03c3\u03c4\u03bf\u1fe6\"\n                        strong=\"5547\"\n                        number=\"singular\"\n                        gender=\"masculine\"\n                        case=\"genitive\"\n                        english=\"Christ\"\n                        mandarin=\"\u57fa\u7763\"\n                        gloss=\"Christ\"\n                        domain=\"093001\"\n                        ln=\"93.387\"\n                        morph=\"N-GSM\"\n                        unicode=\"\u03c7\u03c1\u03b9\u03c3\u03c4\u03bf\u1fe6\"\n                        junction=\"apposition\">\u03c7\u03c1\u03b9\u03c3\u03c4\u03bf\u1fe6</w>\n                  </wg>\n                  <wg class=\"np\" rule=\"NPofNP\" junction=\"apposition\">\n                     <w ref=\"MAT 1:1!5\"\n                        after=\" \"\n                        class=\"noun\"\n                        type=\"common\"\n                        xml:id=\"n40001001005\"\n                        lemma=\"\u03c5\u1f31\u03cc\u03c2\"\n                        normalized=\"\u03c5\u1f31\u03bf\u1fe6\"\n                        strong=\"5207\"\n                        number=\"singular\"\n                        gender=\"masculine\"\n                        case=\"genitive\"\n                        english=\"son\"\n                        mandarin=\"\u5b50\u5b59\"\n                        gloss=\"son\"\n                        domain=\"010002\"\n                        ln=\"10.30\"\n                        morph=\"N-GSM\"\n                        unicode=\"\u03c5\u1f31\u03bf\u1fe6\">\u03c5\u1f31\u03bf\u1fe6</w>\n                     <w ref=\"MAT 1:1!6\"\n                        after=\" \"\n                        class=\"noun\"\n                        type=\"proper\"\n                        xml:id=\"n40001001006\"\n                        lemma=\"\u0394\u03b1\u03c5\u03af\u03b4\"\n                        normalized=\"\u0394\u03b1\u03c5\u1f76\u03b4\"\n                        strong=\"1138\"\n                        number=\"singular\"\n                        gender=\"masculine\"\n                        case=\"genitive\"\n                        english=\"David\"\n                        mandarin=\"\u5927\u536b\"\n                        gloss=\"of David\"\n                        domain=\"093001\"\n                        ln=\"93.91\"\n                        morph=\"N-PRI\"\n                        unicode=\"\u0394\u03b1\u03c5\u1f76\u03b4\">\u0394\u03b1\u03c5\u1f76\u03b4</w>\n                  </wg>\n               </wg>\n               <wg class=\"np\" rule=\"NPofNP\" junction=\"apposition\">\n                  <w ref=\"MAT 1:1!7\"\n                     after=\" \"\n                     class=\"noun\"\n                     type=\"common\"\n                     xml:id=\"n40001001007\"\n                     lemma=\"\u03c5\u1f31\u03cc\u03c2\"\n                     normalized=\"\u03c5\u1f31\u03bf\u1fe6\"\n                     strong=\"5207\"\n                     number=\"singular\"\n                     gender=\"masculine\"\n                     case=\"genitive\"\n                     english=\"son\"\n                     mandarin=\"\u540e\u88d4\"\n                     gloss=\"son\"\n                     domain=\"010002\"\n                     ln=\"10.30\"\n                     morph=\"N-GSM\"\n                     unicode=\"\u03c5\u1f31\u03bf\u1fe6\">\u03c5\u1f31\u03bf\u1fe6</w>\n                  <w ref=\"MAT 1:1!8\"\n                     after=\".\"\n                     class=\"noun\"\n                     type=\"proper\"\n                     xml:id=\"n40001001008\"\n                     lemma=\"\u1f08\u03b2\u03c1\u03b1\u03ac\u03bc\"\n                     normalized=\"\u1f08\u03b2\u03c1\u03b1\u03ac\u03bc\"\n                     strong=\"11\"\n                     number=\"singular\"\n                     gender=\"masculine\"\n                     case=\"genitive\"\n                     english=\"Abraham\"\n                     mandarin=\"\u4e9a\u4f2f\u62c9\u7f55\"\n                     gloss=\"of Abraham\"\n                     domain=\"093001\"\n                     ln=\"93.7\"\n                     morph=\"N-PRI\"\n                     unicode=\"\u1f08\u03b2\u03c1\u03b1\u03ac\u03bc.\">\u1f08\u03b2\u03c1\u03b1\u03ac\u03bc</w>\n               </wg>\n            </wg>\n         </wg>\n      </wg>\n   </sentence>";
+const JAPANESE_LOOKUP = {
+  "MAT 1:1!1": "書物",
+  "MAT 1:1!2": "起源",
+  "MAT 1:1!3": "イエス",
+  "MAT 1:1!4": "キリスト",
+  "MAT 1:1!5": "子",
+  "MAT 1:1!6": "ダビデ",
+  "MAT 1:1!7": "子",
+  "MAT 1:1!8": "アブラハム"
+};
+
+/* =====================================================================
+ * 1. Flow Tree Adapter
+ *    FLOW-TREE-2.6 / 3.1 で全27書監査済みのロジックをそのまま移植。
+ *    ロジック自体は変更しない（class 無し wg → "group"、adv/conj 追加、
+ *    未知 class は Failure Mode で null）。
+ * ===================================================================== */
+const CLASS_MAP = {
+  cl: 'clause', np: 'phrase.np', pp: 'phrase.pp',
+  vp: 'phrase.vp', adjp: 'phrase.adjp', advp: 'phrase.advp', nump: 'phrase.nump',
+  adv: 'phrase.adv', conj: 'phrase.conj',
+};
+const ROLE_WHITELIST = new Set(['s','v','o','io','o2','adv','aux','vc','p']);
+
+let _autoId = 0;
+const nodesById = {};   // sourceRef -> FlowNode
+const parentOf  = {};   // sourceRef -> parent sourceRef（View Model 側の付帯情報。Flow Tree 本体には持たせない）
+
+function convert(el, sentenceId, parentId) {
+  if (el.tagName === 'w') {
+    const ref = el.getAttribute('ref');
+    const id = el.getAttribute('xml:id') || el.getAttributeNS('http://www.w3.org/XML/1998/namespace', 'id') || ref;
+    const node = { type: 'word', sourceRef: id, tokens: ref ? [ref] : [], children: [] };
+    const role = el.getAttribute('role');
+    if (ROLE_WHITELIST.has(role)) node.role = role;
+    if (el.getAttribute('discontinuous') === 'true') node.discontinuous = true;
+    if (el.getAttribute('junction')) node.junction = el.getAttribute('junction');
+    nodesById[id] = node;
+    parentOf[id] = parentId;
+    return node;
+  }
+  if (el.tagName === 'wg') {
+    const cls = el.getAttribute('class');
+    let ftype;
+    if (cls === null) {
+      ftype = 'group'; // FLOW-TREE-2.6: class 無し wg は推測せず group として通過させる
+    } else {
+      ftype = CLASS_MAP[cls];
+      if (!ftype) return null; // Failure Mode: 未知の class
+    }
+
+    const words = Array.from(el.getElementsByTagName('w'));
+    const tokens = words.map(w => w.getAttribute('ref')).filter(Boolean);
+    const nodeId = el.getAttribute('nodeId');
+    const firstId = words[0] ? (words[0].getAttribute('xml:id') || words[0].getAttribute('ref')) : null;
+    const lastId  = words[words.length-1] ? (words[words.length-1].getAttribute('xml:id') || words[words.length-1].getAttribute('ref')) : null;
+    const sourceRef = nodeId || `${sentenceId}#${firstId}-${lastId}`;
+
+    const node = { type: ftype, sourceRef, tokens, children: [] };
+    const role = el.getAttribute('role');
+    if (ROLE_WHITELIST.has(role)) node.role = role;
+    const rule = el.getAttribute('rule') || el.getAttribute('Rule');
+    if (rule) node.ruleHint = rule;
+    if (el.getAttribute('articular') === 'true') node.articular = true;
+    if (el.getAttribute('clauseType')) node.clauseType = el.getAttribute('clauseType');
+    if (el.getAttribute('predication')) node.predication = el.getAttribute('predication');
+    if (el.getAttribute('junction')) node.junction = el.getAttribute('junction');
+
+    nodesById[sourceRef] = node;
+    parentOf[sourceRef] = parentId;
+
+    for (const child of Array.from(el.children)) {
+      const cn = convert(child, sentenceId, sourceRef);
+      if (cn !== null) node.children.push(cn);
+    }
+    return node;
+  }
+  return null;
+}
+
+const parser = new DOMParser();
+const xmlDoc = parser.parseFromString(SENTENCE_XML, 'application/xml');
+const sentenceEl = xmlDoc.getElementsByTagName('sentence')[0];
+const rootWg = sentenceEl.getElementsByTagName('wg')[0]; // FLOW-TREE-3.1: <w> のみの裸sentenceにも本来対応するが、MAT1:1はwgを持つ
+const SENTENCE_ID = 'MAT#00000';
+const FLOW_TREE_ROOT = convert(rootWg, SENTENCE_ID, null);
+
+/* =====================================================================
+ * 2. Reading Projection の label 規則
+ *    既存 token の japanese を surface order（ref の !n 部分の昇順）で
+ *    連結するのみ。新しい日本語は一切生成しない（FLOW_TREE_READING_
+ *    PROJECTION_ARCHITECTURE.md §6-3）。
+ * ===================================================================== */
+function surfaceIndex(ref) {
+  const m = /!(\d+)$/.exec(ref);
+  return m ? parseInt(m[1], 10) : 0;
+}
+function labelOf(node) {
+  const sorted = node.tokens.slice().sort((a, b) => surfaceIndex(a) - surfaceIndex(b));
+  return sorted.map(ref => JAPANESE_LOOKUP[ref] || '').join('');
+}
+
+/* =====================================================================
+ * 3. NeighborhoodView 構築
+ *    FLOW_TREE_VIEW_BOUNDARY_DESIGN.md §2 のデータ形（children 語彙を
+ *    使わない）。anchor は「所属 clause」（無ければ sentence root へ
+ *    フォールバック — MAT 1:1 は動詞を持たない見出し文であり、
+ *    class="cl" が一つも存在しないため、この実装で初めて実際に
+ *    フォールバック経路が使われることを確認できた）。
+ * ===================================================================== */
+function findWordNodeByRef(ref) {
+  for (const id in nodesById) {
+    const n = nodesById[id];
+    if (n.type === 'word' && n.tokens[0] === ref) return n;
+  }
+  return null;
+}
+function ancestorChain(sourceRef) {
+  const chain = [];
+  let cur = parentOf[sourceRef];
+  while (cur) { chain.push(cur); cur = parentOf[cur]; }
+  return chain; // 近い順（直接の親から sentence root まで）
+}
+function findAnchor(focusNode) {
+  const chain = ancestorChain(focusNode.sourceRef);
+  for (const id of chain) {
+    if (nodesById[id].type === 'clause') return { id, usedFallback: false };
+  }
+  return { id: chain[chain.length - 1], usedFallback: true }; // clause が無い場合は sentence root
+}
+function isOnPath(node, focusRef) {
+  if (node.sourceRef === focusRef) return true;
+  return node.children.some(c => isOnPath(c, focusRef));
+}
+function buildConstituent(node, focusRef) {
+  const onPath = isOnPath(node, focusRef);
+  const c = {
+    nodeId: node.sourceRef,
+    label: labelOf(node),
+    isFocus: node.sourceRef === focusRef,
+  };
+  if (onPath && node.children.length > 0) {
+    c.expanded = true;
+    c.children = node.children.map(ch => buildConstituent(ch, focusRef));
+  } else {
+    c.expanded = false;
+  }
+  return c;
+}
+function buildNeighborhoodView(tappedRef) {
+  const focusNode = findWordNodeByRef(tappedRef);
+  if (!focusNode) return null; // Failure Mode: 見つからなければ構造セクション非表示
+  const { id: anchorId, usedFallback } = findAnchor(focusNode);
+  const anchor = nodesById[anchorId];
+  const constituents = anchor.children.map(c => buildConstituent(c, focusNode.sourceRef));
+  return {
+    focus: { nodeId: focusNode.sourceRef, tokenRef: tappedRef },
+    anchorClauseId: anchorId,
+    anchorType: anchor.type,
+    usedSentenceRootFallback: usedFallback,
+    constituents,
+  };
+}
+
+/* =====================================================================
+ * 4. 描画（UI Contract, FLOW_TREE_UI_CONTRACT_DESIGN.md §1-5 準拠）
+ *    role/rule/class は一切表示しない。地の文にしない（離散リスト表示）。
+ *    confidence等は元々存在しない。
+ * ===================================================================== */
+function renderConstituentList(items, ul) {
+  for (const item of items) {
+    const li = document.createElement('li');
+    li.className = 'nv-item' + (item.isFocus ? ' is-focus' : '');
+    const span = document.createElement('span');
+    span.className = 'nv-item-label';
+    span.textContent = item.label || '（この構成語）';
+    li.appendChild(span);
+    if (item.expanded && item.children && item.children.length) {
+      const sub = document.createElement('ul');
+      sub.className = 'nv-sublist';
+      renderConstituentList(item.children, sub);
+      li.appendChild(sub);
+    }
+    ul.appendChild(li);
+  }
+}
+
+function renderNeighborhoodView(nv) {
+  const body = document.getElementById('nv-body');
+  body.innerHTML = '';
+  const origin = document.createElement('div');
+  origin.className = 'nv-origin';
+  origin.textContent = 'Lowfat 由来の構造情報（' + (nv.usedSentenceRootFallback ? '所属節なし → 文全体を単位として表示' : '所属節を単位として表示') + '）';
+  body.appendChild(origin);
+  const ul = document.createElement('ul');
+  ul.className = 'nv-list';
+  renderConstituentList(nv.constituents, ul);
+  body.appendChild(ul);
+}
+
+let lastNV = null;
+
+function onTapToken(ref, el) {
+  document.querySelectorAll('.tok').forEach(t => t.classList.remove('tapped'));
+  el.classList.add('tapped');
+
+  const panel = document.getElementById('study-panel');
+  panel.classList.add('open');
+
+  const wi = document.getElementById('word-info');
+  wi.innerHTML = '<div class="wi-japanese">' + (JAPANESE_LOOKUP[ref] || '') + '</div>' +
+                 '<div class="wi-caption">既存 Word情報欄（モック。本Prototypeの対象外）</div>';
+
+  const nvBody = document.getElementById('nv-body');
+  const nvToggle = document.getElementById('nv-toggle');
+  nvBody.classList.remove('open');
+  nvToggle.setAttribute('aria-expanded', 'false');
+
+  lastNV = buildNeighborhoodView(ref);
+  renderNeighborhoodView(lastNV);
+  runVerification(ref);
+}
+
+document.getElementById('nv-toggle').addEventListener('click', () => {
+  const body = document.getElementById('nv-body');
+  const btn = document.getElementById('nv-toggle');
+  const open = body.classList.toggle('open');
+  btn.setAttribute('aria-expanded', String(open));
+});
+
+/* 本文（Reading Surface）を、既存 token 順に日本語のみで描画する。
+ * 単語タップは既存の導線を模したもので、新しいジェスチャーは追加しない。 */
+function renderVerseText() {
+  const container = document.getElementById('verse-text');
+  const refs = Object.keys(JAPANESE_LOOKUP).sort((a, b) => surfaceIndex(a) - surfaceIndex(b));
+  refs.forEach((ref, i) => {
+    const span = document.createElement('span');
+    span.className = 'tok';
+    span.textContent = JAPANESE_LOOKUP[ref];
+    span.addEventListener('click', () => onTapToken(ref, span));
+    container.appendChild(span);
+    if (i === refs.length - 1) container.appendChild(document.createTextNode('。'));
+  });
+}
+renderVerseText();
+
+/* =====================================================================
+ * 5. 検証（Prototype Report の根拠データ）
+ * ===================================================================== */
+const FORBIDDEN_KEYS = ['meaning','semanticRole','confidence','inferredSubject','inferredObject',
+                         'explanation','generatedJapanese','translation','gloss'];
+
+function scanForbidden(obj, found) {
+  if (obj === null || typeof obj !== 'object') return;
+  for (const k of Object.keys(obj)) {
+    if (FORBIDDEN_KEYS.includes(k)) found.add(k);
+    scanForbidden(obj[k], found);
+  }
+  if (Array.isArray(obj)) obj.forEach(v => scanForbidden(v, found));
+}
+
+function collectWordRefs(node, out) {
+  if (!node) return;
+  if (node.type === 'word') out.add(node.tokens[0]);
+  node.children.forEach(c => collectWordRefs(c, out));
+}
+
+function countRawWg() {
+  return xmlDoc.getElementsByTagName('wg').length;
+}
+function countFlowWgEquivalent(node, counter) {
+  if (!node) return;
+  if (node.type !== 'word') counter.n++;
+  node.children.forEach(c => countFlowWgEquivalent(c, counter));
+}
+
+function runVerification(tappedRef) {
+  const rawRefs = new Set(Array.from(xmlDoc.getElementsByTagName('w')).map(w => w.getAttribute('ref')));
+  const flowRefs = new Set();
+  collectWordRefs(FLOW_TREE_ROOT, flowRefs);
+  const missing = [...rawRefs].filter(r => !flowRefs.has(r));
+  const extra = [...flowRefs].filter(r => !rawRefs.has(r));
+
+  const rawWgCount = countRawWg();
+  const wgCounter = { n: 0 };
+  countFlowWgEquivalent(FLOW_TREE_ROOT, wgCounter);
+
+  const forbiddenFound = new Set();
+  scanForbidden(lastNV, forbiddenFound);
+
+  const results = [
+    ['1. Flow Tree source fidelity', `raw <wg> = ${rawWgCount} / Flow Tree 相当ノード = ${wgCounter.n}`, rawWgCount === wgCounter.n],
+    ['2. token loss なし', `raw <w> = ${rawRefs.size} / 捕捉 = ${flowRefs.size}（missing ${missing.length} / extra ${extra.length}）`, missing.length === 0 && extra.length === 0],
+    ['3. 禁止フィールドなし', forbiddenFound.size === 0 ? '検出0件' : ('検出: ' + [...forbiddenFound].join(', ')), forbiddenFound.size === 0],
+    ['4. 既存 Reading 経路無変更', 'このファイルは public/core, public/bible_data の書き込み, SyntaxAnalyzer/PhraseAnalyzer/ClauseAnalyzer/ReadingFormatterを一切 import/変更していない（静的確認）', true],
+  ];
+
+  const table = document.getElementById('verify-table');
+  table.innerHTML = '<tr><th>検証項目</th><th>実測</th><th>判定</th></tr>' +
+    results.map(([name, detail, pass]) =>
+      `<tr><td>${name}</td><td>${detail}</td><td class="${pass ? 'pass' : 'fail'}">${pass ? 'PASS' : 'FAIL'}</td></tr>`
+    ).join('');
+
+  document.getElementById('verify-json').textContent = JSON.stringify(lastNV, null, 2);
+}
+
+// 初期表示: MAT 1:1!6（Δαυὶδ, ダビデ）をタップした状態で開始する。
+// この語は3階層のapposition入れ子の内部にあり、かつこの文には
+// class="cl" が一つも無いため、anchor が sentence root へフォール
+// バックする経路を最初から確認できる。
+window.addEventListener('DOMContentLoaded', () => {
+  const initialSpan = Array.from(document.querySelectorAll('.tok'))[5]; // 0-indexed: 6番目の語 = Δαυὶδ
+  onTapToken('MAT 1:1!6', initialSpan);
+});
+</script>
+</body>
+</html>

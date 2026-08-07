@@ -56,8 +56,14 @@ const STAGEB_BASELINE = {
     // M-15 反映移行(2026-07-22): 固定点2,537反映で反映済トークンが Data と一致化（改善チップ減）。
     // changed 40055→39891 / identical 97686→97850 / presented 4244→4258。
     // pre-reflection historical=40055/97686/4244（data-role-migration-freeze・削除しない）。
-    changed:        39891,   // Engine 化で改善されたチップ（M-15 反映で −164）
-    identical:      97850,
+    // VR-2-G baseline refresh(2026-08-07): 既存の日本語固定点改善によるドリフトを反映。
+    // changed 39891→39684（-207）/ identical 97850→98057（+207）。tokens/presented/
+    // brokenNew/panelMismatch は不変。scripts/output/re-stageB-samples.md を全書
+    // 目視レビューし、破損形・異常なし（格助詞付与等の正常な改善のみ）を確認済み。
+    // Token Identity Migration（VR-2）とは無関係（bible_data/reading-engine/
+    // syntax-analyzer/lexicon いずれも本セッション中は無変更。既存commitに起因）。
+    changed:        39684,   // VR-2-G baseline refresh（既存ドリフト反映、-207）
+    identical:      98057,
     brokenOld:       1257,   // 旧経路の破損形（参考記録）
     brokenNew:          0,   // 新経路の破損形は常に 0
     panelMismatch:      0,   // chip ⇔ StudyPanel 不一致は常に 0（SSOT）
