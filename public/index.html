@@ -4192,6 +4192,8 @@ details[open] .study-summary::before {
 <script src="../core/reading-engine.js"></script>
 <script src="../core/phrase-renderer.js"></script>
 <script src="../core/presentation-policy.js"></script>
+<script src="../core/flow-tree-adapter.js"></script>
+<script src="../core/neighborhood-view.js"></script>
 <script>
 let abbottSmithDict = null;
 let _proximityTokens = [];
@@ -4343,6 +4345,28 @@ const TRANSLATIONS = {
 };
 const TRANS_LIST   = Object.entries(TRANSLATIONS).map(([id, t]) => ({ id, name: t.label, code: t.code }));
 const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t]) => [id, t.label]));
+
+/**
+ * VR-4-E: Translation Registry — 実際の人手翻訳のみ（'FLOW' を含まない）。
+ * TRANSLATIONS（URL互換のため維持。'FLOW' を含む）から機械的に導出する。
+ * Bible Picker の「翻訳を選択」グループはここを正とする。
+ */
+const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
+    .filter(([id]) => id !== 'FLOW')
+    .map(([id, t]) => ({ id, label: t.label, code: t.code }));
+
+/**
+ * VR-4-E: DisplayMode Registry（docs/development/verse-representation-design.md §C-1）。
+ * 翻訳と表示方式（wordOrder 等）を型として区別する。今回は Bible Picker の
+ * 「読み方を選択」グループ生成にのみ使用し、buildRepresentation() 等の既存
+ * ColumnMode 変換経路（_toColumnMode()）は変更しない。
+ * @typedef {{kind:'translation', translationId:string, label:string}
+ *         | {kind:'wordOrder', label:string}} DisplayModeEntry
+ */
+const DISPLAY_MODE_REGISTRY = [
+    ...TRANSLATION_REGISTRY.map(t => ({ kind: 'translation', translationId: t.id, label: t.label })),
+    { kind: 'wordOrder', label: TRANSLATIONS.FLOW.label },
+];
 
 /* アクティブ翻訳（A = メイン / B = 比較列）。_transA / _transB が唯一のSSOT（Phase TR-5）。 */
 let _transMode   = 'single';
@@ -4916,9 +4940,9 @@ function applyShareState(state) {
     }
 
     /* 2. word復元（StudyPanel描画後に1フレーム遅延・従来どおり panel=study 時のみ）
-       注: StudyPanelの語一覧は .word-card ではなく .wlv-chip（data-idx属性）で
-       構成されている（実機検証で確認済み）。既存の _wlvChipClick / _wlvStudyBtnClick
-       経路（「詳しく見る」ボタンと同じ処理）を再利用する。 */
+       注: StudyPanelの語一覧は .word-card ではなく .wlv-chip（data-token-id属性、
+       VR-2 Phase 2）で構成されている（実機検証で確認済み）。既存の
+       _wlvChipClick / _wlvStudyBtnClick 経路（「詳しく見る」ボタンと同じ処理）を再利用する。 */
     if (state.panel !== 'study' || !state.word) return;
     requestAnimationFrame(() => {
         const idx = words.findIndex(w => normalizeStrong(w.strong) === 'G' + state.word);
@@ -4926,12 +4950,13 @@ function applyShareState(state) {
             console.warn('applyShareState: word not found:', state.word);
             return;
         }
-        const chipEl = document.querySelector('#word-list-view .wlv-chip[data-idx="' + idx + '"]');
+        const tokenId = words[idx].tokenId;
+        const chipEl = document.querySelector('#word-list-view .wlv-chip[data-token-id="' + tokenId + '"]');
         if (!chipEl) {
             console.warn('applyShareState: word chip not found:', state.word);
             return;
         }
-        _wlvChipClick(chipEl, idx);
+        _wlvChipClick(chipEl, tokenId);
         _wlvStudyBtnClick();
     });
 }
@@ -5472,7 +5497,11 @@ function _openWordListInternal(vNum, words) {
         const _vrCh      = AppState.location.chapter != null ? AppState.location.chapter : null;
         const _vrVerse   = buildVerse(_vrBookKey, _vrCh, vNum, words);
         const _vrRep     = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, getAnalysis(_vrVerse));
-        listEl.innerHTML = renderColumn(_vrRep);
+        /* VR-4-C Step 5: 「本文がFLOW表示中か」の判定はここ（呼び出し元）で解決し、
+           WordOrderRenderer へは解決済みの真偽値のみを渡す（旧実装の "修正B" 判定を移設）。 */
+        const _showOnboardingAnchor = _toColumnMode(_transA).kind !== 'wordOrder'
+            && !!(window.App.onboarding && !window.App.onboarding.getState().onboardingComplete);
+        listEl.innerHTML = renderColumn(_vrRep, { showOnboardingAnchor: _showOnboardingAnchor });
         /* Phase VR-4B-3: 表示に使った chips[] をクリック時まで保持する（Interaction Lifecycle是正）。
            StudyPanel は常に1節分のみ表示するシングルトンのため、_wlvWordCache と対のグローバル
            キャッシュで足りる（複数節同時表示する Greek Flow View / 本文左列とは異なる方式）。 */
@@ -5652,6 +5681,12 @@ async function _renderReadingNotes(p) {
     const proseHTML = wordProseText
         ? `<div class="rn-prose reading-block"><p class="rn-prose-text reading-prose">${wordProseText}</p></div>`
         : '';
+
+    /* FLOW-TREE-11-A: NeighborhoodView（境界確認 Prototype, Matthew 1:1 のみ）。
+       既存の SyntaxAnalyzer/PhraseAnalyzer/ClauseAnalyzer/ReadingFormatter の
+       いずれも呼び出さない、完全に独立した経路。対象外の ref では '' が返り、
+       既存表示に一切影響しない（Failure Mode, _buildFlowTreeNeighborhoodViewHTML 内で吸収済み）。 */
+    const neighborhoodViewHTML = _buildFlowTreeNeighborhoodViewHTML(ref);
 
     /* ═══════════════════════════════════════════════════════
        Lexicon data (async)
@@ -5854,6 +5889,8 @@ async function _renderReadingNotes(p) {
         ${subjrefEvidenceHTML}
 
         ${expLabelHTML}
+
+        ${neighborhoodViewHTML}
 
         <!-- LEVEL 2: 単語を詳しく調べる（折りたたみ） -->
         <details class="rn-level-section" id="rn-level2-details">
@@ -8736,14 +8773,19 @@ async function init() {
     const hasGreek = GREEK_BOOKS.has(book);
 
     try {
-        /* _transA が FLOW の場合は翻訳JSONをfetchしない */
-        const jpData = _transA === 'FLOW'
+        /* VR-4-C Step 2: _transA/_transB === 'FLOW' という文字列比較を ColumnMode.kind へ
+           置換する（_transA/_transB 自体は state として維持。_toColumnMode() は Step 1 参照）。 */
+        const _colA = _toColumnMode(_transA);
+        const _colB = _toColumnMode(_transB);
+
+        /* ColumnMode が wordOrder の場合は翻訳JSONをfetchしない */
+        const jpData = _colA.kind === 'wordOrder'
             ? null
             : await _fetchTranslation(_transA, book, ch);
-        if (_transA !== 'FLOW' && !jpData) throw new Error(`bible_jp not found: ${book}/${ch}`);
+        if (_colA.kind !== 'wordOrder' && !jpData) throw new Error(`bible_jp not found: ${book}/${ch}`);
 
         let jpDataB = null;
-        if (_transMode === 'compare' && _transB !== 'FLOW') {
+        if (_transMode === 'compare' && _colB.kind !== 'wordOrder') {
             jpDataB = await _fetchTranslation(_transB, book, ch);
         }
 
@@ -8762,13 +8804,16 @@ async function init() {
             }
         }
 
-        /* _transA === 'FLOW': elData から verse キーを組み立てて jpData の代わりに渡す */
-        const resolvedJpData = (_transA === 'FLOW')
-            ? _buildFlowJpData(elData)
-            : jpData;
+        /* VR-5-D: resolvedJpData 決定ロジックを _getVerseSource() へ抽出（VR-5-C 参照） */
+        const resolvedJpData = _getVerseSource(_colA, jpData, elData);
         if (!resolvedJpData) throw new Error(`bible_jp not found: ${book}/${ch}`);
 
-        render(resolvedJpData, elData, hasGreek && elData.length > 0, jpDataB);
+        /* VR-5-E-1: render() 入口を columns[] ベースへ移行（columns[i] = { colMode, jpData }） */
+        const columns = [
+            { colMode: _colA, jpData: resolvedJpData },
+            { colMode: _colB, jpData: jpDataB },
+        ];
+        render(columns, elData, hasGreek && elData.length > 0);
         requestAnimationFrame(() => requestAnimationFrame(() => {
             document.getElementById('bible-text-area').style.opacity = '1';
         }));
@@ -8802,7 +8847,134 @@ async function init() {
     }
 }
 
-function render(jpData, elData, hasGreek, jpDataB) {
+/*
+ * _buildColumnBlock — VR-5-F-B: render() の「1列分の verse block 生成」処理を抽出。
+ * VR-5-F-A監査（Migration Boundary Step 1）で「列生成ロジックはcolMode駆動で一般化容易」
+ * と判定した範囲のみを対象とする。
+ * columns.length は今回も2固定（colIndex は 0=左列 または 1=右列 のみ）。
+ *   col      = 対象列（columns[colIndex] 相当、{colMode, jpData}）
+ *   otherCol = もう一方の列（右列の翻訳フォールバック・wordOrder相互判定に使用）
+ * className・dataset・onclick挙動は colIndex ごとに現行実装のまま保持し、表示結果を変えない。
+ * VR-5-H-2: 列間の相互ハイライトは _selectVerseBlocks()（dataset.vnum ベース、列非依存）へ
+ * 一般化したため、もう一方の columnBlock を直接受け取るパラメータ（旧 otherBlock）は
+ * 不要になり削除した。
+ */
+/*
+ * _selectVerseBlocks — VR-5-H-2: 節単位の選択状態管理を列非依存で行う。
+ * VR-5-H-1で全列に付与した dataset.vnum を使い、column index / left-right class に
+ * 依存せず「同一vNumを持つ表示中のverse-blockすべて」を selected にする。
+ * single-modeでは block と pBlock が別コンテナ（#bible-text-area / #parallel-text-area）に
+ * 存在するため、共通の親要素は使わずDOM全体検索（querySelectorAll）で成立させる。
+ * document.querySelectorAll('.verse-block') は #main-reading-area 外に verse-block が
+ * 存在しないため、旧実装の mainArea 限定版と結果集合は常に同一（挙動差分なし）。
+ */
+function _selectVerseBlocks(vNum, activeBlock) {
+    document.querySelectorAll('.verse-block.selected').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll(`.verse-block[data-vnum="${vNum}"]`).forEach(b => b.classList.add('selected'));
+    if (activeBlock) activeBlock.classList.add('selected');
+}
+
+function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGreek, useVersePair, mainArea) {
+    const columnBlock = document.createElement('div');
+    /* VR-5-H-1: 列共通で dataset.vnum を付与する（VR-5-G-A監査で確認した「右列にのみ
+       dataset.vnum が存在する」非対称の解消）。すべての列を将来同じ VerseBlock として
+       扱うための準備であり、既存の className・DOM構造・イベント挙動は変更しない。
+       既存のセレクタ（_navigateVerse・_findVisibleVerseBlock・_setRightMode 等）は
+       いずれも dataset.vnum の有無ではなく className で列を判別しているため、
+       本変更はそれらの挙動に影響しない。 */
+    columnBlock.dataset.vnum = vNum;
+
+    if (colIndex === 0) {
+        // 左：聖書本文 or 読解フロー（ColumnMode.kind === 'wordOrder'）
+        columnBlock.className = useVersePair ? 'verse-block verse-pair-left' : 'verse-block';
+
+        if (col.colMode.kind === 'wordOrder') {
+            const words = elByVerse[vNum] || [];
+            if (words.length === 0) {
+                columnBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="color:var(--text-sub);font-size: var(--text-caption);opacity: var(--opacity-secondary);">原語データなし</div></div>`;
+            } else {
+                /* Phase VR-4A: 本文左列の語順フロー表示を Verse Representation Architecture
+                   経由にする。WordOrderRenderer は chips[] のみを入力とするため、
+                   出力は旧実装と完全一致（docs/development/verse-representation-design.md）。 */
+                const _vrBookKey  = AppState.location.book ? AppState.location.book.key : '';
+                const _vrCh       = AppState.location.chapter != null ? AppState.location.chapter : null;
+                const _vrVerse    = buildVerse(_vrBookKey, _vrCh, vNum, words);
+                const _vrAnalysis = getAnalysis(_vrVerse);
+                const _vrRep      = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, _vrAnalysis);
+                /* 複数節が同時に描画されるため、idx は節内でのみ有効。
+                   block 単位でchipデータを保持し、_wlvChipClick から節を跨いだ取り違えなく参照できるようにする。 */
+                columnBlock._flowResolved = _vrAnalysis;
+                columnBlock._flowChips = _vrRep.chips;
+                /* Layer 2 Inspect: ReadingFormatterのclause解析には生トークン配列が
+                   必要なため、chipデータと並べて words もそのまま保持しておく。 */
+                columnBlock._flowWords = words;
+                columnBlock.innerHTML = WordOrderRenderer.renderBodyColumn(_vrRep);
+                columnBlock.onclick = () => {
+                    _selectVerseBlocks(vNum, columnBlock);
+                    document.getElementById('active-v').innerText = `${vNum} 節`;
+                    AppState.toBrowsing(vNum, words);
+                    openVerseInspector(vNum, words);
+                    notifyAppStateChange();
+                };
+            }
+        } else {
+            /* Phase TR-1: 左列の翻訳表示を Verse Representation Architecture 経由にする。
+               renderColumn() は TranslationRenderer（representation.text のみを入力とする）へ
+               委譲するため、出力は旧実装と完全一致（docs/development/verse-representation-design.md）。
+               ★ 翻訳は Greek Token を経由しないため tokens は空のまま Verse を構築する（VR-1設計書 A-3）。 */
+            const _trBookKey = AppState.location.book ? AppState.location.book.key : '';
+            const _trCh      = AppState.location.chapter != null ? AppState.location.chapter : null;
+            const _trVerse   = buildVerse(_trBookKey, _trCh, vNum, []);
+            const _trRep     = buildRepresentation(col.colMode, _trVerse, null, text);
+            columnBlock.innerHTML = renderColumn(_trRep);
+        }
+    } else {
+        // 右：並列訳 or 読解フロー
+        columnBlock.className = 'verse-block verse-pair-right';
+
+        if (col.colMode.kind === 'wordOrder') {
+            // _setRightMode('flow') が gf-verse-block を差し込むので
+            // ここでは空コンテナのみ用意する（二重描画防止）
+            columnBlock.innerHTML = '';
+        } else if (!useVersePair && otherCol.colMode.kind === 'wordOrder') {
+            // single-mode + transA=FLOW: 右列は不要
+            columnBlock.innerHTML = '';
+        } else {
+            const rightText = (col.jpData && col.jpData.verses && col.jpData.verses[vNum]) ? col.jpData.verses[vNum] : (otherCol.jpData.verses[vNum] || '');
+            /* Phase TR-2: 右列の翻訳表示を Verse Representation Architecture 経由にする。
+               renderColumn() は TranslationRenderer（representation.text のみを入力とする）へ
+               委譲するため、出力は旧実装と完全一致（docs/development/verse-representation-design.md）。
+               ★ 翻訳は Greek Token を経由しないため tokens は空のまま Verse を構築する（VR-1設計書 A-3）。 */
+            const _trBookKeyR = AppState.location.book ? AppState.location.book.key : '';
+            const _trChR      = AppState.location.chapter != null ? AppState.location.chapter : null;
+            const _trVerseR   = buildVerse(_trBookKeyR, _trChR, vNum, []);
+            const _trRepR     = buildRepresentation(col.colMode, _trVerseR, null, rightText);
+            columnBlock.innerHTML = renderColumn(_trRepR);
+            if (hasGreek) {
+                columnBlock.onclick = () => {
+                    _selectVerseBlocks(vNum, columnBlock);
+                    document.getElementById('active-v').innerText = `${vNum} 節`;
+                    AppState.toBrowsing(vNum, elByVerse[vNum] || []);
+                    openVerseInspector(vNum, elByVerse[vNum] || []);
+                    notifyAppStateChange();
+                };
+            }
+        }
+    }
+
+    return columnBlock;
+}
+
+/*
+ * render(columns, elData, hasGreek) — VR-5-E-1: render() 入口を2列固定引数（jpData/jpDataB）
+ * から columns[] ベースへ移行。columns[i] = { colMode, jpData }。
+ * 今回は入口（引数の受け取り方）のみの移行であり、内部は columns[0]/columns[1] を
+ * 直接参照して既存の2列表示をそのまま維持する（columns.forEach() 化・N列Grid化は行わない）。
+ * colMode は将来フェーズ（columns[].colMode を内部ループが直接消費する段階）向けに
+ * columns[] へ含めているが、今回は render() 内部で _colA/_colB を従来どおり
+ * _toColumnMode(_transA/_transB) から再計算し、表示結果を変更しない。
+ */
+function render(columns, elData, hasGreek) {
     const app          = document.getElementById('bible-text-area');
     const parallel     = document.getElementById('parallel-text-area');
     const mainArea     = document.getElementById('main-reading-area');
@@ -8853,94 +9025,28 @@ app.innerHTML = '';
 
     const useVersePair = mainArea.classList.contains('compare-mode');
 
-    Object.entries(jpData.verses).forEach(([vNum, text]) => {
-        // 左：聖書本文 or 読解フロー（_transA === 'FLOW'）
-        const block = document.createElement('div');
-        block.className = useVersePair ? 'verse-block verse-pair-left' : 'verse-block';
+    /* VR-5-E-2: render() 内部の A/B 固定参照を columns[] 参照へ整理する。
+       columns.length は今回も2固定（columns[0]=左列, columns[1]=右列）。
+       ColumnMode（_colA/_colB相当）は columns[].colMode（呼び出し元が _toColumnMode() で
+       算出し columns[] 生成時に確定させた値、VR-5-E-1参照）からそのまま取得し、
+       render() 内部での _toColumnMode(_transA/_transB) 再計算はしない
+       （columns[] 生成と render() 呼び出しの間に await を挟まないため、値は一致する）。 */
+    const colA  = columns[0];
+    const colB  = columns[1];
+    const _colA = colA.colMode;
+    const _colB = colB.colMode;
 
-        if (_transA === 'FLOW') {
-            const words = elByVerse[vNum] || [];
-            if (words.length === 0) {
-                block.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="color:var(--text-sub);font-size: var(--text-caption);opacity: var(--opacity-secondary);">原語データなし</div></div>`;
-            } else {
-                /* Phase VR-4A: 本文左列の語順フロー表示を Verse Representation Architecture
-                   経由にする。WordOrderRenderer は chips[] のみを入力とするため、
-                   出力は旧実装と完全一致（docs/development/verse-representation-design.md）。 */
-                const _vrBookKey  = AppState.location.book ? AppState.location.book.key : '';
-                const _vrCh       = AppState.location.chapter != null ? AppState.location.chapter : null;
-                const _vrVerse    = buildVerse(_vrBookKey, _vrCh, vNum, words);
-                const _vrAnalysis = getAnalysis(_vrVerse);
-                const _vrRep      = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, _vrAnalysis);
-                /* 複数節が同時に描画されるため、idx は節内でのみ有効。
-                   block 単位でchipデータを保持し、_wlvChipClick から節を跨いだ取り違えなく参照できるようにする。 */
-                block._flowResolved = _vrAnalysis;
-                block._flowChips = _vrRep.chips;
-                /* Layer 2 Inspect: ReadingFormatterのclause解析には生トークン配列が
-                   必要なため、chipデータと並べて words もそのまま保持しておく。 */
-                block._flowWords = words;
-                block.innerHTML = WordOrderRenderer.renderBodyColumn(_vrRep);
-                block.onclick = () => {
-                    mainArea.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
-                    block.classList.add('selected');
-                    document.getElementById('active-v').innerText = `${vNum} 節`;
-                    AppState.toBrowsing(vNum, words);
-                    openVerseInspector(vNum, words);
-                    notifyAppStateChange();
-                };
-            }
-        } else {
-            /* Phase TR-1: 左列の翻訳表示を Verse Representation Architecture 経由にする。
-               renderColumn() は TranslationRenderer（representation.text のみを入力とする）へ
-               委譲するため、出力は旧実装と完全一致（docs/development/verse-representation-design.md）。
-               ★ 翻訳は Greek Token を経由しないため tokens は空のまま Verse を構築する（VR-1設計書 A-3）。 */
-            const _trBookKey = AppState.location.book ? AppState.location.book.key : '';
-            const _trCh      = AppState.location.chapter != null ? AppState.location.chapter : null;
-            const _trVerse   = buildVerse(_trBookKey, _trCh, vNum, []);
-            const _trRep     = buildRepresentation({ kind: 'translation', translationId: _transA }, _trVerse, null, text);
-            block.innerHTML = renderColumn(_trRep);
-        }
+    Object.entries(colA.jpData.verses).forEach(([vNum, text]) => {
+        /* VR-5-F-B: 左列・右列の生成処理を _buildColumnBlock() へ抽出（VR-5-F-A監査
+           Migration Boundary Step 1）。
+           VR-5-H-2: 列間の相互ハイライトは _selectVerseBlocks()（dataset.vnum ベース）へ
+           一般化し、block/pBlock の直接参照を解消した（Step 2 の解消）。 */
+        const block  = _buildColumnBlock(0, colA, colB, vNum, text, elByVerse, hasGreek, useVersePair, mainArea);
+        const pBlock = _buildColumnBlock(1, colB, colA, vNum, text, elByVerse, hasGreek, useVersePair, mainArea);
 
-        // 右：並列訳 or 読解フロー
-        const pBlock = document.createElement('div');
-        pBlock.className = 'verse-block verse-pair-right';
-        pBlock.dataset.vnum = vNum;
-
-        if (_transB === 'FLOW') {
-            // _setRightMode('flow') が gf-verse-block を差し込むので
-            // ここでは空コンテナのみ用意する（二重描画防止）
-            pBlock.innerHTML = '';
-        } else if (!useVersePair && _transA === 'FLOW') {
-            // single-mode + transA=FLOW: 右列は不要
-            pBlock.innerHTML = '';
-        } else {
-            const rightText = (jpDataB && jpDataB.verses && jpDataB.verses[vNum]) ? jpDataB.verses[vNum] : (jpData.verses[vNum] || '');
-            /* Phase TR-2: 右列の翻訳表示を Verse Representation Architecture 経由にする。
-               renderColumn() は TranslationRenderer（representation.text のみを入力とする）へ
-               委譲するため、出力は旧実装と完全一致（docs/development/verse-representation-design.md）。
-               ★ 翻訳は Greek Token を経由しないため tokens は空のまま Verse を構築する（VR-1設計書 A-3）。 */
-            const _trBookKeyR = AppState.location.book ? AppState.location.book.key : '';
-            const _trChR      = AppState.location.chapter != null ? AppState.location.chapter : null;
-            const _trVerseR   = buildVerse(_trBookKeyR, _trChR, vNum, []);
-            const _trRepR     = buildRepresentation({ kind: 'translation', translationId: _transB }, _trVerseR, null, rightText);
-            pBlock.innerHTML = renderColumn(_trRepR);
-            if (hasGreek) {
-                pBlock.onclick = () => {
-                    document.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
-                    block.classList.add('selected');
-                    pBlock.classList.add('selected');
-                    document.getElementById('active-v').innerText = `${vNum} 節`;
-                    AppState.toBrowsing(vNum, elByVerse[vNum] || []);
-                    openVerseInspector(vNum, elByVerse[vNum] || []);
-                    notifyAppStateChange();
-                };
-            }
-        }
-
-        if (hasGreek && _transA !== 'FLOW') {
+        if (hasGreek && _colA.kind !== 'wordOrder') {
             block.onclick = () => {
-                mainArea.querySelectorAll('.verse-block').forEach(b => b.classList.remove('selected'));
-                block.classList.add('selected');
-                pBlock.classList.add('selected');
+                _selectVerseBlocks(vNum, block);
                 document.getElementById('active-v').innerText = `${vNum} 節`;
                 AppState.toBrowsing(vNum, elByVerse[vNum] || []);
                 openVerseInspector(vNum, elByVerse[vNum] || []);
@@ -9016,12 +9122,12 @@ _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma
 
     /* flowモードが残っている場合はリセット（章移動時の整合性）
        ただし activateFlowCompare が呼ぶ renderCurrentPage の場合は除外 */
-    if (_transB === 'FLOW') {
-        /* transB=FLOW が選ばれているときは常にflowモードを起動 */
+    if (_colB.kind === 'wordOrder') {
+        /* transB=FLOW（ColumnMode.kind==='wordOrder'）が選ばれているときは常にflowモードを起動 */
         const gfTabBar = document.getElementById('gf-tab-bar');
         if (gfTabBar) gfTabBar.style.display = '';
         _setRightMode('flow');
-    } else if (_rightMode === 'flow' && _transB !== 'FLOW') {
+    } else if (_rightMode === 'flow' && _colB.kind !== 'wordOrder') {
         _setRightMode('trans');
     }
 
@@ -9267,7 +9373,7 @@ function _syncMobileVerseViewBackLabel() {
  * それ以外の翻訳が来た場合も _transA をそのまま返す（将来の翻訳追加に追随）。
  */
 function _mvvDisplayTrans() {
-    return (_transA === 'FLOW') ? 'JA1955' : _transA;
+    return (_toColumnMode(_transA).kind === 'wordOrder') ? 'JA1955' : _transA;
 }
 
 /**
@@ -9280,7 +9386,7 @@ function _mvvDisplayTrans() {
  *      _fetchTranslation() で _mvvDisplayTrans()（=JA1955）を読む。
  */
 async function _mvvGetVerseText(vNum) {
-    if (_transA !== 'FLOW') {
+    if (_toColumnMode(_transA).kind !== 'wordOrder') {
         const block = _findVisibleVerseBlock(vNum);
         if (block) {
             const jt = block.querySelector('.jp-text');
@@ -9367,7 +9473,11 @@ function _mobileInspectorRender(vNum, words) {
         const _vrCh      = AppState.location.chapter != null ? AppState.location.chapter : null;
         const _vrVerse   = buildVerse(_vrBookKey, _vrCh, vNum, words);
         const _vrRep     = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, getAnalysis(_vrVerse));
-        area.innerHTML = renderColumn(_vrRep);
+        /* VR-4-C Step 5: 「本文がFLOW表示中か」の判定はここ（呼び出し元）で解決し、
+           WordOrderRenderer へは解決済みの真偽値のみを渡す（旧実装の "修正B" 判定を移設）。 */
+        const _showOnboardingAnchor = _toColumnMode(_transA).kind !== 'wordOrder'
+            && !!(window.App.onboarding && !window.App.onboarding.getState().onboardingComplete);
+        area.innerHTML = renderColumn(_vrRep, { showOnboardingAnchor: _showOnboardingAnchor });
         /* Phase VR-4B-3: 表示に使った chips[] をクリック時まで保持する（Interaction Lifecycle是正）。
            Mobile Inspector も StudyPanel と同じくシングルトン表示のため同じキャッシュを共有する。 */
         _wlvChipCache = (_vrRep && _vrRep.chips) ? _vrRep.chips : [];
@@ -9865,6 +9975,118 @@ function _trimPhraseEnd(words, p) {
         }
     }
     return end;
+}
+
+/* ══════════════════════════════════════════
+   FLOW-TREE-11-A → 12: NeighborhoodView 統合境界確認 Prototype
+   ------------------------------------------------------------------
+   目的: 既存の単語タップ経路（openStudyPanel → _renderReadingNotes）に
+   Lowfat 由来の構造情報を「追加情報として」接続できるかを確認する。
+   機能追加ではなく境界確認のため、対象は Matthew 1:1 の8語のみ。
+
+   データ経路（正式モジュール利用へ置換済み）:
+     Lowfat XML（_FT11_SENTENCE_XML）
+       → window.App.flowTree.parseLowfatXml()      … public/core/flow-tree-adapter.js
+       → window.App.neighborhoodView.buildNeighborhoodView() … public/core/neighborhood-view.js
+       → 以下の Renderer 処理（_ft11LabelOf / _ft11ToRenderItem / _ft11RenderList）
+   Adapter が Tree 生成の唯一の経路、NeighborhoodView が構成語群抽出の唯一の
+   経路であり、本ブロックはもう Lowfat 解析ロジック・parentOf/nodesById 構築
+   ロジックを自前で持たない。
+
+   境界:
+   - SyntaxAnalyzer / PhraseAnalyzer / ClauseAnalyzer / ReadingFormatter は
+     一切呼び出さない・参照しない（このブロックは完全に独立している）。
+   - bible_data のスキーマは変更しない。以下の _FT11_JAPANESE は
+     public/bible_data/nt/MAT/1.json（verse 1, japanese フィールド）を
+     読み取り専用で転記したスナップショットであり、実行時に bible_data を
+     読みにも書きにも行かない。
+   - role/rule/class/type は画面へ一切出さない（neighborhood-view.js が
+     出力する View Model 自体、これらを含まない）。
+   - MAT 1:1 以外の ref では _buildFlowTreeNeighborhoodViewHTML() は
+     空文字列を返し、既存表示に一切影響しない。
+   参照設計: docs/development/flow-tree-adapter-design.md /
+             docs/development/flow-tree-representation-schema.md /
+             docs/development/neighborhood-view-design.md
+   ══════════════════════════════════════════ */
+const _FT11_SENTENCE_XML = "<sentence>\n      <p>\n         <milestone unit=\"verse\" id=\"MAT 1:1\">MAT 1:1</milestone> Βίβλος γενέσεως Ἰησοῦ χριστοῦ υἱοῦ Δαυὶδ υἱοῦ Ἀβραάμ.</p>\n      <wg class=\"np\" rule=\"NPofNP\" role=\"p\">\n         <w ref=\"MAT 1:1!1\"\n            after=\" \"\n            class=\"noun\"\n            type=\"common\"\n            xml:id=\"n40001001001\"\n            lemma=\"βίβλος\"\n            normalized=\"Βίβλος\"\n            strong=\"976\"\n            number=\"singular\"\n            gender=\"feminine\"\n            case=\"nominative\"\n            english=\"book\"\n            mandarin=\"谱\"\n            gloss=\"[The] book\"\n            domain=\"033005\"\n            ln=\"33.38\"\n            morph=\"N-NSF\"\n            unicode=\"Βίβλος\">Βίβλος</w>\n         <wg class=\"np\" rule=\"NPofNP\">\n            <w ref=\"MAT 1:1!2\"\n               after=\" \"\n               class=\"noun\"\n               type=\"common\"\n               xml:id=\"n40001001002\"\n               lemma=\"γένεσις\"\n               normalized=\"γενέσεως\"\n               strong=\"1078\"\n               number=\"singular\"\n               gender=\"feminine\"\n               case=\"genitive\"\n               english=\"genealogy\"\n               mandarin=\"族\"\n               gloss=\"of [the] genealogy\"\n               domain=\"010002 033003\"\n               ln=\"10.24 33.19\"\n               morph=\"N-GSF\"\n               unicode=\"γενέσεως\">γενέσεως</w>\n            <wg type=\"apposition\" class=\"np\" rule=\"Np-Appos\">\n               <wg type=\"apposition\" class=\"np\" rule=\"Np-Appos\">\n                  <wg type=\"apposition\" class=\"np\" rule=\"Np-Appos\">\n                     <w ref=\"MAT 1:1!3\"\n                        after=\" \"\n                        class=\"noun\"\n                        type=\"proper\"\n                        xml:id=\"n40001001003\"\n                        lemma=\"Ἰησοῦς\"\n                        normalized=\"Ἰησοῦ\"\n                        strong=\"2424\"\n                        number=\"singular\"\n                        gender=\"masculine\"\n                        case=\"genitive\"\n                        english=\"Jesus\"\n                        mandarin=\"耶稣\"\n                        gloss=\"of Jesus\"\n                        domain=\"093001\"\n                        ln=\"93.169a\"\n                        morph=\"N-GSM\"\n                        unicode=\"Ἰησοῦ\">Ἰησοῦ</w>\n                     <w ref=\"MAT 1:1!4\"\n                        after=\" \"\n                        class=\"noun\"\n                        type=\"proper\"\n                        xml:id=\"n40001001004\"\n                        lemma=\"Χριστός\"\n                        normalized=\"χριστοῦ\"\n                        strong=\"5547\"\n                        number=\"singular\"\n                        gender=\"masculine\"\n                        case=\"genitive\"\n                        english=\"Christ\"\n                        mandarin=\"基督\"\n                        gloss=\"Christ\"\n                        domain=\"093001\"\n                        ln=\"93.387\"\n                        morph=\"N-GSM\"\n                        unicode=\"χριστοῦ\"\n                        junction=\"apposition\">χριστοῦ</w>\n                  </wg>\n                  <wg class=\"np\" rule=\"NPofNP\" junction=\"apposition\">\n                     <w ref=\"MAT 1:1!5\"\n                        after=\" \"\n                        class=\"noun\"\n                        type=\"common\"\n                        xml:id=\"n40001001005\"\n                        lemma=\"υἱός\"\n                        normalized=\"υἱοῦ\"\n                        strong=\"5207\"\n                        number=\"singular\"\n                        gender=\"masculine\"\n                        case=\"genitive\"\n                        english=\"son\"\n                        mandarin=\"子孙\"\n                        gloss=\"son\"\n                        domain=\"010002\"\n                        ln=\"10.30\"\n                        morph=\"N-GSM\"\n                        unicode=\"υἱοῦ\">υἱοῦ</w>\n                     <w ref=\"MAT 1:1!6\"\n                        after=\" \"\n                        class=\"noun\"\n                        type=\"proper\"\n                        xml:id=\"n40001001006\"\n                        lemma=\"Δαυίδ\"\n                        normalized=\"Δαυὶδ\"\n                        strong=\"1138\"\n                        number=\"singular\"\n                        gender=\"masculine\"\n                        case=\"genitive\"\n                        english=\"David\"\n                        mandarin=\"大卫\"\n                        gloss=\"of David\"\n                        domain=\"093001\"\n                        ln=\"93.91\"\n                        morph=\"N-PRI\"\n                        unicode=\"Δαυὶδ\">Δαυὶδ</w>\n                  </wg>\n               </wg>\n               <wg class=\"np\" rule=\"NPofNP\" junction=\"apposition\">\n                  <w ref=\"MAT 1:1!7\"\n                     after=\" \"\n                     class=\"noun\"\n                     type=\"common\"\n                     xml:id=\"n40001001007\"\n                     lemma=\"υἱός\"\n                     normalized=\"υἱοῦ\"\n                     strong=\"5207\"\n                     number=\"singular\"\n                     gender=\"masculine\"\n                     case=\"genitive\"\n                     english=\"son\"\n                     mandarin=\"后裔\"\n                     gloss=\"son\"\n                     domain=\"010002\"\n                     ln=\"10.30\"\n                     morph=\"N-GSM\"\n                     unicode=\"υἱοῦ\">υἱοῦ</w>\n                  <w ref=\"MAT 1:1!8\"\n                     after=\".\"\n                     class=\"noun\"\n                     type=\"proper\"\n                     xml:id=\"n40001001008\"\n                     lemma=\"Ἀβραάμ\"\n                     normalized=\"Ἀβραάμ\"\n                     strong=\"11\"\n                     number=\"singular\"\n                     gender=\"masculine\"\n                     case=\"genitive\"\n                     english=\"Abraham\"\n                     mandarin=\"亚伯拉罕\"\n                     gloss=\"of Abraham\"\n                     domain=\"093001\"\n                     ln=\"93.7\"\n                     morph=\"N-PRI\"\n                     unicode=\"Ἀβραάμ.\">Ἀβραάμ</w>\n               </wg>\n            </wg>\n         </wg>\n      </wg>\n   </sentence>";
+const _FT11_JAPANESE = {"MAT 1:1!1": "書物", "MAT 1:1!2": "起源", "MAT 1:1!3": "イエス", "MAT 1:1!4": "キリスト", "MAT 1:1!5": "子", "MAT 1:1!6": "ダビデ", "MAT 1:1!7": "子", "MAT 1:1!8": "アブラハム"};
+
+let _ft11Cache = null;
+
+/* Adapter が Tree 生成の唯一の経路（public/core/flow-tree-adapter.js）。
+ * このブロックはもう独自の Lowfat 解析ロジックを持たない。 */
+function _ft11BuildFlowTree() {
+    if (_ft11Cache) return _ft11Cache;
+    _ft11Cache = window.App.flowTree.parseLowfatXml(_FT11_SENTENCE_XML, { scopeId: 'MAT#00000' });
+    return _ft11Cache;
+}
+
+function _ft11SurfaceIndex(ref) {
+    const m = /!(\d+)$/.exec(ref);
+    return m ? parseInt(m[1], 10) : 0;
+}
+/* label生成処理（Renderer）: NeighborhoodView Model が渡す tokens（未加工・
+ * structural order のまま）を受け取り、surface order へ並べ替えてから
+ * 既存日本語表示値を連結する。並べ替え・辞書引きは Renderer 側の責務であり、
+ * neighborhood-view.js はこれを行わない（flow-tree-representation-schema.md §5）。 */
+function _ft11LabelOf(tokens) {
+    return tokens.slice().sort((a, b) => _ft11SurfaceIndex(a) - _ft11SurfaceIndex(b))
+        .map(ref => _FT11_JAPANESE[ref] || '').join('');
+}
+/* NeighborhoodView Model（{nodeId, tokens, isFocus, expanded, children}）を
+ * _ft11RenderList が期待する表示用アイテム（{label, isFocus, expanded, children}）
+ * へ変換する。focus探索・anchor探索・expanded判定は一切ここで行わない
+ * （neighborhood-view.js が既に確定させた値をそのまま透過するのみ）。 */
+function _ft11ToRenderItem(vmNode) {
+    return {
+        label: _ft11LabelOf(vmNode.tokens),
+        isFocus: vmNode.isFocus,
+        expanded: vmNode.expanded,
+        children: vmNode.children.map(_ft11ToRenderItem),
+    };
+}
+function _ft11RenderList(items) {
+    return items.map(item => {
+        const focusStyle = item.isFocus ? ' style="font-weight:600;"' : '';
+        const sub = (item.expanded && item.children && item.children.length)
+            ? `<ul style="list-style:none;padding-left:16px;margin-top:2px;">${_ft11RenderList(item.children)}</ul>`
+            : '';
+        return `<li style="padding:3px 0 3px 10px;border-left:2px solid var(--border-soft, #e5e0d5);"><span${focusStyle}>${_escH(item.label || '（この構成語）')}</span>${sub}</li>`;
+    }).join('');
+}
+
+/* NeighborhoodView を既存 StudyPanel（word モード）へ差し込むための HTML を返す。
+ * neighborhood-view-design.md の方針通り、実際の兄弟関係を "children" と
+ * 詐称しない: anchor（所属clause、無ければ sentence root）の直接の子を、
+ * 対象語自身を含めてそのまま列挙する。role/rule/class/type は出力しない
+ * （neighborhood-view-design.md §6）。対象外の ref では空文字列を返す。 */
+function _buildFlowTreeNeighborhoodViewHTML(ref) {
+    try {
+        if (!ref || ref.indexOf('MAT 1:1!') !== 0) return ''; // 対象外(MAT 1:1以外): 既存表示に一切影響しない
+        const representation = _ft11BuildFlowTree();
+        if (!representation) return '';
+
+        // NeighborhoodView が構成語群抽出の唯一の経路（public/core/neighborhood-view.js）。
+        // focus探索・anchor探索（type='clause' 祖先 + sentence root fallback）・
+        // expanded判定・constituent抽出は全てここに委譲する。
+        const nv = window.App.neighborhoodView.buildNeighborhoodView(representation, ref);
+        if (!nv) return '';
+
+        const constituents = nv.constituents.map(_ft11ToRenderItem);
+        const listHTML = _ft11RenderList(constituents);
+        const originNote = nv.usedFallback ? '所属節なし → 文全体を単位として表示' : '所属節を単位として表示';
+
+        return `
+        <details class="rn-level-section" id="rn-flowtree-neighborhood">
+            <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>この語の構造上の位置づけ</summary>
+            <div class="rn-level-body">
+                <div style="font-size:11px;color:var(--text-sub,#9a9484);margin-bottom:10px;">Lowfat由来の構造情報（${originNote}・Prototype／Matthew 1:1 のみ）</div>
+                <ul style="list-style:none;">${listHTML}</ul>
+            </div>
+        </details>`;
+    } catch (_) {
+        return ''; // Failure Mode: 例外は握りつぶし、既存表示のまま
+    }
 }
 
 async function _buildPhraseReadingHTML(words, idx) {
@@ -10615,7 +10837,14 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
     const language = w.language  || 'grc';
     const corpusId = w.corpusId  || '';
     const lemmaId  = w.lemmaId   != null ? w.lemmaId : null;
-    return { greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong, dpGrammarClasses, bookKey, ch, verse, language, corpusId, lemmaId };
+    // VR-2 Phase 1: Token Identity Contract（docs/development/verse-representation-design.md）。
+    //   tokenId = runtime内 Canonical Identity（bible_data 由来、NT全体で一意）。
+    //   verseId = persistent identity（Lowfat xml:id 由来、cross-build 安定）。
+    //   本フェーズでは Representation への保持のみを行う。Consumer側（Renderer/
+    //   Interaction）はまだこれらを参照しない（Phase 2 以降）。
+    const tokenId  = w.tokenId  != null ? w.tokenId  : null;
+    const verseId  = w.verseId  != null ? w.verseId  : null;
+    return { greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong, dpGrammarClasses, bookKey, ch, verse, language, corpusId, lemmaId, tokenId, verseId };
 }
 
 /**
@@ -10693,6 +10922,20 @@ function _buildReadingContext(words, idx) {
  *         | { kind: 'wordOrder' }
  *         | { kind: 'syntaxTree' }} ColumnMode
  */
+
+/**
+ * VR-4-C Step 1: _transA/_transB（既存 state。URL 互換・rollback のため削除しない）
+ * から ColumnMode（VR-1設計書 §C-1）を導出する。
+ * 'FLOW' という疑似翻訳IDは wordOrder Representation のトリガーであり、それ以外の
+ * 値はそのまま translationId として扱う（現行 TRANSLATIONS.FLOW 混在状態の解釈層）。
+ * 既存 state 自体は書き換えない、純粋な変換関数。
+ * @param {string} transId - _transA または _transB の現在値
+ * @returns {ColumnMode}
+ */
+function _toColumnMode(transId) {
+    if (transId === 'FLOW') return { kind: 'wordOrder' };
+    return { kind: 'translation', translationId: transId };
+}
 
 /**
  * Verse — 節の同一性を保証する束（docs/.../verse-representation-design.md B章）。
@@ -10793,22 +11036,30 @@ function buildRepresentation(columnMode, verse, analysis, translationText) {
  *     後段の HTML 組み立てロジックをそのまま移植したもの。表示は不変）。
  */
 const WordOrderRenderer = {
-    render(representation) {
+    /**
+     * VR-4-C Step 5: 第2引数 options は Representation Contract（VR-3-B Freeze済み、
+     * {kind, verseRef, chips[]}）の一部ではない。呼び出し元（本文がFLOW表示中か、
+     * オンボーディング未完了か等、グローバル state に依存する判断）が解決済みの
+     * 真偽値として渡す薄いコンテキストであり、Renderer 自身は _transA /
+     * window.App.onboarding を直接参照しない（旧実装の "修正B" 判定を呼び出し元へ移設）。
+     * @param {{showOnboardingAnchor?: boolean}} [options]
+     */
+    render(representation, options) {
         const chips = (representation && Array.isArray(representation.chips)) ? representation.chips : [];
+        const _showOnboardingAnchor = !!(options && options.showOnboardingAnchor);
 
         /* ── chip HTML（補助として小さく） ── */
         const chipsHTML = chips.map((c, i) => {
             const sepBefore = c.phraseBreakBefore ? `<span class="wlv-phrase-sep"></span>` : '';
-            /* 修正B: FLOWモードでは本文chipにアンカーが付くため、Study Panel側は付与しない */
-            const anchorAttr = (i === 0
-                && typeof _transA !== 'undefined' && _transA !== 'FLOW'
-                && window.App.onboarding && !window.App.onboarding.getState().onboardingComplete)
+            /* 修正B: FLOWモードでは本文chipにアンカーが付くため、Study Panel側は付与しない。
+               判定自体は呼び出し元で解決済み（options.showOnboardingAnchor）。 */
+            const anchorAttr = (i === 0 && _showOnboardingAnchor)
                 ? ' data-onboarding-anchor="true"'
                 : '';
             return `${sepBefore}<span class="wlv-chip ${c.roleClass}"
-            data-idx="${i}"
+            data-token-id="${c.tokenId}"
             data-greek="${c.greek}"${anchorAttr}
-            onclick="_wlvChipClick(this,${i})"
+            onclick="_wlvChipClick(this,'${c.tokenId}')"
             title="${c.greek}">
             <span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span>
         </span>`;
@@ -10871,7 +11122,7 @@ const WordOrderRenderer = {
             const anchorAttr = (isAnchorVerse && i === 0)
                 ? ' data-onboarding-anchor="true" data-greek="' + c.greek + '"'
                 : '';
-            return `${sep}<span class="wlv-chip ${c.roleClass}" data-idx="${i}"${anchorAttr} onclick="event.stopPropagation();_wlvChipClick(this,${i})" title="${c.greek}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span></span>`;
+            return `${sep}<span class="wlv-chip ${c.roleClass}" data-token-id="${c.tokenId}"${anchorAttr} onclick="event.stopPropagation();_wlvChipClick(this,'${c.tokenId}')" title="${c.greek}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span></span>`;
         }).join('');
         return `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="font-size: var(--text-body);line-height:2.4;"><div class="wlv-flow-stream" style="flex-wrap:wrap;display:flex;gap:var(--rhythm-micro);align-items:baseline;">${chipsHTML}</div></div></div>`;
     },
@@ -10887,8 +11138,8 @@ const WordOrderRenderer = {
         const chipsHTML = chips.map((c, i) => {
             const sepBefore = c.phraseBreakBefore ? `<span class="wlv-phrase-sep"></span>` : '';
             return `${sepBefore}<span class="wlv-chip ${c.roleClass}"
-            data-idx="${i}"
-            onclick="_wlvChipClick(this,${i})"
+            data-token-id="${c.tokenId}"
+            onclick="_wlvChipClick(this,'${c.tokenId}')"
             title="${c.greek}">
             <span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span>
         </span>`;
@@ -10921,16 +11172,19 @@ const TranslationRenderer = {
 };
 
 /**
- * Representation を HTML 文字列に変換する。Renderer Registry（VR-4 以降で導入予定）は
- * まだ存在しないため、現時点では kind による分岐で Renderer を呼ぶだけの薄いラッパー。
+ * Representation を HTML 文字列に変換する。Renderer Registry（VR-4-B §E で「今回は
+ * 導入しない」と判断済み）は導入せず、現時点では kind による分岐で Renderer を
+ * 呼ぶだけの薄いラッパーのまま維持する。
  * @param {Object} representation - buildRepresentation() の戻り値
+ * @param {Object} [options] - VR-4-C Step 5: wordOrder の場合のみ WordOrderRenderer.render()
+ *        へ素通しする（Representation Contract 自体は変更しない）
  * @returns {string}
  */
-function renderColumn(representation) {
+function renderColumn(representation, options) {
     try {
         if (!representation) return '';
         if (representation.kind === 'wordOrder') {
-            return WordOrderRenderer.render(representation);
+            return WordOrderRenderer.render(representation, options);
         }
         if (representation.kind === 'translation') {
             return TranslationRenderer.render(representation);
@@ -11070,8 +11324,10 @@ function _buildMorphText(rawMorph, pos, parts) {
 /* __FLOW_CHIP_END__ */
 
 /* ── chip クリック：詳細ドロワーを展開 ── */
-/* グローバルに現在選択中の chipIdx を保持（ドロワーから「詳しく見る」するため） */
-let _wlvActiveChipIdx = -1;
+/* VR-2 Phase 2: グローバルに現在選択中 chip の tokenId を保持
+   （ドロワーから「詳しく見る」するため。配列位置ではなく Token Identity Contract の
+   runtime内 Canonical Identity である tokenId で保持する）。 */
+let _wlvActiveTokenId = null;
 let _wlvChipData      = [];   /* _buildFlowTabHTML で生成した chip 配列を保持 */
 /* Phase VR-4B-5: 現在選択中 chip の scope words（gfBlock/verseBlock/_wlvWordCache の
    優先順位で解決済み）。_mobileInspectorDetail から _fillMvvReadingSlot/_fillMvvSemanticSlot
@@ -11204,7 +11460,7 @@ function _resolveSubjrefEvidenceText(subjrefEvidence) {
     }
 }
 
-function _wlvChipClick(chipEl, idx) {
+function _wlvChipClick(chipEl, tokenId) {
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
         const step = window.App.onboarding?.getState()?.onboardingStep;
         console.log('[Onboarding]', step);
@@ -11213,7 +11469,7 @@ function _wlvChipClick(chipEl, idx) {
     chips.forEach(c => c.classList.remove('active'));
     chipEl.classList.add('active');
 
-    _wlvActiveChipIdx = idx;
+    _wlvActiveTokenId = tokenId;
 
     /* Phase VR-4B-3: chip 取得の優先順位（Interaction Lifecycle是正）。
        複数節が同時に描画されうる面（Greek Flow View / 本文左列）は DOM ノードに個別保存された
@@ -11222,18 +11478,20 @@ function _wlvChipClick(chipEl, idx) {
        _wlvGetChipData()（Tier 2 rollback）へフォールバックする。
        ★ .verse-pair-right は 'verse-block verse-pair-right' という複合クラスを持つため、
          .closest('.verse-block') は Greek Flow View の chip でも真になる（.gf-verse-block の
-         祖先でもある）。そのため .gf-verse-block を必ず先に判定する（順序を変えないこと）。 */
+         祖先でもある）。そのため .gf-verse-block を必ず先に判定する（順序を変えないこと）。
+       VR-2 Phase 2: 配列位置ではなく tokenId 一致で chip を検索する（Token Identity Contract）。
+       複数節同時表示時に配列位置がずれて別節の chip を誤って取得するリスクを構造的に排除する。 */
     const gfBlock    = chipEl.closest('.gf-verse-block');
     const verseBlock = chipEl.closest('.verse-block');
     let chip;
     if (gfBlock && gfBlock._flowChips) {
-        chip = gfBlock._flowChips[idx];
+        chip = gfBlock._flowChips.find(c => c.tokenId === tokenId);
     } else if (verseBlock && verseBlock._flowChips) {
-        chip = verseBlock._flowChips[idx];
-    } else if (_wlvChipCache && _wlvChipCache[idx]) {
-        chip = _wlvChipCache[idx];
+        chip = verseBlock._flowChips.find(c => c.tokenId === tokenId);
+    } else if (_wlvChipCache && _wlvChipCache.length) {
+        chip = _wlvChipCache.find(c => c.tokenId === tokenId);
     } else {
-        chip = _wlvGetChipData(idx);
+        chip = _wlvGetChipData(tokenId);
     }
     if (!chip) return;
 
@@ -11244,20 +11502,25 @@ function _wlvChipClick(chipEl, idx) {
        _wlvWordCache remains legacy fallback only（シングルトン面専用・複数節同時表示時は
        別節の残骸を指しうるため最終手段としてのみ使う）。
        chip 取得（上記）と同じ優先順位に揃えることで、chip と Inspector 再解決が
-       常に同一節を参照するようにする（節取り違え防止・SSOT維持）。 */
+       常に同一節を参照するようにする（節取り違え防止・SSOT維持）。
+       VR-2 Phase 2: tokenId から findIndex() で一度だけ配列位置を求め、以降はその idx を
+       使い回す（find() と indexOf() の二重探索をしない）。_buildReadingContext 等の下流関数は
+       実際の配列位置を必要とするため、idx 自体は引き続き使用する（tokenId は「対象を特定する
+       ための鍵」、idx は「その対象の文脈上の位置」という別の役割であり、後者は変更しない）。 */
     const _reWords  =
         gfBlock?._flowWords ||
         verseBlock?._flowWords ||
         _wlvWordCache;
     _wlvActiveScopeWords = _reWords;   /* _mobileInspectorDetail 側の橋渡し用 */
-    const _rawToken = _reWords?.[idx];
-    const _reCtx    = _buildReadingContext(_reWords, idx);
+    const _reIdx    = _reWords ? _reWords.findIndex(w => w.tokenId === tokenId) : -1;
+    const _rawToken = _reIdx !== -1 ? _reWords[_reIdx] : undefined;
+    const _reCtx    = _buildReadingContext(_reWords, _reIdx);
     const _reResolved = window.App?.readingEngine?.resolve(_rawToken, _reCtx);
     const _resolvedJa = _reResolved?.japanese;
     /* Stage C P1: StudyPanel 用の表示整形（内部値 jaWord は生のまま保持） */
     const _resolvedJaDisplay = (_resolvedJa && window.App?.PresentationPolicy)
         ? window.App.PresentationPolicy.formatDisplay(
-            _resolvedJa, _reResolved.source, _reWords, idx)
+            _resolvedJa, _reResolved.source, _reWords, _reIdx)
         : _resolvedJa;
 
     /* AppState の inspect を更新
@@ -11302,8 +11565,12 @@ function _wlvChipClick(chipEl, idx) {
                当該節の MVV を開いて（Level2 器・メモ・タイトル・履歴を準備）から Level3 詳細を表示する。
                AppState.toBrowsing は通常の節タップと同じ既存セッタ（selectedVerse を確定＝メモ ref 用）。 */
             const _mvWords = verseBlock._flowWords || _wlvWordCache || [];
+            /* VR-2 Phase 2: _mvWords は _reWords と同一とは限らない（gfBlock/verseBlock が
+               両方truthyな場合、_reWords は gfBlock 優先だが _mvWords は verseBlock固定のため）。
+               既存の優先順位ロジックを変えないため、ここで独立に findIndex() する。 */
+            const _mvIdx   = _mvWords.findIndex(w => w.tokenId === tokenId);
             const _mvVNum  = (chip.verse != null) ? chip.verse
-                           : ((_mvWords[idx] && _mvWords[idx].verse != null) ? _mvWords[idx].verse : null);
+                           : ((_mvWords[_mvIdx] && _mvWords[_mvIdx].verse != null) ? _mvWords[_mvIdx].verse : null);
             /* Phase ESM-9/ESM-25/ESM-39: AppState.toBrowsing() は inspect.data 全体を null に
                リセットする（既存仕様・他の呼び出し元があるため変更しない）。_mobileInspectorDetail は
                greek/lemma/rawMorph は関数引数からのフォールバックを持つため reset の影響を
@@ -11359,12 +11626,12 @@ function _wlvChipClick(chipEl, idx) {
     _syncOnboardingActiveFlag();
 }
 
-/** chip index → chip データを _wlvWordCache から取得 */
-function _wlvGetChipData(idx) {
-    if (_wlvWordCache && _wlvWordCache[idx]) {
-        return _wordToFlowChip(_wlvWordCache[idx], idx);
-    }
-    return null;
+/** tokenId → chip データを _wlvWordCache から取得（VR-2 Phase 2: tokenId ベース） */
+function _wlvGetChipData(tokenId) {
+    if (!_wlvWordCache) return null;
+    const idx = _wlvWordCache.findIndex(w => w.tokenId === tokenId);
+    if (idx === -1) return null;
+    return _wordToFlowChip(_wlvWordCache[idx], idx);
 }
 
 /**
@@ -11443,12 +11710,16 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
        _wlvChipClick と同じ scope の words を使うことで、chip・Inspector詳細・
        このスロットの3者が常に同一節を参照するようにする（節取り違え防止）。 */
     const _scopeWords = _wlvActiveScopeWords || _wlvWordCache;
+    /* VR-2 Phase 2: _fillMvvReadingSlot/_fillMvvSemanticSlot は実際の配列位置を必要とする
+       （下流関数は変更しない）ため、_wlvActiveTokenId から一度だけ findIndex() して idx を
+       求める（find()+indexOf() の二重探索はしない）。 */
+    const _scopeIdx = _scopeWords ? _scopeWords.findIndex(w => w.tokenId === _wlvActiveTokenId) : -1;
 
     /* Phase F-3: 「読みを深める」スロットへ語レベル Reading Notes を非同期注入（fire-and-forget）。
        文章生成は ReadingFormatter のみ（_buildWordResonanceText）。該当なしはセクションごと非表示。 */
-    _fillMvvReadingSlot(_scopeWords, _wlvActiveChipIdx);
+    _fillMvvReadingSlot(_scopeWords, _scopeIdx);
     /* Phase F-4: 「意味を見る」スロットへ semantic ドメインラベルを非同期注入（情報提供のみ）。 */
-    _fillMvvSemanticSlot(_scopeWords, _wlvActiveChipIdx);
+    _fillMvvSemanticSlot(_scopeWords, _scopeIdx);
 }
 
 /* Phase F-3: 語A解析中に語Bへ移動した場合、古い非同期結果の誤注入を防ぐ世代カウンタ。
@@ -12035,16 +12306,20 @@ async function renderCurrentPage() {
     const hasGreek = GREEK_BOOKS.has(book);
 
     try {
-        /* _transA が FLOW の場合は翻訳JSONをfetchしない */
-        const jpData = _transA === 'FLOW'
+        /* VR-4-C Step 2: init() と同じ変換（_toColumnMode()、Step 1 参照）。 */
+        const _colA = _toColumnMode(_transA);
+        const _colB = _toColumnMode(_transB);
+
+        /* ColumnMode が wordOrder の場合は翻訳JSONをfetchしない */
+        const jpData = _colA.kind === 'wordOrder'
             ? null
             : await _fetchTranslation(_transA, book, ch);
 
         let jpDataB = null;
-        if (_transMode === 'compare' && _transB !== 'FLOW') {
+        if (_transMode === 'compare' && _colB.kind !== 'wordOrder') {
             jpDataB = await _fetchTranslation(_transB, book, ch);
         }
-        
+
         let elData = [];
         if (hasGreek) {
             try {
@@ -12054,13 +12329,16 @@ async function renderCurrentPage() {
             } catch(e) {}
         }
 
-        /* _transA === 'FLOW': elData から verse キーを組み立てて jpData の代わりに渡す */
-        const resolvedJpData = (_transA === 'FLOW')
-            ? _buildFlowJpData(elData)
-            : jpData;
+        /* VR-5-D: resolvedJpData 決定ロジックを _getVerseSource() へ抽出（VR-5-C 参照） */
+        const resolvedJpData = _getVerseSource(_colA, jpData, elData);
         if (!resolvedJpData) throw new Error('Not found');
 
-        render(resolvedJpData, elData, hasGreek && elData.length > 0, jpDataB);
+        /* VR-5-E-1: render() 入口を columns[] ベースへ移行（columns[i] = { colMode, jpData }） */
+        const columns = [
+            { colMode: _colA, jpData: resolvedJpData },
+            { colMode: _colB, jpData: jpDataB },
+        ];
+        render(columns, elData, hasGreek && elData.length > 0);
         document.getElementById('active-v').innerText = "";
         syncUrlState();
 
@@ -12338,9 +12616,14 @@ function transDataPath(transId, book, ch) {
 }
 
 /*
- * _buildFlowJpData — _transA === 'FLOW' のとき elData から
+ * _buildFlowJpData — ColumnMode.kind==='wordOrder'（_transA==='FLOW'）のとき elData から
  * jpData 互換オブジェクト { verses: { "1": "", ... } } を生成する。
  * text は空文字（FLOW チップが左列を担うため）。
+ * VR-4-C Step 3: 既存 translation データロードパイプライン（jpData を消費する render()
+ * 等）を wordOrder でもそのまま再利用するための互換シム。ColumnMode 導入後も、
+ * render() 自体を columns[] ループ設計へ全面的に作り直すまでは必要であり続けるため、
+ * 削除しない（VR-4-B §C「Temporary」判定）。表示差分を発生させないことを最優先し、
+ * 今回のVR-4-Cでは維持する。
  */
 function _buildFlowJpData(elData) {
     if (!elData || elData.length === 0) return null;
@@ -12352,6 +12635,19 @@ function _buildFlowJpData(elData) {
     });
     if (Object.keys(verses).length === 0) return null;
     return { verses };
+}
+
+/*
+ * _getVerseSource — render() が節一覧（verse一覧）として用いる resolvedJpData を、
+ * ColumnMode（colA）に応じて決定する。
+ * VR-5-C（VerseSource Extraction Audit）で確認した「resolvedJpData 決定ロジック」を
+ * init() / renderCurrentPage() の重複箇所から抽出したもの（VR-5-D）。
+ * colA.kind==='wordOrder' の場合は elData（Greekデータ）由来の _buildFlowJpData()、
+ * それ以外は jpData（翻訳データ）をそのまま返す。判定ロジックのみを担い、
+ * fetch・エラーハンドリングは呼び出し元に残す（挙動差異を保持するため）。
+ */
+function _getVerseSource(colA, jpData, elData) {
+    return (colA.kind === 'wordOrder') ? _buildFlowJpData(elData) : jpData;
 }
 
 /*
@@ -12389,12 +12685,13 @@ function _applyTransMode(mode) {
     } else {
         area.classList.remove('compare-mode');
         area.classList.add('single-mode');
-        /* Greek Flow View: 単一表示に戻ったとき、transB が FLOW でなければタブを隠す */
+        /* VR-4-C Step 2: ColumnMode.kind へ置換（_toColumnMode()、Step 1 参照）。
+           Greek Flow View: 単一表示に戻ったとき、transB が FLOW でなければタブを隠す */
         const gfTabBar = document.getElementById('gf-tab-bar');
-        if (gfTabBar && _transA !== 'FLOW' && _transB !== 'FLOW') {
+        if (gfTabBar && _toColumnMode(_transA).kind !== 'wordOrder' && _toColumnMode(_transB).kind !== 'wordOrder') {
             gfTabBar.style.display = 'none';
         }
-        if (_rightMode === 'flow' && _transB !== 'FLOW') _setRightMode('trans');
+        if (_rightMode === 'flow' && _toColumnMode(_transB).kind !== 'wordOrder') _setRightMode('trans');
     }
     _updateColHeaders();
 }
@@ -12532,33 +12829,65 @@ function _bpApplyMode(mode) {
     document.getElementById('bp-compare-body').style.display = mode === 'compare' ? 'block' : 'none';
 }
 
+/* VR-4-E: TRANSLATION_REGISTRY/DISPLAY_MODE_REGISTRY を使い、Bible Picker を
+   「翻訳を選択」グループと「読み方を選択」グループへ視覚的に分離する。
+   選択状態（_bpSelA/_bpSelB）・確定処理（bpConfirm）・ColumnMode変換（_toColumnMode）
+   はいずれも変更しない——見せ方のみを変える。 */
 function _bpRenderSingle() {
-    document.getElementById('bp-single-body').innerHTML = TRANS_LIST.map(t =>
+    const transHTML = TRANSLATION_REGISTRY.map(t =>
         `<div class="bp-trans-item${t.id === _bpSelA ? ' active' : ''}" onclick="bpSelectA('${t.id}')">
             <div>
-                <span class="bp-trans-name">${t.name}</span>
+                <span class="bp-trans-name">${t.label}</span>
                 <span class="bp-trans-code">${t.code}</span>
             </div>
             <span class="bp-trans-check icon">${icon('check')}</span>
         </div>`
     ).join('');
+    const flowHTML =
+        `<div class="bp-trans-item${_bpSelA === 'FLOW' ? ' active' : ''}" onclick="bpSelectA('FLOW')">
+            <div>
+                <span class="bp-trans-name">${TRANSLATIONS.FLOW.label}</span>
+            </div>
+            <span class="bp-trans-check icon">${icon('check')}</span>
+        </div>`;
+    document.getElementById('bp-single-body').innerHTML =
+        `<span class="bp-compare-side-label">翻訳を選択</span>${transHTML}` +
+        `<span class="bp-compare-side-label" style="margin-top:var(--space-md);">読み方を選択</span>${flowHTML}`;
 }
 
 function _bpRenderCompare() {
-    /* 左列：全翻訳（FLOW含む）を選択可能 */
-    document.getElementById('bp-col-a').innerHTML = TRANS_LIST.map(t =>
+    /* 左列：翻訳を選択＋読み方を選択（FLOWを別グループへ分離。VR-4-E） */
+    const colATrans = TRANSLATION_REGISTRY.map(t =>
         `<div class="bp-compare-opt${t.id === _bpSelA ? ' active' : ''}" onclick="bpSelectA('${t.id}')">
             <span class="bp-compare-opt-dot"></span>
-            <span class="bp-compare-opt-name">${t.name}</span>
+            <span class="bp-compare-opt-name">${t.label}</span>
         </div>`
     ).join('');
-    /* 右列：左と同じものは除外。左がFLOWのとき右にFLOWは選べない（同一不可） */
-    document.getElementById('bp-col-b').innerHTML = TRANS_LIST.filter(t => t.id !== _bpSelA).map(t =>
+    const colAFlow =
+        `<div class="bp-compare-opt${_bpSelA === 'FLOW' ? ' active' : ''}" onclick="bpSelectA('FLOW')">
+            <span class="bp-compare-opt-dot"></span>
+            <span class="bp-compare-opt-name">${TRANSLATIONS.FLOW.label}</span>
+        </div>`;
+    document.getElementById('bp-col-a').innerHTML =
+        `<span class="bp-compare-side-label">翻訳を選択</span>${colATrans}` +
+        `<span class="bp-compare-side-label" style="margin-top:var(--space-md);">読み方を選択</span>${colAFlow}`;
+
+    /* 右列：左と同じ翻訳は除外。左がFLOWのとき右にFLOWは選べない（同一不可、旧実装と同じ制約） */
+    const colBTrans = TRANSLATION_REGISTRY.filter(t => t.id !== _bpSelA).map(t =>
         `<div class="bp-compare-opt${t.id === _bpSelB ? ' active' : ''}" onclick="bpSelectB('${t.id}')">
             <span class="bp-compare-opt-dot"></span>
-            <span class="bp-compare-opt-name">${t.name}</span>
+            <span class="bp-compare-opt-name">${t.label}</span>
         </div>`
     ).join('');
+    const colBFlow = (_bpSelA !== 'FLOW')
+        ? `<span class="bp-compare-side-label" style="margin-top:var(--space-md);">読み方を選択</span>
+           <div class="bp-compare-opt${_bpSelB === 'FLOW' ? ' active' : ''}" onclick="bpSelectB('FLOW')">
+               <span class="bp-compare-opt-dot"></span>
+               <span class="bp-compare-opt-name">${TRANSLATIONS.FLOW.label}</span>
+           </div>`
+        : '';
+    document.getElementById('bp-col-b').innerHTML =
+        `<span class="bp-compare-side-label">翻訳を選択</span>${colBTrans}${colBFlow}`;
     _bpRenderCompareExternal();
 }
 
