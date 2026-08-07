@@ -27,7 +27,7 @@
  *          _closeMobileStudyPanelAndGoFlow のパネル閉鎖検知を #app.mobile-study-open に修正。
  *          _goToStep(FLOW) 直呼び→AppBridge.openFlowTab() 経由に変更し実際の画面切り替えを保証。
  *          読解フロースタート→onFlowTabOpened 誤発火バグ修正：
- *          transA=FLOW 起動時に render()→_setRightMode('flow')→onFlowTabOpened() が
+ *          transA=FLOW 起動時に render()→_setFlowInjection('flow')→onFlowTabOpened() が
  *          onPageRendered() より先に呼ばれ FLOW ステップへ飛ぶ問題を、
  *          onboardingStep>=1 ガードで抑止。
  */
@@ -771,7 +771,7 @@
             // _renderVerse17GarStep の「流れを見る」ボタンが openFlowTab() を呼び、
             // Flow タブが開いた後ここを通って _goToStep(OB_STEP.FLOW) へ進む。
             if (_state.achievedFirstFlow) return;
-            // Rev.8: transA=FLOW で起動した場合、render() から _setRightMode('flow') が呼ばれ
+            // Rev.8: transA=FLOW で起動した場合、render() から _setFlowInjection('flow') が呼ばれ
             // onFlowTabOpened() が onPageRendered() より先に発火してしまう。
             // VERSE17_GAR / GAR17_CLICKED ステップ（または _closeMobileStudyPanelAndGoFlow 後）
             // でのみ FLOW ステップへ進む。それ以外のステップ（WELCOME 等）では無視する。
@@ -2170,37 +2170,37 @@ var _focusReposition = null;
         body.textContent = '前回は語を押しました。今日は、語順の流れを見てみましょう。';
         el.appendChild(body);
 
-        const hasFlowTab = !!document.getElementById('gf-tab-flow');
-
-        if (hasFlowTab) {
-            const flowBtn = document.createElement('button');
-            flowBtn.style.cssText = [
-                'width: 100%',
-                'min-height: 44px',
-                'background: rgba(90,110,130,0.11)',
-                'border: 1.5px solid rgba(90,110,130,0.38)',
-                'border-radius: 10px',
-                'font-family: \'Noto Serif JP\', \'Georgia\', serif',
-                'font-size: 0.82rem',
-                'font-weight: 700',
-                'color: rgba(29,29,31,0.88)',
-                'cursor: pointer',
-                'letter-spacing: 0.02em',
-                '-webkit-tap-highlight-color: transparent',
-                'touch-action: manipulation',
-                'margin-bottom: 8px',
-            ].join(';');
-            flowBtn.textContent = 'Flowを見る　→';
-            flowBtn.addEventListener('click', function() {
-                el.style.opacity = '0';
-                setTimeout(function() {
-                    el.remove();
-                    var tabFlow = document.getElementById('gf-tab-flow');
-                    if (tabFlow) { tabFlow.click(); }
-                }, 350);
-            });
-            el.appendChild(flowBtn);
-        }
+        /* VR-5-H-10-C: 旧 gf-tab-flow タブ click 依存を廃し、現行 Flow API
+           window.AppBridge.openFlowTab() へ再配線。タブ UI は H-3 で削除済みのため
+           hasFlowTab ガードも撤去し、Flow 導線ボタンを常時提示する。 */
+        const flowBtn = document.createElement('button');
+        flowBtn.style.cssText = [
+            'width: 100%',
+            'min-height: 44px',
+            'background: rgba(90,110,130,0.11)',
+            'border: 1.5px solid rgba(90,110,130,0.38)',
+            'border-radius: 10px',
+            'font-family: \'Noto Serif JP\', \'Georgia\', serif',
+            'font-size: 0.82rem',
+            'font-weight: 700',
+            'color: rgba(29,29,31,0.88)',
+            'cursor: pointer',
+            'letter-spacing: 0.02em',
+            '-webkit-tap-highlight-color: transparent',
+            'touch-action: manipulation',
+            'margin-bottom: 8px',
+        ].join(';');
+        flowBtn.textContent = 'Flowを見る　→';
+        flowBtn.addEventListener('click', function() {
+            el.style.opacity = '0';
+            setTimeout(function() {
+                el.remove();
+                if (window.AppBridge && window.AppBridge.openFlowTab) {
+                    window.AppBridge.openFlowTab();
+                }
+            }, 350);
+        });
+        el.appendChild(flowBtn);
 
         const dismiss = document.createElement('div');
         dismiss.style.cssText = [
@@ -2228,42 +2228,7 @@ var _focusReposition = null;
         }); });
     }
 
-    // 3回目以降・Flow初体験後の最小限トースト
-    function _showReturnToast(message) {
-        if (document.getElementById('ob-return-toast')) return;
-        const el = document.createElement('div');
-        el.id = 'ob-return-toast';
-        el.style.cssText = [
-            'position: fixed',
-            'bottom: calc(env(safe-area-inset-bottom, 16px) + 76px)',
-            'left: 50%',
-            'transform: translateX(-50%) translateY(6px)',
-            'z-index: 9050',
-            'pointer-events: none',
-            'background: rgba(29,29,31,0.72)',
-            'border-radius: 20px',
-            'padding: 7px 18px',
-            'max-width: min(260px, 86vw)',
-            'font-family: \'Noto Serif JP\', \'Georgia\', serif',
-            'font-size: 0.76rem',
-            'font-weight: 500',
-            'color: rgba(255,255,255,0.88)',
-            'letter-spacing: 0.01em',
-            'text-align: center',
-            'opacity: 0',
-            'transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.4,0,0.2,1)',
-        ].join(';');
-        el.textContent = message;
-        document.body.appendChild(el);
-        requestAnimationFrame(function() { requestAnimationFrame(function() {
-            el.style.opacity = '1';
-            el.style.transform = 'translateX(-50%) translateY(0)';
-        }); });
-        setTimeout(function() {
-            el.style.opacity = '0';
-            setTimeout(function() { el.remove(); }, 500);
-        }, 5000);
-    }
+    /* VR-5-H-10-C: _showReturnToast は未呼び出し dead function のため削除。 */
 
     /* ── 初回専用バナー（視線誘導：後方互換スタブ） ─── */
     function _showWelcomeBanner() {
@@ -2426,67 +2391,8 @@ var _focusReposition = null;
         }, 3200);
     }
 
-    /* ── 中級者向け補助ヒント ─────────────────────────── */
-    function _showExperiencedHint() {
-        if (!_state.experiencedReader) return;
-        _showHint('訳では見えない語順や省略が、ここで確認できます', {
-            position: 'bottom-center',
-            duration: 6000,
-            id: 'experienced-welcome',
-        });
-    }
-
-    /* ── 中級者向け：完了後の深い次行動案内 ──────────── */
-    function _showExperiencedCompletionNudge() {
-        if (!_state.experiencedReader) return;
-        if (_activeHintEl) return;
-
-        const el = document.createElement('div');
-        el.id = 'ob-exp-completion-nudge';
-        el.style.cssText = [
-            'position: fixed',
-            'bottom: 28px',
-            'left: 50%',
-            'transform: translateX(-50%) translateY(4px)',
-            'z-index: 9000',
-            'pointer-events: none',
-            'background: rgba(255,255,255,0.98)',
-            'border: 1px solid rgba(90,110,130,0.22)',
-            'border-radius: 16px',
-            'box-shadow: 0 4px 20px rgba(0,0,0,0.12)',
-            'backdrop-filter: blur(10px)',
-            '-webkit-backdrop-filter: blur(10px)',
-            'padding: 11px 24px',
-            'font-family: \'Noto Serif JP\', \'Georgia\', serif',
-            'font-size: 0.80rem',
-            'font-weight: 500',
-            'color: rgba(29,29,31,0.80)',
-            'letter-spacing: 0.02em',
-            'text-align: center',
-            'line-height: 1.65',
-            'max-width: min(300px, 86vw)',
-            'opacity: 0',
-            'transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.4,0,0.2,1)',
-        ].join(';');
-
-        const hasFlowTab = !!document.getElementById('gf-tab-flow');
-        el.textContent = hasFlowTab
-            ? '翻訳で消えた語順や強調は、右上の「読解フロー」タブで続けて見られます'
-            : '他の節でも語を押すと、翻訳では見えていない強調や文のつながりが見えてきます';
-                
-        document.body.appendChild(el);
-
-        requestAnimationFrame(function() { requestAnimationFrame(function() {
-            el.style.opacity   = '1';
-            el.style.transform = 'translateX(-50%) translateY(0)';
-        }); });
-
-        setTimeout(function() {
-            el.style.opacity   = '0';
-            el.style.transform = 'translateX(-50%) translateY(-3px)';
-            setTimeout(function() { el.remove(); }, 600);
-        }, 6500);
-    }
+    /* VR-5-H-10-C: _showExperiencedHint / _showExperiencedCompletionNudge は
+       未呼び出し dead function（experiencedReader トラック未配線）のため削除。 */
 
     /* ── アンカー待機ポーリング ───────────────────────── */
     function _waitForAnchorAndPulse(attempt) {
@@ -3277,168 +3183,9 @@ const _DEFAULT_INSIGHT_EXPERIENCED = '翻訳では平らに見える箇所に、
         }, 5000);
     }
 
-    /* ── 価値サマリー（F2-A） ────────────────────────────
-       2語目タップ完了後、初学者向けに表示する体験接続カード。
-    ─────────────────────────────────────────────── */
-    function _showValueSummary() {
-        if (document.getElementById('ob-value-summary')) return;
+    /* VR-5-H-10-C: _showValueSummary は未呼び出し dead function のため削除。 */
 
-        const isMobile = window.innerWidth <= 900;
-        const el = document.createElement('div');
-        el.id = 'ob-value-summary';
-        el.style.cssText = [
-            'position: fixed',
-            isMobile ? 'bottom: calc(env(safe-area-inset-bottom, 16px) + 80px)' : 'bottom: 100px',
-            'left: 50%',
-            'transform: translateX(-50%) translateY(8px)',
-            'z-index: 9200',
-            'background: rgba(255,255,255,0.99)',
-            'border: 1px solid rgba(90,110,130,0.22)',
-            'border-radius: 18px',
-            'box-shadow: 0 10px 40px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.08)',
-            'backdrop-filter: blur(14px)',
-            '-webkit-backdrop-filter: blur(14px)',
-            'padding: 22px 24px',
-            'max-width: min(340px, 90vw)',
-            'font-family: \'Noto Serif JP\', \'Georgia\', serif',
-            'opacity: 0',
-            'transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.4,0,0.2,1)',
-        ].join(';');
-
-        // Rev.2: 体験接続テキスト：「さっきやったこと」から始める
-        const landing = document.createElement('div');
-        landing.style.cssText = [
-            'font-size:0.83rem',
-            'font-weight:400',
-            'color:rgba(29,29,31,0.82)',
-            'letter-spacing:0.01em',
-            'line-height:1.85',
-            'margin-bottom:18px',
-            'padding-bottom:16px',
-            'border-bottom:1px solid rgba(90,110,130,0.12)',
-        ].join(';');
-        landing.textContent = '前後の文を見比べてみてください。原文では、小さな語が文をつないでいます。';        el.appendChild(landing);
-
-        // Rev.2: Flow CTA：次行動を明確なボタンで示す
-        const hasFlowTab = !!document.getElementById('gf-tab-flow');
-        if (hasFlowTab) {
-            const flowLabel = document.createElement('div');
-            flowLabel.style.cssText = [
-                'font-size:0.76rem',
-                'color:rgba(29,29,31,0.50)',
-                'letter-spacing:0.02em',
-                'text-align:center',
-                'margin-bottom:8px',
-            ].join(';');
-            flowLabel.textContent = '次は、文の流れを見てみましょう';
-            el.appendChild(flowLabel);
-
-            const flowBtn = document.createElement('button');
-            flowBtn.style.cssText = [
-                'width:100%',
-                'min-height:44px',
-                'background:rgba(90,110,130,0.12)',
-                'border:1.5px solid rgba(90,110,130,0.40)',
-                'border-radius:10px',
-                'font-family:\'Noto Serif JP\',\'Georgia\',serif',
-                'font-size:0.82rem',
-                'font-weight:700',
-                'color:rgba(29,29,31,0.88)',
-                'cursor:pointer',
-                'letter-spacing:0.02em',
-                '-webkit-tap-highlight-color:transparent',
-                'touch-action:manipulation',
-                'margin-bottom:10px',
-            ].join(';');
-            flowBtn.textContent = 'Flowを見る　→';
-            flowBtn.addEventListener('click', function() {
-                el.style.opacity = '0';
-                setTimeout(function() {
-                    el.remove();
-                    var tabFlow = document.getElementById('gf-tab-flow');
-                    if (tabFlow) { tabFlow.click(); }
-                }, 350);
-            });
-            el.appendChild(flowBtn);
-        }
-
-        const dismiss = document.createElement('div');
-        dismiss.style.cssText = [
-            'margin-top:4px',
-            'font-size:0.76rem',
-            'font-weight:500',
-            'color:rgba(90,110,130,0.75)',
-            'cursor:pointer',
-            'text-align:center',
-            'letter-spacing:0.01em',
-            '-webkit-tap-highlight-color:transparent',
-            'min-height:40px',
-            'line-height:40px',
-            'background:rgba(90,110,130,0.07)',
-            'border-radius:10px',
-            'border:1px solid rgba(90,110,130,0.18)',
-        ].join(';');
-        dismiss.textContent = '他の節でも読んでみる　→';
-        dismiss.addEventListener('click', function() {
-            el.style.opacity = '0';
-            setTimeout(function() { el.remove(); _showCompletionCTA(); }, 400);
-        });
-        el.appendChild(dismiss);
-        document.body.appendChild(el);
-
-        requestAnimationFrame(function() { requestAnimationFrame(function() {
-            el.style.opacity = '1';
-            el.style.transform = 'translateX(-50%) translateY(0)';
-        }); });
-    }
-
-    /* ── Flowタブ誘導バッジ ─────────────────────────────
-       2語目タップ完了後に呼ばれる。
-       #gf-tab-flow が存在する（＝比較表示モード）時のみ動作。
-    ─────────────────────────────────────────────── */
-    function _showFlowTabNudge() {
-        if (document.getElementById('ob-flow-tab-nudge')) return;
-
-        const tabFlow = document.getElementById('gf-tab-flow');
-        if (!tabFlow) return;
-
-        var _origBoxShadow = tabFlow.style.boxShadow;
-        var _origTransition = tabFlow.style.transition;
-        // Rev.3: ハイライト強度を上げて視認性向上
-        tabFlow.style.transition = 'box-shadow 0.4s ease';
-        tabFlow.style.boxShadow  = '0 0 0 2.5px rgba(90,110,130,0.50)';
-
-        const nudge = document.createElement('span');
-        nudge.id = 'ob-flow-tab-nudge';
-        // Rev.3: 「語順を見る」明示テキスト
-        nudge.textContent = '← 語順を見る';
-        nudge.style.cssText = [
-            'display: inline-block',
-            'margin-left: 8px',
-            'font-family: \'Noto Serif JP\', \'Georgia\', serif',
-            'font-size: 0.70rem',
-            'font-weight: 600',
-            'color: rgba(90,110,130,0.72)',
-            'letter-spacing: 0.01em',
-            'pointer-events: none',
-            'opacity: 0',
-            'transition: opacity 0.5s ease',
-            'vertical-align: middle',
-            'white-space: nowrap',
-        ].join(';');
-
-        tabFlow.parentNode.insertBefore(nudge, tabFlow.nextSibling);
-
-        requestAnimationFrame(function() { requestAnimationFrame(function() {
-            nudge.style.opacity = '1';
-        }); });
-
-        setTimeout(function() {
-            nudge.style.opacity = '0';
-            tabFlow.style.boxShadow  = _origBoxShadow  || '';
-            tabFlow.style.transition = _origTransition || '';
-            setTimeout(function() { nudge.remove(); }, 600);
-        }, 10000);
-    }
+    /* VR-5-H-10-C: _showFlowTabNudge は未呼び出し dead function（旧 gf-tab-flow
+       タブ誘導バッジ）のため削除。 */
 
 })();

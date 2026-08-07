@@ -1,0 +1,32 @@
+name: VR-5 Regression Gate
+
+# 責務分離:
+#   path-check.yml        = repository structure（旧パス参照の検出）
+#   vr5-regression-gate   = runtime contract regression（Flow DOM 契約・Reading Japanese 出力・構文）
+# 本リポは依存ゼロ構成のため依存インストール工程を持たず、node スクリプトを直接実行する
+# （package.json の dependencies / devDependencies は空）。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  vr5-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Flow DOM transition regression（VR-5-H-7 保護ゲート）
+        run: npm run test:flow-dom
+
+      - name: Reading Japanese Stage B regression（NT 全巻バイト等価）
+        run: npm run test:re-stageB
+
+      - name: Path audit（旧パス参照の検出）
+        run: npm run audit

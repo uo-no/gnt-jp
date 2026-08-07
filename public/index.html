@@ -3291,43 +3291,26 @@ details[open] .study-summary::before {
     color: var(--text-main);
     font-family: 'Noto Serif JP', serif;
 }
-.gf-tab-bar {
-    display: flex;
-    gap: 0;
-    padding: var(--space-xs) var(--space-lg) 0;
-    border-bottom: 1px solid rgba(0,0,0,0.06);
-    background: var(--bg-inset);
-}
-.gf-tab-btn {
-    font-size: var(--text-caption);
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    color: var(--text-sub);
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    padding: var(--space-xs) var(--space-sm) var(--space-xs);
-    cursor: pointer;
-    opacity: var(--opacity-secondary);
-    transition: opacity var(--transition-fast), border-color var(--transition-fast);
-}
-.gf-tab-btn.active {
-    opacity: var(--opacity-primary);
-    border-bottom-color: var(--highlight);
-}
-.gf-tab-btn:hover { opacity: var(--opacity-secondary); }
-
 .gf-verse-block {
     padding: var(--space-md) var(--space-lg) var(--space-sm);
 }
-/* flowモード時は jp-text の代わりにchipを表示するため jp-text を隠す */
-.verse-pair-right.gf-mode .jp-text {
+/* flowモード時は jp-text の代わりにchipを表示するため jp-text を隠す
+   VR-5-H-4: Flow 表示の可視制御を位置クラス（.verse-pair-right）非依存へ一般化。
+   不変条件: 左列の通常 wordOrder 描画（renderBodyColumn）には .gf-mode を付与しないため、
+   この一般化後も左列 Flow の jp-text 非表示等の副作用は発生しない。
+   ★ .gf-verse-block は gf-mode をトグルする列ブロックの「直接の子」として append される
+     （_setFlowInjection の block.appendChild(gfEl)）。子結合子 '>' を用いることで、可視判定を
+     直接の親（＝当該列ブロック）が gf-mode か否かに限定し、元の
+     .verse-pair-right.gf-mode / :not(.gf-mode) が持っていた相互排他性を保つ。
+     子孫結合子（' '）にすると body 等の非 gf-mode 祖先経由で :not 規則も同時マッチし、
+     同一詳細度のソース順で display:none が勝って Flow が消える（回帰）。 */
+.gf-mode .jp-text {
     display: none;
 }
-.verse-pair-right.gf-mode .gf-verse-block {
+.gf-mode > .gf-verse-block {
     display: block;
 }
-.verse-pair-right:not(.gf-mode) .gf-verse-block {
+:not(.gf-mode) > .gf-verse-block {
     display: none;
 }
 /* flowモードのchip streamはStudy Panel版より余白を抑える */
@@ -4372,7 +4355,6 @@ const DISPLAY_MODE_REGISTRY = [
 let _transMode   = 'single';
 let _transA      = 'JA1955';
 let _transB      = 'BUN';
-let _rightMode   = 'trans'; // 'trans' | 'flow'
 let _cachedElByVerse = {};
 
 /* ══════════════════════════════════════════
@@ -5501,7 +5483,10 @@ function _openWordListInternal(vNum, words) {
            WordOrderRenderer へは解決済みの真偽値のみを渡す（旧実装の "修正B" 判定を移設）。 */
         const _showOnboardingAnchor = _toColumnMode(_transA).kind !== 'wordOrder'
             && !!(window.App.onboarding && !window.App.onboarding.getState().onboardingComplete);
-        listEl.innerHTML = renderColumn(_vrRep, { showOnboardingAnchor: _showOnboardingAnchor });
+        /* VR-5-H-12: legend 表示可否も呼び出し元で解決し、Renderer へは真偽値のみ渡す
+           （render() 内の window.App.onboarding 直参照を撤去。旧: onboardingComplete で凡例表示）。 */
+        const _showOnboardingLegend = !!(window.App.onboarding?.getState()?.onboardingComplete);
+        listEl.innerHTML = renderColumn(_vrRep, { showOnboardingAnchor: _showOnboardingAnchor, showOnboardingLegend: _showOnboardingLegend });
         /* Phase VR-4B-3: 表示に使った chips[] をクリック時まで保持する（Interaction Lifecycle是正）。
            StudyPanel は常に1節分のみ表示するシングルトンのため、_wlvWordCache と対のグローバル
            キャッシュで足りる（複数節同時表示する Greek Flow View / 本文左列とは異なる方式）。 */
@@ -8879,10 +8864,16 @@ function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGr
     /* VR-5-H-1: 列共通で dataset.vnum を付与する（VR-5-G-A監査で確認した「右列にのみ
        dataset.vnum が存在する」非対称の解消）。すべての列を将来同じ VerseBlock として
        扱うための準備であり、既存の className・DOM構造・イベント挙動は変更しない。
-       既存のセレクタ（_navigateVerse・_findVisibleVerseBlock・_setRightMode 等）は
+       既存のセレクタ（_navigateVerse・_findVisibleVerseBlock・_setFlowInjection 等）は
        いずれも dataset.vnum の有無ではなく className で列を判別しているため、
        本変更はそれらの挙動に影響しない。 */
     columnBlock.dataset.vnum = vNum;
+    /* VR-5-H-4: Flow 対象列の論理的根拠（col.colMode.kind）を DOM へ read-only 投影する。
+       SSOT はあくまで col.colMode.kind であり、dataset.colMode はその索引投影にすぎない
+       （DOM 側で書き換えない／Flow 判定ロジックをここへ移さない）。dataset.vnum と同型。
+       _setFlowInjection() の Flow 対象探索が位置クラス（.verse-pair-right）ではなくこの値を
+       索引として使う。 */
+    columnBlock.dataset.colMode = col.colMode.kind;
 
     if (colIndex === 0) {
         // 左：聖書本文 or 読解フロー（ColumnMode.kind === 'wordOrder'）
@@ -8908,7 +8899,13 @@ function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGr
                 /* Layer 2 Inspect: ReadingFormatterのclause解析には生トークン配列が
                    必要なため、chipデータと並べて words もそのまま保持しておく。 */
                 columnBlock._flowWords = words;
-                columnBlock.innerHTML = WordOrderRenderer.renderBodyColumn(_vrRep);
+                /* VR-5-H-12-D: JHN3:16 先頭chipへのアンカー付与は「本文左列の policy」として
+                   呼び出し元で解決する（renderer 内の verse 固定判定を撤去）。判定源は
+                   renderer が旧来参照していた representation.verseRef と同一。 */
+                const _bodyVr = _vrRep && _vrRep.verseRef ? _vrRep.verseRef : {};
+                const _bodyShowAnchor = _bodyVr.book === 'JHN' && _bodyVr.chapter === 3
+                    && String(_bodyVr.verse) === '16';
+                columnBlock.innerHTML = WordOrderRenderer.renderBodyColumn(_vrRep, { showOnboardingAnchor: _bodyShowAnchor });
                 columnBlock.onclick = () => {
                     _selectVerseBlocks(vNum, columnBlock);
                     document.getElementById('active-v').innerText = `${vNum} 節`;
@@ -8933,7 +8930,7 @@ function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGr
         columnBlock.className = 'verse-block verse-pair-right';
 
         if (col.colMode.kind === 'wordOrder') {
-            // _setRightMode('flow') が gf-verse-block を差し込むので
+            // _setFlowInjection('flow') が gf-verse-block を差し込むので
             // ここでは空コンテナのみ用意する（二重描画防止）
             columnBlock.innerHTML = '';
         } else if (!useVersePair && otherCol.colMode.kind === 'wordOrder') {
@@ -9120,15 +9117,12 @@ _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma
             : '';
     }
 
-    /* flowモードが残っている場合はリセット（章移動時の整合性）
-       ただし activateFlowCompare が呼ぶ renderCurrentPage の場合は除外 */
+    /* transB=FLOW（ColumnMode.kind==='wordOrder'）が選ばれているときは常にflowモードを起動する。
+       VR-5-H-6: 旧「flow残留のリセット」分岐（_rightMode 依存）は削除。render() は判定前に
+       DOM を全消去（app/parallel innerHTML='' ＋ .verse-pair remove）するため、非flow時に
+       cleanup すべき gf-mode 残留は存在せず、当該分岐は表示上 no-op だった。 */
     if (_colB.kind === 'wordOrder') {
-        /* transB=FLOW（ColumnMode.kind==='wordOrder'）が選ばれているときは常にflowモードを起動 */
-        const gfTabBar = document.getElementById('gf-tab-bar');
-        if (gfTabBar) gfTabBar.style.display = '';
-        _setRightMode('flow');
-    } else if (_rightMode === 'flow' && _colB.kind !== 'wordOrder') {
-        _setRightMode('trans');
+        _setFlowInjection('flow');
     }
 
     /* オンボーディング Flow ステップ中：モバイルCSS を上書きして右列を強制表示 */
@@ -9477,7 +9471,10 @@ function _mobileInspectorRender(vNum, words) {
            WordOrderRenderer へは解決済みの真偽値のみを渡す（旧実装の "修正B" 判定を移設）。 */
         const _showOnboardingAnchor = _toColumnMode(_transA).kind !== 'wordOrder'
             && !!(window.App.onboarding && !window.App.onboarding.getState().onboardingComplete);
-        area.innerHTML = renderColumn(_vrRep, { showOnboardingAnchor: _showOnboardingAnchor });
+        /* VR-5-H-12: legend 表示可否も呼び出し元で解決し、Renderer へは真偽値のみ渡す
+           （render() 内の window.App.onboarding 直参照を撤去。旧: onboardingComplete で凡例表示）。 */
+        const _showOnboardingLegend = !!(window.App.onboarding?.getState()?.onboardingComplete);
+        area.innerHTML = renderColumn(_vrRep, { showOnboardingAnchor: _showOnboardingAnchor, showOnboardingLegend: _showOnboardingLegend });
         /* Phase VR-4B-3: 表示に使った chips[] をクリック時まで保持する（Interaction Lifecycle是正）。
            Mobile Inspector も StudyPanel と同じくシングルトン表示のため同じキャッシュを共有する。 */
         _wlvChipCache = (_vrRep && _vrRep.chips) ? _vrRep.chips : [];
@@ -11081,9 +11078,11 @@ const WordOrderRenderer = {
            非同期に埋める（データなし・節なしの場合は何も注入しない＝静寂）。 */
         const passageNoteHTML = '<div id="wlv-passage-note-slot"></div>';
 
-        /* オンボーディング完了前は凡例を非表示 */
-        const _obComplete = window.App.onboarding?.getState()?.onboardingComplete;
-        const legendHTML = _obComplete ? `<div class="dp-legend">
+        /* オンボーディング完了前は凡例を非表示。
+           VR-5-H-12: onboarding state の解決は呼び出し元へ移設し、Renderer は
+           representation と options のみを参照する（window.App.onboarding を直接読まない）。
+           legend 表示可否は options.showOnboardingLegend（呼び出し元が解決済みの真偽値）。 */
+        const legendHTML = (options && options.showOnboardingLegend) ? `<div class="dp-legend">
         <span class="dp-legend-item"><span class="dp-sample dp-mood-imperative">語</span><span class="dp-legend-label">命令法</span></span>
         <span class="dp-legend-item"><span class="dp-sample dp-mood-indicative">語</span><span class="dp-legend-label">直説法</span></span>
         <span class="dp-legend-item"><span class="dp-sample dp-tense-present">語</span><span class="dp-legend-label">現在</span></span>
@@ -11104,26 +11103,45 @@ const WordOrderRenderer = {
         ${legendHTML}`;
     },
 
+    /* VR-5-H-13-C: wordOrder chip 群の HTML 生成（唯一の chip primitive）。
+       renderBodyColumn / renderGreekFlowView が共有する。wrapper（jp-section / bare div /
+       v-num / wlv-flow-stream / gf-verse-block）は surface renderer 側の責務であり、ここには持たない。
+       入力は chips[] と options のみ（representation.verseRef・CSS・Flow 契約を参照しない）。
+       options:
+         - stopPropagation: chip onclick 先頭に event.stopPropagation(); を付すか（Body=true / Flow=false）
+         - showOnboardingAnchor: 先頭chip(index=0)に data-onboarding-anchor / data-greek を付すか
+           （Body のみ true 可 / Flow=false 固定） */
+    _wlvChipsHTML(chips, options) {
+        const list = (chips && Array.isArray(chips)) ? chips : [];
+        const _stop   = !!(options && options.stopPropagation);
+        const _anchor = !!(options && options.showOnboardingAnchor);
+        const _clickPrefix = _stop ? 'event.stopPropagation();' : '';
+        return list.map((c, i) => {
+            const sep = c.phraseBreakBefore ? `<span class="wlv-phrase-sep"></span>` : '';
+            const anchorAttr = (_anchor && i === 0)
+                ? ' data-onboarding-anchor="true" data-greek="' + c.greek + '"'
+                : '';
+            return `${sep}<span class="wlv-chip ${c.roleClass}" data-token-id="${c.tokenId}"${anchorAttr} onclick="${_clickPrefix}_wlvChipClick(this,'${c.tokenId}')" title="${c.greek}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span></span>`;
+        }).join('');
+    },
+
     /**
      * 本文左列（render() の語順フロー表示）用の HTML を生成する。
      * Phase VR-4A で新設。入力は representation.chips / representation.verseRef のみ
      * （Reading Engine・_getVerseResolved・生 words を参照しない）。
      * HTML出力は旧実装（render() 内に直書きされていたロジック）と完全一致させる。
      */
-    renderBodyColumn(representation) {
+    renderBodyColumn(representation, options) {
         const chips = (representation && Array.isArray(representation.chips)) ? representation.chips : [];
         const vRef  = (representation && representation.verseRef) || {};
         const vNum  = vRef.verse;
-        /* 修正B: ヨハネ3:16の先頭chip（index=0）にオンボーディングアンカーを付与 */
-        const isAnchorVerse = vRef.book === 'JHN' && vRef.chapter === 3
-            && String(vNum) === '16';
-        const chipsHTML = chips.map((c, i) => {
-            const sep = c.phraseBreakBefore ? `<span class="wlv-phrase-sep"></span>` : '';
-            const anchorAttr = (isAnchorVerse && i === 0)
-                ? ' data-onboarding-anchor="true" data-greek="' + c.greek + '"'
-                : '';
-            return `${sep}<span class="wlv-chip ${c.roleClass}" data-token-id="${c.tokenId}"${anchorAttr} onclick="event.stopPropagation();_wlvChipClick(this,'${c.tokenId}')" title="${c.greek}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span></span>`;
-        }).join('');
+        /* VR-5-H-12-D: anchor 付与可否は呼び出し元が options で解決（renderer は verse を判定しない）。
+           VR-5-H-13-C: chip 生成は共有 primitive _wlvChipsHTML() へ委譲。本 method は wrapper
+           （jp-section / jp-text / wlv-flow-stream / v-num）のみを責務として持つ。 */
+        const chipsHTML = this._wlvChipsHTML(chips, {
+            stopPropagation: true,
+            showOnboardingAnchor: !!(options && options.showOnboardingAnchor),
+        });
         return `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="font-size: var(--text-body);line-height:2.4;"><div class="wlv-flow-stream" style="flex-wrap:wrap;display:flex;gap:var(--rhythm-micro);align-items:baseline;">${chipsHTML}</div></div></div>`;
     },
 
@@ -11135,15 +11153,10 @@ const WordOrderRenderer = {
     renderGreekFlowView(representation) {
         const chips = (representation && Array.isArray(representation.chips)) ? representation.chips : [];
         const vNum  = (representation && representation.verseRef) ? representation.verseRef.verse : undefined;
-        const chipsHTML = chips.map((c, i) => {
-            const sepBefore = c.phraseBreakBefore ? `<span class="wlv-phrase-sep"></span>` : '';
-            return `${sepBefore}<span class="wlv-chip ${c.roleClass}"
-            data-token-id="${c.tokenId}"
-            onclick="_wlvChipClick(this,'${c.tokenId}')"
-            title="${c.greek}">
-            <span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span>
-        </span>`;
-        }).join('');
+        /* VR-5-H-13-C: chip 生成は共有 primitive _wlvChipsHTML() へ委譲。
+           Flow は stopPropagation=false（親ブロックに onclick 無し）・anchor=false 固定
+           （本文専用アンカー対象外）。本 method は bare wrapper（v-num 含む）のみを責務として持つ。 */
+        const chipsHTML = this._wlvChipsHTML(chips, { stopPropagation: false, showOnboardingAnchor: false });
         return `
     <div style="display:flex;align-items:baseline;gap: var(--space-sm);padding: var(--space-xs) 0;">
         <span class="v-num">${vNum}</span>
@@ -12685,13 +12698,9 @@ function _applyTransMode(mode) {
     } else {
         area.classList.remove('compare-mode');
         area.classList.add('single-mode');
-        /* VR-4-C Step 2: ColumnMode.kind へ置換（_toColumnMode()、Step 1 参照）。
-           Greek Flow View: 単一表示に戻ったとき、transB が FLOW でなければタブを隠す */
-        const gfTabBar = document.getElementById('gf-tab-bar');
-        if (gfTabBar && _toColumnMode(_transA).kind !== 'wordOrder' && _toColumnMode(_transB).kind !== 'wordOrder') {
-            gfTabBar.style.display = 'none';
-        }
-        if (_rightMode === 'flow' && _toColumnMode(_transB).kind !== 'wordOrder') _setRightMode('trans');
+        /* VR-5-H-6: 旧「単一表示復帰時に flow を解除」する cleanup（_rightMode 依存）は削除。
+           _applyTransMode() の呼び出しは直後に必ず renderCurrentPage() を伴い、render() が
+           DOM を全消去して作り直すため、この cleanup は表示上 no-op だった。 */
     }
     _updateColHeaders();
 }
@@ -12705,23 +12714,20 @@ function _updateColHeaders() {
 }
 
 /* ── Greek Flow View: 右列表示モード切り替え ── */
-function _setRightMode(mode) {
-    _rightMode = mode;
-
-    /* タブボタンの active 更新 */
-    const tabTrans = document.getElementById('gf-tab-trans');
-    const tabFlow  = document.getElementById('gf-tab-flow');
-    if (tabTrans) tabTrans.classList.toggle('active', mode === 'trans');
-    if (tabFlow)  tabFlow.classList.toggle('active',  mode === 'flow');
-
+function _setFlowInjection(mode) {
     /* flow タブ初回開封を onboarding へ通知 */
     if (mode === 'flow') {
         window.App.onboarding?.onFlowTabOpened();
         _syncOnboardingActiveFlag();
     }
 
-    /* 全 verse-pair-right を切り替え */
-    document.querySelectorAll('.verse-pair-right').forEach(block => {
+    /* VR-5-H-4: Flow 対象列を位置クラス（.verse-pair-right）ではなく、_buildColumnBlock()
+       が投影した data-col-mode="wordOrder"（= col.colMode.kind の projection）で探索する。
+       これにより Flow Injection Layer が「右列」という位置に依存しなくなる。
+       ※ 対象列の一般化（任意 wordOrder 列の Flow 化）は今回のスコープ外。現行 render では
+         _setFlowInjection('flow') は _colB.kind==='wordOrder' の文脈で呼ばれ、通常は右列 wordOrder が
+         ヒットする（挙動は従来と同一）。 */
+    document.querySelectorAll('[data-col-mode="wordOrder"]').forEach(block => {
         const vNum = block.dataset.vnum;
         block.classList.toggle('gf-mode', mode === 'flow');
 
@@ -12750,9 +12756,9 @@ function _setRightMode(mode) {
  * Phase VR-4B-3: 戻り値を HTML 文字列単体から { html, chips, words, analysis } へ変更。
  * Greek Flow View は複数節が同時に画面上へ存在しうるため、chips[] は単一のグローバル
  * キャッシュ（_wlvChipCache）ではなく DOM ノード（gfEl._flowChips 等）へ節ごとに個別保存
- * する必要がある。呼び出し元（_setRightMode）がその保存を行うため、ここでは
+ * する必要がある。呼び出し元（_setFlowInjection）がその保存を行うため、ここでは
  * 生成した chips/words/analysis をそのまま返すだけに留める（WordOrderRenderer は無変更）。
- * 唯一の呼び出し元は _setRightMode のみ（他に参照なし）。
+ * 唯一の呼び出し元は _setFlowInjection のみ（他に参照なし）。
  */
 function _buildGfVerseBlock(vNum, words) {
     if (!words || words.length === 0) {
@@ -13057,7 +13063,7 @@ function _mobileSwipeBack() {
         _transB = 'FLOW';
         _applyTransMode('compare');
         await renderCurrentPage();
-        _setRightMode('flow');
+        _setFlowInjection('flow');
     },
     activateCompare: async function(transBId) {
         _transB = transBId || 'BUN';
