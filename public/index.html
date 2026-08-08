@@ -2536,90 +2536,6 @@ display: none;
     margin-bottom: var(--space-xs);
 }
 
-.syntax-relations {
-    margin: var(--space-xs) 0 var(--space-xs);
-}
-.syntax-rel-row {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-sm);
-    padding: var(--space-xs) 0;
-    border-bottom: 1px solid rgba(0,0,0,0.03);
-    font-size: var(--text-caption);
-    line-height: 1.65;
-}
-.syntax-rel-row:last-child { border-bottom: none; }
-.syntax-rel-kind {
-    font-size: var(--text-caption);
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    color: var(--text-sub);
-    opacity: var(--opacity-secondary);
-    flex-shrink: 0;
-    min-width: 32px;
-    padding-top: var(--space-xs);
-}
-.syntax-rel-text {
-    color: var(--text-main);
-    font-size: var(--text-caption);
-    line-height: 1.65;
-}
-
-/* 構文構造（ツリー）：subtle indentation / light connectors / soft hierarchy */
-/* 禁止：giant parser canvas / colorful linguistics graph / debug-like UI */
-.syntax-tree {
-    margin: var(--space-sm) 0 var(--space-xs) 0;
-    font-size: var(--text-caption);
-    line-height: 1.9;
-    color: var(--text-sub);
-    font-family: inherit;
-}
-.syntax-tree-row {
-    display: flex;
-    align-items: baseline;
-    gap: 0;
-    padding: var(--space-xs) 0;
-}
-.syntax-tree-indent {
-    /* 階層ごとの静かなインデント。横スクロール地獄にならないよう幅を抑える */
-    display: inline-block;
-    width: 16px;
-    flex-shrink: 0;
-    color: rgba(0,0,0,0.12);
-    font-size: var(--text-caption);
-    line-height: 1.9;
-    user-select: none;
-}
-.syntax-tree-connector {
-    display: inline-block;
-    width: 10px;
-    flex-shrink: 0;
-    color: rgba(0,0,0,0.15);
-    font-size: var(--text-caption);
-    line-height: 1.9;
-    user-select: none;
-}
-.syntax-tree-role {
-    font-size: var(--text-caption);
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    color: var(--text-sub);
-    opacity: var(--opacity-secondary);
-    margin-right: var(--space-xs);
-    flex-shrink: 0;
-}
-.syntax-tree-content {
-    color: var(--text-main);
-    font-size: var(--text-caption);
-    opacity: var(--opacity-primary);
-}
-.syntax-tree-note {
-    font-size: var(--text-caption);
-    color: var(--text-sub);
-    opacity: var(--opacity-secondary);
-    margin-left: var(--space-xs);
-    font-style: italic;
-}
 
 /* Syntax AI補助エリア */
 .syntax-ai-prose {
@@ -5671,7 +5587,7 @@ async function _renderReadingNotes(p) {
        既存の SyntaxAnalyzer/PhraseAnalyzer/ClauseAnalyzer/ReadingFormatter の
        いずれも呼び出さない、完全に独立した経路。対象外の ref では '' が返り、
        既存表示に一切影響しない（Failure Mode, _buildFlowTreeNeighborhoodViewHTML 内で吸収済み）。 */
-    const neighborhoodViewHTML = _buildFlowTreeNeighborhoodViewHTML(ref);
+    const neighborhoodViewHTML = await _buildFlowTreeNeighborhoodViewHTML(ref);
 
     /* ═══════════════════════════════════════════════════════
        Lexicon data (async)
@@ -6893,507 +6809,8 @@ async function _fetchMeaningAI(area, p, jaWord, desc) {
     /* no-op */
 }
 
-/**
- * Study タブ：「なぜそう読める？」を支える根拠層。
- * 構造:
- *   Study
- *   ├ 語形・文法（Morphology）← open
- *   ├ 論理構造（Syntax）← AI読解説明 + ローカル構文関係 + 静かな構文ツリー
- *   ├ 意味論的根拠（Semantics）← Abbott-Smith
- *   └ 詳細検索
- *
- * Flow → Meaning → Study の思想維持。Study が主役に戻らない。
- * Syntax は「構文分析」ではなく「著者の論理構造を理解する補助」。
- */
-function _renderStudyTab(area, p) {
-    const JPN_FULL = {
-        pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
-        tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'大完了' },
-        voice:  { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' },
-        mood:   { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' },
-        gender: { masculine:'男性', feminine:'女性', neuter:'中性' },
-        number: { singular:'単数', plural:'複数' },
-        case:   { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' },
-        person: { '1':'1人称', '2':'2人称', '3':'3人称' },
-    };
 
-    /* ── Morphology ── */
-    const rows = [];
-    if (p.pos)    rows.push({ k:'品詞',  v: JPN_FULL.pos[p.pos]    || p.pos,    core: true });
-    if (p.tense)  rows.push({ k:'時制',  v: JPN_FULL.tense[p.tense]|| p.tense,  core: true });
-    if (p.mood)   rows.push({ k:'法',    v: JPN_FULL.mood[p.mood]  || p.mood,   core: true });
-    if (p.voice)  rows.push({ k:'態',    v: JPN_FULL.voice[p.voice]|| p.voice,  core: false });
-    if (p.case)   rows.push({ k:'格',    v: JPN_FULL.case[p.case]  || p.case,   core: false });
-    if (p.number) rows.push({ k:'数',    v: JPN_FULL.number[p.number]||p.number,core: false });
-    if (p.gender) rows.push({ k:'性',    v: JPN_FULL.gender[p.gender]||p.gender,core: false });
 
-    const coreRows  = rows.filter(r => r.core);
-    const extraRows = rows.filter(r => !r.core);
-
-    const _morphRowsHTML = (rr) => rr.map(r => `
-        <span class="ac-morph-key">${r.k}</span>
-        <span class="ac-morph-val${r.core ? ' core' : ''}">${r.v}</span>
-    `).join('');
-
-    const morphGridHTML = rows.length
-        ? `<div class="ac-morph-grid">
-            ${_morphRowsHTML(coreRows)}
-           </div>${extraRows.length ? `
-           <div class="morph-grid-expand">
-               <button class="morph-grid-expand-btn" onclick="(function(btn){var el=btn.closest('.study-details-body').querySelector('.morph-grid-extra');el.classList.toggle('visible');btn.innerHTML=el.classList.contains('visible')?(icon('chevronUp')+' 閉じる'):(icon('chevronDown')+' 態・格・数・性を見る');})(this)">${icon('chevronDown')} 態・格・数・性を見る</button>
-               <div class="morph-grid-extra">
-                   <div class="ac-morph-grid" style="margin-top: var(--space-xs);">
-                       ${_morphRowsHTML(extraRows)}
-                   </div>
-               </div>
-           </div>` : ''}`
-        : `<p class="ac-no-data">語形データがありません</p>`;
-
-    const jaWord = (_inspectData && _inspectData.jaWord) || '-';
-    const desc   = (_inspectData && _inspectData.desc)   || '';
-    const strong = (_inspectData && _inspectData.strong)  || '';
-    const ref    = p.ref || '';
-    const lemma  = p.lemma || '';
-
-    /* ── URL ── */
-    const qsMorph = new URLSearchParams();
-    if (ref)      qsMorph.set('ref',   ref);
-    if (p.word)   qsMorph.set('word',  p.word);
-    if (lemma)    qsMorph.set('lemma', lemma);
-    if (p.pos)    qsMorph.set('pos',   p.pos);
-    if (p.tense)  qsMorph.set('tense', p.tense);
-    if (p.mood)   qsMorph.set('mood',  p.mood);
-    if (p.voice)  qsMorph.set('voice', p.voice);
-    if (p.gender) qsMorph.set('gender',p.gender);
-    if (p.number) qsMorph.set('number',p.number);
-    if (p.case)   qsMorph.set('case',  p.case);
-    if (jaWord && jaWord !== '-') qsMorph.set('jword', jaWord);
-    const qsMorphM2 = new URLSearchParams(qsMorph); qsMorphM2.set('tool', 'morph');
-    const qsMorphS2 = new URLSearchParams(qsMorph); qsMorphS2.set('tool', 'syntax');
-    const morphSearchURL = `morph-search.html?${qsMorphM2.toString()}`;
-    const syntaxURL      = `syntax-search.html?${qsMorphS2.toString()}`;
-    const qsSem = new URLSearchParams();
-    if (ref)    qsSem.set('ref',   ref);
-    if (p.word) qsSem.set('word',  p.word);
-    if (lemma)  qsSem.set('lemma', lemma);
-    if (p.pos)  qsSem.set('pos',   p.pos);
-    const semanticsURL = `semantic-search.html?${qsSem.toString()}`;
-
-    /* ── Semantics: Abbott-Smith ── */
-    const abbottBody = desc
-        ? `<div class="semantics-abbott">${_escH(desc).replace(/\n/g,'<br>')}</div>`
-        : `<p class="ac-no-data" style="padding: var(--space-sm) 0;">辞書データが見つかりません</p>`;
-    const semanticsSectionHTML = `
-        <details class="study-details">
-            <summary class="study-summary"><span class="study-summary-inner"><span>語の意味</span><span class="study-summary-sub">Semantics · 辞書・意味論</span></span></summary>
-            <div class="study-details-body">
-                ${strong ? `<div class="semantics-note">
-                    <span class="semantics-note-label">Abbott-Smith Lexicon · ${strong}</span>
-                    ${abbottBody}
-                </div>` : abbottBody}
-            </div>
-        </details>`;
-
-    /* ── Syntax: ローカルルールベース構文関係 ── */
-    /* 読解上の意味 → 構文根拠 → 詳細構造 の順で表示する */
-    const synRelations = _buildSyntaxRelations(p, JPN_FULL);
-    const synTreeHTML  = _buildSyntaxTree(p, JPN_FULL, jaWord);
-
-    const syntaxSectionHTML = `
-        <details class="study-details">
-            <summary class="study-summary"><span class="study-summary-inner"><span>文の構造</span><span class="study-summary-sub">Syntax · 統語・構文関係</span></span></summary>
-            <div class="study-details-body">
-                <!-- 構文関係（ローカルルール） -->
-                ${synRelations.length ? `
-                <div class="syntax-relations" id="syntax-relations">
-                    ${synRelations.map(r => `
-                    <div class="syntax-rel-row">
-                        <span class="syntax-rel-kind">${r.kind}</span>
-                        <span class="syntax-rel-text">${r.text}</span>
-                    </div>`).join('')}
-                </div>` : ''}
-
-                <!-- 構文構造（折りたたみ内に収める） -->
-                ${synTreeHTML ? `
-                <details class="study-details" style="margin-top: var(--space-xs);border-top:1px solid rgba(0,0,0,0.04);">
-                    <summary class="study-summary" style="font-size: var(--text-caption);">構文構造を見る</summary>
-                    <div class="study-details-body" style="padding-top: var(--space-xs);">
-                        <div class="syntax-tree">${synTreeHTML}</div>
-                    </div>
-                </details>` : ''}
-            </div>
-        </details>`;
-
-    area.innerHTML = `
-        <div class="flow-word-head">
-            <span class="flow-greek greek-headword">${p.word || '-'}</span><span class="flow-ja">　${jaWord}</span>
-        </div>
-        ${ref ? `<div class="flow-ref">${ref}</div>` : ''}
-
-        <!-- 語形・文法（Morphology）: デフォルト open -->
-        <details class="study-details" open>
-            <summary class="study-summary"><span class="study-summary-inner"><span>語形・文法</span><span class="study-summary-sub">Morphology · 品詞・時制・法</span></span></summary>
-            <div class="study-details-body">
-                ${morphGridHTML}
-            </div>
-        </details>
-
-        <!-- 論理構造（Syntax）-->
-        ${syntaxSectionHTML}
-
-        <!-- 意味論的根拠（Semantics）-->
-        ${semanticsSectionHTML}
-
-        <!-- 詳細検索 -->
-        <details class="study-details">
-            <summary class="study-summary"><span class="study-summary-inner"><span>詳細検索</span><span class="study-summary-sub">Research · 同語形・構文・意味で探す</span></span></summary>
-            <div class="study-details-body">
-                <div class="ac-morph-search-row">
-                    <a href="${morphSearchURL}" class="morph-search-btn">同語形を探す →</a>
-                    <a href="${syntaxURL}"      class="morph-search-btn">構文で探す →</a>
-                    <a href="${semanticsURL}"   class="morph-search-btn">意味で探す →</a>
-                </div>
-            </div>
-        </details>
-
-        <!-- Research Tools（折りたたみ。初期状態は閉じている） -->
-        <div class="rt-section" id="rt-section">
-            <button class="rt-open-btn" id="rt-open-btn" onclick="_rtToggle()">
-                <span class="rt-open-btn-icon" data-icon="chevronRight"></span>研究ツールを開く
-            </button>
-            <div class="rt-body" id="rt-body">
-                <!-- Research Tools 内タブ: 語形検索 / 構文検索 / 意味検索 -->
-                <div class="rt-tabs">
-                    <button class="rt-tab active" id="rt-tab-morph"   onclick="_rtSwitchTab('morph')">語形検索</button>
-                    <button class="rt-tab"        id="rt-tab-syntax"  onclick="_rtSwitchTab('syntax')">構文検索</button>
-                    <button class="rt-tab"        id="rt-tab-sem"     onclick="_rtSwitchTab('sem')">意味検索</button>
-                </div>
-
-                <!-- 語形検索 -->
-                <div class="rt-content visible" id="rt-content-morph">
-                    <div class="rt-filter-group">
-                        <span class="rt-filter-label">品詞</span>
-                        <select class="rt-select" id="rt-m-pos">
-                            <option value="">指定なし</option>
-                            <option value="V" ${p.pos==='V'?'selected':''}>動詞</option>
-                            <option value="N" ${p.pos==='N'?'selected':''}>名詞</option>
-                            <option value="A" ${p.pos==='A'?'selected':''}>形容詞</option>
-                            <option value="P" ${p.pos==='P'?'selected':''}>人称代名詞</option>
-                            <option value="R" ${p.pos==='R'?'selected':''}>関係代名詞</option>
-                            <option value="T" ${p.pos==='T'?'selected':''}>冠詞</option>
-                            <option value="CONJ" ${p.pos==='CONJ'?'selected':''}>接続詞</option>
-                            <option value="PREP" ${p.pos==='PREP'?'selected':''}>前置詞</option>
-                        </select>
-                    </div>
-                    <div class="rt-filter-group">
-                        <span class="rt-filter-label">時制</span>
-                        <select class="rt-select" id="rt-m-tense">
-                            <option value="">指定なし</option>
-                            <option value="present"    ${p.tense==='present'?'selected':''}>現在</option>
-                            <option value="imperfect"  ${p.tense==='imperfect'?'selected':''}>未完了</option>
-                            <option value="aorist"     ${p.tense==='aorist'?'selected':''}>アオリスト</option>
-                            <option value="perfect"    ${p.tense==='perfect'?'selected':''}>完了</option>
-                            <option value="future"     ${p.tense==='future'?'selected':''}>未来</option>
-                        </select>
-                        <span class="rt-filter-label">法</span>
-                        <select class="rt-select" id="rt-m-mood">
-                            <option value="">指定なし</option>
-                            <option value="indicative"  ${p.mood==='indicative'?'selected':''}>直説法</option>
-                            <option value="imperative"  ${p.mood==='imperative'?'selected':''}>命令法</option>
-                            <option value="subjunctive" ${p.mood==='subjunctive'?'selected':''}>接続法</option>
-                            <option value="participle"  ${p.mood==='participle'?'selected':''}>分詞</option>
-                            <option value="infinitive"  ${p.mood==='infinitive'?'selected':''}>不定詞</option>
-                        </select>
-                    </div>
-                    <div class="rt-filter-group">
-                        <span class="rt-filter-label">態</span>
-                        <select class="rt-select" id="rt-m-voice">
-                            <option value="">指定なし</option>
-                            <option value="active"  ${p.voice==='active'?'selected':''}>能動</option>
-                            <option value="middle"  ${p.voice==='middle'?'selected':''}>中動</option>
-                            <option value="passive" ${p.voice==='passive'?'selected':''}>受動</option>
-                        </select>
-                        <span class="rt-filter-label">格</span>
-                        <select class="rt-select" id="rt-m-case">
-                            <option value="">指定なし</option>
-                            <option value="nominative" ${p.case==='nominative'?'selected':''}>主格</option>
-                            <option value="genitive"   ${p.case==='genitive'?'selected':''}>属格</option>
-                            <option value="dative"     ${p.case==='dative'?'selected':''}>与格</option>
-                            <option value="accusative" ${p.case==='accusative'?'selected':''}>対格</option>
-                        </select>
-                    </div>
-                    <div class="rt-filter-group">
-                        <span class="rt-filter-label">数</span>
-                        <select class="rt-select" id="rt-m-number">
-                            <option value="">指定なし</option>
-                            <option value="singular" ${p.number==='singular'?'selected':''}>単数</option>
-                            <option value="plural"   ${p.number==='plural'?'selected':''}>複数</option>
-                        </select>
-                        <span class="rt-filter-label">性</span>
-                        <select class="rt-select" id="rt-m-gender">
-                            <option value="">指定なし</option>
-                            <option value="masculine" ${p.gender==='masculine'?'selected':''}>男性</option>
-                            <option value="feminine"  ${p.gender==='feminine'?'selected':''}>女性</option>
-                            <option value="neuter"    ${p.gender==='neuter'?'selected':''}>中性</option>
-                        </select>
-                    </div>
-                    <button class="rt-run-btn" onclick="_rtRunMorphSearch()">この条件で探す</button>
-                    <div class="rt-loading" id="rt-m-loading">検索中…</div>
-                    <div class="rt-results" id="rt-m-results"></div>
-                </div>
-
-                <!-- 構文検索 -->
-                <div class="rt-content" id="rt-content-syntax">
-                    <div style="font-size: var(--text-caption);color:var(--text-sub);line-height:1.7;margin-bottom: var(--space-sm);padding-bottom: var(--space-sm);border-bottom:1px solid rgba(0,0,0,0.04);">
-                        論理構造・節関係で探します。「〜が主語で〜が述語の箇所」のように、文法記号ではなく読解の言葉で検索します。
-                    </div>
-                    <div class="rt-filter-group">
-                        <span class="rt-filter-label">節の種類</span>
-                        <select class="rt-select" id="rt-s-clause">
-                            <option value="">指定なし</option>
-                            <option value="purpose">目的節（ἵνα）</option>
-                            <option value="result">結果節（ὥστε）</option>
-                            <option value="reason">理由節（γάρ）</option>
-                            <option value="condition">条件節（εἰ）</option>
-                            <option value="contrast">対比（ἀλλά）</option>
-                            <option value="conclusion">結論節（οὖν）</option>
-                        </select>
-                    </div>
-                    <div class="rt-filter-group">
-                        <span class="rt-filter-label">動詞の法</span>
-                        <select class="rt-select" id="rt-s-mood">
-                            <option value="">指定なし</option>
-                            <option value="imperative">命令法（指示）</option>
-                            <option value="subjunctive">接続法（目的・願望）</option>
-                            <option value="indicative">直説法（事実）</option>
-                            <option value="participle">分詞（修飾）</option>
-                        </select>
-                        <span class="rt-filter-label">態</span>
-                        <select class="rt-select" id="rt-s-voice">
-                            <option value="">指定なし</option>
-                            <option value="passive">受動（神的受動）</option>
-                            <option value="middle">中動（関与）</option>
-                            <option value="active">能動</option>
-                        </select>
-                    </div>
-                    <div class="rt-filter-group">
-                        <span class="rt-filter-label">並列構造</span>
-                        <select class="rt-select" id="rt-s-parallel">
-                            <option value="">指定なし</option>
-                            <option value="coordinate">等位接続（καί）</option>
-                            <option value="antithesis">対照構造</option>
-                            <option value="chiasm">交差配列</option>
-                        </select>
-                    </div>
-                    <button class="rt-run-btn" onclick="_rtRunSyntaxSearch()">構文で探す</button>
-                    <div class="rt-loading" id="rt-s-loading">構文を確認中…</div>
-                    <div class="rt-results" id="rt-s-results"></div>
-                </div>
-
-                <!-- 意味検索 -->
-                <div class="rt-content" id="rt-content-sem">
-                    <div style="font-size: var(--text-caption);color:var(--text-sub);line-height:1.7;margin-bottom: var(--space-sm);padding-bottom: var(--space-sm);border-bottom:1px solid rgba(0,0,0,0.04);">
-                        意味カテゴリ・概念で探します。「契約的な関係を示す語」「移動を伴う動詞」のように、意味の側面から探索します。
-                    </div>
-                    <div class="rt-concept-grid" id="rt-sem-chips">
-                        <span class="rt-concept-chip" data-concept="covenant">契約・忠実</span>
-                        <span class="rt-concept-chip" data-concept="grace">恵み・赦し</span>
-                        <span class="rt-concept-chip" data-concept="faith">信仰・信頼</span>
-                        <span class="rt-concept-chip" data-concept="love">愛・自己犠牲</span>
-                        <span class="rt-concept-chip" data-concept="law">律法・戒め</span>
-                        <span class="rt-concept-chip" data-concept="spirit">御霊・息吹</span>
-                        <span class="rt-concept-chip" data-concept="flesh">肉・欲</span>
-                        <span class="rt-concept-chip" data-concept="light">光・啓示</span>
-                        <span class="rt-concept-chip" data-concept="darkness">闇・罪</span>
-                        <span class="rt-concept-chip" data-concept="movement">移動・歩み</span>
-                        <span class="rt-concept-chip" data-concept="speech">語る・告げる</span>
-                        <span class="rt-concept-chip" data-concept="referent">人称追跡</span>
-                    </div>
-                    <button class="rt-run-btn" onclick="_rtRunSemSearch()">意味で探す</button>
-                    <div class="rt-loading" id="rt-sem-loading">意味を探索中…</div>
-                    <div class="rt-results" id="rt-sem-results"></div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    /* Semantic Search チップのクリック制御を初期化 */
-    _rtInitSemChips();
-}
-
-/**
- * ローカルルールベースで「構文関係」テキストを生成。
- * 品詞・法・時制・格から「この語が論理上何をしているか」を読解補助として記述。
- * linguistics用語の羅列禁止。自然な読解文として書く。
- *
- * @returns Array<{kind:string, text:string}>
- */
-function _buildSyntaxRelations(p, JPN) {
-    const rels = [];
-    const pos   = p.pos   || '';
-    const mood  = p.mood  || '';
-    const tense = p.tense || '';
-    const voice = p.voice || '';
-
-    /* 接続詞：節の論理関係 */
-    if (pos === 'CONJ') {
-        const CONJ_LOGIC = {
-            'γάρ':  { kind: '理由節',  text: 'この語以降が直前の主張の根拠節として機能しています。' },
-            'ἀλλά': { kind: '対比節',  text: '前節との対比・反転を示す節境界です。' },
-            'οὖν':  { kind: '結論節',  text: '前節の議論を受けた結論節が始まります。' },
-            'δέ':   { kind: '展開',    text: '前節に続く展開または対比の接続点です。' },
-            'καί':  { kind: '並列',    text: '前節と並列関係にある節が続きます。' },
-            'ἵνα':  { kind: '目的節',  text: 'この語以降が目的節：「〜するために」という従属節です。' },
-            'ὅτι':  { kind: '補足節',  text: '内容節または理由節として前節を補足しています。' },
-            'εἰ':   { kind: '条件節',  text: '条件節：「〜ならば」という仮定の節を導きます。' },
-            'ὥστε': { kind: '結果節',  text: '結果節：前節の帰結として「〜になった」を示します。' },
-        };
-        const word = p.word || '';
-        const r = CONJ_LOGIC[word];
-        if (r) rels.push(r);
-        else   rels.push({ kind: '接続',  text: '前後の節をつなぐ論理的接点です。' });
-    }
-
-    /* 動詞：節内の役割 */
-    if (pos === 'V') {
-        /* 法による節の機能 */
-        if (mood === 'imperative') {
-            rels.push({ kind: '主節',   text: 'この動詞が節の中心命令を担っています。要求・指示の主語述語構造です。' });
-        } else if (mood === 'subjunctive') {
-            rels.push({ kind: '従属節', text: '接続法として従属節内に位置し、目的・条件・願望を支えています。' });
-        } else if (mood === 'infinitive') {
-            rels.push({ kind: '補語',   text: '不定詞として主動詞の補語または目的語の役割を担っています。' });
-        } else if (mood === 'participle') {
-            rels.push({ kind: '修飾',   text: '分詞として主節の主語または動作の状況・背景を修飾しています。' });
-        } else if (mood === 'indicative') {
-            rels.push({ kind: '主節',   text: '直説法として節の主動詞に位置しています。' });
-        }
-
-        /* 時制による時間軸上の位置 */
-        if (tense === 'aorist' && mood === 'indicative') {
-            rels.push({ kind: '時制軸', text: '時制上、完結した出来事として主節に先行するか同時点に置かれています。' });
-        } else if (tense === 'perfect') {
-            rels.push({ kind: '時制軸', text: '完了形として、過去の出来事の結果が今も有効であるという論理的含意を持ちます。' });
-        } else if (tense === 'present' && mood === 'indicative') {
-            rels.push({ kind: '時制軸', text: '現在時制として、論理上の普遍命題または継続する状態として機能しています。' });
-        }
-
-        /* 態による動作構造 */
-        if (voice === 'passive') {
-            rels.push({ kind: '動作構造', text: '受動態。主語は動作の受け手として節内に配置されています。' });
-        } else if (voice === 'middle' || voice === 'middle deponent') {
-            rels.push({ kind: '動作構造', text: '中動態。主語が動作に深く関与する自動詞的構造です。' });
-        }
-    }
-
-    /* 名詞・代名詞：節内の格役割 */
-    if (['N','A','R','P','T','D'].includes(pos)) {
-        const CASE_ROLE = {
-            nominative: { kind: '格役割', text: '主格として、この節の主語または述語主格の位置にあります。' },
-            genitive:   { kind: '格役割', text: '属格として、修飾語または「〜の」という関係を節内で担っています。' },
-            dative:     { kind: '格役割', text: '与格として、動作の間接目的・場所・手段の位置にあります。' },
-            accusative: { kind: '格役割', text: '対格として、動詞の直接目的語または動作の到達点に配置されています。' },
-            vocative:   { kind: '格役割', text: '呼格として、節の主述関係の外に位置する呼びかけです。' },
-        };
-        const r = CASE_ROLE[p.case];
-        if (r) rels.push(r);
-    }
-
-    return rels;
-}
-
-/**
- * 「静かな構文ツリー」HTML を生成。
- * ROOT / NP / VP / CP のような学術ラベル禁止。
- * 読解補助として「誰が」「何を」「どういう関係で」を示す。
- * モバイルで横スクロール地獄にならないよう幅を抑える。
- *
- * @returns HTML string（構文ツリー行群）
- */
-function _buildSyntaxTree(p, JPN, jaWord) {
-    const pos   = p.pos   || '';
-    const mood  = p.mood  || '';
-    const tense = p.tense || '';
-    const voice = p.voice || '';
-    const word  = p.word  || '-';
-    const rows  = [];
-
-    /* ヘルパー：インデントと接続文字を組み合わせた1行を生成 */
-        const treeRow = (indent, isLast, role, content, note = '', rawMorphForRow = '') => {
-        const dpCls = rawMorphForRow ? buildDepthGrammarClasses(rawMorphForRow).join(' ') : '';
-        const contentHtml = dpCls
-            ? `<span class="${dpCls}">${content}</span>`
-            : content;
-        return `<div class="syntax-tree-row">` +
-        `${'<span class="syntax-tree-indent">  </span>'.repeat(indent)}` +
-        `<span class="syntax-tree-connector">${isLast ? '└' : '├'}</span>` +
-        `<span class="syntax-tree-role">${role}</span>` +
-        `<span class="syntax-tree-content">${contentHtml}</span>` +
-        `${note ? `<span class="syntax-tree-note">${note}</span>` : ''}` +
-        `</div>`;
-    };
-
-    /* 動詞中心の構造 */
-    if (pos === 'V') {
-        const moodLabel  = JPN.mood[mood]   || mood  || '';
-        const tenseLabel = JPN.tense[tense] || tense || '';
-        const voiceLabel = JPN.voice[voice] || voice || '';
-
-        /* ルート：動詞節 */
-        rows.push(`<div class="syntax-tree-row"><span class="syntax-tree-role" style="font-size: var(--text-caption);opacity: var(--opacity-tertiary);">節</span><span class="syntax-tree-content" style="opacity: var(--opacity-secondary);">述語構造</span></div>`);
-
-        if (mood === 'participle') {
-                    rows.push(treeRow(0, false, '述語分詞', word, `${tenseLabel}・${voiceLabel}`, rawMorph));
-        rows.push(treeRow(1, false, '機能', '主節の動作を修飾', ''));
-        rows.push(treeRow(1, true,  '法',   moodLabel, ''));
-    } else if (mood === 'infinitive') {
-        rows.push(treeRow(0, false, '動詞', word, `${tenseLabel}`, rawMorph));
-        rows.push(treeRow(1, false, '機能', '主動詞の補語', ''));
-        rows.push(treeRow(1, true,  '法',   moodLabel, ''));
-    } else {
-        rows.push(treeRow(0, false, '述語', word, `${moodLabel}・${tenseLabel}${voiceLabel ? '・' + voiceLabel : ''}`, rawMorph));
-            if (mood === 'imperative') {
-                rows.push(treeRow(1, false, '節種', '命令節（主節）', ''));
-                rows.push(treeRow(1, true,  '主語', '（2人称：省略）', ''));
-            } else if (mood === 'subjunctive') {
-                rows.push(treeRow(1, true, '節種', '従属節（接続法）', ''));
-            } else if (mood === 'indicative') {
-                rows.push(treeRow(1, true, '節種', '主節（直説法）', ''));
-            }
-        }
-    }
-
-    /* 名詞・代名詞・冠詞系 */
-    if (['N','A','R','P','T','D'].includes(pos)) {
-        const caseLabel   = JPN.case[p.case]     || p.case   || '';
-        const numberLabel = JPN.number[p.number] || p.number || '';
-        const genderLabel = JPN.gender[p.gender] || p.gender || '';
-        const posLabel    = JPN.pos[pos]          || pos;
-
-        rows.push(`<div class="syntax-tree-row"><span class="syntax-tree-role" style="font-size: var(--text-caption);opacity: var(--opacity-tertiary);">句</span><span class="syntax-tree-content" style="opacity: var(--opacity-secondary);">名詞句</span></div>`);
-        rows.push(treeRow(0, false, posLabel, word, `${caseLabel}${numberLabel ? '・'+numberLabel : ''}${genderLabel ? '・'+genderLabel : ''}`));
-
-        const CASE_FUNC = {
-            nominative: '主語または述語主格',
-            genitive:   '修飾語（〜の）',
-            dative:     '間接目的語・場所・手段',
-            accusative: '直接目的語',
-            vocative:   '呼びかけ（独立）',
-        };
-        const func = CASE_FUNC[p.case];
-        if (func) rows.push(treeRow(1, true, '節内機能', func, ''));
-    }
-
-    /* 接続詞 */
-    if (pos === 'CONJ') {
-        rows.push(`<div class="syntax-tree-row"><span class="syntax-tree-role" style="font-size: var(--text-caption);opacity: var(--opacity-tertiary);">接続</span><span class="syntax-tree-content" style="opacity: var(--opacity-secondary);">節境界</span></div>`);
-        rows.push(treeRow(0, false, '接続詞', word, ''));
-        rows.push(treeRow(1, false, '先行節', '（前節）', ''));
-        rows.push(treeRow(1, true,  '後続節', '（後節）', ''));
-    }
-
-    return rows.join('');
-}
 
 /**
  * Syntax セクション用 AI 補助（廃止：ローカルルールベースのみ使用）
@@ -10028,7 +9445,23 @@ function _ft11SurfaceIndex(ref) {
  * neighborhood-view.js はこれを行わない（flow-tree-representation-schema.md §5）。 */
 function _ft11LabelOf(tokens) {
     return tokens.slice().sort((a, b) => _ft11SurfaceIndex(a) - _ft11SurfaceIndex(b))
-        .map(ref => _FT11_JAPANESE[ref] || '').join('');
+        .map(ref => _flowTreeJaForRef(ref)).join('');
+}
+/* label 用の既存日本語表示値を token ref から引く（新規生成・推論はしない）。
+   VR-6-C: MAT 1:1 は既存 prototype マップ _FT11_JAPANESE を厳密維持（baseline）、
+   それ以外は現在の章キャッシュ _cachedElByVerse（bible_data の既存 japanese 値）を参照。
+   見つからなければ ''（Failure Mode: 静かに空・_ft11RenderList が構成語プレースホルダを出す）。 */
+function _flowTreeJaForRef(ref) {
+    if (_FT11_JAPANESE[ref] != null) return _FT11_JAPANESE[ref];
+    const cache = _cachedElByVerse;
+    if (cache) {
+        for (const v in cache) {
+            const arr = cache[v];
+            if (!Array.isArray(arr)) continue;
+            for (const t of arr) if (t && t.ref === ref) return t.japanese || '';
+        }
+    }
+    return '';
 }
 /* NeighborhoodView Model（{nodeId, tokens, isFocus, expanded, children}）を
  * _ft11RenderList が期待する表示用アイテム（{label, isFocus, expanded, children}）
@@ -10057,10 +9490,64 @@ function _ft11RenderList(items) {
  * 詐称しない: anchor（所属clause、無ければ sentence root）の直接の子を、
  * 対象語自身を含めてそのまま列挙する。role/rule/class/type は出力しない
  * （neighborhood-view-design.md §6）。対象外の ref では空文字列を返す。 */
-function _buildFlowTreeNeighborhoodViewHTML(ref) {
+/* ── VR-6-C: Flow Tree runtime asset loader（chapter 単位 JSON）──
+   token ref → BOOK/chapter → public/assets/data/flow-tree/{BOOK}/{ch}.json を fetch し、
+   refIndex から所属 sentence root を得る。neighborhood-view が要求する nodesById は
+   保存 JSON に持たせず root walk で再構築する（schema 非変更）。
+   すべて Failure Mode（fetch 失敗・不正・不在は null/''）で静かに失敗する。 */
+const _flowTreeChapterCache = {};
+function _flowTreeParseRef(ref) {
+    const m = /^(\S+)\s+(\d+):(\d+)!(\d+)$/.exec(ref || '');
+    return m ? { book: m[1], chapter: parseInt(m[2], 10) } : null;
+}
+async function _loadFlowTreeChapter(book, chapter) {
+    const key = book + '/' + chapter;
+    if (key in _flowTreeChapterCache) return _flowTreeChapterCache[key];
+    let data = null;
     try {
-        if (!ref || ref.indexOf('MAT 1:1!') !== 0) return ''; // 対象外(MAT 1:1以外): 既存表示に一切影響しない
-        const representation = _ft11BuildFlowTree();
+        const res = await fetch(`../assets/data/flow-tree/${book}/${chapter}.json`);
+        if (res.ok) data = await res.json();
+    } catch (_) { data = null; }
+    _flowTreeChapterCache[key] = data; // null も cache（再 fetch 抑止・静音）
+    return data;
+}
+function _flowTreeRootForRef(chapterData, ref) {
+    if (!chapterData || !chapterData.refIndex || !Array.isArray(chapterData.sentences)) return null;
+    const idx = chapterData.refIndex[ref];
+    if (idx == null) return null;
+    return chapterData.sentences[idx] || null;
+}
+function _flowTreeNodesById(root) {
+    const map = {};
+    (function walk(n) { if (!n || !n.id) return; map[n.id] = n; (n.children || []).forEach(walk); })(root);
+    return map;
+}
+
+/* NeighborhoodView を既存 StudyPanel（word モード）へ差し込むための HTML を返す。
+ * neighborhood-view-design.md の方針通り、実際の兄弟関係を "children" と
+ * 詐称しない: anchor（所属clause、無ければ sentence root）の直接の子を、
+ * 対象語自身を含めてそのまま列挙する。role/rule/class/type は出力しない
+ * （neighborhood-view-design.md §6）。
+ * VR-6-C: MAT 1:1 は既存 inline prototype（オフライン・baseline byte 不変）、
+ * それ以外は VR-6-B の runtime asset から所属 sentence tree を取得して一般化する。
+ * 取得不能・focus 不在等はすべて '' を返し既存表示に影響しない（L-0: 推論しない）。 */
+async function _buildFlowTreeNeighborhoodViewHTML(ref) {
+    try {
+        if (!ref) return '';
+        let representation;
+        let noteSuffix = '';
+        if (ref.indexOf('MAT 1:1!') === 0) {
+            // baseline: 既存 inline prototype をそのまま使用（fetch 依存なし・出力不変）
+            representation = _ft11BuildFlowTree();
+            noteSuffix = '・Prototype／Matthew 1:1 のみ';
+        } else {
+            const p = _flowTreeParseRef(ref);
+            if (!p) return '';
+            const chapterData = await _loadFlowTreeChapter(p.book, p.chapter);
+            const root = _flowTreeRootForRef(chapterData, ref);
+            if (!root) return '';
+            representation = { root, nodesById: _flowTreeNodesById(root) };
+        }
         if (!representation) return '';
 
         // NeighborhoodView が構成語群抽出の唯一の経路（public/core/neighborhood-view.js）。
@@ -10077,7 +9564,7 @@ function _buildFlowTreeNeighborhoodViewHTML(ref) {
         <details class="rn-level-section" id="rn-flowtree-neighborhood">
             <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>この語の構造上の位置づけ</summary>
             <div class="rn-level-body">
-                <div style="font-size:11px;color:var(--text-sub,#9a9484);margin-bottom:10px;">Lowfat由来の構造情報（${originNote}・Prototype／Matthew 1:1 のみ）</div>
+                <div style="font-size:11px;color:var(--text-sub,#9a9484);margin-bottom:10px;">Lowfat由来の構造情報（${originNote}${noteSuffix}）</div>
                 <ul style="list-style:none;">${listHTML}</ul>
             </div>
         </details>`;
