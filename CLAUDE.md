@@ -1,242 +1,1104 @@
 # CLAUDE.md
 
-> 対象読者: 未来の Claude Code。
-> 目的: **このファイルだけ読めば、コードを書く前にプロジェクトの目的・思想・設計原則を理解できる**こと。
-> 言語: 本プロジェクトはドキュメント・コメント・UI すべて日本語が標準。あなたの応答・コメント・コミットメッセージも日本語で書く。
+> 対象読者：未来の Claude Code。
+>
+> 目的：**このファイルだけ読めば、コードを書く前にプロジェクトの目的・思想・設計原則・開発進行規律を理解できること。**
+>
+> 言語：本プロジェクトのドキュメント・コメント・UI・Claudeの応答・コミットメッセージは日本語を標準とする。
 
 ---
 
-## 1. First Principle（最重要原則）
+# 1. First Principle（最重要原則）
 
-**「聖書がよく分かった」= 原著者の意図がより正確に理解できること。** アプリの成否はこの一点で測る。
+> **「聖書がよく分かった」＝原著者の意図がより正確に理解できること。**
 
-この原則から、あらゆる判断を導く：
+アプリの成否はこの一点で測る。
 
-- **研究は目的ではなく、読むことを助けるための手段。** 統語・形態・語彙の解析（Wallace エンジン等）は読書体験に奉仕する道具であり、それ自体が目的化してはならない。
-- **「読むために研究する」という軸を最優先する。** 研究機能の網羅性・精緻さより、読みへの貢献を優先する。
-- **これはギリシャ語学習アプリではない。聖書理解を支援するツールである。** 語学教材・文法ドリルの方向へ寄せない。
-- **機能追加より、原著者の意図理解への貢献を優先する。** 「できるから足す」のではなく「意図理解に効くか」で判断する。
+この原則から、あらゆる判断を導く。
 
-**なぜこれが第一原則なのか:** 解析エンジンが充実するほど、開発の重心は「研究ツールとしての網羅性・精度」へ自然に引き寄せられる。この原則は、その引力に対する明示的な錨（いかり）である。新機能や改修を検討するとき、まず問うべきは「これは原著者の意図理解＝読みにどう貢献するか」。それを説明できない拡張は、たとえ技術的に可能でも優先度を下げる。
+* **研究は目的ではなく、読むことを助けるための手段。**
+* **「読むために研究する」という軸を最優先する。**
+* **これはギリシャ語学習アプリではない。聖書理解を支援するツールである。**
+* **機能追加より、原著者の意図理解への貢献を優先する。**
+* 技術的に可能であることは、実装する理由にならない。
+* 情報量が増えることは、読書体験が改善することを意味しない。
 
-> ### ⚠ 最重要の非矛盾 — この原則を誤読するな
->
-> 「原著者の意図理解を助ける」ことと「解釈・意訳・推論を足さない」（§3 L-0）ことは、**矛盾しない。後者が前者の唯一の手段である。**
->
-> 読者を原著者の意図へ近づける道は、**ギリシャ語の構造をそのまま読めるようにすること**であって、こちらの読み下し・補完・意訳を差し込むことではない。解釈を足せば、読者に届くべき原著者の声の上に、**こちらの解釈が重なって声を覆い隠す。** それは意図理解を助けるどころか妨げる。
->
-> したがって **「意図理解に貢献するから」を口実に、翻訳・推論・語義選択・自然化を正当化してはならない。** もし「読者のためにここを訳した方が親切だ」と感じたら、それはこの原則を破ろうとしている合図である。親切さではなく忠実さを選ぶ。§3 の L-0 境界はこの帰結にすぎない。
+新機能・改修を検討するとき、まず問う。
+
+> **これは原著者の意図理解＝読みにどう貢献するか。**
+
+それを説明できない拡張は優先度を下げる。
 
 ---
 
-## 2. Mission
+## 最重要の非矛盾
 
-ギリシャ語新約聖書および七十人訳（LXX）を、**原語に触れながら読み進められる**聖書閲覧 Web アプリ。サーバー・ビルド工程を持たない静的構成で、ブラウザ上でそのまま動作する。
+「原著者の意図理解を助ける」ことと、
 
-中心にあるのは「聖書を読む体験」であり、目指すのは：
+「解釈・意訳・推論を足さない」
+
+ことは矛盾しない。
+
+後者は前者を実現するための境界である。
+
+読者を原著者の意図へ近づける道は、
+
+> **ギリシャ語の構造をそのまま読めるようにすること**
+
+であり、こちらの読み下し・補完・意訳を差し込むことではない。
+
+「読者のために訳した方が親切」という理由でL-0を破ってはならない。
+
+---
+
+# 2. Mission
+
+ギリシャ語新約聖書および七十人訳（LXX）を、**原語に触れながら読み進められる**聖書閲覧Webアプリ。
+
+サーバー・ビルド工程を持たない静的構成で、ブラウザ上で動作する。
+
+中心にあるのは「聖書を読む体験」。
+
+目指すのは、
 
 > **言語の壁に気づかせない。読書の流れが途切れない。**
 
-4 つの画面で構成される（`index.html` が本体、他は読書を補助する検索ツール）：
+---
 
-- `index.html` — 聖書本文の閲覧（メイン画面）
-- `morph-search.html` — 形態論（語形）検索
-- `syntax-search.html` — 統語論（文構造）検索
-- `search-tool.html` — 統合検索（見出し語・フレーズ・近接・形態素）
+## 2.1 画面構成
 
-**なぜ検索を「補助」と位置づけるか:** 検索3ツールは強力だが、それらは読書体験の従属物である。読書（`index.html`）が主、検索が従、という序列を崩さない。機能拡張時に検索側へ重心が寄るのを防ぐための、意図的な宣言。
+* `index.html` — 聖書本文の閲覧（メイン画面）
+* `morph-search.html` — 形態論検索
+* `syntax-search.html` — 統語論検索
+* `search-tool.html` — 統合検索
+
+検索ツールは読書体験の従属物である。
+
+> **読むことが主、検索・研究が従。**
+
+この序列を崩さない。
 
 ---
 
-## 3. Design Philosophy
+# 3. Design Philosophy
 
-このプロジェクトの技術的良心は **Reading Japanese**（日本語表示システム）に集約される。正典は [`public/docs/reading-japanese-specification.md`](public/docs/reading-japanese-specification.md)、最上位原則は L-0（`reading-japanese-policy.md`）。
+## 3.1 Reading Japanese
+
+本プロジェクトの技術的良心は **Reading Japanese** に集約される。
+
+正典：
+
+`public/docs/reading-japanese-specification.md`
+
+最上位原則：
+
+`reading-japanese-policy.md`
 
 根幹テーゼ：
 
 > **Reading Japanese は「翻訳」ではない。ギリシャ語の構造（数・性・人称・格・指示・語形・節構造）を「読むための」日本語表示である。**
 
-### L-0 境界 — 「しないこと」
+---
 
-これは First Principle の技術的表現である。**破ってはならない：**
+# 4. L-0 Boundary — 「しないこと」
 
-- **翻訳しない** — 自然な訳文を目的にしない。
-- **推論しない** — referent / discourse を勝手に解決しない。
-- **語義を勝手に選ばない** — 例: ἀγαπάω / φιλέω を両方「愛する」とし、対比を暴かない（Semantic は情報提供のみ）。
-- **自然な日本語へ整えない** — 語順変更・敬体化をしない。
-- **未判定を埋めない** — Unresolved by Design。discourse 依存・非一意なものは現状維持。
+以下を破ってはならない。
 
-**なぜ「しない」を徹底するか:** AI や自動生成は「気を利かせて」意訳・補完してしまう。だがそれは原著者の意図の上に訳者の解釈を重ねる行為であり、First Principle に反する。読者に届けるべきはギリシャ語構造そのものであって、こちらの読み下しではない。**「静寂（何もせず素の値を返す）」を、消極的な失敗ではなく積極的な設計選択として扱う。**
+## 翻訳しない
 
-### 貫く原則
+自然な訳文を目的にしない。
 
-- **決定的な事実のみ反映。** 一意性の勾配 **Morph > Syntax > Semantic**。文脈依存・非一意なものは採用しない。
-- **断定しない。** 解析器の出力はすべて `candidates[]` 形式。単一の「答え」を返さず、confidence を添える。最終的な表示は UI が決める。
-- **Failure Mode = null / 静寂。** 例外・不備は握りつぶして `null` を返し、呼び出し元が従来経路へフォールバックする。壊れても「機能が無いだけ」で、表示は現状維持。
-- **自然文生成源は単一。** 日本語の文章を生成するのは ReadingFormatter（`clause-analyzer.js`）ただ一つ。他の層は文章を持ち込まない。
-- **設計 → 実装 → 監査 → 凍結。** 完成した層は FROZEN し、基準値（トークン数・一致率）を記録し、変更時は回帰テストへのケース追加を必須とする。
+## 推論しない
+
+referent / discourse を勝手に解決しない。
+
+## 語義を勝手に選ばない
+
+文脈から一つの意味を勝手に確定しない。
+
+Semantic情報は情報提供にとどめる。
+
+## 自然な日本語へ整えない
+
+語順変更・敬体化・意訳をしない。
+
+## 未判定を埋めない
+
+Unresolved by Design。
+
+非一意・文脈依存・判断不能なものは現状維持する。
 
 ---
 
-## 4. Architecture Overview
+## 4.1 静寂
 
-**静的サイト。ビルド不要。** `<script>` で各モジュールを読み込み、`window.*`（`SyntaxAnalyzer` / `PhraseAnalyzer` / `App` / `AppBridge` 等）にクラスを露出して連携する。
+`null` / fallback / unchanged は失敗とは限らない。
 
-解析パイプライン（すべて `public/core/` 配下、**DOM / window 非依存の純関数**）：
+必要な根拠がない場合、
 
+> **何もしないことが正しい結果**
+
+である。
+
+AIは「空白を埋める」ことを改善とみなしてはならない。
+
+---
+
+# 5. 貫く原則
+
+* 決定的な事実のみ反映する。
+* 一意性の勾配を `Morph > Syntax > Semantic` とする。
+* 文脈依存・非一意なものは採用しない。
+* 解析器は候補を返し、勝手に断定しない。
+* `candidates[]` と `confidence` を必要に応じて利用する。
+* UIが最終的な表示責務を持つ。
+* Failure Mode は `null` / 静寂を基本とする。
+* 自然文生成源を一つに保つ。
+* 完成した層はFROZENとして扱う。
+* FROZEN層の変更には回帰証拠を要求する。
+
+---
+
+# 6. Architecture Overview
+
+本プロジェクトは静的サイト。
+
+ビルド不要のブラウザ実行を基本とする。
+
+```text
+bible_data
+  ↓
+syntax-analyzer.js
+  ↓
+phrase-analyzer.js
+  ↓
+clause-analyzer.js / ReadingFormatter
+
+reading-engine.js
+  Phase 1 morph
+  Phase 2 syntax
+  Phase 3 particle
+  Phase 4 lexicon
+  Phase 5 semantic
+  Phase 6 phrase
+  Phase 7 policy
+
+reading-context.js
+  ↓
+reading-japanese-builder.js
+  ↓
+presentation-policy.js / phrase-renderer.js
+  ↓
+UI
 ```
-bible_data（decoded tokens）
-  └→ syntax-analyzer.js   統語分類・per-token 候補   （syntax-registry.json 参照）
-       └→ phrase-analyzer.js   句レベル構造            （phrase-registry.json）
-            └→ clause-analyzer.js  節レベル構造 + ReadingFormatter（clause-registry.json）
 
-reading-engine.js（Reading Engine v2）: resolve(token, context?) を 7 フェーズで解決
-  Phase 1 morph → 2 syntax → 3 particle → 4 lexicon → 5 semantic → 6 phrase → 7 policy
-  補助: reading-context.js（ResolveContext 供給・SSOT） / reading-lexicon.js / reading-projection.js
-  統合: reading-japanese-builder.js（verse 単位・決定的 fact のみ採用）
-  表示: presentation-policy.js / phrase-renderer.js
+---
+
+# 7. Core Modules
+
+| モジュール                              | 責務                     | 境界            |
+| ---------------------------------- | ---------------------- | ------------- |
+| `core/syntax-analyzer.js`          | Wallace統語分類            | 候補のみ・UI非依存    |
+| `core/phrase-analyzer.js`          | 句構造構成                  | 再分類しない        |
+| `core/clause-analyzer.js`          | 節構造 + ReadingFormatter | 自然文生成源        |
+| `core/reading-engine.js`           | 7フェーズ解決                | 副作用なし         |
+| `core/reading-context.js`          | ResolveContext SSOT    | 日本語生成しない      |
+| `core/reading-japanese-builder.js` | verse単位の決定的fact採用      | 推論しない         |
+| `core/reading-lexicon.js`          | lexicon lookup         | 語義選択しない       |
+| `core/reading-projection.js`       | StudyPanel用射影          | HTML・説明文を持たない |
+| `core/presentation-policy.js`      | 表示整形                   | 意味判断しない       |
+| `core/phrase-renderer.js`          | 生成済み日本語の表示             | 意味判断しない       |
+| `index.html`                       | UI本体                   | 判断ロジックを持たない   |
+| `assets/js/app-storage.js`         | ユーザーデータ永続化             | ソフトデリート       |
+| `css/tokens.css`                   | デザイントークン               | トークンのSSOT     |
+
+---
+
+# 8. Data Principles
+
+* データとコードを分離する。
+* runtimeデータは `public/assets/data/`。
+* 設計文書は `public/docs/`。
+* 本文データは `bible_data/` / `translations/` / `morph-index/`。
+* `assets/data/` を直接編集しない。
+* 生成可能なデータは `scripts/` 経由で生成する。
+* 一次情報と生成物を区別する。
+* runtimeにAI推論・AI生成を持ち込まない。
+* 原文Dataは原則不変。
+* `bible_data.japanese` は採用済みReading Japaneseの正規値として扱う。
+
+---
+
+# 9. Reading Engine Principles
+
+中核API：
+
+```text
+resolve(token, context?) → ResolveResult | null
 ```
 
-**なぜ二層（純関数コア + UIモノリス）か:** `core/` を DOM から切り離すことで、Node.js 単体で回帰テストが書ける（`npm run test:re-*`）。解析の正しさを UI から独立して検証できることが、FROZEN 文化を成立させている。UI 本体 `index.html` は約 11,000 行の単一モノリスだが、そこには「配線と表示」だけを置き、判断ロジックはコアへ寄せる方針。
+`null` は改善なし。
 
-**なぜレジストリ駆動か:** 分類名・スコア値をコードにハードコードせず JSON レジストリ（`syntax-registry.json` 等）から読む。Wallace の統語カテゴリはレジストリに stub を足すだけで拡張でき、エンジンのコードを触らずに済む。
+呼び出し元は従来の `token.japanese` 等へfallbackする。
 
----
+7フェーズ：
 
-## 5. Core Modules
+```text
+morph
+→ syntax
+→ particle
+→ lexicon
+→ semantic
+→ phrase
+→ policy
+```
 
-| モジュール | 責務 | 守るべき境界 |
-|---|---|---|
-| `core/syntax-analyzer.js` | Wallace 統語分類（GGBB 全カテゴリ + 独自 Engine Extensions: Nominal Syntax / Discourse） | 候補のみ返す・断定しない・UI 非依存 |
-| `core/phrase-analyzer.js` | syntax の per-token 結果から句レベル構造を構成 | syntax-analyzer を変更しない・registry を読まない・再分類しない |
-| `core/clause-analyzer.js` | 節レベル構造 + **ReadingFormatter（唯一の自然文生成源）** | syntax/phrase を import しない・語形コードを露出しない |
-| `core/reading-engine.js` | `resolve()` の 7 フェーズ解決エンジン | morph 文字列を自前でパースしない（decoded を使う）・SyntaxAnalyzer を直接呼ばない（context で受ける）・副作用なし |
-| `core/reading-context.js` | **ResolveContext の単一供給源（SSOT）** | 日本語生成・語義・表示をしない |
-| `core/reading-japanese-builder.js` | verse 単位で決定的 fact のみ採用し読みを確定 | 判定・推論をしない・engine を変更しない |
-| `core/reading-lexicon.js` | 語彙データの保持と lookup のみ | 語義選択（文脈判断）をしない・fetch しない |
-| `core/reading-projection.js` | 解析結果を StudyPanel 用に整理する読み取り専用射影 | 日本語文章・説明・HTML を持ち込まない |
-| `core/presentation-policy.js` / `phrase-renderer.js` | 生成済み日本語を**変えずに**表示整形するだけ | 意味・語義・構造判断をしない |
-| `index.html` | UI 本体（3 階層: 本文 → 節パネル → 単語詳細） | 判断ロジックはコアへ寄せる |
-| `assets/js/app-storage.js` | ユーザーデータ永続化（ブックマーク・メモ・履歴、localStorage） | ソフトデリート方式を保つ |
-| `css/tokens.css` | デザイントークン（全スタイルの唯一のソース） | ここ以外でトークン値を定義しない |
+原則：
 
-**注意:** `syntax-analyzer.js` はヘッダで「依存: morph-decoder.js」と記すが、`decodeMorph` は現状 `index.html` にインライン定義されている（core への切り出しは未完）。
-
----
-
-## 6. Data Principles
-
-- **データとコードを分離する。** runtime データは `public/assets/data/`、設計文書は `public/docs/`、本文データは `bible_data/` / `translations/` / `morph-index/`。
-- **`assets/data/` を直接編集しない。** 必ず `scripts/` 経由で生成する（`npm run build:*`）。**なぜ:** アドホックな手編集は再現性を失わせる。データは常に再生成可能でなければならない。
-- **`bible_data.japanese` = 採用済み Reading Japanese の単一正規値。** 反映するのは「固定点」（代名詞・関係詞・指示詞の数/性/人称 = engine 再処理後も値が変わらない語形）のみ。**動詞屈折は Data 層に固定せず、engine が表示時に動的生成する。** 原文 Data は不変。旧値は adoption diff / git / Editorial 台帳で保持し、`japanese_old/new` を持たせない。
-- **Reading Hint は Editorial Asset。** `reading-hints.json` は編集済みの静的資産であり、**runtime に AI 推論・生成を一切持たない。** read-only 参照、`focusLemmaId`（不変アンカー）、status/version 管理。
-- **生成物と一次情報を分ける。** 再生成可能なもの（レジストリ、監査出力）と保全必須のもの（Editorial Asset、rollback 台帳、回帰 baseline）を混同しない。
-- **辞書は Abbott-Smith ベースの再構成データ**（`abbott-smith.tsv`）。日本語部分は人手翻訳と AI 補助の抄訳を含む。コードとデータでライセンスが異なる（`docs/LICENSE.md` / `docs/DATA_LICENSE.md`）。
+* morph文字列を自前でparseしない。
+* decodedフィールドを使う。
+* SyntaxAnalyzerを直接呼ばない。
+* context経由で解析結果を受け取る。
+* 副作用を持たない。
+* 表示責務を持たない。
+* 例外は基本的に `null` / fallback へ落とす。
 
 ---
 
-## 7. Reading Engine Principles
+# 10. FROZEN Protocol
 
-`resolve(token, context?) → ResolveResult | null` が中核 API。`null` = 改善なし → 呼び出し元が `token.japanese` へフォールバック。
+FROZENとは「絶対に変更してはいけない」という意味ではない。
 
-7 フェーズ（source 列挙値）：`morph`（形態）→ `syntax`（統語構造）→ `particle`（助詞）→ `lexicon`（語彙）→ `semantic`（文脈依存の多義語 = 情報提供のみ）→ `phrase`（句レンダリング）→ `policy`（Wallace 分類）。
+> **検証済みの現在状態を基準値として固定し、以後の変更に追加の証拠を要求する状態**
 
-**設計原則（reading-engine.js ヘッダ）:**
-- morph 文字列を自前でパースしない — `decoded` フィールドを直接使う。
-- SyntaxAnalyzer を直接呼ばない — 解析結果を `context` で受け取る。
-- 副作用なし。例外は `null` で吸収する。
-- 表示責務は呼び出し元が持つ（engine は生の値を返し、`presentation-policy.js` / `phrase-renderer.js` が整形する）。
+である。
 
-**FROZEN プロトコル（最重要の運用規律）:**
-各層は完成時にヘッダへ `[FROZEN 日付]` と基準値（例: NT 137,741 tokens / morph 44,591 / 悪化ケース 0）を記録している。**この層のロジックを変更するときは：**
-1. 対応する回帰テスト（`scripts/re-*.cjs`）へケースを追加する。
-2. `npm run test:re-*` を全 PASS させる。
-3. 基準値を割らない。とくに `reading-context.js` はバイト等価が絶対上位で、崩れる語は per-token build fallback に落とす。
+FROZEN層：
 
-**なぜここまで厳格か:** Reading Japanese はコーパス全体（NT だけで 13 万トークン超）に一括適用される。1 つのロジック変更が数千箇所の表示を静かに変えうる。基準値と回帰テストは、その見えない波及を可視化する唯一の手段。**リグレッションは絶対悪として扱う。**
+* `reading-engine.js`
+* `reading-context.js`
+* `presentation-policy.js`
+* `phrase-renderer.js`
+* Syntax Completion
+* Semantic Completion
+* `morph-rule-engine-v1`
+* その他、各Phaseで明示的にFROZENされたもの
 
----
+変更時：
 
-## 8. UI/UX Principles
+1. 変更理由を記録する。
+2. 影響範囲を確認する。
+3. 回帰ケースを追加する。
+4. 既存baselineを保存する。
+5. 新baselineを取得する。
+6. 差分を確認する。
+7. Freeze Auditを更新する。
 
-- **「静かな読書体験」を志向する。** 情報密度・余白・強調の重ね掛けを抑える。すべてのスタイル値は `css/tokens.css`（タイポ 6 段階・角丸 3 段階・不透明度 4 段階・単一アクセントカラー・easing 1 種）を唯一のソースとする。
-- **StudyPanel は「読書支援パネル」であり研究ツールではない。** 文法情報は「なぜそのように読めるか」の根拠としてのみ提示する。
-- **3 階層 + 単純な戻る。** 本文 → 節パネル → 単語詳細。「戻る」は常に 1 つ上の階層を閉じるだけ。**なぜ:** 読書の流れを止めないため、操作モデルを最小に保つ。
-- **三つの家（責務分離）:** **Reading（読む）** / **Word（調べる = StudyPanel）** / **Passage（研究 = 別 View）**。読む面は上、分析面は下。
-- **読む面に露出させないもの:** 分類ラベル・confidence 数値・語形コード・生マーカー。Guard Rule（`assertReadingTextSafe`）が漏洩を検出して throw する。**なぜ:** これらは研究の道具であって、読書の声を濁らせてはならない（First Principle）。
-- **状態は URL で共有・復元する**（書籍・章・節・StudyPanel・選択語・検索条件）。
-- **メモ削除はソフトデリート**（ゴミ箱 → 復元 / 完全削除）。
-- **UI は監査駆動で磨く。** `docs/development/` の silence / density / attention / interaction 系 audit のように、実装前後に監査文書を書き、それに照らして削る。
+偶然の回帰を「仕様変更」として扱わない。
 
 ---
 
-## 9. Development Rules
+# 11. UI / UX Principles
 
-- **ワークフロー: 設計 → 実装 → 監査 → 凍結。** ファイル名も `*-design.md` → `*-implementation-plan.md` → `*-implementation-report.md` → `*-audit.md` → `*-freeze-audit.md` と揃える。
-- **実装前ワークフローは [`docs/ai-workflow.md`](docs/ai-workflow.md) に従う（早走り禁止）。** 実装判断を伴う作業では、Claude は**自律的に G1（価値）→ G2（忠実性）→ G3（技術）を完了してから実装へ進む**。「直して」「改善して」「対応して」「全部やって」「いい感じにして」等の曖昧・広範な依頼は**それ自体が実装の許可ではない**。まず依頼を Value Brief へ言い換えて G1 を開始し、Change Plan と Validation Criteria を確定してから bible_data・コードに触れる。ゲート通過は自律的に行ってよい（各段で人間の承認を挟む必要はない）が、**未通過のまま実装へ入らない**。
-- **監査は「監査・提案のみ、移動/削除しない」を明記して始める。** 急いで削除・大規模変更を提案しない。
-- **変更は機械適用 + 三重 rollback**（diff / git / 台帳）。before 一致 → after 置換で、engine ロジックは非改変を保つ。
-- **ディレクトリ責務を守る**（`docs/architecture-rules.md`）:
-  - UI（HTML）にビジネスロジックを書かない。
-  - `core/` は DOM / window に依存しない（Node 単体で動く純関数）。
-  - `assets/data/` を直接編集しない（`scripts/` 経由のみ）。
-  - `scripts/` を本番 UI から参照しない。
-- **旧パス禁止（自動強制）:** ルート直下の旧ディレクトリ（旧 `data` / `js` / `index` / `lexicon`）への参照は pre-commit hook（`scripts/path-audit.js`）と CI（`.github/workflows/path-check.yml`）がブロックする。移行先はそれぞれ `assets/data` / `core`・`assets/js` / `assets/data/index` / `assets/data/lexicon`。
-- **概念データを編集したら `node scripts/concept-audit.cjs` を必ず実行**（FAIL で exit 1）。
-- **ロードマップの単一ソースは `assets/data/roadmap.json`。** README・アプリ内表示はそれを反映するだけ。編集は roadmap.json のみ。
-- **確認ゲートは最小限に。** 完了報告は続けるが、確認を挟むのは本当に判断が必要なときだけ（フェーズを 1 つ進めるたびに確認しない）。※ これは*人間への確認*の頻度を指すものであり、上記**実装前ゲート G1-G3 を省略できる意味ではない**（設計ゲートは自律的に必ず通す）。
-- **原語表記の原則:** 読書メモの入口は日本語。ギリシャ語は未特定の語への指さしとしてのみ、常に「日本語（ギリシャ語）」の形式で添える。
-- **未解決の構成不整合（着手前に確認）:** `docs/README.md` と `architecture-rules.md` は `pages/index.html` 前提で書かれ、`index.html` 内の参照も `../core/` 等の 1 階層上を指すが、実体は `public/index.html`（`pages/` は未実在）。設計文書のパス（`docs/xxx.md`）と実体（`public/docs/xxx.md`）にもズレがある。Pre-Release のファイル再編途中。**パスに触れる作業の前に、現構造を正とするか `pages/` 目標構造へ寄せるかをユーザーに確認する。**
+* 静かな読書体験を志向する。
+* 情報密度を上げすぎない。
+* StudyPanelは研究ツールではなく読書支援パネル。
+* 文法情報は「なぜそう読めるか」の根拠としてのみ提示する。
+* 本文 → 節パネル → 単語詳細の階層を維持する。
+* 戻る操作は単純にする。
+* Reading / Word / Passage の責務を分ける。
+* 読む面に研究用情報を露出させない。
+* 状態はURLで共有・復元する。
+* メモ削除はソフトデリート。
+* UI変更は監査駆動で行う。
 
-### リポジトリ責務境界（3リポジトリ体制）
+読書面には原則として、
 
-本リポは **gnt-jp（聖書アプリ本体）**。GitHub 上の3リポジトリは責務が分かれる。新規ファイル・仕様は「どのリポジトリの責務か」を先に判断する。
+* 分類ラベル
+* confidence数値
+* 語形コード
+* 生マーカー
+* 内部解析情報
 
-- **gnt-jp（本リポ）**：アプリ本体。コード・データ処理・UI・仕様・実装履歴。／置かない：SNS投稿制作物・編集運用資料・研究資料の保管庫化。
-- **gnt-editorial**：SNS編集・発信。ブランド・編集基準・投稿制作物・運用記録。／置かない：アプリ実装・解析コード・研究資料。
-- **knowledge-library**：研究・背景・判断履歴。神学資料・研究メモ・設計背景・監査記録。／置かない：アプリコード・SNS制作物。
-- **共通**：リポ間にファイル参照依存を作らない／またぐ時はコピーでなく情報を明示共有し責務で判断／配置に迷えば作成・移動せず確認／Vault対象（未許諾資料等）はGit管理に入れない。
-
-### 作業開始前の判断
-
-新しいファイル・仕様・作業を始める前に、必ず次を確認する：
-1. これはどのリポジトリの責務か（gnt-jp / gnt-editorial / knowledge-library）。
-2. 本リポ（gnt-jp）の責務外なら、ここで作業しない。該当リポで扱う。
-3. 責務をまたぐ場合は、コピーで持ち込まず、必要な情報だけ明示的に共有する。
-4. 配置先に迷う場合は、勝手に作成・移動せず確認する。
+を露出させない。
 
 ---
 
-## 10. Things Never To Break
+# 12. AI Development Governance
 
-1. **L-0 境界** — 翻訳 / 推論 / 語義選択 / 自然化 / 未判定補完をしない（§3）。すべての上位。
-2. **FROZEN 層** — `reading-engine.js` Phase 1–7・Syntax Completion（K-3/L-3c）・Semantic Completion（L-4c） / `reading-context.js` Stage D / `presentation-policy.js` Stage C-P1 / `phrase-renderer.js` Stage A / `morph-rule-engine-v1`。基準値を割らず、変更時は回帰テスト追加 + 全 PASS。
-3. **自然文生成源の単一性** — ReadingFormatter 以外で日本語文章を生成しない。
-4. **ResolveContext の SSOT** — `reading-context.js` を唯一の Context 供給源とする。
-5. **ディレクトリ責務境界** — `core/` は DOM 非依存、`assets/data/` は直接編集禁止、`scripts/` は本番から参照禁止（§9）。
-6. **旧パス禁止** — pre-commit / CI が強制。
-7. **runtime データの fetch パス** — `assets/data/*.json` の移動は fetch を壊す。
-8. **回帰 baseline**（`scripts/output/re-phase*-audit.json`）の移動・gitignore 不可。
-9. **`bible_data` の原文 Data 不変** — 固定点以外を Data 層へ書き込まない（とくに動詞屈折）。
-10. **`css/tokens.css` の単一性** — トークン値をここ以外で定義しない。
+Claudeは本プロジェクトの通常開発を自律的に進行する。
+
+ただし、自律性とは無制限のScope拡張ではない。
 
 ---
 
-## 11. Future Roadmap
+## 12.1 Phase / Task / State
 
-単一ソース: [`public/assets/data/roadmap.json`](public/assets/data/roadmap.json)（アプリ内 ℹ️ → ロードマップからも確認可）。
+### Phase
 
-- **テキストと辞書**（読みを支える言語データの充実）
-  - 日本語訳の追加（新改訳2017・聖書協会共同訳など現代語訳）
-  - ヘブライ語聖書への対応（旧約を読解フローで読む）
-  - 辞書の拡充（読書中の引っかかりを減らす形で）
-- **読書体験**（読む流れを止めない一体感のある画面へ）
-  - 画面を分けずに読む（本文・検索・調べるの統合）
-  - 読んでいた場所への即時復帰
-- **記録と持ち出し**（読書の痕跡を残し持ち出せるように）
-  - メモのつながり（タグでなく「参照関係」としての最小接続）
-  - 読書記録のエクスポート
+開発上の大きな単位。
 
-**優先順位の判断基準は §1 に従う:** どの項目も「機能として面白いか」ではなく「原著者の意図理解＝読みにどう貢献するか」で優先度を決める。
+例：
 
-**現在フェーズ: Pre-Release。** 基本読書・検索・URL 共有は動作。データ出典明記とライセンス整理、ファイル/ドキュメント構成の整理が進行中。
+`VR-6`
+
+### Task
+
+Phase内の具体的作業。
+
+例：
+
+`Flow Rendererの表示経路を監査する`
+
+### State
+
+Taskが現在どの段階にあるか。
+
+例：
+
+`STATIC_AUDIT`
+
+ClaudeはPhase・Task・Stateを混同しない。
+
+---
+
+# 13. Development State Machine
+
+原則として次の順序で進める。
+
+```text
+SCOPE
+  ↓
+VALUE CHECK
+  ↓
+FIDELITY CHECK
+  ↓
+DESIGN
+  ↓
+IMPLEMENTATION PLAN
+  ↓
+IMPLEMENTATION
+  ↓
+STATIC AUDIT
+  ↓
+RUNTIME AUDIT
+  ↓
+REGRESSION
+  ↓
+FREEZE AUDIT
+  ↓
+FROZEN / DONE
+```
+
+すべてのTaskがすべてのStateを必要とするわけではない。
+
+不要なStateは、
+
+```text
+N/A — reason
+```
+
+として明示する。
+
+---
+
+# 14. Stateの意味
+
+## SCOPE
+
+何を変更するかを確定する。
+
+必須：
+
+* Objective
+* In Scope
+* Out of Scope
+* Change Type
+
+## VALUE CHECK
+
+First Principleへの貢献を確認する。
+
+## FIDELITY CHECK
+
+L-0、原文忠実性、既存仕様との整合を確認する。
+
+## DESIGN
+
+変更後の構造・責務・データフローを確定する。
+
+## IMPLEMENTATION PLAN
+
+具体的な変更箇所・順序・検証方法を確定する。
+
+## IMPLEMENTATION
+
+計画に従って変更する。
+
+## STATIC AUDIT
+
+コード・参照・データ・責務境界を検証する。
+
+## RUNTIME AUDIT
+
+実行時の挙動を検証する。
+
+## REGRESSION
+
+既存動作が維持されていることを確認する。
+
+## FREEZE AUDIT
+
+基準値・証拠・文書を確認し、基準状態を確定する。
+
+---
+
+# 15. Phase Scope
+
+Phaseには原則として以下を持つ。
+
+```text
+Phase ID
+Objective
+In Scope
+Out of Scope
+Current State
+Entry Criteria
+Exit Criteria
+Validation Criteria
+Known Risks
+Dependencies
+```
+
+Claudeは現在Phaseに含まれない新Phaseを勝手に開始しない。
+
+---
+
+# 16. No Scope Creep
+
+以下はScope拡張の理由にならない。
+
+* ついでに直せる
+* コードが汚い
+* 将来必要になりそう
+* Coverageを増やせる
+* より美しい実装が可能
+* 別の問題を発見した
+
+現在のExit Criteria達成に必要なものだけを現在Phaseへ含める。
+
+その他は、
+
+* `RELATED`
+* `TECH-DEBT`
+* `FUTURE`
+
+として分離する。
+
+---
+
+# 17. Change Type
+
+変更には以下の種別を付ける。
+
+* `BUG`
+* `CORRECTNESS`
+* `REFACTOR`
+* `ARCHITECTURE`
+* `UX`
+* `DATA`
+* `COVERAGE`
+* `FEATURE`
+* `PERFORMANCE`
+* `DOCUMENTATION`
+
+特に、
+
+> **CORRECTNESS と COVERAGE は別物**
+
+として扱う。
+
+既存対応の精度改善と、未対応ケースの追加は同一Taskにしない。
+
+明示的なCoverage要求がない限り、未対応ケースを発見しただけでCoverage拡張を開始しない。
+
+---
+
+# 18. Entry Criteria
+
+次のStateへ進む前に、前StateのExit Criteriaを満たす。
+
+特にImplementation開始前には、
+
+* Scope確定
+* Value確認
+* Fidelity確認
+* Design確認
+* Validation Criteria確認
+
+を完了する。
+
+曖昧な依頼は実装許可ではない。
+
+「直して」「改善して」「対応して」「全部やって」等の場合も、まず現在の問題とScopeを定義する。
+
+---
+
+# 19. Impact Analysis
+
+コード・データを変更する前に、最低限次を確認する。
+
+```text
+Changed:
+Direct consumers:
+Indirect consumers:
+User-visible surfaces:
+Data dependencies:
+Regression targets:
+```
+
+影響範囲が不明な場合、実装を拡大せず調査へ戻る。
+
+---
+
+# 20. Validation Matrix
+
+検証レベル：
+
+| Level | 内容                        |
+| ----- | ------------------------- |
+| L1    | 静的コード・参照監査                |
+| L2    | Unit / Regression         |
+| L3    | Runtime実行確認               |
+| L4    | Browser / DOM / URL State |
+| L5    | Visual / UX Audit         |
+
+変更内容に応じて必要レベルを選択する。
+
+UI・Renderer・StudyPanel・Flow・URL Stateなどの変更では、原則L4まで確認する。
+
+UX変更ではL5を必要とする。
+
+---
+
+# 21. Validation Criteria
+
+Validationは「テストをした」だけでは不十分。
+
+原則として、
+
+```text
+Validation Criterion
+↓
+Test Case
+↓
+Evidence
+↓
+PASS / FAIL
+```
+
+の関係を持たせる。
+
+代表ケースは、単に有名な聖句を選ぶのではなく、変更リスクを代表するものを選ぶ。
+
+可能な限り、
+
+* 通常ケース
+* 境界ケース
+* 失敗ケース
+* 回帰ケース
+
+を含める。
+
+---
+
+# 22. Evidence Policy
+
+監査・検証結果には可能な限り根拠を付ける。
+
+根拠として認めるもの：
+
+* 実コード
+* 実データ
+* 実行結果
+* テスト結果
+* DOM
+* スクリーンショット
+* Git diff
+* baseline
+* 明示された仕様書
+
+事実と推測を混同しない。
+
+以下を区別する。
+
+* `CONFIRMED`
+* `OBSERVED`
+* `NOT VERIFIED`
+* `UNKNOWN`
+* `INFERRED`
+
+`INFERRED`を`CONFIRMED`として扱わない。
+
+---
+
+# 23. Audit Rule
+
+監査は原則READ ONLY。
+
+監査では、
+
+* 問題を発見する
+* 根拠を取得する
+* PASS / FAILを判定する
+* 改善案を提示する
+
+ことを行う。
+
+監査中に修正しない。
+
+修正が必要になった場合、
+
+```text
+AUDIT
+↓
+FINDING
+↓
+IMPLEMENTATION
+↓
+RE-AUDIT
+```
+
+と分離する。
+
+---
+
+# 24. Specification Conflict
+
+仕様と実装が一致しない場合、
+
+```text
+Specification says:
+Implementation currently does:
+Difference:
+Impact:
+SSOT:
+```
+
+を確認する。
+
+SSOTが明示されている場合はSSOTに従う。
+
+SSOTが不明な場合、Claudeは勝手に仕様を変更しない。
+
+必要ならSTOPする。
+
+---
+
+# 25. Stop Conditions
+
+Claudeは以下の場合、実装・進行を停止する。
+
+* Scope不明
+* SSOT不明
+* 責務境界不明
+* 仕様矛盾
+* First Principleの判断が必要
+* L-0の判断が必要
+* FROZEN層の変更が必要
+* 破壊的変更が必要
+* ライセンス不明
+* 回帰影響を評価できない
+* 別Phaseの設計判断が必要
+* 必要な事実を確認できない
+* Exit Criteriaを判定できない
+
+停止時：
+
+```text
+STOPPED
+
+Reason:
+Evidence:
+Required decision:
+Recommended next step:
+```
+
+---
+
+# 26. Result Classification
+
+作業結果は次のいずれかに分類する。
+
+## PASS
+
+Exit Criteriaを満たした。
+
+## FAIL
+
+検証結果が基準を満たさない。
+
+## BLOCKED
+
+必要な情報・判断・依存がなく進行不能。
+
+## DEFERRED
+
+現在Scope外。
+
+## N/A
+
+今回のTaskには適用されない。
+
+## UNKNOWN
+
+現時点で確認不能。
+
+Exit Criteriaに関係するUNKNOWNを残したままDONEにしてはならない。
+
+---
+
+# 27. Definition of Done
+
+`DONE` は「コードが動いた」ことを意味しない。
+
+原則として、
+
+* Scope確定
+* 実装完了
+* 必要なStatic Audit完了
+* 必要なRuntime Audit完了
+* 必要なBrowser Audit完了
+* Regression PASS
+* baseline確認
+* Documentation更新
+* 未確認事項の明示
+* Scope外事項の分離
+* Exit Criteria達成
+
+を満たす。
+
+小規模な変更については、不要な工程を省略してよい。
+
+ただし、省略した場合は、
+
+```text
+N/A — reason
+```
+
+を明示する。
+
+---
+
+# 28. Micro Change
+
+以下のような変更はMicro Changeとして扱える。
+
+* typo修正
+* 明白な文言修正
+* 既存仕様内の小規模CSS修正
+* 明白なバグ修正
+* 既存テストの明白な修正
+
+Micro ChangeではPhase級の文書一式を要求しない。
+
+ただし、
+
+* FROZEN層
+* データ仕様
+* L-0
+* アーキテクチャ境界
+* ユーザー可視挙動
+
+に影響する場合はMicro Changeとして扱わない。
+
+---
+
+# 29. FROZEN Change
+
+FROZEN層を変更する場合：
+
+1. 変更理由を記録。
+2. Impact Analysis。
+3. 回帰ケース追加。
+4. 既存baseline保存。
+5. 実装。
+6. 全関連Regression。
+7. 新baseline取得。
+8. 差分確認。
+9. Freeze Audit更新。
+
+基準値を悪化させた場合、理由なくDoneにしてはならない。
+
+---
+
+# 30. Coverage Rule
+
+Coverage拡張は、品質改善と分離する。
+
+例えば、
+
+> 既存Relative Clauseの判定精度を改善する
+
+ことと、
+
+> Participial Clauseを新規対応する
+
+ことは別Task。
+
+未対応ケースを発見しても、明示的なCoverage要求がない限りCoverage拡張を開始しない。
+
+---
+
+# 31. No Silent Specification Change
+
+AIは、
+
+> 「実装を変える方が合理的」
+
+という理由だけで仕様を変更してはならない。
+
+仕様変更が必要な場合、
+
+* 変更理由
+* 現仕様
+* 新仕様
+* 影響範囲
+* 既存データへの影響
+* Regression影響
+
+を明示する。
+
+---
+
+# 32. Natural Language Generation Boundary
+
+日本語文章の生成源はReadingFormatterを単一の正規経路とする。
+
+他層は自然文を持ち込まない。
+
+表示層は生成済み日本語を意味変更せず整形する。
+
+---
+
+# 33. Directory Responsibility
+
+* UIにビジネスロジックを書かない。
+* `core/` はDOM / window非依存。
+* `assets/data/` は直接編集しない。
+* `scripts/` は本番UIから参照しない。
+* runtime dataのfetch pathを不用意に変更しない。
+* `css/tokens.css` 以外にデザイントークン値を定義しない。
+
+---
+
+# 34. Existing Path / Structure Rule
+
+既存構造と設計文書のパスが一致しない場合、勝手に再編しない。
+
+現在知られている構造不整合：
+
+* `docs/README.md` / `architecture-rules.md` は `pages/index.html` 前提
+* 実体は `public/index.html`
+* `pages/` は未実在
+* 文書の一部は `docs/xxx.md`
+* 実体は `public/docs/xxx.md`
+
+この問題は、Pre-Releaseのファイル再編に関係する。
+
+パス再編を伴う作業では、現在の実構造を勝手に別構造へ移行しない。
+
+---
+
+# 35. Repository Responsibility
+
+本リポは `gnt-jp`。
+
+3リポジトリの責務：
+
+### gnt-jp
+
+聖書アプリ本体。
+
+### gnt-editorial
+
+SNS・編集・発信。
+
+### knowledge-library
+
+研究・背景・判断履歴。
+
+リポジトリ間にファイル参照依存を作らない。
+
+責務をまたぐ場合は必要な情報だけを明示的に共有する。
+
+---
+
+# 36. Data Safety
+
+以下を壊さない。
+
+1. `bible_data` の原文Data
+2. runtime dataのfetch path
+3. regression baseline
+4. Editorial Asset
+5. rollback台帳
+6. ライセンス境界
+7. `assets/data/` の生成経路
+
+特に原文Dataを、表示改善を理由に直接書き換えない。
+
+---
+
+# 37. Things Never To Break
+
+以下は本プロジェクトの上位制約。
+
+1. **L-0 Boundary**
+2. **First Principle**
+3. **Reading Japaneseの忠実性**
+4. **FROZEN層の回帰安全性**
+5. **ReadingFormatterの自然文生成単一性**
+6. **ResolveContextのSSOT**
+7. **core / UI責務境界**
+8. **runtime dataのfetch path**
+9. **回帰baseline**
+10. **原文Dataの不変性**
+11. **デザイントークンのSSOT**
+12. **3リポジトリ責務境界**
+
+---
+
+# 38. 作業開始時の内部確認
+
+Claudeは作業開始時に最低限、以下を確認する。
+
+```text
+CURRENT PHASE:
+CURRENT TASK:
+CURRENT STATE:
+
+OBJECTIVE:
+
+CHANGE TYPE:
+
+IN SCOPE:
+OUT OF SCOPE:
+
+ENTRY CRITERIA:
+
+VALIDATION CRITERIA:
+
+KNOWN RISKS:
+
+DEPENDENCIES:
+```
+
+---
+
+# 39. 作業終了時の内部確認
+
+```text
+STATE BEFORE:
+STATE AFTER:
+
+IMPLEMENTED:
+
+VERIFIED:
+
+EVIDENCE:
+
+REGRESSION:
+
+NOT VERIFIED:
+
+DEFERRED:
+
+BLOCKED:
+
+NEXT ALLOWED STATE:
+```
+
+これらは毎回ユーザーへ全文表示する必要はない。
+
+ただし、Claude自身は判断材料として保持する。
+
+---
+
+# 40. 開発の基本姿勢
+
+本プロジェクトでは、
+
+> **早く作ることより、正しく境界を守ることを優先する。**
+
+ただし、
+
+> **確認を増やすこと自体を品質とはみなさない。**
+
+Claudeは通常の進行を自律的に行い、人間への確認は本当に判断が必要な場合に限定する。
+
+人間に確認する前に、Claude自身で確認できることを最大限確認する。
+
+---
+
+# 41. 最終判断原則
+
+複数の選択肢で迷った場合、原則として次の優先順位で判断する。
+
+```text
+First Principle
+    ↓
+L-0 / Fidelity
+    ↓
+既存SSOT / 仕様
+    ↓
+現在PhaseのScope
+    ↓
+既存アーキテクチャ境界
+    ↓
+Regression Safety
+    ↓
+UX
+    ↓
+Implementation Simplicity
+    ↓
+Future Convenience
+```
+
+「将来便利そう」は、上位原則を覆す理由にならない。
+
+---
+
+# 42. Future Roadmap
+
+単一ソース：
+
+`public/assets/data/roadmap.json`
+
+ロードマップ：
+
+* テキストと辞書
+* 読書体験
+* 記録と持ち出し
+
+優先順位はFirst Principleに従う。
+
+機能として面白いかではなく、
+
+> **原著者の意図理解＝読みにどう貢献するか**
+
+で判断する。
+
+---
+
+# 43. Current Phase
+
+現在フェーズ：
+
+**Pre-Release**
+
+基本読書・検索・URL共有は動作。
+
+データ出典・ライセンス整理・ファイル構成整理等を進めている。
+
+現在のPre-Release状態を理由に、未定義の新機能を勝手に追加しない。
