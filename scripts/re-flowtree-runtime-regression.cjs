@@ -95,18 +95,19 @@ check('B. JHN 1:1 と JHN 1:2 は別 sentence に解決',
     check('C. MAT 1:1 inline == asset（neighborhood 構造 baseline）', ok);
 })();
 
-/* ── D. L-0: asset node は schema 5 フィールドのみ（意味解釈属性なし） ── */
+/* ── D. schema v2（SF-11）: asset node は基本5フィールド＋透過搬送 role/frame/referent のみ。
+ *    rule/clauseType/class/semanticRole/confidence 等の意味解釈・生成属性は依然として持たない（L-0）。 ── */
 (function () {
-    const allowed = new Set(['id', 'parentId', 'type', 'tokens', 'children']);
-    const forbidden = ['role', 'rule', 'class', 'semanticRole', 'confidence'];
+    const allowed = new Set(['id', 'parentId', 'type', 'tokens', 'children', 'role', 'frame', 'referent']);
+    const forbidden = ['rule', 'clauseType', 'class', 'semanticRole', 'confidence'];
     const data = loadChapter('JHN', 3);
     let extra = null, forb = null;
     (function walk(n) {
         for (const k of Object.keys(n)) { if (!allowed.has(k)) extra = extra || k; if (forbidden.includes(k)) forb = forb || k; }
         (n.children || []).forEach(walk);
     })(data.sentences[0]);
-    check('D. asset node は schema 5 フィールドのみ（未知キーなし）', extra === null, 'extra key: ' + extra);
-    check('D. asset node に意味解釈属性なし（role/rule/semantic 等）', forb === null, 'forbidden key: ' + forb);
+    check('D. asset node は schema v2（5基本+role/frame/referent）のみ（未知キーなし）', extra === null, 'extra key: ' + extra);
+    check('D. asset node に生成系/意味解釈属性なし（rule/clauseType/semantic 等）', forb === null, 'forbidden key: ' + forb);
 })();
 
 /* ── 出力 ── */
