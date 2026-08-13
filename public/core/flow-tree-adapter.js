@@ -69,15 +69,30 @@ function _wordId(wEl) {
     return _getAttr(wEl, XML_ID_ATTR) || _getAttr(wEl, 'ref');
 }
 
+/* SF-11: Lowfat の関係属性を「値を改変せず」node へ透過搬送する。
+ * role（<w>/<wg> 両方に付きうる）・frame（述語 <w>）・referent（<w>）。
+ * 存在する時のみ付与し、無い場合はキーを作らない
+ * （L-0: 欠損を埋めない／後方互換／出力サイズ最小）。
+ * 値は生の Lowfat 文字列のまま保持する（意味解釈・正規化・別relationへの変換をしない）。 */
+function _attachRelationAttrs(node, el) {
+    const role = _getAttr(el, 'role');
+    if (role != null && role !== '') node.role = role;
+    const frame = _getAttr(el, 'frame');
+    if (frame != null && frame !== '') node.frame = frame;
+    const referent = _getAttr(el, 'referent');
+    if (referent != null && referent !== '') node.referent = referent;
+}
+
 // =============================================================
 // § 3.  Node 変換
 // =============================================================
 //
-// Representation Schema §2 必須項目のみを生成する:
+// Representation Schema §2 必須項目:
 //   id / parentId / type / tokens / children
-// role / rule / clauseType 等の「任意保持可能」項目は本実装では
-// 生成しない（実装しないものリストの通り、意味解釈へ繋がる情報を
-// 増やさない）。
+// SF-11（schema v2）で、Lowfat が持つ関係属性のうち role / frame / referent を
+// 「値を改変せず・存在する時のみ」透過搬送する（表示可否は表示層の責務・L-0）。
+// rule / clauseType / word type 等は依然として生成しない（SF-10 Tier3・非表示）。
+// v1 consumer は追加キーを無視して動く（後方互換）。
 
 /**
  * 単一の DOM 要素（`<w>` または `<wg>`）を Flow Tree Node へ変換する。
@@ -106,6 +121,7 @@ function convertElement(el, scopeId, parentId, nodesById, unknownClasses) {
             tokens: ref ? [ref] : [],
             children: [],
         };
+        _attachRelationAttrs(node, el);
         nodesById[id] = node;
         return node;
     }
@@ -142,6 +158,7 @@ function convertElement(el, scopeId, parentId, nodesById, unknownClasses) {
             tokens,
             children: [],
         };
+        _attachRelationAttrs(node, el);
         nodesById[id] = node;
 
         for (const child of _childElements(el)) {

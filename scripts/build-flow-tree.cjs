@@ -15,9 +15,10 @@
  *     Document/Element を注入する（adapter は DOM 非依存設計のまま無変更）。新規 XML parser は書かない。
  *   - Representation schema（flow-tree-representation-schema.md）は SSOT。node 形は adapter 出力
  *     そのまま（id / parentId / type / tokens / children）。新しい node schema を発明しない。
- *   - L-0: tree から取得できる構造（parent / children / token参照 / node type / 階層）のみ保存。
- *     referent / antecedent / 主語補完 / semantic role / role / rule / confidence は保存しない
- *     （adapter がそもそも生成しない）。
+ *   - L-0: tree から取得できる構造（parent / children / token参照 / node type / 階層）に加え、
+ *     SF-11（schema v2）で adapter が Lowfat から透過搬送する role / frame / referent を保存する
+ *     （値は改変せず・存在時のみ）。主語補完 / semantic role の生成 / rule / clauseType / confidence は
+ *     保存しない（adapter が生成しない）。frame/referent の node id は解決せず生のまま運ぶ。
  *
  * 保存単位:
  *   chapter 単位 JSON。1 chapter file は自己完結:

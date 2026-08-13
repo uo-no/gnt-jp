@@ -3615,6 +3615,127 @@ details[open] .study-summary::before {
 }
 .rn-level-body #rn-semantic-layers { margin-top: 0; }
 
+/* ── Structure Flow（「この語の構造上の位置づけ」）─────────────────
+   focus 語を中心に、既存データ（flow-tree の親/兄弟/最寄clause）だけで
+   関係を配置する Relation Flow（SF-8）。
+   - 水平 ──→ : structural order（＝この文脈では reading order）の進行。前→focus→後。
+   - 垂直の細線 : 包含（part-of）。所属まとまり ⊃ … ⊂ 上位のまとまり。
+   矢印は順序のみを意味し、意味関係を主張しない。type ラベルは出さない
+   （neighborhood-view-design.md §6 準拠）。静かな構造マップ。 */
+.sf-flow { font-family: 'Noto Serif JP', serif; }
+.sf-rel { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; max-width: 100%; }
+.sf-cap { font: var(--text-caption)/1.6 'Hiragino Sans', sans-serif; color: var(--text-sub); flex-shrink: 0; }
+/* 所属まとまり = focus の兄弟を1段に並べた帯（淡い面で「ひとまとまり」を示す） */
+.sf-rel-focusband {
+    position: relative;
+    padding: 6px 8px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    max-width: 100%;
+}
+/* SF-14: 弧を描く縦スペースを確保（frame=下・referent=上）。 */
+.sf-rel-focusband.sf-has-frame { padding-bottom: 8px; }
+.sf-rel-focusband.sf-has-ref { padding-top: 28px; }
+/* SF-18: 2段レイアウト。上段=核(主語/動詞/繋ぎ)・下段=項。段間に frame エルボ用の縦スペース。 */
+.sf-rel-focusband.sf-two-row .sf-row-bottom { margin-top: 28px; }
+/* frame(実線・縦エルボ・矢頭=項・accent) / referent(点線・矢頭なし・text-sub)。4チャネル分離。 */
+.sf-arc-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.sf-arc-frame-path { stroke: var(--accent); fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.sf-arw { fill: var(--accent); }
+.sf-arc-ref-path { stroke: var(--text-sub); fill: none; stroke-width: 1.25; stroke-dasharray: 3 3; }
+/* 縮退用テキスト注記: 既定 hidden。弧が引けない時(enhancer が .sf-degraded 付与)に表示。 */
+.sf-frame-note, .sf-ref-note {
+    display: none;
+    margin-top: 6px;
+    font: var(--text-caption)/1.7 'Hiragino Sans', sans-serif;
+    color: var(--text-sub);
+}
+.sf-rel-focusband.sf-degraded { padding-bottom: 6px; padding-top: 6px; }
+.sf-rel-focusband.sf-degraded .sf-frame-note { display: block; }
+.sf-rel .sf-ref-note.sf-show { display: block; }
+.sf-rel-focusband .sf-cap { display: block; margin-bottom: 4px; }
+.sf-rel-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 16px; }
+.sf-rel-arrow { color: var(--text-sub); font-size: 0.85em; flex-shrink: 0; }
+/* SF-12: 構成語を「列」にし、role を語の真上へ整列（並べ替えず位置合わせ）。 */
+.sf-col { display: inline-flex; flex-direction: column; align-items: center; }
+.sf-role-cap {
+    min-height: 1.35em;
+    line-height: 1.35;
+    font: var(--text-caption) 'Hiragino Sans', sans-serif;
+    color: var(--text-sub);
+    text-align: center;
+    white-space: nowrap;
+    margin-bottom: 2px;
+}
+.sf-role-cap.is-focus { color: var(--accent); font-weight: 600; }
+/* 包含の縦線（矢頭なし＝順序ではなく part-of） */
+.sf-rel-link { width: 1px; height: 10px; margin-left: 18px; background: var(--border-strong); }
+.sf-rel-band { display: flex; align-items: baseline; gap: 6px; max-width: 100%; }
+.sf-chip {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: var(--text-body);
+    line-height: 1.7;
+    color: var(--text-main);
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    white-space: normal;
+    word-break: break-word;
+}
+/* 文脈チップ（前/後/上位）は控えめに。focus を際立たせる */
+.sf-chip.sf-ctx { color: var(--text-sub); background: transparent; }
+.sf-chip.is-focus {
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-light);
+    border-color: var(--accent-mid);
+    box-shadow: inset 0 -1px 0 0 var(--accent);
+}
+/* 所属まとまり自身の役割（例: 主語のまとまり）は帯見出しに付す（帰属を偽らない）。 */
+.sf-caprole { color: var(--accent); }
+/* referent（E）: 線を引かずテキスト注記。控えめ・自然文。 */
+.sf-note {
+    margin-top: 6px;
+    font: var(--text-caption)/1.7 'Hiragino Sans', sans-serif;
+    color: var(--text-sub);
+}
+.sf-note-h {
+    color: var(--text-main);
+    margin-right: 6px;
+}
+.sf-note-h::after { content: '：'; }
+/* SF-19 縦型: 第1層＝主語＋主動詞（横並び）／その下に「動詞→各項」を縦に1つずつ。
+   frame は accent の横枝、containment(項の内部)は控えめの indent で別チャネル。 */
+.sf-l1 { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 18px; }
+.sf-verb-wrap { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+/* 動詞から下がる trunk（縦・accent）。動詞 chip の下あたりに置く。 */
+.sf-branches { margin-top: 4px; margin-left: 9px; border-left: 1.5px solid var(--accent); }
+.sf-branch {
+    position: relative;
+    padding: 3px 0 3px 16px;
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 6px;
+    min-width: 0;
+}
+.sf-branch::before {            /* trunk→項 の横枝 */
+    content: ''; position: absolute; left: 0; top: 0.85em; width: 13px;
+    border-top: 1.5px solid var(--border-strong);
+}
+.sf-branch.sf-frame::before { border-top-color: var(--accent); }   /* frame は accent */
+.sf-branch-role { font: var(--text-caption) 'Hiragino Sans', sans-serif; color: var(--text-sub); flex-shrink: 0; }
+.sf-branch.sf-frame > .sf-branch-role { color: var(--accent); }
+/* nested containment（項の内部・別チャネル）: さらに indent・控えめ・非 accent。 */
+.sf-nested { flex-basis: 100%; margin: 2px 0 0 12px; border-left: 1px solid var(--border); padding-left: 8px; }
+.sf-nested-item { font: var(--text-caption)/1.6 'Hiragino Sans', sans-serif; color: var(--text-sub); }
+@media (max-width: 768px) {
+    .sf-rel-row { gap: 4px 10px; }
+    .sf-chip { font-size: var(--text-caption); padding: 2px 6px; }
+    .sf-rel-link { margin-left: 12px; }
+    .sf-l1 { gap: 6px 12px; }
+    .sf-branch { padding-left: 14px; }
+}
+
 .rn-dict-label {
     display: block;
     margin-bottom: var(--space-xs);
@@ -5839,6 +5960,9 @@ async function _renderReadingNotes(p) {
         document.getElementById('rn-semantic-layers'),
         strong, resolvedId, word
     );
+
+    /* SF-14: Structure Flow の frame/referent 弧をレイアウト後に描画（無ければ無処理）。 */
+    _sfScheduleEnhance();
 }
 
 /* ══════════════════════════════════════════
@@ -9463,27 +9587,266 @@ function _flowTreeJaForRef(ref) {
     }
     return '';
 }
-/* NeighborhoodView Model（{nodeId, tokens, isFocus, expanded, children}）を
- * _ft11RenderList が期待する表示用アイテム（{label, isFocus, expanded, children}）
- * へ変換する。focus探索・anchor探索・expanded判定は一切ここで行わない
- * （neighborhood-view.js が既に確定させた値をそのまま透過するのみ）。 */
-function _ft11ToRenderItem(vmNode) {
-    return {
-        label: _ft11LabelOf(vmNode.tokens),
-        isFocus: vmNode.isFocus,
-        expanded: vmNode.expanded,
-        children: vmNode.children.map(_ft11ToRenderItem),
+/* SF-11/SF-16: role の生値→日本語（SF-10 §4）。生の s/o/v… は UI に出さない。 */
+const _SF_ROLE_JA = { s: '主語', o: '目的語', io: '間接目的語', v: '動詞', vc: '繋ぎの動詞', p: '補語', adv: '副詞的', aux: '助動詞' };
+/* SF-16: Structure Flow 横軸の「表示配置優先順位」（文法的正解語順ではなく UI layout rank）。
+ * 原文順は Word Order Flow が担うため、Structure Flow は関係を読みやすい順で並べる。
+ * role を持たない語は 8（末尾・元の相対順を維持）。role の推測付与はしない。 */
+const _SF_ROLE_RANK = { s: 1, v: 2, vc: 3, p: 4, o: 5, io: 6, adv: 7, aux: 8 };
+/* SF-8〜SF-14: focus 中心の関係モデル。構造(parentId/children/order)＋SF-11 搬送の
+ * role/frame/referent を「存在する時のみ」読む。SF-14: frame/referent の明示 node-id を
+ * band chip index へ写像した edge を作る（focus-incident・同 band・非ゼロ・非文外のみ）。
+ * nested target は「その語を含む band chip」へ写像（個別 token へ drill しない）。
+ * ὃ→πᾶν 等、データに無い関係は生成しない（L-0）。 */
+function _sfRelationModel(nodesById, ref) {
+    if (!nodesById || !ref) return null;
+    let focus = null;
+    for (const id in nodesById) {
+        const n = nodesById[id];
+        if (n && n.type === 'word' && Array.isArray(n.tokens) && n.tokens[0] === ref) { focus = n; break; }
+    }
+    if (!focus) return null;
+    const parent = focus.parentId != null ? nodesById[focus.parentId] : null;
+    if (!parent) return null;
+    const sibs0 = Array.isArray(parent.children) ? parent.children : [];
+    // SF-16: 横軸を原文順→layout rank 順へ並べ替える（Word Order と役割分離）。
+    // stable sort（rank, 元の index）。role 無しは rank 8＝末尾で元順維持（中立順）。
+    const _rankOf = (n) => (n && n.role && _SF_ROLE_RANK[n.role]) ? _SF_ROLE_RANK[n.role] : 8;
+    const sibs = sibs0.map((s, i) => i)
+        .sort((a, b) => (_rankOf(sibs0[a]) - _rankOf(sibs0[b])) || (a - b))
+        .map(i => sibs0[i]);
+    const focusIdx = sibs.findIndex(s => s.id === focus.id);
+    let upper = null;
+    if (parent.type !== 'clause') {
+        let cur = parent.parentId != null ? nodesById[parent.parentId] : null;
+        while (cur) {
+            if (cur.type === 'clause') { upper = cur; break; }
+            cur = cur.parentId != null ? nodesById[cur.parentId] : null;
+        }
+    }
+    const bandRoleJa = (parent.role && _SF_ROLE_JA[parent.role]) ? _SF_ROLE_JA[parent.role] : null;
+
+    // node-id → それを含む band chip の index（文外/写像不能は -1）
+    const idxForNode = (id) => {
+        const t = nodesById[id];
+        if (!t || !Array.isArray(t.tokens) || !t.tokens.length) return -1;
+        const r = t.tokens[0];
+        return sibs.findIndex(s => Array.isArray(s.tokens) && s.tokens.indexOf(r) !== -1);
     };
+    const frameArgIds = (n) => (n && n.frame ? String(n.frame).trim().split(/\s+/) : [])
+        .map(p => (/^A\d+:(\S+)$/.exec(p) || [])[1]).filter(Boolean);
+
+    // frame edges（focus-incident・同 band）。edge = {pred, arg}（arrowhead=arg 側）。
+    const frameEdges = [];
+    const seen = new Set();
+    const addEdge = (pred, arg) => {
+        if (pred < 0 || arg < 0 || pred === arg) return;
+        const k = pred + ':' + arg; if (seen.has(k)) return; seen.add(k); frameEdges.push({ pred, arg });
+    };
+    if (focusIdx >= 0) {
+        // focus が述語 → その項へ
+        if ((focus.role === 'v' || focus.role === 'vc')) {
+            for (const id of frameArgIds(focus)) {
+                if (id === 'n00000000000' || !nodesById[id]) continue;   // ゼロ/文外は接続しない
+                addEdge(focusIdx, idxForNode(id));
+            }
+        }
+        // focus が項 → focus を項に持つ同 band 述語へ
+        sibs.forEach((s, i) => {
+            if (i === focusIdx || !s.frame) return;
+            if (frameArgIds(s).indexOf(focus.id) !== -1) addEdge(i, focusIdx);
+        });
+    }
+
+    // referent edges（同 sentence のみ・別チャネル）＋文外含めた解決語ラベル（縮退注記用・同文のみ）
+    const referentEdges = [];
+    let referentLabels = null;
+    if (focus.referent && focusIdx >= 0) {
+        const labels = [];
+        for (const id of String(focus.referent).trim().split(/\s+/)) {
+            if (id === 'n00000000000') continue;
+            const rn = nodesById[id];
+            if (!rn) continue;                             // 文外は線もラベルも作らない
+            const t = _ft11LabelOf(rn.tokens); if (t) labels.push(t);
+            const ti = idxForNode(id);
+            if (ti >= 0 && ti !== focusIdx) referentEdges.push({ src: focusIdx, tgt: ti });
+        }
+        if (labels.length) referentLabels = labels;
+    }
+
+    // SF-18: 2段レイアウト。上段=節の核 {s,v,vc}、下段=項 {o,io,p,adv,…}。
+    // role のみで段を決める（推測付与しない）。上段/下段が両方揃う時だけ2段化、
+    // それ以外（role無し/片方のみ）は単段（SF-16 フォールバック）。
+    const _SF_TOP = { s: 1, v: 1, vc: 1 };
+    const rows = sibs.map(s => (s && s.role && _SF_TOP[s.role]) ? 't' : 'b');
+    const useTwoRow = rows.indexOf('t') !== -1 && rows.indexOf('b') !== -1;
+
+    return { focus, parent, sibs, upper, bandRoleJa, focusIdx, frameEdges, referentEdges, referentLabels, rows, useTwoRow };
 }
-function _ft11RenderList(items) {
-    return items.map(item => {
-        const focusStyle = item.isFocus ? ' style="font-weight:600;"' : '';
-        const sub = (item.expanded && item.children && item.children.length)
-            ? `<ul style="list-style:none;padding-left:16px;margin-top:2px;">${_ft11RenderList(item.children)}</ul>`
+/* Relation Flow レンダラ（SF-19 縦型）。第1層＝主語＋主動詞（横並び・固定）、
+ * その下に「動詞→各項」を縦に1つずつ並べる（CSS の trunk＋横枝）。frame は accent の枝、
+ * 主語は第1層配置で表現し線を引かない。nested（項の内部 children）は包含として項の下に別チャネルで表示。
+ * referent は同文明示のみ注記。生値・推論・ὃ→πᾶン は出さない。動詞が無い band は単段へフォールバック。 */
+function _sfRenderRelationFlow(m) {
+    const roleJaOf = (n) => (n && n.role && _SF_ROLE_JA[n.role]) ? _SF_ROLE_JA[n.role] : '';
+    const chip = (n, isF) => `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_escH(_ft11LabelOf(n.tokens) || '（この構成語）')}</span>`;
+    const cap = m.bandRoleJa
+        ? `所属するまとまり<span class="sf-caprole"> · ${_escH(m.bandRoleJa)}</span>`
+        : '所属するまとまり';
+    const refNote = m.referentLabels
+        ? `<div class="sf-ref-note sf-show"><span class="sf-note-h">共参照</span>${m.referentLabels.map(_escH).join('、')}</div>`
+        : '';
+    const upperHtml = m.upper
+        ? `<div class="sf-rel-link"></div><div class="sf-rel-band"><span class="sf-cap">上位</span>${chip(m.upper, false)}</div>`
+        : '';
+
+    const TOP = { s: 1, v: 1, vc: 1 };
+    const verbIdx = m.sibs.findIndex(s => s.role === 'v' || s.role === 'vc');
+
+    // フォールバック（主動詞なし＝role無し band 等）: SF-16 単段（役割整列のみ）。
+    if (verbIdx < 0) {
+        const col = (n) => {
+            const isF = n.id === m.focus.id; const rj = roleJaOf(n);
+            return `<span class="sf-col"><span class="sf-role-cap${isF && rj ? ' is-focus' : ''}">${_escH(rj)}</span>${chip(n, isF)}</span>`;
+        };
+        const cols = m.sibs.length ? m.sibs.map(col).join('') : col(m.focus);
+        return `<div class="sf-rel"><div class="sf-rel-focusband"><span class="sf-cap">${cap}</span><div class="sf-rel-row">${cols}</div></div>${upperHtml}${refNote}</div>`;
+    }
+
+    // 第1層 col（role を chip の上に）。
+    const l1col = (n) => {
+        const isF = n.id === m.focus.id; const rj = roleJaOf(n);
+        return `<span class="sf-col"><span class="sf-role-cap${isF && rj ? ' is-focus' : ''}">${_escH(rj)}</span>${chip(n, isF)}</span>`;
+    };
+    const subjIdx = m.sibs.findIndex(s => s.role === 's');
+    const verbSib = m.sibs[verbIdx];
+    const subjHtml = subjIdx >= 0 ? l1col(m.sibs[subjIdx]) : '';
+
+    // 枝に載せる下段 sib。focus が第1層(主語/動詞)なら全ての下段 role sib、
+    // focus が項ならその focus のみ（無理に他項を出さない＝focus-incident 維持）。
+    const focusL1 = !!(m.focus.role && TOP[m.focus.role]);
+    const branchIdxs = focusL1
+        ? m.sibs.map((s, i) => i).filter(i => m.sibs[i].role && !TOP[m.sibs[i].role])
+        : [m.focusIdx];
+    const hasFrameTo = (argIdx) => m.frameEdges.some(e => e.pred === verbIdx && e.arg === argIdx);
+
+    /* SF-27: 枝ラベルのみ、極端に長い従属節を表示上「先頭＋…」へ切り詰める（段落化を防ぎ
+       "構造上の枝ラベル" として走査可能にする）。閾値 SF_BRANCH_MAX は SF-26 の実測に基づく
+       （360px の 1 行 ≈ 20〜22 日本語字 → 約2行分＝40字）。短/中枝（C1/C3/C6=23字/C7=30字）は
+       全文のまま、E1（137字/6行）型のみ短縮。data / Japanese / role / frame / referent は不変
+       （表示文字列のみ・推論なし＝L-0 安全）。第1層(主語+動詞)・上位は対象外。 */
+    const SF_BRANCH_MAX = 40;
+    const branchChip = (n, isF) => {
+        const full = _ft11LabelOf(n.tokens) || '（この構成語）';
+        const shown = full.length > SF_BRANCH_MAX ? full.slice(0, SF_BRANCH_MAX) + '…' : full;
+        return `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_escH(shown)}</span>`;
+    };
+    const branchHtml = branchIdxs.map(bi => {
+        const n = m.sibs[bi]; const isF = n.id === m.focus.id; const rj = roleJaOf(n);
+        const frameCls = hasFrameTo(bi) ? ' sf-frame' : '';
+        // nested: 項の直接の子のうち role を持つもの（1階層・包含・別チャネル）。存在データのみ。
+        const kids = Array.isArray(n.children) ? n.children.filter(c => c && c.role && _SF_ROLE_JA[c.role]) : [];
+        const nested = kids.length
+            ? `<div class="sf-nested">${kids.map(c => `<div class="sf-nested-item"><span class="sf-branch-role">${_escH(_SF_ROLE_JA[c.role])}</span>${_escH(_ft11LabelOf(c.tokens) || '')}</div>`).join('')}</div>`
             : '';
-        return `<li style="padding:3px 0 3px 10px;border-left:2px solid var(--border-soft, #e5e0d5);"><span${focusStyle}>${_escH(item.label || '（この構成語）')}</span>${sub}</li>`;
+        return `<div class="sf-branch${frameCls}"><span class="sf-branch-role">${_escH(rj)}</span>${branchChip(n, isF)}${nested}</div>`;
     }).join('');
+    const branches = branchHtml ? `<div class="sf-branches">${branchHtml}</div>` : '';
+
+    const html = `<div class="sf-rel-focusband sf-vert">`
+        + `<span class="sf-cap">${cap}</span>`
+        + `<div class="sf-l1">${subjHtml}<span class="sf-verb-wrap">${l1col(verbSib)}${branches}</span></div>`
+        + `</div>`;
+    return `<div class="sf-rel">${html}${upperHtml}${refNote}</div>`;
 }
+/* SF-14: レイアウト後に focusband を測り、frame(下・実線・矢頭)/referent(上・点線)の弧を
+ * inline SVG で描く。折返し or 幅不足なら縮退（弧を消し .sf-frame-note/.sf-ref-note を表示）。
+ * 推論はしない（edge は data 属性の明示 index ペアのみ）。 */
+function _sfEnhanceRelations(scope) {
+    const root = scope || document;
+    const bands = root.querySelectorAll ? root.querySelectorAll('.sf-rel-focusband') : [];
+    bands.forEach((band) => {
+        const svg = band.querySelector(':scope > .sf-arc-svg');
+        const frameEdges = _sfParseEdges(band.getAttribute('data-sf-frame'));
+        const refEdges = _sfParseEdges(band.getAttribute('data-sf-ref'));
+        if (!svg || (!frameEdges.length && !refEdges.length)) return;
+        const bRect = band.getBoundingClientRect();
+        const chipRect = (i) => {
+            const el = band.querySelector('.sf-chip[data-sf-idx="' + i + '"]');
+            if (!el) return null;
+            const r = el.getBoundingClientRect();
+            const colEl = el.closest ? el.closest('.sf-col') : null;
+            const cr = colEl ? colEl.getBoundingClientRect() : r;
+            return {
+                cx: r.left + r.width / 2 - bRect.left,
+                top: r.top - bRect.top, bottom: r.bottom - bRect.top,
+                colTop: cr.top - bRect.top,          // role キャップを含む列の上端（矢頭はここへ＝ラベルと非重複）
+                row: el.getAttribute('data-sf-row') || 's',
+                wrapKey: Math.round(r.top)
+            };
+        };
+        const idxs = new Set();
+        frameEdges.concat(refEdges).forEach(e => { idxs.add(e.a); idxs.add(e.b); });
+        const rects = {}; let ok = true; const rowKey = {};
+        // 折返し判定は「同一段(row)内で行がずれていないか」。2段(top/bottom)は別段なので OK。
+        idxs.forEach(i => {
+            const r = chipRect(i); if (!r) { ok = false; return; } rects[i] = r;
+            if (rowKey[r.row] == null) rowKey[r.row] = r.wrapKey;
+            else if (Math.abs(r.wrapKey - rowKey[r.row]) > 2) ok = false;
+        });
+        const rel = band.closest ? band.closest('.sf-rel') : null;
+        const refNote = rel && rel.querySelector('.sf-ref-note');
+        if (!ok) {   // 段内で折返し・chip 欠落 → 縮退（線を消し注記へ）
+            band.classList.add('sf-degraded'); svg.innerHTML = '';
+            if (refNote) refNote.classList.add('sf-show');
+            return;
+        }
+        band.classList.remove('sf-degraded');
+        if (refNote) refNote.classList.remove('sf-show');
+        svg.setAttribute('width', bRect.width);
+        svg.setAttribute('height', bRect.height);
+        svg.setAttribute('viewBox', '0 0 ' + bRect.width + ' ' + bRect.height);
+        let out = '';
+        // frame: 上段述語 → 下段項の「短い縦エルボ」。同段(例: 述語↔主語)は配置で表すため線を引かない。
+        // 述語ごとに trunk＋bus＋drop でまとめる（矢頭 ▾ は項側の列上端）。
+        const groups = {};
+        frameEdges.forEach(e => {
+            const pr = rects[e.a], ar = rects[e.b];
+            if (!pr || !ar || pr.row === ar.row) return;   // 同段はスキップ（主語は配置で表現）
+            (groups[e.a] = groups[e.a] || []).push(e.b);
+        });
+        Object.keys(groups).forEach(pi => {
+            const pr = rects[pi]; const args = groups[pi].map(i => rects[i]).filter(Boolean);
+            if (!pr || !args.length) return;
+            const minTop = Math.min.apply(null, args.map(a => a.colTop));
+            const busY = pr.bottom + Math.max(6, (minTop - pr.bottom) * 0.5);
+            out += `<path d="M ${pr.cx} ${pr.bottom} L ${pr.cx} ${busY}" class="sf-arc-frame-path"/>`;   // trunk
+            args.forEach(a => {
+                out += `<path d="M ${pr.cx} ${busY} L ${a.cx} ${busY} L ${a.cx} ${a.colTop}" class="sf-arc-frame-path"/>`;  // bus + drop
+                out += `<path d="M ${a.cx} ${a.colTop} l -4 -6 l 8 0 z" class="sf-arw"/>`;                 // ▾ target
+            });
+        });
+        // referent: 上・点線・矢頭なし（別チャネル）
+        refEdges.forEach((e, li) => {
+            const sr = rects[e.a], tr = rects[e.b]; if (!sr || !tr) return;
+            const y0 = Math.min(sr.colTop, tr.colTop) - 3;
+            const depth = 8 + li * 6;
+            const midx = (sr.cx + tr.cx) / 2;
+            out += `<path d="M ${sr.cx} ${y0} Q ${midx} ${y0 - depth} ${tr.cx} ${y0}" class="sf-arc-ref-path"/>`;
+        });
+        svg.innerHTML = out;
+    });
+}
+function _sfParseEdges(s) {
+    if (!s) return [];
+    return s.split(',').map(p => { const m = /^(\d+):(\d+)$/.exec(p.trim()); return m ? { a: +m[1], b: +m[2] } : null; }).filter(Boolean);
+}
+let _sfEnhanceRAF = 0;
+function _sfScheduleEnhance() {
+    if (_sfEnhanceRAF) cancelAnimationFrame(_sfEnhanceRAF);
+    _sfEnhanceRAF = requestAnimationFrame(() => { _sfEnhanceRAF = 0; try { _sfEnhanceRelations(document); } catch (_) {} });
+}
+if (typeof window !== 'undefined') window.addEventListener('resize', _sfScheduleEnhance);
 
 /* NeighborhoodView を既存 StudyPanel（word モード）へ差し込むための HTML を返す。
  * neighborhood-view-design.md の方針通り、実際の兄弟関係を "children" と
@@ -9556,16 +9919,18 @@ async function _buildFlowTreeNeighborhoodViewHTML(ref) {
         const nv = window.App.neighborhoodView.buildNeighborhoodView(representation, ref);
         if (!nv) return '';
 
-        const constituents = nv.constituents.map(_ft11ToRenderItem);
-        const listHTML = _ft11RenderList(constituents);
-        const originNote = nv.usedFallback ? '所属節なし → 文全体を単位として表示' : '所属節を単位として表示';
+        // SF-8: focus 中心の関係を既存 representation.nodesById から薄く抽出して描画する。
+        // buildNeighborhoodView は経路維持と fallback 判定のために呼ぶ（上の nv）。
+        const relModel = _sfRelationModel(representation.nodesById, ref);
+        if (!relModel) return '';
+        const listHTML = _sfRenderRelationFlow(relModel);
+        const originNote = nv.usedFallback ? '所属節なし → 文全体を基準に表示' : 'この語を中心に、前後・所属・上位のまとまりを表示';
 
         return `
         <details class="rn-level-section" id="rn-flowtree-neighborhood">
-            <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>この語の構造上の位置づけ</summary>
+            <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>文の組み立てを見る</summary>
             <div class="rn-level-body">
-                <div style="font-size:11px;color:var(--text-sub,#9a9484);margin-bottom:10px;">Lowfat由来の構造情報（${originNote}${noteSuffix}）</div>
-                <ul style="list-style:none;">${listHTML}</ul>
+                <div class="sf-flow">${listHTML}</div>
             </div>
         </details>`;
     } catch (_) {
@@ -11220,6 +11585,8 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
     _fillMvvReadingSlot(_scopeWords, _scopeIdx);
     /* Phase F-4: 「意味を見る」スロットへ semantic ドメインラベルを非同期注入（情報提供のみ）。 */
     _fillMvvSemanticSlot(_scopeWords, _scopeIdx);
+    /* SF-22: Structure Flow を mobile 語詳細へ非同期注入（fire-and-forget・世代管理）。 */
+    _fillMvvFlowSlot(AppState.inspect.data?.ref);
 }
 
 /* Phase F-3: 語A解析中に語Bへ移動した場合、古い非同期結果の誤注入を防ぐ世代カウンタ。
@@ -11322,6 +11689,24 @@ async function _fillMvvReadingSlot(words, idx) {
     }
 }
 
+/* SF-22: mobile 語詳細 → Structure Flow を非同期注入。desktop の生成器
+ * _buildFlowTreeNeighborhoodViewHTML(ref) を無改変で再利用（HTML は生成器内で _escH 済み、
+ * desktop reading-notes-area と同一経路）。_fillMvvReadingSlot と同じ世代管理で、
+ * 語/verse 切替時の stale 注入と inspector クローズ後の注入を防ぐ。SF-20 の FLOW 構造は不変。 */
+let _mvvFlowGen = 0;
+async function _fillMvvFlowSlot(ref) {
+    const slot0 = document.getElementById('mvv-flow-slot');
+    if (!slot0) return;
+    const myGen = ++_mvvFlowGen;
+    slot0.innerHTML = '';
+    let html = '';
+    try { html = ref ? await _buildFlowTreeNeighborhoodViewHTML(ref) : ''; } catch (_) { html = ''; }
+    if (myGen !== _mvvFlowGen) return;                       /* 別の語/verse へ移動済み → 破棄 */
+    const slot = document.getElementById('mvv-flow-slot');   /* inspector を閉じた後は null */
+    if (!slot) return;
+    slot.innerHTML = html || '';                             /* '' は空のまま（静寂） */
+}
+
 /* Phase F-4: 語A検索中に語Bへ移動した場合、古い semantic 結果の誤注入を防ぐ世代カウンタ。
    Reading Notes 用 _mvvReadingGen とは独立。 */
 let _mvvSemanticGen = 0;
@@ -11405,6 +11790,10 @@ function _renderMobileWordDetail(d) {
           ${d.gloss ? `<div style="margin-top:var(--space-xs);font-size:var(--text-body);color:var(--text-sub);">${_escH(d.gloss)}</div>` : ''}
           <div class="mvv-l3-slot" id="mvv-reading-slot" style="display:none;margin-top:var(--space-sm);"></div>
         </div>
+
+        <!-- SF-22: Structure Flow スロット（desktop reading-notes-area と同じ生成 HTML を非同期注入。
+             生成物が自前の <details class="rn-level-section"> を持つため外側に details を足さない）。 -->
+        <div class="mvv-l3-slot" id="mvv-flow-slot" style="margin-top:var(--space-md);"></div>
 
         ${hasStudyDetails ? `
         <details class="mvv-l3-section">
