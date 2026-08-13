@@ -9730,6 +9730,17 @@ function _sfRenderRelationFlow(m) {
         : [m.focusIdx];
     const hasFrameTo = (argIdx) => m.frameEdges.some(e => e.pred === verbIdx && e.arg === argIdx);
 
+    /* SF-27: 枝ラベルのみ、極端に長い従属節を表示上「先頭＋…」へ切り詰める（段落化を防ぎ
+       "構造上の枝ラベル" として走査可能にする）。閾値 SF_BRANCH_MAX は SF-26 の実測に基づく
+       （360px の 1 行 ≈ 20〜22 日本語字 → 約2行分＝40字）。短/中枝（C1/C3/C6=23字/C7=30字）は
+       全文のまま、E1（137字/6行）型のみ短縮。data / Japanese / role / frame / referent は不変
+       （表示文字列のみ・推論なし＝L-0 安全）。第1層(主語+動詞)・上位は対象外。 */
+    const SF_BRANCH_MAX = 40;
+    const branchChip = (n, isF) => {
+        const full = _ft11LabelOf(n.tokens) || '（この構成語）';
+        const shown = full.length > SF_BRANCH_MAX ? full.slice(0, SF_BRANCH_MAX) + '…' : full;
+        return `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_escH(shown)}</span>`;
+    };
     const branchHtml = branchIdxs.map(bi => {
         const n = m.sibs[bi]; const isF = n.id === m.focus.id; const rj = roleJaOf(n);
         const frameCls = hasFrameTo(bi) ? ' sf-frame' : '';
@@ -9738,7 +9749,7 @@ function _sfRenderRelationFlow(m) {
         const nested = kids.length
             ? `<div class="sf-nested">${kids.map(c => `<div class="sf-nested-item"><span class="sf-branch-role">${_escH(_SF_ROLE_JA[c.role])}</span>${_escH(_ft11LabelOf(c.tokens) || '')}</div>`).join('')}</div>`
             : '';
-        return `<div class="sf-branch${frameCls}"><span class="sf-branch-role">${_escH(rj)}</span>${chip(n, isF)}${nested}</div>`;
+        return `<div class="sf-branch${frameCls}"><span class="sf-branch-role">${_escH(rj)}</span>${branchChip(n, isF)}${nested}</div>`;
     }).join('');
     const branches = branchHtml ? `<div class="sf-branches">${branchHtml}</div>` : '';
 
