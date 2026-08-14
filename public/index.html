@@ -9827,20 +9827,24 @@ function _sfRenderRelationFlow(m) {
     // SF-27/SF-33: 枝領域の relation ラベル共通の表示上限（先頭 SF_BRANCH_MAX 字＋…）。表示文字列を
     // 切るだけ（既存 japanese のみ・推論/再生成なし＝L-0）。branchChip と nested-item で共有する。
     const _sfTrunc = (s) => (s && s.length > SF_BRANCH_MAX) ? s.slice(0, SF_BRANCH_MAX) + '…' : s;
-    const branchChip = (n, isF) => {
-        // SF-32: 枝は per-token chip 化「しない」。実測で C7 が全幅 +22px 縦伸び（回帰）し、枝ツリーが
-        // 語グリッド化して「構造を見る読書補助」から解析ツール寄りになるため（Reading first / SF-20）。
-        // 従来の SF-27 flat 要約（先頭40字＋…）を維持。副詞的等の長枝 chip 化は別 Phase の人間 UX 判断へ。
-        const shown = _sfTrunc(_ft11LabelOf(n.tokens) || '（この構成語）');
-        return `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_escH(shown)}</span>`;
+    // SF-35: 枝/nested 内容の語境界を可視化。40字以内（＝truncation 非発生）は既存 per-token gap
+    //   (_sfTokenChipsHTML＝.sf-token-chip の spacing) で語間を表示。40字超は既存 SF-27 truncation を
+    //   「一切変更せず」そのまま維持（gap と 40字 truncation は同一枝で同時発生しない＝新しい truncation
+    //   仕様を作らない）。表示は既存 gloss のみ・token 順序/gloss/role 不変＝L-0。branchChip と nested で共有。
+    const _sfContent = (tokens, placeholder) => {
+        const full = _ft11LabelOf(tokens) || (placeholder || '');
+        if (full.length <= SF_BRANCH_MAX) return _sfTokenChipsHTML(tokens) || _escH(full);
+        return _escH(_sfTrunc(full));
     };
+    const branchChip = (n, isF) =>
+        `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_sfContent(n.tokens, '（この構成語）')}</span>`;
     const branchHtml = branchIdxs.map(bi => {
         const n = m.sibs[bi]; const isF = n.id === m.focus.id; const rj = roleJaOf(n);
         const frameCls = hasFrameTo(bi) ? ' sf-frame' : '';
         // nested: 項の直接の子のうち role を持つもの（1階層・包含・別チャネル）。存在データのみ。
         const kids = Array.isArray(n.children) ? n.children.filter(c => c && c.role && _SF_ROLE_JA[c.role]) : [];
         const nested = kids.length
-            ? `<div class="sf-nested">${kids.map(c => `<div class="sf-nested-item"><span class="sf-branch-role">${_escH(_SF_ROLE_JA[c.role])}</span>${_escH(_sfTrunc(_ft11LabelOf(c.tokens) || ''))}</div>`).join('')}</div>`
+            ? `<div class="sf-nested">${kids.map(c => `<div class="sf-nested-item"><span class="sf-branch-role">${_escH(_SF_ROLE_JA[c.role])}</span>${_sfContent(c.tokens, '')}</div>`).join('')}</div>`
             : '';
         return `<div class="sf-branch${frameCls}"><span class="sf-branch-role">${_escH(rj)}</span>${branchChip(n, isF)}${nested}</div>`;
     }).join('');
