@@ -9834,7 +9834,21 @@ function _sfRenderRelationFlow(m) {
     const _sfContent = (tokens, placeholder) => {
         const full = _ft11LabelOf(tokens) || (placeholder || '');
         if (full.length <= SF_BRANCH_MAX) return _sfTokenChipsHTML(tokens) || _escH(full);
-        return _escH(_sfTrunc(full));
+        // SF-37: >40字 は char slice せず token 境界で表示する。surface 順に累積 gloss 長が
+        //   SF_BRANCH_MAX(=budget) を超えない範囲で token を per-token gap 表示し、残余 token が
+        //   あれば「…」を preview marker として付す。token 途中切断・bracket 分断ゼロ（F2 解消）・
+        //   gap 維持（F1 解消）。表示は既存 gloss のみ・surface 順・… は非 token＝L-0。
+        const sorted = tokens.slice().sort((a, b) => _ft11SurfaceIndex(a) - _ft11SurfaceIndex(b));
+        let acc = 0, out = '', omitted = false;
+        for (const ref of sorted) {
+            const g = _flowTreeJaForRef(ref);
+            if (!g) continue;
+            if (acc > 0 && acc + g.length > SF_BRANCH_MAX) { omitted = true; break; }
+            out += `<span class="sf-token-chip">${_escH(g)}</span>`;
+            acc += g.length;
+        }
+        if (omitted) out += `<span class="sf-token-chip">…</span>`;
+        return out || _escH(full);
     };
     const branchChip = (n, isF) =>
         `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_sfContent(n.tokens, '（この構成語）')}</span>`;
