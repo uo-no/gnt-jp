@@ -3712,7 +3712,7 @@ details[open] .study-summary::before {
    nowrap で主語と動詞を常に同一行に固定し、動詞+枝を包む .sf-verb-wrap を残り幅へ
    （flex:1 1 0）押し込む。枝は verb-wrap 幅内で折返す（横 overflow なし）。 */
 .sf-l1 { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 6px 18px; }
-.sf-l1 > .sf-col { flex: 0 1 auto; min-width: 0; }
+.sf-l1 > .sf-col { flex: 0 1 auto; min-width: 0; max-width: 60%; }
 .sf-l1 > .sf-verb-wrap { flex: 1 1 0; }
 .sf-verb-wrap { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
 /* 動詞から下がる trunk（縦・accent）。動詞 chip の下あたりに置く。枝は verb-wrap 幅に追従して折返す。 */
@@ -3732,7 +3732,22 @@ details[open] .study-summary::before {
 .sf-branch.sf-frame > .sf-branch-role { color: var(--accent); }
 /* nested containment（項の内部・別チャネル）: さらに indent・控えめ・非 accent。 */
 .sf-nested { flex-basis: 100%; margin: 2px 0 0 12px; border-left: 1px solid var(--border); padding-left: 8px; }
-.sf-nested-item { font: var(--text-caption)/1.6 'Hiragino Sans', sans-serif; color: var(--text-sub); }
+/* SF-31: 長主語（子孫に clause を持つ主語）の構造保持型段組み。既存 clause 境界で最上位 clause
+   単位に段分けし、各 token は排他的に1回だけ表示（surface 順・既存 japanese 値のみ）。従来 chip の
+   枠内に軽い区切り線で積むだけ（新しい syntax tree UI は作らない）。 */
+.sf-chip.sf-subj-struct { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; }
+.sf-subj-seg { display: block; }
+.sf-subj-seg + .sf-subj-seg { padding-top: 3px; border-top: 1px dashed var(--border); }
+/* SF-32: relation 内部を per-token の視覚 chip に分解し「単語が境目なく連結」を解消。単語間に
+   微小 gap を入れるだけ（罫線・背景・拡大フォントなし）。FLOW の「1 token=1 視覚単位」という
+   視覚語彙のみ共有し、interaction（onclick/hover/文法色）と .wlv-chip-ja の拡大サイズは持ち込まず
+   SF の compact スケール（.sf-chip 継承 0.9rem）を維持＝解析ツール化しない/Reading first。 */
+.sf-token-chip { display: inline-block; }
+.sf-token-chip + .sf-token-chip { margin-left: 7px; }
+/* SF-34: nested の Role↔Content 境界を明確化。content を SF 全体と一貫の text-main にし、role
+   （.sf-branch-role＝text-sub の静かなラベル）とコントラストを付ける。色のみ＝高さ/折返し不変
+   （C7 geometry byte-identical）。pill/背景/罫線/chip/segment/gap は追加しない（Reading first）。 */
+.sf-nested-item { font: var(--text-caption)/1.6 'Hiragino Sans', sans-serif; color: var(--text-main); }
 @media (max-width: 768px) {
     .sf-rel-row { gap: 4px 10px; }
     .sf-chip { font-size: var(--text-caption); padding: 2px 6px; }
@@ -9576,6 +9591,22 @@ function _ft11LabelOf(tokens) {
     return tokens.slice().sort((a, b) => _ft11SurfaceIndex(a) - _ft11SurfaceIndex(b))
         .map(ref => _flowTreeJaForRef(ref)).join('');
 }
+/* SF-32: relation の tokens を「1 token = 1 視覚 chip」で描画する（surface 順）。gloss は既存
+ * _flowTreeJaForRef のみ（Reading Engine / naturalize / PresentationPolicy 非経由・新日本語生成
+ * なし＝L-0）。gloss 空 token は flat 連結（_ft11LabelOf）でも不可視なので出さない＝表示内容は
+ * 不変で「区切り」だけ加わる。interaction は付けない（視覚語彙のみ FLOW と共有）。可視 chip が
+ * 無ければ '' を返し、呼び出し側が従来 flat ラベルへフォールバック。 */
+function _sfTokenChipsHTML(tokens) {
+    if (!Array.isArray(tokens) || !tokens.length) return '';
+    const sorted = tokens.slice().sort((a, b) => _ft11SurfaceIndex(a) - _ft11SurfaceIndex(b));
+    let out = '';
+    for (const ref of sorted) {
+        const g = _flowTreeJaForRef(ref);
+        if (!g) continue;
+        out += `<span class="sf-token-chip">${_escH(g)}</span>`;
+    }
+    return out;
+}
 /* label 用の既存日本語表示値を token ref から引く（新規生成・推論はしない）。
    VR-6-C: MAT 1:1 は既存 prototype マップ _FT11_JAPANESE を厳密維持（baseline）、
    それ以外は現在の章キャッシュ _cachedElByVerse（bible_data の既存 japanese 値）を参照。
@@ -9593,11 +9624,11 @@ function _flowTreeJaForRef(ref) {
     return '';
 }
 /* SF-11/SF-16: role の生値→日本語（SF-10 §4）。生の s/o/v… は UI に出さない。 */
-const _SF_ROLE_JA = { s: '主語', o: '目的語', io: '間接目的語', v: '動詞', vc: '繋ぎの動詞', p: '補語', adv: '副詞的', aux: '助動詞' };
+const _SF_ROLE_JA = { s: '主語', o: '目的語', o2: '第二目的語', io: '間接目的語', v: '動詞', vc: '繋ぎの動詞', p: '補語', adv: '副詞的', aux: '助動詞' };
 /* SF-16: Structure Flow 横軸の「表示配置優先順位」（文法的正解語順ではなく UI layout rank）。
  * 原文順は Word Order Flow が担うため、Structure Flow は関係を読みやすい順で並べる。
  * role を持たない語は 8（末尾・元の相対順を維持）。role の推測付与はしない。 */
-const _SF_ROLE_RANK = { s: 1, v: 2, vc: 3, p: 4, o: 5, io: 6, adv: 7, aux: 8 };
+const _SF_ROLE_RANK = { s: 1, v: 2, vc: 3, p: 4, o: 5, o2: 6, io: 7, adv: 8, aux: 9 };
 /* SF-8〜SF-14: focus 中心の関係モデル。構造(parentId/children/order)＋SF-11 搬送の
  * role/frame/referent を「存在する時のみ」読む。SF-14: frame/referent の明示 node-id を
  * band chip index へ写像した edge を作る（focus-incident・同 band・非ゼロ・非文外のみ）。
@@ -9692,9 +9723,53 @@ function _sfRelationModel(nodesById, ref) {
  * その下に「動詞→各項」を縦に1つずつ並べる（CSS の trunk＋横枝）。frame は accent の枝、
  * 主語は第1層配置で表現し線を引かない。nested（項の内部 children）は包含として項の下に別チャネルで表示。
  * referent は同文明示のみ注記。生値・推論・ὃ→πᾶン は出さない。動詞が無い band は単段へフォールバック。 */
+/* SF-31: 長主語（子孫に clause を持つ主語）だけ、既存 clause 境界で「最上位 clause 単位」に
+   段組みする。各 leaf token を最上位 clause 祖先（無ければ orphan）へ排他的に1回だけ割当て、
+   segment 内は surface index 順で既存 japanese 値のみを連結（再生成・並替・語義選択・referent/
+   discourse 推定なし＝L-0）。clause を持たない or 単一 segment の主語は null を返し、呼び出し側が
+   従来の chip にフォールバック（＝通常ケースは不変）。深い入れ子は最上位 clause で平坦化し、
+   多段インデントは作らない（読みやすさ優先）。 */
+function _sfSubjectHTML(n) {
+    if (!n || !Array.isArray(n.tokens) || !n.tokens.length) return null;
+    // leaf word の各 token を「最上位 clause 祖先」の id へ割当て（無ければ null＝orphan）。
+    const owner = {};
+    (function walk(node, topClause) {
+        const tc = topClause || (node.type === 'clause' ? node : null);
+        if (node.type === 'word' && Array.isArray(node.tokens)) {
+            for (const r of node.tokens) owner[r] = tc ? tc.id : null;
+        }
+        if (Array.isArray(node.children)) node.children.forEach(c => walk(c, tc));
+    })(n, null);
+    let hasClause = false;
+    for (const r in owner) { if (owner[r] != null) { hasClause = true; break; } }
+    if (!hasClause) return null; // clause 無し＝従来 chip
+    // surface 順に走査し、owner 単位で排他 bucket 化（clause は非連続 token を1 segment に集約）。
+    const toks = n.tokens.slice().sort((a, b) => _ft11SurfaceIndex(a) - _ft11SurfaceIndex(b));
+    const segs = []; const bucket = {}; let curNull = null;
+    for (const r of toks) {
+        const o = owner[r];
+        if (o == null) {
+            if (!curNull) { curNull = { refs: [] }; segs.push(curNull); }
+            curNull.refs.push(r);
+        } else {
+            curNull = null;
+            if (!bucket[o]) { bucket[o] = { refs: [] }; segs.push(bucket[o]); }
+            bucket[o].refs.push(r);
+        }
+    }
+    if (segs.length < 2) return null; // 単一 segment＝従来 chip と同義（変化させない）
+    const segHTML = segs.map(s => `<span class="sf-subj-seg">${_sfTokenChipsHTML(s.refs) || _escH(_ft11LabelOf(s.refs) || '（この構成語）')}</span>`).join('');
+    return `<span class="sf-chip sf-ctx sf-subj-struct">${segHTML}</span>`;
+}
 function _sfRenderRelationFlow(m) {
     const roleJaOf = (n) => (n && n.role && _SF_ROLE_JA[n.role]) ? _SF_ROLE_JA[n.role] : '';
-    const chip = (n, isF) => `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_escH(_ft11LabelOf(n.tokens) || '（この構成語）')}</span>`;
+    const chip = (n, isF) => {
+        // SF-32: 3 token 以上の relation のみ per-token chip 化（2 token 以下は「境目なし連結」問題が
+        // 実質なく、chip 化は幅増→枝圧迫の副作用のみのため従来 flat を維持＝C7/通常ケース不変）。
+        const per = (Array.isArray(n.tokens) && n.tokens.length >= 3) ? _sfTokenChipsHTML(n.tokens) : '';
+        const inner = per || _escH(_ft11LabelOf(n.tokens) || '（この構成語）');
+        return `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${inner}</span>`;
+    };
     const cap = m.bandRoleJa
         ? `所属するまとまり<span class="sf-caprole"> · ${_escH(m.bandRoleJa)}</span>`
         : '所属するまとまり';
@@ -9725,7 +9800,15 @@ function _sfRenderRelationFlow(m) {
     };
     const subjIdx = m.sibs.findIndex(s => s.role === 's');
     const verbSib = m.sibs[verbIdx];
-    const subjHtml = subjIdx >= 0 ? l1col(m.sibs[subjIdx]) : '';
+    // SF-31: 主語が子孫 clause を持つ長主語のみ構造段組み。それ以外は従来 chip（l1col）で不変。
+    const subjHtml = (() => {
+        if (subjIdx < 0) return '';
+        const sn = m.sibs[subjIdx];
+        const struct = _sfSubjectHTML(sn);
+        if (!struct) return l1col(sn);
+        const isF = sn.id === m.focus.id; const rj = roleJaOf(sn);
+        return `<span class="sf-col"><span class="sf-role-cap${isF && rj ? ' is-focus' : ''}">${_escH(rj)}</span>${struct}</span>`;
+    })();
 
     // 枝に載せる下段 sib。focus が第1層(主語/動詞)なら全ての下段 role sib、
     // focus が項ならその focus のみ（無理に他項を出さない＝focus-incident 維持）。
@@ -9741,18 +9824,41 @@ function _sfRenderRelationFlow(m) {
        全文のまま、E1（137字/6行）型のみ短縮。data / Japanese / role / frame / referent は不変
        （表示文字列のみ・推論なし＝L-0 安全）。第1層(主語+動詞)・上位は対象外。 */
     const SF_BRANCH_MAX = 40;
-    const branchChip = (n, isF) => {
-        const full = _ft11LabelOf(n.tokens) || '（この構成語）';
-        const shown = full.length > SF_BRANCH_MAX ? full.slice(0, SF_BRANCH_MAX) + '…' : full;
-        return `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_escH(shown)}</span>`;
+    // SF-27/SF-33: 枝領域の relation ラベル共通の表示上限（先頭 SF_BRANCH_MAX 字＋…）。表示文字列を
+    // 切るだけ（既存 japanese のみ・推論/再生成なし＝L-0）。branchChip と nested-item で共有する。
+    const _sfTrunc = (s) => (s && s.length > SF_BRANCH_MAX) ? s.slice(0, SF_BRANCH_MAX) + '…' : s;
+    // SF-35: 枝/nested 内容の語境界を可視化。40字以内（＝truncation 非発生）は既存 per-token gap
+    //   (_sfTokenChipsHTML＝.sf-token-chip の spacing) で語間を表示。40字超は既存 SF-27 truncation を
+    //   「一切変更せず」そのまま維持（gap と 40字 truncation は同一枝で同時発生しない＝新しい truncation
+    //   仕様を作らない）。表示は既存 gloss のみ・token 順序/gloss/role 不変＝L-0。branchChip と nested で共有。
+    const _sfContent = (tokens, placeholder) => {
+        const full = _ft11LabelOf(tokens) || (placeholder || '');
+        if (full.length <= SF_BRANCH_MAX) return _sfTokenChipsHTML(tokens) || _escH(full);
+        // SF-37: >40字 は char slice せず token 境界で表示する。surface 順に累積 gloss 長が
+        //   SF_BRANCH_MAX(=budget) を超えない範囲で token を per-token gap 表示し、残余 token が
+        //   あれば「…」を preview marker として付す。token 途中切断・bracket 分断ゼロ（F2 解消）・
+        //   gap 維持（F1 解消）。表示は既存 gloss のみ・surface 順・… は非 token＝L-0。
+        const sorted = tokens.slice().sort((a, b) => _ft11SurfaceIndex(a) - _ft11SurfaceIndex(b));
+        let acc = 0, out = '', omitted = false;
+        for (const ref of sorted) {
+            const g = _flowTreeJaForRef(ref);
+            if (!g) continue;
+            if (acc > 0 && acc + g.length > SF_BRANCH_MAX) { omitted = true; break; }
+            out += `<span class="sf-token-chip">${_escH(g)}</span>`;
+            acc += g.length;
+        }
+        if (omitted) out += `<span class="sf-token-chip">…</span>`;
+        return out || _escH(full);
     };
+    const branchChip = (n, isF) =>
+        `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_sfContent(n.tokens, '（この構成語）')}</span>`;
     const branchHtml = branchIdxs.map(bi => {
         const n = m.sibs[bi]; const isF = n.id === m.focus.id; const rj = roleJaOf(n);
         const frameCls = hasFrameTo(bi) ? ' sf-frame' : '';
         // nested: 項の直接の子のうち role を持つもの（1階層・包含・別チャネル）。存在データのみ。
         const kids = Array.isArray(n.children) ? n.children.filter(c => c && c.role && _SF_ROLE_JA[c.role]) : [];
         const nested = kids.length
-            ? `<div class="sf-nested">${kids.map(c => `<div class="sf-nested-item"><span class="sf-branch-role">${_escH(_SF_ROLE_JA[c.role])}</span>${_escH(_ft11LabelOf(c.tokens) || '')}</div>`).join('')}</div>`
+            ? `<div class="sf-nested">${kids.map(c => `<div class="sf-nested-item"><span class="sf-branch-role">${_escH(_SF_ROLE_JA[c.role])}</span>${_sfContent(c.tokens, '')}</div>`).join('')}</div>`
             : '';
         return `<div class="sf-branch${frameCls}"><span class="sf-branch-role">${_escH(rj)}</span>${branchChip(n, isF)}${nested}</div>`;
     }).join('');
