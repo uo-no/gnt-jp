@@ -2509,6 +2509,52 @@ display: none;
 .flow-signal.sig-culture   { }
 .flow-signal.sig-default   { }
 
+/* ── DA-1: Discourse Analysis / Clause Connection View ──
+   既存 typography / spacing tokens のみを用い、新しい視覚言語を増やさない。 */
+.dcv-root { padding: var(--space-sm) 0; }
+.dcv-hint {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 0 var(--space-sm) var(--space-md);
+}
+.dcv-hint-title { font-size: var(--text-body); color: var(--text-main); font-weight: 600; }
+.dcv-hint-sub   { font-size: var(--text-caption); color: var(--text-sub); }
+.dcv-chain { display: flex; flex-direction: column; }
+.dcv-unit {
+    display: flex; align-items: baseline; gap: var(--space-sm);
+    padding: var(--space-sm); border-radius: var(--radius-m);
+    background: var(--bg-inset); border: 1px solid var(--border-soft);
+}
+.dcv-unit-vlabel {
+    flex: 0 0 auto; font-size: var(--text-caption); color: var(--text-sub);
+    min-width: 3em;
+}
+.dcv-unit-body {
+    flex: 1 1 auto; font-size: var(--text-body); line-height: 2.0;
+    color: var(--text-main);
+    display: flex; flex-wrap: wrap; gap: var(--rhythm-micro); align-items: baseline;
+}
+.dcv-w { white-space: nowrap; }
+.dcv-w-conn {
+    background: var(--accent-light); border-radius: var(--radius-s);
+    padding: 0 4px; font-weight: 600;
+}
+/* 節間の接続 signal（接続詞）。縦の連なりで「つながり」を示す。 */
+.dcv-conn {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 2px; padding: var(--space-xs) 0;
+}
+.dcv-conn-line { width: 2px; height: var(--space-sm); background: var(--accent-mid); }
+.dcv-conn-badge {
+    display: inline-flex; align-items: baseline; gap: var(--space-xs);
+    padding: 2px var(--space-sm); border-radius: var(--radius-l);
+    background: var(--accent-light); border: 1px solid var(--border-soft);
+    max-width: 100%;
+}
+.dcv-conn-greek { font-size: var(--text-caption); color: var(--text-main); font-weight: 600; }
+.dcv-conn-ja    { font-size: var(--text-caption); color: var(--text-sub); }
+.dcv-conn-none .dcv-conn-line { height: var(--space-md); background: var(--border-soft); }
+.dcv-empty { padding: var(--space-lg); color: var(--text-sub); font-size: var(--text-caption); }
+
 .flow-signal-text {
     font-size: var(--text-body);
 }
@@ -4406,6 +4452,9 @@ const TRANSLATIONS = {
 /*  'KAI17':  { label: '新改訳2017',         code: 'KAI17'  },
     'KYO':    { label: '聖書協会共同訳',     code: 'KYO'    },*/
     'FLOW':   { label: '読解フロー',         code: 'FLOW'   },
+    /* DA-1: 談話分析（節と節のつながり）。FLOW と同じく疑似翻訳ID（訳文JSONを持たない
+       Greek由来の読み方）。URL互換のため TRANSLATIONS に置く。 */
+    'DISCOURSE': { label: '談話分析',        code: 'DISCOURSE' },
 };
 const TRANS_LIST   = Object.entries(TRANSLATIONS).map(([id, t]) => ({ id, name: t.label, code: t.code }));
 const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t]) => [id, t.label]));
@@ -4416,7 +4465,7 @@ const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t
  * Bible Picker の「翻訳を選択」グループはここを正とする。
  */
 const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
-    .filter(([id]) => id !== 'FLOW')
+    .filter(([id]) => id !== 'FLOW' && id !== 'DISCOURSE')
     .map(([id, t]) => ({ id, label: t.label, code: t.code }));
 
 /**
@@ -4430,6 +4479,9 @@ const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
 const DISPLAY_MODE_REGISTRY = [
     ...TRANSLATION_REGISTRY.map(t => ({ kind: 'translation', translationId: t.id, label: t.label })),
     { kind: 'wordOrder', label: TRANSLATIONS.FLOW.label },
+    /* DA-1: 談話分析モード。既存 translation / wordOrder の分岐構造は変更せず、
+       kind='discourse' を1エントリ追加するのみ。 */
+    { kind: 'discourse', label: TRANSLATIONS.DISCOURSE.label },
 ];
 
 /* アクティブ翻訳（A = メイン / B = 比較列）。_transA / _transB が唯一のSSOT（Phase TR-5）。 */
@@ -8348,14 +8400,14 @@ async function init() {
         const _colA = _toColumnMode(_transA);
         const _colB = _toColumnMode(_transB);
 
-        /* ColumnMode が wordOrder の場合は翻訳JSONをfetchしない */
-        const jpData = _colA.kind === 'wordOrder'
+        /* ColumnMode が wordOrder / discourse（Greek由来・訳文なし）の場合は翻訳JSONをfetchしない */
+        const jpData = _isGreekReadingMode(_colA.kind)
             ? null
             : await _fetchTranslation(_transA, book, ch);
-        if (_colA.kind !== 'wordOrder' && !jpData) throw new Error(`bible_jp not found: ${book}/${ch}`);
+        if (!_isGreekReadingMode(_colA.kind) && !jpData) throw new Error(`bible_jp not found: ${book}/${ch}`);
 
         let jpDataB = null;
-        if (_transMode === 'compare' && _colB.kind !== 'wordOrder') {
+        if (_transMode === 'compare' && !_isGreekReadingMode(_colB.kind)) {
             jpDataB = await _fetchTranslation(_transB, book, ch);
         }
 
@@ -8373,6 +8425,10 @@ async function init() {
                 console.warn(`bible_data fetch error for ${book}/${ch}:`, e);
             }
         }
+
+        /* DA-1: discourse は flow-tree（clause/sentence 構造）を先読みして render() へ渡す。 */
+        _dcvChapterTreeForRender = (_colA.kind === 'discourse')
+            ? await _loadFlowTreeChapter(book, ch) : null;
 
         /* VR-5-D: resolvedJpData 決定ロジックを _getVerseSource() へ抽出（VR-5-C 参照） */
         const resolvedJpData = _getVerseSource(_colA, jpData, elData);
@@ -8617,6 +8673,20 @@ app.innerHTML = '';
     const colB  = columns[1];
     const _colA = colA.colMode;
     const _colB = colB.colMode;
+
+    /* DA-1: 談話分析モード。節ごとの verse-block ループではなく、passage（章）単位の
+       clause 接続ビューを1つだけ描く。既存の verse-loop / wordOrder / translation 経路には
+       一切合流させず、ここで早期 return する（新しい if を verse ループ内へ増やさない）。 */
+    if (_colA.kind === 'discourse') {
+        const _dcvBookKey = AppState.location.book ? AppState.location.book.key : (elData[0] ? elData[0].book : '');
+        const _dcvCh      = AppState.location.chapter != null ? AppState.location.chapter : null;
+        const _dcvRep     = buildDiscourseRepresentation(_dcvBookKey, _dcvCh, elData, _dcvChapterTreeForRender);
+        app.innerHTML      = renderColumn(_dcvRep);
+        parallel.innerHTML = '';
+        _cachedElByVerse   = elByVerse;
+        _proximityTokens   = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
+        return;
+    }
 
     Object.entries(colA.jpData.verses).forEach(([vNum, text]) => {
         /* VR-5-F-B: 左列・右列の生成処理を _buildColumnBlock() へ抽出（VR-5-F-A監査
@@ -8952,7 +9022,8 @@ function _syncMobileVerseViewBackLabel() {
  * それ以外の翻訳が来た場合も _transA をそのまま返す（将来の翻訳追加に追随）。
  */
 function _mvvDisplayTrans() {
-    return (_toColumnMode(_transA).kind === 'wordOrder') ? 'JA1955' : _transA;
+    /* DA-1: discourse も FLOW と同様、訳文が無いので口語訳へフォールバックする。 */
+    return _isGreekReadingMode(_toColumnMode(_transA).kind) ? 'JA1955' : _transA;
 }
 
 /**
@@ -8965,7 +9036,7 @@ function _mvvDisplayTrans() {
  *      _fetchTranslation() で _mvvDisplayTrans()（=JA1955）を読む。
  */
 async function _mvvGetVerseText(vNum) {
-    if (_toColumnMode(_transA).kind !== 'wordOrder') {
+    if (!_isGreekReadingMode(_toColumnMode(_transA).kind)) {   /* DA-1: discourse も FLOW と同様 DOM に訳文が無い */
         const block = _findVisibleVerseBlock(vNum);
         if (block) {
             const jt = block.querySelector('.jp-text');
@@ -10918,7 +10989,20 @@ function _buildReadingContext(words, idx) {
  */
 function _toColumnMode(transId) {
     if (transId === 'FLOW') return { kind: 'wordOrder' };
+    if (transId === 'DISCOURSE') return { kind: 'discourse' };   /* DA-1 */
     return { kind: 'translation', translationId: transId };
+}
+
+/**
+ * DA-1: Greek由来の「読み方」モード（訳文JSONを持たず、bible_data の Greek token を
+ * 表示源とするモード）かどうか。wordOrder（語順フロー）と discourse（談話分析）が該当する。
+ * 翻訳fetchのスキップ・elData 由来 VerseSource の選択・MobileVerseView フォールバックなど、
+ * 「訳文が無いGreekビュー」共通の判定にのみ使用する（chip描画等 wordOrder 固有の分岐には使わない）。
+ * @param {string} kind - ColumnMode.kind
+ * @returns {boolean}
+ */
+function _isGreekReadingMode(kind) {
+    return kind === 'wordOrder' || kind === 'discourse';
 }
 
 /**
@@ -11171,6 +11255,205 @@ const TranslationRenderer = {
     },
 };
 
+/* ═══════════════════════════════════════════════════════════════════════
+   DA-1: Discourse Analysis / Clause Connection View
+   ═══════════════════════════════════════════════════════════════════════
+   責務境界（docs/development/discourse-analysis-design.md）:
+   - Analysis: 既存 bible_data の token（class/lemma）と flow-tree の clause/sentence
+     構造という「決定的な既存データ」だけを読む。新しい統語・意味・談話の推論をしない。
+   - Representation: clause を単位（units[]）、接続詞で示される節間接続を辺（connections[]）
+     として構造化する。referent / topic / focus / given-new / 意味関係ラベルは持たない。
+   - Renderer: 上記 Representation を HTML へ描画するだけ。意味判断をしない。
+   L-0: 接続詞の日本語は bible_data.japanese（採用済み Reading Japanese）をそのまま転写する。
+        「理由」「結果」「対比」等の関係ラベルをこちらで新設・断定しない。 */
+
+/* DA-1 で談話 signal として扱う接続詞 lemma（決定的・語彙的）。
+   既存 word-detail の signal 辞書（γάρ/ἀλλά/οὖν/ἵνα/ὅτι/εἰ/ὥστε）と同一集合を基盤に、
+   談話の流れを担う δέ / μέν / διό / ἄρα / ἐάν を加える。高頻度・低情報の καί / τέ / ἤ は
+   DA-1 では surface しない（推論ではなく表示上のノイズ抑制。設計書 §12 の最小scope）。 */
+const DCV_CONNECTIVE_LEMMAS = new Set([
+    'γάρ', 'δέ', 'οὖν', 'ἀλλά', 'μέν', 'ἵνα', 'ὅτι', 'διό', 'ὥστε', 'ἄρα', 'εἰ', 'ἐάν',
+]);
+
+/* render() が discourse 描画時に読む flow-tree（章単位）。renderCurrentPage()/init() が
+   render() 呼び出し前に await 済みで格納する（既存の翻訳fetchと同じ同期タイミング）。 */
+let _dcvChapterTreeForRender = null;
+
+/**
+ * DiscourseBuilder — 章の elData（Greek token）＋ flow-tree から DiscourseRepresentation を作る。
+ * @param {string} bookKey
+ * @param {number|null} ch
+ * @param {Object[]} elData - 章の全 token（bible_data。surface 順・verse/tokenIndex 保持）
+ * @param {Object|null} tree - _loadFlowTreeChapter() の結果（{ sentences:[...] } もしくは null）
+ * @returns {Object|null} { kind:'discourse', scope, units:[], connections:[] }
+ */
+function buildDiscourseRepresentation(bookKey, ch, elData, tree) {
+    try {
+        if (!Array.isArray(elData) || elData.length === 0) return null;
+
+        /* ref → token の索引（flow-tree の token 参照 "BOOK c:v!i" は bible_data.ref と一致）。 */
+        const byRef = {};
+        elData.forEach(w => { if (w && w.ref != null) byRef[w.ref] = w; });
+
+        /* clause 単位を得る。flow-tree があれば top-level sentence（独立節）を1単位とする。
+           nested な従属節へは降りない（降りると親子で token が重複し、節間接続ではなく
+           節内接続まで surface してしまうため。設計書 §12 の最小scope＝独立節どうしの接続）。
+           flow-tree が無ければ verse を fallback 単位にする（どちらも既存の決定的境界）。 */
+        let unitTokenGroups = [];
+        if (tree && Array.isArray(tree.sentences) && tree.sentences.length) {
+            tree.sentences.forEach(sent => {
+                /* DA-2b: 単位を駆動する flow-tree node を保持し、node.id / type / parentId /
+                   tokens を逐語転写する（下記 units.push 参照）。表示駆動の単位集合（top-level）は
+                   変更しない＝既存 DA-1 表示・connections を不変に保つ。 */
+                if (Array.isArray(sent.tokens) && sent.tokens.length) unitTokenGroups.push({ node: sent, refs: sent.tokens.slice() });
+            });
+        } else {
+            /* fallback: verse を単位にする（flow-tree 欠落章でも消えないため）。
+               flow-tree node が無いため構造フィールドは null（逐語できないものは埋めない）。 */
+            const byVerse = {};
+            const order = [];
+            elData.forEach(w => {
+                const v = w.verse != null ? String(w.verse) : null;
+                if (!v) return;
+                if (!(v in byVerse)) { byVerse[v] = []; order.push(v); }
+                byVerse[v].push(w.ref);
+            });
+            unitTokenGroups = order.map(v => ({ node: null, refs: byVerse[v] }));
+        }
+
+        /* 各単位を surface 順に整え、単位内の先頭接続詞（＝この節を前の節へつなぐ signal）を得る。 */
+        const units = [];
+        unitTokenGroups.forEach((grp, idx) => {
+            const node = grp.node;
+            const refs = grp.refs;
+            const toks = refs.map(r => byRef[r]).filter(Boolean);
+            if (toks.length === 0) return;
+            toks.sort((a, b) => {
+                const va = parseInt(a.verse, 10) || 0, vb = parseInt(b.verse, 10) || 0;
+                if (va !== vb) return va - vb;
+                return (parseInt(a.tokenIndex, 10) || 0) - (parseInt(b.tokenIndex, 10) || 0);
+            });
+            /* 先頭接続詞：surface 順で最初に現れる class==='conj' かつ SAFE lemma の token。 */
+            let connective = null;
+            for (const t of toks) {
+                if (t.class === 'conj' && DCV_CONNECTIVE_LEMMAS.has(t.lemma)) {
+                    connective = {
+                        lemma: t.lemma,
+                        greek: t.text || t.normalized || t.lemma,
+                        /* L-0: japanese は採用済み Reading Japanese の転写のみ。 */
+                        ja: (t.japanese != null && t.japanese !== '') ? t.japanese : '',
+                        tokenId: t.tokenId != null ? String(t.tokenId) : '',
+                        ref: t.ref || '',
+                    };
+                    break;
+                }
+            }
+            const vNums = toks.map(t => parseInt(t.verse, 10) || 0).filter(Boolean);
+            const vMin = Math.min.apply(null, vNums), vMax = Math.max.apply(null, vNums);
+            const verseLabel = (vMin === vMax) ? `${ch}:${vMin}` : `${ch}:${vMin}–${vMax}`;
+            /* 表示テキスト：token の採用済み japanese を surface 順で転写（並べ替え・意訳なし）。
+               接続詞 token には isConnective を立て、視覚的に signal を強調できるようにする。 */
+            const words = toks.map(t => ({
+                ja: (t.japanese != null && t.japanese !== '') ? t.japanese : (t.gloss || t.text || ''),
+                isConnective: !!(connective && String(t.tokenId) === connective.tokenId),
+            }));
+            /* DA-2b: DA-2a schema の構造フィールドを flow-tree node から逐語転写する。
+               推論・再計算・親clause探索・surface並替を行わない（node の値をそのまま保持）。
+               node が無い fallback（flow-tree 欠落）は構造フィールドを埋めない（null）。 */
+            const unitId = node && node.id != null ? node.id : `dcv-u${idx}-${refs[0] || vMin}`;
+            units.push({
+                /* id は既存 renderer / connections の参照キー。DA-2a では unitId＝flow-tree node.id。
+                   renderer を変更しないため id にも同値（node.id）を入れる（表示は不変）。 */
+                id: unitId,
+                unitId,                                                    /* = flow-tree node.id（逐語） */
+                unitType:     node ? node.type : null,                     /* = flow-tree node.type（逐語） */
+                parentUnitId: node ? (node.parentId != null ? node.parentId : null) : null, /* = node.parentId（逐語 / root=null） */
+                tokenRefs:    node && Array.isArray(node.tokens) ? node.tokens.slice() : refs.slice(), /* = node.tokens（逐語・順序不変） */
+                verseLabel,
+                words,
+                connective,   /* この単位の先頭接続詞（無ければ null） */
+            });
+        });
+
+        if (units.length === 0) return null;
+
+        /* 接続（辺）：単位 i の先頭接続詞が、前の単位 i-1 との接続 signal になる。
+           接続詞の無い単位は辺を作らない（asyndeton＝未判定を捏造しない・静寂）。 */
+        const connections = [];
+        for (let i = 1; i < units.length; i++) {
+            const c = units[i].connective;
+            if (!c) continue;
+            connections.push({
+                from: units[i - 1].id,
+                to:   units[i].id,
+                lemma: c.lemma,
+                greek: c.greek,
+                ja:   c.ja,
+            });
+        }
+
+        return {
+            kind: 'discourse',
+            scope: { book: bookKey || '', chapter: (ch != null ? ch : null) },
+            units,
+            connections,
+            /* DA-2b: 談話意味関係（理由/結果/対比…）は決定的根拠が無いため生成しない。
+               常に空配列＝Unresolved by Design（clause.discourse.type も参照しない）。 */
+            relations: [],
+        };
+    } catch (_) {
+        return null;
+    }
+}
+
+/**
+ * DiscourseRenderer — DiscourseRepresentation を HTML へ描画する。
+ * 意味判断・日本語生成をしない（Representation が持つ値の転写のみ）。
+ */
+const DiscourseRenderer = {
+    render(representation) {
+        if (!representation || !Array.isArray(representation.units) || representation.units.length === 0) {
+            return `<div class="dcv-root"><div class="dcv-empty">この章では節のつながりを表示できるデータがありません。</div></div>`;
+        }
+        const units = representation.units;
+        /* 接続の索引：toUnitId → 接続 signal（前の単位からこの単位への辺）。 */
+        const connByTo = {};
+        (representation.connections || []).forEach(cn => { connByTo[cn.to] = cn; });
+
+        const parts = [];
+        parts.push(`<div class="dcv-hint"><span class="dcv-hint-title">節のつながり</span><span class="dcv-hint-sub">段落の中で、節と節がどの接続詞でつながっているかを追う読み方です。</span></div>`);
+        parts.push(`<div class="dcv-chain">`);
+        units.forEach((u, i) => {
+            /* 単位間の接続 signal（先頭単位には無い）。 */
+            if (i > 0) {
+                const cn = connByTo[u.id];
+                if (cn) {
+                    const jaPart = cn.ja ? `<span class="dcv-conn-ja">${_escH(cn.ja)}</span>` : '';
+                    parts.push(
+                        `<div class="dcv-conn"><span class="dcv-conn-line"></span>` +
+                        `<span class="dcv-conn-badge"><span class="dcv-conn-greek">${_escH(cn.greek)}</span>${jaPart}</span>` +
+                        `<span class="dcv-conn-line"></span></div>`
+                    );
+                } else {
+                    /* 接続詞が無い節境界：関係を捏造せず、静かな区切りのみ。 */
+                    parts.push(`<div class="dcv-conn dcv-conn-none"><span class="dcv-conn-line"></span></div>`);
+                }
+            }
+            const body = u.words.map(w =>
+                `<span class="dcv-w${w.isConnective ? ' dcv-w-conn' : ''}">${_escH(w.ja)}</span>`
+            ).join('');
+            parts.push(
+                `<div class="dcv-unit" data-unit-id="${_escH(u.id)}">` +
+                `<span class="dcv-unit-vlabel">${_escH(u.verseLabel)}</span>` +
+                `<div class="dcv-unit-body">${body}</div>` +
+                `</div>`
+            );
+        });
+        parts.push(`</div>`);
+        return `<div class="dcv-root">${parts.join('')}</div>`;
+    },
+};
+
 /**
  * Representation を HTML 文字列に変換する。Renderer Registry（VR-4-B §E で「今回は
  * 導入しない」と判断済み）は導入せず、現時点では kind による分岐で Renderer を
@@ -11188,6 +11471,9 @@ function renderColumn(representation, options) {
         }
         if (representation.kind === 'translation') {
             return TranslationRenderer.render(representation);
+        }
+        if (representation.kind === 'discourse') {          /* DA-1 */
+            return DiscourseRenderer.render(representation);
         }
         return ''; // 未実装 kind（syntaxTree 等）
     } catch (_) {
@@ -12334,13 +12620,13 @@ async function renderCurrentPage() {
         const _colA = _toColumnMode(_transA);
         const _colB = _toColumnMode(_transB);
 
-        /* ColumnMode が wordOrder の場合は翻訳JSONをfetchしない */
-        const jpData = _colA.kind === 'wordOrder'
+        /* ColumnMode が wordOrder / discourse（Greek由来・訳文なし）の場合は翻訳JSONをfetchしない */
+        const jpData = _isGreekReadingMode(_colA.kind)
             ? null
             : await _fetchTranslation(_transA, book, ch);
 
         let jpDataB = null;
-        if (_transMode === 'compare' && _colB.kind !== 'wordOrder') {
+        if (_transMode === 'compare' && !_isGreekReadingMode(_colB.kind)) {
             jpDataB = await _fetchTranslation(_transB, book, ch);
         }
 
@@ -12352,6 +12638,12 @@ async function renderCurrentPage() {
                 if (elRes.ok) elData = await elRes.json();
             } catch(e) {}
         }
+
+        /* DA-1: discourse は passage単位の clause 接続を描くため、flow-tree（clause/sentence
+           構造の一次データ）を render() の前に先読みする。既存 _loadFlowTreeChapter() を再利用し、
+           結果は render() が読む module 変数へ渡す（既存の翻訳fetchと同じく await 済みで一貫）。 */
+        _dcvChapterTreeForRender = (_colA.kind === 'discourse')
+            ? await _loadFlowTreeChapter(book, ch) : null;
 
         /* VR-5-D: resolvedJpData 決定ロジックを _getVerseSource() へ抽出（VR-5-C 参照） */
         const resolvedJpData = _getVerseSource(_colA, jpData, elData);
@@ -12671,7 +12963,9 @@ function _buildFlowJpData(elData) {
  * fetch・エラーハンドリングは呼び出し元に残す（挙動差異を保持するため）。
  */
 function _getVerseSource(colA, jpData, elData) {
-    return (colA.kind === 'wordOrder') ? _buildFlowJpData(elData) : jpData;
+    /* DA-1: discourse も wordOrder と同じく elData（Greek）由来の VerseSource を用いる
+       （訳文JSONを持たない）。判定を _isGreekReadingMode() に集約。 */
+    return _isGreekReadingMode(colA.kind) ? _buildFlowJpData(elData) : jpData;
 }
 
 /*
@@ -12864,6 +13158,13 @@ function _bpRenderSingle() {
         `<div class="bp-trans-item${_bpSelA === 'FLOW' ? ' active' : ''}" onclick="bpSelectA('FLOW')">
             <div>
                 <span class="bp-trans-name">${TRANSLATIONS.FLOW.label}</span>
+            </div>
+            <span class="bp-trans-check icon">${icon('check')}</span>
+        </div>` +
+        /* DA-1: 談話分析（節と節のつながり）を「読み方を選択」に追加。 */
+        `<div class="bp-trans-item${_bpSelA === 'DISCOURSE' ? ' active' : ''}" onclick="bpSelectA('DISCOURSE')">
+            <div>
+                <span class="bp-trans-name">${TRANSLATIONS.DISCOURSE.label}</span>
             </div>
             <span class="bp-trans-check icon">${icon('check')}</span>
         </div>`;
