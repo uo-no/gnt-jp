@@ -103,7 +103,15 @@ Louw-Nida意味領域分類の番号データを参照として利用したも�
 
 各データのライセンスおよび再配布条件は提供元の規約に従う。
 
-本リポジトリでは、データごとの詳細なライセンス適用可否については明示的に確定していない項目を含むため、利用者は各自で確認すること。
+### SBLGNT
+
+SBL Greek New Testament (SBLGNT) は、Faithlife / Logos Bible Software が Michael W. Holmes 編集のもとで公開している。CC BY 4.0（クリエイティブ・コモンズ 表示 4.0 国際）ライセンスのもとで利用可能であることを確認済み。
+
+### MACULA Greek Linguistic Datasets
+
+MACULA Greek Linguistic Datasets は © Biblica, Inc. である。CC BY 4.0（クリエイティブ・コモンズ 表示 4.0 国際）ライセンスのもとで利用可能であることを確認済み。
+
+本リポジトリは CC BY 4.0 の帰属表示義務を満たすよう管理する。
 
 ---
 
