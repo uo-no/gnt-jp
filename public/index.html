@@ -2555,6 +2555,243 @@ display: none;
 .dcv-conn-none .dcv-conn-line { height: var(--space-md); background: var(--border-soft); }
 .dcv-empty { padding: var(--space-lg); color: var(--text-sub); font-size: var(--text-caption); }
 
+/* ══ P2: Structural Diagram (sd-*) ══════════════════════════════════════════════ */
+.sd-view {
+    padding: var(--space-sm) var(--space-md) var(--space-xl);
+    min-width: 0;
+    overflow-x: auto;
+}
+.sd-attribution {
+    font-size: 10px;
+    color: var(--text-sub);
+    margin-bottom: var(--space-xs);
+    opacity: 0.7;
+}
+.sd-hint {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-sm);
+    padding: var(--space-xs) 0 var(--space-md);
+    border-bottom: 1px solid var(--border-soft);
+    margin-bottom: var(--space-md);
+}
+.sd-hint-title { font-size: var(--text-body); color: var(--text-main); font-weight: 600; }
+.sd-hint-sub   { font-size: var(--text-caption); color: var(--text-sub); }
+.sd-empty      { padding: var(--space-lg); color: var(--text-sub); font-size: var(--text-caption); }
+
+.sd-sentence {
+    margin-bottom: var(--space-xl);
+    border-left: 3px solid var(--border-soft);
+    padding-left: var(--space-sm);
+}
+.sd-sentence-ref {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    font-weight: 600;
+    margin-bottom: var(--space-xs);
+    letter-spacing: 0.03em;
+}
+
+/* Internal nodes */
+.sd-node {
+    display: block;
+    margin: 2px 0;
+    padding-left: var(--space-md);
+    border-left: 1px solid var(--border-soft);
+}
+.sd-node[data-depth="0"] { padding-left: 0; border-left: none; }
+.sd-node-hd {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-height: 24px;
+    padding: 2px 0;
+}
+.sd-node-body { margin-top: 2px; }
+
+/* Foldable nodes — <details> already inherits margin/border from .sd-node,
+   so summary must not re-add padding-left (avoids double-indent). */
+.sd-foldable { display: block; margin: 2px 0; }
+.sd-foldable > summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    cursor: pointer;
+    list-style: none;
+    padding: 2px 0;
+}
+.sd-foldable > summary::-webkit-details-marker { display: none; }
+.sd-foldable > .sd-node-body { /* children already have .sd-node padding */ }
+.sd-fold-arrow {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid var(--text-sub);
+    border-bottom: 2px solid var(--text-sub);
+    transform: rotate(45deg);
+    flex-shrink: 0;
+    margin-right: 2px;
+}
+details[open] > summary .sd-fold-arrow { transform: rotate(-135deg); }
+
+/* Token rows */
+.sd-token-row {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 3px var(--space-xs);
+    margin: 2px 0;
+    background: var(--bg-card);
+    border-radius: 4px;
+    border: 1px solid var(--border-soft);
+    max-width: 100%;
+}
+
+/* FUNCTION labels on nodes and tokens */
+.sd-fn-label {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--accent-bg, #e8f0fe);
+    color: var(--accent-main, #1a56a0);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+.sd-fn-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--accent-bg, #e8f0fe);
+    color: var(--accent-main, #1a56a0);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+/* CONSTRUCTION label */
+.sd-cn-label {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--bg-tag, #f0f0f0);
+    color: var(--text-sub);
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+/* MORPHOLOGY badges */
+.sd-morph-badge {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--bg-morph, #f5f0e8);
+    color: var(--text-sub);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Greek text in tokens */
+.sd-greek {
+    font-family: var(--font-greek, 'GFS Didot', 'Gentium Plus', serif);
+    font-size: var(--text-body);
+    color: var(--text-main);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+/* Japanese gloss in tokens */
+.sd-gloss {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+}
+
+/* Mobile */
+@media (max-width: 390px) {
+    .sd-view { padding: var(--space-xs) var(--space-sm) var(--space-xl); }
+    .sd-hint { flex-direction: column; gap: 2px; }
+    .sd-node { padding-left: var(--space-sm); }
+    .sd-token-row { gap: 3px; padding: 2px var(--space-xs); }
+    .sd-greek { font-size: var(--text-caption); }
+}
+
+/* ── ICL候補パネル（P3-H PoC: ROM 6:10 τῇ ἁμαρτίᾳ のみ） ── */
+.icl-panel {
+    margin-top: 8px;
+    border: 1px solid var(--border-soft);
+    border-radius: 5px;
+    overflow: hidden;
+}
+.icl-panel-hd {
+    padding: 4px 8px 3px;
+    background: var(--bg-panel);
+    color: var(--text-sub);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border-soft);
+}
+.icl-panel-sub {
+    font-size: 9px;
+    font-weight: 400;
+    color: var(--text-hint, #8e8e93);
+    margin-top: 1px;
+}
+.icl-candidates { padding: 2px 0; }
+.icl-cand {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 4px 8px;
+}
+.icl-cand + .icl-cand { border-top: 1px solid var(--divider); }
+.icl-ev-dot {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-top: 4px;
+}
+.icl-ev-STRONG   { background: var(--text-sub); }
+.icl-ev-MODERATE { background: var(--border-strong, rgba(0,0,0,0.12)); }
+.icl-ev-WEAK     { border: 1.5px solid var(--border-strong, rgba(0,0,0,0.12)); background: transparent; }
+.icl-cand-main { flex: 1; min-width: 0; }
+.icl-cand-id  {
+    font-size: 9px;
+    font-family: monospace;
+    color: var(--text-hint, #8e8e93);
+}
+.icl-cand-ja {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    margin-left: 3px;
+}
+.icl-cand-ref {
+    font-size: 9px;
+    color: var(--text-hint, #8e8e93);
+    margin-top: 1px;
+}
+.icl-cand-unresolved {
+    font-size: 9px;
+    color: var(--color-caution, #a09050);
+    margin-top: 2px;
+    font-style: italic;
+}
+.icl-footnote {
+    padding: 3px 8px 4px;
+    font-size: 9px;
+    color: var(--text-hint, #8e8e93);
+    border-top: 1px solid var(--divider);
+    background: var(--bg-inset, #fafafa);
+}
+@media (max-width: 390px) {
+    .icl-cand { padding: 3px 6px; }
+    .icl-cand-id { font-size: 8px; }
+}
+/* ══════════════════════════════════════════════════════════════════════════════ */
+
 .flow-signal-text {
     font-size: var(--text-body);
 }
@@ -4304,6 +4541,7 @@ details[open] .study-summary::before {
 <script src="../core/presentation-policy.js"></script>
 <script src="../core/flow-tree-adapter.js"></script>
 <script src="../core/neighborhood-view.js"></script>
+<script src="../core/icl-engine.js"></script>
 <script>
 let abbottSmithDict = null;
 let _proximityTokens = [];
@@ -4455,6 +4693,9 @@ const TRANSLATIONS = {
     /* DA-1: 談話分析（節と節のつながり）。FLOW と同じく疑似翻訳ID（訳文JSONを持たない
        Greek由来の読み方）。URL互換のため TRANSLATIONS に置く。 */
     'DISCOURSE': { label: '談話分析',        code: 'DISCOURSE' },
+    /* P2: 構文ダイアグラム。SR JSON（public/assets/data/sr/）を読み取り専用で消費する
+       独立パイプライン。flow-tree・Reading Engine とは完全に分離。 */
+    'STRUCTURAL': { label: '構文ダイアグラム', code: 'STRUCTURAL' },
 };
 const TRANS_LIST   = Object.entries(TRANSLATIONS).map(([id, t]) => ({ id, name: t.label, code: t.code }));
 const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t]) => [id, t.label]));
@@ -4465,7 +4706,7 @@ const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t
  * Bible Picker の「翻訳を選択」グループはここを正とする。
  */
 const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
-    .filter(([id]) => id !== 'FLOW' && id !== 'DISCOURSE')
+    .filter(([id]) => id !== 'FLOW' && id !== 'DISCOURSE' && id !== 'STRUCTURAL')
     .map(([id, t]) => ({ id, label: t.label, code: t.code }));
 
 /**
@@ -4482,6 +4723,8 @@ const DISPLAY_MODE_REGISTRY = [
     /* DA-1: 談話分析モード。既存 translation / wordOrder の分岐構造は変更せず、
        kind='discourse' を1エントリ追加するのみ。 */
     { kind: 'discourse', label: TRANSLATIONS.DISCOURSE.label },
+    /* P2: 構文ダイアグラムモード。 */
+    { kind: 'structural-diagram', label: TRANSLATIONS.STRUCTURAL.label },
 ];
 
 /* アクティブ翻訳（A = メイン / B = 比較列）。_transA / _transB が唯一のSSOT（Phase TR-5）。 */
@@ -8429,6 +8672,24 @@ async function init() {
         /* DA-1: discourse は flow-tree（clause/sentence 構造）を先読みして render() へ渡す。 */
         _dcvChapterTreeForRender = (_colA.kind === 'discourse')
             ? await _loadFlowTreeChapter(book, ch) : null;
+        /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。 */
+        _sdChapterDataForRender = (_colA.kind === 'structural-diagram')
+            ? await _loadSrChapter(book, ch) : null;
+
+        /* P4-ICL: ICL インデックスを事前計算（structural-diagram ビューかつ iclEnabled 時のみ）。 */
+        _sdIclIndex = null;
+        if (_sdChapterDataForRender && window.App && window.App.flags && window.App.flags.iclEnabled
+                && window.App.icl && window.App.icl.buildICLIndex) {
+            try {
+                const _iclReg = await _ensureIclRegistry();
+                if (_iclReg && elData && elData.length > 0) {
+                    const _iclTokenMap = new Map(elData.map(t => [t.verseId, t]));
+                    _sdIclIndex = window.App.icl.buildICLIndex(
+                        _sdChapterDataForRender, _iclTokenMap, _iclReg, book + ' ' + ch
+                    );
+                }
+            } catch (_iclErr) { _sdIclIndex = null; }
+        }
 
         /* VR-5-D: resolvedJpData 決定ロジックを _getVerseSource() へ抽出（VR-5-C 参照） */
         const resolvedJpData = _getVerseSource(_colA, jpData, elData);
@@ -8682,6 +8943,17 @@ app.innerHTML = '';
         const _dcvCh      = AppState.location.chapter != null ? AppState.location.chapter : null;
         const _dcvRep     = buildDiscourseRepresentation(_dcvBookKey, _dcvCh, elData, _dcvChapterTreeForRender);
         app.innerHTML      = renderColumn(_dcvRep);
+        parallel.innerHTML = '';
+        _cachedElByVerse   = elByVerse;
+        _proximityTokens   = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
+        return;
+    }
+
+    /* P2: 構文ダイアグラムモード。DA-1 と同じく passage（章）単位の早期 return。
+       SR JSON（_sdChapterDataForRender）を読み取り専用で消費する。flow-tree・
+       Reading Engine・Discourse Analysis とは完全に独立したパイプライン。 */
+    if (_colA.kind === 'structural-diagram') {
+        _renderStructuralDiagramView(app, _sdChapterDataForRender, elData);
         parallel.innerHTML = '';
         _cachedElByVerse   = elByVerse;
         _proximityTokens   = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
@@ -10990,6 +11262,7 @@ function _buildReadingContext(words, idx) {
 function _toColumnMode(transId) {
     if (transId === 'FLOW') return { kind: 'wordOrder' };
     if (transId === 'DISCOURSE') return { kind: 'discourse' };   /* DA-1 */
+    if (transId === 'STRUCTURAL') return { kind: 'structural-diagram' };  /* P2 */
     return { kind: 'translation', translationId: transId };
 }
 
@@ -11002,7 +11275,7 @@ function _toColumnMode(transId) {
  * @returns {boolean}
  */
 function _isGreekReadingMode(kind) {
-    return kind === 'wordOrder' || kind === 'discourse';
+    return kind === 'wordOrder' || kind === 'discourse' || kind === 'structural-diagram';
 }
 
 /**
@@ -11279,6 +11552,26 @@ const DCV_CONNECTIVE_LEMMAS = new Set([
    render() 呼び出し前に await 済みで格納する（既存の翻訳fetchと同じ同期タイミング）。 */
 let _dcvChapterTreeForRender = null;
 
+/* P2: render() が structural-diagram 描画時に読む SR 章データ（章単位）。
+   DA-1 の _dcvChapterTreeForRender と同じタイミングで事前 fetch して格納する。 */
+let _sdChapterDataForRender = null;
+
+/* P4-ICL: 章単位の ICL インデックス（Map<nodeId, CandidateSet>）。
+   _sdChapterDataForRender と同タイミングで buildICLIndex() により計算。
+   window.App.flags.iclEnabled=false のとき null のまま。 */
+let _sdIclIndex = null;
+
+/* P4-ICL: syntax-registry.json の独立キャッシュ（_wallacePipeline とは別）。 */
+let _iclRegistryCached = null;
+async function _ensureIclRegistry() {
+    if (_iclRegistryCached) return _iclRegistryCached;
+    try {
+        const res = await fetch('../assets/data/syntax-registry.json');
+        if (res.ok) _iclRegistryCached = await res.json();
+    } catch (_) {}
+    return _iclRegistryCached;
+}
+
 /**
  * DiscourseBuilder — 章の elData（Greek token）＋ flow-tree から DiscourseRepresentation を作る。
  * @param {string} bookKey
@@ -11457,6 +11750,279 @@ const DiscourseRenderer = {
         return `<div class="dcv-root">${parts.join('')}</div>`;
     },
 };
+
+/* ══════════════════════════════════════════
+   P2: Structural Diagram Renderer
+   SR JSON（public/assets/data/sr/）を読み取り専用で消費する。
+   flow-tree / Reading Engine / Discourse Analysis とは完全に独立したパイプライン。
+   ══════════════════════════════════════════ */
+
+/* SR 章データキャッシュ（DA の _flowTreeChapterCache と同パターン） */
+const _srChapterCache = {};
+async function _loadSrChapter(book, chapter) {
+    const key = book + '/' + chapter;
+    if (key in _srChapterCache) return _srChapterCache[key];
+    let data = null;
+    try {
+        const res = await fetch(`../assets/data/sr/${book}/${chapter}.json`);
+        if (res.ok) data = await res.json();
+    } catch (_) { data = null; }
+    _srChapterCache[key] = data;
+    return data;
+}
+
+/* FUNCTION canonical → 日本語ラベル（P2表示層のみ。構造の決定に使わない）。 */
+const _SD_FN_JA = {
+    SUBJECT: '主語', PREDICATE: '述語', OBJECT: '目的語',
+    INDIRECT_OBJECT: '間接目的語', COMPLEMENT: '補語',
+    ADVERBIAL: '副詞的', AUXILIARY: '助動詞', SECOND_OBJECT: '第二目的語',
+    COPULA: '繋辞', AUX: '助動詞', OBJECT2: '第二目的語',
+};
+/* CONSTRUCTION canonical → 日本語ラベル（表示層のみ）。 */
+const _SD_CN_JA = {
+    PREDICATION: '述語構造', CONJOINED_CLAUSE: '並列節',
+    PARTICIPIAL_CLAUSE: '分詞節', RELATIVE_CLAUSE: '関係節',
+    ARTICULAR_NP: '冠詞付き名詞句', ANARTHROUS_NP: '無冠詞名詞句',
+    GENITIVE_MOD: '属格修飾', APPOSITION: '同格',
+    DEMO_MOD: '指示修飾', CLAUSE_AS_NP: '節名詞化',
+};
+
+/* elData から ref→japanese の lookup table を構築する（表示層のみ用途）。
+   日本語は構造決定に使わない（L-0）。 */
+function _sdCollectJaByRef(elData) {
+    const map = {};
+    for (const w of (elData || [])) {
+        if (w && w.ref) map[w.ref] = w.japanese || '';
+    }
+    return map;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   P3-H: ICL統合PoC — ROM 6:10 τῇ ἁμαρτίᾳ 限定
+   これはproduction-wide rolloutではない。当該ノード1箇所限定のUI統合PoC。
+   ペイロードはscratchpad/P3-H/generate_icl_payload.cjsで生成。
+   SR schema・Reading Engine・Syntax Analyzer・flow-tree schemaは変更しない。
+   ───────────────────────────────────────────────────────────────────────────── */
+const _ICL_ROM6_10 = {"passage_ref":"ROM 6:10","token_text":"τῇ ἁμαρτίᾳ","node_id":"ROM#ROM 6:10!4…ROM 6:10!5","grammar_category":"dative","icl_version":"P3-F2-prototype-0.3","generated_at":"2026-08-19T04:33:59.059Z","governing_clause_tokens":["ὃ","ἀπέθανεν,","τῇ","ἁμαρτίᾳ","ἀπέθανεν","ἐφάπαξ·"],"presentation_candidates":[{"candidate_id":"dative.reference","label_ja":"参照与格","label_en":"Dative of Reference / Respect","support_level":"STRONG","wallace_ref":"§6.A.4 (pp.144–146)","unresolved_reason":null},{"candidate_id":"dative.interest_advantage","label_ja":"利益与格","label_en":"Dative of Interest (Advantage)","support_level":"MODERATE","wallace_ref":"§6.A.2a (pp.142–144)","unresolved_reason":null},{"candidate_id":"dative.means","label_ja":"手段与格","label_en":"Dative of Means / Instrument","support_level":"WEAK","wallace_ref":"§6.C.1 (pp.156–158)","unresolved_reason":null}],"eliminated":[{"candidate_id":"dative.indirect_object","label_en":"Dative of Indirect Object","elimination_rule":"E-3","condition":"giving/communication verb must be present in clause"},{"candidate_id":"dative.ethical","label_en":"Ethical Dative","elimination_rule":"E-3","condition":"first/second person personal pronoun must be the dative token"},{"candidate_id":"dative.possession","label_en":"Dative of Possession","elimination_rule":"E-3","condition":"copula verb must be present in governing clause"},{"candidate_id":"dative.time","label_en":"Dative of Time","elimination_rule":"E-3","condition":"temporal noun lemma required"},{"candidate_id":"dative.association","label_en":"Dative of Association","elimination_rule":"E-3","condition":"σύν-compound verb or σύν preposition required"},{"candidate_id":"dative.agent","label_en":"Dative of Agent","elimination_rule":"E-3","condition":"verb must be in passive voice"},{"candidate_id":"dative.measure","label_en":"Dative of Measure","elimination_rule":"E-3","condition":"measure/degree lemma or comparative required"}],"candidateset_sealed":true};
+
+function _sdIclPanel(payload) {
+    if (!payload || !Array.isArray(payload.presentation_candidates)) return null;
+    const panel = document.createElement('div');
+    panel.className = 'icl-panel';
+    panel.setAttribute('aria-label', '文法上の候補');
+
+    const hd = document.createElement('div');
+    hd.className = 'icl-panel-hd';
+    hd.textContent = '文法上の候補';
+    const sub = document.createElement('div');
+    sub.className = 'icl-panel-sub';
+    sub.textContent = payload.token_text + ' · ' + payload.grammar_category + ' · ' + payload.icl_version;
+    hd.appendChild(sub);
+    panel.appendChild(hd);
+
+    const list = document.createElement('div');
+    list.className = 'icl-candidates';
+    for (const c of payload.presentation_candidates) {
+        const item = document.createElement('div');
+        item.className = 'icl-cand';
+        const dot = document.createElement('div');
+        dot.className = 'icl-ev-dot icl-ev-' + (c.support_level || 'WEAK');
+        dot.setAttribute('title', 'シグナル: ' + (c.support_level || ''));
+        item.appendChild(dot);
+        const main = document.createElement('div');
+        main.className = 'icl-cand-main';
+        const topLine = document.createElement('div');
+        topLine.innerHTML =
+            '<span class="icl-cand-id">' + _escH(c.candidate_id) + '</span>' +
+            '<span class="icl-cand-ja">· ' + _escH(c.label_ja || '') + '</span>';
+        main.appendChild(topLine);
+        if (c.wallace_ref) {
+            const ref = document.createElement('div');
+            ref.className = 'icl-cand-ref';
+            ref.textContent = 'Wallace ' + c.wallace_ref;
+            main.appendChild(ref);
+        }
+        if (c.unresolved_reason) {
+            const ur = document.createElement('div');
+            ur.className = 'icl-cand-unresolved';
+            ur.textContent = '▸ ' + c.unresolved_reason;
+            main.appendChild(ur);
+        }
+        item.appendChild(main);
+        list.appendChild(item);
+    }
+    panel.appendChild(list);
+
+    const fn = document.createElement('div');
+    fn.className = 'icl-footnote';
+    fn.textContent = '印は文法シグナルの量（正しさや確率の指標ではありません） · ICL ' + payload.icl_version;
+    panel.appendChild(fn);
+
+    return panel;
+}
+
+/* 単一 SR ノードを DOM 要素として描画（再帰）。
+   depth: ルート=0。FOLD_DEPTH 以上は <details> で折りたたみ可能にする。
+   UNRESOLVED function は primary display から除外（R-4 準拠）。
+   トークンの順序は children 配列の順（SR R-1 不変条件 = surfaceIndex 非減少）に従う。 */
+function _sdRenderNode(node, depth, jaByRef) {
+    if (!node) return null;
+    const isToken  = node.type === 'token';
+    const fnCanon  = node.function && node.function.canonical;
+    const cnNode   = node.construction;
+    const cnCanon  = cnNode && cnNode.canonical;
+    const cnAxis   = cnNode && cnNode.axis;
+    const morph    = Array.isArray(node.morphCategory) ? node.morphCategory : [];
+    const children = Array.isArray(node.children) ? node.children : [];
+    const FOLD_DEPTH = 5;
+
+    /* UNRESOLVED は primary display に出さない */
+    const showFn = fnCanon && fnCanon !== 'UNRESOLVED';
+    const fnJa   = showFn ? (_SD_FN_JA[fnCanon] || fnCanon) : null;
+
+    /* Construction ラベル */
+    let cnLabel = null;
+    if (cnAxis === 'WORD_ORDER' && cnNode.sourceRule) {
+        cnLabel = cnNode.sourceRule;
+    } else if (cnCanon) {
+        cnLabel = _SD_CN_JA[cnCanon] || cnCanon;
+    }
+
+    /* 形態バッジ（MORPHOLOGY チャネル：badge only, 構造決定に使わない） */
+    const morphHTML = morph.map(m => {
+        const label = m === 'participle' ? '分詞' : m === 'infinitive' ? '不定詞' : m === 'relative_pronoun' ? '関係詞' : m;
+        return `<span class="sd-morph-badge sd-morph-${_escH(m)}">${_escH(label)}</span>`;
+    }).join('');
+
+    if (isToken) {
+        const ref   = node.evidence && node.evidence.ref;
+        const jaStr = (ref && jaByRef[ref]) ? _escH(jaByRef[ref]) : '';
+        const el    = document.createElement('div');
+        el.className = 'sd-token-row';
+        if (node.surfaceIndex != null) el.dataset.si = node.surfaceIndex;
+        if (ref) el.dataset.ref = ref;
+        el.innerHTML =
+            (fnJa ? `<span class="sd-fn-badge sd-fn-${_escH(fnCanon)}">${_escH(fnJa)}</span>` : '') +
+            `<span class="sd-greek" lang="grc">${_escH(node.text || '')}</span>` +
+            morphHTML +
+            (jaStr ? `<span class="sd-gloss">${jaStr}</span>` : '');
+        return el;
+    }
+
+    /* 内部ノード（clause/phrase/group）のラベル */
+    const labelInner =
+        (fnJa    ? `<span class="sd-fn-label sd-fn-${_escH(fnCanon)}">${_escH(fnJa)}</span>` : '') +
+        (cnLabel ? `<span class="sd-cn-label">${_escH(cnLabel)}</span>` : '');
+
+    if (depth >= FOLD_DEPTH && children.length > 0) {
+        const wrapper = document.createElement('details');
+        wrapper.className = 'sd-node sd-foldable';
+        wrapper.dataset.depth = depth;
+        wrapper.dataset.type  = node.type || '';
+        if (depth < FOLD_DEPTH + 3) wrapper.open = true;
+        const summary = document.createElement('summary');
+        summary.className = 'sd-node-hd';
+        summary.innerHTML = `<span class="sd-fold-arrow" aria-hidden="true"></span>${labelInner}`;
+        wrapper.appendChild(summary);
+        const body = document.createElement('div');
+        body.className = 'sd-node-body';
+        for (const child of children) { const cEl = _sdRenderNode(child, depth + 1, jaByRef); if (cEl) body.appendChild(cEl); }
+        wrapper.appendChild(body);
+        return wrapper;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'sd-node';
+    wrapper.dataset.depth = depth;
+    wrapper.dataset.type  = node.type || '';
+    if (labelInner) {
+        const hd = document.createElement('div');
+        hd.className = 'sd-node-hd';
+        hd.innerHTML = labelInner;
+        wrapper.appendChild(hd);
+    }
+    if (children.length > 0) {
+        const body = document.createElement('div');
+        body.className = 'sd-node-body';
+        for (const child of children) { const cEl = _sdRenderNode(child, depth + 1, jaByRef); if (cEl) body.appendChild(cEl); }
+        wrapper.appendChild(body);
+    }
+    /* P4-ICL: runtime ICL候補パネル（全 phrase.np/pp 対象）。
+       iclEnabled かつ _sdIclIndex 構築済みの場合に runtime lookup。
+       未構築時は P3-H 静的 fallback（ROM 6:10 限定）を維持。 */
+    if (node.id) {
+        let _iclPayload = null;
+        if (_sdIclIndex && window.App && window.App.icl && window.App.icl.extractPresentationPayload) {
+            try {
+                const _cs = _sdIclIndex.get(node.id);
+                if (_cs) _iclPayload = window.App.icl.extractPresentationPayload(_cs);
+            } catch (_) {}
+        } else if (node.id === 'ROM#ROM 6:10!4…ROM 6:10!5') {
+            /* P3-H static fallback — rollback only */
+            _iclPayload = _ICL_ROM6_10;
+        }
+        if (_iclPayload) {
+            const iclEl = _sdIclPanel(_iclPayload);
+            if (iclEl) wrapper.appendChild(iclEl);
+        }
+    }
+    return wrapper;
+}
+
+/* 全章の構文ダイアグラムを app DOM 要素へ描画する。
+   srData が null/不正の場合は empty 状態を表示（静かに失敗）。 */
+function _renderStructuralDiagramView(app, srData, elData) {
+    const jaByRef = _sdCollectJaByRef(elData);
+    const wrap = document.createElement('div');
+    wrap.className = 'sd-view';
+    wrap.setAttribute('aria-label', '構文ダイアグラム');
+
+    if (!srData || !Array.isArray(srData.sentences) || srData.sentences.length === 0) {
+        const emptyEl = document.createElement('div');
+        emptyEl.className = 'sd-empty';
+        emptyEl.textContent = 'この章の構文データがありません。';
+        wrap.appendChild(emptyEl);
+        app.innerHTML = '';
+        app.appendChild(wrap);
+        return;
+    }
+
+    /* Attribution（静かに表示）。discourse と同様の位置に。 */
+    if (srData.source && srData.source.dataset) {
+        const attrEl = document.createElement('div');
+        attrEl.className = 'sd-attribution';
+        attrEl.textContent = srData.source.dataset;
+        wrap.appendChild(attrEl);
+    }
+
+    /* ヒント */
+    const hintEl = document.createElement('div');
+    hintEl.className = 'sd-hint';
+    hintEl.innerHTML =
+        '<span class="sd-hint-title">構文ダイアグラム</span>' +
+        '<span class="sd-hint-sub">文の構造的な埋め込みを上から下へ（構造軸）、' +
+        '語の原文順を左から右へ（読解軸）表示します。</span>';
+    wrap.appendChild(hintEl);
+
+    for (const sentence of srData.sentences) {
+        const secEl = document.createElement('section');
+        secEl.className = 'sd-sentence';
+        secEl.setAttribute('data-ref', sentence.ref || '');
+        const refEl = document.createElement('div');
+        refEl.className = 'sd-sentence-ref';
+        refEl.setAttribute('aria-label', `節 ${sentence.ref || ''}`);
+        refEl.textContent = sentence.ref || '';
+        secEl.appendChild(refEl);
+        if (sentence.root) {
+            const rootEl = _sdRenderNode(sentence.root, 0, jaByRef);
+            if (rootEl) secEl.appendChild(rootEl);
+        }
+        wrap.appendChild(secEl);
+    }
+
+    app.innerHTML = '';
+    app.appendChild(wrap);
+}
 
 /**
  * Representation を HTML 文字列に変換する。Renderer Registry（VR-4-B §E で「今回は
@@ -12649,6 +13215,25 @@ async function renderCurrentPage() {
         _dcvChapterTreeForRender = (_colA.kind === 'discourse')
             ? await _loadFlowTreeChapter(book, ch) : null;
 
+        /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。 */
+        _sdChapterDataForRender = (_colA.kind === 'structural-diagram')
+            ? await _loadSrChapter(book, ch) : null;
+
+        /* P4-ICL: ICL インデックスを事前計算（structural-diagram ビューかつ iclEnabled 時のみ）。 */
+        _sdIclIndex = null;
+        if (_sdChapterDataForRender && window.App && window.App.flags && window.App.flags.iclEnabled
+                && window.App.icl && window.App.icl.buildICLIndex) {
+            try {
+                const _iclReg = await _ensureIclRegistry();
+                if (_iclReg && elData && elData.length > 0) {
+                    const _iclTokenMap = new Map(elData.map(t => [t.verseId, t]));
+                    _sdIclIndex = window.App.icl.buildICLIndex(
+                        _sdChapterDataForRender, _iclTokenMap, _iclReg, book + ' ' + ch
+                    );
+                }
+            } catch (_iclErr) { _sdIclIndex = null; }
+        }
+
         /* VR-5-D: resolvedJpData 決定ロジックを _getVerseSource() へ抽出（VR-5-C 参照） */
         const resolvedJpData = _getVerseSource(_colA, jpData, elData);
         if (!resolvedJpData) throw new Error('Not found');
@@ -13171,6 +13756,13 @@ function _bpRenderSingle() {
                 <span class="bp-trans-name">${TRANSLATIONS.DISCOURSE.label}</span>
             </div>
             <span class="bp-trans-check icon">${icon('check')}</span>
+        </div>` +
+        /* P2: 構文ダイアグラムを「読み方を選択」に追加。 */
+        `<div class="bp-trans-item${_bpSelA === 'STRUCTURAL' ? ' active' : ''}" onclick="bpSelectA('STRUCTURAL')">
+            <div>
+                <span class="bp-trans-name">${TRANSLATIONS.STRUCTURAL.label}</span>
+            </div>
+            <span class="bp-trans-check icon">${icon('check')}</span>
         </div>`;
     document.getElementById('bp-single-body').innerHTML =
         `<span class="bp-compare-side-label">翻訳を選択</span>${transHTML}` +
@@ -13189,6 +13781,11 @@ function _bpRenderCompare() {
         `<div class="bp-compare-opt${_bpSelA === 'FLOW' ? ' active' : ''}" onclick="bpSelectA('FLOW')">
             <span class="bp-compare-opt-dot"></span>
             <span class="bp-compare-opt-name">${TRANSLATIONS.FLOW.label}</span>
+        </div>` +
+        /* P2: 構文ダイアグラムを左列「読み方を選択」に追加。 */
+        `<div class="bp-compare-opt${_bpSelA === 'STRUCTURAL' ? ' active' : ''}" onclick="bpSelectA('STRUCTURAL')">
+            <span class="bp-compare-opt-dot"></span>
+            <span class="bp-compare-opt-name">${TRANSLATIONS.STRUCTURAL.label}</span>
         </div>`;
     document.getElementById('bp-col-a').innerHTML =
         `<span class="bp-compare-side-label">翻訳を選択</span>${colATrans}` +
