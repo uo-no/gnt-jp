@@ -616,6 +616,30 @@ pointer-events: auto;
     #mobile-verse-view .mvv-l3-section[open] .mvv-l3-summary::before {
         transform: rotate(90deg);
     }
+    /* SF-43: mobile 語詳細内の Structure Flow disclosure（rn-level-section）を、同画面の mvv-l3
+       disclosure と同一 UI family に揃える（CSS のみ・#mobile-verse-view scoped）。desktop の
+       rn-level-section は非対象。flex/align-items/cursor/list-style は global 規則を継承（非再宣言）。 */
+    #mobile-verse-view .rn-level-section { margin-top: var(--space-md); }
+    #mobile-verse-view .rn-level-section > summary {
+        font-size: var(--text-caption);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        padding: var(--space-sm) 0;
+        font-family: inherit;
+    }
+    /* chevron SVG は mobile では隠し、mvv-l3 と同じ CSS 三角に統一 */
+    #mobile-verse-view .rn-level-section > summary .rn-level-arrow { display: none; }
+    #mobile-verse-view .rn-level-section > summary::before {
+        content: '';
+        width: 0; height: 0;
+        border-left: 5px solid currentColor;
+        border-top: 4px solid transparent;
+        border-bottom: 4px solid transparent;
+        margin-right: var(--space-xs);
+        flex-shrink: 0;
+        transition: transform var(--transition-fast);
+    }
+    #mobile-verse-view .rn-level-section[open] > summary::before { transform: rotate(90deg); }
     #mobile-verse-view .mvv-l3-slot {
         padding: 0 0 var(--space-sm);
         /* Phase F-3: 読書メモ本文の可読スタイル（本文と同等の落ち着いた読み） */
@@ -2485,6 +2509,289 @@ display: none;
 .flow-signal.sig-culture   { }
 .flow-signal.sig-default   { }
 
+/* ── DA-1: Discourse Analysis / Clause Connection View ──
+   既存 typography / spacing tokens のみを用い、新しい視覚言語を増やさない。 */
+.dcv-root { padding: var(--space-sm) 0; }
+.dcv-hint {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 0 var(--space-sm) var(--space-md);
+}
+.dcv-hint-title { font-size: var(--text-body); color: var(--text-main); font-weight: 600; }
+.dcv-hint-sub   { font-size: var(--text-caption); color: var(--text-sub); }
+.dcv-chain { display: flex; flex-direction: column; }
+.dcv-unit {
+    display: flex; align-items: baseline; gap: var(--space-sm);
+    padding: var(--space-sm); border-radius: var(--radius-m);
+    background: var(--bg-inset); border: 1px solid var(--border-soft);
+}
+.dcv-unit-vlabel {
+    flex: 0 0 auto; font-size: var(--text-caption); color: var(--text-sub);
+    min-width: 3em;
+}
+.dcv-unit-body {
+    flex: 1 1 auto; font-size: var(--text-body); line-height: 2.0;
+    color: var(--text-main);
+    display: flex; flex-wrap: wrap; gap: var(--rhythm-micro); align-items: baseline;
+}
+.dcv-w { white-space: nowrap; }
+.dcv-w-conn {
+    background: var(--accent-light); border-radius: var(--radius-s);
+    padding: 0 4px; font-weight: 600;
+}
+/* 節間の接続 signal（接続詞）。縦の連なりで「つながり」を示す。 */
+.dcv-conn {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 2px; padding: var(--space-xs) 0;
+}
+.dcv-conn-line { width: 2px; height: var(--space-sm); background: var(--accent-mid); }
+.dcv-conn-badge {
+    display: inline-flex; align-items: baseline; gap: var(--space-xs);
+    padding: 2px var(--space-sm); border-radius: var(--radius-l);
+    background: var(--accent-light); border: 1px solid var(--border-soft);
+    max-width: 100%;
+}
+.dcv-conn-greek { font-size: var(--text-caption); color: var(--text-main); font-weight: 600; }
+.dcv-conn-ja    { font-size: var(--text-caption); color: var(--text-sub); }
+.dcv-conn-none .dcv-conn-line { height: var(--space-md); background: var(--border-soft); }
+.dcv-empty { padding: var(--space-lg); color: var(--text-sub); font-size: var(--text-caption); }
+
+/* ══ P2: Structural Diagram (sd-*) ══════════════════════════════════════════════ */
+.sd-view {
+    padding: var(--space-sm) var(--space-md) var(--space-xl);
+    min-width: 0;
+    overflow-x: auto;
+}
+.sd-attribution {
+    font-size: 10px;
+    color: var(--text-sub);
+    margin-bottom: var(--space-xs);
+    opacity: 0.7;
+}
+.sd-hint {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-sm);
+    padding: var(--space-xs) 0 var(--space-md);
+    border-bottom: 1px solid var(--border-soft);
+    margin-bottom: var(--space-md);
+}
+.sd-hint-title { font-size: var(--text-body); color: var(--text-main); font-weight: 600; }
+.sd-hint-sub   { font-size: var(--text-caption); color: var(--text-sub); }
+.sd-empty      { padding: var(--space-lg); color: var(--text-sub); font-size: var(--text-caption); }
+
+.sd-sentence {
+    margin-bottom: var(--space-xl);
+    border-left: 3px solid var(--border-soft);
+    padding-left: var(--space-sm);
+}
+.sd-sentence-ref {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    font-weight: 600;
+    margin-bottom: var(--space-xs);
+    letter-spacing: 0.03em;
+}
+
+/* Internal nodes */
+.sd-node {
+    display: block;
+    margin: 2px 0;
+    padding-left: var(--space-md);
+    border-left: 1px solid var(--border-soft);
+}
+.sd-node[data-depth="0"] { padding-left: 0; border-left: none; }
+.sd-node-hd {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-height: 24px;
+    padding: 2px 0;
+}
+.sd-node-body { margin-top: 2px; }
+
+/* Foldable nodes — <details> already inherits margin/border from .sd-node,
+   so summary must not re-add padding-left (avoids double-indent). */
+.sd-foldable { display: block; margin: 2px 0; }
+.sd-foldable > summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    cursor: pointer;
+    list-style: none;
+    padding: 2px 0;
+}
+.sd-foldable > summary::-webkit-details-marker { display: none; }
+.sd-foldable > .sd-node-body { /* children already have .sd-node padding */ }
+.sd-fold-arrow {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid var(--text-sub);
+    border-bottom: 2px solid var(--text-sub);
+    transform: rotate(45deg);
+    flex-shrink: 0;
+    margin-right: 2px;
+}
+details[open] > summary .sd-fold-arrow { transform: rotate(-135deg); }
+
+/* Token rows */
+.sd-token-row {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 3px var(--space-xs);
+    margin: 2px 0;
+    background: var(--bg-card);
+    border-radius: 4px;
+    border: 1px solid var(--border-soft);
+    max-width: 100%;
+}
+
+/* FUNCTION labels on nodes and tokens */
+.sd-fn-label {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--accent-bg, #e8f0fe);
+    color: var(--accent-main, #1a56a0);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+.sd-fn-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--accent-bg, #e8f0fe);
+    color: var(--accent-main, #1a56a0);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+/* CONSTRUCTION label */
+.sd-cn-label {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--bg-tag, #f0f0f0);
+    color: var(--text-sub);
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+/* MORPHOLOGY badges */
+.sd-morph-badge {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--bg-morph, #f5f0e8);
+    color: var(--text-sub);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Greek text in tokens */
+.sd-greek {
+    font-family: var(--font-greek, 'GFS Didot', 'Gentium Plus', serif);
+    font-size: var(--text-body);
+    color: var(--text-main);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+/* Japanese gloss in tokens */
+.sd-gloss {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+}
+
+/* Mobile */
+@media (max-width: 390px) {
+    .sd-view { padding: var(--space-xs) var(--space-sm) var(--space-xl); }
+    .sd-hint { flex-direction: column; gap: 2px; }
+    .sd-node { padding-left: var(--space-sm); }
+    .sd-token-row { gap: 3px; padding: 2px var(--space-xs); }
+    .sd-greek { font-size: var(--text-caption); }
+}
+
+/* ── ICL候補パネル（P3-H PoC: ROM 6:10 τῇ ἁμαρτίᾳ のみ） ── */
+.icl-panel {
+    margin-top: 8px;
+    border: 1px solid var(--border-soft);
+    border-radius: 5px;
+    overflow: hidden;
+}
+.icl-panel-hd {
+    padding: 4px 8px 3px;
+    background: var(--bg-panel);
+    color: var(--text-sub);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border-soft);
+}
+.icl-panel-sub {
+    font-size: 9px;
+    font-weight: 400;
+    color: var(--text-hint, #8e8e93);
+    margin-top: 1px;
+}
+.icl-candidates { padding: 2px 0; }
+.icl-cand {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 4px 8px;
+}
+.icl-cand + .icl-cand { border-top: 1px solid var(--divider); }
+.icl-ev-dot {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-top: 4px;
+}
+.icl-ev-STRONG   { background: var(--text-sub); }
+.icl-ev-MODERATE { background: var(--border-strong, rgba(0,0,0,0.12)); }
+.icl-ev-WEAK     { border: 1.5px solid var(--border-strong, rgba(0,0,0,0.12)); background: transparent; }
+.icl-cand-main { flex: 1; min-width: 0; }
+.icl-cand-id  {
+    font-size: 9px;
+    font-family: monospace;
+    color: var(--text-hint, #8e8e93);
+}
+.icl-cand-ja {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    margin-left: 3px;
+}
+.icl-cand-ref {
+    font-size: 9px;
+    color: var(--text-hint, #8e8e93);
+    margin-top: 1px;
+}
+.icl-cand-unresolved {
+    font-size: 9px;
+    color: var(--color-caution, #a09050);
+    margin-top: 2px;
+    font-style: italic;
+}
+.icl-footnote {
+    padding: 3px 8px 4px;
+    font-size: 9px;
+    color: var(--text-hint, #8e8e93);
+    border-top: 1px solid var(--divider);
+    background: var(--bg-inset, #fafafa);
+}
+@media (max-width: 390px) {
+    .icl-cand { padding: 3px 6px; }
+    .icl-cand-id { font-size: 8px; }
+}
+/* ══════════════════════════════════════════════════════════════════════════════ */
+
 .flow-signal-text {
     font-size: var(--text-body);
 }
@@ -3708,10 +4015,15 @@ details[open] .study-summary::before {
 .sf-note-h::after { content: '：'; }
 /* SF-19 縦型: 第1層＝主語＋主動詞（横並び）／その下に「動詞→各項」を縦に1つずつ。
    frame は accent の横枝、containment(項の内部)は控えめの indent で別チャネル。 */
-.sf-l1 { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 18px; }
+/* SF-29: 第1層(主語+動詞)を枝幅から独立させ、長い枝でも折り返さない。
+   nowrap で主語と動詞を常に同一行に固定し、動詞+枝を包む .sf-verb-wrap を残り幅へ
+   （flex:1 1 0）押し込む。枝は verb-wrap 幅内で折返す（横 overflow なし）。 */
+.sf-l1 { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 6px 18px; }
+.sf-l1 > .sf-col { flex: 0 1 auto; min-width: 0; max-width: 60%; }
+.sf-l1 > .sf-verb-wrap { flex: 1 1 0; }
 .sf-verb-wrap { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
-/* 動詞から下がる trunk（縦・accent）。動詞 chip の下あたりに置く。 */
-.sf-branches { margin-top: 4px; margin-left: 9px; border-left: 1.5px solid var(--accent); }
+/* 動詞から下がる trunk（縦・accent）。動詞 chip の下あたりに置く。枝は verb-wrap 幅に追従して折返す。 */
+.sf-branches { margin-top: 4px; margin-left: 9px; border-left: 1.5px solid var(--accent); align-self: stretch; min-width: 0; }
 .sf-branch {
     position: relative;
     padding: 3px 0 3px 16px;
@@ -3727,7 +4039,22 @@ details[open] .study-summary::before {
 .sf-branch.sf-frame > .sf-branch-role { color: var(--accent); }
 /* nested containment（項の内部・別チャネル）: さらに indent・控えめ・非 accent。 */
 .sf-nested { flex-basis: 100%; margin: 2px 0 0 12px; border-left: 1px solid var(--border); padding-left: 8px; }
-.sf-nested-item { font: var(--text-caption)/1.6 'Hiragino Sans', sans-serif; color: var(--text-sub); }
+/* SF-31: 長主語（子孫に clause を持つ主語）の構造保持型段組み。既存 clause 境界で最上位 clause
+   単位に段分けし、各 token は排他的に1回だけ表示（surface 順・既存 japanese 値のみ）。従来 chip の
+   枠内に軽い区切り線で積むだけ（新しい syntax tree UI は作らない）。 */
+.sf-chip.sf-subj-struct { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; }
+.sf-subj-seg { display: block; }
+.sf-subj-seg + .sf-subj-seg { padding-top: 3px; border-top: 1px dashed var(--border); }
+/* SF-32: relation 内部を per-token の視覚 chip に分解し「単語が境目なく連結」を解消。単語間に
+   微小 gap を入れるだけ（罫線・背景・拡大フォントなし）。FLOW の「1 token=1 視覚単位」という
+   視覚語彙のみ共有し、interaction（onclick/hover/文法色）と .wlv-chip-ja の拡大サイズは持ち込まず
+   SF の compact スケール（.sf-chip 継承 0.9rem）を維持＝解析ツール化しない/Reading first。 */
+.sf-token-chip { display: inline-block; }
+.sf-token-chip + .sf-token-chip { margin-left: 7px; }
+/* SF-34: nested の Role↔Content 境界を明確化。content を SF 全体と一貫の text-main にし、role
+   （.sf-branch-role＝text-sub の静かなラベル）とコントラストを付ける。色のみ＝高さ/折返し不変
+   （C7 geometry byte-identical）。pill/背景/罫線/chip/segment/gap は追加しない（Reading first）。 */
+.sf-nested-item { font: var(--text-caption)/1.6 'Hiragino Sans', sans-serif; color: var(--text-main); }
 @media (max-width: 768px) {
     .sf-rel-row { gap: 4px 10px; }
     .sf-chip { font-size: var(--text-caption); padding: 2px 6px; }
@@ -3904,6 +4231,266 @@ details[open] .study-summary::before {
    #reading-notes-wrap / #word-list-view は元の flex:1（インラインstyle
    で指定済み）に戻り、固定高さの親いっぱいに伸びて内部だけスクロール
    する。 */
+
+/* ──────────────────────────────────────────────────────────────────────
+   P5 Reed-Kellogg Greek Diagram  (dg-)
+   Gate: JHN 1 / MAT 5 / EPH 2 only. Fallback to .sd-* for all others.
+   ────────────────────────────────────────────────────────────────────── */
+.dg-view {
+    padding: var(--space-xs) 0 var(--space-md);
+    overflow-x: auto;
+    min-width: 0;
+}
+.dg-view-label {
+    font-size: 10px;
+    color: var(--text-sub);
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    margin-bottom: .5rem;
+    opacity: .7;
+}
+.dg-clause {
+    margin-bottom: var(--space-xs);
+}
+/* Conjunction label above the clause it introduces */
+.dg-conjunction {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    font-style: italic;
+    padding-bottom: 2px;
+    padding-left: 2px;
+}
+/* ── Main baseline ── */
+.dg-main-line {
+    display: flex;
+    align-items: flex-end;
+    border-bottom: 2px solid var(--text-main);
+    gap: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+}
+/* ── Slots ── */
+.dg-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: .15rem .45rem;
+    flex-shrink: 0;
+}
+.dg-slot-text {
+    font-family: var(--font-greek);
+    font-size: 1rem;
+    color: var(--text-main);
+    white-space: nowrap;
+}
+.dg-slot-fn {
+    font-size: 9px;
+    color: var(--text-sub);
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    margin-top: 2px;
+    white-space: nowrap;
+}
+/* ── Connectors ── */
+/* Full vertical divider: Subject | Predicate/Copula */
+.dg-conn-sp {
+    width: 2px;
+    background-color: var(--text-main);
+    align-self: stretch;
+    flex-shrink: 0;
+    margin: 0 3px;
+}
+/* Short vertical divider: Predicate | Object */
+.dg-conn-po {
+    width: 2px;
+    height: 45%;
+    background-color: var(--text-main);
+    align-self: flex-end;
+    flex-shrink: 0;
+    margin: 0 3px;
+}
+/* Backward diagonal: Predicate \ Complement */
+.dg-conn-complement {
+    width: 28px;
+    flex-shrink: 0;
+    align-self: flex-end;
+    height: 36px;
+    position: relative;
+    overflow: visible;
+}
+.dg-conn-complement::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 36px;
+    height: 2px;
+    background: var(--text-main);
+    transform-origin: left bottom;
+    transform: rotate(-38deg);
+}
+/* Dashed diagonal: verbless predication (implied copula) */
+.dg-conn-implied {
+    width: 28px;
+    flex-shrink: 0;
+    align-self: flex-end;
+    height: 36px;
+    position: relative;
+    overflow: visible;
+}
+.dg-conn-implied::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 36px;
+    height: 0;
+    border-top: 1.5px dashed var(--text-sub);
+    transform-origin: left bottom;
+    transform: rotate(-38deg);
+    opacity: .75;
+}
+/* ── Adverbial phrases (below main line) ── */
+.dg-adv-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem .75rem;
+    padding: .3rem 0 .1rem 1.5rem;
+    margin-top: 2px;
+}
+.dg-adv-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+.dg-adv-connector {
+    width: 10px;
+    height: 8px;
+    border-left: 1.5px solid var(--text-sub);
+    border-bottom: 1.5px solid var(--text-sub);
+    border-radius: 0 0 0 2px;
+    margin-left: 4px;
+}
+.dg-adv-row {
+    display: flex;
+    align-items: baseline;
+    gap: .3rem;
+    border-bottom: 1.5px solid var(--text-sub);
+    padding: .05rem .3rem;
+}
+.dg-adv-text {
+    font-family: var(--font-greek);
+    font-size: .9rem;
+    color: var(--text-main);
+    white-space: nowrap;
+}
+.dg-adv-fn {
+    font-size: 9px;
+    color: var(--text-sub);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    white-space: nowrap;
+}
+/* ── Adverbial clauses (subordinate, recursive) ── */
+/* L-bracket connector: visually links main clause to subordinate clause */
+.dg-adv-clause-attach {
+    width: 1rem;
+    height: .85rem;
+    border-left: 1.5px solid var(--text-sub);
+    border-bottom: 1.5px solid var(--text-sub);
+    border-radius: 0 0 0 2px;
+    margin-left: 1.2rem;
+    margin-top: .35rem;
+    flex-shrink: 0;
+}
+.dg-adv-clause {
+    margin: 0 0 .1rem 1.2rem;
+    padding-left: .7rem;
+    border-left: 2px dashed var(--border-soft, #ddd);
+}
+.dg-adv-clause-label {
+    font-size: 9px;
+    color: var(--text-hint);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: .2rem;
+}
+/* ── Coordination container ── */
+/* Left border spans all coordinated clauses, indicating structural parallelism */
+.dg-coord-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-left: 2.5px solid var(--text-sub);
+    padding-left: .55rem;
+    margin-left: .2rem;
+}
+.dg-coord-clause {
+    /* each coordinated clause block */
+}
+.dg-coord-join {
+    display: flex;
+    align-items: center;
+    padding: .1rem 0;
+}
+.dg-coord-join::before {
+    content: '';
+    flex: 0 0 .5rem;
+    height: 1.5px;
+    background: var(--text-sub);
+    margin-right: .2rem;
+}
+.dg-coord-join-text {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    font-style: italic;
+}
+/* ── Word-level modifier zone (below main baseline, per-slot) ── */
+.dg-slot-mod-zone {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    padding: .15rem 0 .05rem;
+}
+.dg-slot-mod-cell {
+    flex: 0 0 auto;
+    min-width: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+/* Connector spacers mirror widths of their corresponding connector elements */
+.dg-slot-mod-spacer { flex-shrink: 0; }
+.dg-slot-mod-spacer-sp          { width: 8px; }
+.dg-slot-mod-spacer-po          { width: 8px; }
+.dg-slot-mod-spacer-complement  { width: 28px; }
+.dg-slot-mod-spacer-implied     { width: 28px; }
+/* P5-D-1: Participial predicate/copula slot — italic text marker */
+.dg-slot-participial .dg-slot-text { font-style: italic; }
+/* P5-D-1: Participial sub-clause label */
+.dg-adv-clause-participial .dg-adv-clause-label { font-style: italic; }
+/* P6-C: Relative clause connector — distinctive color to separate from generic subordinate */
+.dg-rel-clause {
+    margin: 0 0 .1rem 1.2rem;
+    padding-left: .7rem;
+    border-left: 2px dashed var(--color-domain, #7a7aaa);
+}
+.dg-rel-clause-label {
+    font-size: 9px;
+    color: var(--color-domain, #7a7aaa);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: .2rem;
+}
+/* P5-D-3: PP internal structure inside adverbial phrase row */
+.dg-adv-pp-wrap { display: flex; align-items: baseline; gap: .25rem; }
+.dg-adv-pp-prep { font-weight: 600; color: var(--text-main); }
+.dg-adv-pp-np   { color: var(--text-main); }
+@media (max-width: 480px) {
+    .dg-slot-text { font-size: .9rem; }
+    .dg-slot { padding: .1rem .3rem; }
+    .dg-adv-text { font-size: .8rem; }
+}
 </style>
 
 </head>
@@ -4214,6 +4801,8 @@ details[open] .study-summary::before {
 <script src="../core/presentation-policy.js"></script>
 <script src="../core/flow-tree-adapter.js"></script>
 <script src="../core/neighborhood-view.js"></script>
+<script src="../core/icl-engine.js"></script>
+<script src="../core/dg-engine.js"></script>
 <script>
 let abbottSmithDict = null;
 let _proximityTokens = [];
@@ -4362,6 +4951,12 @@ const TRANSLATIONS = {
 /*  'KAI17':  { label: '新改訳2017',         code: 'KAI17'  },
     'KYO':    { label: '聖書協会共同訳',     code: 'KYO'    },*/
     'FLOW':   { label: '読解フロー',         code: 'FLOW'   },
+    /* DA-1: 談話分析（節と節のつながり）。FLOW と同じく疑似翻訳ID（訳文JSONを持たない
+       Greek由来の読み方）。URL互換のため TRANSLATIONS に置く。 */
+    'DISCOURSE': { label: '談話分析',        code: 'DISCOURSE' },
+    /* P2: 構文ダイアグラム。SR JSON（public/assets/data/sr/）を読み取り専用で消費する
+       独立パイプライン。flow-tree・Reading Engine とは完全に分離。 */
+    'STRUCTURAL': { label: '構文ダイアグラム', code: 'STRUCTURAL' },
 };
 const TRANS_LIST   = Object.entries(TRANSLATIONS).map(([id, t]) => ({ id, name: t.label, code: t.code }));
 const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t]) => [id, t.label]));
@@ -4372,7 +4967,7 @@ const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t
  * Bible Picker の「翻訳を選択」グループはここを正とする。
  */
 const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
-    .filter(([id]) => id !== 'FLOW')
+    .filter(([id]) => id !== 'FLOW' && id !== 'DISCOURSE' && id !== 'STRUCTURAL')
     .map(([id, t]) => ({ id, label: t.label, code: t.code }));
 
 /**
@@ -4386,6 +4981,11 @@ const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
 const DISPLAY_MODE_REGISTRY = [
     ...TRANSLATION_REGISTRY.map(t => ({ kind: 'translation', translationId: t.id, label: t.label })),
     { kind: 'wordOrder', label: TRANSLATIONS.FLOW.label },
+    /* DA-1: 談話分析モード。既存 translation / wordOrder の分岐構造は変更せず、
+       kind='discourse' を1エントリ追加するのみ。 */
+    { kind: 'discourse', label: TRANSLATIONS.DISCOURSE.label },
+    /* P2: 構文ダイアグラムモード。 */
+    { kind: 'structural-diagram', label: TRANSLATIONS.STRUCTURAL.label },
 ];
 
 /* アクティブ翻訳（A = メイン / B = 比較列）。_transA / _transB が唯一のSSOT（Phase TR-5）。 */
@@ -7698,8 +8298,8 @@ function showAppInfo() {
             <section>
                 <h3>出典</h3>
                 <table>
-                    <tr><th>ギリシャ語底本</th><td>SBL Greek New Testament (SBLGNT)</td></tr>
-                    <tr><th>形態論解析</th><td>MACULA Greek Linguistic Datasets, available at <a href="https://github.com/Clear-Bible/macula-greek/" target="_blank" rel="noopener">https://github.com/Clear-Bible/macula-greek/</a></td></tr>
+                    <tr><th>ギリシャ語底本</th><td>SBL Greek New Testament (SBLGNT)<br><small>© Faithlife / Logos Bible Software, edited by Michael W. Holmes — CC BY 4.0</small></td></tr>
+                    <tr><th>形態論解析</th><td>MACULA Greek Linguistic Datasets, available at <a href="https://github.com/Clear-Bible/macula-greek/" target="_blank" rel="noopener">https://github.com/Clear-Bible/macula-greek/</a><br><small>© Biblica, Inc. — CC BY 4.0</small></td></tr>
                     <tr><th>辞書データ</th><td>Abbott-Smith, <em>A Manual Greek Lexicon of the New Testament</em></td></tr>
                     <tr>
                       <th>構文分類体系</th>
@@ -8304,14 +8904,14 @@ async function init() {
         const _colA = _toColumnMode(_transA);
         const _colB = _toColumnMode(_transB);
 
-        /* ColumnMode が wordOrder の場合は翻訳JSONをfetchしない */
-        const jpData = _colA.kind === 'wordOrder'
+        /* ColumnMode が wordOrder / discourse（Greek由来・訳文なし）の場合は翻訳JSONをfetchしない */
+        const jpData = _isGreekReadingMode(_colA.kind)
             ? null
             : await _fetchTranslation(_transA, book, ch);
-        if (_colA.kind !== 'wordOrder' && !jpData) throw new Error(`bible_jp not found: ${book}/${ch}`);
+        if (!_isGreekReadingMode(_colA.kind) && !jpData) throw new Error(`bible_jp not found: ${book}/${ch}`);
 
         let jpDataB = null;
-        if (_transMode === 'compare' && _colB.kind !== 'wordOrder') {
+        if (_transMode === 'compare' && !_isGreekReadingMode(_colB.kind)) {
             jpDataB = await _fetchTranslation(_transB, book, ch);
         }
 
@@ -8328,6 +8928,28 @@ async function init() {
             } catch (e) {
                 console.warn(`bible_data fetch error for ${book}/${ch}:`, e);
             }
+        }
+
+        /* DA-1: discourse は flow-tree（clause/sentence 構造）を先読みして render() へ渡す。 */
+        _dcvChapterTreeForRender = (_colA.kind === 'discourse')
+            ? await _loadFlowTreeChapter(book, ch) : null;
+        /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。 */
+        _sdChapterDataForRender = (_colA.kind === 'structural-diagram')
+            ? await _loadSrChapter(book, ch) : null;
+
+        /* P4-ICL: ICL インデックスを事前計算（structural-diagram ビューかつ iclEnabled 時のみ）。 */
+        _sdIclIndex = null;
+        if (_sdChapterDataForRender && window.App && window.App.flags && window.App.flags.iclEnabled
+                && window.App.icl && window.App.icl.buildICLIndex) {
+            try {
+                const _iclReg = await _ensureIclRegistry();
+                if (_iclReg && elData && elData.length > 0) {
+                    const _iclTokenMap = new Map(elData.map(t => [t.verseId, t]));
+                    _sdIclIndex = window.App.icl.buildICLIndex(
+                        _sdChapterDataForRender, _iclTokenMap, _iclReg, book + ' ' + ch
+                    );
+                }
+            } catch (_iclErr) { _sdIclIndex = null; }
         }
 
         /* VR-5-D: resolvedJpData 決定ロジックを _getVerseSource() へ抽出（VR-5-C 参照） */
@@ -8573,6 +9195,31 @@ app.innerHTML = '';
     const colB  = columns[1];
     const _colA = colA.colMode;
     const _colB = colB.colMode;
+
+    /* DA-1: 談話分析モード。節ごとの verse-block ループではなく、passage（章）単位の
+       clause 接続ビューを1つだけ描く。既存の verse-loop / wordOrder / translation 経路には
+       一切合流させず、ここで早期 return する（新しい if を verse ループ内へ増やさない）。 */
+    if (_colA.kind === 'discourse') {
+        const _dcvBookKey = AppState.location.book ? AppState.location.book.key : (elData[0] ? elData[0].book : '');
+        const _dcvCh      = AppState.location.chapter != null ? AppState.location.chapter : null;
+        const _dcvRep     = buildDiscourseRepresentation(_dcvBookKey, _dcvCh, elData, _dcvChapterTreeForRender);
+        app.innerHTML      = renderColumn(_dcvRep);
+        parallel.innerHTML = '';
+        _cachedElByVerse   = elByVerse;
+        _proximityTokens   = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
+        return;
+    }
+
+    /* P2: 構文ダイアグラムモード。DA-1 と同じく passage（章）単位の早期 return。
+       SR JSON（_sdChapterDataForRender）を読み取り専用で消費する。flow-tree・
+       Reading Engine・Discourse Analysis とは完全に独立したパイプライン。 */
+    if (_colA.kind === 'structural-diagram') {
+        _renderStructuralDiagramView(app, _sdChapterDataForRender, elData);
+        parallel.innerHTML = '';
+        _cachedElByVerse   = elByVerse;
+        _proximityTokens   = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
+        return;
+    }
 
     Object.entries(colA.jpData.verses).forEach(([vNum, text]) => {
         /* VR-5-F-B: 左列・右列の生成処理を _buildColumnBlock() へ抽出（VR-5-F-A監査
@@ -8908,7 +9555,8 @@ function _syncMobileVerseViewBackLabel() {
  * それ以外の翻訳が来た場合も _transA をそのまま返す（将来の翻訳追加に追随）。
  */
 function _mvvDisplayTrans() {
-    return (_toColumnMode(_transA).kind === 'wordOrder') ? 'JA1955' : _transA;
+    /* DA-1: discourse も FLOW と同様、訳文が無いので口語訳へフォールバックする。 */
+    return _isGreekReadingMode(_toColumnMode(_transA).kind) ? 'JA1955' : _transA;
 }
 
 /**
@@ -8921,7 +9569,7 @@ function _mvvDisplayTrans() {
  *      _fetchTranslation() で _mvvDisplayTrans()（=JA1955）を読む。
  */
 async function _mvvGetVerseText(vNum) {
-    if (_toColumnMode(_transA).kind !== 'wordOrder') {
+    if (!_isGreekReadingMode(_toColumnMode(_transA).kind)) {   /* DA-1: discourse も FLOW と同様 DOM に訳文が無い */
         const block = _findVisibleVerseBlock(vNum);
         if (block) {
             const jt = block.querySelector('.jp-text');
@@ -9571,6 +10219,22 @@ function _ft11LabelOf(tokens) {
     return tokens.slice().sort((a, b) => _ft11SurfaceIndex(a) - _ft11SurfaceIndex(b))
         .map(ref => _flowTreeJaForRef(ref)).join('');
 }
+/* SF-32: relation の tokens を「1 token = 1 視覚 chip」で描画する（surface 順）。gloss は既存
+ * _flowTreeJaForRef のみ（Reading Engine / naturalize / PresentationPolicy 非経由・新日本語生成
+ * なし＝L-0）。gloss 空 token は flat 連結（_ft11LabelOf）でも不可視なので出さない＝表示内容は
+ * 不変で「区切り」だけ加わる。interaction は付けない（視覚語彙のみ FLOW と共有）。可視 chip が
+ * 無ければ '' を返し、呼び出し側が従来 flat ラベルへフォールバック。 */
+function _sfTokenChipsHTML(tokens) {
+    if (!Array.isArray(tokens) || !tokens.length) return '';
+    const sorted = tokens.slice().sort((a, b) => _ft11SurfaceIndex(a) - _ft11SurfaceIndex(b));
+    let out = '';
+    for (const ref of sorted) {
+        const g = _flowTreeJaForRef(ref);
+        if (!g) continue;
+        out += `<span class="sf-token-chip">${_escH(g)}</span>`;
+    }
+    return out;
+}
 /* label 用の既存日本語表示値を token ref から引く（新規生成・推論はしない）。
    VR-6-C: MAT 1:1 は既存 prototype マップ _FT11_JAPANESE を厳密維持（baseline）、
    それ以外は現在の章キャッシュ _cachedElByVerse（bible_data の既存 japanese 値）を参照。
@@ -9588,11 +10252,11 @@ function _flowTreeJaForRef(ref) {
     return '';
 }
 /* SF-11/SF-16: role の生値→日本語（SF-10 §4）。生の s/o/v… は UI に出さない。 */
-const _SF_ROLE_JA = { s: '主語', o: '目的語', io: '間接目的語', v: '動詞', vc: '繋ぎの動詞', p: '補語', adv: '副詞的', aux: '助動詞' };
+const _SF_ROLE_JA = { s: '主語', o: '目的語', o2: '第二目的語', io: '間接目的語', v: '動詞', vc: '繋ぎの動詞', p: '補語', adv: '副詞的', aux: '助動詞' };
 /* SF-16: Structure Flow 横軸の「表示配置優先順位」（文法的正解語順ではなく UI layout rank）。
  * 原文順は Word Order Flow が担うため、Structure Flow は関係を読みやすい順で並べる。
  * role を持たない語は 8（末尾・元の相対順を維持）。role の推測付与はしない。 */
-const _SF_ROLE_RANK = { s: 1, v: 2, vc: 3, p: 4, o: 5, io: 6, adv: 7, aux: 8 };
+const _SF_ROLE_RANK = { s: 1, v: 2, vc: 3, p: 4, o: 5, o2: 6, io: 7, adv: 8, aux: 9 };
 /* SF-8〜SF-14: focus 中心の関係モデル。構造(parentId/children/order)＋SF-11 搬送の
  * role/frame/referent を「存在する時のみ」読む。SF-14: frame/referent の明示 node-id を
  * band chip index へ写像した edge を作る（focus-incident・同 band・非ゼロ・非文外のみ）。
@@ -9687,9 +10351,53 @@ function _sfRelationModel(nodesById, ref) {
  * その下に「動詞→各項」を縦に1つずつ並べる（CSS の trunk＋横枝）。frame は accent の枝、
  * 主語は第1層配置で表現し線を引かない。nested（項の内部 children）は包含として項の下に別チャネルで表示。
  * referent は同文明示のみ注記。生値・推論・ὃ→πᾶン は出さない。動詞が無い band は単段へフォールバック。 */
+/* SF-31: 長主語（子孫に clause を持つ主語）だけ、既存 clause 境界で「最上位 clause 単位」に
+   段組みする。各 leaf token を最上位 clause 祖先（無ければ orphan）へ排他的に1回だけ割当て、
+   segment 内は surface index 順で既存 japanese 値のみを連結（再生成・並替・語義選択・referent/
+   discourse 推定なし＝L-0）。clause を持たない or 単一 segment の主語は null を返し、呼び出し側が
+   従来の chip にフォールバック（＝通常ケースは不変）。深い入れ子は最上位 clause で平坦化し、
+   多段インデントは作らない（読みやすさ優先）。 */
+function _sfSubjectHTML(n) {
+    if (!n || !Array.isArray(n.tokens) || !n.tokens.length) return null;
+    // leaf word の各 token を「最上位 clause 祖先」の id へ割当て（無ければ null＝orphan）。
+    const owner = {};
+    (function walk(node, topClause) {
+        const tc = topClause || (node.type === 'clause' ? node : null);
+        if (node.type === 'word' && Array.isArray(node.tokens)) {
+            for (const r of node.tokens) owner[r] = tc ? tc.id : null;
+        }
+        if (Array.isArray(node.children)) node.children.forEach(c => walk(c, tc));
+    })(n, null);
+    let hasClause = false;
+    for (const r in owner) { if (owner[r] != null) { hasClause = true; break; } }
+    if (!hasClause) return null; // clause 無し＝従来 chip
+    // surface 順に走査し、owner 単位で排他 bucket 化（clause は非連続 token を1 segment に集約）。
+    const toks = n.tokens.slice().sort((a, b) => _ft11SurfaceIndex(a) - _ft11SurfaceIndex(b));
+    const segs = []; const bucket = {}; let curNull = null;
+    for (const r of toks) {
+        const o = owner[r];
+        if (o == null) {
+            if (!curNull) { curNull = { refs: [] }; segs.push(curNull); }
+            curNull.refs.push(r);
+        } else {
+            curNull = null;
+            if (!bucket[o]) { bucket[o] = { refs: [] }; segs.push(bucket[o]); }
+            bucket[o].refs.push(r);
+        }
+    }
+    if (segs.length < 2) return null; // 単一 segment＝従来 chip と同義（変化させない）
+    const segHTML = segs.map(s => `<span class="sf-subj-seg">${_sfTokenChipsHTML(s.refs) || _escH(_ft11LabelOf(s.refs) || '（この構成語）')}</span>`).join('');
+    return `<span class="sf-chip sf-ctx sf-subj-struct">${segHTML}</span>`;
+}
 function _sfRenderRelationFlow(m) {
     const roleJaOf = (n) => (n && n.role && _SF_ROLE_JA[n.role]) ? _SF_ROLE_JA[n.role] : '';
-    const chip = (n, isF) => `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_escH(_ft11LabelOf(n.tokens) || '（この構成語）')}</span>`;
+    const chip = (n, isF) => {
+        // SF-32: 3 token 以上の relation のみ per-token chip 化（2 token 以下は「境目なし連結」問題が
+        // 実質なく、chip 化は幅増→枝圧迫の副作用のみのため従来 flat を維持＝C7/通常ケース不変）。
+        const per = (Array.isArray(n.tokens) && n.tokens.length >= 3) ? _sfTokenChipsHTML(n.tokens) : '';
+        const inner = per || _escH(_ft11LabelOf(n.tokens) || '（この構成語）');
+        return `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${inner}</span>`;
+    };
     const cap = m.bandRoleJa
         ? `所属するまとまり<span class="sf-caprole"> · ${_escH(m.bandRoleJa)}</span>`
         : '所属するまとまり';
@@ -9720,7 +10428,15 @@ function _sfRenderRelationFlow(m) {
     };
     const subjIdx = m.sibs.findIndex(s => s.role === 's');
     const verbSib = m.sibs[verbIdx];
-    const subjHtml = subjIdx >= 0 ? l1col(m.sibs[subjIdx]) : '';
+    // SF-31: 主語が子孫 clause を持つ長主語のみ構造段組み。それ以外は従来 chip（l1col）で不変。
+    const subjHtml = (() => {
+        if (subjIdx < 0) return '';
+        const sn = m.sibs[subjIdx];
+        const struct = _sfSubjectHTML(sn);
+        if (!struct) return l1col(sn);
+        const isF = sn.id === m.focus.id; const rj = roleJaOf(sn);
+        return `<span class="sf-col"><span class="sf-role-cap${isF && rj ? ' is-focus' : ''}">${_escH(rj)}</span>${struct}</span>`;
+    })();
 
     // 枝に載せる下段 sib。focus が第1層(主語/動詞)なら全ての下段 role sib、
     // focus が項ならその focus のみ（無理に他項を出さない＝focus-incident 維持）。
@@ -9736,18 +10452,41 @@ function _sfRenderRelationFlow(m) {
        全文のまま、E1（137字/6行）型のみ短縮。data / Japanese / role / frame / referent は不変
        （表示文字列のみ・推論なし＝L-0 安全）。第1層(主語+動詞)・上位は対象外。 */
     const SF_BRANCH_MAX = 40;
-    const branchChip = (n, isF) => {
-        const full = _ft11LabelOf(n.tokens) || '（この構成語）';
-        const shown = full.length > SF_BRANCH_MAX ? full.slice(0, SF_BRANCH_MAX) + '…' : full;
-        return `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_escH(shown)}</span>`;
+    // SF-27/SF-33: 枝領域の relation ラベル共通の表示上限（先頭 SF_BRANCH_MAX 字＋…）。表示文字列を
+    // 切るだけ（既存 japanese のみ・推論/再生成なし＝L-0）。branchChip と nested-item で共有する。
+    const _sfTrunc = (s) => (s && s.length > SF_BRANCH_MAX) ? s.slice(0, SF_BRANCH_MAX) + '…' : s;
+    // SF-35: 枝/nested 内容の語境界を可視化。40字以内（＝truncation 非発生）は既存 per-token gap
+    //   (_sfTokenChipsHTML＝.sf-token-chip の spacing) で語間を表示。40字超は既存 SF-27 truncation を
+    //   「一切変更せず」そのまま維持（gap と 40字 truncation は同一枝で同時発生しない＝新しい truncation
+    //   仕様を作らない）。表示は既存 gloss のみ・token 順序/gloss/role 不変＝L-0。branchChip と nested で共有。
+    const _sfContent = (tokens, placeholder) => {
+        const full = _ft11LabelOf(tokens) || (placeholder || '');
+        if (full.length <= SF_BRANCH_MAX) return _sfTokenChipsHTML(tokens) || _escH(full);
+        // SF-37: >40字 は char slice せず token 境界で表示する。surface 順に累積 gloss 長が
+        //   SF_BRANCH_MAX(=budget) を超えない範囲で token を per-token gap 表示し、残余 token が
+        //   あれば「…」を preview marker として付す。token 途中切断・bracket 分断ゼロ（F2 解消）・
+        //   gap 維持（F1 解消）。表示は既存 gloss のみ・surface 順・… は非 token＝L-0。
+        const sorted = tokens.slice().sort((a, b) => _ft11SurfaceIndex(a) - _ft11SurfaceIndex(b));
+        let acc = 0, out = '', omitted = false;
+        for (const ref of sorted) {
+            const g = _flowTreeJaForRef(ref);
+            if (!g) continue;
+            if (acc > 0 && acc + g.length > SF_BRANCH_MAX) { omitted = true; break; }
+            out += `<span class="sf-token-chip">${_escH(g)}</span>`;
+            acc += g.length;
+        }
+        if (omitted) out += `<span class="sf-token-chip">…</span>`;
+        return out || _escH(full);
     };
+    const branchChip = (n, isF) =>
+        `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_sfContent(n.tokens, '（この構成語）')}</span>`;
     const branchHtml = branchIdxs.map(bi => {
         const n = m.sibs[bi]; const isF = n.id === m.focus.id; const rj = roleJaOf(n);
         const frameCls = hasFrameTo(bi) ? ' sf-frame' : '';
         // nested: 項の直接の子のうち role を持つもの（1階層・包含・別チャネル）。存在データのみ。
         const kids = Array.isArray(n.children) ? n.children.filter(c => c && c.role && _SF_ROLE_JA[c.role]) : [];
         const nested = kids.length
-            ? `<div class="sf-nested">${kids.map(c => `<div class="sf-nested-item"><span class="sf-branch-role">${_escH(_SF_ROLE_JA[c.role])}</span>${_escH(_ft11LabelOf(c.tokens) || '')}</div>`).join('')}</div>`
+            ? `<div class="sf-nested">${kids.map(c => `<div class="sf-nested-item"><span class="sf-branch-role">${_escH(_SF_ROLE_JA[c.role])}</span>${_sfContent(c.tokens, '')}</div>`).join('')}</div>`
             : '';
         return `<div class="sf-branch${frameCls}"><span class="sf-branch-role">${_escH(rj)}</span>${branchChip(n, isF)}${nested}</div>`;
     }).join('');
@@ -10783,7 +11522,21 @@ function _buildReadingContext(words, idx) {
  */
 function _toColumnMode(transId) {
     if (transId === 'FLOW') return { kind: 'wordOrder' };
+    if (transId === 'DISCOURSE') return { kind: 'discourse' };   /* DA-1 */
+    if (transId === 'STRUCTURAL') return { kind: 'structural-diagram' };  /* P2 */
     return { kind: 'translation', translationId: transId };
+}
+
+/**
+ * DA-1: Greek由来の「読み方」モード（訳文JSONを持たず、bible_data の Greek token を
+ * 表示源とするモード）かどうか。wordOrder（語順フロー）と discourse（談話分析）が該当する。
+ * 翻訳fetchのスキップ・elData 由来 VerseSource の選択・MobileVerseView フォールバックなど、
+ * 「訳文が無いGreekビュー」共通の判定にのみ使用する（chip描画等 wordOrder 固有の分岐には使わない）。
+ * @param {string} kind - ColumnMode.kind
+ * @returns {boolean}
+ */
+function _isGreekReadingMode(kind) {
+    return kind === 'wordOrder' || kind === 'discourse' || kind === 'structural-diagram';
 }
 
 /**
@@ -11036,6 +11789,874 @@ const TranslationRenderer = {
     },
 };
 
+/* ═══════════════════════════════════════════════════════════════════════
+   DA-1: Discourse Analysis / Clause Connection View
+   ═══════════════════════════════════════════════════════════════════════
+   責務境界（docs/development/discourse-analysis-design.md）:
+   - Analysis: 既存 bible_data の token（class/lemma）と flow-tree の clause/sentence
+     構造という「決定的な既存データ」だけを読む。新しい統語・意味・談話の推論をしない。
+   - Representation: clause を単位（units[]）、接続詞で示される節間接続を辺（connections[]）
+     として構造化する。referent / topic / focus / given-new / 意味関係ラベルは持たない。
+   - Renderer: 上記 Representation を HTML へ描画するだけ。意味判断をしない。
+   L-0: 接続詞の日本語は bible_data.japanese（採用済み Reading Japanese）をそのまま転写する。
+        「理由」「結果」「対比」等の関係ラベルをこちらで新設・断定しない。 */
+
+/* DA-1 で談話 signal として扱う接続詞 lemma（決定的・語彙的）。
+   既存 word-detail の signal 辞書（γάρ/ἀλλά/οὖν/ἵνα/ὅτι/εἰ/ὥστε）と同一集合を基盤に、
+   談話の流れを担う δέ / μέν / διό / ἄρα / ἐάν を加える。高頻度・低情報の καί / τέ / ἤ は
+   DA-1 では surface しない（推論ではなく表示上のノイズ抑制。設計書 §12 の最小scope）。 */
+const DCV_CONNECTIVE_LEMMAS = new Set([
+    'γάρ', 'δέ', 'οὖν', 'ἀλλά', 'μέν', 'ἵνα', 'ὅτι', 'διό', 'ὥστε', 'ἄρα', 'εἰ', 'ἐάν',
+]);
+
+/* render() が discourse 描画時に読む flow-tree（章単位）。renderCurrentPage()/init() が
+   render() 呼び出し前に await 済みで格納する（既存の翻訳fetchと同じ同期タイミング）。 */
+let _dcvChapterTreeForRender = null;
+
+/* P2: render() が structural-diagram 描画時に読む SR 章データ（章単位）。
+   DA-1 の _dcvChapterTreeForRender と同じタイミングで事前 fetch して格納する。 */
+let _sdChapterDataForRender = null;
+
+/* P4-ICL: 章単位の ICL インデックス（Map<nodeId, CandidateSet>）。
+   _sdChapterDataForRender と同タイミングで buildICLIndex() により計算。
+   window.App.flags.iclEnabled=false のとき null のまま。 */
+let _sdIclIndex = null;
+
+/* P4-ICL: syntax-registry.json の独立キャッシュ（_wallacePipeline とは別）。 */
+let _iclRegistryCached = null;
+async function _ensureIclRegistry() {
+    if (_iclRegistryCached) return _iclRegistryCached;
+    try {
+        const res = await fetch('../assets/data/syntax-registry.json');
+        if (res.ok) _iclRegistryCached = await res.json();
+    } catch (_) {}
+    return _iclRegistryCached;
+}
+
+/**
+ * DiscourseBuilder — 章の elData（Greek token）＋ flow-tree から DiscourseRepresentation を作る。
+ * @param {string} bookKey
+ * @param {number|null} ch
+ * @param {Object[]} elData - 章の全 token（bible_data。surface 順・verse/tokenIndex 保持）
+ * @param {Object|null} tree - _loadFlowTreeChapter() の結果（{ sentences:[...] } もしくは null）
+ * @returns {Object|null} { kind:'discourse', scope, units:[], connections:[] }
+ */
+function buildDiscourseRepresentation(bookKey, ch, elData, tree) {
+    try {
+        if (!Array.isArray(elData) || elData.length === 0) return null;
+
+        /* ref → token の索引（flow-tree の token 参照 "BOOK c:v!i" は bible_data.ref と一致）。 */
+        const byRef = {};
+        elData.forEach(w => { if (w && w.ref != null) byRef[w.ref] = w; });
+
+        /* clause 単位を得る。flow-tree があれば top-level sentence（独立節）を1単位とする。
+           nested な従属節へは降りない（降りると親子で token が重複し、節間接続ではなく
+           節内接続まで surface してしまうため。設計書 §12 の最小scope＝独立節どうしの接続）。
+           flow-tree が無ければ verse を fallback 単位にする（どちらも既存の決定的境界）。 */
+        let unitTokenGroups = [];
+        if (tree && Array.isArray(tree.sentences) && tree.sentences.length) {
+            tree.sentences.forEach(sent => {
+                /* DA-2b: 単位を駆動する flow-tree node を保持し、node.id / type / parentId /
+                   tokens を逐語転写する（下記 units.push 参照）。表示駆動の単位集合（top-level）は
+                   変更しない＝既存 DA-1 表示・connections を不変に保つ。 */
+                if (Array.isArray(sent.tokens) && sent.tokens.length) unitTokenGroups.push({ node: sent, refs: sent.tokens.slice() });
+            });
+        } else {
+            /* fallback: verse を単位にする（flow-tree 欠落章でも消えないため）。
+               flow-tree node が無いため構造フィールドは null（逐語できないものは埋めない）。 */
+            const byVerse = {};
+            const order = [];
+            elData.forEach(w => {
+                const v = w.verse != null ? String(w.verse) : null;
+                if (!v) return;
+                if (!(v in byVerse)) { byVerse[v] = []; order.push(v); }
+                byVerse[v].push(w.ref);
+            });
+            unitTokenGroups = order.map(v => ({ node: null, refs: byVerse[v] }));
+        }
+
+        /* 各単位を surface 順に整え、単位内の先頭接続詞（＝この節を前の節へつなぐ signal）を得る。 */
+        const units = [];
+        unitTokenGroups.forEach((grp, idx) => {
+            const node = grp.node;
+            const refs = grp.refs;
+            const toks = refs.map(r => byRef[r]).filter(Boolean);
+            if (toks.length === 0) return;
+            toks.sort((a, b) => {
+                const va = parseInt(a.verse, 10) || 0, vb = parseInt(b.verse, 10) || 0;
+                if (va !== vb) return va - vb;
+                return (parseInt(a.tokenIndex, 10) || 0) - (parseInt(b.tokenIndex, 10) || 0);
+            });
+            /* 先頭接続詞：surface 順で最初に現れる class==='conj' かつ SAFE lemma の token。 */
+            let connective = null;
+            for (const t of toks) {
+                if (t.class === 'conj' && DCV_CONNECTIVE_LEMMAS.has(t.lemma)) {
+                    connective = {
+                        lemma: t.lemma,
+                        greek: t.text || t.normalized || t.lemma,
+                        /* L-0: japanese は採用済み Reading Japanese の転写のみ。 */
+                        ja: (t.japanese != null && t.japanese !== '') ? t.japanese : '',
+                        tokenId: t.tokenId != null ? String(t.tokenId) : '',
+                        ref: t.ref || '',
+                    };
+                    break;
+                }
+            }
+            const vNums = toks.map(t => parseInt(t.verse, 10) || 0).filter(Boolean);
+            const vMin = Math.min.apply(null, vNums), vMax = Math.max.apply(null, vNums);
+            const verseLabel = (vMin === vMax) ? `${ch}:${vMin}` : `${ch}:${vMin}–${vMax}`;
+            /* 表示テキスト：token の採用済み japanese を surface 順で転写（並べ替え・意訳なし）。
+               接続詞 token には isConnective を立て、視覚的に signal を強調できるようにする。 */
+            const words = toks.map(t => ({
+                ja: (t.japanese != null && t.japanese !== '') ? t.japanese : (t.gloss || t.text || ''),
+                isConnective: !!(connective && String(t.tokenId) === connective.tokenId),
+            }));
+            /* DA-2b: DA-2a schema の構造フィールドを flow-tree node から逐語転写する。
+               推論・再計算・親clause探索・surface並替を行わない（node の値をそのまま保持）。
+               node が無い fallback（flow-tree 欠落）は構造フィールドを埋めない（null）。 */
+            const unitId = node && node.id != null ? node.id : `dcv-u${idx}-${refs[0] || vMin}`;
+            units.push({
+                /* id は既存 renderer / connections の参照キー。DA-2a では unitId＝flow-tree node.id。
+                   renderer を変更しないため id にも同値（node.id）を入れる（表示は不変）。 */
+                id: unitId,
+                unitId,                                                    /* = flow-tree node.id（逐語） */
+                unitType:     node ? node.type : null,                     /* = flow-tree node.type（逐語） */
+                parentUnitId: node ? (node.parentId != null ? node.parentId : null) : null, /* = node.parentId（逐語 / root=null） */
+                tokenRefs:    node && Array.isArray(node.tokens) ? node.tokens.slice() : refs.slice(), /* = node.tokens（逐語・順序不変） */
+                verseLabel,
+                words,
+                connective,   /* この単位の先頭接続詞（無ければ null） */
+            });
+        });
+
+        if (units.length === 0) return null;
+
+        /* 接続（辺）：単位 i の先頭接続詞が、前の単位 i-1 との接続 signal になる。
+           接続詞の無い単位は辺を作らない（asyndeton＝未判定を捏造しない・静寂）。 */
+        const connections = [];
+        for (let i = 1; i < units.length; i++) {
+            const c = units[i].connective;
+            if (!c) continue;
+            connections.push({
+                from: units[i - 1].id,
+                to:   units[i].id,
+                lemma: c.lemma,
+                greek: c.greek,
+                ja:   c.ja,
+            });
+        }
+
+        return {
+            kind: 'discourse',
+            scope: { book: bookKey || '', chapter: (ch != null ? ch : null) },
+            units,
+            connections,
+            /* DA-2b: 談話意味関係（理由/結果/対比…）は決定的根拠が無いため生成しない。
+               常に空配列＝Unresolved by Design（clause.discourse.type も参照しない）。 */
+            relations: [],
+        };
+    } catch (_) {
+        return null;
+    }
+}
+
+/**
+ * DiscourseRenderer — DiscourseRepresentation を HTML へ描画する。
+ * 意味判断・日本語生成をしない（Representation が持つ値の転写のみ）。
+ */
+const DiscourseRenderer = {
+    render(representation) {
+        if (!representation || !Array.isArray(representation.units) || representation.units.length === 0) {
+            return `<div class="dcv-root"><div class="dcv-empty">この章では節のつながりを表示できるデータがありません。</div></div>`;
+        }
+        const units = representation.units;
+        /* 接続の索引：toUnitId → 接続 signal（前の単位からこの単位への辺）。 */
+        const connByTo = {};
+        (representation.connections || []).forEach(cn => { connByTo[cn.to] = cn; });
+
+        const parts = [];
+        parts.push(`<div class="dcv-hint"><span class="dcv-hint-title">節のつながり</span><span class="dcv-hint-sub">段落の中で、節と節がどの接続詞でつながっているかを追う読み方です。</span></div>`);
+        parts.push(`<div class="dcv-chain">`);
+        units.forEach((u, i) => {
+            /* 単位間の接続 signal（先頭単位には無い）。 */
+            if (i > 0) {
+                const cn = connByTo[u.id];
+                if (cn) {
+                    /* DA-6: connector badge は Greek marker のみを主表示する。
+                       ja gloss（例 ［理由語句］）を 2 節の間に置くと semantic relation
+                       label（理由/対比/結論/転換）に見えるため、connector では表示しない。
+                       本文中の token gloss（words[].ja）は従来どおり保持し、
+                       connections[].ja の Representation 契約は不変（DA-3 FROZEN・表示層のみ変更）。 */
+                    parts.push(
+                        `<div class="dcv-conn"><span class="dcv-conn-line"></span>` +
+                        `<span class="dcv-conn-badge"><span class="dcv-conn-greek">${_escH(cn.greek)}</span></span>` +
+                        `<span class="dcv-conn-line"></span></div>`
+                    );
+                } else {
+                    /* 接続詞が無い節境界：関係を捏造せず、静かな区切りのみ。 */
+                    parts.push(`<div class="dcv-conn dcv-conn-none"><span class="dcv-conn-line"></span></div>`);
+                }
+            }
+            const body = u.words.map(w =>
+                `<span class="dcv-w${w.isConnective ? ' dcv-w-conn' : ''}">${_escH(w.ja)}</span>`
+            ).join('');
+            parts.push(
+                `<div class="dcv-unit" data-unit-id="${_escH(u.id)}">` +
+                `<span class="dcv-unit-vlabel">${_escH(u.verseLabel)}</span>` +
+                `<div class="dcv-unit-body">${body}</div>` +
+                `</div>`
+            );
+        });
+        parts.push(`</div>`);
+        return `<div class="dcv-root">${parts.join('')}</div>`;
+    },
+};
+
+/* ══════════════════════════════════════════
+   P2: Structural Diagram Renderer
+   SR JSON（public/assets/data/sr/）を読み取り専用で消費する。
+   flow-tree / Reading Engine / Discourse Analysis とは完全に独立したパイプライン。
+   ══════════════════════════════════════════ */
+
+/* SR 章データキャッシュ（DA の _flowTreeChapterCache と同パターン） */
+const _srChapterCache = {};
+async function _loadSrChapter(book, chapter) {
+    const key = book + '/' + chapter;
+    if (key in _srChapterCache) return _srChapterCache[key];
+    let data = null;
+    try {
+        const res = await fetch(`../assets/data/sr/${book}/${chapter}.json`);
+        if (res.ok) data = await res.json();
+    } catch (_) { data = null; }
+    _srChapterCache[key] = data;
+    return data;
+}
+
+/* FUNCTION canonical → 日本語ラベル（P2表示層のみ。構造の決定に使わない）。 */
+const _SD_FN_JA = {
+    SUBJECT: '主語', PREDICATE: '述語', OBJECT: '目的語',
+    INDIRECT_OBJECT: '間接目的語', COMPLEMENT: '補語',
+    ADVERBIAL: '副詞的', AUXILIARY: '助動詞', SECOND_OBJECT: '第二目的語',
+    COPULA: '繋辞', AUX: '助動詞', OBJECT2: '第二目的語',
+};
+/* CONSTRUCTION canonical → 日本語ラベル（表示層のみ）。 */
+const _SD_CN_JA = {
+    PREDICATION: '述語構造', CONJOINED_CLAUSE: '並列節',
+    PARTICIPIAL_CLAUSE: '分詞節', RELATIVE_CLAUSE: '関係節',
+    ARTICULAR_NP: '冠詞付き名詞句', ANARTHROUS_NP: '無冠詞名詞句',
+    GENITIVE_MOD: '属格修飾', APPOSITION: '同格',
+    DEMO_MOD: '指示修飾', CLAUSE_AS_NP: '節名詞化',
+};
+
+/* elData から ref→japanese の lookup table を構築する（表示層のみ用途）。
+   日本語は構造決定に使わない（L-0）。 */
+function _sdCollectJaByRef(elData) {
+    const map = {};
+    for (const w of (elData || [])) {
+        if (w && w.ref) map[w.ref] = w.japanese || '';
+    }
+    return map;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   P3-H: ICL統合PoC — ROM 6:10 τῇ ἁμαρτίᾳ 限定
+   これはproduction-wide rolloutではない。当該ノード1箇所限定のUI統合PoC。
+   ペイロードはscratchpad/P3-H/generate_icl_payload.cjsで生成。
+   SR schema・Reading Engine・Syntax Analyzer・flow-tree schemaは変更しない。
+   ───────────────────────────────────────────────────────────────────────────── */
+const _ICL_ROM6_10 = {"passage_ref":"ROM 6:10","token_text":"τῇ ἁμαρτίᾳ","node_id":"ROM#ROM 6:10!4…ROM 6:10!5","grammar_category":"dative","icl_version":"P3-F2-prototype-0.3","generated_at":"2026-08-19T04:33:59.059Z","governing_clause_tokens":["ὃ","ἀπέθανεν,","τῇ","ἁμαρτίᾳ","ἀπέθανεν","ἐφάπαξ·"],"presentation_candidates":[{"candidate_id":"dative.reference","label_ja":"参照与格","label_en":"Dative of Reference / Respect","support_level":"STRONG","wallace_ref":"§6.A.4 (pp.144–146)","unresolved_reason":null},{"candidate_id":"dative.interest_advantage","label_ja":"利益与格","label_en":"Dative of Interest (Advantage)","support_level":"MODERATE","wallace_ref":"§6.A.2a (pp.142–144)","unresolved_reason":null},{"candidate_id":"dative.means","label_ja":"手段与格","label_en":"Dative of Means / Instrument","support_level":"WEAK","wallace_ref":"§6.C.1 (pp.156–158)","unresolved_reason":null}],"eliminated":[{"candidate_id":"dative.indirect_object","label_en":"Dative of Indirect Object","elimination_rule":"E-3","condition":"giving/communication verb must be present in clause"},{"candidate_id":"dative.ethical","label_en":"Ethical Dative","elimination_rule":"E-3","condition":"first/second person personal pronoun must be the dative token"},{"candidate_id":"dative.possession","label_en":"Dative of Possession","elimination_rule":"E-3","condition":"copula verb must be present in governing clause"},{"candidate_id":"dative.time","label_en":"Dative of Time","elimination_rule":"E-3","condition":"temporal noun lemma required"},{"candidate_id":"dative.association","label_en":"Dative of Association","elimination_rule":"E-3","condition":"σύν-compound verb or σύν preposition required"},{"candidate_id":"dative.agent","label_en":"Dative of Agent","elimination_rule":"E-3","condition":"verb must be in passive voice"},{"candidate_id":"dative.measure","label_en":"Dative of Measure","elimination_rule":"E-3","condition":"measure/degree lemma or comparative required"}],"candidateset_sealed":true};
+
+function _sdIclPanel(payload) {
+    if (!payload || !Array.isArray(payload.presentation_candidates)) return null;
+    const panel = document.createElement('div');
+    panel.className = 'icl-panel';
+    panel.setAttribute('aria-label', '文法上の候補');
+
+    const hd = document.createElement('div');
+    hd.className = 'icl-panel-hd';
+    hd.textContent = '文法上の候補';
+    const sub = document.createElement('div');
+    sub.className = 'icl-panel-sub';
+    sub.textContent = payload.token_text + ' · ' + payload.grammar_category + ' · ' + payload.icl_version;
+    hd.appendChild(sub);
+    panel.appendChild(hd);
+
+    const list = document.createElement('div');
+    list.className = 'icl-candidates';
+    for (const c of payload.presentation_candidates) {
+        const item = document.createElement('div');
+        item.className = 'icl-cand';
+        const dot = document.createElement('div');
+        dot.className = 'icl-ev-dot icl-ev-' + (c.support_level || 'WEAK');
+        dot.setAttribute('title', 'シグナル: ' + (c.support_level || ''));
+        item.appendChild(dot);
+        const main = document.createElement('div');
+        main.className = 'icl-cand-main';
+        const topLine = document.createElement('div');
+        topLine.innerHTML =
+            '<span class="icl-cand-id">' + _escH(c.candidate_id) + '</span>' +
+            '<span class="icl-cand-ja">· ' + _escH(c.label_ja || '') + '</span>';
+        main.appendChild(topLine);
+        if (c.wallace_ref) {
+            const ref = document.createElement('div');
+            ref.className = 'icl-cand-ref';
+            ref.textContent = 'Wallace ' + c.wallace_ref;
+            main.appendChild(ref);
+        }
+        if (c.unresolved_reason) {
+            const ur = document.createElement('div');
+            ur.className = 'icl-cand-unresolved';
+            ur.textContent = '▸ ' + c.unresolved_reason;
+            main.appendChild(ur);
+        }
+        item.appendChild(main);
+        list.appendChild(item);
+    }
+    panel.appendChild(list);
+
+    const fn = document.createElement('div');
+    fn.className = 'icl-footnote';
+    fn.textContent = '印は文法シグナルの量（正しさや確率の指標ではありません） · ICL ' + payload.icl_version;
+    panel.appendChild(fn);
+
+    return panel;
+}
+
+/* 単一 SR ノードを DOM 要素として描画（再帰）。
+   depth: ルート=0。FOLD_DEPTH 以上は <details> で折りたたみ可能にする。
+   UNRESOLVED function は primary display から除外（R-4 準拠）。
+   トークンの順序は children 配列の順（SR R-1 不変条件 = surfaceIndex 非減少）に従う。 */
+function _sdRenderNode(node, depth, jaByRef) {
+    if (!node) return null;
+    const isToken  = node.type === 'token';
+    const fnCanon  = node.function && node.function.canonical;
+    const cnNode   = node.construction;
+    const cnCanon  = cnNode && cnNode.canonical;
+    const cnAxis   = cnNode && cnNode.axis;
+    const morph    = Array.isArray(node.morphCategory) ? node.morphCategory : [];
+    const children = Array.isArray(node.children) ? node.children : [];
+    const FOLD_DEPTH = 5;
+
+    /* UNRESOLVED は primary display に出さない */
+    const showFn = fnCanon && fnCanon !== 'UNRESOLVED';
+    const fnJa   = showFn ? (_SD_FN_JA[fnCanon] || fnCanon) : null;
+
+    /* Construction ラベル */
+    let cnLabel = null;
+    if (cnAxis === 'WORD_ORDER' && cnNode.sourceRule) {
+        cnLabel = cnNode.sourceRule;
+    } else if (cnCanon) {
+        cnLabel = _SD_CN_JA[cnCanon] || cnCanon;
+    }
+
+    /* 形態バッジ（MORPHOLOGY チャネル：badge only, 構造決定に使わない） */
+    const morphHTML = morph.map(m => {
+        const label = m === 'participle' ? '分詞' : m === 'infinitive' ? '不定詞' : m === 'relative_pronoun' ? '関係詞' : m;
+        return `<span class="sd-morph-badge sd-morph-${_escH(m)}">${_escH(label)}</span>`;
+    }).join('');
+
+    if (isToken) {
+        const ref   = node.evidence && node.evidence.ref;
+        const jaStr = (ref && jaByRef[ref]) ? _escH(jaByRef[ref]) : '';
+        const el    = document.createElement('div');
+        el.className = 'sd-token-row';
+        if (node.surfaceIndex != null) el.dataset.si = node.surfaceIndex;
+        if (ref) el.dataset.ref = ref;
+        el.innerHTML =
+            (fnJa ? `<span class="sd-fn-badge sd-fn-${_escH(fnCanon)}">${_escH(fnJa)}</span>` : '') +
+            `<span class="sd-greek" lang="grc">${_escH(node.text || '')}</span>` +
+            morphHTML +
+            (jaStr ? `<span class="sd-gloss">${jaStr}</span>` : '');
+        return el;
+    }
+
+    /* 内部ノード（clause/phrase/group）のラベル */
+    const labelInner =
+        (fnJa    ? `<span class="sd-fn-label sd-fn-${_escH(fnCanon)}">${_escH(fnJa)}</span>` : '') +
+        (cnLabel ? `<span class="sd-cn-label">${_escH(cnLabel)}</span>` : '');
+
+    if (depth >= FOLD_DEPTH && children.length > 0) {
+        const wrapper = document.createElement('details');
+        wrapper.className = 'sd-node sd-foldable';
+        wrapper.dataset.depth = depth;
+        wrapper.dataset.type  = node.type || '';
+        if (depth < FOLD_DEPTH + 3) wrapper.open = true;
+        const summary = document.createElement('summary');
+        summary.className = 'sd-node-hd';
+        summary.innerHTML = `<span class="sd-fold-arrow" aria-hidden="true"></span>${labelInner}`;
+        wrapper.appendChild(summary);
+        const body = document.createElement('div');
+        body.className = 'sd-node-body';
+        for (const child of children) { const cEl = _sdRenderNode(child, depth + 1, jaByRef); if (cEl) body.appendChild(cEl); }
+        wrapper.appendChild(body);
+        return wrapper;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'sd-node';
+    wrapper.dataset.depth = depth;
+    wrapper.dataset.type  = node.type || '';
+    if (labelInner) {
+        const hd = document.createElement('div');
+        hd.className = 'sd-node-hd';
+        hd.innerHTML = labelInner;
+        wrapper.appendChild(hd);
+    }
+    if (children.length > 0) {
+        const body = document.createElement('div');
+        body.className = 'sd-node-body';
+        for (const child of children) { const cEl = _sdRenderNode(child, depth + 1, jaByRef); if (cEl) body.appendChild(cEl); }
+        wrapper.appendChild(body);
+    }
+    /* P4-ICL: runtime ICL候補パネル（全 phrase.np/pp 対象）。
+       iclEnabled かつ _sdIclIndex 構築済みの場合に runtime lookup。
+       未構築時は P3-H 静的 fallback（ROM 6:10 限定）を維持。 */
+    if (node.id) {
+        let _iclPayload = null;
+        if (_sdIclIndex && window.App && window.App.icl && window.App.icl.extractPresentationPayload) {
+            try {
+                const _cs = _sdIclIndex.get(node.id);
+                if (_cs) _iclPayload = window.App.icl.extractPresentationPayload(_cs);
+            } catch (_) {}
+        } else if (node.id === 'ROM#ROM 6:10!4…ROM 6:10!5') {
+            /* P3-H static fallback — rollback only */
+            _iclPayload = _ICL_ROM6_10;
+        }
+        if (_iclPayload) {
+            const iclEl = _sdIclPanel(_iclPayload);
+            if (iclEl) wrapper.appendChild(iclEl);
+        }
+    }
+    return wrapper;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   P5 Reed-Kellogg Greek Diagram renderer  (_dg*)
+   Renders DR (DiagramRepresentation) produced by DgEngine.deriveDR().
+   Gate: JHN 1 / MAT 5 / EPH 2.  All other chapters fall back to _sdRenderNode.
+   ────────────────────────────────────────────────────────────────────── */
+const _DG_FN_JA = {
+    SUBJECT: '主語', PREDICATE: '述語', COPULA: '繋辞',
+    OBJECT: '目的語', COMPLEMENT: '補語',
+    INDIRECT_OBJECT: '間接目的語', SECOND_OBJECT: '第二目的語',
+    AUX: '助動詞', ADVERBIAL: '副詞的',
+};
+
+function _dgRenderMainLine(slots) {
+    const line = document.createElement('div');
+    line.className = 'dg-main-line';
+    for (const slot of slots) {
+        if (slot.connector) {
+            const conn = document.createElement('div');
+            conn.className = 'dg-conn dg-conn-' + slot.connector;
+            line.appendChild(conn);
+        }
+        const slotEl = document.createElement('div');
+        slotEl.className = 'dg-slot dg-slot-' + slot.fn.toLowerCase();
+        // P5-D-1: mark participial predicate/copula slots visually
+        if (slot.isParticipial) slotEl.classList.add('dg-slot-participial');
+        const textEl = document.createElement('span');
+        textEl.className = 'dg-slot-text';
+        // Use headDisplayText: excludes tokens belonging to extracted word-level modifiers
+        textEl.textContent = window.DgEngine.headDisplayText(slot.node, slot.headSIs);
+        slotEl.appendChild(textEl);
+        if (slot.fn !== 'COPULA' && slot.fn !== 'AUX') {
+            const fnEl = document.createElement('span');
+            fnEl.className = 'dg-slot-fn';
+            fnEl.textContent = _DG_FN_JA[slot.fn] || slot.fn;
+            slotEl.appendChild(fnEl);
+        }
+        line.appendChild(slotEl);
+    }
+    return line;
+}
+
+/* Renders word-level modifiers below the baseline, approximately aligned under their slots. */
+function _dgRenderSlotModZone(slots) {
+    if (!slots || !slots.some(s => s.modifiers && s.modifiers.length > 0)) return null;
+    const zone = document.createElement('div');
+    zone.className = 'dg-slot-mod-zone';
+    for (const slot of slots) {
+        if (slot.connector) {
+            const spacer = document.createElement('div');
+            spacer.className = 'dg-slot-mod-spacer dg-slot-mod-spacer-' + slot.connector;
+            zone.appendChild(spacer);
+        }
+        const cell = document.createElement('div');
+        cell.className = 'dg-slot-mod-cell';
+        for (const mod of (slot.modifiers || [])) {
+            const item = document.createElement('div');
+            item.className = 'dg-adv-item';
+            const connEl = document.createElement('div');
+            connEl.className = 'dg-adv-connector';
+            item.appendChild(connEl);
+            const row = document.createElement('div');
+            row.className = 'dg-adv-row';
+            const textEl = document.createElement('span');
+            textEl.className = 'dg-adv-text';
+            textEl.textContent = window.DgEngine.displayText(mod.node);
+            row.appendChild(textEl);
+            const fnEl = document.createElement('span');
+            fnEl.className = 'dg-adv-fn';
+            fnEl.textContent = mod.label || '修飾';
+            row.appendChild(fnEl);
+            item.appendChild(row);
+            cell.appendChild(item);
+        }
+        zone.appendChild(cell);
+    }
+    return zone;
+}
+
+function _dgRenderAdvPhrases(advPhrases) {
+    if (!advPhrases || advPhrases.length === 0) return null;
+    const list = document.createElement('div');
+    list.className = 'dg-adv-list';
+    for (const adv of advPhrases) {
+        const item = document.createElement('div');
+        item.className = 'dg-adv-item';
+        const connEl = document.createElement('div');
+        connEl.className = 'dg-adv-connector';
+        item.appendChild(connEl);
+        const row = document.createElement('div');
+        row.className = 'dg-adv-row';
+        // P5-D-3: PP internal structure — show PREP separately from governed NP
+        let ppNpModItems = null;
+        if (adv.ppPrep && adv.ppNpNode) {
+            const ppWrap = document.createElement('div');
+            ppWrap.className = 'dg-adv-pp-wrap';
+            const prepEl = document.createElement('span');
+            prepEl.className = 'dg-adv-pp-prep';
+            prepEl.textContent = adv.ppPrep;
+            ppWrap.appendChild(prepEl);
+            const npEl = document.createElement('span');
+            npEl.className = 'dg-adv-pp-np';
+            const npMod = adv.ppNpModInfo;
+            npEl.textContent = window.DgEngine.headDisplayText(adv.ppNpNode, npMod ? npMod.headSIs : null);
+            ppWrap.appendChild(npEl);
+            row.appendChild(ppWrap);
+            // Collect governed NP modifiers to append AFTER the row (correct DOM order)
+            if (npMod && npMod.modifiers && npMod.modifiers.length > 0) {
+                ppNpModItems = [];
+                for (const mod of npMod.modifiers) {
+                    const modItem = document.createElement('div');
+                    modItem.className = 'dg-adv-item';
+                    const modConn = document.createElement('div');
+                    modConn.className = 'dg-adv-connector';
+                    modItem.appendChild(modConn);
+                    const modRow = document.createElement('div');
+                    modRow.className = 'dg-adv-row';
+                    const modText = document.createElement('span');
+                    modText.className = 'dg-adv-text';
+                    modText.textContent = window.DgEngine.displayText(mod.node);
+                    modRow.appendChild(modText);
+                    const modFn = document.createElement('span');
+                    modFn.className = 'dg-adv-fn';
+                    modFn.textContent = mod.label || '修飾';
+                    modRow.appendChild(modFn);
+                    modItem.appendChild(modRow);
+                    ppNpModItems.push(modItem);
+                }
+            }
+        } else {
+            const textEl = document.createElement('span');
+            textEl.className = 'dg-adv-text';
+            textEl.textContent = window.DgEngine.displayText(adv.node);
+            row.appendChild(textEl);
+        }
+        const fnEl = document.createElement('span');
+        fnEl.className = 'dg-adv-fn';
+        fnEl.textContent = _DG_FN_JA[adv.fn] || adv.fn;
+        row.appendChild(fnEl);
+        item.appendChild(row);
+        // Append governed NP modifiers below the PP row (correct visual order)
+        if (ppNpModItems) for (const mi of ppNpModItems) item.appendChild(mi);
+        list.appendChild(item);
+    }
+    return list;
+}
+
+function _dgRenderClause(dr) {
+    if (!dr) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'dg-clause';
+
+    if (dr.conjunction) {
+        const conjEl = document.createElement('div');
+        conjEl.className = 'dg-conjunction';
+        conjEl.textContent = dr.conjunction;
+        wrap.appendChild(conjEl);
+    }
+
+    if (dr.isCoordination && dr.coordClauses.length > 0) {
+        const coordWrap = document.createElement('div');
+        coordWrap.className = 'dg-coord-wrap';
+        for (const subDr of dr.coordClauses) {
+            if (subDr.conjunction) {
+                const joinEl = document.createElement('div');
+                joinEl.className = 'dg-coord-join';
+                const jtEl = document.createElement('span');
+                jtEl.className = 'dg-coord-join-text';
+                jtEl.textContent = subDr.conjunction;
+                joinEl.appendChild(jtEl);
+                coordWrap.appendChild(joinEl);
+            }
+            const subWrap = document.createElement('div');
+            subWrap.className = 'dg-coord-clause';
+            if (subDr.slots.length > 0) subWrap.appendChild(_dgRenderMainLine(subDr.slots));
+            const modZoneSub = _dgRenderSlotModZone(subDr.slots);
+            if (modZoneSub) subWrap.appendChild(modZoneSub);
+            const advPh = _dgRenderAdvPhrases(subDr.adverbialPhrases);
+            if (advPh) subWrap.appendChild(advPh);
+            for (const sc of (subDr.adverbialClauses || [])) {
+                const attachEl = document.createElement('div');
+                attachEl.className = 'dg-adv-clause-attach';
+                subWrap.appendChild(attachEl);
+                const scWrap = document.createElement('div');
+                const scLbl = document.createElement('div');
+                if (sc.isRelativeClause) {
+                    // P6-C: relative clause connector label
+                    scWrap.className = 'dg-rel-clause';
+                    scLbl.className  = 'dg-rel-clause-label';
+                    scLbl.textContent = sc.antecedentText
+                        ? '関係節 ← ' + sc.antecedentText
+                        : '関係節';
+                } else {
+                    // P5-D-1: participial sub-clause gets distinct class and label
+                    scWrap.className = sc.isParticipalClause
+                        ? 'dg-adv-clause dg-adv-clause-participial'
+                        : 'dg-adv-clause';
+                    scLbl.className  = 'dg-adv-clause-label';
+                    scLbl.textContent = sc.isParticipalClause ? '分詞節' : '従属節';
+                }
+                scWrap.appendChild(scLbl);
+                const scEl = _dgRenderClause(sc);
+                if (scEl) scWrap.appendChild(scEl);
+                subWrap.appendChild(scWrap);
+            }
+            // P6-C: render CLAUSE_AS_NP embedded relative clauses per slot
+            for (const slot of (subDr.slots || [])) {
+                for (const erc of (slot.embeddedRelClauses || [])) {
+                    if (!erc.dr) continue;
+                    const attachEl = document.createElement('div');
+                    attachEl.className = 'dg-adv-clause-attach';
+                    subWrap.appendChild(attachEl);
+                    const ercWrap = document.createElement('div');
+                    ercWrap.className = 'dg-rel-clause';
+                    const ercLbl = document.createElement('div');
+                    ercLbl.className  = 'dg-rel-clause-label';
+                    ercLbl.textContent = erc.antecedentText
+                        ? '関係節 ← ' + erc.antecedentText
+                        : '関係節';
+                    ercWrap.appendChild(ercLbl);
+                    const ercEl = _dgRenderClause(erc.dr);
+                    if (ercEl) ercWrap.appendChild(ercEl);
+                    subWrap.appendChild(ercWrap);
+                }
+            }
+            coordWrap.appendChild(subWrap);
+        }
+        wrap.appendChild(coordWrap);
+        return wrap;
+    }
+
+    if (dr.slots.length > 0) wrap.appendChild(_dgRenderMainLine(dr.slots));
+    const modZone = _dgRenderSlotModZone(dr.slots);
+    if (modZone) wrap.appendChild(modZone);
+
+    const advPh = _dgRenderAdvPhrases(dr.adverbialPhrases);
+    if (advPh) wrap.appendChild(advPh);
+
+    // P6-C: render CLAUSE_AS_NP embedded relative clauses per slot (main clause path)
+    for (const slot of (dr.slots || [])) {
+        for (const erc of (slot.embeddedRelClauses || [])) {
+            if (!erc.dr) continue;
+            const attachEl = document.createElement('div');
+            attachEl.className = 'dg-adv-clause-attach';
+            wrap.appendChild(attachEl);
+            const ercWrap = document.createElement('div');
+            ercWrap.className = 'dg-rel-clause';
+            const ercLbl = document.createElement('div');
+            ercLbl.className  = 'dg-rel-clause-label';
+            ercLbl.textContent = erc.antecedentText
+                ? '関係節 ← ' + erc.antecedentText
+                : '関係節';
+            ercWrap.appendChild(ercLbl);
+            const ercEl = _dgRenderClause(erc.dr);
+            if (ercEl) ercWrap.appendChild(ercEl);
+            wrap.appendChild(ercWrap);
+        }
+    }
+
+    for (const sc of (dr.adverbialClauses || [])) {
+        const attachEl = document.createElement('div');
+        attachEl.className = 'dg-adv-clause-attach';
+        wrap.appendChild(attachEl);
+        const scWrap = document.createElement('div');
+        const scLbl = document.createElement('div');
+        if (sc.isRelativeClause) {
+            // P6-C: relative clause connector label
+            scWrap.className = 'dg-rel-clause';
+            scLbl.className  = 'dg-rel-clause-label';
+            scLbl.textContent = sc.antecedentText
+                ? '関係節 ← ' + sc.antecedentText
+                : '関係節';
+        } else {
+            // P5-D-1: participial sub-clause gets distinct class and label
+            scWrap.className = sc.isParticipalClause
+                ? 'dg-adv-clause dg-adv-clause-participial'
+                : 'dg-adv-clause';
+            scLbl.className  = 'dg-adv-clause-label';
+            scLbl.textContent = sc.isParticipalClause ? '分詞節' : '従属節';
+        }
+        scWrap.appendChild(scLbl);
+        const scEl = _dgRenderClause(sc);
+        if (scEl) scWrap.appendChild(scEl);
+        wrap.appendChild(scWrap);
+    }
+
+    return wrap;
+}
+
+/* 全章の構文ダイアグラムを app DOM 要素へ描画する。
+   srData が null/不正の場合は empty 状態を表示（静かに失敗）。 */
+function _renderStructuralDiagramView(app, srData, elData) {
+    const jaByRef = _sdCollectJaByRef(elData);
+    const wrap = document.createElement('div');
+    wrap.className = 'sd-view';
+    wrap.setAttribute('aria-label', '構文ダイアグラム');
+
+    if (!srData || !Array.isArray(srData.sentences) || srData.sentences.length === 0) {
+        const emptyEl = document.createElement('div');
+        emptyEl.className = 'sd-empty';
+        emptyEl.textContent = 'この章の構文データがありません。';
+        wrap.appendChild(emptyEl);
+        app.innerHTML = '';
+        app.appendChild(wrap);
+        return;
+    }
+
+    /* Attribution（静かに表示）。discourse と同様の位置に。 */
+    if (srData.source && srData.source.dataset) {
+        const attrEl = document.createElement('div');
+        attrEl.className = 'sd-attribution';
+        attrEl.textContent = srData.source.dataset;
+        wrap.appendChild(attrEl);
+    }
+
+    /* ヒント */
+    const hintEl = document.createElement('div');
+    hintEl.className = 'sd-hint';
+    hintEl.innerHTML =
+        '<span class="sd-hint-title">構文ダイアグラム</span>' +
+        '<span class="sd-hint-sub">文の構造的な埋め込みを上から下へ（構造軸）、' +
+        '語の原文順を左から右へ（読解軸）表示します。</span>';
+    wrap.appendChild(hintEl);
+
+    /* P5 gate: Greek Diagram renderer active for selected chapters.
+       P5-D expansion: MAT 28 / PHP 2 / COL 1 added for participial + PP validation */
+    const _src = srData.source || {};
+    const _isDGChapter = window.DgEngine && _src.book && _src.chapter && (
+        (_src.book === 'JHN' && _src.chapter === 1) ||
+        (_src.book === 'MAT' && _src.chapter === 5) ||
+        (_src.book === 'MAT' && _src.chapter === 28) ||
+        (_src.book === 'EPH' && _src.chapter === 2) ||
+        (_src.book === 'PHP' && _src.chapter === 2) ||
+        (_src.book === 'COL' && _src.chapter === 1) ||
+        (_src.book === 'ROM' && _src.chapter === 6)
+    );
+
+    /* P6-C: bible_data lookup maps for relative-clause connector derivation */
+    const _bdByRef = _isDGChapter && window.DgEngine.deriveRelativeConnectors
+        ? new Map((elData || []).filter(w => w.ref).map(w => [w.ref, w]))
+        : null;
+    const _bdById  = _isDGChapter && window.DgEngine.deriveRelativeConnectors
+        ? new Map((elData || []).filter(w => w.verseId).map(w => [w.verseId, w]))
+        : null;
+
+    /* Pre-annotate DR tree with antecedent text from connector records.
+       Sets .antecedentText on each relative clause DR and embedded rel clause entry. */
+    function _annotateRelClauses(dr, connMap) {
+        if (!dr) return;
+        for (const sc of (dr.adverbialClauses || [])) {
+            if (sc.isRelativeClause && sc.relPronRef) {
+                const conn = connMap.get(sc.relPronRef);
+                if (conn) sc.antecedentText = conn.targetText;
+            }
+            _annotateRelClauses(sc, connMap);
+        }
+        for (const cc of (dr.coordClauses || [])) {
+            _annotateRelClauses(cc, connMap);
+        }
+        for (const slot of (dr.slots || [])) {
+            for (const erc of (slot.embeddedRelClauses || [])) {
+                if (erc.relPronRef) {
+                    const conn = connMap.get(erc.relPronRef);
+                    if (conn) erc.antecedentText = conn.targetText;
+                }
+            }
+        }
+    }
+
+    for (const sentence of srData.sentences) {
+        const secEl = document.createElement('section');
+        secEl.className = 'sd-sentence';
+        secEl.setAttribute('data-ref', sentence.ref || '');
+        const refEl = document.createElement('div');
+        refEl.className = 'sd-sentence-ref';
+        refEl.setAttribute('aria-label', `節 ${sentence.ref || ''}`);
+        refEl.textContent = sentence.ref || '';
+        secEl.appendChild(refEl);
+
+        let _dgRendered = false;
+        if (_isDGChapter && sentence.root) {
+            try {
+                const _dr = window.DgEngine.deriveDR(sentence.root);
+                /* Only use DG output when at least one slot is present */
+                const _drHasSlots = _dr && (_dr.isCoordination
+                    ? _dr.coordClauses.some(c => c.slots.length > 0)
+                    : _dr.slots.length > 0 || (_dr.adverbialClauses || []).length > 0);
+                if (_drHasSlots) {
+                    /* P6-C: derive and annotate relative clause connectors */
+                    if (_bdByRef && _bdById) {
+                        try {
+                            const _conns = window.DgEngine.deriveRelativeConnectors(
+                                sentence.root, _bdByRef, _bdById
+                            );
+                            if (_conns.length > 0) {
+                                const _connMap = new Map(_conns.map(c => [c.relPronRef, c]));
+                                _annotateRelClauses(_dr, _connMap);
+                            }
+                        } catch (_) { /* silent — connector derivation failure must not block DG render */ }
+                    }
+                    const _dgEl = _dgRenderClause(_dr);
+                    if (_dgEl) {
+                        const _dgView = document.createElement('div');
+                        _dgView.className = 'dg-view';
+                        const _lbl = document.createElement('div');
+                        _lbl.className = 'dg-view-label';
+                        _lbl.textContent = 'Greek Diagram';
+                        _dgView.appendChild(_lbl);
+                        _dgView.appendChild(_dgEl);
+                        secEl.appendChild(_dgView);
+                        _dgRendered = true;
+                    }
+                }
+            } catch (_) { /* silent fallback */ }
+        }
+
+        if (!_dgRendered && sentence.root) {
+            const rootEl = _sdRenderNode(sentence.root, 0, jaByRef);
+            if (rootEl) secEl.appendChild(rootEl);
+        }
+
+        wrap.appendChild(secEl);
+    }
+
+    app.innerHTML = '';
+    app.appendChild(wrap);
+}
+
 /**
  * Representation を HTML 文字列に変換する。Renderer Registry（VR-4-B §E で「今回は
  * 導入しない」と判断済み）は導入せず、現時点では kind による分岐で Renderer を
@@ -11053,6 +12674,9 @@ function renderColumn(representation, options) {
         }
         if (representation.kind === 'translation') {
             return TranslationRenderer.render(representation);
+        }
+        if (representation.kind === 'discourse') {          /* DA-1 */
+            return DiscourseRenderer.render(representation);
         }
         return ''; // 未実装 kind（syntaxTree 等）
     } catch (_) {
@@ -12199,13 +13823,13 @@ async function renderCurrentPage() {
         const _colA = _toColumnMode(_transA);
         const _colB = _toColumnMode(_transB);
 
-        /* ColumnMode が wordOrder の場合は翻訳JSONをfetchしない */
-        const jpData = _colA.kind === 'wordOrder'
+        /* ColumnMode が wordOrder / discourse（Greek由来・訳文なし）の場合は翻訳JSONをfetchしない */
+        const jpData = _isGreekReadingMode(_colA.kind)
             ? null
             : await _fetchTranslation(_transA, book, ch);
 
         let jpDataB = null;
-        if (_transMode === 'compare' && _colB.kind !== 'wordOrder') {
+        if (_transMode === 'compare' && !_isGreekReadingMode(_colB.kind)) {
             jpDataB = await _fetchTranslation(_transB, book, ch);
         }
 
@@ -12216,6 +13840,31 @@ async function renderCurrentPage() {
                 const elRes = await fetch(`../bible_data/${testament}/${book}/${ch}.json`);
                 if (elRes.ok) elData = await elRes.json();
             } catch(e) {}
+        }
+
+        /* DA-1: discourse は passage単位の clause 接続を描くため、flow-tree（clause/sentence
+           構造の一次データ）を render() の前に先読みする。既存 _loadFlowTreeChapter() を再利用し、
+           結果は render() が読む module 変数へ渡す（既存の翻訳fetchと同じく await 済みで一貫）。 */
+        _dcvChapterTreeForRender = (_colA.kind === 'discourse')
+            ? await _loadFlowTreeChapter(book, ch) : null;
+
+        /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。 */
+        _sdChapterDataForRender = (_colA.kind === 'structural-diagram')
+            ? await _loadSrChapter(book, ch) : null;
+
+        /* P4-ICL: ICL インデックスを事前計算（structural-diagram ビューかつ iclEnabled 時のみ）。 */
+        _sdIclIndex = null;
+        if (_sdChapterDataForRender && window.App && window.App.flags && window.App.flags.iclEnabled
+                && window.App.icl && window.App.icl.buildICLIndex) {
+            try {
+                const _iclReg = await _ensureIclRegistry();
+                if (_iclReg && elData && elData.length > 0) {
+                    const _iclTokenMap = new Map(elData.map(t => [t.verseId, t]));
+                    _sdIclIndex = window.App.icl.buildICLIndex(
+                        _sdChapterDataForRender, _iclTokenMap, _iclReg, book + ' ' + ch
+                    );
+                }
+            } catch (_iclErr) { _sdIclIndex = null; }
         }
 
         /* VR-5-D: resolvedJpData 決定ロジックを _getVerseSource() へ抽出（VR-5-C 参照） */
@@ -12536,7 +14185,9 @@ function _buildFlowJpData(elData) {
  * fetch・エラーハンドリングは呼び出し元に残す（挙動差異を保持するため）。
  */
 function _getVerseSource(colA, jpData, elData) {
-    return (colA.kind === 'wordOrder') ? _buildFlowJpData(elData) : jpData;
+    /* DA-1: discourse も wordOrder と同じく elData（Greek）由来の VerseSource を用いる
+       （訳文JSONを持たない）。判定を _isGreekReadingMode() に集約。 */
+    return _isGreekReadingMode(colA.kind) ? _buildFlowJpData(elData) : jpData;
 }
 
 /*
@@ -12731,6 +14382,21 @@ function _bpRenderSingle() {
                 <span class="bp-trans-name">${TRANSLATIONS.FLOW.label}</span>
             </div>
             <span class="bp-trans-check icon">${icon('check')}</span>
+        </div>` +
+        /* DA-1: 談話分析（節と節のつながり）を「読み方を選択」に追加。
+           TEMP: Structure Diagram との統合準備のため UI 入口を非表示。実装・データは保持。
+        `<div class="bp-trans-item${_bpSelA === 'DISCOURSE' ? ' active' : ''}" onclick="bpSelectA('DISCOURSE')">
+            <div>
+                <span class="bp-trans-name">${TRANSLATIONS.DISCOURSE.label}</span>
+            </div>
+            <span class="bp-trans-check icon">${icon('check')}</span>
+        </div>` + */
+        /* P2: 構文ダイアグラムを「読み方を選択」に追加。 */
+        `<div class="bp-trans-item${_bpSelA === 'STRUCTURAL' ? ' active' : ''}" onclick="bpSelectA('STRUCTURAL')">
+            <div>
+                <span class="bp-trans-name">${TRANSLATIONS.STRUCTURAL.label}</span>
+            </div>
+            <span class="bp-trans-check icon">${icon('check')}</span>
         </div>`;
     document.getElementById('bp-single-body').innerHTML =
         `<span class="bp-compare-side-label">翻訳を選択</span>${transHTML}` +
@@ -12749,6 +14415,11 @@ function _bpRenderCompare() {
         `<div class="bp-compare-opt${_bpSelA === 'FLOW' ? ' active' : ''}" onclick="bpSelectA('FLOW')">
             <span class="bp-compare-opt-dot"></span>
             <span class="bp-compare-opt-name">${TRANSLATIONS.FLOW.label}</span>
+        </div>` +
+        /* P2: 構文ダイアグラムを左列「読み方を選択」に追加。 */
+        `<div class="bp-compare-opt${_bpSelA === 'STRUCTURAL' ? ' active' : ''}" onclick="bpSelectA('STRUCTURAL')">
+            <span class="bp-compare-opt-dot"></span>
+            <span class="bp-compare-opt-name">${TRANSLATIONS.STRUCTURAL.label}</span>
         </div>`;
     document.getElementById('bp-col-a').innerHTML =
         `<span class="bp-compare-side-label">翻訳を選択</span>${colATrans}` +
