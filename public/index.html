@@ -4280,7 +4280,7 @@ details[open] .study-summary::before {
     border-bottom: 2px solid var(--text-main);
     gap: 0;
     flex-wrap: nowrap;
-    overflow-x: auto;
+    /* C-10: overflow removed — .dg-view scrolls the whole clause (baseline + modifiers) together */
 }
 /* ── Slots ── */
 /* C-8: horizontal padding reduced (.45rem→.2rem) to close connector→chip gap */
@@ -4308,6 +4308,13 @@ details[open] .study-summary::before {
     vertical-align: baseline;
 }
 .dg-token:hover { background: var(--accent-light); }
+/* C-10: antecedent token of a relative clause — subtle bottom marker matching .dg-rel-clause color */
+.dg-token--antecedent {
+    border-bottom-color: var(--color-domain, #7a7aaa);
+    border-bottom-width: 2px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
 /* Function/construction labels — not independently clickable */
 .dg-slot-fn { cursor: default; }
 .dg-adv-fn  { cursor: default; }
@@ -4317,7 +4324,8 @@ details[open] .study-summary::before {
     font-family: inherit; /* C-4: Japanese primary — inherits body font (Noto Sans JP) */
     font-size: var(--text-body-lg);
     color: var(--text-main);
-    white-space: nowrap;
+    white-space: normal;  /* C-10: allow token chips to wrap within long slots */
+    max-width: 14rem;     /* C-10: cap slot width to force wrapping on 6+ token phrases */
 }
 .dg-slot-fn {
     font-size: var(--text-caption);
@@ -4422,7 +4430,8 @@ details[open] .study-summary::before {
     font-family: inherit; /* C-4: Japanese primary — inherits body font (Noto Sans JP) */
     font-size: var(--text-body-lg);
     color: var(--text-main);
-    white-space: nowrap;
+    white-space: normal;  /* C-10: allow token wrapping in long adverbial phrases */
+    max-width: 12rem;     /* C-10 */
 }
 .dg-adv-fn {
     font-size: var(--text-caption);
@@ -4531,7 +4540,7 @@ details[open] .study-summary::before {
 .dg-io-wrap { display: flex; flex-direction: column; align-items: flex-start; }
 .dg-io-platform-area { display: flex; flex-direction: column; align-items: center; padding-left: 4rem; }
 .dg-io-platform { display: flex; flex-direction: column; align-items: center; border-bottom: 1.5px solid var(--text-sub); padding: .05rem .4rem; cursor: default; border-radius: 3px; } /* C-6: container */
-.dg-io-platform-text { font-family: inherit; /* C-4 */ font-size: var(--text-body-lg); color: var(--text-main); white-space: nowrap; } /* C-4 */
+.dg-io-platform-text { font-family: inherit; /* C-4 */ font-size: var(--text-body-lg); color: var(--text-main); white-space: normal; max-width: 14rem; } /* C-4, C-10 */
 .dg-io-platform-fn { font-size: var(--text-caption); color: var(--text-sub); letter-spacing: .05em; margin-top: 2px; white-space: nowrap; }
 .dg-io-stalk { width: 1.5px; height: 1.2rem; background: var(--text-sub); }
 /* P6-G-4: Content clause sub-diagram attachment */
@@ -4591,9 +4600,9 @@ details[open] .study-summary::before {
     margin-left: 1px;
 }
 @media (max-width: 480px) {
-    .dg-slot-text { font-size: .9rem; }
+    .dg-slot-text { font-size: .9rem; max-width: 8rem; }  /* C-10: tighter wrap cap for mobile */
     .dg-slot { padding: .1rem .15rem; } /* C-8: match desktop reduction */
-    .dg-adv-text { font-size: .8rem; }
+    .dg-adv-text { font-size: .8rem; max-width: 7rem; }   /* C-10: mobile adv wrap cap */
     .dg-pp-prep { font-size: .85rem; }
     .dg-pp-np   { font-size: .8rem; }
     .dg-io-platform-text { font-size: .85rem; }
@@ -12356,6 +12365,7 @@ const _DG_FN_JA = {
    and cleared after. JS is single-threaded so no race risk. */
 let _dgActiveTokenMap = null;
 let _dgConjJaMap = null; /* Phase 3: Greek conjunction text → Japanese */
+let _dgAntecedentRefSet = null; /* C-10: set of antecedent token refs for visual marking */
 
 /* Collect {ref, si} pairs from all token descendants of node (sorted by surfaceIndex). */
 function _dgNodeRefs(node) {
@@ -12407,6 +12417,7 @@ function _dgAppendTokens(container, node, headSIs) {
         if (count > 0) container.appendChild(document.createTextNode(' '));
         const span = document.createElement('span');
         span.className = 'dg-token';
+        if (_dgAntecedentRefSet && _dgAntecedentRefSet.has(e.ref)) span.classList.add('dg-token--antecedent'); /* C-10 */
         span.textContent = e.japanese;
         span.addEventListener('click', (ev) => {
             ev.stopPropagation();
@@ -12434,6 +12445,26 @@ function _dgAntecedentJa(ref) {
     const e = _dgActiveTokenMap[ref];
     if (!e || !e.japanese) return null;
     return /^[［〔「【（\[〔]/.test(e.japanese) ? null : e.japanese;
+}
+
+/* C-10: Pre-collect all antecedent token refs from DR tree (two-pass for visual marking).
+   Must be called AFTER _annotateRelClauses sets .antecedentRef on sub-clauses. */
+function _dgCollectAntecedentRefs(dr, set) {
+    if (!dr) return;
+    if (dr.isCoordination) {
+        for (const sub of (dr.coordClauses || [])) _dgCollectAntecedentRefs(sub, set);
+        return;
+    }
+    for (const sc of (dr.adverbialClauses || [])) {
+        if (sc.isRelativeClause && sc.antecedentRef) set.add(sc.antecedentRef);
+        _dgCollectAntecedentRefs(sc, set);
+    }
+    for (const slot of (dr.slots || [])) {
+        for (const erc of (slot.embeddedRelClauses || [])) {
+            if (erc.antecedentRef) set.add(erc.antecedentRef);
+            if (erc.dr) _dgCollectAntecedentRefs(erc.dr, set);
+        }
+    }
 }
 
 /* Open DepthPanel for the head token of a node (C-4: DG deep-dive entry point). */
@@ -13012,7 +13043,10 @@ function _renderStructuralDiagramView(app, srData, elData) {
                             }
                         } catch (_) { /* silent — connector derivation failure must not block DG render */ }
                     }
+                    _dgAntecedentRefSet = new Set(); /* C-10: pre-collect antecedent refs */
+                    _dgCollectAntecedentRefs(_dr, _dgAntecedentRefSet);
                     const _dgEl = _dgRenderClause(_dr);
+                    _dgAntecedentRefSet = null; /* C-10 */
                     if (_dgEl) {
                         const _dgView = document.createElement('div');
                         _dgView.className = 'dg-view';
