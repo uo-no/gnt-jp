@@ -2591,6 +2591,15 @@ display: none;
     margin-bottom: var(--space-xs);
     letter-spacing: 0.03em;
 }
+/* C-9: DG context — verse ref styled like .v-num: unobtrusive, visually separated from DG structure */
+.sd-sentence-ref--dg {
+    font-weight: 400;
+    color: var(--text-hint);
+    letter-spacing: 0.02em;
+    margin-bottom: var(--space-sm);
+    padding-bottom: var(--space-xs);
+    border-bottom: 1px solid var(--border);
+}
 
 /* Internal nodes */
 .sd-node {
@@ -2731,6 +2740,12 @@ details[open] > summary .sd-fold-arrow { transform: rotate(-135deg); }
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.05em;
+    cursor: pointer;
+    list-style: none;
+}
+.icl-panel-hd::-webkit-details-marker { display: none; }
+/* border-bottom はopen時のみ表示（collapsed時は不要） */
+details.icl-panel[open] > .icl-panel-hd {
     border-bottom: 1px solid var(--border-soft);
 }
 .icl-panel-sub {
@@ -4242,10 +4257,9 @@ details[open] .study-summary::before {
     min-width: 0;
 }
 .dg-view-label {
-    font-size: 10px;
+    font-size: var(--text-caption);
     color: var(--text-sub);
     letter-spacing: .07em;
-    text-transform: uppercase;
     margin-bottom: .5rem;
     opacity: .7;
 }
@@ -4256,7 +4270,6 @@ details[open] .study-summary::before {
 .dg-conjunction {
     font-size: var(--text-caption);
     color: var(--text-sub);
-    font-style: italic;
     padding-bottom: 2px;
     padding-left: 2px;
 }
@@ -4270,44 +4283,69 @@ details[open] .study-summary::before {
     overflow-x: auto;
 }
 /* ── Slots ── */
+/* C-8: horizontal padding reduced (.45rem→.2rem) to close connector→chip gap */
 .dg-slot {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: .15rem .45rem;
+    padding: .15rem .2rem;
     flex-shrink: 0;
+    cursor: default; /* C-6: slot is a structural container; tokens are the click targets */
+    border-radius: 3px;
 }
+.dg-slot:hover { background: none; }
+/* C-7: DG token chip — reuse .sf-chip visual vocabulary (bg-inset + border + radius).
+   Each .dg-token is one independent click target; chip boundary = token boundary. */
+.dg-token {
+    display: inline-block;
+    padding: 1px 5px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    transition: background 0.12s;
+    white-space: nowrap;
+    vertical-align: baseline;
+}
+.dg-token:hover { background: var(--accent-light); }
+/* Function/construction labels — not independently clickable */
+.dg-slot-fn { cursor: default; }
+.dg-adv-fn  { cursor: default; }
+.dg-io-platform-fn { cursor: default; }
+.dg-adv-connector  { cursor: default; }
 .dg-slot-text {
-    font-family: var(--font-greek);
-    font-size: 1rem;
+    font-family: inherit; /* C-4: Japanese primary — inherits body font (Noto Sans JP) */
+    font-size: var(--text-body-lg);
     color: var(--text-main);
     white-space: nowrap;
 }
 .dg-slot-fn {
-    font-size: 9px;
+    font-size: var(--text-caption);
     color: var(--text-sub);
     letter-spacing: .05em;
-    text-transform: uppercase;
     margin-top: 2px;
     white-space: nowrap;
 }
 /* ── Connectors ── */
 /* Full vertical divider: Subject | Predicate/Copula */
+/* C-8: margin reduced (3px→1px) to close connector→chip gap */
 .dg-conn-sp {
     width: 2px;
     background-color: var(--text-main);
     align-self: stretch;
     flex-shrink: 0;
-    margin: 0 3px;
+    margin: 0 1px;
 }
 /* Short vertical divider: Predicate | Object */
+/* C-8: height 45%→2rem (45% resolves to 0 in auto-height flex; 2rem ≈ intended 45% of slot) */
+/* C-8: margin reduced (3px→1px) to close connector→chip gap */
 .dg-conn-po {
     width: 2px;
-    height: 45%;
+    height: 2rem;
     background-color: var(--text-main);
     align-self: flex-end;
     flex-shrink: 0;
-    margin: 0 3px;
+    margin: 0 1px;
 }
 /* Backward diagonal: Predicate \ Complement */
 .dg-conn-complement {
@@ -4362,6 +4400,8 @@ details[open] .study-summary::before {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    cursor: default; /* C-6: container only; tokens handle clicks */
+    border-radius: 3px;
 }
 .dg-adv-connector {
     width: 10px;
@@ -4379,15 +4419,14 @@ details[open] .study-summary::before {
     padding: .05rem .3rem;
 }
 .dg-adv-text {
-    font-family: var(--font-greek);
-    font-size: .9rem;
+    font-family: inherit; /* C-4: Japanese primary — inherits body font (Noto Sans JP) */
+    font-size: var(--text-body-lg);
     color: var(--text-main);
     white-space: nowrap;
 }
 .dg-adv-fn {
-    font-size: 9px;
+    font-size: var(--text-caption);
     color: var(--text-sub);
-    text-transform: uppercase;
     letter-spacing: .04em;
     white-space: nowrap;
 }
@@ -4409,9 +4448,8 @@ details[open] .study-summary::before {
     border-left: 2px dashed var(--border-soft, #ddd);
 }
 .dg-adv-clause-label {
-    font-size: 9px;
+    font-size: var(--text-caption);
     color: var(--text-hint);
-    text-transform: uppercase;
     letter-spacing: .05em;
     margin-bottom: .2rem;
 }
@@ -4443,7 +4481,6 @@ details[open] .study-summary::before {
 .dg-coord-join-text {
     font-size: var(--text-caption);
     color: var(--text-sub);
-    font-style: italic;
 }
 /* ── Word-level modifier zone (below main baseline, per-slot) ── */
 .dg-slot-mod-zone {
@@ -4460,15 +4497,14 @@ details[open] .study-summary::before {
     align-items: flex-start;
 }
 /* Connector spacers mirror widths of their corresponding connector elements */
+/* C-8: sp/po spacers updated to match new connector total widths (2px + 2×1px = 4px) */
 .dg-slot-mod-spacer { flex-shrink: 0; }
-.dg-slot-mod-spacer-sp          { width: 8px; }
-.dg-slot-mod-spacer-po          { width: 8px; }
+.dg-slot-mod-spacer-sp          { width: 4px; }
+.dg-slot-mod-spacer-po          { width: 4px; }
 .dg-slot-mod-spacer-complement  { width: 28px; }
 .dg-slot-mod-spacer-implied     { width: 28px; }
-/* P5-D-1: Participial predicate/copula slot — italic text marker */
-.dg-slot-participial .dg-slot-text { font-style: italic; }
-/* P5-D-1: Participial sub-clause label */
-.dg-adv-clause-participial .dg-adv-clause-label { font-style: italic; }
+/* P5-D-1: Participial predicate/copula slot — typography unified with T1 */
+/* P5-D-1: Participial sub-clause label — typography unified with T2 */
 /* P6-C: Relative clause connector — distinctive color to separate from generic subordinate */
 .dg-rel-clause {
     margin: 0 0 .1rem 1.2rem;
@@ -4476,27 +4512,27 @@ details[open] .study-summary::before {
     border-left: 2px dashed var(--color-domain, #7a7aaa);
 }
 .dg-rel-clause-label {
-    font-size: 9px;
+    font-size: var(--text-caption);
     color: var(--color-domain, #7a7aaa);
-    text-transform: uppercase;
+    font-family: var(--font-greek); /* C-3: Greek diacritics require Gentium Plus */
     letter-spacing: .05em;
     margin-bottom: .2rem;
 }
 /* P6-F: PP diagonal notation — preposition on diagonal, governed NP on horizontal */
 .dg-pp-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
 .dg-pp-prep-level { padding: 0 .2rem .05rem .1rem; }
-.dg-pp-prep { font-family: var(--font-greek); font-size: .9rem; font-weight: 600; color: var(--text-main); white-space: nowrap; }
+.dg-pp-prep { font-family: inherit; /* C-4 */ font-size: var(--text-body-lg); color: var(--text-main); white-space: nowrap; } /* C-4 */
 .dg-pp-diagonal { height: .55rem; margin-left: .1rem; position: relative; overflow: visible; }
 .dg-pp-diagonal::after { content: ''; position: absolute; left: 0; top: 0; width: .93rem; height: 1.5px; background: var(--text-sub); transform-origin: left top; transform: rotate(36deg); }
 .dg-pp-np-level { margin-left: .85rem; }
 .dg-pp-np-row { display: flex; align-items: baseline; gap: .3rem; border-bottom: 1.5px solid var(--text-sub); padding: .05rem .3rem .05rem .1rem; }
-.dg-pp-np { font-family: var(--font-greek); font-size: .9rem; color: var(--text-main); white-space: nowrap; }
+.dg-pp-np { font-family: inherit; /* C-4 */ font-size: var(--text-body-lg); color: var(--text-main); white-space: nowrap; } /* C-4 */
 /* P6-G-2: IO raised platform */
 .dg-io-wrap { display: flex; flex-direction: column; align-items: flex-start; }
 .dg-io-platform-area { display: flex; flex-direction: column; align-items: center; padding-left: 4rem; }
-.dg-io-platform { display: flex; flex-direction: column; align-items: center; border-bottom: 1.5px solid var(--text-sub); padding: .05rem .4rem; }
-.dg-io-platform-text { font-family: var(--font-greek); font-size: .95rem; color: var(--text-main); white-space: nowrap; }
-.dg-io-platform-fn { font-size: 9px; color: var(--text-sub); letter-spacing: .05em; text-transform: uppercase; margin-top: 2px; white-space: nowrap; }
+.dg-io-platform { display: flex; flex-direction: column; align-items: center; border-bottom: 1.5px solid var(--text-sub); padding: .05rem .4rem; cursor: default; border-radius: 3px; } /* C-6: container */
+.dg-io-platform-text { font-family: inherit; /* C-4 */ font-size: var(--text-body-lg); color: var(--text-main); white-space: nowrap; } /* C-4 */
+.dg-io-platform-fn { font-size: var(--text-caption); color: var(--text-sub); letter-spacing: .05em; margin-top: 2px; white-space: nowrap; }
 .dg-io-stalk { width: 1.5px; height: 1.2rem; background: var(--text-sub); }
 /* P6-G-4: Content clause sub-diagram attachment */
 .dg-cc-clause-attach {
@@ -4556,7 +4592,7 @@ details[open] .study-summary::before {
 }
 @media (max-width: 480px) {
     .dg-slot-text { font-size: .9rem; }
-    .dg-slot { padding: .1rem .3rem; }
+    .dg-slot { padding: .1rem .15rem; } /* C-8: match desktop reduction */
     .dg-adv-text { font-size: .8rem; }
     .dg-pp-prep { font-size: .85rem; }
     .dg-pp-np   { font-size: .8rem; }
@@ -12123,6 +12159,8 @@ const _SD_CN_JA = {
     ARTICULAR_NP: '冠詞付き名詞句', ANARTHROUS_NP: '無冠詞名詞句',
     GENITIVE_MOD: '属格修飾', APPOSITION: '同格',
     DEMO_MOD: '指示修飾', CLAUSE_AS_NP: '節名詞化',
+    /* C-2: 内部スキーマコードを読書面に表示しない */
+    NP_COMPLEX: null, PREP_PHRASE: null, ADJ_MOD: null, COORDINATION: '並列',
 };
 
 /* elData から ref→japanese の lookup table を構築する（表示層のみ用途）。
@@ -12145,16 +12183,18 @@ const _ICL_ROM6_10 = {"passage_ref":"ROM 6:10","token_text":"τῇ ἁμαρτί
 
 function _sdIclPanel(payload) {
     if (!payload || !Array.isArray(payload.presentation_candidates)) return null;
-    const panel = document.createElement('div');
+    /* C-1: <details> で collapsed by default。open属性なし＝初期非展開。
+       ICLデータ・候補生成ロジックは変更しない。 */
+    const panel = document.createElement('details');
     panel.className = 'icl-panel';
     panel.setAttribute('aria-label', '文法上の候補');
 
-    const hd = document.createElement('div');
+    const hd = document.createElement('summary');
     hd.className = 'icl-panel-hd';
     hd.textContent = '文法上の候補';
     const sub = document.createElement('div');
     sub.className = 'icl-panel-sub';
-    sub.textContent = payload.token_text + ' · ' + payload.grammar_category + ' · ' + payload.icl_version;
+    sub.textContent = payload.token_text + ' · ' + payload.grammar_category;
     hd.appendChild(sub);
     panel.appendChild(hd);
 
@@ -12174,12 +12214,7 @@ function _sdIclPanel(payload) {
             '<span class="icl-cand-id">' + _escH(c.candidate_id) + '</span>' +
             '<span class="icl-cand-ja">· ' + _escH(c.label_ja || '') + '</span>';
         main.appendChild(topLine);
-        if (c.wallace_ref) {
-            const ref = document.createElement('div');
-            ref.className = 'icl-cand-ref';
-            ref.textContent = 'Wallace ' + c.wallace_ref;
-            main.appendChild(ref);
-        }
+        /* C-5: Wallace参照は読書面に不要 */
         if (c.unresolved_reason) {
             const ur = document.createElement('div');
             ur.className = 'icl-cand-unresolved';
@@ -12191,10 +12226,7 @@ function _sdIclPanel(payload) {
     }
     panel.appendChild(list);
 
-    const fn = document.createElement('div');
-    fn.className = 'icl-footnote';
-    fn.textContent = '印は文法シグナルの量（正しさや確率の指標ではありません） · ICL ' + payload.icl_version;
-    panel.appendChild(fn);
+    /* C-5: 免責文は読書面に不要 */
 
     return panel;
 }
@@ -12221,9 +12253,9 @@ function _sdRenderNode(node, depth, jaByRef) {
     /* Construction ラベル */
     let cnLabel = null;
     if (cnAxis === 'WORD_ORDER' && cnNode.sourceRule) {
-        cnLabel = cnNode.sourceRule;
+        cnLabel = null; /* C-2: WORD_ORDER sourceRule (S-IO, S-ADV-P 等) は内部コード — 表示しない */
     } else if (cnCanon) {
-        cnLabel = _SD_CN_JA[cnCanon] || cnCanon;
+        cnLabel = _SD_CN_JA[cnCanon] ?? null; /* C-2: マップ未定義のコードは表示しない */
     }
 
     /* 形態バッジ（MORPHOLOGY チャネル：badge only, 構造決定に使わない） */
@@ -12319,12 +12351,108 @@ const _DG_FN_JA = {
     AUX: '助動詞', ADVERBIAL: '副詞的',
 };
 
+/* C-4: Japanese-first DG rendering.
+   _dgActiveTokenMap is set for the duration of _renderStructuralDiagramView (DG path only)
+   and cleared after. JS is single-threaded so no race risk. */
+let _dgActiveTokenMap = null;
+let _dgConjJaMap = null; /* Phase 3: Greek conjunction text → Japanese */
+
+/* Collect {ref, si} pairs from all token descendants of node (sorted by surfaceIndex). */
+function _dgNodeRefs(node) {
+    if (!node) return [];
+    if (node.type === 'token') {
+        const ref = node.evidence && node.evidence.ref;
+        return ref ? [{ ref, si: node.surfaceIndex ?? 0 }] : [];
+    }
+    const out = [];
+    for (const c of (node.children || [])) out.push(..._dgNodeRefs(c));
+    return out.sort((a, b) => a.si - b.si);
+}
+
+/* Japanese display text for a node: join non-bracket glosses (no separator).
+   headSIs: optional Set<surfaceIndex> — when provided, only include tokens in the set
+            (mirrors headDisplayText() filtering for slot-level display).
+   Returns null if tokenMap unavailable or all glosses are bracket-style. */
+function _dgJaText(node, headSIs) {
+    if (!_dgActiveTokenMap) return null;
+    let refs = _dgNodeRefs(node);
+    if (headSIs && headSIs.size > 0) refs = refs.filter(r => headSIs.has(r.si));
+    const parts = refs
+        .map(({ ref }) => { const e = _dgActiveTokenMap[ref]; return (e && e.japanese) || ''; })
+        .filter(s => s && !/^[［〔「【（\[〔]/.test(s)); /* exclude bracket-style meta-glosses */
+    return parts.length ? parts.join(' ') : null;
+}
+
+/* Head token elData entry (first token whose surfaceIndex ∈ headSIs, else first token). */
+function _dgHeadEntry(node, headSIs) {
+    if (!_dgActiveTokenMap) return null;
+    const refs = _dgNodeRefs(node);
+    const head = (headSIs && headSIs.size > 0)
+        ? refs.find(r => headSIs.has(r.si)) || refs[0]
+        : refs[0];
+    return head ? (_dgActiveTokenMap[head.ref] || null) : null;
+}
+
+/* C-6: Append individual token spans to container — each span is one DepthPanel click target.
+   headSIs: optional Set<surfaceIndex> filter (same as _dgJaText).
+   Returns number of tokens appended (0 = no displayable tokens). */
+function _dgAppendTokens(container, node, headSIs) {
+    if (!_dgActiveTokenMap) return 0;
+    let refs = _dgNodeRefs(node);
+    if (headSIs && headSIs.size > 0) refs = refs.filter(r => headSIs.has(r.si));
+    let count = 0;
+    for (const { ref } of refs) {
+        const e = _dgActiveTokenMap[ref];
+        if (!e || !e.japanese || /^[［〔「【（\[〔]/.test(e.japanese)) continue;
+        if (count > 0) container.appendChild(document.createTextNode(' '));
+        const span = document.createElement('span');
+        span.className = 'dg-token';
+        span.textContent = e.japanese;
+        span.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            openStudyPanel(e.text || '', e.morph || '', e.ref || '', e.lemma || '');
+        });
+        container.appendChild(span);
+        count++;
+    }
+    return count;
+}
+
+/* Japanese display for a conjunction Greek string; null if bracket-filtered or not found.
+   Strips trailing punctuation (comma, semicolon, ·, apostrophe) before lookup so that
+   SR token texts like "Ὥστε," match elData texts like "Ὥστε". */
+function _dgConjJa(greekText) {
+    if (!_dgConjJaMap || !greekText) return null;
+    const ja = _dgConjJaMap[greekText]
+             || _dgConjJaMap[greekText.replace(/[,;·']+$/, '')];
+    return (ja && !/^[［〔「【（\[〔]/.test(ja)) ? ja : null;
+}
+
+/* Japanese for a relative clause antecedent by ref; null if bracket-filtered or absent. */
+function _dgAntecedentJa(ref) {
+    if (!_dgActiveTokenMap || !ref) return null;
+    const e = _dgActiveTokenMap[ref];
+    if (!e || !e.japanese) return null;
+    return /^[［〔「【（\[〔]/.test(e.japanese) ? null : e.japanese;
+}
+
+/* Open DepthPanel for the head token of a node (C-4: DG deep-dive entry point). */
+function _dgOpenDepthPanel(node, headSIs) {
+    const e = _dgHeadEntry(node, headSIs);
+    if (!e) return;
+    openStudyPanel(e.text || '', e.morph || '', e.ref || '', e.lemma || '');
+}
+
 function _dgRenderMainLine(slots) {
     const ioSlots   = slots.filter(s => s.fn === 'INDIRECT_OBJECT');
     const baseSlots = slots.filter(s => s.fn !== 'INDIRECT_OBJECT');
     const line = document.createElement('div');
     line.className = 'dg-main-line';
     for (const slot of baseSlots) {
+        /* C-5: Structural content-clause slots (節/節グループ) have no concrete word.
+           Skip slot and its preceding connector; the child clause is visible via
+           dg-cc-clause-attach indentation. */
+        if (slot.contentClause && slot.contentClause.innerDR) continue;
         if (slot.connector) {
             const conn = document.createElement('div');
             conn.className = 'dg-conn dg-conn-' + slot.connector;
@@ -12336,24 +12464,24 @@ function _dgRenderMainLine(slots) {
         if (slot.isParticipial) slotEl.classList.add('dg-slot-participial');
         const textEl = document.createElement('span');
         textEl.className = 'dg-slot-text';
-        // P6-G-4: CC slot shows conjunction label; fallback to full text if no innerDR
-        if (slot.contentClause && slot.contentClause.innerDR) {
-            textEl.textContent = slot.contentClause.conjunction || slot.contentClause.label || '内容節';
-            slotEl.appendChild(textEl);
-        } else if (slot.node?.construction?.canonical === 'APPOSITION') {
+        if (slot.node?.construction?.canonical === 'APPOSITION') {
             // P6-G-4.4: APPOSITION — parallel segment notation (head / dashed / appositive)
             slotEl.appendChild(_dgRenderAppositionSlot(slot.node));
         } else if (slot.node?.construction?.canonical === 'NOMINALIZED_CLAUSE') {
             // P6-G-8: NOMINALIZED_CLAUSE — bracket notation (brackets via CSS ::before/::after)
             const nomcEl = document.createElement('span');
             nomcEl.className = 'dg-nomc';
-            nomcEl.textContent = window.DgEngine.headDisplayText(slot.node, slot.headSIs);
+            /* C-6: individual token spans; fallback to full subtree if headSIs yields nothing */
+            if (!_dgAppendTokens(nomcEl, slot.node, slot.headSIs))
+                _dgAppendTokens(nomcEl, slot.node, null);
             slotEl.appendChild(nomcEl);
         } else {
-            // Use headDisplayText: excludes tokens belonging to extracted word-level modifiers
-            textEl.textContent = window.DgEngine.headDisplayText(slot.node, slot.headSIs);
+            /* C-6: individual token spans; fallback to full subtree for articular heads */
+            if (!_dgAppendTokens(textEl, slot.node, slot.headSIs))
+                _dgAppendTokens(textEl, slot.node, null);
             slotEl.appendChild(textEl);
         }
+        /* C-6: slot is a non-clickable container; tokens inside carry individual click handlers */
         if (slot.fn !== 'COPULA' && slot.fn !== 'AUX') {
             const fnEl = document.createElement('span');
             fnEl.className = 'dg-slot-fn';
@@ -12371,9 +12499,11 @@ function _dgRenderMainLine(slots) {
     for (const ioSlot of ioSlots) {
         const platform = document.createElement('div');
         platform.className = 'dg-io-platform';
+        /* C-6: platform is a container; individual token spans carry click handlers */
         const textEl = document.createElement('span');
         textEl.className = 'dg-io-platform-text';
-        textEl.textContent = window.DgEngine.headDisplayText(ioSlot.node, ioSlot.headSIs);
+        /* C-6: individual token spans; no Greek fallback */
+        _dgAppendTokens(textEl, ioSlot.node, ioSlot.headSIs);
         platform.appendChild(textEl);
         const fnEl = document.createElement('span');
         fnEl.className = 'dg-io-platform-fn';
@@ -12382,6 +12512,7 @@ function _dgRenderMainLine(slots) {
         for (const mod of (ioSlot.modifiers || [])) {
             const item = document.createElement('div');
             item.className = 'dg-adv-item';
+            /* C-6: container; token spans handle clicks */
             const connEl = document.createElement('div');
             connEl.className = 'dg-adv-connector';
             item.appendChild(connEl);
@@ -12389,7 +12520,8 @@ function _dgRenderMainLine(slots) {
             row.className = 'dg-adv-row';
             const modText = document.createElement('span');
             modText.className = 'dg-adv-text';
-            modText.textContent = window.DgEngine.displayText(mod.node);
+            /* C-6: individual token spans; no Greek fallback */
+            _dgAppendTokens(modText, mod.node, null);
             row.appendChild(modText);
             const modFn = document.createElement('span');
             modFn.className = 'dg-adv-fn';
@@ -12425,6 +12557,7 @@ function _dgRenderSlotModZone(slots) {
         for (const mod of (slot.modifiers || [])) {
             const item = document.createElement('div');
             item.className = 'dg-adv-item';
+            /* C-6: container; token spans carry individual click handlers */
             const connEl = document.createElement('div');
             connEl.className = 'dg-adv-connector';
             item.appendChild(connEl);
@@ -12432,7 +12565,8 @@ function _dgRenderSlotModZone(slots) {
             row.className = 'dg-adv-row';
             const textEl = document.createElement('span');
             textEl.className = 'dg-adv-text';
-            textEl.textContent = window.DgEngine.displayText(mod.node);
+            /* C-6: individual token spans; no Greek fallback */
+            _dgAppendTokens(textEl, mod.node, null);
             row.appendChild(textEl);
             const fnEl = document.createElement('span');
             fnEl.className = 'dg-adv-fn';
@@ -12457,12 +12591,12 @@ function _dgRenderAppositionSlot(apposNode) {
     wrap.className = 'dg-appos-wrap';
     const headEl = document.createElement('span');
     headEl.className = 'dg-appos-head';
-    headEl.textContent = window.DgEngine.displayText(headNode);
+    _dgAppendTokens(headEl, headNode, null); /* C-6: individual token spans */
     wrap.appendChild(headEl);
     if (appNode) {
         const appEl = document.createElement('span');
         appEl.className = 'dg-appos-appositive';
-        appEl.textContent = window.DgEngine.displayText(appNode);
+        _dgAppendTokens(appEl, appNode, null); /* C-6: individual token spans */
         wrap.appendChild(appEl);
     }
     return wrap;
@@ -12475,6 +12609,7 @@ function _dgRenderAdvPhrases(advPhrases) {
     for (const adv of advPhrases) {
         const item = document.createElement('div');
         item.className = 'dg-adv-item';
+        /* C-6: container; token spans carry individual click handlers */
         const connEl = document.createElement('div');
         connEl.className = 'dg-adv-connector';
         item.appendChild(connEl);
@@ -12483,12 +12618,26 @@ function _dgRenderAdvPhrases(advPhrases) {
         if (adv.ppPrep && adv.ppNpNode) {
             const ppWrap = document.createElement('div');
             ppWrap.className = 'dg-pp-wrap';
-            // Prep level (above diagonal)
+            // Prep level (above diagonal) — C-6: clickable token span for preposition
             const prepLevel = document.createElement('div');
             prepLevel.className = 'dg-pp-prep-level';
             const prepEl = document.createElement('span');
             prepEl.className = 'dg-pp-prep';
-            prepEl.textContent = adv.ppPrep;
+            const _prepChild = adv.node?.children?.[0];
+            const _prepRef   = (_prepChild?.type === 'token') ? (_prepChild.evidence?.ref) : null;
+            const _prepJa    = _prepRef && _dgActiveTokenMap
+                ? (_dgActiveTokenMap[_prepRef]?.japanese || null) : null;
+            if (_prepJa && !/^[〔【（]/.test(_prepJa)) {
+                const _prepEntry = _dgActiveTokenMap[_prepRef];
+                const _prepSpan = document.createElement('span');
+                _prepSpan.className = 'dg-token';
+                _prepSpan.textContent = _prepJa;
+                _prepSpan.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    openStudyPanel(_prepEntry.text || '', _prepEntry.morph || '', _prepEntry.ref || '', _prepEntry.lemma || '');
+                });
+                prepEl.appendChild(_prepSpan);
+            }
             prepLevel.appendChild(prepEl);
             ppWrap.appendChild(prepLevel);
             // Diagonal connector
@@ -12503,7 +12652,10 @@ function _dgRenderAdvPhrases(advPhrases) {
             const npEl = document.createElement('span');
             npEl.className = 'dg-pp-np';
             const npMod = adv.ppNpModInfo;
-            npEl.textContent = window.DgEngine.headDisplayText(adv.ppNpNode, npMod ? npMod.headSIs : null);
+            /* C-6: individual token spans; subtree fallback for articular heads */
+            const _npHsi = npMod ? npMod.headSIs : null;
+            if (!_dgAppendTokens(npEl, adv.ppNpNode, _npHsi))
+                _dgAppendTokens(npEl, adv.ppNpNode, null);
             npRow.appendChild(npEl);
             const fnEl = document.createElement('span');
             fnEl.className = 'dg-adv-fn';
@@ -12518,6 +12670,7 @@ function _dgRenderAdvPhrases(advPhrases) {
                 for (const mod of npMod.modifiers) {
                     const modItem = document.createElement('div');
                     modItem.className = 'dg-adv-item';
+                    /* C-6: container; token spans carry click handlers */
                     const modConn = document.createElement('div');
                     modConn.className = 'dg-adv-connector';
                     modItem.appendChild(modConn);
@@ -12525,7 +12678,8 @@ function _dgRenderAdvPhrases(advPhrases) {
                     modRow.className = 'dg-adv-row';
                     const modText = document.createElement('span');
                     modText.className = 'dg-adv-text';
-                    modText.textContent = window.DgEngine.displayText(mod.node);
+                    /* C-6: individual token spans; no Greek fallback */
+                    _dgAppendTokens(modText, mod.node, null);
                     modRow.appendChild(modText);
                     const modFn = document.createElement('span');
                     modFn.className = 'dg-adv-fn';
@@ -12540,7 +12694,8 @@ function _dgRenderAdvPhrases(advPhrases) {
             row.className = 'dg-adv-row';
             const textEl = document.createElement('span');
             textEl.className = 'dg-adv-text';
-            textEl.textContent = window.DgEngine.displayText(adv.node);
+            /* C-6: individual token spans; no Greek fallback */
+            _dgAppendTokens(textEl, adv.node, null);
             row.appendChild(textEl);
             const fnEl = document.createElement('span');
             fnEl.className = 'dg-adv-fn';
@@ -12561,10 +12716,13 @@ function _dgRenderClause(dr) {
     wrap.className = 'dg-clause';
 
     if (dr.conjunction) {
-        const conjEl = document.createElement('div');
-        conjEl.className = 'dg-conjunction';
-        conjEl.textContent = dr.conjunction;
-        wrap.appendChild(conjEl);
+        const _cJa = _dgConjJa(dr.conjunction);
+        if (_cJa) {
+            const conjEl = document.createElement('div');
+            conjEl.className = 'dg-conjunction';
+            conjEl.textContent = _cJa;
+            wrap.appendChild(conjEl);
+        }
     }
 
     if (dr.isCoordination && dr.coordClauses.length > 0) {
@@ -12572,13 +12730,16 @@ function _dgRenderClause(dr) {
         coordWrap.className = 'dg-coord-wrap';
         for (const subDr of dr.coordClauses) {
             if (subDr.conjunction) {
-                const joinEl = document.createElement('div');
-                joinEl.className = 'dg-coord-join';
-                const jtEl = document.createElement('span');
-                jtEl.className = 'dg-coord-join-text';
-                jtEl.textContent = subDr.conjunction;
-                joinEl.appendChild(jtEl);
-                coordWrap.appendChild(joinEl);
+                const _jJa = _dgConjJa(subDr.conjunction);
+                if (_jJa) {
+                    const joinEl = document.createElement('div');
+                    joinEl.className = 'dg-coord-join';
+                    const jtEl = document.createElement('span');
+                    jtEl.className = 'dg-coord-join-text';
+                    jtEl.textContent = _jJa;
+                    joinEl.appendChild(jtEl);
+                    coordWrap.appendChild(joinEl);
+                }
             }
             const subWrap = document.createElement('div');
             subWrap.className = 'dg-coord-clause';
@@ -12597,9 +12758,8 @@ function _dgRenderClause(dr) {
                     // P6-C: relative clause connector label
                     scWrap.className = 'dg-rel-clause';
                     scLbl.className  = 'dg-rel-clause-label';
-                    scLbl.textContent = sc.antecedentText
-                        ? '関係節 ← ' + sc.antecedentText
-                        : '関係節';
+                    const _scAntJa = _dgAntecedentJa(sc.antecedentRef);
+                    scLbl.textContent = _scAntJa ? '関係節 ← ' + _scAntJa : '関係節';
                 } else {
                     // P5-D-1: participial sub-clause gets distinct class and label
                     scWrap.className = sc.isParticipalClause
@@ -12624,9 +12784,8 @@ function _dgRenderClause(dr) {
                     ercWrap.className = 'dg-rel-clause';
                     const ercLbl = document.createElement('div');
                     ercLbl.className  = 'dg-rel-clause-label';
-                    ercLbl.textContent = erc.antecedentText
-                        ? '関係節 ← ' + erc.antecedentText
-                        : '関係節';
+                    const _ercAntJa = _dgAntecedentJa(erc.antecedentRef);
+                    ercLbl.textContent = _ercAntJa ? '関係節 ← ' + _ercAntJa : '関係節';
                     ercWrap.appendChild(ercLbl);
                     const ercEl = _dgRenderClause(erc.dr);
                     if (ercEl) ercWrap.appendChild(ercEl);
@@ -12657,9 +12816,8 @@ function _dgRenderClause(dr) {
             ercWrap.className = 'dg-rel-clause';
             const ercLbl = document.createElement('div');
             ercLbl.className  = 'dg-rel-clause-label';
-            ercLbl.textContent = erc.antecedentText
-                ? '関係節 ← ' + erc.antecedentText
-                : '関係節';
+            const _ercAJa = _dgAntecedentJa(erc.antecedentRef);
+            ercLbl.textContent = _ercAJa ? '関係節 ← ' + _ercAJa : '関係節';
             ercWrap.appendChild(ercLbl);
             const ercEl = _dgRenderClause(erc.dr);
             if (ercEl) ercWrap.appendChild(ercEl);
@@ -12674,7 +12832,7 @@ function _dgRenderClause(dr) {
         ccWrap.className = 'dg-cc-clause-attach';
         const ccLabel = document.createElement('div');
         ccLabel.className = 'dg-cc-clause-label';
-        ccLabel.textContent = slot.contentClause.conjunction || slot.contentClause.label || '内容節';
+        ccLabel.textContent = _dgConjJa(slot.contentClause.conjunction) || slot.contentClause.label || '内容節';
         const ccEl = _dgRenderClause(slot.contentClause.innerDR);
         if (!ccEl) continue;
         ccEl.classList.add('dg-cc-clause');
@@ -12693,9 +12851,8 @@ function _dgRenderClause(dr) {
             // P6-C: relative clause connector label
             scWrap.className = 'dg-rel-clause';
             scLbl.className  = 'dg-rel-clause-label';
-            scLbl.textContent = sc.antecedentText
-                ? '関係節 ← ' + sc.antecedentText
-                : '関係節';
+            const _scAJa = _dgAntecedentJa(sc.antecedentRef);
+            scLbl.textContent = _scAJa ? '関係節 ← ' + _scAJa : '関係節';
         } else {
             // P5-D-1: participial sub-clause gets distinct class and label
             scWrap.className = sc.isParticipalClause
@@ -12759,7 +12916,7 @@ function _renderStructuralDiagramView(app, srData, elData) {
         for (const sc of (dr.adverbialClauses || [])) {
             if (sc.isRelativeClause && sc.relPronRef) {
                 const conn = connMap.get(sc.relPronRef);
-                if (conn) sc.antecedentText = conn.targetText;
+                if (conn) { sc.antecedentText = conn.targetText; sc.antecedentRef = conn.targetRef; }
             }
             _annotateRelClauses(sc, connMap);
         }
@@ -12770,7 +12927,7 @@ function _renderStructuralDiagramView(app, srData, elData) {
             for (const erc of (slot.embeddedRelClauses || [])) {
                 if (erc.relPronRef) {
                     const conn = connMap.get(erc.relPronRef);
-                    if (conn) erc.antecedentText = conn.targetText;
+                    if (conn) { erc.antecedentText = conn.targetText; erc.antecedentRef = conn.targetRef; }
                 }
             }
         }
@@ -12813,6 +12970,17 @@ function _renderStructuralDiagramView(app, srData, elData) {
         return `${chapter}:${ranges.join(', ')}`;
     }
 
+    /* C-4: build token lookup map for Japanese-first DG rendering */
+    if (_isDGChapter) {
+        _dgActiveTokenMap = {};
+        for (const w of (elData || [])) { if (w && w.ref) _dgActiveTokenMap[w.ref] = w; }
+        _dgConjJaMap = {};
+        for (const w of (elData || [])) {
+            if (w && w.text && w.japanese && w.morph && w.morph.startsWith('CONJ') && !_dgConjJaMap[w.text])
+                _dgConjJaMap[w.text] = w.japanese;
+        }
+    }
+
     for (const sentence of srData.sentences) {
         const secEl = document.createElement('section');
         secEl.className = 'sd-sentence';
@@ -12851,6 +13019,7 @@ function _renderStructuralDiagramView(app, srData, elData) {
                         _dgView.appendChild(_dgEl);
                         secEl.appendChild(_dgView);
                         _dgRendered = true;
+                        refEl.classList.add('sd-sentence-ref--dg'); /* C-9 */
                     }
                 }
             } catch (_) { /* silent fallback */ }
@@ -12864,6 +13033,7 @@ function _renderStructuralDiagramView(app, srData, elData) {
         wrap.appendChild(secEl);
     }
 
+    /* C-4: _dgActiveTokenMap stays set — click handlers need it at event time */
     app.innerHTML = '';
     app.appendChild(wrap);
 }
