@@ -18,14 +18,22 @@
  *   noVerb           boolean       — true when no COPULA/PREDICATE slot present
  *
  * DR_Slot
- *   fn         string   — function.canonical
- *   node       object   — SR node (phrase or token)
- *   connector  null | 'sp' | 'po' | 'complement' | 'implied'
- *                sp:         full vertical divider  S | P
- *                po:         short vertical divider P | O
- *                complement: backward diagonal      P \ C
- *                implied:    dashed diagonal for verbless predication
- *   si         number   — min surfaceIndex (for ordering)
+ *   fn              string   — function.canonical
+ *   node            object   — SR node (phrase or token)
+ *   connector       null | 'sp' | 'po' | 'complement' | 'implied'
+ *                    sp:         full vertical divider  S | P
+ *                    po:         short vertical divider P | O
+ *                    complement: backward diagonal      P \ C
+ *                    implied:    dashed diagonal for verbless predication
+ *   si              number   — min surfaceIndex (for ordering)
+ *   modifiers       []       — word-level modifier nodes (P5-D-1)
+ *   headSIs         Set|null — surface indices of head tokens (P5-D-1/P6-C)
+ *   isParticipial   boolean  — participial PREDICATE/COPULA (P5-D-1)
+ *   embeddedRelClauses []    — embedded relative clauses for CLAUSE_AS_NP (P6-C)
+ *   contentClause   null | {conjunction: string|null, innerDR: DR_Clause, label: string|null}
+ *                            — inner DR for clause/group-type MAIN_FN slots (P6-G-4, P6-G.11.3)
+ *                              label: display fallback when conjunction is null.
+ *                              null for CONTENT_CLAUSE (backward-compatible).
  *
  * DR_AdvPhrase
  *   fn    string
@@ -76,13 +84,15 @@
     const vp   = prevFn === 'PREDICATE'  || curFn === 'PREDICATE';
     const subj = prevFn === 'SUBJECT'    || curFn === 'SUBJECT';
     const comp = prevFn === 'COMPLEMENT' || curFn === 'COMPLEMENT';
-    const obj  = prevFn === 'OBJECT'     || curFn === 'OBJECT';
+    const obj  = prevFn === 'OBJECT'        || curFn === 'OBJECT';
+    const obj2 = prevFn === 'SECOND_OBJECT' || curFn === 'SECOND_OBJECT';
 
     if (noVerb) {
       // Verbless predication: dashed diagonal between Subject and Complement
       if (subj && comp) return 'implied';
       // F-01 fix: multiple Complements in verbless clause connect with implied diagonal
       if (prevFn === 'COMPLEMENT' && curFn === 'COMPLEMENT') return 'implied';
+      if (obj && obj2)  return 'po';
       return null;
     }
     if (vc) {
@@ -94,8 +104,10 @@
       if (subj) return 'sp';
       if (comp) return 'complement';
       if (obj)  return 'po';
+      if (obj2) return 'po';
       return null;
     }
+    if (obj && obj2) return 'po';
     return null;
   }
 
@@ -168,6 +180,98 @@
     }
 
     return embeddedClauses.length > 0 ? { headSIs, embeddedClauses } : null;
+  }
+
+  // Guard: returns true when a derived DR has no meaningful content to display.
+  function _isEmptyDR(dr) {
+    if (!dr) return true;
+    if (dr.isCoordination) return dr.coordClauses.length === 0;
+    return dr.slots.length === 0
+        && dr.adverbialClauses.length === 0
+        && dr.adverbialPhrases.length === 0;
+  }
+
+  // P6-G-4 / P6-G.11.3: For clause/group-type MAIN_FN slot nodes, extract {conjunction, innerDR, label} or null.
+  // CONTENT_CLAUSE: existing behavior (label: null → renderer falls back to '内容節').
+  // SUBORDINATE_CLAUSE / PARTICIPIAL_CLAUSE: same [CONJ + inner] structure; label for labelless cases.
+  // Bare clause (no cn): derive from node directly; no CONJ.
+  // Group: derive via deriveFromGroup; no CONJ.
+  // NOMINALIZED_CLAUSE: excluded — bracket notation must be preserved (see index.html line 12348).
+  // Phrase-type (phrase.np, phrase.pp): excluded — Class E, out of scope.
+  function _extractContentClause(node) {
+    if (!node) return null;
+    const cn = node.construction?.canonical;
+
+    // ── CONTENT_CLAUSE (existing, unchanged) ─────────────────────────────
+    if (cn === 'CONTENT_CLAUSE') {
+      const children = node.children || [];
+      const conjTok = children.find(
+        c => c.type === 'token' && c.evidence && c.evidence.morph_raw &&
+             c.evidence.morph_raw.startsWith('CONJ')
+      );
+      const inner = children.find(c => c.type === 'clause' || c.type === 'group');
+      const conjunction = conjTok ? conjTok.text || null : null;
+      const innerDR = inner
+        ? (inner.type === 'clause'
+            ? deriveClauseCore(inner, conjunction)
+            : deriveFromGroup(inner, conjunction))
+        : deriveClauseCore(node, conjunction);
+      if (!innerDR) return null;
+      return { conjunction, innerDR, label: null };
+    }
+
+    // ── SUBORDINATE_CLAUSE: [CONJ token] + [inner clause/group] ──────────
+    if (cn === 'SUBORDINATE_CLAUSE') {
+      const children = node.children || [];
+      const conjTok = children.find(
+        c => c.type === 'token' && c.evidence?.morph_raw?.startsWith('CONJ')
+      );
+      const inner = children.find(c => c.type === 'clause' || c.type === 'group');
+      const conjunction = conjTok?.text || null;
+      const innerDR = inner
+        ? (inner.type === 'clause'
+            ? deriveClauseCore(inner, conjunction)
+            : deriveFromGroup(inner, conjunction))
+        : deriveClauseCore(node, conjunction);
+      if (!innerDR || _isEmptyDR(innerDR)) return null;
+      return { conjunction, innerDR, label: '従属節' };
+    }
+
+    // ── PARTICIPIAL_CLAUSE: [optional CONJ] + [inner clause/group] ───────
+    if (cn === 'PARTICIPIAL_CLAUSE') {
+      const children = node.children || [];
+      const conjTok = children.find(
+        c => c.type === 'token' && c.evidence?.morph_raw?.startsWith('CONJ')
+      );
+      const inner = children.find(c => c.type === 'clause' || c.type === 'group');
+      const conjunction = conjTok?.text || null;
+      const innerDR = inner
+        ? (inner.type === 'clause'
+            ? deriveClauseCore(inner, conjunction)
+            : deriveFromGroup(inner, conjunction))
+        : deriveClauseCore(node, conjunction);
+      if (!innerDR || _isEmptyDR(innerDR)) return null;
+      return { conjunction, innerDR, label: '分詞節' };
+    }
+
+    // ── Bare clause (no construction): node IS the inner clause ──────────
+    if (node.type === 'clause' && !cn) {
+      const innerDR = deriveClauseCore(node, null);
+      if (!innerDR || _isEmptyDR(innerDR)) return null;
+      return { conjunction: null, innerDR, label: '節' };
+    }
+
+    // ── Group-type slot node: derive via deriveFromGroup ──────────────────
+    if (node.type === 'group') {
+      const innerDR = deriveFromGroup(node, null);
+      if (!innerDR || _isEmptyDR(innerDR)) return null;
+      return { conjunction: null, innerDR, label: '節グループ' };
+    }
+
+    // NOMINALIZED_CLAUSE: excluded — bracket notation preserved in renderer.
+    // Phrase-type (phrase.np, phrase.pp, phrase.adjp): excluded — Class E.
+    // Token: excluded — no recursion needed.
+    return null;
   }
 
   // Walk the SR tree rooted at sentenceRoot and collect all relative pronoun tokens.
@@ -387,7 +491,8 @@
     const adverbialClauses = [];
 
     for (const child of (clauseNode.children || [])) {
-      const fn = child.function?.canonical;
+      let fn = child.function?.canonical;
+      if (fn === 'OBJECT2') fn = 'SECOND_OBJECT';
       if (!fn) {
         // P5-E-1: fn=null structural container — traverse to reach fn-marked descendants
         if (child.type === 'clause' || child.type === 'group') {
@@ -446,12 +551,15 @@
         const isParticipial = (fn === 'PREDICATE' || fn === 'COPULA') && tok0 ? isParticiple(tok0) : false;
         // P6-C: CLAUSE_AS_NP — extract embedded relative clauses, narrow headSIs
         const embeddedRelInfo = _extractEmbeddedRelClauses(child);
+        // P6-G-4: CONTENT_CLAUSE — extract inner DR for sub-diagram rendering
+        const contentClause = _extractContentClause(child);
         mainSlots.push({
           fn, node: child, connector: null, si: minSI(child),
           modifiers: modInfo ? modInfo.modifiers : [],
           headSIs:   embeddedRelInfo ? embeddedRelInfo.headSIs : (modInfo ? modInfo.headSIs : null),
           isParticipial,
           embeddedRelClauses: embeddedRelInfo ? embeddedRelInfo.embeddedClauses : [],
+          contentClause,
         });
       }
     }
@@ -487,13 +595,28 @@
   // ── Group derivation (UNRESOLVED construction) ────────────────────────
 
   function deriveFromGroup(node, conjunction) {
-    const clauseChild  = (node.children || []).find(c => c.type === 'clause');
-    const extraPhrases = (node.children || []).filter(
+    const clauseChildren = (node.children || []).filter(c => c.type === 'clause');
+    const clauseChild    = clauseChildren[0] || null;
+    const extraPhrases   = (node.children || []).filter(
       c => c.type !== 'clause' && c.type !== 'token' && c.function?.canonical
     );
 
     let dr;
-    if (clauseChild) {
+    if (clauseChildren.length > 1 && extraPhrases.length === 0) {
+      // Multiple clause siblings with no extra-phrase siblings — expose as informal coordination.
+      // Each clause child is derived independently; the group DR becomes isCoordination=true.
+      // The renderer already handles isCoordination DRs at index.html:12570.
+      dr = {
+        id: node.id, conjunction,
+        slots: [], adverbialPhrases: [], adverbialClauses: [],
+        isCoordination: true,
+        coordClauses: clauseChildren.map((cl, i) =>
+          deriveClauseCore(cl, i === 0 ? conjunction : null)
+        ),
+        noVerb: false,
+        isParticipalClause: false,
+      };
+    } else if (clauseChild) {
       dr = deriveClauseCore(clauseChild, conjunction);
     } else {
       dr = {
@@ -506,7 +629,8 @@
 
     // Merge extra functional phrase siblings into main slots
     for (const p of extraPhrases) {
-      const fn = p.function?.canonical;
+      let fn = p.function?.canonical;
+      if (fn === 'OBJECT2') fn = 'SECOND_OBJECT';
       if (fn && MAIN_FN.has(fn)) {
         const modInfo = extractSlotModifiers(p);
         const tok0 = p.type === 'token' ? p : (getTokens(p)[0] || null);

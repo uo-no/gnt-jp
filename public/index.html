@@ -4482,14 +4482,91 @@ details[open] .study-summary::before {
     letter-spacing: .05em;
     margin-bottom: .2rem;
 }
-/* P5-D-3: PP internal structure inside adverbial phrase row */
-.dg-adv-pp-wrap { display: flex; align-items: baseline; gap: .25rem; }
-.dg-adv-pp-prep { font-weight: 600; color: var(--text-main); }
-.dg-adv-pp-np   { color: var(--text-main); }
+/* P6-F: PP diagonal notation — preposition on diagonal, governed NP on horizontal */
+.dg-pp-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
+.dg-pp-prep-level { padding: 0 .2rem .05rem .1rem; }
+.dg-pp-prep { font-family: var(--font-greek); font-size: .9rem; font-weight: 600; color: var(--text-main); white-space: nowrap; }
+.dg-pp-diagonal { height: .55rem; margin-left: .1rem; position: relative; overflow: visible; }
+.dg-pp-diagonal::after { content: ''; position: absolute; left: 0; top: 0; width: .93rem; height: 1.5px; background: var(--text-sub); transform-origin: left top; transform: rotate(36deg); }
+.dg-pp-np-level { margin-left: .85rem; }
+.dg-pp-np-row { display: flex; align-items: baseline; gap: .3rem; border-bottom: 1.5px solid var(--text-sub); padding: .05rem .3rem .05rem .1rem; }
+.dg-pp-np { font-family: var(--font-greek); font-size: .9rem; color: var(--text-main); white-space: nowrap; }
+/* P6-G-2: IO raised platform */
+.dg-io-wrap { display: flex; flex-direction: column; align-items: flex-start; }
+.dg-io-platform-area { display: flex; flex-direction: column; align-items: center; padding-left: 4rem; }
+.dg-io-platform { display: flex; flex-direction: column; align-items: center; border-bottom: 1.5px solid var(--text-sub); padding: .05rem .4rem; }
+.dg-io-platform-text { font-family: var(--font-greek); font-size: .95rem; color: var(--text-main); white-space: nowrap; }
+.dg-io-platform-fn { font-size: 9px; color: var(--text-sub); letter-spacing: .05em; text-transform: uppercase; margin-top: 2px; white-space: nowrap; }
+.dg-io-stalk { width: 1.5px; height: 1.2rem; background: var(--text-sub); }
+/* P6-G-4: Content clause sub-diagram attachment */
+.dg-cc-clause-attach {
+    margin-top: .35rem;
+    padding-left: 1.2rem;
+    border-left: 2px solid var(--text-sub);
+}
+.dg-cc-clause-label {
+    font-size: 9px;
+    color: var(--text-sub);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: .2rem;
+}
+.dg-cc-clause { /* inherits .dg-clause styles */ }
+/* P6-G-4.4: APPOSITION parallel-segment notation */
+.dg-appos-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+}
+.dg-appos-head {
+    font-family: var(--font-greek);
+    font-size: 1rem;
+    color: var(--text-main);
+    white-space: nowrap;
+    border-bottom: 1px dashed var(--text-sub);
+    padding-bottom: 2px;
+}
+.dg-appos-appositive {
+    font-family: var(--font-greek);
+    font-size: .92rem;
+    color: var(--text-main);
+    white-space: nowrap;
+    padding-top: 3px;
+    opacity: .9;
+}
+/* P6-G-8: NOMINALIZED_CLAUSE bracket notation */
+.dg-nomc {
+    font-family: var(--font-greek);
+    font-size: 1rem;
+    color: var(--text-main);
+    white-space: nowrap;
+}
+.dg-nomc::before {
+    content: '[';
+    color: var(--text-sub);
+    font-size: .85rem;
+    margin-right: 1px;
+}
+.dg-nomc::after {
+    content: ']';
+    color: var(--text-sub);
+    font-size: .85rem;
+    margin-left: 1px;
+}
 @media (max-width: 480px) {
     .dg-slot-text { font-size: .9rem; }
     .dg-slot { padding: .1rem .3rem; }
     .dg-adv-text { font-size: .8rem; }
+    .dg-pp-prep { font-size: .85rem; }
+    .dg-pp-np   { font-size: .8rem; }
+    .dg-io-platform-text { font-size: .85rem; }
+    .dg-io-stalk { height: .9rem; }
+    .dg-cc-clause-attach { padding-left: .8rem; }
+    .dg-cc-clause-label  { font-size: 8px; }
+    .dg-appos-head { font-size: .9rem; }
+    .dg-appos-appositive { font-size: .82rem; }
+    .dg-nomc { font-size: .9rem; }
 }
 </style>
 
@@ -12243,9 +12320,11 @@ const _DG_FN_JA = {
 };
 
 function _dgRenderMainLine(slots) {
+    const ioSlots   = slots.filter(s => s.fn === 'INDIRECT_OBJECT');
+    const baseSlots = slots.filter(s => s.fn !== 'INDIRECT_OBJECT');
     const line = document.createElement('div');
     line.className = 'dg-main-line';
-    for (const slot of slots) {
+    for (const slot of baseSlots) {
         if (slot.connector) {
             const conn = document.createElement('div');
             conn.className = 'dg-conn dg-conn-' + slot.connector;
@@ -12257,9 +12336,24 @@ function _dgRenderMainLine(slots) {
         if (slot.isParticipial) slotEl.classList.add('dg-slot-participial');
         const textEl = document.createElement('span');
         textEl.className = 'dg-slot-text';
-        // Use headDisplayText: excludes tokens belonging to extracted word-level modifiers
-        textEl.textContent = window.DgEngine.headDisplayText(slot.node, slot.headSIs);
-        slotEl.appendChild(textEl);
+        // P6-G-4: CC slot shows conjunction label; fallback to full text if no innerDR
+        if (slot.contentClause && slot.contentClause.innerDR) {
+            textEl.textContent = slot.contentClause.conjunction || slot.contentClause.label || '内容節';
+            slotEl.appendChild(textEl);
+        } else if (slot.node?.construction?.canonical === 'APPOSITION') {
+            // P6-G-4.4: APPOSITION — parallel segment notation (head / dashed / appositive)
+            slotEl.appendChild(_dgRenderAppositionSlot(slot.node));
+        } else if (slot.node?.construction?.canonical === 'NOMINALIZED_CLAUSE') {
+            // P6-G-8: NOMINALIZED_CLAUSE — bracket notation (brackets via CSS ::before/::after)
+            const nomcEl = document.createElement('span');
+            nomcEl.className = 'dg-nomc';
+            nomcEl.textContent = window.DgEngine.headDisplayText(slot.node, slot.headSIs);
+            slotEl.appendChild(nomcEl);
+        } else {
+            // Use headDisplayText: excludes tokens belonging to extracted word-level modifiers
+            textEl.textContent = window.DgEngine.headDisplayText(slot.node, slot.headSIs);
+            slotEl.appendChild(textEl);
+        }
         if (slot.fn !== 'COPULA' && slot.fn !== 'AUX') {
             const fnEl = document.createElement('span');
             fnEl.className = 'dg-slot-fn';
@@ -12268,15 +12362,59 @@ function _dgRenderMainLine(slots) {
         }
         line.appendChild(slotEl);
     }
-    return line;
+    if (ioSlots.length === 0) return line;
+    // P6-G-2: IO raised platform — elevate IO above main baseline
+    const wrap = document.createElement('div');
+    wrap.className = 'dg-io-wrap';
+    const platformArea = document.createElement('div');
+    platformArea.className = 'dg-io-platform-area';
+    for (const ioSlot of ioSlots) {
+        const platform = document.createElement('div');
+        platform.className = 'dg-io-platform';
+        const textEl = document.createElement('span');
+        textEl.className = 'dg-io-platform-text';
+        textEl.textContent = window.DgEngine.headDisplayText(ioSlot.node, ioSlot.headSIs);
+        platform.appendChild(textEl);
+        const fnEl = document.createElement('span');
+        fnEl.className = 'dg-io-platform-fn';
+        fnEl.textContent = _DG_FN_JA['INDIRECT_OBJECT'];
+        platform.appendChild(fnEl);
+        for (const mod of (ioSlot.modifiers || [])) {
+            const item = document.createElement('div');
+            item.className = 'dg-adv-item';
+            const connEl = document.createElement('div');
+            connEl.className = 'dg-adv-connector';
+            item.appendChild(connEl);
+            const row = document.createElement('div');
+            row.className = 'dg-adv-row';
+            const modText = document.createElement('span');
+            modText.className = 'dg-adv-text';
+            modText.textContent = window.DgEngine.displayText(mod.node);
+            row.appendChild(modText);
+            const modFn = document.createElement('span');
+            modFn.className = 'dg-adv-fn';
+            modFn.textContent = mod.label || '修飾';
+            row.appendChild(modFn);
+            item.appendChild(row);
+            platform.appendChild(item);
+        }
+        platformArea.appendChild(platform);
+    }
+    const stalk = document.createElement('div');
+    stalk.className = 'dg-io-stalk';
+    platformArea.appendChild(stalk);
+    wrap.appendChild(platformArea);
+    wrap.appendChild(line);
+    return wrap;
 }
 
 /* Renders word-level modifiers below the baseline, approximately aligned under their slots. */
 function _dgRenderSlotModZone(slots) {
-    if (!slots || !slots.some(s => s.modifiers && s.modifiers.length > 0)) return null;
+    const nonIO = (slots || []).filter(s => s.fn !== 'INDIRECT_OBJECT');
+    if (!nonIO.some(s => s.modifiers && s.modifiers.length > 0)) return null;
     const zone = document.createElement('div');
     zone.className = 'dg-slot-mod-zone';
-    for (const slot of slots) {
+    for (const slot of nonIO) {
         if (slot.connector) {
             const spacer = document.createElement('div');
             spacer.className = 'dg-slot-mod-spacer dg-slot-mod-spacer-' + slot.connector;
@@ -12308,6 +12446,28 @@ function _dgRenderSlotModZone(slots) {
     return zone;
 }
 
+/* P6-G-4.4: APPOSITION — render head / appositive as parallel segments.
+   node.children[0] = head NP, children[1] = appositive NP (SR-explicit; L-0 safe).
+   Depth-1 only: inner nesting handled by displayText() flattening. */
+function _dgRenderAppositionSlot(apposNode) {
+    const children = apposNode.children || [];
+    const headNode = children[0] || apposNode;
+    const appNode  = children[1] || null;
+    const wrap = document.createElement('div');
+    wrap.className = 'dg-appos-wrap';
+    const headEl = document.createElement('span');
+    headEl.className = 'dg-appos-head';
+    headEl.textContent = window.DgEngine.displayText(headNode);
+    wrap.appendChild(headEl);
+    if (appNode) {
+        const appEl = document.createElement('span');
+        appEl.className = 'dg-appos-appositive';
+        appEl.textContent = window.DgEngine.displayText(appNode);
+        wrap.appendChild(appEl);
+    }
+    return wrap;
+}
+
 function _dgRenderAdvPhrases(advPhrases) {
     if (!advPhrases || advPhrases.length === 0) return null;
     const list = document.createElement('div');
@@ -12318,24 +12478,41 @@ function _dgRenderAdvPhrases(advPhrases) {
         const connEl = document.createElement('div');
         connEl.className = 'dg-adv-connector';
         item.appendChild(connEl);
-        const row = document.createElement('div');
-        row.className = 'dg-adv-row';
-        // P5-D-3: PP internal structure — show PREP separately from governed NP
+        // P6-F: PP diagonal notation — preposition on diagonal, governed NP on horizontal
         let ppNpModItems = null;
         if (adv.ppPrep && adv.ppNpNode) {
             const ppWrap = document.createElement('div');
-            ppWrap.className = 'dg-adv-pp-wrap';
+            ppWrap.className = 'dg-pp-wrap';
+            // Prep level (above diagonal)
+            const prepLevel = document.createElement('div');
+            prepLevel.className = 'dg-pp-prep-level';
             const prepEl = document.createElement('span');
-            prepEl.className = 'dg-adv-pp-prep';
+            prepEl.className = 'dg-pp-prep';
             prepEl.textContent = adv.ppPrep;
-            ppWrap.appendChild(prepEl);
+            prepLevel.appendChild(prepEl);
+            ppWrap.appendChild(prepLevel);
+            // Diagonal connector
+            const diagEl = document.createElement('div');
+            diagEl.className = 'dg-pp-diagonal';
+            ppWrap.appendChild(diagEl);
+            // NP level (indented, on horizontal line)
+            const npLevel = document.createElement('div');
+            npLevel.className = 'dg-pp-np-level';
+            const npRow = document.createElement('div');
+            npRow.className = 'dg-pp-np-row';
             const npEl = document.createElement('span');
-            npEl.className = 'dg-adv-pp-np';
+            npEl.className = 'dg-pp-np';
             const npMod = adv.ppNpModInfo;
             npEl.textContent = window.DgEngine.headDisplayText(adv.ppNpNode, npMod ? npMod.headSIs : null);
-            ppWrap.appendChild(npEl);
-            row.appendChild(ppWrap);
-            // Collect governed NP modifiers to append AFTER the row (correct DOM order)
+            npRow.appendChild(npEl);
+            const fnEl = document.createElement('span');
+            fnEl.className = 'dg-adv-fn';
+            fnEl.textContent = _DG_FN_JA[adv.fn] || adv.fn;
+            npRow.appendChild(fnEl);
+            npLevel.appendChild(npRow);
+            ppWrap.appendChild(npLevel);
+            item.appendChild(ppWrap);
+            // Collect governed NP modifiers to append below the PP (correct DOM order)
             if (npMod && npMod.modifiers && npMod.modifiers.length > 0) {
                 ppNpModItems = [];
                 for (const mod of npMod.modifiers) {
@@ -12359,17 +12536,19 @@ function _dgRenderAdvPhrases(advPhrases) {
                 }
             }
         } else {
+            const row = document.createElement('div');
+            row.className = 'dg-adv-row';
             const textEl = document.createElement('span');
             textEl.className = 'dg-adv-text';
             textEl.textContent = window.DgEngine.displayText(adv.node);
             row.appendChild(textEl);
+            const fnEl = document.createElement('span');
+            fnEl.className = 'dg-adv-fn';
+            fnEl.textContent = _DG_FN_JA[adv.fn] || adv.fn;
+            row.appendChild(fnEl);
+            item.appendChild(row);
         }
-        const fnEl = document.createElement('span');
-        fnEl.className = 'dg-adv-fn';
-        fnEl.textContent = _DG_FN_JA[adv.fn] || adv.fn;
-        row.appendChild(fnEl);
-        item.appendChild(row);
-        // Append governed NP modifiers below the PP row (correct visual order)
+        // Append governed NP modifiers below the PP (correct visual order)
         if (ppNpModItems) for (const mi of ppNpModItems) item.appendChild(mi);
         list.appendChild(item);
     }
@@ -12488,6 +12667,22 @@ function _dgRenderClause(dr) {
         }
     }
 
+    // P6-G-4: render CONTENT_CLAUSE inner structure as sub-diagram per slot
+    for (const slot of (dr.slots || [])) {
+        if (!slot.contentClause || !slot.contentClause.innerDR) continue;
+        const ccWrap = document.createElement('div');
+        ccWrap.className = 'dg-cc-clause-attach';
+        const ccLabel = document.createElement('div');
+        ccLabel.className = 'dg-cc-clause-label';
+        ccLabel.textContent = slot.contentClause.conjunction || slot.contentClause.label || '内容節';
+        const ccEl = _dgRenderClause(slot.contentClause.innerDR);
+        if (!ccEl) continue;
+        ccEl.classList.add('dg-cc-clause');
+        ccWrap.appendChild(ccLabel);
+        ccWrap.appendChild(ccEl);
+        wrap.appendChild(ccWrap);
+    }
+
     for (const sc of (dr.adverbialClauses || [])) {
         const attachEl = document.createElement('div');
         attachEl.className = 'dg-adv-clause-attach';
@@ -12536,23 +12731,6 @@ function _renderStructuralDiagramView(app, srData, elData) {
         return;
     }
 
-    /* Attribution（静かに表示）。discourse と同様の位置に。 */
-    if (srData.source && srData.source.dataset) {
-        const attrEl = document.createElement('div');
-        attrEl.className = 'sd-attribution';
-        attrEl.textContent = srData.source.dataset;
-        wrap.appendChild(attrEl);
-    }
-
-    /* ヒント */
-    const hintEl = document.createElement('div');
-    hintEl.className = 'sd-hint';
-    hintEl.innerHTML =
-        '<span class="sd-hint-title">構文ダイアグラム</span>' +
-        '<span class="sd-hint-sub">文の構造的な埋め込みを上から下へ（構造軸）、' +
-        '語の原文順を左から右へ（読解軸）表示します。</span>';
-    wrap.appendChild(hintEl);
-
     /* P5 gate: Greek Diagram renderer active for selected chapters.
        P5-D expansion: MAT 28 / PHP 2 / COL 1 added for participial + PP validation */
     const _src = srData.source || {};
@@ -12598,6 +12776,43 @@ function _renderStructuralDiagramView(app, srData, elData) {
         }
     }
 
+    /* Compute display reference from tokenId span.
+       tokenId format: "BOOK CH:V!N" (e.g. "COL 1:3!1").
+       Collects all verse numbers touched by the sentence and formats as
+       "CH:V", "CH:V1–V2", or "CH:V1–V2, V4–V5". Falls back to stripping
+       the book prefix from sentence.ref if no tokenIds are found. */
+    function _formatSentenceRef(sentence) {
+        const ids = [];
+        function _collectIds(node) {
+            if (!node) return;
+            if (Array.isArray(node.tokenIds)) node.tokenIds.forEach(id => ids.push(id));
+            if (Array.isArray(node.children)) node.children.forEach(_collectIds);
+        }
+        _collectIds(sentence.root);
+
+        let chapter = null;
+        const verseSet = new Set();
+        for (const id of ids) {
+            const m = id.match(/^\S+\s+(\d+):(\d+)!/);
+            if (m) { chapter = m[1]; verseSet.add(+m[2]); }
+        }
+
+        if (!chapter || verseSet.size === 0) {
+            return (sentence.ref || '').replace(/^\S+\s+/, '');
+        }
+
+        const verses = [...verseSet].sort((a, b) => a - b);
+        const ranges = [];
+        let s = verses[0], e = verses[0];
+        for (let i = 1; i < verses.length; i++) {
+            if (verses[i] === e + 1) { e = verses[i]; }
+            else { ranges.push(s === e ? `${s}` : `${s}–${e}`); s = e = verses[i]; }
+        }
+        ranges.push(s === e ? `${s}` : `${s}–${e}`);
+
+        return `${chapter}:${ranges.join(', ')}`;
+    }
+
     for (const sentence of srData.sentences) {
         const secEl = document.createElement('section');
         secEl.className = 'sd-sentence';
@@ -12605,7 +12820,7 @@ function _renderStructuralDiagramView(app, srData, elData) {
         const refEl = document.createElement('div');
         refEl.className = 'sd-sentence-ref';
         refEl.setAttribute('aria-label', `節 ${sentence.ref || ''}`);
-        refEl.textContent = sentence.ref || '';
+        refEl.textContent = _formatSentenceRef(sentence);
         secEl.appendChild(refEl);
 
         let _dgRendered = false;
@@ -12633,10 +12848,6 @@ function _renderStructuralDiagramView(app, srData, elData) {
                     if (_dgEl) {
                         const _dgView = document.createElement('div');
                         _dgView.className = 'dg-view';
-                        const _lbl = document.createElement('div');
-                        _lbl.className = 'dg-view-label';
-                        _lbl.textContent = 'Greek Diagram';
-                        _dgView.appendChild(_lbl);
                         _dgView.appendChild(_dgEl);
                         secEl.appendChild(_dgView);
                         _dgRendered = true;
