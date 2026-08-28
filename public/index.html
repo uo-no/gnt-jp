@@ -4713,6 +4713,41 @@ details[open] .study-summary::before {
     .hdg-slots  { padding-left: .5rem; }
     .hdg-fn     { font-size: .62rem; min-width: 2.8rem; }
 }
+/* ─── C-17 Step 5-B: clause collapse (depth ≥ 1 only) ─────────────────────
+   Root clauses (.hdg-clause--root / depth=0) are never collapsible.
+   Collapse toggles .hdg-collapsed on the .hdg-clause element.
+   ▼ = expanded  ▶ = collapsed  — purely CSS-controlled, no layout change.     */
+.hdg-collapsed > .hdg-slots { display: none; }
+.hdg-clause--sub > .hdg-clause-label {
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    padding-top: .65rem;
+    padding-bottom: .45rem;
+    margin-bottom: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.hdg-clause--sub > .hdg-clause-label::before {
+    content: '▼';
+    font-size: .55rem;
+    opacity: .65;
+    flex-shrink: 0;
+    line-height: 1;
+    letter-spacing: 0;
+}
+.hdg-clause--sub.hdg-collapsed > .hdg-clause-label::before { content: '▶'; }
+.hdg-clause--sub > .hdg-clause-label:focus-visible {
+    outline: 2px solid var(--color-domain, #7a7aaa);
+    outline-offset: 2px;
+    border-radius: .2rem;
+}
+@media (max-width: 480px) {
+    .hdg-clause--sub > .hdg-clause-label {
+        padding-top: .8rem;
+        padding-bottom: .6rem;
+    }
+}
 </style>
 
 </head>
@@ -13357,7 +13392,37 @@ function _hdgRenderSentence(sentence) {
     const el = _hdgNodeEl(root, 0);
     if (!el) return null;
     sentDiv.appendChild(el);
+    _hdgAttachFold(sentDiv); /* C-17 Step 5-B */
     return sentDiv;
+}
+
+/* C-17 Step 5-B: Attach collapse handlers to all depth ≥ 1 clause labels.
+   depth=0 (主節) is never foldable. Called once per sentence after DOM is built. */
+function _hdgAttachFold(sentEl) {
+    sentEl.querySelectorAll('.hdg-clause').forEach(cl => {
+        if (cl.dataset.hdgDepth === '0') return;
+        const lbl   = cl.querySelector(':scope > .hdg-clause-label');
+        const slots = cl.querySelector(':scope > .hdg-slots');
+        if (!lbl || !slots) return;
+        const nodeId = cl.dataset.nodeId;
+        if (nodeId) {
+            const sid = 'hdg-slots-' + nodeId;
+            slots.id = sid;
+            lbl.setAttribute('aria-controls', sid);
+        }
+        lbl.setAttribute('role', 'button');
+        lbl.setAttribute('tabindex', '0');
+        lbl.setAttribute('aria-expanded', 'true');
+        lbl.addEventListener('click', () => _hdgToggleFold(cl, lbl));
+        lbl.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _hdgToggleFold(cl, lbl); }
+        });
+    });
+}
+
+function _hdgToggleFold(cl, lbl) {
+    const collapsed = cl.classList.toggle('hdg-collapsed');
+    lbl.setAttribute('aria-expanded', String(!collapsed));
 }
 
 function _renderStructuralDiagramView(app, srData, elData) {
