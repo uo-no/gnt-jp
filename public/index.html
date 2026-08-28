@@ -4571,6 +4571,9 @@ details[open] .study-summary::before {
     white-space: nowrap;
     border-bottom: 1px dashed var(--text-sub);
     padding-bottom: 2px;
+    display: flex;           /* C-14: head row — fn label placed beside head tokens */
+    align-items: flex-end;   /* C-14: baseline-align tokens and fn label */
+    gap: .3rem;              /* C-14: space between head tokens and fn label */
 }
 .dg-appos-appositive {
     font-family: var(--font-greek);
@@ -4612,6 +4615,103 @@ details[open] .study-summary::before {
     .dg-appos-head { font-size: .9rem; }
     .dg-appos-appositive { font-size: .82rem; }
     .dg-nomc { font-size: .9rem; }
+}
+
+/* ─── C-17 Step 1: Hierarchical Diagram (HDG) ────────────────────────────
+   Development POC — activated via URL param ?view=hierarchical.
+   Parallel to Reed-Kellogg renderer; existing DG display untouched.
+   CSS indent only — no absolute positioning, no SVG, no transforms.
+   ──────────────────────────────────────────────────────────────────────── */
+.hdg-view {
+    padding: var(--space-xs) 0 var(--space-md);
+}
+.hdg-sentence {
+    margin-bottom: .75rem;
+}
+/* Clause: primary structural container */
+.hdg-clause {
+    padding: .45rem .5rem .45rem .75rem;
+    margin: .2rem 0;
+    border-left: 3px solid var(--color-domain, #7a7aaa);
+    border-radius: 0 .35rem .35rem 0;
+    background: var(--bg-inset, #f8f8f8);
+}
+.hdg-clause--sub {
+    border-left-width: 2px;
+    border-left-style: dashed;
+    background: transparent;
+}
+/* Clause label ("主節" / "節" / "従属節" etc.) */
+.hdg-clause-label {
+    font-size: var(--text-caption, .7rem);
+    font-weight: 700;
+    color: var(--color-domain, #7a7aaa);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: .3rem;
+}
+/* Slots: indented children of a clause */
+.hdg-slots {
+    padding-left: .75rem;
+    border-left: 1px solid var(--border-light, #e0e0e0);
+    margin-left: .05rem;
+}
+/* Individual slot: fn label stacked above content — always column regardless of content type */
+.hdg-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .1rem;
+    padding: .1rem .2rem;
+}
+/* Function label chip */
+.hdg-fn {
+    display: inline-block;
+    font-size: .67rem;
+    font-weight: 600;
+    color: var(--text-sub);
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: .2rem;
+    padding: .05rem .3rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 3rem;
+    text-align: center;
+    letter-spacing: .02em;
+}
+/* Phrase (NP / PP / adjp etc.): inline token wrapper */
+.hdg-phrase {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .2rem;
+    align-items: baseline;
+}
+/* PP: stack prep then object */
+.hdg-phrase.hdg-cs-prep-phrase {
+    flex-direction: column;
+    gap: .1rem;
+    padding-left: .3rem;
+    border-left: 1px dotted var(--border, #ccc);
+}
+/* Prep token inside a PP */
+.hdg-prep-token { opacity: .75; font-size: .88em; }
+/* Group is transparent (rendered as DocumentFragment) — no .hdg-group in DOM */
+/* Spacing between all direct children of hdg-slots (clauses, conjunctions, slots) */
+.hdg-slots > * + * { margin-top: .15rem; }
+/* Conjunction token */
+.hdg-conj { padding: .1rem 0; opacity: .65; font-size: .88em; }
+/* .hdg-slot--block: kept as marker class, visual effect now handled by base .hdg-slot column */
+/* PP labeled block (前置詞句) — inherits hdg-clause + hdg-clause--sub */
+/* .hdg-clause--pp has no extra rules; label+slots pattern same as other labeled blocks */
+/* Prep token inside _hdgPPEl slots */
+.hdg-clause--pp > .hdg-slots > .hdg-prep-token {
+    display: block;
+}
+@media (max-width: 480px) {
+    .hdg-clause { padding: .35rem .4rem .35rem .55rem; }
+    .hdg-slots  { padding-left: .5rem; }
+    .hdg-fn     { font-size: .62rem; min-width: 2.8rem; }
 }
 </style>
 
@@ -12417,7 +12517,10 @@ function _dgAppendTokens(container, node, headSIs) {
         if (count > 0) container.appendChild(document.createTextNode(' '));
         const span = document.createElement('span');
         span.className = 'dg-token';
-        if (_dgAntecedentRefSet && _dgAntecedentRefSet.has(e.ref)) span.classList.add('dg-token--antecedent'); /* C-10 */
+        if (_dgAntecedentRefSet && _dgAntecedentRefSet.has(e.ref)) {
+            span.classList.add('dg-token--antecedent'); /* C-10 */
+            span.dataset.dgRef = e.ref; /* C-16: connector lookup */
+        }
         span.textContent = e.japanese;
         span.addEventListener('click', (ev) => {
             ev.stopPropagation();
@@ -12497,7 +12600,10 @@ function _dgRenderMainLine(slots) {
         textEl.className = 'dg-slot-text';
         if (slot.node?.construction?.canonical === 'APPOSITION') {
             // P6-G-4.4: APPOSITION — parallel segment notation (head / dashed / appositive)
-            slotEl.appendChild(_dgRenderAppositionSlot(slot.node));
+            // C-14: fn label passed into head row for visual proximity to head tokens
+            const _apposFn = (slot.fn !== 'COPULA' && slot.fn !== 'AUX')
+                ? (_DG_FN_JA[slot.fn] || slot.fn) : null;
+            slotEl.appendChild(_dgRenderAppositionSlot(slot.node, _apposFn));
         } else if (slot.node?.construction?.canonical === 'NOMINALIZED_CLAUSE') {
             // P6-G-8: NOMINALIZED_CLAUSE — bracket notation (brackets via CSS ::before/::after)
             const nomcEl = document.createElement('span');
@@ -12513,7 +12619,9 @@ function _dgRenderMainLine(slots) {
             slotEl.appendChild(textEl);
         }
         /* C-6: slot is a non-clickable container; tokens inside carry individual click handlers */
-        if (slot.fn !== 'COPULA' && slot.fn !== 'AUX') {
+        /* C-14: APPOSITION slots render fn label inside the head row — skip here */
+        if (slot.fn !== 'COPULA' && slot.fn !== 'AUX'
+            && slot.node?.construction?.canonical !== 'APPOSITION') {
             const fnEl = document.createElement('span');
             fnEl.className = 'dg-slot-fn';
             fnEl.textContent = _DG_FN_JA[slot.fn] || slot.fn;
@@ -12614,7 +12722,7 @@ function _dgRenderSlotModZone(slots) {
 /* P6-G-4.4: APPOSITION — render head / appositive as parallel segments.
    node.children[0] = head NP, children[1] = appositive NP (SR-explicit; L-0 safe).
    Depth-1 only: inner nesting handled by displayText() flattening. */
-function _dgRenderAppositionSlot(apposNode) {
+function _dgRenderAppositionSlot(apposNode, fnText) {
     const children = apposNode.children || [];
     const headNode = children[0] || apposNode;
     const appNode  = children[1] || null;
@@ -12623,6 +12731,12 @@ function _dgRenderAppositionSlot(apposNode) {
     const headEl = document.createElement('span');
     headEl.className = 'dg-appos-head';
     _dgAppendTokens(headEl, headNode, null); /* C-6: individual token spans */
+    if (fnText) {                             /* C-14: fn label inside head row */
+        const fnEl = document.createElement('span');
+        fnEl.className = 'dg-slot-fn';
+        fnEl.textContent = fnText;
+        headEl.appendChild(fnEl);
+    }
     wrap.appendChild(headEl);
     if (appNode) {
         const appEl = document.createElement('span');
@@ -12780,17 +12894,20 @@ function _dgRenderClause(dr) {
             const advPh = _dgRenderAdvPhrases(subDr.adverbialPhrases);
             if (advPh) subWrap.appendChild(advPh);
             for (const sc of (subDr.adverbialClauses || [])) {
-                const attachEl = document.createElement('div');
-                attachEl.className = 'dg-adv-clause-attach';
-                subWrap.appendChild(attachEl);
+                /* C-16: skip L-bracket for rel-clauses when SVG connector will be drawn */
+                if (!(sc.isRelativeClause && sc.antecedentRef)) {
+                    const attachEl = document.createElement('div');
+                    attachEl.className = 'dg-adv-clause-attach';
+                    subWrap.appendChild(attachEl);
+                }
                 const scWrap = document.createElement('div');
                 const scLbl = document.createElement('div');
                 if (sc.isRelativeClause) {
-                    // P6-C: relative clause connector label
+                    // P6-C: relative clause; C-16: SVG connector shows antecedent
                     scWrap.className = 'dg-rel-clause';
                     scLbl.className  = 'dg-rel-clause-label';
-                    const _scAntJa = _dgAntecedentJa(sc.antecedentRef);
-                    scLbl.textContent = _scAntJa ? '関係節 ← ' + _scAntJa : '関係節';
+                    scLbl.textContent = '関係節'; /* C-16: ← X removed */
+                    if (sc.antecedentRef) scWrap.dataset.antRef = sc.antecedentRef; /* C-16 */
                 } else {
                     // P5-D-1: participial sub-clause gets distinct class and label
                     scWrap.className = sc.isParticipalClause
@@ -12808,15 +12925,18 @@ function _dgRenderClause(dr) {
             for (const slot of (subDr.slots || [])) {
                 for (const erc of (slot.embeddedRelClauses || [])) {
                     if (!erc.dr) continue;
-                    const attachEl = document.createElement('div');
-                    attachEl.className = 'dg-adv-clause-attach';
-                    subWrap.appendChild(attachEl);
+                    /* C-16: skip L-bracket when SVG connector will be drawn */
+                    if (!erc.antecedentRef) {
+                        const attachEl = document.createElement('div');
+                        attachEl.className = 'dg-adv-clause-attach';
+                        subWrap.appendChild(attachEl);
+                    }
                     const ercWrap = document.createElement('div');
                     ercWrap.className = 'dg-rel-clause';
                     const ercLbl = document.createElement('div');
                     ercLbl.className  = 'dg-rel-clause-label';
-                    const _ercAntJa = _dgAntecedentJa(erc.antecedentRef);
-                    ercLbl.textContent = _ercAntJa ? '関係節 ← ' + _ercAntJa : '関係節';
+                    ercLbl.textContent = '関係節'; /* C-16: ← X removed */
+                    if (erc.antecedentRef) ercWrap.dataset.antRef = erc.antecedentRef; /* C-16 */
                     ercWrap.appendChild(ercLbl);
                     const ercEl = _dgRenderClause(erc.dr);
                     if (ercEl) ercWrap.appendChild(ercEl);
@@ -12840,15 +12960,18 @@ function _dgRenderClause(dr) {
     for (const slot of (dr.slots || [])) {
         for (const erc of (slot.embeddedRelClauses || [])) {
             if (!erc.dr) continue;
-            const attachEl = document.createElement('div');
-            attachEl.className = 'dg-adv-clause-attach';
-            wrap.appendChild(attachEl);
+            /* C-16: skip L-bracket when SVG connector will be drawn */
+            if (!erc.antecedentRef) {
+                const attachEl = document.createElement('div');
+                attachEl.className = 'dg-adv-clause-attach';
+                wrap.appendChild(attachEl);
+            }
             const ercWrap = document.createElement('div');
             ercWrap.className = 'dg-rel-clause';
             const ercLbl = document.createElement('div');
             ercLbl.className  = 'dg-rel-clause-label';
-            const _ercAJa = _dgAntecedentJa(erc.antecedentRef);
-            ercLbl.textContent = _ercAJa ? '関係節 ← ' + _ercAJa : '関係節';
+            ercLbl.textContent = '関係節'; /* C-16: ← X removed */
+            if (erc.antecedentRef) ercWrap.dataset.antRef = erc.antecedentRef; /* C-16 */
             ercWrap.appendChild(ercLbl);
             const ercEl = _dgRenderClause(erc.dr);
             if (ercEl) ercWrap.appendChild(ercEl);
@@ -12873,17 +12996,20 @@ function _dgRenderClause(dr) {
     }
 
     for (const sc of (dr.adverbialClauses || [])) {
-        const attachEl = document.createElement('div');
-        attachEl.className = 'dg-adv-clause-attach';
-        wrap.appendChild(attachEl);
+        /* C-16: skip L-bracket for rel-clauses when SVG connector will be drawn */
+        if (!(sc.isRelativeClause && sc.antecedentRef)) {
+            const attachEl = document.createElement('div');
+            attachEl.className = 'dg-adv-clause-attach';
+            wrap.appendChild(attachEl);
+        }
         const scWrap = document.createElement('div');
         const scLbl = document.createElement('div');
         if (sc.isRelativeClause) {
-            // P6-C: relative clause connector label
+            // P6-C: relative clause; C-16: SVG connector shows antecedent
             scWrap.className = 'dg-rel-clause';
             scLbl.className  = 'dg-rel-clause-label';
-            const _scAJa = _dgAntecedentJa(sc.antecedentRef);
-            scLbl.textContent = _scAJa ? '関係節 ← ' + _scAJa : '関係節';
+            scLbl.textContent = '関係節'; /* C-16: ← X removed */
+            if (sc.antecedentRef) scWrap.dataset.antRef = sc.antecedentRef; /* C-16 */
         } else {
             // P5-D-1: participial sub-clause gets distinct class and label
             scWrap.className = sc.isParticipalClause
@@ -12901,8 +13027,339 @@ function _dgRenderClause(dr) {
     return wrap;
 }
 
+/* C-16: Post-render SVG connector lines from antecedent tokens to relative clause blocks.
+   Must be called after app.appendChild() so getBoundingClientRect() returns real geometry.
+   Silently degrades — connector failure must never break DG rendering. */
+function _dgDrawRelConnectors(app) {
+    try {
+        if (!app) return;
+        /* Remove stale connectors (e.g. on viewport resize redraw) */
+        for (const el of app.querySelectorAll('.dg-rel-connector-svg')) el.remove();
+
+        const relEls = app.querySelectorAll('.dg-rel-clause[data-ant-ref]');
+        if (!relEls.length) return;
+
+        /* Build antecedent ref → span map (first occurrence per ref) */
+        const antMap = new Map();
+        for (const span of app.querySelectorAll('span.dg-token--antecedent[data-dg-ref]')) {
+            if (!antMap.has(span.dataset.dgRef)) antMap.set(span.dataset.dgRef, span);
+        }
+
+        /* Group connectors by sentence section */
+        const sentGroups = new Map();
+        for (const relEl of relEls) {
+            const sentEl = relEl.closest('.sd-sentence');
+            if (!sentEl) continue;
+            const antEl = antMap.get(relEl.dataset.antRef);
+            if (!antEl) continue;
+            if (!sentGroups.has(sentEl)) sentGroups.set(sentEl, []);
+            sentGroups.get(sentEl).push({ antEl, relEl });
+        }
+
+        for (const [sentEl, pairs] of sentGroups) {
+            sentEl.style.position = 'relative';
+            const sentRect = sentEl.getBoundingClientRect();
+            if (!sentRect.width) continue;
+
+            /* SVG overlay covers the entire sentence section */
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('class', 'dg-rel-connector-svg');
+            svg.setAttribute('aria-hidden', 'true');
+            svg.setAttribute('style',
+                'position:absolute;top:0;left:0;width:100%;height:100%;' +
+                'pointer-events:none;overflow:visible;z-index:0');
+            sentEl.prepend(svg);
+
+            for (const { antEl, relEl } of pairs) {
+                try {
+                    const antRect = antEl.getBoundingClientRect();
+                    const relRect = relEl.getBoundingClientRect();
+                    /* Inverted-L path: antecedent bottom-center → down → rel-clause top-left */
+                    const x1 = (antRect.left + antRect.width / 2 - sentRect.left).toFixed(1);
+                    const y1 = (antRect.bottom - sentRect.top).toFixed(1);
+                    const x2 = (relRect.left - sentRect.left).toFixed(1);
+                    const y2 = (relRect.top   - sentRect.top).toFixed(1);
+                    if (parseFloat(y2) <= parseFloat(y1) + 2) continue; /* sanity */
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', `M ${x1} ${y1} L ${x1} ${y2} L ${x2} ${y2}`);
+                    path.setAttribute('style',
+                        'stroke:var(--color-domain,#7a7aaa);stroke-width:1.5;fill:none;opacity:0.7');
+                    svg.appendChild(path);
+                } catch (_) { /* silent */ }
+            }
+        }
+    } catch (_) { /* silent */ }
+}
+
 /* 全章の構文ダイアグラムを app DOM 要素へ描画する。
    srData が null/不正の場合は empty 状態を表示（静かに失敗）。 */
+/* C-17 Step 1: Hierarchical Diagram (HDG) renderer ─────────────────────────
+   Renders SR JSON tree directly as indented hierarchical DOM.
+   Parallel to _dgRenderClause (Reed-Kellogg). No engine or SR JSON changes.
+   Activated via URL param ?view=hierarchical (development toggle only).
+   Step 1 scope: clause / phrase.np / phrase.pp / token.
+   SUBORDINATE_CLAUSE / CONTENT_CLAUSE / CLAUSE_AS_NP / APPOSITION render
+   structurally but without special labels (deferred to Step 2+).
+   Relies on _dgActiveTokenMap and _DG_FN_JA being set by caller.
+*/
+
+/* Capture ?view param at module-eval time, before app init() rewrites the URL.
+   _renderStructuralDiagramView reads this value after URL has already changed. */
+const _hdgInitViewParam = new URLSearchParams(window.location.search).get('view'); /* C-17 */
+
+/* Construction → Japanese clause label (clause nodes only) */
+const _HDG_CS_LABEL = {
+    'COORDINATION':       '等位節',
+    'CONJOINED_CLAUSE':   '等位節',
+    'SUBORDINATE_CLAUSE': '従属節',
+    'CONTENT_CLAUSE':     '内容節',
+    'CLAUSE_AS_NP':       '関係節',
+    'NOMINALIZED_CLAUSE': '名詞化節',
+    'PARTICIPIAL_CLAUSE': '分詞節',
+    'APPOSITION':         '同格',
+};
+
+/* Render a token SR node as a .dg-token span (reuses existing chip style + click handler).
+   Returns null if no displayable Japanese gloss. */
+function _hdgTokenEl(srNode) {
+    const ref = srNode.evidence && srNode.evidence.ref;
+    const e = ref && _dgActiveTokenMap && _dgActiveTokenMap[ref];
+    if (!e || !e.japanese || /^[［〔「【（\[〔]/.test(e.japanese)) return null;
+    const span = document.createElement('span');
+    span.className = 'dg-token';
+    span.dataset.nodeId = srNode.id || '';
+    span.textContent = e.japanese;
+    span.addEventListener('click', ev => {
+        ev.stopPropagation();
+        openStudyPanel(e.text || '', e.morph || '', e.ref || '', e.lemma || '');
+    });
+    return span;
+}
+
+/* C-17 Step 3: phrase.pp → 前置詞句 labeled block.
+   SR structure: phrase.pp { token?(prep) + phrase/token(obj) }.
+   Applies only to phrase.pp; phrase.np[PREP_PHRASE] stays as inline hdg-phrase. */
+function _hdgPPEl(srNode, depth) {
+    const div = document.createElement('div');
+    div.className = 'hdg-clause hdg-clause--sub hdg-clause--pp';
+    div.dataset.nodeId = srNode.id || '';
+    div.dataset.hdgDepth = String(depth);
+    const lbl = document.createElement('div');
+    lbl.className = 'hdg-clause-label';
+    lbl.textContent = '前置詞句';
+    div.appendChild(lbl);
+    const slots = document.createElement('div');
+    slots.className = 'hdg-slots';
+    for (const child of (srNode.children || [])) {
+        let el;
+        if (child.type === 'token') {
+            el = _hdgTokenEl(child);
+            if (el) el.classList.add('hdg-prep-token');
+        } else {
+            el = _hdgNodeEl(child, depth + 1);
+        }
+        if (el) slots.appendChild(el);
+    }
+    div.appendChild(slots);
+    return div;
+}
+
+/* C-17 Step 2: CLAUSE_AS_NP → 関係節 labeled block.
+   SR structure: phrase.np[CLAUSE_AS_NP] { token(head), clause(rel-body) }.
+   L-0: head token rendered as-is; antecedentRef=null → no cross-ref inference. */
+function _hdgClauseAsNpEl(srNode, depth) {
+    const div = document.createElement('div');
+    div.className = 'hdg-clause hdg-clause--sub hdg-clause--relative';
+    div.dataset.nodeId = srNode.id || '';
+    div.dataset.hdgDepth = String(depth);
+    const lbl = document.createElement('div');
+    lbl.className = 'hdg-clause-label';
+    lbl.textContent = '関係節';
+    div.appendChild(lbl);
+    const slots = document.createElement('div');
+    slots.className = 'hdg-slots';
+    for (const child of (srNode.children || [])) {
+        const el = child.type === 'token'
+            ? _hdgTokenEl(child)      /* head noun: plain token, no fn wrapping */
+            : _hdgChildEl(child, depth); /* relative clause body */
+        if (el) slots.appendChild(el);
+    }
+    div.appendChild(slots);
+    return div;
+}
+
+/* C-17 Step 2: APPOSITION → 同格 labeled block.
+   SR structure: phrase.np[APPOSITION] { head, appositive } (each: token | phrase | clause). */
+function _hdgAppositionEl(srNode, depth) {
+    const div = document.createElement('div');
+    div.className = 'hdg-clause hdg-clause--sub hdg-clause--apposition';
+    div.dataset.nodeId = srNode.id || '';
+    div.dataset.hdgDepth = String(depth);
+    const lbl = document.createElement('div');
+    lbl.className = 'hdg-clause-label';
+    lbl.textContent = '同格';
+    div.appendChild(lbl);
+    const slots = document.createElement('div');
+    slots.className = 'hdg-slots';
+    for (const child of (srNode.children || [])) {
+        const el = _hdgNodeEl(child, depth + 1);
+        if (el) slots.appendChild(el);
+    }
+    div.appendChild(slots);
+    return div;
+}
+
+/* Render a phrase SR node (phrase.np, phrase.pp, phrase.adjp, etc.) as hdg-phrase div.
+   CLAUSE_AS_NP / APPOSITION / phrase.pp are handled as labeled blocks (see above). */
+function _hdgPhraseEl(srNode, depth) {
+    const cs   = (srNode.construction && srNode.construction.canonical) || '';
+    const type = srNode.type || '';
+    /* C-17 Step 2: labeled block constructions */
+    if (cs === 'CLAUSE_AS_NP') return _hdgClauseAsNpEl(srNode, depth);
+    if (cs === 'APPOSITION')   return _hdgAppositionEl(srNode, depth);
+    /* C-17 Step 3: phrase.pp (non-coordination) → 前置詞句 labeled block */
+    if (type === 'phrase.pp' && cs !== 'COORDINATION') return _hdgPPEl(srNode, depth);
+    const div = document.createElement('div');
+    div.className = 'hdg-phrase';
+    if (cs) div.classList.add('hdg-cs-' + cs.toLowerCase().replace(/_/g, '-'));
+    div.dataset.nodeId = srNode.id || '';
+    if (cs === 'PREP_PHRASE') {
+        /* phrase.np[PREP_PHRASE]: keep prep-token style for token children, inline rendering */
+        for (const child of (srNode.children || [])) {
+            if (child.type === 'token') {
+                const el = _hdgTokenEl(child);
+                if (el) { el.classList.add('hdg-prep-token'); div.appendChild(el); }
+            } else {
+                const el = _hdgNodeEl(child, depth + 1);
+                if (el) div.appendChild(el);
+            }
+        }
+    } else {
+        /* NP, adjp, etc.: render children in surface order */
+        for (const child of (srNode.children || [])) {
+            const el = _hdgNodeEl(child, depth + 1);
+            if (el) div.appendChild(el);
+        }
+    }
+    return div.children.length ? div : null;
+}
+
+/* Render a group SR node as a transparent DocumentFragment.
+   Group is a coordination wrapper — its children appear as direct siblings in the
+   parent's hdg-slots, preserving visual hierarchy without adding an extra DOM level. */
+function _hdgGroupEl(srNode, parentDepth) {
+    const frag = document.createDocumentFragment();
+    for (const child of (srNode.children || [])) {
+        const el = _hdgChildEl(child, parentDepth);
+        if (el) frag.appendChild(el);
+    }
+    return frag.childNodes.length ? frag : null;
+}
+
+/* Render a clause SR node as an hdg-clause div.
+   depth=0 → root "主節"; depth>0 → construction label or "節". */
+function _hdgClauseEl(srNode, depth) {
+    const cs = (srNode.construction && srNode.construction.canonical) || '';
+    const div = document.createElement('div');
+    div.className = depth === 0
+        ? 'hdg-clause hdg-clause--root'
+        : 'hdg-clause hdg-clause--sub';
+    div.dataset.nodeId = srNode.id || '';
+    div.dataset.hdgDepth = String(depth);
+    const lbl = document.createElement('div');
+    lbl.className = 'hdg-clause-label';
+    lbl.textContent = depth === 0 ? '主節' : (_HDG_CS_LABEL[cs] || '節');
+    div.appendChild(lbl);
+    const slots = document.createElement('div');
+    slots.className = 'hdg-slots';
+    for (const child of (srNode.children || [])) {
+        const el = _hdgChildEl(child, depth);
+        if (el) slots.appendChild(el);
+    }
+    div.appendChild(slots);
+    return div;
+}
+
+/* Render one direct child of a clause, wrapping in hdg-slot if it carries a function.
+   parentDepth = depth of the containing clause. */
+function _hdgChildEl(srNode, parentDepth) {
+    if (!srNode) return null;
+    const fn   = (srNode.function && srNode.function.canonical) || '';
+    const type = srNode.type || '';
+
+    /* Wrap content in an hdg-slot div bearing the function label.
+       Slot is always column (fn badge above, content below) — handles tokens, phrases, clauses uniformly. */
+    const inSlot = (content) => {
+        if (!content) return null;
+        const slot = document.createElement('div');
+        slot.className = 'hdg-slot' + (fn ? ' hdg-slot-' + fn.toLowerCase() : '');
+        slot.dataset.nodeId = srNode.id || '';
+        if (fn) {
+            const fnEl = document.createElement('span');
+            fnEl.className = 'hdg-fn';
+            fnEl.textContent = _DG_FN_JA[fn] || fn;
+            slot.appendChild(fnEl);
+        }
+        slot.appendChild(content);
+        return slot;
+    };
+
+    if (type === 'token') {
+        const el = _hdgTokenEl(srNode);
+        if (!el) return null;
+        if (fn) return inSlot(el);
+        /* Bare token without function (e.g. conjunction in coordination) */
+        const conj = document.createElement('div');
+        conj.className = 'hdg-conj';
+        conj.appendChild(el);
+        return conj;
+    }
+
+    if (type === 'group') {
+        /* Group is transparent: render its children at the same parentDepth */
+        return _hdgGroupEl(srNode, parentDepth);
+    }
+
+    if (type === 'clause') {
+        const el = _hdgClauseEl(srNode, parentDepth + 1);
+        if (fn) return inSlot(el);
+        return el;
+    }
+
+    if (type.startsWith('phrase.')) {
+        const el = _hdgPhraseEl(srNode, parentDepth + 1);
+        if (fn) return inSlot(el);
+        return el;
+    }
+
+    return null;
+}
+
+/* Dispatch by SR node type — used for top-level entry and recursive phrase rendering.
+   group → _hdgGroupEl returns DocumentFragment; appendChild(frag) is safe in all callers. */
+function _hdgNodeEl(srNode, depth) {
+    if (!srNode) return null;
+    const t = srNode.type || '';
+    if (t === 'token')          return _hdgTokenEl(srNode);
+    if (t === 'clause')         return _hdgClauseEl(srNode, depth);
+    if (t === 'group')          return _hdgGroupEl(srNode, depth);
+    if (t.startsWith('phrase.'))return _hdgPhraseEl(srNode, depth);
+    return null;
+}
+
+/* Entry point: render one sentence's SR tree hierarchically.
+   Requires _dgActiveTokenMap to be set (done by _renderStructuralDiagramView). */
+function _hdgRenderSentence(sentence) {
+    const root = sentence && sentence.root;
+    if (!root || !_dgActiveTokenMap) return null;
+    const sentDiv = document.createElement('div');
+    sentDiv.className = 'hdg-sentence';
+    const el = _hdgNodeEl(root, 0);
+    if (!el) return null;
+    sentDiv.appendChild(el);
+    return sentDiv;
+}
+
 function _renderStructuralDiagramView(app, srData, elData) {
     const jaByRef = _sdCollectJaByRef(elData);
     const wrap = document.createElement('div');
@@ -13011,6 +13468,8 @@ function _renderStructuralDiagramView(app, srData, elData) {
                 _dgConjJaMap[w.text] = w.japanese;
         }
     }
+    /* C-17: use pre-captured param (URL rewritten by init() before this runs) */
+    const _hdgViewMode = _hdgInitViewParam === 'hierarchical';
 
     for (const sentence of srData.sentences) {
         const secEl = document.createElement('section');
@@ -13023,7 +13482,21 @@ function _renderStructuralDiagramView(app, srData, elData) {
         secEl.appendChild(refEl);
 
         let _dgRendered = false;
-        if (_isDGChapter && sentence.root) {
+        /* C-17: Hierarchical Diagram path (development toggle: ?view=hierarchical) */
+        if (_hdgViewMode && _isDGChapter && sentence.root) {
+            try {
+                const _hdgSentEl = _hdgRenderSentence(sentence);
+                if (_hdgSentEl) {
+                    const _hdgViewEl = document.createElement('div');
+                    _hdgViewEl.className = 'hdg-view';
+                    _hdgViewEl.appendChild(_hdgSentEl);
+                    secEl.appendChild(_hdgViewEl);
+                    _dgRendered = true;
+                    refEl.classList.add('sd-sentence-ref--dg');
+                }
+            } catch (_) { /* silent — HDG failure must not break existing render */ }
+        }
+        if (!_dgRendered && _isDGChapter && sentence.root) {
             try {
                 const _dr = window.DgEngine.deriveDR(sentence.root);
                 /* Only use DG output when at least one slot is present */
@@ -13070,6 +13543,11 @@ function _renderStructuralDiagramView(app, srData, elData) {
     /* C-4: _dgActiveTokenMap stays set — click handlers need it at event time */
     app.innerHTML = '';
     app.appendChild(wrap);
+    /* C-16: draw SVG connectors from antecedent tokens to relative clause blocks */
+    _dgDrawRelConnectors(app);
+    if (app._dgRelConnResizeHandler) window.removeEventListener('resize', app._dgRelConnResizeHandler);
+    app._dgRelConnResizeHandler = () => _dgDrawRelConnectors(app);
+    window.addEventListener('resize', app._dgRelConnResizeHandler, { passive: true });
 }
 
 /**
