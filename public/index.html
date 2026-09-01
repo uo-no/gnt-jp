@@ -13572,16 +13572,47 @@ function _hdgAppositionEl(srNode, depth) {
     return div;
 }
 
+/* C-18: PpNp2Np — PP modifier + NP head; surface order has PP first but NP is semantic head.
+   Renders NP head first (primary/top), PP modifier below (subordinate).
+   Reuses hdg-cs-prep-phrase column layout (same visual structure as NpPp).
+   Defensive guard falls back to generic row rendering if structure is unexpected. */
+function _hdgPpNp2NpEl(srNode, depth) {
+    const children = srNode.children || [];
+    if (children.length !== 2 || children[0].type !== 'phrase.pp') {
+        const fb = document.createElement('div');
+        fb.className = 'hdg-phrase';
+        fb.dataset.nodeId = srNode.id || '';
+        for (const child of children) {
+            const el = _hdgNodeEl(child, depth + 1);
+            if (el) fb.appendChild(el);
+        }
+        return fb.children.length ? fb : null;
+    }
+    const ppMod  = children[0];
+    const npHead = children[1];
+    const div = document.createElement('div');
+    div.className = 'hdg-phrase hdg-cs-prep-phrase';
+    div.dataset.nodeId = srNode.id || '';
+    const headEl = _hdgNodeEl(npHead, depth);
+    if (headEl) div.appendChild(headEl);
+    const ppEl = _hdgPPEl(ppMod, depth);
+    if (ppEl) div.appendChild(ppEl);
+    return div.children.length ? div : null;
+}
+
 /* Render a phrase SR node (phrase.np, phrase.pp, phrase.adjp, etc.) as hdg-phrase div.
    CLAUSE_AS_NP / APPOSITION / phrase.pp are handled as labeled blocks (see above). */
 function _hdgPhraseEl(srNode, depth) {
     const cs   = (srNode.construction && srNode.construction.canonical) || '';
     const type = srNode.type || '';
+    const rule = (srNode.construction && srNode.construction.sourceRule) || '';
     /* C-17 Step 2: labeled block constructions */
     if (cs === 'CLAUSE_AS_NP') return _hdgClauseAsNpEl(srNode, depth);
     if (cs === 'APPOSITION')   return _hdgAppositionEl(srNode, depth);
     /* C-17 Step 3: phrase.pp (non-coordination) → 前置詞句 labeled block */
     if (type === 'phrase.pp' && cs !== 'COORDINATION') return _hdgPPEl(srNode, depth);
+    /* C-18: PpNp2Np — PP modifier precedes NP head in surface order; render NP head primary */
+    if (rule === 'PpNp2Np') return _hdgPpNp2NpEl(srNode, depth);
     const div = document.createElement('div');
     div.className = 'hdg-phrase';
     if (cs) div.classList.add('hdg-cs-' + cs.toLowerCase().replace(/_/g, '-'));
