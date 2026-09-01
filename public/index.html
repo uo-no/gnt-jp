@@ -4748,6 +4748,326 @@ details[open] .study-summary::before {
         padding-bottom: .6rem;
     }
 }
+
+/* ━━━ C-17 Phase 2-B: Visual Polish ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   CSS のみ。JS / SR JSON / dg-engine.js 変更なし。
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* ── HDG: 主節（depth=0）を視覚的に強調 ───────────────────────────────── */
+.hdg-clause--root {
+    background: rgba(122, 122, 170, .04);
+}
+.hdg-clause--root > .hdg-clause-label {
+    font-size: .78rem;
+    opacity: 1;
+}
+
+/* ── HDG: depth別ボーダー減衰 ─────────────────────────────────────────── */
+/* depth 1: 少し薄く */
+.hdg-clause[data-hdg-depth="1"] {
+    border-left-color: rgba(122, 122, 170, .50);
+}
+/* depth 2: さらに薄く・細く */
+.hdg-clause[data-hdg-depth="2"] {
+    border-left-color: rgba(122, 122, 170, .30);
+    border-left-width: 1.5px;
+}
+/* depth 3+: 極薄・最細 */
+.hdg-clause[data-hdg-depth="3"],
+.hdg-clause[data-hdg-depth="4"],
+.hdg-clause[data-hdg-depth="5"],
+.hdg-clause[data-hdg-depth="6"],
+.hdg-clause[data-hdg-depth="7"] {
+    border-left-color: rgba(122, 122, 170, .16);
+    border-left-width: 1px;
+}
+
+/* depth 2+: 節ラベルも対応して薄く */
+.hdg-clause[data-hdg-depth="2"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="3"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="4"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="5"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="6"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="7"] > .hdg-clause-label {
+    opacity: .60;
+    font-size: .65rem;
+}
+
+/* ── HDG: PP block を軽量化（前置詞句の視覚的重みを大幅に削減） ────────── */
+/* 2クラスセレクターで depth別ルールを上書き（同等以上の詳細度） */
+.hdg-clause--sub.hdg-clause--pp {
+    border-left-style: dotted;
+    border-left-color: rgba(122, 122, 170, .22);
+    border-left-width: 1px;
+    padding: .1rem .3rem .1rem .35rem;
+    margin: .04rem 0;
+    background: transparent;
+}
+.hdg-clause--sub.hdg-clause--pp > .hdg-clause-label {
+    font-size: .6rem;
+    opacity: .50;
+    margin-bottom: .04rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+}
+.hdg-clause--sub.hdg-clause--pp > .hdg-slots {
+    padding-left: .3rem;
+    border-left: none;
+}
+/* PP の ▼ を小さく・薄く（詳細度 0,3,0 で汎用ルールを上書き） */
+.hdg-clause--sub.hdg-clause--pp > .hdg-clause-label::before {
+    font-size: .48rem;
+    opacity: .38;
+}
+
+/* ── HDG: function label を補助的な扱いに ─────────────────────────────── */
+.hdg-fn {
+    opacity: .70;
+    font-size: .63rem;
+}
+
+/* ── HDG: ▼/▶ indicator を少し大きく・はっきり ────────────────────────── */
+.hdg-clause--sub > .hdg-clause-label::before {
+    font-size: .62rem;
+    opacity: .72;
+}
+
+/* ── HDG: mobile indent 圧縮（depth 3+は極細ライン） ──────────────────── */
+@media (max-width: 480px) {
+    .hdg-slots { padding-left: .38rem; }
+    .hdg-clause[data-hdg-depth="3"],
+    .hdg-clause[data-hdg-depth="4"],
+    .hdg-clause[data-hdg-depth="5"],
+    .hdg-clause[data-hdg-depth="6"],
+    .hdg-clause[data-hdg-depth="7"] {
+        border-left-width: 1px;
+        padding-left: .2rem;
+    }
+}
+
+/* ── RK: 従属節 (dg-adv-clause) のbox感を除去 ─────────────────────────
+   L-connector (.dg-adv-clause-attach) が接続を示すため、
+   left border は不要。L-connectorを少し太くして補完する。         */
+.dg-adv-clause {
+    border-left: none;
+    padding-left: .6rem;
+}
+.dg-adv-clause-attach {
+    border-left-width: 2px;
+    border-bottom-width: 2px;
+}
+.dg-adv-clause-label {
+    opacity: .68;
+}
+
+/* ── RK: 関係節 (dg-rel-clause) の紫dashed borderを除去 ───────────────
+   antecedent token (.dg-token--antecedent) が接続を示す。
+   極薄セパレーターのみ残す。                                       */
+.dg-rel-clause {
+    border-left: 1px solid rgba(0,0,0,.06);
+    padding-left: .6rem;
+}
+.dg-rel-clause-label {
+    color: var(--text-hint);
+    opacity: .78;
+    font-size: .67rem;
+}
+
+/* ── RK: 内容節 (dg-cc-clause-attach) の接続線を柔らかく ──────────────── */
+.dg-cc-clause-attach {
+    border-left-color: var(--border-strong, rgba(0,0,0,.12));
+    border-left-width: 1.5px;
+}
+.dg-cc-clause-label {
+    opacity: .65;
+}
+
+/* ── RK: 副詞的ラベルを軽減（視覚的ノイズ削減） ───────────────────────── */
+.dg-adv-fn {
+    opacity: .58;
+    font-size: .63rem;
+    letter-spacing: .03em;
+}
+
+/* ━━━ C-17 Phase 2-C: Final Visual Polish ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   CSS のみ。JS / SR JSON / dg-engine.js 変更なし。
+   C-1: SVG コネクタ強化 / C-2: HDG root明確化 / C-3: ラベル過多調整
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* ── C-1: RK 関係節 SVG コネクタの視認性向上 ──────────────────────────── */
+/* path の inline style を !important で上書き（CSS 仕様上 valid） */
+.dg-rel-connector-svg path {
+    stroke-width: 2 !important;
+    opacity: 0.78 !important;
+}
+
+/* ── C-2: HDG root clause の読み始め明確化 ────────────────────────────── */
+/* root clause 直下の fn ラベルを他 depth より強調（70% → 88%） */
+.hdg-clause--root > .hdg-slots .hdg-fn {
+    opacity: 0.88;
+}
+
+/* ── C-3: ラベル過多の最終調整 ────────────────────────────────────────── */
+/* RK: 従属節・関係節内の slot-fn ラベルを主節より薄く */
+.dg-adv-clause .dg-slot-fn,
+.dg-rel-clause .dg-slot-fn {
+    opacity: 0.68;
+}
+/* RK: 副詞的ラベルをさらに削減（Phase 2-B: 0.58 → 0.50） */
+.dg-adv-fn {
+    opacity: 0.50;
+}
+/* HDG: depth 3+ のラベルをさらに薄く（0.60 → 0.48） */
+.hdg-clause[data-hdg-depth="3"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="4"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="5"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="6"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="7"] > .hdg-clause-label {
+    opacity: 0.48;
+}
+
+/* ━━━ C-17 Phase 2-E: Visual Grammar Redesign ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   HDG: Root Anchor + Indent Map  — sub-clause border 全廃
+   RK:  Baseline-Primary + Token-Light — token underline スタイル
+   CSS のみ。JS / SR JSON / dg-engine.js 変更なし。
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* ── HDG: sub-clause border-left 全廃 ─────────────────────────────────── */
+/* Phase 2-B の depth別 border-left-color/width を含めてすべて無効化。
+   !important 必須：[data-hdg-depth="N"] セレクタは specificity が高いため。 */
+.hdg-clause--sub {
+    border-left: none !important;
+    background: rgba(0,0,0,0.008); /* 極めて弱い tint（深度の記号ではない・補助のみ） */
+}
+
+/* PP block の dotted border も廃止（Phase 2-B .hdg-clause--sub.hdg-clause--pp を上書き） */
+.hdg-clause--sub.hdg-clause--pp {
+    border-left: none !important;
+}
+
+/* .hdg-slots の縦ガイド線を廃止（全 depth で垂直線を生成していた源） */
+.hdg-slots {
+    border-left: none !important;
+}
+
+/* ── RK: Baseline-Primary + Token-Light ───────────────────────────────── */
+/* .dg-view にスコープ（HDG も .dg-token を使うため混在防止） */
+
+/* 1. Token を underline スタイルへ（bordered box → ベースライン上の語） */
+.dg-view .dg-token {
+    border: none;
+    border-bottom: 1.5px solid rgba(0,0,0,0.14);
+    background: transparent;
+    border-radius: 0;
+    padding: 1px 4px 2px;
+}
+
+/* 2. Hover：インタラクション affordance を維持 */
+.dg-view .dg-token:hover {
+    background: rgba(0,0,0,0.05);
+    border-radius: 2px;
+}
+
+/* 3. 先行詞トークン：purple underline を維持（最小限のシグナル） */
+.dg-view .dg-token--antecedent {
+    border-bottom: 2.5px solid var(--color-domain, #7a7aaa);
+}
+
+/* 4. SVG connector：token box 除去で start point が可視化→強調を緩和 */
+.dg-rel-connector-svg path {
+    stroke-width: 1.5 !important;
+    opacity: 0.72 !important;
+}
+
+/* 5. 関係節 accent border を廃止（視覚記号を増やさない） */
+/* Phase 2-B/C の border-left を上書き */
+.dg-rel-clause {
+    border-left: none;
+    padding-left: 0.5rem;
+}
+
+/* ── Phase 2-E 微調整: HDG root anchor を label 行高さに限定 ─────────── */
+/* 主節全体の高さに purple 線が伸びていた問題を修正。
+   anchor = 文の起点マーカー（sentence 全体の囲みではない）。
+   DOM 変更なし。::before pseudo-element で label 行のみに短縮。 */
+.hdg-clause--root {
+    border-left: none;
+    position: relative;
+}
+.hdg-clause--root::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: .2rem;
+    height: 2rem;
+    width: 3px;
+    background: var(--color-domain, #7a7aaa);
+    border-radius: 0 2px 2px 0;
+}
+
+/* ╋╋╋ HDG Visual Refinement (C-17 / Phase 2-G確定) ╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋
+   1. "主節" ラベルを HDG 表示から除去（presentation layer のみ）
+   2. depth color: 浅い=ほぼ白、深くなるほど少しずつ青が濃くなる
+      data-hdg-depth は _hdgNormalizeVisualDepth() により visual depth に正規化済み
+      visual depth = DOM上の hdg-clause 祖先数（SR tree depth とは異なる）
+   ╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋ */
+
+.hdg-clause--root > .hdg-clause-label { display: none; }
+.hdg-clause--root::before { background: #3a6aab; }
+.hdg-clause--root { background: rgba(50, 100, 170, 0.00); }
+
+.hdg-clause[data-hdg-depth="1"] > .hdg-clause-label { color: #2e5da0; opacity: 1; }
+.hdg-clause[data-hdg-depth="1"] { background: rgba(50, 100, 170, 0.035); }
+
+.hdg-clause[data-hdg-depth="2"] > .hdg-clause-label { color: #4a7cbf; opacity: 1; }
+.hdg-clause[data-hdg-depth="2"] { background: rgba(50, 100, 170, 0.065); }
+
+.hdg-clause[data-hdg-depth="3"] > .hdg-clause-label { color: #6495c8; opacity: 1; }
+.hdg-clause[data-hdg-depth="3"] { background: rgba(50, 100, 170, 0.09); }
+
+.hdg-clause[data-hdg-depth="4"]  > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="5"]  > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="6"]  > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="7"]  > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="8"]  > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="9"]  > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="10"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="11"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="12"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="13"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="14"] > .hdg-clause-label,
+.hdg-clause[data-hdg-depth="15"] > .hdg-clause-label { color: #6495c8; opacity: 1; }
+
+.hdg-clause[data-hdg-depth="4"],
+.hdg-clause[data-hdg-depth="5"],
+.hdg-clause[data-hdg-depth="6"],
+.hdg-clause[data-hdg-depth="7"],
+.hdg-clause[data-hdg-depth="8"],
+.hdg-clause[data-hdg-depth="9"],
+.hdg-clause[data-hdg-depth="10"],
+.hdg-clause[data-hdg-depth="11"],
+.hdg-clause[data-hdg-depth="12"],
+.hdg-clause[data-hdg-depth="13"],
+.hdg-clause[data-hdg-depth="14"],
+.hdg-clause[data-hdg-depth="15"] { background: rgba(50, 100, 170, 0.11); }
+
+.hdg-clause--sub > .hdg-clause-label:focus-visible { outline-color: #3a6aab; }
+
+/* ╋╋╋ HDG Structural Marker (C-17 / Phase 2-H1) ╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋
+   Generic clause (fallback "節") のラベルテキストを非表示にする。
+   Named 構造（同格・関係節・前置詞句・内容節・従属節・名詞化節・分詞節・等位節）は変更しない。
+   font-size:0 でテキストをゼロサイズにし、::before の ▼/▶ は明示的な font-size で維持する。
+   visibility:hidden と異なり pointer-events は保持されるため collapse 操作に影響しない。
+   ╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋ */
+.hdg-clause--generic.hdg-clause--sub > .hdg-clause-label {
+    font-size: 0;
+    min-height: 1.4rem;
+}
+/* ::before の ▼/▶ を明示的に維持（font-size:0 継承を防ぐ）
+   Phase 2-G の color 継承はそのまま維持されるため depth 色も保持される */
+.hdg-clause--generic.hdg-clause--sub > .hdg-clause-label::before {
+    font-size: .62rem;
+}
 </style>
 
 </head>
@@ -12499,7 +12819,7 @@ function _sdRenderNode(node, depth, jaByRef) {
 const _DG_FN_JA = {
     SUBJECT: '主語', PREDICATE: '述語', COPULA: '繋辞',
     OBJECT: '目的語', COMPLEMENT: '補語',
-    INDIRECT_OBJECT: '間接目的語', SECOND_OBJECT: '第二目的語',
+    INDIRECT_OBJECT: '間接目的語', SECOND_OBJECT: '第二目的語', OBJECT2: '第二目的語',
     AUX: '助動詞', ADVERBIAL: '副詞的',
 };
 
@@ -13307,6 +13627,7 @@ function _hdgClauseEl(srNode, depth) {
     div.className = depth === 0
         ? 'hdg-clause hdg-clause--root'
         : 'hdg-clause hdg-clause--sub';
+    if (depth > 0 && !_HDG_CS_LABEL[cs]) div.classList.add('hdg-clause--generic');
     div.dataset.nodeId = srNode.id || '';
     div.dataset.hdgDepth = String(depth);
     const lbl = document.createElement('div');
@@ -13392,6 +13713,23 @@ function _hdgNodeEl(srNode, depth) {
 
 /* Entry point: render one sentence's SR tree hierarchically.
    Requires _dgActiveTokenMap to be set (done by _renderStructuralDiagramView). */
+/* Phase 2-G: Normalize data-hdg-depth to visual nesting depth.
+   SR tree depth inflates when non-rendered phrase wrappers (NP_COMPLEX, ARTICULAR_NP, etc.)
+   consume depth levels without producing visible hdg-clause elements.
+   Visual depth = count of hdg-clause ancestors in DOM = what the user actually sees. */
+function _hdgNormalizeVisualDepth(sentEl) {
+    const clauses = sentEl.querySelectorAll('[data-hdg-depth]');
+    for (const cl of clauses) {
+        let vd = 0;
+        let p = cl.parentElement;
+        while (p && p !== sentEl) {
+            if (p.dataset && p.dataset.hdgDepth !== undefined) vd++;
+            p = p.parentElement;
+        }
+        cl.dataset.hdgDepth = String(vd);
+    }
+}
+
 function _hdgRenderSentence(sentence) {
     const root = sentence && sentence.root;
     if (!root || !_dgActiveTokenMap) return null;
@@ -13400,6 +13738,7 @@ function _hdgRenderSentence(sentence) {
     const el = _hdgNodeEl(root, 0);
     if (!el) return null;
     sentDiv.appendChild(el);
+    _hdgNormalizeVisualDepth(sentDiv); /* Phase 2-G: SR depth → visual depth */
     _hdgAttachFold(sentDiv); /* C-17 Step 5-B */
     return sentDiv;
 }
