@@ -13834,6 +13834,40 @@ function _hdgGroupEl(srNode, parentDepth) {
     return frag.childNodes.length ? frag : null;
 }
 
+/* C-36: Inspect child[0] lemma to return a reader-facing label for SUBORDINATE_CLAUSE /
+   CONJOINED_CLAUSE nodes whose leading connector is hidden by the bracket filter.
+   Primary classifier: lemma (linguistically authoritative identity of the token).
+   For ὡς only: Japanese gloss used as secondary disambiguation (content vs comparative).
+   Returns null → caller falls back to default construction label. */
+function _hdgConnectorLabel(srNode, cs) {
+    const children = srNode.children || [];
+    if (!children.length) return null;
+    const c0 = children[0];
+    if (!c0 || c0.type !== 'token') return null;
+    const ref = (c0.evidence && c0.evidence.ref) || (c0.tokenIds && c0.tokenIds[0]) || '';
+    const tok = ref && _dgActiveTokenMap && _dgActiveTokenMap[ref];
+    const lemma = (tok && tok.lemma) || '';
+    if (!lemma) return null;
+    if (cs === 'SUBORDINATE_CLAUSE') {
+        if (lemma === 'ἵνα'  || lemma === 'ὅπως')                        return '目的節';
+        if (lemma === 'ἐάν'  || lemma === 'ἐάνπερ' || lemma === 'εἰ')   return '条件節';
+        if (lemma === 'γάρ')                                              return '理由節';
+        if (lemma === 'ὅτι')                                              return '内容節';
+        /* ὡς: content-clause use carries bracket gloss; comparative use does not */
+        if (lemma === 'ὡς' && tok.japanese && /^[［〔「【（\[]/.test(tok.japanese)) return '内容節';
+        if (lemma === 'ἀλλά' || lemma === 'πλήν' || lemma === 'μέντοι') return '対比節';
+    }
+    if (cs === 'CONJOINED_CLAUSE') {
+        if (lemma === 'γάρ')                                              return '理由接続';
+        if (lemma === 'οὖν'  || lemma === 'τοιγαροῦν')                   return '結論接続';
+        if (lemma === 'ἀλλά' || lemma === 'πλήν' || lemma === 'μέντοι') return '対比接続';
+        if (lemma === 'δέ')                                               return '転換接続';
+        if (lemma === 'ὅτι'  || lemma === 'ὡς')                          return '内容接続';
+        if (lemma === 'ἵνα')                                              return '目的接続';
+    }
+    return null;
+}
+
 /* Render a clause SR node as an hdg-clause div.
    depth=0 → root "主節"; depth>0 → construction label or "節". */
 function _hdgClauseEl(srNode, depth) {
@@ -13847,7 +13881,10 @@ function _hdgClauseEl(srNode, depth) {
     div.dataset.hdgDepth = String(depth);
     const lbl = document.createElement('div');
     lbl.className = 'hdg-clause-label';
-    lbl.textContent = depth === 0 ? '主節' : (_HDG_CS_LABEL[cs] || '節');
+    const baseLabel  = depth === 0 ? '主節' : (_HDG_CS_LABEL[cs] || '節');
+    const connLabel  = depth > 0 && (cs === 'SUBORDINATE_CLAUSE' || cs === 'CONJOINED_CLAUSE')
+        ? _hdgConnectorLabel(srNode, cs) : null;
+    lbl.textContent  = connLabel || baseLabel;
     div.appendChild(lbl);
     const slots = document.createElement('div');
     slots.className = 'hdg-slots';
