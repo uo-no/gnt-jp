@@ -2581,7 +2581,6 @@ display: none;
 
 .sd-sentence {
     margin-bottom: var(--space-xl);
-    border-left: 3px solid var(--border-soft);
     padding-left: var(--space-sm);
 }
 .sd-sentence-ref {
@@ -4256,13 +4255,6 @@ details[open] .study-summary::before {
     overflow-x: auto;
     min-width: 0;
 }
-.dg-view-label {
-    font-size: var(--text-caption);
-    color: var(--text-sub);
-    letter-spacing: .07em;
-    margin-bottom: .5rem;
-    opacity: .7;
-}
 .dg-clause {
     margin-bottom: var(--space-xs);
 }
@@ -4632,7 +4624,6 @@ details[open] .study-summary::before {
 .hdg-clause {
     padding: .45rem .5rem .45rem .75rem;
     margin: .2rem 0;
-    border-left: 3px solid var(--color-domain, #7a7aaa);
     border-radius: 0 .35rem .35rem 0;
     background: var(--bg-inset, #f8f8f8);
 }
@@ -4759,46 +4750,6 @@ details[open] .study-summary::before {
 /* ━━━ C-17 Phase 2-B: Visual Polish ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    CSS のみ。JS / SR JSON / dg-engine.js 変更なし。
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-
-/* ── HDG: 主節（depth=0）を視覚的に強調 ───────────────────────────────── */
-.hdg-clause--root {
-    background: rgba(122, 122, 170, .04);
-}
-.hdg-clause--root > .hdg-clause-label {
-    font-size: .78rem;
-    opacity: 1;
-}
-
-/* ── HDG: depth別ボーダー減衰 ─────────────────────────────────────────── */
-/* depth 1: 少し薄く */
-.hdg-clause[data-hdg-depth="1"] {
-    border-left-color: rgba(122, 122, 170, .50);
-}
-/* depth 2: さらに薄く・細く */
-.hdg-clause[data-hdg-depth="2"] {
-    border-left-color: rgba(122, 122, 170, .30);
-    border-left-width: 1.5px;
-}
-/* depth 3+: 極薄・最細 */
-.hdg-clause[data-hdg-depth="3"],
-.hdg-clause[data-hdg-depth="4"],
-.hdg-clause[data-hdg-depth="5"],
-.hdg-clause[data-hdg-depth="6"],
-.hdg-clause[data-hdg-depth="7"] {
-    border-left-color: rgba(122, 122, 170, .16);
-    border-left-width: 1px;
-}
-
-/* depth 2+: 節ラベルも対応して薄く */
-.hdg-clause[data-hdg-depth="2"] > .hdg-clause-label,
-.hdg-clause[data-hdg-depth="3"] > .hdg-clause-label,
-.hdg-clause[data-hdg-depth="4"] > .hdg-clause-label,
-.hdg-clause[data-hdg-depth="5"] > .hdg-clause-label,
-.hdg-clause[data-hdg-depth="6"] > .hdg-clause-label,
-.hdg-clause[data-hdg-depth="7"] > .hdg-clause-label {
-    opacity: .60;
-    font-size: .65rem;
-}
 
 /* ── HDG: PP block を軽量化（前置詞句の視覚的重みを大幅に削減） ────────── */
 /* 2クラスセレクターで depth別ルールを上書き（同等以上の詳細度） */
@@ -5186,6 +5137,7 @@ details[open] .study-summary::before {
     line-height: 1;
     margin-bottom: 2px;
 }
+
 </style>
 
 </head>
@@ -14247,8 +14199,11 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
         return `${chapter}:${ranges.join(', ')}`;
     }
 
-    /* C-4: build token lookup map for Japanese-first DG rendering */
-    if (_isDGChapter) {
+    /* C-17 Phase 1: kind param replaces _hdgInitViewParam — caller passes colMode.kind directly. */
+    const _hdgViewMode = kind === 'hierarchical';
+    /* C-4: build token lookup map for Japanese-first DG rendering.
+       C-40: HDG mode builds token map for all chapters (gate removed). */
+    if (_isDGChapter || _hdgViewMode) {
         _dgActiveTokenMap = {};
         for (const w of (elData || [])) { if (w && w.ref) _dgActiveTokenMap[w.ref] = w; }
         _dgConjJaMap = {};
@@ -14257,8 +14212,6 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
                 _dgConjJaMap[w.text] = w.japanese;
         }
     }
-    /* C-17 Phase 1: kind param replaces _hdgInitViewParam — caller passes colMode.kind directly. */
-    const _hdgViewMode = kind === 'hierarchical';
 
     for (const sentence of srData.sentences) {
         const secEl = document.createElement('section');
@@ -14271,8 +14224,8 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
         secEl.appendChild(refEl);
 
         let _dgRendered = false;
-        /* C-17: Hierarchical Diagram path (development toggle: ?view=hierarchical) */
-        if (_hdgViewMode && _isDGChapter && sentence.root) {
+        /* C-40: Hierarchical Diagram — renders for all chapters (gate removed). */
+        if (_hdgViewMode && sentence.root) {
             try {
                 const _hdgSentEl = _hdgRenderSentence(sentence);
                 if (_hdgSentEl) {
