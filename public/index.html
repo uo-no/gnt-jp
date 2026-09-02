@@ -4820,6 +4820,21 @@ details[open] .study-summary::before {
     opacity: .38;
 }
 
+/* ── HDG: APPOSITION内appositive member — labelなし・最小限の深さ境界 ─────── */
+/* C-24-A: PP同様の2クラスセレクターでdepth別ルールを上書き。fold不可・label不要。 */
+.hdg-clause--sub.hdg-clause--appositive {
+    border-left-style: dotted;
+    border-left-color: rgba(122, 122, 170, .18);
+    border-left-width: 1px;
+    padding: .04rem .2rem .04rem .45rem;
+    margin: .04rem 0;
+    background: transparent;
+}
+.hdg-clause--sub.hdg-clause--appositive > .hdg-slots {
+    padding-left: .3rem;
+    border-left: none;
+}
+
 /* ── HDG: function label を補助的な扱いに ─────────────────────────────── */
 .hdg-fn {
     opacity: .70;
@@ -4842,6 +4857,16 @@ details[open] .study-summary::before {
     .hdg-clause[data-hdg-depth="7"] {
         border-left-width: 1px;
         padding-left: .2rem;
+    }
+    /* C-24-A: appositive wrapper は mobile では padding を除去。
+       深くネストした文（maxWrapDepth>10）での横overflow防止。
+       border-left (dotted) が視覚的な深さシグナルとして残る。 */
+    .hdg-clause--sub.hdg-clause--appositive {
+        padding: 0;
+        margin: 0;
+    }
+    .hdg-clause--sub.hdg-clause--appositive > .hdg-slots {
+        padding-left: 0;
     }
 }
 
@@ -4948,6 +4973,15 @@ details[open] .study-summary::before {
 /* .hdg-slots の縦ガイド線を廃止（全 depth で垂直線を生成していた源） */
 .hdg-slots {
     border-left: none !important;
+}
+
+/* ── C-24-A: APPOSITIVE wrapper — border-left を復元（全廃ルールへの例外） ──
+   .hdg-clause--sub { border-left: none !important } の後に配置し !important で上書き。
+   PP 全廃と同列だが APPOSITIVE のみ dotted border で depth=N+1 を可視化する。 */
+.hdg-clause--sub.hdg-clause--appositive {
+    border-left-style: dotted !important;
+    border-left-color: rgba(122, 122, 170, .18) !important;
+    border-left-width: 1px !important;
 }
 
 /* ── RK: Baseline-Primary + Token-Light ───────────────────────────────── */
@@ -5067,6 +5101,51 @@ details[open] .study-summary::before {
    Phase 2-G の color 継承はそのまま維持されるため depth 色も保持される */
 .hdg-clause--generic.hdg-clause--sub > .hdg-clause-label::before {
     font-size: .62rem;
+}
+
+/* ╋╋╋ C-19: Left-edge line removal ╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋
+   1. Root anchor (::before) — 削除。「主節」ラベルも非表示のため single markerになれない。
+      collapse/toggle affordanceでもない（_hdgAttachFoldがdepth=0を除外）。
+   2. .sd-sentence gray border-left — HDGのみ非表示。:has(.hdg-view)でスコープを限定。
+      RK / DG / plain-tree は .sd-sentence 共通ルール (L2584) をそのまま維持。
+   ╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋╋ */
+.hdg-clause--root::before { display: none; }
+.sd-sentence:has(.hdg-view) { border-left: none; }
+/* C-22: RK/DG sentence — remove 3px border-left (same principle as HDG) */
+.sd-sentence:has(.dg-view)  { border-left: none; }
+
+/* C-20: HDG sentence ref — moved inside .hdg-view, no longer a header separator */
+.hdg-view > .sd-sentence-ref--dg {
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: var(--space-xs);
+}
+
+/* C-21: Per-verse anchor — slot header row (verse number + fn badge on same line) */
+.hdg-slot-hd {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-xs);
+}
+.hdg-v-num {
+    color: var(--text-hint);
+    font-size: var(--text-caption);
+    font-weight: 400;
+    flex-shrink: 0;
+    min-width: 1.2rem;
+    text-align: right;
+    letter-spacing: 0.02em;
+}
+/* C-22: Per-slot verse number in RK/DG — sits above slot text in flex-column */
+.dg-v-num {
+    color: var(--text-hint);
+    font-size: var(--text-caption);
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    text-align: center;
+    display: block;
+    line-height: 1;
+    margin-bottom: 2px;
 }
 </style>
 
@@ -12959,6 +13038,11 @@ function _dgRenderMainLine(slots) {
         slotEl.className = 'dg-slot dg-slot-' + slot.fn.toLowerCase();
         // P5-D-1: mark participial predicate/copula slots visually
         if (slot.isParticipial) slotEl.classList.add('dg-slot-participial');
+        /* C-22: verse metadata — tag single-verse slots; mixed-verse gets no tag */
+        { const _svRefs = _dgNodeRefs(slot.node);
+          const _svVerses = new Set();
+          for (const { ref } of _svRefs) { const _m = ref.match(/:(\d+)!/); if (_m) _svVerses.add(+_m[1]); }
+          if (_svVerses.size === 1) slotEl.dataset.verse = String([..._svVerses][0]); }
         const textEl = document.createElement('span');
         textEl.className = 'dg-slot-text';
         if (slot.node?.construction?.canonical === 'APPOSITION') {
@@ -13552,7 +13636,9 @@ function _hdgClauseAsNpEl(srNode, depth) {
 }
 
 /* C-17 Step 2: APPOSITION → 同格 labeled block.
-   SR structure: phrase.np[APPOSITION] { head, appositive } (each: token | phrase | clause). */
+   SR structure: phrase.np[APPOSITION] { head, appositive } (each: token | phrase | clause).
+   C-24-A: appositive children (i > 0) are wrapped in a depth-bearing .hdg-clause--appositive
+   so _hdgNormalizeVisualDepth assigns them depth = APPOSITION_depth + 1. */
 function _hdgAppositionEl(srNode, depth) {
     const div = document.createElement('div');
     div.className = 'hdg-clause hdg-clause--sub hdg-clause--apposition';
@@ -13564,9 +13650,25 @@ function _hdgAppositionEl(srNode, depth) {
     div.appendChild(lbl);
     const slots = document.createElement('div');
     slots.className = 'hdg-slots';
-    for (const child of (srNode.children || [])) {
-        const el = _hdgNodeEl(child, depth + 1);
-        if (el) slots.appendChild(el);
+    const children = srNode.children || [];
+    for (let i = 0; i < children.length; i++) {
+        const el = _hdgNodeEl(children[i], depth + 1);
+        if (!el) continue;
+        if (i === 0) {
+            /* HEAD: render directly into this block's slots */
+            slots.appendChild(el);
+        } else {
+            /* APPOSITIVE: depth-bearing wrapper → normalize assigns APPOSITION_depth + 1 */
+            const aw = document.createElement('div');
+            aw.className = 'hdg-clause hdg-clause--sub hdg-clause--appositive';
+            aw.dataset.nodeId = children[i].id || '';
+            aw.dataset.hdgDepth = String(depth + 1);
+            const aws = document.createElement('div');
+            aws.className = 'hdg-slots';
+            aws.appendChild(el);
+            aw.appendChild(aws);
+            slots.appendChild(aw);
+        }
     }
     div.appendChild(slots);
     return div;
@@ -13803,6 +13905,131 @@ function _hdgToggleFold(cl, lbl) {
     lbl.setAttribute('aria-expanded', String(!collapsed));
 }
 
+/* C-21: Verse number anchoring — clean case detector + injector.
+   Clean case: root has 2+ direct hdg-slots, each slot contains exactly one verse,
+   all verses are distinct and in ascending order.
+   Returns true (anchors injected, caller should remove sd-sentence-ref)
+           false (fallback: leave sentence unchanged, keep sd-sentence-ref). */
+/* C-21 (generalized) / C-23.2: Per-slot verse anchor injection.
+   For every hdg-slot that covers exactly one verse and has no single-verse ancestor slot,
+   inject .hdg-slot-hd { .hdg-v-num + optional .hdg-fn } as the slot's first child.
+   Returns true  → all sentence verses are represented; caller should remove sd-sentence-ref.
+           false → partial or no coverage; caller uses C-20 fallback (sd-sentence-ref kept).
+   Single-verse sentences: C-23 transition rule injects exactly one anchor on the first
+   frontier slot, covering that verse → fullyCovered=true → sentence ref removed. */
+function _hdgApplyVerseAnchors(sentEl) {
+    const verseOf = id => id && id.length >= 12 ? parseInt(id.slice(6, 9), 10) : null;
+
+    /* All distinct verses present in this sentence */
+    const sentenceVerses = new Set();
+    for (const t of sentEl.querySelectorAll('.dg-token[data-node-id]')) {
+        const v = verseOf(t.dataset.nodeId);
+        if (v !== null) sentenceVerses.add(v);
+    }
+    if (sentenceVerses.size === 0) return false; /* no token data — nothing to annotate */
+
+    /* Build verse-set map for every slot in the sentence */
+    const allSlots = [...sentEl.querySelectorAll('.hdg-slot')];
+    const slotVerseMap = new Map();
+    for (const slot of allSlots) {
+        const verses = new Set();
+        for (const t of slot.querySelectorAll('.dg-token[data-node-id]')) {
+            const v = verseOf(t.dataset.nodeId);
+            if (v !== null) verses.add(v);
+        }
+        slotVerseMap.set(slot, verses);
+    }
+
+    /* Frontier single-verse slots: covers exactly 1 verse AND no ancestor slot also
+       covers exactly 1 verse (prevents redundant labels in nested slot trees). */
+    const frontier = [];
+    for (const slot of allSlots) {
+        const vSet = slotVerseMap.get(slot);
+        if (!vSet || vSet.size !== 1) continue;
+
+        let dominated = false;
+        let el = slot.parentElement;
+        while (el && el !== sentEl) {
+            if (el.classList.contains('hdg-slot')) {
+                const pVSet = slotVerseMap.get(el);
+                if (pVSet && pVSet.size === 1) { dominated = true; break; }
+            }
+            el = el.parentElement;
+        }
+        if (!dominated) frontier.push({ slot, verse: [...vSet][0] });
+    }
+    if (frontier.length === 0) return false;
+
+    /* Check coverage: every sentence verse must have at least one frontier slot */
+    const coveredVerses = new Set(frontier.map(f => f.verse));
+    const fullyCovered  = [...sentenceVerses].every(v => coveredVerses.has(v));
+
+    /* Inject .hdg-slot-hd (verse number + fn badge) at verse-transition frontier slots.
+       C-23: only show a verse number when the verse changes from the previous frontier slot. */
+    let _lastVerse = null;
+    for (const { slot, verse } of frontier) {
+        const fnEl = slot.querySelector(':scope > .hdg-fn');
+        if (verse !== _lastVerse) {
+            const vEl = document.createElement('span');
+            vEl.className = 'hdg-v-num';
+            vEl.textContent = String(verse);
+            const hd = document.createElement('div');
+            hd.className = 'hdg-slot-hd';
+            hd.appendChild(vEl);
+            if (fnEl) { slot.removeChild(fnEl); hd.appendChild(fnEl); }
+            slot.insertBefore(hd, slot.firstChild);
+            _lastVerse = verse;
+        }
+        /* same verse as previous slot: no new label — fn stays in its original position */
+    }
+    return fullyCovered;
+}
+
+/* C-22: Collect all verse numbers from SR node tree.
+   tokenIds and evidence.ref use "BOOK CH:V!N" format; verse = capture group 1. */
+function _dgSentenceVerses(srRoot) {
+    const verses = new Set();
+    function collect(n) {
+        if (!n) return;
+        if (Array.isArray(n.tokenIds)) {
+            for (const id of n.tokenIds) { const m = id.match(/:(\d+)!/); if (m) verses.add(+m[1]); }
+        }
+        for (const c of (n.children || [])) collect(c);
+    }
+    collect(srRoot);
+    return verses;
+}
+
+/* C-22: RK/DG verse anchor injection.
+   Reads data-verse tags set by _dgRenderMainLine() on single-verse .dg-slot elements.
+   Injects .dg-v-num as first child of each tagged slot (normal flow, no absolute positioning).
+   Returns true  → all sentence verses covered; caller removes sd-sentence-ref.
+           false → partial/no coverage; caller uses C-9 sd-sentence-ref--dg fallback.
+   Single-verse sentences always return false (verse number on every slot is redundant). */
+function _dgApplyVerseAnchors(dgView, sentenceVerses) {
+    if (!sentenceVerses || sentenceVerses.size < 2) return false;
+
+    const annotated = [...dgView.querySelectorAll('.dg-slot[data-verse]')];
+    if (annotated.length === 0) return false;
+
+    const coveredVerses = new Set(annotated.map(s => parseInt(s.dataset.verse, 10)));
+    const fullyCovered  = [...sentenceVerses].every(v => coveredVerses.has(v));
+
+    /* C-23: only show verse number at transitions (verse changes from previous annotated slot). */
+    let _lastVerse = null;
+    for (const slot of annotated) {
+        const verse = parseInt(slot.dataset.verse, 10);
+        if (verse !== _lastVerse) {
+            const vEl = document.createElement('span');
+            vEl.className = 'dg-v-num';
+            vEl.textContent = String(verse);
+            slot.insertBefore(vEl, slot.firstChild);
+            _lastVerse = verse;
+        }
+    }
+    return fullyCovered;
+}
+
 function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase 1: kind='hierarchical'|'structural-diagram' */
     const jaByRef = _sdCollectJaByRef(elData);
     const wrap = document.createElement('div');
@@ -13932,10 +14159,16 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
                 if (_hdgSentEl) {
                     const _hdgViewEl = document.createElement('div');
                     _hdgViewEl.className = 'hdg-view';
+                    const _cleanCase = _hdgApplyVerseAnchors(_hdgSentEl); /* C-21 */
+                    if (_cleanCase) {
+                        refEl.remove(); /* C-21: clean case — per-slot verse numbers injected, sentence ref removed */
+                    } else {
+                        _hdgViewEl.appendChild(refEl); /* C-20: fallback — move ref into hdg-view top */
+                        refEl.classList.add('sd-sentence-ref--dg');
+                    }
                     _hdgViewEl.appendChild(_hdgSentEl);
                     secEl.appendChild(_hdgViewEl);
                     _dgRendered = true;
-                    refEl.classList.add('sd-sentence-ref--dg');
                 }
             } catch (_) { /* silent — HDG failure must not break existing render */ }
         }
@@ -13967,9 +14200,14 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
                         const _dgView = document.createElement('div');
                         _dgView.className = 'dg-view';
                         _dgView.appendChild(_dgEl);
+                        const _rkClean = _dgApplyVerseAnchors(_dgView, _dgSentenceVerses(sentence.root)); /* C-22 */
                         secEl.appendChild(_dgView);
                         _dgRendered = true;
-                        refEl.classList.add('sd-sentence-ref--dg'); /* C-9 */
+                        if (_rkClean) {
+                            refEl.remove(); /* C-22: fully covered — per-slot verse numbers shown */
+                        } else {
+                            refEl.classList.add('sd-sentence-ref--dg'); /* C-9 / C-22 fallback */
+                        }
                     }
                 }
             } catch (_) { /* silent fallback */ }
