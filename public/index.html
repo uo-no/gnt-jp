@@ -4694,6 +4694,13 @@ details[open] .study-summary::before {
     padding-left: .3rem;
     border-left: 1px dotted var(--border, #ccc);
 }
+/* C-24-B.1: ADJ_MOD head-first (AdjpNp/NpAdjp) — HEAD top, modifier below.
+   Uses .hdg-adj-mod-hf (not hdg-cs-adj-mod) so DEFAULT-path ADJ_MOD (DetAdj etc.) stays flat. */
+.hdg-phrase.hdg-adj-mod-hf {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .1rem;
+}
 /* Prep token inside a PP */
 .hdg-prep-token { opacity: .75; font-size: .88em; }
 /* Group is transparent (rendered as DocumentFragment) — no .hdg-group in DOM */
@@ -4835,6 +4842,21 @@ details[open] .study-summary::before {
     border-left: none;
 }
 
+/* ── HDG: ADJ_MOD modifier wrapper — labelなし・最小限の深さ境界 ─────── */
+/* C-24-B.1: Phase 2-E !important で border が消えるため後段で復元。     */
+.hdg-clause--sub.hdg-clause--adj-modifier {
+    border-left-style: dotted;
+    border-left-color: rgba(100, 122, 170, .16);
+    border-left-width: 1px;
+    padding: .04rem .2rem .04rem .45rem;
+    margin: .04rem 0;
+    background: transparent;
+}
+.hdg-clause--sub.hdg-clause--adj-modifier > .hdg-slots {
+    padding-left: .3rem;
+    border-left: none;
+}
+
 /* ── HDG: function label を補助的な扱いに ─────────────────────────────── */
 .hdg-fn {
     opacity: .70;
@@ -4866,6 +4888,14 @@ details[open] .study-summary::before {
         margin: 0;
     }
     .hdg-clause--sub.hdg-clause--appositive > .hdg-slots {
+        padding-left: 0;
+    }
+    /* C-24-B.1: ADJ_MOD modifier wrapper — mobile padding 除去。 */
+    .hdg-clause--sub.hdg-clause--adj-modifier {
+        padding: 0;
+        margin: 0;
+    }
+    .hdg-clause--sub.hdg-clause--adj-modifier > .hdg-slots {
         padding-left: 0;
     }
 }
@@ -4981,6 +5011,15 @@ details[open] .study-summary::before {
 .hdg-clause--sub.hdg-clause--appositive {
     border-left-style: dotted !important;
     border-left-color: rgba(122, 122, 170, .18) !important;
+    border-left-width: 1px !important;
+}
+
+/* ── C-24-B.1: ADJ_MOD modifier wrapper — border-left を復元 ──────────
+   .hdg-clause--sub { border-left: none !important } の後に配置し !important で上書き。
+   AdjpNp / NpAdjp の modifier が HEAD の下に視覚的に従属することを示す。 */
+.hdg-clause--sub.hdg-clause--adj-modifier {
+    border-left-style: dotted !important;
+    border-left-color: rgba(100, 122, 170, .16) !important;
     border-left-width: 1px !important;
 }
 
@@ -13702,6 +13741,47 @@ function _hdgPpNp2NpEl(srNode, depth) {
     return div.children.length ? div : null;
 }
 
+/* C-24-B.1: ADJ_MOD (AdjpNp / NpAdjp) — render HEAD structurally first, modifier below.
+   AdjpNp: children = [modifier, HEAD] → HEAD = child[1].
+   NpAdjp: children = [HEAD, modifier] → HEAD = child[0].
+   Modifier is wrapped in a depth-bearing .hdg-clause--adj-modifier (no label, not foldable).
+   Internal structure of modifier is NOT inspected — passed unchanged to _hdgNodeEl. */
+function _hdgAdjModEl(srNode, depth) {
+    const rule     = (srNode.construction && srNode.construction.sourceRule) || '';
+    const children = srNode.children || [];
+    /* Fallback: unexpected child count → plain surface-order rendering */
+    if (children.length < 2) {
+        const fb = document.createElement('div');
+        fb.className = 'hdg-phrase';
+        fb.dataset.nodeId = srNode.id || '';
+        for (const ch of children) {
+            const el = _hdgNodeEl(ch, depth + 1);
+            if (el) fb.appendChild(el);
+        }
+        return fb.children.length ? fb : null;
+    }
+    const headIdx = rule === 'AdjpNp' ? 1 : 0;
+    const modIdx  = rule === 'AdjpNp' ? 0 : 1;
+    const div = document.createElement('div');
+    div.className = 'hdg-phrase hdg-adj-mod-hf';  /* hf = head-first; distinct from hdg-cs-adj-mod (DEFAULT path) */
+    div.dataset.nodeId = srNode.id || '';
+    /* HEAD: rendered first (structural top), depth-transparent */
+    const headEl = _hdgNodeEl(children[headIdx], depth + 1);
+    if (headEl) div.appendChild(headEl);
+    /* Modifier: depth-bearing wrapper, no label */
+    const mw = document.createElement('div');
+    mw.className = 'hdg-clause hdg-clause--sub hdg-clause--adj-modifier';
+    mw.dataset.nodeId = children[modIdx].id || '';
+    mw.dataset.hdgDepth = String(depth + 1);
+    const mws = document.createElement('div');
+    mws.className = 'hdg-slots';
+    const modEl = _hdgNodeEl(children[modIdx], depth + 1);
+    if (modEl) mws.appendChild(modEl);
+    mw.appendChild(mws);
+    div.appendChild(mw);
+    return div.children.length ? div : null;
+}
+
 /* Render a phrase SR node (phrase.np, phrase.pp, phrase.adjp, etc.) as hdg-phrase div.
    CLAUSE_AS_NP / APPOSITION / phrase.pp are handled as labeled blocks (see above). */
 function _hdgPhraseEl(srNode, depth) {
@@ -13715,6 +13795,8 @@ function _hdgPhraseEl(srNode, depth) {
     if (type === 'phrase.pp' && cs !== 'COORDINATION') return _hdgPPEl(srNode, depth);
     /* C-18: PpNp2Np — PP modifier precedes NP head in surface order; render NP head primary */
     if (rule === 'PpNp2Np') return _hdgPpNp2NpEl(srNode, depth);
+    /* C-24-B.1: ADJ_MOD (AdjpNp / NpAdjp) — render HEAD structurally first, modifier below */
+    if (cs === 'ADJ_MOD' && (rule === 'AdjpNp' || rule === 'NpAdjp')) return _hdgAdjModEl(srNode, depth);
     const div = document.createElement('div');
     div.className = 'hdg-phrase';
     if (cs) div.classList.add('hdg-cs-' + cs.toLowerCase().replace(/_/g, '-'));
