@@ -4814,6 +4814,15 @@ details[open] .study-summary::before {
     font-size: .63rem;
 }
 
+/* C-42.5: AUX badge de-emphasis.
+   Target only the AUX badge itself (> direct child selectors).
+   Prevents nested function badges inside AUX clause content from being affected.
+   Specificity (0,4,0)/(0,5,0) overrides root-clause boost rule (0,3,0). */
+.hdg-clause--root > .hdg-slots .hdg-slot-aux > .hdg-fn,
+.hdg-clause--root > .hdg-slots .hdg-slot-aux > .hdg-slot-hd > .hdg-fn {
+    opacity: 0.50;
+}
+
 /* ── HDG: ▼/▶ indicator を少し大きく・はっきり ────────────────────────── */
 .hdg-clause--sub > .hdg-clause-label::before {
     font-size: .62rem;
@@ -13820,6 +13829,18 @@ function _hdgConnectorLabel(srNode, cs) {
     return null;
 }
 
+/* C-42.2: Suppress ADVERBIAL badge on SUBORDINATE_CLAUSE when a specific semantic
+   connector label is already displayed — purpose / condition / reason / contrast.
+   Reuses _hdgConnectorLabel return value; no classifier duplication.
+   Fallback (null / 内容節 / 従属節) → false → badge kept. */
+const _HDG_ADVERBIAL_SUPPRESS = new Set(['目的節', '条件節', '理由節', '対比節']);
+function _hdgShouldSuppressAdverbialBadge(fn, srNode) {
+    if (fn !== 'ADVERBIAL') return false;
+    const cs = (srNode.construction && srNode.construction.canonical) || '';
+    if (cs !== 'SUBORDINATE_CLAUSE') return false;
+    return _HDG_ADVERBIAL_SUPPRESS.has(_hdgConnectorLabel(srNode, cs));
+}
+
 /* Render a clause SR node as an hdg-clause div.
    depth=0 → root "主節"; depth>0 → construction label or "節". */
 function _hdgClauseEl(srNode, depth) {
@@ -13890,7 +13911,7 @@ function _hdgChildEl(srNode, parentDepth) {
 
     if (type === 'clause') {
         const el = _hdgClauseEl(srNode, parentDepth + 1);
-        if (fn) return inSlot(el);
+        if (fn && !_hdgShouldSuppressAdverbialBadge(fn, srNode)) return inSlot(el);
         return el;
     }
 
