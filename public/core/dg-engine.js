@@ -574,6 +574,19 @@
       );
     }
 
+    // RK-02-B.1 Rule E: restore missing COMPLEMENT diagonal when SUBJECT intervenes
+    // between COMPLEMENT and COPULA/PREDICATE (e.g. [Cop,S,C] or [C,S,Cop] patterns).
+    // Fires only when: verbal clause, no complement connector assigned anywhere in DR.
+    // Zero false-positives confirmed by NT-wide audit: every COMPLEMENT in this case
+    // has a COPULA or PREDICATE present in the same DR.
+    if (hasVerb && !mainSlots.some(s => s.connector === 'complement')) {
+      for (const s of mainSlots) {
+        if (s.fn === 'COMPLEMENT' && s.connector == null) {
+          s.connector = 'complement';
+        }
+      }
+    }
+
     // P5-D-1: clause is participial when its primary PREDICATE/COPULA token is a participle
     const isParticipalClause = mainSlots.some(
       s => (s.fn === 'PREDICATE' || s.fn === 'COPULA') && s.isParticipial
@@ -654,12 +667,24 @@
 
     if (dr.slots.length > 1) {
       dr.slots.sort((a, b) => a.si - b.si);
+      // Reset all connectors before re-assigning: after sort+merge the slot order
+      // may differ from what deriveClauseCore saw, so start fresh to avoid
+      // inheriting connectors (e.g. Rule E on slot[0]) that the loop won't touch.
+      for (const s of dr.slots) s.connector = null;
       const hasVerb = dr.slots.some(s => s.fn === 'COPULA' || s.fn === 'PREDICATE');
       dr.noVerb = !hasVerb;
       for (let i = 1; i < dr.slots.length; i++) {
         dr.slots[i].connector = connectorBetween(
           dr.slots[i - 1].fn, dr.slots[i].fn, !hasVerb
         );
+      }
+      // RK-02-B.1 Rule E (group path): same fix as deriveClauseCore
+      if (hasVerb && !dr.slots.some(s => s.connector === 'complement')) {
+        for (const s of dr.slots) {
+          if (s.fn === 'COMPLEMENT' && s.connector == null) {
+            s.connector = 'complement';
+          }
+        }
       }
     }
     // Recompute isParticipalClause to account for merged extra-phrase slots
