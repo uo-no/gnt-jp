@@ -13409,7 +13409,13 @@ function _dgRenderClause(dr) {
         return wrap;
     }
 
-    if (dr.slots.length > 0) wrap.appendChild(_dgRenderMainLine(dr.slots));
+    if (dr.slots.length > 0) {
+        // RK-02-D.1: suppress empty baseline when all base slots are structural
+        // contentClause placeholders (no visible slot = bare 2px artifact).
+        const _hasRenderableSlot = dr.slots.some(s =>
+            s.fn === 'INDIRECT_OBJECT' || !(s.contentClause && s.contentClause.innerDR));
+        if (_hasRenderableSlot) wrap.appendChild(_dgRenderMainLine(dr.slots));
+    }
     const modZone = _dgRenderSlotModZone(dr.slots);
     if (modZone) wrap.appendChild(modZone);
 
