@@ -4575,6 +4575,25 @@ details[open] .study-summary::before {
     padding-top: 3px;
     opacity: .9;
 }
+/* DG-UX-07: 2Np compound slot — vertical member layout within one Complement slot */
+.dg-compound-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+}
+.dg-compound-member {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+.dg-compound-sep {
+    height: 1px;
+    background: var(--text-sub);
+    opacity: .35;
+    margin: 3px 0;
+    align-self: stretch;
+}
 /* P6-G-8: NOMINALIZED_CLAUSE bracket notation */
 .dg-nomc {
     font-family: var(--font-greek);
@@ -4607,6 +4626,7 @@ details[open] .study-summary::before {
     .dg-appos-head { font-size: .9rem; }
     .dg-appos-appositive { font-size: .82rem; }
     .dg-nomc { font-size: .9rem; }
+    .dg-compound-wrap { font-size: .9rem; }
 }
 
 /* ─── C-17 Step 1: Hierarchical Diagram (HDG) ────────────────────────────
@@ -13058,7 +13078,10 @@ function _dgRenderMainLine(slots) {
           if (_svVerses.size === 1) slotEl.dataset.verse = String([..._svVerses][0]); }
         const textEl = document.createElement('span');
         textEl.className = 'dg-slot-text';
-        if (slot.node?.construction?.canonical === 'APPOSITION') {
+        if (slot.compound && slot.compound.length >= 2) {
+            // DG-UX-07: 2Np compound slot — vertical member layout, one P\C connector
+            slotEl.appendChild(_dgRenderCompoundSlot(slot.compound));
+        } else if (slot.node?.construction?.canonical === 'APPOSITION') {
             // P6-G-4.4: APPOSITION — parallel segment notation (head / dashed / appositive)
             // C-14: fn label passed into head row for visual proximity to head tokens
             const _apposFn = (slot.fn !== 'COPULA' && slot.fn !== 'AUX')
@@ -13142,7 +13165,8 @@ function _dgRenderMainLine(slots) {
 /* Renders word-level modifiers below the baseline, approximately aligned under their slots. */
 function _dgRenderSlotModZone(slots) {
     const nonIO = (slots || []).filter(s => s.fn !== 'INDIRECT_OBJECT');
-    if (!nonIO.some(s => s.modifiers && s.modifiers.length > 0)) return null;
+    // DG-UX-07: compound slots render member modifiers inline; exclude them from zone guard
+    if (!nonIO.some(s => !s.compound && s.modifiers && s.modifiers.length > 0)) return null;
     const zone = document.createElement('div');
     zone.className = 'dg-slot-mod-zone';
     for (const slot of nonIO) {
@@ -13153,7 +13177,8 @@ function _dgRenderSlotModZone(slots) {
         }
         const cell = document.createElement('div');
         cell.className = 'dg-slot-mod-cell';
-        for (const mod of (slot.modifiers || [])) {
+        /* DG-UX-07: compound slots render their modifiers inline per member; skip here */
+        for (const mod of (slot.compound ? [] : (slot.modifiers || []))) {
             const item = document.createElement('div');
             item.className = 'dg-adv-item';
             /* C-6: container; token spans carry individual click handlers */
@@ -13177,6 +13202,52 @@ function _dgRenderSlotModZone(slots) {
         zone.appendChild(cell);
     }
     return zone;
+}
+
+/* DG-UX-07: 2Np compound slot — render each NP member vertically within one slot.
+   member.headSIs narrows display to head tokens; member.modifiers appear per-member. */
+function _dgRenderCompoundSlot(members) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dg-compound-wrap';
+    for (let i = 0; i < members.length; i++) {
+        if (i > 0) {
+            const sep = document.createElement('div');
+            sep.className = 'dg-compound-sep';
+            wrap.appendChild(sep);
+        }
+        const member = members[i];
+        const memberEl = document.createElement('div');
+        memberEl.className = 'dg-compound-member';
+        const textEl = document.createElement('span');
+        textEl.className = 'dg-slot-text';
+        /* C-6: individual token spans; fallback to full subtree for articular heads */
+        if (!_dgAppendTokens(textEl, member.node, member.headSIs))
+            _dgAppendTokens(textEl, member.node, null);
+        memberEl.appendChild(textEl);
+        for (const mod of (member.modifiers || [])) {
+            const item = document.createElement('div');
+            item.className = 'dg-adv-item';
+            /* C-6: container; token spans carry click handlers */
+            const connEl = document.createElement('div');
+            connEl.className = 'dg-adv-connector';
+            item.appendChild(connEl);
+            const row = document.createElement('div');
+            row.className = 'dg-adv-row';
+            const modText = document.createElement('span');
+            modText.className = 'dg-adv-text';
+            /* C-6: individual token spans */
+            _dgAppendTokens(modText, mod.node, null);
+            row.appendChild(modText);
+            const modFn = document.createElement('span');
+            modFn.className = 'dg-adv-fn';
+            modFn.textContent = mod.label || '修飾';
+            row.appendChild(modFn);
+            item.appendChild(row);
+            memberEl.appendChild(item);
+        }
+        wrap.appendChild(memberEl);
+    }
+    return wrap;
 }
 
 /* P6-G-4.4: APPOSITION — render head / appositive as parallel segments.

@@ -483,6 +483,23 @@
     return result || displayText(node); // safety fallback
   }
 
+  // ── Compound member extraction (DG-UX-07) ────────────────────────────
+  // Extracts per-NP-member {node, headSIs, modifiers} from a 2Np group.
+  // Returns an array of length ≥ 2, or null if the group has fewer than 2 non-token children.
+  function _extractCompoundMembers(groupNode) {
+    const members = [];
+    for (const child of (groupNode.children || [])) {
+      if (child.type === 'token') continue;
+      const modInfo = extractSlotModifiers(child);
+      members.push({
+        node: child,
+        headSIs: modInfo ? modInfo.headSIs : null,
+        modifiers: modInfo ? modInfo.modifiers : [],
+      });
+    }
+    return members.length >= 2 ? members : null;
+  }
+
   // ── Clause-core derivation ────────────────────────────────────────────
 
   function deriveClauseCore(clauseNode, conjunction) {
@@ -553,6 +570,9 @@
         const embeddedRelInfo = _extractEmbeddedRelClauses(child);
         // P6-G-4: CONTENT_CLAUSE — extract inner DR for sub-diagram rendering
         const contentClause = _extractContentClause(child);
+        // DG-UX-07: 2Np compound group — preserve per-member structure
+        const compound = (child.type === 'group' && child.construction?.sourceRule === '2Np')
+          ? _extractCompoundMembers(child) : null;
         mainSlots.push({
           fn, node: child, connector: null, si: minSI(child),
           modifiers: modInfo ? modInfo.modifiers : [],
@@ -560,6 +580,7 @@
           isParticipial,
           embeddedRelClauses: embeddedRelInfo ? embeddedRelInfo.embeddedClauses : [],
           contentClause,
+          compound,
         });
       }
     }
