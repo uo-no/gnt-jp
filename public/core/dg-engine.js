@@ -386,6 +386,10 @@
       const segs = m.split('-');
       return segs.length >= 3 && segs[2][0] === 'G';
     }
+    // P-1*/P-2*: person-coded pronouns — case at m[3], not m[2]
+    if (m.length >= 4 && (m[2] === '1' || m[2] === '2')) {
+      return m[3] === 'G';
+    }
     return m[2] === 'G';
   }
 
