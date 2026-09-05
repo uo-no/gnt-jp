@@ -13792,6 +13792,38 @@ function _hdgPpNp2NpEl(srNode, depth) {
     return div.children.length ? div : null;
 }
 
+/* C-24-B.2: NpPp — NP head + trailing PP modifier; render NP head primary, PP below.
+   The last phrase.pp child is the PP modifier; all preceding children form the NP head.
+   Reuses hdg-cs-prep-phrase column layout (same as PpNp2Np).
+   Fallback: if no trailing phrase.pp found, render children in surface order. */
+function _hdgNpPpEl(srNode, depth) {
+    const children = srNode.children || [];
+    const lastIdx  = children.length - 1;
+    const hasPp    = lastIdx >= 0 && children[lastIdx].type === 'phrase.pp';
+    if (!hasPp) {
+        const fb = document.createElement('div');
+        fb.className = 'hdg-phrase hdg-cs-prep-phrase';
+        fb.dataset.nodeId = srNode.id || '';
+        for (const child of children) {
+            const el = _hdgNodeEl(child, depth + 1);
+            if (el) fb.appendChild(el);
+        }
+        return fb.children.length ? fb : null;
+    }
+    const ppMod   = children[lastIdx];
+    const npHeads = children.slice(0, lastIdx);
+    const div = document.createElement('div');
+    div.className = 'hdg-phrase hdg-cs-prep-phrase';
+    div.dataset.nodeId = srNode.id || '';
+    for (const npChild of npHeads) {
+        const el = _hdgNodeEl(npChild, depth);
+        if (el) div.appendChild(el);
+    }
+    const ppEl = _hdgPPEl(ppMod, depth);
+    if (ppEl) div.appendChild(ppEl);
+    return div.children.length ? div : null;
+}
+
 /* C-24-B.1: ADJ_MOD (AdjpNp / NpAdjp) — render HEAD structurally first, modifier below.
    AdjpNp: children = [modifier, HEAD] → HEAD = child[1].
    NpAdjp: children = [HEAD, modifier] → HEAD = child[0].
@@ -13846,6 +13878,8 @@ function _hdgPhraseEl(srNode, depth) {
     if (type === 'phrase.pp' && cs !== 'COORDINATION') return _hdgPPEl(srNode, depth);
     /* C-18: PpNp2Np — PP modifier precedes NP head in surface order; render NP head primary */
     if (rule === 'PpNp2Np') return _hdgPpNp2NpEl(srNode, depth);
+    /* C-24-B.2: NpPp — NP head + trailing PP modifier; render NP head primary, PP below */
+    if (rule === 'NpPp')    return _hdgNpPpEl(srNode, depth);
     /* C-24-B.1: ADJ_MOD (AdjpNp / NpAdjp) — render HEAD structurally first, modifier below */
     if (cs === 'ADJ_MOD' && (rule === 'AdjpNp' || rule === 'NpAdjp')) return _hdgAdjModEl(srNode, depth);
     const div = document.createElement('div');
