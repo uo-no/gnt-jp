@@ -380,8 +380,13 @@
 
   function isGenitiveToken(t) {
     const m = t.evidence && t.evidence.morph_raw;
-    // morph_raw format: "POS-CaseNumberGender" e.g. "N-GSM" — case at index 2
-    return typeof m === 'string' && m.length >= 3 && m[2] === 'G';
+    if (typeof m !== 'string' || m.length < 3) return false;
+    // V-TVM-CNG: case is segs[2][0], not m[2] (which is tense)
+    if (m.startsWith('V-')) {
+      const segs = m.split('-');
+      return segs.length >= 3 && segs[2][0] === 'G';
+    }
+    return m[2] === 'G';
   }
 
   function allGenitiveTokens(node) {
