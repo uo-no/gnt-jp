@@ -5015,6 +5015,29 @@ details[open] .study-summary::before {
     border-left-width: 1px !important;
 }
 
+/* ── D-04: HDG Head Rail (Prototype C) ────────────────────────────────
+   Specificity (0,3,0) + !important beats Phase 2-E (0,2,0) + !important.
+   Only annotated elements get accent borders; non-annotated PP stay border-less. */
+
+/* PP block: annotated only — restore border (Phase 2-E killed all PP borders) */
+.hdg-clause--sub.hdg-clause--pp[data-hdg-head-id] {
+    border-left-style: solid !important;
+    border-left-color: rgba(74, 124, 191, 0.55) !important;
+    border-left-width: 2px !important;
+}
+
+/* ADJ modifier block: annotated — upgrade from faint dotted to solid accent */
+.hdg-clause--sub.hdg-clause--adj-modifier[data-hdg-head-id] {
+    border-left-style: solid !important;
+    border-left-color: rgba(74, 124, 191, 0.45) !important;
+    border-left-width: 2px !important;
+}
+
+/* Head token anchor: thin solid accent left edge (no padding-left — border only per D-03 390px spec) */
+.dg-token[data-hdg-head-anchor] {
+    border-left: 2.5px solid rgba(74, 124, 191, 0.80);
+}
+
 /* ── RK: Baseline-Primary + Token-Light ───────────────────────────────── */
 /* .dg-view にスコープ（HDG も .dg-token を使うため混在防止） */
 
@@ -14079,6 +14102,70 @@ function _hdgNormalizeVisualDepth(sentEl) {
     }
 }
 
+/* D-04 HDG-1: Resolve ultimate head token for dependency annotation.
+   Follows head chain through AdjpNp / NpAdjp / NpPp / PpNp2Np.
+   Returns token SR node or null for ambiguous cases (COORDINATION, group, clause). */
+function _resolveHdgUltimateHead(node) {
+    if (!node) return null;
+    if (node.type === 'token') return node;
+    const rule = (node.construction && node.construction.sourceRule) || '';
+    const ch   = node.children || [];
+    if (rule === 'AdjpNp'   && ch.length >= 2) return _resolveHdgUltimateHead(ch[1]);
+    if (rule === 'NpAdjp'   && ch.length >= 2) return _resolveHdgUltimateHead(ch[0]);
+    if (rule === 'PpNp2Np'  && ch.length >= 2 && ch[0].type === 'phrase.pp')
+        return _resolveHdgUltimateHead(ch[1]);
+    if (rule === 'NpPp') {
+        const last = ch[ch.length - 1];
+        if (last && last.type === 'phrase.pp' && ch.length >= 2)
+            return _resolveHdgUltimateHead(ch[ch.length - 2]);
+    }
+    return null;
+}
+
+/* D-04 HDG-2: Walk SR subtree and annotate modifier DOM elements with head relationship.
+   Adds data-hdg-head-anchor on head token spans; data-hdg-head-id on modifier blocks.
+   DOM structure is NOT changed — only dataset attributes are added. */
+function _annotateHdgHeadDependencies(srNode, domEl) {
+    if (!srNode || !domEl) return;
+    function walk(node) {
+        if (!node) return;
+        const rule = (node.construction && node.construction.sourceRule) || '';
+        const cs   = (node.construction && node.construction.canonical)  || '';
+        const ch   = node.children || [];
+
+        if (cs === 'ADJ_MOD' && (rule === 'AdjpNp' || rule === 'NpAdjp') && ch.length >= 2) {
+            const headIdx = rule === 'AdjpNp' ? 1 : 0;
+            const modIdx  = rule === 'AdjpNp' ? 0 : 1;
+            const head = _resolveHdgUltimateHead(ch[headIdx]);
+            if (head && head.id) {
+                const headEl = domEl.querySelector('[data-node-id="' + head.id + '"]');
+                if (headEl) headEl.dataset.hdgHeadAnchor = head.id;
+                const modEl = domEl.querySelector('[data-node-id="' + (ch[modIdx].id || '') + '"]');
+                if (modEl && modEl.classList.contains('hdg-clause--adj-modifier'))
+                    modEl.dataset.hdgHeadId = head.id;
+            }
+        }
+
+        if ((rule === 'NpPp' || rule === 'PpNp2Np') && ch.length >= 2) {
+            const ppNode  = rule === 'NpPp' ? ch[ch.length - 1] : ch[0];
+            const headSrc = rule === 'NpPp' ? ch[ch.length - 2] : ch[1];
+            if (ppNode && ppNode.type === 'phrase.pp') {
+                const head = _resolveHdgUltimateHead(headSrc);
+                if (head && head.id) {
+                    const headEl = domEl.querySelector('[data-node-id="' + head.id + '"]');
+                    if (headEl) headEl.dataset.hdgHeadAnchor = head.id;
+                    const ppEl = domEl.querySelector('[data-node-id="' + (ppNode.id || '') + '"]');
+                    if (ppEl && ppEl.classList.contains('hdg-clause--pp'))
+                        ppEl.dataset.hdgHeadId = head.id;
+                }
+            }
+        }
+
+        for (const c of ch) walk(c);
+    }
+    walk(srNode);
+}
+
 function _hdgRenderSentence(sentence) {
     const root = sentence && sentence.root;
     if (!root || !_dgActiveTokenMap) return null;
@@ -14089,6 +14176,7 @@ function _hdgRenderSentence(sentence) {
     sentDiv.appendChild(el);
     _hdgNormalizeVisualDepth(sentDiv); /* Phase 2-G: SR depth → visual depth */
     _hdgAttachFold(sentDiv); /* C-17 Step 5-B */
+    _annotateHdgHeadDependencies(root, sentDiv); /* D-04: head rail annotation */
     return sentDiv;
 }
 

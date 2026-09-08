@@ -398,11 +398,62 @@
     return toks.length > 0 && toks.every(isGenitiveToken);
   }
 
+  // Case E helper: recursively follows the NP head chain inside NpPp / PpNp2Np.
+  // PP modifiers are extracted and stopped (no recursion into modifier nodes).
+  // ADJ_MOD adjective children are extracted; head child is recursed.
+  // GENITIVE_MOD and everything else → all tokens to headSIs (conservative: no modifier-of-modifier).
+  function _extractPpNpChain(node, headSIs, modifiers) {
+    if (!node) return;
+    if (node.type === 'token') { headSIs.add(node.surfaceIndex); return; }
+    const rule = (node.construction && node.construction.sourceRule) || '';
+    const cn   = (node.construction && node.construction.canonical)  || '';
+    const ch   = node.children || [];
+
+    if (rule === 'NpPp') {
+      const lastIdx = ch.length - 1;
+      const last    = lastIdx >= 0 ? ch[lastIdx] : null;
+      if (last && last.type === 'phrase.pp') {
+        modifiers.push({ node: last, label: '副詞的修飾', si: minSI(last) });
+        ch.slice(0, lastIdx).forEach(h => _extractPpNpChain(h, headSIs, modifiers));
+      } else {
+        getTokens(node).forEach(t => headSIs.add(t.surfaceIndex));
+      }
+      return;
+    }
+
+    if (rule === 'PpNp2Np') {
+      if (ch.length >= 2 && ch[0].type === 'phrase.pp') {
+        modifiers.push({ node: ch[0], label: '副詞的修飾', si: minSI(ch[0]) });
+        _extractPpNpChain(ch[1], headSIs, modifiers);
+      } else {
+        getTokens(node).forEach(t => headSIs.add(t.surfaceIndex));
+      }
+      return;
+    }
+
+    if (cn === 'ADJ_MOD' && (rule === 'AdjpNp' || rule === 'NpAdjp')) {
+      if (ch.length >= 2) {
+        const headIdx = rule === 'AdjpNp' ? 1 : 0;
+        const modIdx  = rule === 'AdjpNp' ? 0 : 1;
+        modifiers.push({ node: ch[modIdx], label: '形容詞的修飾', si: minSI(ch[modIdx]) });
+        _extractPpNpChain(ch[headIdx], headSIs, modifiers);
+      } else {
+        getTokens(node).forEach(t => headSIs.add(t.surfaceIndex));
+      }
+      return;
+    }
+
+    // GENITIVE_MOD, APPOSITION, COORDINATION, group, unknown → conservative: all tokens to head
+    getTokens(node).forEach(t => headSIs.add(t.surfaceIndex));
+  }
+
   // Returns { headSIs: Set<number>, modifiers: [{node, label, si}] } or null.
   // Handles:
   //   Case A — slot node IS a GENITIVE_MOD construction
   //   Case B — slot node contains a direct ADV_MOD child (ARTICULAR_NP wrapper)
   //   Case C — slot node contains a direct GENITIVE_MOD child (ARTICULAR_NP wrapper)
+  //   Case D — slot node IS ADJ_MOD construction
+  //   Case E — slot node contains NpPp or PpNp2Np child (PP modifier + NP head chain)
   function extractSlotModifiers(node) {
     if (!node || node.type === 'token') return null;
     const cn = node.construction && node.construction.canonical;
@@ -443,7 +494,8 @@
     let hasModifiers = false;
 
     for (const child of children) {
-      const childCn = child.construction && child.construction.canonical;
+      const childCn   = child.construction && child.construction.canonical;
+      const childRule = child.construction && child.construction.sourceRule;
 
       if (childCn === 'ADV_MOD') {
         // Case B: head = token children of ADV_MOD; modifier = phrase children of ADV_MOD
@@ -470,6 +522,11 @@
           }
         }
 
+      } else if (childRule === 'NpPp' || childRule === 'PpNp2Np') {
+        // Case E: NpPp or PpNp2Np — extract PP modifier(s) and recurse NP head chain only
+        hasModifiers = true;
+        _extractPpNpChain(child, headSIs, modifiers);
+
       } else {
         // Non-modifier child: all tokens belong to the head
         if (child.type === 'token') headSIs.add(child.surfaceIndex);
@@ -477,7 +534,11 @@
       }
     }
 
-    return (hasModifiers && modifiers.length > 0) ? { headSIs, modifiers } : null;
+    if (hasModifiers && modifiers.length > 0) {
+      modifiers.sort((a, b) => a.si - b.si);
+      return { headSIs, modifiers };
+    }
+    return null;
   }
 
   // Returns Greek text for the HEAD tokens of a slot (excluding extracted modifiers).
