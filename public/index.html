@@ -4599,6 +4599,16 @@ details[open] .study-summary::before {
     font-size: .85rem;
     margin-left: 1px;
 }
+@media (max-width: 800px) {
+    .dg-slot { flex-shrink: 1; min-width: 0; padding: .1rem .15rem; }
+    .dg-nomc { white-space: normal; max-width: 14rem; }
+    .dg-pp-np { white-space: normal; }
+    .dg-appos-wrap { max-width: 8rem; }
+    .dg-appos-head { flex-wrap: wrap; }
+    .dg-appos-appositive { white-space: normal; }
+    .dg-cc-clause-attach { padding-left: .8rem; }
+    .dg-rel-clause { padding-left: .3rem; }
+}
 @media (max-width: 480px) {
     .dg-slot-text { font-size: .9rem; max-width: 8rem; }  /* C-10: tighter wrap cap for mobile */
     .dg-slot { padding: .1rem .15rem; } /* C-8: match desktop reduction */
@@ -4611,7 +4621,7 @@ details[open] .study-summary::before {
     .dg-cc-clause-label  { font-size: 8px; }
     .dg-appos-head { font-size: .9rem; }
     .dg-appos-appositive { font-size: .82rem; }
-    .dg-nomc { font-size: .9rem; }
+    .dg-nomc { font-size: .9rem; max-width: 8rem; }
     .dg-compound-wrap { font-size: .9rem; }
 }
 
@@ -5015,7 +5025,6 @@ details[open] .study-summary::before {
 /* 1. Token を underline スタイルへ（bordered box → ベースライン上の語） */
 .dg-view .dg-token {
     border: none;
-    border-bottom: 1.5px solid rgba(0,0,0,0.14);
     background: transparent;
     border-radius: 0;
     padding: 1px 4px 2px;
@@ -5037,6 +5046,22 @@ details[open] .study-summary::before {
 .dg-rel-clause {
     border-left: none;
     padding-left: 0.5rem;
+}
+/* RK-UX-02-B Phase A: phrase-level wrapping at ≤1366px (1280px split-panel ~616px).
+   Extends content-wrapping rules from ≤800px block to the 800–1366px range.
+   Placed before the ≤800px block so mobile rules take precedence in cascade. */
+@media (max-width: 1366px) {
+    .dg-nomc             { white-space: normal; max-width: 14rem; }
+    .dg-pp-np            { white-space: normal; max-width: 14rem; }
+    .dg-appos-wrap       { max-width: 14rem; }
+    .dg-appos-head       { flex-wrap: wrap; }
+    .dg-appos-appositive { white-space: normal; }
+}
+/* RK-UX-01.1: narrow-viewport indent compression (after last global overrides above) */
+@media (max-width: 800px) {
+    .dg-rel-clause { padding-left: .1rem; }
+    .dg-adv-clause { margin-left: .75rem; padding-left: .2rem; }
+    .dg-cc-clause-attach { padding-left: .4rem; }
 }
 
 /* ── Phase 2-E 微調整: HDG root anchor を label 行高さに限定 ─────────── */
@@ -5177,6 +5202,14 @@ details[open] .study-summary::before {
     display: block;
     line-height: 1;
     margin-bottom: 2px;
+}
+/* RK-UX-01 Task C: token-level verse marker — inline, before first token of each verse */
+.dg-verse-marker {
+    color: var(--text-hint);
+    font-size: var(--text-caption);
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    margin-right: 2px;
 }
 
 </style>
@@ -12992,9 +13025,9 @@ function _dgAppendTokens(container, node, headSIs) {
         if (count > 0) container.appendChild(document.createTextNode(' '));
         const span = document.createElement('span');
         span.className = 'dg-token';
+        span.dataset.dgRef = e.ref; /* verse anchor + C-16 connector lookup */
         if (_dgAntecedentRefSet && _dgAntecedentRefSet.has(e.ref)) {
             span.classList.add('dg-token--antecedent'); /* C-10 */
-            span.dataset.dgRef = e.ref; /* C-16: connector lookup */
         }
         span.textContent = e.japanese;
         span.addEventListener('click', (ev) => {
@@ -14413,6 +14446,31 @@ function _dgApplyVerseAnchors(dgView, sentenceVerses) {
     return fullyCovered;
 }
 
+/* RK-UX-01 Task C: inject .dg-verse-marker before the canonical first token of each verse.
+   Two-pass: (1) find min token-index per verse from data-dg-ref; (2) insert marker.
+   All sentences (single- and multi-verse) get verse markers. */
+function _dgApplyTokenVerseMarkers(dgView) {
+    const tokens = [...dgView.querySelectorAll('.dg-token[data-dg-ref]')];
+    if (tokens.length === 0) return;
+    const verseOf = ref => { const m = ref.match(/:(\d+)!/); return m ? +m[1] : null; };
+    const indexOf = ref => { const m = ref.match(/!(\d+)$/); return m ? +m[1] : Infinity; };
+    const verseMin = new Map(); /* verse → { index, token } */
+    for (const tok of tokens) {
+        const v = verseOf(tok.dataset.dgRef);
+        const n = indexOf(tok.dataset.dgRef);
+        if (v === null) continue;
+        if (!verseMin.has(v) || n < verseMin.get(v).index) verseMin.set(v, { index: n, token: tok });
+    }
+    if (verseMin.size === 0) return;
+    for (const { token } of verseMin.values()) {
+        const v = verseOf(token.dataset.dgRef);
+        const marker = document.createElement('span');
+        marker.className = 'dg-verse-marker';
+        marker.textContent = String(v);
+        token.parentNode.insertBefore(marker, token);
+    }
+}
+
 function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase 1: kind='hierarchical'|'structural-diagram' */
     const jaByRef = _sdCollectJaByRef(elData);
     const wrap = document.createElement('div');
@@ -14575,14 +14633,10 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
                         const _dgView = document.createElement('div');
                         _dgView.className = 'dg-view';
                         _dgView.appendChild(_dgEl);
-                        const _rkClean = _dgApplyVerseAnchors(_dgView, _dgSentenceVerses(sentence.root)); /* C-22 */
+                        _dgApplyTokenVerseMarkers(_dgView); /* RK-UX-01 Task C */
                         secEl.appendChild(_dgView);
                         _dgRendered = true;
-                        if (_rkClean) {
-                            refEl.remove(); /* C-22: fully covered — per-slot verse numbers shown */
-                        } else {
-                            refEl.classList.add('sd-sentence-ref--dg'); /* C-9 / C-22 fallback */
-                        }
+                        refEl.remove(); /* RK-UX-01 Task C: no sentence range header */
                     }
                 }
             } catch (_) { /* silent fallback */ }
