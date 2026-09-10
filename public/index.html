@@ -5549,8 +5549,8 @@ details[open] .study-summary::before {
 <div id="bible-picker-backdrop" onclick="bpBackdropClick(event)">
     <div id="bible-picker-popup" onclick="event.stopPropagation()">
         <div class="bp-header">
-            <div class="bp-title">聖書・翻訳を選ぶ</div>
-            <div class="bp-subtitle">読む聖書を選ぶ</div>
+            <div class="bp-title">読み方を選ぶ</div>
+            <div class="bp-subtitle">読み方を選ぶ</div>
         </div>
         <div class="bp-segment-wrap">
             <div class="bp-segment">
@@ -5594,7 +5594,7 @@ details[open] .study-summary::before {
 
     <!-- Layer 0: トップメニュー（常に表示） -->
     <div class="sb-layer active" id="sb-layer0">
-        <div class="section-label sb-bible-label" style="padding: var(--space-sm) var(--space-sm) var(--space-xs);" onclick="openBiblePicker()" title="翻訳を選ぶ">
+        <div class="section-label sb-bible-label" style="padding: var(--space-sm) var(--space-sm) var(--space-xs);" onclick="openBiblePicker()" title="読み方を選ぶ">
             <span id="sb-bible-label-text">聖書</span><span class="sb-bible-label-arrow">⌄</span>
         </div>
         <div class="sb-row" id="sb-ot-row" onclick="sbGoTo(1,'ot')">
@@ -5993,7 +5993,7 @@ const TRANSLATIONS = {
     'BUN':    { label: '文語訳',             code: 'BUN'    },
 /*  'KAI17':  { label: '新改訳2017',         code: 'KAI17'  },
     'KYO':    { label: '聖書協会共同訳',     code: 'KYO'    },*/
-    'FLOW':   { label: '読解フロー',         code: 'FLOW'   },
+    'FLOW':   { label: '語順で読む',          code: 'FLOW'   },
     /* DA-1: 談話分析（節と節のつながり）。FLOW と同じく疑似翻訳ID（訳文JSONを持たない
        Greek由来の読み方）。URL互換のため TRANSLATIONS に置く。 */
     'DISCOURSE': { label: '談話分析',        code: 'DISCOURSE' },
@@ -6001,8 +6001,8 @@ const TRANSLATIONS = {
        独立パイプライン。flow-tree・Reading Engine とは完全に分離。 */
     'STRUCTURAL': { label: '構文ダイアグラム', code: 'STRUCTURAL' },
     /* C-17 Phase 1: 3-mode registry. STRUCTURAL は REED_KELLOGG の legacy URL alias として維持。 */
-    'HIERARCHICAL': { label: '階層ダイアグラム', code: 'HIERARCHICAL' },
-    'REED_KELLOGG': { label: 'Reed–Kellogg',    code: 'REED_KELLOGG' },
+    'HIERARCHICAL': { label: '構造で読む',        code: 'HIERARCHICAL' },
+    'REED_KELLOGG': { label: '文の役割で読む',    code: 'REED_KELLOGG' },
 };
 const TRANS_LIST   = Object.entries(TRANSLATIONS).map(([id, t]) => ({ id, name: t.label, code: t.code }));
 const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t]) => [id, t.label]));
@@ -6013,7 +6013,7 @@ const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t
  * Bible Picker の「翻訳を選択」グループはここを正とする。
  */
 const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
-    .filter(([id]) => id !== 'FLOW' && id !== 'DISCOURSE' && id !== 'STRUCTURAL' && id !== 'HIERARCHICAL' && id !== 'REED_KELLOGG')
+    .filter(([id]) => id !== 'FLOW' && id !== 'DISCOURSE' && id !== 'STRUCTURAL' && id !== 'HIERARCHICAL' && id !== 'REED_KELLOGG' && id !== 'BUN')
     .map(([id, t]) => ({ id, label: t.label, code: t.code }));
 
 /**
@@ -16909,9 +16909,7 @@ function _bpRenderSingle() {
             </div>
             <span class="bp-trans-check icon">${icon('check')}</span>
         </div>`;
-    document.getElementById('bp-single-body').innerHTML =
-        `<span class="bp-compare-side-label">翻訳を選択</span>${transHTML}` +
-        `<span class="bp-compare-side-label" style="margin-top:var(--space-md);">読み方を選択</span>${flowHTML}`;
+    document.getElementById('bp-single-body').innerHTML = transHTML + flowHTML;
 }
 
 function _bpRenderCompare() {
@@ -16936,9 +16934,7 @@ function _bpRenderCompare() {
             <span class="bp-compare-opt-dot"></span>
             <span class="bp-compare-opt-name">${TRANSLATIONS.REED_KELLOGG.label}</span>
         </div>`;
-    document.getElementById('bp-col-a').innerHTML =
-        `<span class="bp-compare-side-label">翻訳を選択</span>${colATrans}` +
-        `<span class="bp-compare-side-label" style="margin-top:var(--space-md);">読み方を選択</span>${colAFlow}`;
+    document.getElementById('bp-col-a').innerHTML = colATrans + colAFlow;
 
     /* 右列：左と同じ翻訳は除外。左がFLOWのとき右にFLOWは選べない（同一不可、旧実装と同じ制約） */
     const colBTrans = TRANSLATION_REGISTRY.filter(t => t.id !== _bpSelA).map(t =>
@@ -16949,14 +16945,12 @@ function _bpRenderCompare() {
     ).join('');
     /* C-17 Phase 1: 新モード（HIERARCHICAL/REED_KELLOGG）を A に選択時は B の「読み方を選択」を非表示（FLOW と同じ扱い）。 */
     const colBFlow = (_bpSelA !== 'FLOW' && _bpSelA !== 'HIERARCHICAL' && _bpSelA !== 'REED_KELLOGG')
-        ? `<span class="bp-compare-side-label" style="margin-top:var(--space-md);">読み方を選択</span>
-           <div class="bp-compare-opt${_bpSelB === 'FLOW' ? ' active' : ''}" onclick="bpSelectB('FLOW')">
+        ? `<div class="bp-compare-opt${_bpSelB === 'FLOW' ? ' active' : ''}" onclick="bpSelectB('FLOW')">
                <span class="bp-compare-opt-dot"></span>
                <span class="bp-compare-opt-name">${TRANSLATIONS.FLOW.label}</span>
            </div>`
         : '';
-    document.getElementById('bp-col-b').innerHTML =
-        `<span class="bp-compare-side-label">翻訳を選択</span>${colBTrans}${colBFlow}`;
+    document.getElementById('bp-col-b').innerHTML = colBTrans + colBFlow;
     _bpRenderCompareExternal();
 }
 
