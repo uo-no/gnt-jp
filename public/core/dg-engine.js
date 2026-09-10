@@ -10,6 +10,7 @@
  * DR_Clause schema
  *   id               string
  *   conjunction      string|null   — leading conjunction token text
+ *   conjunctionRef   string|null   — evidence.ref of the leading conjunction token (D-9-E)
  *   slots            DR_Slot[]     — main-line elements sorted by surfaceIndex
  *   adverbialPhrases DR_AdvPhrase[] — ADVERBIAL phrase/token nodes
  *   adverbialClauses DR_Clause[]   — ADVERBIAL subordinate clauses
@@ -30,8 +31,10 @@
  *   headSIs         Set|null — surface indices of head tokens (P5-D-1/P6-C)
  *   isParticipial   boolean  — participial PREDICATE/COPULA (P5-D-1)
  *   embeddedRelClauses []    — embedded relative clauses for CLAUSE_AS_NP (P6-C)
- *   contentClause   null | {conjunction: string|null, innerDR: DR_Clause, label: string|null}
+ *   contentClause   null | {conjunction: string|null, conjunctionRef: string|null,
+ *                            innerDR: DR_Clause, label: string|null}
  *                            — inner DR for clause/group-type MAIN_FN slots (P6-G-4, P6-G.11.3)
+ *                              conjunctionRef: evidence.ref of conjunction token (D-9-E).
  *                              label: display fallback when conjunction is null.
  *                              null for CONTENT_CLAUSE (backward-compatible).
  *
@@ -210,14 +213,15 @@
              c.evidence.morph_raw.startsWith('CONJ')
       );
       const inner = children.find(c => c.type === 'clause' || c.type === 'group');
-      const conjunction = conjTok ? conjTok.text || null : null;
+      const conjunction    = conjTok ? conjTok.text || null : null;
+      const conjunctionRef = conjTok ? (conjTok.evidence?.ref || null) : null;
       const innerDR = inner
         ? (inner.type === 'clause'
             ? deriveClauseCore(inner, conjunction)
             : deriveFromGroup(inner, conjunction))
         : deriveClauseCore(node, conjunction);
       if (!innerDR) return null;
-      return { conjunction, innerDR, label: null };
+      return { conjunction, conjunctionRef, innerDR, label: null };
     }
 
     // ── SUBORDINATE_CLAUSE: [CONJ token] + [inner clause/group] ──────────
@@ -227,14 +231,15 @@
         c => c.type === 'token' && c.evidence?.morph_raw?.startsWith('CONJ')
       );
       const inner = children.find(c => c.type === 'clause' || c.type === 'group');
-      const conjunction = conjTok?.text || null;
+      const conjunction    = conjTok?.text           || null;
+      const conjunctionRef = conjTok?.evidence?.ref  || null;
       const innerDR = inner
         ? (inner.type === 'clause'
             ? deriveClauseCore(inner, conjunction)
             : deriveFromGroup(inner, conjunction))
         : deriveClauseCore(node, conjunction);
       if (!innerDR || _isEmptyDR(innerDR)) return null;
-      return { conjunction, innerDR, label: '従属節' };
+      return { conjunction, conjunctionRef, innerDR, label: '従属節' };
     }
 
     // ── PARTICIPIAL_CLAUSE: [optional CONJ] + [inner clause/group] ───────
@@ -244,14 +249,15 @@
         c => c.type === 'token' && c.evidence?.morph_raw?.startsWith('CONJ')
       );
       const inner = children.find(c => c.type === 'clause' || c.type === 'group');
-      const conjunction = conjTok?.text || null;
+      const conjunction    = conjTok?.text           || null;
+      const conjunctionRef = conjTok?.evidence?.ref  || null;
       const innerDR = inner
         ? (inner.type === 'clause'
             ? deriveClauseCore(inner, conjunction)
             : deriveFromGroup(inner, conjunction))
         : deriveClauseCore(node, conjunction);
       if (!innerDR || _isEmptyDR(innerDR)) return null;
-      return { conjunction, innerDR, label: '分詞節' };
+      return { conjunction, conjunctionRef, innerDR, label: '分詞節' };
     }
 
     // ── Bare clause (no construction): node IS the inner clause ──────────
@@ -686,6 +692,7 @@
     return {
       id: clauseNode.id,
       conjunction,
+      conjunctionRef: null,
       slots: mainSlots,
       adverbialPhrases,
       adverbialClauses,
@@ -711,7 +718,7 @@
       // Each clause child is derived independently; the group DR becomes isCoordination=true.
       // The renderer already handles isCoordination DRs at index.html:12570.
       dr = {
-        id: node.id, conjunction,
+        id: node.id, conjunction, conjunctionRef: null,
         slots: [], adverbialPhrases: [], adverbialClauses: [],
         isCoordination: true,
         coordClauses: clauseChildren.map((cl, i) =>
@@ -724,7 +731,7 @@
       dr = deriveClauseCore(clauseChild, conjunction);
     } else {
       dr = {
-        id: node.id, conjunction,
+        id: node.id, conjunction, conjunctionRef: null,
         slots: [], adverbialPhrases: [], adverbialClauses: [],
         isCoordination: false, coordClauses: [], noVerb: true,
         isParticipalClause: false,
@@ -806,17 +813,22 @@
             c => c.type === 'clause' || c.type === 'group'
           );
           if (inner) {
-            const conj = conjTok?.text || null;
+            const conj    = conjTok?.text          || null;
+            const conjRef = conjTok?.evidence?.ref || null;
             const sub = inner.type === 'clause'
               ? deriveClauseCore(inner, conj)
               : deriveFromGroup(inner, conj);
-            if (sub) coordClauses.push(sub);
+            if (sub) {
+              sub.conjunctionRef = conjRef;
+              coordClauses.push(sub);
+            }
           }
         }
       }
       return {
         id: node.id,
         conjunction: null,
+        conjunctionRef: null,
         slots: [],
         adverbialPhrases: [],
         adverbialClauses: [],
@@ -835,11 +847,14 @@
       if (inner) {
         const dr = deriveFromNode(inner);
         if (dr) {
-          dr.conjunction = conjTok?.text || null;
+          dr.conjunction    = conjTok?.text          || null;
+          dr.conjunctionRef = conjTok?.evidence?.ref || null;
           return dr;
         }
       }
-      return deriveClauseCore(node, conjTok?.text || null);
+      const _drFallback = deriveClauseCore(node, conjTok?.text || null);
+      if (_drFallback) _drFallback.conjunctionRef = conjTok?.evidence?.ref || null;
+      return _drFallback;
     }
 
     // SUBORDINATE_CLAUSE / RELATIVE_CLAUSE / CONTENT_CLAUSE / PARTICIPIAL_CLAUSE
@@ -854,9 +869,12 @@
         const dr = inner.type === 'clause'
           ? deriveClauseCore(inner, conjTok?.text || null)
           : deriveFromGroup(inner, conjTok?.text || null);
+        if (dr) dr.conjunctionRef = conjTok?.evidence?.ref || null;
         return dr;
       }
-      return deriveClauseCore(node, conjTok?.text || null);
+      const _drFb = deriveClauseCore(node, conjTok?.text || null);
+      if (_drFb) _drFb.conjunctionRef = conjTok?.evidence?.ref || null;
+      return _drFb;
     }
 
     // Regular clause (any other construction, including WORD_ORDER axis)

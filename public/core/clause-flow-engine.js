@@ -146,7 +146,7 @@
    * No semantic inference. marker.text is always raw conjunction text or null.
    * @param {object} dr
    * @param {string} structuralRole
-   * @param {object|null} relationMeta  { contentConjunction, contentLabel }
+   * @param {object|null} relationMeta  { contentConjunction, contentConjunctionRef, contentLabel }
    * @returns {object|null}
    */
   function _buildMarker(dr, structuralRole, relationMeta) {
@@ -154,9 +154,9 @@
 
     if (structuralRole === 'CONTENT') {
       return {
-        text:     (relationMeta && relationMeta.contentConjunction) || null,
-        label:    (relationMeta && relationMeta.contentLabel)       || null,
-        tokenRef: null,
+        text:     (relationMeta && relationMeta.contentConjunction)    || null,
+        label:    (relationMeta && relationMeta.contentLabel)           || null,
+        tokenRef: (relationMeta && relationMeta.contentConjunctionRef) || null,
       };
     }
 
@@ -170,9 +170,9 @@
 
     // ADVERBIAL | PARTICIPIAL | COORDINATED
     return {
-      text:     dr.conjunction || null,
+      text:     dr.conjunction    || null,
       label:    null,
-      tokenRef: null,
+      tokenRef: dr.conjunctionRef || null,
     };
   }
 
@@ -295,8 +295,9 @@
       if (!cc || !cc.innerDR) continue;
       var childPath = parentPath + '.s[' + i + '].CC';
       var meta = {
-        contentConjunction: cc.conjunction || null,
-        contentLabel:       cc.label       || null,
+        contentConjunction:    cc.conjunction    || null,
+        contentConjunctionRef: cc.conjunctionRef || null,
+        contentLabel:          cc.label          || null,
       };
       var child = _buildClauseFlowNode(cc.innerDR, childPath, 'CONTENT', meta);
       if (child) children.push(child);

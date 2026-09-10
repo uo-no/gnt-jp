@@ -87,23 +87,103 @@
     return el;
   }
 
-  // ── Token click ───────────────────────────────────────────────────────────
+  // ── Marker helpers ────────────────────────────────────────────────────────
 
-  function _makeClickable(el, tokenRefs, opts) {
-    if (!tokenRefs || tokenRefs.length === 0 || !opts.onTokenClick) return;
-    var ref  = tokenRefs[0];
-    var data = opts.tokenMap ? (opts.tokenMap[ref] || null) : null;
-    el.setAttribute('tabindex', '0');
-    el.setAttribute('role', 'button');
-    if (data && data.text) el.setAttribute('aria-label', data.text);
-    el.classList.add('cf-clickable');
-    el.addEventListener('click', function () { opts.onTokenClick(ref, data); });
-    el.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        opts.onTokenClick(ref, data);
+  // Returns true when ja is a structural-annotation bracket value (not reading surface).
+  // Pattern matches ［ 〔 「 【 （ [ 〔 opening brackets.
+  function _isBracketJa(ja) {
+    return /^[［〔「【（\[〔]/.test(ja);
+  }
+
+  // D-9-C: Build marker element for a ClauseFlow node header.
+  // Reading Surface rules:
+  //   Case 1 (tokenRef present): RELATIVE pronoun → Japanese via tokenMap → clickable token.
+  //   Case 2 (tokenRef absent):  conjunction → conjJaMap lookup → non-bracket Japanese display.
+  // Greek fallback: NEVER. Bracket Japanese: hidden. Label-only: hidden (shown by cf-role).
+  function _buildMarkerEl(marker, opts) {
+    // Case 1: tokenRef present — use tokenMap[tokenRef].japanese directly (clickable).
+    // Covers RELATIVE pronouns (〜する者) and conjunctions with conjunctionRef (D-9-E).
+    // Bracket Japanese (［目的語句］ etc.) is displayed as-is; no suppression here.
+    if (marker.tokenRef && opts.tokenMap) {
+      var tok = opts.tokenMap[marker.tokenRef] || null;
+      if (!tok) return null;
+      var ja = tok.japanese || '';
+      if (ja.charAt(0) === '〜') ja = ja.slice(1);
+      if (!ja) return null;
+      return _makeTokenSpan(marker.tokenRef, tok, ja, opts);
+    }
+
+    // Case 2: no tokenRef — conjJaMap fallback (non-clickable, bracket suppressed).
+    var markerText = marker.text;
+    if (!markerText || !opts.conjJaMap) return null;
+    var cJa = opts.conjJaMap[markerText]
+           || opts.conjJaMap[markerText.replace(/[,;·']+$/, '')];
+    if (!cJa || _isBracketJa(cJa)) return null;
+    return _setText(_el('span', 'cf-marker'), cJa);
+  }
+
+  // ── Japanese token rendering ──────────────────────────────────────────────
+
+  // Build a single clickable Japanese token span.
+  // Each token is an independent click target; aria-label uses Greek for accessibility.
+  function _makeTokenSpan(ref, tok, text, opts) {
+    var span = _setText(_el('span', 'cf-token cf-japanese'), text);
+    if (tok && opts.onTokenClick) {
+      span.setAttribute('tabindex', '0');
+      span.setAttribute('role', 'button');
+      if (tok.text) span.setAttribute('aria-label', tok.text);
+      span.classList.add('cf-clickable');
+      (function (r, t) {
+        span.addEventListener('click', function () { opts.onTokenClick(r, t); });
+        span.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            opts.onTokenClick(r, t);
+          }
+        });
+      })(ref, tok);
+    }
+    return span;
+  }
+
+  // Render tokenRefs as individual Japanese token spans (standard order).
+  // Determiners (japanese starts with '［') are suppressed.
+  // Tilde prefix ('〜') is stripped; the suffix is shown.
+  function _renderJapaneseTokens(tokenRefs, opts) {
+    if (!tokenRefs || tokenRefs.length === 0) return [];
+    var spans = [];
+    for (var i = 0; i < tokenRefs.length; i++) {
+      var ref = tokenRefs[i];
+      var tok = opts.tokenMap ? (opts.tokenMap[ref] || null) : null;
+      var ja  = tok ? (tok.japanese || '') : '';
+      if (!ja || ja.charAt(0) === '［') continue;
+      if (ja.charAt(0) === '〜') ja = ja.slice(1);
+      if (!ja) continue;
+      spans.push(_makeTokenSpan(ref, tok, ja, opts));
+    }
+    return spans;
+  }
+
+  // Render PP tokenRefs with Japanese word-order reordering: NP first, postfix last.
+  // Preposition tokens (japanese starts with '〜') become postfix after NP tokens.
+  // Determiners are suppressed.
+  function _renderPPJapaneseTokens(tokenRefs, opts) {
+    if (!tokenRefs || tokenRefs.length === 0) return [];
+    var npSpans   = [];
+    var postSpans = [];
+    for (var i = 0; i < tokenRefs.length; i++) {
+      var ref = tokenRefs[i];
+      var tok = opts.tokenMap ? (opts.tokenMap[ref] || null) : null;
+      var ja  = tok ? (tok.japanese || '') : '';
+      if (!ja || ja.charAt(0) === '［') continue;
+      if (ja.charAt(0) === '〜') {
+        var postText = ja.slice(1);
+        if (postText) postSpans.push(_makeTokenSpan(ref, tok, postText, opts));
+      } else {
+        npSpans.push(_makeTokenSpan(ref, tok, ja, opts));
       }
-    });
+    }
+    return npSpans.concat(postSpans);
   }
 
   // ── Predicate row ─────────────────────────────────────────────────────────
@@ -112,10 +192,11 @@
     if (!pred) return null;
     var row   = _el('div', 'cf-row cf-predicate');
     var label = _setText(_el('span', 'cf-label'), '述語');
-    var val   = _setText(_el('span', 'cf-text cf-greek'), pred.text || '');
-    _makeClickable(val, pred.tokenRefs, opts);
+    var valEl = _el('span', 'cf-tokens');
+    var spans = _renderJapaneseTokens(pred.tokenRefs, opts);
+    for (var i = 0; i < spans.length; i++) valEl.appendChild(spans[i]);
     row.appendChild(label);
-    row.appendChild(val);
+    row.appendChild(valEl);
     return row;
   }
 
@@ -125,11 +206,12 @@
     var row   = _el('div', 'cf-row cf-argument');
     row.setAttribute('data-fn', arg.function || '');
     var label = _setText(_el('span', 'cf-label'), ARG_LABEL[arg.function] || arg.function || '');
-    var cls   = arg.isContentClause ? 'cf-text cf-greek cf-text--cc' : 'cf-text cf-greek';
-    var val   = _setText(_el('span', cls), arg.text || '');
-    _makeClickable(val, arg.tokenRefs, opts);
+    var cls   = arg.isContentClause ? 'cf-tokens cf-tokens--cc' : 'cf-tokens';
+    var valEl = _el('span', cls);
+    var spans = _renderJapaneseTokens(arg.tokenRefs, opts);
+    for (var i = 0; i < spans.length; i++) valEl.appendChild(spans[i]);
     row.appendChild(label);
-    row.appendChild(val);
+    row.appendChild(valEl);
     return row;
   }
 
@@ -138,18 +220,15 @@
   function _renderPhrase(phrase, opts) {
     var row   = _el('div', 'cf-row cf-phrase');
     row.setAttribute('data-phrase-type', phrase.phraseType || '');
-    var labelText = phrase.phraseType === 'PP' ? 'PP' : '副詞';
+    var labelText = phrase.phraseType === 'PP' ? '前置詞句' : '副詞';
     var label = _setText(_el('span', 'cf-label'), labelText);
-    var displayText;
-    if (phrase.phraseType === 'PP' && phrase.prepText) {
-      displayText = phrase.prepText + ' ' + (phrase.npText || phrase.text || '');
-    } else {
-      displayText = phrase.text || '';
-    }
-    var val = _setText(_el('span', 'cf-text cf-greek'), displayText);
-    _makeClickable(val, phrase.tokenRefs, opts);
+    var valEl = _el('span', 'cf-tokens');
+    var spans = phrase.phraseType === 'PP'
+      ? _renderPPJapaneseTokens(phrase.tokenRefs, opts)
+      : _renderJapaneseTokens(phrase.tokenRefs, opts);
+    for (var i = 0; i < spans.length; i++) valEl.appendChild(spans[i]);
     row.appendChild(label);
-    row.appendChild(val);
+    row.appendChild(valEl);
     return row;
   }
 
@@ -168,16 +247,12 @@
     var headerEl    = _el('div', 'cf-node-header');
     var headerEmpty = true;
 
-    // Marker: conjunction text or relative pronoun label — non-ROOT only
+    // Marker: real token or conjunction — non-ROOT only.
+    // D-9-C: Reading Surface only. Greek display removed. Bracket Japanese hidden.
     if (node.marker && node.structuralRole !== 'ROOT') {
-      var markerText = node.marker.text || node.marker.label;
-      // P1-5: RELATIVE — resolve tokenRef to Greek text via tokenMap (token lookup, not inference)
-      if (!markerText && node.marker.tokenRef && opts.tokenMap) {
-        var _relTok = opts.tokenMap[node.marker.tokenRef];
-        if (_relTok && _relTok.text) markerText = _relTok.text;
-      }
-      if (markerText) {
-        headerEl.appendChild(_setText(_el('span', 'cf-marker cf-greek'), markerText));
+      var _mEl = _buildMarkerEl(node.marker, opts);
+      if (_mEl) {
+        headerEl.appendChild(_mEl);
         headerEmpty = false;
       }
     }
@@ -275,11 +350,18 @@
     var opts = {
       tokenMap:     (options && options.tokenMap)     || null,
       onTokenClick: (options && options.onTokenClick) || null,
+      conjJaMap:    (options && options.conjJaMap)    || null,
     };
 
     try {
       var treeEl = _el('div', 'cf-tree');
       treeEl.setAttribute('data-sentence-ref', cft.sentenceRef || '');
+
+      // D-8: visible sentence reference — book prefix stripped ("COL 1:3" → "1:3")
+      var _sentLabel = (cft.sentenceRef || '').replace(/^\S+\s+/, '');
+      if (_sentLabel) {
+        treeEl.appendChild(_setText(_el('div', 'cf-sentence-ref'), _sentLabel));
+      }
 
       var rootNodeEl = _renderNode(cft.root, opts);
       if (!rootNodeEl) return null;
