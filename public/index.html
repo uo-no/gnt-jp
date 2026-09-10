@@ -5670,6 +5670,7 @@ details[open] .study-summary::before {
 <script src="../core/rk-page-layout.js"></script>
 <script src="../core/rk-geometry-layout.js"></script>
 <script src="../core/rk-renderer.js"></script>
+<script src="../core/clause-flow-engine.js"></script>
 <script>
 let abbottSmithDict = null;
 let _proximityTokens = [];
@@ -14800,6 +14801,18 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
                                 _annotateRelClauses(_dr, _connMap);
                             }
                         } catch (_) { /* silent — connector derivation failure must not block DG render */ }
+                    }
+                    /* Phase 6-2-C: ClauseFlowTree Builder.
+                       Runs after _annotateRelClauses so relPronRef/isRelativeClause are set.
+                       Output is not yet rendered — Renderer is Phase 6-2-D. */
+                    if (window.ClauseFlowEngine) {
+                        try {
+                            window.ClauseFlowEngine.buildClauseFlowTree(
+                                _dr,
+                                sentence.ref,
+                                sentence.flatNodeCount
+                            );
+                        } catch (_) { /* silent — ClauseFlow build failure must not block existing render */ }
                     }
                     /* Phase 4-5-D: RK SVG pipeline.
                        Runs after _annotateRelClauses so antecedentRef is set on RC nodes.
