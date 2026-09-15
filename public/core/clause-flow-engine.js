@@ -60,6 +60,16 @@
  *   Reuses _sf35ClauseRole for role assignment.
  *   Nested GROUP (GROUP → GROUP → clause) is deferred to SF-38.
  *
+ * SF-38: GROUP argument nested clause children
+ *   Extends SF-37 to clause descendants inside nested GROUP children.
+ *   _sf38CollectDescClauseSIs() recursively collects all descendant clause token SIs
+ *   from the GROUP subtree (stops at clause boundaries), replacing SF-37's flat
+ *   direct-clause-only SI collection in _buildArguments().
+ *   _buildChildren step [10] appends nested clause CF children after SF-37's step [9].
+ *   can[j] counter continues from step [9] (direct clauses first, nested appended).
+ *   sourcePath: '<parentPath>.s[i].can[j]' — same format, no new depth encoding.
+ *   Maximum NT nesting depth = 2 (confirmed; depth ≥ 3 = 0 in full NT audit).
+ *
  * Exports: window.ClauseFlowEngine = { buildClauseFlowTree }
  */
 (function (global) {
@@ -187,6 +197,34 @@
     // bare (cn=undefined) or unrecognised
     if (parentCn === 'NOMINALIZED_CLAUSE')                      return 'NOMINALIZED_CLAUSE';
     return 'RELATIVE';
+  }
+
+  // SF-38 helpers: collect clause descendants from GROUP subtree
+  function _sf38CollectDescClauseSIs(node, out) {
+    var ch = node.children || [];
+    for (var _i = 0; _i < ch.length; _i++) {
+      if (ch[_i].type === 'clause') {
+        var t = _getTokensSorted(ch[_i]);
+        for (var _j = 0; _j < t.length; _j++) {
+          out.add(t[_j].surfaceIndex);
+        }
+      } else if (ch[_i].type === 'group') {
+        _sf38CollectDescClauseSIs(ch[_i], out);
+      }
+      // Do not recurse into clause nodes.
+      // Their internal sub-clauses are owned by the clause subtree itself.
+    }
+  }
+
+  function _sf38CollectNestedClauses(node, out) {
+    var ch = node.children || [];
+    for (var _i = 0; _i < ch.length; _i++) {
+      if (ch[_i].type === 'clause') {
+        out.push(ch[_i]);
+      } else if (ch[_i].type === 'group') {
+        _sf38CollectNestedClauses(ch[_i], out);
+      }
+    }
   }
 
   // ── NodeType ───────────────────────────────────────────────────────────
@@ -370,31 +408,25 @@
         }
       }
 
-      // SF-37: GROUP argument direct clause extraction.
-      // When slot.node.type === 'group', exclude direct clause children's tokens
-      // from argument tokenRefs. Clause children emitted via _buildChildren step [9].
-      // Zero-direct-clause-child cases fall through unchanged.
-      // Nested GROUP (GROUP → GROUP → clause) is intentionally deferred to SF-38.
+      // SF-38: GROUP argument clause extraction (extends SF-37).
+      // Recursively collects ALL descendant clause token SIs from the GROUP subtree
+      // (including nested GROUP children; stops at clause boundaries).
+      // For direct-only GROUPs (catA), behavior is identical to SF-37.
+      // For nested-only GROUPs (catB), now fires and excludes nested clause tokens.
+      // Clause children emitted via _buildChildren steps [9] (direct) and [10] (nested).
       if (slot.contentClause == null) {
         if (slot.node.type === 'group') {
-          var _sf37Ch = slot.node.children || [];
-          var _sf37SIs = new Set();
-          for (var _sf37ci = 0; _sf37ci < _sf37Ch.length; _sf37ci++) {
-            if (_sf37Ch[_sf37ci].type !== 'clause') continue;
-            var _sf37Toks = _getTokensSorted(_sf37Ch[_sf37ci]);
-            for (var _sf37ti = 0; _sf37ti < _sf37Toks.length; _sf37ti++) {
-              _sf37SIs.add(_sf37Toks[_sf37ti].surfaceIndex);
+          var _sf38SIs = new Set();
+          _sf38CollectDescClauseSIs(slot.node, _sf38SIs);
+          if (_sf38SIs.size > 0) {
+            var _sf38NodeToks = _getTokensSorted(slot.node);
+            var _sf38Refs = [];
+            for (var _sf38ti = 0; _sf38ti < _sf38NodeToks.length; _sf38ti++) {
+              if (_sf38SIs.has(_sf38NodeToks[_sf38ti].surfaceIndex)) continue;
+              var _sf38R = _sf38NodeToks[_sf38ti].evidence && _sf38NodeToks[_sf38ti].evidence.ref;
+              if (_sf38R != null && _sf38R !== '') _sf38Refs.push(_sf38R);
             }
-          }
-          if (_sf37SIs.size > 0) {
-            var _sf37NodeToks = _getTokensSorted(slot.node);
-            var _sf37Refs = [];
-            for (var _sf37ti2 = 0; _sf37ti2 < _sf37NodeToks.length; _sf37ti2++) {
-              if (_sf37SIs.has(_sf37NodeToks[_sf37ti2].surfaceIndex)) continue;
-              var _sf37R = _sf37NodeToks[_sf37ti2].evidence && _sf37NodeToks[_sf37ti2].evidence.ref;
-              if (_sf37R != null && _sf37R !== '') _sf37Refs.push(_sf37R);
-            }
-            _tokenRefs = _sf37Refs;
+            _tokenRefs = _sf38Refs;
           }
         }
       }
@@ -497,6 +529,7 @@
    *   [7] CLAUSE_AS_NP / NOMINALIZED_CLAUSE argument slot clause children (SF-35)
    *   [8] Generalized ppNpNode clause children, non-CLAUSE_AS_NP phrases (SF-35)
    *   [9] GROUP argument direct clause children (SF-37)
+   *   [10] GROUP argument nested clause children (SF-38)
    * @param {object} dr
    * @param {string} parentPath
    * @returns {ClauseFlowNode[]}
@@ -694,6 +727,82 @@
           }
         } catch (_) { /* silent — must not block parent */ }
         _sf37canIdx9++;
+      }
+    }
+
+    // [10] GROUP argument nested clause children (SF-38)
+    // Clause descendants of nested GROUP children, sorted by surfaceIndex.
+    // can[j] continues after the direct-clause children emitted by SF-37.
+    for (var _sf38si = 0; _sf38si < slots.length; _sf38si++) {
+      var _sf38slot = slots[_sf38si];
+
+      if (_sf38slot.fn === 'PREDICATE' || _sf38slot.fn === 'COPULA') continue;
+      if (_sf38slot.contentClause != null) continue;
+      if (!_sf38slot.node || _sf38slot.node.type !== 'group') continue;
+
+      // Count direct clauses already emitted by SF-37.
+      var _sf38canBase = 0;
+      var _sf38dirCh = _sf38slot.node.children || [];
+
+      for (var _sf38bi = 0; _sf38bi < _sf38dirCh.length; _sf38bi++) {
+        if (_sf38dirCh[_sf38bi].type === 'clause') {
+          _sf38canBase++;
+        }
+      }
+
+      // Collect clauses under nested GROUP children.
+      var _sf38nested = [];
+
+      for (var _sf38gi = 0; _sf38gi < _sf38dirCh.length; _sf38gi++) {
+        if (_sf38dirCh[_sf38gi].type !== 'group') continue;
+
+        _sf38CollectNestedClauses(
+          _sf38dirCh[_sf38gi],
+          _sf38nested
+        );
+      }
+
+      if (_sf38nested.length === 0) continue;
+
+      // Deterministic source order.
+      _sf38nested.sort(function(a, b) {
+        var at = _getTokensSorted(a);
+        var bt = _getTokensSorted(b);
+
+        return (at.length ? at[0].surfaceIndex : 0) -
+               (bt.length ? bt[0].surfaceIndex : 0);
+      });
+
+      for (var _sf38ni = 0; _sf38ni < _sf38nested.length; _sf38ni++) {
+        try {
+          var _sf38DR =
+            window.DgEngine.deriveDR(_sf38nested[_sf38ni]);
+
+          if (_sf38DR) {
+            var _sf38role =
+              _sf35ClauseRole(_sf38nested[_sf38ni], null);
+
+            var _sf38path =
+              parentPath +
+              '.s[' + _sf38si + '].can[' +
+              (_sf38canBase + _sf38ni) +
+              ']';
+
+            var _sf38child =
+              _buildClauseFlowNode(
+                _sf38DR,
+                _sf38path,
+                _sf38role,
+                null
+              );
+
+            if (_sf38child) {
+              children.push(_sf38child);
+            }
+          }
+        } catch (_) {
+          // Nested GROUP child failure must not block parent construction.
+        }
       }
     }
 
