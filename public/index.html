@@ -6079,6 +6079,21 @@ const AppState = {
         tab:    'flow',   /* 最後に表示していたタブ。Study閉じても保持。 */
     },
 
+    /* SP-1: StudyPanel起点（どの読書面からLevel3を開いたか）
+       surface    = 読書面ID: 'JA1955' | 'FLOW' | 'HIERARCHICAL' | 'REED_KELLOGG' | 'CLAUSE_FLOW' | null
+       entryPoint = 入口種別: 'wlv' | 'token' | 'head' | 'pp' | null
+       closeStudyPanel() でクリア。reopenStudyPanel() はクリア後のnull状態を維持（Level2なし）。 */
+    studyOrigin: {
+        surface:    null,
+        entryPoint: null,
+    },
+
+    /* SP-3: StudyTarget v0（何を調べているか）
+       TOKEN target: { type: 'TOKEN', ref: 'JHN 3:1!1' }
+       closeStudyPanel() / toReading() でクリア。reopenStudyPanel() で study.params.ref から再構築。
+       studyOrigin（どこから来たか）・inspect.data（表示データ）とは別責務。 */
+    studyTarget: null,
+
     /* 空間階層（聖書全体の"場所"） */
     location: {
         testament: null,  /* 'nt' | 'ot' */
@@ -6107,6 +6122,8 @@ const AppState = {
         this.mode = 'reading';
         this.selectedVerse = { vNum: null, elWords: [] };
         this.inspect.data  = null;
+        this.studyOrigin   = { surface: null, entryPoint: null };
+        this.studyTarget   = null;
         /* study.params / study.tab はあえて保持する（再開ボタンのため） */
     },
 
@@ -6913,16 +6930,21 @@ function renderDepthHistory() {
  */
 function panelGoBack() {
     if (_panelContentMode === 'word') {
-        /* Level 3 → Level 2: 単語詳細のみ閉じ、現在の節のPanelへ戻る */
-        _openWordListInternal(AppState.selectedVerse.vNum, AppState.selectedVerse.elWords);
-        /* #word-list-view は _openWordListInternal() 内で再生成されるため、
-           Level 3 へ進む直前に保存しておいたスクロール位置をここで読み戻す。 */
-        if (_versePanelScrollTop != null) {
-            const listEl = document.getElementById('word-list-view');
-            if (listEl) listEl.scrollTop = _versePanelScrollTop;
-            _versePanelScrollTop = null;
+        if (AppState.studyOrigin?.entryPoint === 'wlv') {
+            /* WLV-origin: Level 3 → Level 2（節word-listを復元） */
+            _openWordListInternal(AppState.selectedVerse.vNum, AppState.selectedVerse.elWords);
+            /* #word-list-view は _openWordListInternal() 内で再生成されるため、
+               Level 3 へ進む直前に保存しておいたスクロール位置をここで読み戻す。 */
+            if (_versePanelScrollTop != null) {
+                const listEl = document.getElementById('word-list-view');
+                if (listEl) listEl.scrollTop = _versePanelScrollTop;
+                _versePanelScrollTop = null;
+            }
+            renderDepthHistory();
+        } else {
+            /* 非WLV-origin (HIERARCHICAL / RK / CF / 不明): Reading Surfaceが見えるようにPanelを閉じる */
+            closeStudyPanel();
         }
-        renderDepthHistory();
     } else {
         /* Level 2 → Panelを閉じる。本文表示（章/節）は変更しない */
         closeStudyPanel();
@@ -13333,6 +13355,34 @@ function _dgHeadEntry(node, headSIs) {
     return head ? (_dgActiveTokenMap[head.ref] || null) : null;
 }
 
+/* StudyPanel data bridge — DG / HDG / ClauseFlow / RK click handlers.
+   bible_data token から AppState.inspect.data を設定し、_renderReadingNotes が
+   lexicon / content セクションを生成できるようにする。
+   _wlvChipClick が設定する同一 schema を踏襲。ReadingEngine 解決は省略し
+   jaWord = bible_data.japanese の直転写とする。 */
+function _setInspectDataFromElToken(token) {
+    if (!token) return;
+    AppState.inspect.data = {
+        greek:            token.text     || '',
+        strong:           token.strong   || '',
+        jpMorph:          '',
+        rawMorph:         token.morph    || '',
+        lemma:            token.lemma    || '',
+        jaWord:           token.japanese || '',
+        jaWordDisplay:    token.japanese || '',
+        desc:             '',
+        ref:              token.ref      || '',
+        bookKey:          token.book     || '',
+        ch:               token.chapter  != null ? token.chapter  : null,
+        verse:            token.verse    != null ? token.verse    : null,
+        language:         token.language || 'grc',
+        corpusId:         token.corpusId || '',
+        lemmaId:          token.lemmaId  != null ? token.lemmaId : null,
+        referentEvidence: createReferentEvidence(token),
+        subjrefEvidence:  createSubjrefEvidence(token),
+    };
+}
+
 /* C-6: Append individual token spans to container — each span is one DepthPanel click target.
    headSIs: optional Set<surfaceIndex> filter (same as _dgJaText).
    Returns number of tokens appended (0 = no displayable tokens). */
@@ -13354,6 +13404,9 @@ function _dgAppendTokens(container, node, headSIs) {
         span.textContent = e.japanese;
         span.addEventListener('click', (ev) => {
             ev.stopPropagation();
+            _setInspectDataFromElToken(e);
+            AppState.studyOrigin = { surface: 'HIERARCHICAL', entryPoint: 'token' };
+            _setStudyTarget(e.ref);
             openStudyPanel(e.text || '', e.morph || '', e.ref || '', e.lemma || '');
         });
         container.appendChild(span);
@@ -13404,6 +13457,9 @@ function _dgCollectAntecedentRefs(dr, set) {
 function _dgOpenDepthPanel(node, headSIs) {
     const e = _dgHeadEntry(node, headSIs);
     if (!e) return;
+    _setInspectDataFromElToken(e);
+    AppState.studyOrigin = { surface: 'HIERARCHICAL', entryPoint: 'head' };
+    _setStudyTarget(e.ref);
     openStudyPanel(e.text || '', e.morph || '', e.ref || '', e.lemma || '');
 }
 
@@ -13665,6 +13721,9 @@ function _dgRenderAdvPhrases(advPhrases) {
                 _prepSpan.textContent = _prepJa;
                 _prepSpan.addEventListener('click', (ev) => {
                     ev.stopPropagation();
+                    _setInspectDataFromElToken(_prepEntry);
+                    AppState.studyOrigin = { surface: 'HIERARCHICAL', entryPoint: 'pp' };
+                    _setStudyTarget(_prepEntry.ref);
                     openStudyPanel(_prepEntry.text || '', _prepEntry.morph || '', _prepEntry.ref || '', _prepEntry.lemma || '');
                 });
                 prepEl.appendChild(_prepSpan);
@@ -14125,6 +14184,9 @@ function _hdgTokenEl(srNode) {
     span.textContent = e.japanese;
     span.addEventListener('click', ev => {
         ev.stopPropagation();
+        _setInspectDataFromElToken(e);
+        AppState.studyOrigin = { surface: 'HIERARCHICAL', entryPoint: 'token' };
+        _setStudyTarget(e.ref);
         openStudyPanel(e.text || '', e.morph || '', e.ref || '', e.lemma || '');
     });
     return span;
@@ -14992,6 +15054,9 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
                                     tokenMap: _dgActiveTokenMap,
                                     onTokenClick: function(ref, data) {
                                         if (!data) return;
+                                        _setInspectDataFromElToken(data);
+                                        AppState.studyOrigin = { surface: 'CLAUSE_FLOW', entryPoint: 'token' };
+                                        _setStudyTarget(ref);
                                         openStudyPanel(
                                             data.text  || '',
                                             data.morph || '',
@@ -15074,6 +15139,9 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
                                 tokenMap: _dgActiveTokenMap,
                                 onTokenClick: function(ref, data) {
                                     if (!data) return;
+                                    _setInspectDataFromElToken(data);
+                                    AppState.studyOrigin = { surface: 'REED_KELLOGG', entryPoint: 'token' };
+                                    _setStudyTarget(ref);
                                     openStudyPanel(
                                         data.text  || '',
                                         data.morph || '',
@@ -15592,6 +15660,8 @@ function _wlvChipClick(chipEl, tokenId) {
         /* BUG FIX: panelGoBack() が selectedVerse.elWords を参照するため、
            word detail へ入る前に設定する（Mobile path は toBrowsing() で設定済み）。 */
         AppState.selectedVerse = { vNum: chip.verse ?? null, elWords: _reWords || [] };
+        AppState.studyOrigin = { surface: _transA, entryPoint: 'wlv' };
+        _setStudyTarget(chip.ref);
         openInspectorDetail(chip.greek, chip.rawMorph, chip.ref, chip.lemma);
         window.App.onboarding?.onWordClicked(chipEl);
         _syncOnboardingActiveFlag();
@@ -15646,6 +15716,8 @@ function _wlvStudyBtnClick() {
         });
     }
 
+    AppState.studyOrigin = { surface: _transA, entryPoint: 'wlv' };
+    _setStudyTarget(AppState.inspect.data?.ref);
     openInspectorDetail(greek, rawMorph, ref, lemma);
 }
 
@@ -16209,6 +16281,13 @@ const activeVEl = document.getElementById('active-v');
     notifyAppStateChange();
 }
 
+/* SP-3: StudyTarget v0 setter — 「何を調べているか」を記録する最小helper。
+   ref = "JHN 3:1!1" 形式。falsy なら null（guard）。
+   inspect.data / studyOrigin は変更しない。 */
+function _setStudyTarget(ref) {
+    AppState.studyTarget = ref ? { type: 'TOKEN', ref } : null;
+}
+
 /* ══════════════════════════════════════════
    closeStudyPanel - 正規実装（唯一の定義）
    責務:
@@ -16220,6 +16299,8 @@ const activeVEl = document.getElementById('active-v');
    ══════════════════════════════════════════ */
 function closeStudyPanel() {
     AppState.clearDepth();
+    AppState.studyOrigin = { surface: null, entryPoint: null };
+    AppState.studyTarget = null;
     renderDepthHistory();
     _closeStudyPanelInternal();
     notifyAppStateChange();
@@ -16236,6 +16317,7 @@ function reopenStudyPanel() {
     if (!AppState.canReopen()) return;
     const p = AppState.study.params;
     AppState.saveScroll();
+    _setStudyTarget(p.ref);
     openStudyPanel(p.word, p._rawMorph, p.ref, p.lemma);
 }
 
