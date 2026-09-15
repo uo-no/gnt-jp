@@ -53,6 +53,13 @@
  *   Step [6] retains exclusive responsibility for CLAUSE_AS_NP ppNpNode children.
  *   sourcePath: '<parentPath>.ap[i].can[j]' (same format as SF-33, extended).
  *
+ * SF-37: GROUP argument direct clause children
+ *   When slot.node.type === 'group', direct type=clause children are extracted from
+ *   GROUP argument tokenRefs and emitted as child ClauseFlowNodes via _buildChildren step [9].
+ *   sourcePath: '<parentPath>.s[i].can[j]' (same format as SF-35).
+ *   Reuses _sf35ClauseRole for role assignment.
+ *   Nested GROUP (GROUP → GROUP → clause) is deferred to SF-38.
+ *
  * Exports: window.ClauseFlowEngine = { buildClauseFlowTree }
  */
 (function (global) {
@@ -363,6 +370,35 @@
         }
       }
 
+      // SF-37: GROUP argument direct clause extraction.
+      // When slot.node.type === 'group', exclude direct clause children's tokens
+      // from argument tokenRefs. Clause children emitted via _buildChildren step [9].
+      // Zero-direct-clause-child cases fall through unchanged.
+      // Nested GROUP (GROUP → GROUP → clause) is intentionally deferred to SF-38.
+      if (slot.contentClause == null) {
+        if (slot.node.type === 'group') {
+          var _sf37Ch = slot.node.children || [];
+          var _sf37SIs = new Set();
+          for (var _sf37ci = 0; _sf37ci < _sf37Ch.length; _sf37ci++) {
+            if (_sf37Ch[_sf37ci].type !== 'clause') continue;
+            var _sf37Toks = _getTokensSorted(_sf37Ch[_sf37ci]);
+            for (var _sf37ti = 0; _sf37ti < _sf37Toks.length; _sf37ti++) {
+              _sf37SIs.add(_sf37Toks[_sf37ti].surfaceIndex);
+            }
+          }
+          if (_sf37SIs.size > 0) {
+            var _sf37NodeToks = _getTokensSorted(slot.node);
+            var _sf37Refs = [];
+            for (var _sf37ti2 = 0; _sf37ti2 < _sf37NodeToks.length; _sf37ti2++) {
+              if (_sf37SIs.has(_sf37NodeToks[_sf37ti2].surfaceIndex)) continue;
+              var _sf37R = _sf37NodeToks[_sf37ti2].evidence && _sf37NodeToks[_sf37ti2].evidence.ref;
+              if (_sf37R != null && _sf37R !== '') _sf37Refs.push(_sf37R);
+            }
+            _tokenRefs = _sf37Refs;
+          }
+        }
+      }
+
       var isCC = slot.contentClause != null;
       result.push({
         function:        slot.fn,
@@ -460,6 +496,7 @@
    *   [6] CLAUSE_AS_NP children from adverbialPhrases (SF-33)
    *   [7] CLAUSE_AS_NP / NOMINALIZED_CLAUSE argument slot clause children (SF-35)
    *   [8] Generalized ppNpNode clause children, non-CLAUSE_AS_NP phrases (SF-35)
+   *   [9] GROUP argument direct clause children (SF-37)
    * @param {object} dr
    * @param {string} parentPath
    * @returns {ClauseFlowNode[]}
@@ -627,6 +664,36 @@
           }
         } catch (_) { /* silent — must not block parent */ }
         _sf35canIdx8++;
+      }
+    }
+
+    // [9] GROUP argument direct clause children (SF-37)
+    // When a non-PRED/COPULA slot has slot.node.type === 'group', each direct
+    // type=clause child of that GROUP is promoted to a child ClauseFlowNode.
+    // _buildArguments() has already excluded the clause children's tokens from
+    // the argument tokenRefs. Only direct children are targeted; nested
+    // GROUP → GROUP → clause structures are intentionally deferred to SF-38.
+    // sourcePath: '<parentPath>.s[i].can[j]' — i=slot index, j=clause-child counter
+    // (non-clause GROUP siblings are skipped in counting).
+    for (var _sf37si = 0; _sf37si < slots.length; _sf37si++) {
+      var _sf37slot = slots[_sf37si];
+      if (_sf37slot.fn === 'PREDICATE' || _sf37slot.fn === 'COPULA') continue;
+      if (_sf37slot.contentClause != null) continue; // SF-32 takes precedence
+      if (!_sf37slot.node || _sf37slot.node.type !== 'group') continue;
+      var _sf37slotCh  = _sf37slot.node.children || [];
+      var _sf37canIdx9 = 0;
+      for (var _sf37ci9 = 0; _sf37ci9 < _sf37slotCh.length; _sf37ci9++) {
+        if (_sf37slotCh[_sf37ci9].type !== 'clause') continue;
+        try {
+          var _sf37DR = window.DgEngine.deriveDR(_sf37slotCh[_sf37ci9]);
+          if (_sf37DR) {
+            var _sf37role  = _sf35ClauseRole(_sf37slotCh[_sf37ci9], null);
+            var _sf37path  = parentPath + '.s[' + _sf37si + '].can[' + _sf37canIdx9 + ']';
+            var _sf37child = _buildClauseFlowNode(_sf37DR, _sf37path, _sf37role, null);
+            if (_sf37child) children.push(_sf37child);
+          }
+        } catch (_) { /* silent — must not block parent */ }
+        _sf37canIdx9++;
       }
     }
 
