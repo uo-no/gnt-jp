@@ -1,5 +1,5 @@
 /**
- * clause-flow-engine.js — Phase 6-2-C
+ * clause-flow-engine.js — Phase 6-2-C / SF-30 / SF-32 / SF-33
  *
  * ClauseFlowTree Builder — DR → Canonical ClauseFlowTree v1
  *
@@ -11,7 +11,7 @@
  *   deriveDR(sentence.root)
  *    → _annotateRelClauses()    (index.html — adds relPronRef/isRelativeClause)
  *    → buildClauseFlowTree()    ← this module
- *    → ClauseFlowRenderer       (Phase 6-2-D — not yet implemented)
+ *    → ClauseFlowRenderer       (Phase 6-2-D)
  *
  * ClauseFlowTree schema:
  *   { sentenceRef, flatNodeCount, root: ClauseFlowNode, version: 1 }
@@ -25,6 +25,33 @@
  *
  * structuralRole values:
  *   ROOT | CONTENT | RELATIVE | PARTICIPIAL | ADVERBIAL | COORDINATED
+ *   CLAUSE_AS_NP | NOMINALIZED_CLAUSE
+ *
+ * SF-30: slot.modifiers clause children
+ *   When a DR slot (SUBJECT/OBJECT/etc.) has clause-type entries in slot.modifiers
+ *   (produced by dg-engine.extractSlotModifiers for ADJ_MOD constructions),
+ *   _buildArguments limits tokenRefs to slot.headSIs (core NP only) and
+ *   _buildChildren emits each clause modifier as a child ClauseFlowNode.
+ *   sourcePath encodes slot affiliation: '<parentPath>.s[i].mod[j]'.
+ *
+ * SF-33: CLAUSE_AS_NP phrase children
+ *   When a PP's NP child has construction.canonical === 'CLAUSE_AS_NP',
+ *   _buildPhrases excludes embedded clause tokens from the phrase tokenRefs
+ *   (keeping only prep + head NP tokens) and _buildChildren step [6] promotes
+ *   each clause child within the NP to a CLAUSE_AS_NP child ClauseFlowNode.
+ *   sourcePath: '<parentPath>.ap[i].can[j]' (i=adverbialPhrase index,
+ *   j=clause-child index within ppNpNode.children).
+ *
+ * SF-35: Unified structural flattening — argument and phrase clause children
+ *   Argument-side: when slot.node.cn === 'CLAUSE_AS_NP' or (type=clause,
+ *   cn=NOMINALIZED_CLAUSE), clause children of slot.node are extracted from
+ *   argument tokenRefs and emitted as child ClauseFlowNodes.
+ *   sourcePath: '<parentPath>.s[i].can[j]'.
+ *   Phrase-side: generalizes SF-33 — when ap.ppNpNode contains any type=clause
+ *   child (any cn), clause tokens are excluded from phrase tokenRefs and each
+ *   clause child is emitted as a child ClauseFlowNode via _buildChildren step [8].
+ *   Step [6] retains exclusive responsibility for CLAUSE_AS_NP ppNpNode children.
+ *   sourcePath: '<parentPath>.ap[i].can[j]' (same format as SF-33, extended).
  *
  * Exports: window.ClauseFlowEngine = { buildClauseFlowTree }
  */
@@ -77,6 +104,26 @@
   }
 
   /**
+   * Collect token evidence.ref strings for only those tokens whose surfaceIndex
+   * is present in headSIs. Used when slot.modifiers contains clause-type nodes
+   * so that argument tokenRefs show only the core NP head tokens.
+   * @param {object} node     slot.node
+   * @param {Set}    headSIs  Set<number> from dg-engine extractSlotModifiers
+   * @returns {string[]}
+   */
+  function _collectTokenRefsFromHeadSIs(node, headSIs) {
+    var tokens = _getTokensSorted(node);
+    var refs = [];
+    for (var i = 0; i < tokens.length; i++) {
+      var t = tokens[i];
+      if (!headSIs.has(t.surfaceIndex)) continue;
+      var ref = t.evidence && t.evidence.ref;
+      if (ref != null && ref !== '') refs.push(ref);
+    }
+    return refs;
+  }
+
+  /**
    * Collect token refs from a DR node's OWN slots and adverbialPhrases only.
    * Does NOT include children (contentClause, adverbialClauses, coordClauses).
    * @param {object} dr
@@ -114,6 +161,25 @@
       }
     }
     return result;
+  }
+
+  // ── SF-35 clause role helper ──────────────────────────────────────────
+
+  /**
+   * Determine structuralRole for a clause child promoted by SF-35.
+   * parentCn: construction.canonical of the containing node (slot.node or ppNpNode).
+   * @param {object} clauseChild
+   * @param {string|undefined} parentCn
+   * @returns {string}
+   */
+  function _sf35ClauseRole(clauseChild, parentCn) {
+    var cn = clauseChild.construction && clauseChild.construction.canonical;
+    if (cn === 'PARTICIPIAL_CLAUSE')                             return 'PARTICIPIAL';
+    if (cn === 'SUBORDINATE_CLAUSE' || cn === 'CONTENT_CLAUSE') return 'CONTENT';
+    if (cn === 'COORDINATION' || cn === 'CONJOINED_CLAUSE')     return 'COORDINATED';
+    // bare (cn=undefined) or unrecognised
+    if (parentCn === 'NOMINALIZED_CLAUSE')                      return 'NOMINALIZED_CLAUSE';
+    return 'RELATIVE';
   }
 
   // ── NodeType ───────────────────────────────────────────────────────────
@@ -238,11 +304,70 @@
       if (slot.fn === 'PREDICATE' || slot.fn === 'COPULA') continue;
       if (!ARGUMENT_FNS.has(slot.fn)) continue;
 
+      // SF-30: when slot.modifiers contains clause-type nodes, limit tokenRefs to
+      // slot.headSIs (core NP tokens only). The clause modifiers become children
+      // via _buildChildren step [5]. headSIs must be non-null and non-empty to apply.
+      // Genitive-only / PP-only modifiers (no clause child) fall through to current behavior.
+      var _hasMod = false;
+      var _modList = slot.modifiers || [];
+      for (var _m = 0; _m < _modList.length; _m++) {
+        if (_modList[_m].node && _modList[_m].node.type === 'clause') { _hasMod = true; break; }
+      }
+      var _tokenRefs = (_hasMod && slot.headSIs && slot.headSIs.size > 0)
+        ? _collectTokenRefsFromHeadSIs(slot.node, slot.headSIs)
+        : _collectNodeTokenRefs(slot.node);
+
+      // SF-32: content-clause wrappers — zero tokenRefs; inner structure is
+      // already present as a CONTENT child node from _buildChildren step [1].
+      // Only applies to cn ∈ {SUBORDINATE_CLAUSE, CONTENT_CLAUSE, PARTICIPIAL_CLAUSE};
+      // bare clauses (cn=undefined) and groups are excluded.
+      if (slot.contentClause != null) {
+        var _cn = slot.node.construction && slot.node.construction.canonical;
+        if (_cn === 'SUBORDINATE_CLAUSE' ||
+            _cn === 'CONTENT_CLAUSE'    ||
+            _cn === 'PARTICIPIAL_CLAUSE') {
+          _tokenRefs = [];
+        }
+      }
+
+      // SF-35: CLAUSE_AS_NP argument / NOMINALIZED_CLAUSE argument clause extraction.
+      // When slot.node.cn === 'CLAUSE_AS_NP' or (type=clause, cn=NOMINALIZED_CLAUSE),
+      // exclude embedded clause-child tokens from tokenRefs, keeping only
+      // head/non-clause tokens. Clause children become child ClauseFlowNodes via
+      // _buildChildren step [7]. Only applied when contentClause is absent
+      // (SF-32 zeroing takes precedence when contentClause is present).
+      // Zero-clause-child cases fall through unchanged (compact nominalizations etc.).
+      if (slot.contentClause == null) {
+        var _sf35Cn = slot.node.construction && slot.node.construction.canonical;
+        if (_sf35Cn === 'CLAUSE_AS_NP' ||
+            (slot.node.type === 'clause' && _sf35Cn === 'NOMINALIZED_CLAUSE')) {
+          var _sf35Ch = slot.node.children || [];
+          var _sf35SIs = new Set();
+          for (var _sf35ci = 0; _sf35ci < _sf35Ch.length; _sf35ci++) {
+            if (_sf35Ch[_sf35ci].type !== 'clause') continue;
+            var _sf35Toks = _getTokensSorted(_sf35Ch[_sf35ci]);
+            for (var _sf35ti = 0; _sf35ti < _sf35Toks.length; _sf35ti++) {
+              _sf35SIs.add(_sf35Toks[_sf35ti].surfaceIndex);
+            }
+          }
+          if (_sf35SIs.size > 0) {
+            var _sf35NodeToks = _getTokensSorted(slot.node);
+            var _sf35Refs = [];
+            for (var _sf35ti = 0; _sf35ti < _sf35NodeToks.length; _sf35ti++) {
+              if (_sf35SIs.has(_sf35NodeToks[_sf35ti].surfaceIndex)) continue;
+              var _sf35R = _sf35NodeToks[_sf35ti].evidence && _sf35NodeToks[_sf35ti].evidence.ref;
+              if (_sf35R != null && _sf35R !== '') _sf35Refs.push(_sf35R);
+            }
+            _tokenRefs = _sf35Refs;
+          }
+        }
+      }
+
       var isCC = slot.contentClause != null;
       result.push({
         function:        slot.fn,
         text:            window.DgEngine.displayText(slot.node),
-        tokenRefs:       _collectNodeTokenRefs(slot.node),
+        tokenRefs:       _tokenRefs,
         isContentClause: isCC,
         contentChildId:  isCC ? (parentPath + '.s[' + i + '].CC') : null,
       });
@@ -254,6 +379,11 @@
 
   /**
    * Convert DR adverbialPhrases to phrases array.
+   * SF-35 (subsumes SF-33): when ap.ppNpNode contains any type=clause child,
+   * tokenRefs are limited to prep + non-clause NP tokens only. The clause tokens
+   * are excluded here; the corresponding child ClauseFlowNodes are emitted by
+   * _buildChildren step [6] (CLAUSE_AS_NP ppNpNode) or step [8] (all others).
+   * When ppNpNode has no clause children, full tokenRefs are returned unchanged.
    * @param {object} dr
    * @returns {object[]}
    */
@@ -262,15 +392,60 @@
     var result = [];
     for (var i = 0; i < advPhrases.length; i++) {
       var ap = advPhrases[i];
+      var tokenRefs;
+      // SF-35: unified clause-child exclusion (subsumes SF-33 CLAUSE_AS_NP check).
+      // For CLAUSE_AS_NP ppNpNode the output is identical to SF-33; for all other
+      // ppNpNode types with clause children the same exclusion logic applies.
+      if (ap.ppNpNode) {
+        var _phr35Ch = ap.ppNpNode.children || [];
+        var _phr35SIs = new Set();
+        for (var _phr35i = 0; _phr35i < _phr35Ch.length; _phr35i++) {
+          if (_phr35Ch[_phr35i].type !== 'clause') continue;
+          var _phr35ClToks = _getTokensSorted(_phr35Ch[_phr35i]);
+          for (var _phr35ti = 0; _phr35ti < _phr35ClToks.length; _phr35ti++) {
+            _phr35SIs.add(_phr35ClToks[_phr35ti].surfaceIndex);
+          }
+        }
+        if (_phr35SIs.size > 0) {
+          var _phr35PPToks = _getTokensSorted(ap.node);
+          var _phr35Refs = [];
+          for (var _phr35ti = 0; _phr35ti < _phr35PPToks.length; _phr35ti++) {
+            if (_phr35SIs.has(_phr35PPToks[_phr35ti].surfaceIndex)) continue;
+            var _phr35R = _phr35PPToks[_phr35ti].evidence && _phr35PPToks[_phr35ti].evidence.ref;
+            if (_phr35R != null && _phr35R !== '') _phr35Refs.push(_phr35R);
+          }
+          tokenRefs = _phr35Refs;
+        } else {
+          tokenRefs = _collectNodeTokenRefs(ap.node);
+        }
+      } else {
+        tokenRefs = _collectNodeTokenRefs(ap.node);
+      }
       result.push({
         phraseType: ap.ppPrep != null ? 'PP' : 'ADV',
         prepText:   ap.ppPrep || null,
         text:       window.DgEngine.displayText(ap.node),
         npText:     ap.ppNpNode ? window.DgEngine.displayText(ap.ppNpNode) : null,
-        tokenRefs:  _collectNodeTokenRefs(ap.node),
+        tokenRefs:  tokenRefs,
       });
     }
     return result;
+  }
+
+  // ── Modifier DR empty check ───────────────────────────────────────────
+
+  /**
+   * Return true when a DR derived from a slot modifier clause has no displayable content.
+   * Mirrors dg-engine _isEmptyDR (private) — reimplemented here to avoid cross-module call.
+   * @param {object} dr
+   * @returns {boolean}
+   */
+  function _isModDrEmpty(dr) {
+    if (!dr) return true;
+    if (dr.isCoordination) return (dr.coordClauses || []).length === 0;
+    return (dr.slots || []).length === 0 &&
+           (dr.adverbialClauses || []).length === 0 &&
+           (dr.adverbialPhrases || []).length === 0;
   }
 
   // ── Children ──────────────────────────────────────────────────────────
@@ -281,6 +456,10 @@
    *   [2] Adverbial clause children
    *   [3] Coordination children
    *   [4] Embedded relative clauses — v1: SKIP
+   *   [5] Slot modifier clause children (SF-30)
+   *   [6] CLAUSE_AS_NP children from adverbialPhrases (SF-33)
+   *   [7] CLAUSE_AS_NP / NOMINALIZED_CLAUSE argument slot clause children (SF-35)
+   *   [8] Generalized ppNpNode clause children, non-CLAUSE_AS_NP phrases (SF-35)
    * @param {object} dr
    * @param {string} parentPath
    * @returns {ClauseFlowNode[]}
@@ -330,6 +509,126 @@
     }
 
     // [4] Embedded relative clauses: v1 SKIP
+
+    // [5] Slot modifier clause children (SF-30)
+    // When a non-PRED/COPULA slot has clause-type entries in slot.modifiers
+    // (produced by dg-engine.extractSlotModifiers for ADJ_MOD constructions),
+    // derive a DR for each clause modifier and emit it as a child ClauseFlowNode.
+    // sourcePath encodes parent slot: '<parentPath>.s[i].mod[j]'.
+    // Only clause-type (.node.type === 'clause') modifiers are promoted;
+    // token/phrase modifiers remain in the argument tokenRefs via headSIs filtering.
+    for (var _si = 0; _si < slots.length; _si++) {
+      var _slot = slots[_si];
+      if (_slot.fn === 'PREDICATE' || _slot.fn === 'COPULA') continue;
+      var _modList = _slot.modifiers || [];
+      for (var _mi = 0; _mi < _modList.length; _mi++) {
+        var _mod = _modList[_mi];
+        if (!_mod.node || _mod.node.type !== 'clause') continue;
+        try {
+          var _modDr = window.DgEngine.deriveDR(_mod.node);
+          if (!_modDr || _isModDrEmpty(_modDr)) continue;
+          var _childPath = parentPath + '.s[' + _si + '].mod[' + _mi + ']';
+          var _role = _modDr.isParticipalClause ? 'PARTICIPIAL' : 'ADVERBIAL';
+          var _child = _buildClauseFlowNode(_modDr, _childPath, _role, null);
+          if (_child) children.push(_child);
+        } catch (_) { /* silent — modifier DR failure must not block parent node */ }
+      }
+    }
+
+    // [6] CLAUSE_AS_NP children from adverbialPhrases (SF-33)
+    // When a PP's NP child has construction.canonical === 'CLAUSE_AS_NP', each
+    // clause child within that NP is promoted to a CLAUSE_AS_NP child ClauseFlowNode.
+    // _buildPhrases() has already reduced the corresponding phrase tokenRefs to
+    // prep + non-clause NP tokens only.
+    // sourcePath: '<parentPath>.ap[i].can[j]' — i=adverbialPhrase index,
+    // j=clause-child counter within ppNpNode.children (non-clause siblings skipped).
+    var _advPhr = dr.adverbialPhrases || [];
+    for (var _api = 0; _api < _advPhr.length; _api++) {
+      var _ap = _advPhr[_api];
+      if (!_ap.ppNpNode ||
+          !_ap.ppNpNode.construction ||
+          _ap.ppNpNode.construction.canonical !== 'CLAUSE_AS_NP') continue;
+      var _canNpCh = _ap.ppNpNode.children || [];
+      var _canIdx = 0;
+      for (var _cci = 0; _cci < _canNpCh.length; _cci++) {
+        if (_canNpCh[_cci].type !== 'clause') continue;
+        try {
+          var _canDR = window.DgEngine.deriveDR(_canNpCh[_cci]);
+          if (_canDR) {
+            var _canPath = parentPath + '.ap[' + _api + '].can[' + _canIdx + ']';
+            var _canChild = _buildClauseFlowNode(_canDR, _canPath, 'CLAUSE_AS_NP', null);
+            if (_canChild) children.push(_canChild);
+          }
+        } catch (_) { /* silent — must not block parent */ }
+        _canIdx++;
+      }
+    }
+
+    // [7] CLAUSE_AS_NP / NOMINALIZED_CLAUSE argument slot clause children (SF-35)
+    // When a non-PRED/COPULA slot has slot.node.cn === 'CLAUSE_AS_NP' or
+    // (type=clause, cn=NOMINALIZED_CLAUSE), each type=clause child of slot.node
+    // is promoted to a child ClauseFlowNode.
+    // _buildArguments() has already reduced the corresponding argument tokenRefs
+    // to non-clause tokens only.
+    // sourcePath: '<parentPath>.s[i].can[j]' — i=slot index, j=clause-child counter
+    // (non-clause siblings skipped in counting).
+    for (var _sf35si = 0; _sf35si < slots.length; _sf35si++) {
+      var _sf35slot = slots[_sf35si];
+      if (_sf35slot.fn === 'PREDICATE' || _sf35slot.fn === 'COPULA') continue;
+      if (_sf35slot.contentClause != null) continue; // SF-32 handles these
+      if (!_sf35slot.node) continue;
+      var _sf35slotCn  = _sf35slot.node.construction && _sf35slot.node.construction.canonical;
+      var _sf35isCAN   = (_sf35slotCn === 'CLAUSE_AS_NP');
+      var _sf35isNOM   = (!_sf35isCAN &&
+                          _sf35slot.node.type === 'clause' &&
+                          _sf35slotCn === 'NOMINALIZED_CLAUSE');
+      if (!_sf35isCAN && !_sf35isNOM) continue;
+      var _sf35slotCh  = _sf35slot.node.children || [];
+      var _sf35canIdx7 = 0;
+      for (var _sf35ci7 = 0; _sf35ci7 < _sf35slotCh.length; _sf35ci7++) {
+        if (_sf35slotCh[_sf35ci7].type !== 'clause') continue;
+        try {
+          var _sf35DR = window.DgEngine.deriveDR(_sf35slotCh[_sf35ci7]);
+          if (_sf35DR) {
+            var _sf35role  = _sf35isCAN
+              ? 'CLAUSE_AS_NP'
+              : _sf35ClauseRole(_sf35slotCh[_sf35ci7], _sf35slotCn);
+            var _sf35path  = parentPath + '.s[' + _sf35si + '].can[' + _sf35canIdx7 + ']';
+            var _sf35child = _buildClauseFlowNode(_sf35DR, _sf35path, _sf35role, null);
+            if (_sf35child) children.push(_sf35child);
+          }
+        } catch (_) { /* silent — must not block parent */ }
+        _sf35canIdx7++;
+      }
+    }
+
+    // [8] Generalized ppNpNode clause children, non-CLAUSE_AS_NP phrases (SF-35)
+    // Extends step [6] to all ppNpNode types that contain type=clause children.
+    // Step [6] retains exclusive responsibility for CLAUSE_AS_NP ppNpNode (role=CLAUSE_AS_NP).
+    // This step handles NOMINALIZED_CLAUSE, APPOSITION, NP_COMPLEX, ADJ_MOD,
+    // GENITIVE_MOD, bare clause, PARTICIPIAL_CLAUSE, and any other ppNpNode type.
+    // sourcePath: '<parentPath>.ap[i].can[j]' (same format as step [6]).
+    for (var _sf35api8 = 0; _sf35api8 < _advPhr.length; _sf35api8++) {
+      var _sf35ap8 = _advPhr[_sf35api8];
+      if (!_sf35ap8.ppNpNode) continue;
+      var _sf35apCn8 = _sf35ap8.ppNpNode.construction && _sf35ap8.ppNpNode.construction.canonical;
+      if (_sf35apCn8 === 'CLAUSE_AS_NP') continue; // handled by step [6]
+      var _sf35apCh8   = _sf35ap8.ppNpNode.children || [];
+      var _sf35canIdx8 = 0;
+      for (var _sf35apci8 = 0; _sf35apci8 < _sf35apCh8.length; _sf35apci8++) {
+        if (_sf35apCh8[_sf35apci8].type !== 'clause') continue;
+        try {
+          var _sf35apDR8 = window.DgEngine.deriveDR(_sf35apCh8[_sf35apci8]);
+          if (_sf35apDR8) {
+            var _sf35apRole8  = _sf35ClauseRole(_sf35apCh8[_sf35apci8], _sf35apCn8);
+            var _sf35apPath8  = parentPath + '.ap[' + _sf35api8 + '].can[' + _sf35canIdx8 + ']';
+            var _sf35apChild8 = _buildClauseFlowNode(_sf35apDR8, _sf35apPath8, _sf35apRole8, null);
+            if (_sf35apChild8) children.push(_sf35apChild8);
+          }
+        } catch (_) { /* silent — must not block parent */ }
+        _sf35canIdx8++;
+      }
+    }
 
     return children;
   }
