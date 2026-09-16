@@ -3487,8 +3487,13 @@ details[open] .study-summary::before {
 #main-reading-area.compare-mode {
     grid-template-columns: 1fr 1fr;
 }
+#main-reading-area.compare-mode #bible-text-area {
+    max-width: none;
+}
 #main-reading-area.compare-mode #parallel-text-area {
     display: block;
+    min-width: 0;
+    overflow-x: auto;
 }
 #main-reading-area.compare-mode.panel-open {
     grid-template-columns: 1fr 0;
@@ -5531,6 +5536,8 @@ details[open] .study-summary::before {
 /* ── Phase 6-2-E-4-D: Relation View ─────────────────────────────────────── */
 .rv-view {
     padding: 16px;
+    min-width: 0;
+    overflow-x: auto;
 }
 .rv-sentence {
     margin-bottom: 40px;
@@ -6088,16 +6095,16 @@ const TRANSLATIONS = {
     'BUN':    { label: '文語訳',             code: 'BUN'    },
 /*  'KAI17':  { label: '新改訳2017',         code: 'KAI17'  },
     'KYO':    { label: '聖書協会共同訳',     code: 'KYO'    },*/
-    'FLOW':   { label: '語順で読む',          code: 'FLOW'   },
-    /* DA-1: 談話分析（節と節のつながり）。FLOW と同じく疑似翻訳ID（訳文JSONを持たない
+    'WORD_ORDER': { label: '語順で読む',       code: 'WORD_ORDER' },
+    /* DA-1: 談話分析（節と節のつながり）。WORD_ORDER と同じく疑似翻訳ID（訳文JSONを持たない
        Greek由来の読み方）。URL互換のため TRANSLATIONS に置く。 */
     'DISCOURSE': { label: '談話分析',        code: 'DISCOURSE' },
     /* P2: 構文ダイアグラム。SR JSON（public/assets/data/sr/）を読み取り専用で消費する
        独立パイプライン。flow-tree・Reading Engine とは完全に分離。 */
     'STRUCTURAL': { label: '構文ダイアグラム', code: 'STRUCTURAL' },
-    /* C-17 Phase 1: 3-mode registry. STRUCTURAL は REED_KELLOGG の legacy URL alias として維持。 */
-    'HIERARCHICAL': { label: '構造で読む',        code: 'HIERARCHICAL' },
-    'REED_KELLOGG': { label: '文の役割で読む',    code: 'REED_KELLOGG' },
+    /* C-17 Phase 1: 3-mode registry. STRUCTURAL は CLAUSE_ROLE の legacy URL alias として維持。 */
+    'STRUCTURE':   { label: '構造で読む',       code: 'STRUCTURE'   },
+    'CLAUSE_ROLE': { label: '文の役割で読む',   code: 'CLAUSE_ROLE' },
     /* E-4-D: Relation View（つながりで読む）。SR JSON を消費する独立パイプライン。 */
     'RELATION': { label: 'つながりで読む', code: 'RELATION' },
 };
@@ -6110,7 +6117,7 @@ const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t
  * Bible Picker の「翻訳を選択」グループはここを正とする。
  */
 const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
-    .filter(([id]) => id !== 'FLOW' && id !== 'DISCOURSE' && id !== 'STRUCTURAL' && id !== 'HIERARCHICAL' && id !== 'REED_KELLOGG' && id !== 'BUN' && id !== 'RELATION')
+    .filter(([id]) => id !== 'WORD_ORDER' && id !== 'DISCOURSE' && id !== 'STRUCTURAL' && id !== 'STRUCTURE' && id !== 'CLAUSE_ROLE' && id !== 'BUN' && id !== 'RELATION')
     .map(([id, t]) => ({ id, label: t.label, code: t.code }));
 
 /**
@@ -6123,19 +6130,24 @@ const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
  */
 const DISPLAY_MODE_REGISTRY = [
     ...TRANSLATION_REGISTRY.map(t => ({ kind: 'translation', translationId: t.id, label: t.label })),
-    { kind: 'wordOrder', label: TRANSLATIONS.FLOW.label },
+    { kind: 'wordOrder', label: TRANSLATIONS.WORD_ORDER.label },
     /* DA-1: 談話分析モード。既存 translation / wordOrder の分岐構造は変更せず、
        kind='discourse' を1エントリ追加するのみ。 */
     { kind: 'discourse', label: TRANSLATIONS.DISCOURSE.label },
-    /* C-17 Phase 1: structural-diagram を hierarchical (HDG) と Reed–Kellogg (RK) に分割。 */
-    { kind: 'hierarchical',       label: TRANSLATIONS.HIERARCHICAL.label },
-    { kind: 'structural-diagram', label: TRANSLATIONS.REED_KELLOGG.label },
+    /* C-17 Phase 1: structural-diagram を hierarchical (STRUCTURE) と clause-role (CLAUSE_ROLE) に分割。 */
+    { kind: 'hierarchical',       label: TRANSLATIONS.STRUCTURE.label   },
+    { kind: 'structural-diagram', label: TRANSLATIONS.CLAUSE_ROLE.label },
 ];
 
 /* アクティブ翻訳（A = メイン / B = 比較列）。_transA / _transB が唯一のSSOT（Phase TR-5）。 */
 let _transMode   = 'single';
 let _transA      = 'JA1955';
 let _transB      = 'BUN';
+
+/* Legacy Mode ID → 新 Mode ID の正規化マップ（URL deep link 互換）。
+   ?transA=FLOW 等の旧 URL が引き続き動作するよう init() で適用する。 */
+const LEGACY_MODE_IDS = { FLOW: 'WORD_ORDER', HIERARCHICAL: 'STRUCTURE', REED_KELLOGG: 'CLAUSE_ROLE' };
+function normalizeModeId(id) { return LEGACY_MODE_IDS[id] || id; }
 let _cachedElByVerse = {};
 
 /* ══════════════════════════════════════════
@@ -6351,7 +6363,7 @@ function _applyUrlImportIfPresent() {
            _applyTransMode）にそのまま委譲する。呼び出し元が明示的にtransAを指定していれば
            それを優先し、上書きしない。 */
         if (!params.has('transA')) {
-            url.searchParams.set('transA', 'FLOW');
+            url.searchParams.set('transA', 'WORD_ORDER');
         }
 
         /* 「外部サイト＋聖書アプリ並列利用」の基盤として、import元の外部URLを
@@ -10032,14 +10044,14 @@ async function init() {
     const book = urlParams.book || 'ROM';
     const ch   = urlParams.chapter || '1';
 
-    if (urlParams.transA) _transA = urlParams.transA;
-    /* C-17 Phase 1: Legacy ?view=hierarchical → normalize to HIERARCHICAL mode (D-2). */
-    if (!urlParams.transA && _hdgInitViewParam === 'hierarchical') _transA = 'HIERARCHICAL';
+    if (urlParams.transA) _transA = normalizeModeId(urlParams.transA);
+    /* C-17 Phase 1: Legacy ?view=hierarchical → normalize to STRUCTURE mode (D-2). */
+    if (!urlParams.transA && _hdgInitViewParam === 'hierarchical') _transA = 'STRUCTURE';
     if (urlParams.mode) {
         _transMode = urlParams.mode;
     }
     if (_transMode === 'compare' && urlParams.transB) {
-        _transB = urlParams.transB;
+        _transB = normalizeModeId(urlParams.transB);
     }
     _applyTransMode(_transMode);
     
@@ -10101,9 +10113,12 @@ async function init() {
         /* DA-1: discourse は flow-tree（clause/sentence 構造）を先読みして render() へ渡す。 */
         _dcvChapterTreeForRender = (_colA.kind === 'discourse')
             ? await _loadFlowTreeChapter(book, ch) : null;
-        /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。E-4-D: relation も同一SR JSONを使用。 */
-        _sdChapterDataForRender = (_colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical' || _colA.kind === 'relation') /* C-17 Phase 1 / E-4-D */
-            ? await _loadSrChapter(book, ch) : null;
+        /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。E-4-D: relation も同一SR JSONを使用。
+           B列が passage-level の場合も同じ SR JSON を使用するため、_colB.kind も対象に含める。 */
+        _sdChapterDataForRender = (
+            _colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical' || _colA.kind === 'relation' /* C-17 Phase 1 / E-4-D */
+            || _colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical' || _colB.kind === 'relation' /* B列 passage-level */
+        ) ? await _loadSrChapter(book, ch) : null;
 
         /* P4-ICL: ICL インデックスを事前計算（structural-diagram ビューかつ iclEnabled 時のみ）。 */
         _sdIclIndex = null;
@@ -10383,7 +10398,13 @@ app.innerHTML = '';
        Reading Engine・Discourse Analysis とは完全に独立したパイプライン。 */
     if (_colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical') { /* C-17 Phase 1 */
         _renderStructuralDiagramView(app, _sdChapterDataForRender, elData, _colA.kind);
-        parallel.innerHTML = '';
+        if (useVersePair && (_colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical')) {
+            _renderStructuralDiagramView(parallel, _sdChapterDataForRender, elData, _colB.kind);
+        } else if (useVersePair && _colB.kind === 'relation') {
+            _renderRelationView(parallel, _sdChapterDataForRender, elData);
+        } else {
+            parallel.innerHTML = '';
+        }
         _cachedElByVerse   = elByVerse;
         _proximityTokens   = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
         return;
@@ -10393,19 +10414,31 @@ app.innerHTML = '';
        DA-1・P2 と同じく passage（章）単位の早期 return。既存 verse-loop には入らない。 */
     if (_colA.kind === 'relation') {
         _renderRelationView(app, _sdChapterDataForRender, elData);
-        parallel.innerHTML = '';
+        if (useVersePair && (_colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical')) {
+            _renderStructuralDiagramView(parallel, _sdChapterDataForRender, elData, _colB.kind);
+        } else if (useVersePair && _colB.kind === 'relation') {
+            _renderRelationView(parallel, _sdChapterDataForRender, elData);
+        } else {
+            parallel.innerHTML = '';
+        }
         _cachedElByVerse   = elByVerse;
         _proximityTokens   = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
         return;
     }
+
+    /* B列が passage-level（hierarchical / structural-diagram / relation）の場合、
+       verse-by-verse の B ブロックを生成せず、ループ後に #parallel-text-area へ
+       章単位 Renderer を呼ぶ。A 列は app へ verse-by-verse で描画する（単一列扱い）。 */
+    const _bIsPassageLevel = useVersePair && (
+        _colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical' || _colB.kind === 'relation'
+    );
 
     Object.entries(colA.jpData.verses).forEach(([vNum, text]) => {
         /* VR-5-F-B: 左列・右列の生成処理を _buildColumnBlock() へ抽出（VR-5-F-A監査
            Migration Boundary Step 1）。
            VR-5-H-2: 列間の相互ハイライトは _selectVerseBlocks()（dataset.vnum ベース）へ
            一般化し、block/pBlock の直接参照を解消した（Step 2 の解消）。 */
-        const block  = _buildColumnBlock(0, colA, colB, vNum, text, elByVerse, hasGreek, useVersePair, mainArea);
-        const pBlock = _buildColumnBlock(1, colB, colA, vNum, text, elByVerse, hasGreek, useVersePair, mainArea);
+        const block = _buildColumnBlock(0, colA, colB, vNum, text, elByVerse, hasGreek, useVersePair, mainArea);
 
         if (hasGreek && _colA.kind !== 'wordOrder') {
             block.onclick = () => {
@@ -10417,57 +10450,72 @@ app.innerHTML = '';
             };
         }
 
-        if (useVersePair && window.innerWidth <= 768) {
-            /* モバイル比較モード：節ごとにA訳→区切り→B訳を縦に積む */
-            const verseGroup = document.createElement('div');
-            verseGroup.className = 'mobile-verse-group';
-            verseGroup.dataset.vnum = vNum;
-
-            /* 節番号バッジ */
-            const vBadge = document.createElement('div');
-            vBadge.className = 'mobile-vnum-badge';
-            vBadge.textContent = vNum;
-            verseGroup.appendChild(vBadge);
-
-            /* A訳ブロック */
-            const aWrap = document.createElement('div');
-            aWrap.className = 'mobile-trans-block mobile-trans-a';
-            const aLabel = document.createElement('div');
-            aLabel.className = 'mobile-trans-label';
-            aLabel.textContent = (TRANSLATIONS[_transA] || {}).label || _transA;
-            aWrap.appendChild(aLabel);
-            aWrap.appendChild(block);
-            verseGroup.appendChild(aWrap);
-
-            /* 区切り線 */
-            const sep = document.createElement('div');
-            sep.className = 'mobile-verse-sep';
-            verseGroup.appendChild(sep);
-
-            /* B訳ブロック */
-            const bWrap = document.createElement('div');
-            bWrap.className = 'mobile-trans-block mobile-trans-b';
-            const bLabel = document.createElement('div');
-            bLabel.className = 'mobile-trans-label';
-            bLabel.textContent = (TRANSLATIONS[_transB] || {}).label || _transB;
-            bWrap.appendChild(bLabel);
-            bWrap.appendChild(pBlock);
-            verseGroup.appendChild(bWrap);
-
-            app.appendChild(verseGroup);
-        } else if (useVersePair) {
-            const pairEl = document.createElement('div');
-            pairEl.className = 'verse-pair';
-            pairEl.appendChild(block);
-            pairEl.appendChild(pBlock);
-            mainArea.appendChild(pairEl);
-        } else {
+        if (_bIsPassageLevel) {
+            /* B が passage-level: A ブロックのみ app へ追加（verse-pair 方式を使わない） */
             app.appendChild(block);
-            parallel.appendChild(pBlock);
-            /* Reading Hint: 主 Reading ビュー（非比較）の該当節 verse-block 右端に info アイコンを加算 */
-            _appendReadingHint(block, vNum);
+        } else {
+            const pBlock = _buildColumnBlock(1, colB, colA, vNum, text, elByVerse, hasGreek, useVersePair, mainArea);
+            if (useVersePair && window.innerWidth <= 768) {
+                /* モバイル比較モード：節ごとにA訳→区切り→B訳を縦に積む */
+                const verseGroup = document.createElement('div');
+                verseGroup.className = 'mobile-verse-group';
+                verseGroup.dataset.vnum = vNum;
+
+                /* 節番号バッジ */
+                const vBadge = document.createElement('div');
+                vBadge.className = 'mobile-vnum-badge';
+                vBadge.textContent = vNum;
+                verseGroup.appendChild(vBadge);
+
+                /* A訳ブロック */
+                const aWrap = document.createElement('div');
+                aWrap.className = 'mobile-trans-block mobile-trans-a';
+                const aLabel = document.createElement('div');
+                aLabel.className = 'mobile-trans-label';
+                aLabel.textContent = (TRANSLATIONS[_transA] || {}).label || _transA;
+                aWrap.appendChild(aLabel);
+                aWrap.appendChild(block);
+                verseGroup.appendChild(aWrap);
+
+                /* 区切り線 */
+                const sep = document.createElement('div');
+                sep.className = 'mobile-verse-sep';
+                verseGroup.appendChild(sep);
+
+                /* B訳ブロック */
+                const bWrap = document.createElement('div');
+                bWrap.className = 'mobile-trans-block mobile-trans-b';
+                const bLabel = document.createElement('div');
+                bLabel.className = 'mobile-trans-label';
+                bLabel.textContent = (TRANSLATIONS[_transB] || {}).label || _transB;
+                bWrap.appendChild(bLabel);
+                bWrap.appendChild(pBlock);
+                verseGroup.appendChild(bWrap);
+
+                app.appendChild(verseGroup);
+            } else if (useVersePair) {
+                const pairEl = document.createElement('div');
+                pairEl.className = 'verse-pair';
+                pairEl.appendChild(block);
+                pairEl.appendChild(pBlock);
+                mainArea.appendChild(pairEl);
+            } else {
+                app.appendChild(block);
+                parallel.appendChild(pBlock);
+                /* Reading Hint: 主 Reading ビュー（非比較）の該当節 verse-block 右端に info アイコンを加算 */
+                _appendReadingHint(block, vNum);
+            }
         }
     });
+
+    /* B列 passage-level: ループ後に #parallel-text-area へ章単位ビューを描画する。 */
+    if (_bIsPassageLevel) {
+        if (_colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical') {
+            _renderStructuralDiagramView(parallel, _sdChapterDataForRender, elData, _colB.kind);
+        } else if (_colB.kind === 'relation') {
+            _renderRelationView(parallel, _sdChapterDataForRender, elData);
+        }
+    }
 
 _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
 
@@ -12699,12 +12747,16 @@ function _buildReadingContext(words, idx) {
  * @returns {ColumnMode}
  */
 function _toColumnMode(transId) {
-    if (transId === 'FLOW') return { kind: 'wordOrder' };
-    if (transId === 'DISCOURSE') return { kind: 'discourse' };          /* DA-1 */
-    if (transId === 'STRUCTURAL') return { kind: 'structural-diagram' }; /* P2 legacy */
-    if (transId === 'HIERARCHICAL') return { kind: 'hierarchical' };     /* C-17 Phase 1 */
-    if (transId === 'REED_KELLOGG') return { kind: 'structural-diagram' }; /* C-17 Phase 1 */
-    if (transId === 'RELATION') return { kind: 'relation' };               /* E-4-D */
+    if (transId === 'WORD_ORDER')  return { kind: 'wordOrder' };
+    if (transId === 'STRUCTURE')   return { kind: 'hierarchical' };
+    if (transId === 'CLAUSE_ROLE') return { kind: 'structural-diagram' };
+    if (transId === 'RELATION')    return { kind: 'relation' };               /* E-4-D */
+    if (transId === 'DISCOURSE')   return { kind: 'discourse' };              /* DA-1 */
+    /* Legacy aliases — kept for URL backward compatibility (old deep links) */
+    if (transId === 'FLOW')         return { kind: 'wordOrder' };          /* legacy → WORD_ORDER */
+    if (transId === 'HIERARCHICAL') return { kind: 'hierarchical' };       /* legacy → STRUCTURE */
+    if (transId === 'REED_KELLOGG') return { kind: 'structural-diagram' }; /* legacy → CLAUSE_ROLE */
+    if (transId === 'STRUCTURAL')   return { kind: 'structural-diagram' }; /* P2 legacy */
     return { kind: 'translation', translationId: transId };
 }
 
@@ -13513,7 +13565,7 @@ function _dgAppendTokens(container, node, headSIs) {
         span.addEventListener('click', (ev) => {
             ev.stopPropagation();
             _setInspectDataFromElToken(e);
-            AppState.studyOrigin = { surface: 'HIERARCHICAL', entryPoint: 'token' };
+            AppState.studyOrigin = { surface: 'STRUCTURE', entryPoint: 'token' };
             _setStudyTarget(e.ref);
             openStudyPanel(e.text || '', e.morph || '', e.ref || '', e.lemma || '');
         });
@@ -13566,7 +13618,7 @@ function _dgOpenDepthPanel(node, headSIs) {
     const e = _dgHeadEntry(node, headSIs);
     if (!e) return;
     _setInspectDataFromElToken(e);
-    AppState.studyOrigin = { surface: 'HIERARCHICAL', entryPoint: 'head' };
+    AppState.studyOrigin = { surface: 'STRUCTURE', entryPoint: 'head' };
     _setStudyTarget(e.ref);
     openStudyPanel(e.text || '', e.morph || '', e.ref || '', e.lemma || '');
 }
@@ -13830,7 +13882,7 @@ function _dgRenderAdvPhrases(advPhrases) {
                 _prepSpan.addEventListener('click', (ev) => {
                     ev.stopPropagation();
                     _setInspectDataFromElToken(_prepEntry);
-                    AppState.studyOrigin = { surface: 'HIERARCHICAL', entryPoint: 'pp' };
+                    AppState.studyOrigin = { surface: 'STRUCTURE', entryPoint: 'pp' };
                     _setStudyTarget(_prepEntry.ref);
                     openStudyPanel(_prepEntry.text || '', _prepEntry.morph || '', _prepEntry.ref || '', _prepEntry.lemma || '');
                 });
@@ -14293,7 +14345,7 @@ function _hdgTokenEl(srNode) {
     span.addEventListener('click', ev => {
         ev.stopPropagation();
         _setInspectDataFromElToken(e);
-        AppState.studyOrigin = { surface: 'HIERARCHICAL', entryPoint: 'token' };
+        AppState.studyOrigin = { surface: 'STRUCTURE', entryPoint: 'token' };
         _setStudyTarget(e.ref);
         openStudyPanel(e.text || '', e.morph || '', e.ref || '', e.lemma || '');
     });
@@ -15248,7 +15300,7 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
                                 onTokenClick: function(ref, data) {
                                     if (!data) return;
                                     _setInspectDataFromElToken(data);
-                                    AppState.studyOrigin = { surface: 'REED_KELLOGG', entryPoint: 'token' };
+                                    AppState.studyOrigin = { surface: 'CLAUSE_ROLE', entryPoint: 'token' };
                                     _setStudyTarget(ref);
                                     openStudyPanel(
                                         data.text  || '',
@@ -16620,9 +16672,12 @@ async function renderCurrentPage() {
         _dcvChapterTreeForRender = (_colA.kind === 'discourse')
             ? await _loadFlowTreeChapter(book, ch) : null;
 
-        /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。E-4-D: relation も同一SR JSONを使用。 */
-        _sdChapterDataForRender = (_colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical' || _colA.kind === 'relation') /* C-17 Phase 1 / E-4-D */
-            ? await _loadSrChapter(book, ch) : null;
+        /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。E-4-D: relation も同一SR JSONを使用。
+           B列が passage-level の場合も同じ SR JSON を使用するため、_colB.kind も対象に含める。 */
+        _sdChapterDataForRender = (
+            _colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical' || _colA.kind === 'relation' /* C-17 Phase 1 / E-4-D */
+            || _colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical' || _colB.kind === 'relation' /* B列 passage-level */
+        ) ? await _loadSrChapter(book, ch) : null;
 
         /* P4-ICL: ICL インデックスを事前計算（structural-diagram ビューかつ iclEnabled 時のみ）。 */
         _sdIclIndex = null;
@@ -17149,9 +17204,9 @@ function _bpRenderSingle() {
         </div>`
     ).join('');
     const flowHTML =
-        `<div class="bp-trans-item${_bpSelA === 'FLOW' ? ' active' : ''}" onclick="bpSelectA('FLOW')">
+        `<div class="bp-trans-item${_bpSelA === 'WORD_ORDER' ? ' active' : ''}" onclick="bpSelectA('WORD_ORDER')">
             <div>
-                <span class="bp-trans-name">${TRANSLATIONS.FLOW.label}</span>
+                <span class="bp-trans-name">${TRANSLATIONS.WORD_ORDER.label}</span>
             </div>
             <span class="bp-trans-check icon">${icon('check')}</span>
         </div>` +
@@ -17163,16 +17218,16 @@ function _bpRenderSingle() {
             </div>
             <span class="bp-trans-check icon">${icon('check')}</span>
         </div>` + */
-        /* C-17 Phase 1: 階層ダイアグラムと Reed–Kellogg を「読み方を選択」に追加。 */
-        `<div class="bp-trans-item${_bpSelA === 'HIERARCHICAL' ? ' active' : ''}" onclick="bpSelectA('HIERARCHICAL')">
+        /* C-17 Phase 1: 階層ダイアグラムと RK を「読み方を選択」に追加。 */
+        `<div class="bp-trans-item${_bpSelA === 'STRUCTURE' ? ' active' : ''}" onclick="bpSelectA('STRUCTURE')">
             <div>
-                <span class="bp-trans-name">${TRANSLATIONS.HIERARCHICAL.label}</span>
+                <span class="bp-trans-name">${TRANSLATIONS.STRUCTURE.label}</span>
             </div>
             <span class="bp-trans-check icon">${icon('check')}</span>
         </div>` +
-        `<div class="bp-trans-item${_bpSelA === 'REED_KELLOGG' ? ' active' : ''}" onclick="bpSelectA('REED_KELLOGG')">
+        `<div class="bp-trans-item${_bpSelA === 'CLAUSE_ROLE' ? ' active' : ''}" onclick="bpSelectA('CLAUSE_ROLE')">
             <div>
-                <span class="bp-trans-name">${TRANSLATIONS.REED_KELLOGG.label}</span>
+                <span class="bp-trans-name">${TRANSLATIONS.CLAUSE_ROLE.label}</span>
             </div>
             <span class="bp-trans-check icon">${icon('check')}</span>
         </div>` +
@@ -17195,18 +17250,18 @@ function _bpRenderCompare() {
         </div>`
     ).join('');
     const colAFlow =
-        `<div class="bp-compare-opt${_bpSelA === 'FLOW' ? ' active' : ''}" onclick="bpSelectA('FLOW')">
+        `<div class="bp-compare-opt${_bpSelA === 'WORD_ORDER' ? ' active' : ''}" onclick="bpSelectA('WORD_ORDER')">
             <span class="bp-compare-opt-dot"></span>
-            <span class="bp-compare-opt-name">${TRANSLATIONS.FLOW.label}</span>
+            <span class="bp-compare-opt-name">${TRANSLATIONS.WORD_ORDER.label}</span>
         </div>` +
-        /* C-17 Phase 1: 階層ダイアグラムと Reed–Kellogg を左列「読み方を選択」に追加。 */
-        `<div class="bp-compare-opt${_bpSelA === 'HIERARCHICAL' ? ' active' : ''}" onclick="bpSelectA('HIERARCHICAL')">
+        /* C-17 Phase 1: 階層ダイアグラムと RK を左列「読み方を選択」に追加。 */
+        `<div class="bp-compare-opt${_bpSelA === 'STRUCTURE' ? ' active' : ''}" onclick="bpSelectA('STRUCTURE')">
             <span class="bp-compare-opt-dot"></span>
-            <span class="bp-compare-opt-name">${TRANSLATIONS.HIERARCHICAL.label}</span>
+            <span class="bp-compare-opt-name">${TRANSLATIONS.STRUCTURE.label}</span>
         </div>` +
-        `<div class="bp-compare-opt${_bpSelA === 'REED_KELLOGG' ? ' active' : ''}" onclick="bpSelectA('REED_KELLOGG')">
+        `<div class="bp-compare-opt${_bpSelA === 'CLAUSE_ROLE' ? ' active' : ''}" onclick="bpSelectA('CLAUSE_ROLE')">
             <span class="bp-compare-opt-dot"></span>
-            <span class="bp-compare-opt-name">${TRANSLATIONS.REED_KELLOGG.label}</span>
+            <span class="bp-compare-opt-name">${TRANSLATIONS.CLAUSE_ROLE.label}</span>
         </div>` +
         /* E-4-D: Relation View（つながりで読む）を左列「読み方を選択」に追加。 */
         `<div class="bp-compare-opt${_bpSelA === 'RELATION' ? ' active' : ''}" onclick="bpSelectA('RELATION')">
@@ -17222,14 +17277,21 @@ function _bpRenderCompare() {
             <span class="bp-compare-opt-name">${t.label}</span>
         </div>`
     ).join('');
-    /* C-17 Phase 1: 新モード（HIERARCHICAL/REED_KELLOGG）を A に選択時は B の「読み方を選択」を非表示（FLOW と同じ扱い）。
-       E-4-D: RELATION も同じ扱い（全画面モードのため比較右列には置かない）。 */
-    const colBFlow = (_bpSelA !== 'FLOW' && _bpSelA !== 'HIERARCHICAL' && _bpSelA !== 'REED_KELLOGG' && _bpSelA !== 'RELATION')
-        ? `<div class="bp-compare-opt${_bpSelB === 'FLOW' ? ' active' : ''}" onclick="bpSelectB('FLOW')">
+    /* 右列「読み方を選択」：A で選択中のモードを除いた4モードを表示する。 */
+    const _bpFlowModes = [
+        { id: 'WORD_ORDER',  label: TRANSLATIONS.WORD_ORDER.label  },
+        { id: 'STRUCTURE',   label: TRANSLATIONS.STRUCTURE.label   },
+        { id: 'CLAUSE_ROLE', label: TRANSLATIONS.CLAUSE_ROLE.label },
+        { id: 'RELATION',    label: TRANSLATIONS.RELATION.label    },
+    ];
+    const colBFlow = _bpFlowModes
+        .filter(m => m.id !== _bpSelA)
+        .map(m =>
+            `<div class="bp-compare-opt${_bpSelB === m.id ? ' active' : ''}" onclick="bpSelectB('${m.id}')">
                <span class="bp-compare-opt-dot"></span>
-               <span class="bp-compare-opt-name">${TRANSLATIONS.FLOW.label}</span>
+               <span class="bp-compare-opt-name">${m.label}</span>
            </div>`
-        : '';
+        ).join('');
     document.getElementById('bp-col-b').innerHTML = colBTrans + colBFlow;
     _bpRenderCompareExternal();
 }
@@ -17397,7 +17459,7 @@ function _mobileSwipeBack() {
 
     window.App.bridge = {
     activateFlowCompare: async function() {
-        _transB = 'FLOW';
+        _transB = 'WORD_ORDER';
         _applyTransMode('compare');
         await renderCurrentPage();
         _setFlowInjection('flow');
@@ -17412,7 +17474,7 @@ function _mobileSwipeBack() {
         if (_isMobile()) {
             closeStudyPanel();
         }
-        _transA = 'FLOW';
+        _transA = 'WORD_ORDER';
         _applyTransMode('single');
         await renderCurrentPage();
         if (window.App.onboarding && typeof window.App.onboarding.onFlowTabOpened === 'function') {
