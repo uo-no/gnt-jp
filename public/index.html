@@ -5528,6 +5528,99 @@ details[open] .study-summary::before {
 /* ── Phase 6-2-D-3 end ───────────────────────────────────────────────────── */
 /* ── Phase 6-2-D-1 end ───────────────────────────────────────────────────── */
 
+/* ── Phase 6-2-E-4-D: Relation View ─────────────────────────────────────── */
+.rv-view {
+    padding: 16px;
+}
+.rv-sentence {
+    margin-bottom: 40px;
+}
+.rv-sentence-ref {
+    font-size: 12px;
+    color: var(--text-secondary, #888);
+    margin-bottom: 8px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+.rv-empty {
+    color: var(--text-secondary, #888);
+    padding: 32px 16px;
+    text-align: center;
+    font-size: 14px;
+}
+
+/* Node graph */
+.relation-view-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.relation-view {
+    position: relative;
+}
+.relation-edge-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+.relation-node-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+.relation-node {
+    position: absolute;
+    background: var(--surface-card, #fff);
+    border: 1px solid var(--border-subtle, #ddd);
+    border-radius: 6px;
+    padding: 8px 10px;
+    box-sizing: border-box;
+    font-size: 13px;
+    line-height: 1.4;
+}
+.relation-node-role {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary, #888);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+}
+.relation-node-marker {
+    font-size: 13px;
+    color: var(--relation-antecedent-color, #4a7ca5);
+    margin-bottom: 2px;
+}
+.relation-node-pred {
+    font-size: 14px;
+    color: var(--text-primary, #222);
+    font-weight: 500;
+    margin-bottom: 4px;
+    word-break: break-word;
+    line-height: 1.6;
+}
+.relation-node-arg {
+    font-size: 11px;
+    color: var(--text-secondary, #666);
+    margin-top: 2px;
+}
+.relation-node-phrase {
+    font-size: 11px;
+    color: var(--text-tertiary, #999);
+    font-style: italic;
+    margin-top: 2px;
+}
+.relation-view-empty {
+    color: var(--text-secondary, #888);
+    padding: 16px 0;
+    text-align: center;
+    font-size: 13px;
+}
+/* ── Phase 6-2-E-4-D end ───────────────────────────────────────────────── */
+
 </style>
 
 </head>
@@ -5846,6 +5939,8 @@ details[open] .study-summary::before {
 <script src="../core/rk-renderer.js"></script>
 <script src="../core/clause-flow-engine.js"></script>
 <script src="../core/clause-flow-renderer.js"></script>
+<script src="../core/relation-projection.js"></script>
+<script src="../core/relation-renderer.js"></script>
 <script>
 let abbottSmithDict = null;
 let _proximityTokens = [];
@@ -6003,6 +6098,8 @@ const TRANSLATIONS = {
     /* C-17 Phase 1: 3-mode registry. STRUCTURAL は REED_KELLOGG の legacy URL alias として維持。 */
     'HIERARCHICAL': { label: '構造で読む',        code: 'HIERARCHICAL' },
     'REED_KELLOGG': { label: '文の役割で読む',    code: 'REED_KELLOGG' },
+    /* E-4-D: Relation View（つながりで読む）。SR JSON を消費する独立パイプライン。 */
+    'RELATION': { label: 'つながりで読む', code: 'RELATION' },
 };
 const TRANS_LIST   = Object.entries(TRANSLATIONS).map(([id, t]) => ({ id, name: t.label, code: t.code }));
 const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t]) => [id, t.label]));
@@ -6013,7 +6110,7 @@ const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t
  * Bible Picker の「翻訳を選択」グループはここを正とする。
  */
 const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
-    .filter(([id]) => id !== 'FLOW' && id !== 'DISCOURSE' && id !== 'STRUCTURAL' && id !== 'HIERARCHICAL' && id !== 'REED_KELLOGG' && id !== 'BUN')
+    .filter(([id]) => id !== 'FLOW' && id !== 'DISCOURSE' && id !== 'STRUCTURAL' && id !== 'HIERARCHICAL' && id !== 'REED_KELLOGG' && id !== 'BUN' && id !== 'RELATION')
     .map(([id, t]) => ({ id, label: t.label, code: t.code }));
 
 /**
@@ -10004,8 +10101,8 @@ async function init() {
         /* DA-1: discourse は flow-tree（clause/sentence 構造）を先読みして render() へ渡す。 */
         _dcvChapterTreeForRender = (_colA.kind === 'discourse')
             ? await _loadFlowTreeChapter(book, ch) : null;
-        /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。 */
-        _sdChapterDataForRender = (_colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical') /* C-17 Phase 1 */
+        /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。E-4-D: relation も同一SR JSONを使用。 */
+        _sdChapterDataForRender = (_colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical' || _colA.kind === 'relation') /* C-17 Phase 1 / E-4-D */
             ? await _loadSrChapter(book, ch) : null;
 
         /* P4-ICL: ICL インデックスを事前計算（structural-diagram ビューかつ iclEnabled 時のみ）。 */
@@ -10286,6 +10383,16 @@ app.innerHTML = '';
        Reading Engine・Discourse Analysis とは完全に独立したパイプライン。 */
     if (_colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical') { /* C-17 Phase 1 */
         _renderStructuralDiagramView(app, _sdChapterDataForRender, elData, _colA.kind);
+        parallel.innerHTML = '';
+        _cachedElByVerse   = elByVerse;
+        _proximityTokens   = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
+        return;
+    }
+
+    /* E-4-D: Relation View — SR JSON + RelationProjection + RelationRenderer パイプライン。
+       DA-1・P2 と同じく passage（章）単位の早期 return。既存 verse-loop には入らない。 */
+    if (_colA.kind === 'relation') {
+        _renderRelationView(app, _sdChapterDataForRender, elData);
         parallel.innerHTML = '';
         _cachedElByVerse   = elByVerse;
         _proximityTokens   = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
@@ -12597,6 +12704,7 @@ function _toColumnMode(transId) {
     if (transId === 'STRUCTURAL') return { kind: 'structural-diagram' }; /* P2 legacy */
     if (transId === 'HIERARCHICAL') return { kind: 'hierarchical' };     /* C-17 Phase 1 */
     if (transId === 'REED_KELLOGG') return { kind: 'structural-diagram' }; /* C-17 Phase 1 */
+    if (transId === 'RELATION') return { kind: 'relation' };               /* E-4-D */
     return { kind: 'translation', translationId: transId };
 }
 
@@ -12609,7 +12717,7 @@ function _toColumnMode(transId) {
  * @returns {boolean}
  */
 function _isGreekReadingMode(kind) {
-    return kind === 'wordOrder' || kind === 'discourse' || kind === 'structural-diagram' || kind === 'hierarchical'; /* C-17 Phase 1 */
+    return kind === 'wordOrder' || kind === 'discourse' || kind === 'structural-diagram' || kind === 'hierarchical' || kind === 'relation'; /* C-17 Phase 1 / E-4-D */
 }
 
 /**
@@ -15227,6 +15335,83 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
     window.addEventListener('resize', _dgConnRedraw, { passive: true });
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Phase 6-2-E-4-D: Relation View — _renderRelationView
+   SR JSON + buildRelationProjection() + buildRelationView()
+   ─────────────────────────────────────────────────────────────────────────────
+   Exactly mirrors the DA-1 / P2 early-return pattern: operates on the whole
+   chapter in one pass, clears app, never enters the verse-by-verse loop.
+   Pipline: SR sentence → deriveDR → buildClauseFlowTree → buildRelationProjection
+            → buildRelationView → DOM
+   ───────────────────────────────────────────────────────────────────────────── */
+function _renderRelationView(app, srData, elData) {
+    const wrap = document.createElement('div');
+    wrap.className = 'rv-view';
+    wrap.setAttribute('aria-label', 'つながりで読む');
+
+    const _hasEngines = !!(window.DgEngine && window.ClauseFlowEngine
+        && window.RelationProjection && window.RelationRenderer);
+
+    if (!srData || !Array.isArray(srData.sentences) || srData.sentences.length === 0
+            || !_hasEngines) {
+        const emptyEl = document.createElement('div');
+        emptyEl.className = 'rv-empty';
+        emptyEl.textContent = 'この章のつながりデータがありません。';
+        wrap.appendChild(emptyEl);
+        app.innerHTML = '';
+        app.appendChild(wrap);
+        return;
+    }
+
+    /* Build Map<ref, token> for RelationProjection antecedent lookup. */
+    const tokenMap = new Map((elData || []).filter(function(w) { return w.ref; }).map(function(w) { return [w.ref, w]; }));
+
+    for (const sentence of srData.sentences) {
+        const secEl = document.createElement('section');
+        secEl.className = 'rv-sentence';
+        secEl.setAttribute('data-ref', sentence.ref || '');
+
+        const refEl = document.createElement('div');
+        refEl.className = 'rv-sentence-ref';
+        /* Strip book prefix ("COL 1:3–5" → "1:3–5"). */
+        refEl.textContent = (sentence.ref || '').replace(/^\S+\s+/, '');
+        secEl.appendChild(refEl);
+
+        try {
+            const _dr = window.DgEngine.deriveDR(sentence.root);
+            if (_dr) {
+                const _cft = window.ClauseFlowEngine.buildClauseFlowTree(
+                    _dr, sentence.ref, sentence.flatNodeCount
+                );
+                if (_cft) {
+                    const _relations = window.RelationProjection.buildRelationProjection(
+                        _cft, tokenMap, elData
+                    );
+                    /* E-4-E: token tap → existing StudyPanel via same path as DG/RK modes */
+                    const _rvOptions = {
+                        onTokenClick: function (ref, token) {
+                            if (!token) return;
+                            _setInspectDataFromElToken(token);
+                            AppState.studyOrigin = { surface: 'RELATION', entryPoint: 'token' };
+                            _setStudyTarget(ref);
+                            openStudyPanel(token.text || '', token.morph || '', ref, token.lemma || '');
+                        },
+                    };
+                    const _viewEl = window.RelationRenderer.buildRelationView(
+                        _cft, _relations, tokenMap, _rvOptions
+                    );
+                    if (_viewEl) secEl.appendChild(_viewEl);
+                }
+            }
+        } catch (_rvErr) { /* silent — failure must not break other sentences */ }
+
+        wrap.appendChild(secEl);
+    }
+
+    app.innerHTML = '';
+    app.appendChild(wrap);
+}
+
 /**
  * Representation を HTML 文字列に変換する。Renderer Registry（VR-4-B §E で「今回は
  * 導入しない」と判断済み）は導入せず、現時点では kind による分岐で Renderer を
@@ -16435,8 +16620,8 @@ async function renderCurrentPage() {
         _dcvChapterTreeForRender = (_colA.kind === 'discourse')
             ? await _loadFlowTreeChapter(book, ch) : null;
 
-        /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。 */
-        _sdChapterDataForRender = (_colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical') /* C-17 Phase 1 */
+        /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。E-4-D: relation も同一SR JSONを使用。 */
+        _sdChapterDataForRender = (_colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical' || _colA.kind === 'relation') /* C-17 Phase 1 / E-4-D */
             ? await _loadSrChapter(book, ch) : null;
 
         /* P4-ICL: ICL インデックスを事前計算（structural-diagram ビューかつ iclEnabled 時のみ）。 */
@@ -16990,6 +17175,13 @@ function _bpRenderSingle() {
                 <span class="bp-trans-name">${TRANSLATIONS.REED_KELLOGG.label}</span>
             </div>
             <span class="bp-trans-check icon">${icon('check')}</span>
+        </div>` +
+        /* E-4-D: Relation View（つながりで読む）を読み方を選択に追加。 */
+        `<div class="bp-trans-item${_bpSelA === 'RELATION' ? ' active' : ''}" onclick="bpSelectA('RELATION')">
+            <div>
+                <span class="bp-trans-name">${TRANSLATIONS.RELATION.label}</span>
+            </div>
+            <span class="bp-trans-check icon">${icon('check')}</span>
         </div>`;
     document.getElementById('bp-single-body').innerHTML = transHTML + flowHTML;
 }
@@ -17015,6 +17207,11 @@ function _bpRenderCompare() {
         `<div class="bp-compare-opt${_bpSelA === 'REED_KELLOGG' ? ' active' : ''}" onclick="bpSelectA('REED_KELLOGG')">
             <span class="bp-compare-opt-dot"></span>
             <span class="bp-compare-opt-name">${TRANSLATIONS.REED_KELLOGG.label}</span>
+        </div>` +
+        /* E-4-D: Relation View（つながりで読む）を左列「読み方を選択」に追加。 */
+        `<div class="bp-compare-opt${_bpSelA === 'RELATION' ? ' active' : ''}" onclick="bpSelectA('RELATION')">
+            <span class="bp-compare-opt-dot"></span>
+            <span class="bp-compare-opt-name">${TRANSLATIONS.RELATION.label}</span>
         </div>`;
     document.getElementById('bp-col-a').innerHTML = colATrans + colAFlow;
 
@@ -17025,8 +17222,9 @@ function _bpRenderCompare() {
             <span class="bp-compare-opt-name">${t.label}</span>
         </div>`
     ).join('');
-    /* C-17 Phase 1: 新モード（HIERARCHICAL/REED_KELLOGG）を A に選択時は B の「読み方を選択」を非表示（FLOW と同じ扱い）。 */
-    const colBFlow = (_bpSelA !== 'FLOW' && _bpSelA !== 'HIERARCHICAL' && _bpSelA !== 'REED_KELLOGG')
+    /* C-17 Phase 1: 新モード（HIERARCHICAL/REED_KELLOGG）を A に選択時は B の「読み方を選択」を非表示（FLOW と同じ扱い）。
+       E-4-D: RELATION も同じ扱い（全画面モードのため比較右列には置かない）。 */
+    const colBFlow = (_bpSelA !== 'FLOW' && _bpSelA !== 'HIERARCHICAL' && _bpSelA !== 'REED_KELLOGG' && _bpSelA !== 'RELATION')
         ? `<div class="bp-compare-opt${_bpSelB === 'FLOW' ? ' active' : ''}" onclick="bpSelectB('FLOW')">
                <span class="bp-compare-opt-dot"></span>
                <span class="bp-compare-opt-name">${TRANSLATIONS.FLOW.label}</span>
