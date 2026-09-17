@@ -111,6 +111,12 @@ const BUILD_DATE = new Date().toISOString().slice(0, 10);
 // ref format: "BOOK CH:V!IDX"  e.g. "JHN 1:1!1"
 const REF_RE = /^(\S+)\s+(\d+):(\d+)!(\d+)$/;
 
+const _SR_XML_NS = 'http://www.w3.org/XML/1998/namespace';
+function _getWordVerseId(wEl) {
+    const nsId = wEl.getAttributeNS ? wEl.getAttributeNS(_SR_XML_NS, 'id') : null;
+    return nsId || wEl.getAttribute('xml:id') || wEl.getAttribute('ref');
+}
+
 // ── Role Normalization (R-4) ─────────────────────────────────────────────
 
 function normalizeRole(roleRaw) {
@@ -261,9 +267,9 @@ function buildNode(el, parentId, bookCode, bibleIdx, seq) {
     const roleRaw = el.getAttribute('role');
     const nodeIdAttr = el.getAttribute('nodeId') || null;
 
-    // Collect all descendant token refs (the span of this constituent)
+    // Collect all descendant token verseIds (the span of this constituent)
     const wElems   = Array.from(el.getElementsByTagName('w'));
-    const tokenIds = wElems.map(w => w.getAttribute('ref')).filter(Boolean);
+    const tokenIds = wElems.map(w => _getWordVerseId(w)).filter(Boolean);
 
     // Stable node ID: prefer explicit nodeId, else derive from span
     let nid;

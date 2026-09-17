@@ -111,11 +111,13 @@ const counters = {
 const failures = [];
 const unknownClassValues = new Set();
 
-/* chapters[BOOK][CH] = { book, chapter, sentences:[root...], refIndex:{ref:index}, _seen:Set } */
+/* chapters[BOOK][CH] = { book, chapter, sentences:[root...], nodeIndex:{verseId:index}, _seen:Set } */
 const chapters = {};
+const refToVerseId = {}; /* ref string ("MAT 1:1!1") → verseId ("n40001001001") */
+const _FT_XML_NS = 'http://www.w3.org/XML/1998/namespace';
 function chapterBucket(book, ch) {
     chapters[book] = chapters[book] || {};
-    if (!chapters[book][ch]) chapters[book][ch] = { book, chapter: ch, sentences: [], refIndex: {}, _seen: new Set() };
+    if (!chapters[book][ch]) chapters[book][ch] = { book, chapter: ch, sentences: [], nodeIndex: {}, _seen: new Set() };
     return chapters[book][ch];
 }
 
@@ -157,7 +159,16 @@ for (const bookFile of BOOK_FILES) {
             result.unknownClasses.forEach(c => unknownClassValues.add(c));
         }
 
+        // Build ref→verseId mapping from this sentence's <w> elements (before completeness check)
+        Array.from(sentenceEl.getElementsByTagName('w')).forEach(w => {
+            const ref = w.getAttribute('ref');
+            const nsId = w.getAttributeNS ? w.getAttributeNS(_FT_XML_NS, 'id') : null;
+            const vid = nsId || w.getAttribute('xml:id');
+            if (ref && vid && vid !== ref) refToVerseId[ref] = vid;
+        });
+
         // token 完全性: raw（sentence 内 <w> の token ref）と captured（tree word node）を照合
+        // Completeness check uses ref strings (from adapter, before post-processing to verseIds)
         const rawRefs = new Set(
             Array.from(sentenceEl.getElementsByTagName('w'))
                 .map(w => w.getAttribute('ref'))
@@ -183,7 +194,14 @@ for (const bookFile of BOOK_FILES) {
         counters.sentences++;
         counters.tokens += capturedSet.size;
 
-        // chapter 割り当て（token がかかる各 chapter へ root を格納・refIndex を張る）
+        // Post-process: replace ref strings in tokens[] with verseIds
+        (function replaceTreeTokens(node) {
+            if (!node) return;
+            if (Array.isArray(node.tokens)) node.tokens = node.tokens.map(r => refToVerseId[r] || r);
+            (node.children || []).forEach(replaceTreeTokens);
+        })(result.root);
+
+        // chapter 割り当て（token がかかる各 chapter へ root を格納・nodeIndex を張る）
         const perChapterRefs = {};   // "BOOK|CH" -> [refs]
         for (const ref of capturedList) {
             const p = parseRef(ref);
@@ -200,7 +218,10 @@ for (const bookFile of BOOK_FILES) {
                 bucket.sentences.push(result.root);
             }
             const sIndex = bucket.sentences.indexOf(result.root);
-            for (const ref of perChapterRefs[key]) bucket.refIndex[ref] = sIndex;
+            for (const ref of perChapterRefs[key]) {
+                const verseId = refToVerseId[ref] || ref;
+                bucket.nodeIndex[verseId] = sIndex;
+            }
         }
     });
 }
@@ -219,7 +240,7 @@ for (const book of bookKeys) {
     const chKeys = Object.keys(chapters[book]).map(Number).sort((a, b) => a - b);
     for (const ch of chKeys) {
         const b = chapters[book][ch];
-        const json = stableStringify({ book: b.book, chapter: b.chapter, sentences: b.sentences, refIndex: b.refIndex });
+        const json = stableStringify({ book: b.book, chapter: b.chapter, sentences: b.sentences, nodeIndex: b.nodeIndex });
         outputs.push({ relPath: path.join(book, `${ch}.json`), json });
     }
 }

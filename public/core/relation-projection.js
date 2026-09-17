@@ -180,7 +180,7 @@
     if (!_isNominalMorph(antTok.morph)) return null;
 
     // G7: antecedent must be within this sentence's CFT
-    var antNodeId = tokenRefToNodeId.get(antTok.ref);
+    var antNodeId = tokenRefToNodeId.get(antTok.verseId);
     if (!antNodeId) return null;
 
     // G8: self-loop prevention — antecedent node must differ from the relative clause node
@@ -191,9 +191,10 @@
       targetId: antNodeId,
       type:     'RELATIVE_ANTECEDENT',
       evidence: {
-        derivedFrom:   'antecedent',
-        tokenRef:      pronRef,
-        antecedentRef: antTok.ref,
+        derivedFrom:      'antecedent',
+        tokenNodeId:      pronRef,
+        antecedentNodeId: antTok.verseId,
+        antecedentRef:    antTok.ref,
       },
     };
   }

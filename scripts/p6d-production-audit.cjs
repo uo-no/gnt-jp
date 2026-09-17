@@ -172,7 +172,7 @@ for (const book of ntBooks) {
       // Derive connectors
       let cons = [];
       try {
-        cons = deriveRelativeConnectors(sentence.root || sentence, bdByRef, bdById);
+        cons = deriveRelativeConnectors(sentence.root || sentence, bdById);
         totalConnectors += cons.length;
         bookData[bookKey].connectors += cons.length;
       } catch(e) {

@@ -114,7 +114,7 @@
     var tokens = _getTokensSorted(node);
     var refs = [];
     for (var i = 0; i < tokens.length; i++) {
-      var ref = tokens[i].evidence && tokens[i].evidence.ref;
+      var ref = tokens[i].evidence && tokens[i].evidence.nodeId;
       if (ref != null && ref !== '') refs.push(ref);
     }
     return refs;
@@ -134,7 +134,7 @@
     for (var i = 0; i < tokens.length; i++) {
       var t = tokens[i];
       if (!headSIs.has(t.surfaceIndex)) continue;
-      var ref = t.evidence && t.evidence.ref;
+      var ref = t.evidence && t.evidence.nodeId;
       if (ref != null && ref !== '') refs.push(ref);
     }
     return refs;
@@ -171,7 +171,7 @@
     var seen = Object.create(null);
     var result = [];
     for (var i = 0; i < tokenRefs.length; i++) {
-      var verse = tokenRefs[i].split('!')[0];
+      var verse = tokenRefs[i].slice(0, 9); /* verseId prefix: n{bb}{ccc}{vvv} (9 chars) */
       if (!seen[verse]) {
         seen[verse] = true;
         result.push(verse);
@@ -267,7 +267,7 @@
       return {
         text:     (relationMeta && relationMeta.contentConjunction)    || null,
         label:    (relationMeta && relationMeta.contentLabel)           || null,
-        tokenRef: (relationMeta && relationMeta.contentConjunctionRef) || null,
+        tokenRef: (relationMeta && (relationMeta.contentConjunctionNodeId || relationMeta.contentConjunctionRef)) || null,
       };
     }
 
@@ -275,15 +275,15 @@
       return {
         text:     null,
         label:    null,
-        tokenRef: dr.relPronRef || null,
+        tokenRef: dr.relPronNodeId || null,
       };
     }
 
     // ADVERBIAL | PARTICIPIAL | COORDINATED
     return {
-      text:     dr.conjunction    || null,
+      text:     dr.conjunction       || null,
       label:    null,
-      tokenRef: dr.conjunctionRef || null,
+      tokenRef: dr.conjunctionNodeId || null,
     };
   }
 
@@ -326,7 +326,7 @@
     var text = allTokens.map(function (t) { return t.text || ''; }).join(' ').trim();
     var tokenRefs = [];
     for (var i = 0; i < allTokens.length; i++) {
-      var ref = allTokens[i].evidence && allTokens[i].evidence.ref;
+      var ref = allTokens[i].evidence && allTokens[i].evidence.nodeId;
       if (ref != null && ref !== '') tokenRefs.push(ref);
     }
     return { text: text, tokenRefs: tokenRefs };
@@ -400,7 +400,7 @@
             var _sf35Refs = [];
             for (var _sf35ti = 0; _sf35ti < _sf35NodeToks.length; _sf35ti++) {
               if (_sf35SIs.has(_sf35NodeToks[_sf35ti].surfaceIndex)) continue;
-              var _sf35R = _sf35NodeToks[_sf35ti].evidence && _sf35NodeToks[_sf35ti].evidence.ref;
+              var _sf35R = _sf35NodeToks[_sf35ti].evidence && _sf35NodeToks[_sf35ti].evidence.nodeId;
               if (_sf35R != null && _sf35R !== '') _sf35Refs.push(_sf35R);
             }
             _tokenRefs = _sf35Refs;
@@ -423,7 +423,7 @@
             var _sf38Refs = [];
             for (var _sf38ti = 0; _sf38ti < _sf38NodeToks.length; _sf38ti++) {
               if (_sf38SIs.has(_sf38NodeToks[_sf38ti].surfaceIndex)) continue;
-              var _sf38R = _sf38NodeToks[_sf38ti].evidence && _sf38NodeToks[_sf38ti].evidence.ref;
+              var _sf38R = _sf38NodeToks[_sf38ti].evidence && _sf38NodeToks[_sf38ti].evidence.nodeId;
               if (_sf38R != null && _sf38R !== '') _sf38Refs.push(_sf38R);
             }
             _tokenRefs = _sf38Refs;
@@ -479,7 +479,7 @@
           var _phr35Refs = [];
           for (var _phr35ti = 0; _phr35ti < _phr35PPToks.length; _phr35ti++) {
             if (_phr35SIs.has(_phr35PPToks[_phr35ti].surfaceIndex)) continue;
-            var _phr35R = _phr35PPToks[_phr35ti].evidence && _phr35PPToks[_phr35ti].evidence.ref;
+            var _phr35R = _phr35PPToks[_phr35ti].evidence && _phr35PPToks[_phr35ti].evidence.nodeId;
             if (_phr35R != null && _phr35R !== '') _phr35Refs.push(_phr35R);
           }
           tokenRefs = _phr35Refs;
@@ -544,9 +544,10 @@
       if (!cc || !cc.innerDR) continue;
       var childPath = parentPath + '.s[' + i + '].CC';
       var meta = {
-        contentConjunction:    cc.conjunction    || null,
-        contentConjunctionRef: cc.conjunctionRef || null,
-        contentLabel:          cc.label          || null,
+        contentConjunction:        cc.conjunction        || null,
+        contentConjunctionRef:     cc.conjunctionRef     || null,
+        contentConjunctionNodeId:  cc.conjunctionNodeId  || null,
+        contentLabel:              cc.label              || null,
       };
       var child = _buildClauseFlowNode(cc.innerDR, childPath, 'CONTENT', meta);
       if (child) children.push(child);

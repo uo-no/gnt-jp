@@ -7486,7 +7486,7 @@ async function _renderReadingNotes(p) {
        既存の SyntaxAnalyzer/PhraseAnalyzer/ClauseAnalyzer/ReadingFormatter の
        いずれも呼び出さない、完全に独立した経路。対象外の ref では '' が返り、
        既存表示に一切影響しない（Failure Mode, _buildFlowTreeNeighborhoodViewHTML 内で吸収済み）。 */
-    const neighborhoodViewHTML = await _buildFlowTreeNeighborhoodViewHTML(ref);
+    const neighborhoodViewHTML = await _buildFlowTreeNeighborhoodViewHTML(ref, AppState.studyTarget?.verseId);
 
     /* ═══════════════════════════════════════════════════════
        Lexicon data (async)
@@ -11434,8 +11434,8 @@ function _ft11BuildFlowTree() {
 }
 
 function _ft11SurfaceIndex(ref) {
-    const m = /!(\d+)$/.exec(ref);
-    return m ? parseInt(m[1], 10) : 0;
+    // verseId: n{bb:02d}{ch:03d}{vs:03d}{idx:03d} — tokenIndex at chars 9-11
+    return (ref && ref.length === 12) ? parseInt(ref.slice(9), 10) : 0;
 }
 /* label生成処理（Renderer）: NeighborhoodView Model が渡す tokens（未加工・
  * structural order のまま）を受け取り、surface order へ並べ替えてから
@@ -11472,7 +11472,7 @@ function _flowTreeJaForRef(ref) {
         for (const v in cache) {
             const arr = cache[v];
             if (!Array.isArray(arr)) continue;
-            for (const t of arr) if (t && t.ref === ref) return t.japanese || '';
+            for (const t of arr) if (t && t.verseId === ref) return t.japanese || '';
         }
     }
     return '';
@@ -11839,9 +11839,9 @@ async function _loadFlowTreeChapter(book, chapter) {
     _flowTreeChapterCache[key] = data; // null も cache（再 fetch 抑止・静音）
     return data;
 }
-function _flowTreeRootForRef(chapterData, ref) {
-    if (!chapterData || !chapterData.refIndex || !Array.isArray(chapterData.sentences)) return null;
-    const idx = chapterData.refIndex[ref];
+function _flowTreeRootForRef(chapterData, verseId) {
+    if (!chapterData || !chapterData.nodeIndex || !Array.isArray(chapterData.sentences)) return null;
+    const idx = chapterData.nodeIndex[verseId];
     if (idx == null) return null;
     return chapterData.sentences[idx] || null;
 }
@@ -11859,7 +11859,7 @@ function _flowTreeNodesById(root) {
  * VR-6-C: MAT 1:1 は既存 inline prototype（オフライン・baseline byte 不変）、
  * それ以外は VR-6-B の runtime asset から所属 sentence tree を取得して一般化する。
  * 取得不能・focus 不在等はすべて '' を返し既存表示に影響しない（L-0: 推論しない）。 */
-async function _buildFlowTreeNeighborhoodViewHTML(ref) {
+async function _buildFlowTreeNeighborhoodViewHTML(ref, verseId) {
     try {
         if (!ref) return '';
         let representation;
@@ -11872,7 +11872,7 @@ async function _buildFlowTreeNeighborhoodViewHTML(ref) {
             const p = _flowTreeParseRef(ref);
             if (!p) return '';
             const chapterData = await _loadFlowTreeChapter(p.book, p.chapter);
-            const root = _flowTreeRootForRef(chapterData, ref);
+            const root = _flowTreeRootForRef(chapterData, verseId);
             if (!root) return '';
             representation = { root, nodesById: _flowTreeNodesById(root) };
         }
@@ -11886,7 +11886,7 @@ async function _buildFlowTreeNeighborhoodViewHTML(ref) {
 
         // SF-8: focus 中心の関係を既存 representation.nodesById から薄く抽出して描画する。
         // buildNeighborhoodView は経路維持と fallback 判定のために呼ぶ（上の nv）。
-        const relModel = _sfRelationModel(representation.nodesById, ref);
+        const relModel = _sfRelationModel(representation.nodesById, verseId || ref);
         if (!relModel) return '';
         const listHTML = _sfRenderRelationFlow(relModel);
         const originNote = nv.usedFallback ? '所属節なし → 文全体を基準に表示' : 'この語を中心に、前後・所属・上位のまとまりを表示';
@@ -13078,9 +13078,9 @@ function buildDiscourseRepresentation(bookKey, ch, elData, tree) {
     try {
         if (!Array.isArray(elData) || elData.length === 0) return null;
 
-        /* ref → token の索引（flow-tree の token 参照 "BOOK c:v!i" は bible_data.ref と一致）。 */
-        const byRef = {};
-        elData.forEach(w => { if (w && w.ref != null) byRef[w.ref] = w; });
+        /* verseId → token 索引（flow-tree の token 参照は verseId に統一済み）。 */
+        const byNodeId = {};
+        elData.forEach(w => { if (w && w.verseId) byNodeId[w.verseId] = w; });
 
         /* clause 単位を得る。flow-tree があれば top-level sentence（独立節）を1単位とする。
            nested な従属節へは降りない（降りると親子で token が重複し、節間接続ではなく
@@ -13103,7 +13103,7 @@ function buildDiscourseRepresentation(bookKey, ch, elData, tree) {
                 const v = w.verse != null ? String(w.verse) : null;
                 if (!v) return;
                 if (!(v in byVerse)) { byVerse[v] = []; order.push(v); }
-                byVerse[v].push(w.ref);
+                byVerse[v].push(w.verseId);
             });
             unitTokenGroups = order.map(v => ({ node: null, refs: byVerse[v] }));
         }
@@ -13113,7 +13113,7 @@ function buildDiscourseRepresentation(bookKey, ch, elData, tree) {
         unitTokenGroups.forEach((grp, idx) => {
             const node = grp.node;
             const refs = grp.refs;
-            const toks = refs.map(r => byRef[r]).filter(Boolean);
+            const toks = refs.map(r => byNodeId[r]).filter(Boolean);
             if (toks.length === 0) return;
             toks.sort((a, b) => {
                 const va = parseInt(a.verse, 10) || 0, vb = parseInt(b.verse, 10) || 0;
@@ -13483,8 +13483,8 @@ let _dgAntecedentRefSet = null; /* C-10: set of antecedent token refs for visual
 function _dgNodeRefs(node) {
     if (!node) return [];
     if (node.type === 'token') {
-        const ref = node.evidence && node.evidence.ref;
-        return ref ? [{ ref, si: node.surfaceIndex ?? 0 }] : [];
+        const nodeId = node.evidence && (node.evidence.nodeId || node.evidence.ref);
+        return nodeId ? [{ nodeId, si: node.surfaceIndex ?? 0 }] : [];
     }
     const out = [];
     for (const c of (node.children || [])) out.push(..._dgNodeRefs(c));
@@ -13500,7 +13500,7 @@ function _dgJaText(node, headSIs) {
     let refs = _dgNodeRefs(node);
     if (headSIs && headSIs.size > 0) refs = refs.filter(r => headSIs.has(r.si));
     const parts = refs
-        .map(({ ref }) => { const e = _dgActiveTokenMap[ref]; return (e && e.japanese) || ''; })
+        .map(({ nodeId }) => { const e = _dgActiveTokenMap[nodeId]; return (e && e.japanese) || ''; })
         .filter(s => s && !/^[［〔「【（\[〔]/.test(s)); /* exclude bracket-style meta-glosses */
     return parts.length ? parts.join(' ') : null;
 }
@@ -13512,7 +13512,7 @@ function _dgHeadEntry(node, headSIs) {
     const head = (headSIs && headSIs.size > 0)
         ? refs.find(r => headSIs.has(r.si)) || refs[0]
         : refs[0];
-    return head ? (_dgActiveTokenMap[head.ref] || null) : null;
+    return head ? (_dgActiveTokenMap[head.nodeId] || null) : null;
 }
 
 /* StudyPanel data bridge — DG / HDG / ClauseFlow / RK click handlers.
@@ -13532,6 +13532,7 @@ function _setInspectDataFromElToken(token) {
         jaWordDisplay:    token.japanese || '',
         desc:             '',
         ref:              token.ref      || '',
+        verseId:          token.verseId  || '',
         bookKey:          token.book     || '',
         ch:               token.chapter  != null ? token.chapter  : null,
         verse:            token.verse    != null ? token.verse    : null,
@@ -13551,14 +13552,15 @@ function _dgAppendTokens(container, node, headSIs) {
     let refs = _dgNodeRefs(node);
     if (headSIs && headSIs.size > 0) refs = refs.filter(r => headSIs.has(r.si));
     let count = 0;
-    for (const { ref } of refs) {
-        const e = _dgActiveTokenMap[ref];
+    for (const { nodeId } of refs) {
+        const e = _dgActiveTokenMap[nodeId];
         if (!e || !e.japanese || /^[［〔「【（\[〔]/.test(e.japanese)) continue;
         if (count > 0) container.appendChild(document.createTextNode(' '));
         const span = document.createElement('span');
         span.className = 'dg-token';
-        span.dataset.dgRef = e.ref; /* verse anchor + C-16 connector lookup */
-        if (_dgAntecedentRefSet && _dgAntecedentRefSet.has(e.ref)) {
+        span.dataset.dgRef = e.ref;    /* verse anchor */
+        span.dataset.dgNodeId = e.verseId; /* C-16 connector lookup */
+        if (_dgAntecedentRefSet && _dgAntecedentRefSet.has(e.verseId)) {
             span.classList.add('dg-token--antecedent'); /* C-10 */
         }
         span.textContent = e.japanese;
@@ -13566,7 +13568,7 @@ function _dgAppendTokens(container, node, headSIs) {
             ev.stopPropagation();
             _setInspectDataFromElToken(e);
             AppState.studyOrigin = { surface: 'STRUCTURE', entryPoint: 'token' };
-            _setStudyTarget(e.ref);
+            _setStudyTarget(e.ref, e.verseId);
             openStudyPanel(e.text || '', e.morph || '', e.ref || '', e.lemma || '');
         });
         container.appendChild(span);
@@ -13602,12 +13604,12 @@ function _dgCollectAntecedentRefs(dr, set) {
         return;
     }
     for (const sc of (dr.adverbialClauses || [])) {
-        if (sc.isRelativeClause && sc.antecedentRef) set.add(sc.antecedentRef);
+        if (sc.isRelativeClause && sc.antecedentNodeId) set.add(sc.antecedentNodeId);
         _dgCollectAntecedentRefs(sc, set);
     }
     for (const slot of (dr.slots || [])) {
         for (const erc of (slot.embeddedRelClauses || [])) {
-            if (erc.antecedentRef) set.add(erc.antecedentRef);
+            if (erc.antecedentNodeId) set.add(erc.antecedentNodeId);
             if (erc.dr) _dgCollectAntecedentRefs(erc.dr, set);
         }
     }
@@ -13619,7 +13621,7 @@ function _dgOpenDepthPanel(node, headSIs) {
     if (!e) return;
     _setInspectDataFromElToken(e);
     AppState.studyOrigin = { surface: 'STRUCTURE', entryPoint: 'head' };
-    _setStudyTarget(e.ref);
+    _setStudyTarget(e.ref, e.verseId);
     openStudyPanel(e.text || '', e.morph || '', e.ref || '', e.lemma || '');
 }
 
@@ -13645,7 +13647,7 @@ function _dgRenderMainLine(slots) {
         /* C-22: verse metadata — tag single-verse slots; mixed-verse gets no tag */
         { const _svRefs = _dgNodeRefs(slot.node);
           const _svVerses = new Set();
-          for (const { ref } of _svRefs) { const _m = ref.match(/:(\d+)!/); if (_m) _svVerses.add(+_m[1]); }
+          for (const { nodeId } of _svRefs) { if (nodeId && nodeId.length >= 9) _svVerses.add(+nodeId.slice(6, 9)); }
           if (_svVerses.size === 1) slotEl.dataset.verse = String([..._svVerses][0]); }
         const textEl = document.createElement('span');
         textEl.className = 'dg-slot-text';
@@ -13871,7 +13873,7 @@ function _dgRenderAdvPhrases(advPhrases) {
             const prepEl = document.createElement('span');
             prepEl.className = 'dg-pp-prep';
             const _prepChild = adv.node?.children?.[0];
-            const _prepRef   = (_prepChild?.type === 'token') ? (_prepChild.evidence?.ref) : null;
+            const _prepRef   = (_prepChild?.type === 'token') ? (_prepChild.evidence?.nodeId || _prepChild.evidence?.ref) : null;
             const _prepJa    = _prepRef && _dgActiveTokenMap
                 ? (_dgActiveTokenMap[_prepRef]?.japanese || null) : null;
             if (_prepJa && !/^[〔【（]/.test(_prepJa)) {
@@ -13883,7 +13885,7 @@ function _dgRenderAdvPhrases(advPhrases) {
                     ev.stopPropagation();
                     _setInspectDataFromElToken(_prepEntry);
                     AppState.studyOrigin = { surface: 'STRUCTURE', entryPoint: 'pp' };
-                    _setStudyTarget(_prepEntry.ref);
+                    _setStudyTarget(_prepEntry.ref, _prepEntry.verseId);
                     openStudyPanel(_prepEntry.text || '', _prepEntry.morph || '', _prepEntry.ref || '', _prepEntry.lemma || '');
                 });
                 prepEl.appendChild(_prepSpan);
@@ -14000,7 +14002,7 @@ function _dgRenderClause(dr) {
             if (advPh) subWrap.appendChild(advPh);
             for (const sc of (subDr.adverbialClauses || [])) {
                 /* C-16: skip L-bracket for rel-clauses when SVG connector will be drawn */
-                if (!(sc.isRelativeClause && sc.antecedentRef)) {
+                if (!(sc.isRelativeClause && sc.antecedentNodeId)) {
                     const attachEl = document.createElement('div');
                     attachEl.className = 'dg-adv-clause-attach';
                     subWrap.appendChild(attachEl);
@@ -14012,7 +14014,7 @@ function _dgRenderClause(dr) {
                     scWrap.className = 'dg-rel-clause';
                     scLbl.className  = 'dg-rel-clause-label';
                     scLbl.textContent = '関係節'; /* C-16: ← X removed */
-                    if (sc.antecedentRef) scWrap.dataset.antRef = sc.antecedentRef; /* C-16 */
+                    if (sc.antecedentNodeId) { scWrap.dataset.antRef = sc.antecedentRef || ''; scWrap.dataset.antNodeId = sc.antecedentNodeId; } /* C-16 */
                 } else {
                     // P5-D-1: participial sub-clause gets distinct class and label
                     scWrap.className = sc.isParticipalClause
@@ -14031,7 +14033,7 @@ function _dgRenderClause(dr) {
                 for (const erc of (slot.embeddedRelClauses || [])) {
                     if (!erc.dr) continue;
                     /* C-16: skip L-bracket when SVG connector will be drawn */
-                    if (!erc.antecedentRef) {
+                    if (!erc.antecedentNodeId) {
                         const attachEl = document.createElement('div');
                         attachEl.className = 'dg-adv-clause-attach';
                         subWrap.appendChild(attachEl);
@@ -14041,7 +14043,7 @@ function _dgRenderClause(dr) {
                     const ercLbl = document.createElement('div');
                     ercLbl.className  = 'dg-rel-clause-label';
                     ercLbl.textContent = '関係節'; /* C-16: ← X removed */
-                    if (erc.antecedentRef) ercWrap.dataset.antRef = erc.antecedentRef; /* C-16 */
+                    if (erc.antecedentNodeId) { ercWrap.dataset.antRef = erc.antecedentRef || ''; ercWrap.dataset.antNodeId = erc.antecedentNodeId; } /* C-16 */
                     ercWrap.appendChild(ercLbl);
                     const ercEl = _dgRenderClause(erc.dr);
                     if (ercEl) ercWrap.appendChild(ercEl);
@@ -14072,7 +14074,7 @@ function _dgRenderClause(dr) {
         for (const erc of (slot.embeddedRelClauses || [])) {
             if (!erc.dr) continue;
             /* C-16: skip L-bracket when SVG connector will be drawn */
-            if (!erc.antecedentRef) {
+            if (!erc.antecedentNodeId) {
                 const attachEl = document.createElement('div');
                 attachEl.className = 'dg-adv-clause-attach';
                 wrap.appendChild(attachEl);
@@ -14082,7 +14084,7 @@ function _dgRenderClause(dr) {
             const ercLbl = document.createElement('div');
             ercLbl.className  = 'dg-rel-clause-label';
             ercLbl.textContent = '関係節'; /* C-16: ← X removed */
-            if (erc.antecedentRef) ercWrap.dataset.antRef = erc.antecedentRef; /* C-16 */
+            if (erc.antecedentNodeId) { ercWrap.dataset.antRef = erc.antecedentRef || ''; ercWrap.dataset.antNodeId = erc.antecedentNodeId; } /* C-16 */
             ercWrap.appendChild(ercLbl);
             const ercEl = _dgRenderClause(erc.dr);
             if (ercEl) ercWrap.appendChild(ercEl);
@@ -14108,7 +14110,7 @@ function _dgRenderClause(dr) {
 
     for (const sc of (dr.adverbialClauses || [])) {
         /* C-16: skip L-bracket for rel-clauses when SVG connector will be drawn */
-        if (!(sc.isRelativeClause && sc.antecedentRef)) {
+        if (!(sc.isRelativeClause && sc.antecedentNodeId)) {
             const attachEl = document.createElement('div');
             attachEl.className = 'dg-adv-clause-attach';
             wrap.appendChild(attachEl);
@@ -14120,7 +14122,7 @@ function _dgRenderClause(dr) {
             scWrap.className = 'dg-rel-clause';
             scLbl.className  = 'dg-rel-clause-label';
             scLbl.textContent = '関係節'; /* C-16: ← X removed */
-            if (sc.antecedentRef) scWrap.dataset.antRef = sc.antecedentRef; /* C-16 */
+            if (sc.antecedentNodeId) { scWrap.dataset.antRef = sc.antecedentRef || ''; scWrap.dataset.antNodeId = sc.antecedentNodeId; } /* C-16 */
         } else {
             // P5-D-1: participial sub-clause gets distinct class and label
             scWrap.className = sc.isParticipalClause
@@ -14282,12 +14284,12 @@ function _dgDrawAllConnectors(app) {
 
             /* E1: relative clause connector (migrated from _dgDrawRelConnectors) */
             const antMap = new Map();
-            for (const span of sentEl.querySelectorAll('.dg-token--antecedent[data-dg-ref]')) {
-                if (!antMap.has(span.dataset.dgRef)) antMap.set(span.dataset.dgRef, span);
+            for (const span of sentEl.querySelectorAll('.dg-token--antecedent[data-dg-node-id]')) {
+                if (!antMap.has(span.dataset.dgNodeId)) antMap.set(span.dataset.dgNodeId, span);
             }
-            for (const relEl of sentEl.querySelectorAll('.dg-rel-clause[data-ant-ref]')) {
+            for (const relEl of sentEl.querySelectorAll('.dg-rel-clause[data-ant-node-id]')) {
                 try {
-                    const antEl = antMap.get(relEl.dataset.antRef);
+                    const antEl = antMap.get(relEl.dataset.antNodeId);
                     if (!antEl) continue;
                     const antR = r(antEl);
                     const relR = r(relEl);
@@ -14335,8 +14337,8 @@ const _HDG_CS_LABEL = {
 /* Render a token SR node as a .dg-token span (reuses existing chip style + click handler).
    Returns null if no displayable Japanese gloss. */
 function _hdgTokenEl(srNode) {
-    const ref = srNode.evidence && srNode.evidence.ref;
-    const e = ref && _dgActiveTokenMap && _dgActiveTokenMap[ref];
+    const nodeId = srNode.evidence && (srNode.evidence.nodeId || srNode.evidence.ref);
+    const e = nodeId && _dgActiveTokenMap && _dgActiveTokenMap[nodeId];
     if (!e || !e.japanese || /^[［〔「【（\[〔]/.test(e.japanese)) return null;
     const span = document.createElement('span');
     span.className = 'dg-token';
@@ -14346,7 +14348,7 @@ function _hdgTokenEl(srNode) {
         ev.stopPropagation();
         _setInspectDataFromElToken(e);
         AppState.studyOrigin = { surface: 'STRUCTURE', entryPoint: 'token' };
-        _setStudyTarget(e.ref);
+        _setStudyTarget(e.ref, e.verseId);
         openStudyPanel(e.text || '', e.morph || '', e.ref || '', e.lemma || '');
     });
     return span;
@@ -14608,7 +14610,7 @@ function _hdgConnectorLabel(srNode, cs) {
     if (!children.length) return null;
     const c0 = children[0];
     if (!c0 || c0.type !== 'token') return null;
-    const ref = (c0.evidence && c0.evidence.ref) || (c0.tokenIds && c0.tokenIds[0]) || '';
+    const ref = (c0.evidence && (c0.evidence.nodeId || c0.evidence.ref)) || (c0.tokenIds && c0.tokenIds[0]) || '';
     const tok = ref && _dgActiveTokenMap && _dgActiveTokenMap[ref];
     const lemma = (tok && tok.lemma) || '';
     if (!lemma) return null;
@@ -14946,13 +14948,13 @@ function _hdgApplyVerseAnchors(sentEl) {
 }
 
 /* C-22: Collect all verse numbers from SR node tree.
-   tokenIds and evidence.ref use "BOOK CH:V!N" format; verse = capture group 1. */
+   tokenIds are verseIds; verse extracted via _bdById token lookup. */
 function _dgSentenceVerses(srRoot) {
     const verses = new Set();
     function collect(n) {
         if (!n) return;
         if (Array.isArray(n.tokenIds)) {
-            for (const id of n.tokenIds) { const m = id.match(/:(\d+)!/); if (m) verses.add(+m[1]); }
+            for (const id of n.tokenIds) { const tok = _bdById && _bdById.get(id); if (tok && tok.verse != null) verses.add(tok.verse); }
         }
         for (const c of (n.children || [])) collect(c);
     }
@@ -15041,22 +15043,18 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
         !!window.RkGeometryLayout &&
         !!window.RkRenderer;
 
-    /* P6-C: bible_data lookup maps for relative-clause connector derivation */
-    const _bdByRef = _isDGChapter && window.DgEngine.deriveRelativeConnectors
-        ? new Map((elData || []).filter(w => w.ref).map(w => [w.ref, w]))
-        : null;
-    const _bdById  = _isDGChapter && window.DgEngine.deriveRelativeConnectors
-        ? new Map((elData || []).filter(w => w.verseId).map(w => [w.verseId, w]))
-        : null;
+    /* P6-C: verseId-keyed bible_data lookup map for relative-clause connector derivation
+       and tokenIds-based verse/chapter extraction. */
+    const _bdById = new Map((elData || []).filter(w => w.verseId).map(w => [w.verseId, w]));
 
     /* Pre-annotate DR tree with antecedent text from connector records.
        Sets .antecedentText on each relative clause DR and embedded rel clause entry. */
     function _annotateRelClauses(dr, connMap) {
         if (!dr) return;
         for (const sc of (dr.adverbialClauses || [])) {
-            if (sc.isRelativeClause && sc.relPronRef) {
-                const conn = connMap.get(sc.relPronRef);
-                if (conn) { sc.antecedentText = conn.targetText; sc.antecedentRef = conn.targetRef; }
+            if (sc.isRelativeClause && sc.relPronNodeId) {
+                const conn = connMap.get(sc.relPronNodeId);
+                if (conn) { sc.antecedentText = conn.targetText; sc.antecedentRef = conn.targetRef; sc.antecedentNodeId = conn.targetNodeId; }
             }
             _annotateRelClauses(sc, connMap);
         }
@@ -15065,9 +15063,9 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
         }
         for (const slot of (dr.slots || [])) {
             for (const erc of (slot.embeddedRelClauses || [])) {
-                if (erc.relPronRef) {
-                    const conn = connMap.get(erc.relPronRef);
-                    if (conn) { erc.antecedentText = conn.targetText; erc.antecedentRef = conn.targetRef; }
+                if (erc.relPronNodeId) {
+                    const conn = connMap.get(erc.relPronNodeId);
+                    if (conn) { erc.antecedentText = conn.targetText; erc.antecedentRef = conn.targetRef; erc.antecedentNodeId = conn.targetNodeId; }
                 }
             }
         }
@@ -15090,8 +15088,8 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
         let chapter = null;
         const verseSet = new Set();
         for (const id of ids) {
-            const m = id.match(/^\S+\s+(\d+):(\d+)!/);
-            if (m) { chapter = m[1]; verseSet.add(+m[2]); }
+            const tok = _bdById && _bdById.get(id);
+            if (tok && tok.chapter != null && tok.verse != null) { chapter = String(tok.chapter); verseSet.add(tok.verse); }
         }
 
         if (!chapter || verseSet.size === 0) {
@@ -15116,7 +15114,7 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
        C-40: HDG mode builds token map for all chapters (gate removed). */
     if (_isDGChapter || _hdgViewMode) {
         _dgActiveTokenMap = {};
-        for (const w of (elData || [])) { if (w && w.ref) _dgActiveTokenMap[w.ref] = w; }
+        for (const w of (elData || [])) { if (w && w.verseId) _dgActiveTokenMap[w.verseId] = w; }
         _dgConjJaMap = {};
         for (const w of (elData || [])) {
             if (w && w.text && w.japanese && w.morph && w.morph.startsWith('CONJ') && !_dgConjJaMap[w.text])
@@ -15188,13 +15186,13 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
                     : _dr.slots.length > 0 || (_dr.adverbialClauses || []).length > 0);
                 if (_drHasSlots) {
                     /* P6-C: derive and annotate relative clause connectors */
-                    if (_bdByRef && _bdById) {
+                    if (_bdById) {
                         try {
                             const _conns = window.DgEngine.deriveRelativeConnectors(
-                                sentence.root, _bdByRef, _bdById
+                                sentence.root, _bdById
                             );
                             if (_conns.length > 0) {
-                                const _connMap = new Map(_conns.map(c => [c.relPronRef, c]));
+                                const _connMap = new Map(_conns.map(c => [c.relPronNodeId, c]));
                                 _annotateRelClauses(_dr, _connMap);
                             }
                         } catch (_) { /* silent — connector derivation failure must not block DG render */ }
@@ -15216,11 +15214,11 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
                                         if (!data) return;
                                         _setInspectDataFromElToken(data);
                                         AppState.studyOrigin = { surface: 'CLAUSE_FLOW', entryPoint: 'token' };
-                                        _setStudyTarget(ref);
+                                        _setStudyTarget(data.ref, ref);
                                         openStudyPanel(
                                             data.text  || '',
                                             data.morph || '',
-                                            ref,
+                                            data.ref   || '',
                                             data.lemma || ''
                                         );
                                     },
@@ -15301,11 +15299,11 @@ function _renderStructuralDiagramView(app, srData, elData, kind) { /* C-17 Phase
                                     if (!data) return;
                                     _setInspectDataFromElToken(data);
                                     AppState.studyOrigin = { surface: 'CLAUSE_ROLE', entryPoint: 'token' };
-                                    _setStudyTarget(ref);
+                                    _setStudyTarget(data.ref, ref);
                                     openStudyPanel(
                                         data.text  || '',
                                         data.morph || '',
-                                        ref,
+                                        data.ref   || '',
                                         data.lemma || ''
                                     );
                                 },
@@ -15415,8 +15413,8 @@ function _renderRelationView(app, srData, elData) {
         return;
     }
 
-    /* Build Map<ref, token> for RelationProjection antecedent lookup. */
-    const tokenMap = new Map((elData || []).filter(function(w) { return w.ref; }).map(function(w) { return [w.ref, w]; }));
+    /* Build Map<verseId, token> for RelationProjection antecedent lookup. */
+    const tokenMap = new Map((elData || []).filter(function(w) { return w.verseId; }).map(function(w) { return [w.verseId, w]; }));
 
     for (const sentence of srData.sentences) {
         const secEl = document.createElement('section');
@@ -15445,7 +15443,7 @@ function _renderRelationView(app, srData, elData) {
                             if (!token) return;
                             _setInspectDataFromElToken(token);
                             AppState.studyOrigin = { surface: 'RELATION', entryPoint: 'token' };
-                            _setStudyTarget(ref);
+                            _setStudyTarget(ref, token.verseId);
                             openStudyPanel(token.text || '', token.morph || '', ref, token.lemma || '');
                         },
                     };
@@ -15898,7 +15896,7 @@ function _wlvChipClick(chipEl, tokenId) {
            word detail へ入る前に設定する（Mobile path は toBrowsing() で設定済み）。 */
         AppState.selectedVerse = { vNum: chip.verse ?? null, elWords: _reWords || [] };
         AppState.studyOrigin = { surface: _transA, entryPoint: 'wlv' };
-        _setStudyTarget(chip.ref);
+        _setStudyTarget(chip.ref, chip.verseId);
         openInspectorDetail(chip.greek, chip.rawMorph, chip.ref, chip.lemma);
         window.App.onboarding?.onWordClicked(chipEl);
         _syncOnboardingActiveFlag();
@@ -15954,7 +15952,7 @@ function _wlvStudyBtnClick() {
     }
 
     AppState.studyOrigin = { surface: _transA, entryPoint: 'wlv' };
-    _setStudyTarget(AppState.inspect.data?.ref);
+    _setStudyTarget(AppState.inspect.data?.ref, AppState.inspect.data?.verseId);
     openInspectorDetail(greek, rawMorph, ref, lemma);
 }
 
@@ -16138,7 +16136,7 @@ async function _fillMvvFlowSlot(ref) {
     const myGen = ++_mvvFlowGen;
     slot0.innerHTML = '';
     let html = '';
-    try { html = ref ? await _buildFlowTreeNeighborhoodViewHTML(ref) : ''; } catch (_) { html = ''; }
+    try { html = ref ? await _buildFlowTreeNeighborhoodViewHTML(ref, AppState.studyTarget?.verseId) : ''; } catch (_) { html = ''; }
     if (myGen !== _mvvFlowGen) return;                       /* 別の語/verse へ移動済み → 破棄 */
     const slot = document.getElementById('mvv-flow-slot');   /* inspector を閉じた後は null */
     if (!slot) return;
@@ -16407,6 +16405,7 @@ function openStudyPanel(greek, rawMorph, ref, lemma, options = {}) {
     const m = parseMorphForSearch(rawMorph);
     const params = {
         ref,
+        verseId:   AppState.studyTarget?.verseId || '',
         word:      greek,
         lemma:     lemma || '',
         pos:       m.pos    || '',
@@ -16521,8 +16520,8 @@ const activeVEl = document.getElementById('active-v');
 /* SP-3: StudyTarget v0 setter — 「何を調べているか」を記録する最小helper。
    ref = "JHN 3:1!1" 形式。falsy なら null（guard）。
    inspect.data / studyOrigin は変更しない。 */
-function _setStudyTarget(ref) {
-    AppState.studyTarget = ref ? { type: 'TOKEN', ref } : null;
+function _setStudyTarget(ref, verseId) {
+    AppState.studyTarget = ref ? { type: 'TOKEN', ref, verseId: verseId || '' } : null;
 }
 
 /* ══════════════════════════════════════════
@@ -16554,7 +16553,7 @@ function reopenStudyPanel() {
     if (!AppState.canReopen()) return;
     const p = AppState.study.params;
     AppState.saveScroll();
-    _setStudyTarget(p.ref);
+    _setStudyTarget(p.ref, p.verseId);
     openStudyPanel(p.word, p._rawMorph, p.ref, p.lemma);
 }
 

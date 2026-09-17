@@ -9,6 +9,9 @@
  * §2  deriveRelativeConnectors — 負例5件（必ず connector 0件）
  * §3  deriveRelativeConnectors — 正例（JHN 1 実データ）
  * §4  deriveRelativeConnectors — SR tree walk 検証（COL 1 実データ）
+ *
+ * API: deriveRelativeConnectors(sentenceRoot, bdById)  — 2引数（Phase 2以降）
+ *   bdById: Map<verseId, bdToken>  — 代名詞トークンも含む
  */
 
 'use strict';
@@ -47,27 +50,18 @@ function loadJson(absPath) {
 
 // ── §1  _isNominalMorph ユニットテスト ────────────────────────────────────────
 // _isNominalMorph は内部関数なので、deriveRelativeConnectors を使って間接テスト。
-// 直接テストするため、ダミー SR + bdByRef/bdById を構築して挙動を確認する。
+// bdById に代名詞トークンと対象トークンの両方を格納する（Phase 2 2引数 API）。
 section('§1  _isNominalMorph — morph フィルタ検証');
 
-function makeBdByRef(ref, morph, referentId) {
-  // bdToken for the relative pronoun
-  const relTok = { ref, verseId: 'n99001001001', morph: 'R-NSM', referent: referentId };
-  // bdToken for the target
-  const targetTok = { ref: 'TEST 1:1!1', verseId: referentId, morph, referent: null };
-  const bdByRef = new Map([[ref, relTok]]);
-  const bdById  = new Map([[referentId, targetTok]]);
-  return { bdByRef, bdById };
-}
-
-function makeSrRoot(relPronRef) {
+function makeSrRoot(pronVerseId) {
   // Minimal SR subtree: sentence > clause > token(relative pronoun)
+  // evidence.nodeId = verseId（Phase 2 canonical identity）
   return {
     type: 'clause',
     children: [{
       type: 'token',
       text: 'ὅς',
-      evidence: { morph_raw: 'R-NSM', ref: relPronRef, nodeId: 'n99001001001' },
+      evidence: { morph_raw: 'R-NSM', ref: 'TEST 1:1!99', nodeId: pronVerseId },
       function: { canonical: 'SUBJECT' },
     }],
   };
@@ -89,15 +83,14 @@ const morphCases = [
 ];
 
 for (const { morph, pass, label } of morphCases) {
-  const ref = 'TEST 1:1!99';
-  const refId = 'n99001001002';
-  // Override target morph:
-  const relTok    = { ref, verseId: 'n99001001001', morph: 'R-NSM', referent: refId };
-  const targetTok = { ref: 'TEST 1:1!1', verseId: refId, morph: morph || undefined };
-  const bdByRef   = new Map([[ref, relTok]]);
-  const bdById    = new Map([[refId, targetTok]]);
-  const sr        = makeSrRoot(ref);
-  const cons      = deriveRelativeConnectors(sr, bdByRef, bdById);
+  const pronId  = 'n99001001001';
+  const targetId = 'n99001001002';
+  const relTok    = { ref: 'TEST 1:1!99', verseId: pronId,   morph: 'R-NSM', referent: targetId };
+  const targetTok = { ref: 'TEST 1:1!1',  verseId: targetId, morph: morph || undefined };
+  // bdById includes BOTH pronoun and target tokens (Phase 2: no bdByRef)
+  const bdById    = new Map([[pronId, relTok], [targetId, targetTok]]);
+  const sr        = makeSrRoot(pronId);
+  const cons      = deriveRelativeConnectors(sr, bdById);
   check(`_isNominalMorph(${JSON.stringify(morph)}) → ${pass}`, (cons.length > 0) === pass, label);
 }
 
@@ -106,66 +99,60 @@ section('§2  Negative fixtures — connector = 0 件 (MANDATORY)');
 
 // A. relative pronoun → finite verb
 {
-  const ref = 'JHN 1:13!1';
-  const refId = 'n99000001000';
-  const relTok    = { ref, verseId: 'n43001013001', morph: 'R-NPM', referent: refId };
-  const targetTok = { ref: 'JHN 1:12!3', verseId: refId, morph: 'V-2AAI-3P', text: 'ἔλαβον' };
-  const bdByRef   = new Map([[ref, relTok]]);
-  const bdById    = new Map([[refId, targetTok]]);
-  const sr        = makeSrRoot(ref);
-  const cons      = deriveRelativeConnectors(sr, bdByRef, bdById);
+  const pronId  = 'n43001013001';
+  const targetId = 'n99000001000';
+  const relTok    = { ref: 'JHN 1:13!1', verseId: pronId,   morph: 'R-NPM', referent: targetId };
+  const targetTok = { ref: 'JHN 1:12!3', verseId: targetId, morph: 'V-2AAI-3P', text: 'ἔλαβον' };
+  const bdById    = new Map([[pronId, relTok], [targetId, targetTok]]);
+  const sr        = makeSrRoot(pronId);
+  const cons      = deriveRelativeConnectors(sr, bdById);
   check('A. relative pronoun → finite verb (R4 V-2AAI-3P) → connector 0', cons.length === 0,
         JSON.stringify(cons));
 }
 
 // B. relative pronoun → multi-token referent (space-separated)
 {
-  const ref = 'ROM 16:4!1';
-  const refId = 'n45016003002 n45016003004';  // space-separated
-  const relTok = { ref, verseId: 'n45016004001', morph: 'R-NPM', referent: refId };
-  const bdByRef = new Map([[ref, relTok]]);
-  const bdById  = new Map();  // doesn't matter
-  const sr      = makeSrRoot(ref);
-  const cons    = deriveRelativeConnectors(sr, bdByRef, bdById);
+  const pronId = 'n45016004001';
+  const relTok = { ref: 'ROM 16:4!1', verseId: pronId, morph: 'R-NPM',
+                   referent: 'n45016003002 n45016003004' };
+  const bdById  = new Map([[pronId, relTok]]);
+  const sr      = makeSrRoot(pronId);
+  const cons    = deriveRelativeConnectors(sr, bdById);
   check('B. relative pronoun → multi-token referent (space in referent) → connector 0', cons.length === 0,
         JSON.stringify(cons));
 }
 
 // C. relative pronoun → missing target (referent points to unknown nodeId)
 {
-  const ref = 'TEST 1:1!5';
-  const refId = 'n99UNKNOWN';
-  const relTok = { ref, verseId: 'n99001001005', morph: 'R-NSM', referent: refId };
-  const bdByRef = new Map([[ref, relTok]]);
-  const bdById  = new Map();  // target not present
-  const sr      = makeSrRoot(ref);
-  const cons    = deriveRelativeConnectors(sr, bdByRef, bdById);
+  const pronId  = 'n99001001005';
+  const relTok  = { ref: 'TEST 1:1!5', verseId: pronId, morph: 'R-NSM', referent: 'n99UNKNOWN' };
+  const bdById  = new Map([[pronId, relTok]]);  // target not present
+  const sr      = makeSrRoot(pronId);
+  const cons    = deriveRelativeConnectors(sr, bdById);
   check('C. relative pronoun → missing target (bdById miss) → connector 0', cons.length === 0,
         JSON.stringify(cons));
 }
 
 // D. relative pronoun → non-nominal target (adverb)
 {
-  const ref = 'TEST 1:1!6';
-  const refId = 'n99001001007';
-  const relTok    = { ref, verseId: 'n99001001006', morph: 'R-NSM', referent: refId };
-  const targetTok = { ref: 'TEST 1:1!2', verseId: refId, morph: 'D-', text: 'ἐκεῖ' };
-  const bdByRef   = new Map([[ref, relTok]]);
-  const bdById    = new Map([[refId, targetTok]]);
-  const sr        = makeSrRoot(ref);
-  const cons      = deriveRelativeConnectors(sr, bdByRef, bdById);
+  const pronId   = 'n99001001006';
+  const targetId = 'n99001001007';
+  const relTok    = { ref: 'TEST 1:1!6', verseId: pronId,   morph: 'R-NSM', referent: targetId };
+  const targetTok = { ref: 'TEST 1:1!2', verseId: targetId, morph: 'D-', text: 'ἐκεῖ' };
+  const bdById    = new Map([[pronId, relTok], [targetId, targetTok]]);
+  const sr        = makeSrRoot(pronId);
+  const cons      = deriveRelativeConnectors(sr, bdById);
   check('D. relative pronoun → non-nominal target (D- adverb) → connector 0', cons.length === 0,
         JSON.stringify(cons));
 }
 
 // E. relative pronoun without referent
 {
-  const ref = 'JHN 1:27!5';
-  const relTok = { ref, verseId: 'n43001027005', morph: 'R-GSM', referent: null };
-  const bdByRef = new Map([[ref, relTok]]);
-  const bdById  = new Map();
-  const sr      = makeSrRoot(ref);
-  const cons    = deriveRelativeConnectors(sr, bdByRef, bdById);
+  const pronId = 'n43001027005';
+  const relTok = { ref: 'JHN 1:27!5', verseId: pronId, morph: 'R-GSM', referent: null };
+  const bdById = new Map([[pronId, relTok]]);
+  const sr     = makeSrRoot(pronId);
+  const cons   = deriveRelativeConnectors(sr, bdById);
   check('E. relative pronoun without referent (free relative) → connector 0', cons.length === 0,
         JSON.stringify(cons));
 }
@@ -198,7 +185,7 @@ if (jhn1Bd.length > 0) {
   if (jhn1Sr && jhn1Sr.sentences) {
     let totalConnectors = 0;
     for (const sentence of jhn1Sr.sentences) {
-      const cons = deriveRelativeConnectors(sentence.root || sentence, bdByRef, bdById);
+      const cons = deriveRelativeConnectors(sentence.root || sentence, bdById);
       totalConnectors += cons.length;
       if (cons.length > 0 && VERBOSE) {
         for (const c of cons) {
@@ -211,11 +198,12 @@ if (jhn1Bd.length > 0) {
     if (VERBOSE) console.log(`    JHN 1 total connectors: ${totalConnectors}`);
 
     // Spot-check: JHN 1:9!6 ὃ → φῶς (N-NSN) expected
+    // bdByRef kept for diagnostic token lookup (not passed to engine)
     const v9ref   = 'JHN 1:9!6';
     const v9Tok   = bdByRef.get(v9ref);
     const v9cons  = [];
     for (const sentence of jhn1Sr.sentences) {
-      const cons = deriveRelativeConnectors(sentence.root || sentence, bdByRef, bdById);
+      const cons = deriveRelativeConnectors(sentence.root || sentence, bdById);
       for (const c of cons) {
         if (c.relPronRef === v9ref) v9cons.push(c);
       }
@@ -250,7 +238,7 @@ if (jhn1Bd.length > 0) {
         // This is a finite verb case — verify no connector was produced
         const produced = [];
         for (const sentence of jhn1Sr.sentences) {
-          const cons = deriveRelativeConnectors(sentence.root || sentence, bdByRef, bdById);
+          const cons = deriveRelativeConnectors(sentence.root || sentence, bdById);
           for (const c of cons) {
             if (c.relPronRef === ref) produced.push(c);
           }
@@ -278,7 +266,7 @@ if (col1Bd.length > 0 && col1Sr && col1Sr.sentences) {
 
   let totalCons = 0;
   for (const sentence of col1Sr.sentences) {
-    const cons = deriveRelativeConnectors(sentence.root || sentence, bdByRef, bdById);
+    const cons = deriveRelativeConnectors(sentence.root || sentence, bdById);
     totalCons += cons.length;
     if (cons.length > 0 && VERBOSE) {
       for (const c of cons) {
@@ -291,7 +279,7 @@ if (col1Bd.length > 0 && col1Sr && col1Sr.sentences) {
   const col15tok = bdByRef.get(col15ref);
   const col15cons = [];
   for (const sentence of col1Sr.sentences) {
-    const cons = deriveRelativeConnectors(sentence.root || sentence, bdByRef, bdById);
+    const cons = deriveRelativeConnectors(sentence.root || sentence, bdById);
     for (const c of cons) { if (c.relPronRef === col15ref) col15cons.push(c); }
   }
 
@@ -309,6 +297,150 @@ if (col1Bd.length > 0 && col1Sr && col1Sr.sentences) {
   }
 } else {
   console.log('  SKIP  COL 1 データなし');
+}
+
+// ── §5  Bug #4 回帰 — relPronNodeId 伝播・annotation E2E ──────────────────────
+// Bug #4: deriveRelativeConnectors が relPronNodeId をコネクター出力に含めなかった
+//         → _connMap が undefined key に集約 → annotation が完全にスキップされていた
+// 修正: connector 出力に relPronNodeId 追加、standalone rel clause DR にも relPronNodeId 設定
+section('§5  Bug #4 回帰 — relPronNodeId 伝播・annotation E2E');
+
+const { deriveDR } = global.DgEngine;
+
+// §5-1: connector 出力に relPronNodeId が含まれる（undefined でない）
+{
+  const pronId   = 'n51001015001';
+  const targetId = 'n51001013003';
+  const srRoot5  = {
+    type: 'clause',
+    children: [{ type: 'token', text: 'ὅς',
+      evidence: { morph_raw: 'R-NSM', ref: 'COL 1:15!1', nodeId: pronId },
+      function: { canonical: 'SUBJECT' } }]
+  };
+  const bdById5 = new Map([
+    [pronId,   { ref: 'COL 1:15!1', verseId: pronId,   morph: 'R-NSM', referent: targetId }],
+    [targetId, { ref: 'COL 1:13!3', verseId: targetId, morph: 'N-GSM', text: 'υἱοῦ' }],
+  ]);
+  const cons5 = deriveRelativeConnectors(srRoot5, bdById5);
+  check('§5-1. connector 出力に relPronNodeId が存在する（undefined でない）',
+    cons5.length > 0 && cons5[0].relPronNodeId === pronId,
+    `relPronNodeId=${cons5[0] && cons5[0].relPronNodeId}`);
+}
+
+// §5-2: 複数 connector が undefined key に集約されない
+{
+  const ids = [
+    ['n43001009006', 'n43001009005', 'R-NSN', 'N-NSN'],
+    ['n43001015003', 'n43001014002', 'R-NSM', 'N-NSM'],
+  ];
+  const bdIdxM = new Map();
+  const tokens = [];
+  for (const [pronId, targetId, pMorph, tMorph] of ids) {
+    bdIdxM.set(pronId,   { morph: pMorph, referent: targetId });
+    bdIdxM.set(targetId, { morph: tMorph, text: 'X', ref: 'X' });
+    tokens.push({ type: 'token', text: 'ὅς',
+      evidence: { morph_raw: pMorph, nodeId: pronId, ref: 'X' },
+      function: { canonical: 'SUBJECT' } });
+  }
+  const srMulti = { type: 'clause', children: tokens };
+  const consMulti = deriveRelativeConnectors(srMulti, bdIdxM);
+  const connMapMulti = new Map(consMulti.map(c => [c.relPronNodeId, c]));
+  check('§5-2. 複数 connector が全て別々の key でマップされる（undefined 集約なし）',
+    consMulti.length === 2 && !connMapMulti.has(undefined) && connMapMulti.size === 2,
+    `count=${consMulti.length} keys=[${[...connMapMulti.keys()]}]`);
+}
+
+// §5-3: DR adverbial clause (standalone rel) に relPronNodeId が設定される
+{
+  const pronId5c = 'n51001015001';
+  const srAC = {
+    type: 'clause',
+    children: [
+      { type: 'token', text: 'ἐστιν',
+        evidence: { morph_raw: 'V-PAI-3S', ref: 'COL 1:15!2', nodeId: 'n51001015002' },
+        function: { canonical: 'PREDICATE' } },
+      { type: 'clause', children: [{
+          type: 'token', text: 'ὅς',
+          evidence: { morph_raw: 'R-NSM', ref: 'COL 1:15!1', nodeId: pronId5c },
+          function: { canonical: 'SUBJECT' } }] }
+    ]
+  };
+  const dr5 = deriveDR(srAC);
+  const sc5 = dr5 && dr5.adverbialClauses && dr5.adverbialClauses[0];
+  check('§5-3. DR standalone relative clause に relPronNodeId が設定される',
+    !!(sc5 && sc5.isRelativeClause && sc5.relPronNodeId === pronId5c),
+    `relPronNodeId=${sc5 && sc5.relPronNodeId}`);
+  check('§5-3. annotation guard (isRelativeClause && relPronNodeId) が成立する',
+    !!(sc5 && sc5.isRelativeClause && sc5.relPronNodeId),
+    `isRelativeClause=${sc5 && sc5.isRelativeClause} relPronNodeId=${sc5 && sc5.relPronNodeId}`);
+}
+
+// §5-4: E2E — connector → _connMap → _annotateRelClauses → antecedentNodeId 伝播
+// _annotateRelClauses は index.html 内部関数のため、ロジックを inline で再現
+{
+  const pronId5d   = 'n51001015001';
+  const targetId5d = 'n51001013003';
+  const srE2E = {
+    type: 'clause',
+    children: [
+      { type: 'token', text: 'ἐστιν',
+        evidence: { morph_raw: 'V-PAI-3S', ref: 'COL 1:15!2', nodeId: 'n51001015002' },
+        function: { canonical: 'PREDICATE' } },
+      { type: 'clause', children: [{
+          type: 'token', text: 'ὅς',
+          evidence: { morph_raw: 'R-NSM', ref: 'COL 1:15!1', nodeId: pronId5d },
+          function: { canonical: 'SUBJECT' } }] }
+    ]
+  };
+  const bdE2E = new Map([
+    [pronId5d,   { ref: 'COL 1:15!1', verseId: pronId5d,   morph: 'R-NSM', referent: targetId5d }],
+    [targetId5d, { ref: 'COL 1:13!3', verseId: targetId5d, morph: 'N-GSM', text: 'υἱοῦ' }],
+  ]);
+  const consE2E = deriveRelativeConnectors(srE2E, bdE2E);
+  const drE2E   = deriveDR(srE2E);
+  const scE2E   = drE2E && drE2E.adverbialClauses && drE2E.adverbialClauses[0];
+  if (scE2E) {
+    const connMapE2E = new Map(consE2E.map(c => [c.relPronNodeId, c]));
+    if (scE2E.isRelativeClause && scE2E.relPronNodeId) {
+      const conn = connMapE2E.get(scE2E.relPronNodeId);
+      if (conn) {
+        scE2E.antecedentText   = conn.targetText;
+        scE2E.antecedentRef    = conn.targetRef;
+        scE2E.antecedentNodeId = conn.targetNodeId;
+      }
+    }
+  }
+  check('§5-4. E2E: sc.antecedentNodeId が annotation パイプライン終端に伝播する',
+    !!(scE2E && scE2E.antecedentNodeId === targetId5d),
+    `antecedentNodeId=${scE2E && scE2E.antecedentNodeId}`);
+  check('§5-4. E2E: antecedentRef（display）と antecedentNodeId（verseId）が区別される',
+    !!(scE2E && scE2E.antecedentRef !== scE2E.antecedentNodeId),
+    `antecedentRef=${scE2E && scE2E.antecedentRef} antecedentNodeId=${scE2E && scE2E.antecedentNodeId}`);
+}
+
+// §5-5: 実データ — JHN 1 コネクター出力に有効な relPronNodeId が含まれる
+{
+  const jhn1SrPath5 = path.join(PUBLIC, 'assets', 'data', 'sr', 'JHN', '1.json');
+  const jhn1BdPath5 = path.join(PUBLIC, 'bible_data', 'NT', 'JHN', '1.json');
+  let jhn1Sr5 = null, jhn1Bd5 = [];
+  try { jhn1Sr5 = loadJson(jhn1SrPath5); } catch (_) {}
+  try { jhn1Bd5 = loadJson(jhn1BdPath5); } catch (_) {}
+  if (jhn1Sr5 && jhn1Bd5.length > 0) {
+    const bdById5r = new Map(jhn1Bd5.filter(w => w.verseId).map(w => [w.verseId, w]));
+    let undefinedKeyCount = 0, validKeyCount = 0;
+    for (const sentence of jhn1Sr5.sentences) {
+      const cons5r = deriveRelativeConnectors(sentence.root || sentence, bdById5r);
+      for (const c of cons5r) {
+        if (c.relPronNodeId == null) undefinedKeyCount++;
+        else validKeyCount++;
+      }
+    }
+    check(`§5-5. JHN 1 実データ: connector の relPronNodeId が全て valid (undefined=0)`,
+      undefinedKeyCount === 0 && validKeyCount > 0,
+      `valid=${validKeyCount} undefined=${undefinedKeyCount}`);
+  } else {
+    console.log('  SKIP  §5-5 JHN 1 データなし');
+  }
 }
 
 // ── 結果 ─────────────────────────────────────────────────────────────────────

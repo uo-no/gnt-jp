@@ -213,15 +213,16 @@
              c.evidence.morph_raw.startsWith('CONJ')
       );
       const inner = children.find(c => c.type === 'clause' || c.type === 'group');
-      const conjunction    = conjTok ? conjTok.text || null : null;
-      const conjunctionRef = conjTok ? (conjTok.evidence?.ref || null) : null;
+      const conjunction       = conjTok ? conjTok.text || null : null;
+      const conjunctionRef    = conjTok ? (conjTok.evidence?.ref    || null) : null;
+      const conjunctionNodeId = conjTok ? (conjTok.evidence?.nodeId || null) : null;
       const innerDR = inner
         ? (inner.type === 'clause'
             ? deriveClauseCore(inner, conjunction)
             : deriveFromGroup(inner, conjunction))
         : deriveClauseCore(node, conjunction);
       if (!innerDR) return null;
-      return { conjunction, conjunctionRef, innerDR, label: null };
+      return { conjunction, conjunctionRef, conjunctionNodeId, innerDR, label: null };
     }
 
     // ── SUBORDINATE_CLAUSE: [CONJ token] + [inner clause/group] ──────────
@@ -231,15 +232,16 @@
         c => c.type === 'token' && c.evidence?.morph_raw?.startsWith('CONJ')
       );
       const inner = children.find(c => c.type === 'clause' || c.type === 'group');
-      const conjunction    = conjTok?.text           || null;
-      const conjunctionRef = conjTok?.evidence?.ref  || null;
+      const conjunction       = conjTok?.text            || null;
+      const conjunctionRef    = conjTok?.evidence?.ref   || null;
+      const conjunctionNodeId = conjTok?.evidence?.nodeId || null;
       const innerDR = inner
         ? (inner.type === 'clause'
             ? deriveClauseCore(inner, conjunction)
             : deriveFromGroup(inner, conjunction))
         : deriveClauseCore(node, conjunction);
       if (!innerDR || _isEmptyDR(innerDR)) return null;
-      return { conjunction, conjunctionRef, innerDR, label: '従属節' };
+      return { conjunction, conjunctionRef, conjunctionNodeId, innerDR, label: '従属節' };
     }
 
     // ── PARTICIPIAL_CLAUSE: [optional CONJ] + [inner clause/group] ───────
@@ -249,15 +251,16 @@
         c => c.type === 'token' && c.evidence?.morph_raw?.startsWith('CONJ')
       );
       const inner = children.find(c => c.type === 'clause' || c.type === 'group');
-      const conjunction    = conjTok?.text           || null;
-      const conjunctionRef = conjTok?.evidence?.ref  || null;
+      const conjunction       = conjTok?.text            || null;
+      const conjunctionRef    = conjTok?.evidence?.ref   || null;
+      const conjunctionNodeId = conjTok?.evidence?.nodeId || null;
       const innerDR = inner
         ? (inner.type === 'clause'
             ? deriveClauseCore(inner, conjunction)
             : deriveFromGroup(inner, conjunction))
         : deriveClauseCore(node, conjunction);
       if (!innerDR || _isEmptyDR(innerDR)) return null;
-      return { conjunction, conjunctionRef, innerDR, label: '分詞節' };
+      return { conjunction, conjunctionRef, conjunctionNodeId, innerDR, label: '分詞節' };
     }
 
     // ── Bare clause (no construction): node IS the inner clause ──────────
@@ -312,17 +315,17 @@
   //   4. .referent has no space (R3 multi-token skip)
   //   5. target token exists in bdById
   //   6. target .morph passes _isNominalMorph (R4 finite verb excluded)
-  function deriveRelativeConnectors(sentenceRoot, bdByRef, bdById) {
+  function deriveRelativeConnectors(sentenceRoot, bdById) {
     const connectors = [];
-    if (!sentenceRoot || !bdByRef || !bdById) return connectors;
+    if (!sentenceRoot || !bdById) return connectors;
 
     const relProns = [];
     _collectRelPronTokens(sentenceRoot, relProns);
 
     for (const rp of relProns) {
-      if (!rp.relPronRef) continue;
+      if (!rp.relPronNodeId) continue;
 
-      const bdTok = bdByRef.get(rp.relPronRef);
+      const bdTok = bdById.get(rp.relPronNodeId);
       if (!bdTok) continue;
 
       const referent = bdTok.referent;
@@ -337,6 +340,7 @@
 
       connectors.push({
         relPronRef:    rp.relPronRef,
+        relPronNodeId: rp.relPronNodeId,
         relPronText:   rp.relPronText,
         targetRef:     targetTok.ref    || null,
         targetText:    targetTok.text   || '',
@@ -595,7 +599,8 @@
             const relTok = _findRelPronInSubtree(child);
             if (relTok && relTok.evidence) {
               sub.isRelativeClause = true;
-              sub.relPronRef = relTok.evidence.ref || null;
+              sub.relPronRef    = relTok.evidence.ref    || null;
+              sub.relPronNodeId = relTok.evidence.nodeId || null;
             }
             adverbialClauses.push(sub);
           }
@@ -813,13 +818,15 @@
             c => c.type === 'clause' || c.type === 'group'
           );
           if (inner) {
-            const conj    = conjTok?.text          || null;
-            const conjRef = conjTok?.evidence?.ref || null;
+            const conj       = conjTok?.text            || null;
+            const conjRef    = conjTok?.evidence?.ref   || null;
+            const conjNodeId = conjTok?.evidence?.nodeId || null;
             const sub = inner.type === 'clause'
               ? deriveClauseCore(inner, conj)
               : deriveFromGroup(inner, conj);
             if (sub) {
-              sub.conjunctionRef = conjRef;
+              sub.conjunctionRef    = conjRef;
+              sub.conjunctionNodeId = conjNodeId;
               coordClauses.push(sub);
             }
           }
@@ -829,6 +836,7 @@
         id: node.id,
         conjunction: null,
         conjunctionRef: null,
+        conjunctionNodeId: null,
         slots: [],
         adverbialPhrases: [],
         adverbialClauses: [],
@@ -847,13 +855,17 @@
       if (inner) {
         const dr = deriveFromNode(inner);
         if (dr) {
-          dr.conjunction    = conjTok?.text          || null;
-          dr.conjunctionRef = conjTok?.evidence?.ref || null;
+          dr.conjunction       = conjTok?.text            || null;
+          dr.conjunctionRef    = conjTok?.evidence?.ref   || null;
+          dr.conjunctionNodeId = conjTok?.evidence?.nodeId || null;
           return dr;
         }
       }
       const _drFallback = deriveClauseCore(node, conjTok?.text || null);
-      if (_drFallback) _drFallback.conjunctionRef = conjTok?.evidence?.ref || null;
+      if (_drFallback) {
+        _drFallback.conjunctionRef    = conjTok?.evidence?.ref   || null;
+        _drFallback.conjunctionNodeId = conjTok?.evidence?.nodeId || null;
+      }
       return _drFallback;
     }
 
@@ -869,11 +881,17 @@
         const dr = inner.type === 'clause'
           ? deriveClauseCore(inner, conjTok?.text || null)
           : deriveFromGroup(inner, conjTok?.text || null);
-        if (dr) dr.conjunctionRef = conjTok?.evidence?.ref || null;
+        if (dr) {
+          dr.conjunctionRef    = conjTok?.evidence?.ref   || null;
+          dr.conjunctionNodeId = conjTok?.evidence?.nodeId || null;
+        }
         return dr;
       }
       const _drFb = deriveClauseCore(node, conjTok?.text || null);
-      if (_drFb) _drFb.conjunctionRef = conjTok?.evidence?.ref || null;
+      if (_drFb) {
+        _drFb.conjunctionRef    = conjTok?.evidence?.ref   || null;
+        _drFb.conjunctionNodeId = conjTok?.evidence?.nodeId || null;
+      }
       return _drFb;
     }
 
