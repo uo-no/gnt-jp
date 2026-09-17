@@ -386,7 +386,6 @@ pointer-events: auto;
         background: var(--border-soft);
         margin: 0 var(--space-md);
     }
-    #main-reading-area.compare-mode .trans-col-header,
     #main-reading-area.compare-mode #parallel-text-area {
         display: none !important;
     }
@@ -3456,11 +3455,6 @@ details[open] .study-summary::before {
     padding-right: var(--space-lg);
     box-sizing: border-box;
 }
-#main-reading-area.static-view .trans-col-header { display: none; }
-/* static-view では trans-col-header が display:none になり1行目グリッド行が空になるが、
-   align-content の初期値（normal=stretch相当）だと空行がコンテナの余り高さを吸い込んでしまい、
-   ヘッダー直下に隙間ができる（一覧/空状態メッセージがヘッダーから離れて見える）。
-   start にして余白を末尾に逃がし、コンテンツがヘッダー直下から始まるようにする。 */
 #main-reading-area.static-view { align-content: start; }
 /* single-mode（通常の聖書章表示）でも同様に stretch を抑制する。
    flex:1 により #main-reading-area がビューポート全高を占有するが、
@@ -3470,17 +3464,6 @@ details[open] .study-summary::before {
    このルールは compare-mode には適用されない。 */
 #main-reading-area.single-mode { align-content: start; }
 
-/* single-mode ではヘッダーも本文と同じ幅・位置に揃える */
-#main-reading-area.single-mode .trans-col-header {
-    max-width: 44em;
-    margin-left: auto;
-    margin-right: auto;
-    padding-top: var(--space-sm);
-    padding-bottom: var(--space-xs);
-    padding-left: var(--space-xl);
-    padding-right: var(--space-lg);
-    box-sizing: border-box;
-}
 #main-reading-area.single-mode #parallel-text-area,
 #main-reading-area.single-mode .verse-pair-right {
     display: none;
@@ -3499,34 +3482,13 @@ details[open] .study-summary::before {
 #main-reading-area.compare-mode.panel-open {
     grid-template-columns: 1fr 0;
 }
-/* カラムヘッダー（左列は常時表示、右列は比較時のみ） */
-.trans-col-header {
-    display: block;
-    grid-column: 1;
-    font-size: var(--text-caption);
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    color: var(--text-sub);
-    opacity: var(--opacity-secondary);
-    padding: 10px 32px 4px 52px;
-    background: #fff;
-}
-.trans-col-header.right {
-    display: none;
-    grid-column: 2;
-    padding: var(--space-sm) var(--space-lg) var(--space-xs) var(--space-xl);
-    background: var(--bg-inset);
-}
-#main-reading-area.compare-mode .trans-col-header {
-    display: block;
-}
 #bible-text-area {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 1;
 }
 #parallel-text-area {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 1;
 }
 .verse-pair-right .jp-text {
     font-size: var(--text-body-lg);
@@ -5695,7 +5657,7 @@ details[open] .study-summary::before {
 
     <!-- Layer 0: トップメニュー（常に表示） -->
     <div class="sb-layer active" id="sb-layer0">
-        <div class="section-label sb-bible-label" style="padding: var(--space-sm) var(--space-sm) var(--space-xs);" onclick="openBiblePicker()" title="読み方を選ぶ">
+        <div class="section-label sb-bible-label" style="padding: var(--space-sm) var(--space-sm) var(--space-xs);" onclick="sbGoTo(3)" title="読み方を選ぶ">
             <span id="sb-bible-label-text">聖書</span><span class="sb-bible-label-arrow">⌄</span>
         </div>
         <div class="sb-row" id="sb-ot-row" onclick="sbGoTo(1,'ot')">
@@ -5759,6 +5721,15 @@ details[open] .study-summary::before {
         <div class="sb-ch-grid menu-text" id="sb-ch-grid"></div>
     </div>
 
+    <!-- Layer 3: 読み方 -->
+    <div class="sb-layer" id="sb-layer3">
+        <button class="sb-bible-back menu-text" onclick="sbGoTo(0)" title="トップメニューへ戻る">
+            <span class="sb-bible-back-chevron">‹</span><span>聖書</span>
+        </button>
+        <div class="section-label" style="padding: var(--space-xs) var(--space-md) var(--space-xs);">読み方を選ぶ</div>
+        <div id="sb-mode-list"></div>
+    </div>
+
 </div>
 
 <div class="sidebar-bottom">
@@ -5797,10 +5768,6 @@ details[open] .study-summary::before {
                 <span class="mvn-label"><strong id="mvn-verse-num">1</strong> 節</span>
                 <button class="mvn-btn" id="mvn-next" onclick="_mobileVerseNav(1)">›</button>
             </div>
-            <div class="trans-col-header" id="trans-col-header-a"></div>
-                <div class="trans-col-header right" id="trans-col-header-b">
-                    <span id="gf-trans-label"></span>
-                </div>
             <div id="bible-text-area">
             </div>
             <div id="parallel-text-area"></div>
@@ -6887,6 +6854,20 @@ function renderGlobalBreadcrumb() {
             `<button class="gbc-ch-arrow" onclick="event.stopPropagation();_gbcNextChapter()" aria-label="次の章"${_ch >= _maxCh ? ' disabled' : ''}>▶</button>` +
             `</span>`
         );
+
+        /* 読み方：5項目のみ。BUN / DISCOURSE / 翻訳IDは表示しない */
+        const _GBC_MODE_LABELS = {
+            'JA1955':      '口語訳',
+            'WORD_ORDER':  '語順で読む',
+            'STRUCTURE':   '構造で読む',
+            'CLAUSE_ROLE': '文の役割で読む',
+            'RELATION':    'つながりで読む',
+        };
+        const _modeLabel = _GBC_MODE_LABELS[_transA];
+        if (_modeLabel) {
+            items.push(`<span class="gbc-sep">›</span>`);
+            items.push(`<button class="gbc-item" onclick="_gbcGoMode()">${_modeLabel}</button>`);
+        }
     }
 
     el.innerHTML = items.join('');
@@ -6912,6 +6893,13 @@ function _gbcGoBook() {
     }
     if (!_isSidebarOpen()) _openSidebar();
     sbGoTo(2);
+    AppState.clearDepth();
+    renderDepthHistory();
+}
+
+function _gbcGoMode() {
+    if (!_isSidebarOpen()) _openSidebar();
+    sbGoTo(3);
     AppState.clearDepth();
     renderDepthHistory();
 }
@@ -9430,6 +9418,9 @@ function sbGoTo(layer, section) {
         document.getElementById('sb-l2-title').textContent = sbBookName;
         sbRenderChapters();
     }
+
+    /* Layer 3: 読み方を描画 */
+    if (layer === 3) { _sbRenderModes(); }
 }
 
 /* Layer 1/2 のナビヘッダーのアクティブ状態を同期 */
@@ -9499,6 +9490,34 @@ function sbInitState(bookKey, ch) {
     }
     /* 起動時: Layer 0 を表示（トップメニューから始める） */
     sbGoTo(0);
+}
+
+function _sbRenderModes() {
+    const list = document.getElementById('sb-mode-list');
+    if (!list) return;
+    const items = [
+        { id: 'JA1955',      label: '口語訳'        },
+        { id: 'WORD_ORDER',  label: '語順で読む'     },
+        { id: 'STRUCTURE',   label: '構造で読む'     },
+        { id: 'CLAUSE_ROLE', label: '文の役割で読む' },
+        { id: 'RELATION',    label: 'つながりで読む' },
+    ];
+    list.innerHTML = items.map(item => {
+        const active = (_transA === item.id && _transMode === 'single') ? ' active' : '';
+        return `<div class="sb-row${active}" onclick="_sbSelectMode('${item.id}')"><span class="menu-text">${item.label}</span></div>`;
+    }).join('');
+    list.innerHTML +=
+        '<div class="sb-row" onclick="openBiblePicker()" style="border-top:1px solid var(--border-soft);margin-top:var(--space-xs);">' +
+        '<span class="menu-text" style="color:var(--text-sub);">比較表示を設定…</span></div>';
+}
+
+function _sbSelectMode(id) {
+    _transA = id;
+    _applyTransMode('single');
+    syncUrlState();
+    renderCurrentPage();
+    sbGoTo(0);
+    closeSidebar();
 }
 
 /* ══════════════════════════════════════════
@@ -10406,19 +10425,6 @@ function render(columns, elData, hasGreek) {
     const parallel     = document.getElementById('parallel-text-area');
     const mainArea     = document.getElementById('main-reading-area');
 
-    /* 翻訳ヘッダー */
-    const headerA = document.getElementById('trans-col-header-a');
-    const headerB = document.getElementById('trans-col-header-b');
-    headerA.textContent = (TRANSLATIONS[_transA] || {}).label || _transA;
-
-    // 右列ヘッダーラベルを更新
-    const gfTransLblEarly = document.getElementById('gf-trans-label');
-    if (mainArea.classList.contains('compare-mode')) {
-        if (gfTransLblEarly) gfTransLblEarly.textContent = (TRANSLATIONS[_transB] || {}).label || _transB;
-    } else {
-        if (gfTransLblEarly) gfTransLblEarly.textContent = '';
-    }
-
     // ── Study panel を閉じて Reading 状態に戻す ──
     closeStudyPanel();
     _closeReadingHintPopover(); /* 章移動などの再描画で開いていた Hint Popover を閉じる */
@@ -10605,15 +10611,6 @@ _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma
 
     /* Greek Flow View: キャッシュ保存 */
     _cachedElByVerse = elByVerse;
-
-    /* 右列ヘッダーラベルを更新 */
-    const gfTransLbl  = document.getElementById('gf-trans-label');
-    /* 右列ヘッダーラベルを常に transBの翻訳名で更新 */
-    if (gfTransLbl) {
-        gfTransLbl.textContent = mainArea.classList.contains('compare-mode')
-            ? ((TRANSLATIONS[_transB] || {}).label || _transB)
-            : '';
-    }
 
     /* transB=FLOW（ColumnMode.kind==='wordOrder'）が選ばれているときは常にflowモードを起動する。
        VR-5-H-6: 旧「flow残留のリセット」分岐（_rightMode 依存）は削除。render() は判定前に
@@ -17143,10 +17140,6 @@ function _applyTransMode(mode) {
 }
 
 function _updateColHeaders() {
-    const hA = document.getElementById('trans-col-header-a');
-    if (hA) hA.textContent = (TRANSLATIONS[_transA] || {}).label || _transA;
-    const gfTransLbl = document.getElementById('gf-trans-label');
-    if (gfTransLbl) gfTransLbl.textContent = (TRANSLATIONS[_transB] || {}).label || _transB;
     _updateBibleLabel();
 }
 
