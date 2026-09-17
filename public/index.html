@@ -6303,17 +6303,43 @@ const AppState = {
      applyShareState          … state → UI反映（URL/Routerを参照しない）
    ══════════════════════════════════════════ */
 const ShareURLService = {
+    /* 内部ID → パスコード（Router._DISPLAY_CODE の逆マッピング）。
+       JA1955 はデフォルトのため省略する（エントリなし = コードなし）。 */
+    _PATH_CODE: {
+        'WORD_ORDER':  'WO',
+        'STRUCTURE':   'ST',
+        'CLAUSE_ROLE': 'CR',
+        'RELATION':    'RL',
+        'DISCOURSE':   'DC',
+        'BUN':         'BUN',
+    },
+
+    /* state → canonical path-format URL。
+       panel / word / tokenIndex はこのフェーズでシリアライズしない（Phase D/F で対応）。
+       生成結果は Router.parse() で再解析したとき同一の state を返すことを保証する。 */
     generate(state) {
-        const url = new URL(window.location.href);
-        url.search = '';
-        if (state.book)    url.searchParams.set('book', state.book);
-        if (state.chapter) url.searchParams.set('ch', state.chapter);
-        if (state.verse)   url.searchParams.set('verse', state.verse);
-        if (state.panel)   url.searchParams.set('panel', state.panel);
-        if (state.word)    url.searchParams.set('word', state.word);
-        if (state.transA)  url.searchParams.set('transA', state.transA);
-        if (state.transB)  url.searchParams.set('transB', state.transB);
-        if (state.mode)    url.searchParams.set('mode', state.mode);
+        const book    = state.book    || 'ROM';
+        const chapter = state.chapter != null ? String(state.chapter) : '1';
+        const verse   = state.verse   ? String(state.verse) : '';
+        const isCompare = state.mode === 'compare' && state.transB;
+
+        const codeA = this._PATH_CODE[state.transA] || null;
+        const codeB = isCompare ? (this._PATH_CODE[state.transB] || null) : null;
+
+        /* JA1955 (codeA===null) の場合 display='' → パスセグメント省略 = /BOOK/CHAPTER */
+        let display = '';
+        if (codeA && codeB) {
+            display = codeA + '+' + codeB;
+        } else if (codeA) {
+            display = codeA;
+        }
+
+        const segs = [encodeURIComponent(book), encodeURIComponent(chapter)];
+        if (verse)   segs.push(encodeURIComponent(verse));
+        if (display) segs.push(display.split('+').map(encodeURIComponent).join('+'));
+
+        const url = new URL(window.location.origin);
+        url.pathname = '/' + segs.join('/');
         return url;
     }
 };
