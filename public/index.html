@@ -3,6 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>言語の壁を超えて読む聖書アプリ</title>
     <link rel="icon" href="data:,">
@@ -6318,17 +6319,72 @@ const ShareURLService = {
 };
 
 const Router = {
+    /* パス表示コード → 内部ID（旧URLエイリアスは normalizeModeId が担う） */
+    _DISPLAY_CODE: {
+        'WO': 'WORD_ORDER', 'ST': 'STRUCTURE',  'CR': 'CLAUSE_ROLE',
+        'RL': 'RELATION',   'DC': 'DISCOURSE',  'BUN': 'BUN', 'JA1955': 'JA1955',
+    },
+
+    /* /{BOOK}/{CH}[/{VERSE}[/{TOKEN_INDEX}]][/{DISPLAY}] を解析して state を返す。
+       BOOK が既知の書物キーでない・CH が数字でない場合は null を返す。 */
+    _parsePath(pathname) {
+        const segs = pathname.split('/').filter(Boolean);
+        if (segs.length < 2) return null;
+        const bookKey = segs[0].toUpperCase();
+        const allKeys = new Set([...SB_BOOKS.nt, ...SB_BOOKS.ot].map(b => b.key));
+        if (!allKeys.has(bookKey)) return null;
+        if (!/^\d+$/.test(segs[1])) return null;
+        const out = {
+            book: bookKey, chapter: segs[1],
+            verse: null, tokenIndex: null,
+            transA: null, transB: null, mode: null,
+        };
+        let i = 2;
+        if (i < segs.length && /^\d+$/.test(segs[i])) {
+            out.verse = segs[i++];
+            if (i < segs.length && /^\d+$/.test(segs[i])) out.tokenIndex = segs[i++];
+        }
+        if (i < segs.length) {
+            const parts = decodeURIComponent(segs[i]).toUpperCase().split('+');
+            out.transA = this._DISPLAY_CODE[parts[0]] || null;
+            if (parts.length > 1) {
+                out.transB = this._DISPLAY_CODE[parts[1]] || null;
+                out.mode = 'compare';
+            }
+        }
+        return out;
+    },
+
+    /* パス形式（?book= なし）を優先し、なければ旧クエリ形式にフォールバックする。
+       verse/panel/word は常にクエリパラメータから読む（書き込み側は Phase C で対応）。
+       tokenIndex はパースのみ。init() は現在消費しない（将来フェーズで対応）。 */
     parse(location = window.location) {
         const p = new URLSearchParams(location.search);
+        if (!p.get('book')) {
+            const path = this._parsePath(location.pathname);
+            if (path) {
+                return {
+                    book:       path.book,
+                    chapter:    path.chapter,
+                    verse:      path.verse   || p.get('verse'),
+                    panel:      p.get('panel'),
+                    word:       p.get('word'),
+                    transA:     path.transA,
+                    transB:     path.transB  || p.get('transB'),
+                    mode:       path.mode    || p.get('mode'),
+                    tokenIndex: path.tokenIndex,
+                };
+            }
+        }
         return {
-            book: p.get('book'),
+            book:    p.get('book'),
             chapter: p.get('ch'),
-            verse: p.get('verse'),
-            panel: p.get('panel'),
-            word: p.get('word'),
-            transA: p.get('transA'),
-            transB: p.get('transB'),
-            mode: p.get('mode')
+            verse:   p.get('verse'),
+            panel:   p.get('panel'),
+            word:    p.get('word'),
+            transA:  p.get('transA'),
+            transB:  p.get('transB'),
+            mode:    p.get('mode'),
         };
     }
 };
