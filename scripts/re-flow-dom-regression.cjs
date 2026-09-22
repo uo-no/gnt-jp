@@ -161,15 +161,19 @@ const stubEnv = () => ({
         words: [{ text: 'w' }],
         analysis: { ok: true },
     }),
+    /* Phase1 Chapter Context Threading: _setFlowInjection が描画時コンテキスト取得のために
+       AppState.location を参照するようになったため最小スタブを追加する。
+       DOM 契約（gf-mode / gf-verse-block）の検証には影響しない。 */
+    AppState: { location: { book: { key: 'ROM' }, chapter: 1 } },
 });
 
 /* 実 _setFlowInjection を、指定 document / 環境スタブで束縛して返す */
 function buildSetFlowInjection(doc, env) {
     const factory = new Function(
-        'document', 'window', '_cachedElByVerse', '_buildGfVerseBlock', '_syncOnboardingActiveFlag',
+        'document', 'window', '_cachedElByVerse', '_buildGfVerseBlock', '_syncOnboardingActiveFlag', 'AppState',
         setFlowInjectionSrc + '\n; return _setFlowInjection;'
     );
-    return factory(doc, env.window, env._cachedElByVerse, env._buildGfVerseBlock, env._syncOnboardingActiveFlag);
+    return factory(doc, env.window, env._cachedElByVerse, env._buildGfVerseBlock, env._syncOnboardingActiveFlag, env.AppState);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -426,6 +430,817 @@ check('invariant: activateFlowCompare が _setFlowInjection(\'flow\') を明示�
     }
     check(`syntax-gate: インライン script が構文的に正しい（${i}件）`, bad === 0, `${bad}件で構文エラー`);
 })();
+
+/* ─────────────────────────────────────────────────────────────
+   Phase 2A-4: Chapter Focus Observer + _navigateVerse scope
+   ───────────────────────────────────────────────────────────── */
+
+/* Invariant: Phase 2A-4 関数・変数の存在 */
+check('invariant(2A-4): _setupChapterObserver 定義あり',
+    /function _setupChapterObserver\s*\(\s*\)/.test(html));
+check('invariant(2A-4): _observeChapterBlock 定義あり',
+    /function _observeChapterBlock\s*\(/.test(html));
+check('invariant(2A-4): _recalcFocusChapter 定義あり',
+    /function _recalcFocusChapter\s*\(\s*\)/.test(html));
+check('invariant(2A-4): _chapterObserver 変数宣言あり',
+    /let _chapterObserver\s*=/.test(html));
+check('invariant(2A-4): _chapterObserverVisible = new Map() あり',
+    /_chapterObserverVisible\s*=\s*new Map\(\)/.test(html));
+
+/* Invariant: Observer 設計契約（options オブジェクトを直接確認） */
+check('invariant(2A-4): Observer options に root: container あり',
+    /\{\s*root:\s*container\s*,\s*threshold:\s*0\s*\}/.test(html));
+check('invariant(2A-4): Observer options に threshold: 0 あり',
+    /\{\s*root:\s*container\s*,\s*threshold:\s*0\s*\}/.test(html));
+check('invariant(2A-4): render() が _setupChapterObserver を呼ぶ',
+    /* _chapterBlock) { _setupChapterObserver() } という形で存在する */
+    /_chapterBlock\s*\)\s*\{\s*_setupChapterObserver\s*\(\s*\)/.test(html));
+check('invariant(2A-4): _loadAndAppendChapter が _observeChapterBlock(_lacCb) を呼ぶ',
+    /_observeChapterBlock\s*\(\s*_lacCb\s*\)/.test(html));
+
+/* Invariant: _navigateVerse scope fix */
+check('invariant(2A-4): _navigateVerse が closest(".chapter-block") を使う',
+    /closest\s*\(\s*'\.chapter-block'\s*\)/.test(html));
+check('invariant(2A-4): _navigateVerse が _navChBlock||document でスコープする',
+    /\(_navChBlock\s*\|\|\s*document\)\.querySelectorAll/.test(html));
+check('invariant(2A-4): _navigateVerse の章末遷移が _navChBlock.dataset.chapter を読む',
+    /_navChBlock\s*\?\s*parseInt\s*\(\s*_navChBlock\.dataset\.chapter/.test(html));
+
+/* Invariant: Phase 2C-2 DOM-reuse navigation */
+{
+    const nvSrc2C = extractFunctionSource(html, 'function _navigateVerse(delta) {');
+    check('extract(2C-2): _navigateVerse ソース再抽出に成功', !!nvSrc2C);
+    if (nvSrc2C) {
+        check('invariant(2C-2): 隣章 DOM 存在チェックを持つ (.chapter-block[data-book=)',
+            /\.chapter-block\[data-book=/.test(nvSrc2C));
+        check('invariant(2C-2): _adjBlock 分岐が存在する',
+            /if\s*\(\s*_adjBlock\s*\)/.test(nvSrc2C));
+        check('invariant(2C-2): delta>0 で先頭節、delta<0 で末尾節を選択する',
+            /delta\s*>\s*0\s*\?/.test(nvSrc2C));
+        check('invariant(2C-2): _adjBlock なし時の _navTo fallback を維持する',
+            /else\s*\{\s*[\s\S]{0,60}_navTo\s*\(/.test(nvSrc2C));
+        check('invariant(2C-2): 隣章 DOM 移動で AppState.toBrowsing() を新規に呼ばない',
+            !/if\s*\(_adjBlock\s*\)[\s\S]{0,300}AppState\.toBrowsing/.test(nvSrc2C));
+        check('invariant(2C-2): 隣章 DOM 移動で openVerseInspector() を呼ばない',
+            !/if\s*\(_adjBlock\s*\)[\s\S]{0,300}openVerseInspector/.test(nvSrc2C));
+        check('invariant(2C-2): 章範囲ガード (nextCh >= 1 && nextCh <= maxCh) を維持する',
+            /nextCh\s*>=\s*1\s*&&\s*nextCh\s*<=\s*maxCh/.test(nvSrc2C));
+    }
+}
+
+/* Behavioral: _navigateVerse 多章スコープ修正 */
+{
+    const navigateVerseSrc = extractFunctionSource(html, 'function _navigateVerse(delta) {');
+    check('extract(2A-4): _navigateVerse ソース抽出に成功', !!navigateVerseSrc);
+
+    if (navigateVerseSrc) {
+        /* closest を El prototype に追加（_navigateVerse の closest('.chapter-block') で使用） */
+        if (!El.prototype.closest) {
+            El.prototype.closest = function (sel) {
+                let n = this;
+                while (n) { if (n._matches && n._matches(sel)) return n; n = n.parentNode || null; }
+                return null;
+            };
+        }
+
+        const VERSE_SEL = '.verse-pair-left, .verse-block:not(.verse-pair-left):not(.verse-pair-right)';
+
+        /* 章ブロック + 節ブロック(v14-v16)を作る */
+        function mkChapterWith3Verses(doc, book, chNum) {
+            const cb = doc.createElement('div');
+            cb.className = 'chapter-block';
+            cb.dataset.book = book; cb.dataset.chapter = String(chNum);
+            const vbs = [];
+            for (let v = 14; v <= 16; v++) {
+                const vb = doc.createElement('div');
+                vb.className = 'verse-block';
+                const vn = doc.createElement('span');
+                vn.className = 'v-num'; vn.textContent = String(v);
+                vb.appendChild(vn);
+                vb._scrolled = false;
+                vb.scrollIntoView = function () { this._scrolled = true; };
+                cb.appendChild(vb);
+                vbs.push(vb);
+            }
+            /* querySelectorAll を stub: VERSE_SEL → own verse blocks */
+            cb.querySelectorAll = (sel) => sel === VERSE_SEL ? [...vbs] : [];
+            return { cb, vbs };
+        }
+
+        const doc2 = makeDocument();
+        const { cb: cb1, vbs: [c1v14, c1v15, c1v16] } = mkChapterWith3Verses(doc2, 'ROM', 1);
+        const { cb: cb2, vbs: [c2v14, c2v15, c2v16] } = mkChapterWith3Verses(doc2, 'ROM', 2);
+        doc2.appendChild(cb1); doc2.appendChild(cb2);
+
+        /* ch2:v14 を選択状態にする */
+        c2v14.className = 'verse-block selected'; /* setter が _cl を更新する */
+
+        /* document-level querySelectorAll stub */
+        doc2.querySelectorAll = (sel) => {
+            if (sel === '.verse-block.selected') return [c2v14];
+            if (sel === VERSE_SEL) return [c1v14, c1v15, c1v16, c2v14, c2v15, c2v16];
+            return [];
+        };
+
+        let navToCalled = null;
+        const _nv = (new Function(
+            'document', 'AppState', '_navTo',
+            navigateVerseSrc + '\n; return _navigateVerse;'
+        ))(
+            doc2,
+            { location: { book: { key: 'ROM', ch: 16 }, chapter: 1, testament: 'nt' } },
+            (bk, ch) => { navToCalled = ch; }
+        );
+
+        _nv(1); /* ch2:v14 選択中 → 次節(+1) → ch2:v15 を期待 */
+
+        check('behavioral(2A-4): ch2:v14→次節でch2:v15を選択', c2v15._scrolled === true);
+        check('behavioral(2A-4): ch2:v14→次節でch1:v15を誤選択しない', c1v15._scrolled === false);
+        check('behavioral(2A-4): 同章内で見つかるため _navTo を呼ばない', navToCalled === null);
+
+        /* 逆方向: ch2:v15 選択 → 前節(-1) → ch2:v14 を期待 */
+        c2v14._scrolled = false; c2v15._scrolled = false; /* リセット */
+        c2v15.className = 'verse-block selected';
+        c2v14.className = 'verse-block';
+        doc2.querySelectorAll = (sel) => {
+            if (sel === '.verse-block.selected') return [c2v15];
+            if (sel === VERSE_SEL) return [c1v14, c1v15, c1v16, c2v14, c2v15, c2v16];
+            return [];
+        };
+        _nv(-1); /* ch2:v15 選択中 → 前節(-1) → ch2:v14 を期待 */
+        check('behavioral(2A-4): ch2:v15→前節でch2:v14を選択', c2v14._scrolled === true);
+        check('behavioral(2A-4): ch2:v15→前節でch1:v14を誤選択しない', c1v14._scrolled === false);
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Phase 2C-2: Cross-chapter DOM-reuse Navigation
+   ───────────────────────────────────────────────────────────── */
+{
+    const navigateVerseSrc2C = extractFunctionSource(html, 'function _navigateVerse(delta) {');
+
+    if (navigateVerseSrc2C) {
+        if (!El.prototype.closest) {
+            El.prototype.closest = function (sel) {
+                let n = this;
+                while (n) { if (n._matches && n._matches(sel)) return n; n = n.parentNode || null; }
+                return null;
+            };
+        }
+
+        const VERSE_SEL = '.verse-pair-left, .verse-block:not(.verse-pair-left):not(.verse-pair-right)';
+
+        /* 章ブロック + 節ブロックを作るヘルパー（v1-v3 の3節） */
+        function mkChapter2C(doc, book, chNum) {
+            const cb = doc.createElement('div');
+            cb.className = 'chapter-block';
+            cb.dataset.book = book; cb.dataset.chapter = String(chNum);
+            const vbs = [];
+            for (let v = 1; v <= 3; v++) {
+                const vb = doc.createElement('div');
+                vb.className = 'verse-block';
+                const vn = doc.createElement('span');
+                vn.className = 'v-num'; vn.textContent = String(v);
+                vb.appendChild(vn);
+                vb._scrolled = false;
+                vb.scrollIntoView = function () { this._scrolled = true; };
+                cb.appendChild(vb);
+                vbs.push(vb);
+            }
+            cb.querySelectorAll = (sel) => sel === VERSE_SEL ? [...vbs] : [];
+            return { cb, vbs };
+        }
+
+        /* ── テスト1: 次章DOMあり → ch1:v3 から +1 → ch2:v1 へ scrollIntoView ── */
+        {
+            const docA = makeDocument();
+            const { cb: cbA1, vbs: [a1v1, a1v2, a1v3] } = mkChapter2C(docA, 'ROM', 1);
+            const { cb: cbA2, vbs: [a2v1, a2v2, a2v3] } = mkChapter2C(docA, 'ROM', 2);
+            docA.appendChild(cbA1); docA.appendChild(cbA2);
+
+            /* ch1:v3 を選択 */
+            a1v3.className = 'verse-block selected';
+            docA.querySelectorAll = (sel) => {
+                if (sel === '.verse-block.selected') return [a1v3];
+                return cbA1.querySelectorAll(sel); /* ch1スコープ内 */
+            };
+            /* querySelector: ch2を返す */
+            docA.querySelector = (sel) => {
+                if (sel === '.chapter-block[data-book="ROM"][data-chapter="2"]') return cbA2;
+                if (sel === '.chapter-block[data-book="ROM"][data-chapter="1"]') return cbA1;
+                return null;
+            };
+
+            let navToCalledA = null;
+            const nvA = (new Function(
+                'document', 'AppState', '_navTo',
+                navigateVerseSrc2C + '\n; return _navigateVerse;'
+            ))(
+                docA,
+                { location: { book: { key: 'ROM', ch: 16 }, chapter: 1, testament: 'nt' } },
+                (bk, ch) => { navToCalledA = ch; }
+            );
+
+            nvA(1); /* ch1:v3 選択中 → +1 → 次章の先頭節(v1) を期待 */
+
+            check('behavioral(2C-2): 次章DOMあり: ch1:v3→+1 で ch2:v1 へ scrollIntoView',
+                a2v1._scrolled === true);
+            check('behavioral(2C-2): 次章DOMあり: ch1:v3→+1 で ch2:v2 は scrollIntoView しない',
+                a2v2._scrolled === false);
+            check('behavioral(2C-2): 次章DOMあり: ch1:v3→+1 で _navTo を呼ばない',
+                navToCalledA === null);
+        }
+
+        /* ── テスト2: 前章DOMあり → ch2:v1 から -1 → ch1:v3（末尾節）へ scrollIntoView ── */
+        {
+            const docB = makeDocument();
+            const { cb: cbB1, vbs: [b1v1, b1v2, b1v3] } = mkChapter2C(docB, 'ROM', 1);
+            const { cb: cbB2, vbs: [b2v1, b2v2, b2v3] } = mkChapter2C(docB, 'ROM', 2);
+            docB.appendChild(cbB1); docB.appendChild(cbB2);
+
+            b2v1.className = 'verse-block selected';
+            docB.querySelectorAll = (sel) => {
+                if (sel === '.verse-block.selected') return [b2v1];
+                return cbB2.querySelectorAll(sel); /* ch2スコープ内 */
+            };
+            docB.querySelector = (sel) => {
+                if (sel === '.chapter-block[data-book="ROM"][data-chapter="1"]') return cbB1;
+                if (sel === '.chapter-block[data-book="ROM"][data-chapter="2"]') return cbB2;
+                return null;
+            };
+
+            let navToCalledB = null;
+            const nvB = (new Function(
+                'document', 'AppState', '_navTo',
+                navigateVerseSrc2C + '\n; return _navigateVerse;'
+            ))(
+                docB,
+                { location: { book: { key: 'ROM', ch: 16 }, chapter: 2, testament: 'nt' } },
+                (bk, ch) => { navToCalledB = ch; }
+            );
+
+            nvB(-1); /* ch2:v1 選択中 → -1 → 前章の末尾節(v3) を期待 */
+
+            check('behavioral(2C-2): 前章DOMあり: ch2:v1→-1 で ch1:v3（末尾節）へ scrollIntoView',
+                b1v3._scrolled === true);
+            check('behavioral(2C-2): 前章DOMあり: ch2:v1→-1 で ch1:v1 は scrollIntoView しない',
+                b1v1._scrolled === false);
+            check('behavioral(2C-2): 前章DOMあり: ch2:v1→-1 で _navTo を呼ばない',
+                navToCalledB === null);
+        }
+
+        /* ── テスト3: 次章DOMなし → 従来の _navTo() にフォールバック ── */
+        {
+            const docC = makeDocument();
+            const { cb: cbC1, vbs: [c1v1, c1v2, c1v3] } = mkChapter2C(docC, 'ROM', 1);
+            docC.appendChild(cbC1);
+
+            c1v3.className = 'verse-block selected';
+            docC.querySelectorAll = (sel) => {
+                if (sel === '.verse-block.selected') return [c1v3];
+                return cbC1.querySelectorAll(sel);
+            };
+            /* querySelector: ch2 は DOM にない → null */
+            docC.querySelector = () => null;
+
+            let navToCalledC = null;
+            const nvC = (new Function(
+                'document', 'AppState', '_navTo',
+                navigateVerseSrc2C + '\n; return _navigateVerse;'
+            ))(
+                docC,
+                { location: { book: { key: 'ROM', ch: 16 }, chapter: 1, testament: 'nt' } },
+                (bk, ch) => { navToCalledC = ch; }
+            );
+
+            nvC(1); /* ch1:v3 → +1、ch2 DOM なし → _navTo(ROM, 2) を期待 */
+
+            check('behavioral(2C-2): 次章DOMなし: _navTo(2) を呼ぶ（フォールバック）',
+                navToCalledC === 2);
+        }
+
+        /* ── テスト4: 前章DOMなし → 従来の _navTo() にフォールバック ── */
+        {
+            const docD = makeDocument();
+            const { cb: cbD2, vbs: [d2v1, d2v2, d2v3] } = mkChapter2C(docD, 'ROM', 2);
+            docD.appendChild(cbD2);
+
+            d2v1.className = 'verse-block selected';
+            docD.querySelectorAll = (sel) => {
+                if (sel === '.verse-block.selected') return [d2v1];
+                return cbD2.querySelectorAll(sel);
+            };
+            docD.querySelector = () => null;
+
+            let navToCalledD = null;
+            const nvD = (new Function(
+                'document', 'AppState', '_navTo',
+                navigateVerseSrc2C + '\n; return _navigateVerse;'
+            ))(
+                docD,
+                { location: { book: { key: 'ROM', ch: 16 }, chapter: 2, testament: 'nt' } },
+                (bk, ch) => { navToCalledD = ch; }
+            );
+
+            nvD(-1); /* ch2:v1 → -1、ch1 DOM なし → _navTo(ROM, 1) を期待 */
+
+            check('behavioral(2C-2): 前章DOMなし: _navTo(1) を呼ぶ（フォールバック）',
+                navToCalledD === 1);
+        }
+
+        /* ── テスト5: 最初の章(ch=1)から -1 → 移動しない ── */
+        {
+            const docE = makeDocument();
+            const { cb: cbE1, vbs: [e1v1] } = mkChapter2C(docE, 'ROM', 1);
+            docE.appendChild(cbE1);
+
+            e1v1.className = 'verse-block selected';
+            docE.querySelectorAll = (sel) => {
+                if (sel === '.verse-block.selected') return [e1v1];
+                return cbE1.querySelectorAll(sel);
+            };
+            docE.querySelector = () => null;
+
+            let navToCalledE = null;
+            const nvE = (new Function(
+                'document', 'AppState', '_navTo',
+                navigateVerseSrc2C + '\n; return _navigateVerse;'
+            ))(
+                docE,
+                { location: { book: { key: 'ROM', ch: 16 }, chapter: 1, testament: 'nt' } },
+                (bk, ch) => { navToCalledE = ch; }
+            );
+
+            nvE(-1); /* ch1:v1 → -1 → nextCh=0 < 1 → ガード。何もしない */
+
+            check('behavioral(2C-2): ch1 の先頭節から -1 で _navTo を呼ばない（範囲ガード）',
+                navToCalledE === null);
+        }
+
+        /* ── テスト6: 最終章(ch=16)から +1 → 移動しない ── */
+        {
+            const docF = makeDocument();
+            const { cb: cbF16, vbs: [f16v1, f16v2, f16v3] } = mkChapter2C(docF, 'ROM', 16);
+            docF.appendChild(cbF16);
+
+            f16v3.className = 'verse-block selected';
+            docF.querySelectorAll = (sel) => {
+                if (sel === '.verse-block.selected') return [f16v3];
+                return cbF16.querySelectorAll(sel);
+            };
+            docF.querySelector = () => null;
+
+            let navToCalledF = null;
+            const nvF = (new Function(
+                'document', 'AppState', '_navTo',
+                navigateVerseSrc2C + '\n; return _navigateVerse;'
+            ))(
+                docF,
+                { location: { book: { key: 'ROM', ch: 16 }, chapter: 16, testament: 'nt' } },
+                (bk, ch) => { navToCalledF = ch; }
+            );
+
+            nvF(1); /* ch16:v3 → +1 → nextCh=17 > maxCh(16) → ガード */
+
+            check('behavioral(2C-2): 最終章の末尾節から +1 で _navTo を呼ばない（範囲ガード）',
+                navToCalledF === null);
+        }
+
+        /* ── テスト7: Phase 2B キャッシュが DOM 内移動でクリアされない（ソース検証） ── */
+        check('invariant(2C-2): _navigateVerse に _appendedChapterCache.clear() がない（キャッシュ保護）',
+            !/_appendedChapterCache\.clear/.test(navigateVerseSrc2C));
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Phase 2A-5: Scroll-triggered Chapter Autoload
+   ───────────────────────────────────────────────────────────── */
+
+/* Invariant: Phase 2A-5 関数・変数の存在 */
+check('invariant(2A-5): _setupAutoload 定義あり',
+    /function _setupAutoload\s*\(\s*\)/.test(html));
+check('invariant(2A-5): _placeSentinel 定義あり',
+    /function _placeSentinel\s*\(\s*\)/.test(html));
+check('invariant(2A-5): _doAutoload 定義あり',
+    /async function _doAutoload\s*\(/.test(html));
+check('invariant(2A-5): _stopAutoload 定義あり',
+    /function _stopAutoload\s*\(\s*\)/.test(html));
+check('invariant(2A-5): _alObserver 変数宣言あり',
+    /let _alObserver\s*=/.test(html));
+check('invariant(2A-5): _alCancelGen 変数宣言あり',
+    /let _alCancelGen\s*=/.test(html));
+
+/* Invariant: Autoload 設計契約 */
+check('invariant(2A-5): Autoload rootMargin に 300px bottom あり',
+    /rootMargin:\s*'0px 0px 300px 0px'/.test(html));
+check('invariant(2A-5): _stopAutoload が _alCancelGen をインクリメントする',
+    /_alCancelGen\+\+/.test(html));
+check('invariant(2A-5): _doAutoload が _alCancelGen と比較する',
+    /_alCancelGen\s*!==\s*_myGen/.test(html));
+check('invariant(2A-5): render() が _setupAutoload を呼ぶ',
+    /_setupChapterObserver\(\);\s*_setupAutoload\(\)/.test(html));
+check('invariant(2A-5): 最終章ガード: chNum >= bookObj.ch で _stopAutoload',
+    /chNum\s*>=\s*bookObj\.ch.*_stopAutoload/.test(html.replace(/\n/g, ' ')));
+check('invariant(2A-5): sentinel CSS が存在',
+    /\.chapter-load-sentinel\s*\{/.test(html));
+
+/* Invariant: Focus Observer との共存 */
+check('invariant(2A-5): _alObserver は _chapterObserver とは別変数',
+    /let _alObserver/.test(html) && /let _chapterObserver/.test(html));
+
+/* Behavioral: _doAutoload 同時リクエスト防止 */
+{
+    const doAutoloadSrc = extractFunctionSource(html, 'async function _doAutoload(bookObj, nextCh) {');
+    check('extract(2A-5): _doAutoload ソース抽出に成功', !!doAutoloadSrc);
+
+    if (doAutoloadSrc) {
+        /* _doAutoload を sync 的に実行できるよう Promise を同期解決するスタブ */
+        let lacCalls = 0;
+        const stubEnv5 = {
+            _transA: 'JA1955',
+            _transMode: 'single',
+            _alRunning: false,
+            _alCancelGen: 0,
+            _alRetryCount: 0,
+            _alSentinel: null,
+            _alObserver: null,
+            SB_BOOKS: {
+                nt: [{ key: 'ROM', name: 'ローマ人への手紙', ch: 16 }],
+                ot: []
+            },
+            _toColumnMode: (id) => ({ kind: 'translation' }),
+            _isGreekReadingMode: (kind) => kind !== 'translation',
+            _stopAutoload: function () { this._alCancelGen++; this._alRunning = false; },
+            _placeSentinel: function () { /* no-op in stub */ },
+            document: {
+                getElementById: () => ({
+                    querySelector: () => null  /* simulate: chapter not yet in DOM */
+                })
+            },
+            _loadAndAppendChapter: async function (bookObj, nextCh) {
+                lacCalls++;
+                return false; /* simulate fetch failure */
+            },
+        };
+
+        /* _doAutoload を評価（Promise が返る; ここでは await できないので then チェーン） */
+        /* Node 環境のため実際の非同期動作は確認しない。_alRunning フラグのみ確認 */
+        check('behavioral(2A-5): _doAutoload ソースに _alRunning チェックあり',
+            /if\s*\(\s*_alRunning\s*\)\s*return/.test(doAutoloadSrc));
+        check('behavioral(2A-5): _doAutoload ソースに _alRunning = true あり',
+            /_alRunning\s*=\s*true/.test(doAutoloadSrc));
+        check('behavioral(2A-5): _doAutoload ソースに finally { _alRunning = false } あり',
+            /finally[\s\S]{0,30}_alRunning\s*=\s*false/.test(doAutoloadSrc));
+        check('behavioral(2A-5): _doAutoload ソースにモードガードあり',
+            /_isGreekReadingMode[\s\S]{0,50}_stopAutoload/.test(doAutoloadSrc));
+        check('behavioral(2A-5): _doAutoload ソースに _alRetryCount >= 3 で _stopAutoload あり',
+            /_alRetryCount\s*>=\s*3[\s\S]{0,20}_stopAutoload/.test(doAutoloadSrc));
+    }
+}
+
+/* Behavioral: _placeSentinel 最終章ガード */
+{
+    const placeSentinelSrc = extractFunctionSource(html, 'function _placeSentinel() {');
+    check('extract(2A-5): _placeSentinel ソース抽出に成功', !!placeSentinelSrc);
+    if (placeSentinelSrc) {
+        check('behavioral(2A-5): _placeSentinel に chNum >= bookObj.ch ガードあり',
+            /chNum\s*>=\s*bookObj\.ch/.test(placeSentinelSrc));
+        check('behavioral(2A-5): _placeSentinel が sentinel を最終章ブロックへ appendChild する',
+            /last\.appendChild\s*\(\s*_alSentinel\s*\)/.test(placeSentinelSrc));
+        check('behavioral(2A-5): _placeSentinel が disconnect してから observe する',
+            /_alObserver\.disconnect[\s\S]{0,80}_alObserver\.observe/.test(placeSentinelSrc));
+    }
+}
+
+/* ───────────────────── Phase 2B-2: Multi-chapter Cache Tests ───────────────────── */
+{
+    /* C-1: _appendedChapterCache 宣言が存在する */
+    check('2B-2(C-1): _appendedChapterCache 宣言が index.html に存在する',
+        /let\s+_appendedChapterCache\s*=\s*new\s+Map\s*\(\s*\)/.test(html));
+
+    /* C-2: render() 内で _appendedChapterCache.clear() が app.innerHTML = '' より前に呼ばれる */
+    const renderSrc = extractFunctionSource(html, 'function render(');
+    check('extract(2B-2): render() ソース抽出に成功', !!renderSrc);
+    if (renderSrc) {
+        const clearPos    = renderSrc.indexOf('_appendedChapterCache.clear()');
+        const innerPos    = renderSrc.indexOf("app.innerHTML = ''");
+        check('2B-2(C-2): _appendedChapterCache.clear() が render() 内に存在する', clearPos >= 0);
+        check('2B-2(C-2): _appendedChapterCache.clear() が app.innerHTML=\'\' より前にある',
+            clearPos >= 0 && innerPos >= 0 && clearPos < innerPos);
+    }
+
+    /* C-3: _loadAndAppendChapter() 内で _appendedChapterCache.set(...) が app.appendChild より後に呼ばれる */
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    check('extract(2B-2): _loadAndAppendChapter() ソース抽出に成功', !!lacSrc);
+    if (lacSrc) {
+        const appendPos = lacSrc.indexOf('app.appendChild(_lacCb)');
+        const setPos    = lacSrc.indexOf('_appendedChapterCache.set(');
+        check('2B-2(C-3): _appendedChapterCache.set() が _loadAndAppendChapter() 内に存在する', setPos >= 0);
+        check('2B-2(C-3): _appendedChapterCache.set() が app.appendChild(_lacCb) より後にある',
+            appendPos >= 0 && setPos >= 0 && setPos > appendPos);
+    }
+
+    /* C-4: _resolveTokenJaById() が存在し、両キャッシュを検索するロジックを含む */
+    const resolveTokenSrc = extractFunctionSource(html, 'function _resolveTokenJaById(');
+    check('extract(2B-2): _resolveTokenJaById() ソース抽出に成功', !!resolveTokenSrc);
+    if (resolveTokenSrc) {
+        check('2B-2(C-4): _resolveTokenJaById は _cachedElByVerse を検索する',
+            /_cachedElByVerse/.test(resolveTokenSrc));
+        check('2B-2(C-4): _resolveTokenJaById は _appendedChapterCache.values() を検索する',
+            /_appendedChapterCache\.values\s*\(\s*\)/.test(resolveTokenSrc));
+        check('2B-2(C-4): _resolveTokenJaById は verseId で照合する',
+            /w\.verseId\s*===\s*targetTokenId/.test(resolveTokenSrc));
+        check('2B-2(C-4): _resolveTokenJaById は null ガードを持つ',
+            /if\s*\(\s*!targetTokenId\s*\)\s*return\s*null/.test(resolveTokenSrc));
+    }
+
+    /* C-5: _resolveReferentEvidenceText が _resolveTokenJaById を呼ぶ（インライン検索ループを持たない） */
+    const refEvidSrc = extractFunctionSource(html, 'function _resolveReferentEvidenceText(');
+    check('extract(2B-2): _resolveReferentEvidenceText() ソース抽出に成功', !!refEvidSrc);
+    if (refEvidSrc) {
+        check('2B-2(C-5): _resolveReferentEvidenceText は _resolveTokenJaById を呼ぶ',
+            /_resolveTokenJaById\s*\(/.test(refEvidSrc));
+        check('2B-2(C-5): _resolveReferentEvidenceText は for..in ループを自前で持たない（委譲済み）',
+            !/for\s*\(\s*const\s+\w+\s+in\s+_cachedElByVerse/.test(refEvidSrc));
+    }
+
+    /* C-6: _resolveSubjrefEvidenceText が _resolveTokenJaById を呼ぶ */
+    const subjEvidSrc = extractFunctionSource(html, 'function _resolveSubjrefEvidenceText(');
+    check('extract(2B-2): _resolveSubjrefEvidenceText() ソース抽出に成功', !!subjEvidSrc);
+    if (subjEvidSrc) {
+        check('2B-2(C-6): _resolveSubjrefEvidenceText は _resolveTokenJaById を呼ぶ',
+            /_resolveTokenJaById\s*\(/.test(subjEvidSrc));
+        check('2B-2(C-6): _resolveSubjrefEvidenceText は for..in ループを自前で持たない（委譲済み）',
+            !/for\s*\(\s*const\s+\w+\s+in\s+_cachedElByVerse/.test(subjEvidSrc));
+    }
+
+    /* C-7: _resolveTokenJaById の behavioral 検証 — 初期章から発見 */
+    if (resolveTokenSrc) {
+        const mockCachedElByVerse = {
+            '5': [
+                { verseId: 'n11001005001', japanese: '神', text: 'θεόν' },
+                { verseId: 'n11001005002', japanese: 'は', text: 'ἐστιν' },
+            ],
+        };
+        const mockAppendedChapterCache = new Map();
+
+        let result2B_C7_found = null;
+        let result2B_C7_miss  = null;
+        try {
+            // eslint-disable-next-line no-new-func
+            result2B_C7_found = new Function(
+                '_cachedElByVerse', '_appendedChapterCache',
+                `${resolveTokenSrc}\nreturn _resolveTokenJaById('n11001005001');`
+            )(mockCachedElByVerse, mockAppendedChapterCache);
+
+            result2B_C7_miss = new Function(
+                '_cachedElByVerse', '_appendedChapterCache',
+                `${resolveTokenSrc}\nreturn _resolveTokenJaById('n99999999999');`
+            )(mockCachedElByVerse, mockAppendedChapterCache);
+        } catch (e) {
+            /* eval失敗 — チェックは FAIL になる */
+        }
+        check('2B-2(C-7): _resolveTokenJaById が初期章から正しい日本語を返す',
+            result2B_C7_found === '神');
+        check('2B-2(C-7): _resolveTokenJaById が未発見トークンに null を返す',
+            result2B_C7_miss === null);
+    }
+
+    /* C-8: behavioral — 追加章から発見 */
+    if (resolveTokenSrc) {
+        const mockCachedElByVerse2 = {};
+        const mockAppendedChapterCache2 = new Map();
+        mockAppendedChapterCache2.set('ROM|2', {
+            '1': [
+                { verseId: 'n11002001001', japanese: 'さばき', text: 'κρίνων' },
+            ],
+        });
+
+        let result2B_C8_appended = null;
+        try {
+            // eslint-disable-next-line no-new-func
+            result2B_C8_appended = new Function(
+                '_cachedElByVerse', '_appendedChapterCache',
+                `${resolveTokenSrc}\nreturn _resolveTokenJaById('n11002001001');`
+            )(mockCachedElByVerse2, mockAppendedChapterCache2);
+        } catch (e) { /* eval失敗 */ }
+        check('2B-2(C-8): _resolveTokenJaById が追加章キャッシュから正しい日本語を返す',
+            result2B_C8_appended === 'さばき');
+    }
+
+    /* C-9: _loadAndAppendChapter JSDoc に _appendedChapterCache への言及がある（旧コメントは削除済み） */
+    if (lacSrc) {
+        check('2B-2(C-9): _loadAndAppendChapter JSDoc に _appendedChapterCache への言及がある',
+            /_appendedChapterCache/.test(lacSrc));
+        check('2B-2(C-9): 旧JSDoc（章別キャッシュが未実装）は削除されている',
+            !/章別キャッシュが未実装/.test(lacSrc));
+    }
+}
+
+/* ───────────────────── Phase 3-3: URL State Consistency ───────────────────── */
+/*
+ * F-1: JA1955 連続章スクロール中に selectedVerse.ch と location.chapter が乖離する問題。
+ * 修正: AppState.toBrowsing() が ch フィールドを selectedVerse に保存し、
+ *       getShareState() が selectedVerse.ch を chapter として優先する。
+ *       applyShareState() は _findVerseInChapter() で章スコープ復元を行う。
+ */
+
+/* ── Source invariant ── */
+check('invariant(3-3): toBrowsing() が selectedVerse に ch フィールドを保存する',
+    /this\.selectedVerse\s*=\s*\{[^}]*ch\s*:/.test(html));
+
+check('invariant(3-3): toBrowsing() の ch は null-safe（ch != null ? ch : null）',
+    /ch\s*!=\s*null\s*\?\s*ch\s*:\s*null/.test(html));
+
+check('invariant(3-3): getShareState() が selectedVerse?.ch を chapter に使う',
+    /chapter\s*:\s*AppState\.selectedVerse\?\.ch\s*\?\?/.test(html));
+
+check('invariant(3-3): getShareState() が location.chapter へフォールバックする',
+    /AppState\.selectedVerse\?\.ch\s*\?\?\s*AppState\.location\?\.chapter/.test(html));
+
+check('invariant(3-3): _findVerseInChapter() が定義されている',
+    /function _findVerseInChapter\s*\(/.test(html));
+
+check('invariant(3-3): _findVerseInChapter() が chapter-block を data-book+data-chapter で検索する',
+    /\.chapter-block\[data-book=.*\]\[data-chapter=/.test(html));
+
+check('invariant(3-3): applyShareState() が _findVerseInChapter() を呼ぶ',
+    /_findVerseInChapter\s*\(/.test(html));
+
+check('invariant(3-3): applyShareState() が _findVisibleVerseBlock へフォールバックする（book/chapter なし呼び出し保護）',
+    /_findVerseInChapter\s*\([^)]+\)\s*\|\|\s*_findVisibleVerseBlock\s*\(/.test(html));
+
+check('invariant(3-3): applyShareState() は state.book && state.chapter を確認してから章スコープ検索する',
+    /state\.book\s*&&\s*state\.chapter\s*!=\s*null/.test(html));
+
+/* ── Behavioral: getShareState() ── */
+{
+    const gssSrc = extractFunctionSource(html, 'function getShareState() {');
+    check('extract(3-3): getShareState() ソース抽出に成功', !!gssSrc);
+
+    if (gssSrc) {
+        /* テスト1: selectedVerse.ch=1, location.chapter=2 → chapter=1（selectedVerse.ch 優先） */
+        let gss1 = null;
+        try {
+            gss1 = new Function('AppState', gssSrc + '\nreturn getShareState();')({
+                selectedVerse: { vNum: '5', elWords: [], ch: 1 },
+                location: { book: { key: 'ROM' }, chapter: 2 },
+                depth: { stack: [] },
+                inspect: { data: null },
+            });
+        } catch (_) {}
+        check('behavioral(3-3): getShareState() は selectedVerse.ch=1 を chapter に使う（location.chapter=2 を無視）',
+            gss1 !== null && gss1.chapter === 1, `chapter=${gss1 && gss1.chapter}`);
+
+        /* テスト2: selectedVerse.ch=null, location.chapter=3 → chapter=3（null は location へフォールバック） */
+        let gss2 = null;
+        try {
+            gss2 = new Function('AppState', gssSrc + '\nreturn getShareState();')({
+                selectedVerse: { vNum: '7', elWords: [], ch: null },
+                location: { book: { key: 'ROM' }, chapter: 3 },
+                depth: { stack: [] },
+                inspect: { data: null },
+            });
+        } catch (_) {}
+        check('behavioral(3-3): getShareState() は selectedVerse.ch=null のとき location.chapter=3 へフォールバック',
+            gss2 !== null && gss2.chapter === 3, `chapter=${gss2 && gss2.chapter}`);
+
+        /* テスト3: selectedVerse.vNum=null（toReading 後）, location.chapter=5 → chapter=5 */
+        let gss3 = null;
+        try {
+            gss3 = new Function('AppState', gssSrc + '\nreturn getShareState();')({
+                selectedVerse: { vNum: null, elWords: [] },   /* ch フィールドなし = undefined */
+                location: { book: { key: 'ROM' }, chapter: 5 },
+                depth: { stack: [] },
+                inspect: { data: null },
+            });
+        } catch (_) {}
+        check('behavioral(3-3): getShareState() は selectedVerse.ch が undefined のとき location.chapter=5 へフォールバック',
+            gss3 !== null && gss3.chapter === 5, `chapter=${gss3 && gss3.chapter}`);
+
+        /* テスト4: selectedVerse.ch=2, verse が空 → chapter=2 であること */
+        let gss4 = null;
+        try {
+            gss4 = new Function('AppState', gssSrc + '\nreturn getShareState();')({
+                selectedVerse: { vNum: '', elWords: [], ch: 2 },
+                location: { book: { key: 'GAL' }, chapter: 3 },
+                depth: { stack: [] },
+                inspect: { data: null },
+            });
+        } catch (_) {}
+        check('behavioral(3-3): getShareState() は selectedVerse.ch=2 のとき verse が空でも chapter=2',
+            gss4 !== null && gss4.chapter === 2, `chapter=${gss4 && gss4.chapter}`);
+
+        /* テスト5: verse あり → verse フィールドが返ること（既存挙動確認） */
+        let gss5 = null;
+        try {
+            gss5 = new Function('AppState', gssSrc + '\nreturn getShareState();')({
+                selectedVerse: { vNum: '12', elWords: [], ch: 4 },
+                location: { book: { key: '1CO' }, chapter: 4 },
+                depth: { stack: [] },
+                inspect: { data: null },
+            });
+        } catch (_) {}
+        check('behavioral(3-3): getShareState() の verse フィールドは selectedVerse.vNum を返す',
+            gss5 !== null && gss5.verse === '12', `verse=${gss5 && gss5.verse}`);
+    }
+}
+
+/* ── Behavioral: _findVerseInChapter() ── */
+/* 注: DOM shim は単純セレクタのみ対応のため、直接モックで chapter-block と verse-block を模倣する。
+   _findVerseInChapter は:
+     1. document.querySelector('.chapter-block[data-book=X][data-chapter=Y]') → chapter-block
+     2. cb.querySelectorAll('.verse-block:not(.verse-pair-right)') → verse 一覧
+     3. b.querySelector('.v-num').textContent.trim() で照合
+   この3ステップをモックで検証する。 */
+{
+    const fvicSrc = extractFunctionSource(html, 'function _findVerseInChapter(');
+    check('extract(3-3): _findVerseInChapter() ソース抽出に成功', !!fvicSrc);
+
+    if (fvicSrc) {
+        /* verse-block モック: querySelector('.v-num') が指定テキストを返す */
+        const makeVbMock = (vText) => ({
+            querySelector: (sel) => sel === '.v-num' ? { textContent: vText } : null,
+        });
+
+        /* chapter-block モック: querySelectorAll で verse-block リストを返す。
+           verse-block はキャッシュし、呼び出しごとに同一オブジェクトを返すことで
+           _findVerseInChapter の戻り値とプリフェッチした参照が一致するようにする。 */
+        const makeCbMock = (...vNums) => {
+            const vbs = vNums.map(v => makeVbMock(String(v)));
+            return { querySelectorAll: (_sel) => vbs };
+        };
+
+        /* document モック: selector が book+chapter に一致する場合のみ chapter-block を返す */
+        const makeDocMock = (bookKey, chNum, cbMock) => ({
+            querySelector: (sel) =>
+                sel.includes(`data-book="${bookKey}"`) && sel.includes(`data-chapter="${chNum}"`)
+                    ? cbMock
+                    : null,
+        });
+
+        /* テスト1: book+chapter が一致する chapter-block 内の verse を返す */
+        const cb_t1 = makeCbMock(1, 5, 10);
+        const vb5 = cb_t1.querySelectorAll()[1]; /* verse 5 */
+        const doc_t1 = makeDocMock('ROM', '2', cb_t1);
+        let fvic1 = null;
+        try {
+            fvic1 = new Function('document', fvicSrc + '\nreturn _findVerseInChapter("ROM", "2", "5");')(doc_t1);
+        } catch (_) {}
+        check('behavioral(3-3): _findVerseInChapter("ROM","2","5") が ROM:2:5 の verse-block を返す',
+            fvic1 !== null && fvic1 === vb5);
+
+        /* テスト2: chapter が一致しない → document.querySelector が null → 関数は null を返す */
+        let fvic2 = null;
+        try {
+            fvic2 = new Function('document', fvicSrc + '\nreturn _findVerseInChapter("ROM", "3", "5");')(doc_t1);
+        } catch (_) {}
+        check('behavioral(3-3): _findVerseInChapter("ROM","3","5") は対象 chapter-block がなければ null',
+            fvic2 === null);
+
+        /* テスト3: book が一致しない → null */
+        let fvic3 = null;
+        try {
+            fvic3 = new Function('document', fvicSrc + '\nreturn _findVerseInChapter("GAL", "2", "5");')(doc_t1);
+        } catch (_) {}
+        check('behavioral(3-3): _findVerseInChapter("GAL","2","5") は book 不一致で null',
+            fvic3 === null);
+
+        /* テスト4: 複数章DOM — 指定章のみが verse-block を返す（ROM:1:5 vs ROM:2:5 が別オブジェクト） */
+        const cb_rom1 = makeCbMock(1, 5, 32);     /* ROM:1 verses: 1,5,32 */
+        const cb_rom2 = makeCbMock(1, 5, 29);     /* ROM:2 verses: 1,5,29 */
+        const vb_rom1_5 = cb_rom1.querySelectorAll()[1]; /* ROM:1:5 */
+        const vb_rom2_5 = cb_rom2.querySelectorAll()[1]; /* ROM:2:5 */
+
+        const doc_multi = {
+            querySelector: (sel) => {
+                if (sel.includes('data-book="ROM"') && sel.includes('data-chapter="1"')) return cb_rom1;
+                if (sel.includes('data-book="ROM"') && sel.includes('data-chapter="2"')) return cb_rom2;
+                return null;
+            },
+        };
+
+        let fvic4a = null, fvic4b = null;
+        try {
+            fvic4a = new Function('document', fvicSrc + '\nreturn _findVerseInChapter("ROM", "1", "5");')(doc_multi);
+            fvic4b = new Function('document', fvicSrc + '\nreturn _findVerseInChapter("ROM", "2", "5");')(doc_multi);
+        } catch (_) {}
+        check('behavioral(3-3): 複数章DOM: _findVerseInChapter("ROM","1","5") が ROM:1 内の verse 5 を返す',
+            fvic4a !== null && fvic4a === vb_rom1_5);
+        check('behavioral(3-3): 複数章DOM: _findVerseInChapter("ROM","2","5") が ROM:2 内の verse 5 を返す',
+            fvic4b !== null && fvic4b === vb_rom2_5);
+        check('behavioral(3-3): 複数章DOM: ROM:1:5 と ROM:2:5 は異なる verse-block オブジェクトを返す',
+            fvic4a !== null && fvic4b !== null && fvic4a !== fvic4b);
+    }
+}
+
+/* ── Phase 3-3 追加インバリアント: toReading() が selectedVerse.ch を保持しないこと ── */
+{
+    /* toReading() が selectedVerse を { vNum: null, elWords: [] } に初期化することを確認する。
+       toBrowsing() が ch を追加したとき、toReading() がそれをクリアすること（新しいオブジェクト作成）。 */
+    check('invariant(3-3): toReading() が selectedVerse を { vNum: null, elWords: [] } にリセットする',
+        /toReading\s*\(\s*\)\s*\{[\s\S]{0,200}selectedVerse\s*=\s*\{\s*vNum\s*:\s*null\s*,\s*elWords\s*:\s*\[\s*\]/.test(html));
+}
 
 /* ───────────────────────────── 結果出力 ───────────────────────────── */
 console.log('── VR-5-H-7: Flow DOM Transition Regression ──\n');

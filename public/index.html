@@ -1929,6 +1929,17 @@ animation: ac-blink 1.2s ease-in-out infinite;
 .verse-pair-left  { border-radius: var(--radius-s) 0 0 var(--radius-s); }
 .verse-pair-right { border-radius: 0 var(--radius-s) var(--radius-s) 0; }
 .verse-block.selected { background: var(--accent-light); }
+/* Phase 2A: chapter container */
+.chapter-block:first-child .chapter-header { border-top: none; padding-top: 0; }
+.chapter-header {
+    padding: var(--space-lg) 0 var(--space-sm);
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    opacity: var(--opacity-secondary);
+    border-top: 1px solid var(--border, rgba(0,0,0,.07));
+}
+/* Phase 2A-5: autoload sentinel — 不可視1px、クリック非対象 */
+.chapter-load-sentinel { height: 1px; pointer-events: none; }
 /* Reading Hint v1（SP-12）: 静かな読書の入口。大きなカードにしない・既存トークンのみ使用 */
 /* Reading Hint（SP-12D）— 節番号自体を入口(Verse Anchor)にする。
    DOM追加・本文文字への装飾なし。色/opacity/cursor のみで操作可能を示す。
@@ -6117,6 +6128,9 @@ let _transB      = 'BUN';
 const LEGACY_MODE_IDS = { FLOW: 'WORD_ORDER', HIERARCHICAL: 'STRUCTURE', REED_KELLOGG: 'CLAUSE_ROLE' };
 function normalizeModeId(id) { return LEGACY_MODE_IDS[id] || id; }
 let _cachedElByVerse = {};
+/* Phase 2B-2: 追加章の elByVerse キャッシュ。キー: "bookKey|chapter"（文字列）、値: elByVerse オブジェクト。
+   render() 呼び出し時に clear() する（DOMクリアとライフサイクルを一致させる）。 */
+let _appendedChapterCache = new Map();
 
 /* ══════════════════════════════════════════
    AppState - UI状態の一元管理
@@ -6205,21 +6219,25 @@ const AppState = {
     },
 
     /* Browsing 状態に移行（節選択後） */
-    toBrowsing(vNum, elWords) {
+    toBrowsing(vNum, elWords, book, ch) {
         this.mode = 'browsing';
-        this.selectedVerse = { vNum, elWords: elWords || [] };
+        /* ch: 選択節の属する章（URL divergence 防止のため selectedVerse に保持する。
+           ch なし呼び出し元では null → getShareState() が location.chapter へフォールバック）。 */
+        this.selectedVerse = { vNum, elWords: elWords || [], ch: ch != null ? ch : null };
         this.inspect.data  = null;
 
         /* 読書位置（節）の永続化：selectedVerse が確定する唯一の地点（SSOT）。
-           ref・構造化フィールドはすべて AppState.location / vNum から組み立てる（ref パース禁止のSSOT原則） */
+           ref・構造化フィールドはすべて book / ch / vNum から組み立てる（ref パース禁止のSSOT原則）。
+           book / ch は描画時コンテキスト（明示引数）を優先し、省略時は this.location にフォールバック。 */
         if (window.App.storage) {
-            const bookKey = this.location.book ? this.location.book.key : '';
-            const ch = this.location.chapter != null ? this.location.chapter : '';
-            if (bookKey && ch !== '' && vNum != null) {
+            const _bk = book || this.location.book;
+            const bookKey = _bk ? _bk.key : '';
+            const chapter = ch != null ? ch : (this.location.chapter != null ? this.location.chapter : '');
+            if (bookKey && chapter !== '' && vNum != null) {
                 window.App.storage.addRecentVerse({
-                    ref: `${bookKey} ${ch}:${vNum}`,
+                    ref: `${bookKey} ${chapter}:${vNum}`,
                     bookKey: bookKey,
-                    chapter: ch,
+                    chapter: chapter,
                     verse: Number(vNum),
                 });
             }
@@ -6526,7 +6544,7 @@ function getShareState() {
 
     return {
         book: AppState.location?.book?.key || '',
-        chapter: AppState.location?.chapter || '',
+        chapter: AppState.selectedVerse?.ch ?? AppState.location?.chapter ?? '',
         verse: AppState.selectedVerse?.vNum || '',
         panel: panelOpen ? 'study' : '',
         word: (panelOpen && AppState.inspect?.data?.strong)
@@ -6739,7 +6757,11 @@ function applyShareState(state) {
        スクロールは節を中央へ置き、パネル表示後の重なりは既存の
        _adjustReadingAreaForPanel（openStudyPanel 系の通常処理）が最小調整する。 */
     const words = _cachedElByVerse[state.verse] || [];
-    const target = _findVisibleVerseBlock(state.verse);
+    /* book+chapter が指定されている場合は章スコープ検索で正確な節を取得する。
+       book/chapter のない呼び出し（_openCompareTarget 経由）は従来の全域検索へフォールバック。 */
+    const target = (state.book && state.chapter != null)
+        ? (_findVerseInChapter(state.book, state.chapter, state.verse) || _findVisibleVerseBlock(state.verse))
+        : _findVisibleVerseBlock(state.verse);
 
     if (!target) {
         console.warn('applyShareState: verse not found:', state.verse);
@@ -7266,6 +7288,23 @@ function _findVisibleVerseBlock(vNum) {
     return null;
 }
 
+/* applyShareState 用: 章スコープ内で節ブロックを検索する。
+   複数章がDOMにある場合でも bookKey/chapterStr で一致する chapter-block 内のみを対象とする。
+   chapter-block が存在しない場合は null（呼び出し元で _findVisibleVerseBlock にフォールバック）。 */
+function _findVerseInChapter(bookKey, chapterStr, vNumStr) {
+    if (!bookKey || chapterStr == null) return null;
+    const cb = document.querySelector(
+        `.chapter-block[data-book="${bookKey}"][data-chapter="${chapterStr}"]`
+    );
+    if (!cb) return null;
+    const target = String(vNumStr);
+    for (const b of cb.querySelectorAll('.verse-block:not(.verse-pair-right)')) {
+        const numEl = b.querySelector('.v-num');
+        if (numEl && numEl.textContent.trim() === target) return b;
+    }
+    return null;
+}
+
 /**
  * StudyPanel を開いた直後に呼ぶ。
  * 選択節の底辺が読書エリアの底辺より下にある場合のみ、差分だけ scrollBy する（最小限）。
@@ -7311,7 +7350,7 @@ function _mobileOpenPanel(titleText, wasAlreadyOpen) {
 }
 
 /* 内部: 語形一覧を開く（depth stackは変えない） */
-function _openWordListInternal(vNum, words) {
+function _openWordListInternal(vNum, words, book, ch) {
     closeMobileSidebar();
     _wlvWordCache = words || [];
     const sidePanel    = document.getElementById('bottom-depth-panel');
@@ -7360,10 +7399,12 @@ function _openWordListInternal(vNum, words) {
 
     /* Phase VR-3A/VR-3B: Flowタブの描画経路を Verse Representation Architecture 経由にする。
        renderColumn() は WordOrderRenderer（chips[] のみを入力とする）へ委譲するため、
-       出力は _buildFlowTabHTML() 時代と完全一致（docs/development/verse-representation-design.md）。 */
+       出力は _buildFlowTabHTML() 時代と完全一致（docs/development/verse-representation-design.md）。
+       book / ch は描画時コンテキスト（明示引数）を優先し、省略時は AppState.location にフォールバック。 */
     {
-        const _vrBookKey = AppState.location.book ? AppState.location.book.key : '';
-        const _vrCh      = AppState.location.chapter != null ? AppState.location.chapter : null;
+        const _bk        = book || AppState.location.book;
+        const _vrBookKey = _bk ? _bk.key : '';
+        const _vrCh      = ch != null ? ch : (AppState.location.chapter != null ? AppState.location.chapter : null);
         const _vrVerse   = buildVerse(_vrBookKey, _vrCh, vNum, words);
         const _vrRep     = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, getAnalysis(_vrVerse));
         /* VR-4-C Step 5: 「本文がFLOW表示中か」の判定はここ（呼び出し元）で解決し、
@@ -10094,11 +10135,11 @@ function _toggleReadingHintPopover(btn, hintText, rangeText) {
 /* ヒントがある節のみ、既存の節番号(.v-num)自体を Reading Hint の入口(Verse Anchor)にする。
    DOMは一切追加せず、本文開始位置・節番号幅・行送りを変えない。
    将来は同じ Verse Anchor から Passage Note / Reading Memo / Original Text / Share 等へ拡張可能。 */
-function _appendReadingHint(block, vNum) {
+function _appendReadingHint(block, vNum, _bookKeyHint, _chHint) {
     try {
         if (!block) return;
-        const bookKey = AppState.location.book ? AppState.location.book.key : '';
-        const chapter = AppState.location.chapter;
+        const bookKey = _bookKeyHint != null ? _bookKeyHint : (AppState.location.book ? AppState.location.book.key : '');
+        const chapter = _chHint  != null ? _chHint  : AppState.location.chapter;
         if (!bookKey || chapter == null) return;
         const hint = _getReadingHintForVerse(bookKey, chapter, vNum);
         if (!hint || !hint.hintText) return;
@@ -10302,13 +10343,14 @@ async function init() {
  * document.querySelectorAll('.verse-block') は #main-reading-area 外に verse-block が
  * 存在しないため、旧実装の mainArea 限定版と結果集合は常に同一（挙動差分なし）。
  */
-function _selectVerseBlocks(vNum, activeBlock) {
+function _selectVerseBlocks(vNum, activeBlock, containerEl) {
     document.querySelectorAll('.verse-block.selected').forEach(b => b.classList.remove('selected'));
-    document.querySelectorAll(`.verse-block[data-vnum="${vNum}"]`).forEach(b => b.classList.add('selected'));
+    const _svbScope = containerEl || document;
+    _svbScope.querySelectorAll(`.verse-block[data-vnum="${vNum}"]`).forEach(b => b.classList.add('selected'));
     if (activeBlock) activeBlock.classList.add('selected');
 }
 
-function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGreek, useVersePair, mainArea) {
+function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGreek, useVersePair, mainArea, book, ch) {
     const columnBlock = document.createElement('div');
     /* VR-5-H-1: 列共通で dataset.vnum を付与する（VR-5-G-A監査で確認した「右列にのみ
        dataset.vnum が存在する」非対称の解消）。すべての列を将来同じ VerseBlock として
@@ -10335,9 +10377,10 @@ function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGr
             } else {
                 /* Phase VR-4A: 本文左列の語順フロー表示を Verse Representation Architecture
                    経由にする。WordOrderRenderer は chips[] のみを入力とするため、
-                   出力は旧実装と完全一致（docs/development/verse-representation-design.md）。 */
-                const _vrBookKey  = AppState.location.book ? AppState.location.book.key : '';
-                const _vrCh       = AppState.location.chapter != null ? AppState.location.chapter : null;
+                   出力は旧実装と完全一致（docs/development/verse-representation-design.md）。
+                   book / ch は描画時コンテキスト（明示引数）を使用する。 */
+                const _vrBookKey  = book ? book.key : '';
+                const _vrCh       = ch != null ? ch : null;
                 const _vrVerse    = buildVerse(_vrBookKey, _vrCh, vNum, words);
                 const _vrAnalysis = getAnalysis(_vrVerse);
                 const _vrRep      = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, _vrAnalysis);
@@ -10356,10 +10399,10 @@ function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGr
                     && String(_bodyVr.verse) === '16';
                 columnBlock.innerHTML = WordOrderRenderer.renderBodyColumn(_vrRep, { showOnboardingAnchor: _bodyShowAnchor });
                 columnBlock.onclick = () => {
-                    _selectVerseBlocks(vNum, columnBlock);
+                    _selectVerseBlocks(vNum, columnBlock, mainArea);
                     document.getElementById('active-v').innerText = `${vNum} 節`;
-                    AppState.toBrowsing(vNum, words);
-                    openVerseInspector(vNum, words);
+                    AppState.toBrowsing(vNum, words, book, ch);
+                    openVerseInspector(vNum, words, book, ch);
                     notifyAppStateChange();
                 };
             }
@@ -10367,9 +10410,10 @@ function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGr
             /* Phase TR-1: 左列の翻訳表示を Verse Representation Architecture 経由にする。
                renderColumn() は TranslationRenderer（representation.text のみを入力とする）へ
                委譲するため、出力は旧実装と完全一致（docs/development/verse-representation-design.md）。
-               ★ 翻訳は Greek Token を経由しないため tokens は空のまま Verse を構築する（VR-1設計書 A-3）。 */
-            const _trBookKey = AppState.location.book ? AppState.location.book.key : '';
-            const _trCh      = AppState.location.chapter != null ? AppState.location.chapter : null;
+               ★ 翻訳は Greek Token を経由しないため tokens は空のまま Verse を構築する（VR-1設計書 A-3）。
+               book / ch は描画時コンテキスト（明示引数）を使用する。 */
+            const _trBookKey = book ? book.key : '';
+            const _trCh      = ch != null ? ch : null;
             const _trVerse   = buildVerse(_trBookKey, _trCh, vNum, []);
             const _trRep     = buildRepresentation(col.colMode, _trVerse, null, text);
             columnBlock.innerHTML = renderColumn(_trRep);
@@ -10390,18 +10434,19 @@ function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGr
             /* Phase TR-2: 右列の翻訳表示を Verse Representation Architecture 経由にする。
                renderColumn() は TranslationRenderer（representation.text のみを入力とする）へ
                委譲するため、出力は旧実装と完全一致（docs/development/verse-representation-design.md）。
-               ★ 翻訳は Greek Token を経由しないため tokens は空のまま Verse を構築する（VR-1設計書 A-3）。 */
-            const _trBookKeyR = AppState.location.book ? AppState.location.book.key : '';
-            const _trChR      = AppState.location.chapter != null ? AppState.location.chapter : null;
+               ★ 翻訳は Greek Token を経由しないため tokens は空のまま Verse を構築する（VR-1設計書 A-3）。
+               book / ch は描画時コンテキスト（明示引数）を使用する。 */
+            const _trBookKeyR = book ? book.key : '';
+            const _trChR      = ch != null ? ch : null;
             const _trVerseR   = buildVerse(_trBookKeyR, _trChR, vNum, []);
             const _trRepR     = buildRepresentation(col.colMode, _trVerseR, null, rightText);
             columnBlock.innerHTML = renderColumn(_trRepR);
             if (hasGreek) {
                 columnBlock.onclick = () => {
-                    _selectVerseBlocks(vNum, columnBlock);
+                    _selectVerseBlocks(vNum, columnBlock, mainArea);
                     document.getElementById('active-v').innerText = `${vNum} 節`;
-                    AppState.toBrowsing(vNum, elByVerse[vNum] || []);
-                    openVerseInspector(vNum, elByVerse[vNum] || []);
+                    AppState.toBrowsing(vNum, elByVerse[vNum] || [], book, ch);
+                    openVerseInspector(vNum, elByVerse[vNum] || [], book, ch);
                     notifyAppStateChange();
                 };
             }
@@ -10436,6 +10481,7 @@ function render(columns, elData, hasGreek) {
     AppState.study.tab           = 'flow';
     AppState.scrollTop           = 0;
     AppState.clearDepth();
+    _appendedChapterCache.clear(); /* Phase 2B-2: DOMクリアと同時に追加章キャッシュを破棄 */
 app.innerHTML = '';
     parallel.innerHTML = '';
     /* compare モードで mainArea に直接追加した verse-pair をクリア */
@@ -10523,19 +10569,40 @@ app.innerHTML = '';
         _colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical' || _colB.kind === 'relation'
     );
 
+    /* 描画時コンテキスト: AppState.location はここ（render 開始時）で1回だけ読む。
+       以降のクリックハンドラ閉包はこの値を使い、イベント発火時に AppState.location を再読しない。 */
+    const _renderBook = AppState.location.book    || null;
+    const _renderCh   = AppState.location.chapter != null ? AppState.location.chapter : null;
+
+    /* Phase 2A: 単章コンテナ。single-mode（非 compare）でのみ生成する。
+       useVersePair が false のとき _bIsPassageLevel は必ず false（verse-loop 経路のみ）。
+       verse-block はこのコンテナ内に追加し、ループ後に app へ挿入する。 */
+    const _chapterBlock = !useVersePair ? (() => {
+        const _cb   = document.createElement('div');
+        _cb.className        = 'chapter-block';
+        _cb.dataset.book     = _renderBook ? (_renderBook.key || '') : '';
+        _cb.dataset.chapter  = _renderCh != null ? String(_renderCh) : '';
+        const _cbHdr = document.createElement('div');
+        _cbHdr.className    = 'chapter-header';
+        const _cbBkName     = _renderBook ? (_renderBook.name || '') : '';
+        _cbHdr.textContent  = [_cbBkName, _renderCh != null ? `第${_renderCh}章` : ''].filter(Boolean).join(' ');
+        _cb.appendChild(_cbHdr);
+        return _cb;
+    })() : null;
+
     Object.entries(colA.jpData.verses).forEach(([vNum, text]) => {
         /* VR-5-F-B: 左列・右列の生成処理を _buildColumnBlock() へ抽出（VR-5-F-A監査
            Migration Boundary Step 1）。
            VR-5-H-2: 列間の相互ハイライトは _selectVerseBlocks()（dataset.vnum ベース）へ
            一般化し、block/pBlock の直接参照を解消した（Step 2 の解消）。 */
-        const block = _buildColumnBlock(0, colA, colB, vNum, text, elByVerse, hasGreek, useVersePair, mainArea);
+        const block = _buildColumnBlock(0, colA, colB, vNum, text, elByVerse, hasGreek, useVersePair, _chapterBlock || mainArea, _renderBook, _renderCh);
 
         if (hasGreek && _colA.kind !== 'wordOrder') {
             block.onclick = () => {
-                _selectVerseBlocks(vNum, block);
+                _selectVerseBlocks(vNum, block, _chapterBlock || mainArea);
                 document.getElementById('active-v').innerText = `${vNum} 節`;
-                AppState.toBrowsing(vNum, elByVerse[vNum] || []);
-                openVerseInspector(vNum, elByVerse[vNum] || []);
+                AppState.toBrowsing(vNum, elByVerse[vNum] || [], _renderBook, _renderCh);
+                openVerseInspector(vNum, elByVerse[vNum] || [], _renderBook, _renderCh);
                 notifyAppStateChange();
             };
         }
@@ -10544,7 +10611,7 @@ app.innerHTML = '';
             /* B が passage-level: A ブロックのみ app へ追加（verse-pair 方式を使わない） */
             app.appendChild(block);
         } else {
-            const pBlock = _buildColumnBlock(1, colB, colA, vNum, text, elByVerse, hasGreek, useVersePair, mainArea);
+            const pBlock = _buildColumnBlock(1, colB, colA, vNum, text, elByVerse, hasGreek, useVersePair, _chapterBlock || mainArea, _renderBook, _renderCh);
             if (useVersePair && window.innerWidth <= 768) {
                 /* モバイル比較モード：節ごとにA訳→区切り→B訳を縦に積む */
                 const verseGroup = document.createElement('div');
@@ -10590,13 +10657,16 @@ app.innerHTML = '';
                 pairEl.appendChild(pBlock);
                 mainArea.appendChild(pairEl);
             } else {
-                app.appendChild(block);
+                (_chapterBlock || app).appendChild(block);
                 parallel.appendChild(pBlock);
                 /* Reading Hint: 主 Reading ビュー（非比較）の該当節 verse-block 右端に info アイコンを加算 */
                 _appendReadingHint(block, vNum);
             }
         }
     });
+
+    /* Phase 2A: 単章コンテナを app へ挿入する（compare 時は null なので何もしない）。 */
+    if (_chapterBlock) { app.appendChild(_chapterBlock); }
 
     /* B列 passage-level: ループ後に #parallel-text-area へ章単位ビューを描画する。 */
     if (_bIsPassageLevel) {
@@ -10642,6 +10712,324 @@ _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma
         _mobileCompareTeardown();
     }
 
+    /* Phase 2A-4/5: Focus Observer + Autoload を初期化（single-mode のみ）。 */
+    if (_chapterBlock) { _setupChapterObserver(); _setupAutoload(); }
+
+}
+
+/* Phase 2A: in-flight guard — 同一章への同時リクエストで重複追加しない */
+const _lacPending = new Set();
+
+/**
+ * _loadAndAppendChapter — JA1955 単章モード専用。
+ *
+ * 指定章のデータを非同期取得し、既存の #bible-text-area に章コンテナを追加する。
+ * render() によるDOMクリアは行わない（既存章を保持する）。
+ *
+ * 制約:
+ *   - 比較モード（_transMode === 'compare'）では呼ばない（guard あり）。
+ *   - Greek読解モード（WORD_ORDER / STRUCTURE 等）では動作しない（guard あり）。
+ *   - _cachedElByVerse は更新しない。vNum キー衝突を避けるため、追加章データは
+ *     _appendedChapterCache（Phase 2B-2）に格納する（キー: "bookKey|chapter"）。
+ *     click path は closure-capture で解決済み。evidence 解決は _resolveTokenJaById が両キャッシュを検索。
+ *
+ * @param {Object} bookObj  SB_BOOKS entry { key, name, ch }
+ * @param {number} chNum    chapter number (integer)
+ * @returns {Promise<boolean>}  true=追加成功、false=スキップ（重複/失敗/無効モード）
+ */
+async function _loadAndAppendChapter(bookObj, chNum) {
+    if (!bookObj || chNum == null) return false;
+
+    /* 翻訳モード専用ガード: Greek読解モード / 比較モードでは動作しない */
+    const _lacColAKind = _toColumnMode(_transA).kind;
+    if (_isGreekReadingMode(_lacColAKind) || _transMode === 'compare') return false;
+
+    const _lacBookKey = bookObj.key || '';
+    const _lacCh      = String(chNum);
+    if (!_lacBookKey || !_lacCh) return false;
+
+    const app = document.getElementById('bible-text-area');
+    if (!app) return false;
+
+    /* 重複チェック（既に同一章がDOMにある） */
+    if (app.querySelector(`.chapter-block[data-book="${_lacBookKey}"][data-chapter="${_lacCh}"]`)) return false;
+
+    /* 同時リクエスト防止 */
+    const _lacKey = `${_lacBookKey}|${_lacCh}`;
+    if (_lacPending.has(_lacKey)) return false;
+    _lacPending.add(_lacKey);
+
+    let _lacCb = null; /* 未挿入コンテナの参照 */
+    try {
+        /* 翻訳データ取得 */
+        const _lacJpData = await _fetchTranslation(_transA, _lacBookKey, _lacCh);
+        if (!_lacJpData || !_lacJpData.verses) return false;
+
+        /* Greekデータ取得 */
+        const _lacHasGreek = GREEK_BOOKS.has(_lacBookKey);
+        let _lacElData = [];
+        if (_lacHasGreek) {
+            try {
+                const _lacTestament = SB_BOOKS.nt.some(b => b.key === _lacBookKey) ? 'nt' : 'lxx';
+                const _lacElRes = await fetch(`../bible_data/${_lacTestament}/${_lacBookKey}/${_lacCh}.json`);
+                if (_lacElRes.ok) _lacElData = await _lacElRes.json();
+            } catch (_) { /* Greek取得失敗 → 翻訳のみ表示 */ }
+        }
+
+        /* elByVerse 構築（render() と同じロジック） */
+        const _lacElByVerse = {};
+        _lacElData.forEach(w => {
+            const v = w.verse != null ? String(w.verse) : null;
+            if (v) { if (!_lacElByVerse[v]) _lacElByVerse[v] = []; _lacElByVerse[v].push(w); }
+        });
+        const _lacHasGreekResolved = _lacHasGreek && _lacElData.length > 0;
+
+        /* ColumnMode（ループ外で1回計算） */
+        const _lacColAMode = _toColumnMode(_transA);
+        const _lacColBMode = _toColumnMode(_transB);
+        const _lacColA     = { colMode: _lacColAMode, jpData: _lacJpData };
+        const _lacColB     = { colMode: _lacColBMode, jpData: null };
+
+        /* 章コンテナ生成（Phase 2A-1 の _chapterBlock と同じ構造） */
+        _lacCb = document.createElement('div');
+        _lacCb.className       = 'chapter-block';
+        _lacCb.dataset.book    = _lacBookKey;
+        _lacCb.dataset.chapter = _lacCh;
+        const _lacHdr = document.createElement('div');
+        _lacHdr.className   = 'chapter-header';
+        _lacHdr.textContent = [(bookObj.name || ''), `第${chNum}章`].filter(Boolean).join(' ');
+        _lacCb.appendChild(_lacHdr);
+
+        /* verse-block 生成（単章モード専用: useVersePair=false） */
+        Object.entries(_lacJpData.verses).forEach(([vNum, text]) => {
+            const block = _buildColumnBlock(
+                0, _lacColA, _lacColB,
+                vNum, text, _lacElByVerse,
+                _lacHasGreekResolved, false,
+                _lacCb, bookObj, chNum
+            );
+            /* JA1955訳文列のonclickは_buildColumnBlockでは設定されないため、ここで設定する
+               （render()と同じパターン）。 */
+            if (_lacHasGreekResolved && _lacColAMode.kind !== 'wordOrder') {
+                block.onclick = () => {
+                    _selectVerseBlocks(vNum, block, _lacCb);
+                    document.getElementById('active-v').innerText = `${vNum} 節`;
+                    AppState.toBrowsing(vNum, _lacElByVerse[vNum] || [], bookObj, chNum);
+                    openVerseInspector(vNum, _lacElByVerse[vNum] || [], bookObj, chNum);
+                    notifyAppStateChange();
+                };
+            }
+            _lacCb.appendChild(block);
+            _appendReadingHint(block, vNum, _lacBookKey, chNum);
+        });
+
+        /* 挿入直前に再度重複確認（fetch中にDOMが変わった場合） */
+        if (app.querySelector(`.chapter-block[data-book="${_lacBookKey}"][data-chapter="${_lacCh}"]`)) {
+            _lacCb = null;
+            return false;
+        }
+
+        app.appendChild(_lacCb);
+        _appendedChapterCache.set(`${_lacBookKey}|${_lacCh}`, _lacElByVerse); /* Phase 2B-2: evidenceキャッシュ登録 */
+        _observeChapterBlock(_lacCb); /* Phase 2A-4: 追加章をObserverに登録 */
+        _lacCb = null; /* DOM挿入完了 */
+        return true;
+
+    } catch (_lacErr) {
+        return false;
+    } finally {
+        _lacPending.delete(_lacKey);
+    }
+}
+
+/* ══════════════════════════════════════════
+   Phase 2A-4: Chapter Focus Observer
+   ══════════════════════════════════════════ */
+let _chapterFocusTimer = null;
+let _chapterObserver   = null;
+const _chapterObserverVisible = new Map();
+
+/**
+ * Focus Chapter判定と AppState 更新。
+ * スクロールコンテナ(#main-reading-area)上端を基準に、
+ * top<=0 の章の中で最大 top（最も 0 に近い章）を Focus Chapter とする。
+ * 全章 top>0 の場合は最小 top（最初に見える章）を選ぶ。
+ * intersectionRatio は章高 >> viewport 高で 0 近くなるため使わない。
+ */
+function _recalcFocusChapter() {
+    const container = document.getElementById('main-reading-area');
+    if (!container || _chapterObserverVisible.size === 0) return;
+    const containerTop = container.getBoundingClientRect().top;
+    let focusEl = null, bestAbove = -Infinity, bestBelowEl = null, bestBelow = Infinity;
+    for (const [key, el] of _chapterObserverVisible) {
+        if (!el.isConnected) { _chapterObserverVisible.delete(key); continue; }
+        const top = el.getBoundingClientRect().top - containerTop;
+        if (top <= 0) { if (top > bestAbove) { bestAbove = top; focusEl = el; } }
+        else          { if (top < bestBelow) { bestBelow = top; bestBelowEl = el; } }
+    }
+    if (!focusEl) focusEl = bestBelowEl;
+    if (!focusEl) return;
+    const newBookKey = focusEl.dataset.book || '';
+    const newCh      = parseInt(focusEl.dataset.chapter, 10);
+    if (!newBookKey || isNaN(newCh)) return;
+    /* Focus Chapter が変化していない場合は余計な同期をしない */
+    if (AppState.location.book && AppState.location.book.key === newBookKey &&
+        AppState.location.chapter === newCh) return;
+    const _allBooks = [...(SB_BOOKS.nt || []), ...(SB_BOOKS.ot || [])];
+    const bookObj   = _allBooks.find(b => b.key === newBookKey);
+    if (!bookObj) return;
+    AppState.location.testament = SB_BOOKS.nt.some(b => b.key === newBookKey) ? 'nt' : 'ot';
+    AppState.location.book      = bookObj;
+    AppState.location.chapter   = newCh;
+    syncUrlState();
+    renderGlobalBreadcrumb();
+    updateHeader('bible');
+}
+
+/** 単一章ブロックを Observer に登録する。_loadAndAppendChapter から呼ぶ。 */
+function _observeChapterBlock(block) {
+    if (!block || !_chapterObserver) return;
+    _chapterObserver.observe(block);
+}
+
+/**
+ * #bible-text-area 内の全 .chapter-block を observe する Observer を初期化する。
+ * render() 末尾で呼ぶ。render() は DOM を全消去するため再初期化が必要。
+ */
+function _setupChapterObserver() {
+    if (_chapterObserver) { _chapterObserver.disconnect(); _chapterObserver = null; }
+    _chapterObserverVisible.clear();
+    if (_chapterFocusTimer) { clearTimeout(_chapterFocusTimer); _chapterFocusTimer = null; }
+    const container = document.getElementById('main-reading-area');
+    const app       = document.getElementById('bible-text-area');
+    if (!container || !app || typeof IntersectionObserver === 'undefined') return;
+    _chapterObserver = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+            const key = (entry.target.dataset.book || '') + '|' + (entry.target.dataset.chapter || '');
+            if (entry.isIntersecting) { _chapterObserverVisible.set(key, entry.target); }
+            else                      { _chapterObserverVisible.delete(key); }
+        });
+        if (_chapterFocusTimer) clearTimeout(_chapterFocusTimer);
+        _chapterFocusTimer = setTimeout(_recalcFocusChapter, 150);
+    }, { root: container, threshold: 0 });
+    app.querySelectorAll('.chapter-block').forEach(function (block) {
+        _chapterObserver.observe(block);
+    });
+}
+
+/* ══════════════════════════════════════════
+   Phase 2A-5: Scroll-triggered Chapter Autoload
+   ══════════════════════════════════════════ */
+let _alObserver   = null;   /* Autoload 専用 IntersectionObserver */
+let _alSentinel   = null;   /* 最終章末に配置する trigger 要素 */
+let _alRunning    = false;  /* _doAutoload 実行中フラグ（二重起動防止） */
+let _alRetryCount = 0;      /* 同一章の連続失敗カウンタ */
+let _alCancelGen  = 0;      /* render() 中断を検知するための世代番号 */
+
+/** Autoload を停止し関連リソースをすべて解放する。render() 経由でも呼ばれる。 */
+function _stopAutoload() {
+    _alCancelGen++;
+    if (_alObserver) { _alObserver.disconnect(); _alObserver = null; }
+    if (_alSentinel && _alSentinel.parentNode) { _alSentinel.parentNode.removeChild(_alSentinel); }
+    _alSentinel = null;
+    _alRunning  = false;
+}
+
+/**
+ * sentinel を現在の最終章ブロック末尾に配置し Observer に登録する。
+ * 最終章（bookObj.ch）に到達したら _stopAutoload() で停止する。
+ */
+function _placeSentinel() {
+    const app = document.getElementById('bible-text-area');
+    if (!app || !_alObserver) return;
+    const blocks = app.querySelectorAll('.chapter-block');
+    if (!blocks.length) return;
+    const last    = blocks[blocks.length - 1];
+    const bookKey = last.dataset.book || '';
+    const chNum   = parseInt(last.dataset.chapter, 10);
+    const bookObj = [...(SB_BOOKS.nt || []), ...(SB_BOOKS.ot || [])].find(b => b.key === bookKey);
+    /* 最終章 or 書物不明 → これ以上ロード不要 */
+    if (!bookObj || isNaN(chNum) || chNum >= bookObj.ch) { _stopAutoload(); return; }
+    if (!_alSentinel) {
+        _alSentinel = document.createElement('div');
+        _alSentinel.className = 'chapter-load-sentinel';
+    }
+    /* sentinel を最終章末に移動（appendChild は既存の親から自動的に外す） */
+    if (_alSentinel.parentNode !== last) { last.appendChild(_alSentinel); }
+    /* Observer を最初の sentinel のみに絞り込む */
+    _alObserver.disconnect();
+    _alObserver.observe(_alSentinel);
+}
+
+/**
+ * 次章を非同期ロードする。
+ * _alRunning フラグ と _alCancelGen で二重起動・render() 中断を防ぐ。
+ * 失敗 3 回連続で自動停止する。
+ */
+async function _doAutoload(bookObj, nextCh) {
+    if (_alRunning) return;
+    /* モード変更後に残った Observer callback からの呼び出しを弾く */
+    const _alColKind = _toColumnMode(_transA).kind;
+    if (_isGreekReadingMode(_alColKind) || _transMode === 'compare') { _stopAutoload(); return; }
+    _alRunning = true;
+    const _myGen = _alCancelGen; /* render() が呼ばれると _alCancelGen が進む */
+    try {
+        const ok = await _loadAndAppendChapter(bookObj, nextCh);
+        /* render() が割り込んだ場合: stale DOM を除去して終了 */
+        if (_alCancelGen !== _myGen) {
+            if (ok) {
+                const _app = document.getElementById('bible-text-area');
+                if (_app) {
+                    const _stale = _app.querySelector(
+                        `.chapter-block[data-book="${bookObj.key}"][data-chapter="${String(nextCh)}"]`
+                    );
+                    if (_stale) _stale.parentNode.removeChild(_stale);
+                }
+            }
+            return;
+        }
+        /* 成功 or 既にDOMにある（重複チェック失敗）→ sentinel を次章末へ移動 */
+        const _app2    = document.getElementById('bible-text-area');
+        const _loaded  = ok || !!(_app2 && _app2.querySelector(
+            `.chapter-block[data-book="${bookObj.key}"][data-chapter="${String(nextCh)}"]`
+        ));
+        if (_loaded) {
+            _alRetryCount = 0;
+            _placeSentinel();
+        } else {
+            _alRetryCount++;
+            if (_alRetryCount >= 3) { _stopAutoload(); } /* 3連続失敗で停止 */
+        }
+    } finally {
+        _alRunning = false;
+    }
+}
+
+/**
+ * Autoload Observer を初期化する。
+ * render() 末尾で _setupChapterObserver() と共に呼ぶ（single-mode のみ）。
+ * rootMargin '0px 0px 300px 0px': 章末が viewport 下端から 300px 以内に入ったら fire。
+ */
+function _setupAutoload() {
+    _stopAutoload();
+    const _alColKind = _toColumnMode(_transA).kind;
+    if (_isGreekReadingMode(_alColKind) || _transMode === 'compare') return;
+    const container = document.getElementById('main-reading-area');
+    if (!container || typeof IntersectionObserver === 'undefined') return;
+    _alObserver = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+            if (!entry.isIntersecting || !entry.target.parentElement) return;
+            const parent  = entry.target.parentElement;
+            const bookKey = parent.dataset.book || '';
+            const chNum   = parseInt(parent.dataset.chapter, 10);
+            const bookObj = [...(SB_BOOKS.nt || []), ...(SB_BOOKS.ot || [])].find(b => b.key === bookKey);
+            if (!bookObj || isNaN(chNum)) return;
+            const nextCh = chNum + 1;
+            if (nextCh > bookObj.ch) { _stopAutoload(); return; }
+            _doAutoload(bookObj, nextCh);
+        });
+    }, { root: container, rootMargin: '0px 0px 300px 0px', threshold: 0 });
+    _placeSentinel();
 }
 
 /**
@@ -10657,11 +11045,11 @@ _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma
  * モバイル判定は既存の _isMobile()（innerWidth <= 900）をそのまま使う。
  * 新しい判定方式は作らない。
  */
-function openVerseInspector(vNum, words) {
+function openVerseInspector(vNum, words, book, ch) {
     if (_isMobile()) {
-        return openMobileVerseView(vNum, words);
+        return openMobileVerseView(vNum, words, book, ch);
     }
-    return openWordListInStudyPanel(vNum, words);
+    return openWordListInStudyPanel(vNum, words, book, ch);
 }
 
 /**
@@ -10678,24 +11066,30 @@ function openVerseInspector(vNum, words) {
    戻るボタンはこの値だけを見て「詳細→一覧」か「一覧→クローズ」かを決める。 */
 let _mobileVerseInspectorMode = 'list';
 /* 一覧へ戻す際の再描画に必要な現在節のコンテキスト（AppState には持たせない）。 */
-let _mvvVNum  = null;
-let _mvvWords = [];
+let _mvvVNum    = null;
+let _mvvWords   = [];
+/* 描画時コンテキスト: タップされた節が属する book オブジェクト・chapter（AppState.location に持たせない）。 */
+let _mvvBook    = null;
+let _mvvChapter = null;
 /* E-1B: Level2→Level3→戻る で復元する #mobile-inspector-area のスクロール位置。 */
 let _mvvInspectorScrollTop = 0;
 /* E-1C: MVV が積んだ history エントリの管理フラグ（AppState / URL は変更しない）。 */
 let _mvvHistoryActive = false;
 let _mvvIgnoreNextPop = false;
 
-function openMobileVerseView(vNum, words) {
+function openMobileVerseView(vNum, words, book, ch) {
     closeMobileSidebar();
     const view = document.getElementById('mobile-verse-view');
     if (!view) return;
     view.classList.add('open');
     /* E-1C: Android/ブラウザの戻るで MVV を閉じられるよう履歴エントリを1つ積む（URL は不変）。 */
     _mvvPushHistory();
-    /* 内部状態を初期化: 節を開いた直後は必ず Level2（一覧）。戻り再描画用に節情報も保持。 */
-    _mvvVNum  = vNum;
-    _mvvWords = words || [];
+    /* 内部状態を初期化: 節を開いた直後は必ず Level2（一覧）。戻り再描画用に節情報も保持。
+       book / ch は描画時コンテキスト（明示引数）を優先し、省略時は AppState.location にフォールバック。 */
+    _mvvVNum    = vNum;
+    _mvvWords   = words || [];
+    _mvvBook    = book    != null ? book    : (AppState.location.book    || null);
+    _mvvChapter = ch      != null ? ch      : (AppState.location.chapter != null ? AppState.location.chapter : null);
     _mvvInspectorScrollTop = 0;   /* E-1B: 新しい節を開いたら復元位置はリセット */
     _mobileVerseInspectorMode = 'list';
     /* Phase D-3B: 固定メモ領域を節オープン時に一度だけ初期化（この節の ref のメモを読み込み・折りたたみ）。
@@ -11011,9 +11405,9 @@ function _syncMobileVerseTitle() {
     if (_mobileVerseInspectorMode === 'detail') {
         title = (AppState.inspect.data && AppState.inspect.data.greek) || '';
     } else {
-        const book = AppState.location.book;
+        const book = _mvvBook || AppState.location.book;
         const bookName = book ? (book.name || book.key || '') : '';
-        const ch = AppState.location.chapter;
+        const ch = _mvvChapter != null ? _mvvChapter : AppState.location.chapter;
         if (bookName && ch != null && _mvvVNum != null) title = `${bookName} ${ch}:${_mvvVNum}`;
     }
     el.textContent = title;
@@ -11050,14 +11444,16 @@ function closeMobileVerseView() {
  * 注: 節タップの入口は openVerseInspector()。この関数を直接呼ぶのは
  *     Adapter（openVerseInspector）と panelGoBack 経由の内部再描画のみ。
  */
-function openWordListInStudyPanel(vNum, words) {
+function openWordListInStudyPanel(vNum, words, book, ch) {
     /* words をキャッシュ（chip クリック時の詳細参照用） */
     _wlvWordCache = words || [];
 
-    /* ☆ボタンの表示状態を現在の節に同期する（ref は構造フィールドから組み立てる。ref パース禁止のSSOT原則に従う） */
+    /* ☆ボタンの表示状態を現在の節に同期する（ref は構造フィールドから組み立てる。ref パース禁止のSSOT原則に従う）。
+       book / ch は描画時コンテキスト（明示引数）を優先し、省略時は AppState.location にフォールバック。 */
     if (window.App.storage) {
-        const _posBookKey = AppState.location.book ? AppState.location.book.key : '';
-        const _posCh = AppState.location.chapter != null ? AppState.location.chapter : '';
+        const _bk         = book || AppState.location.book;
+        const _posBookKey = _bk ? _bk.key : '';
+        const _posCh      = ch != null ? ch : (AppState.location.chapter != null ? AppState.location.chapter : '');
         if (_posBookKey && _posCh !== '' && vNum != null) {
             _syncBookmarkButtons(`${_posBookKey} ${_posCh}:${vNum}`);
         }
@@ -11080,7 +11476,7 @@ function openWordListInStudyPanel(vNum, words) {
         });
     }
 
-    _openWordListInternal(vNum, words);
+    _openWordListInternal(vNum, words, book, ch);
 
     /* onboarding hook: 節タップ時にも通知 */
     if (window.App.onboarding) {
@@ -15745,27 +16141,53 @@ function createReferentEvidence(rawToken) {
 }
 
 /**
- * ReferentEvidence.targetTokenId から、表示用の日本語(bible_data.japanese の転写のみ)を解決する。
- * 参照先 token は既存キャッシュ _cachedElByVerse（章単位・変更禁止対象外）から探すだけで、
- * 新しい fetch・新しい cache 層は追加しない。見つからない場合は null（エラー表示しない）。
+ * Phase 2B-2: _cachedElByVerse（初期章）と _appendedChapterCache（追加章全章）を検索し、
+ * 指定 tokenId に対応する bible_data.japanese を返す。未発見は null（静寂）。
+ * verseId はトークン固有値のため、章をまたいでも誤マッチしない。
+ * @param {string|null} targetTokenId
+ * @returns {string|null}
+ */
+function _resolveTokenJaById(targetTokenId) {
+    try {
+        if (!targetTokenId) return null;
+        for (const vNum in _cachedElByVerse) {
+            const words = _cachedElByVerse[vNum];
+            if (!Array.isArray(words)) continue;
+            for (const w of words) {
+                if (w && w.verseId === targetTokenId) {
+                    const ja = (w.japanese != null) ? String(w.japanese).trim() : '';
+                    return ja || null;
+                }
+            }
+        }
+        for (const elByVerse of _appendedChapterCache.values()) {
+            for (const vNum in elByVerse) {
+                const words = elByVerse[vNum];
+                if (!Array.isArray(words)) continue;
+                for (const w of words) {
+                    if (w && w.verseId === targetTokenId) {
+                        const ja = (w.japanese != null) ? String(w.japanese).trim() : '';
+                        return ja || null;
+                    }
+                }
+            }
+        }
+        return null;
+    } catch (_) {
+        return null;
+    }
+}
+
+/**
+ * ReferentEvidence.targetTokenId から表示用の日本語(bible_data.japanese の転写のみ)を解決する。
+ * 初期章・追加章の両キャッシュを検索（_resolveTokenJaById 経由）。見つからない場合は null（静寂）。
  * @param {{targetTokenId:string}|null} referentEvidence
  * @returns {string|null}
  */
 function _resolveReferentEvidenceText(referentEvidence) {
     try {
         if (!referentEvidence || !referentEvidence.targetTokenId) return null;
-        if (!_cachedElByVerse) return null;
-        for (const vNum in _cachedElByVerse) {
-            const words = _cachedElByVerse[vNum];
-            if (!Array.isArray(words)) continue;
-            for (const w of words) {
-                if (w && w.verseId === referentEvidence.targetTokenId) {
-                    const ja = (w.japanese != null) ? String(w.japanese).trim() : '';
-                    return ja || null;
-                }
-            }
-        }
-        return null; // 対象節がキャッシュ外（章をまたぐ等） → 静寂
+        return _resolveTokenJaById(referentEvidence.targetTokenId);
     } catch (_) {
         return null;
     }
@@ -15809,27 +16231,15 @@ function createSubjrefEvidence(rawToken) {
 }
 
 /**
- * SubjrefEvidence.targetTokenId から、表示用の日本語(bible_data.japanese の転写のみ)を解決する。
- * _resolveReferentEvidenceText と同じ既存キャッシュ _cachedElByVerse を使うだけで、
- * 新しい fetch・新しい cache 層は追加しない。見つからない場合は null（エラー表示しない）。
+ * SubjrefEvidence.targetTokenId から表示用の日本語(bible_data.japanese の転写のみ)を解決する。
+ * _resolveReferentEvidenceText と同型。初期章・追加章の両キャッシュを検索（_resolveTokenJaById 経由）。
  * @param {{targetTokenId:string}|null} subjrefEvidence
  * @returns {string|null}
  */
 function _resolveSubjrefEvidenceText(subjrefEvidence) {
     try {
         if (!subjrefEvidence || !subjrefEvidence.targetTokenId) return null;
-        if (!_cachedElByVerse) return null;
-        for (const vNum in _cachedElByVerse) {
-            const words = _cachedElByVerse[vNum];
-            if (!Array.isArray(words)) continue;
-            for (const w of words) {
-                if (w && w.verseId === subjrefEvidence.targetTokenId) {
-                    const ja = (w.japanese != null) ? String(w.japanese).trim() : '';
-                    return ja || null;
-                }
-            }
-        }
-        return null; // 対象節がキャッシュ外（章をまたぐ等） → 静寂
+        return _resolveTokenJaById(subjrefEvidence.targetTokenId);
     } catch (_) {
         return null;
     }
@@ -17009,7 +17419,22 @@ function _navigateVerse(delta) {
         if (vNumEl) currentVNum = parseInt(vNumEl.textContent.trim());
     }
 
-    const allBlocks = document.querySelectorAll('.verse-pair-left, .verse-block:not(.verse-pair-left):not(.verse-pair-right)');
+    /* Phase 2A-4: 複数章が DOM にある場合に異なる章の同 vNum を誤選択しないよう、
+       querySelectorAll を選択節の親 .chapter-block にスコープする。
+       fallback: AppState.location の Focus Chapter → document（compare モード等）。 */
+    let _navChBlock = null;
+    if (selectedBlocks.length > 0) {
+        _navChBlock = selectedBlocks[0].closest('.chapter-block') || null;
+    }
+    if (!_navChBlock) {
+        const _nbk = AppState.location.book ? (AppState.location.book.key || '') : '';
+        const _nch = AppState.location.chapter != null ? String(AppState.location.chapter) : '';
+        if (_nbk && _nch) {
+            _navChBlock = document.querySelector(`.chapter-block[data-book="${_nbk}"][data-chapter="${_nch}"]`);
+        }
+    }
+
+    const allBlocks = (_navChBlock || document).querySelectorAll('.verse-pair-left, .verse-block:not(.verse-pair-left):not(.verse-pair-right)');
     const blockArr = Array.from(allBlocks);
 
     if (currentVNum !== null) {
@@ -17026,11 +17451,32 @@ function _navigateVerse(delta) {
             }
         }
         if (!found) {
-            /* 章末 → 次章へ遷移 */
-            const nextCh = (AppState.location.chapter || 1) + delta;
-            const maxCh = AppState.location.book ? AppState.location.book.ch : 999;
+            /* 章末 → 次章へ遷移。章番号は scope block から直接読む（AppState.location より確実）。 */
+            const _scopedCh = _navChBlock ? parseInt(_navChBlock.dataset.chapter, 10) : null;
+            const _scopedBk = _navChBlock ? (_navChBlock.dataset.book || '') : '';
+            const currentCh = (_scopedCh && !isNaN(_scopedCh)) ? _scopedCh : (AppState.location.chapter || 1);
+            const nextCh    = currentCh + delta;
+            const maxCh     = AppState.location.book ? AppState.location.book.ch : 999;
             if (nextCh >= 1 && nextCh <= maxCh) {
-                _navTo(AppState.location.book.key, nextCh);
+                /* Phase 2C-2: 隣章が DOM に存在する場合は scrollIntoView() で移動（フルリロード回避）。
+                   AppState.location / URL / breadcrumb / title は Focus Chapter Observer が更新する。
+                   隣章が DOM にない場合は従来の _navTo() にフォールバック。 */
+                const _adjBk    = _scopedBk || (AppState.location.book ? AppState.location.book.key : '');
+                const _adjBlock = _adjBk ? document.querySelector(
+                    `.chapter-block[data-book="${_adjBk}"][data-chapter="${nextCh}"]`
+                ) : null;
+                if (_adjBlock) {
+                    const _adjSel    = '.verse-pair-left, .verse-block:not(.verse-pair-left):not(.verse-pair-right)';
+                    const _adjVerses = Array.from(_adjBlock.querySelectorAll(_adjSel));
+                    const _adjTarget = delta > 0 ? _adjVerses[0] : _adjVerses[_adjVerses.length - 1];
+                    if (_adjTarget) {
+                        _adjTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        _navTo(AppState.location.book.key, nextCh); /* 対象節なし → fallback */
+                    }
+                } else {
+                    _navTo(AppState.location.book.key, nextCh);
+                }
             }
         }
     } else {
@@ -17157,6 +17603,10 @@ function _setFlowInjection(mode) {
        ※ 対象列の一般化（任意 wordOrder 列の Flow 化）は今回のスコープ外。現行 render では
          _setFlowInjection('flow') は _colB.kind==='wordOrder' の文脈で呼ばれ、通常は右列 wordOrder が
          ヒットする（挙動は従来と同一）。 */
+    /* 描画時コンテキスト: AppState.location はここ（_setFlowInjection 呼び出し時）で1回だけ読む。 */
+    const _fiBookKey = AppState.location.book ? AppState.location.book.key : '';
+    const _fiCh      = AppState.location.chapter != null ? AppState.location.chapter : null;
+
     document.querySelectorAll('[data-col-mode="wordOrder"]').forEach(block => {
         const vNum = block.dataset.vnum;
         block.classList.toggle('gf-mode', mode === 'flow');
@@ -17167,7 +17617,7 @@ function _setFlowInjection(mode) {
                 const words = (_cachedElByVerse && vNum) ? (_cachedElByVerse[vNum] || []) : [];
                 const gfEl = document.createElement('div');
                 gfEl.className = 'gf-verse-block';
-                const _gfResult = _buildGfVerseBlock(vNum, words);
+                const _gfResult = _buildGfVerseBlock(vNum, words, _fiBookKey, _fiCh);
                 gfEl.innerHTML = _gfResult.html;
                 /* Phase VR-4B-3: chips[] をクリック時まで保持する（本文左列 block._flowChips と
                    同型）。複数節が同時に存在しうるため、単一グローバルcacheではなく
@@ -17190,7 +17640,7 @@ function _setFlowInjection(mode) {
  * 生成した chips/words/analysis をそのまま返すだけに留める（WordOrderRenderer は無変更）。
  * 唯一の呼び出し元は _setFlowInjection のみ（他に参照なし）。
  */
-function _buildGfVerseBlock(vNum, words) {
+function _buildGfVerseBlock(vNum, words, bookKey, ch) {
     if (!words || words.length === 0) {
         return {
             html: `<p style="font-size: var(--text-caption);color:var(--text-sub);opacity: var(--opacity-secondary);padding: var(--space-sm) 0;">この節の原語データがありません</p>`,
@@ -17200,9 +17650,9 @@ function _buildGfVerseBlock(vNum, words) {
     /* Phase VR-4A: Greek Flow View を Verse Representation Architecture 経由にする。
        WordOrderRenderer は chips[] のみを入力とするため、出力は旧実装と完全一致
        （docs/development/verse-representation-design.md）。
-       ★ SSOT: bookKey / ch を渡す（AppState.location 経由）*/
-    const _gfBkKey    = AppState.location.book ? AppState.location.book.key : '';
-    const _gfBkCh     = AppState.location.chapter != null ? AppState.location.chapter : null;
+       bookKey / ch は呼び出し元（_setFlowInjection）が描画時に確定した値を渡す。省略時は AppState.location にフォールバック。 */
+    const _gfBkKey    = bookKey != null ? bookKey : (AppState.location.book ? AppState.location.book.key : '');
+    const _gfBkCh     = ch      != null ? ch      : (AppState.location.chapter != null ? AppState.location.chapter : null);
     const _vrVerse    = buildVerse(_gfBkKey, _gfBkCh, vNum, words);
     const _vrAnalysis = getAnalysis(_vrVerse);
     const _vrRep      = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, _vrAnalysis);
