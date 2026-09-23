@@ -1429,8 +1429,10 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
             /_transMode\s*===\s*'compare'/.test(lacSrc));
     }
     if (saSrc) {
-        check('invariant(3-6): _setupAutoload に compare ガードあり',
-            /_transMode\s*===\s*'compare'/.test(saSrc));
+        /* Phase 3-7-E: _setupAutoload の compare ガードは専用 loader 委譲のため削除された。
+           代わりに _isAutoloadBlockedMode チェックが維持されていることを確認する。 */
+        check('invariant(3-6/3-7-E): _setupAutoload が _isAutoloadBlockedMode チェックを維持する',
+            /_isAutoloadBlockedMode/.test(saSrc));
     }
 }
 
@@ -1755,6 +1757,199 @@ const cvrSrc3J = extractFunctionSource(html, 'function _currentVerseRef() {');
     const lacSrc3J = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
     check('invariant(3-6-J-24): Phase 3-6-I C修正（block.closest）が維持される',
         lacSrc3J ? /block\.closest\('\.chapter-block'\)/.test(lacSrc3J) : false);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Phase 3-7-C: Desktop Compare Chapter Container
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── C3-1: compare-chapter-block 生成ロジックが存在する ── */
+check('invariant(3-7-C-1): compare-chapter-block 生成ロジックが存在する',
+    /compare-chapter-block/.test(html));
+
+/* ── C3-2: data-book / data-chapter が compare-chapter-block に設定される ── */
+{
+    const ccbSrc = (() => {
+        const startIdx = html.indexOf('const _compareChapterBlock = ');
+        if (startIdx < 0) return null;
+        const endIdx = html.indexOf('})() : null;', startIdx);
+        if (endIdx < 0) return null;
+        return html.slice(startIdx, endIdx + '})() : null;'.length);
+    })();
+    check('extract(3-7-C): _compareChapterBlock IIFE ソース抽出に成功', !!ccbSrc);
+    check('invariant(3-7-C-2a): _compareChapterBlock に data-book が設定される',
+        ccbSrc ? /_ccb\.dataset\.book/.test(ccbSrc) : false);
+    check('invariant(3-7-C-2b): _compareChapterBlock に data-chapter が設定される',
+        ccbSrc ? /_ccb\.dataset\.chapter/.test(ccbSrc) : false);
+    check('invariant(3-7-C-2c): _compareChapterBlock は useVersePair && window.innerWidth > 768 のみ生成される',
+        ccbSrc ? /useVersePair\s*&&\s*window\.innerWidth\s*>\s*768/.test(ccbSrc) : false);
+}
+
+/* ── C3-3: verse-pair が compare-chapter-block 内に入る ── */
+check('invariant(3-7-C-3): verse-pair が (_compareChapterBlock || mainArea) へ追加される',
+    /\(_compareChapterBlock\s*\|\|\s*mainArea\)\.appendChild\(pairEl\)/.test(html));
+
+/* ── C3-4: Mobile compare の既存 DOM パスが維持されている ── */
+check('invariant(3-7-C-4a): mobile-verse-group が app.appendChild へ渡される（既存パス維持）',
+    /app\.appendChild\(verseGroup\)/.test(html));
+check('invariant(3-7-C-4b): _compareChapterBlock は window.innerWidth > 768 条件付き（mobile では null）',
+    /window\.innerWidth\s*>\s*768/.test(html));
+
+/* ── C3-5: _loadAndAppendChapter の compare guard が維持される（autoload はまだ未解除）── */
+{
+    const lacSrc5 = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    check('invariant(3-7-C-5): _loadAndAppendChapter に compare guard が残っている',
+        lacSrc5 ? /_isAutoloadBlockedMode\(_lacColAKind\)\s*\|\|\s*_transMode\s*===\s*'compare'/.test(lacSrc5) : false);
+}
+
+/* ── Phase 3-7-D: Desktop Compare ChapterFocusObserver ── */
+{
+    const setupObsSrc = extractFunctionSource(html, 'function _setupChapterObserver() {');
+    const rfcSrc      = extractFunctionSource(html, 'function _recalcFocusChapter() {');
+
+    check('invariant(3-7-D-1): _setupChapterObserver に compare モード分岐が存在する',
+        setupObsSrc ? /_transMode\s*===\s*'compare'/.test(setupObsSrc) : false);
+
+    check('invariant(3-7-D-2): compare 分岐で .compare-chapter-block を observe する',
+        setupObsSrc ? /\.compare-chapter-block/.test(setupObsSrc) : false);
+
+    check('invariant(3-7-D-3): single モード経路で .chapter-block observe が維持される',
+        setupObsSrc ? /\.chapter-block/.test(setupObsSrc) : false);
+
+    check('invariant(3-7-D-4): _recalcFocusChapter が focusEl.dataset.book を読む（変更なし）',
+        rfcSrc ? /focusEl\.dataset\.book/.test(rfcSrc) : false);
+
+    check('invariant(3-7-D-5): _recalcFocusChapter が focusEl.dataset.chapter を読む（変更なし）',
+        rfcSrc ? /focusEl\.dataset\.chapter/.test(rfcSrc) : false);
+
+    check('invariant(3-7-D-6): _recalcFocusChapter が AppState.selectedVerse を変更しない',
+        rfcSrc ? !/AppState\.selectedVerse\s*=/.test(rfcSrc) : false);
+}
+
+/* ── D7/D8: render() gate ── */
+{
+    const gateIdx = html.indexOf('if (_chapterBlock) { _setupChapterObserver(); _setupAutoload(); }');
+    const gateSrc = gateIdx >= 0 ? html.slice(gateIdx, gateIdx + 200) : '';
+
+    check('invariant(3-7-D-7): render() gate に _compareChapterBlock 分岐が存在する',
+        /else if \(_compareChapterBlock\)/.test(gateSrc));
+
+    check('invariant(3-7-D-8/3-7-E): _compareChapterBlock 分岐は _setupChapterObserver と _setupAutoload を呼ぶ',
+        gateSrc
+            ? /else if \(_compareChapterBlock\)\s*\{[^}]*_setupChapterObserver\(\)/.test(gateSrc) &&
+              /else if \(_compareChapterBlock\)\s*\{[^}]*_setupAutoload\(\)/.test(gateSrc)
+            : false);
+}
+
+/* ── Phase 3-7-E: Desktop Compare Continuous Chapter Autoload ── */
+{
+    const lacCompareSrc  = extractFunctionSource(html, 'async function _loadAndAppendChapterCompare(');
+    const doAutoloadSrc  = extractFunctionSource(html, 'async function _doAutoload(');
+    const setupAutoSrc   = extractFunctionSource(html, 'function _setupAutoload() {');
+    const placeSentSrc   = extractFunctionSource(html, 'function _placeSentinel() {');
+
+    /* E1: 既存 autoload guard が compare 専用 loader へ委譲 */
+    check('invariant(3-7-E-1): _doAutoload が compare mode では _loadAndAppendChapterCompare を呼ぶ',
+        doAutoloadSrc ? /_loadAndAppendChapterCompare/.test(doAutoloadSrc) : false);
+
+    /* E2: _loadAndAppendChapterCompare が存在する */
+    check('invariant(3-7-E-2): _loadAndAppendChapterCompare 関数が存在する',
+        !!lacCompareSrc);
+
+    /* E3: JA1955 翻訳データ取得経路（_fetchTranslation）が存在する */
+    check('invariant(3-7-E-3): _loadAndAppendChapterCompare が _fetchTranslation を呼ぶ',
+        lacCompareSrc ? /_fetchTranslation/.test(lacCompareSrc) : false);
+
+    /* E4: Greek → _buildFlowJpData() → WO の経路が存在する */
+    check('invariant(3-7-E-4): _loadAndAppendChapterCompare が _buildFlowJpData を呼ぶ',
+        lacCompareSrc ? /_buildFlowJpData/.test(lacCompareSrc) : false);
+
+    /* E5: .compare-chapter-block に data-book / data-chapter が設定される */
+    check('invariant(3-7-E-5): loader が compare-chapter-block に dataset.book / dataset.chapter を設定する',
+        lacCompareSrc
+            ? /compare-chapter-block/.test(lacCompareSrc) &&
+              /dataset\.book/.test(lacCompareSrc) &&
+              /dataset\.chapter/.test(lacCompareSrc)
+            : false);
+
+    /* E6: compare chapter append の重複防止（_comparePending） */
+    check('invariant(3-7-E-6): _comparePending による重複防止が存在する',
+        lacCompareSrc ? /_comparePending/.test(lacCompareSrc) : false);
+
+    /* E7: _placeSentinel が nextCh（chNum+1）を対象にする経路が存在する */
+    check('invariant(3-7-E-7): _placeSentinel が compare mode で .compare-chapter-block を使う',
+        placeSentSrc ? /compare-chapter-block/.test(placeSentSrc) : false);
+
+    /* E8: single mode の autoload が従来経路のまま（_loadAndAppendChapter が維持される） */
+    check('invariant(3-7-E-8): _doAutoload が single mode では _loadAndAppendChapter を呼ぶ経路を維持する',
+        doAutoloadSrc ? /_loadAndAppendChapter\b/.test(doAutoloadSrc) : false);
+
+    /* E9: mobile compare path が変更されていない（_mobileVerseList / mobile-verse-group） */
+    check('invariant(3-7-E-9): mobile compare path（mobile-verse-group）が変更されていない',
+        /mobile-verse-group/.test(html));
+
+    /* E10: ChapterFocusObserver が追加 chapter block を監視できる（_chapterObserver.observe） */
+    check('invariant(3-7-E-10): loader が新規ブロックを _chapterObserver に登録する',
+        lacCompareSrc ? /_chapterObserver\.observe/.test(lacCompareSrc) : false);
+}
+
+/* ── Phase 3-7-F: Mobile Compare Chapter Identity ── */
+{
+    const mcsSetupSrc  = extractFunctionSource(html, 'function _mobileCompareSetup() {');
+    const mcsApplySrc  = extractFunctionSource(html, 'function _mobileVerseApply() {');
+    const lacCompareSrc = extractFunctionSource(html, 'async function _loadAndAppendChapterCompare(');
+    const doAutoloadSrc = extractFunctionSource(html, 'async function _doAutoload(');
+
+    /* F1: .mobile-verse-group に data-book / data-chapter が設定される */
+    const renderSrc = extractFunctionSource(html, 'function render(');
+    check('invariant(3-7-F-1): .mobile-verse-group に data-book / data-chapter が設定される',
+        renderSrc
+            ? /mobile-verse-group/.test(renderSrc) &&
+              /dataset\.book\s*=/.test(renderSrc) &&
+              /dataset\.chapter\s*=/.test(renderSrc)
+            : false);
+
+    /* F2: _mobileVerseList が { book, chapter, vnum } オブジェクトを保持 */
+    check('invariant(3-7-F-2): _mobileCompareSetup が { book, chapter, vnum } を収集する',
+        mcsSetupSrc
+            ? /book\s*:/.test(mcsSetupSrc) &&
+              /chapter\s*:/.test(mcsSetupSrc) &&
+              /vnum\s*:/.test(mcsSetupSrc)
+            : false);
+
+    /* F3: _mobileVerseApply が book + chapter + vnum で対象を判定する */
+    check('invariant(3-7-F-3): _mobileVerseApply が dataset.book / dataset.chapter / dataset.vnum で対象を特定する',
+        mcsApplySrc
+            ? /dataset\.book/.test(mcsApplySrc) &&
+              /dataset\.chapter/.test(mcsApplySrc) &&
+              /dataset\.vnum/.test(mcsApplySrc)
+            : false);
+
+    /* F4: 節番号だけの比較（dataset.vnum === cur で cur がオブジェクトでない）が残っていない。
+       現在の実装は dataset.vnum === cur.vnum なので cur の直後に . が続く → PASS。 */
+    check('invariant(3-7-F-4): _mobileVerseApply が vnum 単独比較（cur が非オブジェクト）を使用しない',
+        mcsApplySrc
+            ? !/g\.dataset\.vnum\s*===\s*cur(?!\.)/.test(mcsApplySrc)
+            : false);
+
+    /* F5: _mobileVerseApply が AppState.selectedVerse を変更しない */
+    check('invariant(3-7-F-5): _mobileVerseApply が AppState.selectedVerse を変更しない',
+        mcsApplySrc ? !/AppState\.selectedVerse/.test(mcsApplySrc) : false);
+
+    /* F6: location.chapter の更新経路は既存経路のまま（_recalcFocusChapter / render 経由） */
+    check('invariant(3-7-F-6): _mobileVerseApply が AppState.location を変更しない',
+        mcsApplySrc ? !/AppState\.location/.test(mcsApplySrc) : false);
+
+    /* F7: Desktop compare autoload が変更されていない */
+    check('invariant(3-7-F-7): _loadAndAppendChapterCompare が変更されていない（存在する）',
+        !!lacCompareSrc);
+    check('invariant(3-7-F-7b): _doAutoload が compare 専用 loader を呼ぶ経路を維持する',
+        doAutoloadSrc ? /_loadAndAppendChapterCompare/.test(doAutoloadSrc) : false);
+
+    /* F8: mobile compare の表示・選択が維持される（teardown が _mobileVerseList をクリアする） */
+    const teardownSrc = extractFunctionSource(html, 'function _mobileCompareTeardown() {');
+    check('invariant(3-7-F-8): _mobileCompareTeardown が _mobileVerseList をクリアする',
+        teardownSrc ? /_mobileVerseList\s*=\s*\[\]/.test(teardownSrc) : false);
 }
 
 /* ───────────────────────────── 結果出力 ───────────────────────────── */

@@ -3493,6 +3493,29 @@ details[open] .study-summary::before {
 #main-reading-area.compare-mode.panel-open {
     grid-template-columns: 1fr 0;
 }
+/* Phase 3-7-C: compare chapter container — outer grid をスパンし内部に同一比率の2列グリッドを持つ */
+.compare-chapter-block {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+.compare-chapter-header {
+    grid-column: 1 / -1;
+    padding: var(--space-lg) 32px var(--space-sm) 52px;
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    opacity: var(--opacity-secondary);
+    border-top: 1px solid var(--border, rgba(0,0,0,.07));
+}
+.compare-chapter-block:first-child .compare-chapter-header {
+    border-top: none;
+    padding-top: 0;
+}
+/* border-left 境界線: #parallel-text-area の border-left は row-1 のみのため
+   compare-chapter-block 内の verse-pair-right に付与する */
+#main-reading-area.compare-mode .compare-chapter-block .verse-pair-right {
+    border-left: 1px solid rgba(0,0,0,0.08);
+}
 #bible-text-area {
     grid-column: 1;
     grid-row: 1;
@@ -10488,8 +10511,8 @@ function render(columns, elData, hasGreek) {
     _appendedChapterCache.clear(); /* Phase 2B-2: DOMクリアと同時に追加章キャッシュを破棄 */
 app.innerHTML = '';
     parallel.innerHTML = '';
-    /* compare モードで mainArea に直接追加した verse-pair をクリア */
-    mainArea.querySelectorAll('.verse-pair').forEach(el => el.remove());
+    /* compare モードで mainArea に直接追加した verse-pair / compare-chapter-block をクリア */
+    mainArea.querySelectorAll('.verse-pair, .compare-chapter-block').forEach(el => el.remove());
 
     const elByVerse = {};
     if (elData && elData.length > 0) {
@@ -10593,16 +10616,31 @@ app.innerHTML = '';
         return _cb;
     })() : null;
 
+    /* Phase 3-7-C: compare章コンテナ（desktop >768px のみ）。
+       Mobile（≤768px）は mobile-verse-group を #bible-text-area へ積む既存方式を維持する。 */
+    const _compareChapterBlock = (useVersePair && window.innerWidth > 768) ? (() => {
+        const _ccb = document.createElement('div');
+        _ccb.className       = 'compare-chapter-block';
+        _ccb.dataset.book    = _renderBook ? (_renderBook.key || '') : '';
+        _ccb.dataset.chapter = _renderCh != null ? String(_renderCh) : '';
+        const _ccbHdr = document.createElement('div');
+        _ccbHdr.className   = 'compare-chapter-header';
+        const _ccbBkName    = _renderBook ? (_renderBook.name || '') : '';
+        _ccbHdr.textContent = [_ccbBkName, _renderCh != null ? `第${_renderCh}章` : ''].filter(Boolean).join(' ');
+        _ccb.appendChild(_ccbHdr);
+        return _ccb;
+    })() : null;
+
     Object.entries(colA.jpData.verses).forEach(([vNum, text]) => {
         /* VR-5-F-B: 左列・右列の生成処理を _buildColumnBlock() へ抽出（VR-5-F-A監査
            Migration Boundary Step 1）。
            VR-5-H-2: 列間の相互ハイライトは _selectVerseBlocks()（dataset.vnum ベース）へ
            一般化し、block/pBlock の直接参照を解消した（Step 2 の解消）。 */
-        const block = _buildColumnBlock(0, colA, colB, vNum, text, elByVerse, hasGreek, useVersePair, _chapterBlock || mainArea, _renderBook, _renderCh);
+        const block = _buildColumnBlock(0, colA, colB, vNum, text, elByVerse, hasGreek, useVersePair, _chapterBlock || _compareChapterBlock || mainArea, _renderBook, _renderCh);
 
         if (hasGreek && _colA.kind !== 'wordOrder') {
             block.onclick = () => {
-                _selectVerseBlocks(vNum, block, _chapterBlock || mainArea);
+                _selectVerseBlocks(vNum, block, _chapterBlock || _compareChapterBlock || mainArea);
                 document.getElementById('active-v').innerText = `${vNum} 節`;
                 AppState.toBrowsing(vNum, elByVerse[vNum] || [], _renderBook, _renderCh);
                 openVerseInspector(vNum, elByVerse[vNum] || [], _renderBook, _renderCh);
@@ -10614,12 +10652,14 @@ app.innerHTML = '';
             /* B が passage-level: A ブロックのみ app へ追加（verse-pair 方式を使わない） */
             app.appendChild(block);
         } else {
-            const pBlock = _buildColumnBlock(1, colB, colA, vNum, text, elByVerse, hasGreek, useVersePair, _chapterBlock || mainArea, _renderBook, _renderCh);
+            const pBlock = _buildColumnBlock(1, colB, colA, vNum, text, elByVerse, hasGreek, useVersePair, _chapterBlock || _compareChapterBlock || mainArea, _renderBook, _renderCh);
             if (useVersePair && window.innerWidth <= 768) {
                 /* モバイル比較モード：節ごとにA訳→区切り→B訳を縦に積む */
                 const verseGroup = document.createElement('div');
-                verseGroup.className = 'mobile-verse-group';
-                verseGroup.dataset.vnum = vNum;
+                verseGroup.className       = 'mobile-verse-group';
+                verseGroup.dataset.vnum    = vNum;
+                verseGroup.dataset.book    = _renderBook ? (_renderBook.key || '') : '';  /* Phase 3-7-F */
+                verseGroup.dataset.chapter = _renderCh != null ? String(_renderCh) : ''; /* Phase 3-7-F */
 
                 /* 節番号バッジ */
                 const vBadge = document.createElement('div');
@@ -10658,7 +10698,8 @@ app.innerHTML = '';
                 pairEl.className = 'verse-pair';
                 pairEl.appendChild(block);
                 pairEl.appendChild(pBlock);
-                mainArea.appendChild(pairEl);
+                /* Phase 3-7-C: desktop は compare-chapter-block へ、mobile は mainArea へ（従来どおり） */
+                (_compareChapterBlock || mainArea).appendChild(pairEl);
             } else {
                 (_chapterBlock || app).appendChild(block);
                 parallel.appendChild(pBlock);
@@ -10670,6 +10711,8 @@ app.innerHTML = '';
 
     /* Phase 2A: 単章コンテナを app へ挿入する（compare 時は null なので何もしない）。 */
     if (_chapterBlock) { app.appendChild(_chapterBlock); }
+    /* Phase 3-7-C: desktop compare の章コンテナを mainArea へ追加 */
+    if (_compareChapterBlock) { mainArea.appendChild(_compareChapterBlock); }
 
     /* B列 passage-level: ループ後に #parallel-text-area へ章単位ビューを描画する。 */
     if (_bIsPassageLevel) {
@@ -10715,13 +10758,16 @@ _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma
         _mobileCompareTeardown();
     }
 
-    /* Phase 2A-4/5: Focus Observer + Autoload を初期化（single-mode のみ）。 */
+    /* Phase 2A-4/5: Focus Observer + Autoload を初期化。
+       compare desktop（_compareChapterBlock）は Observer のみ初期化（Autoload は Phase 3-7-E 以降）。 */
     if (_chapterBlock) { _setupChapterObserver(); _setupAutoload(); }
+    else if (_compareChapterBlock) { _setupChapterObserver(); _setupAutoload(); } /* Phase 3-7-D/E */
 
 }
 
 /* Phase 2A: in-flight guard — 同一章への同時リクエストで重複追加しない */
-const _lacPending = new Set();
+const _lacPending     = new Set();
+const _comparePending = new Set(); /* Phase 3-7-E: compare loader in-flight guard */
 
 /**
  * _loadAndAppendChapter — JA1955 単章モード専用。
@@ -10907,8 +10953,9 @@ function _observeChapterBlock(block) {
 }
 
 /**
- * #bible-text-area 内の全 .chapter-block を observe する Observer を初期化する。
- * render() 末尾で呼ぶ。render() は DOM を全消去するため再初期化が必要。
+ * ChapterFocusObserver を初期化する。render() 末尾で呼ぶ（DOM 全消去後のため再初期化が必要）。
+ * single mode: #bible-text-area 内の .chapter-block を observe する。
+ * compare desktop: #main-reading-area 内の .compare-chapter-block を observe する（Phase 3-7-D）。
  */
 function _setupChapterObserver() {
     if (_chapterObserver) { _chapterObserver.disconnect(); _chapterObserver = null; }
@@ -10926,9 +10973,169 @@ function _setupChapterObserver() {
         if (_chapterFocusTimer) clearTimeout(_chapterFocusTimer);
         _chapterFocusTimer = setTimeout(_recalcFocusChapter, 150);
     }, { root: container, threshold: 0 });
-    app.querySelectorAll('.chapter-block').forEach(function (block) {
-        _chapterObserver.observe(block);
-    });
+    /* Phase 3-7-D: compare mode は container > .compare-chapter-block、single mode は app > .chapter-block。
+       _recalcFocusChapter() は dataset.book / dataset.chapter を読むため両ブロック型で変更なく動作する。 */
+    if (_transMode === 'compare') {
+        container.querySelectorAll('.compare-chapter-block').forEach(function (block) {
+            _chapterObserver.observe(block);
+        });
+    } else {
+        app.querySelectorAll('.chapter-block').forEach(function (block) {
+            _chapterObserver.observe(block);
+        });
+    }
+}
+
+/* ══════════════════════════════════════════
+   Phase 3-7-E: Desktop Compare Chapter Loader
+   ══════════════════════════════════════════ */
+/**
+ * _loadAndAppendChapterCompare — Desktop compare 専用章ローダー。
+ * JA1955 翻訳データと Greek データを並列取得し、1 transaction として
+ * .compare-chapter-block を #main-reading-area へ追加する。
+ * 片側取得失敗時は partial DOM を残さない。
+ * WO 右列は _setFlowInjection() ではなく loader 内で per-chapter データを使い inline 注入する。
+ *
+ * @param {Object} bookObj  SB_BOOKS entry { key, name, ch }
+ * @param {number} chNum    chapter number
+ * @returns {Promise<boolean>}  true=追加成功、false=スキップ/失敗
+ */
+async function _loadAndAppendChapterCompare(bookObj, chNum) {
+    if (!bookObj || chNum == null || _transMode !== 'compare') return false;
+
+    const _lccBookKey = bookObj.key || '';
+    const _lccCh      = String(chNum);
+    if (!_lccBookKey || !_lccCh) return false;
+
+    const mainArea = document.getElementById('main-reading-area');
+    if (!mainArea) return false;
+
+    /* DOM 重複チェック */
+    if (mainArea.querySelector(`.compare-chapter-block[data-book="${_lccBookKey}"][data-chapter="${_lccCh}"]`)) return false;
+
+    /* 同時リクエスト防止 */
+    const _lccKey = `${_lccBookKey}|${_lccCh}`;
+    if (_comparePending.has(_lccKey)) return false;
+    _comparePending.add(_lccKey);
+
+    let _lccCcb = null;
+    try {
+        /* JA1955 翻訳データと Greek データを並列取得する */
+        const _lccHasGreek  = GREEK_BOOKS.has(_lccBookKey);
+        const _lccTestament = SB_BOOKS.nt.some(b => b.key === _lccBookKey) ? 'nt' : 'lxx';
+
+        const [_lccJpDataA, _lccElDataRaw] = await Promise.all([
+            _fetchTranslation(_transA, _lccBookKey, _lccCh),
+            _lccHasGreek
+                ? fetch(`../bible_data/${_lccTestament}/${_lccBookKey}/${_lccCh}.json`)
+                    .then(r => r.ok ? r.json() : [])
+                    .catch(() => [])
+                : Promise.resolve([]),
+        ]);
+
+        /* JA1955 データ必須（WO は Greek 由来のため Greek 失敗でも継続可） */
+        if (!_lccJpDataA || !_lccJpDataA.verses) return false;
+
+        const _lccElData = Array.isArray(_lccElDataRaw) ? _lccElDataRaw : [];
+
+        /* elByVerse 構築（render() と同じロジック） */
+        const _lccElByVerse = {};
+        _lccElData.forEach(w => {
+            const v = _elTokenVerse(w);
+            if (v) { if (!_lccElByVerse[v]) _lccElByVerse[v] = []; _lccElByVerse[v].push(w); }
+        });
+        const _lccHasGreekResolved = _lccHasGreek && _lccElData.length > 0;
+
+        /* Greek → _buildFlowJpData() → WO jpData（verse 番号一覧として使用） */
+        const _lccJpDataB = _buildFlowJpData(_lccElData);
+        if (!_lccJpDataB || !_lccJpDataB.verses) return false;
+
+        /* ColumnMode */
+        const _lccColAMode = _toColumnMode(_transA);
+        const _lccColBMode = _toColumnMode(_transB);
+        const _lccColA     = { colMode: _lccColAMode, jpData: _lccJpDataA };
+        const _lccColB     = { colMode: _lccColBMode, jpData: _lccJpDataB };
+
+        /* .compare-chapter-block 生成（render() compare path と同一構造） */
+        _lccCcb = document.createElement('div');
+        _lccCcb.className       = 'compare-chapter-block';
+        _lccCcb.dataset.book    = _lccBookKey;
+        _lccCcb.dataset.chapter = _lccCh;
+        const _lccHdr = document.createElement('div');
+        _lccHdr.className   = 'compare-chapter-header';
+        _lccHdr.textContent = [(bookObj.name || ''), `第${chNum}章`].filter(Boolean).join(' ');
+        _lccCcb.appendChild(_lccHdr);
+
+        /* verse-pair 生成 */
+        Object.entries(_lccJpDataA.verses).forEach(([vNum, text]) => {
+            const block = _buildColumnBlock(
+                0, _lccColA, _lccColB,
+                vNum, text, _lccElByVerse,
+                _lccHasGreekResolved, true,
+                _lccCcb, bookObj, chNum
+            );
+
+            if (_lccHasGreekResolved && _lccColAMode.kind !== 'wordOrder') {
+                block.onclick = () => {
+                    _selectVerseBlocks(vNum, block, block.closest('.compare-chapter-block'));
+                    document.getElementById('active-v').innerText = `${vNum} 節`;
+                    AppState.toBrowsing(vNum, _lccElByVerse[vNum] || [], bookObj, chNum);
+                    openVerseInspector(vNum, _lccElByVerse[vNum] || [], bookObj, chNum);
+                    notifyAppStateChange();
+                };
+            }
+
+            const pBlock = _buildColumnBlock(
+                1, _lccColB, _lccColA,
+                vNum, text, _lccElByVerse,
+                _lccHasGreekResolved, true,
+                _lccCcb, bookObj, chNum
+            );
+
+            /* Phase 3-7-E: WO 右列に Greek flow を inline 注入する。
+               _setFlowInjection() は _cachedElByVerse（初期章のみ）を参照するため、
+               autoload 章は loader 内で per-chapter データを使い直接注入する。 */
+            if (_lccColBMode.kind === 'wordOrder' && _lccHasGreekResolved) {
+                pBlock.classList.add('gf-mode');
+                if (!pBlock.querySelector('.gf-verse-block')) {
+                    const gfEl = document.createElement('div');
+                    gfEl.className = 'gf-verse-block';
+                    const _gfResult = _buildGfVerseBlock(vNum, _lccElByVerse[vNum] || [], _lccBookKey, chNum);
+                    gfEl.innerHTML     = _gfResult.html;
+                    gfEl._flowChips    = _gfResult.chips;
+                    gfEl._flowWords    = _gfResult.words;
+                    gfEl._flowResolved = _gfResult.analysis;
+                    pBlock.appendChild(gfEl);
+                }
+            }
+
+            const pairEl = document.createElement('div');
+            pairEl.className = 'verse-pair';
+            pairEl.appendChild(block);
+            pairEl.appendChild(pBlock);
+            _lccCcb.appendChild(pairEl);
+        });
+
+        /* 挿入直前に再度重複確認（fetch 中に DOM が変わった場合） */
+        if (mainArea.querySelector(`.compare-chapter-block[data-book="${_lccBookKey}"][data-chapter="${_lccCh}"]`)) {
+            _lccCcb = null;
+            return false;
+        }
+
+        mainArea.appendChild(_lccCcb);
+        _appendedChapterCache.set(`${_lccBookKey}|${_lccCh}`, _lccElByVerse); /* Greek evidence キャッシュ */
+
+        /* Phase 3-7-D の ChapterFocusObserver に新規ブロックを登録する */
+        if (_chapterObserver) { _chapterObserver.observe(_lccCcb); }
+
+        _lccCcb = null;
+        return true;
+
+    } catch (_lccErr) {
+        return false;
+    } finally {
+        _comparePending.delete(_lccKey);
+    }
 }
 
 /* ══════════════════════════════════════════
@@ -10952,11 +11159,16 @@ function _stopAutoload() {
 /**
  * sentinel を現在の最終章ブロック末尾に配置し Observer に登録する。
  * 最終章（bookObj.ch）に到達したら _stopAutoload() で停止する。
+ * Phase 3-7-E: compare mode は #main-reading-area の .compare-chapter-block を対象にする。
  */
 function _placeSentinel() {
-    const app = document.getElementById('bible-text-area');
-    if (!app || !_alObserver) return;
-    const blocks = app.querySelectorAll('.chapter-block');
+    /* Phase 3-7-E: compare mode は mainArea > .compare-chapter-block、single mode は app > .chapter-block */
+    const _psRoot     = _transMode === 'compare'
+        ? document.getElementById('main-reading-area')
+        : document.getElementById('bible-text-area');
+    const _psSelector = _transMode === 'compare' ? '.compare-chapter-block' : '.chapter-block';
+    if (!_psRoot || !_alObserver) return;
+    const blocks = _psRoot.querySelectorAll(_psSelector);
     if (!blocks.length) return;
     const last    = blocks[blocks.length - 1];
     const bookKey = last.dataset.book || '';
@@ -10982,31 +11194,46 @@ function _placeSentinel() {
  */
 async function _doAutoload(bookObj, nextCh) {
     if (_alRunning) return;
-    /* モード変更後に残った Observer callback からの呼び出しを弾く */
     const _alColKind = _toColumnMode(_transA).kind;
-    if (_isAutoloadBlockedMode(_alColKind) || _transMode === 'compare') { _stopAutoload(); return; }
+    /* Phase 3-7-E: compare mode は専用 loader へ委譲。single mode は blocked mode チェック後に既存 loader を呼ぶ */
+    if (_transMode !== 'compare' && _isAutoloadBlockedMode(_alColKind)) { _stopAutoload(); return; }
     _alRunning = true;
-    const _myGen = _alCancelGen; /* render() が呼ばれると _alCancelGen が進む */
+    const _myGen = _alCancelGen;
     try {
-        const ok = await _loadAndAppendChapter(bookObj, nextCh);
+        const ok = _transMode === 'compare'
+            ? await _loadAndAppendChapterCompare(bookObj, nextCh)
+            : await _loadAndAppendChapter(bookObj, nextCh);
+
         /* render() が割り込んだ場合: stale DOM を除去して終了 */
         if (_alCancelGen !== _myGen) {
             if (ok) {
-                const _app = document.getElementById('bible-text-area');
-                if (_app) {
-                    const _stale = _app.querySelector(
-                        `.chapter-block[data-book="${bookObj.key}"][data-chapter="${String(nextCh)}"]`
-                    );
-                    if (_stale) _stale.parentNode.removeChild(_stale);
+                if (_transMode === 'compare') {
+                    const _ma = document.getElementById('main-reading-area');
+                    if (_ma) {
+                        const _stale = _ma.querySelector(`.compare-chapter-block[data-book="${bookObj.key}"][data-chapter="${String(nextCh)}"]`);
+                        if (_stale) _stale.parentNode.removeChild(_stale);
+                    }
+                } else {
+                    const _app = document.getElementById('bible-text-area');
+                    if (_app) {
+                        const _stale = _app.querySelector(`.chapter-block[data-book="${bookObj.key}"][data-chapter="${String(nextCh)}"]`);
+                        if (_stale) _stale.parentNode.removeChild(_stale);
+                    }
                 }
             }
             return;
         }
-        /* 成功 or 既にDOMにある（重複チェック失敗）→ sentinel を次章末へ移動 */
-        const _app2    = document.getElementById('bible-text-area');
-        const _loaded  = ok || !!(_app2 && _app2.querySelector(
-            `.chapter-block[data-book="${bookObj.key}"][data-chapter="${String(nextCh)}"]`
-        ));
+
+        /* 成功 or 既にDOMにある → sentinel を次章末へ移動 */
+        const _checkLoaded = () => {
+            if (_transMode === 'compare') {
+                const _ma = document.getElementById('main-reading-area');
+                return !!(_ma && _ma.querySelector(`.compare-chapter-block[data-book="${bookObj.key}"][data-chapter="${String(nextCh)}"]`));
+            }
+            const _a = document.getElementById('bible-text-area');
+            return !!(_a && _a.querySelector(`.chapter-block[data-book="${bookObj.key}"][data-chapter="${String(nextCh)}"]`));
+        };
+        const _loaded = ok || _checkLoaded();
         if (_loaded) {
             _alRetryCount = 0;
             _placeSentinel();
@@ -11027,7 +11254,8 @@ async function _doAutoload(bookObj, nextCh) {
 function _setupAutoload() {
     _stopAutoload();
     const _alColKind = _toColumnMode(_transA).kind;
-    if (_isAutoloadBlockedMode(_alColKind) || _transMode === 'compare') return;
+    /* Phase 3-7-E: compare mode は _loadAndAppendChapterCompare を使う。blocked mode（discourse 等）は single/compare とも無効 */
+    if (_isAutoloadBlockedMode(_alColKind)) return;
     const container = document.getElementById('main-reading-area');
     if (!container || typeof IntersectionObserver === 'undefined') return;
     _alObserver = new IntersectionObserver(function (entries) {
@@ -17389,7 +17617,7 @@ function showMameKnowledge() {
 /* ══════════════════════════════════════════
    モバイル比較モード：1節ナビゲーション
    ══════════════════════════════════════════ */
-let _mobileVerseList = [];   // 章内の全節番号（文字列）の配列
+let _mobileVerseList = [];   // { book, chapter, vnum } の配列（Phase 3-7-F: 章識別追加）
 let _mobileVerseIdx  = 0;    // 現在表示中のインデックス
 
 function _mobileCompareSetup() {
@@ -17397,9 +17625,13 @@ function _mobileCompareSetup() {
     const area = document.getElementById('main-reading-area');
     if (!area || !area.classList.contains('compare-mode')) return;
 
-    // 節リストを mobile-verse-group から収集
+    // 節リストを mobile-verse-group から収集（Phase 3-7-F: book/chapter/vnum で章識別）
     const groups = area.querySelectorAll('#bible-text-area .mobile-verse-group[data-vnum]');
-    _mobileVerseList = Array.from(groups).map(g => g.dataset.vnum);
+    _mobileVerseList = Array.from(groups).map(g => ({
+        book:    g.dataset.book    || '',
+        chapter: g.dataset.chapter || '',
+        vnum:    g.dataset.vnum    || '',
+    }));
     if (_mobileVerseList.length === 0) return;
 
     _mobileVerseIdx = 0;
@@ -17414,14 +17646,19 @@ function _mobileVerseApply() {
     if (!area) return;
     const cur = _mobileVerseList[_mobileVerseIdx];
 
-    // mobile-verse-group を cur 以外を非表示
+    /* Phase 3-7-F: book + chapter + vnum の三つ組で対象を特定する。
+       同じ節番号が異なる章に存在しても別章の節を誤選択しない。 */
     area.querySelectorAll('#bible-text-area .mobile-verse-group[data-vnum]').forEach(g => {
-        g.style.display = g.dataset.vnum === cur ? '' : 'none';
+        const match = cur &&
+            g.dataset.book    === cur.book &&
+            g.dataset.chapter === cur.chapter &&
+            g.dataset.vnum    === cur.vnum;
+        g.style.display = match ? '' : 'none';
     });
 
     // ナビ表示を更新
     const numEl = document.getElementById('mvn-verse-num');
-    if (numEl) numEl.textContent = cur;
+    if (numEl) numEl.textContent = cur ? cur.vnum : '';
     const prev = document.getElementById('mvn-prev');
     const next = document.getElementById('mvn-next');
     if (prev) prev.disabled = _mobileVerseIdx === 0;
