@@ -892,7 +892,7 @@ check('invariant(2A-5): _alObserver は _chapterObserver とは別変数',
         check('behavioral(2A-5): _doAutoload ソースに finally { _alRunning = false } あり',
             /finally[\s\S]{0,30}_alRunning\s*=\s*false/.test(doAutoloadSrc));
         check('behavioral(2A-5): _doAutoload ソースにモードガードあり',
-            /_isGreekReadingMode[\s\S]{0,50}_stopAutoload/.test(doAutoloadSrc));
+            /_isAutoloadBlockedMode[\s\S]{0,50}_stopAutoload/.test(doAutoloadSrc));
         check('behavioral(2A-5): _doAutoload ソースに _alRetryCount >= 3 で _stopAutoload あり',
             /_alRetryCount\s*>=\s*3[\s\S]{0,20}_stopAutoload/.test(doAutoloadSrc));
     }
@@ -1240,6 +1240,521 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
        toBrowsing() が ch を追加したとき、toReading() がそれをクリアすること（新しいオブジェクト作成）。 */
     check('invariant(3-3): toReading() が selectedVerse を { vNum: null, elWords: [] } にリセットする',
         /toReading\s*\(\s*\)\s*\{[\s\S]{0,200}selectedVerse\s*=\s*\{\s*vNum\s*:\s*null\s*,\s*elWords\s*:\s*\[\s*\]/.test(html));
+}
+
+/* ═══════════════════════ Phase 3-6: WO Continuous Chapter ═══════════════════════ */
+
+/* ── A-1: _isAutoloadBlockedMode 関数の存在と動作 ── */
+{
+    /* source invariant: 関数が存在する */
+    check('invariant(3-6): _isAutoloadBlockedMode 関数が index.html に存在する',
+        /function\s+_isAutoloadBlockedMode\s*\(/.test(html));
+
+    const blockedModeSrc = extractFunctionSource(html, 'function _isAutoloadBlockedMode(kind) {');
+    check('extract(3-6): _isAutoloadBlockedMode ソース抽出に成功', !!blockedModeSrc);
+
+    if (blockedModeSrc) {
+        const blocked = new Function('kind', blockedModeSrc + '\nreturn _isAutoloadBlockedMode(kind);');
+
+        /* wordOrder は autoload対象（false） */
+        check('behavioral(3-6): _isAutoloadBlockedMode("wordOrder") === false',
+            blocked('wordOrder') === false);
+
+        /* translation も autoload対象（false） */
+        check('behavioral(3-6): _isAutoloadBlockedMode("translation") === false',
+            blocked('translation') === false);
+
+        /* discourse / structural-diagram / hierarchical / relation はブロック（true） */
+        check('behavioral(3-6): _isAutoloadBlockedMode("discourse") === true',
+            blocked('discourse') === true);
+        check('behavioral(3-6): _isAutoloadBlockedMode("structural-diagram") === true',
+            blocked('structural-diagram') === true);
+        check('behavioral(3-6): _isAutoloadBlockedMode("hierarchical") === true',
+            blocked('hierarchical') === true);
+        check('behavioral(3-6): _isAutoloadBlockedMode("relation") === true',
+            blocked('relation') === true);
+    }
+}
+
+/* ── A-2: _isGreekReadingMode 本体が変更されていない（wordOrder を含む） ── */
+{
+    const grmSrc = extractFunctionSource(html, 'function _isGreekReadingMode(kind) {');
+    check('extract(3-6): _isGreekReadingMode ソース抽出に成功', !!grmSrc);
+
+    if (grmSrc) {
+        const grm = new Function('kind', grmSrc + '\nreturn _isGreekReadingMode(kind);');
+
+        /* wordOrder は依然 true（_isGreekReadingMode 本体は変更しない） */
+        check('invariant(3-6): _isGreekReadingMode("wordOrder") === true（本体変更なし）',
+            grm('wordOrder') === true);
+        check('invariant(3-6): _isGreekReadingMode("translation") === false',
+            grm('translation') === false);
+        check('invariant(3-6): _isGreekReadingMode("discourse") === true',
+            grm('discourse') === true);
+    }
+}
+
+/* ── A-3: 3箇所のガードが _isAutoloadBlockedMode を使用している ── */
+{
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    const doaSrc = extractFunctionSource(html, 'async function _doAutoload(bookObj, nextCh) {');
+    const saSrc  = extractFunctionSource(html, 'function _setupAutoload() {');
+
+    check('extract(3-6): _loadAndAppendChapter ソース抽出に成功', !!lacSrc);
+    check('extract(3-6): _doAutoload ソース抽出に成功', !!doaSrc);
+    check('extract(3-6): _setupAutoload ソース抽出に成功', !!saSrc);
+
+    if (lacSrc) {
+        check('invariant(3-6): _loadAndAppendChapter が _isAutoloadBlockedMode を使用',
+            /_isAutoloadBlockedMode/.test(lacSrc));
+        check('invariant(3-6): _loadAndAppendChapter が _isGreekReadingMode をガードに使わない',
+            !/_isGreekReadingMode[\s\S]{0,50}compare.*return false/.test(lacSrc.replace(/\n/g, ' ')));
+    }
+    if (doaSrc) {
+        check('invariant(3-6): _doAutoload が _isAutoloadBlockedMode を使用',
+            /_isAutoloadBlockedMode/.test(doaSrc));
+    }
+    if (saSrc) {
+        check('invariant(3-6): _setupAutoload が _isAutoloadBlockedMode を使用',
+            /_isAutoloadBlockedMode/.test(saSrc));
+    }
+}
+
+/* ── B-1: WO jpData 経路 — 翻訳fetchをスキップして _buildFlowJpData を使う ── */
+{
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+
+    if (lacSrc) {
+        /* WO は翻訳 JSON を fetch しない: null 分岐が存在する */
+        check('invariant(3-6): _loadAndAppendChapter に wordOrder の null 分岐あり',
+            /wordOrder.*null/.test(lacSrc.replace(/\s+/g, ' ')));
+
+        /* _buildFlowJpData が呼ばれる */
+        check('invariant(3-6): _loadAndAppendChapter が _buildFlowJpData を呼ぶ',
+            /_buildFlowJpData/.test(lacSrc));
+
+        /* _lacJpDataResolved が verse-loop のエントリとして使われる */
+        check('invariant(3-6): _loadAndAppendChapter が _lacJpDataResolved.verses でループする',
+            /_lacJpDataResolved\.verses/.test(lacSrc));
+
+        /* WO では翻訳 fetch の null チェックが wordOrder 条件付き */
+        check('invariant(3-6): _loadAndAppendChapter の翻訳 null チェックが WO をスキップする',
+            /wordOrder.*_fetchTranslation|_lacColAKind\s*!==\s*'wordOrder'/.test(lacSrc.replace(/\s+/g, ' ')));
+    }
+}
+
+/* ── B-2: _elTokenVerse + _buildFlowJpData 動作 ── */
+{
+    const elvSrc  = extractFunctionSource(html, 'function _elTokenVerse(w) {');
+    const bfjdSrc = extractFunctionSource(html, 'function _buildFlowJpData(elData) {');
+    check('extract(3-6): _elTokenVerse ソース抽出に成功', !!elvSrc);
+    check('extract(3-6): _buildFlowJpData ソース抽出に成功', !!bfjdSrc);
+
+    if (elvSrc) {
+        const elv = new Function('w', elvSrc + '\nreturn _elTokenVerse(w);');
+        /* NT形式: w.verse あり */
+        check('behavioral(3-6): _elTokenVerse が NT形式（w.verse）から verse を返す',
+            elv({ verse: '3' }) === '3');
+        /* LXX形式: w.ref のみ */
+        check('behavioral(3-6): _elTokenVerse が LXX形式（w.ref="GEN 1:3!2"）から "3" を返す',
+            elv({ ref: 'GEN 1:3!2' }) === '3');
+        /* 両フィールドなし → null */
+        check('behavioral(3-6): _elTokenVerse がフィールド未設定トークンに null を返す',
+            elv({}) === null);
+        /* w.verse 優先 */
+        check('behavioral(3-6): _elTokenVerse は w.verse を w.ref より優先する',
+            elv({ verse: '5', ref: 'GEN 1:9!1' }) === '5');
+    }
+
+    if (elvSrc && bfjdSrc) {
+        const buildFn = new Function('elData', elvSrc + '\n' + bfjdSrc + '\nreturn _buildFlowJpData(elData);');
+
+        /* 空配列 → null */
+        check('behavioral(3-6): _buildFlowJpData([]) === null',
+            buildFn([]) === null);
+
+        /* NT形式トークン（w.verse） → verses オブジェクト生成 */
+        const ntElData = [
+            { verse: '1', text: 'ἐν', lemma: 'ἐν' },
+            { verse: '1', text: 'ἀρχῇ', lemma: 'ἀρχή' },
+            { verse: '2', text: 'Οὗτος', lemma: 'οὗτος' },
+            { verse: '3', text: 'πάντα', lemma: 'πᾶς' },
+        ];
+        const result = buildFn(ntElData);
+        check('behavioral(3-6): _buildFlowJpData(elData) が verses オブジェクトを返す',
+            result !== null && typeof result === 'object' && result.verses !== undefined);
+        check('behavioral(3-6): _buildFlowJpData が verse番号キーを生成する（v1,v2,v3）',
+            result !== null && '1' in result.verses && '2' in result.verses && '3' in result.verses);
+        check('behavioral(3-6): _buildFlowJpData の verse値は空文字列',
+            result !== null && result.verses['1'] === '' && result.verses['2'] === '');
+        check('behavioral(3-6): _buildFlowJpData で重複 verse は1エントリにまとめられる',
+            result !== null && Object.keys(result.verses).length === 3);
+
+        /* LXX形式トークン（w.ref のみ）→ verse 抽出成功 */
+        const lxxElData = [
+            { ref: 'GEN 1:1!1', text: 'ἐν' },
+            { ref: 'GEN 1:1!2', text: 'ἀρχῇ' },
+            { ref: 'GEN 1:2!1', text: 'Οὗτος' },
+        ];
+        const lxxResult = buildFn(lxxElData);
+        check('behavioral(3-6): _buildFlowJpData が LXX形式（w.refのみ）から verse キーを生成する',
+            lxxResult !== null && '1' in lxxResult.verses && '2' in lxxResult.verses);
+        check('behavioral(3-6): _buildFlowJpData が LXX形式で重複 verse を1エントリにまとめる',
+            lxxResult !== null && Object.keys(lxxResult.verses).length === 2);
+    }
+}
+
+/* ── C-1: ST / CR / RL は引き続き autoload ブロック ── */
+{
+    const blockedModeSrc = extractFunctionSource(html, 'function _isAutoloadBlockedMode(kind) {');
+    if (blockedModeSrc) {
+        const blocked = new Function('kind', blockedModeSrc + '\nreturn _isAutoloadBlockedMode(kind);');
+        check('invariant(3-6): ST（hierarchical）は autoload 対象外のまま',
+            blocked('hierarchical') === true);
+        check('invariant(3-6): CR（structural-diagram）は autoload 対象外のまま',
+            blocked('structural-diagram') === true);
+        check('invariant(3-6): RL（relation）は autoload 対象外のまま',
+            blocked('relation') === true);
+        check('invariant(3-6): discourse は autoload 対象外のまま',
+            blocked('discourse') === true);
+    }
+}
+
+/* ── C-2: compare mode は引き続き autoload ブロック ── */
+{
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    const saSrc  = extractFunctionSource(html, 'function _setupAutoload() {');
+    if (lacSrc) {
+        check('invariant(3-6): _loadAndAppendChapter に compare ガードあり',
+            /_transMode\s*===\s*'compare'/.test(lacSrc));
+    }
+    if (saSrc) {
+        check('invariant(3-6): _setupAutoload に compare ガードあり',
+            /_transMode\s*===\s*'compare'/.test(saSrc));
+    }
+}
+
+/* ── C-3: 単一章書・最終章の停止条件が維持されている ── */
+check('invariant(3-6): 最終章ガード（chNum >= bookObj.ch → _stopAutoload）維持',
+    /chNum\s*>=\s*bookObj\.ch[\s\S]{0,20}_stopAutoload/.test(html.replace(/\n/g, ' ')));
+
+/* ── C-4: JA1955 追加章 onclick が wordOrder 以外のみ設定される条件が維持 ── */
+{
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    if (lacSrc) {
+        check('invariant(3-6): JA1955 onclick ガード _lacColAMode.kind !== \'wordOrder\' が維持されている',
+            /_lacColAMode\.kind\s*!==\s*'wordOrder'/.test(lacSrc));
+    }
+}
+
+/* ── C-5: WO verse-block の v-num 要素確認（WordOrderRenderer 出力） ── */
+check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力する',
+    /renderBodyColumn[\s\S]{0,500}v-num/.test(html));
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Phase 3-6-G: Mobile WO Chip URL State Fix
+ * F-1 — mobile _wlvChipClick path での selectedVerse.ch 欠落と URL 非同期修正
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── G-1: mobile path が toBrowsing に chip.ch を渡す ── */
+{
+    const wlvSrc = extractFunctionSource(html, 'function _wlvChipClick(chipEl, tokenId) {');
+    check('extract(3-6-G): _wlvChipClick ソース抽出に成功', !!wlvSrc);
+
+    /* mobile toBrowsing に ch が渡っているか */
+    check('behavioral(3-6-G-1): mobile path の toBrowsing が chip.ch を ch パラメータとして渡す',
+        wlvSrc
+            ? /AppState\.toBrowsing\(_mvVNum,\s*_mvWords,\s*null,\s*chip\.ch\s*!=\s*null\s*\?\s*Number\(chip\.ch\)\s*:\s*null\)/.test(wlvSrc)
+            : false);
+
+    /* mobile path に notifyAppStateChange() が存在するか */
+    check('behavioral(3-6-G-2): mobile path に notifyAppStateChange() が追加されている',
+        wlvSrc ? /notifyAppStateChange\(\)/.test(wlvSrc) : false);
+
+    /* openMobileVerseView 呼び出しが chip.ch を渡しているか */
+    check('behavioral(3-6-G-3): openMobileVerseView 呼び出しが chip.ch を ch として渡す',
+        wlvSrc
+            ? /openMobileVerseView\(_mvVNum,\s*_mvWords,\s*null,\s*chip\.ch\s*!=\s*null\s*\?\s*Number\(chip\.ch\)\s*:\s*null\)/.test(wlvSrc)
+            : false);
+
+    /* desktop path の selectedVerse.ch 設定が変更されていないか */
+    check('invariant(3-6-G-4): desktop path の selectedVerse.ch 設定が維持されている',
+        wlvSrc
+            ? /AppState\.selectedVerse\s*=\s*\{[^}]*ch:\s*chip\.ch\s*!=\s*null\s*\?\s*Number\(chip\.ch\)\s*:\s*null/.test(wlvSrc)
+            : false);
+
+    /* mobile toBrowsing が chip.ch を渡しているが、desktop の toBrowsing は呼ばれていない */
+    /* （desktop path は AppState.selectedVerse 直接設定のまま — 既存挙動維持） */
+    check('invariant(3-6-G-5): desktop path では toBrowsing を呼ばない（AppState.selectedVerse 直接設定のまま）',
+        wlvSrc
+            ? !/AppState\.selectedVerse\s*=[\s\S]{0,100}AppState\.toBrowsing/.test(wlvSrc)
+            : false);
+}
+
+/* ── G-2: getShareState が selectedVerse.ch を chapter へ使用する ── */
+{
+    const gsSrc = extractFunctionSource(html, 'function getShareState() {');
+    check('invariant(3-6-G-6): getShareState が selectedVerse.ch をchapterへ使用する',
+        gsSrc ? /selectedVerse\?\.ch\s*\?\?/.test(gsSrc) : false);
+}
+
+/* ── G-3: toBrowsing が ch を selectedVerse.ch へ設定する ── */
+{
+    const tbSrc = extractFunctionSource(html, 'toBrowsing(vNum, elWords, book, ch) {');
+    check('invariant(3-6-G-7): toBrowsing が selectedVerse.ch を ch から設定する',
+        tbSrc ? /this\.selectedVerse\s*=\s*\{[^}]*ch:\s*ch\s*!=\s*null\s*\?\s*ch\s*:\s*null/.test(tbSrc) : false);
+}
+
+/* ── G-4: chip.ch → Number(chip.ch) の型統一（NT=string/LXX=integer 両対応）── */
+{
+    /* NT: chip.ch = "2"(string) → Number("2") = 2。LXX: chip.ch = 2(integer) → Number(2) = 2。
+       どちらも === 2 が成立することを確認。 */
+    check('behavioral(3-6-G-8): Number("2") === 2（NT string chip.ch を整数化できる）',
+        Number('2') === 2);
+    check('behavioral(3-6-G-9): Number(2) === 2（LXX integer chip.ch を整数化できる）',
+        Number(2) === 2);
+    check('behavioral(3-6-G-10): chip.ch=null のとき null を渡す（null guard 成立）',
+        (null != null ? Number(null) : null) === null);
+}
+
+/* ── G-5: JA1955 連続章の toBrowsing 呼び出しが変更されていない ── */
+{
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    /* _loadAndAppendChapter の JA1955 パスは AppState.toBrowsing(vNum, ..., bookObj, chNum) で呼ぶ。
+       mobile chip click パスとは独立しており、変更されていないことを確認。 */
+    check('invariant(3-6-G-11): JA1955 _loadAndAppendChapter の toBrowsing 呼び出しが維持されている',
+        lacSrc ? /AppState\.toBrowsing\(vNum,\s*_lacElByVerse/.test(lacSrc) : false);
+}
+
+/* ── G-6: ST / CR / RL は mobile chip click 経路に影響されない ── */
+/* （autoload blockedMode ガードは別経路 → C-1 で確認済み。ここでは _wlvChipClick 内部に
+    ST/CR/RL 依存のコードが追加されていないことを確認） */
+{
+    const wlvSrc2 = extractFunctionSource(html, 'function _wlvChipClick(chipEl, tokenId) {');
+    check('invariant(3-6-G-12): _wlvChipClick 内に ST/CR/RL の新規ガードが追加されていない',
+        wlvSrc2
+            ? !/(hierarchical|structural-diagram|relation|discourse)[\s\S]{0,50}_wlvChipClick/.test(wlvSrc2)
+            : false);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Phase 3-6-I: Continuous Chapter Display Integrity Fix
+ * A: MVV章参照統一 / A': JA1955本文章スコープ / C: F-2 closure修正
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── I-A-1: _renderMobileVerseArea が _mvvChapter を使う ── */
+{
+    const rvaSrc = extractFunctionSource(html, 'async function _renderMobileVerseArea(vNum, words) {');
+    check('extract(3-6-I): _renderMobileVerseArea ソース抽出に成功', !!rvaSrc);
+    check('behavioral(3-6-I-A-1): _renderMobileVerseArea のchが _mvvChapter を優先する',
+        rvaSrc ? /const ch\s*=\s*_mvvChapter\s*!=\s*null\s*\?\s*_mvvChapter\s*:\s*AppState\.location\.chapter/.test(rvaSrc) : false);
+    /* _syncMobileVerseTitle と同一 chapter source で一致するか確認 */
+    check('behavioral(3-6-I-A-2): _renderMobileVerseArea の ch が AppState.location.chapter を直接使わない（fallback込みで_mvvChapter優先）',
+        rvaSrc ? !/const ch\s*=\s*AppState\.location\.chapter\s*;/.test(rvaSrc) : false);
+}
+
+/* ── I-A-3: _syncMobileVerseTitle が _mvvChapter を使う（Phase 3-6-G 維持確認） ── */
+{
+    const svtSrc = extractFunctionSource(html, 'function _syncMobileVerseTitle() {');
+    check('invariant(3-6-I-A-3): _syncMobileVerseTitle の ch が _mvvChapter を優先する（Phase 3-6-G維持）',
+        svtSrc ? /const ch\s*=\s*_mvvChapter\s*!=\s*null\s*\?\s*_mvvChapter\s*:\s*AppState\.location\.chapter/.test(svtSrc) : false);
+}
+
+/* ── I-A-4: _mobileInspectorRender の _vrCh が _mvvChapter を使う ── */
+{
+    const mirSrc = extractFunctionSource(html, 'function _mobileInspectorRender(vNum, words) {');
+    check('extract(3-6-I): _mobileInspectorRender ソース抽出に成功', !!mirSrc);
+    check('behavioral(3-6-I-A-4): _mobileInspectorRender の _vrCh が _mvvChapter を優先する',
+        mirSrc ? /const _vrCh\s*=\s*_mvvChapter\s*!=\s*null\s*\?\s*_mvvChapter/.test(mirSrc) : false);
+    check('behavioral(3-6-I-A-5): _mobileInspectorRender の _vrCh が AppState.location.chapter を直接使わない',
+        mirSrc ? !/const _vrCh\s*=\s*AppState\.location\.chapter/.test(mirSrc) : false);
+}
+
+/* ── I-A'-1: _mvvGetVerseText DOM path が _findVerseInChapter を使う ── */
+{
+    const mvtSrc = extractFunctionSource(html, 'async function _mvvGetVerseText(vNum) {');
+    check('extract(3-6-I): _mvvGetVerseText ソース抽出に成功', !!mvtSrc);
+    check('behavioral(3-6-I-A\'-1): _mvvGetVerseText DOM path が _findVerseInChapter を使う',
+        mvtSrc ? /_findVerseInChapter\(/.test(mvtSrc) : false);
+    check('behavioral(3-6-I-A\'-2): _mvvChapterが設定されていない場合のfallback _findVisibleVerseBlock が維持される',
+        mvtSrc ? /_findVisibleVerseBlock\(/.test(mvtSrc) : false);
+    check('behavioral(3-6-I-A\'-3): _mvvGetVerseText fetch path が _mvvChapter を優先する',
+        mvtSrc ? /const ch\s*=\s*_mvvChapter\s*!=\s*null\s*\?\s*_mvvChapter\s*:\s*AppState\.location\.chapter/.test(mvtSrc) : false);
+    /* 別章の同番号verseへのfallback禁止: _findVerseInChapterがnullの場合は fetchへ進む（DOM fallthroughしない） */
+    check('behavioral(3-6-I-A\'-4): _findVerseInChapterがnull返却時に_findVisibleVerseBlockへfallbackしない',
+        mvtSrc ? !/_findVerseInChapter[\s\S]{0,100}\|\|\s*_findVisibleVerseBlock/.test(mvtSrc) : false);
+}
+
+/* ── I-C-1: F-2 closure修正 — block.closest('.chapter-block') を使う ── */
+{
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    check('extract(3-6-I): _loadAndAppendChapter ソース抽出に成功', !!lacSrc);
+    check('behavioral(3-6-I-C-1): onclick が _lacCb でなく block.closest を使う',
+        lacSrc ? /block\.closest\('\.chapter-block'\)/.test(lacSrc) : false);
+    check('behavioral(3-6-I-C-2): onclick 内に _lacCb への直接参照がない',
+        lacSrc ? !/_selectVerseBlocks\([^)]*_lacCb/.test(lacSrc) : false);
+    check('behavioral(3-6-I-C-3): _lacCb.className = \'chapter-block\' が維持されている（closest の前提）',
+        lacSrc ? /_lacCb\.className\s*=\s*'chapter-block'/.test(lacSrc) : false);
+    check('behavioral(3-6-I-C-4): _lacCb = null（DOM挿入完了マーク）が維持されている',
+        lacSrc ? /_lacCb\s*=\s*null/.test(lacSrc) : false);
+}
+
+/* ── I-C-5: _selectVerseBlocks の containerEl || document パターンが維持されている ── */
+{
+    const svbSrc = extractFunctionSource(html, 'function _selectVerseBlocks(vNum, activeBlock, containerEl) {');
+    check('invariant(3-6-I-C-5): _selectVerseBlocks の containerEl || document フォールバックが維持されている',
+        svbSrc ? /containerEl\s*\|\|\s*document/.test(svbSrc) : false);
+}
+
+/* ── I-invariant-1: Memo canonical identity 確認（Phase 3-6-J 実装後の状態） ── */
+{
+    const cvrSrc = extractFunctionSource(html, 'function _currentVerseRef() {');
+    /* Phase 3-6-J: selectedVerse?.ch を優先、location.chapter はfallback として維持される */
+    check('invariant(3-6-I-memo-1): _currentVerseRef が selectedVerse?.ch を優先する（Phase 3-6-J 実装済み）',
+        cvrSrc ? /selectedVerse\?\.ch/.test(cvrSrc) : false);
+    check('invariant(3-6-I-memo-2): _currentVerseRef が location.chapter を fallback として維持する',
+        cvrSrc ? /AppState\.location\.chapter/.test(cvrSrc) : false);
+}
+
+/* ── I-invariant-2: Phase 3-6-G F-1 維持確認 ── */
+{
+    const wlvSrcI = extractFunctionSource(html, 'function _wlvChipClick(chipEl, tokenId) {');
+    check('invariant(3-6-I-G-F1): _wlvChipClick mobile path の toBrowsing に chip.ch が渡される（F-1維持）',
+        wlvSrcI ? /AppState\.toBrowsing\(_mvVNum,\s*_mvWords,\s*null,\s*chip\.ch\s*!=\s*null\s*\?\s*Number\(chip\.ch\)\s*:\s*null\)/.test(wlvSrcI) : false);
+    check('invariant(3-6-I-G-F2): _wlvChipClick mobile path に notifyAppStateChange() が存在する（F-1維持）',
+        wlvSrcI ? /notifyAppStateChange\(\)/.test(wlvSrcI) : false);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Phase 3-6-J: Memo Reference Integrity Fix
+ * _currentVerseRef / _saveCurrentNote / toggleBookmark のchapter source統一
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── J-1: _currentVerseRef ソース確認 ── */
+const cvrSrc3J = extractFunctionSource(html, 'function _currentVerseRef() {');
+{
+    check('extract(3-6-J): _currentVerseRef ソース抽出に成功', !!cvrSrc3J);
+    check('behavioral(3-6-J-1): _currentVerseRef が selectedVerse?.ch を優先する',
+        cvrSrc3J ? /selectedVerse\?\.ch\s*\?\?/.test(cvrSrc3J) : false);
+    check('behavioral(3-6-J-2): _currentVerseRef が location.chapter を fallback として使う',
+        cvrSrc3J ? /AppState\.location\.chapter/.test(cvrSrc3J) : false);
+    check('behavioral(3-6-J-3): _currentVerseRef が location.chapter を無条件 primary source として使わない',
+        cvrSrc3J ? !/const ch\s*=\s*AppState\.location\.chapter/.test(cvrSrc3J) : false);
+}
+
+/* ── J-2: _currentVerseRef の behavioral テスト ── */
+{
+    /* _currentVerseRef を mock AppState で評価する */
+    const evalCvr = (selectedVerse, locationBook, locationChapter) => {
+        const mockAppState = {
+            selectedVerse: selectedVerse,
+            location: { book: locationBook, chapter: locationChapter },
+        };
+        try {
+            const fn = new Function('AppState', cvrSrc3J + '; return _currentVerseRef();');
+            return fn(mockAppState);
+        } catch (e) { return 'ERROR: ' + e.message; }
+    };
+
+    /* selectedVerse.ch=2, location.chapter=1 → chapter 2 を使う */
+    const r1 = evalCvr({ vNum: 3, ch: 2 }, { key: 'JHN' }, 1);
+    check('behavioral(3-6-J-4): selectedVerse.ch=2 / location.chapter=1 → "JHN 2:3"',
+        r1 === 'JHN 2:3', `got="${r1}"`);
+
+    /* selectedVerse.ch=1, location.chapter=1 → chapter 1 を使う（通常ケース） */
+    const r2 = evalCvr({ vNum: 3, ch: 1 }, { key: 'JHN' }, 1);
+    check('behavioral(3-6-J-5): selectedVerse.ch=1 / location.chapter=1 → "JHN 1:3"',
+        r2 === 'JHN 1:3', `got="${r2}"`);
+
+    /* selectedVerse.ch=null → location.chapter にfallback */
+    const r3 = evalCvr({ vNum: 3, ch: null }, { key: 'JHN' }, 1);
+    check('behavioral(3-6-J-6): selectedVerse.ch=null → location.chapter=1 にフォールバック → "JHN 1:3"',
+        r3 === 'JHN 1:3', `got="${r3}"`);
+
+    /* selectedVerse.ch=undefined → location.chapter にfallback */
+    const r4 = evalCvr({ vNum: 3 }, { key: 'JHN' }, 2);
+    check('behavioral(3-6-J-7): selectedVerse.ch=undefined → location.chapter=2 にフォールバック → "JHN 2:3"',
+        r4 === 'JHN 2:3', `got="${r4}"`);
+
+    /* vNum=null → null を返す */
+    const r5 = evalCvr({ vNum: null, ch: 2 }, { key: 'JHN' }, 2);
+    check('behavioral(3-6-J-8): selectedVerse.vNum=null → null',
+        r5 === null, `got="${r5}"`);
+
+    /* book=null → null を返す */
+    const r6 = evalCvr({ vNum: 3, ch: 2 }, null, 2);
+    check('behavioral(3-6-J-9): location.book=null → null',
+        r6 === null, `got="${r6}"`);
+
+    /* ch1/ch2 の同じvNumが異なるrefを生成する */
+    const rCh1 = evalCvr({ vNum: 3, ch: 1 }, { key: 'JHN' }, 1);
+    const rCh2 = evalCvr({ vNum: 3, ch: 2 }, { key: 'JHN' }, 1);
+    check('behavioral(3-6-J-10): ch1/ch2の同じvNumが異なるrefを生成する（衝突なし）',
+        rCh1 !== rCh2 && rCh1 === 'JHN 1:3' && rCh2 === 'JHN 2:3', `ch1="${rCh1}" ch2="${rCh2}"`);
+
+    /* ref形式が "BOOKKEY chapter:vNum" */
+    check('behavioral(3-6-J-11): ref形式が "BOOKKEY chapter:vNum" で storage lookupと一致する',
+        typeof r1 === 'string' && /^[A-Z0-9]+ \d+:\d+$/.test(r1), `ref="${r1}"`);
+}
+
+/* ── J-3: _saveCurrentNote のchapter source確認 ── */
+{
+    const scnSrc = extractFunctionSource(html, 'function _saveCurrentNote(idSuffix) {');
+    check('extract(3-6-J): _saveCurrentNote ソース抽出に成功', !!scnSrc);
+    check('behavioral(3-6-J-12): _saveCurrentNote の chapter が selectedVerse?.ch を優先する',
+        scnSrc ? /selectedVerse\?\.ch\s*\?\?/.test(scnSrc) : false);
+    check('behavioral(3-6-J-13): _saveCurrentNote の chapter が location.chapter を直接使わない',
+        scnSrc ? !/const chapter\s*=\s*AppState\.location\.chapter/.test(scnSrc) : false);
+    /* refとchapterが同じsourceから生成されることを確認（混在しない） */
+    check('behavioral(3-6-J-14): _saveCurrentNote の ref が _currentVerseRef() から取得される',
+        scnSrc ? /const ref\s*=\s*_currentVerseRef\(\)/.test(scnSrc) : false);
+}
+
+/* ── J-4: toggleBookmark のchapter source確認 ── */
+{
+    const tbSrc = extractFunctionSource(html, 'function toggleBookmark() {');
+    check('extract(3-6-J): toggleBookmark ソース抽出に成功', !!tbSrc);
+    check('behavioral(3-6-J-15): toggleBookmark の chapter が selectedVerse?.ch を優先する',
+        tbSrc ? /selectedVerse\?\.ch\s*\?\?/.test(tbSrc) : false);
+    check('behavioral(3-6-J-16): toggleBookmark の chapter が location.chapter を直接使わない',
+        tbSrc ? !/const chapter\s*=\s*AppState\.location\.chapter/.test(tbSrc) : false);
+    check('behavioral(3-6-J-17): toggleBookmark の ref が _currentVerseRef() から取得される',
+        tbSrc ? /const ref\s*=\s*_currentVerseRef\(\)/.test(tbSrc) : false);
+}
+
+/* ── J-5: _loadNoteUI が _currentVerseRef() を使う（間接的に修正の恩恵を受ける） ── */
+{
+    const lnuSrc = extractFunctionSource(html, 'function _loadNoteUI(idSuffix) {');
+    check('invariant(3-6-J-18): _loadNoteUI が _currentVerseRef() を呼ぶ',
+        lnuSrc ? /const ref\s*=\s*_currentVerseRef\(\)/.test(lnuSrc) : false);
+    check('invariant(3-6-J-19): _loadNoteUI が notes.find で ref を照合する',
+        lnuSrc ? /notes\.find\(n\s*=>\s*n\.ref\s*===\s*ref\)/.test(lnuSrc) : false);
+}
+
+/* ── J-6: toBrowsing() が selectedVerse.ch を設定する（J修正の前提） ── */
+{
+    const tbSrc2 = extractFunctionSource(html, 'toBrowsing(vNum, elWords, book, ch) {');
+    check('invariant(3-6-J-20): toBrowsing が selectedVerse.ch を ch から設定する',
+        tbSrc2 ? /this\.selectedVerse\s*=\s*\{[^}]*ch:\s*ch\s*!=\s*null\s*\?\s*ch\s*:\s*null/.test(tbSrc2) : false);
+}
+
+/* ── J-7: storage API の lookup key が ref（string比較）であることを確認 ── */
+{
+    /* app-storage.js の saveNote が ref をkeyとして使うことを index.html 経由で確認 */
+    check('invariant(3-6-J-21): storage.saveNote は ref を第1引数として呼ぶ',
+        html.includes('window.App.storage.saveNote(ref,'));
+    check('invariant(3-6-J-22): storage.addBookmark は { ref, bookKey, chapter, verse } で呼ぶ',
+        html.includes('window.App.storage.addBookmark({ ref, bookKey, chapter, verse })'));
+}
+
+/* ── J-8: Phase 3-6-I MVV修正が維持されていることを確認 ── */
+{
+    const rvaSrc3J = extractFunctionSource(html, 'async function _renderMobileVerseArea(vNum, words) {');
+    check('invariant(3-6-J-23): Phase 3-6-I A修正（_renderMobileVerseArea _mvvChapter優先）が維持される',
+        rvaSrc3J ? /const ch\s*=\s*_mvvChapter\s*!=\s*null\s*\?\s*_mvvChapter\s*:\s*AppState\.location\.chapter/.test(rvaSrc3J) : false);
+    const lacSrc3J = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    check('invariant(3-6-J-24): Phase 3-6-I C修正（block.closest）が維持される',
+        lacSrc3J ? /block\.closest\('\.chapter-block'\)/.test(lacSrc3J) : false);
 }
 
 /* ───────────────────────────── 結果出力 ───────────────────────────── */

@@ -6628,9 +6628,11 @@ function _showShareToast() { _showToast('URLをコピーしました'); }
 /* 現在開いている節の ref を構造フィールド（bookKey/ch/verse）から組み立てる（ref パース禁止のSSOT原則に従う） */
 function _currentVerseRef() {
     const bookKey = AppState.location.book ? AppState.location.book.key : '';
-    const ch = AppState.location.chapter != null ? AppState.location.chapter : '';
+    /* Phase 3-6-J: 選択した節のchapterを使う（連続章でスクロール位置が前章でも正しい参照を生成する）。
+       selectedVerse.ch は toBrowsing() で確定している。null の場合のみ location.chapter にフォールバック。 */
+    const ch = AppState.selectedVerse?.ch ?? (AppState.location.chapter != null ? AppState.location.chapter : '');
     const vNum = AppState.selectedVerse.vNum;
-    if (!bookKey || ch === '' || vNum == null) return null;
+    if (!bookKey || ch === '' || ch == null || vNum == null) return null;
     return `${bookKey} ${ch}:${vNum}`;
 }
 
@@ -6645,7 +6647,8 @@ function toggleBookmark() {
         window.App.storage.removeBookmark(ref);
     } else {
         const bookKey = AppState.location.book ? AppState.location.book.key : '';
-        const chapter = AppState.location.chapter != null ? AppState.location.chapter : null;
+        /* Phase 3-6-J: refと同じchapter sourceを使い、ref/chapter間の不一致を防ぐ。 */
+        const chapter = AppState.selectedVerse?.ch ?? (AppState.location.chapter != null ? AppState.location.chapter : null);
         const verse = AppState.selectedVerse.vNum != null ? Number(AppState.selectedVerse.vNum) : null;
         window.App.storage.addBookmark({ ref, bookKey, chapter, verse });
     }
@@ -6735,9 +6738,10 @@ function _saveCurrentNote(idSuffix) {
         if (statusEl) statusEl.textContent = '保存できませんでした';
         return;
     }
-    /* 構造化フィールドは AppState.location / AppState.selectedVerse から直接組み立てる（ref パース禁止） */
+    /* 構造化フィールドは AppState.location / AppState.selectedVerse から直接組み立てる（ref パース禁止）。
+       Phase 3-6-J: chapterはrefと同じsourceを使い、ref/chapter間の不一致を防ぐ。 */
     const bookKey = AppState.location.book ? AppState.location.book.key : '';
-    const chapter = AppState.location.chapter != null ? AppState.location.chapter : null;
+    const chapter = AppState.selectedVerse?.ch ?? (AppState.location.chapter != null ? AppState.location.chapter : null);
     const verse = AppState.selectedVerse.vNum != null ? Number(AppState.selectedVerse.vNum) : null;
     const textarea = document.getElementById('reading-note-textarea-' + idSuffix);
     const ok = window.App.storage.saveNote(ref, textarea ? textarea.value : '', bookKey, chapter, verse);
@@ -10490,8 +10494,7 @@ app.innerHTML = '';
     const elByVerse = {};
     if (elData && elData.length > 0) {
         elData.forEach(w => {
-            // ★ verse番号は w.verse（構造フィールド）から取得。w.ref のパース禁止。
-            const v = w.verse != null ? String(w.verse) : null;
+            const v = _elTokenVerse(w);
             if (v) { if (!elByVerse[v]) elByVerse[v] = []; elByVerse[v].push(w); }
         });
     }
@@ -10728,7 +10731,8 @@ const _lacPending = new Set();
  *
  * 制約:
  *   - 比較モード（_transMode === 'compare'）では呼ばない（guard あり）。
- *   - Greek読解モード（WORD_ORDER / STRUCTURE 等）では動作しない（guard あり）。
+ *   - autoloadブロック対象モード（discourse / ST / CR / RL）では動作しない（guard あり）。
+ *   - WO（wordOrder）は連続章対応: Greekデータから _buildFlowJpData() で jpData を生成する。
  *   - _cachedElByVerse は更新しない。vNum キー衝突を避けるため、追加章データは
  *     _appendedChapterCache（Phase 2B-2）に格納する（キー: "bookKey|chapter"）。
  *     click path は closure-capture で解決済み。evidence 解決は _resolveTokenJaById が両キャッシュを検索。
@@ -10740,9 +10744,9 @@ const _lacPending = new Set();
 async function _loadAndAppendChapter(bookObj, chNum) {
     if (!bookObj || chNum == null) return false;
 
-    /* 翻訳モード専用ガード: Greek読解モード / 比較モードでは動作しない */
+    /* 連続章ガード: autoloadブロック対象モード / 比較モードでは動作しない */
     const _lacColAKind = _toColumnMode(_transA).kind;
-    if (_isGreekReadingMode(_lacColAKind) || _transMode === 'compare') return false;
+    if (_isAutoloadBlockedMode(_lacColAKind) || _transMode === 'compare') return false;
 
     const _lacBookKey = bookObj.key || '';
     const _lacCh      = String(chNum);
@@ -10761,9 +10765,11 @@ async function _loadAndAppendChapter(bookObj, chNum) {
 
     let _lacCb = null; /* 未挿入コンテナの参照 */
     try {
-        /* 翻訳データ取得 */
-        const _lacJpData = await _fetchTranslation(_transA, _lacBookKey, _lacCh);
-        if (!_lacJpData || !_lacJpData.verses) return false;
+        /* 翻訳データ取得: WOはGreekデータ由来のため翻訳JSONをfetchしない */
+        const _lacJpData = (_lacColAKind === 'wordOrder')
+            ? null
+            : await _fetchTranslation(_transA, _lacBookKey, _lacCh);
+        if (_lacColAKind !== 'wordOrder' && (!_lacJpData || !_lacJpData.verses)) return false;
 
         /* Greekデータ取得 */
         const _lacHasGreek = GREEK_BOOKS.has(_lacBookKey);
@@ -10779,15 +10785,21 @@ async function _loadAndAppendChapter(bookObj, chNum) {
         /* elByVerse 構築（render() と同じロジック） */
         const _lacElByVerse = {};
         _lacElData.forEach(w => {
-            const v = w.verse != null ? String(w.verse) : null;
+            const v = _elTokenVerse(w);
             if (v) { if (!_lacElByVerse[v]) _lacElByVerse[v] = []; _lacElByVerse[v].push(w); }
         });
         const _lacHasGreekResolved = _lacHasGreek && _lacElData.length > 0;
 
+        /* WO: Greekデータからjpdata互換オブジェクトを生成する（verse番号一覧として使用） */
+        const _lacJpDataResolved = (_lacColAKind === 'wordOrder')
+            ? _buildFlowJpData(_lacElData)
+            : _lacJpData;
+        if (!_lacJpDataResolved || !_lacJpDataResolved.verses) return false;
+
         /* ColumnMode（ループ外で1回計算） */
         const _lacColAMode = _toColumnMode(_transA);
         const _lacColBMode = _toColumnMode(_transB);
-        const _lacColA     = { colMode: _lacColAMode, jpData: _lacJpData };
+        const _lacColA     = { colMode: _lacColAMode, jpData: _lacJpDataResolved };
         const _lacColB     = { colMode: _lacColBMode, jpData: null };
 
         /* 章コンテナ生成（Phase 2A-1 の _chapterBlock と同じ構造） */
@@ -10801,7 +10813,7 @@ async function _loadAndAppendChapter(bookObj, chNum) {
         _lacCb.appendChild(_lacHdr);
 
         /* verse-block 生成（単章モード専用: useVersePair=false） */
-        Object.entries(_lacJpData.verses).forEach(([vNum, text]) => {
+        Object.entries(_lacJpDataResolved.verses).forEach(([vNum, text]) => {
             const block = _buildColumnBlock(
                 0, _lacColA, _lacColB,
                 vNum, text, _lacElByVerse,
@@ -10812,7 +10824,9 @@ async function _loadAndAppendChapter(bookObj, chNum) {
                （render()と同じパターン）。 */
             if (_lacHasGreekResolved && _lacColAMode.kind !== 'wordOrder') {
                 block.onclick = () => {
-                    _selectVerseBlocks(vNum, block, _lacCb);
+                    /* Phase 3-6-I C: _lacCb は DOM挿入後に null にリセットされるため、
+                       click時点でのDOM参照を使う（closure値渡し問題の解消）。 */
+                    _selectVerseBlocks(vNum, block, block.closest('.chapter-block'));
                     document.getElementById('active-v').innerText = `${vNum} 節`;
                     AppState.toBrowsing(vNum, _lacElByVerse[vNum] || [], bookObj, chNum);
                     openVerseInspector(vNum, _lacElByVerse[vNum] || [], bookObj, chNum);
@@ -10970,7 +10984,7 @@ async function _doAutoload(bookObj, nextCh) {
     if (_alRunning) return;
     /* モード変更後に残った Observer callback からの呼び出しを弾く */
     const _alColKind = _toColumnMode(_transA).kind;
-    if (_isGreekReadingMode(_alColKind) || _transMode === 'compare') { _stopAutoload(); return; }
+    if (_isAutoloadBlockedMode(_alColKind) || _transMode === 'compare') { _stopAutoload(); return; }
     _alRunning = true;
     const _myGen = _alCancelGen; /* render() が呼ばれると _alCancelGen が進む */
     try {
@@ -11013,7 +11027,7 @@ async function _doAutoload(bookObj, nextCh) {
 function _setupAutoload() {
     _stopAutoload();
     const _alColKind = _toColumnMode(_transA).kind;
-    if (_isGreekReadingMode(_alColKind) || _transMode === 'compare') return;
+    if (_isAutoloadBlockedMode(_alColKind) || _transMode === 'compare') return;
     const container = document.getElementById('main-reading-area');
     if (!container || typeof IntersectionObserver === 'undefined') return;
     _alObserver = new IntersectionObserver(function (entries) {
@@ -11271,7 +11285,14 @@ function _mvvDisplayTrans() {
  */
 async function _mvvGetVerseText(vNum) {
     if (!_isGreekReadingMode(_toColumnMode(_transA).kind)) {   /* DA-1: discourse も FLOW と同様 DOM に訳文が無い */
-        const block = _findVisibleVerseBlock(vNum);
+        /* Phase 3-6-I A': _mvvChapter が確定している場合は対象章スコープで探す。
+           章スコープで見つからない場合は fallback しない（別章の同番号verse取得を防ぐ）。 */
+        const _mvgBookObj = _mvvBook || AppState.location.book;
+        const _mvgBookKey = _mvgBookObj ? _mvgBookObj.key : '';
+        const _mvgChStr   = _mvvChapter != null ? String(_mvvChapter) : null;
+        const block = (_mvgBookKey && _mvgChStr)
+            ? _findVerseInChapter(_mvgBookKey, _mvgChStr, String(vNum))
+            : _findVisibleVerseBlock(vNum);
         if (block) {
             const jt = block.querySelector('.jp-text');
             if (jt) {
@@ -11282,7 +11303,8 @@ async function _mvvGetVerseText(vNum) {
     }
     /* FLOW もしくは DOM から取れない場合のみ、既存 fetch 経路を使う */
     const bookKey = AppState.location.book ? AppState.location.book.key : '';
-    const ch = AppState.location.chapter;
+    /* Phase 3-6-I A': fetch も対象章で取得する。 */
+    const ch = _mvvChapter != null ? _mvvChapter : AppState.location.chapter;
     if (!bookKey || ch == null) return '';
     const data = await _fetchTranslation(_mvvDisplayTrans(), bookKey, String(ch));
     if (data && data.verses && data.verses[vNum] != null) return String(data.verses[vNum]);
@@ -11304,7 +11326,8 @@ async function _renderMobileVerseArea(vNum, words) {
 
     const book = AppState.location.book;
     const bookName = book ? (book.name || book.key || '') : '';
-    const ch = AppState.location.chapter;
+    /* Phase 3-6-I A: _syncMobileVerseTitle と同じchapter sourceを使い、title/ref の不一致を解消する。 */
+    const ch = _mvvChapter != null ? _mvvChapter : AppState.location.chapter;
     const ref = (bookName && ch != null && vNum != null) ? `${bookName} ${ch}:${vNum}` : '';
 
     const text = await _mvvGetVerseText(vNum);
@@ -11354,7 +11377,8 @@ function _mobileInspectorRender(vNum, words) {
        出力は _buildFlowTabHTML() 時代と完全一致（docs/development/verse-representation-design.md）。 */
     {
         const _vrBookKey = AppState.location.book ? AppState.location.book.key : '';
-        const _vrCh      = AppState.location.chapter != null ? AppState.location.chapter : null;
+        /* Phase 3-6-I A: MVV内では_mvvChapterを使い、buildVerseのchapter keyを対象節と一致させる。 */
+        const _vrCh      = _mvvChapter != null ? _mvvChapter : (AppState.location.chapter != null ? AppState.location.chapter : null);
         const _vrVerse   = buildVerse(_vrBookKey, _vrCh, vNum, words);
         const _vrRep     = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, getAnalysis(_vrVerse));
         /* VR-4-C Step 5: 「本文がFLOW表示中か」の判定はここ（呼び出し元）で解決し、
@@ -13247,6 +13271,17 @@ function _toColumnMode(transId) {
  */
 function _isGreekReadingMode(kind) {
     return kind === 'wordOrder' || kind === 'discourse' || kind === 'structural-diagram' || kind === 'hierarchical' || kind === 'relation'; /* C-17 Phase 1 / E-4-D */
+}
+
+/**
+ * 連続章の autoload をブロックするモード判定。
+ * wordOrder（WO）は連続章対応のため除外する。
+ * discourse / structural-diagram / hierarchical / relation は引き続きブロックする。
+ * @param {string} kind - ColumnMode.kind
+ * @returns {boolean}
+ */
+function _isAutoloadBlockedMode(kind) {
+    return kind === 'discourse' || kind === 'structural-diagram' || kind === 'hierarchical' || kind === 'relation';
 }
 
 /**
@@ -16368,7 +16403,8 @@ function _wlvChipClick(chipEl, tokenId) {
             const _strongForMobile           = AppState.inspect.data?.strong || null;
             const _referentEvidenceForMobile = AppState.inspect.data?.referentEvidence || null;
             const _subjrefEvidenceForMobile  = AppState.inspect.data?.subjrefEvidence || null;
-            AppState.toBrowsing(_mvVNum, _mvWords);
+            /* ch: URL chapter 同期（連続章でchipをタップしても selectedVerse.ch が正しく更新されるよう chip.ch を渡す。desktop pathと同じ整合を取る）。 */
+            AppState.toBrowsing(_mvVNum, _mvWords, null, chip.ch != null ? Number(chip.ch) : null);
             AppState.inspect.data = {
                 jaWordDisplay:    _jaWordDisplayForMobile,
                 jaWord:           _jaWordForMobile,
@@ -16376,7 +16412,9 @@ function _wlvChipClick(chipEl, tokenId) {
                 referentEvidence: _referentEvidenceForMobile,
                 subjrefEvidence:  _subjrefEvidenceForMobile,
             };
-            openMobileVerseView(_mvVNum, _mvWords);
+            /* URL state sync: selectedVerse.ch が確定した後に章情報を URL へ反映する。 */
+            notifyAppStateChange();
+            openMobileVerseView(_mvVNum, _mvWords, null, chip.ch != null ? Number(chip.ch) : null);
             openInspectorDetail(chip.greek, chip.rawMorph, chip.ref, chip.lemma);
             window.App.onboarding?.onWordClicked(chipEl);
             _syncOnboardingActiveFlag();
@@ -16385,7 +16423,8 @@ function _wlvChipClick(chipEl, tokenId) {
         /* Desktop は従来どおり openStudyPanel（openInspectorDetail 経由・挙動不変）。 */
         /* BUG FIX: panelGoBack() が selectedVerse.elWords を参照するため、
            word detail へ入る前に設定する（Mobile path は toBrowsing() で設定済み）。 */
-        AppState.selectedVerse = { vNum: chip.verse ?? null, elWords: _reWords || [] };
+        /* ch: URL chapter 同期（連続章で chip タップしても selectedVerse.ch が正しく更新されるよう chip.ch を渡す）。 */
+        AppState.selectedVerse = { vNum: chip.verse ?? null, elWords: _reWords || [], ch: chip.ch != null ? Number(chip.ch) : null };
         AppState.studyOrigin = { surface: _transA, entryPoint: 'wlv' };
         _setStudyTarget(chip.ref, chip.verseId);
         openInspectorDetail(chip.greek, chip.rawMorph, chip.ref, chip.lemma);
@@ -17507,6 +17546,25 @@ function transDataPath(transId, book, ch) {
 }
 
 /*
+ * _elTokenVerse — Greekトークン w から verse 番号文字列を返す。
+ * NTトークン（bible_data/nt）は w.verse フィールドを持つ。
+ * LXXトークン（bible_data/lxx）は w.verse を持たないため、
+ * w.ref（"BOOK CH:VERSE!TOKEN" 形式）からコロン〜感嘆符間を切り出す。
+ * どちらでも verse が取れない場合は null を返す。
+ */
+function _elTokenVerse(w) {
+    if (w.verse != null) return String(w.verse);
+    if (w.ref) {
+        const c = w.ref.indexOf(':');
+        if (c !== -1) {
+            const b = w.ref.indexOf('!', c);
+            return b !== -1 ? w.ref.slice(c + 1, b) : w.ref.slice(c + 1);
+        }
+    }
+    return null;
+}
+
+/*
  * _buildFlowJpData — ColumnMode.kind==='wordOrder'（_transA==='FLOW'）のとき elData から
  * jpData 互換オブジェクト { verses: { "1": "", ... } } を生成する。
  * text は空文字（FLOW チップが左列を担うため）。
@@ -17520,8 +17578,7 @@ function _buildFlowJpData(elData) {
     if (!elData || elData.length === 0) return null;
     const verses = {};
     elData.forEach(w => {
-        // ★ verse番号は w.verse（構造フィールド）から取得。w.ref のパース禁止。
-        const v = w.verse != null ? String(w.verse) : null;
+        const v = _elTokenVerse(w);
         if (v && !(v in verses)) verses[v] = '';
     });
     if (Object.keys(verses).length === 0) return null;
