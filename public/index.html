@@ -5625,6 +5625,145 @@ details[open] .study-summary::before {
 }
 /* ── Phase 6-2-E-4-D end ───────────────────────────────────────────────── */
 
+/* ══════════════════════════════════════════
+   Research Side Panel — Phase R-1-A Shell
+   Y軸: #bottom-depth-panel (StudyPanel) と独立
+   X軸: right-side fixed panel。両者は互いに排他的に動作する（同時表示しない）。
+   ══════════════════════════════════════════ */
+#research-side-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 360px;
+    background: var(--bg-panel);
+    border-left: 1px solid var(--border-soft);
+    border-radius: var(--radius-l) 0 0 var(--radius-l);
+    box-shadow: -6px 0 32px rgba(0,0,0,0.08);
+    z-index: 150;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateX(100%);
+    transition: transform var(--transition-slow);
+    pointer-events: none;
+}
+#research-side-panel.open {
+    transform: translateX(0);
+    pointer-events: auto;
+}
+.research-panel-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md) var(--space-md) var(--space-sm) var(--space-lg);
+    border-bottom: 1px solid var(--border-soft);
+}
+.research-panel-title {
+    font-weight: 700;
+    font-size: var(--text-body-lg);
+    letter-spacing: -0.01em;
+    color: var(--text-main);
+    line-height: 1.4;
+}
+.research-panel-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-sub);
+    padding: var(--space-xs);
+    border-radius: var(--radius-s);
+    transition: background var(--transition-fast), color var(--transition-fast);
+    flex-shrink: 0;
+}
+.research-panel-close-btn:hover { background: rgba(0,0,0,0.05); color: var(--text-main); }
+.research-panel-close-btn svg { display: block; }
+.research-panel-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    position: relative;
+}
+.research-panel-iframe {
+    flex: 1;
+    width: 100%;
+    border: none;
+    min-height: 0;
+    display: block;
+    background: var(--bg-paper);
+}
+.research-panel-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-panel);
+    color: var(--text-hint);
+    font-size: var(--text-caption);
+    z-index: 1;
+    pointer-events: none;
+}
+.research-panel-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-xl) var(--space-lg);
+    text-align: center;
+}
+.research-panel-placeholder-title {
+    font-size: var(--text-body);
+    font-weight: 600;
+    color: var(--text-sub);
+    letter-spacing: -0.01em;
+}
+.research-panel-placeholder-body {
+    font-size: var(--text-caption);
+    color: var(--text-hint);
+    line-height: 1.7;
+    max-width: 22em;
+}
+/* header trigger button: desktop のみ表示 */
+#research-open-btn {
+    display: none;
+    align-items: center;
+    gap: var(--space-xs);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-sub);
+    font-size: var(--text-caption);
+    font-family: inherit;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-s);
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+#research-open-btn:hover { background: rgba(0,0,0,0.05); color: var(--text-main); }
+#research-open-btn svg { display: block; flex-shrink: 0; }
+@media (min-width: 901px) {
+    #research-open-btn { display: inline-flex; }
+    /* reading area の右側を panel 幅分確保 */
+    #main-reading-area.research-open { padding-right: 360px; }
+}
+/* mobile: full-screen overlay */
+@media (max-width: 900px) {
+    #research-side-panel {
+        width: 100%;
+        border-left: none;
+        border-radius: 0;
+        box-shadow: none;
+    }
+}
+
 </style>
 
 </head>
@@ -5793,6 +5932,11 @@ details[open] .study-summary::before {
             <button id="open-source-btn" onclick="_openUrlImportSource()" style="display:none;" title="元の聖書サイトを開く">
                 <span style="font-family:inherit;color:var(--text-sub);">元の聖書サイトを開く</span>
             </button>
+            <!-- Research Panel trigger: desktop のみ表示。R-1-B で StudyPanel L4 と接続する。 -->
+            <button id="research-open-btn" onclick="toggleResearchPanel()" title="調べる" aria-label="調べるパネルを開閉する">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <span>調べる</span>
+            </button>
         </div>
     </header>
     <div id="app">
@@ -5892,6 +6036,22 @@ details[open] .study-summary::before {
             <!-- Phase D-3B: MobileVerseView 専用の固定メモ領域。Level2/Level3 の innerHTML 全置換の
                  影響を受けず、textarea 内容・開閉状態を保持する（#mobile-inspector-area の兄弟）。 -->
             <div id="mobile-verse-note-area"></div>
+        </div>
+
+        <!-- Research Side Panel (Phase R-1-A: Shell) -->
+        <div id="research-side-panel" role="complementary" aria-label="調べる" aria-hidden="true">
+            <div class="research-panel-header">
+                <span class="research-panel-title">調べる</span>
+                <button class="research-panel-close-btn" onclick="closeResearchPanel()" aria-label="パネルを閉じる" title="閉じる">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="research-panel-content" id="research-panel-content">
+                <div class="research-panel-placeholder">
+                    <p class="research-panel-placeholder-title">語形・構文を調べる</p>
+                    <p class="research-panel-placeholder-body">選択した語の「さらに調べる」から開いた検索ツールがここに表示されます。</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -7860,12 +8020,12 @@ async function _renderReadingNotes(p) {
                         <span class="rn-research-link-title">この語の用例を見る →</span>
                         <span class="rn-research-link-desc">聖書のどこで使われているか調べる</span>
                     </a>
-                    <a href="${morphSearchURL}" class="rn-research-link" target="_blank">
-                        <span class="rn-research-link-title">この語形を探す →</span>
+                    <a href="${morphSearchURL}" class="rn-research-link rn-morph-panel-link">
+                        <span class="rn-research-link-title">この語形を探す</span>
                         <span class="rn-research-link-desc">同じ語形が現れる箇所を探す</span>
                     </a>
-                    <a href="${syntaxURL}" class="rn-research-link" target="_blank">
-                        <span class="rn-research-link-title">同じ構文を探す →</span>
+                    <a href="${syntaxURL}" class="rn-research-link rn-syntax-panel-link">
+                        <span class="rn-research-link-title">同じ構文を探す</span>
                         <span class="rn-research-link-desc">同じ文法パターンを探す</span>
                     </a>
                 </div>
@@ -9281,6 +9441,8 @@ function openSidebar() {
     /* StudyPanel（Y軸）との空間分離を維持 */
     const panel = document.getElementById('bottom-depth-panel');
     if (panel && panel.classList.contains('open')) closeStudyPanel();
+    /* Research Panel（X軸）との空間分離 */
+    closeResearchPanel();
     document.getElementById('nav-sidebar').classList.add('open');
 }
 function closeSidebar()        { document.getElementById('nav-sidebar').classList.remove('open'); }
@@ -9289,6 +9451,91 @@ function toggleMobileSidebar() { toggleSidebar(); }
 function closeMobileSidebar()  { closeSidebar(); }
 function _isSidebarOpen()      { return document.getElementById('nav-sidebar')?.classList.contains('open') ?? false; }
 function _openSidebar()        { openSidebar(); }
+
+/* ══════════════════════════════════════════
+   Research Side Panel — Phase R-1-A/B
+   ══════════════════════════════════════════ */
+
+/* type: 'morph' | null
+   url:  morph-search.html?... | null（null = placeholder 表示） */
+function openResearchPanel(type, url) {
+    const panel = document.getElementById('research-side-panel');
+    if (!panel) return;
+    /* StudyPanel（Y軸）との排他制御 */
+    if (StudyPanelState.isOpen) closeStudyPanel();
+    _loadResearchPanelContent(type, url);
+    panel.classList.add('open');
+    panel.setAttribute('aria-hidden', 'false');
+    /* デスクトップ: reading area の右側を panel 幅分確保 */
+    if (window.innerWidth > 768) {
+        document.getElementById('main-reading-area')?.classList.add('research-open');
+    }
+}
+
+function _loadResearchPanelContent(type, url) {
+    const content = document.getElementById('research-panel-content');
+    if (!content) return;
+    const titleEl = document.querySelector('#research-side-panel .research-panel-title');
+
+    if (!url) {
+        if (titleEl) titleEl.textContent = '調べる';
+        content.innerHTML = `
+            <div class="research-panel-placeholder">
+                <p class="research-panel-placeholder-title">語形・構文を調べる</p>
+                <p class="research-panel-placeholder-body">選択した語の「さらに調べる」から開いた検索ツールがここに表示されます。</p>
+            </div>`;
+        return;
+    }
+
+    const titleMap = { morph: '語形を探す', syntax: '構文を探す' };
+    if (titleEl) titleEl.textContent = titleMap[type] || '調べる';
+
+    content.innerHTML = `
+        <div class="research-panel-loading" id="research-panel-loading"><span>読み込み中…</span></div>
+        <iframe
+            id="research-panel-iframe"
+            class="research-panel-iframe"
+            src="${url}"
+            title="検索ツール"
+        ></iframe>`;
+
+    document.getElementById('research-panel-iframe')?.addEventListener('load', () => {
+        document.getElementById('research-panel-loading')?.remove();
+    }, { once: true });
+}
+
+function closeResearchPanel() {
+    const panel = document.getElementById('research-side-panel');
+    if (!panel || !panel.classList.contains('open')) return;
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+    document.getElementById('main-reading-area')?.classList.remove('research-open');
+    /* iframe のロードを止めてリソースを解放 */
+    const iframe = document.getElementById('research-panel-iframe');
+    if (iframe) iframe.src = 'about:blank';
+}
+
+function toggleResearchPanel() {
+    const panel = document.getElementById('research-side-panel');
+    if (panel?.classList.contains('open')) closeResearchPanel();
+    else openResearchPanel();
+}
+
+/* Escape で Research Panel を閉じる */
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const rp = document.getElementById('research-side-panel');
+        if (rp?.classList.contains('open')) { closeResearchPanel(); e.stopPropagation(); }
+    }
+});
+
+/* さらに調べる — Morph / Syntax リンクを Research Panel で開く（event delegation） */
+document.addEventListener('click', (e) => {
+    const morphLink = e.target.closest('a.rn-morph-panel-link');
+    if (morphLink) { e.preventDefault(); openResearchPanel('morph', morphLink.href); return; }
+    const syntaxLink = e.target.closest('a.rn-syntax-panel-link');
+    if (syntaxLink) { e.preventDefault(); openResearchPanel('syntax', syntaxLink.href); }
+});
 
 window.addEventListener('resize', () => {
     closeMobileSidebar();
