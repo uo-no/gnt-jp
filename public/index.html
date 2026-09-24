@@ -7401,6 +7401,14 @@ function _isMobile() {
     return window.innerWidth <= 900;
 }
 
+/* コンテンツルーティング専用判定。幅だけでなくタッチ端末かどうかも見る。
+   デスクトップをウィンドウ幅で縮小した場合に StudyPanel 経路を維持するため、
+   openVerseInspector / openInspectorDetail / 本文FLOW chip の3か所でのみ使う。
+   _isMobile() 自体は他用途（パネル高さ・スワイプ・CSS変数取得等）でそのまま使い続ける。 */
+function _isActualMobile() {
+    return window.innerWidth <= 900 && navigator.maxTouchPoints >= 1;
+}
+
 /* Study Panel（Bottom Sheet）の現在のコンテンツ種別。ドラッグ時の拡張上限を決めるためだけに使う。
    'verse' = 節全体の研究モード（_openWordListInternal）→ 拡張上限 --panel-expanded-h
    'word'  = 単語詳細（openStudyPanel）                  → 拡張上限 --panel-word-max-h */
@@ -11587,7 +11595,7 @@ function _setupAutoload() {
  * 新しい判定方式は作らない。
  */
 function openVerseInspector(vNum, words, book, ch) {
-    if (_isMobile()) {
+    if (_isActualMobile()) {
         return openMobileVerseView(vNum, words, book, ch);
     }
     return openWordListInStudyPanel(vNum, words, book, ch);
@@ -16907,7 +16915,7 @@ function _wlvChipClick(chipEl, tokenId) {
 
     if (verseBlock) {
         /* 本文を読んでいる最中の chip タップ：Level3 詳細へ。 */
-        if (_isMobile()) {
+        if (_isActualMobile()) {
             /* E-1D: Mobile では FLOW 本文 chip も MobileVerseView 経路へ統一（Bottom Sheet を出さない）。
                当該節の MVV を開いて（Level2 器・メモ・タイトル・履歴を準備）から Level3 詳細を表示する。
                AppState.toBrowsing は通常の節タップと同じ既存セッタ（selectedVerse を確定＝メモ ref 用）。 */
@@ -17027,7 +17035,7 @@ function _wlvStudyBtnClick() {
  */
 function openInspectorDetail(greek, rawMorph, ref, lemma) {
     const mvv = document.getElementById('mobile-verse-view');
-    if (_isMobile() && mvv && mvv.classList.contains('open')) {
+    if (_isActualMobile() && mvv && mvv.classList.contains('open')) {
         return _mobileInspectorDetail(greek, rawMorph, ref, lemma);
     }
     return openStudyPanel(greek, rawMorph, ref, lemma);
