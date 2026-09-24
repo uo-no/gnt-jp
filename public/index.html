@@ -8016,7 +8016,7 @@ async function _renderReadingNotes(p) {
             <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>さらに調べる</summary>
             <div class="rn-level-body">
                 <div class="rn-research-links">
-                    <a href="${concordURL}" class="rn-research-link" target="_blank">
+                    <a href="${concordURL}" class="rn-research-link rn-concord-link" target="_blank">
                         <span class="rn-research-link-title">この語の用例を見る →</span>
                         <span class="rn-research-link-desc">聖書のどこで使われているか調べる</span>
                     </a>
@@ -8604,7 +8604,8 @@ async function _injectStudyPanelContent(semContainer, strong, lemmaId, word) {
             const clusterId = chip.dataset.clusterId;
             if (clusterId) p.set('cluster', clusterId);
             p.set('layers', 'lemma');
-            window.open(`search-tool.html?${p.toString()}`, '_blank');
+            const _stw = window.open(`search-tool.html?${p.toString()}`, '_blank');
+            if (_stw) _searchToolWindows.add(_stw);
         });
 
         /* 「関連語をすべて表示」ボタン
@@ -9422,17 +9423,60 @@ function goMorphSearch(greek, rawMorph, ref, lemma) {
     openStudyPanel(greek, rawMorph, ref, lemma);
 }
 
+/* G-2: search-tool.html から Research Panel を開くために起動窓を追跡する */
+const _searchToolWindows = new Set();
+
 /* メッセージ受信（iframe → parent） */
 window.addEventListener('message', (e) => {
     const d = e.data;
     if (!d || !d.type) return;
 
-    if (d.type === 'NAV_TO_MORPH')      switchAnalysisTab('morph');
-    if (d.type === 'NAV_TO_SYNTAX')     switchAnalysisTab('syntax');
+    if (d.type === 'NAV_TO_SYNTAX' || d.type === 'NAV_TO_MORPH') {
+        /* 同一オリジンのiframe（morph-search / syntax-search）のみ処理 */
+        if (e.origin !== location.origin) return;
+        const panel = document.getElementById('research-side-panel');
+        /* Research Panel が閉じている場合は意図せず開かない */
+        if (!panel?.classList.contains('open')) return;
+        const iframe = document.getElementById('research-panel-iframe');
+        if (!iframe) return;
+        /* Research Panel iframe 自身からのメッセージのみ処理 */
+        if (e.source !== iframe.contentWindow) return;
+        let currentHref;
+        try { currentHref = iframe.contentWindow?.location?.href; } catch (_) { return; }
+        if (!currentHref || currentHref === 'about:blank') return;
+        const targetType = d.type === 'NAV_TO_SYNTAX' ? 'syntax' : 'morph';
+        const targetFile = d.type === 'NAV_TO_SYNTAX' ? 'syntax-search.html' : 'morph-search.html';
+        const u = new URL(currentHref);
+        const parts = u.pathname.split('/');
+        parts[parts.length - 1] = targetFile;
+        u.pathname = parts.join('/');
+        u.searchParams.set('tool', targetType);
+        _loadResearchPanelContent(targetType, u.toString());
+        return;
+    }
     if (d.type === 'NAV_TO_SEMANTICS')  switchAnalysisTab('semantics');
 
     if (d.type === 'GO_TO_VERSE' && d.bookKey && d.chapter != null) {
         _navTo(d.bookKey, d.chapter);
+    }
+
+    if (d.type === 'OPEN_MORPH_PANEL' && d.word) {
+        /* G-2: search-tool.html → Research Panel — origin と WindowProxy を検証 */
+        if (e.origin !== location.origin) return;
+        if (!_searchToolWindows.has(e.source)) return;
+        const qs = new URLSearchParams();
+        if (d.word)   qs.set('word',   d.word);
+        if (d.lemma)  qs.set('lemma',  d.lemma);
+        if (d.pos)    qs.set('pos',    d.pos);
+        if (d.tense)  qs.set('tense',  d.tense);
+        if (d.mood)   qs.set('mood',   d.mood);
+        if (d.voice)  qs.set('voice',  d.voice);
+        if (d.case)   qs.set('case',   d.case);
+        if (d.number) qs.set('number', d.number);
+        if (d.gender) qs.set('gender', d.gender);
+        if (d.person) qs.set('person', d.person);
+        qs.set('tool', 'morph');
+        openResearchPanel('morph', `morph-search.html?${qs.toString()}`);
     }
 });
 
@@ -9529,12 +9573,17 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-/* さらに調べる — Morph / Syntax リンクを Research Panel で開く（event delegation） */
+/* さらに調べる — Morph / Syntax / Concord リンクのクリック処理（event delegation） */
 document.addEventListener('click', (e) => {
     const morphLink = e.target.closest('a.rn-morph-panel-link');
     if (morphLink) { e.preventDefault(); openResearchPanel('morph', morphLink.href); return; }
     const syntaxLink = e.target.closest('a.rn-syntax-panel-link');
     if (syntaxLink) { e.preventDefault(); openResearchPanel('syntax', syntaxLink.href); }
+    const concordLink = e.target.closest('a.rn-concord-link');
+    if (concordLink) {
+        const _stw = window.open(concordLink.href, '_blank');
+        if (_stw) { e.preventDefault(); _searchToolWindows.add(_stw); }
+    }
 });
 
 window.addEventListener('resize', () => {
@@ -17611,7 +17660,8 @@ function goProximityPage() {
 
     const qs = p.toString();
     const url = qs ? `search-tool.html?${qs}` : 'search-tool.html';
-    window.open(url, '_blank');
+    const _stw = window.open(url, '_blank');
+    if (_stw) _searchToolWindows.add(_stw);
 }
 
 function switchTab(evt, tabName) {
