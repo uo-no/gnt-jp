@@ -608,6 +608,18 @@ search-tool.html からの遷移先は現在「index.html（本文で読む）�
 - Navigation 遷移: Chip として配置（Primary ボタンとして追加しない）
 - StudyPanel や morph-search / syntax-search への遷移は「さらに調べる」カテゴリとして扱う
 
+#### G-3 FROZEN: 検索ツール画面の役割境界
+
+| 画面 | 役割 | 配置 |
+|------|------|------|
+| `search-tool.html`（Concordance） | 全聖書（NT+LXX）対象の独立した検索画面 | 単独画面。index.html からリンク |
+| `morph-search.html` | 語形検索（この語形の出現を探す） | Research Side Panel 内 iframe |
+| `syntax-search.html` | 統語論検索（同じ構文パターンを探す） | Research Side Panel 内 iframe |
+
+統合の対象は「画面」や「検索エンジン」ではなく「導線・ナビゲーション」である。
+StudyPanel の「さらに調べる」セクションからの導線、およびツール間の nav ボタンによって接続する。
+この境界は G-3 で確定・凍結。新たな具体的根拠がない限り再検討しない。
+
 ### 10-6. 新しい状態（State）を追加する時
 
 現在の状態:
@@ -684,6 +696,10 @@ search-tool.html からの遷移先は現在「index.html（本文で読む）�
 
 ⅩⅩ.  探すことで何かに出会う体験を守れ。
       検索は手段であり、出会いが目的である。
+
+ⅩⅩⅠ. Concordance と Morph/Syntax は別画面に置く。（G-3 FROZEN）
+      search-tool は全聖書対象の独立画面。morph/syntax は Research Side Panel 内に置け。
+      統合するのは導線である。画面と検索エンジンを一つにまとめるな。
 ```
 
 ---
@@ -702,6 +718,7 @@ search-tool.html からの遷移先は現在「index.html（本文で読む）�
 | §8 Visual Hierarchy | UX-8 Design System | 重要度マッピング・色トークン統一方針 |
 | §9 Interaction | UX-3, UX-4, UX-8 | `.wlv-chip` 挙動不一貫の記録 |
 | §10 Extension | UX-8.5 P1-P10 + 全監査 | 機能追加時のカテゴリ分類ルール |
-| Design Commandments | 全 UX Phase | 20箇条として統合 |
+| Design Commandments | 全 UX Phase | 20箇条として統合（ⅩⅩⅠを G-3 で追加） |
+| §10.5 G-3 境界 | G-3 | 検索ツール画面役割境界確定・FROZEN（Concordance 独立・Morph/Syntax は Research Side Panel 内） |
 
 **次フェーズ**: UX-9（実装フェーズ）は本文書の §5 CTA Hierarchy および §4 Component System を根拠として進める。
