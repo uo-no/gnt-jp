@@ -5764,6 +5764,416 @@ details[open] .study-summary::before {
     }
 }
 
+/* ══════════════════════════════════════════════════════════════
+   MN: Mobile Navigation
+   すべての新規要素は display:none（default）→ ≤900px でのみ展開。
+   DesktopへのCSS副作用ゼロを保証する。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── MN-1: 新規要素 ベースCSS（全幅・全デバイス共通） ── */
+
+/* Mobile location button（ヘッダー左） */
+#mobile-location-btn {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: 'Noto Serif JP', serif;
+    font-size: var(--text-body);
+    font-weight: 600;
+    color: var(--text-main);
+    letter-spacing: -0.01em;
+    padding: var(--space-xs) var(--space-xs);
+    border-radius: var(--radius-s);
+    -webkit-tap-highlight-color: transparent;
+    min-height: 44px;
+    transition: background var(--transition-fast);
+}
+#mobile-location-btn:active { background: rgba(0,0,0,0.06); }
+.mobile-location-chevron {
+    font-size: 0.65em;
+    opacity: 0.5;
+    line-height: 1;
+}
+
+/* Mobile kebab button（ヘッダー右） */
+#mobile-kebab-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-sub);
+    font-size: 1.35rem;
+    letter-spacing: 0.08em;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 var(--space-xs);
+    border-radius: var(--radius-s);
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--transition-fast);
+}
+#mobile-kebab-btn:active { background: rgba(0,0,0,0.06); }
+
+/* Mobile Bottom Navigation */
+#mobile-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    --mbn-h: 52px;
+    height: calc(var(--mbn-h) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left:  env(safe-area-inset-left,   0px);
+    padding-right: env(safe-area-inset-right,  0px);
+    box-sizing: border-box;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border-soft);
+    align-items: stretch;
+    justify-content: stretch;
+}
+.mbn-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-sub);
+    font-family: 'Noto Sans JP', inherit;
+    font-size: 0;
+    padding: 0 var(--space-xs);
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    min-height: var(--mbn-h);
+}
+.mbn-item:active { background: rgba(0,0,0,0.05); }
+.mbn-icon { flex-shrink: 0; }
+.mbn-label {
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    color: var(--text-sub);
+}
+.mbn-mode {
+    border-left:  1px solid var(--border-soft);
+    border-right: 1px solid var(--border-soft);
+}
+#mbn-mode-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-sub);
+    letter-spacing: -0.01em;
+    line-height: 1;
+}
+
+/* Mobile Book Picker（bottom sheet） */
+#mobile-book-picker {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 180;
+    pointer-events: none;
+}
+#mobile-book-picker.mbp-open {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    pointer-events: auto;
+}
+#mobile-book-picker-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    cursor: pointer;
+}
+#mobile-book-picker-sheet {
+    position: relative;
+    background: var(--bg-paper);
+    border-radius: var(--radius-l) var(--radius-l) 0 0;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.12);
+    transform: translateY(100%);
+    transition: transform var(--transition-slow);
+}
+#mobile-book-picker.mbp-open #mobile-book-picker-sheet {
+    transform: translateY(0);
+}
+#mobile-book-picker-handle {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-soft);
+    margin: 10px auto 0;
+    flex-shrink: 0;
+}
+#mobile-book-picker-bar {
+    display: flex;
+    align-items: center;
+    height: 48px;
+    padding: 0 var(--space-sm);
+    flex-shrink: 0;
+    position: relative;
+    border-bottom: 1px solid var(--border-soft);
+}
+#mobile-book-picker-title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: var(--text-body);
+    font-weight: 600;
+    color: var(--text-main);
+    white-space: nowrap;
+    pointer-events: none;
+    letter-spacing: -0.01em;
+}
+#mobile-book-picker-back {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: var(--text-title);
+    color: var(--highlight);
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 var(--space-xs);
+    font-weight: 300;
+    -webkit-tap-highlight-color: transparent;
+}
+#mobile-book-picker-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    color: var(--text-sub);
+    min-width: 44px;
+    min-height: 44px;
+    margin-left: auto;
+    padding: 0 var(--space-xs);
+    -webkit-tap-highlight-color: transparent;
+}
+#mobile-book-picker-content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: var(--space-sm) 0 var(--space-md);
+}
+/* Book picker item rows */
+.mbp-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px var(--space-lg);
+    font-size: var(--text-body);
+    color: var(--text-main);
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-soft);
+    font-family: 'Noto Serif JP', serif;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--transition-fast);
+}
+.mbp-row:active { background: rgba(0,0,0,0.05); }
+.mbp-row-chevron { color: var(--text-hint); font-size: 0.8rem; }
+.mbp-section-label {
+    font-size: var(--text-caption);
+    font-weight: 600;
+    color: var(--text-sub);
+    letter-spacing: 0.08em;
+    padding: var(--space-md) var(--space-lg) var(--space-xs);
+}
+/* Chapter grid */
+.mbp-ch-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    padding: var(--space-sm) var(--space-lg);
+}
+.mbp-ch-btn {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-s);
+    font-size: var(--text-body);
+    font-family: 'Noto Serif JP', serif;
+    color: var(--text-main);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+    min-height: 44px;
+}
+.mbp-ch-btn:active { background: rgba(0,0,0,0.07); }
+.mbp-ch-btn.current {
+    background: var(--highlight);
+    border-color: var(--highlight);
+    color: #fff;
+    font-weight: 600;
+}
+
+/* Mobile Mode Picker（bottom sheet） */
+#mobile-mode-picker {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 170;
+    pointer-events: none;
+}
+#mobile-mode-picker.mmp-open {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    pointer-events: auto;
+}
+#mobile-mode-picker-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    cursor: pointer;
+}
+#mobile-mode-picker-sheet {
+    position: relative;
+    background: var(--bg-paper);
+    border-radius: var(--radius-l) var(--radius-l) 0 0;
+    max-height: 75vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.12);
+    transform: translateY(100%);
+    transition: transform var(--transition-slow);
+}
+#mobile-mode-picker.mmp-open #mobile-mode-picker-sheet {
+    transform: translateY(0);
+}
+#mobile-mode-picker-handle {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-soft);
+    margin: 10px auto 0;
+    flex-shrink: 0;
+}
+#mobile-mode-picker-bar {
+    display: flex;
+    align-items: center;
+    height: 48px;
+    padding: 0 var(--space-sm);
+    flex-shrink: 0;
+    position: relative;
+    border-bottom: 1px solid var(--border-soft);
+}
+#mobile-mode-picker-title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: var(--text-body);
+    font-weight: 600;
+    color: var(--text-main);
+    white-space: nowrap;
+    pointer-events: none;
+    letter-spacing: -0.01em;
+}
+#mobile-mode-picker-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    color: var(--text-sub);
+    min-width: 44px;
+    min-height: 44px;
+    margin-left: auto;
+    padding: 0 var(--space-xs);
+    -webkit-tap-highlight-color: transparent;
+}
+#mobile-mode-picker-content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.mmp-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px var(--space-lg);
+    font-size: var(--text-body);
+    font-family: 'Noto Serif JP', serif;
+    color: var(--text-main);
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-soft);
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--transition-fast);
+}
+.mmp-row:active  { background: rgba(0,0,0,0.05); }
+.mmp-row.current { font-weight: 700; }
+.mmp-checkmark {
+    color: var(--highlight);
+    font-size: 1rem;
+    font-weight: 600;
+    opacity: 0;
+}
+.mmp-row.current .mmp-checkmark { opacity: 1; }
+
+/* ── MN: ≤900px アクティブ ── */
+@media (max-width: 900px) {
+    /* Desktop breadcrumb / hamburger を隠す */
+    #mobile-menu-btn     { display: none !important; }
+    #global-breadcrumb   { display: none !important; }
+    #research-open-btn   { display: none !important; }
+    #open-panel-btn      { display: none !important; }
+
+    /* Mobile header 要素を有効化 */
+    #mobile-location-btn { display: flex; }
+    #mobile-kebab-btn    { display: flex; }
+
+    /* Bottom Navigation を有効化 */
+    #mobile-bottom-nav { display: flex; }
+
+    /* 読書エリア下部パディング（bottom nav に隠れないため） */
+    #main-reading-area {
+        padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Study Panel open → Bottom Nav 非表示（R-7 対策） */
+    #app.mobile-study-open #mobile-bottom-nav { display: none !important; }
+
+    /* ≤768px: full-screen Study Panel でも同様 */
+}
+
+@media (max-width: 768px) {
+    #app.mobile-study-open #mobile-reading-area-pad,
+    #app.mobile-study-open #main-reading-area { padding-bottom: 0; }
+}
+
+/* MobileVerseView open → Bottom Nav 非表示 */
+#app.mobile-mvv-open #mobile-bottom-nav { display: none !important; }
+
+/* Picker open → Bottom Nav 非表示（picker sheet が bottom nav と重ならない保証） */
+#app.mobile-picker-open #mobile-bottom-nav { display: none !important; }
+
+/* ── MN: ≥901px: 新規要素を完全非表示 ── */
+@media (min-width: 901px) {
+    #mobile-location-btn { display: none !important; }
+    #mobile-kebab-btn    { display: none !important; }
+    #mobile-bottom-nav   { display: none !important; }
+    #mobile-book-picker  { display: none !important; }
+    #mobile-mode-picker  { display: none !important; }
+}
+
 </style>
 
 </head>
@@ -5921,6 +6331,11 @@ details[open] .study-summary::before {
             <div style="display:flex;align-items:center;gap: var(--space-sm);">
                 <button id="mobile-menu-btn" data-icon="menu" onclick="toggleMobileSidebar()" style="background:none;border:none;cursor:pointer;color:var(--text-sub);padding:0;line-height:1;"></button>
                 <div id="global-breadcrumb"></div>
+                <!-- MN: Mobile location button（≤900px のみ表示） -->
+                <button id="mobile-location-btn" onclick="_openMobileBookPicker()" aria-label="書物と章を選ぶ">
+                    <span id="mobile-location-label"></span>
+                    <span class="mobile-location-chevron" aria-hidden="true">▾</span>
+                </button>
             </div>
             <!-- open-panel-btn は Study閉じた後の再開ボタン。非表示スタート。 -->
             <button id="open-panel-btn" onclick="reopenStudyPanel()" style="display:none;" title="前の語の読解に戻る">
@@ -5937,6 +6352,9 @@ details[open] .study-summary::before {
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <span>調べる</span>
             </button>
+            <!-- MN: Mobile kebab button（≤900px のみ表示、Utility入口） -->
+            <button id="mobile-kebab-btn" onclick="_toggleMobileKebabMenu()"
+                    aria-label="メニュー" aria-expanded="false">⋯</button>
         </div>
     </header>
     <div id="app">
@@ -6053,9 +6471,66 @@ details[open] .study-summary::before {
                 </div>
             </div>
         </div>
+
+        <!-- MN: Mobile Bottom Navigation（≤900px のみ表示） -->
+        <nav id="mobile-bottom-nav" aria-label="メインナビゲーション">
+            <button class="mbn-item" id="mbn-bible" onclick="_mbnTapBible()" aria-label="聖書：書物と章を選ぶ">
+                <svg class="mbn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                </svg>
+                <span class="mbn-label">聖書</span>
+            </button>
+            <button class="mbn-item mbn-mode" id="mbn-mode" onclick="_mbnTapMode()" aria-label="読み方を選ぶ">
+                <span id="mbn-mode-label">本文</span>
+            </button>
+            <button class="mbn-item" id="mbn-search" onclick="_mbnTapSearch()" aria-label="検索ツールを開く">
+                <svg class="mbn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <span class="mbn-label">検索</span>
+            </button>
+        </nav>
     </div>
 </div>
 
+</div>
+
+<!-- MN: Mobile Book Picker（bottom sheet、≤900px） -->
+<div id="mobile-book-picker" aria-hidden="true" role="dialog" aria-label="書物と章を選ぶ">
+    <div id="mobile-book-picker-overlay" onclick="_closeMobileBookPicker()"></div>
+    <div id="mobile-book-picker-sheet">
+        <div id="mobile-book-picker-handle" aria-hidden="true"></div>
+        <div id="mobile-book-picker-bar">
+            <button id="mobile-book-picker-back" onclick="_mbpBack()"
+                    style="display:none;" aria-label="戻る">‹</button>
+            <span id="mobile-book-picker-title">書物を選ぶ</span>
+            <button id="mobile-book-picker-close" onclick="_closeMobileBookPicker()"
+                    aria-label="閉じる">×</button>
+        </div>
+        <div id="mobile-book-picker-content">
+            <!-- _mbpRenderLayer() で動的生成 -->
+        </div>
+    </div>
+</div>
+
+<!-- MN: Mobile Mode Picker（bottom sheet、≤900px） -->
+<div id="mobile-mode-picker" aria-hidden="true" role="dialog" aria-label="読み方を選ぶ">
+    <div id="mobile-mode-picker-overlay" onclick="_closeMobileModePicker()"></div>
+    <div id="mobile-mode-picker-sheet">
+        <div id="mobile-mode-picker-handle" aria-hidden="true"></div>
+        <div id="mobile-mode-picker-bar">
+            <span id="mobile-mode-picker-title">読み方</span>
+            <button id="mobile-mode-picker-close" onclick="_closeMobileModePicker()"
+                    aria-label="閉じる">×</button>
+        </div>
+        <div id="mobile-mode-picker-content">
+            <!-- _mmpRenderModes() で動的生成 -->
+        </div>
+    </div>
 </div>
 
 <div id="info-overlay-card" role="dialog" aria-label="Information">
@@ -7208,6 +7683,9 @@ function syncUIFromState() {
     updateHeader(AppState.ui.view);
     updateBreadcrumb(AppState.ui.view);
     updateSidebarActive(AppState.ui.view);
+    /* MN: Mobile navigation sync */
+    _syncMobileLocationLabel();
+    _syncMobileBottomNav();
 }
 
 /* ══════════════════════════════════════════
@@ -9891,6 +10369,7 @@ function _sbSelectMode(id) {
     _applyTransMode('single');
     syncUrlState();
     renderCurrentPage();
+    _syncMobileBottomNav();
     sbGoTo(0);
     closeSidebar();
 }
@@ -11631,6 +12110,8 @@ function openMobileVerseView(vNum, words, book, ch) {
     const view = document.getElementById('mobile-verse-view');
     if (!view) return;
     view.classList.add('open');
+    /* MN: MobileVerseView 全画面中は Bottom Nav を隠す */
+    document.getElementById('app')?.classList.add('mobile-mvv-open');
     /* E-1C: Android/ブラウザの戻るで MVV を閉じられるよう履歴エントリを1つ積む（URL は不変）。 */
     _mvvPushHistory();
     /* 内部状態を初期化: 節を開いた直後は必ず Level2（一覧）。戻り再描画用に節情報も保持。
@@ -11686,6 +12167,8 @@ function _mvvPushHistory() {
 function _doCloseMobileVerseView() {
     const view = document.getElementById('mobile-verse-view');
     if (view) view.classList.remove('open');
+    /* MN: Bottom Nav を復元 */
+    document.getElementById('app')?.classList.remove('mobile-mvv-open');
     _closeMvvActionMenu();   /* Phase G-1: MVV クローズ時はアクションメニューも閉じる */
     /* 次回 open 時は openMobileVerseView が 'list' を再設定するが、閉じた時点でも
        内部状態を list に戻しておく（状態リセットの明示・防御的ハイジーン）。 */
@@ -11737,12 +12220,18 @@ function _mvvMenuAction(kind) {
     else if (kind === 'share')    copyShareUrl();
 }
 
-/* Android/ブラウザの戻る操作。MVV が積んだエントリを popstate で受けて閉じる。 */
-window.addEventListener('popstate', function () {
-    if (_mvvIgnoreNextPop) { _mvvIgnoreNextPop = false; return; }  /* UI 戻るが誘発した pop は無視 */
-    if (!_mvvHistoryActive) return;                                /* MVV 由来でなければ関与しない */
-    _mvvHistoryActive = false;
-    _doCloseMobileVerseView();
+/* Android/ブラウザの戻る操作。MVV → Book picker → Mode picker の順で閉じる。 */
+window.addEventListener('popstate', function (e) {
+    /* ① 既存: MVV IgnorePop（UI 戻るが誘発した pop は無視） */
+    if (_mvvIgnoreNextPop) { _mvvIgnoreNextPop = false; return; }
+    /* ② 既存: MVV close（MVV 由来を最優先） */
+    if (_mvvHistoryActive) { _mvvHistoryActive = false; _doCloseMobileVerseView(); return; }
+    /* ③ MN: Book picker close */
+    if (_mbpIgnoreNextPop) { _mbpIgnoreNextPop = false; return; }
+    if (_mbpHistoryActive) { _mbpHistoryActive = false; _closeMobileBookPickerDOM(); return; }
+    /* ④ MN: Mode picker close */
+    if (_mmpIgnoreNextPop) { _mmpIgnoreNextPop = false; return; }
+    if (_mmpHistoryActive) { _mmpHistoryActive = false; _closeMobileModePicker(); return; }
 });
 
 /* ── E-1A: MobileVerseView 限定のキーボード回避（visualViewport）。desktop / StudyPanel 非影響。 ── */
@@ -18794,6 +19283,291 @@ function _mobileSwipeBack() {
     window._rkScrollUX = { attach: attach };
 })();
 /* ── Phase 5-2-C end ─────────────────────────────────────────────────────── */
+
+/* ══════════════════════════════════════════════════════════════
+   MN: Mobile Navigation
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── MN: Bottom Navigation ラベルマップ（SSOT: _sbRenderModes() と一致させる） ── */
+const MOBILE_MODE_SHORT_LABELS = {
+    'JA1955':      '本文',
+    'WORD_ORDER':  '語順',
+    'STRUCTURE':   '構造',
+    'CLAUSE_ROLE': '文の役割',
+    'RELATION':    'つながり',
+};
+
+/* bottom nav 中央ラベルを _transA に基づいて更新する。DOM が無ければ no-op。 */
+function _syncMobileBottomNav() {
+    const el = document.getElementById('mbn-mode-label');
+    if (el) el.textContent = MOBILE_MODE_SHORT_LABELS[_transA] || _transA;
+}
+
+/* ヘッダーの現在地ラベルを AppState.location に基づいて更新する。
+   既存 _bibleHeaderLabel() を直接利用し、実装を重複させない。 */
+function _syncMobileLocationLabel() {
+    const el = document.getElementById('mobile-location-label');
+    if (!el) return;
+    /* bible ビュー以外（bookmarks 等）では空にして location-btn を非表示相当にする */
+    if (AppState.ui.view !== 'bible') {
+        el.textContent = '';
+        return;
+    }
+    el.textContent = _bibleHeaderLabel();
+}
+
+/* ── MN: Bottom Navigation タップハンドラ ── */
+
+function _mbnTapBible()  { _openMobileBookPicker(); }
+function _mbnTapMode()   { _openMobileModePicker(); }
+function _mbnTapSearch() { window.location.href = '/search-tool.html'; }
+
+/* ── MN: Mobile Kebab Menu ─────────────────────────────────────────────── */
+/* ユーティリティ専用。Book/Chapter navigation はここから開かない。
+   現時点では既存 #info-overlay-card を開くだけ（bookmarks/notes は sidebar 経由）。
+   将来の utility menu 拡張のフックとして関数を独立させておく。                       */
+function _toggleMobileKebabMenu() {
+    toggleInfoCard();   /* 既存: info-overlay-card を開閉する */
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MN: Mobile Book Picker
+   ══════════════════════════════════════════════════════════════ */
+
+let _mbpLayer          = 1;    /* 1:Testament / 2:Book / 3:Chapter */
+let _mbpSection        = 'nt'; /* 'nt' | 'ot' */
+let _mbpBookKey        = '';
+let _mbpBookName       = '';
+let _mbpBookMaxCh      = 0;
+let _mbpHistoryActive  = false;
+let _mbpIgnoreNextPop  = false;
+
+function _openMobileBookPicker() {
+    if (window.innerWidth > 900) return; /* Desktop では無効 */
+
+    /* 競合する UI を閉じる */
+    if (StudyPanelState.isOpen) closeStudyPanel();
+    closeSidebar();
+    _closeMobileModePicker();
+
+    const picker = document.getElementById('mobile-book-picker');
+    if (!picker) return;
+
+    /* picker open */
+    document.getElementById('app')?.classList.add('mobile-picker-open');
+    picker.classList.add('mbp-open');
+    picker.setAttribute('aria-hidden', 'false');
+
+    /* 現在地を反映した初期 layer から表示 */
+    const loc = AppState.location;
+    if (loc && loc.book) {
+        _mbpSection   = loc.testament || 'nt';
+        _mbpBookKey   = loc.book.key;
+        _mbpBookName  = loc.book.name || loc.book.key;
+        _mbpBookMaxCh = loc.book.ch || 0;
+        _mbpLayer = 3; /* 現在 chapter 選択画面から開始 */
+    } else {
+        _mbpLayer = 1;
+    }
+    _mbpRenderLayer(_mbpLayer);
+
+    /* Android back でこの picker を閉じるための履歴エントリ */
+    _mbpPushHistory();
+}
+
+function _mbpPushHistory() {
+    if (_mbpHistoryActive) return;
+    _mbpHistoryActive = true;
+    try { history.pushState({ __mbp: true }, ''); } catch (_) {}
+}
+
+/* DOM だけ閉じる（履歴操作なし）。popstate からも呼ばれる。 */
+function _closeMobileBookPickerDOM() {
+    const picker = document.getElementById('mobile-book-picker');
+    if (!picker) return;
+    picker.classList.remove('mbp-open');
+    picker.setAttribute('aria-hidden', 'true');
+    document.getElementById('app')?.classList.remove('mobile-picker-open');
+    _mbpLayer = 1;
+}
+
+/* UI ボタン（×・overlay）からの close。履歴エントリも戻す（MVV パターンと同様）。 */
+function _closeMobileBookPicker() {
+    _closeMobileBookPickerDOM();
+    if (_mbpHistoryActive) {
+        _mbpHistoryActive = false;
+        _mbpIgnoreNextPop = true;
+        try { history.back(); } catch (_) {}
+    }
+}
+
+/* ‹ 戻るボタン: layer を 1 段戻る */
+function _mbpBack() {
+    if (_mbpLayer <= 1) { _closeMobileBookPicker(); return; }
+    _mbpLayer--;
+    _mbpRenderLayer(_mbpLayer);
+}
+
+/* Layer 描画 */
+function _mbpRenderLayer(layer) {
+    _mbpLayer = layer;
+    const content = document.getElementById('mobile-book-picker-content');
+    const titleEl  = document.getElementById('mobile-book-picker-title');
+    const backBtn  = document.getElementById('mobile-book-picker-back');
+    if (!content || !titleEl || !backBtn) return;
+
+    backBtn.style.display = (layer > 1) ? '' : 'none';
+
+    if (layer === 1) {
+        /* Layer 1: NT / OT 選択 */
+        titleEl.textContent = '書物を選ぶ';
+        content.innerHTML =
+            '<div class="mbp-section-label">Testament</div>' +
+            '<div class="mbp-row" onclick="_mbpSelectTestament(\'nt\')">' +
+                '<span>新約聖書</span><span class="mbp-row-chevron">›</span></div>' +
+            '<div class="mbp-row" onclick="_mbpSelectTestament(\'ot\')">' +
+                '<span>旧約聖書（LXX）</span><span class="mbp-row-chevron">›</span></div>';
+    } else if (layer === 2) {
+        /* Layer 2: Book 一覧 */
+        const testLabel = _mbpSection === 'nt' ? '新約聖書' : '旧約聖書（LXX）';
+        titleEl.textContent = testLabel;
+        const books = (SB_BOOKS[_mbpSection] || []);
+        const curKey = AppState.location.book ? AppState.location.book.key : '';
+        let html = '<div class="mbp-section-label">' + testLabel + '</div>';
+        for (const b of books) {
+            const isCur = (b.key === curKey) ? ' style="font-weight:700;"' : '';
+            html +=
+                '<div class="mbp-row" onclick="_mbpSelectBook(\'' + b.key + '\',\'' +
+                _escMbp(b.name) + '\',' + b.ch + ')"' + isCur + '>' +
+                '<span>' + _escMbp(b.name) + '</span>' +
+                '<span class="mbp-row-chevron">›</span></div>';
+        }
+        content.innerHTML = html;
+    } else if (layer === 3) {
+        /* Layer 3: Chapter グリッド */
+        titleEl.textContent = _mbpBookName || _mbpBookKey;
+        const curCh = (AppState.location.book && AppState.location.book.key === _mbpBookKey)
+            ? AppState.location.chapter : null;
+        let html = '<div class="mbp-ch-grid">';
+        for (let c = 1; c <= _mbpBookMaxCh; c++) {
+            const cur = (c === curCh) ? ' current' : '';
+            html += '<button class="mbp-ch-btn' + cur + '" onclick="_mbpSelectChapter(' + c + ')">' + c + '</button>';
+        }
+        html += '</div>';
+        content.innerHTML = html;
+    }
+}
+
+/* 文字列を innerHTML に安全に埋める（書名に < > が無い前提だが念のため） */
+function _escMbp(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function _mbpSelectTestament(section) {
+    _mbpSection = section;
+    _mbpRenderLayer(2);
+}
+
+function _mbpSelectBook(key, name, maxCh) {
+    _mbpBookKey   = key;
+    _mbpBookName  = name;
+    _mbpBookMaxCh = maxCh;
+    _mbpRenderLayer(3);
+}
+
+function _mbpSelectChapter(ch) {
+    _closeMobileBookPickerDOM();
+    /* フラグだけクリア。_navTo() はフルリロードを行うため、
+       積んだ history エントリはページ遷移で自然に消える。
+       history.back() を呼ぶと非同期競合が起きるため呼ばない。 */
+    _mbpHistoryActive = false;
+    /* 現在 mode を継承して章移動（既存 _navTo が _transA/_transB/_transMode を使う） */
+    _navTo(_mbpBookKey, ch);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MN: Mobile Mode Picker
+   ══════════════════════════════════════════════════════════════ */
+
+let _mmpHistoryActive  = false;
+let _mmpIgnoreNextPop  = false;
+
+/* Mode リスト定義（SSOT: _sbRenderModes() の items 配列と完全一致） */
+const MN_MODE_LIST = [
+    { id: 'JA1955',      label: '本文（口語訳）'    },
+    { id: 'WORD_ORDER',  label: '語順で読む'         },
+    { id: 'STRUCTURE',   label: '構造で読む'         },
+    { id: 'CLAUSE_ROLE', label: '文の役割で読む'     },
+    { id: 'RELATION',    label: 'つながりで読む'     },
+];
+
+function _openMobileModePicker() {
+    if (window.innerWidth > 900) return;
+
+    _closeMobileBookPickerDOM();
+
+    const picker = document.getElementById('mobile-mode-picker');
+    if (!picker) return;
+
+    document.getElementById('app')?.classList.add('mobile-picker-open');
+    picker.classList.add('mmp-open');
+    picker.setAttribute('aria-hidden', 'false');
+
+    _mmpRenderModes();
+    _mmpPushHistory();
+}
+
+function _mmpPushHistory() {
+    if (_mmpHistoryActive) return;
+    _mmpHistoryActive = true;
+    try { history.pushState({ __mmp: true }, ''); } catch (_) {}
+}
+
+function _closeMobileModePicker() {
+    const picker = document.getElementById('mobile-mode-picker');
+    if (!picker) return;
+    picker.classList.remove('mmp-open');
+    picker.setAttribute('aria-hidden', 'true');
+    document.getElementById('app')?.classList.remove('mobile-picker-open');
+    if (_mmpHistoryActive) {
+        _mmpHistoryActive = false;
+        try { history.back(); } catch (_) {}
+    }
+}
+
+function _mmpRenderModes() {
+    const content = document.getElementById('mobile-mode-picker-content');
+    if (!content) return;
+    let html = '';
+    for (const item of MN_MODE_LIST) {
+        const cur = (_transA === item.id && _transMode === 'single') ? ' current' : '';
+        html +=
+            '<div class="mmp-row' + cur + '" onclick="_mmpSelectMode(\'' + item.id + '\')">' +
+            '<span>' + item.label + '</span>' +
+            '<span class="mmp-checkmark">✓</span>' +
+            '</div>';
+    }
+    content.innerHTML = html;
+}
+
+function _mmpSelectMode(id) {
+    /* mode picker DOM を閉じ、孤立した history エントリも後始末する（MVV パターンと同様） */
+    const picker = document.getElementById('mobile-mode-picker');
+    if (picker) {
+        picker.classList.remove('mmp-open');
+        picker.setAttribute('aria-hidden', 'true');
+        document.getElementById('app')?.classList.remove('mobile-picker-open');
+    }
+    if (_mmpHistoryActive) {
+        _mmpHistoryActive  = false;
+        _mmpIgnoreNextPop  = true;   /* popstate による二重処理を防ぐ */
+        try { history.back(); } catch (_) {}
+    }
+    /* 既存 mode 変更フロー（_sbSelectMode と同等。sidebar は閉じない） */
+    _transA = id;
+    _applyTransMode('single');
+    syncUrlState();
+    renderCurrentPage();
+    _syncMobileBottomNav();
+}
 
 </script>
 <script src="../assets/js/app-config.js"></script>
