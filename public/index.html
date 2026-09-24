@@ -9507,6 +9507,9 @@ function openResearchPanel(type, url) {
     if (!panel) return;
     /* StudyPanel（Y軸）との排他制御 */
     if (StudyPanelState.isOpen) closeStudyPanel();
+    /* MobileVerseView（z-index 200）との排他制御: Research Panel（z-index 150）の前面表示を確保 */
+    const _mvv = document.getElementById('mobile-verse-view');
+    if (_mvv?.classList.contains('open')) closeMobileVerseView();
     _loadResearchPanelContent(type, url);
     panel.classList.add('open');
     panel.setAttribute('aria-hidden', 'false');
@@ -17048,6 +17051,27 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
     _syncMobileVerseViewBackLabel();
     _syncMobileVerseTitle();
     const d = AppState.inspect.data || {};
+
+    /* Research Panel 導線用 URL（Desktop _renderReadingNotes と同じパラメータ規則）。
+       rawMorph の解析は parseMorphForSearch() に委ねる（重複実装しない）。
+       AppState.inspect.data から直接読み取り、undefined/null/空文字は省略する。 */
+    const _mvvRm = (d.rawMorph || rawMorph) ? parseMorphForSearch(d.rawMorph || rawMorph) : {};
+    const _mvvQs = new URLSearchParams();
+    if (d.ref   || ref)   _mvvQs.set('ref',    d.ref   || ref);
+    if (d.greek || greek) _mvvQs.set('word',   d.greek || greek);
+    if (d.lemma || lemma) _mvvQs.set('lemma',  d.lemma || lemma);
+    if (_mvvRm.pos)    _mvvQs.set('pos',    _mvvRm.pos);
+    if (_mvvRm.tense)  _mvvQs.set('tense',  _mvvRm.tense);
+    if (_mvvRm.mood)   _mvvQs.set('mood',   _mvvRm.mood);
+    if (_mvvRm.voice)  _mvvQs.set('voice',  _mvvRm.voice);
+    if (_mvvRm.gender) _mvvQs.set('gender', _mvvRm.gender);
+    if (_mvvRm.number) _mvvQs.set('number', _mvvRm.number);
+    if (_mvvRm.case)   _mvvQs.set('case',   _mvvRm.case);
+    const _mvvJword = d.jaWordDisplay || d.jaWord || '';
+    if (_mvvJword && _mvvJword !== '-') _mvvQs.set('jword', _mvvJword);
+    const _mvvMorphQs  = new URLSearchParams(_mvvQs); _mvvMorphQs.set('tool', 'morph');
+    const _mvvSyntaxQs = new URLSearchParams(_mvvQs); _mvvSyntaxQs.set('tool', 'syntax');
+
     area.innerHTML = _renderMobileWordDetail({
         greek:    d.greek    || greek    || '',
         lemma:    d.lemma    || lemma    || '',
@@ -17055,6 +17079,8 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
         /* 表示用日本語（Presentation Policy 適用済みを優先） */
         gloss:    d.jaWordDisplay || d.jaWord || '',
         strong:   d.strong   || '',
+        morphURL:  `morph-search.html?${_mvvMorphQs.toString()}`,
+        syntaxURL: `syntax-search.html?${_mvvSyntaxQs.toString()}`,
     });
     /* Phase D-3B: メモは固定領域 #mobile-verse-note-area にあり、Level3 でも同じ ref を編集する。
        ここでは動的領域に注入しない（Level 遷移で内容・開閉状態を保持するため）。 */
@@ -17299,6 +17325,25 @@ function _renderMobileWordDetail(d) {
           <summary class="mvv-l3-summary">意味を見る</summary>
           <div class="mvv-l3-slot" id="mvv-semantic-slot"></div>
         </details>
+
+        ${(d.morphURL || d.syntaxURL) ? `
+        <details class="mvv-l3-section">
+          <summary class="mvv-l3-summary">さらに調べる</summary>
+          <div class="mvv-l3-slot" style="padding-top:var(--space-xs);">
+            <div class="rn-research-links">
+              ${d.morphURL ? `
+              <a href="${d.morphURL}" class="rn-research-link rn-morph-panel-link">
+                <span class="rn-research-link-title">この語形を探す</span>
+                <span class="rn-research-link-desc">同じ語形が現れる箇所を探す</span>
+              </a>` : ''}
+              ${d.syntaxURL ? `
+              <a href="${d.syntaxURL}" class="rn-research-link rn-syntax-panel-link">
+                <span class="rn-research-link-title">同じ構文を探す</span>
+                <span class="rn-research-link-desc">同じ文法パターンを探す</span>
+              </a>` : ''}
+            </div>
+          </div>
+        </details>` : ''}
       </div>`;
 }
 
