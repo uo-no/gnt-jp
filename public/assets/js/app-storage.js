@@ -25,7 +25,38 @@
             notes: [],
             recentVerses: [],
             recentWords: [],
+            highlights: [],
         };
+    }
+
+    var HL_VALID_COLORS = ['yellow', 'blue', 'green', 'pink'];
+
+    function migrateHighlightEntry(entry) {
+        if (!entry || typeof entry !== 'object') return null;
+        if (!entry.book || entry.chapter == null || entry.verse == null) return null;
+        var ts = (entry.tokenStart != null) ? Number(entry.tokenStart) : null;
+        var te = (entry.tokenEnd   != null) ? Number(entry.tokenEnd)   : null;
+        if (ts !== null && (!isFinite(ts) || ts < 1)) return null;
+        if (te !== null && (!isFinite(te) || te < ts)) return null;
+        return {
+            book:       String(entry.book),
+            chapter:    Number(entry.chapter),
+            verse:      Number(entry.verse),
+            tokenStart: ts,
+            tokenEnd:   te,
+            color:      HL_VALID_COLORS.indexOf(entry.color) !== -1 ? entry.color : 'yellow',
+            createdAt:  entry.createdAt != null ? entry.createdAt : Date.now(),
+        };
+    }
+
+    function _hlSameIdentity(a, b) {
+        return String(a.book)    === String(b.book)    &&
+               Number(a.chapter) === Number(b.chapter) &&
+               Number(a.verse)   === Number(b.verse)   &&
+               (a.tokenStart == null ? null : Number(a.tokenStart)) ===
+               (b.tokenStart == null ? null : Number(b.tokenStart)) &&
+               (a.tokenEnd   == null ? null : Number(a.tokenEnd))   ===
+               (b.tokenEnd   == null ? null : Number(b.tokenEnd));
     }
 
     var _state = null;
@@ -109,8 +140,49 @@
             if (Array.isArray(raw.recentWords)) {
                 state.recentWords = raw.recentWords.map(migrateRecentWordEntry).filter(function (e) { return e; });
             }
+            if (Array.isArray(raw.highlights)) {
+                state.highlights = raw.highlights.map(migrateHighlightEntry).filter(function (e) { return e; });
+            }
         }
         return state;
+    }
+
+    function addHighlight(h) {
+        var entry = migrateHighlightEntry(h);
+        if (!entry) return;
+        var state = ensureState();
+        state.highlights = state.highlights.filter(function (x) {
+            return !_hlSameIdentity(x, entry);
+        });
+        state.highlights.unshift(entry);
+        return saveUserData();
+    }
+
+    function removeHighlight(h) {
+        if (!h || !h.book || h.chapter == null || h.verse == null) return;
+        var state = ensureState();
+        state.highlights = state.highlights.filter(function (x) {
+            return !_hlSameIdentity(x, h);
+        });
+        return saveUserData();
+    }
+
+    function getHighlights() {
+        return ensureState().highlights.map(function (h) {
+            return Object.assign({}, h);
+        });
+    }
+
+    function updateHighlightColor(h, color) {
+        if (!h || !h.book || h.chapter == null || h.verse == null) return;
+        if (HL_VALID_COLORS.indexOf(color) === -1) return;
+        var state = ensureState();
+        var existing = state.highlights.find(function (x) {
+            return _hlSameIdentity(x, h);
+        });
+        if (!existing) return;
+        existing.color = color;
+        return saveUserData();
     }
 
     function loadUserData() {
@@ -325,6 +397,10 @@
             getBookmarks: getBookmarks,
             getNotes: getNotes,
             getDeletedNotes: getDeletedNotes,
+            addHighlight: addHighlight,
+            removeHighlight: removeHighlight,
+            getHighlights: getHighlights,
+            updateHighlightColor: updateHighlightColor,
         };
     }
 })();
