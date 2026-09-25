@@ -1,15 +1,15 @@
 /**
- * rk-semantic-layout.js  RK-ARCH-04 Phase 1
+ * role-semantic-layout.js  RK-ARCH-04 Phase 1
  *
- * Converts a DR (DiagramRepresentation from dg-engine.js) into an
- * RK Semantic Layout — a pure structural description of WHAT to diagram,
+ * Converts a DR (DiagramRepresentation from dg-engine.js) into a
+ * Role Semantic Layout — a pure structural description of WHAT to diagram,
  * with no coordinates, no font metrics, no DOM, and no SVG.
  *
  * Pipeline position:
  *   deriveDR()
  *    → _annotateRelClauses()     (index.html — adds antecedentRef to DR)
- *    → buildRKSemanticLayout()   ← this module
- *    → RK Page Layout            (Phase 2)
+ *    → buildRoleSemanticLayout() ← this module
+ *    → Role Page Layout          (Phase 2)
  *    → Geometry                  (Phase 3)
  *    → SVG Renderer              (Phase 4)
  *
@@ -20,7 +20,7 @@
  *                embeddedRelClauses, contentClause, compound }
  *   DR_AdvPhrase { fn, node, si, ppPrep, ppNpNode, ppNpModInfo }
  *
- * Exports: window.RkSemanticLayout = { buildRKSemanticLayout }
+ * Exports: window.RoleSemanticLayout = { buildRoleSemanticLayout }
  */
 (function (global) {
   'use strict';
@@ -167,7 +167,7 @@
     };
   }
 
-  // Forward declaration — defined after buildRKSemanticLayout.
+  // Forward declaration — defined after buildRoleSemanticLayout.
   let _buildContentClauseNode;
 
   function _buildNominalizedClauseNode(node) {
@@ -360,7 +360,7 @@
       type: 'AdvPhraseNode',
       phraseType,
       diagonalLabel: drClause.conjunction || null,
-      content: buildRKSemanticLayout(drClause),
+      content: buildRoleSemanticLayout(drClause),
       attachedToFn: 'BASELINE',
     };
   }
@@ -374,7 +374,7 @@
       type: 'RelClauseNode',
       antecedentRef,
       antecedentSi,
-      innerLayout: buildRKSemanticLayout(sc),
+      innerLayout: buildRoleSemanticLayout(sc),
     };
   }
 
@@ -385,7 +385,7 @@
       type: 'RelClauseNode',
       antecedentRef,
       antecedentSi,
-      innerLayout: erc.dr ? buildRKSemanticLayout(erc.dr) : null,
+      innerLayout: erc.dr ? buildRoleSemanticLayout(erc.dr) : null,
     };
   }
 
@@ -478,15 +478,15 @@
   // ── Public API ────────────────────────────────────────────────────────
 
   /**
-   * buildRKSemanticLayout(dr)
+   * buildRoleSemanticLayout(dr)
    *
-   * Converts a DR (post _annotateRelClauses) into an RK Semantic Layout.
+   * Converts a DR (post _annotateRelClauses) into a Role Semantic Layout.
    * Pure function: no DOM, no coordinates, no font metrics, no SVG.
    *
    * @param  {DR_Clause} dr — derived representation from deriveDR()
-   * @returns {RKSemanticLayout}
+   * @returns {RoleSemanticLayout}
    */
-  function buildRKSemanticLayout(dr) {
+  function buildRoleSemanticLayout(dr) {
     if (!dr) return null;
 
     const root         = _buildStructuralRoot(dr);
@@ -500,7 +500,7 @@
       .filter(al => al.antecedentRef !== null);
 
     return {
-      type: 'RKSemanticLayout',
+      type: 'RoleSemanticLayout',
       root,
       relClauses,
       antecedentLinks,
@@ -513,10 +513,10 @@
     return {
       type: 'ContentClauseNode',
       clauseType: contentClause.conjunction || contentClause.label || 'clause',
-      innerLayout: buildRKSemanticLayout(contentClause.innerDR),
+      innerLayout: buildRoleSemanticLayout(contentClause.innerDR),
     };
   };
 
-  global.RkSemanticLayout = { buildRKSemanticLayout };
+  global.RoleSemanticLayout = { buildRoleSemanticLayout };
 
 })(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));
