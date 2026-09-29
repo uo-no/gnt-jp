@@ -10079,8 +10079,9 @@ function getMorphCandidates(rawMorph, surface) {
             else if (M === 'M') alts.push(mkC(`V-${T}${V}I-2P`, T, V, 'I', '2P', 'HOMOGRAPH_MOOD'));
         }
 
-        // Class B — PAI-1S ↔ PAS-1S (ω-verb: surface ends in ω)
-        if (!prefix && T === 'P' && V === 'A' && PN === '1S' && sf.endsWith('ω')) {
+        // Class B — PAI-1S ↔ PAS-1S (ω-verb: surface ends in ω or ῶ)
+        // ῶ (U+1FF6) covers contracted ε-verbs (ποιέω → ποιῶ, λαλέω → λαλῶ, etc.)
+        if (!prefix && T === 'P' && V === 'A' && PN === '1S' && (sf.endsWith('ω') || sf.endsWith('ῶ'))) {
             if      (M === 'I') alts.push(mkC('V-PAS-1S', 'P', 'A', 'S', '1S', 'HOMOGRAPH_MOOD'));
             else if (M === 'S') alts.push(mkC('V-PAI-1S', 'P', 'A', 'I', '1S', 'HOMOGRAPH_MOOD'));
         }
@@ -10091,10 +10092,14 @@ function getMorphCandidates(rawMorph, surface) {
             else if (T === 'A' && M === 'S') alts.push(mkC('V-FAI-1S', 'F', 'A', 'I', '1S', 'HOMOGRAPH_TENSE_MOOD'));
         }
 
-        // Class D — PAI-3P ↔ PAP-DPM / PAP-DPN (-ουσιν / -ουσι)
+        // Class D — PAI-3P ↔ PAP-DPM / PAP-DPN (-ουσιν / -ουσι and contracted forms)
         // NT corpus confirms DPN annotation for same surface (λέγουσιν → V-PAP-DPN).
+        // οῦσιν (U+03BF+U+1FE6+σιν): ε-contract (αἰτέω → αἰτοῦσιν, ζητέω → ζητοῦσιν)
+        // ῶσιν (U+1FF6+σιν): α-contract (ἀγαπάω → ἀγαπῶσιν)
         if (!prefix && T === 'P' && V === 'A') {
-            const endsOusin = sf.endsWith('ουσιν') || sf.endsWith('ουσι');
+            const endsOusin = sf.endsWith('ουσιν') || sf.endsWith('ουσι')
+                           || sf.endsWith('οῦσιν') || sf.endsWith('οῦσι')
+                           || sf.endsWith('ῶσιν')  || sf.endsWith('ῶσι');
             if (M === 'I' && PN === '3P' && endsOusin) {
                 alts.push(mkC('V-PAP-DPM', 'P', 'A', 'P', 'DPM', 'HOMOGRAPH_MOOD'));
                 alts.push(mkC('V-PAP-DPN', 'P', 'A', 'P', 'DPN', 'HOMOGRAPH_MOOD'));
@@ -10104,15 +10109,21 @@ function getMorphCandidates(rawMorph, surface) {
         }
 
         // Class E — IAI-1S ↔ IAI-3P (imperfect active indicative)
+        // 3P→1S is blocked when surface ends in -αν (U+03B1+U+03BD): these are 3P-only suffixes
+        // (-σαν: εἰμί ἦσαν, μι-verbs ἐδίδοσαν; bare -αν is never shared with 1S in NT corpus).
         if (!prefix && T === 'I' && V === 'A' && M === 'I') {
             if      (PN === '1S') alts.push(mkC('V-IAI-3P', 'I', 'A', 'I', '3P', 'HOMOGRAPH_PERSON'));
-            else if (PN === '3P') alts.push(mkC('V-IAI-1S', 'I', 'A', 'I', '1S', 'HOMOGRAPH_PERSON'));
+            else if (PN === '3P' && !sf.endsWith('αν')) alts.push(mkC('V-IAI-1S', 'I', 'A', 'I', '1S', 'HOMOGRAPH_PERSON'));
         }
 
         // Class F — 2AAI-1S ↔ 2AAI-3P (2nd-aorist active indicative)
+        // Only generate when surface ends in -ον (U+03BF+U+03BD) or -όν (U+03CC+U+03BD).
+        // -όν covers enclitic-shifted accent forms (εἶπόν, εἶδόν).
+        // Forms ending in -αν/-σαν/-ησαν (3P-only) or -α/-ην/-ών (1S-only) are excluded.
         if (prefix === '2' && T === 'A' && V === 'A' && M === 'I') {
-            if      (PN === '1S') alts.push(mkC('V-2AAI-3P', 'A', 'A', 'I', '3P', 'HOMOGRAPH_PERSON'));
-            else if (PN === '3P') alts.push(mkC('V-2AAI-1S', 'A', 'A', 'I', '1S', 'HOMOGRAPH_PERSON'));
+            const endsON = sf.endsWith('ον') || sf.endsWith('όν');
+            if (PN === '1S' && endsON) alts.push(mkC('V-2AAI-3P', 'A', 'A', 'I', '3P', 'HOMOGRAPH_PERSON'));
+            if (PN === '3P' && endsON) alts.push(mkC('V-2AAI-1S', 'A', 'A', 'I', '1S', 'HOMOGRAPH_PERSON'));
         }
 
         return { alternatives: alts };
