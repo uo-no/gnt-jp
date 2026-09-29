@@ -155,7 +155,7 @@
   function _renderComposite(headTokens, opts) {
     var wrap = _htmlEl('div', {
       class: 'role-composite',
-      style: 'display:flex;flex-wrap:wrap;gap:2px;align-items:flex-end;',
+      style: 'display:flex;flex-wrap:nowrap;gap:2px;align-items:flex-end;',
     });
     var toks = headTokens || [];
     for (var i = 0; i < toks.length; i++) {

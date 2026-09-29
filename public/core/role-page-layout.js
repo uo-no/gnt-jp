@@ -56,7 +56,7 @@
   function _tokenCharWidth(tokens, params) {
     if (!tokens || tokens.length === 0) return 0;
     const chars = tokens.reduce((s, t) => s + (t.text ? t.text.length : 1), 0);
-    const gaps  = Math.max(0, tokens.length - 1) * 0.5;
+    const gaps  = Math.max(0, tokens.length - 1) * 1.0;
     return chars * params.tokenWidth + gaps;
   }
 
