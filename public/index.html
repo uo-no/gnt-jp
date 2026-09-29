@@ -1387,6 +1387,34 @@ border-bottom: 1px solid rgba(0,0,0,0.03);
 }
 .rn-morph-val.core { font-weight: 600; }
 
+/* morphological candidate disclosure */
+.rn-mc-details {
+margin-bottom: var(--space-sm);
+font-size: var(--text-caption);
+}
+.rn-mc-summary {
+color: var(--text-sub);
+font-size: var(--text-caption);
+cursor: pointer;
+padding: var(--space-xs) 0;
+list-style: none;
+opacity: var(--opacity-secondary);
+}
+.rn-mc-summary::marker,
+.rn-mc-summary::-webkit-details-marker { display: none; }
+.rn-mc-summary::before { content: '▶\0020'; font-size: 0.7em; vertical-align: middle; }
+.rn-mc-details[open] .rn-mc-summary::before { content: '▼\0020'; }
+.rn-mc-list {
+margin: var(--space-xs) 0 0 0;
+padding: 0;
+list-style: none;
+}
+.rn-mc-item {
+padding: var(--space-xs) 0;
+color: var(--text-main);
+border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+
 .rn-lexicon {
 font-size: var(--text-caption);
 color: var(--text-sub);
@@ -8478,6 +8506,24 @@ async function _renderReadingNotes(p) {
           ).join('')}</div>`
         : '';
 
+    /* ── Morphological candidates (Type-A homographs) ── */
+    const PERSON_JP = { '1':'1人称', '2':'2人称', '3':'3人称' };
+    let morphCandidatesHTML = '';
+    if (Array.isArray(p._morphCandidates) && p._morphCandidates.length > 0) {
+        const candItems = p._morphCandidates.map(c => {
+            const parts = [];
+            if (c.tense)  parts.push(JPN_FULL.tense[c.tense]   || c.tense);
+            if (c.voice)  parts.push(JPN_FULL.voice[c.voice]   || c.voice);
+            if (c.mood)   parts.push(JPN_FULL.mood[c.mood]     || c.mood);
+            if (c.case)   parts.push(JPN_FULL.case[c.case]     || c.case);
+            if (c.number) parts.push(JPN_FULL.number[c.number] || c.number);
+            if (c.gender) parts.push(JPN_FULL.gender[c.gender] || c.gender);
+            if (c.person) parts.push(PERSON_JP[c.person] || `${c.person}人称`);
+            return `<li class="rn-mc-item">${parts.join('・')}</li>`;
+        }).join('');
+        morphCandidatesHTML = `<details class="rn-mc-details"><summary class="rn-mc-summary">他に成立する形態</summary><ul class="rn-mc-list">${candItems}</ul></details>`;
+    }
+
     /* ── Etymology / composition (Level 2) — 単純語は非表示 ── */
     const compositionParts = getWordComposition(resolvedId || AppState.inspect.data?.lemmaId || null);
     const etymologyHTML = compositionParts
@@ -8593,6 +8639,7 @@ async function _renderReadingNotes(p) {
             <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>単語を詳しく調べる</summary>
             <div class="rn-level-body">
                 ${morphGridHTML}
+                ${morphCandidatesHTML}
                 ${usageTrendsHTML}
                 ${etymologyHTML}
                 ${abbottFullHTML}
@@ -9971,6 +10018,107 @@ function parseMorphForSearch(rawMorph) {
         result.gender = GENDER_MAP[base[2]] || '';
     }
     return result;
+}
+
+/**
+ * Generate morphology-only alternative parses for genuine Type-A homographs.
+ * Corpus annotation is never modified; alternatives are a secondary display layer.
+ *
+ * @param {string} rawMorph  e.g. "V-PAI-2P"
+ * @param {string} surface   surface form from bible_data  e.g. "ἔχετε"
+ * @returns {{ alternatives: MorphCandidate[] }}
+ */
+function getMorphCandidates(rawMorph, surface) {
+    const T_MAP   = { P:'present', I:'imperfect', F:'future', A:'aorist', X:'perfect', L:'pluperfect' };
+    const V_MAP   = { A:'active', M:'middle', P:'passive', D:'middle deponent', N:'middle or passive' };
+    const M_MAP   = { I:'indicative', S:'subjunctive', O:'optative',
+                      M:'imperative', N:'infinitive',  P:'participle' };
+    const C_MAP   = { N:'nominative', G:'genitive', D:'dative', A:'accusative', V:'vocative' };
+    const NUM_MAP = { S:'singular', P:'plural' };
+
+    function mkC(morph, tCode, vCode, mCode, pnCode, kind) {
+        const tense = T_MAP[tCode] || '';
+        const voice = V_MAP[vCode] || '';
+        const mood  = M_MAP[mCode] || '';
+        let person = '', number = '', cas = '', gender = '';
+        if (mCode === 'P' && pnCode && pnCode.length >= 3) {
+            cas    = C_MAP[pnCode[0]]   || '';
+            number = NUM_MAP[pnCode[1]] || '';
+            gender = pnCode[2] === 'M' ? 'masculine'
+                   : pnCode[2] === 'F' ? 'feminine'
+                   : pnCode[2] === 'N' ? 'neuter' : '';
+        } else if (pnCode && pnCode.length >= 2) {
+            person = pnCode[0];
+            number = NUM_MAP[pnCode[1]] || '';
+        }
+        return { morph, tense, voice, mood, person, number, case: cas, gender, kind };
+    }
+
+    try {
+        if (typeof rawMorph !== 'string' || !rawMorph.startsWith('V-')) {
+            return { alternatives: [] };
+        }
+        const parts = rawMorph.split('-');
+        if (parts.length < 2 || !parts[1]) return { alternatives: [] };
+
+        const seg0      = parts[1];
+        const hasPrefix = /^[0-9]/.test(seg0);
+        const prefix    = hasPrefix ? seg0[0] : '';
+        const seg       = hasPrefix ? seg0.slice(1) : seg0;
+        if (seg.length < 3) return { alternatives: [] };
+
+        const T  = seg[0], V = seg[1], M = seg[2];
+        const PN = parts[2] || '';
+        const sf = typeof surface === 'string' ? surface : '';
+        const alts = [];
+
+        // Class A — Present Indicative-2P ↔ Present Imperative-2P (any present-tense voice)
+        // Restricted to T='P': imperfect/future have no imperative; aorist augment prevents surface identity.
+        if (T === 'P' && PN === '2P') {
+            if      (M === 'I') alts.push(mkC(`V-${T}${V}M-2P`, T, V, 'M', '2P', 'HOMOGRAPH_MOOD'));
+            else if (M === 'M') alts.push(mkC(`V-${T}${V}I-2P`, T, V, 'I', '2P', 'HOMOGRAPH_MOOD'));
+        }
+
+        // Class B — PAI-1S ↔ PAS-1S (ω-verb: surface ends in ω)
+        if (!prefix && T === 'P' && V === 'A' && PN === '1S' && sf.endsWith('ω')) {
+            if      (M === 'I') alts.push(mkC('V-PAS-1S', 'P', 'A', 'S', '1S', 'HOMOGRAPH_MOOD'));
+            else if (M === 'S') alts.push(mkC('V-PAI-1S', 'P', 'A', 'I', '1S', 'HOMOGRAPH_MOOD'));
+        }
+
+        // Class C — FAI-1S ↔ AAS-1S (σ-aorist: surface ends in σω)
+        if (!prefix && V === 'A' && PN === '1S' && sf.endsWith('σω')) {
+            if      (T === 'F' && M === 'I') alts.push(mkC('V-AAS-1S', 'A', 'A', 'S', '1S', 'HOMOGRAPH_TENSE_MOOD'));
+            else if (T === 'A' && M === 'S') alts.push(mkC('V-FAI-1S', 'F', 'A', 'I', '1S', 'HOMOGRAPH_TENSE_MOOD'));
+        }
+
+        // Class D — PAI-3P ↔ PAP-DPM / PAP-DPN (-ουσιν / -ουσι)
+        // NT corpus confirms DPN annotation for same surface (λέγουσιν → V-PAP-DPN).
+        if (!prefix && T === 'P' && V === 'A') {
+            const endsOusin = sf.endsWith('ουσιν') || sf.endsWith('ουσι');
+            if (M === 'I' && PN === '3P' && endsOusin) {
+                alts.push(mkC('V-PAP-DPM', 'P', 'A', 'P', 'DPM', 'HOMOGRAPH_MOOD'));
+                alts.push(mkC('V-PAP-DPN', 'P', 'A', 'P', 'DPN', 'HOMOGRAPH_MOOD'));
+            } else if (M === 'P' && (PN === 'DPM' || PN === 'DPN') && endsOusin) {
+                alts.push(mkC('V-PAI-3P', 'P', 'A', 'I', '3P', 'HOMOGRAPH_MOOD'));
+            }
+        }
+
+        // Class E — IAI-1S ↔ IAI-3P (imperfect active indicative)
+        if (!prefix && T === 'I' && V === 'A' && M === 'I') {
+            if      (PN === '1S') alts.push(mkC('V-IAI-3P', 'I', 'A', 'I', '3P', 'HOMOGRAPH_PERSON'));
+            else if (PN === '3P') alts.push(mkC('V-IAI-1S', 'I', 'A', 'I', '1S', 'HOMOGRAPH_PERSON'));
+        }
+
+        // Class F — 2AAI-1S ↔ 2AAI-3P (2nd-aorist active indicative)
+        if (prefix === '2' && T === 'A' && V === 'A' && M === 'I') {
+            if      (PN === '1S') alts.push(mkC('V-2AAI-3P', 'A', 'A', 'I', '3P', 'HOMOGRAPH_PERSON'));
+            else if (PN === '3P') alts.push(mkC('V-2AAI-1S', 'A', 'A', 'I', '1S', 'HOMOGRAPH_PERSON'));
+        }
+
+        return { alternatives: alts };
+    } catch (_) {
+        return { alternatives: [] };
+    }
 }
 
 function buildMorphTagsHTML(rawMorph) {
@@ -18121,6 +18269,7 @@ function openStudyPanel(greek, rawMorph, ref, lemma, options = {}) {
         number:    m.number || '',
         case:      m.case   || '',
     };
+    params._morphCandidates = getMorphCandidates(rawMorph, greek).alternatives;
 
     /* 読書位置の保存: 閉→開の遷移時のみ。節Panel（Level 2）から単語詳細へ
        進む時に保存すると「パネルを開く前の位置」が open 中の位置で
