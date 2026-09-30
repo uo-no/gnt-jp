@@ -309,6 +309,13 @@
       modifierHeight = modifiers.reduce((s, m) => s + m.estimatedHeight + params.zoneGap, 0);
     }
 
+    // Phase 5-1-F: IO fn label requires extra width and height.
+    // 間接目的語 = 5 CJK chars × 12px ≈ 60px → 8 logical units (matches SECOND_OBJECT calibration).
+    if (raisedSlotNode.fn === 'INDIRECT_OBJECT') {
+      w = Math.max(w, 8);
+      h += params.lineHeight;
+    }
+
     return {
       type:             'PLRaisedSlotLayout',
       fn:               raisedSlotNode.fn,

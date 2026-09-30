@@ -323,9 +323,9 @@
       overflow: 'visible',
     });
 
-    // Pass null as fn: raised slots do not display a function label in Phase 5-1-A.
-    // Label placement on raised platforms is a separate design decision (Phase 5-1-F+).
-    fo.appendChild(_renderSlotContentDiv(null, plRaised, opts));
+    // Phase 5-1-F: pass fn so IO gets a label. AUX is excluded by the COPULA/AUX guard
+    // in _renderSlotContentDiv. DOM post-process (Phase 4-6-B) converts to Japanese.
+    fo.appendChild(_renderSlotContentDiv(fn, plRaised, opts));
     slotLayer.appendChild(fo);
   }
 
