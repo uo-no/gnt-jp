@@ -465,6 +465,7 @@
   //   Case D — slot node IS ADJ_MOD construction
   //   Case E — slot node contains NpPp or PpNp2Np child (PP modifier + NP head chain)
   //   Case F — slot node IS APPOSITION (rule=Np-Appos): children[0]=head NP, children[1..]=appositive
+  //   Case G — slot node IS NP_COMPLEX (rule=NpaNp): children[0]=first NP, children[1]=group(conjunction+second NP)
   function extractSlotModifiers(node) {
     if (!node || node.type === 'token') return null;
     const cn = node.construction && node.construction.canonical;
@@ -512,6 +513,28 @@
         if (headSIs.size > 0 && modifiers.length > 0) {
           modifiers.sort((a, b) => a.si - b.si);
           return { headSIs, modifiers };
+        }
+      }
+      return null;
+    }
+
+    // Case G: slot node IS NP_COMPLEX (rule=NpaNp) — compound NP coordination (P1)
+    // NpaNp: children[0] = first NP, children[1] = group(conjunction + second NP).
+    // NT-wide: always exactly 2 children, children[1] always group (623/623 confirmed).
+    // Raised slot (IO/AUX): PLRaisedSlotLayout ignores modifiers — fall back to null.
+    if (cn === 'NP_COMPLEX' && node.construction?.sourceRule === 'NpaNp') {
+      if (node.function?.canonical === 'INDIRECT_OBJECT' ||
+          node.function?.canonical === 'AUX') {
+        return null;
+      }
+      if (children.length === 2 && children[1].type === 'group') {
+        const headSIs = new Set();
+        getTokens(children[0]).forEach(t => headSIs.add(t.surfaceIndex));
+        if (headSIs.size > 0) {
+          return {
+            headSIs,
+            modifiers: [{ node: children[1], label: '並列', si: minSI(children[1]) }],
+          };
         }
       }
       return null;
