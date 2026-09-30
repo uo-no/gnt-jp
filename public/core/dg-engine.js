@@ -464,6 +464,7 @@
   //   Case C — slot node contains a direct GENITIVE_MOD child (ARTICULAR_NP wrapper)
   //   Case D — slot node IS ADJ_MOD construction
   //   Case E — slot node contains NpPp or PpNp2Np child (PP modifier + NP head chain)
+  //   Case F — slot node IS APPOSITION (rule=Np-Appos): children[0]=head NP, children[1..]=appositive
   function extractSlotModifiers(node) {
     if (!node || node.type === 'token') return null;
     const cn = node.construction && node.construction.canonical;
@@ -494,6 +495,24 @@
           headSIs,
           modifiers: genitives.map(g => ({ node: g, label: '属格修飾', si: minSI(g) })),
         };
+      }
+      return null;
+    }
+
+    // Case F: slot node IS APPOSITION (rule=Np-Appos)
+    // SR rule name encodes: children[0] = head NP ("Np"), children[1..] = appositive ("Appos").
+    if (cn === 'APPOSITION') {
+      if (children.length >= 2) {
+        const headSIs  = new Set();
+        const modifiers = [];
+        getTokens(children[0]).forEach(t => headSIs.add(t.surfaceIndex));
+        for (let i = 1; i < children.length; i++) {
+          modifiers.push({ node: children[i], label: '同格', si: minSI(children[i]) });
+        }
+        if (headSIs.size > 0 && modifiers.length > 0) {
+          modifiers.sort((a, b) => a.si - b.si);
+          return { headSIs, modifiers };
+        }
       }
       return null;
     }
@@ -643,7 +662,13 @@
           });
         }
       } else if (MAIN_FN.has(fn)) {
-        const modInfo = extractSlotModifiers(child);
+        let modInfo = extractSlotModifiers(child);
+        // Case F (APPOSITION) on raised slots: PLRaisedSlotLayout ignores modifiers,
+        // so the appositive would be silently dropped from display. Fall back to null.
+        if (modInfo && (fn === 'INDIRECT_OBJECT' || fn === 'AUX') &&
+            child.construction?.canonical === 'APPOSITION') {
+          modInfo = null;
+        }
         // P5-D-1: mark participial PREDICATE/COPULA slots
         const tok0 = child.type === 'token' ? child : (getTokens(child)[0] || null);
         const isParticipial = (fn === 'PREDICATE' || fn === 'COPULA') && tok0 ? isParticiple(tok0) : false;
