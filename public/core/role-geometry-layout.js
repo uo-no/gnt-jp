@@ -698,6 +698,8 @@
       offsetX + paddingX,
       ...gSlots.map(s  => s.anchors.right),
       ...gRaised.map(r => r.frame.x + r.frame.width),
+      // Phase 2C-2: raised modifier right edges (modifiers extend beyond the raised slot frame)
+      ...gRaised.flatMap(r => r.modifiers.map(m => m.frame.x + m.frame.width)),
       // Phase 3-2: ContentClause inner diagrams
       ...gSlots.filter(s => s.innerDiagram)
                .map(s => s.innerDiagram.frame.x + s.innerDiagram.frame.width),
