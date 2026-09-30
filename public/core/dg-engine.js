@@ -522,12 +522,7 @@
     // Case G: slot node IS NP_COMPLEX (rule=NpaNp) — compound NP coordination (P1)
     // NpaNp: children[0] = first NP, children[1] = group(conjunction + second NP).
     // NT-wide: always exactly 2 children, children[1] always group (623/623 confirmed).
-    // Raised slot (IO/AUX): PLRaisedSlotLayout ignores modifiers — fall back to null.
     if (cn === 'NP_COMPLEX' && node.construction?.sourceRule === 'NpaNp') {
-      if (node.function?.canonical === 'INDIRECT_OBJECT' ||
-          node.function?.canonical === 'AUX') {
-        return null;
-      }
       if (children.length === 2 && children[1].type === 'group') {
         const headSIs = new Set();
         const modifiers = [];
@@ -696,12 +691,6 @@
         }
       } else if (MAIN_FN.has(fn)) {
         let modInfo = extractSlotModifiers(child);
-        // Case F (APPOSITION) on raised slots: PLRaisedSlotLayout ignores modifiers,
-        // so the appositive would be silently dropped from display. Fall back to null.
-        if (modInfo && (fn === 'INDIRECT_OBJECT' || fn === 'AUX') &&
-            child.construction?.canonical === 'APPOSITION') {
-          modInfo = null;
-        }
         // P5-D-1: mark participial PREDICATE/COPULA slots
         const tok0 = child.type === 'token' ? child : (getTokens(child)[0] || null);
         const isParticipial = (fn === 'PREDICATE' || fn === 'COPULA') && tok0 ? isParticiple(tok0) : false;

@@ -405,6 +405,34 @@
         stemToY = offsetY + raisedZoneHPx;
       }
 
+      const raisedModCenterX = _fin(frameX + rW / 2);
+      const raisedMods = [];
+      if (raisedPL.modifiers && raisedPL.modifiers.length > 0) {
+        let modY = stemFromY + zoneGapPx;
+        for (const modPL of raisedPL.modifiers) {
+          const modW = _fin(Math.max(0, modPL.estimatedWidth  * charWidth));
+          const modH = _fin(Math.max(lineHeightPx, modPL.estimatedHeight * lineHeightPx));
+          let textWrapFrame = null;
+          if (modPL.displayMode === 'FLAT_WRAP' && modPL.textWrapBlock) {
+            const twb = modPL.textWrapBlock;
+            textWrapFrame = _frame(
+              raisedModCenterX, modY,
+              _fin(Math.max(0, twb.estimatedWidth  * charWidth)),
+              _fin(Math.max(0, twb.estimatedHeight * lineHeightPx))
+            );
+          }
+          raisedMods.push({
+            type:        'GModifierNode',
+            displayMode: modPL.displayMode,
+            frame:       _frame(raisedModCenterX, modY, modW, modH),
+            textWrapFrame,
+            bracketFrom: _pt(raisedModCenterX, stemFromY),
+            bracketTo:   _pt(raisedModCenterX, _fin(modY + modH / 2)),
+          });
+          modY += modH + zoneGapPx;
+        }
+      }
+
       gRaised.push({
         type:            'GRaisedNode',
         fn:              raisedPL.fn,
@@ -412,6 +440,7 @@
         frame:    _frame(frameX, raisedY, rW, rH),
         stemFrom: _pt(stemX, stemFromY),
         stemTo:   _pt(stemX, _fin(stemToY)),
+        modifiers: raisedMods,
       });
 
       // Advance cursor: right edge of this frame + zone gap.

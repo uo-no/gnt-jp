@@ -679,6 +679,11 @@
     for (var ri = 0; ri < raised.length; ri++) {
       _renderRaisedStem(raised[ri], connLayer, opts);
       _renderRaisedContent(raised[ri], plRaisedSlots[ri] || null, slotLayer, opts);
+      var raisedGMods  = (raised[ri].modifiers) || [];
+      var raisedPLMods = ((plRaisedSlots[ri] || {}).modifiers) || [];
+      for (var rmi = 0; rmi < raisedGMods.length; rmi++) {
+        _renderOneModifier(raisedGMods[rmi], raisedPLMods[rmi] || null, connLayer, slotLayer, opts);
+      }
     }
 
     // 4. Baseline slots: GL frame → foreignObject position, PL slot → content

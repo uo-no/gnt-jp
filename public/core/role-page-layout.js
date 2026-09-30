@@ -291,6 +291,7 @@
   function _layoutRaisedSlot(raisedSlotNode, params) {
     const c = raisedSlotNode.content;
     let displayMode, headTokens = null, textWrapBlock = null, w, h;
+    let modifiers = [], modifierHeight = 0;
 
     if (c.type === 'FlatTextNode') {
       const twb     = _buildTextWrapBlock(c, params);
@@ -304,6 +305,8 @@
       headTokens  = c.headTokens;
       w = Math.max(params.minSlotWidth, _tokenCharWidth(c.headTokens, params));
       h = params.lineHeight;
+      modifiers = (c.modifiers || []).map(m => _layoutModifier(m, params));
+      modifierHeight = modifiers.reduce((s, m) => s + m.estimatedHeight + params.zoneGap, 0);
     }
 
     return {
@@ -316,6 +319,8 @@
       si:               raisedSlotNode.si,
       estimatedWidth:   Math.max(params.minSlotWidth, w),
       estimatedHeight:  Math.max(params.lineHeight, h),
+      modifiers,
+      modifierHeight,
     };
   }
 
@@ -389,7 +394,7 @@
     // 2. Raised zone — IO and AUX above the baseline
     const raisedLayouts = (root.raisedSlots || []).map(s => _layoutRaisedSlot(s, params));
     const raisedH = raisedLayouts.length > 0
-      ? raisedLayouts.reduce((mx, r) => Math.max(mx, r.estimatedHeight), 0) + params.zoneGap
+      ? raisedLayouts.reduce((mx, r) => Math.max(mx, r.estimatedHeight + (r.modifierHeight || 0)), 0) + params.zoneGap
       : 0;
     const raisedZone = {
       type:            'PLRaisedZone',
