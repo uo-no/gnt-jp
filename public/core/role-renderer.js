@@ -407,6 +407,9 @@
     var bt = gMod.bracketTo;
     if (bf && bt) {
       var d = 'M ' + bf.x + ' ' + bf.y + ' L ' + bt.x + ' ' + bt.y;
+      if (gMod.branchTo) {
+        d += ' L ' + gMod.branchTo.x + ' ' + gMod.branchTo.y;
+      }
       connLayer.appendChild(_svgPath(d, 'role-modifier-bracket', opts.strokeSub, 1, null));
     }
     var f = gMod.frame;

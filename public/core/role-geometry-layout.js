@@ -68,6 +68,10 @@
     // Phase 3-2: ContentClause placeholder width on the baseline.
     // The inner layout width must NOT be used for the baseline slot.
     contentClausePlaceholderWidthPx: 16,
+    // Phase 3-3: Modifier diagonal bracket.
+    // modifierDiagonalOffsetPx: horizontal left-shift of modifier frame from slotCenterX.
+    //   Produces RK-style diagonal: bracketFrom.x > bracketTo.x, bracketFrom.y < bracketTo.y.
+    modifierDiagonalOffsetPx: 12,
     // Phase 3-4: Adverbial zone geometry.
     // advIndentPx:       horizontal indent of adv content from the bracket anchor X.
     //                    Replaces the CSS `dg-adv-list { padding-left: 1.5rem }` (24px).
@@ -256,7 +260,7 @@
    * All coordinates in the returned GRootNode are ROOT-relative absolute pixels.
    */
   function _buildGRootNode(plRoot, params, offsetX, offsetY) {
-    const { charWidth, lineHeightPx, connectorGapPx, paddingX, zoneGapPx } = params;
+    const { charWidth, lineHeightPx, connectorGapPx, paddingX, zoneGapPx, modifierDiagonalOffsetPx } = params;
 
     // ── 1. Raised zone height (px) ─────────────────────────────────────
     const raisedZone    = plRoot.raisedZone || { estimatedHeight: 0, slots: [] };
@@ -496,16 +500,16 @@
         let modY          = modZoneTopY;
 
         for (let mi = 0; mi < slotPL.modifiers.length; mi++) {
-          const modPL = slotPL.modifiers[mi];
-          const modW  = _fin(Math.max(0, modPL.estimatedWidth  * charWidth));
-          const modH  = _fin(Math.max(lineHeightPx, modPL.estimatedHeight * lineHeightPx));
-          const modX  = slotCenterX;
+          const modPL     = slotPL.modifiers[mi];
+          const modW      = _fin(Math.max(0, modPL.estimatedWidth  * charWidth));
+          const modH      = _fin(Math.max(lineHeightPx, modPL.estimatedHeight * lineHeightPx));
+          const modFrameX = _fin(Math.max(0, slotCenterX - modifierDiagonalOffsetPx));
 
           let textWrapFrame = null;
           if (modPL.displayMode === 'FLAT_WRAP' && modPL.textWrapBlock) {
             const twb = modPL.textWrapBlock;
             textWrapFrame = _frame(
-              modX, modY,
+              modFrameX, modY,
               _fin(Math.max(0, twb.estimatedWidth  * charWidth)),
               _fin(Math.max(0, twb.estimatedHeight * lineHeightPx))
             );
@@ -514,10 +518,11 @@
           gMods.push({
             type:        'GModifierNode',
             displayMode: modPL.displayMode,
-            frame:       _frame(modX, modY, modW, modH),
+            frame:       _frame(modFrameX, modY, modW, modH),
             textWrapFrame,
             bracketFrom: _pt(slotCenterX, baselineY),
-            bracketTo:   _pt(modX, _fin(modY + modH / 2)),
+            bracketTo:   _pt(modFrameX, modY),
+            branchTo:    _pt(modFrameX + modW, modY),
           });
 
           modY += modH + zoneGapPx;
@@ -526,6 +531,9 @@
         const entryBottom   = modY;
         const entryMaxRight = gMods.length > 0
           ? Math.max(...gMods.map(m => m.frame.x + m.frame.width))
+          : slotCenterX;
+        const entryLeftX    = gMods.length > 0
+          ? Math.min(...gMods.map(m => m.frame.x))
           : slotCenterX;
 
         if (entryBottom > maxContentBottom) maxContentBottom = entryBottom;
@@ -536,9 +544,9 @@
           slotSi:      slotPL.si,
           slotCenterX: slotCenterX,
           frame: _frame(
-            slotCenterX,
+            entryLeftX,
             modZoneTopY,
-            Math.max(0, entryMaxRight - slotCenterX),
+            Math.max(0, entryMaxRight - entryLeftX),
             Math.max(0, entryBottom   - modZoneTopY)
           ),
           modifiers: gMods,
