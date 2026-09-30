@@ -466,6 +466,7 @@
   //   Case E — slot node contains NpPp or PpNp2Np child (PP modifier + NP head chain)
   //   Case F — slot node IS APPOSITION (rule=Np-Appos): children[0]=head NP, children[1..]=appositive
   //   Case G — slot node IS NP_COMPLEX (rule=NpaNp): children[0]=first NP, children[1]=group(conjunction+second NP)
+  //            sub-branch: if children[0] IS APPOSITION, decompose inner head/appositive too
   function extractSlotModifiers(node) {
     if (!node || node.type === 'token') return null;
     const cn = node.construction && node.construction.canonical;
@@ -529,12 +530,21 @@
       }
       if (children.length === 2 && children[1].type === 'group') {
         const headSIs = new Set();
-        getTokens(children[0]).forEach(t => headSIs.add(t.surfaceIndex));
+        const modifiers = [];
+        const c0 = children[0];
+        if (c0.construction?.canonical === 'APPOSITION' && (c0.children || []).length >= 2) {
+          // sub-branch: inner APPOSITION — c0.children[0]=head NP, c0.children[1..]=appositive
+          getTokens(c0.children[0]).forEach(t => headSIs.add(t.surfaceIndex));
+          for (let i = 1; i < c0.children.length; i++) {
+            modifiers.push({ node: c0.children[i], label: '同格', si: minSI(c0.children[i]) });
+          }
+        } else {
+          getTokens(c0).forEach(t => headSIs.add(t.surfaceIndex));
+        }
+        modifiers.push({ node: children[1], label: '並列', si: minSI(children[1]) });
+        modifiers.sort((a, b) => a.si - b.si);
         if (headSIs.size > 0) {
-          return {
-            headSIs,
-            modifiers: [{ node: children[1], label: '並列', si: minSI(children[1]) }],
-          };
+          return { headSIs, modifiers };
         }
       }
       return null;
