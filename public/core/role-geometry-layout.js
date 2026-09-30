@@ -69,9 +69,13 @@
     // The inner layout width must NOT be used for the baseline slot.
     contentClausePlaceholderWidthPx: 16,
     // Phase 3-3: Modifier diagonal bracket.
-    // modifierDiagonalOffsetPx: horizontal left-shift of modifier frame from slotCenterX.
+    // modifierDiagonalOffsetPx: horizontal left-shift of modifier frame from slotCenterX (dx).
     //   Produces RK-style diagonal: bracketFrom.x > bracketTo.x, bracketFrom.y < bracketTo.y.
+    // modifierLocalDropPx: fixed vertical drop from bracketFrom to bracketTo (dy).
+    //   bracketFrom.y = modY (local origin per modifier, not baselineY).
+    //   Keeps angle depth-independent: atan(modifierDiagonalOffsetPx / modifierLocalDropPx) = 45°.
     modifierDiagonalOffsetPx: 12,
+    modifierLocalDropPx:      12,
     // Phase 3-4: Adverbial zone geometry.
     // advIndentPx:       horizontal indent of adv content from the bracket anchor X.
     //                    Replaces the CSS `dg-adv-list { padding-left: 1.5rem }` (24px).
@@ -260,7 +264,7 @@
    * All coordinates in the returned GRootNode are ROOT-relative absolute pixels.
    */
   function _buildGRootNode(plRoot, params, offsetX, offsetY) {
-    const { charWidth, lineHeightPx, connectorGapPx, paddingX, zoneGapPx, modifierDiagonalOffsetPx } = params;
+    const { charWidth, lineHeightPx, connectorGapPx, paddingX, zoneGapPx, modifierDiagonalOffsetPx, modifierLocalDropPx } = params;
 
     // ── 1. Raised zone height (px) ─────────────────────────────────────
     const raisedZone    = plRoot.raisedZone || { estimatedHeight: 0, slots: [] };
@@ -509,7 +513,7 @@
           if (modPL.displayMode === 'FLAT_WRAP' && modPL.textWrapBlock) {
             const twb = modPL.textWrapBlock;
             textWrapFrame = _frame(
-              modFrameX, modY,
+              modFrameX, modY + modifierLocalDropPx,
               _fin(Math.max(0, twb.estimatedWidth  * charWidth)),
               _fin(Math.max(0, twb.estimatedHeight * lineHeightPx))
             );
@@ -518,14 +522,14 @@
           gMods.push({
             type:        'GModifierNode',
             displayMode: modPL.displayMode,
-            frame:       _frame(modFrameX, modY, modW, modH),
+            frame:       _frame(modFrameX, modY + modifierLocalDropPx, modW, modH),
             textWrapFrame,
-            bracketFrom: _pt(slotCenterX, baselineY),
-            bracketTo:   _pt(modFrameX, modY),
-            branchTo:    _pt(modFrameX + modW, modY),
+            bracketFrom: _pt(slotCenterX, modY),
+            bracketTo:   _pt(modFrameX, modY + modifierLocalDropPx),
+            branchTo:    _pt(modFrameX + modW, modY + modifierLocalDropPx),
           });
 
-          modY += modH + zoneGapPx;
+          modY += modifierLocalDropPx + modH + zoneGapPx;
         }
 
         const entryBottom   = modY;
