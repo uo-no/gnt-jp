@@ -294,8 +294,11 @@
     // Row assignment: wrap items at aw boundary (skip if aw not given)
     const rows = [[]];
     let cur = 0;
-    its.forEach(it => {
-      if (aw && cur > 0 && cur + it.w > aw) { rows.push([]); cur = 0; }
+    its.forEach((it, idx) => {
+      if (aw && cur > 0) {
+        const checkW = (it.s && its[idx + 1]) ? it.w + its[idx + 1].w : it.w;
+        if (cur + checkW > aw) { rows.push([]); cur = 0; }
+      }
       rows[rows.length - 1].push(it);
       cur += it.w;
     });
