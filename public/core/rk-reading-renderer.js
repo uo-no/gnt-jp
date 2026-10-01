@@ -102,6 +102,8 @@
   let _W = [];   // current word list
   let _S = '';   // SVG string accumulator
 
+  const _ROW_GAP = 20; // vertical gap between baseline rows (px)
+
   const kids  = i  => _W.filter(w => i && w.h === i);
   const sum   = a  => a.reduce((s, x) => s + x, 0);
   const mx    = a  => Math.max(0, ...a);
@@ -262,7 +264,8 @@
   }
 
   // Baseline: S | V \ pred  or  S | V | obj
-  function mk(v) {
+  // aw: available width for items (= availableWidth - clauseStartX). Omit for legacy single-row.
+  function mk(v, aw) {
     const K    = r => kids(v.i).find(k => k.r === r);
     const subj = K('subj') || (v.imp ? { g: `(${v.imp})`, gl: `(${v.imp})` } : null);
     const ob   = K('obj');
@@ -287,30 +290,60 @@
       it.tw = sum(it.chain.map(u => u.cw)) + 28 * (it.chain.length - 1);
       it.w  = it.tw + (it.s ? 30 : 0);
     });
-    return { its, W: sum(its.map(i => i.w)), hh: mx(its.map(i => i.hh)) + 32 };
+
+    // Row assignment: wrap items at aw boundary (skip if aw not given)
+    const rows = [[]];
+    let cur = 0;
+    its.forEach(it => {
+      if (aw && cur > 0 && cur + it.w > aw) { rows.push([]); cur = 0; }
+      rows[rows.length - 1].push(it);
+      cur += it.w;
+    });
+
+    // Per-row hanging heights and y-offsets (relative to clause baseline y)
+    const rowHHs = rows.map(row => mx(row.map(i => i.hh)));
+    const rowYs  = [0];
+    for (let i = 1; i < rows.length; i++)
+      rowYs.push(rowYs[i - 1] + rowHHs[i - 1] + 32 + _ROW_GAP);
+
+    const last = rows.length - 1;
+    return {
+      its,
+      rows,
+      rowYs,
+      W:        mx(rows.map(row => sum(row.map(i => i.w)))),
+      hh:       rowYs[last] + rowHHs[last] + 32,
+      lastRowW: sum(rows[last].map(i => i.w)),
+    };
+  }
+
+  // Draw a single baseline item at (cx, ry)
+  function _drawItem(it, cx, ry) {
+    let cx0 = cx + 8;
+    it.chain.forEach((u, k) => {
+      if (k > 0) {
+        const cj = kids(u.id).find(z => z.r === 'conj');
+        if (cj) wd(cj, cx0 + 10, ry - 19, 15, 'middle');
+        cx0 += 28;
+      }
+      wd(u.nd, cx0, ry - 9, 21);
+      if (u.id) dH(u.h, cx0 - 8, ry);
+      cx0 += u.cw;
+    });
+    const sx = cx + it.tw + 15;
+    if (it.s === '|')  ln(sx, ry - 16, sx, ry + 16, 'var(--ink)');
+    if (it.s === 'o')  ln(sx, ry - 16, sx, ry,      'var(--ink)');
+    if (it.s === '\\') ln(sx - 9, ry - 18, sx + 3, ry, 'var(--ink)');
+    if (it.s === '=')  E(`<text x="${sx}" y="${ry - 8}" font-size="20" text-anchor="middle" fill="var(--ink)">=</text>`);
   }
 
   function dC(c, x, y) {
-    ln(x, y, x + c.W, y, 'var(--ink)');
-    let cx = x;
-    c.its.forEach(it => {
-      let cx0 = cx + 8;
-      it.chain.forEach((u, k) => {
-        if (k > 0) {
-          const cj = kids(u.id).find(z => z.r === 'conj');
-          if (cj) wd(cj, cx0 + 10, y - 19, 15, 'middle');
-          cx0 += 28;
-        }
-        wd(u.nd, cx0, y - 9, 21);
-        if (u.id) dH(u.h, cx0 - 8, y);
-        cx0 += u.cw;
-      });
-      const sx = cx + it.tw + 15;
-      if (it.s === '|')  ln(sx, y - 16, sx, y + 16, 'var(--ink)');
-      if (it.s === 'o')  ln(sx, y - 16, sx, y,      'var(--ink)');
-      if (it.s === '\\') ln(sx - 9, y - 18, sx + 3, y, 'var(--ink)');
-      if (it.s === '=')  E(`<text x="${sx}" y="${y - 8}" font-size="20" text-anchor="middle" fill="var(--ink)">=</text>`);
-      cx += it.w;
+    c.rows.forEach((rowItems, ri) => {
+      const ry = y + c.rowYs[ri];
+      const rW = sum(rowItems.map(i => i.w));
+      ln(x, ry, x + rW, ry, 'var(--ink)');
+      let cx = x;
+      rowItems.forEach(it => { _drawItem(it, cx, ry); cx += it.w; });
     });
   }
 
@@ -330,7 +363,7 @@
   // pa:   parent anchor { x, y } (for connector lines)
   // aw:   available width for reflow (optional)
   function _place(v, x, y, kind, pa, aw) {
-    const c = mk(v);
+    const c = mk(v, aw ? aw - x : undefined);
     const L = 'var(--link)';
 
     if (kind === 'root') {
