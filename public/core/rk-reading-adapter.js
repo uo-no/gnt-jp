@@ -155,11 +155,28 @@
           _processNP(np, nounSI >= 0 ? nounSI : parentHeadSI, 'adj');
         }
       }
-      for (const cl of clauses) {
-        _processClause(cl, nounSI >= 0 ? nounSI : parentHeadSI, 'relcl');
+      // When no direct token/NP head, the first clause or group IS the semantic head
+      // (nominalized clause or coordinated group acting as the NP head).
+      if (nounSI < 0 && clauses.length > 0) {
+        nounSI = _processClause(clauses[0], parentHeadSI, role);
+        for (const cl of clauses.slice(1)) {
+          _processClause(cl, nounSI >= 0 ? nounSI : parentHeadSI, 'relcl');
+        }
+      } else {
+        for (const cl of clauses) {
+          _processClause(cl, nounSI >= 0 ? nounSI : parentHeadSI, 'relcl');
+        }
       }
-      for (const grp of groups) {
-        _processGroup(grp, nounSI >= 0 ? nounSI : parentHeadSI);
+      if (nounSI < 0 && groups.length > 0) {
+        const s = _processGroup(groups[0], parentHeadSI, role);
+        if (s >= 0) nounSI = s;
+        for (const grp of groups.slice(1)) {
+          _processGroup(grp, nounSI >= 0 ? nounSI : parentHeadSI);
+        }
+      } else {
+        for (const grp of groups) {
+          _processGroup(grp, nounSI >= 0 ? nounSI : parentHeadSI);
+        }
       }
       return nounSI;
     }
@@ -287,10 +304,11 @@
     }
 
     if (cn === 'PREP_PHRASE' && node.type === 'phrase.np') {
-      // phrase.np labeled PREP_PHRASE: sub-NP + sub-PP
+      // phrase.np labeled PREP_PHRASE: sub-NP + sub-PP (+ optional clause head)
       const children = node.children || [];
       const npChild  = children.find(c => c.type === 'phrase.np');
       const ppChild  = children.find(c => c.type === 'phrase.pp');
+      const clChild  = children.find(c => c.type === 'clause');
       const toks     = children.filter(c => c.type === 'token');
 
       let headSI = -1;
@@ -302,6 +320,9 @@
         for (let i = 1; i < toks.length; i++) {
           _assign(toks[i].surfaceIndex, 'adj', headSI);
         }
+      } else if (clChild) {
+        // Nominalized clause (e.g., articular infinitive) as the NP head
+        headSI = _processClause(clChild, parentHeadSI, role);
       }
       if (ppChild) {
         _processPP(ppChild, headSI >= 0 ? headSI : parentHeadSI);
@@ -413,7 +434,8 @@
         if (bdClass === 'det')  return 'det';
         if (bdClass === 'adv')  return 'adv';
         if (bdClass === 'conj') return 'conj';
-        if (bdClass === 'prep') return 'prep';
+        // prep-class tokens as direct clause children have no pobj mechanism; treat as adverbial
+        if (bdClass === 'prep') return 'adv';
         if (bdClass === 'adj')  return 'adj';
         return 'adv';
     }
