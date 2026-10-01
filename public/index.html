@@ -6306,6 +6306,35 @@ details[open] .study-summary::before {
     #mobile-mode-picker  { display: none !important; }
 }
 
+/* ── Phase J: RK Reading Mode ── */
+.rk-reading-view .wn rect {
+    fill: transparent;
+    stroke: transparent;
+    stroke-width: 1.5;
+}
+.rk-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs) var(--space-md);
+    padding: var(--space-xs) var(--space-sm) var(--space-sm);
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--space-md);
+}
+.rk-legend span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.rk-legend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
 </style>
 
 </head>
@@ -17317,6 +17346,22 @@ function _renderRKReadingView(app, srData, elData) {
 
     const bdTokenMap = RKReadingAdapter.buildTokenMap(elData);
 
+    // J-2: ref → bdToken reverse-lookup for StudyPanel (no adapter change needed)
+    const _rkRefToBd = new Map();
+    for (const tok of bdTokenMap.values()) {
+        if (tok && tok.ref) _rkRefToBd.set(tok.ref, tok);
+    }
+
+    // J-3: Legend
+    const legendEl = document.createElement('div');
+    legendEl.className = 'rk-legend';
+    legendEl.innerHTML =
+        '<span><i style="background:var(--core)"></i>文の骨格</span>' +
+        '<span><i style="background:var(--mod)"></i>名詞の修飾</span>' +
+        '<span><i style="background:var(--adv)"></i>副詞的要素</span>' +
+        '<span><i style="background:var(--link)"></i>接続(点線)</span>';
+    wrap.appendChild(legendEl);
+
     for (const sentence of srData.sentences) {
         const secEl = document.createElement('section');
         secEl.className = 'sd-sentence';
@@ -17358,6 +17403,12 @@ function _renderRKReadingView(app, srData, elData) {
             if (data && data.ref) {
                 el.style.cursor = 'pointer';
                 el.addEventListener('click', function () {
+                    // J-2: populate inspect.data for jaWord / lexicon display
+                    const bd = _rkRefToBd.get(data.ref);
+                    if (bd) {
+                        _setInspectDataFromElToken(bd);
+                        _setStudyTarget(data.ref, bd.verseId);
+                    }
                     openStudyPanel(data.greek, data.rawMorph, data.ref, data.lemma);
                 });
             }
