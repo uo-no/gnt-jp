@@ -17362,6 +17362,12 @@ function _renderRKReadingView(app, srData, elData) {
         '<span><i style="background:var(--link)"></i>接続(点線)</span>';
     wrap.appendChild(legendEl);
 
+    // Measure available content width for clause-level reflow.
+    // app is already in the DOM; subtract .sd-view padding (approx 32px).
+    const _rkAvailW = Math.max(
+        (app.getBoundingClientRect().width || app.clientWidth || 0) - 32, 200
+    );
+
     for (const sentence of srData.sentences) {
         const secEl = document.createElement('section');
         secEl.className = 'sd-sentence';
@@ -17387,7 +17393,7 @@ function _renderRKReadingView(app, srData, elData) {
 
         try {
             const words = RKReadingRenderer.loadWords(rows);
-            svg = RKReadingRenderer.renderSVG(words);
+            svg = RKReadingRenderer.renderSVG(words, _rkAvailW);
         } catch (_renderErr) {
             const errEl = document.createElement('div');
             errEl.className = 'sd-empty';

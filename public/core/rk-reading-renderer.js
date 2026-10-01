@@ -328,7 +328,8 @@
   // Recursively place a clause node at (x, y)
   // kind: 'root' | 'sub' | 'co'
   // pa:   parent anchor { x, y } (for connector lines)
-  function _place(v, x, y, kind, pa) {
+  // aw:   available width for reflow (optional)
+  function _place(v, x, y, kind, pa, aw) {
     const c = mk(v);
     const L = 'var(--link)';
 
@@ -356,7 +357,12 @@
     let bot = y + c.hh, right = x + c.W, cy = bot + 90;
     _W.filter(k => CLZ(k) && own(k) === v.i).forEach(k => {
       const co = k.r === 'cverb' || k.r === 'coord';
-      const r  = _place(k, co ? x : x + 30, cy, co ? 'co' : 'sub', { x: x + c.W, y });
+      // Reflow: when the parent clause right edge exceeds available width,
+      // reset sub-clause to the left margin instead of indenting further right.
+      const childX = co ? x : (aw && x + c.W > aw ? 90 : x + 30);
+      // Cap connection anchor so the rightward stub of the connection line stays within aw.
+      const paX = aw ? Math.min(x + c.W, aw - 22) : x + c.W;
+      const r   = _place(k, childX, cy, co ? 'co' : 'sub', { x: paX, y }, aw);
       bot   = Math.max(bot, r.bot);
       right = Math.max(right, r.right);
       cy    = r.bot + (co ? 60 : 80);
@@ -369,23 +375,27 @@
   /**
    * Render words[] → SVGElement.
    * Requires a DOM environment (browser).
-   * @param {object[]} words  — from loadWords()
+   * @param {object[]} words          — from loadWords()
+   * @param {number}   [availableWidth] — content area width for clause reflow (px)
    * @returns {SVGElement}
    */
-  function renderSVG(words) {
+  function renderSVG(words, availableWidth) {
     _W = words;
     _S = '';
     const root = _W.find(w => w.r === 'verb');
     if (!root) throw 'verb ロールの語が見つかりません';
-    const R  = _place(root, 90, 52, 'root', null);
-    const vw = R.right + 60;
-    const vh = R.bot   + 40;
+    const aw  = (availableWidth > 0) ? availableWidth : undefined;
+    const R   = _place(root, 90, 52, 'root', null, aw);
+    const vw  = R.right + 60;
+    const vh  = R.bot   + 40;
 
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
     svg.dataset.w = String(vw);
     svg.dataset.h = String(vh);
+    svg.style.width  = '100%';
+    svg.style.height = 'auto';
     svg.innerHTML = _S;
     return svg;
   }
