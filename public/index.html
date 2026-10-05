@@ -6753,6 +6753,7 @@ details[open] .study-summary::before {
 <script src="../core/relation-renderer.js"></script>
 <script src="../core/rk-reading-renderer.js"></script>
 <script src="../core/rk-reading-renderer-v.js"></script>
+<script src="../core/rk-reading-renderer-p.js"></script>
 <script src="../core/rk-reading-adapter.js"></script>
 <script>
 let abbottSmithDict = null;
@@ -7129,6 +7130,8 @@ const ShareURLService = {
         'DISCOURSE':   'DC',
         'BUN':         'BUN',
         'RK_READING':  'RK',
+        'RK_READING_V': 'RKV',  /* Phase L.2 */
+        'RK_READING_P': 'RKP',  /* Phase M */
     },
 
     /* state → canonical path-format URL。
@@ -7166,7 +7169,7 @@ const Router = {
     _DISPLAY_CODE: {
         'WO': 'WORD_ORDER', 'ST': 'STRUCTURE',  'CR': 'CLAUSE_ROLE',
         'RL': 'RELATION',   'DC': 'DISCOURSE',  'BUN': 'BUN', 'JA1955': 'JA1955',
-        'RK': 'RK_READING',
+        'RK': 'RK_READING', 'RKV': 'RK_READING_V', 'RKP': 'RK_READING_P',  /* Phase L.2 / M */
     },
 
     /* /{BOOK}/{CH}[/{VERSE}[/{TOKEN_INDEX}]][/{DISPLAY}] を解析して state を返す。
@@ -11384,8 +11387,8 @@ async function init() {
            B列が passage-level の場合も同じ SR JSON を使用するため、_colB.kind も対象に含める。
            Phase E: rk-reading も同一 SR JSON を使用する。 */
         _sdChapterDataForRender = (
-            _colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical' || _colA.kind === 'relation' || _colA.kind === 'rk-reading' || _colA.kind === 'rk-reading-v' /* C-17 Phase 1 / E-4-D / Phase E / L.2 */
-            || _colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical' || _colB.kind === 'relation' || _colB.kind === 'rk-reading' || _colB.kind === 'rk-reading-v' /* B列 passage-level */
+            _colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical' || _colA.kind === 'relation' || _colA.kind === 'rk-reading' || _colA.kind === 'rk-reading-v' || _colA.kind === 'rk-reading-p' /* C-17 Phase 1 / E-4-D / Phase E / L.2 / M */
+            || _colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical' || _colB.kind === 'relation' || _colB.kind === 'rk-reading' || _colB.kind === 'rk-reading-v' || _colB.kind === 'rk-reading-p' /* B列 passage-level */
         ) ? await _loadSrChapter(book, ch) : null;
 
         /* P4-ICL: ICL インデックスを事前計算（structural-diagram ビューかつ iclEnabled 時のみ）。 */
@@ -11688,6 +11691,15 @@ app.innerHTML = '';
         return;
     }
 
+    /* Phase M: Progressive RK 読書モード */
+    if (_colA.kind === 'rk-reading-p') {
+        _renderRKReadingPView(app, _sdChapterDataForRender, elData);
+        parallel.innerHTML = '';
+        _cachedElByVerse   = elByVerse;
+        _proximityTokens   = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
+        return;
+    }
+
     /* Phase L.2: Reed-Kellogg 縦型読書モード */
     if (_colA.kind === 'rk-reading-v') {
         _renderRKReadingVView(app, _sdChapterDataForRender, elData);
@@ -11717,7 +11729,7 @@ app.innerHTML = '';
        verse-by-verse の B ブロックを生成せず、ループ後に #parallel-text-area へ
        章単位 Renderer を呼ぶ。A 列は app へ verse-by-verse で描画する（単一列扱い）。 */
     const _bIsPassageLevel = useVersePair && (
-        _colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical' || _colB.kind === 'relation' || _colB.kind === 'rk-reading' || _colB.kind === 'rk-reading-v' /* Phase E / L.2 */
+        _colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical' || _colB.kind === 'relation' || _colB.kind === 'rk-reading' || _colB.kind === 'rk-reading-v' || _colB.kind === 'rk-reading-p' /* Phase E / L.2 / M */
     );
 
     /* 描画時コンテキスト: AppState.location はここ（render 開始時）で1回だけ読む。
@@ -11849,6 +11861,8 @@ app.innerHTML = '';
             _renderRKReadingView(parallel, _sdChapterDataForRender, elData);
         } else if (_colB.kind === 'rk-reading-v') { /* Phase L.2 */
             _renderRKReadingVView(parallel, _sdChapterDataForRender, elData);
+        } else if (_colB.kind === 'rk-reading-p') { /* Phase M */
+            _renderRKReadingPView(parallel, _sdChapterDataForRender, elData);
         }
     }
 
@@ -14623,6 +14637,7 @@ function _toColumnMode(transId) {
     if (transId === 'DISCOURSE')   return { kind: 'discourse' };              /* DA-1 */
     if (transId === 'RK_READING')  return { kind: 'rk-reading' };            /* Phase E */
     if (transId === 'RK_READING_V') return { kind: 'rk-reading-v' };         /* Phase L.2 */
+    if (transId === 'RK_READING_P') return { kind: 'rk-reading-p' };         /* Phase M */
     /* Legacy aliases — kept for URL backward compatibility (old deep links) */
     if (transId === 'FLOW')         return { kind: 'wordOrder' };          /* legacy → WORD_ORDER */
     if (transId === 'HIERARCHICAL') return { kind: 'hierarchical' };       /* legacy → STRUCTURE */
@@ -14640,7 +14655,7 @@ function _toColumnMode(transId) {
  * @returns {boolean}
  */
 function _isGreekReadingMode(kind) {
-    return kind === 'wordOrder' || kind === 'discourse' || kind === 'structural-diagram' || kind === 'hierarchical' || kind === 'relation' || kind === 'rk-reading' || kind === 'rk-reading-v'; /* C-17 Phase 1 / E-4-D / Phase E / L.2 */
+    return kind === 'wordOrder' || kind === 'discourse' || kind === 'structural-diagram' || kind === 'hierarchical' || kind === 'relation' || kind === 'rk-reading' || kind === 'rk-reading-v' || kind === 'rk-reading-p'; /* C-17 Phase 1 / E-4-D / Phase E / L.2 / M */
 }
 
 /**
@@ -14651,7 +14666,7 @@ function _isGreekReadingMode(kind) {
  * @returns {boolean}
  */
 function _isAutoloadBlockedMode(kind) {
-    return kind === 'discourse' || kind === 'structural-diagram' || kind === 'hierarchical' || kind === 'relation' || kind === 'rk-reading' || kind === 'rk-reading-v'; /* Phase E / L.2 */
+    return kind === 'discourse' || kind === 'structural-diagram' || kind === 'hierarchical' || kind === 'relation' || kind === 'rk-reading' || kind === 'rk-reading-v' || kind === 'rk-reading-p'; /* Phase E / L.2 / M */
 }
 
 /**
@@ -17544,6 +17559,20 @@ function _renderRKReadingVView(app, srData, elData) {
     app.appendChild(wrap);
 }
 
+/* Phase M: Progressive RK 読書モード レンダー関数。
+   RKReadingRendererP.renderProgressiveView() に委譲。 */
+function _renderRKReadingPView(app, srData, elData) {
+    if (!window.RKReadingRendererP) {
+        const errEl = document.createElement('div');
+        errEl.className = 'sd-empty';
+        errEl.textContent = 'Progressive RK レンダラーが読み込まれていません。';
+        app.innerHTML = '';
+        app.appendChild(errEl);
+        return;
+    }
+    RKReadingRendererP.renderProgressiveView(app, srData, elData);
+}
+
 /**
  * Representation を HTML 文字列に変換する。Renderer Registry（VR-4-B §E で「今回は
  * 導入しない」と判断済み）は導入せず、現時点では kind による分岐で Renderer を
@@ -18831,8 +18860,8 @@ async function renderCurrentPage() {
            B列が passage-level の場合も同じ SR JSON を使用するため、_colB.kind も対象に含める。
            Phase E: rk-reading も同一 SR JSON を使用する。 */
         _sdChapterDataForRender = (
-            _colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical' || _colA.kind === 'relation' || _colA.kind === 'rk-reading' || _colA.kind === 'rk-reading-v' /* C-17 Phase 1 / E-4-D / Phase E / L.2 */
-            || _colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical' || _colB.kind === 'relation' || _colB.kind === 'rk-reading' || _colB.kind === 'rk-reading-v' /* B列 passage-level */
+            _colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical' || _colA.kind === 'relation' || _colA.kind === 'rk-reading' || _colA.kind === 'rk-reading-v' || _colA.kind === 'rk-reading-p' /* C-17 Phase 1 / E-4-D / Phase E / L.2 / M */
+            || _colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical' || _colB.kind === 'relation' || _colB.kind === 'rk-reading' || _colB.kind === 'rk-reading-v' || _colB.kind === 'rk-reading-p' /* B列 passage-level */
         ) ? await _loadSrChapter(book, ch) : null;
 
         /* P4-ICL: ICL インデックスを事前計算（structural-diagram ビューかつ iclEnabled 時のみ）。 */
