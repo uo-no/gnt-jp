@@ -461,10 +461,9 @@
     if (!root) throw 'verb ロールの語が見つかりません';
     const aw  = (availableWidth > 0) ? availableWidth : undefined;
     const R   = _place(root, 90, 52, 'root', null, aw);
-    // Phase O-1 Step 2: viewBox width = max(natural, availableWidth).
-    // Prevents short sentences from upscaling when svg.style.width='100%'.
-    // Phase O-3: reduced from +60 to +22 (connector stub needs ≤18px beyond R.right)
-    const vw  = Math.max(R.right + 22, availableWidth > 0 ? availableWidth : 0);
+    // Phase O-3: +22 gives connector stub ≤18px beyond R.right.
+    // vw = natural content width only; aw (reflow) is independent.
+    const vw  = R.right + 22;
     const vh  = R.bot   + 40;
 
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -472,7 +471,7 @@
     svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
     svg.dataset.w = String(vw);
     svg.dataset.h = String(vh);
-    svg.style.width  = '100%';
+    svg.style.width  = vw + 'px';
     svg.style.height = 'auto';
     svg.innerHTML = _S;
     return svg;
