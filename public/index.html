@@ -17550,6 +17550,22 @@ function _renderRKReadingVView(app, srData, elData) {
         '<span><i style="background:var(--link)"></i>接続(点線)</span>';
     wrap.appendChild(legendEl);
 
+    // Phase RKV-4: Insert wrap into DOM (hidden) so clientWidth measurement is accurate.
+    wrap.style.visibility = 'hidden';
+    app.innerHTML = '';
+    app.appendChild(wrap);
+
+    const _measSec = document.createElement('section');
+    _measSec.className = 'sd-sentence';
+    wrap.appendChild(_measSec);
+    const _rkAvailW = Math.max(
+        _measSec.clientWidth
+        - parseInt(getComputedStyle(_measSec).paddingLeft  || '0', 10)
+        - parseInt(getComputedStyle(_measSec).paddingRight || '0', 10),
+        200
+    );
+    wrap.removeChild(_measSec);
+
     for (const sentence of srData.sentences) {
         const secEl = document.createElement('section');
         secEl.className = 'sd-sentence';
@@ -17575,7 +17591,7 @@ function _renderRKReadingVView(app, srData, elData) {
 
         try {
             const words = RKReadingRenderer.loadWords(rows);
-            svg = RKReadingRendererV.renderSVGVertical(words);
+            svg = RKReadingRendererV.renderSVGVertical(words, _rkAvailW);
         } catch (_renderErr) {
             const errEl = document.createElement('div');
             errEl.className = 'sd-empty';
@@ -17605,8 +17621,7 @@ function _renderRKReadingVView(app, srData, elData) {
         wrap.appendChild(secEl);
     }
 
-    app.innerHTML = '';
-    app.appendChild(wrap);
+    wrap.style.visibility = '';
 }
 
 /* Phase M: Progressive RK 読書モード レンダー関数。

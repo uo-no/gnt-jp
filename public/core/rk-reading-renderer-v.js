@@ -302,7 +302,7 @@
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
-  function renderSVGVertical(words) {
+  function renderSVGVertical(words, availableWidth) {
     _W = words;
     _S = '';
 
@@ -310,7 +310,7 @@
     if (!root) throw 'verb ロールの語が見つかりません';
 
     const R  = vplace(root, LEFT_X, START_Y);
-    const vw = R.right + 80;
+    const vw = Math.max(R.right + 80, availableWidth > 0 ? availableWidth : 0);
     const vh = R.bot   + 60;
 
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -318,6 +318,7 @@
     svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
     svg.style.width  = '100%';
     svg.style.height = 'auto';
+    svg.dataset.w    = String(vw);
     svg.innerHTML = _S;
     return svg;
   }
