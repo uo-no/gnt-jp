@@ -17390,11 +17390,25 @@ function _renderRKReadingView(app, srData, elData) {
         '<span><i style="background:var(--link)"></i>接続(点線)</span>';
     wrap.appendChild(legendEl);
 
-    // Measure available content width for clause-level reflow.
-    // app is already in the DOM; subtract .sd-view padding (approx 32px).
+    // Phase O-1 Step 1: Insert wrap into DOM first (hidden) so getBoundingClientRect /
+    // clientWidth measurements reflect actual layout geometry.
+    wrap.style.visibility = 'hidden';
+    app.innerHTML = '';
+    app.appendChild(wrap);
+
+    // Measure actual SVG render width: clientWidth of sd-sentence minus its padding
+    // gives the content area = the width that svg.style.width='100%' fills.
+    // This replaces the previous (appW - 32) approximation and closes the 56px gap.
+    const _measSec = document.createElement('section');
+    _measSec.className = 'sd-sentence';
+    wrap.appendChild(_measSec);
     const _rkAvailW = Math.max(
-        (app.getBoundingClientRect().width || app.clientWidth || 0) - 32, 200
+        _measSec.clientWidth
+        - parseInt(getComputedStyle(_measSec).paddingLeft  || '0', 10)
+        - parseInt(getComputedStyle(_measSec).paddingRight || '0', 10),
+        200
     );
+    wrap.removeChild(_measSec);
 
     for (const sentence of srData.sentences) {
         const secEl = document.createElement('section');
@@ -17452,8 +17466,7 @@ function _renderRKReadingView(app, srData, elData) {
         wrap.appendChild(secEl);
     }
 
-    app.innerHTML = '';
-    app.appendChild(wrap);
+    wrap.style.visibility = '';
 }
 
 /* Phase L.2: Reed-Kellogg 縦型読書モード レンダー関数。

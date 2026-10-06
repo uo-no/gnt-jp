@@ -422,7 +422,9 @@
     if (!root) throw 'verb ロールの語が見つかりません';
     const aw  = (availableWidth > 0) ? availableWidth : undefined;
     const R   = _place(root, 90, 52, 'root', null, aw);
-    const vw  = R.right + 60;
+    // Phase O-1 Step 2: viewBox width = max(natural, availableWidth).
+    // Prevents short sentences from upscaling when svg.style.width='100%'.
+    const vw  = Math.max(R.right + 60, availableWidth > 0 ? availableWidth : 0);
     const vh  = R.bot   + 40;
 
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
