@@ -410,7 +410,7 @@
 
     if (kind === 'root') {
       const cm = kids(v.i).find(k => ['cmark', 'conj'].includes(k.r));
-      if (cm) { ln(x - 26, y, x - 26, y - 22, L, 1); wd(cm, x - 26, y - 27, 16, 'middle'); }
+      if (cm) { ln(x - 26, y, x - 26, y - 22, L, 1); wd(cm, x - 26, y - 27, 16, 'end'); }
     }
     if (kind === 'sub') {
       const cm = kids(v.i).find(k => ['cmark', 'conj', 'det'].includes(k.r));
@@ -463,7 +463,8 @@
     const R   = _place(root, 90, 52, 'root', null, aw);
     // Phase O-1 Step 2: viewBox width = max(natural, availableWidth).
     // Prevents short sentences from upscaling when svg.style.width='100%'.
-    const vw  = Math.max(R.right + 60, availableWidth > 0 ? availableWidth : 0);
+    // Phase O-3: reduced from +60 to +22 (connector stub needs ≤18px beyond R.right)
+    const vw  = Math.max(R.right + 22, availableWidth > 0 ? availableWidth : 0);
     const vh  = R.bot   + 40;
 
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
