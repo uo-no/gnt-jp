@@ -23,7 +23,6 @@
   const FONT_S     = 15;   // modifier / sub word
   const SPINE_H    = 36;   // vertical step between spine items
   const ITEM_GAP   = 22;   // connector line height between spine items
-  const COORD_GAP_Y = 90;  // Y gap: verb → coord bar  (must be > SPINE_H + ITEM_GAP)
   const COORD_GAP_X = 60;  // min X gap between adjacent cverb spines
   const SUB_GAP_Y  = 80;   // Y gap before subordinate
   const LEFT_X     = 80;   // root spine left edge
@@ -232,12 +231,9 @@
       bot   = Math.max(bot,   or.bottom, yObj + 8);
     }
 
-    // ── Coordinate clauses (horizontal bar below main content) ───────────
+    // ── Coordinate clauses (parallel baseline: all verbs at same Y) ─────
     if (cverbs.length > 0) {
-      const yCoord = Math.max(bot, yObj || yVerb) + COORD_GAP_Y;
-
-      // Vertical connector: root verb → coord bar
-      ln(x0 + 8, yVerb + 4, x0 + 8, yCoord, 'var(--ink)');
+      const yCoord = yVerb;   // RKV-6 Phase 2: coord bar = root verb Y
 
       // First tick on the coord bar at root position
       ln(x0 + 2, yCoord - 6, x0 + 14, yCoord + 6, 'var(--ink)');
