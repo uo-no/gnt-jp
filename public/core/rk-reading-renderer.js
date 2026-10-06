@@ -154,9 +154,9 @@
     const disp = w.gl || w.g;
     const t = tw(disp, z);
     const l = anc === 'end' ? x - t : anc === 'middle' ? x - t / 2 : x;
-    const fill = w.i ? `var(--${w.grp})` : 'var(--sub)';
+    const fill = 'var(--ink)';
     const dataAttrs = w.i
-      ? ` data-i="${w.i}" data-grk="${_esc(w.g)}" style="--c:var(--${w.grp})"`
+      ? ` data-i="${w.i}" data-grk="${_esc(w.g)}"`
       : '';
     E(`<g class="wn"${dataAttrs}>`);
     E(`<rect x="${l - 3}" y="${y - z}" width="${t + 6}" height="${z + 7}" rx="4"/>`);
@@ -260,7 +260,7 @@
       return;
     }
     if (b.k === 'm') {
-      const col = `var(--${b.chain[0].nd.grp})`;
+      const col = 'var(--ink)';
       ln(x + 18, y, x, y + 32, col, b.d);
       ln(x, y + 32, x + b.sw, y + 32, col, b.d);
       let cx = x + 7;
@@ -278,7 +278,7 @@
     }
     // PP block
     const sb  = x + b.lw - 4;
-    const col = `var(--${b.p.grp})`;
+    const col = 'var(--ink)';
     ln(sb + 18, y, sb, y + 40, col);
     let lx = sb - 2;
     [...b.lab].reverse().forEach(w => {
@@ -288,13 +288,13 @@
     b.mx = sb + 12;
     let my = y + 40;
     b.mem.forEach((m, i) => {
-      ln(sb, my, sb + Math.max(tw(m.m.gl || m.m.g, 17) + 14, m.hw), my, `var(--${m.m.grp})`);
+      ln(sb, my, sb + Math.max(tw(m.m.gl || m.m.g, 17) + 14, m.hw), my, 'var(--ink)');
       wd(m.m, sb + 7, my - 6, 17);
       dH(m.h, sb, my);
       const nx = b.mem[i + 1];
       if (nx) {
         const ny = my + m.hh + 46;
-        ln(sb, my, sb, ny, 'var(--link)', 1);
+        ln(sb, my, sb, ny, 'var(--ink)', 1);
         if (nx.cj) wd(nx.cj, sb - 5, (my + ny) / 2 + 6, 15, 'end');
         my = ny;
       }
@@ -406,7 +406,7 @@
   // aw:   available width for reflow (optional)
   function _place(v, x, y, kind, pa, aw) {
     const c = mk(v, aw ? aw - x : undefined);
-    const L = 'var(--link)';
+    const L = 'var(--ink)';
 
     if (kind === 'root') {
       const cm = kids(v.i).find(k => ['cmark', 'conj'].includes(k.r));
