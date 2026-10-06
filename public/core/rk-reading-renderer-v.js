@@ -108,7 +108,7 @@
 
     // ── Local modifiers: diagonal branch to lower-right ────────────────
     // Exclude spine roles handled explicitly by vplace (subj/obj/pred/etc.)
-    const SPINE = ['conj', 'cmark', 'subj', 'obj', 'pred', 'obj2', 'iobj', 'appos'];
+    const SPINE = ['conj', 'cmark', 'subj', 'obj', 'pred', 'obj2', 'iobj', 'appos', 'det'];
     const mods = localMods(w).filter(m => !SPINE.includes(m.r));
     let right  = x0 + ww;
     let bottom = y;
