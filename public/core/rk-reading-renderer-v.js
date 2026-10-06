@@ -114,10 +114,10 @@
     let bottom = y;
     let modY   = y;   // running Y — tracks floor of previous modifier
 
-    mods.forEach(m => {
+    mods.forEach((m, idx) => {
       const mDisp = m.gl || m.g;
       const mw    = tw(mDisp, FONT_S) + 12;
-      const mx    = x0 + ww + 24;   // X start of modifier baseline
+      const mx    = x0 + ww + 24 + idx * 16;   // X start of modifier baseline (staircase)
       const my    = modY + 18;       // 18px below previous floor
 
       // Diagonal connector from word baseline edge
