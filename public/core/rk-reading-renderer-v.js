@@ -132,24 +132,41 @@
       modY   = my;   // floor advances to this modifier's baseline
 
       if (m.r === 'prep') {
-        // Preposition: draw pobj and its det below the prep baseline
+        // Preposition: draw pobj INLINE (same Y as prep) — RKV-6 Phase 1
         const pobj = kids(m.i).find(k => k.r === 'pobj');
         if (pobj) {
-          const pw  = tw(pobj.gl || pobj.g, FONT_S) + 12;
-          const py  = my + 28;
-          // Vertical line from prep to pobj
-          ln(mx + mw / 2, my + 2, mx + mw / 2, py, `var(--${pobj.grp})`);
-          ln(mx, py, mx + pw, py, `var(--${pobj.grp})`);
-          wd(pobj, mx + 3, py - 6, FONT_S);
-          right  = Math.max(right,  mx + pw);
-          bottom = Math.max(bottom, py + 8);
-          modY   = py;   // floor advances past pobj
+          const pw    = tw(pobj.gl || pobj.g, FONT_S) + 12;
+          const pobjX = mx + mw;   // pobj left edge = right of prep baseline
 
-          // Det of pobj
+          // Extend baseline from prep right edge to cover pobj (inline, same Y)
+          ln(mx + mw, my, pobjX + pw, my, `var(--${pobj.grp})`);
+          wd(pobj, pobjX + 2, my - 6, FONT_S);
+          right = Math.max(right, pobjX + pw);
+
+          // Det of pobj inline after pobj
+          let pobjEndX = pobjX + pw;
           const det = kids(pobj.i).find(k => k.r === 'det');
           if (det) {
-            wd(det, mx + pw + 4, py - 5, FONT_S - 2);
-            right = Math.max(right, mx + pw + 4 + tw(det.gl || det.g, FONT_S - 2) + 8);
+            wd(det, pobjEndX + 4, my - 5, FONT_S - 2);
+            pobjEndX += 4 + tw(det.gl || det.g, FONT_S - 2) + 8;
+            right = Math.max(right, pobjEndX);
+          }
+
+          // modY stays at my (inline pobj does not advance floor downward)
+
+          // B. Pobj CLZ children (relcl etc.): draw below inline pobj with dashed connector
+          const pobjCLZ = kids(pobj.i).filter(k => CLZ(k));
+          if (pobjCLZ.length > 0) {
+            let childY = bottom + SUB_GAP_Y;
+            const connX = pobjX + Math.floor(pw / 2);
+            for (const child of pobjCLZ) {
+              ln(connX, my + 4, connX, childY - 4, 'var(--link)', true);
+              const cr = vplace(child, pobjX, childY);
+              bottom = Math.max(bottom, cr.bot);
+              right  = Math.max(right,  cr.right);
+              childY = cr.bot + SUB_GAP_Y;
+            }
+            modY = Math.max(modY, bottom);
           }
         }
       } else {
