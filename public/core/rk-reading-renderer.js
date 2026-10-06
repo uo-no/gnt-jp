@@ -166,6 +166,25 @@
 
   const meas = h => ({ w: sum(h.map(b => b.w)), h: mx(h.map(b => b.H)) });
 
+  // Phase O-2: Layout hanging blocks in rows when they would exceed wrapAt.
+  // Returns { maxW, totalH }. Falls back to meas() semantics when wrapAt is absent.
+  function measLayout(h, wrapAt) {
+    if (!wrapAt || !h.length)
+      return { maxW: sum(h.map(b => b.w)), totalH: mx(h.map(b => b.H)) };
+    const rows = [[]];
+    let rowW = 0;
+    h.forEach(b => {
+      if (rows[rows.length - 1].length > 0 && rowW + b.w > wrapAt)
+        { rows.push([]); rowW = 0; }
+      rows[rows.length - 1].push(b);
+      rowW += b.w;
+    });
+    const maxW   = mx(rows.map(row => sum(row.map(b => b.w))));
+    const totalH = sum(rows.map((row, i) =>
+      mx(row.map(b => b.H)) + (i < rows.length - 1 ? 8 : 0)));
+    return { maxW, totalH };
+  }
+
   function hang(n) {
     const bs = [];
     kids(n.i).forEach(k => {
@@ -211,9 +230,28 @@
     return { k: 'p', p, lab, lw, mem, w: lw + sw + 10, H: 40 + sum(mem.map(x => x.hh)) + 46 * (mem.length - 1) };
   }
 
-  function dH(h, x, y) {
-    let c = x;
-    h.forEach(b => { dB(b, c, y); c += b.w; });
+  // Phase O-2: wrapAt enables row-wrapping of hanging blocks.
+  // Without wrapAt, behavior is identical to the pre-O-2 version.
+  function dH(h, x, y, wrapAt) {
+    if (!wrapAt) {
+      let c = x;
+      h.forEach(b => { dB(b, c, y); c += b.w; });
+      return;
+    }
+    const rows = [[]];
+    let rowW = 0;
+    h.forEach(b => {
+      if (rows[rows.length - 1].length > 0 && rowW + b.w > wrapAt)
+        { rows.push([]); rowW = 0; }
+      rows[rows.length - 1].push(b);
+      rowW += b.w;
+    });
+    let cy = y;
+    rows.forEach(row => {
+      let cx = x;
+      row.forEach(b => { dB(b, cx, cy); cx += b.w; });
+      cy += mx(row.map(b => b.H)) + 8;
+    });
   }
 
   function dB(b, x, y) {
@@ -282,8 +320,8 @@
     its.forEach(it => {
       it.chain = it.n.i
         ? chainOf(it.n.i).map(id => {
-            const nd = _W[id - 1], h = hang(nd), m = meas(h);
-            return { id, nd, h, cw: Math.max(tw(nd.gl || nd.g, 21) + 16, m.w + 10), hh: m.h };
+            const nd = _W[id - 1], h = hang(nd), lOut = measLayout(h, aw);
+            return { id, nd, h, cw: Math.max(tw(nd.gl || nd.g, 21) + 16, lOut.maxW + 10), hh: lOut.totalH };
           })
         : [{ id: 0, nd: it.n, h: [], cw: tw(it.n.gl || it.n.g, 21) + 16, hh: 0 }];
       it.hh = mx(it.chain.map(u => u.hh));
@@ -320,8 +358,9 @@
     };
   }
 
-  // Draw a single baseline item at (cx, ry)
-  function _drawItem(it, cx, ry) {
+  // Draw a single baseline item at (cx, ry).
+  // aw: total available width (SVG coordinates); used to compute dH wrapAt.
+  function _drawItem(it, cx, ry, aw) {
     let cx0 = cx + 8;
     it.chain.forEach((u, k) => {
       if (k > 0) {
@@ -330,7 +369,7 @@
         cx0 += 28;
       }
       wd(u.nd, cx0, ry - 9, 21);
-      if (u.id) dH(u.h, cx0 - 8, ry);
+      if (u.id) dH(u.h, cx0 - 8, ry, aw ? aw - (cx0 - 8) : undefined);
       cx0 += u.cw;
     });
     const sx = cx + it.tw + 15;
@@ -340,13 +379,13 @@
     if (it.s === '=')  E(`<text x="${sx}" y="${ry - 8}" font-size="20" text-anchor="middle" fill="var(--ink)">=</text>`);
   }
 
-  function dC(c, x, y) {
+  function dC(c, x, y, aw) {
     c.rows.forEach((rowItems, ri) => {
       const ry = y + c.rowYs[ri];
       const rW = sum(rowItems.map(i => i.w));
       ln(x, ry, x + rW, ry, 'var(--ink)');
       let cx = x;
-      rowItems.forEach(it => { _drawItem(it, cx, ry); cx += it.w; });
+      rowItems.forEach(it => { _drawItem(it, cx, ry, aw); cx += it.w; });
     });
   }
 
@@ -389,7 +428,7 @@
       cjs.forEach((cj, idx) => wd(cj, x - 24 - idx * 44, (pa.y + y) / 2 + 6, 16, 'end'));
     }
 
-    dC(c, x, y);
+    dC(c, x, y, aw);
     let bot = y + c.hh, right = x + c.W, cy = bot + 90;
     _W.filter(k => CLZ(k) && own(k) === v.i).forEach(k => {
       const co = k.r === 'cverb' || k.r === 'coord';
