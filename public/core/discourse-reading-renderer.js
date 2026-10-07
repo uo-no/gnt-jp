@@ -103,12 +103,12 @@
         const chapter = first.chapter != null ? Number(first.chapter) : null;
 
         const sentenceEl = document.createElement('section');
-        sentenceEl.className = 'da-sentence';
+        sentenceEl.className = 'da-sentence verse-block';
 
         /* token clickのlookup先。runtime positionは各bible_data tokenに保持され、
            tokenIdは既存WO/StudyPanel lookup経路で使用される。 */
-        sentenceEl._flowWords = flowTokens;
-        sentenceEl._flowChips = makeChips(flowTokens, book, chapter);
+        sentenceEl._flowWords = bdTokens;
+        sentenceEl._flowChips = makeChips(bdTokens, book, chapter);
 
         renderConnectorRow(sentenceEl, leadingConjs);
 
