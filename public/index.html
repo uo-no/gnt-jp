@@ -6732,7 +6732,7 @@ details[open] .study-summary::before {
             <div id="reading-notes-wrap" style="display:none;flex:1;min-height:0;overflow-y:auto;flex-direction:column;">
                 <div id="reading-notes-area"></div>
                 <!-- ハイライト語スロット（追記。reading-notes-area とは別要素） -->
-                <div class="hl-word-slot" id="rn-hl-word-slot" style="display:none;padding: var(--space-sm) var(--space-lg);"></div>
+                <div class="hl-word-slot" id="rn-hl-word-slot" data-study-section="highlight" style="display:none;padding: var(--space-sm) var(--space-lg);"></div>
             </div>
 
             <!-- 分析コンテンツエリア（後方互換のため保持・非表示） -->
@@ -8725,35 +8725,35 @@ async function _renderReadingNotes(p) {
        ═══════════════════════════════════════════════════════ */
     area.innerHTML = `
         <!-- LEVEL 1: まず聖書を読む（常時表示） -->
-        <div class="rn-word-head">
+        <div class="rn-word-head" data-study-section="identity">
             <span class="rn-greek greek-headword">${word}</span>
             ${displayLabel ? `<span class="rn-ja">${displayLabel}</span>` : ''}
         </div>
 
-        ${proseHTML}
-        ${phraseReadingHTML}
-        ${observationHTML}
-        ${referentEvidenceHTML}
-        ${subjrefEvidenceHTML}
+        ${proseHTML ? `<div data-study-section="reading">${proseHTML}</div>` : ''}
+        ${phraseReadingHTML ? `<div data-study-section="phrase">${phraseReadingHTML}</div>` : ''}
+        ${observationHTML ? `<div data-study-section="observation">${observationHTML}</div>` : ''}
+        ${referentEvidenceHTML ? `<div data-study-section="referent">${referentEvidenceHTML}</div>` : ''}
+        ${subjrefEvidenceHTML ? `<div data-study-section="subjref">${subjrefEvidenceHTML}</div>` : ''}
 
-        ${expLabelHTML}
+        ${expLabelHTML ? `<div data-study-section="explabel">${expLabelHTML}</div>` : ''}
 
-        ${neighborhoodViewHTML}
+        <div data-study-section="structure">${neighborhoodViewHTML}</div>
 
         <!-- LEVEL 2: 単語を詳しく調べる（折りたたみ） -->
-        <details class="rn-level-section" id="rn-level2-details">
+        <details class="rn-level-section" id="rn-level2-details" data-study-section="morphology">
             <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>単語を詳しく調べる</summary>
             <div class="rn-level-body">
                 ${morphGridHTML}
-                ${morphCandidatesHTML}
-                ${usageTrendsHTML}
-                ${etymologyHTML}
-                ${abbottFullHTML}
+                ${morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML}</div>` : ''}
+                ${usageTrendsHTML ? `<div data-study-section="usage">${usageTrendsHTML}</div>` : ''}
+                ${etymologyHTML ? `<div data-study-section="etymology">${etymologyHTML}</div>` : ''}
+                ${abbottFullHTML ? `<div data-study-section="abbott">${abbottFullHTML}</div>` : ''}
             </div>
         </details>
 
         <!-- LEVEL 3: 意味が近い語と比べる（折りたたみ） -->
-        <details class="rn-level-section">
+        <details class="rn-level-section" data-study-section="semantic">
             <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>意味が近い語と比べる</summary>
             <div class="rn-level-body">
                 <div id="rn-semantic-layers"></div>
@@ -8761,7 +8761,7 @@ async function _renderReadingNotes(p) {
         </details>
 
         <!-- さらに調べる：検索ツールへのナビゲーション（折りたたみ、Layer 3） -->
-        <details class="rn-level-section">
+        <details class="rn-level-section" data-study-section="concordance">
             <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>さらに調べる</summary>
             <div class="rn-level-body">
                 <div class="rn-research-links">
@@ -17989,6 +17989,9 @@ function _wlvChipClick(chipEl, tokenId) {
             const _jaWordDisplayForMobile    = AppState.inspect.data?.jaWordDisplay || null;
             const _jaWordForMobile           = AppState.inspect.data?.jaWord || null;
             const _strongForMobile           = AppState.inspect.data?.strong || null;
+            /* StudyPanel parity: lemmaId は Abbott-Smith / 語源 / 使用傾向 / Display Label の
+               生成に必要。toBrowsing() で失われるため、他フィールドと同様に退避・復元する。 */
+            const _lemmaIdForMobile          = AppState.inspect.data?.lemmaId ?? null;
             const _referentEvidenceForMobile = AppState.inspect.data?.referentEvidence || null;
             const _subjrefEvidenceForMobile  = AppState.inspect.data?.subjrefEvidence || null;
             /* ch: URL chapter 同期（連続章でchipをタップしても selectedVerse.ch が正しく更新されるよう chip.ch を渡す。desktop pathと同じ整合を取る）。 */
@@ -17997,6 +18000,7 @@ function _wlvChipClick(chipEl, tokenId) {
                 jaWordDisplay:    _jaWordDisplayForMobile,
                 jaWord:           _jaWordForMobile,
                 strong:           _strongForMobile,
+                lemmaId:          _lemmaIdForMobile,
                 referentEvidence: _referentEvidenceForMobile,
                 subjrefEvidence:  _subjrefEvidenceForMobile,
             };
@@ -18133,15 +18137,69 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
     const _mvvMorphQs  = new URLSearchParams(_mvvQs); _mvvMorphQs.set('tool', 'morph');
     const _mvvSyntaxQs = new URLSearchParams(_mvvQs); _mvvSyntaxQs.set('tool', 'syntax');
 
+    /* StudyPanel parity: Concordance URL（Desktop _renderReadingNotes と同じパラメータ規則）。 */
+    const _mvvConcordQs = new URLSearchParams();
+    const _mvvGreek  = d.greek || greek || '';
+    const _mvvLemma  = d.lemma || lemma || '';
+    const _mvvRef    = d.ref   || ref   || '';
+    if (_mvvGreek) _mvvConcordQs.set('word',  _mvvGreek);
+    if (_mvvLemma) _mvvConcordQs.set('lemma', _mvvLemma);
+    if (_mvvRef)   _mvvConcordQs.set('ref',   _mvvRef);
+    if (_mvvRm.pos)    _mvvConcordQs.set('pos',    _mvvRm.pos);
+    if (_mvvRm.tense)  _mvvConcordQs.set('tense',  _mvvRm.tense);
+    if (_mvvRm.mood)   _mvvConcordQs.set('mood',   _mvvRm.mood);
+    if (_mvvRm.voice)  _mvvConcordQs.set('voice',  _mvvRm.voice);
+    if (_mvvRm.pos !== 'V') {
+        if (_mvvRm.gender) _mvvConcordQs.set('gender', _mvvRm.gender);
+        if (_mvvRm.number) _mvvConcordQs.set('number', _mvvRm.number);
+        if (_mvvRm.case)   _mvvConcordQs.set('case',   _mvvRm.case);
+    }
+    _mvvConcordQs.set('layers', 'lemma,morph');
+    _mvvConcordQs.set('tool',   'search');
+    const _mvvConcordURL = `search-tool.html?${_mvvConcordQs.toString()}`;
+
+    /* StudyPanel parity: Display Label（ReadingLexicon.getDisplayLabel から同期取得）。
+       lemmaId は toBrowsing() 退避・復元により保持されている。 */
+    const _mvvResolvedId = (d.lemmaId != null) ? d.lemmaId : _resolveLemmaId(d.strong || '');
+    const _mvvDisplayLabel = (window.App?.readingLexicon?.getDisplayLabel(_mvvResolvedId)) || _mvvJword || '';
+
+    /* StudyPanel parity: Morphological candidates（Desktop openStudyPanel と同じ経路）。 */
+    const _mvvCandidates = getMorphCandidates(d.rawMorph || rawMorph || '', _mvvGreek).alternatives;
+
+    /* StudyPanel parity: Experienced Reader labels（Desktop _renderReadingNotes と同じロジック）。
+       AppState.inspect.data からは rawMorph が失われているため、引数の rawMorph を使う。 */
+    let _mvvExpLabelHTML = '';
+    if (window.App.onboarding?.getState()?.experiencedReader && _mvvRm.pos === 'V') {
+        const _labels = [];
+        if (typeof classifyMiddleVoice === 'function') {
+            const mvc = classifyMiddleVoice(_mvvLemma, _mvvRm.voice);
+            if (mvc) _labels.push('中動態として読むこともできます');
+        }
+        if (typeof detectDivinePassive === 'function' && typeof decodeMorph === 'function') {
+            const dp = detectDivinePassive({ word: _mvvGreek, lemma: _mvvLemma, morph: d.rawMorph || rawMorph }, [], decodeMorph);
+            if (dp && dp.isDivinePassive) _labels.push('行為者が暗示されています');
+        }
+        if (_labels.length > 0) {
+            _mvvExpLabelHTML = `<div class="rn-exp-labels" data-study-section="explabel">${
+                _labels.map(l => `<span class="rn-exp-label">${l}</span>`).join('')
+            }</div>`;
+        }
+    }
+
     area.innerHTML = _renderMobileWordDetail({
-        greek:    d.greek    || greek    || '',
-        lemma:    d.lemma    || lemma    || '',
-        rawMorph: d.rawMorph || rawMorph || '',
+        greek:        _mvvGreek,
+        lemma:        _mvvLemma,
+        rawMorph:     d.rawMorph || rawMorph || '',
         /* 表示用日本語（Presentation Policy 適用済みを優先） */
-        gloss:    d.jaWordDisplay || d.jaWord || '',
-        strong:   d.strong   || '',
-        morphURL:  `morph-search.html?${_mvvMorphQs.toString()}`,
-        syntaxURL: `syntax-search.html?${_mvvSyntaxQs.toString()}`,
+        gloss:        _mvvJword,
+        displayLabel: _mvvDisplayLabel,
+        strong:       d.strong   || '',
+        resolvedId:   _mvvResolvedId,
+        morphURL:     `morph-search.html?${_mvvMorphQs.toString()}`,
+        syntaxURL:    `syntax-search.html?${_mvvSyntaxQs.toString()}`,
+        concordURL:   _mvvConcordURL,
+        morphCandidates: _mvvCandidates,
+        expLabelHTML: _mvvExpLabelHTML,
     });
     /* Highlight V1: 語ハイライトスロットに色チップを注入する */
     _hlFillWordSlot(document.getElementById('mvv-hl-word-slot'));
@@ -18159,13 +18217,14 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
        求める（find()+indexOf() の二重探索はしない）。 */
     const _scopeIdx = _scopeWords ? _scopeWords.findIndex(w => w.tokenId === _wlvActiveTokenId) : -1;
 
-    /* Phase F-3: 「読みを深める」スロットへ語レベル Reading Notes を非同期注入（fire-and-forget）。
-       文章生成は ReadingFormatter のみ（_buildWordResonanceText）。該当なしはセクションごと非表示。 */
+    /* StudyPanel parity: Reading prose / Phrase / Observation / Evidence を rich HTML で注入。 */
     _fillMvvReadingSlot(_scopeWords, _scopeIdx);
-    /* Phase F-4: 「意味を見る」スロットへ semantic ドメインラベルを非同期注入（情報提供のみ）。 */
-    _fillMvvSemanticSlot(_scopeWords, _scopeIdx);
+    /* StudyPanel parity: Semantic cluster chips を Desktop と同じ _injectStudyPanelContent で注入。 */
+    _fillMvvSemanticSlot(_mvvResolvedId, _mvvGreek, d.strong || '');
     /* SF-22: Structure Flow を mobile 語詳細へ非同期注入（fire-and-forget・世代管理）。 */
-    _fillMvvFlowSlot(AppState.inspect.data?.ref);
+    _fillMvvFlowSlot(AppState.inspect.data?.ref || ref);
+    /* StudyPanel parity: Usage trends / Etymology / Abbott-Smith を非同期注入。 */
+    _fillMvvLevel2Slot(_mvvResolvedId);
 }
 
 /* Phase F-3: 語A解析中に語Bへ移動した場合、古い非同期結果の誤注入を防ぐ世代カウンタ。
@@ -18227,41 +18286,54 @@ async function _fillMvvReadingSlot(words, idx) {
     if (!slot) return;
     const myGen = ++_mvvReadingGen;
     /* 開始時はいったん空＋非表示（内容が確定するまで見せない） */
-    slot.textContent = '';
+    slot.innerHTML = '';
     slot.style.display = 'none';
 
-    let sentence = null;
+    /* Desktop _renderReadingNotes と同じ生成経路（ReadingFormatter 統一版）。
+       prose/phrase/observation は HTML を生成し、そのまま innerHTML へ注入する
+       （既存の _escH + ReadingFormatter の Guard Rule で安全性を保証）。 */
+    let wordProseText = null;
+    let phraseReadingHTML = '';
+    let observationHTML = '';
     try {
-        sentence = await _buildWordResonanceText(words, idx);
+        wordProseText = await _buildWordResonanceText(words, idx);
     } catch (_) {
-        sentence = null;
+        wordProseText = null;
     }
-
-    let phraseText = '';
     try {
-        const phraseHTML = await _buildPhraseReadingHTML(words, idx);
-        phraseText = phraseHTML ? _stripHTMLToText(phraseHTML) : '';
-    } catch (_) {
-        phraseText = '';
-    }
-
-    let observationText = '';
+        phraseReadingHTML = (await _buildPhraseReadingHTML(words, idx)) || '';
+    } catch (_) { phraseReadingHTML = ''; }
     try {
-        const observationHTML = await _buildObservationHTML(words, idx, [sentence, phraseText]);
-        observationText = observationHTML ? _stripHTMLToText(_naturalizeObservationText(observationHTML)) : '';
-    } catch (_) {
-        observationText = '';
-    }
+        observationHTML = _naturalizeObservationText(
+            (await _buildObservationHTML(words, idx, [wordProseText, phraseReadingHTML])) || ''
+        );
+    } catch (_) { observationHTML = ''; }
     if (myGen !== _mvvReadingGen) return;   /* 既に別の語へ移動済み → 破棄 */
 
-    const _reText = _resolveReferentEvidenceText(AppState.inspect.data?.referentEvidence);
-    const referentLine = _reText ? `この語は「${_reText}」を指しています。` : '';
-    const _subjText = _resolveSubjrefEvidenceText(AppState.inspect.data?.subjrefEvidence);
-    const subjrefLine = _subjText ? `この語の主語は「${_subjText}」です。` : '';
-    const combined = [sentence, phraseText, observationText, referentLine, subjrefLine].filter(Boolean).join('\n\n--------------------\n\n');
+    /* Desktop と同じ HTML 構造で組み立てる（data-study-section も同じ値）。 */
+    const proseHTML = wordProseText
+        ? `<div class="rn-prose reading-block" data-study-section="reading"><p class="rn-prose-text reading-prose">${wordProseText}</p></div>`
+        : '';
 
-    if (combined) {
-        slot.textContent = combined;         /* textContent のみ（innerHTML 禁止） */
+    const _reText = _resolveReferentEvidenceText(AppState.inspect.data?.referentEvidence);
+    const referentEvidenceHTML = _reText
+        ? `<div class="rn-referent-evidence" data-study-section="referent" style="margin-top:var(--space-md);padding-top:var(--space-sm);border-top:1px solid var(--border-soft);font-size:var(--text-caption);color:var(--text-sub);">この語は「${_escH(_reText)}」を指しています。</div>`
+        : '';
+    const _subjText = _resolveSubjrefEvidenceText(AppState.inspect.data?.subjrefEvidence);
+    const subjrefEvidenceHTML = _subjText
+        ? `<div class="rn-subjref-evidence" data-study-section="subjref" style="margin-top:var(--space-md);padding-top:var(--space-sm);border-top:1px solid var(--border-soft);font-size:var(--text-caption);color:var(--text-sub);">この語の主語は「${_escH(_subjText)}」です。</div>`
+        : '';
+
+    const richHTML = [
+        proseHTML,
+        phraseReadingHTML ? `<div data-study-section="phrase">${phraseReadingHTML}</div>` : '',
+        observationHTML   ? `<div data-study-section="observation">${observationHTML}</div>` : '',
+        referentEvidenceHTML,
+        subjrefEvidenceHTML,
+    ].filter(Boolean).join('');
+
+    if (richHTML) {
+        slot.innerHTML = richHTML;
         slot.style.display = '';
     } else {
         slot.style.display = 'none';   /* 静寂：スロット自身を非表示 */
@@ -18302,42 +18374,106 @@ let _mvvSemanticGen = 0;
  *   - AppState / storage / URL は触れない。世代カウンタで stale 結果を破棄する。
  *   - Reading Notes（読みを深める）とは別スロット・別役割（こちらは語義の分類ラベル）。
  */
-async function _fillMvvSemanticSlot(words, idx) {
+/* _fillMvvSemanticSlot — Desktop の _injectStudyPanelContent を再利用して
+ * cluster chips を Mobile semantic slot へ注入する（StudyPanel parity）。
+ * resolvedId / greek / strong は _mobileInspectorDetail が計算した値を引数で受け取る
+ * （AppState.inspect.data?.lemmaId が toBrowsing() 退避・復元により保持されていることが前提）。
+ * 世代管理は _mvvSemanticGen で stale 注入を防ぐ。
+ */
+async function _fillMvvSemanticSlot(resolvedId, greek, strong) {
     const slot = document.getElementById('mvv-semantic-slot');
     if (!slot) return;
     const section = slot.closest('.mvv-l3-section');
     const myGen = ++_mvvSemanticGen;
-    slot.textContent = '';
+    slot.innerHTML = '';
     if (section) section.style.display = 'none';
 
-    let text = '';
     try {
-        await _ensureSemanticData();
-        /* 現在語の同定は AppState.inspect.data（_wlvChipClick が設定・読み取りのみ）。 */
-        const d = AppState.inspect.data || {};
-        const strong  = d.strong || '';
-        const lemmaId = (d.lemmaId != null) ? d.lemmaId : null;
-        const resolvedId = lemmaId || _resolveLemmaId(strong);
-        const lexEntry   = resolvedId ? _lexiconData[resolvedId] : null;
-        const domainCodes = (lexEntry && lexEntry.domains) ? lexEntry.domains : [];
-
-        const labels = [];
-        for (const code of domainCodes) {
-            const label = _getDomainLabel(code);                 /* 生コード→ラベル（内部で正規化） */
-            if (!label || /^分類\s/.test(label)) continue;        /* 未解決の技術コードは出さない */
-            if (labels.indexOf(label) === -1) labels.push(label); /* 重複ラベルは1つに */
-        }
-        text = labels.join('、');
+        if (myGen !== _mvvSemanticGen) return;
+        /* Desktop と同じ _injectStudyPanelContent を呼ぶ（内部で _ensureSemanticData を呼ぶ）。 */
+        await _injectStudyPanelContent(slot, strong, resolvedId, greek);
     } catch (_) {
-        text = '';
+        /* 静寂：失敗時はセクションを非表示のまま */
     }
-    if (myGen !== _mvvSemanticGen) return;   /* 既に別の語へ移動済み → 破棄 */
+    if (myGen !== _mvvSemanticGen) return;
 
-    if (text) {
-        slot.textContent = text;             /* textContent のみ（innerHTML 禁止） */
+    const slotCheck = document.getElementById('mvv-semantic-slot');
+    if (!slotCheck) return;
+    if (slotCheck.innerHTML.trim()) {
         if (section) section.style.display = '';
     } else {
-        if (section) section.style.display = 'none';   /* 静寂：セクションごと非表示 */
+        if (section) section.style.display = 'none';   /* 静寂 */
+    }
+}
+
+/* StudyPanel parity: _fillMvvLevel2Slot — 「単語を詳しく調べる」内の非同期コンテンツ
+ * （Usage trends / Etymology / Abbott-Smith）を _lexiconData 経由で注入する。
+ * Desktop _renderReadingNotes の同名セクションと同じデータ・HTML 構造を使う。
+ * 世代管理は _mvvLevel2Gen で stale 注入を防ぐ。 */
+let _mvvLevel2Gen = 0;
+async function _fillMvvLevel2Slot(resolvedId) {
+    const slot = document.getElementById('mvv-level2-async-slot');
+    if (!slot) return;
+    const myGen = ++_mvvLevel2Gen;
+    slot.innerHTML = '';
+
+    try {
+        await _ensureSemanticData();
+        if (myGen !== _mvvLevel2Gen) return;
+
+        const lexEntry   = resolvedId ? _lexiconData?.[resolvedId] : null;
+        const abbottSmithText = lexEntry?.abbottSmith || '';
+        const contexts   = lexEntry?.contexts || {};
+        const synopticRefs = contexts.synoptic_refs || [];
+        const paulineRefs  = contexts.pauline_refs  || [];
+
+        /* Usage trends（Desktop _renderReadingNotes と同じ BOOK_FULL 辞書・HTML） */
+        const BOOK_FULL_L2 = {
+            'マタ':'マタイ', 'マコ':'マルコ', 'ルカ':'ルカ', 'ヨハ':'ヨハネ',
+            'ロマ':'ローマ', 'コリ':'コリント', 'コリ一':'コリント第一', 'コリ二':'コリント第二',
+            'ガラ':'ガラテヤ', 'エペ':'エペソ', 'ピリ':'ピリピ', 'コロ':'コロサイ',
+            'テサ':'テサロニケ', 'テサ一':'テサロニケ第一', 'テサ二':'テサロニケ第二',
+            'テモ':'テモテ', 'テモ一':'テモテ第一', 'テモ二':'テモテ第二',
+            'テト':'テトス', 'ピレ':'ピレモン',
+        };
+        let usageTrendsHTML = '';
+        if (synopticRefs.length > 0 || paulineRefs.length > 0) {
+            const synHTML = synopticRefs.length > 0 ? `
+                <div class="rn-usage-group">
+                    <div class="rn-usage-group-label">福音書で使われることが多い</div>
+                    <ul class="rn-usage-list">${synopticRefs.map(r => `<li>${BOOK_FULL_L2[r] || r}</li>`).join('')}</ul>
+                </div>` : '';
+            const pauHTML = paulineRefs.length > 0 ? `
+                <div class="rn-usage-group">
+                    <div class="rn-usage-group-label">パウロ書簡でも見られる</div>
+                    <ul class="rn-usage-list">${paulineRefs.map(r => `<li>${BOOK_FULL_L2[r] || r}</li>`).join('')}</ul>
+                </div>` : '';
+            usageTrendsHTML = `<div class="rn-usage-trends" data-study-section="usage">
+                <span class="rn-usage-label ui-label">使用傾向</span>
+                ${synHTML}${pauHTML}
+            </div>`;
+        }
+
+        /* Etymology（Desktop _renderReadingNotes と同じ経路） */
+        const compositionParts = getWordComposition(resolvedId);
+        const etymologyHTML = compositionParts
+            ? `<div class="rn-etymology" data-study-section="etymology">語源&emsp;<span class="rn-etymology-parts">${_buildEtymPartsHTML(compositionParts)}</span></div>`
+            : '';
+
+        /* Abbott-Smith full text */
+        const abbottFullHTML = abbottSmithText
+            ? `<div class="rn-dict-full-section" data-study-section="abbott">
+                   <span class="rn-dict-label ui-label">辞書全文</span>
+                   <div class="rn-dict-full-text">${_escH(abbottSmithText).replace(/\n/g,'<br>')}</div>
+               </div>`
+            : '';
+
+        if (myGen !== _mvvLevel2Gen) return;
+        const slotCheck = document.getElementById('mvv-level2-async-slot');
+        if (!slotCheck) return;
+        slotCheck.innerHTML = usageTrendsHTML + etymologyHTML + abbottFullHTML;
+    } catch (_) {
+        /* 静寂：失敗時はスロット空のまま */
     }
 }
 
@@ -18361,39 +18497,83 @@ async function _fillMvvSemanticSlot(words, idx) {
  */
 function _renderMobileWordDetail(d) {
     const morphTags = d.rawMorph ? buildMorphTagsHTML(d.rawMorph) : '';
-    const hasStudyDetails = !!(d.lemma || d.strong || morphTags);
+
+    /* Morphological candidates — Desktop _renderReadingNotes と同じ生成ロジック */
+    const JPN_FULL_MC = {
+        tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'大完了' },
+        voice:  { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' },
+        mood:   { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' },
+        gender: { masculine:'男性', feminine:'女性', neuter:'中性' },
+        number: { singular:'単数', plural:'複数' },
+        case:   { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' },
+    };
+    const PERSON_JP_MC = { '1':'1人称', '2':'2人称', '3':'3人称' };
+    let morphCandidatesHTML = '';
+    if (Array.isArray(d.morphCandidates) && d.morphCandidates.length > 0) {
+        const candItems = d.morphCandidates.map(c => {
+            const parts = [];
+            if (c.tense)  parts.push(JPN_FULL_MC.tense[c.tense]   || c.tense);
+            if (c.voice)  parts.push(JPN_FULL_MC.voice[c.voice]   || c.voice);
+            if (c.mood)   parts.push(JPN_FULL_MC.mood[c.mood]     || c.mood);
+            if (c.case)   parts.push(JPN_FULL_MC.case[c.case]     || c.case);
+            if (c.number) parts.push(JPN_FULL_MC.number[c.number] || c.number);
+            if (c.gender) parts.push(JPN_FULL_MC.gender[c.gender] || c.gender);
+            if (c.person) parts.push(PERSON_JP_MC[c.person] || `${c.person}人称`);
+            return `<li class="rn-mc-item">${parts.join('・')}</li>`;
+        }).join('');
+        morphCandidatesHTML = `<div data-study-section="candidates"><details class="rn-mc-details"><summary class="rn-mc-summary">他に成立する形態</summary><ul class="rn-mc-list">${candItems}</ul></details></div>`;
+    }
+
+    const hasStudyDetails = !!(d.lemma || d.strong || morphTags || morphCandidatesHTML);
+
+    /* Display Label: displayLabel（ReadingLexicon由来）を gloss の代わりに使う（Desktop と同仕様）。
+       gloss は fallback として残す。両方空なら何も表示しない（静寂）。 */
+    const shownLabel = d.displayLabel || d.gloss || '';
+
     return `
       <div class="mvv-word-detail" style="padding:var(--space-lg) var(--space-md);">
-        <div class="mvv-l3-word">
+        <div class="mvv-l3-word" data-study-section="identity">
           <div style="font-size:var(--text-title);color:var(--text-main);font-weight:600;line-height:1.3;">${_escH(d.greek)}</div>
-          ${d.gloss ? `<div style="margin-top:var(--space-xs);font-size:var(--text-body);color:var(--text-sub);">${_escH(d.gloss)}</div>` : ''}
-          <div class="mvv-l3-slot" id="mvv-reading-slot" style="display:none;margin-top:var(--space-sm);"></div>
+          ${shownLabel ? `<div class="mvv-l3-display-label" style="margin-top:var(--space-xs);font-size:var(--text-body);color:var(--text-sub);">${_escH(shownLabel)}</div>` : ''}
+          <!-- Reading prose / Phrase / Observation / Evidence — _fillMvvReadingSlot が rich HTML を注入 -->
+          <div id="mvv-reading-slot" style="display:none;margin-top:var(--space-sm);"></div>
         </div>
+
+        <!-- Experienced Reader labels（synchronous: _mobileInspectorDetail 生成済み） -->
+        ${d.expLabelHTML || ''}
 
         <!-- SF-22: Structure Flow スロット（desktop reading-notes-area と同じ生成 HTML を非同期注入。
              生成物が自前の <details class="rn-level-section"> を持つため外側に details を足さない）。 -->
-        <div class="mvv-l3-slot" id="mvv-flow-slot" style="margin-top:var(--space-md);"></div>
+        <div id="mvv-flow-slot" data-study-section="structure" style="margin-top:var(--space-md);"></div>
 
         ${hasStudyDetails ? `
-        <details class="mvv-l3-section">
+        <details class="mvv-l3-section" data-study-section="morphology">
           <summary class="mvv-l3-summary">単語を詳しく調べる</summary>
           <div class="mvv-l3-slot">
             ${d.lemma ? `<div>見出し語: <span style="color:var(--text-main);">${_escH(d.lemma)}</span></div>` : ''}
             ${d.strong ? `<div style="margin-top:var(--space-xs);color:var(--text-hint);">Strong: ${_escH(String(d.strong))}</div>` : ''}
             ${morphTags ? `<div style="margin-top:var(--space-md);">${morphTags}</div>` : ''}
+            ${morphCandidatesHTML}
+            <!-- Usage trends / Etymology / Abbott-Smith — _fillMvvLevel2Slot が非同期注入 -->
+            <div id="mvv-level2-async-slot"></div>
           </div>
         </details>` : ''}
 
-        <details class="mvv-l3-section">
-          <summary class="mvv-l3-summary">意味を見る</summary>
+        <!-- 意味が近い語と比べる: Desktop の _injectStudyPanelContent が cluster chips を注入 -->
+        <details class="mvv-l3-section" data-study-section="semantic">
+          <summary class="mvv-l3-summary">意味が近い語と比べる</summary>
           <div class="mvv-l3-slot" id="mvv-semantic-slot"></div>
         </details>
 
-        ${(d.morphURL || d.syntaxURL) ? `
-        <details class="mvv-l3-section">
+        <details class="mvv-l3-section" data-study-section="concordance">
           <summary class="mvv-l3-summary">さらに調べる</summary>
           <div class="mvv-l3-slot" style="padding-top:var(--space-xs);">
             <div class="rn-research-links">
+              ${d.concordURL ? `
+              <a href="${d.concordURL}" class="rn-research-link rn-concord-link" target="_blank">
+                <span class="rn-research-link-title">この語の用例を見る →</span>
+                <span class="rn-research-link-desc">聖書のどこで使われているか調べる</span>
+              </a>` : ''}
               ${d.morphURL ? `
               <a href="${d.morphURL}" class="rn-research-link rn-morph-panel-link">
                 <span class="rn-research-link-title">この語形を探す</span>
@@ -18406,8 +18586,8 @@ function _renderMobileWordDetail(d) {
               </a>` : ''}
             </div>
           </div>
-        </details>` : ''}
-        <div class="hl-word-slot" id="mvv-hl-word-slot"></div>
+        </details>
+        <div class="hl-word-slot" id="mvv-hl-word-slot" data-study-section="highlight"></div>
       </div>`;
 }
 
