@@ -145,9 +145,25 @@
         const wrap = document.createElement('div');
         wrap.className = 'da-view';
 
+        let lastVerseKey = null;
+
         srData.sentences.forEach(sentence => {
             const el = renderSentence(sentence, bdMap);
-            if (el) wrap.appendChild(el);
+            if (!el) return;
+
+            const first = el._flowWords && el._flowWords[0];
+            if (first) {
+                const vKey = `${first.chapter}:${first.verse}`;
+                if (vKey !== lastVerseKey) {
+                    lastVerseKey = vKey;
+                    const refEl = document.createElement('div');
+                    refEl.className = 'sd-sentence-ref';
+                    refEl.textContent = vKey;
+                    el.insertBefore(refEl, el.firstChild);
+                }
+            }
+
+            wrap.appendChild(el);
         });
 
         app.appendChild(wrap);
