@@ -2250,6 +2250,76 @@ animation: ac-blink 1.2s ease-in-out infinite;
 .hl-list-dot[data-color="green"]  { background: rgba(50,180,110,0.92); }
 .hl-list-dot[data-color="pink"]   { background: rgba(235,85,145,0.92); }
 
+/* ── Highlight & Recent list: verse text preview ────────────── */
+.list-item-preview {
+    margin-top: var(--space-sm);
+    font-size: var(--text-body-lg);
+    line-height: 1.75;
+    color: var(--text-main);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ── Recently Read: 続きを読む ───────────────────────────────── */
+.rv-section-label {
+    font-size: var(--text-caption);
+    font-weight: 600;
+    color: var(--text-hint);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 var(--space-md);
+}
+.rv-continue-section { margin-bottom: var(--space-xl); }
+.rv-continue-card {
+    cursor: pointer;
+    padding: var(--space-md) var(--space-md) var(--space-md) var(--space-md);
+    border-left: 3px solid var(--accent);
+    transition: background var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+}
+.rv-continue-card:hover { background: var(--accent-light); }
+.rv-continue-loc {
+    font-size: var(--text-body);
+    font-weight: 500;
+    color: var(--text-sub);
+    margin-bottom: var(--space-sm);
+}
+.rv-continue-preview {
+    font-size: var(--text-body-lg);
+    line-height: 1.75;
+    color: var(--text-main);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: var(--space-sm);
+}
+.rv-continue-fallback {
+    font-size: var(--text-body);
+    color: var(--text-hint);
+    margin-bottom: var(--space-sm);
+}
+.rv-continue-action {
+    font-size: var(--text-body);
+    color: var(--accent);
+    font-weight: 500;
+}
+
+/* ── Recently Read: history section ─────────────────────────── */
+.rv-history-section { margin-top: var(--space-lg); }
+.rv-group { margin-bottom: var(--space-lg); }
+.rv-group-header {
+    font-size: var(--text-caption);
+    font-weight: 600;
+    color: var(--text-hint);
+    letter-spacing: 0.04em;
+    padding: var(--space-xs) 0 var(--space-xs);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--space-xs);
+}
+
 .list-page-header {
     display: flex;
     align-items: center;
@@ -10511,6 +10581,12 @@ const BOOK_SHORT = {
     OBA:'オバデヤ', JON:'ヨナ', MIC:'ミカ', NAH:'ナホム',
     HAB:'ハバクク', ZEP:'ゼパニヤ', HAG:'ハガイ', ZEC:'ゼカリヤ', MAL:'マラキ',
 };
+/* 書物正式名マップ（SB_BOOKSから生成） */
+const BOOK_NAME = (() => {
+    const m = {};
+    [...SB_BOOKS.nt, ...SB_BOOKS.ot].forEach(b => { m[b.key] = b.name; });
+    return m;
+})();
 function _bookChapterLabel(loc) {
     if (!loc.book || loc.chapter === null) return '本文';
     const short = BOOK_SHORT[loc.book.key] || loc.book.name;
@@ -10893,22 +10969,37 @@ function _listMetaDate(ts) {
     return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日（' + DAY_JA[d.getDay()] + '）';
 }
 
+/* 最近読んだ履歴のグルーピング用：今日 / 昨日 / それ以前 の3値のみ返す */
+function _listMetaDateGroup(ts) {
+    if (!ts) return 'それ以前';
+    const d = new Date(ts);
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dStart     = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diffDays   = Math.round((todayStart - dStart) / 86400000);
+    if (diffDays === 0) return '今日';
+    if (diffDays === 1) return '昨日';
+    return 'それ以前';
+}
+
 /* opts.actions はボタンHTML（呼び出し側が組み立てた定数テンプレート文字列）を想定し、
    ここでは追加のエスケープは行わない。カード全体のonclick（href遷移）とボタン操作が
    競合しないよう、actionsラッパーで event.stopPropagation() する。 */
 function _listItemCard(opts) {
-    const titleHtml = `<div class="list-item-title">${_escH(opts.title || '')}</div>`;
-    const subHtml = opts.sub ? `<div class="list-item-sub">${_escH(opts.sub)}</div>` : '';
-    const metaHtml = opts.meta ? `<div class="list-item-meta">${_escH(opts.meta)}</div>` : '';
+    const titleHtml   = `<div class="list-item-title">${_escH(opts.title || '')}</div>`;
+    const previewHtml = opts.preview ? `<div class="list-item-preview">${_escH(opts.preview)}</div>` : '';
+    const subHtml     = opts.sub ? `<div class="list-item-sub">${_escH(opts.sub)}</div>` : '';
+    const metaHtml    = opts.meta ? `<div class="list-item-meta">${_escH(opts.meta)}</div>` : '';
     const onclickAttr = opts.href ? ` onclick="location.href='${opts.href}'"` : '';
     const actionsHtml = opts.actions ? `<div class="list-item-actions" onclick="event.stopPropagation()">${opts.actions}</div>` : '';
-    return `<div class="list-item-card"${onclickAttr}><div class="list-item-main">${titleHtml}${subHtml}</div>${metaHtml}${actionsHtml}</div>`;
+    return `<div class="list-item-card"${onclickAttr}><div class="list-item-main">${titleHtml}${previewHtml}${subHtml}</div>${metaHtml}${actionsHtml}</div>`;
 }
 
-/* 最近読んだ箇所一覧画面。showRecentWords()と同じ .static-page 差し替え方式。
-   URL生成は entry.bookKey / entry.chapter / entry.verse のみを使用する（ref文字列の解析は行わない）。
+/* 最近読んだ箇所一覧画面。
+   上部：「続きを読む」（最新1件 + 本文プレビュー）
+   下部：「最近読んだ箇所」（今日 / 昨日 / それ以前 グループ）
    panel=study は付けない＝節へ移動するのみで Study Panel は開かない。 */
-function showRecentVerses() {
+async function showRecentVerses() {
     closeMobileSidebar();
 
     const app = document.getElementById('bible-text-area');
@@ -10920,28 +11011,81 @@ function showRecentVerses() {
     AppState.ui.view = 'recentVerses';
     syncUIFromState();
 
-    const recentVerses = window.App.storage ? window.App.storage.getRecentVerses() : [];
+    const recentVerses = window.App?.storage?.getRecentVerses() || [];
 
-    const rowsHtml = recentVerses.length
-        ? recentVerses.map(v => {
-            const href = (v.bookKey && v.chapter != null && v.verse != null)
-                ? `index.html?book=${encodeURIComponent(v.bookKey)}&ch=${encodeURIComponent(v.chapter)}&verse=${encodeURIComponent(v.verse)}`
-                : '';
-            const vTitle = (v.bookKey && v.chapter != null && v.verse != null)
-                ? `${BOOK_SHORT[v.bookKey] || v.bookKey}${v.chapter}章${v.verse}節`
-                : (v.ref || '');
-            return _listItemCard({ title: vTitle, meta: _listMetaDate(v.timestamp), href });
-        }).join('')
-        : `<p class="list-item-empty">最近読んだ箇所はまだありません。</p>`;
+    if (!recentVerses.length) {
+        app.innerHTML = `
+            <div class="static-page list-page">
+                <p class="list-item-empty">最近読んだ箇所はまだありません。</p>
+                <div class="back-wrap">
+                    <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+                </div>
+            </div>`;
+        return;
+    }
 
-    const html = `
+    /* 続きを読む：最新1件 */
+    const latest = recentVerses[0];
+    const hasLatestLoc = latest.bookKey && latest.chapter != null && latest.verse != null;
+    let continueHtml = '';
+    if (hasLatestLoc) {
+        const bookName = BOOK_NAME[latest.bookKey] || BOOK_SHORT[latest.bookKey] || latest.bookKey;
+        const href = `index.html?book=${encodeURIComponent(latest.bookKey)}&ch=${encodeURIComponent(latest.chapter)}&verse=${encodeURIComponent(latest.verse)}`;
+        let verseText = '';
+        try {
+            const chData = await _fetchTranslation('JA1955', latest.bookKey, String(latest.chapter));
+            verseText = chData?.verses?.[String(latest.verse)] || '';
+        } catch(e) {}
+        if (AppState.ui.view !== 'recentVerses') return;
+        const previewHtml = verseText
+            ? `<div class="rv-continue-preview">${_escH(verseText)}</div>`
+            : `<div class="rv-continue-fallback">今日、ここまで読みました。</div>`;
+        continueHtml = `
+            <section class="rv-continue-section">
+                <div class="rv-section-label">続きを読む</div>
+                <div class="rv-continue-card" onclick="location.href='${href}'">
+                    <div class="rv-continue-loc">${_escH(bookName)} ${_escH(String(latest.chapter))}:${_escH(String(latest.verse))}</div>
+                    ${previewHtml}
+                    <div class="rv-continue-action">読む →</div>
+                </div>
+            </section>`;
+    }
+
+    /* 履歴：2件目以降をグルーピング */
+    const historyItems = recentVerses.slice(1).filter(v => v.bookKey && v.chapter != null && v.verse != null);
+    let historyHtml = '';
+    if (historyItems.length) {
+        const groups = {};
+        const groupOrder = [];
+        historyItems.forEach(v => {
+            const label = _listMetaDateGroup(v.timestamp);
+            if (!groups[label]) { groups[label] = []; groupOrder.push(label); }
+            groups[label].push(v);
+        });
+        const groupsHtml = groupOrder.map(label => {
+            const items = groups[label].map(v => {
+                const bookName = BOOK_NAME[v.bookKey] || BOOK_SHORT[v.bookKey] || v.bookKey;
+                const title = `${bookName} ${v.chapter}:${v.verse}`;
+                const href = `index.html?book=${encodeURIComponent(v.bookKey)}&ch=${encodeURIComponent(v.chapter)}&verse=${encodeURIComponent(v.verse)}`;
+                return _listItemCard({ title, href });
+            }).join('');
+            return `<div class="rv-group"><div class="rv-group-header">${_escH(label)}</div>${items}</div>`;
+        }).join('');
+        historyHtml = `
+            <section class="rv-history-section">
+                <div class="rv-section-label">最近読んだ箇所</div>
+                ${groupsHtml}
+            </section>`;
+    }
+
+    app.innerHTML = `
         <div class="static-page list-page">
-            <section>
-                ${rowsHtml}
-            </section>
-        </div>
-    `;
-    app.innerHTML = html;
+            ${continueHtml}
+            ${historyHtml}
+            <div class="back-wrap">
+                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+            </div>
+        </div>`;
 }
 
 /* 最近見た単語一覧画面。showBookmarks()/showRecentVerses()と同じ .static-page 差し替え方式。
@@ -20434,6 +20578,7 @@ function _applyHighlights() {
 /* ── ハイライト一覧（Phase F）── */
 
 let _hlListFilter = 'all';
+let _hlRenderToken = 0;
 
 function showHighlights() {
     closeMobileSidebar();
@@ -20447,8 +20592,12 @@ function showHighlights() {
     _hlRenderHighlightList(app);
 }
 
-function _hlRenderHighlightList(app) {
+/* 本文プレビューを非同期で取得し、章単位でfetchを共有する。
+   フィルター連打時に古いrenderが上書きしないようtokenで管理する。 */
+async function _hlRenderHighlightList(app) {
     if (!app) return;
+    const token = ++_hlRenderToken;
+
     const highlights = window.App?.storage?.getHighlights() || [];
     const bookmarks  = window.App?.storage?.getBookmarks()  || [];
 
@@ -20457,37 +20606,47 @@ function _hlRenderHighlightList(app) {
         ? highlights
         : highlights.filter(h => h.color === _hlListFilter);
 
-    /* フィルタタブ */
+    /* フィルタタブ（件数表示なし） */
     const counts = {};
     HL_COLORS.forEach(c => { counts[c] = highlights.filter(h => h.color === c).length; });
     const totalHL = highlights.length;
-
     const dotColors = { yellow: 'rgba(255,205,30,0.92)', blue: 'rgba(70,145,255,0.92)', green: 'rgba(50,180,110,0.92)', pink: 'rgba(235,85,145,0.92)' };
     let tabsHtml = `<div class="hl-filter-tabs">`;
-    tabsHtml += `<button class="hl-filter-tab${_hlListFilter === 'all' ? ' hl-tab-active' : ''}" onclick="_hlSetFilter('all')">すべて（${totalHL}）</button>`;
+    tabsHtml += `<button class="hl-filter-tab${_hlListFilter === 'all' ? ' hl-tab-active' : ''}" onclick="_hlSetFilter('all')">すべて</button>`;
     HL_COLORS.forEach(c => {
         if (counts[c] > 0) {
             const active = _hlListFilter === c ? ' hl-tab-active' : '';
-            tabsHtml += `<button class="hl-filter-tab${active}" onclick="_hlSetFilter('${c}')"><span class="hl-tab-dot" style="background:${dotColors[c]}"></span>${HL_COLOR_NAMES[c]}（${counts[c]}）</button>`;
+            tabsHtml += `<button class="hl-filter-tab${active}" onclick="_hlSetFilter('${c}')"><span class="hl-tab-dot" style="background:${dotColors[c]}"></span>${HL_COLOR_NAMES[c]}</button>`;
         }
     });
     tabsHtml += `</div>`;
+
+    /* 章ごとに本文をfetch（同じ章は1回のみ） */
+    const chFetches = {};
+    filtered.forEach(h => {
+        const key = `${h.book}:${h.chapter}`;
+        if (!chFetches[key]) chFetches[key] = _fetchTranslation('JA1955', h.book, String(h.chapter));
+    });
+    const chData = {};
+    await Promise.all(Object.entries(chFetches).map(async ([key, p]) => {
+        try { chData[key] = await p; } catch(e) {}
+    }));
+    if (token !== _hlRenderToken) return;
 
     /* ハイライト一覧 */
     let rowsHtml = '';
     if (filtered.length) {
         rowsHtml = filtered.map(h => {
-            const bk = BOOK_SHORT[h.book] || h.book;
+            const bookName = BOOK_NAME[h.book] || BOOK_SHORT[h.book] || h.book;
+            const titleText = `${bookName} ${h.chapter}:${h.verse}`;
             const rangeLabel = h.tokenStart == null ? '節全体' :
                                (h.tokenStart === h.tokenEnd ? `語${h.tokenStart}` : `語${h.tokenStart}–${h.tokenEnd}`);
-            const titleText = `${bk}${h.chapter}章${h.verse}節`;
             const href = `index.html?book=${encodeURIComponent(h.book)}&ch=${encodeURIComponent(h.chapter)}&verse=${encodeURIComponent(h.verse)}${h.tokenStart != null ? '&hltoken=' + h.tokenStart : ''}`;
-            /* _listItemCard は title を _escH でエスケープするため、
-               ドットスパンは card の外で直接構築する */
-            const metaHtml = `<div class="list-item-meta">${_escH(_listMetaDate(h.createdAt))}</div>`;
+            const verseText = chData[`${h.book}:${h.chapter}`]?.verses?.[String(h.verse)] || '';
+            const previewHtml = verseText ? `<div class="list-item-preview">${_escH(verseText)}</div>` : '';
             const titleHtml = `<span class="hl-list-dot" data-color="${_escH(h.color)}"></span><span>${_escH(titleText)}</span>`;
-            const subHtml   = `<div class="list-item-sub">${_escH(rangeLabel)}</div>`;
-            return `<div class="list-item-card" onclick="location.href='${href}'"><div class="list-item-main"><div class="list-item-title">${titleHtml}</div>${subHtml}</div>${metaHtml}</div>`;
+            const subHtml   = `<div class="list-item-sub">${_escH(rangeLabel + ' · ' + _listMetaDate(h.createdAt))}</div>`;
+            return `<div class="list-item-card" onclick="location.href='${href}'"><div class="list-item-main"><div class="list-item-title">${titleHtml}</div>${previewHtml}${subHtml}</div></div>`;
         }).join('');
     } else if (_hlListFilter === 'all' && !totalHL) {
         rowsHtml = `<p class="list-item-empty">ハイライトはまだありません。読んでいて残しておきたい箇所を選んで色をつけることができます。</p>`;
@@ -20518,6 +20677,9 @@ function _hlRenderHighlightList(app) {
                 ${rowsHtml}
             </section>
             ${bkSection}
+            <div class="back-wrap">
+                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+            </div>
         </div>`;
 }
 
