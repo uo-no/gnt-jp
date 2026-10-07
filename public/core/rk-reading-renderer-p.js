@@ -40,7 +40,7 @@
 .prk-view { padding: 0 0 40px; }
 .prk-sentence { margin: 0 0 32px; }
 .prk-ref { font-size: 11px; color: var(--sub, #888); margin-bottom: 6px; letter-spacing: .03em; }
-.prk-text { line-height: 2.2; font-size: 16px; color: var(--ink, #1a1a1a); }
+.prk-text { line-height: 2.2; font-size: var(--text-body-lg); color: var(--ink, #1a1a1a); }
 .prk-word {
   display: inline;
   padding: 1px 2px;
