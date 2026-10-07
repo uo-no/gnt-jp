@@ -114,7 +114,7 @@
 
         const flowRow = document.createElement('div');
         flowRow.className = 'da-flow wlv-flow-stream';
-        flowRow.innerHTML = WordOrderRenderer._wlvChipsHTML(sentenceEl._flowChips, {
+        flowRow.innerHTML = WordOrderRenderer._wlvChipsHTML(makeChips(flowTokens, book, chapter), {
             stopPropagation: false,
             showOnboardingAnchor: false,
         });
