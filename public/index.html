@@ -576,18 +576,6 @@ pointer-events: auto;
         flex: 1;
         overflow-y: auto;
     }
-    /* Phase D-3B: 固定メモ領域。折りたたみ時は中身が display:none なので高さ 0。展開時のみ下端に表示。 */
-    #mobile-verse-note-area {
-        flex-shrink: 0;
-        overflow-y: auto;
-        max-height: 50%;
-    }
-    /* Phase D-3A: iOS Safari のフォーカス時自動ズーム抑止（16px 以上）。
-       _noteBlockHtml の textarea はインライン font-size を持つため !important で上書きする。
-       セレクタは #mobile-verse-view 配下に限定するため desktop（StudyPanel）の textarea は非影響。 */
-    #mobile-verse-view textarea {
-        font-size: 16px !important;
-    }
     /* Phase F-2: Level3 区画スケルトン（折りたたみセクション）。#mobile-verse-view 配下限定。 */
     #mobile-verse-view .mvv-l3-section {
         margin-top: var(--space-md);
@@ -1207,27 +1195,6 @@ justify-content: center;
    .share-url-btn自身のfont-size（var(--text-body)）基準のemにして、周囲のテキストと
    スケールが連動するようにする。 */
 .share-url-btn svg { width: 1.1em; height: 1.1em; display: block; }
-/* メモボタン：アイコン横の小ドットで保存済みを表現 */
-.note-btn { gap: var(--space-xs); }
-.note-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--highlight);
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-}
-.note-btn.has-note .note-dot { opacity: var(--opacity-primary); }
-/* メモ用textarea（'wlv'/'rn'いずれのidSuffixも reading-note-textarea- で始まる）に
-   フォーカス時の視覚フィードバックを追加する。サイズ・padding・border-radius・色トークンは
-   既存のインラインstyleのまま変更せず、フォーカス時の枠色とリングのみを既存トークンで追加する。
-   border-color のみ !important が必要：要素のインラインstyleに border:1px solid var(--border-soft)
-   が指定されており、インラインstyleの詳細度には通常のスタイルシート規則では勝てないため。 */
-textarea[id^="reading-note-textarea-"]:focus-visible {
-    border-color: var(--highlight) !important;
-    box-shadow: 0 0 0 3px var(--highlight-light);
-    outline: none;
-}
 #mobile-menu-btn svg { width: 19px; height: 19px; display: block; }
 #mobile-menu-btn { align-items: center; justify-content: center; }
 
@@ -6532,9 +6499,6 @@ details[open] .study-summary::before {
         <div class="sb-row" id="nav-bookmarks" onclick="showHighlights()">
             <span class="menu-text">ハイライト</span>
         </div>
-        <div class="sb-row" id="nav-notes" onclick="showNotes()">
-            <span class="menu-text">メモ</span>
-        </div>
         <div class="section-label menu-text" style="padding: var(--space-md) var(--space-sm) var(--space-xs);">履歴</div>
         <div class="sb-row" id="nav-recent-verses" onclick="showRecentVerses()">
             <span class="menu-text">最近読んだ箇所</span>
@@ -6658,9 +6622,6 @@ details[open] .study-summary::before {
                 <div class="panel-header-actions">
                     <button class="share-url-btn hl-panel-btn" id="hl-panel-btn-1" onclick="_hlVerseHighlight()" title="この節をハイライト"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1.1em" height="1.1em" style="display:block"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
                     <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
-                    <button class="share-url-btn note-btn" data-icon="note" onclick="_toggleNoteUI()" title="この節にメモを書く">
-                        <span class="note-dot"></span>
-                    </button>
                 </div>
             </div>
 
@@ -6674,9 +6635,6 @@ details[open] .study-summary::before {
                 <div class="panel-header-actions">
                     <button class="share-url-btn hl-panel-btn" id="hl-panel-btn-2" onclick="_hlVerseHighlight()" title="この節をハイライト"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1.1em" height="1.1em" style="display:block"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
                     <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
-                    <button class="share-url-btn note-btn" data-icon="note" onclick="_toggleNoteUI()" title="この節にメモを書く">
-                        <span class="note-dot"></span>
-                    </button>
                 </div>
             </div>
 
@@ -6685,13 +6643,6 @@ details[open] .study-summary::before {
                 <div id="reading-notes-area"></div>
                 <!-- ハイライト語スロット（追記。reading-notes-area とは別要素） -->
                 <div class="hl-word-slot" id="rn-hl-word-slot" style="display:none;padding: var(--space-sm) var(--space-lg);"></div>
-                <!-- 節ごとのメモ（追記。reading-notes-area とは別要素のため、その innerHTML 書き換えの影響を受けない） -->
-                <div id="reading-note-block-rn" style="display:none;padding: var(--space-md) var(--space-lg) var(--space-lg);border-top:1px solid var(--border-soft);">
-                    <h3 style="font-size: var(--text-caption);font-weight:700;color:var(--text-main);margin: 0 0 var(--space-sm);">メモ</h3>
-                    <textarea id="reading-note-textarea-rn" style="width:100%;min-height:90px;padding: var(--space-sm);font-family:inherit;font-size: var(--text-body);color:var(--text-main);border:1px solid var(--border-soft);border-radius: var(--radius-s);resize:vertical;box-sizing:border-box;"></textarea>
-                    <button class="rn-save-btn" style="margin-top: var(--space-sm);" onclick="_saveCurrentNote('rn')">保存</button>
-                    <span id="reading-note-status-rn" style="display:block;margin-top: var(--space-xs);font-size: var(--text-caption);color:var(--text-sub);"></span>
-                </div>
             </div>
 
             <!-- 分析コンテンツエリア（後方互換のため保持・非表示） -->
@@ -6710,24 +6661,18 @@ details[open] .study-summary::before {
                 </button>
                 <!-- Phase D-3C: 現在地表示（Level2=節ref / Level3=語）。_syncMobileVerseTitle で更新 -->
                 <span id="mobile-verse-view-title"></span>
-                <!-- Phase G-1: バーは静かに。アクション（メモ/ブックマーク/共有）は ⋮ メニューへ集約。 -->
+                <!-- Phase G-1: バーは静かに。アクション（ハイライト/共有）は ⋮ メニューへ集約。 -->
                 <button id="mobile-verse-view-action" onclick="_toggleMvvActionMenu(event)" aria-label="操作メニュー" aria-haspopup="true" aria-expanded="false">
                     <span aria-hidden="true">⋮</span>
                 </button>
                 <!-- Phase G-1: アクションメニュー（既存関数を呼ぶだけ）。初期非表示。 -->
                 <div id="mobile-verse-action-menu" role="menu" aria-label="節の操作">
-                    <button class="mvv-action-item note-btn" data-icon="note" role="menuitem" onclick="_mvvMenuAction('note')">
-                        <span class="note-dot"></span>メモ
-                    </button>
                     <button class="mvv-action-item" role="menuitem" onclick="_mvvMenuAction('highlight')">ハイライト</button>
                     <button class="mvv-action-item" data-icon="link" role="menuitem" onclick="_mvvMenuAction('share')">共有</button>
                 </div>
             </div>
             <div id="mobile-verse-area">placeholder</div>
             <div id="mobile-inspector-area">placeholder</div>
-            <!-- Phase D-3B: MobileVerseView 専用の固定メモ領域。Level2/Level3 の innerHTML 全置換の
-                 影響を受けず、textarea 内容・開閉状態を保持する（#mobile-inspector-area の兄弟）。 -->
-            <div id="mobile-verse-note-area"></div>
         </div>
 
         <!-- Research Side Panel (Phase R-1-A: Shell) -->
@@ -6836,7 +6781,6 @@ details[open] .study-summary::before {
 <div id="mobile-more-overlay" onclick="_moreMenuClose()"></div>
 <div id="mobile-more-menu" role="menu" aria-label="その他のメニュー" aria-hidden="true">
     <button class="mobile-more-item" onclick="showHighlights(); _moreMenuClose();" role="menuitem">ハイライト</button>
-    <button class="mobile-more-item" onclick="showNotes(); _moreMenuClose();" role="menuitem">メモ</button>
     <button class="mobile-more-item" onclick="showRecentVerses(); _moreMenuClose();" role="menuitem">最近読んだ箇所</button>
 </div>
 
@@ -7620,90 +7564,6 @@ function _currentVerseRef() {
     return `${bookKey} ${ch}:${vNum}`;
 }
 
-/* 📝ボタン：開いている方のメモブロック（'wlv'=節一覧 / 'rn'=深く読む。同時に存在するのは
-   片方のみ）を開閉する。読書の主役は本文なので、メモは既定では折りたたんでおき、
-   ここでのクリック時のみ展開する。 */
-function _toggleNoteUI() {
-    /* Phase D-1: MobileVerseView 表示中はその 'mvv' メモ欄を優先。
-       MVV 非表示（＝Desktop / 通常モバイル）では従来どおり wlv / rn を対象にする
-       （mvv を open ガードで限定するため Desktop 挙動は不変）。 */
-    const mvvView = document.getElementById('mobile-verse-view');
-    const mvvOpen = mvvView && mvvView.classList.contains('open');
-    const block = (mvvOpen && document.getElementById('reading-note-block-mvv'))
-        || document.getElementById('reading-note-block-wlv')
-        || document.getElementById('reading-note-block-rn');
-    if (!block) return;
-    block.style.display = (block.style.display === 'block') ? 'none' : 'block';
-}
-
-/* メモボタンの見た目を保存済みメモの有無に同期する（アイコン横の小ドットで表現） */
-function _syncNoteButtons(ref) {
-    if (!window.App.storage) return;
-    const r = ref || _currentVerseRef();
-    const existing = r ? window.App.storage.getNotes().find(n => n.ref === r) : null;
-    const hasNote = !!(existing && existing.content && existing.content.trim().length > 0);
-    document.querySelectorAll('.note-btn').forEach(btn => {
-        btn.classList.toggle('has-note', hasNote);
-    });
-}
-
-/* 節ごとのメモ（1節=1メモ）UI。Study Panelには「節一覧」（#word-list-view）と
-   「語の詳しく見る」（#reading-notes-area）の2つの表示モードがあり、それぞれ
-   innerHTMLを丸ごと書き換えるため、メモブロックはそのどちらの管理下にも置かず、
-   idSuffixで区別した独立要素として追記する（既存UIには一切触れない）。
-   保存は保存ボタン押下時のみ。自動保存・input/blur保存は行わない。 */
-function _noteBlockHtml(idSuffix) {
-    return `
-        <div id="reading-note-block-${idSuffix}" style="display:none;padding: var(--space-md) var(--space-lg) var(--space-lg);border-top:1px solid var(--border-soft);">
-            <h3 style="font-size: var(--text-caption);font-weight:700;color:var(--text-main);margin: 0 0 var(--space-sm);">メモ</h3>
-            <textarea id="reading-note-textarea-${idSuffix}" style="width:100%;min-height:90px;padding: var(--space-sm);font-family:inherit;font-size: var(--text-body);color:var(--text-main);border:1px solid var(--border-soft);border-radius: var(--radius-s);resize:vertical;box-sizing:border-box;"></textarea>
-            <button class="rn-save-btn" style="margin-top: var(--space-sm);" onclick="_saveCurrentNote('${idSuffix}')">保存</button>
-            <span id="reading-note-status-${idSuffix}" style="display:block;margin-top: var(--space-xs);font-size: var(--text-caption);color:var(--text-sub);"></span>
-        </div>`;
-}
-
-/* 現在の節のrefに紐づくメモを textarea へ読み込む（既存の getNotes() のみ使用）。
-   メモは読書の主役ではないため、節を開いた直後は常に折りたたんだ状態にする
-   （📝ボタンで _toggleNoteUI() から展開する）。 */
-function _loadNoteUI(idSuffix) {
-    const block = document.getElementById('reading-note-block-' + idSuffix);
-    const textarea = document.getElementById('reading-note-textarea-' + idSuffix);
-    const statusEl = document.getElementById('reading-note-status-' + idSuffix);
-    if (!block || !textarea) return;
-    if (statusEl) statusEl.textContent = '';
-    block.style.display = 'none';
-
-    const ref = _currentVerseRef();
-    if (!ref || !window.App.storage) {
-        textarea.value = '';
-        _syncNoteButtons(ref);
-        return;
-    }
-    const notes = window.App.storage.getNotes();
-    const existing = notes.find(n => n.ref === ref);
-    textarea.value = existing ? existing.content : '';
-    _syncNoteButtons(ref);
-}
-
-/* 保存ボタン押下時のみ呼ばれる。saveNote(ref, content) のみ使用、localStorage直接アクセスなし。 */
-function _saveCurrentNote(idSuffix) {
-    const statusEl = document.getElementById('reading-note-status-' + idSuffix);
-    const ref = _currentVerseRef();
-    if (!ref || !window.App.storage) {
-        if (statusEl) statusEl.textContent = '保存できませんでした';
-        return;
-    }
-    /* 構造化フィールドは AppState.location / AppState.selectedVerse から直接組み立てる（ref パース禁止）。
-       Phase 3-6-J: chapterはrefと同じsourceを使い、ref/chapter間の不一致を防ぐ。 */
-    const bookKey = AppState.location.book ? AppState.location.book.key : '';
-    const chapter = AppState.selectedVerse?.ch ?? (AppState.location.chapter != null ? AppState.location.chapter : null);
-    const verse = AppState.selectedVerse.vNum != null ? Number(AppState.selectedVerse.vNum) : null;
-    const textarea = document.getElementById('reading-note-textarea-' + idSuffix);
-    const ok = window.App.storage.saveNote(ref, textarea ? textarea.value : '', bookKey, chapter, verse);
-    if (statusEl) statusEl.textContent = ok ? '保存しました' : '保存できませんでした';
-    _syncNoteButtons(ref);
-}
-
 function applyShareState(state) {
     if (!state.verse) return;   /* verse なし → 従来どおり章の先頭表示 */
 
@@ -7898,8 +7758,6 @@ function _gbcGoMode() {
 const VIEW_LABELS = {
     bookmarks:    'ブックマーク',
     highlights:   'ハイライト',
-    notes:        'メモ',
-    notesTrash:   'メモのゴミ箱',
     recentVerses: '最近読んだ箇所',
     recentWords:  '最近見た単語',
     sourcePolicy: '出典・ポリシー',
@@ -7910,7 +7768,6 @@ const VIEW_LABELS = {
 const SIDEBAR_VIEW_NAV_IDS = {
     bookmarks:    'nav-bookmarks',
     highlights:   'nav-bookmarks',
-    notes:        'nav-notes',
     recentVerses: 'nav-recent-verses',
     recentWords:  'nav-recent-words',
 };
@@ -8361,9 +8218,7 @@ function _openWordListInternal(vNum, words, book, ch) {
 
     if (!words.length) {
         listEl.innerHTML = `<p style="color:var(--text-sub);font-size: var(--text-caption);text-align:center;padding: var(--space-xl) var(--space-md);">この節では語形表示はまだ利用できません</p>`;
-        listEl.insertAdjacentHTML('beforeend', _noteBlockHtml('wlv'));
         sidePanel.appendChild(listEl);
-        _loadNoteUI('wlv');
         /* モバイルナビバー・戻るボタン・スクロール調整 */
         _mobileOpenPanel('語形一覧', wasOpen);
         updatePanelBackButton();
@@ -8394,9 +8249,7 @@ function _openWordListInternal(vNum, words, book, ch) {
            キャッシュで足りる（複数節同時表示する Greek Flow View / 本文左列とは異なる方式）。 */
         _wlvChipCache = (_vrRep && _vrRep.chips) ? _vrRep.chips : [];
     }
-    listEl.insertAdjacentHTML('beforeend', _noteBlockHtml('wlv'));
     sidePanel.appendChild(listEl);
-    _loadNoteUI('wlv');
     /* 節全体の読書メモ（ReadingFormatter駆動）を非同期に注入。
        表示すべき内容が無ければ何も起きない（静寂優先）。 */
     _fillWallacePassageNote(words, listEl);
@@ -11052,7 +10905,7 @@ function _listItemCard(opts) {
     return `<div class="list-item-card"${onclickAttr}><div class="list-item-main">${titleHtml}${subHtml}</div>${metaHtml}${actionsHtml}</div>`;
 }
 
-/* 最近読んだ箇所一覧画面。showRecentWords()/showNotes()と同じ .static-page 差し替え方式。
+/* 最近読んだ箇所一覧画面。showRecentWords()と同じ .static-page 差し替え方式。
    URL生成は entry.bookKey / entry.chapter / entry.verse のみを使用する（ref文字列の解析は行わない）。
    panel=study は付けない＝節へ移動するのみで Study Panel は開かない。 */
 function showRecentVerses() {
@@ -11130,126 +10983,6 @@ function showRecentWords() {
         </div>
     `;
     app.innerHTML = html;
-}
-
-/* メモ一覧画面。showBookmarks()/showRecentVerses()/showRecentWords()と同じ .static-page 差し替え方式。
-   notes構造には bookKey/chapter/verse が存在しない（notes構造変更禁止のため今回も追加しない）ので、
-   ref解析は一切行わず、構造化フィールドが無い場合はクリック不可表示にする。
-   content はユーザー入力の自由記述のため、_listItemCard() 内の _escH() でエスケープしてから表示する。 */
-function showNotes() {
-    closeMobileSidebar();
-
-    const app = document.getElementById('bible-text-area');
-
-    document.getElementById('main-reading-area').classList.add('single-mode');
-    document.getElementById('main-reading-area').classList.add('static-view');
-    document.getElementById('main-reading-area').scrollTop = 0;
-
-    AppState.ui.view = 'notes';
-    syncUIFromState();
-
-    const notes = window.App.storage ? window.App.storage.getNotes() : [];
-    const sorted = notes.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-
-    const rowsHtml = sorted.length
-        ? sorted.map(n => {
-            const raw = n.content || '';
-            const truncated = raw.length > 100 ? raw.slice(0, 100) + '…' : raw;
-            const href = (n.bookKey && n.chapter != null && n.verse != null)
-                ? `index.html?book=${encodeURIComponent(n.bookKey)}&ch=${encodeURIComponent(n.chapter)}&verse=${encodeURIComponent(n.verse)}&panel=study`
-                : '';
-            const nTitle = (n.bookKey && n.chapter != null && n.verse != null)
-                ? `${BOOK_SHORT[n.bookKey] || n.bookKey}${n.chapter}章${n.verse}節`
-                : (n.ref || '');
-            const actions = `<button class="list-item-action-btn danger" onclick="_deleteNoteAndRefresh('${encodeURIComponent(n.ref)}')" title="削除（ゴミ箱へ移動）">${icon('trash')}</button>`;
-            return _listItemCard({ title: nTitle, sub: truncated, meta: _listMetaDate(n.updatedAt), href, actions });
-        }).join('')
-        : `<p class="list-item-empty">メモはまだありません。</p>`;
-
-    const html = `
-        <div class="static-page list-page">
-            <div class="list-page-header">
-                <span></span>
-                <span class="list-page-header-link" onclick="showNotesTrash()">ゴミ箱を見る</span>
-            </div>
-            <section>
-                ${rowsHtml}
-            </section>
-        </div>
-    `;
-    app.innerHTML = html;
-}
-
-/* メモ削除（soft delete）。物理削除はせず status を 'deleted' にするのみ（app-storage.js の deleteNote() 参照）。
-   一覧はその場で再描画する。 */
-function _deleteNoteAndRefresh(refEncoded) {
-    if (!window.App.storage) return;
-    window.App.storage.deleteNote(decodeURIComponent(refEncoded));
-    showNotes();
-}
-
-/* メモのゴミ箱画面。showNotes()と同じ .static-page 差し替え方式。
-   status === 'deleted' のメモのみを表示し、復元 / 完全削除の操作を提供する。
-   完全削除はここでのみ呼び出し可能（通常一覧UIからは呼ばない）。 */
-function showNotesTrash() {
-    closeMobileSidebar();
-
-    const app = document.getElementById('bible-text-area');
-
-    document.getElementById('main-reading-area').classList.add('single-mode');
-    document.getElementById('main-reading-area').classList.add('static-view');
-    document.getElementById('main-reading-area').scrollTop = 0;
-
-    AppState.ui.view = 'notesTrash';
-    updateHeader('notesTrash');
-    updateBreadcrumb('notesTrash');
-    updateSidebarActive('notes');
-
-    const notes = window.App.storage ? window.App.storage.getDeletedNotes() : [];
-    const sorted = notes.slice().sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
-
-    const rowsHtml = sorted.length
-        ? sorted.map(n => {
-            const raw = n.content || '';
-            const truncated = raw.length > 100 ? raw.slice(0, 100) + '…' : raw;
-            const nTitle = (n.bookKey && n.chapter != null && n.verse != null)
-                ? `${BOOK_SHORT[n.bookKey] || n.bookKey}${n.chapter}章${n.verse}節`
-                : (n.ref || '');
-            const refEnc = encodeURIComponent(n.ref);
-            const actions = `
-                <button class="list-item-action-btn" onclick="_restoreNoteAndRefresh('${refEnc}')" title="復元">${icon('restore')}</button>
-                <button class="list-item-action-btn danger" onclick="_purgeNoteAndRefresh('${refEnc}')" title="完全に削除">${icon('close')}</button>
-            `;
-            return _listItemCard({ title: nTitle, sub: truncated, meta: _listMetaDate(n.deletedAt), actions });
-        }).join('')
-        : `<p class="list-item-empty">ゴミ箱は空です。</p>`;
-
-    const html = `
-        <div class="static-page list-page">
-            <div class="list-page-header">
-                <span></span>
-                <span class="list-page-header-link" onclick="showNotes()">メモ一覧へ戻る</span>
-            </div>
-            <section>
-                ${rowsHtml}
-            </section>
-        </div>
-    `;
-    app.innerHTML = html;
-}
-
-function _restoreNoteAndRefresh(refEncoded) {
-    if (!window.App.storage) return;
-    window.App.storage.restoreNote(decodeURIComponent(refEncoded));
-    showNotesTrash();
-}
-
-/* 完全削除（物理削除）。確認なしで実行されないよう confirm() を挟む。 */
-function _purgeNoteAndRefresh(refEncoded) {
-    if (!window.App.storage) return;
-    if (!confirm('このメモを完全に削除します。元に戻せません。よろしいですか？')) return;
-    window.App.storage.purgeNote(decodeURIComponent(refEncoded));
-    showNotesTrash();
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -12573,9 +12306,6 @@ function openMobileVerseView(vNum, words, book, ch) {
     _mvvChapter = ch      != null ? ch      : (AppState.location.chapter != null ? AppState.location.chapter : null);
     _mvvInspectorScrollTop = 0;   /* E-1B: 新しい節を開いたら復元位置はリセット */
     _mobileVerseInspectorMode = 'list';
-    /* Phase D-3B: 固定メモ領域を節オープン時に一度だけ初期化（この節の ref のメモを読み込み・折りたたみ）。
-       以降 Level2/Level3 を行き来しても内容・開閉状態は保持される。 */
-    _initMobileNoteArea();
     /* 上半分に節本文を描画（DOM取得は同期・FLOW時のfetchは非同期のため fire-and-forget）。
        下半分の Inspector（Level2）描画も _renderMobileVerseArea 内から続けて呼ぶ。 */
     _renderMobileVerseArea(vNum, words);
@@ -12626,9 +12356,9 @@ function _doCloseMobileVerseView() {
     _mobileVerseInspectorMode = 'list';
 }
 
-/* ── Phase G-1: MobileVerseView アクションメニュー（メモ / ブックマーク / 共有） ──
+/* ── Phase G-1: MobileVerseView アクションメニュー（ハイライト / 共有） ──
    バーを静かに保つため、アクションは ⋮ メニューへ集約。既存関数を呼ぶだけで、
-   toggleBookmark / copyShareUrl / _toggleNoteUI / storage / AppState / URL は一切変更しない。 */
+   _hlVerseHighlight / copyShareUrl / storage / AppState / URL は一切変更しない。 */
 function _mvvOutsideCloseActionMenu(e) {
     const menu = document.getElementById('mobile-verse-action-menu');
     const btn  = document.getElementById('mobile-verse-view-action');
@@ -12650,11 +12380,6 @@ function _toggleMvvActionMenu(e) {
     if (!menu) return;
     if (menu.classList.contains('open')) { _closeMvvActionMenu(); return; }
 
-    /* 保存済み状態を反映（既存の read-only sync 関数を呼ぶだけ）。 */
-    const ref = _currentVerseRef();
-    if (window.App && window.App.storage) {
-        _syncNoteButtons(ref);
-    }
     menu.classList.add('open');
     const btn = document.getElementById('mobile-verse-view-action');
     if (btn) btn.setAttribute('aria-expanded', 'true');
@@ -12665,9 +12390,8 @@ function _toggleMvvActionMenu(e) {
 /* メニュー項目 → 既存機能へ委譲（メニューは先に閉じる）。 */
 function _mvvMenuAction(kind) {
     _closeMvvActionMenu();
-    if (kind === 'note')           _toggleNoteUI();
-    else if (kind === 'highlight') _hlVerseHighlight();
-    else if (kind === 'share')     copyShareUrl();
+    if (kind === 'highlight') _hlVerseHighlight();
+    else if (kind === 'share') copyShareUrl();
 }
 
 /* Android/ブラウザの戻る操作。MVV → Book picker → Mode picker の順で閉じる。 */
@@ -12821,7 +12545,6 @@ async function _renderMobileVerseArea(vNum, words) {
  * 同じ生成関数を別コンテナへ出力するだけ。
  *
  * 注:
- *   - 語形メモ入力欄（_noteBlockHtml/_loadNoteUI）は今回対象外（Reading Notes は次Phase）。
  *   - chip クリックは既存 _wlvChipClick が使う _wlvWordCache を SSOT とするため、
  *     ここで従来どおり words をセットする（_openWordListInternal と同じ振る舞い）。
  */
@@ -12869,25 +12592,6 @@ function _mobileInspectorRender(vNum, words) {
     }
     /* 節読書メモ（ReadingFormatter 駆動）を非同期に注入。無ければ静寂（現状維持）。 */
     _fillWallacePassageNote(words, area);
-}
-
-/**
- * _initMobileNoteArea — MVV 専用の固定メモ領域（#mobile-verse-note-area）を初期化する（Phase D-3B）。
- *
- * 節を開いた時（openMobileVerseView）に一度だけ呼ぶ。ここに置いたメモ欄は
- * #mobile-inspector-area の innerHTML 全置換（Level2/Level3 遷移）の影響を受けないため、
- * textarea 内容・開閉状態が節セッション中は保持される。
- *
- * 既存のメモ機能を suffix='mvv' でそのまま再利用する（新規ロジックなし）:
- *   _noteBlockHtml('mvv') … デスクトップと同一の生成関数（保存ボタンは _saveCurrentNote('mvv') に自動配線）
- *   _loadNoteUI('mvv')    … 現在節 ref のメモを読み込み・折りたたみ初期化
- * ref は _currentVerseRef()（AppState 由来）で解決するため、コンテナ非依存。
- */
-function _initMobileNoteArea() {
-    const noteArea = document.getElementById('mobile-verse-note-area');
-    if (!noteArea) return;
-    noteArea.innerHTML = _noteBlockHtml('mvv');
-    _loadNoteUI('mvv');
 }
 
 /**
@@ -18767,9 +18471,6 @@ const activeVEl = document.getElementById('active-v');
             });
         });
     }
-
-    /* 節ごとのメモ欄を読み込む（既存の読書メモエリアとは別要素。追記のみ） */
-    _loadNoteUI('rn');
 
     /* ── オンボーディング：アンカー語（ἠγάπησεν）初回タップ時に発見テキストを先頭注入 ── */
     (function _injectObDiscovery() {
