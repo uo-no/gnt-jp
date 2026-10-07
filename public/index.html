@@ -1207,9 +1207,6 @@ justify-content: center;
    .share-url-btn自身のfont-size（var(--text-body)）基準のemにして、周囲のテキストと
    スケールが連動するようにする。 */
 .share-url-btn svg { width: 1.1em; height: 1.1em; display: block; }
-/* ブックマーク済みは塗りつぶしで表現（☆→★ の代替） */
-.bookmark-btn svg { fill: none; }
-.bookmark-btn.is-saved svg { fill: currentColor; }
 /* メモボタン：アイコン横の小ドットで保存済みを表現 */
 .note-btn { gap: var(--space-xs); }
 .note-dot {
@@ -6659,7 +6656,6 @@ details[open] .study-summary::before {
                 </button>
                 <span id="mobile-nav-title"></span>
                 <div class="panel-header-actions">
-                    <button class="share-url-btn bookmark-btn" data-icon="bookmark" onclick="toggleBookmark()" title="この節をブックマーク"></button>
                     <button class="share-url-btn hl-panel-btn" id="hl-panel-btn-1" onclick="_hlVerseHighlight()" title="この節をハイライト"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1.1em" height="1.1em" style="display:block"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
                     <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
                     <button class="share-url-btn note-btn" data-icon="note" onclick="_toggleNoteUI()" title="この節にメモを書く">
@@ -6676,7 +6672,6 @@ details[open] .study-summary::before {
                     <span id="active-v" style="font-size: var(--text-caption); color: var(--text-sub); font-weight: 400;"></span>
                 </div>
                 <div class="panel-header-actions">
-                    <button class="share-url-btn bookmark-btn" data-icon="bookmark" onclick="toggleBookmark()" title="この節をブックマーク"></button>
                     <button class="share-url-btn hl-panel-btn" id="hl-panel-btn-2" onclick="_hlVerseHighlight()" title="この節をハイライト"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1.1em" height="1.1em" style="display:block"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
                     <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
                     <button class="share-url-btn note-btn" data-icon="note" onclick="_toggleNoteUI()" title="この節にメモを書く">
@@ -6724,7 +6719,6 @@ details[open] .study-summary::before {
                     <button class="mvv-action-item note-btn" data-icon="note" role="menuitem" onclick="_mvvMenuAction('note')">
                         <span class="note-dot"></span>メモ
                     </button>
-                    <button class="mvv-action-item bookmark-btn" data-icon="bookmark" role="menuitem" onclick="_mvvMenuAction('bookmark')">ブックマーク</button>
                     <button class="mvv-action-item" role="menuitem" onclick="_mvvMenuAction('highlight')">ハイライト</button>
                     <button class="mvv-action-item" data-icon="link" role="menuitem" onclick="_mvvMenuAction('share')">共有</button>
                 </div>
@@ -7624,35 +7618,6 @@ function _currentVerseRef() {
     const vNum = AppState.selectedVerse.vNum;
     if (!bookKey || ch === '' || ch == null || vNum == null) return null;
     return `${bookKey} ${ch}:${vNum}`;
-}
-
-/* StudyPanel内の☆ボタン：未保存→addBookmark、保存済み→removeBookmark（toggle）
-   構造化フィールドは AppState.location / AppState.selectedVerse から直接組み立てる（ref パース禁止） */
-function toggleBookmark() {
-    if (!window.App.storage) return;
-    const ref = _currentVerseRef();
-    if (!ref) return;
-    const saved = window.App.storage.getBookmarks().some(b => b.ref === ref);
-    if (saved) {
-        window.App.storage.removeBookmark(ref);
-    } else {
-        const bookKey = AppState.location.book ? AppState.location.book.key : '';
-        /* Phase 3-6-J: refと同じchapter sourceを使い、ref/chapter間の不一致を防ぐ。 */
-        const chapter = AppState.selectedVerse?.ch ?? (AppState.location.chapter != null ? AppState.location.chapter : null);
-        const verse = AppState.selectedVerse.vNum != null ? Number(AppState.selectedVerse.vNum) : null;
-        window.App.storage.addBookmark({ ref, bookKey, chapter, verse });
-    }
-    _syncBookmarkButtons(ref);
-}
-
-/* ブックマークボタンの見た目を現在の保存状態に同期する（SVGの塗りつぶしで表現） */
-function _syncBookmarkButtons(ref) {
-    if (!window.App.storage) return;
-    const r = ref || _currentVerseRef();
-    const saved = !!(r && window.App.storage.getBookmarks().some(b => b.ref === r));
-    document.querySelectorAll('.bookmark-btn').forEach(btn => {
-        btn.classList.toggle('is-saved', saved);
-    });
 }
 
 /* 📝ボタン：開いている方のメモブロック（'wlv'=節一覧 / 'rn'=深く読む。同時に存在するのは
@@ -11087,46 +11052,7 @@ function _listItemCard(opts) {
     return `<div class="list-item-card"${onclickAttr}><div class="list-item-main">${titleHtml}${subHtml}</div>${metaHtml}${actionsHtml}</div>`;
 }
 
-/* ブックマーク一覧画面。showAppInfo()/showMameKnowledge()と同じ .static-page 差し替え方式。
-   bookmarks は recentVerses と同じ構造化フィールド（bookKey/chapter/verse）を持つため、
-   一覧→節移動のリンク生成は構造化フィールドのみを使用する（ref文字列の解析は一切行わない）。 */
-function showBookmarks() {
-    closeMobileSidebar();
-
-    const app = document.getElementById('bible-text-area');
-
-    document.getElementById('main-reading-area').classList.add('single-mode');
-    document.getElementById('main-reading-area').classList.add('static-view');
-    document.getElementById('main-reading-area').scrollTop = 0;
-
-    AppState.ui.view = 'bookmarks';
-    syncUIFromState();
-
-    const bookmarks = window.App.storage ? window.App.storage.getBookmarks() : [];
-
-    const rowsHtml = bookmarks.length
-        ? bookmarks.map(b => {
-            const href = (b.bookKey && b.chapter != null && b.verse != null)
-                ? `index.html?book=${encodeURIComponent(b.bookKey)}&ch=${encodeURIComponent(b.chapter)}&verse=${encodeURIComponent(b.verse)}&panel=study`
-                : '';
-            const bTitle = (b.bookKey && b.chapter != null && b.verse != null)
-                ? `${BOOK_SHORT[b.bookKey] || b.bookKey}${b.chapter}章${b.verse}節`
-                : (b.ref || '');
-            return _listItemCard({ title: bTitle, meta: _listMetaDate(b.createdAt), href });
-        }).join('')
-        : `<p class="list-item-empty">ブックマークはまだありません。</p>`;
-
-    const html = `
-        <div class="static-page list-page">
-            <section>
-                ${rowsHtml}
-            </section>
-        </div>
-    `;
-    app.innerHTML = html;
-}
-
-/* 最近読んだ箇所一覧画面。showBookmarks()と同じ .static-page 差し替え方式。
+/* 最近読んだ箇所一覧画面。showRecentWords()/showNotes()と同じ .static-page 差し替え方式。
    URL生成は entry.bookKey / entry.chapter / entry.verse のみを使用する（ref文字列の解析は行わない）。
    panel=study は付けない＝節へ移動するのみで Study Panel は開かない。 */
 function showRecentVerses() {
@@ -12727,7 +12653,6 @@ function _toggleMvvActionMenu(e) {
     /* 保存済み状態を反映（既存の read-only sync 関数を呼ぶだけ）。 */
     const ref = _currentVerseRef();
     if (window.App && window.App.storage) {
-        _syncBookmarkButtons(ref);
         _syncNoteButtons(ref);
     }
     menu.classList.add('open');
@@ -12741,7 +12666,6 @@ function _toggleMvvActionMenu(e) {
 function _mvvMenuAction(kind) {
     _closeMvvActionMenu();
     if (kind === 'note')           _toggleNoteUI();
-    else if (kind === 'bookmark')  toggleBookmark();
     else if (kind === 'highlight') _hlVerseHighlight();
     else if (kind === 'share')     copyShareUrl();
 }
@@ -13021,17 +12945,6 @@ function closeMobileVerseView() {
 function openWordListInStudyPanel(vNum, words, book, ch) {
     /* words をキャッシュ（chip クリック時の詳細参照用） */
     _wlvWordCache = words || [];
-
-    /* ☆ボタンの表示状態を現在の節に同期する（ref は構造フィールドから組み立てる。ref パース禁止のSSOT原則に従う）。
-       book / ch は描画時コンテキスト（明示引数）を優先し、省略時は AppState.location にフォールバック。 */
-    if (window.App.storage) {
-        const _bk         = book || AppState.location.book;
-        const _posBookKey = _bk ? _bk.key : '';
-        const _posCh      = ch != null ? ch : (AppState.location.chapter != null ? AppState.location.chapter : '');
-        if (_posBookKey && _posCh !== '' && vNum != null) {
-            _syncBookmarkButtons(`${_posBookKey} ${_posCh}:${vNum}`);
-        }
-    }
 
     /* depth stack に verse-flow を追加（reading が先頭になければ追加） */
     const stack = AppState.depth.stack;
