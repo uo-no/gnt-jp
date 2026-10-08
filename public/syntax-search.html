@@ -1377,22 +1377,32 @@ margin-bottom: 20px;
     </div>
 
     <!-- ══════════════════════════════════════
-         § 2 判断候補
+         § 2 構文上の結論
     ══════════════════════════════════════ -->
     <div class="section-block fade-up" style="animation-delay:0.06s">
-        <div class="ms-section-head"><span class="ms-section-title">判断根拠</span></div>
+        <div class="ms-section-head"><span class="ms-section-title">構文上の結論</span></div>
 
-        <!-- 形態タグ -->
-        <div id="morph-tags-wrap"></div>
+        <!-- top候補の説明（summary / reading_impact / example） -->
+        <div id="conclusion-wrap"></div>
 
         <!-- 競合注記 -->
         <div id="conflict-note-wrap"></div>
 
-        <!-- 候補リスト -->
-        <div id="candidate-list-wrap"></div>
+        <!-- 形態タグ -->
+        <div id="morph-tags-wrap"></div>
 
         <!-- 語順マーカー -->
         <div id="word-order-wrap"></div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         § 3 根拠・別解
+    ══════════════════════════════════════ -->
+    <div class="section-block fade-up" id="alt-section" style="display:none;animation-delay:0.12s">
+        <div class="ms-section-head"><span class="ms-section-title">根拠・別解</span></div>
+
+        <!-- 候補リスト（candidates[1..5]） -->
+        <div id="candidate-list-wrap"></div>
     </div>
 
 
@@ -2472,6 +2482,7 @@ function selectToken(idx) {
 
         performance.mark('detail-render-start');
         renderRoleHero(entry, tokens, idx, analysisOutput);
+        renderConclusion(entry, tokens, idx, analysisOutput);
         renderCandidates(entry, tokens, idx, analysisOutput);
         renderLegend(analysisOutput);
         renderWordOrder(entry, tokens, idx, analysisOutput);
@@ -2575,6 +2586,70 @@ function renderRoleHero(entry, tokens, idx, analysisOutput) {
     </div>`;
 }
 
+/* § 2 構文上の結論 — top候補の説明 */
+function renderConclusion(entry, tokens, idx, analysisOutput) {
+    const wrap = document.getElementById('conclusion-wrap');
+    if (!wrap) return;
+
+    if (!analysisOutput || !analysisOutput.candidates || !analysisOutput.candidates.length) {
+        wrap.innerHTML = '';
+        return;
+    }
+
+    const top = analysisOutput.candidates[0];
+    if (!top || top.status === 'stub') {
+        wrap.innerHTML = '';
+        return;
+    }
+
+    const typeDef = _getRegistryType(top.id);
+    if (!typeDef) {
+        wrap.innerHTML = '';
+        return;
+    }
+
+    const summary      = typeDef?.dictionary?.summary || typeDef?.description_ja || '';
+    const impactDetail = typeDef?.dictionary?.reading_impact_detail
+                      || typeDef?.reading_impact?.tip_ja || '';
+    const exampleVerse = typeDef?.example_verse || '';
+    const exampleGreek = typeDef?.example_greek || '';
+    const exampleGloss = typeDef?.example_gloss || '';
+
+    if (!summary) {
+        wrap.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+
+    if (summary) {
+        html += `<div class="cand-section" style="padding-top:0">
+            <div class="cand-section-label">構文機能</div>
+            <div class="cand-def-text">${_escH(summary)}</div>
+        </div>`;
+    }
+
+    if (impactDetail) {
+        html += `<div class="cand-section">
+            <div class="cand-section-label">読みへの影響</div>
+            <div class="cand-def-text">${_escH(processTipJa(impactDetail))}</div>
+        </div>`;
+    }
+
+    if (exampleVerse) {
+        html += `<div class="cand-section">
+            <div class="cand-section-label">類例</div>
+            <div class="cand-example">
+                <div class="cand-example-ref">${_escH(buildRefLabel(exampleVerse))}</div>
+                ${exampleGreek ? `<div class="cand-example-greek">${_escH(exampleGreek)}</div>` : ''}
+                ${exampleGloss ? `<div class="cand-example-gloss">${_escH(exampleGloss)}</div>` : ''}
+            </div>
+        </div>`;
+    }
+
+    wrap.innerHTML = html;
+}
+
 /* § 2 統語関係タグ */
 /* § 2 候補リスト — ヘルパー */
 function _escH(s) {
@@ -2595,9 +2670,10 @@ function _getRegistryType(candidateId) {
     return null;
 }
 
-/* § 2 候補リスト */
+/* § 3 根拠・別解（候補リスト） */
 function renderCandidates(entry, tokens, idx, analysisOutput) {
     const wrap = document.getElementById('candidate-list-wrap');
+    const altSection = document.getElementById('alt-section');
     if (!wrap) return;
 
     const conflictWrap = document.getElementById('conflict-note-wrap');
@@ -2605,8 +2681,11 @@ function renderCandidates(entry, tokens, idx, analysisOutput) {
 
     if (!analysisOutput || !analysisOutput.candidates || analysisOutput.candidates.length < 2) {
         wrap.innerHTML = '';
+        if (altSection) altSection.style.display = 'none';
         return;
     }
+
+    if (altSection) altSection.style.display = '';
 
     const candidates = analysisOutput.candidates;
 
