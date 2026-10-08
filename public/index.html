@@ -8290,6 +8290,7 @@ async function _fillStudyPanelTranslation(transId, vNum, bookKey, ch, container)
     const text = data.verses[String(vNum)];
     if (text == null) return;
     if (!container.isConnected) return;   // パネルが閉じられていたら中止
+    if (_mobileVerseInspectorMode === 'detail') return;  // Level3（単語詳細）表示中は注入しない
     const rep = buildRepresentation(
         { kind: 'translation', translationId: transId },
         { verseRef: { book: bookKey, chapter: ch, verse: vNum }, tokens: [] },
@@ -11705,6 +11706,25 @@ app.innerHTML = '';
     /* DA_READING: SBL sentence boundaries + leading conjunction rows + existing Word Order chips. */
     if (_colA.kind === 'da-reading') {
         renderDAReadingView(app, _sdChapterDataForRender, elData);
+        /* DA-companion: 節タップでStudyPanelを開く。renderDAReadingView はclick handlerを
+           付けないため、ここで .da-sentence 要素に追加する。chipタップは _wlvChipClick に委ねる。 */
+        const _daBook = AppState.location.book;
+        const _daCh   = AppState.location.chapter;
+        app.querySelectorAll('.da-sentence').forEach(sentEl => {
+            const _daWords = sentEl._flowWords;
+            if (!_daWords || !_daWords.length) return;
+            const _daVNum  = String(_daWords[0].verse);
+            const _daVWords = elByVerse[_daVNum] || _daWords;
+            sentEl.onclick = (e) => {
+                if (e.target.closest('.wlv-chip')) return;
+                _selectVerseBlocks(_daVNum, sentEl, app);
+                const activeVEl = document.getElementById('active-v');
+                if (activeVEl) activeVEl.innerText = `${_daVNum} 節`;
+                AppState.toBrowsing(_daVNum, _daVWords, _daBook, _daCh);
+                openVerseInspector(_daVNum, _daVWords, _daBook, _daCh);
+                notifyAppStateChange();
+            };
+        });
         parallel.innerHTML = '';
         _cachedElByVerse = elByVerse;
         _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
