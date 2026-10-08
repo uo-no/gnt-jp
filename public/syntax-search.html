@@ -2852,7 +2852,7 @@ function renderOneCandidateItem(cand, rank, total) {
         if (cand.id)       _qs.set('syntax_id', cand.id);
         _qs.set('layers', 'lemma,morph');
         const simUrl = `search-tool.html?${_qs.toString()}`;
-        bodyHtml += `<a class="similar-syntax-link" href="${simUrl}" target="_blank">🔍 統合検索で探す</a>`;
+        bodyHtml += `<a class="similar-syntax-link" href="${simUrl}" target="_blank">統合検索で探す</a>`;
     }
 
     const openClass = isTop ? ' open' : '';
@@ -3288,19 +3288,21 @@ function navTo(target, e) {
     };
     const allOn = bookFilterState.every(g => g.enabled);
 
-    if (window.parent && window.parent !== window) {
-        window.parent.postMessage(
-            { type: `NAV_TO_${target.toUpperCase()}`, ref: params.ref, word: params.word,
-              filters: allOn ? null : filters }, '*'
-        );
-        return;
-    }
-    if (window.opener && !window.opener.closed) {
-        window.opener.postMessage(
-            { type: `NAV_TO_${target.toUpperCase()}`, ref: params.ref, word: params.word,
-              filters: allOn ? null : filters }, '*'
-        );
-        return;
+    if (target !== 'semantics') {
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage(
+                { type: `NAV_TO_${target.toUpperCase()}`, ref: params.ref, word: params.word,
+                  filters: allOn ? null : filters }, '*'
+            );
+            return;
+        }
+        if (window.opener && !window.opener.closed) {
+            window.opener.postMessage(
+                { type: `NAV_TO_${target.toUpperCase()}`, ref: params.ref, word: params.word,
+                  filters: allOn ? null : filters }, '*'
+            );
+            return;
+        }
     }
     const fileMap = {
         morph:     'morph-search.html',
