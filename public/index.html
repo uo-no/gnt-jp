@@ -10370,7 +10370,18 @@ function openResearchPanel(type, url) {
     if (StudyPanelState.isOpen) closeStudyPanel();
     /* MobileVerseView（z-index 200）との排他制御: Research Panel（z-index 150）の前面表示を確保 */
     const _mvv = document.getElementById('mobile-verse-view');
-    if (_mvv?.classList.contains('open')) closeMobileVerseView();
+    if (_mvv?.classList.contains('open')) {
+        /* Mobile: DOM を先に閉じ、Research Panel open 確定後に history.back() を遅延実行する。
+           closeMobileVerseView() の history.back() を inline 呼びすると iOS Safari の
+           page-restoration が Research Panel の .open と競合するため、
+           setTimeout で event stack の外へ出す（E-1C の履歴整合は維持）。 */
+        _doCloseMobileVerseView();
+        if (_mvvHistoryActive) {
+            _mvvHistoryActive = false;
+            _mvvIgnoreNextPop = true;
+            setTimeout(function() { try { history.back(); } catch (_) {} }, 0);
+        }
+    }
     _loadResearchPanelContent(type, url);
     panel.classList.add('open');
     panel.setAttribute('aria-hidden', 'false');
