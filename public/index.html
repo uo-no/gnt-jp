@@ -8270,6 +8270,36 @@ function _mobileOpenPanel(titleText, wasAlreadyOpen) {
     }
 }
 
+/* StudyPanel の対応表: 現在の読み方 → 別の読み方（重複表示しない）。
+   本文にすでに表示されているモードをStudyPanelで繰り返さない。 */
+function _studyPanelCompanionMode(transA) {
+    const map = {
+        'JA1955':     'WORD_ORDER',
+        'WORD_ORDER': 'JA1955',
+        'DA_READING': 'WORD_ORDER',
+        'RK_READING': 'DA_READING',
+    };
+    return map[transA] || 'WORD_ORDER';
+}
+
+/* WORD_ORDER → JA1955: 同期描画後に口語訳テキストを非同期注入する。
+   _openWordListInternal / _mobileInspectorRender の描画完了後に fire-and-forget で呼ぶ。 */
+async function _fillStudyPanelTranslation(transId, vNum, bookKey, ch, container) {
+    const data = await _fetchTranslation(transId, bookKey, String(ch));
+    if (!data || !data.verses) return;
+    const text = data.verses[String(vNum)];
+    if (text == null) return;
+    if (!container.isConnected) return;   // パネルが閉じられていたら中止
+    const rep = buildRepresentation(
+        { kind: 'translation', translationId: transId },
+        { verseRef: { book: bookKey, chapter: ch, verse: vNum }, tokens: [] },
+        null,
+        text
+    );
+    container.innerHTML = renderColumn(rep);
+    _wlvChipCache = [];
+}
+
 /* 内部: 語形一覧を開く（depth stackは変えない） */
 function _openWordListInternal(vNum, words, book, ch) {
     closeMobileSidebar();
@@ -8325,19 +8355,30 @@ function _openWordListInternal(vNum, words, book, ch) {
         const _vrBookKey = _bk ? _bk.key : '';
         const _vrCh      = ch != null ? ch : (AppState.location.chapter != null ? AppState.location.chapter : null);
         const _vrVerse   = buildVerse(_vrBookKey, _vrCh, vNum, words);
-        const _vrRep     = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, getAnalysis(_vrVerse));
-        /* VR-4-C Step 5: 「本文がFLOW表示中か」の判定はここ（呼び出し元）で解決し、
-           WordOrderRenderer へは解決済みの真偽値のみを渡す（旧実装の "修正B" 判定を移設）。 */
-        const _showOnboardingAnchor = _toColumnMode(_transA).kind !== 'wordOrder'
-            && !!(window.App.onboarding && !window.App.onboarding.getState().onboardingComplete);
-        /* VR-5-H-12: legend 表示可否も呼び出し元で解決し、Renderer へは真偽値のみ渡す
-           （render() 内の window.App.onboarding 直参照を撤去。旧: onboardingComplete で凡例表示）。 */
-        const _showOnboardingLegend = !!(window.App.onboarding?.getState()?.onboardingComplete);
-        listEl.innerHTML = renderColumn(_vrRep, { showOnboardingAnchor: _showOnboardingAnchor, showOnboardingLegend: _showOnboardingLegend });
-        /* Phase VR-4B-3: 表示に使った chips[] をクリック時まで保持する（Interaction Lifecycle是正）。
-           StudyPanel は常に1節分のみ表示するシングルトンのため、_wlvWordCache と対のグローバル
-           キャッシュで足りる（複数節同時表示する Greek Flow View / 本文左列とは異なる方式）。 */
-        _wlvChipCache = (_vrRep && _vrRep.chips) ? _vrRep.chips : [];
+        const _spMode    = _studyPanelCompanionMode(_transA);
+        if (_spMode === 'DA_READING' && _sdChapterDataForRender) {
+            /* RK_READING → DA_READING: 既存 renderDAReadingView を節単位で再利用 */
+            renderDAReadingView(listEl, _sdChapterDataForRender, words);
+            _wlvChipCache = [];
+        } else {
+            const _vrRep = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, getAnalysis(_vrVerse));
+            /* VR-4-C Step 5: 「本文がFLOW表示中か」の判定はここ（呼び出し元）で解決し、
+               WordOrderRenderer へは解決済みの真偽値のみを渡す（旧実装の "修正B" 判定を移設）。 */
+            const _showOnboardingAnchor = _toColumnMode(_transA).kind !== 'wordOrder'
+                && !!(window.App.onboarding && !window.App.onboarding.getState().onboardingComplete);
+            /* VR-5-H-12: legend 表示可否も呼び出し元で解決し、Renderer へは真偽値のみ渡す
+               （render() 内の window.App.onboarding 直参照を撤去。旧: onboardingComplete で凡例表示）。 */
+            const _showOnboardingLegend = !!(window.App.onboarding?.getState()?.onboardingComplete);
+            listEl.innerHTML = renderColumn(_vrRep, { showOnboardingAnchor: _showOnboardingAnchor, showOnboardingLegend: _showOnboardingLegend });
+            /* Phase VR-4B-3: 表示に使った chips[] をクリック時まで保持する（Interaction Lifecycle是正）。
+               StudyPanel は常に1節分のみ表示するシングルトンのため、_wlvWordCache と対のグローバル
+               キャッシュで足りる（複数節同時表示する Greek Flow View / 本文左列とは異なる方式）。 */
+            _wlvChipCache = (_vrRep && _vrRep.chips) ? _vrRep.chips : [];
+            if (_spMode === 'JA1955') {
+                /* WORD_ORDER → JA1955: 語順を即時表示後、口語訳テキストで非同期上書き */
+                _fillStudyPanelTranslation('JA1955', vNum, _vrBookKey, _vrCh, listEl);
+            }
+        }
     }
     sidePanel.appendChild(listEl);
     /* 節全体の読書メモ（ReadingFormatter駆動）を非同期に注入。
@@ -12750,18 +12791,29 @@ function _mobileInspectorRender(vNum, words) {
         /* Phase 3-6-I A: MVV内では_mvvChapterを使い、buildVerseのchapter keyを対象節と一致させる。 */
         const _vrCh      = _mvvChapter != null ? _mvvChapter : (AppState.location.chapter != null ? AppState.location.chapter : null);
         const _vrVerse   = buildVerse(_vrBookKey, _vrCh, vNum, words);
-        const _vrRep     = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, getAnalysis(_vrVerse));
-        /* VR-4-C Step 5: 「本文がFLOW表示中か」の判定はここ（呼び出し元）で解決し、
-           WordOrderRenderer へは解決済みの真偽値のみを渡す（旧実装の "修正B" 判定を移設）。 */
-        const _showOnboardingAnchor = _toColumnMode(_transA).kind !== 'wordOrder'
-            && !!(window.App.onboarding && !window.App.onboarding.getState().onboardingComplete);
-        /* VR-5-H-12: legend 表示可否も呼び出し元で解決し、Renderer へは真偽値のみ渡す
-           （render() 内の window.App.onboarding 直参照を撤去。旧: onboardingComplete で凡例表示）。 */
-        const _showOnboardingLegend = !!(window.App.onboarding?.getState()?.onboardingComplete);
-        area.innerHTML = renderColumn(_vrRep, { showOnboardingAnchor: _showOnboardingAnchor, showOnboardingLegend: _showOnboardingLegend });
-        /* Phase VR-4B-3: 表示に使った chips[] をクリック時まで保持する（Interaction Lifecycle是正）。
-           Mobile Inspector も StudyPanel と同じくシングルトン表示のため同じキャッシュを共有する。 */
-        _wlvChipCache = (_vrRep && _vrRep.chips) ? _vrRep.chips : [];
+        const _spMode    = _studyPanelCompanionMode(_transA);
+        if (_spMode === 'DA_READING' && _sdChapterDataForRender) {
+            /* RK_READING → DA_READING: 既存 renderDAReadingView を節単位で再利用 */
+            renderDAReadingView(area, _sdChapterDataForRender, words);
+            _wlvChipCache = [];
+        } else {
+            const _vrRep = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, getAnalysis(_vrVerse));
+            /* VR-4-C Step 5: 「本文がFLOW表示中か」の判定はここ（呼び出し元）で解決し、
+               WordOrderRenderer へは解決済みの真偽値のみを渡す（旧実装の "修正B" 判定を移設）。 */
+            const _showOnboardingAnchor = _toColumnMode(_transA).kind !== 'wordOrder'
+                && !!(window.App.onboarding && !window.App.onboarding.getState().onboardingComplete);
+            /* VR-5-H-12: legend 表示可否も呼び出し元で解決し、Renderer へは真偽値のみ渡す
+               （render() 内の window.App.onboarding 直参照を撤去。旧: onboardingComplete で凡例表示）。 */
+            const _showOnboardingLegend = !!(window.App.onboarding?.getState()?.onboardingComplete);
+            area.innerHTML = renderColumn(_vrRep, { showOnboardingAnchor: _showOnboardingAnchor, showOnboardingLegend: _showOnboardingLegend });
+            /* Phase VR-4B-3: 表示に使った chips[] をクリック時まで保持する（Interaction Lifecycle是正）。
+               Mobile Inspector も StudyPanel と同じくシングルトン表示のため同じキャッシュを共有する。 */
+            _wlvChipCache = (_vrRep && _vrRep.chips) ? _vrRep.chips : [];
+            if (_spMode === 'JA1955') {
+                /* WORD_ORDER → JA1955: 語順を即時表示後、口語訳テキストで非同期上書き */
+                _fillStudyPanelTranslation('JA1955', vNum, _vrBookKey, _vrCh, area);
+            }
+        }
     }
     /* 節読書メモ（ReadingFormatter 駆動）を非同期に注入。無ければ静寂（現状維持）。 */
     _fillWallacePassageNote(words, area);
