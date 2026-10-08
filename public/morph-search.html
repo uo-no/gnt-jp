@@ -222,7 +222,10 @@
 
 /* --- DISTRIBUTION ------------------------------------------ */
 .dist-list { display: flex; flex-direction: column; gap: 7px; }
-.dist-row { display: flex; align-items: center; gap: 10px; }
+.dist-row { display: flex; align-items: center; gap: 10px; cursor: pointer; border-radius: var(--radius-s); }
+.dist-row:hover { background: var(--hover-veil); }
+.dist-row.active { background: var(--bg-inset); }
+.dist-row.active .dist-name { color: var(--text); font-weight: 600; }
 .dist-name {
     width: 72px; font-size: 0.72rem;
     color: var(--text-sub); text-align: right; flex-shrink: 0;
@@ -564,7 +567,8 @@ body.in-iframe .section-block { margin-bottom: 20px; }
 <div class="section-block fade-up" style="animation-delay:0.05s">
     <div id="result-section" style="display:none">
         <div class="ms-section-head">
-            <span class="ms-section-title">実際の出現</span>
+            <span class="ms-section-title" id="result-section-title">実際の出現</span>
+            <button id="clear-book-filter" onclick="selectDistBook(null)" style="display:none;background:none;border:none;cursor:pointer;font-size:0.68rem;color:var(--text-hint);padding:0;line-height:1;">すべての書物を見る</button>
         </div>
     </div>
 
@@ -1277,7 +1281,7 @@ function renderDist(matched) {
     if (distTotal) distTotal.textContent = total.toLocaleString();
     document.getElementById('concentration-badge').innerHTML = badgeHTML;
     document.getElementById('dist-list').innerHTML = sorted.slice(0,12).map(([k,n]) => `
-        <div class="dist-row">
+        <div class="dist-row${_bookFilter===k?' active':''}" onclick="selectDistBook('${k}')" data-book="${k}">
             <span class="dist-name">${BOOK_JP[k]||k}</span>
             <div class="dist-bar-track"><div class="dist-bar-fill" style="width:${Math.round(n/total*100)}%"></div></div>
             <span class="dist-num">${n}</span>
@@ -1497,6 +1501,7 @@ function buildRefLabel(ref) {
 
 let _currentRows = [];
 let _displayCount = 20;
+let _bookFilter   = null;
 const PAGE_SIZE = 20;
 
 /* 性能計測ヘルパー（監査用。ロジックには影響しない） */
@@ -1539,6 +1544,7 @@ function renderResults(allData) {
     document.getElementById('count').textContent      = matched.length.toLocaleString();
     _currentRows  = matched;
     _displayCount = PAGE_SIZE;
+    _bookFilter   = null;
     renderDist(matched);
     updateHeroMeta(matched);
     renderPage();
@@ -1547,7 +1553,13 @@ function renderResults(allData) {
 function renderPage() {
     performance.mark('render-start');
     const el   = document.getElementById('result-list');
-    const rows = _currentRows;
+    const rows = _bookFilter
+        ? _currentRows.filter(e => (e._bookKey || getBookKey(e)) === _bookFilter)
+        : _currentRows;
+    const titleEl  = document.getElementById('result-section-title');
+    const clearBtn = document.getElementById('clear-book-filter');
+    if (titleEl)  titleEl.textContent = _bookFilter ? `実際の出現 — ${BOOK_JP[_bookFilter]||_bookFilter}` : '実際の出現';
+    if (clearBtn) clearBtn.style.display = _bookFilter ? '' : 'none';
     if (!rows.length) {
         el.innerHTML = `<div class="empty"><div class="empty-icon">&empty;</div>条件に一致する語形が見つかりませんでした。<br>拡張条件をOFFにするか、書物範囲を広げてみてください。</div>`;
         _logPerfMeasure('render', '0 rows');
@@ -1575,6 +1587,15 @@ function renderPage() {
     _logPerfMeasure('render', `${slice.length} DOM rows`);
 }
 function loadMore() { _displayCount += PAGE_SIZE; renderPage(); }
+
+function selectDistBook(key) {
+    _bookFilter = (key !== null && _bookFilter !== key) ? key : null;
+    _displayCount = PAGE_SIZE;
+    document.querySelectorAll('.dist-row').forEach(el => {
+        el.classList.toggle('active', el.dataset.book === _bookFilter);
+    });
+    renderPage();
+}
 
 function navTo(target, e) {
     e.preventDefault();
