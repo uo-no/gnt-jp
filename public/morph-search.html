@@ -799,7 +799,7 @@ const GENDER_CODE = { M:'masculine',F:'feminine',N:'neuter' };
 
 function entryPosCode(entry) {
     if (entry.pos) return String(entry.pos).replace(/-$/,'').toUpperCase();
-    if (entry.morph) return String(entry.morph).split('-')[0].toUpperCase();
+    if (entry.morph) { const raw = String(entry.morph).split('-')[0].toUpperCase(); return raw.length === 2 ? raw[0] : raw; }
     if (entry.class) return CLASS_TO_POS[String(entry.class).toLowerCase()] || '';
     return '';
 }
@@ -1496,8 +1496,8 @@ function buildRefLabel(ref) {
 }
 
 let _currentRows = [];
-let _displayCount = 100;
-const PAGE_SIZE = 100;
+let _displayCount = 20;
+const PAGE_SIZE = 20;
 
 /* 性能計測ヘルパー（監査用。ロジックには影響しない） */
 function _logPerfMeasure(name, note) {
@@ -1578,9 +1578,11 @@ function loadMore() { _displayCount += PAGE_SIZE; renderPage(); }
 
 function navTo(target, e) {
     e.preventDefault();
-    const msg = { type: `NAV_TO_${target.toUpperCase()}`, ref: params.ref, word: params.word };
-    if (window.parent && window.parent !== window) { window.parent.postMessage(msg, '*'); return; }
-    if (window.opener && !window.opener.closed) { window.opener.postMessage(msg, '*'); return; }
+    if (target !== 'semantics') {
+        const msg = { type: `NAV_TO_${target.toUpperCase()}`, ref: params.ref, word: params.word };
+        if (window.parent && window.parent !== window) { window.parent.postMessage(msg, '*'); return; }
+        if (window.opener && !window.opener.closed) { window.opener.postMessage(msg, '*'); return; }
+    }
     const qs = new URLSearchParams();
     if (params.ref)   qs.set('ref',   params.ref);
     if (params.word)  qs.set('word',  params.word);
