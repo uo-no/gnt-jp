@@ -8825,21 +8825,24 @@ async function _renderReadingNotes(p) {
             </div>
         </details>
 
-        <!-- LEVEL 3: 意味が近い語と比べる（折りたたみ） -->
+${LN_RELATED_WORDS_ENABLED ? `
+        <!-- TEMPORARILY DISABLED: LN 由来の関連語表示。再開条件は docs/DATA_LICENSE.md を参照。 -->
         <details class="rn-level-section" data-study-section="semantic">
             <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>関連する語を調べる</summary>
             <div class="rn-level-body">
                 <div id="rn-semantic-layers"></div>
             </div>
-        </details>
+        </details>` : ''}
 
     `;
 
-    /* セマンティックレイヤーを非同期注入 */
-    _injectStudyPanelContent(
-        document.getElementById('rn-semantic-layers'),
-        strong, resolvedId, word
-    );
+    /* LN 由来の関連語表示は一時停止中。フラグ有効時のみ注入する。 */
+    if (LN_RELATED_WORDS_ENABLED) {
+        _injectStudyPanelContent(
+            document.getElementById('rn-semantic-layers'),
+            strong, resolvedId, word
+        );
+    }
 
     /* SF-14: Structure Flow の frame/referent 弧をレイアウト後に描画（無ければ無処理）。 */
     _sfScheduleEnhance();
@@ -9329,13 +9332,17 @@ function buildSemanticGraph(lemmaId) {
 /* _rnToggleDeep: 廃止（Layer 1/2 統合のため）互換のためno-op残す */
 function _rnToggleDeep() {}
 
+/* LN 由来の関連語 UI はライセンス・精度確認が終わるまで一時停止する。
+   元データと依存ロジックは保持し、再開時はこのフラグと表示箇所を見直す。 */
+const LN_RELATED_WORDS_ENABLED = false;
+
 /* ══════════════════════════════════════════
    _injectStudyPanelContent
    Level 3（さらに学ぶ）のセマンティックレイヤーを非同期注入。
    _renderReadingNotes から呼ばれる。
    ══════════════════════════════════════════ */
 async function _injectStudyPanelContent(semContainer, strong, lemmaId, word) {
-    if (!semContainer) return;
+    if (!semContainer || !LN_RELATED_WORDS_ENABLED) return;
     await _ensureSemanticData();
 
     const resolvedId  = lemmaId || _resolveLemmaId(strong);
@@ -18557,11 +18564,12 @@ function _renderMobileWordDetail(d) {
           </div>
         </details>` : ''}
 
-        <!-- 意味が近い語と比べる: Desktop の _injectStudyPanelContent が cluster chips を注入 -->
+${LN_RELATED_WORDS_ENABLED ? `
+        <!-- TEMPORARILY DISABLED: LN 由来の関連語表示。再開条件は docs/DATA_LICENSE.md を参照。 -->
         <details class="mvv-l3-section" data-study-section="semantic">
           <summary class="mvv-l3-summary">関連する語を調べる</summary>
           <div class="mvv-l3-slot" id="mvv-semantic-slot"></div>
-        </details>
+        </details>` : ''}
 
         <div class="hl-word-slot" id="mvv-hl-word-slot" data-study-section="highlight"></div>
       </div>`;
