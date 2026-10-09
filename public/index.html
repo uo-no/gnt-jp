@@ -564,18 +564,44 @@ pointer-events: auto;
         color: var(--text-sub);
         font-size: var(--text-caption);
     }
-    /* Phase D-3A: 上下比率改善。上（本文）は内容に応じて縮み、最大 35%。残りは Inspector が占有。 */
+    /* 選択節の訳文は固定高さに閉じ込めず、語順表示の直前に自然な高さで置く。 */
     #mobile-verse-area {
-        flex: 0 1 auto;
-        max-height: 35%;
+        flex: 0 0 auto;
+        max-height: none;
+        overflow: visible;
         border-bottom: 1px solid var(--border-soft);
-        overflow-y: auto;
     }
-    /* Phase C-1: 下半分 Inspector（Level2）は独立スクロール／残り高さを占有 */
+    /* Level2 の語順表示は残り領域でスクロールする。 */
     #mobile-inspector-area {
-        flex: 1;
+        flex: 1 1 auto;
+        min-height: 0;
         overflow-y: auto;
     }
+    #mobile-verse-area .mvv-passage-note {
+        margin: 0 0 var(--space-md);
+        border-bottom: 1px solid var(--border-soft);
+        padding-bottom: var(--space-sm);
+    }
+    #mobile-verse-area .mvv-passage-note > summary {
+        list-style: none;
+        cursor: pointer;
+        color: var(--text-sub);
+        font-size: var(--text-caption);
+        padding: var(--space-xs) 0;
+    }
+    #mobile-verse-area .mvv-passage-note > summary::-webkit-details-marker { display: none; }
+    #mobile-verse-area .mvv-passage-note > summary::after {
+        content: '+';
+        float: right;
+        color: var(--text-sub);
+    }
+    #mobile-verse-area .mvv-passage-note[open] > summary::after { content: '−'; }
+    #mobile-verse-area .mvv-passage-note .wlv-reading-passage-note {
+        border-bottom: 0;
+        padding: var(--space-sm) 0 0;
+        margin: 0;
+    }
+    #mobile-verse-area .mvv-passage-note .wlv-pn-label { display: none; }
     /* Phase F-2: Level3 区画スケルトン（折りたたみセクション）。#mobile-verse-view 配下限定。 */
     #mobile-verse-view .mvv-l3-section {
         margin-top: var(--space-md);
@@ -12830,8 +12856,11 @@ async function _renderMobileVerseArea(vNum, words) {
     const text = await _mvvGetVerseText(vNum);
 
     area.innerHTML =
+        '<div id="wlv-passage-note-slot"></div>' +
         `<div class="mvv-ref">${_escH(ref)}</div>` +
         `<div class="mvv-body">${_escH(text)}</div>`;
+    /* 選択節に対応する読書メモを、訳文より上に折りたたんで表示する。 */
+    _fillWallacePassageNote(words, area);
 }
 
 /**
@@ -12900,8 +12929,7 @@ function _mobileInspectorRender(vNum, words) {
             }
         }
     }
-    /* 節読書メモ（ReadingFormatter 駆動）を非同期に注入。無ければ静寂（現状維持）。 */
-    _fillWallacePassageNote(words, area);
+    /* 節読書メモは訳文の上（#mobile-verse-area）に表示する。ここでは注入しない。 */
 }
 
 /**
@@ -14280,10 +14308,19 @@ async function _fillWallacePassageNote(words, container) {
     if (myGen !== _wallacePassageNoteGen) return;       // 既に次の節に移動済み
     if (!html) return;                                   // 静寂優先：空スロットのまま
     const slot = container && container.querySelector('#wlv-passage-note-slot');
-    if (slot) slot.outerHTML = html;
-    /* 語ドロワーと同一文なら非表示（_fillWlvResonance より後に完了した場合の再チェック） */
-    const ddReso = document.getElementById('wlv-dd-resonance');
-    _syncWlvPassageNoteVisibility((ddReso?.textContent || '').trim());
+    if (slot) {
+        if (container.id === 'mobile-verse-area') {
+            /* モバイルの節読書メモは、訳文上の折りたたみとして表示する。 */
+            slot.outerHTML = `<details class="mvv-passage-note"><summary>この節の読書メモ</summary>${html}</details>`;
+        } else {
+            slot.outerHTML = html;
+        }
+    }
+    /* 語ドロワーと同一文なら非表示。モバイルの節メモは別領域なので対象外。 */
+    if (!container || container.id !== 'mobile-verse-area') {
+        const ddReso = document.getElementById('wlv-dd-resonance');
+        _syncWlvPassageNoteVisibility((ddReso?.textContent || '').trim());
+    }
 }
 
 /**
@@ -18259,6 +18296,9 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
     if (_mobileVerseInspectorMode === 'list') _mvvInspectorScrollTop = area.scrollTop;
     /* Level3（単語詳細）を描画するので内部状態は detail（戻るボタンが一覧へ戻す判定に使う） */
     _mobileVerseInspectorMode = 'detail';
+    /* 深い階層へ進むときは、節読書メモを閉じておく。 */
+    const passageNote = document.querySelector('#mobile-verse-area .mvv-passage-note');
+    if (passageNote) passageNote.open = false;
     _syncMobileVerseViewBackLabel();
     _syncMobileVerseTitle();
     const d = AppState.inspect.data || {};
