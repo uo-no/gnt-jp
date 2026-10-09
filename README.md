@@ -1,92 +1,20 @@
-# gnt-jp
+# Morphology & Syntax Search — Detached Source Bundle
 
-ギリシャ語新約聖書・七十人訳（LXX）を、原語に触れながら読み進めるための**静的Webアプリ**。
-サーバーもビルドも持たず、ブラウザ上でそのまま動作する。
+Snapshot from `uo-no/gnt-jp` main at commit `3c119c494faa27aa96d4440ff7dd9cb06f741c89`.
 
-> この README は**案内板**である。詳細は持たず、行き先だけを示す。
-> 規則は [CLAUDE.md](CLAUDE.md)、仕様と履歴は [docs/](docs/)、コマンドは `package.json` を正とする。
+This curated bundle preserves the two standalone search pages and their runtime dependencies/data for local inspection and future browser-extension development. It is not a finished extension.
 
----
+## Included
+- Morphology and syntax search pages
+- Shared CSS/JavaScript modules and book master
+- Syntax analyzer and syntax registry
+- Complete morphology index and NT/LXX Greek chapter data
+- Japanese 1955 translation chapter data
+- Lexicon data and existing index-generation scripts
+- Selected design/implementation notes
 
-## Quick Start
+## Local inspection
+The original pages expect the `public/` folder to be the web server's document root. Start a local HTTP server from inside `public/` (for example, `python3 -m http.server 8000`) and open `/morph-search.html` or `/syntax-search.html`. Do not open them via `file://`; they use fetch().
 
-1. **コードを書く前に [CLAUDE.md](CLAUDE.md) を読む。** 目的・設計思想・禁止事項がそこにある。
-2. ビルド不要。`public/` を静的配信すればそのまま動く。
-3. 実行できる作業（監査・テスト・ビルド）は `package.json` の scripts を参照する。
-
----
-
-## 目的
-
-**「聖書がよく分かった」＝原著者の意図がより正確に理解できること。** アプリの成否はこの一点で測る。
-研究の網羅性ではなく、**読む体験**を中心に置く。解析は読書を助ける手段であって、目的ではない。
-（First Principle の詳細は [CLAUDE.md](CLAUDE.md)。）
-
----
-
-## 正本として管理する範囲
-
-**GitHub を唯一の正本とする。** 本リポジトリが持つのは、アプリを成立させるもの一式：
-
-- アプリのコード・配信データ（`public/`）
-- 生成・監査スクリプト（`scripts/`）と CI（`.github/`）
-- 現行仕様・設計原則・履歴（`docs/`）／ 開発ルール（`CLAUDE.md`）
-
-ここに置かないもの（責務が別）：**SNS運用物 → gnt-editorial／研究背景・完了監査・判断履歴・権利未確認資料 → knowledge-library**（下記）。
-ローカル専用データは `.gitignore` を正とする。
-
----
-
-## ディレクトリ構成（トップレベル）
-
-```
-gnt-jp/
-├── README.md      案内板（本書）
-├── CLAUDE.md      開発ルール・設計思想（コードを書く前に読む）
-├── package.json   スクリプト定義（監査・テスト・ビルド）
-├── public/        アプリ本体（静的・これがそのまま動く）
-├── scripts/       ビルド・生成・監査専用
-├── docs/          設計・仕様・履歴
-├── dev/           開発用の下書き
-└── .github/       CI
-```
-
-各ディレクトリの中身・設計原則は [docs/README.md](docs/README.md) を参照（ここには複製しない）。
-
----
-
-## 3リポジトリ体制
-
-```
-GitHub（唯一の正本）
-├── gnt-jp            ← 本リポ：聖書アプリ本体（コード・データ・仕様）
-├── gnt-editorial       SNS編集・投稿制作・運用
-└── knowledge-library   知識・研究・設計背景・監査・判断履歴
-```
-
-- **責務を混在させない。** 現行の仕様・コードは gnt-jp、SNS運用物は gnt-editorial、完了した判断・研究背景は knowledge-library。
-- **3リポジトリは相互にファイル参照で結合しない設計。** 片方を分離・移動しても他方が壊れない状態を保つ。
-- ローカル専用データ（`.gitignore` 対象）が必要な場合は、knowledge-library 側からコピーで供給する（運用手順であり、コード依存ではない）。
-
----
-
-## どこを読むか
-
-| 文書 | 役割 |
-|---|---|
-| **README.md**（本書） | 全体像・現在地・行き先の案内板 |
-| **CLAUDE.md** | 開発ルール・設計思想・禁止事項（**書く前に必ず**） |
-| **docs/** | アプリ仕様・アーキテクチャルール・AI作業フロー・現行仕様・完了記録 |
-| **package.json** | 実行できるコマンド（監査・テスト・ビルド） |
-
-原則：**README は詳細を持たない。** 書きたくなったら CLAUDE.md か docs/ に置き、ここからは指すだけにする。
-
----
-
-## 将来方針
-
-- 正本は常に GitHub。ローカルは clone / 作業場として扱う。
-- 機能追加は「読むことを助けるか」で判断する。
-- 仕様は docs の現行仕様へ、完了記録は履歴へ。設計背景で GitHub に残す必要のないものは knowledge-library へ。
-- 公開条件・ライセンスは `docs/` の該当文書を正とする。権利確認前に公開範囲を広げない。
-- 原則が現実と矛盾したら、思想を曲げず、まず CLAUDE.md / 本 README を更新する議論から始める。
+## Important
+The HTML pages still assume the original app's URL and navigation environment. This package does not contain a browser-extension manifest or adapters for third-party Bible websites. The main app's `main` branch is not changed by this package branch.
