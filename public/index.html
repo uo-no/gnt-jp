@@ -6570,16 +6570,21 @@ details[open] .study-summary::before {
 
     <!-- Layer 0: トップメニュー（常に表示） -->
     <div class="sb-layer active" id="sb-layer0">
+        <div class="section-label sb-bible-label" id="sb-nt-acc-header"
+             style="padding: var(--space-sm) var(--space-sm) var(--space-xs);"
+             onclick="_sbToggleNtAccordion()"
+             aria-expanded="false"
+             title="新約聖書の書物を選ぶ">
+            <span class="menu-text">新約聖書</span><span class="sb-bible-label-arrow" id="sb-nt-acc-arrow">⌄</span>
+        </div>
+        <div id="sb-nt-accordion" style="display:none"></div>
         <div class="section-label menu-text" style="padding: var(--space-sm) var(--space-sm) var(--space-xs);">読書モード</div>
         <div id="sb-mode-list-l0"></div>
         <div class="sb-row" id="sb-ot-row" onclick="sbGoTo(1,'ot')" style="display:none">
             <span class="menu-text">旧約聖書</span>
             <span class="sb-row-arrow menu-text">›</span>
         </div>
-        <div class="sb-row" id="sb-nt-row" onclick="sbGoTo(1,'nt')">
-            <span class="menu-text">新約聖書</span>
-            <span class="sb-row-arrow menu-text">›</span>
-        </div>
+        <div id="sb-nt-row" style="display:none"></div>
         <div class="section-label menu-text" style="padding: var(--space-md) var(--space-sm) var(--space-xs);">ツール</div>
         <div class="sb-row" id="nav-proximity" onclick="goProximityPage()">
             <span class="menu-text">検索</span>
@@ -10681,11 +10686,12 @@ function sbGoTo(layer, section) {
     document.querySelectorAll('.sb-layer').forEach(l => l.classList.remove('active'));
     document.getElementById('sb-layer' + layer).classList.add('active');
 
-    /* Layer 0: sb-nt-row / sb-ot-row のアクティブ表示 + インラインモードリスト更新 */
+    /* Layer 0: sb-nt-row / sb-ot-row のアクティブ表示 + インラインモードリスト・アコーディオン更新 */
     if (layer === 0) {
         document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
         document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
         _sbRenderModesL0();
+        _sbSyncNtAccordion();
     }
 
     /* Layer 1: 書物一覧を描画 */
@@ -10814,6 +10820,48 @@ function _sbRenderModesL0() {
     list.innerHTML +=
         '<div class="sb-row" onclick="openBiblePicker()" style="border-top:1px solid var(--border-soft);margin-top:var(--space-xs);">' +
         '<span class="menu-text" style="color:var(--text-sub);">比較表示を設定…</span></div>';
+}
+
+let _sbNtAccOpen = false;
+
+function _sbToggleNtAccordion() {
+    _sbNtAccOpen = !_sbNtAccOpen;
+    _sbSyncNtAccordion();
+}
+
+function _sbSyncNtAccordion() {
+    const header    = document.getElementById('sb-nt-acc-header');
+    const accordion = document.getElementById('sb-nt-accordion');
+    const arrow     = document.getElementById('sb-nt-acc-arrow');
+    if (!header || !accordion) return;
+    header.setAttribute('aria-expanded', _sbNtAccOpen ? 'true' : 'false');
+    accordion.style.display = _sbNtAccOpen ? '' : 'none';
+    if (arrow) arrow.style.transform = _sbNtAccOpen ? 'rotate(180deg)' : '';
+    if (_sbNtAccOpen) _sbRenderNtBooksL0();
+}
+
+function _sbRenderNtBooksL0() {
+    const container = document.getElementById('sb-nt-accordion');
+    if (!container) return;
+    container.innerHTML = '';
+    SB_BOOKS.nt.forEach(b => {
+        const div = document.createElement('div');
+        div.className = 'sb-row' + (b.key === sbBookKey ? ' active' : '');
+        const hasGreek = GREEK_BOOKS.has(b.key);
+        div.innerHTML = `<span>${b.name}</span><span class="sb-row-arrow">›</span>`;
+        if (!hasGreek) {
+            div.title = '日本語訳のみ';
+            div.querySelector('span').style.color = 'var(--text-sub)';
+        }
+        div.onclick = () => {
+            sbSection  = 'nt';
+            sbBookKey  = b.key;
+            sbBookName = b.name;
+            sbMaxCh    = b.ch;
+            sbGoTo(2);
+        };
+        container.appendChild(div);
+    });
 }
 
 function _sbSelectMode(id) {
