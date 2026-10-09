@@ -3621,6 +3621,13 @@ details[open] .study-summary::before {
     display: none;
 }
 /* ドロワー内：「深く読む」ボタン */
+.wlv-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-sm) var(--space-lg);
+    margin-top: var(--space-xs);
+}
 .wlv-detail-study-btn {
     display: inline-flex;
     align-items: center;
@@ -3634,6 +3641,7 @@ details[open] .study-summary::before {
     padding: var(--space-sm) 0 0;
     cursor: pointer;
     letter-spacing: 0.02em;
+    text-decoration: none;
     transition: color var(--transition-fast), opacity var(--transition-fast);
     opacity: var(--opacity-secondary);
 }
@@ -8797,8 +8805,8 @@ async function _renderReadingNotes(p) {
         <!-- 用例検索へのリンク（トグルに入れず常時表示） -->
         <div class="rn-research-links" data-study-section="concordance">
             <a href="${concordURL}" class="rn-research-link rn-concord-link" target="_blank">
-                <span class="rn-research-link-title">この語の用例を見る →</span>
-                <span class="rn-research-link-desc">聖書のどこで使われているか調べる</span>
+                <span class="rn-research-link-title">ほかの箇所での使われ方を見る →</span>
+                <span class="rn-research-link-desc">聖書のほかの箇所で、この語がどう使われているかを見る</span>
             </a>
         </div>
     `;
@@ -14693,9 +14701,14 @@ const WordOrderRenderer = {
             <div class="wlv-detail-greek" id="wlv-dd-greek">-</div>
             <div class="wlv-detail-ja"    id="wlv-dd-ja">-</div>
             <div class="wlv-detail-resonance" id="wlv-dd-resonance"></div>
-            <button class="wlv-detail-study-btn" id="wlv-dd-study-btn" onclick="_wlvStudyBtnClick()">
-                語の意味や用法を調べる →
-            </button>
+            <div class="wlv-detail-actions">
+                <button class="wlv-detail-study-btn" id="wlv-dd-study-btn" onclick="_wlvStudyBtnClick()">
+                    語の意味や用法を調べる →
+                </button>
+                <a class="wlv-detail-study-btn" href="search-tool.html?tool=search&layers=lemma%2Cmorph" onclick="return _wlvConcordanceClick(event)">
+                    ほかの箇所での使われ方を見る →
+                </a>
+            </div>
         </div>`;
 
         /* ── 節全体の読書メモ（ReadingFormatter駆動・非同期） ──
@@ -17998,6 +18011,30 @@ function _wlvGetChipData(tokenId) {
 /**
  * 「詳しく見る」ボタン：AppState.inspect.data が設定済みなので openStudyPanel を直接呼ぶ
  */
+function _wlvConcordanceClick(event) {
+    if (event) event.preventDefault();
+    const d = AppState.inspect.data;
+    if (!d) return false;
+    const morph = parseMorphForSearch(d.rawMorph || d.morph || '');
+    const qs = new URLSearchParams();
+    if (d.greek) qs.set('word', d.greek);
+    if (d.lemma) qs.set('lemma', d.lemma);
+    if (d.ref) qs.set('ref', d.ref);
+    if (morph.pos) qs.set('pos', morph.pos);
+    if (morph.tense) qs.set('tense', morph.tense);
+    if (morph.mood) qs.set('mood', morph.mood);
+    if (morph.voice) qs.set('voice', morph.voice);
+    if (morph.pos !== 'V') {
+        if (morph.gender) qs.set('gender', morph.gender);
+        if (morph.number) qs.set('number', morph.number);
+        if (morph.case) qs.set('case', morph.case);
+    }
+    qs.set('layers', 'lemma,morph');
+    qs.set('tool', 'search');
+    window.open('search-tool.html?' + qs.toString(), '_blank', 'noopener');
+    return false;
+}
+
 function _wlvStudyBtnClick() {
     if (!AppState.inspect.data) return;
     const { greek, rawMorph, ref, lemma, strong } = AppState.inspect.data;
@@ -18497,8 +18534,8 @@ function _renderMobileWordDetail(d) {
         ${d.concordURL ? `
         <div class="rn-research-links" data-study-section="concordance" style="margin-top:var(--space-md);">
           <a href="${d.concordURL}" class="rn-research-link rn-concord-link" target="_blank">
-            <span class="rn-research-link-title">この語の用例を見る →</span>
-            <span class="rn-research-link-desc">聖書のどこで使われているか調べる</span>
+            <span class="rn-research-link-title">ほかの箇所での使われ方を見る →</span>
+            <span class="rn-research-link-desc">聖書のほかの箇所で、この語がどう使われているかを見る</span>
           </a>
         </div>` : ''}
         <div class="hl-word-slot" id="mvv-hl-word-slot" data-study-section="highlight"></div>
