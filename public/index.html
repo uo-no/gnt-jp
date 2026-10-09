@@ -6570,9 +6570,8 @@ details[open] .study-summary::before {
 
     <!-- Layer 0: トップメニュー（常に表示） -->
     <div class="sb-layer active" id="sb-layer0">
-        <div class="section-label sb-bible-label" style="padding: var(--space-sm) var(--space-sm) var(--space-xs);" onclick="sbGoTo(3)" title="読み方を選ぶ">
-            <span id="sb-bible-label-text">聖書</span><span class="sb-bible-label-arrow">⌄</span>
-        </div>
+        <div class="section-label menu-text" style="padding: var(--space-sm) var(--space-sm) var(--space-xs);">読書モード</div>
+        <div id="sb-mode-list-l0"></div>
         <div class="sb-row" id="sb-ot-row" onclick="sbGoTo(1,'ot')" style="display:none">
             <span class="menu-text">旧約聖書</span>
             <span class="sb-row-arrow menu-text">›</span>
@@ -10682,10 +10681,11 @@ function sbGoTo(layer, section) {
     document.querySelectorAll('.sb-layer').forEach(l => l.classList.remove('active'));
     document.getElementById('sb-layer' + layer).classList.add('active');
 
-    /* Layer 0: sb-nt-row / sb-ot-row のアクティブ表示 */
+    /* Layer 0: sb-nt-row / sb-ot-row のアクティブ表示 + インラインモードリスト更新 */
     if (layer === 0) {
         document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
         document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
+        _sbRenderModesL0();
     }
 
     /* Layer 1: 書物一覧を描画 */
@@ -10789,6 +10789,23 @@ function _sbRenderModes() {
 //        { id: 'RELATION',    label: 'つながりで読む'  },
 //        { id: 'RK_READING',   label: '語句の関係で読む'   }, /* Phase E */
 //        { id: 'RK_READING_V', label: '縦型読み解きで読む' }, /* Phase L.2 */
+    ];
+    list.innerHTML = items.map(item => {
+        const active = (_transA === item.id && _transMode === 'single') ? ' active' : '';
+        return `<div class="sb-row${active}" onclick="_sbSelectMode('${item.id}')"><span class="menu-text">${item.label}</span></div>`;
+    }).join('');
+    list.innerHTML +=
+        '<div class="sb-row" onclick="openBiblePicker()" style="border-top:1px solid var(--border-soft);margin-top:var(--space-xs);">' +
+        '<span class="menu-text" style="color:var(--text-sub);">比較表示を設定…</span></div>';
+}
+
+function _sbRenderModesL0() {
+    const list = document.getElementById('sb-mode-list-l0');
+    if (!list) return;
+    const items = [
+        { id: 'JA1955',     label: '口語訳で読む'  },
+        { id: 'WORD_ORDER', label: '語順で読む'     },
+        { id: 'DA_READING', label: '談話分析で読む' },
     ];
     list.innerHTML = items.map(item => {
         const active = (_transA === item.id && _transMode === 'single') ? ' active' : '';
