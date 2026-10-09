@@ -6704,11 +6704,6 @@ details[open] .study-summary::before {
             <button id="open-source-btn" onclick="_openUrlImportSource()" style="display:none;" title="元の聖書サイトを開く">
                 <span style="font-family:inherit;color:var(--text-sub);">元の聖書サイトを開く</span>
             </button>
-            <!-- Research Panel trigger: desktop のみ表示。R-1-B で StudyPanel L4 と接続する。 -->
-            <button id="research-open-btn" onclick="toggleResearchPanel()" title="調べる" aria-label="調べるパネルを開閉する">
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <span>調べる</span>
-            </button>
             <!-- MN: Mobile More Button（≤900px のみ表示） -->
             <button id="mobile-more-btn" onclick="_moreMenuToggle()" aria-label="その他のメニュー" aria-haspopup="true" aria-expanded="false">⋯</button>
         </div>
@@ -6793,22 +6788,6 @@ details[open] .study-summary::before {
             </div>
             <div id="mobile-verse-area">placeholder</div>
             <div id="mobile-inspector-area">placeholder</div>
-        </div>
-
-        <!-- Research Side Panel (Phase R-1-A: Shell) -->
-        <div id="research-side-panel" role="complementary" aria-label="調べる" aria-hidden="true">
-            <div class="research-panel-header">
-                <span class="research-panel-title">調べる</span>
-                <button class="research-panel-close-btn" onclick="closeResearchPanel()" aria-label="パネルを閉じる" title="閉じる">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-            </div>
-            <div class="research-panel-content" id="research-panel-content">
-                <div class="research-panel-placeholder">
-                    <p class="research-panel-placeholder-title">語形・構文を調べる</p>
-                    <p class="research-panel-placeholder-body">選択した語の「さらに調べる」から開いた検索ツールがここに表示されます。</p>
-                </div>
-            </div>
         </div>
 
         <!-- MN: FAB Navigation Overlay（≤900px） -->
@@ -8609,23 +8588,6 @@ async function _renderReadingNotes(p) {
     const synopticRefs    = contexts.synoptic_refs || [];
     const paulineRefs     = contexts.pauline_refs  || [];
 
-    /* ── URLs ── */
-    const qsMorph = new URLSearchParams();
-    if (ref)      qsMorph.set('ref',    ref);
-    if (p.word)   qsMorph.set('word',   p.word);
-    if (lemma)    qsMorph.set('lemma',  lemma);
-    if (p.pos)    qsMorph.set('pos',    p.pos);
-    if (p.tense)  qsMorph.set('tense',  p.tense);
-    if (p.mood)   qsMorph.set('mood',   p.mood);
-    if (p.voice)  qsMorph.set('voice',  p.voice);
-    if (p.gender) qsMorph.set('gender', p.gender);
-    if (p.number) qsMorph.set('number', p.number);
-    if (p.case)   qsMorph.set('case',   p.case);
-    if (jaWord && jaWord !== '-') qsMorph.set('jword', jaWord);
-    const qsMorphM = new URLSearchParams(qsMorph); qsMorphM.set('tool', 'morph');
-    const qsMorphS = new URLSearchParams(qsMorph); qsMorphS.set('tool', 'syntax');
-    const morphSearchURL = `morph-search.html?${qsMorphM.toString()}`;
-    const syntaxURL      = `syntax-search.html?${qsMorphS.toString()}`;
     const qsConcord = new URLSearchParams();
     if (p.word)   qsConcord.set('word',   p.word);
     if (lemma)    qsConcord.set('lemma',  lemma);
@@ -8840,14 +8802,6 @@ async function _renderReadingNotes(p) {
                     <a href="${concordURL}" class="rn-research-link rn-concord-link" target="_blank">
                         <span class="rn-research-link-title">この語の用例を見る →</span>
                         <span class="rn-research-link-desc">聖書のどこで使われているか調べる</span>
-                    </a>
-                    <a href="${morphSearchURL}" class="rn-research-link rn-morph-panel-link">
-                        <span class="rn-research-link-title">この語形を探す</span>
-                        <span class="rn-research-link-desc">同じ語形が現れる箇所を探す</span>
-                    </a>
-                    <a href="${syntaxURL}" class="rn-research-link rn-syntax-panel-link">
-                        <span class="rn-research-link-title">同じ構文を探す</span>
-                        <span class="rn-research-link-desc">同じ文法パターンを探す</span>
                     </a>
                 </div>
             </div>
@@ -9490,22 +9444,6 @@ function _renderMorphTab(area, p) {
     const ref    = p.ref || '';
     const lemma  = p.lemma || '';
 
-    // 近くの語を見るリンク（morph-search.html へ URL遷移）
-    const qs = new URLSearchParams();
-    if (ref)   qs.set('ref',   ref);
-    if (p.word) qs.set('word', p.word);
-    if (lemma)  qs.set('lemma', lemma);
-    if (p.pos)  qs.set('pos',   p.pos);
-    if (p.tense) qs.set('tense', p.tense);
-    if (p.mood)  qs.set('mood',  p.mood);
-    if (p.voice) qs.set('voice', p.voice);
-    if (p.gender) qs.set('gender', p.gender);
-    if (p.number) qs.set('number', p.number);
-    if (p.case)   qs.set('case',   p.case);
-    if (jaWord && jaWord !== '-') qs.set('jword', jaWord);
-    qs.set('tool', 'morph');
-    const morphSearchURL = `morph-search.html?${qs.toString()}`;
-
     area.innerHTML = `
         <span class="ac-section-label">形態論</span>
         <div class="ac-entry">
@@ -9516,31 +9454,10 @@ function _renderMorphTab(area, p) {
             ${ref ? `<span class="ac-cite-ref">${icon('pin')} ${_escH(ref)}</span>` : ''}
         </div>
         ${desc ? `<div class="ac-abbottsmith">${_escH(desc).replace(/\n/g,'<br>')}</div>` : ''}
-        <div class="ac-morph-search-row">
-            <a href="${morphSearchURL}" class="morph-search-btn" title="この語形が現れる他の箇所を検索">
-                この語形が現れる箇所を探す →
-            </a>
-        </div>
     `;
 }
 
 function _renderSyntaxTab(area, p) {
-    const qs = new URLSearchParams();
-    const ref   = p.ref   || '';
-    const lemma = p.lemma || '';
-    if (ref)    qs.set('ref',   ref);
-    if (p.word) qs.set('word',  p.word);
-    if (lemma)  qs.set('lemma', lemma);
-    if (p.pos)  qs.set('pos',   p.pos);
-    if (p.tense) qs.set('tense', p.tense);
-    if (p.mood)  qs.set('mood',  p.mood);
-    if (p.voice) qs.set('voice', p.voice);
-    if (p.gender) qs.set('gender', p.gender);
-    if (p.number) qs.set('number', p.number);
-    if (p.case)   qs.set('case',   p.case);
-    qs.set('tool', 'syntax');
-    const syntaxURL = `syntax-search.html?${qs.toString()}`;
-
     const JPN_MOOD = { indicative:'直説法', subjunctive:'接続法', optative:'希求法',
         imperative:'命令法', infinitive:'不定詞', participle:'分詞' };
     const JPN_TENSE = { present:'現在', imperfect:'未完了', future:'未来',
@@ -9557,14 +9474,6 @@ function _renderSyntaxTab(area, p) {
             ${features.length ? `<div style="margin-top: var(--space-xs);">${features.map(f =>
                 `<span class="morph-tag-pill core" style="margin-right: var(--space-xs);">${f}</span>`).join('')}</div>` : ''}
             ${ref ? `<span class="ac-cite-ref ac-cite-ref--block">${icon('pin')} ${_escH(ref)}</span>` : ''}
-        </div>
-        <div class="ac-entry" style="margin-top: var(--space-xs);">
-            <p style="margin:0;font-size: var(--text-caption);color:var(--text-sub);line-height:1.75;">
-                文脈内での統語的役割（主語・述語・修飾語など）や、節構造における位置を詳しく調べるには：
-            </p>
-            <div class="ac-morph-search-row">
-                <a href="${syntaxURL}" class="morph-search-btn">文の構造を詳しく調べる →</a>
-            </div>
         </div>
     `;
 }
@@ -10356,60 +10265,14 @@ function goMorphSearch(greek, rawMorph, ref, lemma) {
     openStudyPanel(greek, rawMorph, ref, lemma);
 }
 
-/* G-2: search-tool.html から Research Panel を開くために起動窓を追跡する */
-const _searchToolWindows = new Set();
-
-/* メッセージ受信（iframe → parent） */
+/* メッセージ受信: 聖書本文への移動と既存の意味タブ連携のみ保持 */
 window.addEventListener('message', (e) => {
     const d = e.data;
     if (!d || !d.type) return;
-
-    if (d.type === 'NAV_TO_SYNTAX' || d.type === 'NAV_TO_MORPH') {
-        /* 同一オリジンのiframe（morph-search / syntax-search）のみ処理 */
-        if (e.origin !== location.origin) return;
-        const panel = document.getElementById('research-side-panel');
-        /* Research Panel が閉じている場合は意図せず開かない */
-        if (!panel?.classList.contains('open')) return;
-        const iframe = document.getElementById('research-panel-iframe');
-        if (!iframe) return;
-        /* Research Panel iframe 自身からのメッセージのみ処理 */
-        if (e.source !== iframe.contentWindow) return;
-        let currentHref;
-        try { currentHref = iframe.contentWindow?.location?.href; } catch (_) { return; }
-        if (!currentHref || currentHref === 'about:blank') return;
-        const targetType = d.type === 'NAV_TO_SYNTAX' ? 'syntax' : 'morph';
-        const targetFile = d.type === 'NAV_TO_SYNTAX' ? 'syntax-search.html' : 'morph-search.html';
-        const u = new URL(currentHref);
-        const parts = u.pathname.split('/');
-        parts[parts.length - 1] = targetFile;
-        u.pathname = parts.join('/');
-        u.searchParams.set('tool', targetType);
-        _loadResearchPanelContent(targetType, u.toString());
-        return;
-    }
-    if (d.type === 'NAV_TO_SEMANTICS')  switchAnalysisTab('semantics');
-
+    if (d.type === 'NAV_TO_SEMANTICS') switchAnalysisTab('semantics');
     if (d.type === 'GO_TO_VERSE' && d.bookKey && d.chapter != null) {
-        _navTo(d.bookKey, d.chapter);
-    }
-
-    if (d.type === 'OPEN_MORPH_PANEL' && d.word) {
-        /* G-2: search-tool.html → Research Panel — origin と WindowProxy を検証 */
         if (e.origin !== location.origin) return;
-        if (!_searchToolWindows.has(e.source)) return;
-        const qs = new URLSearchParams();
-        if (d.word)   qs.set('word',   d.word);
-        if (d.lemma)  qs.set('lemma',  d.lemma);
-        if (d.pos)    qs.set('pos',    d.pos);
-        if (d.tense)  qs.set('tense',  d.tense);
-        if (d.mood)   qs.set('mood',   d.mood);
-        if (d.voice)  qs.set('voice',  d.voice);
-        if (d.case)   qs.set('case',   d.case);
-        if (d.number) qs.set('number', d.number);
-        if (d.gender) qs.set('gender', d.gender);
-        if (d.person) qs.set('person', d.person);
-        qs.set('tool', 'morph');
-        openResearchPanel('morph', `morph-search.html?${qs.toString()}`);
+        _navTo(d.bookKey, d.chapter);
     }
 });
 
@@ -10428,108 +10291,6 @@ function toggleMobileSidebar() { toggleSidebar(); }
 function closeMobileSidebar()  { closeSidebar(); }
 function _isSidebarOpen()      { return document.getElementById('nav-sidebar')?.classList.contains('open') ?? false; }
 function _openSidebar()        { openSidebar(); }
-
-/* ══════════════════════════════════════════
-   Research Side Panel — Phase R-1-A/B
-   ══════════════════════════════════════════ */
-
-/* type: 'morph' | null
-   url:  morph-search.html?... | null（null = placeholder 表示） */
-function openResearchPanel(type, url) {
-    const panel = document.getElementById('research-side-panel');
-    if (!panel) return;
-    /* StudyPanel（Y軸）との排他制御 */
-    if (StudyPanelState.isOpen) closeStudyPanel();
-    /* MobileVerseView（z-index 200）との排他制御: Research Panel（z-index 150）の前面表示を確保 */
-    const _mvv = document.getElementById('mobile-verse-view');
-    if (_mvv?.classList.contains('open')) {
-        _doCloseMobileVerseView();
-        if (_mvvHistoryActive) {
-            _mvvHistoryActive = false;
-            /* history.back() は iOS Safari で非同期 page-restoration を誘発し .open を上書きする。
-               replaceState で __mvv エントリを中和する（navigation も popstate も発生しない）。
-               _mbpSelectChapter が同じ理由で history.back() を回避しているパターンと同じ。 */
-            try { history.replaceState(null, ''); } catch (_) {}
-        }
-    }
-    _loadResearchPanelContent(type, url);
-    panel.classList.add('open');
-    panel.setAttribute('aria-hidden', 'false');
-    /* デスクトップ: reading area の右側を panel 幅分確保 */
-    if (window.innerWidth > 768) {
-        document.getElementById('main-reading-area')?.classList.add('research-open');
-    }
-}
-
-function _loadResearchPanelContent(type, url) {
-    const content = document.getElementById('research-panel-content');
-    if (!content) return;
-    const titleEl = document.querySelector('#research-side-panel .research-panel-title');
-
-    if (!url) {
-        if (titleEl) titleEl.textContent = '調べる';
-        content.innerHTML = `
-            <div class="research-panel-placeholder">
-                <p class="research-panel-placeholder-title">語形・構文を調べる</p>
-                <p class="research-panel-placeholder-body">選択した語の「さらに調べる」から開いた検索ツールがここに表示されます。</p>
-            </div>`;
-        return;
-    }
-
-    const titleMap = { morph: '語形を探す', syntax: '構文を探す' };
-    if (titleEl) titleEl.textContent = titleMap[type] || '調べる';
-
-    content.innerHTML = `
-        <div class="research-panel-loading" id="research-panel-loading"><span>読み込み中…</span></div>
-        <iframe
-            id="research-panel-iframe"
-            class="research-panel-iframe"
-            src="${url}"
-            title="検索ツール"
-        ></iframe>`;
-
-    document.getElementById('research-panel-iframe')?.addEventListener('load', () => {
-        document.getElementById('research-panel-loading')?.remove();
-    }, { once: true });
-}
-
-function closeResearchPanel() {
-    const panel = document.getElementById('research-side-panel');
-    if (!panel || !panel.classList.contains('open')) return;
-    panel.classList.remove('open');
-    panel.setAttribute('aria-hidden', 'true');
-    document.getElementById('main-reading-area')?.classList.remove('research-open');
-    /* iframe のロードを止めてリソースを解放 */
-    const iframe = document.getElementById('research-panel-iframe');
-    if (iframe) iframe.src = 'about:blank';
-}
-
-function toggleResearchPanel() {
-    const panel = document.getElementById('research-side-panel');
-    if (panel?.classList.contains('open')) closeResearchPanel();
-    else openResearchPanel();
-}
-
-/* Escape で Research Panel を閉じる */
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        const rp = document.getElementById('research-side-panel');
-        if (rp?.classList.contains('open')) { closeResearchPanel(); e.stopPropagation(); }
-    }
-});
-
-/* さらに調べる — Morph / Syntax / Concord リンクのクリック処理（event delegation） */
-document.addEventListener('click', (e) => {
-    const morphLink = e.target.closest('a.rn-morph-panel-link');
-    if (morphLink) { e.preventDefault(); openResearchPanel('morph', morphLink.href); return; }
-    const syntaxLink = e.target.closest('a.rn-syntax-panel-link');
-    if (syntaxLink) { e.preventDefault(); openResearchPanel('syntax', syntaxLink.href); }
-    const concordLink = e.target.closest('a.rn-concord-link');
-    if (concordLink) {
-        const _stw = window.open(concordLink.href, '_blank');
-        if (_stw) { e.preventDefault(); _searchToolWindows.add(_stw); }
-    }
-});
 
 window.addEventListener('resize', () => {
     closeMobileSidebar();
@@ -18308,21 +18069,8 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
        rawMorph の解析は parseMorphForSearch() に委ねる（重複実装しない）。
        AppState.inspect.data から直接読み取り、undefined/null/空文字は省略する。 */
     const _mvvRm = (d.rawMorph || rawMorph) ? parseMorphForSearch(d.rawMorph || rawMorph) : {};
-    const _mvvQs = new URLSearchParams();
-    if (d.ref   || ref)   _mvvQs.set('ref',    d.ref   || ref);
-    if (d.greek || greek) _mvvQs.set('word',   d.greek || greek);
-    if (d.lemma || lemma) _mvvQs.set('lemma',  d.lemma || lemma);
-    if (_mvvRm.pos)    _mvvQs.set('pos',    _mvvRm.pos);
-    if (_mvvRm.tense)  _mvvQs.set('tense',  _mvvRm.tense);
-    if (_mvvRm.mood)   _mvvQs.set('mood',   _mvvRm.mood);
-    if (_mvvRm.voice)  _mvvQs.set('voice',  _mvvRm.voice);
-    if (_mvvRm.gender) _mvvQs.set('gender', _mvvRm.gender);
-    if (_mvvRm.number) _mvvQs.set('number', _mvvRm.number);
-    if (_mvvRm.case)   _mvvQs.set('case',   _mvvRm.case);
+    const _mvvRm = (d.rawMorph || rawMorph) ? parseMorphForSearch(d.rawMorph || rawMorph) : {};
     const _mvvJword = d.jaWordDisplay || d.jaWord || '';
-    if (_mvvJword && _mvvJword !== '-') _mvvQs.set('jword', _mvvJword);
-    const _mvvMorphQs  = new URLSearchParams(_mvvQs); _mvvMorphQs.set('tool', 'morph');
-    const _mvvSyntaxQs = new URLSearchParams(_mvvQs); _mvvSyntaxQs.set('tool', 'syntax');
 
     /* StudyPanel parity: Concordance URL（Desktop _renderReadingNotes と同じパラメータ規則）。 */
     const _mvvConcordQs = new URLSearchParams();
@@ -18382,8 +18130,6 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
         displayLabel: _mvvDisplayLabel,
         strong:       d.strong   || '',
         resolvedId:   _mvvResolvedId,
-        morphURL:     `morph-search.html?${_mvvMorphQs.toString()}`,
-        syntaxURL:    `syntax-search.html?${_mvvSyntaxQs.toString()}`,
         concordURL:   _mvvConcordURL,
         morphCandidates: _mvvCandidates,
         expLabelHTML: _mvvExpLabelHTML,
@@ -18761,16 +18507,6 @@ function _renderMobileWordDetail(d) {
               <a href="${d.concordURL}" class="rn-research-link rn-concord-link" target="_blank">
                 <span class="rn-research-link-title">この語の用例を見る →</span>
                 <span class="rn-research-link-desc">聖書のどこで使われているか調べる</span>
-              </a>` : ''}
-              ${d.morphURL ? `
-              <a href="${d.morphURL}" class="rn-research-link rn-morph-panel-link">
-                <span class="rn-research-link-title">この語形を探す</span>
-                <span class="rn-research-link-desc">同じ語形が現れる箇所を探す</span>
-              </a>` : ''}
-              ${d.syntaxURL ? `
-              <a href="${d.syntaxURL}" class="rn-research-link rn-syntax-panel-link">
-                <span class="rn-research-link-title">同じ構文を探す</span>
-                <span class="rn-research-link-desc">同じ文法パターンを探す</span>
               </a>` : ''}
             </div>
           </div>
