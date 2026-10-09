@@ -14310,10 +14310,9 @@ async function _fillWallacePassageNote(words, container) {
     const slot = container && container.querySelector('#wlv-passage-note-slot');
     if (slot) {
         if (container.id === 'mobile-verse-area') {
-            /* モバイルの節読書メモは、訳文上の折りたたみとして表示する。
-               非同期注入が単語詳細への遷移後に完了した場合も、Level3 では閉じた状態を保つ。 */
-            const openAttr = _mobileVerseInspectorMode === 'detail' ? '' : ' open';
-            slot.outerHTML = `<details class="mvv-passage-note"${openAttr}><summary>この節の読書メモ</summary>${html}</details>`;
+            /* 第一層の節読書メモは、本文描画の非同期完了が遅れても開いた状態で表示する。
+               第三層の語レベル読書メモは別スロット（#mvv-reading-slot）で表示する。 */
+            slot.outerHTML = `<details class="mvv-passage-note" open><summary>この節の読書メモ</summary>${html}</details>`;
         } else {
             slot.outerHTML = html;
         }
@@ -18521,7 +18520,8 @@ async function _fillMvvReadingSlot(words, idx) {
     ].filter(Boolean).join('');
 
     if (richHTML) {
-        slot.innerHTML = richHTML;
+        /* 第三層では第一層の節メモとは別に、この語に対応する読書メモを開いた状態で表示する。 */
+        slot.innerHTML = `<details class="mvv-word-reading-note" open><summary>この語の読書メモ</summary>${richHTML}</details>`;
         slot.style.display = '';
     } else {
         slot.style.display = 'none';   /* 静寂：スロット自身を非表示 */
