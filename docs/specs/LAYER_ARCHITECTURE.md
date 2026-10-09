@@ -80,12 +80,14 @@ Phase ESM-14〜27の監査（コード読解・実ブラウザ検証）で確認
 - Referent Evidence（`_resolveReferentEvidenceText()`を両者が使用。生成元が一致）
 - Morphology等一部Layer3情報（Morphologyは両者に存在。Lemma／Strongは§4参照）
 
-**Mobile類義語比較の方針（確定・ESM-27/28）**: Mobile版（`_fillMvvSemanticSlot()`、ドメインラベル列挙のみ）は**現状維持**とする。Desktop版（`_buildClusterLayerHTML()`、sibling語チップ・クリック操作・共起検索導線を含む対話的機能）へ揃えることはしない。
+**Mobile類義語比較の従来方針（ESM-27/28、2026-10一時停止）**: 従来はMobile版（`_fillMvvSemanticSlot()`、ドメインラベル列挙のみ）を現状維持としていたが、LN 注釈の利用・再配布条件と関連語候補の精度が未確認のため、2026-10時点では Desktop / Mobile の両方で LN 由来の関連語・意味グループ表示を一時停止する。関数とデータは削除しない。再開条件は `docs/DATA_LICENSE.md` を参照する。
 
-理由:
-- Mobileは独立した読書UIであり、Layer3であっても研究機能を全面移植する設計にしない（本節冒頭の方針と一致）。
-- ドメインラベルの表示は既存の語義分類情報の転写であり、L-0境界（語義推定禁止）に抵触しない。
-- Desktop相当の比較検索機能はDesktop側StudyPanelの責務として保持する。
+従来方針の理由（ESM-27/28時点の記録。2026-10の一時停止判断には適用しない）:
+- Mobileは独立した読書UIであり、Layer3の研究機能を全面移植しない。
+- 当時はドメインラベルを既存分類情報の転写として扱い、表示を維持していた。
+- Desktop相当の比較検索機能はDesktop側StudyPanelの責務としていた。
+
+現在の判断理由: LN 注釈の利用・再配布条件と関連語候補の精度が未確認であるため、画面ごとの差を設けず、LN 由来の関連語・意味グループ表示を Desktop / Mobile の双方で停止する。これは表示の一時停止であり、データ削除や権利問題の解決を意味しない。
 
 ---
 
