@@ -12687,6 +12687,10 @@ function _mobileInspectorRender(vNum, words) {
     const area = document.getElementById('mobile-inspector-area');
     if (!area) return;
 
+    /* Level3 から戻る際も、一覧領域の口語訳 DOM を保持して再配置する。 */
+    const translation = area.querySelector('.mvv-inline-translation');
+    if (translation) translation.remove();
+
     /* Level2（一覧）を描画するので内部状態は list */
     _mobileVerseInspectorMode = 'list';
     _syncMobileVerseViewBackLabel();
@@ -12699,6 +12703,7 @@ function _mobileInspectorRender(vNum, words) {
     if (!words || !words.length) {
         area.innerHTML =
             `<p style="color:var(--text-sub);font-size:var(--text-caption);text-align:center;padding:var(--space-xl) var(--space-md);">この節では語形表示はまだ利用できません</p>`;
+        if (translation) area.prepend(translation);
         /* メモは固定領域 #mobile-verse-note-area（open 時に初期化）にあり、
            ここでは触れない（Level 遷移で内容・開閉状態を保持するため）。 */
         return;
@@ -12730,12 +12735,11 @@ function _mobileInspectorRender(vNum, words) {
             /* Phase VR-4B-3: 表示に使った chips[] をクリック時まで保持する（Interaction Lifecycle是正）。
                Mobile Inspector も StudyPanel と同じくシングルトン表示のため同じキャッシュを共有する。 */
             _wlvChipCache = (_vrRep && _vrRep.chips) ? _vrRep.chips : [];
-            if (_spMode === 'JA1955') {
-                /* WORD_ORDER → JA1955: 語順を即時表示後、口語訳テキストで非同期上書き */
-                _fillStudyPanelTranslation('JA1955', vNum, _vrBookKey, _vrCh, area);
-            }
+            /* モバイルの口語訳は専用 DOM として保持する。
+               コンテナ全体を置換する非同期注入はここでは行わない。 */
         }
     }
+    if (translation) area.prepend(translation);
     /* 節読書メモは訳文の上（#mobile-verse-area）に表示する。ここでは注入しない。 */
 }
 
