@@ -635,9 +635,9 @@ pointer-events: auto;
         margin-top: var(--space-md);
         border-top: 1px solid var(--border-soft);
     }
-    #mobile-verse-view .mvv-l3-summary {
+    #mobile-verse-view .mvv-l3-summary,
+    #mobile-verse-view .mvv-l3-heading {
         list-style: none;
-        cursor: pointer;
         padding: var(--space-sm) 0;
         font-size: var(--text-caption);
         font-weight: 600;
@@ -646,9 +646,9 @@ pointer-events: auto;
         display: flex;
         align-items: center;
         gap: var(--space-xs);
-        -webkit-tap-highlight-color: transparent;
     }
     #mobile-verse-view .mvv-l3-summary::-webkit-details-marker { display: none; }
+    /* 「単語を詳しく調べる」は第三層内で直接表示するため、見出しに開閉インジケータを付けない。 */
     /* 開閉インジケータ（▶ / 開いたら▼）。native details の open 状態で回転。 */
     #mobile-verse-view .mvv-l3-summary::before {
         content: '';
@@ -666,6 +666,13 @@ pointer-events: auto;
        disclosure と同一 UI family に揃える（CSS のみ・#mobile-verse-view scoped）。desktop の
        rn-level-section は非対象。flex/align-items/cursor/list-style は global 規則を継承（非再宣言）。 */
     #mobile-verse-view .rn-level-section { margin-top: var(--space-md); }
+.rn-level-heading {
+    font-size: var(--text-caption);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: var(--space-sm) 0;
+    color: var(--text-sub);
+}
     #mobile-verse-view .rn-level-section > summary {
         font-size: var(--text-caption);
         font-weight: 600;
@@ -8807,9 +8814,9 @@ async function _renderReadingNotes(p) {
 
         <div data-study-section="structure">${neighborhoodViewHTML}</div>
 
-        <!-- LEVEL 2: 単語を詳しく調べる（折りたたみ） -->
-        <details class="rn-level-section" id="rn-level2-details" data-study-section="morphology">
-            <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>単語を詳しく調べる</summary>
+        <!-- LEVEL 2: 単語を詳しく調べる（第三層内で直接表示） -->
+        <section class="rn-level-section" id="rn-level2-details" data-study-section="morphology">
+            <div class="rn-level-heading">単語を詳しく調べる</div>
             <div class="rn-level-body">
                 ${morphGridHTML}
                 ${morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML}</div>` : ''}
@@ -8817,7 +8824,7 @@ async function _renderReadingNotes(p) {
                 ${etymologyHTML ? `<div data-study-section="etymology">${etymologyHTML}</div>` : ''}
                 ${abbottFullHTML ? `<div data-study-section="abbott">${abbottFullHTML}</div>` : ''}
             </div>
-        </details>
+        </section>
 
 ${LN_RELATED_WORDS_ENABLED ? `
         <!-- TEMPORARILY DISABLED: LN 由来の関連語表示。再開条件は docs/DATA_LICENSE.md を参照。 -->
@@ -18548,8 +18555,8 @@ function _renderMobileWordDetail(d) {
         <div id="mvv-flow-slot" data-study-section="structure" style="margin-top:var(--space-md);"></div>
 
         ${hasStudyDetails ? `
-        <details class="mvv-l3-section" data-study-section="morphology">
-          <summary class="mvv-l3-summary">単語を詳しく調べる</summary>
+        <section class="mvv-l3-section" data-study-section="morphology">
+          <div class="mvv-l3-heading">単語を詳しく調べる</div>
           <div class="mvv-l3-slot">
             ${d.lemma ? `<div>見出し語: <span style="color:var(--text-main);">${_escH(d.lemma)}</span></div>` : ''}
             ${d.strong ? `<div style="margin-top:var(--space-xs);color:var(--text-hint);">Strong: ${_escH(String(d.strong))}</div>` : ''}
@@ -18558,7 +18565,7 @@ function _renderMobileWordDetail(d) {
             <!-- Usage trends / Etymology / Abbott-Smith — _fillMvvLevel2Slot が非同期注入 -->
             <div id="mvv-level2-async-slot"></div>
           </div>
-        </details>` : ''}
+        </section>` : ''}
 
 ${LN_RELATED_WORDS_ENABLED ? `
         <!-- TEMPORARILY DISABLED: LN 由来の関連語表示。再開条件は docs/DATA_LICENSE.md を参照。 -->
