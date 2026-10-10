@@ -12408,6 +12408,8 @@ let _mvvBook    = null;
 let _mvvChapter = null;
 /* E-1B: Level2→Level3→戻る で復元する #mobile-inspector-area のスクロール位置。 */
 let _mvvInspectorScrollTop = 0;
+/* Level3 の innerHTML 再描画で失われないよう、口語訳 DOM を階層間で保持する。 */
+let _mvvTranslationNode = null;
 /* E-1C: MVV が積んだ history エントリの管理フラグ（AppState / URL は変更しない）。 */
 let _mvvHistoryActive = false;
 let _mvvIgnoreNextPop = false;
@@ -12661,6 +12663,7 @@ async function _renderMobileVerseArea(vNum, words) {
     if (!inspector) return;
     const translation = document.createElement('div');
     translation.className = 'mvv-inline-translation';
+    _mvvTranslationNode = translation;
     translation.innerHTML =
         `<div class="mvv-ref">口語訳</div>` +
         `<div class="mvv-body">${_escH(text)}</div>`;
@@ -12688,7 +12691,7 @@ function _mobileInspectorRender(vNum, words) {
     if (!area) return;
 
     /* Level3 から戻る際も、一覧領域の口語訳 DOM を保持して再配置する。 */
-    const translation = area.querySelector('.mvv-inline-translation');
+    const translation = area.querySelector('.mvv-inline-translation') || _mvvTranslationNode;
     if (translation) translation.remove();
 
     /* Level2（一覧）を描画するので内部状態は list */
@@ -18197,6 +18200,13 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
                 _labels.map(l => `<span class="rn-exp-label">${l}</span>`).join('')
             }</div>`;
         }
+    }
+
+    /* 口語訳は Level3 の描画対象外。DOM を退避し、戻る際に再利用する。 */
+    const translationNode = area.querySelector('.mvv-inline-translation');
+    if (translationNode) {
+        _mvvTranslationNode = translationNode;
+        translationNode.remove();
     }
 
     area.innerHTML = _renderMobileWordDetail({
