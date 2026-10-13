@@ -3637,6 +3637,26 @@ details[open] .study-summary::before {
     display: block;
     animation: depthUnfold var(--transition-slow) both;
 }
+.wlv-dd-close-btn {
+    position: absolute;
+    top: var(--space-xs);
+    right: var(--space-xs);
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-sub);
+    font-size: var(--text-body);
+    opacity: var(--opacity-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-s);
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity var(--transition-fast);
+}
+.wlv-dd-close-btn:hover { opacity: var(--opacity-primary); }
 @keyframes wlvDrawerIn {
     from { opacity: 0; transform: translateY(-3px); }
     to   { opacity: var(--opacity-primary); transform: translateY(0); }
@@ -14947,6 +14967,7 @@ const WordOrderRenderer = {
         /* ── 詳細ドロワー：prosecontinuity design ── */
         const drawerHTML = `
         <div class="wlv-detail-drawer" id="wlv-detail-drawer">
+            <button class="wlv-dd-close-btn" onclick="_wlvDrawerClose()" aria-label="語句詳細を閉じる">×</button>
             <div class="wlv-detail-greek" id="wlv-dd-greek">-</div>
             <div class="wlv-detail-ja"    id="wlv-dd-ja">-</div>
             <div class="wlv-detail-glosses" id="wlv-dd-glosses"></div>
@@ -17917,6 +17938,14 @@ function _buildMorphText(rawMorph, pos, parts) {
    （ドロワーから「詳しく見る」するため。配列位置ではなく Token Identity Contract の
    runtime内 Canonical Identity である tokenId で保持する）。 */
 let _wlvActiveTokenId = null;
+
+/** ドロワーを閉じて chip の選択状態をリセットする。StudyPanel・MVV には触れない。 */
+function _wlvDrawerClose() {
+    const drawer = document.getElementById('wlv-detail-drawer');
+    if (drawer) drawer.classList.remove('visible');
+    document.querySelectorAll('.wlv-chip').forEach(c => c.classList.remove('active'));
+    _wlvActiveTokenId = null;
+}
 let _wlvChipData      = [];   /* _buildFlowTabHTML で生成した chip 配列を保持 */
 /* Phase VR-4B-5: 現在選択中 chip の scope words（gfBlock/verseBlock/_wlvWordCache の
    優先順位で解決済み）。_mobileInspectorDetail から _fillMvvReadingSlot/_fillMvvSemanticSlot
@@ -18072,6 +18101,7 @@ function _wlvChipClick(chipEl, tokenId) {
     chips.forEach(c => c.classList.remove('active'));
     chipEl.classList.add('active');
 
+    const _prevActiveTokenId = _wlvActiveTokenId;  /* 同一chip再タップ判定用 */
     _wlvActiveTokenId = tokenId;
 
     /* Phase VR-4B-3: chip 取得の優先順位（Interaction Lifecycle是正）。
@@ -18244,7 +18274,12 @@ function _wlvChipClick(chipEl, tokenId) {
 
     /* パネル内（流れタブ）の chip タップ：ドロワーで軽く確認する。
        Study panel へ進むかどうかは「詳しく見る」ボタン（_wlvStudyBtnClick）に委ねる。 */
+    /* 同一 chip の再タップ：ドロワーが開いていれば閉じて戻る（トグル）。 */
     const drawer = document.getElementById('wlv-detail-drawer');
+    if (_prevActiveTokenId === tokenId && drawer && drawer.classList.contains('visible')) {
+        _wlvDrawerClose();
+        return;
+    }
     if (drawer) {
         const ddGreek = document.getElementById('wlv-dd-greek');
         const ddJa    = document.getElementById('wlv-dd-ja');
