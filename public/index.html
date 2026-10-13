@@ -8228,14 +8228,16 @@ function updatePanelBackButton() {
 
 /**
  * 戻るボタンの表示/非表示とアイコン・ラベルを再描画する。
- * Level 1（Panel非表示）ではボタンを隠す。Level 2/3 では updatePanelBackButton() に委譲する。
+ * Panel が閉じている場合、または depth stack が空の場合は非表示。
+ * Panel が開いており stack に戻り先がある場合（直接 Level 3 への遷移を含む）は表示する。
  */
 function renderDepthHistory() {
     const btn = document.getElementById('panel-back-btn');
     if (!btn) return;
 
+    const panelOpen = !!document.getElementById('bottom-depth-panel')?.classList.contains('open');
     const stack = AppState.depth.stack;
-    if (stack.length <= 1) {
+    if (!panelOpen || stack.length === 0) {
         btn.style.display = 'none';
         return;
     }
@@ -8249,23 +8251,32 @@ function renderDepthHistory() {
  *
  * 履歴（depth stack）は復元しない。Panelは常に3階層として扱い、現在開いている
  * レイヤーだけを判定して閉じる：
- *   Level 3（単語詳細 / _panelContentMode === 'word'） → Level 2（節Panel）へ戻る
+ *   Level 3（単語詳細 / _panelContentMode === 'word'）:
+ *     - verse-flow がスタックにある（節タップ → 第二層 → 第三層）: Level 2（節Panel）へ戻る
+ *     - verse-flow がない（本文から直接 Level 3）: Panel自体を閉じて本文へ戻る
  *   Level 2（節Panel  / _panelContentMode === 'verse'） → Panel自体を閉じる（本文は変更しない）
  * Level 1（Panel非表示）ではボタン自体が表示されないため、本関数は呼ばれない。
  */
 function panelGoBack() {
     if (_panelContentMode === 'word') {
         if (AppState.studyOrigin?.entryPoint === 'wlv') {
-            /* WLV-origin: Level 3 → Level 2（節word-listを復元） */
-            _openWordListInternal(AppState.selectedVerse.vNum, AppState.selectedVerse.elWords);
-            /* #word-list-view は _openWordListInternal() 内で再生成されるため、
-               Level 3 へ進む直前に保存しておいたスクロール位置をここで読み戻す。 */
-            if (_versePanelScrollTop != null) {
-                const listEl = document.getElementById('word-list-view');
-                if (listEl) listEl.scrollTop = _versePanelScrollTop;
-                _versePanelScrollTop = null;
+            /* WLV-origin: verse-flow がスタックにある場合のみ Level 2（節word-list）へ戻る。
+               ない場合（本文チップを直接タップして Level 3 へ進んだ）は Panel を閉じる。 */
+            const hasVerseFlow = AppState.depth.stack.some(e => e.type === 'verse-flow');
+            if (hasVerseFlow) {
+                _openWordListInternal(AppState.selectedVerse.vNum, AppState.selectedVerse.elWords);
+                /* #word-list-view は _openWordListInternal() 内で再生成されるため、
+                   Level 3 へ進む直前に保存しておいたスクロール位置をここで読み戻す。 */
+                if (_versePanelScrollTop != null) {
+                    const listEl = document.getElementById('word-list-view');
+                    if (listEl) listEl.scrollTop = _versePanelScrollTop;
+                    _versePanelScrollTop = null;
+                }
+                renderDepthHistory();
+            } else {
+                /* 本文から直接 Level 3 へ進んだ: Panel を閉じて本文に戻る */
+                closeStudyPanel();
             }
-            renderDepthHistory();
         } else {
             /* 非WLV-origin (HIERARCHICAL / RK / CF / 不明): Reading Surfaceが見えるようにPanelを閉じる */
             closeStudyPanel();
