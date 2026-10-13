@@ -663,15 +663,17 @@ pointer-events: auto;
     #mobile-verse-area.word-analysis-open .mvv-passage-note { display: none; }
     /* 語の読書メモは節メモと共通の開閉 UI を使う。 */
     #mobile-inspector-area #mvv-reading-slot {
-        margin-top: 0 !important;
+        display: block !important;
+        margin: 0 calc(-1 * var(--space-md)) var(--space-md) !important;
+        padding: 0 var(--space-md);
     }
     #mobile-inspector-area .rn-word-reading-note-heading {
         display: block;
         position: sticky;
         top: 0;
         z-index: 4;
-        width: calc(100% + 2 * var(--space-md));
-        margin: 0 calc(-1 * var(--space-md));
+        width: 100%;
+        margin: 0;
         padding: var(--space-xs) 0;
         border: 0;
         background: var(--bg-paper);
@@ -18797,7 +18799,7 @@ async function _fillMvvReadingSlot(words, idx) {
     if (richHTML && _stripHTMLToText(richHTML)) {
         /* 第三層では第一層の節メモとは別に、この語に対応する読書メモを開いた状態で表示する。 */
         slot.innerHTML = `<button type="button" class="rn-word-reading-note-heading" aria-expanded="true">この語の読書メモ</button><div class="rn-word-reading-note-body">${richHTML}</div>`;
-        slot.style.display = 'contents';
+        slot.style.display = 'block';
         const memoHeading = slot.querySelector('.rn-word-reading-note-heading');
         const memoBody = slot.querySelector('.rn-word-reading-note-body');
         if (memoHeading && memoBody) {
@@ -19006,11 +19008,11 @@ function _renderMobileWordDetail(d) {
     const mGlossHTML = '';
 
     return `
-      <div class="mvv-word-detail" style="padding:var(--space-lg) var(--space-md);">
+      <div class="mvv-word-detail" style="padding:0 var(--space-md) var(--space-lg);">
+        <!-- 読書メモは語詳細全体をスクロール範囲として固定するため、Level3の内側ではなく最上位に置く。 -->
+        <div id="mvv-reading-slot" style="display:none;margin:0;"></div>
         <div class="mvv-l3-word" data-study-section="identity">
           <!-- ギリシャ語見出し・日本語代表語義は画面ヘッダーに表示済み -->
-          <!-- Reading prose / Phrase / Observation / Evidence — _fillMvvReadingSlot が rich HTML を注入 -->
-          <div id="mvv-reading-slot" style="display:none;margin-top:var(--space-sm);"></div>
         </div>
 
         ${mGlossHTML}
