@@ -49,6 +49,29 @@
     padding-left: var(--space-md);
     border-left: 2px solid var(--accent-mid);
 }
+/* 節の読書メモと同じ、控えめな開閉 UI を語の分析側にも適用する。 */
+.rn-word-reading-note {
+    display: block;
+    margin: var(--space-sm) 0 var(--space-md);
+    padding: 0;
+    border: 0;
+}
+.rn-word-reading-note > summary {
+    list-style: none;
+    cursor: pointer;
+    color: var(--text-sub);
+    font-size: var(--text-caption);
+    padding: var(--space-xs) 0;
+}
+.rn-word-reading-note > summary::-webkit-details-marker { display: none; }
+.rn-word-reading-note > summary::after {
+    content: '+';
+    float: right;
+    color: var(--text-sub);
+}
+.rn-word-reading-note[open] > summary::after { content: '−'; }
+.rn-word-reading-note[open] > :not(summary) { padding-top: var(--space-sm); }
+
 
 .ui-section-label {
     font-size: var(--text-caption);
@@ -636,28 +659,28 @@ pointer-events: auto;
         color: var(--text-sub);
     }
     #mobile-verse-area .mvv-passage-note[open] > summary::after { content: '−'; }
-    /* 語レベルの読書メモも節メモと同じ静かな開閉 UI にそろえる。 */
-    #mobile-inspector-area .mvv-word-reading-note {
+    /* 語の読書メモは節メモと共通の開閉 UI を使う。 */
+    #mobile-inspector-area .rn-word-reading-note {
         /* .mvv-word-detail の内側余白を相殺し、節メモと同じ横幅・左端にそろえる。 */
         margin: 0 calc(-1 * var(--space-md)) var(--space-md);
         padding: 0 var(--space-md);
         border: 0;
     }
-    #mobile-inspector-area .mvv-word-reading-note > summary {
+    #mobile-inspector-area .rn-word-reading-note > summary {
         list-style: none;
         cursor: pointer;
         color: var(--text-sub);
         font-size: var(--text-caption);
         padding: var(--space-xs) 0;
     }
-    #mobile-inspector-area .mvv-word-reading-note > summary::-webkit-details-marker { display: none; }
-    #mobile-inspector-area .mvv-word-reading-note > summary::after {
+    #mobile-inspector-area .rn-word-reading-note > summary::-webkit-details-marker { display: none; }
+    #mobile-inspector-area .rn-word-reading-note > summary::after {
         content: '+';
         float: right;
         color: var(--text-sub);
     }
-    #mobile-inspector-area .mvv-word-reading-note[open] > summary::after { content: '−'; }
-    #mobile-inspector-area .mvv-word-reading-note[open] > :not(summary) {
+    #mobile-inspector-area .rn-word-reading-note[open] > summary::after { content: '−'; }
+    #mobile-inspector-area .rn-word-reading-note[open] > :not(summary) {
         padding-top: var(--space-sm);
     }
     #mobile-verse-area .mvv-passage-note .wlv-reading-passage-note {
@@ -9059,6 +9082,18 @@ async function _renderReadingNotes(p) {
         ? `<div class="rn-subjref-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);border-top:1px solid var(--border-soft);font-size:var(--text-caption);color:var(--text-sub);">この語の主語は「${_escH(_subjText)}」です。</div>`
         : '';
 
+    /* 語の読書メモは節メモと同じ開閉 UI。初期状態は開いて既存の可視性を保つ。 */
+    const wordReadingMemoBody = [
+        proseHTML ? `<div data-study-section="reading">${proseHTML}</div>` : '',
+        phraseReadingHTML ? `<div data-study-section="phrase">${phraseReadingHTML}</div>` : '',
+        observationHTML ? `<div data-study-section="observation">${observationHTML}</div>` : '',
+        referentEvidenceHTML ? `<div data-study-section="referent">${referentEvidenceHTML}</div>` : '',
+        subjrefEvidenceHTML ? `<div data-study-section="subjref">${subjrefEvidenceHTML}</div>` : ''
+    ].filter(Boolean).join('');
+    const wordReadingMemoHTML = wordReadingMemoBody
+        ? `<details class="rn-word-reading-note" open><summary>この節の語の読書メモ</summary>${wordReadingMemoBody}</details>`
+        : '';
+
     /* ═══════════════════════════════════════════════════════
        HTML 出力 — 4階層構造
        ═══════════════════════════════════════════════════════ */
@@ -9070,11 +9105,7 @@ async function _renderReadingNotes(p) {
 
         ${glossesHTML}
 
-        ${proseHTML ? `<div data-study-section="reading">${proseHTML}</div>` : ''}
-        ${phraseReadingHTML ? `<div data-study-section="phrase">${phraseReadingHTML}</div>` : ''}
-        ${observationHTML ? `<div data-study-section="observation">${observationHTML}</div>` : ''}
-        ${referentEvidenceHTML ? `<div data-study-section="referent">${referentEvidenceHTML}</div>` : ''}
-        ${subjrefEvidenceHTML ? `<div data-study-section="subjref">${subjrefEvidenceHTML}</div>` : ''}
+        ${wordReadingMemoHTML}
 
         ${expLabelHTML ? `<div data-study-section="explabel">${expLabelHTML}</div>` : ''}
 
@@ -18744,7 +18775,7 @@ async function _fillMvvReadingSlot(words, idx) {
     /* HTMLタグだけ・空白だけの結果ではトグルを作らない。表示テキストがある場合のみ表示する。 */
     if (richHTML && _stripHTMLToText(richHTML)) {
         /* 第三層では第一層の節メモとは別に、この語に対応する読書メモを開いた状態で表示する。 */
-        slot.innerHTML = `<details class="mvv-word-reading-note"><summary>この語の読書メモを表示</summary>${richHTML}</details>`;
+        slot.innerHTML = `<details class="rn-word-reading-note" open><summary>この節の語の読書メモ</summary>${richHTML}</details>`;
         slot.style.display = '';
     } else {
         slot.innerHTML = '';
