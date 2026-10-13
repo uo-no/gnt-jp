@@ -662,26 +662,41 @@ pointer-events: auto;
     /* 語の分析中は節の読書メモを節側に残さない。 */
     #mobile-verse-area.word-analysis-open .mvv-passage-note { display: none; }
     /* 語の読書メモは節メモと共通の開閉 UI を使う。 */
-    #mobile-inspector-area .rn-word-reading-note {
-        /* .mvv-word-detail の内側余白を相殺し、節メモと同じ横幅・左端にそろえる。 */
-        margin: 0 calc(-1 * var(--space-md)) var(--space-md);
-        padding: 0 var(--space-md);
+    #mobile-inspector-area #mvv-reading-slot {
+        margin-top: 0 !important;
+    }
+    #mobile-inspector-area .rn-word-reading-note-heading {
+        display: block;
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        width: calc(100% + 2 * var(--space-md));
+        margin: 0 calc(-1 * var(--space-md)) var(--space-sm);
+        padding: var(--space-sm) var(--space-md);
         border: 0;
-    }
-    #mobile-inspector-area .rn-word-reading-note > summary {
-        list-style: none;
-        cursor: pointer;
+        border-bottom: 1px solid var(--border-soft);
+        background: var(--bg-paper);
         color: var(--text-sub);
+        font: inherit;
         font-size: var(--text-caption);
-        padding: var(--space-xs) 0;
+        text-align: left;
+        cursor: pointer;
     }
-    #mobile-inspector-area .rn-word-reading-note > summary::-webkit-details-marker { display: none; }
-    #mobile-inspector-area .rn-word-reading-note > summary::after {
+    #mobile-inspector-area .rn-word-reading-note-heading::after {
         content: '+';
         float: right;
         color: var(--text-sub);
     }
-    #mobile-inspector-area .rn-word-reading-note[open] > summary::after { content: '−'; }
+    #mobile-inspector-area .rn-word-reading-note-heading[aria-expanded="true"]::after {
+        content: '−';
+    }
+    #mobile-inspector-area .rn-word-reading-note-body[hidden] {
+        display: none;
+    }
+    #mobile-inspector-area .rn-word-reading-note-body {
+        padding-top: var(--space-sm);
+        margin-bottom: var(--space-md);
+    }
     #mobile-inspector-area .rn-word-reading-note[open] > :not(summary) {
         padding-top: var(--space-sm);
     }
@@ -9093,7 +9108,7 @@ async function _renderReadingNotes(p) {
         subjrefEvidenceHTML ? `<div data-study-section="subjref">${subjrefEvidenceHTML}</div>` : ''
     ].filter(Boolean).join('');
     const wordReadingMemoHTML = wordReadingMemoBody
-        ? `<details class="rn-word-reading-note" open><summary>この節の語の読書メモ</summary>${wordReadingMemoBody}</details>`
+        ? `<details class="rn-word-reading-note" open><summary>この語の読書メモ</summary>${wordReadingMemoBody}</details>`
         : '';
 
     /* ═══════════════════════════════════════════════════════
@@ -18782,8 +18797,17 @@ async function _fillMvvReadingSlot(words, idx) {
     /* HTMLタグだけ・空白だけの結果ではトグルを作らない。表示テキストがある場合のみ表示する。 */
     if (richHTML && _stripHTMLToText(richHTML)) {
         /* 第三層では第一層の節メモとは別に、この語に対応する読書メモを開いた状態で表示する。 */
-        slot.innerHTML = `<details class="rn-word-reading-note" open><summary>この節の語の読書メモ</summary>${richHTML}</details>`;
-        slot.style.display = '';
+        slot.innerHTML = `<button type="button" class="rn-word-reading-note-heading" aria-expanded="true">この語の読書メモ</button><div class="rn-word-reading-note-body">${richHTML}</div>`;
+        slot.style.display = 'contents';
+        const memoHeading = slot.querySelector('.rn-word-reading-note-heading');
+        const memoBody = slot.querySelector('.rn-word-reading-note-body');
+        if (memoHeading && memoBody) {
+            memoHeading.addEventListener('click', () => {
+                const isOpen = memoHeading.getAttribute('aria-expanded') === 'true';
+                memoHeading.setAttribute('aria-expanded', String(!isOpen));
+                memoBody.hidden = isOpen;
+            });
+        }
     } else {
         slot.innerHTML = '';
         slot.style.display = 'none';   /* 静寂：空のトグルを残さずスロット自身を非表示 */
