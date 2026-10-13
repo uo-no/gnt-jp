@@ -659,6 +659,8 @@ pointer-events: auto;
         color: var(--text-sub);
     }
     #mobile-verse-area .mvv-passage-note[open] > summary::after { content: '−'; }
+    /* 語の分析中は節の読書メモを節側に残さない。 */
+    #mobile-verse-area.word-analysis-open .mvv-passage-note { display: none; }
     /* 語の読書メモは節メモと共通の開閉 UI を使う。 */
     #mobile-inspector-area .rn-word-reading-note {
         /* .mvv-word-detail の内側余白を相殺し、節メモと同じ横幅・左端にそろえる。 */
@@ -12997,6 +12999,9 @@ function _mobileInspectorRender(vNum, words) {
     const translation = area.querySelector('.mvv-inline-translation') || _mvvTranslationNode;
     if (translation) { translation.remove(); _clearTranslationInlineStyles(translation); }
 
+    /* 節の一覧へ戻ったら、節の読書メモを再表示する。 */
+    const verseArea = document.getElementById('mobile-verse-area');
+    if (verseArea) verseArea.classList.remove('word-analysis-open');
     /* Level2（一覧）を描画するので内部状態は list */
     _mobileVerseInspectorMode = 'list';
     _syncMobileVerseViewBackLabel();
@@ -18557,7 +18562,9 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
     if (_mobileVerseInspectorMode === 'list') _mvvInspectorScrollTop = area.scrollTop;
     /* Level3（単語詳細）を描画するので内部状態は detail（戻るボタンが一覧へ戻す判定に使う） */
     _mobileVerseInspectorMode = 'detail';
-    /* 深い階層へ進むときは、節読書メモを閉じておく。 */
+    /* 語の分析中は節の読書メモを非表示にする。非同期注入されたメモにも CSS で適用する。 */
+    const verseArea = document.getElementById('mobile-verse-area');
+    if (verseArea) verseArea.classList.add('word-analysis-open');
     const passageNote = document.querySelector('#mobile-verse-area .mvv-passage-note');
     if (passageNote) passageNote.open = false;
     _syncMobileVerseViewBackLabel();
