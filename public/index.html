@@ -3656,6 +3656,13 @@ details[open] .study-summary::before {
     margin-bottom: var(--space-sm);
     opacity: var(--opacity-secondary);
 }
+.wlv-detail-glosses {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    margin-bottom: var(--space-sm);
+    display: none;
+}
+.wlv-detail-glosses:not(:empty) { display: block; }
 /* ドロワー内：文法メモ（廃止：resonanceに統合） */
 .wlv-detail-morph {
     display: none;
@@ -14936,6 +14943,7 @@ const WordOrderRenderer = {
         <div class="wlv-detail-drawer" id="wlv-detail-drawer">
             <div class="wlv-detail-greek" id="wlv-dd-greek">-</div>
             <div class="wlv-detail-ja"    id="wlv-dd-ja">-</div>
+            <div class="wlv-detail-glosses" id="wlv-dd-glosses"></div>
             <div class="wlv-detail-resonance" id="wlv-dd-resonance"></div>
             <div class="wlv-detail-actions">
                 <button class="wlv-detail-study-btn" id="wlv-dd-study-btn" onclick="_wlvStudyBtnClick()">
@@ -18238,6 +18246,15 @@ function _wlvChipClick(chipEl, tokenId) {
         if (ddGreek) ddGreek.textContent = chip.greek || '-';
         /* Stage C P1: ドロワーも Flow と同じ表示規則（chip.gloss = 整形済み表示） */
         if (ddJa)    ddJa.textContent    = chip.gloss || chip.jaWord || '-';
+        /* 語義（readingLexicon.lookup().glosses）：chip 切り替え時に前の語義が残らないよう毎回更新 */
+        const ddGlosses = document.getElementById('wlv-dd-glosses');
+        if (ddGlosses) {
+            const _ddGlossArr = chip.lemmaId
+                ? window.App?.readingLexicon?.lookup(chip.lemmaId)?.glosses
+                : null;
+            ddGlosses.textContent = (Array.isArray(_ddGlossArr) && _ddGlossArr.length)
+                ? _ddGlossArr.slice(0, 3).join('・') : '';
+        }
         /* Phase ESM-18: ドロワーはLayer 1（Greek/Gloss/詳しく見る導線のみ）に限定する。
            resonance文（Wallace Reading Notesと同一生成経路）はLayer 2（StudyPanel）の
            責務のため、ここでは注入しない（_fillWlvResonance の呼び出しを停止）。 */
