@@ -606,6 +606,9 @@ pointer-events: auto;
         margin: 0;
         overflow-wrap: anywhere;
     }
+    #mobile-inspector-area.drawer-open .mvv-inline-translation {
+        display: none;
+    }
     #mobile-inspector-area .wlv-chip-ja {
         letter-spacing: 0.01em;
         line-height: 1.4;
@@ -12939,6 +12942,8 @@ function _mobileInspectorRender(vNum, words) {
     const area = document.getElementById('mobile-inspector-area');
     if (!area) return;
 
+    area.classList.remove('drawer-open');
+
     /* Level3 から戻る際も、一覧領域の口語訳 DOM を保持して再配置する。 */
     const translation = area.querySelector('.mvv-inline-translation') || _mvvTranslationNode;
     if (translation) translation.remove();
@@ -17978,6 +17983,8 @@ function _wlvDrawerClose() {
     if (drawer) drawer.classList.remove('visible');
     document.querySelectorAll('.wlv-chip').forEach(c => c.classList.remove('active'));
     _wlvActiveTokenId = null;
+    const _mia = document.getElementById('mobile-inspector-area');
+    if (_mia) _mia.classList.remove('drawer-open');
 }
 let _wlvChipData      = [];   /* _buildFlowTabHTML で生成した chip 配列を保持 */
 /* Phase VR-4B-5: 現在選択中 chip の scope words（gfBlock/verseBlock/_wlvWordCache の
@@ -18317,6 +18324,8 @@ function _wlvChipClick(chipEl, tokenId) {
            責務のため、ここでは注入しない（_fillWlvResonance の呼び出しを停止）。 */
         if (ddReso) ddReso.textContent = '';
         drawer.classList.add('visible');
+        const _miaOpen = document.getElementById('mobile-inspector-area');
+        if (_miaOpen) _miaOpen.classList.add('drawer-open');
     }
 
     /* onboarding hook（クリックされたchip要素を渡す） */
