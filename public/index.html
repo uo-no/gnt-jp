@@ -1306,6 +1306,20 @@ font-weight: 400;
 display: block;
 margin-bottom: var(--space-xs);
 }
+.rn-glosses {
+margin-top: var(--space-md);
+padding-top: var(--space-sm);
+border-top: 1px solid var(--border-soft);
+}
+.rn-glosses-label {
+display: block;
+margin-bottom: var(--space-xs);
+}
+.rn-glosses-text {
+font-size: var(--text-body);
+color: var(--text-main);
+line-height: 1.6;
+}
 .rn-dict-table {
 border-collapse: collapse;
 width: 100%;
@@ -8920,6 +8934,21 @@ async function _renderReadingNotes(p) {
            </div>`
         : '';
 
+    /* ── 語義（reading-lexicon-data.js の glosses[]・同期・最大3候補）──
+       gloss_ja（lexicon-lite）は36%のエントリで長い説明・番号・文献参照を含み
+       語義見出しとして不適切なため、glosses[]（bible_data実使用頻度順）を使用する。
+       displayLabel（= glosses[0]）を見出し直下に既に表示しているが、複数候補を
+       ・区切りで示すことで語義の幅を簡潔に伝える。データがない場合は静寂。 */
+    const _glossFromLexicon = window.App?.readingLexicon?.lookup(resolvedId)?.glosses;
+    const _glossLine = (Array.isArray(_glossFromLexicon) && _glossFromLexicon.length)
+        ? _glossFromLexicon.slice(0, 3).join('・') : '';
+    const glossesHTML = _glossLine
+        ? `<div class="rn-glosses" data-study-section="glosses">
+               <span class="rn-glosses-label ui-label">語義</span>
+               <span class="rn-glosses-text">${_escH(_glossLine)}</span>
+           </div>`
+        : '';
+
     /* Phase ESM-9: Referent Evidence を Reading Notes 本文末尾へ統合
        （ESM-8のStudyPanelヘッダー表示#rcb-container配下は廃止）。
        表示するのは referentEvidence が存在する場合のみ（静寂設計・ESM-7仕様維持）。
@@ -8949,6 +8978,8 @@ async function _renderReadingNotes(p) {
             <span class="rn-greek greek-headword">${word}</span>
             ${displayLabel ? `<span class="rn-ja">${displayLabel}</span>` : ''}
         </div>
+
+        ${glossesHTML}
 
         ${proseHTML ? `<div data-study-section="reading">${proseHTML}</div>` : ''}
         ${phraseReadingHTML ? `<div data-study-section="phrase">${phraseReadingHTML}</div>` : ''}
@@ -18698,6 +18729,17 @@ function _renderMobileWordDetail(d) {
        gloss は fallback として残す。両方空なら何も表示しない（静寂）。 */
     const shownLabel = d.displayLabel || d.gloss || '';
 
+    /* 語義：Desktop と同じデータソース（glosses[]・同期・最大3候補） */
+    const _mGlossFromLexicon = window.App?.readingLexicon?.lookup(d.resolvedId)?.glosses;
+    const _mGlossLine = (Array.isArray(_mGlossFromLexicon) && _mGlossFromLexicon.length)
+        ? _mGlossFromLexicon.slice(0, 3).join('・') : '';
+    const mGlossHTML = _mGlossLine
+        ? `<div class="rn-glosses" data-study-section="glosses">
+               <span class="rn-glosses-label ui-label">語義</span>
+               <span class="rn-glosses-text">${_escH(_mGlossLine)}</span>
+           </div>`
+        : '';
+
     return `
       <div class="mvv-word-detail" style="padding:var(--space-lg) var(--space-md);">
         <div class="mvv-l3-word" data-study-section="identity">
@@ -18706,6 +18748,8 @@ function _renderMobileWordDetail(d) {
           <!-- Reading prose / Phrase / Observation / Evidence — _fillMvvReadingSlot が rich HTML を注入 -->
           <div id="mvv-reading-slot" style="display:none;margin-top:var(--space-sm);"></div>
         </div>
+
+        ${mGlossHTML}
 
         <!-- Experienced Reader labels（synchronous: _mobileInspectorDetail 生成済み） -->
         ${d.expLabelHTML || ''}
