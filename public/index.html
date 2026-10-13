@@ -588,6 +588,11 @@ pointer-events: auto;
         color: var(--text-main);
         line-height: 2.1;
         letter-spacing: 0.01em;
+        overflow: hidden;
+        transition: height 210ms ease-out, opacity 210ms ease-out,
+                    padding-top 210ms ease-out, padding-bottom 210ms ease-out,
+                    border-bottom-width 210ms ease-out,
+                    margin-bottom 210ms ease-out;
     }
     #mobile-inspector-area .mvv-inline-translation .mvv-ref {
         font-size: var(--text-caption);
@@ -605,9 +610,6 @@ pointer-events: auto;
         letter-spacing: inherit;
         margin: 0;
         overflow-wrap: anywhere;
-    }
-    #mobile-inspector-area.drawer-open .mvv-inline-translation {
-        display: none;
     }
     #mobile-inspector-area .wlv-chip-ja {
         letter-spacing: 0.01em;
@@ -6652,6 +6654,12 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
     .da-sentence {
         padding-top: var(--space-sm);
         padding-bottom: var(--space-md);
+    }
+}
+/* prefers-reduced-motion は cascade で最後に配置し、すべての transition 定義に勝つようにする */
+@media (prefers-reduced-motion: reduce) {
+    #mobile-inspector-area .mvv-inline-translation {
+        transition: none;
     }
 }
 </style>
@@ -12944,9 +12952,10 @@ function _mobileInspectorRender(vNum, words) {
 
     area.classList.remove('drawer-open');
 
-    /* Level3 から戻る際も、一覧領域の口語訳 DOM を保持して再配置する。 */
+    /* Level3 から戻る際も、一覧領域の口語訳 DOM を保持して再配置する。
+       再配置前にアニメーション用インラインスタイルをクリアし、自然な高さに戻す。 */
     const translation = area.querySelector('.mvv-inline-translation') || _mvvTranslationNode;
-    if (translation) translation.remove();
+    if (translation) { translation.remove(); _clearTranslationInlineStyles(translation); }
 
     /* Level2（一覧）を描画するので内部状態は list */
     _mobileVerseInspectorMode = 'list';
@@ -17977,6 +17986,89 @@ function _buildMorphText(rawMorph, pos, parts) {
    runtime内 Canonical Identity である tokenId で保持する）。 */
 let _wlvActiveTokenId = null;
 
+/* ── 口語訳アニメーション helpers ───────────────────────────────────────
+   ドロワー開閉に連動して .mvv-inline-translation の高さと透明度を滑らかに変化させる。
+   CSS transition（height / opacity / padding / margin-bottom）はモバイルmedia query内で定義済み。
+   prefers-reduced-motion 時は transition: none が適用されるためアニメーション不要。
+   padding を含めてアニメーションさせる理由: padding-top+padding-bottom が border と合わさると
+   box-sizing:border-box 下でも height:0 が padding 分 (≈35px) 下限に留まるため。 */
+let _translationExpandHandler = null;
+
+function _collapseInlineTranslation() {
+    const mia = document.getElementById('mobile-inspector-area');
+    const t = mia && mia.querySelector('.mvv-inline-translation');
+    // height が既に '0px' ならアニメーション完了済み（再起動しない）
+    if (!t || t.style.height === '0px') return;
+    // 進行中のトランジションを現在の視覚位置で中断してから新たに開始する
+    t.style.transition = 'none';
+    t.style.height = t.offsetHeight + 'px';
+    void t.offsetHeight;
+    t.style.transition = '';
+    void t.offsetHeight;
+    t.style.height = '0';
+    t.style.opacity = '0';
+    t.style.paddingTop = '0';
+    t.style.paddingBottom = '0';
+    t.style.borderBottomWidth = '0';
+    t.style.marginBottom = '0';
+}
+
+function _expandInlineTranslation() {
+    const mia = document.getElementById('mobile-inspector-area');
+    const t = mia && mia.querySelector('.mvv-inline-translation');
+    if (!t || !t.style.height) return;  // インライン height なし = 既に自然な高さ
+    if (_translationExpandHandler) {
+        t.removeEventListener('transitionend', _translationExpandHandler);
+        _translationExpandHandler = null;
+    }
+    // インラインスタイルをすべて除去して offsetHeight（border込み自然高）を計測する
+    // scrollHeight は border を含まないため offsetHeight を使う
+    t.style.transition = 'none';
+    t.style.height = '';
+    t.style.paddingTop = '';
+    t.style.paddingBottom = '';
+    t.style.borderBottomWidth = '';
+    void t.offsetHeight;
+    const naturalH = t.offsetHeight;  // CSS padding + border を含む自然高
+    // アニメーション開始値（height:0, padding:0, border:0）に設定してからトランジションを再開
+    t.style.height = '0';
+    t.style.paddingTop = '0';
+    t.style.paddingBottom = '0';
+    t.style.borderBottomWidth = '0';
+    void t.offsetHeight;
+    t.style.transition = '';
+    void t.offsetHeight;
+    t.style.height = naturalH + 'px';
+    t.style.opacity = '1';
+    t.style.paddingTop = '';
+    t.style.paddingBottom = '';
+    t.style.borderBottomWidth = '';
+    t.style.marginBottom = '';
+    _translationExpandHandler = function(ev) {
+        if (ev.propertyName !== 'height') return;
+        t.style.height = '';
+        t.removeEventListener('transitionend', _translationExpandHandler);
+        _translationExpandHandler = null;
+    };
+    t.addEventListener('transitionend', _translationExpandHandler);
+}
+
+function _clearTranslationInlineStyles(el) {
+    if (!el) return;
+    if (_translationExpandHandler) {
+        el.removeEventListener('transitionend', _translationExpandHandler);
+        _translationExpandHandler = null;
+    }
+    el.style.height = '';
+    el.style.opacity = '';
+    el.style.paddingTop = '';
+    el.style.paddingBottom = '';
+    el.style.borderBottomWidth = '';
+    el.style.marginBottom = '';
+    el.style.transition = '';
+}
+/* ── ここまで口語訳アニメーション helpers ────────────────────────────── */
+
 /** ドロワーを閉じて chip の選択状態をリセットする。StudyPanel・MVV には触れない。 */
 function _wlvDrawerClose() {
     const drawer = document.getElementById('wlv-detail-drawer');
@@ -17985,6 +18077,7 @@ function _wlvDrawerClose() {
     _wlvActiveTokenId = null;
     const _mia = document.getElementById('mobile-inspector-area');
     if (_mia) _mia.classList.remove('drawer-open');
+    _expandInlineTranslation();
 }
 let _wlvChipData      = [];   /* _buildFlowTabHTML で生成した chip 配列を保持 */
 /* Phase VR-4B-5: 現在選択中 chip の scope words（gfBlock/verseBlock/_wlvWordCache の
@@ -18326,6 +18419,7 @@ function _wlvChipClick(chipEl, tokenId) {
         drawer.classList.add('visible');
         const _miaOpen = document.getElementById('mobile-inspector-area');
         if (_miaOpen) _miaOpen.classList.add('drawer-open');
+        _collapseInlineTranslation();
     }
 
     /* onboarding hook（クリックされたchip要素を渡す） */
