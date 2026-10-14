@@ -9236,33 +9236,7 @@ async function _renderReadingNotes(p) {
         ? `<div class="rn-etymology">語源&emsp;<span class="rn-etymology-parts">${_buildEtymPartsHTML(compositionParts)}</span></div>`
         : '';
 
-    /* ── Usage trends (Level 1) ── */
-    const BOOK_FULL = {
-        'マタ':'マタイ', 'マコ':'マルコ', 'ルカ':'ルカ', 'ヨハ':'ヨハネ',
-        'ロマ':'ローマ', 'コリ':'コリント', 'コリ一':'コリント第一', 'コリ二':'コリント第二',
-        'ガラ':'ガラテヤ', 'エペ':'エペソ', 'ピリ':'ピリピ', 'コロ':'コロサイ',
-        'テサ':'テサロニケ', 'テサ一':'テサロニケ第一', 'テサ二':'テサロニケ第二',
-        'テモ':'テモテ', 'テモ一':'テモテ第一', 'テモ二':'テモテ第二',
-        'テト':'テトス', 'ピレ':'ピレモン',
-    };
-    let usageTrendsHTML = '';
-    if (synopticRefs.length > 0 || paulineRefs.length > 0) {
-        const synHTML = synopticRefs.length > 0 ? `
-            <div class="rn-usage-group">
-                <div class="rn-usage-group-label">福音書で使われることが多い</div>
-                <ul class="rn-usage-list">${synopticRefs.map(r => `<li>${BOOK_FULL[r] || r}</li>`).join('')}</ul>
-            </div>` : '';
-        const pauHTML = paulineRefs.length > 0 ? `
-            <div class="rn-usage-group">
-                <div class="rn-usage-group-label">パウロ書簡でも見られる</div>
-                <ul class="rn-usage-list">${paulineRefs.map(r => `<li>${BOOK_FULL[r] || r}</li>`).join('')}</ul>
-            </div>` : '';
-        usageTrendsHTML = `
-            <div class="rn-usage-trends">
-                <span class="rn-usage-label ui-label">使用傾向</span>
-                ${synHTML}${pauHTML}
-            </div>`;
-    }
+    /* 使用傾向は検索ツールで確認するため、第三層では重複表示しない。 */
 
     /* ── Experienced reader labels ── */
     let expLabelHTML = '';
@@ -9357,7 +9331,6 @@ async function _renderReadingNotes(p) {
             <div class="rn-level-body">
                 ${morphGridHTML}
                 ${morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML}</div>` : ''}
-                ${usageTrendsHTML ? `<div data-study-section="usage">${usageTrendsHTML}</div>` : ''}
                 ${etymologyHTML ? `<div data-study-section="etymology">${etymologyHTML}</div>` : ''}
                 ${abbottFullHTML ? `<div data-study-section="abbott">${abbottFullHTML}</div>` : ''}
             </div>
@@ -19250,32 +19223,7 @@ async function _fillMvvLevel2Slot(resolvedId) {
         const synopticRefs = contexts.synoptic_refs || [];
         const paulineRefs  = contexts.pauline_refs  || [];
 
-        /* Usage trends（Desktop _renderReadingNotes と同じ BOOK_FULL 辞書・HTML） */
-        const BOOK_FULL_L2 = {
-            'マタ':'マタイ', 'マコ':'マルコ', 'ルカ':'ルカ', 'ヨハ':'ヨハネ',
-            'ロマ':'ローマ', 'コリ':'コリント', 'コリ一':'コリント第一', 'コリ二':'コリント第二',
-            'ガラ':'ガラテヤ', 'エペ':'エペソ', 'ピリ':'ピリピ', 'コロ':'コロサイ',
-            'テサ':'テサロニケ', 'テサ一':'テサロニケ第一', 'テサ二':'テサロニケ第二',
-            'テモ':'テモテ', 'テモ一':'テモテ第一', 'テモ二':'テモテ第二',
-            'テト':'テトス', 'ピレ':'ピレモン',
-        };
-        let usageTrendsHTML = '';
-        if (synopticRefs.length > 0 || paulineRefs.length > 0) {
-            const synHTML = synopticRefs.length > 0 ? `
-                <div class="rn-usage-group">
-                    <div class="rn-usage-group-label">福音書で使われることが多い</div>
-                    <ul class="rn-usage-list">${synopticRefs.map(r => `<li>${BOOK_FULL_L2[r] || r}</li>`).join('')}</ul>
-                </div>` : '';
-            const pauHTML = paulineRefs.length > 0 ? `
-                <div class="rn-usage-group">
-                    <div class="rn-usage-group-label">パウロ書簡でも見られる</div>
-                    <ul class="rn-usage-list">${paulineRefs.map(r => `<li>${BOOK_FULL_L2[r] || r}</li>`).join('')}</ul>
-                </div>` : '';
-            usageTrendsHTML = `<div class="rn-usage-trends" data-study-section="usage">
-                <span class="rn-usage-label ui-label">使用傾向</span>
-                ${synHTML}${pauHTML}
-            </div>`;
-        }
+        /* 使用傾向は検索ツールで確認するため、第三層では重複表示しない。 */
 
         /* Etymology（Desktop _renderReadingNotes と同じ経路） */
         const compositionParts = getWordComposition(resolvedId);
@@ -19294,7 +19242,7 @@ async function _fillMvvLevel2Slot(resolvedId) {
         if (myGen !== _mvvLevel2Gen) return;
         const slotCheck = document.getElementById('mvv-level2-async-slot');
         if (!slotCheck) return;
-        slotCheck.innerHTML = usageTrendsHTML + etymologyHTML + abbottFullHTML;
+        slotCheck.innerHTML = etymologyHTML + abbottFullHTML;
     } catch (_) {
         /* 静寂：失敗時はスロット空のまま */
     }
