@@ -2826,10 +2826,10 @@ border: 1px solid var(--border-soft);
 letter-spacing: 0.01em;
 }
 .morph-tag-pill.core {
-background: var(--accent-light);
-color: var(--highlight);
+background: var(--bg-panel);
+color: var(--text-sub);
 border-color: var(--border-soft);
-font-weight: 500;
+font-weight: 400;
 }
 
 .rcb-container {
@@ -10617,6 +10617,11 @@ function parseMorphForSearch(rawMorph) {
             result.case   = CASE_MAP[parts[2][0]]   || '';
             result.number = NUMBER_MAP[parts[2][1]] || '';
             result.gender = GENDER_MAP[parts[2][2]] || '';
+        } else if (parts[2]) {
+            const PERSON_MAP = { '1':'1', '2':'2', '3':'3' };
+            const NUMBER_MAP = { S:'singular', P:'plural' };
+            result.person = PERSON_MAP[parts[2][0]] || '';
+            result.number = NUMBER_MAP[parts[2][1]] || '';
         }
     } else if (['N','A','R','P','T','D'].includes(pos) && parts[1]) {
         const CASE_MAP   = { N:'nominative', G:'genitive', D:'dative', A:'accusative', V:'vocative' };
@@ -10756,13 +10761,41 @@ function buildMorphTagsHTML(rawMorph) {
     };
 
     const tags = [];
-    if (m.pos)    tags.push({ label: JPN.pos[m.pos]    || m.pos,    core: true });
-    if (m.tense)  tags.push({ label: JPN.tense[m.tense]|| m.tense,  core: true });
-    if (m.voice)  tags.push({ label: JPN.voice[m.voice]|| m.voice,  core: false });
-    if (m.mood)   tags.push({ label: JPN.mood[m.mood]  || m.mood,   core: true });
-    if (m.gender) tags.push({ label: JPN.gender[m.gender]|| m.gender, core: false });
-    if (m.number) tags.push({ label: JPN.number[m.number]|| m.number, core: false });
-    if (m.case)   tags.push({ label: JPN.case[m.case]  || m.case,   core: false });
+    const addTag = (value, label, core = false) => {
+        if (value) tags.push({ label, core });
+    };
+    addTag(m.pos, JPN.pos[m.pos] || m.pos, true);
+
+    if (m.pos === 'V' && m.mood === 'participle') {
+        /* 分詞：品詞 → 法（分詞）→ 態 → 時称 → 性 → 数 → 格 */
+        addTag(m.mood, JPN.mood[m.mood] || m.mood, true);
+        addTag(m.voice, JPN.voice[m.voice] || m.voice);
+        addTag(m.tense, JPN.tense[m.tense] || m.tense, true);
+        addTag(m.gender, JPN.gender[m.gender] || m.gender);
+        addTag(m.number, JPN.number[m.number] || m.number);
+        addTag(m.case, JPN.case[m.case] || m.case);
+    } else if (m.pos === 'V') {
+        /* 動詞：品詞 → 法 → 態 → 時称 → 人称 → 数 */
+        addTag(m.mood, JPN.mood[m.mood] || m.mood, true);
+        addTag(m.voice, JPN.voice[m.voice] || m.voice);
+        addTag(m.tense, JPN.tense[m.tense] || m.tense, true);
+        addTag(m.person, m.person ? m.person + '人称' : '');
+        addTag(m.number, JPN.number[m.number] || m.number);
+    } else if (['N','A','R','P','T','D'].includes(m.pos)) {
+        /* 名詞・名詞系：品詞 → 性 → 数 → 格 */
+        addTag(m.gender, JPN.gender[m.gender] || m.gender);
+        addTag(m.number, JPN.number[m.number] || m.number);
+        addTag(m.case, JPN.case[m.case] || m.case);
+    } else {
+        /* その他の品詞は取得できる情報を標準順で表示 */
+        addTag(m.mood, JPN.mood[m.mood] || m.mood, true);
+        addTag(m.voice, JPN.voice[m.voice] || m.voice);
+        addTag(m.tense, JPN.tense[m.tense] || m.tense, true);
+        addTag(m.person, m.person ? m.person + '人称' : '');
+        addTag(m.number, JPN.number[m.number] || m.number);
+        addTag(m.gender, JPN.gender[m.gender] || m.gender);
+        addTag(m.case, JPN.case[m.case] || m.case);
+    }
 
     if (tags.length === 0) return '';
     return `<div class="morph-tag-row">
