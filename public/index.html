@@ -11476,7 +11476,7 @@ function _renderDictionaryLinkedText(value) {
         '1 tim':'1TI', '1 timothy':'1TI', テモテ第一:'1TI', テモ一:'1TI',
         '2 tim':'2TI', '2 timothy':'2TI', テモテ第二:'2TI', テモ二:'2TI',
         tit:'TIT', titus:'TIT', テトス:'TIT',
-        philem:'PHM', philemon:'PHM', ピレモン:'PHM',
+        phlm:'PHM', philem:'PHM', philemon:'PHM', ピレモン:'PHM',
         heb:'HEB', hebrews:'HEB', ヘブル:'HEB',
         jas:'JAS', james:'JAS', ヤコブ:'JAS',
         '1 pet':'1PE', '1 peter':'1PE', ペテロ第一:'1PE', ペテ一:'1PE',
@@ -11489,7 +11489,7 @@ function _renderDictionaryLinkedText(value) {
     const bookNames = '(?:Matthew|Matt|Mt|Mark|Mk|Luke|Lk|John|Jn|Acts|Act|Ac|Romans|Rom|Ro|Corinthians|Cor|Galatians|Gal|Ephesians|Eph|Philippians|Phil|Colossians|Col|Thessalonians|Thess|Timothy|Tim|Titus|Tit|Philemon|Philem|Hebrews|Heb|James|Jas|Peter|Pet|Jude|Revelation|Rev|ヨハネ第一|ヨハネ第二|ヨハネ第三|コリント第一|コリント第二|テサロニケ第一|テサロニケ第二|テモテ第一|テモテ第二|ペテロ第一|ペテロ第二|使徒の働き|使|マタイ|マタ|マルコ|マコ|ルカ|ヨハネ|ヨハ|使徒|ユダ|ローマ|ロマ|コリ一|コリ二|ガラテヤ|ガラ|エペソ|エペ|ピリピ|ピリ|コロサイ|コロ|テサ一|テサ二|テモ一|テモ二|テトス|ピレモン|ヘブル|ヤコブ|ペテ一|ペテ二|黙示録)';
     const pattern = new RegExp(
         '(?<full>(?<prefix>(?:1|2|3)\\s*)?(?<book>' + bookNames + ')\\.?\\s*(?<chapter>\\d{1,3}):(?<verse>\\d{1,3})(?:\\s*[-–]\\s*(?<endverse>\\d{1,3}))?)' +
-        '|(?<single>(?<singlebook>Jude|ユダ)\\s*(?<singleverse>\\d{1,3})(?!\\s*:))' +
+        '|(?<single>(?<singleprefix>(?:2|3)\\s*)?(?<singlebook>Philemon|Philem|Phlm|ヨハネ第二|ヨハネ第三|Jude|ユダ|ピレモン)\\s*(?<singleverse>\\d{1,3})(?!\\s*:))' +
         '|(?<continued>(?<sep>[,、;]\\s*)(?<cchapter>\\d{1,3}):(?<cverse>\\d{1,3})(?:\\s*[-–]\\s*(?<cendverse>\\d{1,3}))?)' +
         '|(?<greek>[\\u0370-\\u03FF\\u1F00-\\u1FFF]+(?:[\'’][\\u0370-\\u03FF\\u1F00-\\u1FFF]+)*)',
         'gi'
@@ -11509,8 +11509,9 @@ function _renderDictionaryLinkedText(value) {
                 html += _escH(g.full);
             }
         } else if (g.single) {
-            const book = books[g.singlebook.toLowerCase()];
-            if (book === 'JUD') {
+            const singleName = ((g.singleprefix || '') + g.singlebook).toLowerCase().replace(/\\s+/g, ' ').trim();
+            const book = books[singleName];
+            if (['JUD', 'PHM', '2JN', '3JN'].includes(book)) {
                 lastBookCode = book;
                 html += '<a class="rn-inline-bible-ref" href="/' + book + '/1/' + g.singleverse + '" title="聖書本文を開く">' + _escH(g.single) + '</a>';
             } else {
