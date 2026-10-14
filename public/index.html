@@ -636,7 +636,7 @@ pointer-events: auto;
         margin: 0;
         overflow-wrap: anywhere;
     }
-    /* 使用傾向・辞書全文も「口語訳」「原語の順序」と同じ本文タイポグラフィにそろえる。 */
+    /* 使用傾向・辞書全文も本文タイポグラフィにそろえる。 */
     #mobile-inspector-area .rn-usage-trends .rn-usage-group-label,
     #mobile-inspector-area .rn-usage-trends .rn-usage-list,
     #mobile-inspector-area .rn-dict-full-section .rn-dict-full-text {
@@ -4603,9 +4603,50 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
     .sf-branch { padding-left: 14px; }
 }
 
-.rn-dict-label {
+/* 使用傾向・辞書全文のラベルを1層目の参照ラベルと同じタイポグラフィに統一。 */
+.rn-usage-label.ui-label,
+.rn-dict-label.ui-label {
     display: block;
+    font-family: 'Noto Serif JP', serif;
+    font-size: var(--text-caption);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: #a0a0a6;
+}
+.rn-dict-label {
     margin-bottom: var(--space-xs);
+}
+/* 辞書全文の項目表。モバイル・デスクトップ共通。 */
+.rn-dict-full-section .rn-dict-full-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font: inherit;
+    color: inherit;
+    line-height: inherit;
+}
+.rn-dict-full-section .rn-dict-full-table th,
+.rn-dict-full-section .rn-dict-full-table td {
+    padding: var(--space-xs) 0;
+    border: 0;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    vertical-align: top;
+    text-align: left;
+    font: inherit;
+    overflow-wrap: anywhere;
+}
+.rn-dict-full-section .rn-dict-full-table th {
+    width: 6.5em;
+    padding-right: var(--space-sm);
+    font-weight: 500;
+}
+.rn-dict-full-section .rn-dict-full-table .rn-dict-full-unlabeled {
+    width: 0;
+    padding: 0;
+}
+.rn-dict-full-section .rn-dict-full-table tr:last-child th,
+.rn-dict-full-section .rn-dict-full-table tr:last-child td {
+    border-bottom: 0;
 }
 
 /* Level 1: Usage trends */
@@ -9122,7 +9163,7 @@ async function _renderReadingNotes(p) {
     const abbottFullHTML = abbottSmithText
         ? `<div class="rn-dict-full-section">
                <span class="rn-dict-label ui-label">辞書全文</span>
-               <div class="rn-dict-full-text">${_escH(abbottSmithText).replace(/\n/g,'<br>')}</div>
+               <div class="rn-dict-full-text">${_renderAbbottFullText(abbottSmithText)}</div>
            </div>`
         : '';
 
@@ -11273,6 +11314,31 @@ function _escH(s) {
     return String(s == null ? '' : s)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function _renderAbbottFullText(text) {
+    const source = String(text == null ? '' : text);
+    const re = /【([^】]+)】([^【]*)/g;
+    const rows = [];
+    let match;
+    let cursor = 0;
+    while ((match = re.exec(source)) !== null) {
+        const prefix = source.slice(cursor, match.index).trim();
+        if (prefix) rows.push({ label: '', value: prefix });
+        rows.push({ label: match[1].trim(), value: match[2].trim() });
+        cursor = re.lastIndex;
+    }
+    const tail = source.slice(cursor).trim();
+    if (tail) rows.push({ label: '', value: tail });
+    if (!rows.length) return _escH(source).replace(/\n/g, '<br>');
+    return '<table class="rn-dict-full-table"><tbody>' + rows.map(row =>
+        '<tr>' +
+          (row.label
+            ? '<th scope="row">' + _escH(row.label) + '</th>'
+            : '<th scope="row" class="rn-dict-full-unlabeled"></th>') +
+          '<td>' + _escH(row.value).replace(/\n/g, '<br>') + '</td>' +
+        '</tr>'
+    ).join('') + '</tbody></table>';
 }
 
 function _listMetaDate(ts) {
@@ -18988,7 +19054,7 @@ async function _fillMvvLevel2Slot(resolvedId) {
         const abbottFullHTML = abbottSmithText
             ? `<div class="rn-dict-full-section" data-study-section="abbott">
                    <span class="rn-dict-label ui-label">辞書全文</span>
-                   <div class="rn-dict-full-text">${_escH(abbottSmithText).replace(/\n/g,'<br>')}</div>
+                   <div class="rn-dict-full-text">${_renderAbbottFullText(abbottSmithText)}</div>
                </div>`
             : '';
 
