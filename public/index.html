@@ -4676,6 +4676,21 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 .rn-dict-label {
     margin-bottom: var(--space-xs);
 }
+/* 辞書本文のリンクは読み進める流れを妨げない控えめな下線にする。 */
+.rn-dict-full-text .rn-inline-bible-ref,
+.rn-dict-full-text .rn-inline-word-search {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--border-strong, rgba(44,79,52,.38));
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+    cursor: pointer;
+}
+.rn-dict-full-text .rn-inline-bible-ref:hover,
+.rn-dict-full-text .rn-inline-word-search:hover {
+    color: var(--accent);
+    text-decoration-color: currentColor;
+}
 /* 辞書全文の項目表。モバイル・デスクトップ共通。 */
 .rn-dict-full-section .rn-dict-full-table {
     width: 100%;
@@ -11467,6 +11482,60 @@ function _escH(s) {
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+/* 辞書本文の聖書参照・ギリシャ語から、本文／既存検索ツールへ移動できるようにする。 */
+function _renderDictionaryLinkedText(value) {
+    const source = String(value == null ? '' : value);
+    const books = {
+        matt:'MAT', matthew:'MAT', mt:'MAT', マタイ:'MAT', マタ:'MAT',
+        mark:'MRK', mk:'MRK', マルコ:'MRK', マコ:'MRK',
+        luke:'LUK', lk:'LUK', ルカ:'LUK',
+        john:'JHN', jn:'JHN', ヨハネ:'JHN', ヨハ:'JHN',
+        acts:'ACT', ac:'ACT', 使徒:'ACT',
+        rom:'ROM', romans:'ROM', ro:'ROM', ローマ:'ROM', ロマ:'ROM',
+        '1 cor':'1CO', '1 corinthians':'1CO', コリント第一:'1CO', コリ一:'1CO',
+        '2 cor':'2CO', '2 corinthians':'2CO', コリント第二:'2CO', コリ二:'2CO',
+        gal:'GAL', galatians:'GAL', ガラテヤ:'GAL', ガラ:'GAL',
+        eph:'EPH', ephesians:'EPH', エペソ:'EPH', エペ:'EPH',
+        phil:'PHP', philippians:'PHP', ピリピ:'PHP', ピリ:'PHP',
+        col:'COL', colossians:'COL', コロサイ:'COL', コロ:'COL',
+        '1 thess':'1TH', '1 thessalonians':'1TH', テサロニケ第一:'1TH', テサ一:'1TH',
+        '2 thess':'2TH', '2 thessalonians':'2TH', テサロニケ第二:'2TH', テサ二:'2TH',
+        '1 tim':'1TI', '1 timothy':'1TI', テモテ第一:'1TI', テモ一:'1TI',
+        '2 tim':'2TI', '2 timothy':'2TI', テモテ第二:'2TI', テモ二:'2TI',
+        tit:'TIT', titus:'TIT', テトス:'TIT',
+        philem:'PHM', philemon:'PHM', ピレモン:'PHM',
+        heb:'HEB', hebrews:'HEB', ヘブル:'HEB',
+        jas:'JAS', james:'JAS', ヤコブ:'JAS',
+        '1 pet':'1PE', '1 peter':'1PE', ペテロ第一:'1PE', ペテ一:'1PE',
+        '2 pet':'2PE', '2 peter':'2PE', ペテロ第二:'2PE', ペテ二:'2PE',
+        '1 jn':'1JN', '1 john':'1JN', ヨハネ第一:'1JN',
+        '2 jn':'2JN', '2 john':'2JN', ヨハネ第二:'2JN',
+        '3 jn':'3JN', '3 john':'3JN', ヨハネ第三:'3JN',
+        jude:'JUD', rev:'REV', revelation:'REV', 黙示録:'REV'
+    };
+    const pattern = /(?:\b((?:1|2|3)\s*)?(Matthew|Matt|Mt|Mark|Mk|Luke|Lk|John|Jn|Acts|Ac|Romans|Rom|Ro|Corinthians|Cor|Galatians|Gal|Ephesians|Eph|Philippians|Phil|Colossians|Col|Thessalonians|Thess|Timothy|Tim|Titus|Tit|Philemon|Philem|Hebrews|Heb|James|Jas|Peter|Pet|Jude|Revelation|Rev|マタイ|マタ|マルコ|マコ|ルカ|ヨハネ|ヨハ|使徒|ローマ|ロマ|コリント第一|コリント第二|コリ一|コリ二|ガラテヤ|ガラ|エペソ|エペ|ピリピ|ピリ|コロサイ|コロ|テサロニケ第一|テサロニケ第二|テサ一|テサ二|テモテ第一|テモテ第二|テモ一|テモ二|テトス|ピレモン|ヘブル|ヤコブ|ペテロ第一|ペテロ第二|ペテ一|ペテ二|ヨハネ第一|ヨハネ第二|ヨハネ第三|黙示録)\.?\s+(\d{1,3}):(\d{1,3})(?:\s*[-–]\s*(\d{1,3}))?)|([\u0370-\u03FF\u1F00-\u1FFF]+(?:['’][\u0370-\u03FF\u1F00-\u1FFF]+)*)/gi;
+    let html = '', cursor = 0, match;
+    while ((match = pattern.exec(source)) !== null) {
+        html += _escH(source.slice(cursor, match.index));
+        if (match[3] && match[4]) {
+            const name = ((match[1] || '') + match[2]).toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
+            const book = books[name];
+            if (book) {
+                html += '<a class="rn-inline-bible-ref" href="/' + book + '/' + match[3] + '/' + match[4] + '" title="聖書本文を開く">' + _escH(match[0]) + '</a>';
+            } else {
+                html += _escH(match[0]);
+            }
+        } else if (match[6]) {
+            const query = new URLSearchParams({ tool: 'search', word: match[6], layers: 'lemma,morph' });
+            html += '<a class="rn-inline-word-search" href="search-tool.html?' + query.toString() + '" title="検索ツールで調べる">' + _escH(match[6]) + '</a>';
+        } else {
+            html += _escH(match[0]);
+        }
+        cursor = pattern.lastIndex;
+    }
+    return html + _escH(source.slice(cursor)).replace(/\n/g, '<br>');
+}
+
 function _renderAbbottFullText(text) {
     const source = String(text == null ? '' : text);
     const re = /【([^】]+)】([^【]*)/g;
@@ -11481,17 +11550,16 @@ function _renderAbbottFullText(text) {
     }
     const tail = source.slice(cursor).trim();
     if (tail) rows.push({ label: '', value: tail });
-    if (!rows.length) return _escH(source).replace(/\n/g, '<br>');
+    if (!rows.length) return _renderDictionaryLinkedText(source);
     return '<table class="rn-dict-full-table"><tbody>' + rows.map(row =>
         '<tr>' +
           (row.label
             ? '<th scope="row">' + _escH(row.label) + '</th>'
             : '<th scope="row" class="rn-dict-full-unlabeled"></th>') +
-          '<td>' + _escH(row.value).replace(/\n/g, '<br>') + '</td>' +
+          '<td>' + _renderDictionaryLinkedText(row.value) + '</td>' +
         '</tr>'
     ).join('') + '</tbody></table>';
 }
-
 function _listMetaDate(ts) {
     if (!ts) return '';
     const d = new Date(ts);
