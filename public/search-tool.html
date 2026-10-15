@@ -3648,6 +3648,7 @@ async function unifiedSearch(){
     if (query !== _lastQuery) { _sqState.filters = []; _renderFilterBar(); }
     _activePatternFilters = _sqState.filters.map(f => ({...f, query: f.query ? {...f.query} : f.query}));
     isSearching=true;
+    try {
     // Close mobile panel when search fires
     if(window.innerWidth<=680) _closeMobilePanel();
 
@@ -3863,6 +3864,17 @@ async function unifiedSearch(){
     /* この時点で IDX.ready は必ず true（上のゲートで保証済み）。
        「索引未完成のまま検索→後から件数が増える」事象は構造的に発生しない。 */
     syncURL(_activeLayerSet, _activeSearchDist, _activeMorphSelection, _activePatternFilters);
+    } catch (error) {
+        if (requestId === _unifiedSearchRequestId) {
+            console.error('[unifiedSearch] 検索に失敗しました', error);
+            _showEmpty(
+                '検索を完了できませんでした',
+                '検索処理で問題が発生しました。通信状態を確認し、ページを再読み込みしてからもう一度お試しください。'
+            );
+        }
+    } finally {
+        if (requestId === _unifiedSearchRequestId) isSearching = false;
+    }
 }
 
 /* allow-list（このページの実際の検索条件のみ）からゼロ構築する。
@@ -4572,6 +4584,12 @@ function init(){
     _ensureFullIndex().then(()=>{
         _buildAndExposeLemmaIndex();
         _buildAndExposeMorphIndex();
+    }).catch(error => {
+        console.error('[search-index] 初期化に失敗しました', error);
+        _showEmpty(
+            '検索データを読み込めませんでした',
+            '検索用データの読み込みに失敗しました。通信状態を確認し、ページを再読み込みしてください。'
+        );
     });
     _watchIndexProgress();
     // Initial prox slider
@@ -5428,26 +5446,33 @@ async function _synInit(syntaxId) {
    Abbott-Smith 辞書モーダル
    ============================================================ */
 let _abbottDict = null;
-let _abbottLoading = false;
+let _abbottLoadPromise = null;
 
 async function _loadAbbott() {
     if (_abbottDict) return;
-    if (_abbottLoading) return;
-    _abbottLoading = true;
-    try {
+    // 同時に複数回開かれても、同じ読み込みを待つ。
+    if (_abbottLoadPromise) return _abbottLoadPromise;
+    _abbottLoadPromise = (async () => {
         const res = await fetch('../assets/data/abbott-smith.tsv');
+        if (!res.ok) throw new Error(`Abbott-Smith fetch failed: HTTP ${res.status}`);
         const text = await res.text();
-        _abbottDict = {};
+        const dict = {};
         text.split('\n').forEach((line, i) => {
             if (i === 0) return; // header
             const cols = line.split('\t');
             if (cols.length < 5) return;
             const strong = cols[0].trim();
-            _abbottDict[strong] = { lemma: cols[1]?.trim() || '', description: cols[4]?.trim() || '' };
+            dict[strong] = { lemma: cols[1]?.trim() || '', description: cols[4]?.trim() || '' };
         });
-    } catch(e) {
-        console.warn('Abbott-Smith load error', e);
-    }
+        _abbottDict = dict;
+    })().catch(error => {
+        console.warn('Abbott-Smith load error', error);
+        throw error;
+    }).finally(() => {
+        // 失敗時は Promise を破棄し、次回の辞書表示で再試行できるようにする。
+        _abbottLoadPromise = null;
+    });
+    return _abbottLoadPromise;
 }
 
 // result-query-label クリックでモーダル表示
