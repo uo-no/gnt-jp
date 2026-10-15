@@ -3495,6 +3495,7 @@ let _activeLayerSet   = {};
 let _activeSearchDist  = currentDist;
 let _activeSearchScope = currentScope;
 let _activeMorphSelection = null;
+let _activePatternFilters = [];
 
 async function unifiedSearch(){
     const requestId=++_unifiedSearchRequestId;
@@ -3519,6 +3520,9 @@ async function unifiedSearch(){
     _activeSearchScope = currentScope;
     // 語形フィルターも検索開始時点の選択を保持する。
     _activeMorphSelection = Object.fromEntries(Object.entries(_morphSel).map(([k, values]) => [k, new Set(values)]));
+    // クエリ変更時のフィルター解除を待機処理より前に行い、今回の検索条件を固定する。
+    if (query !== _lastQuery) { _sqState.filters = []; _renderFilterBar(); }
+    _activePatternFilters = _sqState.filters.map(f => ({...f, query: f.query ? {...f.query} : f.query}));
     isSearching=true;
     // Close mobile panel when search fires
     if(window.innerWidth<=680) _closeMobilePanel();
@@ -3703,12 +3707,9 @@ async function unifiedSearch(){
         }
     }
 
-    /* ── SQS: クエリが変わったらフィルタをクリア ── */
-    if (query !== _lastQuery) _sqState.filters = [];
-
-    /* ── SQS: パターンフィルタを verse-level AND で適用 ── */
-    if (_sqState.filters.length > 0) {
-        for (const f of _sqState.filters) {
+    /* ── SQS: パターンフィルタを検索開始時のスナップショットで適用 ── */
+    if (_activePatternFilters.length > 0) {
+        for (const f of _activePatternFilters) {
             if (f.type !== 'pattern' || !f.query) continue;
             const fRes = await runTermProximitySearch(
                 f.query.termA, f.query.termB, { scope: f.query.scope || 'verse' });
@@ -3731,18 +3732,18 @@ async function unifiedSearch(){
     _lastQuery=query;
     performance.mark('render-start');
     /* SQS: フィルタラベルを × で連結してタイトルに反映 */
-    const _sqsLabels = _sqState.filters.map(f => f.label);
+    const _sqsLabels = _activePatternFilters.map(f => f.label);
     const _sqsQuery = _sqsLabels.length > 0 ? `${query} × ${_sqsLabels.join(' × ')}` : query;
     _renderUnifiedResults(_sqsQuery,words,word2);
     _logPerfMeasure('render', `${_allMergedResults.size.toLocaleString()} hits merged`);
     /* この時点で IDX.ready は必ず true（上のゲートで保証済み）。
        「索引未完成のまま検索→後から件数が増える」事象は構造的に発生しない。 */
-    syncURL(_activeLayerSet, _activeSearchDist, _activeMorphSelection);
+    syncURL(_activeLayerSet, _activeSearchDist, _activeMorphSelection, _activePatternFilters);
 }
 
 /* allow-list（このページの実際の検索条件のみ）からゼロ構築する。
    location.searchをベースにしない＝他ページのパラメータ混入を防ぐ。 */
-function syncURL(layerSnapshot = null, distSnapshot = null, morphSnapshot = null) {
+function syncURL(layerSnapshot = null, distSnapshot = null, morphSnapshot = null, patternSnapshot = null) {
     const p = new URLSearchParams();
     p.set('tool', 'search');
 
@@ -3762,7 +3763,7 @@ function syncURL(layerSnapshot = null, distSnapshot = null, morphSnapshot = null
 
     // 保存済み検索URLで、追加したパターン絞り込みも再現できるようにする。
     // パターン本体は共有データを参照し、URLには安定したIDだけを含める。
-    const patternIds = _sqState.filters
+    const patternIds = (patternSnapshot || _sqState.filters)
         .filter(f => f.type === 'pattern' && f.id)
         .map(f => f.id);
     if (patternIds.length) p.set('patterns', [...new Set(patternIds)].join(','));
