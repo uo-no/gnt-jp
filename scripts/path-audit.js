@@ -32,6 +32,7 @@ const IGNORE_DIRS  = new Set(['.git', 'node_modules', 'bible_data', 'morph-index
 const IGNORE_FILES = new Set([
     'scripts/path-audit.js',
     'docs/architecture-rules.md',  // 禁止パスを意図的に列挙するドキュメント
+    'docs/archive/FLOW-26-A_TEST_VERIFICATION_BOUNDARY_AUDIT.md', // 監査対象の旧パスを記録する履歴文書
 ]);
 
 function walkFiles(dir, results = []) {
