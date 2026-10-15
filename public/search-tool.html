@@ -1939,7 +1939,7 @@ const JP_PARTIAL_INDEX = new Map();
    LXXはバックグラウンド構築（IDX.ready=true後に開始）。
    IDX.l3Ready: NT+LXX全書物のfetch・索引化および日本語インデックス構築が完了したフラグ。
    検索ゲート（unifiedSearch）は IDX.ready で開くが、LXX 未完了中は NT 結果のみ返る。 */
-const IDX = { ready: false, l3Ready: false };
+const IDX = { ready: false, l3Ready: false, lxxError: null };
 const POS_JP = {
     'V':'動詞','N':'名詞','A':'形容詞','R':'関係代名詞',
     'P':'代名詞','T':'冠詞','D':'指示代名詞',
@@ -2047,6 +2047,7 @@ async function _buildFullIndex(corpora){
 
     /* 章ごとのフェーズ別タイミング収集 */
     const _phTimings=[];
+    const _failedChapters=[];
 
     for(let i=0;i<tasks.length;i+=BATCH){
         const slice=tasks.slice(i,i+BATCH);
@@ -2069,7 +2070,8 @@ async function _buildFullIndex(corpora){
             }catch(e){ console.info(`[buildFullIndex:fetch] ${t.key}/${t.ch} error`,e); }
             const fetchMs=performance.now()-tFetch;
 
-            if(!text) return {t,toks:[],fetchMs,parseMs:0,mapMs:0,cached:false};
+            if(!text) return {t,toks:[],fetchMs,parseMs:0,mapMs:0,cached:false,failed:'fetch'};
+
 
             /* フェーズ2: JSON.parse（CPU、文字列→オブジェクトツリー） */
             const tParse=performance.now();
@@ -2077,7 +2079,7 @@ async function _buildFullIndex(corpora){
             try{ rawArr=JSON.parse(text); }catch(e){ console.info(`[buildFullIndex:parse] ${t.key}/${t.ch} parse error`,e); }
             const parseMs=performance.now()-tParse;
 
-            if(!Array.isArray(rawArr)) return {t,toks:[],fetchMs,parseMs,mapMs:0,cached:false};
+            if(!Array.isArray(rawArr)) return {t,toks:[],fetchMs,parseMs,mapMs:0,cached:false,failed:'parse'};
 
             /* フェーズ2b: token mapping（CPU、生オブジェクト→正規化 token 構造） */
             const tMap=performance.now();
@@ -2104,15 +2106,19 @@ async function _buildFullIndex(corpora){
         }));
 
         /* ── フェーズ3: _indexChapter（シリアル、SEARCH_INDEX 更新） ── */
-        for(const {t,toks,fetchMs,parseMs,mapMs,cached} of batchResults){
+        for(const {t,toks,fetchMs,parseMs,mapMs,cached,failed} of batchResults){
+            if(failed){
+                _failedChapters.push({key:t.key,ch:t.ch,reason:failed});
+                continue;
+            }
+            /* キャッシュ済み章は既に索引化済み。再実行時の重複登録を防ぐ。 */
+            if(cached) continue;
             const tIdx=performance.now();
             _indexChapter(toks);
             const indexMs=performance.now()-tIdx;
-            if(!cached){
-                const corpus=NT_BOOK_KEYS.has(t.key)?'NT':'LXX';
-                _phTimings.push({key:t.key,ch:t.ch,corpus,
-                    fetchMs,parseMs,mapMs,indexMs,tokCount:toks.length});
-            }
+            const corpus=NT_BOOK_KEYS.has(t.key)?'NT':'LXX';
+            _phTimings.push({key:t.key,ch:t.ch,corpus,
+                fetchMs,parseMs,mapMs,indexMs,tokCount:toks.length});
         }
 
         await new Promise(r=>setTimeout(r,0));
@@ -2120,6 +2126,12 @@ async function _buildFullIndex(corpora){
 
     _logPerfMeasure('data-load',`${tasks.length} chapters (${corpora?.join(',')||'all'}), ${ALL_TOKENS.length.toLocaleString()} tokens`);
     _logBuildPhaseTimings(_phTimings);
+    if(_failedChapters.length){
+        const sample=_failedChapters.slice(0,12).map(x=>`${x.key} ${x.ch} (${x.reason})`).join(', ');
+        const error=new Error(`索引構築に失敗した章が ${_failedChapters.length} 件あります: ${sample}${_failedChapters.length>12?' …':''}`);
+        error.failedChapters=_failedChapters;
+        throw error;
+    }
 
     /* NT の診断: NT 構築時のみ ἀφορίζω チェック */
     if(!corpusSet||corpusSet.has('NT')){
@@ -2242,7 +2254,14 @@ function _ensureFullIndex(){
             /* ── フェーズ2: LXX をバックグラウンド構築 ── */
             const _buildLxx=async()=>{
                 console.info('[search-index] LXX background build started');
-                await _buildFullIndex(['LXX']);
+                try{
+                    await _buildFullIndex(['LXX']);
+                }catch(error){
+                    IDX.lxxError=error?.message||'LXX 索引の構築に失敗しました';
+                    console.error('[search-index] LXX background build failed',error);
+                    return;
+                }
+                IDX.lxxError=null;
                 console.info('[search-index] LXX ready');
                 /* NT+LXX 全体で lemmaIndex / morphIndex を再構築する。
                    _buildAndExpose* は冪等ガードを持つため、null に戻してから呼ぶ。 */
@@ -3291,6 +3310,10 @@ function _watchIndexProgress(){
                 setTimeout(()=>{ if(status) status.style.display='none'; },1300);
             },1000);
             clearInterval(timer);
+        }else if(IDX.lxxError){
+            dot.textContent='!';
+            label.textContent='NT検索できます。LXXの準備に失敗しました';
+            label.title=IDX.lxxError;
         }else if(IDX.ready){
             dot.textContent='✓';
             label.innerHTML='NT検索できます<br><span style="opacity:0.75">LXX・日本語を準備中…</span>';
