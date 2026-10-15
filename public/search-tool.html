@@ -3732,29 +3732,11 @@ function _renderHitCards(entries,words,word2){
     const countEl=document.getElementById('hits-count');
     list.innerHTML='';
 
-    const SHOW=80;
-    // ★ De-dup by verse（bookKey + ch + verse）を globalIdx 経由で構成。
-    //   entry.tok.ref をキーにしない（ref はロジック禁止・表示専用）。
-    //   同一 verse 内で最多 hitTypes を持つ gi を代表として残す。
-    const byVerse=new Map();
-    for(const[gi,entry]of entries){
-        const t=entry.tok;
-        // verseKey = 位置情報フィールドから生成（refを使わない）
-        const verseKey=`${t.bookKey||'?'}:${t.ch??'?'}:${t.verse??'?'}`;
-        if(!byVerse.has(verseKey)||entry.hitTypes.size>byVerse.get(verseKey).entry.hitTypes.size){
-            byVerse.set(verseKey,{gi,entry});
-        }
-    }
-    const byRef=byVerse; // 変数名を後続で統一して使用
-
-    countEl.textContent=_filterWord
-        ?`「${_filterWord}」との共起：?件 / 全${byRef.size}件`
-        :`${byRef.size.toLocaleString()} 節`;
-
     const FOLD = 8; // 最初に表示する件数
-    const allEntries = [...byRef.values()].slice(0, SHOW);
+    const PAGE_SIZE = 40;
+    const allEntries = [...byRef.values()];
     const visible = allEntries.slice(0, FOLD);
-    const folded  = allEntries.slice(FOLD);
+    let nextIndex = visible.length;
 
     let rendered = 0;
     for (const { gi, entry } of visible) {
@@ -3764,44 +3746,43 @@ function _renderHitCards(entries,words,word2){
         rendered++;
     }
 
-    if (folded.length > 0) {
-        // 折りたたみボタン
+    // 残りの結果は段階的に追加。80件で打ち切らず、全件へ到達できるようにする。
+    if (nextIndex < allEntries.length) {
         const btn = document.createElement('button');
         btn.className = 'expand-btn expand-btn--block hits-toggle-btn';
+        btn.type = 'button';
         const btnIcon = document.createElement('span');
         btnIcon.className = 'material-symbols-outlined mat-icon';
         btnIcon.textContent = 'expand_more';
         const btnLabel = document.createElement('span');
-        btnLabel.textContent = `残り ${folded.length} 節を表示`;
-        btn.appendChild(btnIcon); btn.appendChild(btnLabel);
+        btn.appendChild(btnIcon);
+        btn.appendChild(btnLabel);
 
-        // 折りたたみコンテナ
-        const overflow = document.createElement('div');
-        overflow.className = 'hits-overflow closed';
-        for (const { gi, entry } of folded) {
-            const card = _buildUnifiedCard(gi, entry, words, word2);
-            card.style.animationDelay = `${rendered * 0.02}s`;
-            overflow.appendChild(card);
-            rendered++;
-        }
-
-        btn.onclick = () => {
-            const isOpen = btn.classList.contains('open');
-            btn.classList.toggle('open', !isOpen);
-            overflow.classList.toggle('closed', isOpen);
-            btnIcon.textContent = isOpen ? 'expand_more' : 'expand_less';
-            btnLabel.textContent = isOpen ? `残り ${folded.length} 節を表示` : '折りたたむ';
+        const updateLabel = () => {
+            const remaining = allEntries.length - nextIndex;
+            const batch = Math.min(PAGE_SIZE, remaining);
+            btnLabel.textContent = `さらに ${batch} 節を表示（残り ${remaining} 節）`;
         };
 
-        list.appendChild(btn);
-        list.appendChild(overflow);
-    }
+        btn.onclick = () => {
+            const stop = Math.min(nextIndex + PAGE_SIZE, allEntries.length);
+            while (nextIndex < stop) {
+                const { gi, entry } = allEntries[nextIndex];
+                const card = _buildUnifiedCard(gi, entry, words, word2);
+                card.style.animationDelay = `${(nextIndex - FOLD) * 0.01}s`;
+                list.insertBefore(card, btn);
+                nextIndex++;
+            }
 
-    if (byRef.size > SHOW) {
-        const more = document.createElement('div');
-        more.style.cssText = 'text-align:center;padding:12px;font-size:0.75rem;color:var(--ink-soft);opacity:0.5;';
-        more.textContent = `…他 ${byRef.size - SHOW} 節`;
-        list.appendChild(more);
+            if (nextIndex >= allEntries.length) {
+                btn.remove();
+            } else {
+                updateLabel();
+            }
+        };
+
+        updateLabel();
+        list.appendChild(btn);
     }
 }
 
