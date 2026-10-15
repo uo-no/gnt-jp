@@ -113,6 +113,40 @@ function check(name, cond, detail = '') {
 
     check('no console errors', errs.length === 0, errs.slice(0,2).join('; '));
 
+    // ── word-analysis-open: .mvv-apparatus-note は隠れない ───────
+    console.log('\n=== word-analysis-open state ===');
+    await mob.evaluate(() => {
+        document.getElementById('mobile-verse-area').classList.add('word-analysis-open');
+    });
+    await mob.waitForTimeout(100);
+
+    // .mvv-apparatus-note は word-analysis-open でも表示されたまま
+    const appDisplayWAO = await mob.evaluate(() => {
+        const el = document.querySelector('.mvv-apparatus-note');
+        if (!el) return 'NOT_FOUND';
+        return getComputedStyle(el).display;
+    });
+    check('word-analysis-open: .mvv-apparatus-note not hidden', appDisplayWAO !== 'none', `display=${appDisplayWAO}`);
+
+    // .mvv-passage-note（.mvv-apparatus-note を持たない）は隠れる
+    // テスト要素を一時挿入して CSS の適用を確認
+    const pnHidden = await mob.evaluate(() => {
+        const area = document.getElementById('mobile-verse-area');
+        if (!area) return 'NO_AREA';
+        const mock = document.createElement('div');
+        mock.className = 'mvv-passage-note';  // apparatus クラスなし
+        area.appendChild(mock);
+        const result = getComputedStyle(mock).display === 'none' ? 'hidden' : 'visible';
+        mock.remove();
+        return result;
+    });
+    check('word-analysis-open: .mvv-passage-note(non-apparatus) hidden', pnHidden === 'hidden', `result=${pnHidden}`);
+
+    // クリーンアップ
+    await mob.evaluate(() => {
+        document.getElementById('mobile-verse-area').classList.remove('word-analysis-open');
+    });
+
     // ── Fast verse switching test (stale injection guard) ──
     console.log('\n=== Fast switching — stale injection guard ===');
     await mob.evaluate(() => {
