@@ -79,6 +79,7 @@ const sandbox = {
     normalizeStrong: s => s || '',
     buildDepthGrammarClasses: () => [],
     _buildReadingContext: () => null,
+    URLSearchParams,
     console,
 };
 vm.createContext(sandbox);
