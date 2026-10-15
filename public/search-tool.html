@@ -3735,6 +3735,13 @@ function syncURL() {
     if (activeLayers.length) p.set('layers', activeLayers.join(','));
     p.set('dist', String(currentDist));
 
+    // 保存済み検索URLで、追加したパターン絞り込みも再現できるようにする。
+    // パターン本体は共有データを参照し、URLには安定したIDだけを含める。
+    const patternIds = _sqState.filters
+        .filter(f => f.type === 'pattern' && f.id)
+        .map(f => f.id);
+    if (patternIds.length) p.set('patterns', [...new Set(patternIds)].join(','));
+
     history.replaceState(null, '', '?' + p.toString());
 }
 
@@ -5120,7 +5127,7 @@ async function _synInit(syntaxId) {
 }
 
 /* URL パラメータから検索語を引き継ぐ */
-(function initFromUrl() {
+(async function initFromUrl() {
     const p = new URLSearchParams(location.search);
     const _w1 = p.get('word1') || '';
     const _w2 = p.get('word2') || '';
@@ -5207,6 +5214,24 @@ async function _synInit(syntaxId) {
     if (distParam) {
         const d = parseInt(distParam, 10);
         if (!isNaN(d)) setProxPreset(d);
+    }
+
+    // パターンIDを受け取った場合だけ定義データを読み込み、既知の条件を復元する。
+    // 旧URL（patternsなし）は従来どおりの動作を維持する。
+    const patternsParam = p.get('patterns');
+    if (patternsParam) {
+        await _loadSearchPatterns();
+        const requestedIds = new Set(patternsParam.split(',').filter(Boolean));
+        _sqState.filters = SEARCH_PATTERNS
+            .filter(pattern => requestedIds.has(pattern.id))
+            .map(pattern => ({
+                type: 'pattern',
+                id: pattern.id,
+                label: pattern.label,
+                pattern: pattern.pattern,
+                query: pattern.query,
+            }));
+        _renderFilterBar();
     }
 
     unifiedSearch();
