@@ -58,7 +58,8 @@ const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
 const m = html.match(/\/\* __FLOW_CHIP_BEGIN__[\s\S]*?__FLOW_CHIP_END__ \*\//);
 if (!m) { console.error('__FLOW_CHIP__ 区間が見つかりません'); process.exit(1); }
 const sandbox = {
-    window: { App: {} },   // PresentationPolicy は抽出後に注入（下記）
+    window: { App: {}, location: { search: '' } },   // PresentationPolicy は抽出後に注入（下記）
+    URLSearchParams,
     normalizeStrong: s => s || '',
     buildDepthGrammarClasses: () => [],
     _buildReadingContext: () => null,   // 監査では自前 context を使う
