@@ -147,8 +147,123 @@ function check(name, cond, detail = '') {
         document.getElementById('mobile-verse-area').classList.remove('word-analysis-open');
     });
 
+    // ── 実操作テスト: 節タップ → Level2 chip タップ → 詳しく見る → Level3 → 戻る ──
+    // 区別: 上記の word-analysis-open テストは JS で直接クラスを操作した（CSS単体確認）。
+    //       このセクションは実際の UI 操作フローで _mobileInspectorDetail() を経由して
+    //       word-analysis-open を誘発する。
+    //
+    // 実際のフロー（モバイル）:
+    //   verse-block タップ → MVV Level2 → chip タップ → ドロワー → 「詳しく見る」 → Level3 + word-analysis-open
+    console.log('\n=== 実操作: Level2 chip → 詳しく見る → Level3（ROM 5:1） ===');
+    await mob.goto(`${BASE}/?book=ROM&ch=5`, { waitUntil: 'domcontentloaded' });
+    await mob.waitForSelector('.verse-block', { timeout: 8000 });
+    await mob.waitForTimeout(500);
+
+    // Step 1: ROM 5:1 の verse-block をタップ → MVV を開く
+    await mob.evaluate(() => {
+        const v1 = document.querySelector('.verse-block[data-vnum="1"]') ||
+                   document.querySelector('.verse-block');
+        if (v1) v1.click();
+    });
+    await mob.waitForFunction(
+        () => document.getElementById('mobile-verse-view')?.classList.contains('open'),
+        { timeout: 5000 }
+    );
+    // apparatus 非同期ロード（~5.7MB、初回）+ Level2 描画を待つ
+    await mob.waitForSelector('#mobile-verse-area .mvv-apparatus-note', { timeout: 12000 }).catch(() => {});
+    await mob.waitForSelector('#mobile-inspector-area .wlv-chip', { timeout: 6000 }).catch(() => {});
+    await mob.waitForTimeout(300);
+
+    const level2Chips = await mob.$$eval('#mobile-inspector-area .wlv-chip', els => els.length);
+    console.log('  Level2 chips found:', level2Chips);
+
+    // Step 2: Level2 の chip をタップ → ドロワーが開く
+    const l2Chip = await mob.$('#mobile-inspector-area .wlv-chip');
+    if (l2Chip) {
+        await l2Chip.click();
+        await mob.waitForSelector('#wlv-detail-drawer.visible', { timeout: 3000 }).catch(() => {});
+        await mob.waitForTimeout(200);
+
+        const drawerVisible = await mob.evaluate(() =>
+            document.getElementById('wlv-detail-drawer')?.classList.contains('visible') || false
+        );
+        console.log('  drawer visible:', drawerVisible);
+
+        // Step 3: 「詳しく見る」ボタンをタップ → Level3 + word-analysis-open
+        const studyBtn = await mob.$('#wlv-dd-study-btn');
+        if (studyBtn) {
+            await studyBtn.click();
+            // _mobileInspectorDetail が word-analysis-open を同期的に追加する
+            await mob.waitForFunction(
+                () => document.getElementById('mobile-verse-area')?.classList.contains('word-analysis-open'),
+                { timeout: 4000 }
+            );
+            await mob.waitForTimeout(200);
+            await ss(mob, '04-real-level3-apparatus');
+
+            // 実操作で word-analysis-open が付いたか
+            const waoByReal = await mob.evaluate(() =>
+                document.getElementById('mobile-verse-area')?.classList.contains('word-analysis-open') || false
+            );
+            check('real-op: word-analysis-open set via 詳しく見る', waoByReal);
+
+            // Level3 state で .mvv-apparatus-note は CSS によって隠れていない
+            const appDisplayReal = await mob.evaluate(() => {
+                const el = document.querySelector('#mobile-verse-area .mvv-apparatus-note');
+                if (!el) return 'NOT_FOUND';
+                return getComputedStyle(el).display;
+            });
+            check('real-op: .mvv-apparatus-note not hidden in Level3', appDisplayReal !== 'none', `display=${appDisplayReal}`);
+
+            // Level3 state で .mvv-passage-note（apparatus 以外）は CSS によって隠れる
+            const pnHiddenReal = await mob.evaluate(() => {
+                const area = document.getElementById('mobile-verse-area');
+                if (!area) return 'NO_AREA';
+                const mock = document.createElement('div');
+                mock.className = 'mvv-passage-note';
+                area.appendChild(mock);
+                const result = getComputedStyle(mock).display === 'none' ? 'hidden' : 'visible';
+                mock.remove();
+                return result;
+            });
+            check('real-op: .mvv-passage-note(non-apparatus) hidden in Level3', pnHiddenReal === 'hidden', `result=${pnHiddenReal}`);
+
+            // Step 4: 戻るボタンをタップ → Level2 に戻る → word-analysis-open が外れる
+            const backBtn = await mob.$('#mobile-verse-view-back');
+            if (backBtn) {
+                await backBtn.click();
+                await mob.waitForTimeout(400);
+
+                const waoAfterBack = await mob.evaluate(() =>
+                    document.getElementById('mobile-verse-area')?.classList.contains('word-analysis-open') || false
+                );
+                check('real-op: word-analysis-open removed after back', !waoAfterBack);
+
+                const appAfterBack = await mob.evaluate(() => {
+                    const el = document.querySelector('#mobile-verse-area .mvv-apparatus-note');
+                    if (!el) return 'NOT_FOUND';
+                    return getComputedStyle(el).display;
+                });
+                check('real-op: .mvv-apparatus-note visible after back to Level2', appAfterBack !== 'none', `display=${appAfterBack}`);
+            } else {
+                check('real-op: back button found', false, 'not found');
+            }
+        } else {
+            // 「詳しく見る」ボタンが見つからない
+            console.log('  SKIP: #wlv-dd-study-btn が見つからない');
+            check('real-op: study button found', false, 'drawer present but no study-btn');
+        }
+    } else {
+        // Level2 に chips がない（語形データなし）
+        console.log('  SKIP: Level2 に chips が見つからない（語形データなし）');
+        check('real-op: Level2 chips present', false, `count=${level2Chips}`);
+    }
+
     // ── Fast verse switching test (stale injection guard) ──
     console.log('\n=== Fast switching — stale injection guard ===');
+    await mob.goto(`${BASE}/?book=MAT&ch=1`, { waitUntil: 'domcontentloaded' });
+    await mob.waitForSelector('.verse-block', { timeout: 8000 });
+    await mob.waitForTimeout(500);
     await mob.evaluate(() => {
         // 連続して別節をクリック
         const blocks = document.querySelectorAll('.verse-block');
