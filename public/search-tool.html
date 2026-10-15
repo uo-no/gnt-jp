@@ -3492,6 +3492,8 @@ let _allMergedResults = new Map();   // globalIdx → {tok, hitTypes: Set, hit?:
 let _proxCoocMap      = new Map();
 let _lastQuery        = '';
 let _activeLayerSet   = {};
+let _activeSearchDist  = currentDist;
+let _activeSearchScope = currentScope;
 
 async function unifiedSearch(){
     const requestId=++_unifiedSearchRequestId;
@@ -3511,6 +3513,9 @@ async function unifiedSearch(){
     }
 
     _activeLayerSet={..._layers};
+    // 検索開始時点の距離・範囲を保持し、検索中のUI変更でURLと結果が食い違わないようにする。
+    _activeSearchDist = currentDist;
+    _activeSearchScope = currentScope;
     isSearching=true;
     // Close mobile panel when search fires
     if(window.innerWidth<=680) _closeMobilePanel();
@@ -3609,7 +3614,7 @@ async function unifiedSearch(){
     if(_activeLayerSet.prox){
         tasks.push((async()=>{
             const{coocMap,hits}=await runProximitySearch({
-                word1,word2,distance:currentDist,scope:currentScope,ref:'',
+                word1,word2,distance:_activeSearchDist,scope:_activeSearchScope,ref:'',
             });
             proxCoocMap=coocMap;
             for(const h of hits){
@@ -3729,12 +3734,12 @@ async function unifiedSearch(){
     _logPerfMeasure('render', `${_allMergedResults.size.toLocaleString()} hits merged`);
     /* この時点で IDX.ready は必ず true（上のゲートで保証済み）。
        「索引未完成のまま検索→後から件数が増える」事象は構造的に発生しない。 */
-    syncURL();
+    syncURL(_activeLayerSet, _activeSearchDist);
 }
 
 /* allow-list（このページの実際の検索条件のみ）からゼロ構築する。
    location.searchをベースにしない＝他ページのパラメータ混入を防ぐ。 */
-function syncURL() {
+function syncURL(layerSnapshot = null, distSnapshot = null) {
     const p = new URLSearchParams();
     p.set('tool', 'search');
 
@@ -3747,9 +3752,10 @@ function syncURL() {
         if (set && set.size > 0) p.set(paramName, Array.from(set).join(','));
     });
 
-    const activeLayers = ['lemma','phrase','prox','morph'].filter(k => _layers[k]);
+    const urlLayers = layerSnapshot || _layers;
+    const activeLayers = ['lemma','phrase','prox','morph'].filter(k => urlLayers[k]);
     if (activeLayers.length) p.set('layers', activeLayers.join(','));
-    p.set('dist', String(currentDist));
+    p.set('dist', String(distSnapshot ?? currentDist));
 
     // 保存済み検索URLで、追加したパターン絞り込みも再現できるようにする。
     // パターン本体は共有データを参照し、URLには安定したIDだけを含める。
