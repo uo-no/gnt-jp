@@ -5328,11 +5328,17 @@ async function _synInit(syntaxId) {
     // layers: URL指定時のみ _layers をURL値で上書き（未指定時は既存挙動を維持）
     const layersParam = p.get('layers');
     if (layersParam) {
-        const activeFromUrl = new Set(layersParam.split(',').filter(Boolean));
-        ['lemma','phrase','prox','morph'].forEach(k => {
-            _layers[k] = activeFromUrl.has(k);
-            _syncLayerUI(k);
-        });
+        const allowedLayers = new Set(['lemma', 'phrase', 'prox', 'morph']);
+        const requestedLayers = layersParam.split(',').map(k => k.trim()).filter(k => allowedLayers.has(k));
+        // 不明な値だけのURLはレイヤー設定を上書きしない。
+        // 有効な値が1つでもあれば、その集合を明示的な設定として復元する。
+        if (requestedLayers.length) {
+            const activeFromUrl = new Set(requestedLayers);
+            ['lemma','phrase','prox','morph'].forEach(k => {
+                _layers[k] = activeFromUrl.has(k);
+                _syncLayerUI(k);
+            });
+        }
     }
 
     // dist: URL指定時のみ既存スライダー更新処理(setProxPreset)を再利用して反映
