@@ -1901,6 +1901,7 @@ const STOP_WORDS = new Set([
 const currentScope = 'all';
 let currentDist  = 5;
 let isSearching  = false;
+let _unifiedSearchRequestId = 0;
 
 /* ============================================================
    Data layer（original — unchanged）
@@ -3489,8 +3490,10 @@ let _lastQuery        = '';
 let _activeLayerSet   = {};
 
 async function unifiedSearch(){
+    const requestId=++_unifiedSearchRequestId;
     const query=document.getElementById('unified-search-input').value.trim();
     if(!query){
+        isSearching=false;
         _showEmpty('語を入力して検索する','検索したい語を入力してから、もう一度検索してください。');
         document.getElementById('unified-search-input').focus();
         return;
@@ -3498,6 +3501,7 @@ async function unifiedSearch(){
 
     // Check at least one non-morph layer is active
     if(!_layers.lemma&&!_layers.phrase&&!_layers.prox){
+        isSearching=false;
         _showEmpty('検索方法を選んでください','「形が変わっても探す」「フレーズで探す」「近くに出てくる語」のいずれかをONにしてください。「品詞・語形で絞る」は、これらと組み合わせて使います。');
         return;
     }
@@ -3517,6 +3521,7 @@ async function unifiedSearch(){
         _showLoading();
     }
     await _ensureFullIndex();
+    if(requestId!==_unifiedSearchRequestId) return;
     if(!window.lemmaIndex){
         _buildAndExposeLemmaIndex();
         _buildAndExposeMorphIndex();
@@ -3615,6 +3620,7 @@ async function unifiedSearch(){
     }
 
     await Promise.all(tasks);
+    if(requestId!==_unifiedSearchRequestId) return;
     _logPerfMeasure('search', `layers=${Object.keys(_activeLayerSet).filter(k=>_activeLayerSet[k]).join(',')}, ${merged.size.toLocaleString()} hits`);
 
     // --- Morph post-filter ---
@@ -3685,9 +3691,6 @@ async function unifiedSearch(){
         }
     }
 
-    _allMergedResults=merged;
-    _proxCoocMap=proxCoocMap;
-
     /* ── SQS: クエリが変わったらフィルタをクリア ── */
     if (query !== _lastQuery) _sqState.filters = [];
 
@@ -3697,6 +3700,7 @@ async function unifiedSearch(){
             if (f.type !== 'pattern' || !f.query) continue;
             const fRes = await runTermProximitySearch(
                 f.query.termA, f.query.termB, { scope: f.query.scope || 'verse' });
+            if(requestId!==_unifiedSearchRequestId) return;
             const fKeys = new Set(fRes.hits.map(h => {
                 const t = ALL_TOKENS[h.anchorIdx]; return t ? _verseKeyOf(t) : null;
             }).filter(Boolean));
@@ -3704,8 +3708,10 @@ async function unifiedSearch(){
                 if (!fKeys.has(_verseKeyOf(e.tok))) merged.delete(gi);
             }
         }
-        _allMergedResults = merged;
     }
+    if(requestId!==_unifiedSearchRequestId) return;
+    _allMergedResults=merged;
+    _proxCoocMap=proxCoocMap;
     _renderFilterBar();
 
     isSearching=false;
