@@ -3467,12 +3467,16 @@ function _renderEmptyStateHistory() {
     if(!sec || !wrap) return;
     if(_history.length === 0){ sec.style.display = 'none'; return; }
     wrap.innerHTML = '';
-    _history.slice(0, 5).forEach(({query}) => {
+    _history.slice(0, 5).forEach(({query,layers}) => {
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'ex-chip';
         chip.textContent = query;
-        chip.addEventListener('click', () => _exampleSearch(query));
+        chip.addEventListener('click', () => {
+            // 履歴からの再検索は、通常の履歴一覧と同じレイヤー設定を復元する。
+            Object.keys(_layers).forEach(k => { _layers[k] = !!layers[k]; _syncLayerUI(k); });
+            _exampleSearch(query);
+        });
         wrap.appendChild(chip);
     });
     sec.style.display = '';
