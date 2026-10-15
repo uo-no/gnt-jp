@@ -3422,9 +3422,14 @@ function _loadHistory() {
         if (!Array.isArray(saved)) return;
         // 先に有効な検索語のレコードを抽出する。破損レコードが先頭に並んでいても、
         // 件数上限を消費して後続の有効な履歴が失われないようにする。
-        const validSaved = saved.filter(item =>
-            item && typeof item.query === 'string' && item.query.trim()
-        );
+        const seenQueries = new Set();
+        const validSaved = saved.filter(item => {
+            if (!item || typeof item.query !== 'string' || !item.query.trim()) return false;
+            // 履歴は新しい順。古い版や手動編集で重複していても、最新の1件だけを残す。
+            if (seenQueries.has(item.query)) return false;
+            seenQueries.add(item.query);
+            return true;
+        });
         for (const item of validSaved.slice(0, _HISTORY_MAX)) {
             // localStorage は古い版・手動編集・破損データを含み得るため、
             // レイヤー構造などの残りの項目も検証してから履歴へ取り込む。
