@@ -1494,9 +1494,9 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
                     min="1" max="15" value="5"
                     oninput="onProxSlider(this.value)">
                 <div class="prox-presets">
-                    <button class="prox-preset" data-d="3" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;">狭い</span></button>
-                    <button class="prox-preset active" data-d="5" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;">標準</span></button>
-                    <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
+                    <button type="button" class="prox-preset" data-d="3" aria-pressed="false" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;">狭い</span></button>
+                    <button type="button" class="prox-preset active" data-d="5" aria-pressed="true" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;">標準</span></button>
+                    <button type="button" class="prox-preset" data-d="10" aria-pressed="false" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
                 </div>
             </div>
 
@@ -1675,9 +1675,9 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
                 <div class="syn-filter-row">
                     <div class="syn-filter-label">ソート</div>
                     <div class="sort-btns">
-                        <button class="sort-btn active" onclick="_synSetSort('canonical',this)">正典順</button>
-                        <button class="sort-btn" onclick="_synSetSort('confidence_desc',this)">確信度順</button>
-                        <button class="sort-btn" onclick="_synSetSort('book_frequency',this)">書物頻度順</button>
+                        <button type="button" class="sort-btn active" aria-pressed="true" onclick="_synSetSort('canonical',this)">正典順</button>
+                        <button type="button" class="sort-btn" aria-pressed="false" onclick="_synSetSort('confidence_desc',this)">確信度順</button>
+                        <button type="button" class="sort-btn" aria-pressed="false" onclick="_synSetSort('book_frequency',this)">書物頻度順</button>
                     </div>
                 </div>
                 <div class="syn-filter-row">
@@ -3238,7 +3238,7 @@ function onProxSlider(val){
     document.getElementById('prox-label-inline').textContent=currentDist;
     const pct=((currentDist-1)/14)*100;
     document.getElementById('prox-slider').style.setProperty('--pct',pct+'%');
-    document.querySelectorAll('.prox-preset').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.d)===currentDist));
+    document.querySelectorAll('.prox-preset').forEach(b=>{const active=parseInt(b.dataset.d)===currentDist;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active?'true':'false');});
 }
 function setProxPreset(v){
     currentDist=v;
@@ -4764,8 +4764,7 @@ function _synSortHits(hits, order) {
 }
 function _synSetSort(order, btn) {
     _synSortOrder = order;
-    document.querySelectorAll('#syntax-panel .sort-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    document.querySelectorAll('#syntax-panel .sort-btn').forEach(b => { const active = b === btn; b.classList.toggle('active', active); b.setAttribute('aria-pressed', active ? 'true' : 'false'); });
     _synApplyFilters();
 }
 function _synOnConfSlider(el) {
