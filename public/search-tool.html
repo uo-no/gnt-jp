@@ -698,11 +698,17 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 .result-header.visible { display: flex; }
 .result-query {
+    appearance: none; -webkit-appearance: none;
+    padding: 0; margin: 0; background: transparent;
+    border: 0; border-bottom: 2px dotted var(--border-soft);
     font-family: 'Gentium Plus', serif;
     font-size: 1.35rem; font-weight: 700; color: var(--text-main);
-    letter-spacing: 0.02em;
-    cursor: pointer; border-bottom: 2px dotted var(--border-soft);
+    letter-spacing: 0.02em; text-align: left; cursor: pointer;
     transition: border-color 0.15s, color 0.15s;
+}
+.result-query:focus-visible {
+    outline: 2px solid var(--highlight);
+    outline-offset: 4px; border-radius: 2px;
 }
 .result-query:hover { border-bottom-color: var(--highlight); color: var(--highlight); }
 
@@ -1615,7 +1621,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 
     <!-- Result header -->
     <div class="result-header" id="result-header">
-        <span class="result-query" id="result-query-label"></span>
+        <button type="button" class="result-query" id="result-query-label" aria-haspopup="dialog" aria-controls="as-modal" title="Abbott-Smith辞書を開く"></button>
         <span class="result-count" id="result-count"></span>
     </div>
 
@@ -5041,12 +5047,41 @@ async function _loadAbbott() {
 }
 
 // result-query-label クリックでモーダル表示
+let _asReturnFocus = null;
+
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('result-query-label').addEventListener('click', _asOpen);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') _asClose(); });
+    document.addEventListener('keydown', e => {
+        const backdrop = document.getElementById('as-backdrop');
+        if (!backdrop?.classList.contains('open')) return;
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            _asClose();
+            return;
+        }
+        if (e.key !== 'Tab') return;
+        const modal = document.getElementById('as-modal');
+        const focusable = [...modal.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+            .filter(el => el.getClientRects().length > 0);
+        if (!focusable.length) {
+            e.preventDefault();
+            modal.focus();
+            return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
+            e.preventDefault();
+            first.focus();
+        }
+    });
 });
 
 function _asOpen() {
+    _asReturnFocus = document.activeElement;
     const query = _lastQuery.trim();
     if (!query) return;
 
@@ -5079,11 +5114,16 @@ function _asOpen() {
             bodyEl.innerHTML = '<span class="as-empty">この語のAbbott-Smith辞書データが見つかりませんでした。</span>';
         }
         document.getElementById('as-backdrop').classList.add('open');
+        document.getElementById('as-modal-close').focus();
     });
 }
 
 function _asClose() {
-    document.getElementById('as-backdrop').classList.remove('open');
+    const backdrop = document.getElementById('as-backdrop');
+    if (!backdrop?.classList.contains('open')) return;
+    backdrop.classList.remove('open');
+    if (_asReturnFocus?.isConnected) _asReturnFocus.focus();
+    _asReturnFocus = null;
 }
 
 
