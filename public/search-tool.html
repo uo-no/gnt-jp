@@ -3380,11 +3380,15 @@ function _sqsClearFilters() {
    Proximity slider / presets — UI controls
    ============================================================ */
 function onProxSlider(val){
-    currentDist=parseInt(val);
+    const requested = Number(val);
+    // UI・履歴・将来の呼び出し元すべてで距離を整数1〜15に統一する。
+    currentDist = Number.isInteger(requested) && requested >= 1 && requested <= 15 ? requested : 5;
+    const slider = document.getElementById('prox-slider');
+    slider.value = currentDist;
     document.getElementById('prox-val-label').textContent=`±${currentDist}語`;
     document.getElementById('prox-label-inline').textContent=currentDist;
     const pct=((currentDist-1)/14)*100;
-    document.getElementById('prox-slider').style.setProperty('--pct',pct+'%');
+    slider.style.setProperty('--pct',pct+'%');
     document.querySelectorAll('.prox-preset').forEach(b=>{const active=parseInt(b.dataset.d)===currentDist;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active?'true':'false');});
 }
 function setProxPreset(v){
