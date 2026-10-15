@@ -29,7 +29,10 @@ const { DOMParser } = require('@xmldom/xmldom');
 
 const PROJECT_ROOT    = path.join(__dirname, '..');
 const XML_PATH        = path.join(PROJECT_ROOT, 'work', 'apparatus', 'sblgnt_tei.xml');
-const OUTPUT_PATH     = path.join(PROJECT_ROOT, 'public', 'assets', 'data', 'apparatus.json');
+const _outArgIdx  = process.argv.indexOf('--output');
+const OUTPUT_PATH = (_outArgIdx !== -1 && process.argv[_outArgIdx + 1])
+  ? process.argv[_outArgIdx + 1]
+  : path.join(PROJECT_ROOT, 'public', 'assets', 'data', 'apparatus.json');
 const BIBLE_DATA_DIR  = path.join(PROJECT_ROOT, 'public', 'bible_data', 'nt');
 
 const SCRIPT_VERSION  = '1.0.0';
