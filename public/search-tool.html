@@ -1194,6 +1194,14 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     outline-offset: 2px;
 }
 
+/* ── Concept discovery section ── */
+#concept-discovery-section {
+    width: 100%;
+    max-width: 450px;
+    text-align: center;
+    margin-top: var(--space-lg);
+}
+
 /* ── Hit card redesign ── */
 .hit-header {
     display: flex; align-items: center; gap: 8px;
@@ -1374,6 +1382,15 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     .result-panel { padding: 20px 16px 40px; }
     .results-grid { grid-template-columns: 1fr; }
     .results-grid:not(.no-cooc) .cooc-col { display: none; }
+}
+
+/* PC: カード幅を 580px に拡張（モバイル ≤680px は width:100% で追従） */
+@media (min-width: 681px) {
+    .discovery-verse-card,
+    .discovery-verse-themes,
+    #concept-discovery-section {
+        max-width: 580px;
+    }
 }
 
 .share-url-btn {
@@ -1583,6 +1600,12 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
         <div id="discovery-lobby">
             <h2 class="discovery-title">今日のみことば</h2>
             <p class="discovery-date" id="discovery-date"></p>
+            <!-- verse card / themes: renderDiscoveryLobby() が insertBefore でここより前に挿入 -->
+            <!-- concept chips: _renderConceptDiscoveryChips() がコンセプトデータ取得後に表示 -->
+            <div id="concept-discovery-section" style="display:none;">
+                <p class="discovery-verse-label">テーマから探す</p>
+                <div id="concept-discovery-chips" class="empty-examples"></div>
+            </div>
         </div>
         <!-- 以下は温存。Discovery Lobby 非表示時（エラー等）に _showEmpty() が復元する -->
         <div class="empty-glyph" style="display:none">λόγος</div>
@@ -5164,8 +5187,15 @@ function renderDiscoveryLobby() {
     themesSection.appendChild(pills);
     card.appendChild(vText);
     card.appendChild(vRef);
-    lobby.appendChild(card);
-    lobby.appendChild(themesSection);
+    // concept-discovery-section の直前に挿入して verse→themes→concepts の順を保証
+    const _conceptSec = document.getElementById('concept-discovery-section');
+    if (_conceptSec) {
+        lobby.insertBefore(card, _conceptSec);
+        lobby.insertBefore(themesSection, _conceptSec);
+    } else {
+        lobby.appendChild(card);
+        lobby.appendChild(themesSection);
+    }
 }
 
 /* ============================================================
