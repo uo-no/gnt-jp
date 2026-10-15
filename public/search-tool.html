@@ -894,6 +894,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .lemma-groups { margin-bottom: 16px; }
 .lg-row { margin-bottom: 6px; }
 .lg-bar {
+    appearance: none; -webkit-appearance: none;
+    width: 100%; font: inherit; color: inherit; text-align: left;
     display: flex; align-items: center; gap: 8px;
     padding: 8px 12px;
     background: var(--bg-paper); border-radius: 6px;
@@ -901,6 +903,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     transition: background 0.12s;
 }
 .lg-bar:hover { background: var(--bg-panel); }
+.lg-bar:focus-visible { outline: 2px solid var(--focus, var(--prox)); outline-offset: 2px; }
 .lg-bar.open  { background: var(--bg-panel); border-radius: 6px 6px 0 0; }
 .lg-toggle { font-size: 0.55rem; color: var(--text-sub); transition: transform 0.18s; display: inline-flex; align-items: center; }
 .lg-bar.open .lg-toggle { transform: rotate(90deg); }
@@ -4130,13 +4133,13 @@ function _renderLemmaGroups(groups,query,word2,words){
         const primaryLabel=glossStr||group.lemma;
         const secondaryLabel=glossStr?group.lemma:'';
         const row=document.createElement('div');row.className='lg-row';
-        const bar=document.createElement('div');bar.className='lg-bar';
+        const bar=document.createElement('button');bar.type='button';bar.className='lg-bar';bar.setAttribute('aria-expanded','false');bar.setAttribute('aria-controls',`lg-panel-${groupIdx}`);
         bar.innerHTML=`
             <span class="lg-toggle">${icon('chevronRight')}</span>
             <span class="lg-form">${primaryLabel}</span>
             ${secondaryLabel?`<span class="lg-greek">${secondaryLabel}</span>`:''}
             <span class="lg-count">${group.hits.length}件</span>`;
-        const panel=document.createElement('div');panel.className='lg-panel';
+        const panel=document.createElement('div');panel.className='lg-panel';panel.id=`lg-panel-${groupIdx}`;
         // cooc chips
         const topCooc=[...group.coocMap.entries()].sort((a,b)=>b[1].weightedScore-a[1].weightedScore).slice(0,3);
         const coocSec=document.createElement('div');
@@ -4183,11 +4186,13 @@ function _renderLemmaGroups(groups,query,word2,words){
         bar.addEventListener('click',()=>{
             const open=panel.classList.toggle('open');
             bar.classList.toggle('open',open);
+            bar.setAttribute('aria-expanded',String(open));
         });
         // 最大ヒット数グループ（groups[0]）を自動展開
         if(groupIdx===0){
             panel.classList.add('open');
             bar.classList.add('open');
+            bar.setAttribute('aria-expanded','true');
         }
         row.appendChild(bar);row.appendChild(panel);
         container.appendChild(row);
