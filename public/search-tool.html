@@ -820,13 +820,26 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .rank-item {
     padding: 7px 10px;
     border-radius: 6px;
-    cursor: pointer;
     transition: background 0.1s;
     margin-bottom: 3px;
 }
 .rank-item:hover { background: var(--bg-panel); }
 .rank-item.highlighted { background: var(--prox-bg); }
-.rank-top { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+.rank-top { display: flex; align-items: stretch; gap: 5px; margin-bottom: 3px; }
+.rank-select-btn {
+    display: flex; align-items: center; gap: 5px;
+    flex: 1; min-width: 0; padding: 0;
+    border: 0; background: transparent; color: inherit;
+    text-align: left; cursor: pointer; font: inherit;
+    flex-wrap: wrap;
+}
+.rank-select-btn:focus-visible {
+    outline: 2px solid var(--highlight);
+    outline-offset: 3px;
+    border-radius: 3px;
+}
+.rank-select-btn .rank-word-wrap { flex: 1; }
+.rank-select-btn .rank-bar-track { flex-basis: 100%; }
 .rank-word-wrap { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .rank-word { font-family: 'Gentium Plus', serif; font-size: 0.92rem; color: var(--text-main); }
 .rank-gloss { font-size: 0.65rem; color: var(--text-sub); }
@@ -4111,21 +4124,22 @@ function _renderCooccurrence(coocMap,containerId,limit=10){
         item.style.animationDelay=`${idx*0.04}s`;
         item.innerHTML=`
             <div class="rank-top">
-                <div class="rank-word-wrap">
-                    <span class="rank-word">${word}</span>
-                    ${jpGloss?`<span class="rank-gloss">${jpGloss}</span>`:''}
-                </div>
-                <span class="rank-score">${rawCount}回</span>
+                <button type="button" class="rank-select-btn" title="この語を検索条件に追加">
+                    <span class="rank-word-wrap">
+                        <span class="rank-word">${word}</span>
+                        ${jpGloss?`<span class="rank-gloss">${jpGloss}</span>`:''}
+                    </span>
+                    <span class="rank-score">${rawCount}回</span>
+                    <span class="rank-bar-track"><span class="rank-bar-fill" style="width:${pct}%"></span></span>
+                </button>
                 <button type="button" class="add-btn" data-word="${word}" title="この語を検索欄に追加して近接検索を絞り込む">+ 絞り込む</button>
-            </div>
-            <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${pct}%"></div></div>`;
-        item.addEventListener('click',()=>{
+            </div>`;
+        item.querySelector('.rank-select-btn').addEventListener('click',()=>{
             const inp=document.getElementById('unified-search-input');
             const cur=inp.value.trim().split(/\s+/)[0];
             inp.value=`${cur} ${word}`;
         });
         item.querySelector('.add-btn').addEventListener('click',e=>{
-            e.stopPropagation();
             const inp=document.getElementById('unified-search-input');
             const cur=inp.value.trim().split(/\s+/)[0];
             inp.value=`${cur} ${e.currentTarget.dataset.word}`;
