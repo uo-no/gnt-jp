@@ -366,8 +366,8 @@ if (wordOrderRendererSrc) {
         mkChip({ tokenId: 'a', roleClass: 'role-x', greek: 'γ1', dpGrammarClasses: 'dp-x', gloss: 'ぐ1' }),
         mkChip({ tokenId: 'b', roleClass: 'role-y', greek: 'γ2', dpGrammarClasses: 'dp-y', gloss: 'ぐ2', phraseBreakBefore: true }),
     ]);
-    const GOLDEN_BODY_OFF = `<div class="jp-section"><span class="v-num">1</span><div class="jp-text" style="font-size: var(--text-body);line-height:2.4;"><div class="wlv-flow-stream" style="flex-wrap:wrap;display:flex;gap:var(--rhythm-micro);align-items:baseline;"><span class="wlv-chip role-x" data-token-id="a" onclick="event.stopPropagation();_wlvChipClick(this,'a')" title="γ1"><span class="wlv-chip-ja"><span class="dp-x">ぐ1</span></span></span><span class="wlv-phrase-sep"></span><span class="wlv-chip role-y" data-token-id="b" onclick="event.stopPropagation();_wlvChipClick(this,'b')" title="γ2"><span class="wlv-chip-ja"><span class="dp-y">ぐ2</span></span></span></div></div></div>`;
-    const GOLDEN_BODY_ON = `<div class="jp-section"><span class="v-num">1</span><div class="jp-text" style="font-size: var(--text-body);line-height:2.4;"><div class="wlv-flow-stream" style="flex-wrap:wrap;display:flex;gap:var(--rhythm-micro);align-items:baseline;"><span class="wlv-chip role-x" data-token-id="a" data-onboarding-anchor="true" data-greek="γ1" onclick="event.stopPropagation();_wlvChipClick(this,'a')" title="γ1"><span class="wlv-chip-ja"><span class="dp-x">ぐ1</span></span></span><span class="wlv-phrase-sep"></span><span class="wlv-chip role-y" data-token-id="b" onclick="event.stopPropagation();_wlvChipClick(this,'b')" title="γ2"><span class="wlv-chip-ja"><span class="dp-y">ぐ2</span></span></span></div></div></div>`;
+    const GOLDEN_BODY_OFF = `<div class="jp-section"><span class="v-num">1</span><div class="jp-text" style="font-size: var(--text-body-lg);line-height:2.4;"><div class="wlv-flow-stream" style="flex-wrap:wrap;display:flex;gap:var(--rhythm-micro);align-items:baseline;"><span class="wlv-chip role-x" data-token-id="a" onclick="event.stopPropagation();_wlvChipClick(this,'a')" title="γ1"><span class="wlv-chip-ja"><span class="dp-x">ぐ1</span></span></span><span class="wlv-phrase-sep"></span><span class="wlv-chip role-y" data-token-id="b" onclick="event.stopPropagation();_wlvChipClick(this,'b')" title="γ2"><span class="wlv-chip-ja"><span class="dp-y">ぐ2</span></span></span></div></div></div>`;
+    const GOLDEN_BODY_ON = `<div class="jp-section"><span class="v-num">1</span><div class="jp-text" style="font-size: var(--text-body-lg);line-height:2.4;"><div class="wlv-flow-stream" style="flex-wrap:wrap;display:flex;gap:var(--rhythm-micro);align-items:baseline;"><span class="wlv-chip role-x" data-token-id="a" data-onboarding-anchor="true" data-greek="γ1" onclick="event.stopPropagation();_wlvChipClick(this,'a')" title="γ1"><span class="wlv-chip-ja"><span class="dp-x">ぐ1</span></span></span><span class="wlv-phrase-sep"></span><span class="wlv-chip role-y" data-token-id="b" onclick="event.stopPropagation();_wlvChipClick(this,'b')" title="γ2"><span class="wlv-chip-ja"><span class="dp-y">ぐ2</span></span></span></div></div></div>`;
     const GOLDEN_FLOW = `<div style="display:flex;align-items:baseline;gap: var(--space-sm);padding: var(--space-xs) 0;"><span class="v-num">1</span><div style="flex:1;font-size: var(--text-body);line-height:2.4;display:flex;flex-wrap:wrap;gap: var(--space-xs) var(--space-xs);align-items:baseline;"><span class="wlv-chip role-x" data-token-id="a" onclick="_wlvChipClick(this,'a')" title="γ1"><span class="wlv-chip-ja"><span class="dp-x">ぐ1</span></span></span><span class="wlv-phrase-sep"></span><span class="wlv-chip role-y" data-token-id="b" onclick="_wlvChipClick(this,'b')" title="γ2"><span class="wlv-chip-ja"><span class="dp-y">ぐ2</span></span></span></div></div>`;
 
     check('byte: renderBodyColumn(anchor off) が現行 HTML と一致（whitespace 正規化後）',
@@ -1699,39 +1699,17 @@ const cvrSrc3J = extractFunctionSource(html, 'function _currentVerseRef() {');
         typeof r1 === 'string' && /^[A-Z0-9]+ \d+:\d+$/.test(r1), `ref="${r1}"`);
 }
 
-/* ── J-3: _saveCurrentNote のchapter source確認 ── */
-{
-    const scnSrc = extractFunctionSource(html, 'function _saveCurrentNote(idSuffix) {');
-    check('extract(3-6-J): _saveCurrentNote ソース抽出に成功', !!scnSrc);
-    check('behavioral(3-6-J-12): _saveCurrentNote の chapter が selectedVerse?.ch を優先する',
-        scnSrc ? /selectedVerse\?\.ch\s*\?\?/.test(scnSrc) : false);
-    check('behavioral(3-6-J-13): _saveCurrentNote の chapter が location.chapter を直接使わない',
-        scnSrc ? !/const chapter\s*=\s*AppState\.location\.chapter/.test(scnSrc) : false);
-    /* refとchapterが同じsourceから生成されることを確認（混在しない） */
-    check('behavioral(3-6-J-14): _saveCurrentNote の ref が _currentVerseRef() から取得される',
-        scnSrc ? /const ref\s*=\s*_currentVerseRef\(\)/.test(scnSrc) : false);
-}
+/* ── J-3: _saveCurrentNote は index.html から削除済み ── */
+check('N/A(3-6-J-12..14): _saveCurrentNote は存在しない（旧経路の復活を防ぐ）',
+    !html.includes('function _saveCurrentNote(idSuffix) {'));
 
-/* ── J-4: toggleBookmark のchapter source確認 ── */
-{
-    const tbSrc = extractFunctionSource(html, 'function toggleBookmark() {');
-    check('extract(3-6-J): toggleBookmark ソース抽出に成功', !!tbSrc);
-    check('behavioral(3-6-J-15): toggleBookmark の chapter が selectedVerse?.ch を優先する',
-        tbSrc ? /selectedVerse\?\.ch\s*\?\?/.test(tbSrc) : false);
-    check('behavioral(3-6-J-16): toggleBookmark の chapter が location.chapter を直接使わない',
-        tbSrc ? !/const chapter\s*=\s*AppState\.location\.chapter/.test(tbSrc) : false);
-    check('behavioral(3-6-J-17): toggleBookmark の ref が _currentVerseRef() から取得される',
-        tbSrc ? /const ref\s*=\s*_currentVerseRef\(\)/.test(tbSrc) : false);
-}
+/* ── J-4: toggleBookmark は index.html から削除済み ── */
+check('N/A(3-6-J-15..17): toggleBookmark は存在しない（旧経路の復活を防ぐ）',
+    !html.includes('function toggleBookmark() {'));
 
-/* ── J-5: _loadNoteUI が _currentVerseRef() を使う（間接的に修正の恩恵を受ける） ── */
-{
-    const lnuSrc = extractFunctionSource(html, 'function _loadNoteUI(idSuffix) {');
-    check('invariant(3-6-J-18): _loadNoteUI が _currentVerseRef() を呼ぶ',
-        lnuSrc ? /const ref\s*=\s*_currentVerseRef\(\)/.test(lnuSrc) : false);
-    check('invariant(3-6-J-19): _loadNoteUI が notes.find で ref を照合する',
-        lnuSrc ? /notes\.find\(n\s*=>\s*n\.ref\s*===\s*ref\)/.test(lnuSrc) : false);
-}
+/* ── J-5: _loadNoteUI は index.html から削除済み ── */
+check('N/A(3-6-J-18..19): _loadNoteUI は存在しない（旧経路の復活を防ぐ）',
+    !html.includes('function _loadNoteUI(idSuffix) {'));
 
 /* ── J-6: toBrowsing() が selectedVerse.ch を設定する（J修正の前提） ── */
 {
@@ -1740,14 +1718,11 @@ const cvrSrc3J = extractFunctionSource(html, 'function _currentVerseRef() {');
         tbSrc2 ? /this\.selectedVerse\s*=\s*\{[^}]*ch:\s*ch\s*!=\s*null\s*\?\s*ch\s*:\s*null/.test(tbSrc2) : false);
 }
 
-/* ── J-7: storage API の lookup key が ref（string比較）であることを確認 ── */
-{
-    /* app-storage.js の saveNote が ref をkeyとして使うことを index.html 経由で確認 */
-    check('invariant(3-6-J-21): storage.saveNote は ref を第1引数として呼ぶ',
-        html.includes('window.App.storage.saveNote(ref,'));
-    check('invariant(3-6-J-22): storage.addBookmark は { ref, bookKey, chapter, verse } で呼ぶ',
-        html.includes('window.App.storage.addBookmark({ ref, bookKey, chapter, verse })'));
-}
+/* ── J-7: 旧ノート／ブックマークAPI呼び出しが index.html に残っていない ── */
+check('N/A(3-6-J-21): 旧 storage.saveNote(ref, ...) 呼び出しが存在しない',
+    !html.includes('window.App.storage.saveNote(ref,'));
+check('N/A(3-6-J-22): 旧 storage.addBookmark({...}) 呼び出しが存在しない',
+    !html.includes('window.App.storage.addBookmark({ ref, bookKey, chapter, verse })'));
 
 /* ── J-8: Phase 3-6-I MVV修正が維持されていることを確認 ── */
 {
