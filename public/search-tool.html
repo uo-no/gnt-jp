@@ -5168,9 +5168,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function _asOpen() {
-    _asReturnFocus = document.activeElement;
     const query = _lastQuery.trim();
     if (!query) return;
+
+    _asReturnFocus = document.activeElement;
+    const backdrop = document.getElementById('as-backdrop');
+    const lemmaEl = document.getElementById('as-modal-lemma');
+    const strongEl = document.getElementById('as-modal-strong');
+    const bodyEl = document.getElementById('as-modal-body');
+
+    // Open synchronously so Escape can close the dialog even while the dictionary loads.
+    backdrop.classList.add('open');
+    lemmaEl.textContent = query;
+    strongEl.textContent = '';
+    bodyEl.textContent = '辞書を読み込み中…';
+    bodyEl.setAttribute('aria-busy', 'true');
+    document.getElementById('as-modal-close').focus();
 
     // Strong番号で検索中の場合
     let strongKey = null;
@@ -5188,11 +5201,9 @@ function _asOpen() {
     }
 
     _loadAbbott().then(() => {
+        // If the user closed the dialog while loading, don't update a hidden dialog.
+        if (!backdrop.classList.contains('open')) return;
         const entry = _abbottDict && strongKey ? _abbottDict[strongKey] : null;
-        const lemmaEl = document.getElementById('as-modal-lemma');
-        const strongEl = document.getElementById('as-modal-strong');
-        const bodyEl = document.getElementById('as-modal-body');
-
         lemmaEl.textContent = (entry && entry.lemma) ? entry.lemma : query;
         strongEl.textContent = strongKey ? `G${strongKey}` : '';
         if (entry && entry.description) {
@@ -5200,11 +5211,13 @@ function _asOpen() {
         } else {
             bodyEl.innerHTML = '<span class="as-empty">この語のAbbott-Smith辞書データが見つかりませんでした。</span>';
         }
-        document.getElementById('as-backdrop').classList.add('open');
-        document.getElementById('as-modal-close').focus();
+        bodyEl.setAttribute('aria-busy', 'false');
+    }).catch(() => {
+        if (!backdrop.classList.contains('open')) return;
+        bodyEl.textContent = '辞書を読み込めませんでした。もう一度お試しください。';
+        bodyEl.setAttribute('aria-busy', 'false');
     });
 }
-
 function _asClose() {
     const backdrop = document.getElementById('as-backdrop');
     if (!backdrop?.classList.contains('open')) return;
