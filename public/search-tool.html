@@ -488,12 +488,19 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .history-block { margin-top: 10px; }
 .history-list { display: flex; flex-direction: column; gap: 2px; }
 .history-item {
+    width: 100%;
     display: flex; align-items: center; gap: 7px;
-    padding: 6px 8px; border-radius: 6px;
+    padding: 6px 8px; border: 0; border-radius: 6px;
+    background: transparent; text-align: left;
     cursor: pointer; transition: background 0.1s;
-    font-size: 0.72rem; color: var(--text-sub);
+    font-family: inherit; font-size: 0.72rem; color: var(--text-sub);
 }
 .history-item:hover { background: var(--bg-panel); color: var(--text-main); }
+.history-item:focus-visible {
+    outline: 2px solid var(--highlight);
+    outline-offset: 2px;
+    color: var(--text-main);
+}
 .history-badges { display: flex; gap: 3px; flex-shrink: 0; }
 .h-badge {
     font-size: 0.52rem; font-weight: 700; padding: 1px 4px;
@@ -3358,13 +3365,14 @@ function _renderHistory(){
     block.style.display = '';
     list.innerHTML = '';
     _history.slice(0, 6).forEach(({query,layers}) => {
-        const item = document.createElement('div');
+        const item = document.createElement('button');
+        item.type = 'button';
         item.className = 'history-item';
         const badges = ['lemma','phrase','prox','morph']
             .filter(l => layers[l])
             .map(l => `<span class="h-badge ${l}">${_BADGE_JP_HIST[l]||l}</span>`).join('');
         item.innerHTML = `
-            <div class="history-badges">${badges}</div>
+            <span class="history-badges">${badges}</span>
             <span class="h-query">${_escH(query)}</span>`;
         item.addEventListener('click', () => {
             document.getElementById('unified-search-input').value = query;
