@@ -75,7 +75,7 @@ const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
 const m = html.match(/\/\* __FLOW_CHIP_BEGIN__[\s\S]*?__FLOW_CHIP_END__ \*\//);
 if (!m) { console.error('__FLOW_CHIP__ 区間が見つかりません'); process.exit(1); }
 const sandbox = {
-    window: { App: {} },
+    window: { App: {}, location: { search: '' } },
     normalizeStrong: s => s || '',
     buildDepthGrammarClasses: () => [],
     _buildReadingContext: () => null,
