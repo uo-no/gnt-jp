@@ -4162,7 +4162,18 @@ function _renderCooccurrence(coocMap,containerId,limit=10){
         item.querySelector('.add-btn').addEventListener('click',e=>{
             const inp=document.getElementById('unified-search-input');
             const cur=inp.value.trim().split(/\s+/)[0];
-            inp.value=`${cur} ${e.currentTarget.dataset.word}`;
+            const nextWord=e.currentTarget.dataset.word;
+            if(!cur||!nextWord)return;
+            inp.value=`${cur} ${nextWord}`;
+            // 「絞り込む」は2語の近接検索として実行する。
+            // ほかの検索レイヤーを残すと結果が和集合になり、絞り込みにならない。
+            _layers.lemma=false;
+            _layers.phrase=false;
+            _layers.prox=true;
+            _syncLayerUI('lemma');
+            _syncLayerUI('phrase');
+            _syncLayerUI('prox');
+            unifiedSearch();
         });
         el.appendChild(item);
     });
