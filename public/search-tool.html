@@ -340,13 +340,9 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     font-size: 0.65rem; color: var(--text-sub);
     margin-top: 1px; line-height: 1.4;
 }
-.layers-adv-label {
-    font-size: 0.78rem; font-weight: 600;
-    letter-spacing: 0.06em; color: var(--text-sub);
-    opacity: var(--opacity-secondary);
-    padding-top: var(--space-xs);
-    margin-top: 2px;
-    border-top: 1px solid var(--border-soft);
+.layer-row:focus-visible {
+    outline: 2px solid var(--highlight);
+    outline-offset: 1px;
 }
 
 /* ── Proximity distance sub-control ── */
@@ -1442,19 +1438,24 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
         <div class="layers-grid">
 
             <!-- lemma: 基本検索モード（先頭・デフォルトON） -->
-            <div class="layer-row active-lemma" id="layer-lemma" onclick="toggleLayer('lemma')" title="活用形を問わず同一語根の全出現">
+            <div class="layer-row active-lemma" id="layer-lemma"
+                 role="checkbox" aria-checked="true" tabindex="0"
+                 onclick="toggleLayer('lemma')"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('lemma');}"
+                 title="活用形を問わず同一語根の全出現">
                 <div class="layer-check" id="chk-lemma"></div>
                 <div class="layer-info">
-                    <div class="layer-name">形が変わっても探す（標準）</div>
-                    <div class="layer-desc">活用形が違っても同じ語根をまとめて検索します。OFFにすると入力した語形だけを検索します。</div>
+                    <div class="layer-name">形が変わっても探す</div>
+                    <div class="layer-desc">活用形が違っても同じ語根をまとめて検索</div>
                 </div>
             </div>
 
-            <!-- 追加の条件ラベル -->
-            <div class="layers-adv-label">追加の条件</div>
-
             <!-- proximity -->
-            <div class="layer-row" id="layer-prox" onclick="toggleLayer('prox')" title="距離ベース共起">
+            <div class="layer-row" id="layer-prox"
+                 role="checkbox" aria-checked="false" tabindex="0"
+                 onclick="toggleLayer('prox')"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('prox');}"
+                 title="距離ベース共起">
                 <div class="layer-check" id="chk-prox"></div>
                 <div class="layer-info">
                     <div class="layer-name">近くに出てくる語</div>
@@ -1477,7 +1478,11 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
             </div>
 
             <!-- phrase -->
-            <div class="layer-row" id="layer-phrase" onclick="toggleLayer('phrase')" title="lemmaの連続一致">
+            <div class="layer-row" id="layer-phrase"
+                 role="checkbox" aria-checked="false" tabindex="0"
+                 onclick="toggleLayer('phrase')"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('phrase');}"
+                 title="lemmaの連続一致">
                 <div class="layer-check" id="chk-phrase"></div>
                 <div class="layer-info">
                     <div class="layer-name">フレーズで探す</div>
@@ -1490,7 +1495,11 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
             </div>
 
             <!-- morph -->
-            <div class="layer-row" id="layer-morph" onclick="toggleLayer('morph')" title="形態素フィルタ">
+            <div class="layer-row" id="layer-morph"
+                 role="checkbox" aria-checked="false" tabindex="0"
+                 onclick="toggleLayer('morph')"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('morph');}"
+                 title="形態素フィルタ">
                 <div class="layer-check" id="chk-morph"></div>
                 <div class="layer-info">
                     <div class="layer-name">品詞・語形で絞る</div>
@@ -3141,6 +3150,7 @@ function _syncLayerUI(name){
     const chk=document.getElementById(`chk-${name}`);
     if(!row||!chk)return;
     row.classList.toggle(`active-${name}`,active);
+    row.setAttribute('aria-checked', active ? 'true' : 'false');
     renderIcon(chk, active ? 'check' : null);
     // Show/hide sub-controls
     if(name==='prox'){
@@ -3151,29 +3161,6 @@ function _syncLayerUI(name){
     }
     if(name==='phrase'){
         document.getElementById('phrase-sub').classList.toggle('visible',active);
-    }
-    // Advanced layers panel: auto-open when any advanced layer is active; update badge
-    _syncAdvancedLayersPanel();
-}
-function _syncAdvancedLayersPanel(){
-    const details = document.getElementById('advanced-layers');
-    if(!details) return;
-    const advCount = ['phrase','prox','morph'].filter(n=>_layers[n]).length;
-    if(advCount > 0) details.open = true;
-    // Update summary badge
-    const summary = details.querySelector('.advanced-layers-toggle');
-    if(!summary) return;
-    const existing = summary.querySelector('.advanced-layers-badge');
-    if(advCount > 0){
-        if(existing){ existing.textContent = advCount; }
-        else {
-            const badge = document.createElement('span');
-            badge.className = 'advanced-layers-badge';
-            badge.textContent = advCount;
-            summary.appendChild(badge);
-        }
-    } else {
-        if(existing) existing.remove();
     }
 }
 
