@@ -3421,17 +3421,23 @@ function _loadHistory() {
         const saved = JSON.parse(raw);
         if (!Array.isArray(saved)) return;
         for (const item of saved.slice(0, _HISTORY_MAX)) {
-            if (item && item.query) {
-                _history.push({
-                    key:    item.query,
-                    query:  item.query,
-                    layers: item.layers || {lemma:true,phrase:false,prox:false,morph:false},
-                    dist: Number.isInteger(item.dist) && item.dist >= 1 && item.dist <= 15 ? item.dist : 5,
-                    morph: item.morph && typeof item.morph === 'object' ? item.morph : null,
-                    filters: Array.isArray(item.filters) ? item.filters : [],
-                    ts:     item.ts || 0,
-                });
-            }
+            // localStorage は古い版・手動編集・破損データを含み得るため、
+            // 検索語とレイヤー構造を検証してから履歴へ取り込む。
+            if (!item || typeof item.query !== 'string' || !item.query.trim()) continue;
+            const rawLayers = item.layers && typeof item.layers === 'object' && !Array.isArray(item.layers)
+                ? item.layers : {};
+            const layers = Object.fromEntries(
+                ['lemma','phrase','prox','morph'].map(key => [key, rawLayers[key] === true])
+            );
+            _history.push({
+                key:    item.query,
+                query:  item.query,
+                layers,
+                dist: Number.isInteger(item.dist) && item.dist >= 1 && item.dist <= 15 ? item.dist : 5,
+                morph: item.morph && typeof item.morph === 'object' && !Array.isArray(item.morph) ? item.morph : null,
+                filters: Array.isArray(item.filters) ? item.filters : [],
+                ts:     Number.isFinite(item.ts) ? item.ts : 0,
+            });
         }
     } catch(_) {}
     _renderHistory();
