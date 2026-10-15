@@ -3420,10 +3420,14 @@ function _loadHistory() {
         if (!raw) return;
         const saved = JSON.parse(raw);
         if (!Array.isArray(saved)) return;
-        for (const item of saved.slice(0, _HISTORY_MAX)) {
+        // 先に有効な検索語のレコードを抽出する。破損レコードが先頭に並んでいても、
+        // 件数上限を消費して後続の有効な履歴が失われないようにする。
+        const validSaved = saved.filter(item =>
+            item && typeof item.query === 'string' && item.query.trim()
+        );
+        for (const item of validSaved.slice(0, _HISTORY_MAX)) {
             // localStorage は古い版・手動編集・破損データを含み得るため、
-            // 検索語とレイヤー構造を検証してから履歴へ取り込む。
-            if (!item || typeof item.query !== 'string' || !item.query.trim()) continue;
+            // レイヤー構造などの残りの項目も検証してから履歴へ取り込む。
             const rawLayers = item.layers && typeof item.layers === 'object' && !Array.isArray(item.layers)
                 ? item.layers : {};
             const layers = Object.fromEntries(
