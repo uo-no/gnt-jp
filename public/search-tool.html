@@ -425,6 +425,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     display: flex; flex-wrap: wrap; gap: 3px;
 }
 .morph-chip {
+    -webkit-appearance: none; appearance: none;
     display: inline-flex; align-items: center; gap: 3px;
     padding: 3px 7px;
     border: 1px solid var(--morph-border);
@@ -436,6 +437,10 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     font-family: monospace; letter-spacing: 0.02em;
 }
 .morph-chip:hover { background: var(--morph-bg); }
+.morph-chip:focus-visible {
+    outline: 2px solid var(--highlight);
+    outline-offset: 2px;
+}
 .morph-chip.selected {
     background: var(--morph); color: #fff;
     border-color: var(--morph);
@@ -4462,13 +4467,18 @@ function _renderMorphChips(containerId, items, slot){
     const el = document.getElementById(containerId);
     el.innerHTML='';
     items.forEach(({code,jp})=>{
-        const chip = document.createElement('span');
-        chip.className='morph-chip'+(_morphSel[slot].has(code)?' selected':'');
+        const chip = document.createElement('button');
+        const selected = _morphSel[slot].has(code);
+        chip.type = 'button';
+        chip.className='morph-chip'+(selected?' selected':'');
+        chip.setAttribute('aria-pressed', String(selected));
         chip.innerHTML=`${code}<span class="chip-jp">${jp}</span>`;
         chip.addEventListener('click',()=>{
             if(_morphSel[slot].has(code)) _morphSel[slot].delete(code);
             else _morphSel[slot].add(code);
-            chip.classList.toggle('selected',_morphSel[slot].has(code));
+            const isSelected = _morphSel[slot].has(code);
+            chip.classList.toggle('selected', isSelected);
+            chip.setAttribute('aria-pressed', String(isSelected));
             _updateMorphSubSections();
             _updateMorphClearBtn();
         });
@@ -4502,7 +4512,10 @@ function _updateMorphClearBtn(){
 function _morphClearAll(){
     Object.values(_morphSel).forEach(s=>s.clear());
     ['pos','case','num','gen','tense','voice','mood'].forEach(slot=>{
-        document.querySelectorAll(`#morph-chips-${slot} .morph-chip`).forEach(c=>c.classList.remove('selected'));
+        document.querySelectorAll(`#morph-chips-${slot} .morph-chip`).forEach(c=>{
+            c.classList.remove('selected');
+            c.setAttribute('aria-pressed', 'false');
+        });
     });
     _updateMorphSubSections();
     _updateMorphClearBtn();
