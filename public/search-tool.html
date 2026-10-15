@@ -3528,7 +3528,7 @@ async function unifiedSearch(){
     }
 
     // Read morph filter value from checkbox state
-    const morphFilter=_layers.morph?_getMorphFilterPattern():null;
+    const morphFilter=_activeLayerSet.morph?_getMorphFilterPattern():null;
 
     // Parse words for phrase / proximity
     const words=query.trim().split(/\s+/).filter(Boolean);
@@ -3549,7 +3549,7 @@ async function unifiedSearch(){
     performance.mark('search-start');
     const tasks=[];
 
-    if(_layers.lemma){
+    if(_activeLayerSet.lemma){
         tasks.push((async()=>{
             const qtype=detectQueryType(word1);
             let idxs;
@@ -3582,7 +3582,7 @@ async function unifiedSearch(){
         })());
     }
 
-    if(_layers.phrase&&(words.length>=2||detectQueryType(word1)==='japanese')){
+    if(_activeLayerSet.phrase&&(words.length>=2||detectQueryType(word1)==='japanese')){
         tasks.push((async()=>{
             const isJp=detectQueryType(word1)==='japanese';
             const idxs=isJp?searchPhraseJapanese(words):searchPhrase(words);
@@ -3602,7 +3602,7 @@ async function unifiedSearch(){
         })());
     }
 
-    if(_layers.prox){
+    if(_activeLayerSet.prox){
         tasks.push((async()=>{
             const{coocMap,hits}=await runProximitySearch({
                 word1,word2,distance:currentDist,scope:currentScope,ref:'',
