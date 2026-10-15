@@ -3494,6 +3494,7 @@ let _lastQuery        = '';
 let _activeLayerSet   = {};
 let _activeSearchDist  = currentDist;
 let _activeSearchScope = currentScope;
+let _activeMorphSelection = null;
 
 async function unifiedSearch(){
     const requestId=++_unifiedSearchRequestId;
@@ -3516,6 +3517,8 @@ async function unifiedSearch(){
     // 検索開始時点の距離・範囲を保持し、検索中のUI変更でURLと結果が食い違わないようにする。
     _activeSearchDist = currentDist;
     _activeSearchScope = currentScope;
+    // 語形フィルターも検索開始時点の選択を保持する。
+    _activeMorphSelection = Object.fromEntries(Object.entries(_morphSel).map(([k, values]) => [k, new Set(values)]));
     isSearching=true;
     // Close mobile panel when search fires
     if(window.innerWidth<=680) _closeMobilePanel();
@@ -3537,7 +3540,7 @@ async function unifiedSearch(){
     }
 
     // Read morph filter value from checkbox state
-    const morphFilter=_activeLayerSet.morph?_getMorphFilterPattern():null;
+    const morphFilter=_activeLayerSet.morph?_getMorphFilterPattern(_activeMorphSelection):null;
 
     // Parse words for phrase / proximity
     const words=query.trim().split(/\s+/).filter(Boolean);
@@ -3734,12 +3737,12 @@ async function unifiedSearch(){
     _logPerfMeasure('render', `${_allMergedResults.size.toLocaleString()} hits merged`);
     /* この時点で IDX.ready は必ず true（上のゲートで保証済み）。
        「索引未完成のまま検索→後から件数が増える」事象は構造的に発生しない。 */
-    syncURL(_activeLayerSet, _activeSearchDist);
+    syncURL(_activeLayerSet, _activeSearchDist, _activeMorphSelection);
 }
 
 /* allow-list（このページの実際の検索条件のみ）からゼロ構築する。
    location.searchをベースにしない＝他ページのパラメータ混入を防ぐ。 */
-function syncURL(layerSnapshot = null, distSnapshot = null) {
+function syncURL(layerSnapshot = null, distSnapshot = null, morphSnapshot = null) {
     const p = new URLSearchParams();
     p.set('tool', 'search');
 
@@ -3748,7 +3751,7 @@ function syncURL(layerSnapshot = null, distSnapshot = null) {
 
     const slotToParam = { pos:'pos', tense:'tense', mood:'mood', voice:'voice', case:'case', num:'number', gen:'gender' };
     Object.entries(slotToParam).forEach(([slot, paramName]) => {
-        const set = _morphSel[slot];
+        const set = (morphSnapshot || _morphSel)[slot];
         if (set && set.size > 0) p.set(paramName, Array.from(set).join(','));
     });
 
@@ -4500,10 +4503,10 @@ const MORPH_MOOD = [
 const _morphSel = {pos:new Set(),case:new Set(),num:new Set(),gen:new Set(),tense:new Set(),voice:new Set(),mood:new Set()};
 
 /* Build pattern string from selections — returns null if nothing selected */
-function _getMorphFilterPattern(){
-    if(_morphSel.pos.size===0&&_morphSel.case.size===0&&_morphSel.num.size===0&&
-       _morphSel.gen.size===0&&_morphSel.tense.size===0&&_morphSel.voice.size===0&&
-       _morphSel.mood.size===0) return null;
+function _getMorphFilterPattern(selection = _morphSel){
+    if(selection.pos.size===0&&selection.case.size===0&&selection.num.size===0&&
+       selection.gen.size===0&&selection.tense.size===0&&selection.voice.size===0&&
+       selection.mood.size===0) return null;
     // Return structured selection object for matching
     return {
         pos:  _morphSel.pos.size>0  ? new Set(_morphSel.pos)  : null,
