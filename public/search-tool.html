@@ -289,7 +289,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     gap: 8px;
 }
 .suggest-item:last-child { border-bottom: none; }
-.suggest-item:hover { background: var(--bg-panel); }
+.suggest-item:hover, .suggest-item[aria-selected="true"] { background: var(--bg-panel); }
+.suggest-item[aria-selected="true"] { outline: 2px solid var(--highlight); outline-offset: -2px; }
 .suggest-jp { font-size: 0.78rem; color: var(--text-sub); margin-right: 4px; }
 .suggest-gr { font-family: 'Gentium Plus', serif; font-size: 1rem; color: var(--text-main); }
 .suggest-pos { font-size: 0.65rem; color: var(--text-sub); margin-left: 5px; opacity: 0.7; }
@@ -1448,13 +1449,14 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
         <input class="unified-input" id="unified-search-input"
             type="text"
             aria-label="検索語"
+            role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest-dropdown"
             enterkeyhint="search"
             placeholder="愛・信じる・ἀγαπάω …"
             autocomplete="off" spellcheck="false">
         <button type="button" class="search-icon-btn" onclick="unifiedSearch()" aria-label="検索" title="検索する">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         </button>
-        <div class="suggest-dropdown" id="suggest-dropdown"></div>
+        <div class="suggest-dropdown" id="suggest-dropdown" role="listbox" aria-label="検索候補"></div>
     </div>
 
     <!-- データ取得の警告（失敗ファイル・章数不整合） -->
@@ -3062,12 +3064,45 @@ function _getSuggestions(query){
                 pos:[...posSet].map(p=>POS_JP[p]||p).join('・')||'',count};
         });
 }
+let _suggestActiveIndex = -1;
+function _closeSuggest(){
+    const dd=document.getElementById('suggest-dropdown');
+    const inp=document.getElementById('unified-search-input');
+    dd.classList.remove('open');
+    inp.setAttribute('aria-expanded','false');
+    inp.removeAttribute('aria-activedescendant');
+    dd.querySelectorAll('[role="option"]').forEach(item=>item.setAttribute('aria-selected','false'));
+    _suggestActiveIndex=-1;
+}
+function _chooseSuggest(item){
+    if(!item)return;
+    const inp=document.getElementById('unified-search-input');
+    inp.value=item.dataset.lemma;
+    _closeSuggest();
+    unifiedSearch();
+}
+function _setSuggestActive(index){
+    const inp=document.getElementById('unified-search-input');
+    const dd=document.getElementById('suggest-dropdown');
+    const items=[...dd.querySelectorAll('[role="option"]')];
+    if(!items.length){_suggestActiveIndex=-1;inp.removeAttribute('aria-activedescendant');return;}
+    _suggestActiveIndex=(index+items.length)%items.length;
+    items.forEach((item,i)=>item.setAttribute('aria-selected',String(i===_suggestActiveIndex)));
+    inp.setAttribute('aria-activedescendant',items[_suggestActiveIndex].id);
+}
 function _showSuggest(suggestions){
     const dd=document.getElementById('suggest-dropdown');
+    const inp=document.getElementById('unified-search-input');
     dd.innerHTML='';
-    if(suggestions.length===0){dd.classList.remove('open');return;}
-    suggestions.forEach(s=>{
+    _suggestActiveIndex=-1;
+    inp.removeAttribute('aria-activedescendant');
+    if(suggestions.length===0){_closeSuggest();return;}
+    suggestions.forEach((s,i)=>{
         const item=document.createElement('div');
+        item.id='search-suggest-option-'+i;
+        item.setAttribute('role','option');
+        item.setAttribute('aria-selected','false');
+        item.dataset.lemma=s.lemma;
         item.className='suggest-item';
         item.innerHTML=`
             <div style="display:flex;align-items:baseline;gap:4px;">
@@ -3078,34 +3113,37 @@ function _showSuggest(suggestions){
             <span class="suggest-count">${s.count}箇所</span>`;
         item.addEventListener('mousedown',e=>{
             e.preventDefault();
-            document.getElementById('unified-search-input').value=s.lemma;
-            dd.classList.remove('open');
-            unifiedSearch();
+            _chooseSuggest(item);
         });
         dd.appendChild(item);
     });
-    const hint=document.createElement('div');
-    hint.style.cssText='font-size:0.6rem;color:var(--ink-soft);padding:5px 14px;opacity:0.5;';
-    hint.textContent='クリックで選択';
-    dd.appendChild(hint);
     dd.classList.add('open');
+    inp.setAttribute('aria-expanded','true');
 }
 function _initSuggest(){
     const inp=document.getElementById('unified-search-input');
     inp.addEventListener('input',()=>{
         const val=inp.value.trim();
         const qtype=detectQueryType(val);
-        if(qtype!=='japanese'||!val){document.getElementById('suggest-dropdown').classList.remove('open');return;}
+        if(qtype!=='japanese'||!val){_closeSuggest();return;}
         _showSuggest(_getSuggestions(val));
     });
     inp.addEventListener('focus',()=>_renderEmptyStateHistory());
     inp.addEventListener('blur',()=>{
-        setTimeout(()=>document.getElementById('suggest-dropdown').classList.remove('open'),150);
+        setTimeout(_closeSuggest,150);
         setTimeout(()=>{const s=document.getElementById('history-recent-section');if(s)s.style.display='none';},150);
     });
     inp.addEventListener('keydown',e=>{
-        if(e.key==='Escape'){document.getElementById('suggest-dropdown').classList.remove('open');return;}
-        if(e.key==='Enter'){document.getElementById('suggest-dropdown').classList.remove('open');unifiedSearch();}
+        const dd=document.getElementById('suggest-dropdown');
+        const items=dd.querySelectorAll('[role="option"]');
+        if(e.key==='Escape'&&dd.classList.contains('open')){e.preventDefault();_closeSuggest();return;}
+        if(e.key==='ArrowDown'&&dd.classList.contains('open')&&items.length){e.preventDefault();_setSuggestActive(_suggestActiveIndex+1);return;}
+        if(e.key==='ArrowUp'&&dd.classList.contains('open')&&items.length){e.preventDefault();_setSuggestActive(_suggestActiveIndex<0?items.length-1:_suggestActiveIndex-1);return;}
+        if(e.key==='Enter'){
+            if(dd.classList.contains('open')&&_suggestActiveIndex>=0){e.preventDefault();_chooseSuggest(items[_suggestActiveIndex]);return;}
+            _closeSuggest();
+            unifiedSearch();
+        }
     });
 }
 
