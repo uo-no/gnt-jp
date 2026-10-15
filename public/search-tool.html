@@ -3441,20 +3441,20 @@ function _addHistory(query,layers){
 function _restoreHistorySettings(item) {
     Object.keys(_layers).forEach(k => { _layers[k] = !!item.layers?.[k]; _syncLayerUI(k); });
     onProxSlider(Number.isFinite(item.dist) ? item.dist : 5);
-    if (item.morph && typeof item.morph === 'object') {
-        Object.keys(_morphSel).forEach(slot => {
-            _morphSel[slot].clear();
-            (Array.isArray(item.morph[slot]) ? item.morph[slot] : []).forEach(code => _morphSel[slot].add(code));
-            document.querySelectorAll('#morph-chips-' + slot + ' .morph-chip').forEach(chip => {
-                const code = chip.firstChild?.textContent || '';
-                const selected = _morphSel[slot].has(code);
-                chip.classList.toggle('selected', selected);
-                chip.setAttribute('aria-pressed', String(selected));
-            });
+    // 古い履歴には morph がないため、情報がない場合も絞り込みを解除する。
+    Object.keys(_morphSel).forEach(slot => {
+        _morphSel[slot].clear();
+        (item.morph && typeof item.morph === 'object' && Array.isArray(item.morph[slot])
+            ? item.morph[slot] : []).forEach(code => _morphSel[slot].add(code));
+        document.querySelectorAll('#morph-chips-' + slot + ' .morph-chip').forEach(chip => {
+            const code = chip.firstChild?.textContent || '';
+            const selected = _morphSel[slot].has(code);
+            chip.classList.toggle('selected', selected);
+            chip.setAttribute('aria-pressed', String(selected));
         });
-        _updateMorphSubSections();
-        _updateMorphClearBtn();
-    }
+    });
+    _updateMorphSubSections();
+    _updateMorphClearBtn();
     _sqState.filters = Array.isArray(item.filters)
         ? item.filters.map(f => ({...f, query: f.query ? {...f.query} : f.query}))
         : [];
