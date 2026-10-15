@@ -1423,7 +1423,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 <div class="main-layout">
 
 <!-- ═══════════════════════════ Search Panel ═══════════════════════════ -->
-<aside class="search-panel">
+<aside class="search-panel" id="search-panel" aria-label="検索パネル">
     <!-- Header inside sidebar -->
     <div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--border-soft);">
         <!-- MN: 聖書に戻るリンク -->
@@ -1728,7 +1728,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 
 <!-- Mobile overlay & FAB -->
 <div class="mobile-overlay" id="mobile-overlay" onclick="_closeMobilePanel()"></div>
-<button type="button" class="mobile-search-toggle" id="mobile-fab" onclick="_toggleMobilePanel()" aria-label="検索パネルを開く">
+<button type="button" class="mobile-search-toggle" id="mobile-fab" onclick="_toggleMobilePanel()" aria-label="検索パネルを開く" aria-controls="search-panel" aria-expanded="false">
     <span class="material-symbols-outlined" id="mobile-fab-icon">search</span>
     <span class="mobile-fab-label">検索</span>
 </button>
@@ -3409,7 +3409,7 @@ async function unifiedSearch(){
     _activeLayerSet={..._layers};
     isSearching=true;
     // Close mobile panel when search fires
-    if(window.innerWidth<=680) _closeMobilePanel();
+    if(window.innerWidth<=680) _closeMobilePanel(false);
 
     /* 検索実行ゲート:
        IDX.ready（NT索引化完了）になるまで検索を実行しない。
@@ -4574,7 +4574,7 @@ function _initMorphChips(){
    Mobile panel toggle
    ============================================================ */
 function _toggleMobilePanel(){
-    const panel = document.querySelector('.search-panel');
+    const panel = document.getElementById('search-panel');
     const overlay = document.getElementById('mobile-overlay');
     const fab = document.getElementById('mobile-fab');
     const icon = document.getElementById('mobile-fab-icon');
@@ -4584,19 +4584,35 @@ function _toggleMobilePanel(){
         panel.classList.add('mobile-open');
         overlay.classList.add('visible');
         fab.classList.add('panel-open');
+        fab.setAttribute('aria-expanded', 'true');
+        fab.setAttribute('aria-label', '検索パネルを閉じる');
         icon.textContent = 'close';
+        document.getElementById('unified-search-input')?.focus();
     }
 }
-function _closeMobilePanel(){
-    const panel = document.querySelector('.search-panel');
+function _closeMobilePanel(restoreFocus = true){
+    const panel = document.getElementById('search-panel');
     const overlay = document.getElementById('mobile-overlay');
     const fab = document.getElementById('mobile-fab');
     const icon = document.getElementById('mobile-fab-icon');
-    panel.classList.remove('mobile-open');
-    overlay.classList.remove('visible');
-    fab.classList.remove('panel-open');
-    icon.textContent = 'search';
+    const wasOpen = panel?.classList.contains('mobile-open');
+    panel?.classList.remove('mobile-open');
+    overlay?.classList.remove('visible');
+    fab?.classList.remove('panel-open');
+    fab?.setAttribute('aria-expanded', 'false');
+    fab?.setAttribute('aria-label', '検索パネルを開く');
+    if (icon) icon.textContent = 'search';
+    if (restoreFocus && wasOpen) fab?.focus();
 }
+
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    const panel = document.getElementById('search-panel');
+    const modal = document.getElementById('as-backdrop');
+    if (!panel?.classList.contains('mobile-open') || modal?.classList.contains('open')) return;
+    e.preventDefault();
+    _closeMobilePanel();
+});
 
 init();
 
