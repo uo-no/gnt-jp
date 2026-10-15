@@ -3000,6 +3000,7 @@ function _ciSyntaxClick(id) {
 }
 
 async function _loadSearchPatterns() {
+    if (SEARCH_PATTERNS.length) return;
     try {
         const r = await fetch('../assets/data/search-patterns.json');
         if (!r.ok) return;
@@ -3453,8 +3454,10 @@ function _addHistory(query,layers){
     _renderHistory();
 }
 
-/* 履歴を選んだら、検索語だけでなく保存した検索条件も復元する。 */
-function _restoreHistorySettings(item) {
+/* 履歴を選んだら、検索語だけでなく保存した検索条件も復元する。
+   保存済みパターン条件はIDだけを信頼し、定義ファイルの正規データから再構築する。 */
+async function _restoreHistorySettings(item) {
+    await _loadSearchPatterns();
     Object.keys(_layers).forEach(k => { _layers[k] = !!item.layers?.[k]; _syncLayerUI(k); });
     onProxSlider(Number.isInteger(item.dist) && item.dist >= 1 && item.dist <= 15 ? item.dist : 5);
     // 古い履歴には morph がないため、情報がない場合も絞り込みを解除する。
@@ -3471,9 +3474,15 @@ function _restoreHistorySettings(item) {
     });
     _updateMorphSubSections();
     _updateMorphClearBtn();
-    _sqState.filters = Array.isArray(item.filters)
-        ? item.filters.map(f => ({...f, query: f.query ? {...f.query} : f.query}))
-        : [];
+    const savedIds = new Set(Array.isArray(item.filters)
+        ? item.filters.filter(f => f && typeof f.id === 'string').map(f => f.id)
+        : []);
+    _sqState.filters = SEARCH_PATTERNS
+        .filter(pattern => savedIds.has(pattern.id))
+        .map(pattern => ({
+            type: 'pattern', id: pattern.id, label: pattern.label,
+            pattern: pattern.pattern, query: pattern.query,
+        }));
     _renderFilterBar();
 }
 
@@ -3500,9 +3509,9 @@ function _renderHistory(){
         item.innerHTML = `
             <span class="history-badges">${badges}</span>
             <span class="h-query">${_escH(query)}</span>`;
-        item.addEventListener('click', () => {
+        item.addEventListener('click', async () => {
             const saved = _history.find(h => h.query === query);
-            if (saved) _restoreHistorySettings(saved);
+            if (saved) await _restoreHistorySettings(saved);
             document.getElementById('unified-search-input').value = query;
             // 履歴に保存されたパターン条件をクエリ変更時の自動解除から保護する。
             _lastQuery = query;
@@ -3524,10 +3533,10 @@ function _renderEmptyStateHistory() {
         chip.type = 'button';
         chip.className = 'ex-chip';
         chip.textContent = query;
-        chip.addEventListener('click', () => {
+        chip.addEventListener('click', async () => {
             // 最近の検索も履歴一覧と同じ条件一式を復元する。
             const saved = _history.find(h => h.query === query);
-            if (saved) _restoreHistorySettings(saved);
+            if (saved) await _restoreHistorySettings(saved);
             // _exampleSearch() 内の検索でも、復元したパターン条件を保持する。
             _lastQuery = query;
             _exampleSearch(query);
