@@ -4930,13 +4930,36 @@ window.addEventListener('resize', _syncMobilePanelInert);
 _syncMobilePanelInert();
 
 document.addEventListener('keydown', e => {
-    // 入力欄などで Escape が先に処理された場合は、同じキー操作でパネルまで閉じない。
-    if (e.defaultPrevented || e.key !== 'Escape') return;
     const panel = document.getElementById('search-panel');
     const modal = document.getElementById('as-backdrop');
     if (!panel?.classList.contains('mobile-open') || modal?.classList.contains('open')) return;
-    e.preventDefault();
-    _closeMobilePanel();
+
+    // 入力欄などで Escape が先に処理された場合は、同じキー操作でパネルまで閉じない。
+    if (e.key === 'Escape') {
+        if (e.defaultPrevented) return;
+        e.preventDefault();
+        _closeMobilePanel();
+        return;
+    }
+
+    // モバイルの検索パネルはオーバーレイ付きのドロワーなので、
+    // Tab / Shift+Tab で背後の検索結果へフォーカスが抜けないようにする。
+    if (e.key !== 'Tab' || window.innerWidth > 680) return;
+    const focusable = [...panel.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )].filter(el => !el.hidden && el.getClientRects().length > 0 && el.getAttribute('aria-hidden') !== 'true');
+    if (!focusable.length) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || !panel.contains(active))) {
+        e.preventDefault();
+        last.focus();
+    } else if (!e.shiftKey && (active === last || !panel.contains(active))) {
+        e.preventDefault();
+        first.focus();
+    }
 });
 
 init();
