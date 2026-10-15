@@ -2,9 +2,10 @@ name: VR-5 Regression Gate
 
 # 責務分離:
 #   path-check.yml        = repository structure（旧パス参照の検出）
-#   vr5-regression-gate   = runtime contract regression（Flow DOM 契約・Reading Japanese 出力・構文）
-# 本リポは依存ゼロ構成のため依存インストール工程を持たず、node スクリプトを直接実行する
-# （package.json の dependencies / devDependencies は空）。
+#   vr5-regression-gate   = runtime contract regression（Flow DOM 契約・Reading Japanese 出力・構文・apparatus）
+# 回帰スクリプト（test:re-apparatus, test:re-apparatus-ja）は Node.js built-in のみを使用するため
+# npm install 不要で直接実行できる。
+# 再現性確認（test:re-apparatus-reproduce）は @xmldom/xmldom を必要とするため npm ci を先行実行する。
 
 on:
   push:
@@ -30,3 +31,15 @@ jobs:
 
       - name: Path audit（旧パス参照の検出）
         run: npm run audit
+
+      - name: Apparatus data static regression（entryCount・構造・書巻別件数）
+        run: npm run test:re-apparatus
+
+      - name: Apparatus Japanese annotations regression（件数・タグ・保留分類）
+        run: npm run test:re-apparatus-ja
+
+      - name: Install devDependencies（apparatus build reproducibility）
+        run: npm ci
+
+      - name: Apparatus build reproducibility（XML→JSON 再現性、_meta.generatedAt を除く全フィールド一致）
+        run: npm run test:re-apparatus-reproduce
