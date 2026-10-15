@@ -3467,10 +3467,19 @@ async function _restoreHistorySettings(item) {
     Object.keys(_layers).forEach(k => { _layers[k] = !!item.layers?.[k]; _syncLayerUI(k); });
     onProxSlider(Number.isInteger(item.dist) && item.dist >= 1 && item.dist <= 15 ? item.dist : 5);
     // 古い履歴には morph がないため、情報がない場合も絞り込みを解除する。
+    // 保存値は正式なチップ定義に存在する文字列コードだけを復元する。
+    const morphDefinitions = {
+        pos: MORPH_POS, case: MORPH_CASE, num: MORPH_NUM, gen: MORPH_GEN,
+        tense: MORPH_TENSE, voice: MORPH_VOICE, mood: MORPH_MOOD,
+    };
     Object.keys(_morphSel).forEach(slot => {
         _morphSel[slot].clear();
-        (item.morph && typeof item.morph === 'object' && Array.isArray(item.morph[slot])
-            ? item.morph[slot] : []).forEach(code => _morphSel[slot].add(code));
+        const allowedCodes = new Set((morphDefinitions[slot] || []).map(option => option.code));
+        const savedCodes = item.morph && typeof item.morph === 'object' && !Array.isArray(item.morph)
+            && Array.isArray(item.morph[slot]) ? item.morph[slot] : [];
+        savedCodes.forEach(code => {
+            if (typeof code === 'string' && allowedCodes.has(code)) _morphSel[slot].add(code);
+        });
         document.querySelectorAll('#morph-chips-' + slot + ' .morph-chip').forEach(chip => {
             const code = chip.firstChild?.textContent || '';
             const selected = _morphSel[slot].has(code);
