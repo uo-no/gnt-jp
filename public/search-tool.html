@@ -3332,9 +3332,21 @@ function _renderFilterBar() {
     const bar = document.getElementById('sqs-filter-bar');
     if (!bar) return;
     if (_sqState.filters.length === 0) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
-    bar.innerHTML = _sqState.filters.map(f =>
-        `<span class="sqs-pill">${_escH(f.pattern || f.label)}<button type="button" class="sqs-pill-x" onclick="_sqsRemoveFilter('${_escH(f.id)}')" aria-label="条件を外す" title="この条件を外す">×</button></span>`
-    ).join('');
+    bar.innerHTML = '';
+    _sqState.filters.forEach(f => {
+        const pill = document.createElement('span');
+        pill.className = 'sqs-pill';
+        pill.appendChild(document.createTextNode(f.pattern || f.label || '絞り込み条件'));
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'sqs-pill-x';
+        remove.setAttribute('aria-label', '条件を外す');
+        remove.title = 'この条件を外す';
+        remove.textContent = '×';
+        remove.addEventListener('click', () => _sqsRemoveFilter(f.id));
+        pill.appendChild(remove);
+        bar.appendChild(pill);
+    });
     bar.style.display = 'flex';
 }
 
