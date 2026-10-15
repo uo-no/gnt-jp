@@ -4573,6 +4573,12 @@ function _initMorphChips(){
 /* ============================================================
    Mobile panel toggle
    ============================================================ */
+function _syncMobilePanelInert(){
+    const panel = document.getElementById('search-panel');
+    if (!panel) return;
+    // Desktop sidebar is always available; the off-canvas mobile drawer is not.
+    panel.inert = window.innerWidth <= 680 && !panel.classList.contains('mobile-open');
+}
 function _toggleMobilePanel(){
     const panel = document.getElementById('search-panel');
     const overlay = document.getElementById('mobile-overlay');
@@ -4581,6 +4587,7 @@ function _toggleMobilePanel(){
     const isOpen = panel.classList.contains('mobile-open');
     if(isOpen){ _closeMobilePanel(); }
     else {
+        panel.inert = false;
         panel.classList.add('mobile-open');
         overlay.classList.add('visible');
         fab.classList.add('panel-open');
@@ -4597,6 +4604,7 @@ function _closeMobilePanel(){
     const icon = document.getElementById('mobile-fab-icon');
     const wasOpen = panel?.classList.contains('mobile-open');
     panel?.classList.remove('mobile-open');
+    if (panel && window.innerWidth <= 680) panel.inert = true;
     overlay?.classList.remove('visible');
     fab?.classList.remove('panel-open');
     fab?.setAttribute('aria-expanded', 'false');
@@ -4604,6 +4612,9 @@ function _closeMobilePanel(){
     if (icon) icon.textContent = 'search';
     if (wasOpen) fab?.focus();
 }
+// Keep the drawer's keyboard availability in sync when crossing the mobile breakpoint.
+window.addEventListener('resize', _syncMobilePanelInert);
+_syncMobilePanelInert();
 
 document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
