@@ -5354,8 +5354,8 @@ async function _synInit(syntaxId) {
     const patternsParam = p.get('patterns');
     if (patternsParam) {
         await _loadSearchPatterns();
-        const requestedIds = new Set(patternsParam.split(',').filter(Boolean));
-        _sqState.filters = SEARCH_PATTERNS
+        const requestedIds = new Set(patternsParam.split(',').map(id => id.trim()).filter(Boolean));
+        const restoredFilters = SEARCH_PATTERNS
             .filter(pattern => requestedIds.has(pattern.id))
             .map(pattern => ({
                 type: 'pattern',
@@ -5364,10 +5364,15 @@ async function _synInit(syntaxId) {
                 pattern: pattern.pattern,
                 query: pattern.query,
             }));
-        _renderFilterBar();
-        // unifiedSearch() はクエリ変更時にフィルタをクリアするため、
-        // URLから復元した検索語を既知のクエリとして設定してから実行する。
-        _lastQuery = query;
+        // 未知のIDしかないURLで、現在のフィルターを空に上書きしない。
+        // 有効なIDが1つでもあれば、有効な条件だけを復元する。
+        if (restoredFilters.length) {
+            _sqState.filters = restoredFilters;
+            _renderFilterBar();
+            // unifiedSearch() はクエリ変更時にフィルタをクリアするため、
+            // URLから復元した検索語を既知のクエリとして設定してから実行する。
+            _lastQuery = query;
+        }
     }
 
     unifiedSearch();
