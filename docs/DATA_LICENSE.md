@@ -85,7 +85,53 @@ LN 由来の「関連する語／意味グループ」UIを一時停止する。
 
 ---
 
-## 5. AIの利用範囲
+## 5. SBLGNT Apparatus（テキスト批判装置）
+
+### ■ 出典
+jjmccollum/sblgnt-tei, available at https://github.com/jjmccollum/sblgnt-tei
+
+### ■ 帰属表示
+The Greek New Testament: SBL Edition © 2010 Society of Biblical Literature and Logos Bible Software.
+Apparatus encoded in TEI XML by Joey McCollum (2021).
+
+### ■ ライセンス
+CC BY 4.0（クリエイティブ・コモンズ 表示 4.0 国際）ライセンスのもとで利用可能であることを確認済み。
+ライセンス原文: https://github.com/jjmccollum/sblgnt-tei/blob/main/LICENSE
+
+### ■ ソースファイル
+`work/apparatus/sblgnt_tei.xml`（本リポジトリ内に保存、生成スクリプトの入力）
+
+### ■ 生成物
+`public/assets/data/apparatus.json`（`scripts/build-apparatus.cjs` により生成）
+
+### ■ データ概要
+SBLGNT（SBL Greek New Testament）本文に対するテキスト批判装置。
+SBLGNT の採用読みと、WH・Treg・NA27・TR・RP・ECM 等の主要版における異読を収録。
+
+### ■ 収録範囲（実測値）
+- 異読エントリ数: 6,929件（NT全27書巻）
+- 代替読み数: 14,132件
+- 参照版: ECM / Greeven / Holmes(SBLGNT) / NA(NA27) / NIV(Reader's GNT) / RP(Byzantine) / TR / Treg / Tregmarg / WH / WHapp / WHmarg / WHspur
+
+### ■ 加工内容
+- TEI XML を構造化 JSON へ変換
+- 既存 bible_data（macula-greek-SBLGNT由来）のトークン参照を付加
+- Unicode NFC正規化によるギリシャ語文字照合
+- 元データの内容・読みは変更しない
+
+### ■ 元データとの関係
+- SBLGNT テキスト自体は bible_data（項目1・2）がすでに収録
+- 本データはその異読情報のみを追加
+- SBL Errata に記録された誤りは Joey McCollum による修正（@resp="#JJM"）が適用済み
+
+### ■ 個別写本データについて
+本データは版（edition）レベルの証人情報のみを収録する。
+個別写本（パピルス・大文字写本・小文字写本）の読みは含まない。
+写本レベルのデータは INTF/DBG が著作権を保持しており、公開再配布可能な形では入手できない（2026-10現在）。
+
+---
+
+## 6. AIの利用範囲
 
 本プロジェクトではAIを以下の用途で使用している：
 
