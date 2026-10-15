@@ -3392,7 +3392,7 @@ const _history = [];
 function _saveHistory() {
     try {
         localStorage.setItem(_HISTORY_KEY,
-            JSON.stringify(_history.map(({query,layers,ts}) => ({query,layers,ts}))));
+            JSON.stringify(_history.map(({query,layers,ts,dist,morph,filters}) => ({query,layers,ts,dist,morph,filters}))));
     } catch(_) {}
 }
 
@@ -3409,6 +3409,9 @@ function _loadHistory() {
                     key:    item.query,
                     query:  item.query,
                     layers: item.layers || {lemma:true,phrase:false,prox:false,morph:false},
+                    dist: Number.isFinite(item.dist) ? item.dist : 5,
+                    morph: item.morph && typeof item.morph === 'object' ? item.morph : null,
+                    filters: Array.isArray(item.filters) ? item.filters : [],
                     ts:     item.ts || 0,
                 });
             }
@@ -3419,13 +3422,43 @@ function _loadHistory() {
 
 function _addHistory(query,layers){
     if(!query) return;
-    // query ベースで重複排除（レイヤーが違っても同語を移動）
+    // 同じ検索語は最新の検索条件で置き換える。
     const idx = _history.findIndex(h => h.query === query);
     if(idx >= 0) _history.splice(idx, 1);
-    _history.unshift({key:query, query, layers:{...layers}, ts:Date.now()});
+    const morph = Object.fromEntries(Object.entries(_activeMorphSelection || _morphSel)
+        .map(([slot, values]) => [slot, [...values]]));
+    const filters = (_activePatternFilters || []).map(f => ({...f, query: f.query ? {...f.query} : f.query}));
+    _history.unshift({
+        key:query, query, layers:{...layers}, dist:_activeSearchDist,
+        morph, filters, ts:Date.now()
+    });
     if(_history.length > _HISTORY_MAX) _history.pop();
     _saveHistory();
     _renderHistory();
+}
+
+/* 履歴を選んだら、検索語だけでなく保存した検索条件も復元する。 */
+function _restoreHistorySettings(item) {
+    Object.keys(_layers).forEach(k => { _layers[k] = !!item.layers?.[k]; _syncLayerUI(k); });
+    onProxSlider(Number.isFinite(item.dist) ? item.dist : 5);
+    if (item.morph && typeof item.morph === 'object') {
+        Object.keys(_morphSel).forEach(slot => {
+            _morphSel[slot].clear();
+            (Array.isArray(item.morph[slot]) ? item.morph[slot] : []).forEach(code => _morphSel[slot].add(code));
+            document.querySelectorAll('#morph-chips-' + slot + ' .morph-chip').forEach(chip => {
+                const code = chip.firstChild?.textContent || '';
+                const selected = _morphSel[slot].has(code);
+                chip.classList.toggle('selected', selected);
+                chip.setAttribute('aria-pressed', String(selected));
+            });
+        });
+        _updateMorphSubSections();
+        _updateMorphClearBtn();
+    }
+    _sqState.filters = Array.isArray(item.filters)
+        ? item.filters.map(f => ({...f, query: f.query ? {...f.query} : f.query}))
+        : [];
+    _renderFilterBar();
 }
 
 /* 表示専用のHTMLエスケープ。_renderHistory()のquery展開のみに使用する。 */
@@ -3452,8 +3485,9 @@ function _renderHistory(){
             <span class="history-badges">${badges}</span>
             <span class="h-query">${_escH(query)}</span>`;
         item.addEventListener('click', () => {
+            const saved = _history.find(h => h.query === query);
+            if (saved) _restoreHistorySettings(saved);
             document.getElementById('unified-search-input').value = query;
-            Object.keys(_layers).forEach(k => { _layers[k] = !!layers[k]; _syncLayerUI(k); });
             unifiedSearch();
         });
         list.appendChild(item);
@@ -3473,8 +3507,9 @@ function _renderEmptyStateHistory() {
         chip.className = 'ex-chip';
         chip.textContent = query;
         chip.addEventListener('click', () => {
-            // 履歴からの再検索は、通常の履歴一覧と同じレイヤー設定を復元する。
-            Object.keys(_layers).forEach(k => { _layers[k] = !!layers[k]; _syncLayerUI(k); });
+            // 最近の検索も履歴一覧と同じ条件一式を復元する。
+            const saved = _history.find(h => h.query === query);
+            if (saved) _restoreHistorySettings(saved);
             _exampleSearch(query);
         });
         wrap.appendChild(chip);
