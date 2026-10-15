@@ -5280,6 +5280,17 @@ async function _synInit(syntaxId) {
         num:   splitVals(p.get('number')).map(v => toCode('num', v)),
         gen:   splitVals(p.get('gender')).map(v => toCode('gen', v)),
     };
+
+    // 共有 URL の形態論コードも、画面で使う正式な定義に照らして検証する。
+    // index.html から渡されるフルワードは上でコード化した後に判定する。
+    const morphDefinitions = {
+        pos: MORPH_POS, case: MORPH_CASE, num: MORPH_NUM, gen: MORPH_GEN,
+        tense: MORPH_TENSE, voice: MORPH_VOICE, mood: MORPH_MOOD,
+    };
+    for (const [slot, vals] of Object.entries(morphFromUrl)) {
+        const allowed = new Set(morphDefinitions[slot].map(item => item.code));
+        morphFromUrl[slot] = vals.filter(code => allowed.has(code));
+    }
     /* [DIAG] 受信 URL パラメータ */
     console.info('[initFromUrl] 受信パラメータ:', {
         lemma:  p.get('lemma'), word:   p.get('word'), layers: p.get('layers'),
