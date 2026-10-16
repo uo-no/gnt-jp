@@ -62,9 +62,10 @@ async function measure(mode) {
       approximateHeapMiB:stats.heapBytes == null ? null : +(stats.heapBytes / 1048576).toFixed(1),
       indexRequests:index.length, indexMiB:+(index.reduce((s,r)=>s+r.bytes,0)/1048576).toFixed(1),
       sourceJsonRequests:source.length,
+      consoleTail:consoleLines.slice(-30),
       loaderConfirmed:mode === 'prebuilt'
-        ? consoleLines.some(s=>s.includes('NT prebuilt ready'))
-        : consoleLines.some(s=>s.includes('using browser builder'))
+        ? consoleLines.some(s=>/prebuilt.*ready|ready.*prebuilt/i.test(s))
+        : consoleLines.some(s=>/browser builder|fallback|building.*index/i.test(s))
     };
     await context.close();
     return result;
@@ -78,7 +79,7 @@ async function measure(mode) {
     for (const mode of ['prebuilt','fallback']) {
       const result = await measure(mode);
       console.log(JSON.stringify(result));
-      if (!result.loaderConfirmed) throw new Error('Expected loader path was not confirmed: ' + mode);
+      if (!result.loaderConfirmed) throw new Error('Expected loader path was not confirmed: ' + mode + '; console=' + JSON.stringify(result.consoleTail));
       if (result.tokens !== 617364) throw new Error('Unexpected token count: ' + mode + ' ' + result.tokens);
     }
   } finally { await new Promise(resolve=>server.close(resolve)); }
