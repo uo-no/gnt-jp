@@ -52,7 +52,7 @@ for (const book of books) {
     const expected = new Set();
     for (const token of greek) {
       const ref = String(token.ref || '');
-      const match = ref.match(/^[A-Z0-9]+\\s+\\d+:(\\d+)!/);
+      const match = ref.match(/^[A-Z0-9]+[ ]+[0-9]+:([0-9]+)!/);
       if (match) expected.add(Number(match[1]));
     }
 
