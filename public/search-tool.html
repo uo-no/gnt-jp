@@ -37,27 +37,220 @@
     --morph:        #7b3d9a;
     --morph-bg:     rgba(123,61,154,0.08);
     --morph-border: rgba(123,61,154,0.3);
+
+    /* ── Search redesign variables (--s-* namespace, independent of tokens.css) ── */
+    --s-bg:           #f5f3ee;
+    --s-surface:      #ffffff;
+    --s-surface-2:    #f0ede6;
+    --s-text:         #1c1a16;
+    --s-text-sub:     #5a5347;
+    --s-text-hint:    #8a8275;
+    --s-accent:       #2e4d8a;
+    --s-accent-soft:  rgba(46, 77, 138, 0.08);
+    --s-accent-mid:   rgba(46, 77, 138, 0.18);
+    --s-greek:        #1c2d52;
+    --s-border:       #ddd9cf;
+    --s-divider:      #e8e4db;
+    --s-divider-strong: #ccc8be;
+    --s-shadow-modal: 0 4px 24px rgba(28, 26, 22, 0.16), 0 1px 4px rgba(28, 26, 22, 0.08);
+    --s-ff-ui:        'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+    --s-ff-greek:     'Gentium Plus', Georgia, 'Times New Roman', serif;
+    --s-ff-prose:     'Noto Serif JP', Georgia, serif;
+    --s-ts-xs:     0.72rem;
+    --s-ts-sm:     0.82rem;
+    --s-ts-base:   0.92rem;
+    --s-ts-md:     1.0rem;
+    --s-ts-greek:  1.08rem;
+    --s-ts-lg:     1.2rem;
+    --s-ts-xl:     1.6rem;
+    --s-lh-tight:  1.35;
+    --s-lh-base:   1.6;
+    --s-lh-prose:  1.85;
+    --s-ls-caps:   0.10em;
+    --s-ls-ref:    0.04em;
+    --s-sp-1:  4px;
+    --s-sp-2:  8px;
+    --s-sp-3:  12px;
+    --s-sp-4:  16px;
+    --s-sp-5:  24px;
+    --s-sp-6:  32px;
+    --s-sp-7:  48px;
+    --s-sp-8:  64px;
+    --s-content-max:  720px;
+    --s-header-h:      56px;
+    --s-header-h-mob:  48px;
+    --s-radius-input:  6px;
+    --s-radius-chip:   4px;
+    --s-radius-btn:    6px;
+    --s-radius-modal:  10px;
+    --s-radius-panel:  8px;
+    --s-ease:          cubic-bezier(0.2, 0.8, 0.2, 1);
+    --s-dur-fast:      0.14s;
+    --s-dur-base:      0.22s;
+    --s-dur-panel:     0.28s;
+    --s-dur-result:    0.18s;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; height: 100%; }
+html, body { margin: 0; padding: 0; }
 body {
-    font-family: 'Noto Sans JP', sans-serif;
-    background: var(--bg-paper);
-    color: var(--text-main);
+    font-family: var(--s-ff-ui);
+    background: var(--s-bg);
+    color: var(--s-text);
     -webkit-font-smoothing: antialiased;
-    min-height: 100%;
 }
 
 /* ============================================================
-   Layout — unified with index.html
+   New single-column layout
    ============================================================ */
-html, body { overflow: hidden; width: 100%; height: 100%; }
-.main-layout {
+
+/* ── Sticky header ── */
+.s-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    height: var(--s-header-h);
+    background: var(--s-bg);
+    border-bottom: 1px solid var(--s-divider);
     display: flex;
-    height: 100%;
+    align-items: center;
+    gap: var(--s-sp-2);
+    padding: 0 var(--s-sp-5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.s-btn-back {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; font-size: var(--s-ts-sm);
+    color: var(--s-text-sub); padding: 4px 0;
+    white-space: nowrap; flex-shrink: 0;
+    transition: color var(--s-dur-fast) var(--s-ease);
+    -webkit-tap-highlight-color: transparent;
+}
+.s-btn-back:hover { color: var(--s-text); }
+.s-header-spacer { flex: 1; }
+.s-mini-search {
+    display: none;
+    flex: 1;
+    font-size: var(--s-ts-sm);
+    color: var(--s-text-sub);
+    background: var(--s-surface);
+    border: 1px solid var(--s-border);
+    border-radius: var(--s-radius-input);
+    padding: 4px 10px;
+    cursor: pointer;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 240px;
+}
+.s-header.scrolled .s-mini-search { display: block; }
+.s-header .share-url-btn {
+    flex-shrink: 0;
+}
+
+/* ── Search block ── */
+.s-search-block {
+    max-width: var(--s-content-max);
+    margin: 0 auto;
+    padding: var(--s-sp-7) var(--s-sp-5) var(--s-sp-4);
     width: 100%;
+}
+.s-search-title {
+    font-size: var(--s-ts-xl);
+    font-weight: 700;
+    color: var(--s-text-sub);
+    text-align: center;
+    margin-bottom: var(--s-sp-3);
+    cursor: pointer;
+    user-select: none;
+    transition: opacity var(--s-dur-fast) var(--s-ease);
+}
+.s-search-title:hover { opacity: 0.7; }
+
+/* ── Mode bar (lemma toggle + advanced toggle + SQS pills) ── */
+.s-mode-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--s-sp-2) var(--s-sp-3);
+    margin-top: var(--s-sp-2);
+    font-size: var(--s-ts-sm);
+}
+.s-lemma-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    cursor: pointer; user-select: none;
+    padding: 0; background: none; border: none;
+    font-family: inherit; font-size: var(--s-ts-sm);
+    color: var(--s-text-sub);
+    -webkit-tap-highlight-color: transparent;
+}
+.s-lemma-toggle .layer-check {
+    width: 16px; height: 16px;
+}
+.s-lemma-toggle:hover { color: var(--s-text); }
+.s-lemma-toggle.active { color: var(--s-text); }
+.s-advanced-toggle {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; font-size: var(--s-ts-sm);
+    color: var(--s-text-hint); padding: 0;
+    transition: color var(--s-dur-fast) var(--s-ease);
+    -webkit-tap-highlight-color: transparent;
+}
+.s-advanced-toggle:hover { color: var(--s-text-sub); }
+.s-advanced-toggle.open {
+    color: var(--s-accent);
+    border-bottom: 1px solid var(--s-accent);
+}
+.s-advanced-toggle .s-adv-arrow { transition: transform var(--s-dur-fast) var(--s-ease); }
+.s-advanced-toggle.open .s-adv-arrow { transform: rotate(180deg); }
+
+/* ── Advanced panel (grid-template-rows animation) ── */
+.s-advanced-panel {
+    max-width: var(--s-content-max);
+    margin: 0 auto;
+    padding: 0 var(--s-sp-5);
+    width: 100%;
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows var(--s-dur-panel) var(--s-ease);
+}
+.s-advanced-panel.open {
+    grid-template-rows: 1fr;
+}
+.s-advanced-panel-inner {
     overflow: hidden;
+}
+.s-advanced-panel-body {
+    background: var(--s-surface-2);
+    border: 1px solid var(--s-divider);
+    border-radius: var(--s-radius-panel);
+    padding: var(--s-sp-4);
+    margin-top: var(--s-sp-2);
+    margin-bottom: var(--s-sp-2);
+}
+
+/* ── Search/results divider ── */
+.s-search-divider {
+    max-width: var(--s-content-max);
+    margin: 0 auto;
+    border: none;
+    border-top: 1px solid var(--s-divider-strong);
+    padding: 0 var(--s-sp-5);
+}
+
+/* ── Results area ── */
+.s-results {
+    max-width: var(--s-content-max);
+    margin: 0 auto;
+    padding: var(--s-sp-5) var(--s-sp-5) var(--s-sp-8);
+    width: 100%;
+}
+
+/* ── idx-status in new layout ── */
+.s-search-block .idx-status {
+    text-align: center;
+    justify-content: center;
 }
 
 
@@ -77,145 +270,25 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 .idx-status.done { opacity: 0; pointer-events: none; }
 
-/* ── Left panel: search control ── */
-.search-panel {
-    width: 300px;
-    background: var(--bg-sidebar);
-    border-right: 1px solid var(--border-soft);
-    padding: 24px 22px 40px;
-    display: flex; flex-direction: column; gap: 0;
-    overflow-y: auto;
-    scrollbar-gutter: stable;  /* スクロールバー出現時もパネル幅を保持 */
-    flex-shrink: 0;
+/* search-panel, container: 旧サイドバー構造（廃止 — 新レイアウトは .s-header/.s-search-block/.s-results）*/
+.search-panel { display: none !important; }
+.container { display: contents; }
+.main-layout { display: contents; }
+
+/* FAB / overlay / mn-back-bar: 廃止 */
+.mobile-search-toggle { display: none !important; }
+.mobile-overlay { display: none !important; }
+#mn-back-bar { display: none !important; }
+
+/* ── Mobile (≤700px) ── */
+@media (max-width: 700px) {
+    .s-header { height: var(--s-header-h-mob); padding: 0 var(--s-sp-4); }
+    .s-search-block { padding: var(--s-sp-4) var(--s-sp-4) var(--s-sp-3); }
+    .s-search-title { font-size: var(--s-ts-lg); text-align: left; }
+    .s-advanced-panel { padding: 0 var(--s-sp-4); }
+    .s-results { padding: var(--s-sp-4) var(--s-sp-4) var(--s-sp-7); }
+    .s-search-divider { margin: 0 var(--s-sp-4); }
 }
-
-/* ── Container wrapping header + content ── */
-.container {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-/* ── Mobile toggle button ── */
-.mobile-search-toggle {
-    display: none;
-    position: fixed;
-    bottom: 20px; right: 20px;
-    z-index: 200;
-    width: auto; height: 48px;
-    border-radius: 24px;
-    padding: 0 var(--space-lg);
-    gap: 6px;
-    background: var(--highlight);
-    color: #fff;
-    border: none; cursor: pointer;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.22);
-    font-size: 1.1rem;
-    align-items: center; justify-content: center;
-    transition: transform 0.2s, background 0.2s;
-}
-.mobile-search-toggle:active { transform: scale(0.93); }
-.mobile-search-toggle.panel-open { background: var(--text-main); }
-.mobile-fab-label { font-size: 0.9rem; font-weight: 700; letter-spacing: 0.02em; }
-
-/* ── Mobile overlay ── */
-.mobile-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.35);
-    z-index: 150;
-    opacity: 0;
-    transition: opacity 0.25s;
-    pointer-events: none; /* パネルが閉じている間は pointer event を遮蔽しない */
-}
-.mobile-overlay.visible { opacity: 1; pointer-events: auto; }
-
-/* default: hidden (sidebar shows back btn at >680px) */
-#mn-back-bar { display: none; }
-
-@media (max-width: 680px) {
-    html, body { overflow: auto; height: auto; }
-
-    .main-layout {
-        flex-direction: column;
-        height: auto;
-        overflow: visible;
-    }
-
-    /* Search panel becomes a bottom drawer */
-    .search-panel {
-        position: fixed;
-        left: 0; right: 0; bottom: 0;
-        width: 100%;
-        max-height: 82vh;
-        border-right: none;
-        border-top: 1px solid var(--border-soft);
-        border-radius: 18px 18px 0 0;
-        box-shadow: 0 -6px 32px rgba(0,0,0,0.13);
-        z-index: 160;
-        transform: translateY(100%);
-        transition: transform 0.32s cubic-bezier(0.32,0.72,0,1);
-        padding: 0 20px 40px;
-        overflow-y: auto;
-    }
-    .search-panel.mobile-open {
-        transform: translateY(0);
-    }
-
-    /* Drag handle */
-    .search-panel::before {
-        content: '';
-        display: block;
-        width: 36px; height: 4px;
-        background: var(--border-soft);
-        border-radius: 2px;
-        margin: 12px auto 14px;
-        flex-shrink: 0;
-    }
-
-    /* Container takes full viewport */
-    .container {
-        width: 100%;
-        overflow: visible;
-        min-height: 100vh;
-    }
-
-    .result-panel {
-        padding: 20px 18px 100px; /* bottom padding for FAB */
-        overflow: visible;
-    }
-
-    .mobile-search-toggle { display: flex; }
-    .mobile-overlay { display: block; }
-
-    #mn-back-bar {
-        display: flex;
-        align-items: center;
-        padding: 10px 18px 10px;
-        border-bottom: 1px solid var(--border-soft);
-        background: var(--bg-paper);
-        position: sticky;
-        top: 0;
-        z-index: 10;
-    }
-}
-
-#mn-back-bar-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.85rem;
-    color: var(--text-sub);
-    padding: 4px 0;
-    -webkit-tap-highlight-color: transparent;
-}
-#mn-back-bar-btn:active { opacity: 0.65; }
 
 /* ── Section label ── */
 .s-label {
@@ -490,16 +563,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* ============================================================
-   Right panel: results
-   ============================================================ */
-.result-panel {
-    flex: 1;
-    min-width: 0;
-    overflow-y: auto;
-    padding: 28px 32px 60px;
-    background: var(--bg-paper);
-}
+/* result-panel: 旧サイドバー内のメインエリア（廃止 — .s-results に統合） */
+.result-panel { display: contents; }
 
 /* ── Empty / loading state ── */
 .state-empty, .state-loading {
@@ -614,16 +679,16 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 .sqs-pill {
     display: inline-flex; align-items: center; gap: 4px;
-    padding: 3px var(--space-sm); border: 1px solid var(--highlight);
-    border-radius: var(--radius-s); font-size: var(--text-caption);
-    color: var(--text-sub); background: var(--bg-panel);
+    padding: 2px var(--s-sp-2); border: 1px solid var(--s-accent-mid);
+    border-radius: var(--s-radius-chip); font-size: var(--s-ts-xs);
+    color: var(--s-accent); background: var(--s-accent-soft);
 }
 .sqs-pill-x {
     background: none; border: none; cursor: pointer; line-height: 1;
-    color: var(--text-hint); font-size: 0.72rem; padding: 0 2px;
-    font-family: inherit; transition: color var(--transition-fast);
+    color: var(--s-accent); font-size: var(--s-ts-xs); padding: 0 2px;
+    font-family: inherit; transition: opacity var(--s-dur-fast);
 }
-.sqs-pill-x:hover { color: var(--text-main); }
+.sqs-pill-x:hover { opacity: 0.6; }
 .ci-header {
     font-size: var(--text-caption);
     font-weight: 600;
@@ -689,29 +754,29 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 
 .spinner {
     width: 32px; height: 32px; border-radius: 50%;
-    border: 3px solid var(--bg-panel);
-    border-top-color: var(--highlight);
+    border: 3px solid var(--s-surface-2);
+    border-top-color: var(--s-accent);
     animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.loading-label { font-size: 0.78rem; color: var(--text-sub); }
+.loading-label { font-size: var(--s-ts-sm); color: var(--s-text-sub); }
 
 /* ── Result header ── */
 .result-header {
     display: none;
     align-items: baseline; gap: 12px; flex-wrap: wrap;
-    margin-bottom: 20px; padding-bottom: 14px;
-    border-bottom: 1px solid var(--border-soft);
+    margin-bottom: var(--s-sp-5); padding-bottom: var(--s-sp-3);
+    border-bottom: 1px solid var(--s-divider-strong);
 }
 .result-header.visible { display: flex; }
 .result-query {
-    font-family: 'Gentium Plus', serif;
-    font-size: 1.35rem; font-weight: 700; color: var(--text-main);
+    font-family: var(--s-ff-greek);
+    font-size: var(--s-ts-lg); font-weight: 700; color: var(--s-text);
     letter-spacing: 0.02em;
-    cursor: pointer; border-bottom: 2px dotted var(--border-soft);
-    transition: border-color 0.15s, color 0.15s;
+    cursor: pointer; border-bottom: 2px dotted var(--s-divider);
+    transition: border-color var(--s-dur-fast), color var(--s-dur-fast);
 }
-.result-query:hover { border-bottom-color: var(--highlight); color: var(--highlight); }
+.result-query:hover { border-bottom-color: var(--s-accent); color: var(--s-accent); }
 
 /* ── Abbott-Smith Modal ── */
 #as-backdrop {
@@ -721,40 +786,39 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 #as-backdrop.open { display: flex; }
 #as-modal {
-    background: var(--bg-panel); border-radius: 12px;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+    background: var(--s-surface); border-radius: var(--s-radius-modal);
+    box-shadow: var(--s-shadow-modal);
     max-width: 640px; width: 100%; max-height: 80vh;
     display: flex; flex-direction: column; overflow: hidden;
 }
 #as-modal-head {
     display: flex; align-items: center; gap: 10px;
-    padding: 16px 20px 12px; border-bottom: 1px solid var(--border-soft);
+    padding: 16px 20px 12px; border-bottom: 1px solid var(--s-divider);
     flex-shrink: 0;
 }
 #as-modal-lemma {
-    font-family: 'Gentium Plus', serif; font-size: 1.5rem;
-    font-weight: 700; color: var(--text-main); flex: 1;
+    font-family: var(--s-ff-greek); font-size: var(--s-ts-lg);
+    font-weight: 700; color: var(--s-text); flex: 1;
 }
 #as-modal-strong {
-    font-size: 0.68rem; font-weight: 700; color: var(--text-sub);
-    background: var(--bg-sub); border-radius: 6px; padding: 2px 7px;
+    font-size: var(--s-ts-xs); font-weight: 700; color: var(--s-text-sub);
+    background: var(--s-surface-2); border-radius: var(--s-radius-chip); padding: 2px 7px;
 }
 #as-modal-close {
     width: 28px; height: 28px; border-radius: 50%; border: none;
-    background: var(--bg-sub); cursor: pointer; font-size: 0.9rem;
-    color: var(--text-sub); display: flex; align-items: center; justify-content: center;
-    transition: background 0.12s;
+    background: var(--s-surface-2); cursor: pointer;
+    color: var(--s-text-sub); display: flex; align-items: center; justify-content: center;
+    transition: background var(--s-dur-fast) var(--s-ease);
 }
 #as-modal-close svg { width: 16px; height: 16px; display: block; }
-#as-modal-close:hover { background: var(--border-soft); }
+#as-modal-close:hover { background: var(--s-divider); }
 #as-modal-body {
     padding: 16px 20px; overflow-y: auto; flex: 1;
-    font-size: 0.82rem; line-height: 1.75; color: var(--text-main);
-    white-space: pre-wrap; font-family: 'Noto Serif JP', Georgia, serif;
+    font-size: var(--s-ts-base); line-height: var(--s-lh-prose);
+    color: var(--s-text); white-space: pre-wrap;
+    font-family: var(--s-ff-prose);
 }
-#as-modal-body .as-empty {
-    color: var(--text-sub); font-style: italic;
-}
+#as-modal-body .as-empty { color: var(--s-text-sub); font-style: italic; }
 .result-count {
     font-size: 0.78rem; font-weight: 700;
     color: var(--text-sub);
@@ -919,25 +983,18 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .lg-more-btn:hover { border-color: var(--highlight); color: var(--highlight); }
 
 /* ============================================================
-   Hit card — unified for all layers
+   Hit card — リスト型（区切り線のみ、カードシャドウなし）
    ============================================================ */
-.hit-card {
-    background: var(--bg-paper);
-    border: 1px solid var(--border-soft);
-    border-radius: 10px;
-    padding: 14px 16px;
-    margin-bottom: 8px;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    animation: fadeUp 0.2s ease both;
-}
-.hit-card:hover {
-    border-color: rgba(0,0,0,0.13);
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-}
 @keyframes fadeUp {
     from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0); }
 }
+.hit-card {
+    padding: var(--s-sp-5) 0;
+    border-top: 1px solid var(--s-divider);
+    animation: fadeUp var(--s-dur-result) var(--s-ease) both;
+}
+.hit-card:hover { background: none; }
 
 /* Hit card top row */
 .hit-top {
@@ -990,13 +1047,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .ht-badge.prox   { background: var(--prox-bg);   color: var(--prox); }
 .ht-badge.morph  { background: var(--morph-bg);  color: var(--morph); }
 
-/* Snippet */
-.hit-snippet {
-    font-family: 'Gentium Plus', serif;
-    font-size: 1.05rem; line-height: 1.7;
-    color: var(--text-main); word-wrap: break-word;
-    margin-bottom: 8px;
-}
+/* Snippet highlight colors (スニペット強調 — 既存レイヤー色を継承) */
 .hit-snippet .hl-lemma  { color: var(--lemma);  font-weight: 700; text-decoration: underline; text-decoration-color: rgba(26,95,168,0.35); text-underline-offset: 3px; }
 .hit-snippet .hl-phrase { color: var(--phrase); font-weight: 700; background: var(--phrase-bg); border-radius: 2px; padding: 0 1px; }
 .hit-snippet .hl-prox-w1{ color: var(--prox);   font-weight: 700; }
@@ -1021,27 +1072,9 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 .prox-target { font-family: 'Gentium Plus', serif; font-weight: 700; color: var(--prox); opacity: 0.7; }
 
-/* Translation — now primary display */
-.hit-trans-row { margin-bottom: 8px; }
-.hit-trans-text {
-    font-size: 0.82rem; color: var(--text-main); line-height: 1.65;
-    display: none;
-}
-.hit-trans-text.visible { display: block; }
-
-/* Greek snippet toggle row */
+/* hit-trans-row / hit-trans-text / hit-snippet: 新定義は下部 qtype セクション参照 */
+.hit-trans-row { margin-bottom: var(--s-sp-2); }
 .hit-greek-row { display: flex; flex-direction: column; gap: 6px; }
-.hit-snippet {
-    font-family: 'Gentium Plus', serif;
-    font-size: 1.05rem; line-height: 1.7;
-    color: var(--text-main); word-wrap: break-word;
-}
-.hit-snippet-hidden {
-    display: none;
-}
-.hit-snippet-hidden.open {
-    display: block;
-}
 
 
 /* Refinement banner */
@@ -1107,66 +1140,62 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     opacity: 0.6;
 }
 
-/* ── Discovery Lobby (UX-10-1C / UX-10-1D / UX-10-2B) ── */
+/* ── Discovery Lobby ── */
 #discovery-lobby {
     display: flex; flex-direction: column;
     align-items: center;
     width: 100%;
-    padding: 48px var(--space-md) var(--space-xl);
+    padding: var(--s-sp-6) 0 var(--s-sp-7);
 }
 .discovery-title {
-    font-size: 1rem; font-weight: 400;
-    color: var(--text-sub);
+    font-size: var(--s-ts-sm); font-weight: 400;
+    color: var(--s-text-sub);
     text-align: center;
-    line-height: 1.75;
+    line-height: var(--s-lh-base);
     margin: 0 0 4px;
 }
 .discovery-date {
-    font-size: 0.72rem;
-    color: var(--text-sub);
-    opacity: 0.6;
+    font-size: var(--s-ts-xs);
+    color: var(--s-text-hint);
     text-align: center;
-    margin: 0 0 20px;
+    margin: 0 0 var(--s-sp-5);
     letter-spacing: 0.04em;
 }
 .discovery-verse-card {
-    background: var(--bg-paper);
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius-l);
-    padding: var(--space-xl) var(--space-lg);
-    max-width: 450px;
+    background: var(--s-surface-2);
+    border: 1px solid var(--s-divider);
+    border-radius: 12px;
+    padding: var(--s-sp-5) var(--s-sp-5);
+    max-width: 420px;
     width: 100%;
     text-align: center;
-    box-sizing: border-box;
-    box-shadow: var(--shadow-card);
 }
 .discovery-verse-text {
-    font-size: 1.15rem;
-    line-height: 1.8;
-    color: var(--text-main);
+    font-family: var(--s-ff-prose);
+    font-size: var(--s-ts-md);
+    line-height: var(--s-lh-prose);
+    color: var(--s-text);
     margin: 0 0 12px;
     font-weight: 400;
 }
 .discovery-verse-ref {
-    font-size: 0.72rem;
-    color: var(--text-sub);
-    letter-spacing: 0.06em;
+    font-size: var(--s-ts-xs);
+    color: var(--s-text-sub);
+    letter-spacing: 0.04em;
     margin: 0;
 }
 .discovery-verse-themes {
-    margin-top: 20px;
-    padding-bottom: 10px;
+    margin-top: var(--s-sp-5);
     display: flex; flex-direction: column;
     align-items: center;
-    gap: 8px;
-    max-width: 450px;
+    gap: var(--s-sp-2);
+    max-width: 420px;
     width: 100%;
 }
 .discovery-verse-label {
-    font-size: var(--text-caption);
-    color: var(--text-sub);
-    letter-spacing: 0.06em;
-    opacity: 1;
+    font-size: var(--s-ts-xs);
+    color: var(--s-text-hint);
+    letter-spacing: 0.04em;
 }
 .discovery-verse-pills {
     display: flex; flex-wrap: wrap;
@@ -1175,91 +1204,156 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 .discovery-verse-pill {
     padding: 4px 12px;
-    border: 1px solid var(--border-soft);
+    border: 1px solid var(--s-divider);
     border-radius: 20px;
     background: transparent;
-    font-family: 'Noto Sans JP', sans-serif;
-    font-size: 0.72rem;
-    color: var(--text-sub);
+    font-family: var(--s-ff-ui);
+    font-size: var(--s-ts-xs);
+    color: var(--s-text-sub);
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background var(--s-dur-fast) var(--s-ease);
     user-select: none;
 }
-.discovery-verse-pill:hover {
-    background: var(--bg-panel);
-}
+.discovery-verse-pill:hover { background: var(--s-surface); }
 .discovery-verse-pill:focus-visible {
-    background: var(--bg-panel);
-    outline: 2px solid var(--highlight);
+    background: var(--s-surface);
+    outline: 2px solid var(--s-accent);
     outline-offset: 2px;
 }
 
-/* ── Hit card redesign ── */
+/* ── Hit card header / ref / badges ── */
 .hit-header {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 10px;
+    display: flex; align-items: center; gap: var(--s-sp-2);
+    margin-bottom: var(--s-sp-3);
 }
 .hit-ref {
-    font-size: 0.72rem; font-weight: 700;
-    color: var(--highlight); letter-spacing: 0.04em;
+    font-size: var(--s-ts-sm); font-weight: 700;
+    color: var(--s-accent); letter-spacing: var(--s-ls-ref);
 }
 .hit-badges-subtle {
     display: flex; gap: 3px; margin-left: auto; flex-shrink: 0;
 }
 .hit-badges-subtle .ht-badge {
-    font-size: 0.60rem; padding: 1px 5px;
-    opacity: 0.55; font-weight: 600;
+    font-size: var(--s-ts-xs); padding: 1px 5px;
+    background: var(--s-surface-2); color: var(--s-text-sub);
+    border-radius: var(--s-radius-chip); font-weight: 600;
 }
 .corpus-badge {
-    font-size: var(--text-caption);
+    font-size: var(--s-ts-xs);
     font-weight: 400;
     padding: 1px 5px;
-    border-radius: var(--radius-s);
-    border: 1px solid var(--border);
-    color: var(--text-sub);
+    border-radius: var(--s-radius-chip);
+    border: 1px solid var(--s-divider);
+    color: var(--s-text-sub);
     letter-spacing: 0.04em;
     flex-shrink: 0;
 }
-.hit-body {
-    margin-bottom: 10px;
-}
+.hit-body { margin-bottom: var(--s-sp-3); }
 .hit-footer {
-    display: flex; align-items: center; gap: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--border-soft);
+    display: flex; align-items: center; gap: var(--s-sp-2);
 }
 .hit-open-btn-lg {
     display: inline-flex; align-items: center; gap: 5px;
     margin-left: auto;
     padding: 5px 14px;
-    min-height: 36px;
-    background: var(--highlight);
+    min-height: 34px;
+    background: var(--s-accent);
     color: #fff;
-    border-radius: 8px;
-    font-size: 0.75rem; font-weight: 700;
+    border-radius: var(--s-radius-btn);
+    font-size: var(--s-ts-sm); font-weight: 600;
     font-family: inherit;
     text-decoration: none;
-    transition: opacity 0.15s, transform 0.1s;
+    transition: opacity var(--s-dur-fast) var(--s-ease), transform var(--s-dur-fast);
     flex-shrink: 0;
-    letter-spacing: 0.02em;
 }
-.hit-open-btn-lg:hover { opacity: 0.85; transform: translateY(-1px); }
+.hit-open-btn-lg:hover { opacity: 0.82; }
 .hit-open-btn-lg:active { transform: scale(0.97); }
 .hit-morph-btn {
     display: inline-flex; align-items: center;
     padding: 5px 14px;
     border: 1px solid var(--morph-border);
-    border-radius: 8px;
-    background: var(--bg-paper);
+    border-radius: var(--s-radius-btn);
+    background: transparent;
     color: var(--morph);
-    font-size: 0.75rem; font-weight: 700;
+    font-size: var(--s-ts-sm); font-weight: 600;
     font-family: inherit;
     cursor: pointer;
-    transition: background 0.12s, color 0.12s;
+    transition: background var(--s-dur-fast) var(--s-ease);
     flex-shrink: 0;
-    letter-spacing: 0.02em;
 }
 .hit-morph-btn:hover { background: var(--morph-bg); }
+
+/* ── Translation text: qtype-based styling ── */
+/* デフォルト（日本語クエリ）: 訳文がメイン */
+.hit-trans-text {
+    font-family: var(--s-ff-prose);
+    font-size: var(--s-ts-md);
+    color: var(--s-text);
+    line-height: var(--s-lh-prose);
+    display: none;
+}
+.hit-trans-text.visible { display: block; }
+
+/* ギリシャ語/Strong/morph クエリ: 訳文は副次 */
+.hit-card[data-qtype="greek"] .hit-trans-text,
+.hit-card[data-qtype="strong"] .hit-trans-text,
+.hit-card[data-qtype="text"] .hit-trans-text {
+    font-size: var(--s-ts-base);
+    color: var(--s-text-sub);
+}
+
+/* ── Greek snippet: qtype-based ── */
+.hit-snippet {
+    font-family: var(--s-ff-greek);
+    font-size: var(--s-ts-greek);
+    line-height: var(--s-lh-prose);
+    color: var(--s-greek);
+    word-wrap: break-word;
+    margin-bottom: var(--s-sp-2);
+}
+
+/* 日本語クエリ: ギリシャ語スニペットは折りたたみ */
+.hit-card[data-qtype="japanese"] .hit-snippet,
+.hit-card:not([data-qtype]) .hit-snippet {
+    display: none;
+}
+.hit-card[data-qtype="japanese"] .hit-snippet.open,
+.hit-card:not([data-qtype]) .hit-snippet.open {
+    display: block;
+}
+
+/* ギリシャ語クエリ: スニペット展開 */
+.hit-card[data-qtype="greek"] .hit-snippet,
+.hit-card[data-qtype="strong"] .hit-snippet,
+.hit-card[data-qtype="text"] .hit-snippet {
+    display: block;
+}
+
+/* 日本語クエリ: 折りたたみトグルボタン */
+.hit-greek-toggle {
+    font-size: var(--s-ts-xs);
+    color: var(--s-text-hint);
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; padding: 0;
+    margin-bottom: var(--s-sp-2);
+    display: none;
+    -webkit-tap-highlight-color: transparent;
+}
+.hit-greek-toggle:hover { color: var(--s-text-sub); }
+.hit-card[data-qtype="japanese"] .hit-greek-toggle,
+.hit-card:not([data-qtype]) .hit-greek-toggle {
+    display: inline-flex; align-items: center; gap: 4px;
+}
+/* ギリシャ語クエリ: トグルボタン不要 */
+.hit-card[data-qtype="greek"] .hit-greek-toggle,
+.hit-card[data-qtype="strong"] .hit-greek-toggle,
+.hit-card[data-qtype="text"] .hit-greek-toggle {
+    display: none;
+}
+
+/* 旧 .hit-snippet-hidden パターン（互換） */
+.hit-snippet-hidden { display: none; }
+.hit-snippet-hidden.open { display: block; }
 
 /* ── Concept Insight redesign ── */
 .ci-concept-title {
@@ -1364,17 +1458,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 /* ============================================================
    Mobile responsive
    ============================================================ */
-@media (max-width: 860px) {
-    .main-layout { flex-direction: column; overflow-y: auto; }
-    .search-panel {
-        width: 100%;
-        border-right: none; border-bottom: 1px solid var(--border-soft);
-        padding: 16px 16px 24px;
-    }
-    .result-panel { padding: 20px 16px 40px; }
-    .results-grid { grid-template-columns: 1fr; }
-    .results-grid:not(.no-cooc) .cooc-col { display: none; }
-}
+/* 旧860px ブレークポイント廃止済み */
 
 .share-url-btn {
     background: none; border: none; cursor: pointer;
@@ -1397,32 +1481,28 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 </head>
 <body>
 <div id="share-toast" class="share-toast"></div>
-<div class="main-layout">
 
-<!-- ═══════════════════════════ Search Panel ═══════════════════════════ -->
-<aside class="search-panel">
-    <!-- Header inside sidebar -->
-    <div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--border-soft);">
-        <!-- MN: 聖書に戻るリンク -->
-        <button onclick="_searchGoBack()"
-                style="display:inline-flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:0.8rem;color:var(--text-sub);padding:0 0 10px 0;letter-spacing:0.01em;-webkit-tap-highlight-color:transparent;"
-                aria-label="聖書リーダーに戻る">
-            ‹ 聖書に戻る
-        </button>
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span class="logo-home-btn" onclick="_returnToLobby()" title="今日のみことばへ戻る"
-                style="font-family:'Noto Sans JP',sans-serif;font-size:1rem;font-weight:700;color:var(--text-main);letter-spacing:-0.01em;">聖書原文検索</span>
-            <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
-        </div>
-        <div class="idx-status" id="idx-pill">
-            <span id="idx-dot">○</span>
-            <span id="idx-label">準備中…</span>
-        </div>
+<!-- ═══════════════════════════ Sticky Header ═══════════════════════════ -->
+<header class="s-header" id="s-header">
+    <button class="s-btn-back" onclick="_searchGoBack()" aria-label="聖書リーダーに戻る">
+        ‹ 聖書に戻る
+    </button>
+    <span class="s-header-spacer"></span>
+    <span class="s-mini-search" id="s-mini-search" onclick="document.getElementById('unified-search-input').focus()" title="検索欄へ"></span>
+    <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
+</header>
+
+<!-- ═══════════════════════════ Search Block ═══════════════════════════ -->
+<div class="s-search-block" id="s-search-block">
+    <div class="idx-status" id="idx-pill">
+        <span id="idx-dot">○</span>
+        <span id="idx-label">準備中…</span>
     </div>
 
+    <div class="s-search-title logo-home-btn" onclick="_returnToLobby()" title="今日のみことばへ戻る">聖書原文検索</div>
+
     <!-- Search input -->
-    <div class="s-label">検索語</div>
-    <div class="search-input-wrap" style="margin-bottom:22px;">
+    <div class="search-input-wrap">
         <input class="unified-input" id="unified-search-input"
             type="text"
             placeholder="愛・信じる・ἀγαπάω …"
@@ -1433,149 +1513,142 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
         <div class="suggest-dropdown" id="suggest-dropdown"></div>
     </div>
 
-    <!-- データ取得の警告（失敗ファイル・章数不整合） -->
+    <!-- データ取得の警告 -->
     <div id="fetch-warning-panel" style="margin-top:8px;"></div>
 
-    <!-- Interpretation layers -->
-    <div class="layers-block">
-        <div class="s-label">探し方</div>
-        <div class="layers-grid">
-
-            <!-- lemma: 基本検索モード（先頭・デフォルトON） -->
-            <div class="layer-row active-lemma" id="layer-lemma"
-                 role="checkbox" aria-checked="true" tabindex="0"
-                 onclick="toggleLayer('lemma')"
-                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('lemma');}"
-                 title="活用形を問わず同一語根の全出現">
-                <div class="layer-check" id="chk-lemma"></div>
-                <div class="layer-info">
-                    <div class="layer-name">形が変わっても探す</div>
-                    <div class="layer-desc">活用形が違っても同じ語根をまとめて検索</div>
-                </div>
-            </div>
-
-            <!-- proximity -->
-            <div class="layer-row" id="layer-prox"
-                 role="checkbox" aria-checked="false" tabindex="0"
-                 onclick="toggleLayer('prox')"
-                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('prox');}"
-                 title="距離ベース共起">
-                <div class="layer-check" id="chk-prox"></div>
-                <div class="layer-info">
-                    <div class="layer-name">近くに出てくる語</div>
-                    <div class="layer-desc">指定した語が ±<span id="prox-label-inline">5</span> 語以内に一緒に現れる箇所を検索</div>
-                </div>
-            </div>
-            <div class="prox-sub" id="prox-sub">
-                <div class="prox-sub-row">
-                    <span class="prox-sub-label">距離</span>
-                    <span class="prox-sub-val" id="prox-val-label">±5語</span>
-                </div>
-                <input type="range" class="prox-slider" id="prox-slider"
-                    min="1" max="15" value="5"
-                    oninput="onProxSlider(this.value)">
-                <div class="prox-presets">
-                    <button class="prox-preset" data-d="3" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;">狭い</span></button>
-                    <button class="prox-preset active" data-d="5" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;">標準</span></button>
-                    <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
-                </div>
-            </div>
-
-            <!-- phrase -->
-            <div class="layer-row" id="layer-phrase"
-                 role="checkbox" aria-checked="false" tabindex="0"
-                 onclick="toggleLayer('phrase')"
-                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('phrase');}"
-                 title="lemmaの連続一致">
-                <div class="layer-check" id="chk-phrase"></div>
-                <div class="layer-info">
-                    <div class="layer-name">フレーズで探す</div>
-                    <div class="layer-desc">入力した語をそのままの順番・並びで完全一致検索</div>
-                </div>
-            </div>
-            <div class="phrase-sub" id="phrase-sub">
-                複数語を空白で区切って入力すると連続一致を検索します。<br>
-                例：<code style="font-family:'JetBrains Mono',monospace;">ἀγαπάω θεός</code>
-            </div>
-
-            <!-- morph -->
-            <div class="layer-row" id="layer-morph"
-                 role="checkbox" aria-checked="false" tabindex="0"
-                 onclick="toggleLayer('morph')"
-                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('morph');}"
-                 title="形態素フィルタ">
-                <div class="layer-check" id="chk-morph"></div>
-                <div class="layer-info">
-                    <div class="layer-name">品詞・語形で絞る</div>
-                    <div class="layer-desc">格・時制・人称などの語形タグで結果を絞り込み</div>
-                </div>
-            </div>
-            <div class="morph-sub" id="morph-sub">
-                <!-- 品詞 -->
-                <div class="morph-section">
-                    <span class="morph-section-label">品詞</span>
-                    <div class="morph-chips" id="morph-chips-pos"></div>
-                </div>
-                <!-- 格 -->
-                <div class="morph-section" id="morph-sec-case" style="display:none;">
-                    <span class="morph-section-label">格</span>
-                    <div class="morph-chips" id="morph-chips-case"></div>
-                </div>
-                <!-- 数 -->
-                <div class="morph-section" id="morph-sec-num" style="display:none;">
-                    <span class="morph-section-label">数</span>
-                    <div class="morph-chips" id="morph-chips-num"></div>
-                </div>
-                <!-- 性 -->
-                <div class="morph-section" id="morph-sec-gen" style="display:none;">
-                    <span class="morph-section-label">性</span>
-                    <div class="morph-chips" id="morph-chips-gen"></div>
-                </div>
-                <!-- 時制（動詞） -->
-                <div class="morph-section" id="morph-sec-tense" style="display:none;">
-                    <span class="morph-section-label">時制</span>
-                    <div class="morph-chips" id="morph-chips-tense"></div>
-                </div>
-                <!-- 態（動詞） -->
-                <div class="morph-section" id="morph-sec-voice" style="display:none;">
-                    <span class="morph-section-label">態</span>
-                    <div class="morph-chips" id="morph-chips-voice"></div>
-                </div>
-                <!-- 法（動詞） -->
-                <div class="morph-section" id="morph-sec-mood" style="display:none;">
-                    <span class="morph-section-label">法</span>
-                    <div class="morph-chips" id="morph-chips-mood"></div>
-                </div>
-                <button class="morph-clear-btn" id="morph-clear-btn" onclick="_morphClearAll()">選択をクリア</button>
-                <div class="morph-hint" id="morph-hint-text">品詞を選ぶとさらに絞り込めます</div>
-            </div>
-
+    <!-- Mode bar: lemma toggle + advanced toggle + SQS -->
+    <div class="s-mode-bar" id="s-mode-bar">
+        <!-- lemma layer row (primary toggle) -->
+        <div class="layer-row active-lemma s-lemma-toggle active" id="layer-lemma"
+             role="checkbox" aria-checked="true" tabindex="0"
+             onclick="toggleLayer('lemma')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('lemma');}"
+             title="活用形を問わず同一語根の全出現">
+            <div class="layer-check" id="chk-lemma"></div>
+            <div class="layer-name">形が変わっても探す</div>
         </div>
 
-        <!-- SQS: アクティブなフィルタ条件（追加した条件）-->
+        <!-- Advanced options toggle -->
+        <button class="s-advanced-toggle" id="s-advanced-toggle"
+                onclick="_toggleAdvanced()" aria-expanded="false" aria-controls="s-advanced-panel">
+            <span class="s-adv-arrow">▾</span> 詳細オプション
+        </button>
+
+        <!-- SQS: アクティブなフィルタ条件 -->
         <div id="sqs-filter-bar"></div>
     </div>
 
     <!-- History -->
     <div class="history-block" id="history-block" style="display:none;">
-        <div class="s-label" style="margin-bottom:6px;">履歴</div>
+        <div class="s-label" style="margin-bottom:6px;margin-top:8px;">履歴</div>
         <div class="history-list" id="history-list"></div>
     </div>
-
-</aside>
-
-<!-- ═══════════════════════════ Main Container ═══════════════════════════ -->
-<div class="container">
-
-<!-- MN: モバイル（≤680px）専用バック行。サイドバーが引き出しになるため常時表示が必要 -->
-<div id="mn-back-bar">
-    <button id="mn-back-bar-btn" onclick="_searchGoBack()" aria-label="聖書リーダーに戻る">
-        ‹ 聖書に戻る
-    </button>
 </div>
 
-<!-- ═══════════════════════════ Result Panel ═══════════════════════════ -->
-<main class="result-panel" id="result-panel">
+<!-- ═══════════════════════════ Advanced Options Panel ═══════════════════════════ -->
+<div class="s-advanced-panel" id="s-advanced-panel" aria-hidden="true">
+    <div class="s-advanced-panel-inner">
+        <div class="s-advanced-panel-body">
+            <div class="layers-grid">
+
+                <!-- proximity -->
+                <div class="layer-row" id="layer-prox"
+                     role="checkbox" aria-checked="false" tabindex="0"
+                     onclick="toggleLayer('prox')"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('prox');}"
+                     title="距離ベース共起">
+                    <div class="layer-check" id="chk-prox"></div>
+                    <div class="layer-info">
+                        <div class="layer-name">近くに出てくる語</div>
+                        <div class="layer-desc">指定した語が ±<span id="prox-label-inline">5</span> 語以内に一緒に現れる箇所を検索</div>
+                    </div>
+                </div>
+                <div class="prox-sub" id="prox-sub">
+                    <div class="prox-sub-row">
+                        <span class="prox-sub-label">距離</span>
+                        <span class="prox-sub-val" id="prox-val-label">±5語</span>
+                    </div>
+                    <input type="range" class="prox-slider" id="prox-slider"
+                        min="1" max="15" value="5"
+                        oninput="onProxSlider(this.value)">
+                    <div class="prox-presets">
+                        <button class="prox-preset" data-d="3" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;">狭い</span></button>
+                        <button class="prox-preset active" data-d="5" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;">標準</span></button>
+                        <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
+                    </div>
+                </div>
+
+                <!-- phrase -->
+                <div class="layer-row" id="layer-phrase"
+                     role="checkbox" aria-checked="false" tabindex="0"
+                     onclick="toggleLayer('phrase')"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('phrase');}"
+                     title="lemmaの連続一致">
+                    <div class="layer-check" id="chk-phrase"></div>
+                    <div class="layer-info">
+                        <div class="layer-name">フレーズで探す</div>
+                        <div class="layer-desc">入力した語をそのままの順番・並びで完全一致検索</div>
+                    </div>
+                </div>
+                <div class="phrase-sub" id="phrase-sub">
+                    複数語を空白で区切って入力すると連続一致を検索します。<br>
+                    例：<code style="font-family:'JetBrains Mono',monospace;">ἀγαπάω θεός</code>
+                </div>
+
+                <!-- morph -->
+                <div class="layer-row" id="layer-morph"
+                     role="checkbox" aria-checked="false" tabindex="0"
+                     onclick="toggleLayer('morph')"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('morph');}"
+                     title="形態素フィルタ">
+                    <div class="layer-check" id="chk-morph"></div>
+                    <div class="layer-info">
+                        <div class="layer-name">品詞・語形で絞る</div>
+                        <div class="layer-desc">格・時制・人称などの語形タグで結果を絞り込み</div>
+                    </div>
+                </div>
+                <div class="morph-sub" id="morph-sub">
+                    <div class="morph-section">
+                        <span class="morph-section-label">品詞</span>
+                        <div class="morph-chips" id="morph-chips-pos"></div>
+                    </div>
+                    <div class="morph-section" id="morph-sec-case" style="display:none;">
+                        <span class="morph-section-label">格</span>
+                        <div class="morph-chips" id="morph-chips-case"></div>
+                    </div>
+                    <div class="morph-section" id="morph-sec-num" style="display:none;">
+                        <span class="morph-section-label">数</span>
+                        <div class="morph-chips" id="morph-chips-num"></div>
+                    </div>
+                    <div class="morph-section" id="morph-sec-gen" style="display:none;">
+                        <span class="morph-section-label">性</span>
+                        <div class="morph-chips" id="morph-chips-gen"></div>
+                    </div>
+                    <div class="morph-section" id="morph-sec-tense" style="display:none;">
+                        <span class="morph-section-label">時制</span>
+                        <div class="morph-chips" id="morph-chips-tense"></div>
+                    </div>
+                    <div class="morph-section" id="morph-sec-voice" style="display:none;">
+                        <span class="morph-section-label">態</span>
+                        <div class="morph-chips" id="morph-chips-voice"></div>
+                    </div>
+                    <div class="morph-section" id="morph-sec-mood" style="display:none;">
+                        <span class="morph-section-label">法</span>
+                        <div class="morph-chips" id="morph-chips-mood"></div>
+                    </div>
+                    <button class="morph-clear-btn" id="morph-clear-btn" onclick="_morphClearAll()">選択をクリア</button>
+                    <div class="morph-hint" id="morph-hint-text">品詞を選ぶとさらに絞り込めます</div>
+                </div>
+
+            </div><!-- /.layers-grid -->
+        </div><!-- /.s-advanced-panel-body -->
+    </div><!-- /.s-advanced-panel-inner -->
+</div><!-- /#s-advanced-panel -->
+
+<hr class="s-search-divider">
+
+<!-- ═══════════════════════════ Results ═══════════════════════════ -->
+<main class="s-results" id="result-panel">
 
     <!-- Empty state -->
     <div class="state-empty" id="state-empty">
@@ -1677,10 +1750,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 
 </main>
 
-</div><!-- /.container -->
-
-</div><!-- /.main-layout -->
-
 <!-- Abbott-Smith Modal -->
 <div id="as-backdrop" onclick="_asClose()">
     <div id="as-modal" onclick="event.stopPropagation()">
@@ -1693,12 +1762,9 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     </div>
 </div>
 
-<!-- Mobile overlay & FAB -->
-<div class="mobile-overlay" id="mobile-overlay" onclick="_closeMobilePanel()"></div>
-<button class="mobile-search-toggle" id="mobile-fab" onclick="_toggleMobilePanel()" aria-label="検索パネルを開く">
-    <span class="material-symbols-outlined" id="mobile-fab-icon">search</span>
-    <span class="mobile-fab-label">検索</span>
-</button>
+<!-- Mobile overlay & FAB: 廃止済み（hidden via CSS） -->
+<div class="mobile-overlay" id="mobile-overlay"></div>
+<button class="mobile-search-toggle" id="mobile-fab" aria-hidden="true"></button>
 
 <!-- ═══════════════════════════════════════════════════════════════
      ORIGINAL LOGIC BLOCK — All algorithms preserved verbatim.
@@ -3803,6 +3869,7 @@ function _renderHitCards(entries,words,word2){
 function _buildUnifiedCard(anchorGi,entry,words,word2){
     const card=document.createElement('div');
     card.className='hit-card';
+    card.dataset.qtype = detectQueryType(words[0]);
 
     const tok=entry.tok;
     // ★ rawRef は表示専用（リンクラベルの文字列にのみ使う）
@@ -3924,9 +3991,11 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         </div>
         ${proxVizHtml}
         <div class="hit-body">
+            <div class="hit-snippet" aria-label="ギリシャ語原文">${snippetHtml}</div>
+            <button class="hit-greek-toggle" aria-expanded="false">▸ ギリシャ語原文を見る</button>
             <div class="hit-trans-row">
                 <span class="hit-trans-text hit-trans-main"></span>
-                <span class="hit-trans-loading" style="font-size:0.72rem;color:var(--ink-muted);">読み込み中…</span>
+                <span class="hit-trans-loading" style="font-size:var(--s-ts-xs);color:var(--s-text-hint);">読み込み中…</span>
             </div>
         </div>
         <div class="hit-footer">
@@ -3962,7 +4031,16 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         transText.classList.add('visible');
     })();
 
-
+    // ギリシャ語スニペット展開トグル（日本語クエリ時のみ表示）
+    const greekToggle = card.querySelector('.hit-greek-toggle');
+    const greekSnippet = card.querySelector('.hit-snippet');
+    if(greekToggle && greekSnippet){
+        greekToggle.addEventListener('click', function(){
+            const open = greekSnippet.classList.toggle('open');
+            greekToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            greekToggle.textContent = (open ? '▾ ' : '▸ ') + 'ギリシャ語原文を見る';
+        });
+    }
 
     return card;
 }
@@ -4491,32 +4569,48 @@ function _initMorphChips(){
 }
 
 /* ============================================================
-   Mobile panel toggle
+   Advanced panel toggle (詳細オプション開閉)
    ============================================================ */
-function _toggleMobilePanel(){
-    const panel = document.querySelector('.search-panel');
-    const overlay = document.getElementById('mobile-overlay');
-    const fab = document.getElementById('mobile-fab');
-    const icon = document.getElementById('mobile-fab-icon');
-    const isOpen = panel.classList.contains('mobile-open');
-    if(isOpen){ _closeMobilePanel(); }
-    else {
-        panel.classList.add('mobile-open');
-        overlay.classList.add('visible');
-        fab.classList.add('panel-open');
-        icon.textContent = 'close';
-    }
+function _toggleAdvanced(){
+    const panel = document.getElementById('s-advanced-panel');
+    const btn   = document.getElementById('s-advanced-toggle');
+    if(!panel||!btn) return;
+    const isOpen = panel.classList.contains('open');
+    panel.classList.toggle('open', !isOpen);
+    panel.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
+    btn.classList.toggle('open', !isOpen);
+    btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
 }
-function _closeMobilePanel(){
-    const panel = document.querySelector('.search-panel');
-    const overlay = document.getElementById('mobile-overlay');
-    const fab = document.getElementById('mobile-fab');
-    const icon = document.getElementById('mobile-fab-icon');
-    panel.classList.remove('mobile-open');
-    overlay.classList.remove('visible');
-    fab.classList.remove('panel-open');
-    icon.textContent = 'search';
-}
+
+/* ============================================================
+   Mobile panel toggle (廃止 — 検索パネルは常時表示)
+   ============================================================ */
+function _toggleMobilePanel(){ /* no-op: FAB廃止 */ }
+function _closeMobilePanel(){ /* no-op: ドロワー廃止 */ }
+
+/* ============================================================
+   Scroll-aware sticky header (ミニ検索バー)
+   ============================================================ */
+(function(){
+    let ticking = false;
+    window.addEventListener('scroll', function(){
+        if(ticking) return;
+        ticking = true;
+        requestAnimationFrame(function(){
+            const header = document.getElementById('s-header');
+            const mini   = document.getElementById('s-mini-search');
+            if(!header) { ticking=false; return; }
+            const scrolled = window.scrollY > 100;
+            header.classList.toggle('scrolled', scrolled);
+            if(mini){
+                const inp = document.getElementById('unified-search-input');
+                const val = inp ? inp.value.trim() : '';
+                mini.textContent = val ? `「${val}」を検索中` : '検索する';
+            }
+            ticking = false;
+        });
+    }, { passive: true });
+})();
 
 init();
 
