@@ -709,8 +709,12 @@ pointer-events: auto;
     }
     #mobile-verse-area .mvv-app-lem {
         font-size: var(--text-caption);
-        color: var(--text-sub);
+        color: var(--text-main);
         margin-bottom: var(--space-xs);
+    }
+    #mobile-verse-area .mvv-app-lem-gr {
+        color: var(--text-sub);
+        font-size: calc(var(--text-caption) * 0.9);
     }
     #mobile-verse-area .mvv-app-rdg {
         display: flex;
@@ -13604,6 +13608,8 @@ let _apparatusJaData       = null;  // apparatus-ja.json キャッシュ（失�
 let _apparatusJaLoadP      = null;  // 進行中 fetch Promise
 let _apparatusJaAllData    = null;  // 4データセット統合キャッシュ（失敗時は null のまま）
 let _apparatusJaAllLoadP   = null;  // 進行中 fetch Promise
+let _apparatusLemJaData    = null;  // apparatus-lem-ja.json キャッシュ（失敗時は null のまま）
+let _apparatusLemJaLoadP   = null;  // 進行中 fetch Promise
 
 async function _ensureWallacePipeline() {
     if (_wallacePipeline || _wallacePipelineFailed) return _wallacePipeline;
@@ -14923,6 +14929,18 @@ async function _loadApparatusJaAllData() {
     return _apparatusJaAllLoadP;
 }
 
+/** apparatus-lem-ja.json を fetch して語句日本語マッピングを返す。
+ *  失敗時は null を返す（静寂優先）。 */
+async function _loadApparatusLemJaData() {
+    if (_apparatusLemJaData) return _apparatusLemJaData;
+    if (_apparatusLemJaLoadP) return _apparatusLemJaLoadP;
+    _apparatusLemJaLoadP = fetch('../assets/data/apparatus-lem-ja.json')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { _apparatusLemJaData = d; return d; })
+        .catch(() => null);
+    return _apparatusLemJaLoadP;
+}
+
 /** apparatus-ja の tag 値 → 日本語話者向け表示ラベルのマッピング。
  *  データ側の tag 値は変更しない。表示層でのみ変換する。 */
 const _APPARATUS_TAG_LABELS = {
@@ -14938,12 +14956,16 @@ const _APPARATUS_TAG_LABELS = {
 
 /** apparatus entries を <div class="mvv-apparatus-entries"> に変換する。
  *  jaEntries は _loadApparatusJaAllData() の entries オブジェクト（省略可）。
+ *  lemJaEntries は _loadApparatusLemJaData() の entries オブジェクト（省略可）。
  *  status='確認済み' → mvv-app-anno、status='自動生成' → mvv-app-anno mvv-app-anno--auto で表示。
  *  status='保留' および未知のステータスは表示しない（静寂優先）。 */
-function _buildApparatusHTML(entries, jaEntries) {
+function _buildApparatusHTML(entries, jaEntries, lemJaEntries) {
     if (!entries || !entries.length) return '';
     const parts = entries.map(e => {
-        const lemHtml = `<div class="mvv-app-lem">${_escH(e.lemText)}</div>`;
+        const lemJa = lemJaEntries && lemJaEntries[e.id];
+        const lemHtml = lemJa
+            ? `<div class="mvv-app-lem">${_escH(lemJa)}<span class="mvv-app-lem-gr">（${_escH(e.lemText)}）</span></div>`
+            : `<div class="mvv-app-lem">${_escH(e.lemText)}</div>`;
         const ja = jaEntries && jaEntries[e.id];
         const isConfirmed = ja && ja.status === '確認済み' && ja.tag && ja.ja;
         const isAuto      = ja && ja.status === '自動生成' && ja.tag && ja.ja;
@@ -14974,7 +14996,7 @@ function _buildApparatusHTML(entries, jaEntries) {
  */
 async function _fillApparatusSection(bookKey, ch, vNum, area) {
     const myGen = ++_apparatusNoteGen;
-    const [data, jaData] = await Promise.all([_loadApparatusData(), _loadApparatusJaAllData()]);
+    const [data, jaData, lemJaData] = await Promise.all([_loadApparatusData(), _loadApparatusJaAllData(), _loadApparatusLemJaData()]);
     if (myGen !== _apparatusNoteGen) return;
     if (!data) return;
     const verseKey = `${bookKey} ${ch}:${vNum}`;
@@ -14982,7 +15004,8 @@ async function _fillApparatusSection(bookKey, ch, vNum, area) {
     if (!idxs || !idxs.length) return;
     const entries = idxs.map(i => data.entries[i]);
     const jaEntries = jaData && jaData.entries;
-    const html = _buildApparatusHTML(entries, jaEntries);
+    const lemJaEntries = lemJaData && lemJaData.entries;
+    const html = _buildApparatusHTML(entries, jaEntries, lemJaEntries);
     if (!html) return;
     const slot = area && area.querySelector('#wlv-apparatus-slot');
     if (!slot) return;
