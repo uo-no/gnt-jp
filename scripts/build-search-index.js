@@ -19,11 +19,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-const ROOT = path.resolve(__dirname, '..');
 const argValue = (name, fallback) => {
     const i = process.argv.indexOf(name);
     return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 };
+const ROOT = path.resolve(argValue('--root', path.resolve(__dirname, '..')));
 const firstExisting = (candidates, label) => {
     const found = candidates.find(p => fs.existsSync(p));
     if (!found) throw new Error(`Cannot locate ${label}. Checked:\n${candidates.join('\n')}`);
