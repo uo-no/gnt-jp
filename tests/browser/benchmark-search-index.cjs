@@ -38,7 +38,9 @@ async function measure(mode) {
     const context = await browser.newContext();
     const page = await context.newPage();
     const consoleLines = [];
+    const failedResponses = [];
     page.on('console', msg => consoleLines.push(msg.text()));
+    page.on('response', res => { if (res.status() >= 400) failedResponses.push({ status: res.status(), url: res.url() }); });
     if (mode === 'fallback') {
       await page.route('**/search-index/meta.json', route => route.fulfill({ status:404, body:'forced fallback benchmark' }));
     }
@@ -62,7 +64,7 @@ async function measure(mode) {
       approximateHeapMiB:stats.heapBytes == null ? null : +(stats.heapBytes / 1048576).toFixed(1),
       indexRequests:index.length, indexMiB:+(index.reduce((s,r)=>s+r.bytes,0)/1048576).toFixed(1),
       sourceJsonRequests:source.length,
-      consoleTail:consoleLines.slice(-30),
+      consoleTail:consoleLines.slice(-50), failedResponses,
       loaderConfirmed:mode === 'prebuilt'
         ? consoleLines.some(s=>/prebuilt.*ready|ready.*prebuilt/i.test(s))
         : consoleLines.some(s=>/browser builder|fallback|building.*index/i.test(s))
