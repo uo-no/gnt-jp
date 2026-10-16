@@ -171,8 +171,25 @@ for (const corpus of ['NT', 'LXX']) {
         for (const text of bookTexts) {
             if (Object.hasOwn(value.textToJp, text)) textToJp[text] = value.textToJp[text];
         }
+        const japanesePartial = Object.create(null);
+        for (const tok of tokens) {
+            const jpVals = tok.japanese ? (Array.isArray(tok.japanese) ? tok.japanese : [tok.japanese]) : (tok.gloss ? [tok.gloss] : []);
+            const seenForToken = new Set();
+            for (const value of jpVals) {
+                if (typeof value !== 'string' || !value) continue;
+                const maxLen = Math.min(value.length, 8);
+                for (let start = 0; start < value.length; start++) {
+                    for (let length = 1; length <= maxLen - start; length++) {
+                        const term = value.slice(start, start + length);
+                        if (seenForToken.has(term)) continue;
+                        seenForToken.add(term);
+                        (japanesePartial[term] || (japanesePartial[term] = [])).push(tok.globalIdx);
+                    }
+                }
+            }
+        }
         const shard = {
-            schemaVersion: 2,
+            schemaVersion: 3,
             sourceVersion: version,
             corpus,
             bookKey,
@@ -186,6 +203,7 @@ for (const corpus of ['NT', 'LXX']) {
                 strong: sliceMap(value.strong),
                 morph: sliceMap(value.morph),
                 textToJp,
+                japanesePartial,
             },
         };
         const dir = path.join(outDir, corpus.toLowerCase());
@@ -206,7 +224,7 @@ for (const corpus of ['NT', 'LXX']) {
     }
 }
 const meta = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     sourceVersion: version,
     generatedAt: new Date().toISOString(),
     booksSource: path.relative(ROOT, booksPath),
@@ -219,7 +237,7 @@ const meta = {
         NT: { tokenCount: indexes.NT.tokens.length, books: corpusMeta.NT },
         LXX: { tokenCount: indexes.LXX.tokens.length, books: corpusMeta.LXX },
     },
-    japanesePartialIndex: 'intentionally omitted in schema v2; preserve current runtime fallback until separately benchmarked',
+    japanesePartialIndex: 'prebuilt per-book postings; same substring-length semantics as the runtime index',
 };
 fs.writeFileSync(path.join(outDir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
 console.log(`[search-index] complete: ${chapterCount.toLocaleString()} chapters, ${tokenCount.toLocaleString()} tokens, source ${version}; raw ${mib(totalRawBytes)}, gzip ${mib(totalGzipBytes)}`);

@@ -41,6 +41,7 @@ function equalIds(label, actual, expected) {
 const greekQueries = ['ἀγάπη', 'Ἰησοῦς', 'λόγος', 'ἐν'];
 const strongQueries = ['G25', 'G3056', 'G2316'];
 const morphQueries = ['V-PAM-2P', 'V-PAI-3S', 'N-NSM'];
+const japaneseQueries = ['神', '書', '愛', '起源'];
 const phrases = [['ἐν', 'ἀρχή'], ['Ἰησοῦς', 'Χριστός']];
 let checks = 0;
 
@@ -50,6 +51,16 @@ for (const corpus of ['NT', 'LXX']) {
   const put = (map, key, id) => { if (!map.has(key)) map.set(key, []); map.get(key).push(id); };
   const greekNorms = new Map(greekQueries.map(q => [q, normalizeGreek(q)]));
   const phraseWords = new Set(phrases.flat().map(normalizeGreek));
+  const hasRuntimeJapanesePartial = (value, query) => {
+    if (typeof value !== 'string' || !value) return false;
+    const maxLen = Math.min(value.length, 8);
+    for (let start = 0; start < value.length; start++) {
+      for (let length = 1; length <= maxLen - start; length++) {
+        if (value.slice(start, start + length) === query) return true;
+      }
+    }
+    return false;
+  };
 
   // One streaming pass: compute reference scan results and collect generated postings.
   for (const book of meta.corpora[corpus].books) {
@@ -66,6 +77,8 @@ for (const corpus of ['NT', 'LXX']) {
         if (normalizeStrong(tok.strong) === normalizeStrong(q)) put(expected, 'strong:' + q, tok.globalIdx);
       }
       for (const q of morphQueries) if (tok.morph === q) put(expected, 'morph:' + q, tok.globalIdx);
+      const jpVals = tok.japanese ? (Array.isArray(tok.japanese) ? tok.japanese : [tok.japanese]) : (tok.gloss ? [tok.gloss] : []);
+      for (const q of japaneseQueries) if (jpVals.some(value => hasRuntimeJapanesePartial(value, q))) put(expected, 'japanese:' + q, tok.globalIdx);
       const lemmaKey = normalizeGreek(tok.lemma || tok.text);
       if (phraseWords.has(lemmaKey)) put(expected, 'phraseword:' + lemmaKey, tok.globalIdx);
     }
@@ -80,12 +93,14 @@ for (const corpus of ['NT', 'LXX']) {
     }
     for (const q of strongQueries) for (const id of (shard.index.strong[normalizeStrong(q)] || [])) put(actual, 'strong:' + q, id);
     for (const q of morphQueries) for (const id of (shard.index.morph[q] || [])) put(actual, 'morph:' + q, id);
+    for (const q of japaneseQueries) for (const id of (shard.index.japanesePartial[q] || [])) put(actual, 'japanese:' + q, id);
     for (const word of phraseWords) for (const id of (shard.index.lemma[word] || [])) put(actual, 'phraseword:' + word, id);
   }
 
   for (const q of greekQueries) { equalIds(corpus + ' Greek/lemma query ' + q, actual.get('greek:' + q) || [], expected.get('greek:' + q) || []); checks++; }
   for (const q of strongQueries) { equalIds(corpus + ' Strong query ' + q, actual.get('strong:' + q) || [], expected.get('strong:' + q) || []); checks++; }
   for (const q of morphQueries) { equalIds(corpus + ' morphology query ' + q, actual.get('morph:' + q) || [], expected.get('morph:' + q) || []); checks++; }
+  for (const q of japaneseQueries) { equalIds(corpus + ' Japanese partial query ' + q, actual.get('japanese:' + q) || [], expected.get('japanese:' + q) || []); checks++; }
   for (const phrase of phrases) {
     const first = expected.get('phraseword:' + normalizeGreek(phrase[0])) || [];
     const nextSets = phrase.slice(1).map(q => new Set(expected.get('phraseword:' + normalizeGreek(q)) || []));

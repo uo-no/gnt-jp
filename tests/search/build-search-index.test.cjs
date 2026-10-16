@@ -38,7 +38,7 @@ try {
     const nt = JSON.parse(fs.readFileSync(path.join(out, 'nt/MAT.json'), 'utf8'));
     const lxx = JSON.parse(fs.readFileSync(path.join(out, 'lxx/GEN.json'), 'utf8'));
 
-    assert.equal(meta.schemaVersion, 2);
+    assert.equal(meta.schemaVersion, 3);
     assert.equal(meta.chapterCount, 2);
     assert.equal(meta.tokenCount, 3);
     assert.equal(nt.tokenCount, 2);
@@ -60,9 +60,12 @@ try {
     assert.deepEqual(nt.index.text['Βίβλος'], [0]);
     assert.deepEqual(nt.index.text['βιβλοσ'], [0]);
     assert.deepEqual(nt.index.textToJp['Βίβλος'], '書物');
+    assert.deepEqual(nt.index.japanesePartial['書物'], [0]);
+    assert.deepEqual(nt.index.japanesePartial['書'], [0]);
+    assert.deepEqual(lxx.index.japanesePartial['神'], [2]);
     for (const shard of [nt, lxx]) {
         assert.equal(shard.tokens.length, shard.tokenCount);
-        for (const key of ['lemma', 'text', 'strong', 'morph']) {
+        for (const key of ['lemma', 'text', 'strong', 'morph', 'japanesePartial']) {
             for (const [term, postings] of Object.entries(shard.index[key])) {
                 assert.ok(Array.isArray(postings), `${shard.bookKey} ${key}:${term} must be an array`);
                 assert.ok(postings.every(idx => idx >= shard.globalIdxStart && idx <= shard.globalIdxEnd),
@@ -86,7 +89,7 @@ try {
     assert.notEqual(failed.status, 0);
     assert.match(failed.stderr, /missing\/invalid chapter files/);
 
-    console.log('PASS: generated corpus split, postings, globalIdx continuity, normalization, and missing-data guard');
+    console.log('PASS: generated corpus split, Greek/Japanese postings, globalIdx continuity, normalization, and missing-data guard');
 } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
 }

@@ -1891,6 +1891,7 @@ const SEARCH_INDEX = {
 };
 const TEXT_TO_JP       = new Map();
 const JP_PARTIAL_INDEX = new Map();
+const JP_PARTIAL_PREBUILT_CORPORA = new Set();
 /* IDX.ready: NT27書のfetch・索引化が完了したことを示すフラグ。
    LXXはバックグラウンド構築（IDX.ready=true後に開始）。
    IDX.l3Ready: NT+LXX全書物のfetch・索引化および日本語インデックス構築が完了したフラグ。
@@ -2169,6 +2170,11 @@ function _logBuildPhaseTimings(timings){
     console.groupEnd();
 }
 async function _buildL3Background(){
+    if(JP_PARTIAL_PREBUILT_CORPORA.has('NT')&&JP_PARTIAL_PREBUILT_CORPORA.has('LXX')){
+        IDX.l3Ready=true;
+        console.info('[search-index] Japanese partial index prebuilt ready');
+        return;
+    }
     const BATCH=500;
     let offset=0;
     const tokens=ALL_TOKENS;
@@ -2196,7 +2202,7 @@ async function _loadPrebuiltMeta(){
             const res=await fetch('../search-index/meta.json');
             if(!res.ok)throw new Error('prebuilt search index meta unavailable');
             const meta=await res.json();
-            if(meta.schemaVersion!==2||!meta.sourceVersion||!meta.corpora?.NT?.books||!meta.corpora?.LXX?.books){
+            if(meta.schemaVersion!==3||!meta.sourceVersion||!meta.corpora?.NT?.books||!meta.corpora?.LXX?.books){
                 throw new Error('unsupported prebuilt index metadata');
             }
             return meta;
@@ -2230,10 +2236,10 @@ async function _fetchPrebuiltCorpus(corpus){
            data.globalIdxEnd!==data.globalIdxStart+data.tokens.length-1){
             throw new Error(`prebuilt ${corpus} shard globalIdx metadata invalid: ${book.bookKey}`);
         }
-        for(const key of ['lemma','text','strong','morph','textToJp']){
+        for(const key of ['lemma','text','strong','morph','textToJp','japanesePartial']){
             if(!data.index[key]||typeof data.index[key]!=='object')throw new Error(`prebuilt ${corpus} shard missing ${key}`);
         }
-        for(const key of ['lemma','text','strong','morph']){
+        for(const key of ['lemma','text','strong','morph','japanesePartial']){
             for(const [term,arr] of Object.entries(data.index[key])){
                 if(!Array.isArray(arr)||arr.some(idx=>!Number.isInteger(idx)||idx<data.globalIdxStart||idx>data.globalIdxEnd)){
                     throw new Error(`prebuilt ${corpus} invalid postings for ${key}:${term}`);
@@ -2271,6 +2277,12 @@ function _mergePrebuiltCorpus(data){
     for(const [key,value] of Object.entries(data.index.textToJp)){
         if(!TEXT_TO_JP.has(key))TEXT_TO_JP.set(key,value);
     }
+    for(const [term,arr] of Object.entries(data.index.japanesePartial)){
+        let current=JP_PARTIAL_INDEX.get(term);
+        if(!current){current=new Set();JP_PARTIAL_INDEX.set(term,current);}
+        for(const idx of arr)current.add(idx);
+    }
+    JP_PARTIAL_PREBUILT_CORPORA.add(data.corpus);
     /* lemmaIndex and morphIndex are materialized directly from generated postings. */
     if(!window.lemmaIndex)window.lemmaIndex=new Map();
     for(const [key,arr] of Object.entries(data.index.lemma)){
