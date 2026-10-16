@@ -47,7 +47,7 @@ function _escH(s) {
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function _buildApparatusHTML(entries, jaEntries, lemJaEntries) {
+function _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries) {
     if (!entries || !entries.length) return '';
     const _rdgNums = ['①', '②', '③', '④'];
     const parts = entries.map(e => {
@@ -65,13 +65,19 @@ function _buildApparatusHTML(entries, jaEntries, lemJaEntries) {
             : isAuto
             ? `<div class="mvv-app-anno mvv-app-anno--auto"><span class="mvv-app-tag">${_escH(ja.tag)}</span>${jaSpan}</div>`
             : '';
+        const entryRdgJa = rdgJaEntries && rdgJaEntries[e.id];
         const rdgHtml = e.readings.map((r, idx) => {
             const numHtml = e.readings.length >= 2
                 ? `<span class="mvv-app-rdg-num">${_rdgNums[idx] || (idx + 1)}</span>`
                 : '';
-            const text = r.isOmission ? '（省略）' : _escH(r.text || '');
+            const rdgJa = !r.isOmission && entryRdgJa && entryRdgJa[String(idx)];
+            const textInner = r.isOmission
+                ? '（省略）'
+                : rdgJa
+                ? `${_escH(rdgJa)}<span class="mvv-app-rdg-gr">（${_escH(r.text || '')}）</span>`
+                : _escH(r.text || '');
             const wit  = _escH((r.witnesses || []).join(' · '));
-            return `<div class="mvv-app-rdg">${numHtml}<span class="mvv-app-rdg-text">${text}</span><span class="mvv-app-rdg-wit">${wit}</span></div>`;
+            return `<div class="mvv-app-rdg">${numHtml}<span class="mvv-app-rdg-text">${textInner}</span><span class="mvv-app-rdg-wit">${wit}</span></div>`;
         }).join('');
         return `<div class="mvv-app-entry">${lemHtml}${annoHtml}${rdgHtml}</div>`;
     });
@@ -247,6 +253,57 @@ const fakeEntry = {
     }
 }
 
+// ── 15. rdgJaEntries あり → 読みに日本語ラベル（ギリシャ語）形式 ────────────────
+{
+    const woEntry = {
+        id: 'ROM-0001', lemText: 'Χριστοῦ Ἰησοῦ',
+        readings: [
+            { text: 'Χριστοῦ Ἰησοῦ', witnesses: ['Treg', 'NIV'] },
+            { text: 'Ἰησοῦ Χριστοῦ', witnesses: ['WH', 'RP'] },
+        ],
+    };
+    const rdgJa = { 'ROM-0001': { '0': 'キリスト・イエス', '1': 'イエス・キリスト' } };
+    const h = _buildApparatusHTML([woEntry], null, null, rdgJa);
+    check('RDGJA_LABEL_R0', h.includes('キリスト・イエス'), `reading[0] ja not found: ${h.slice(0,300)}`);
+    check('RDGJA_LABEL_R1', h.includes('イエス・キリスト'), `reading[1] ja not found: ${h.slice(0,300)}`);
+    check('RDGJA_GR_SPAN_PRESENT', h.includes('mvv-app-rdg-gr'), `mvv-app-rdg-gr not found: ${h.slice(0,300)}`);
+    check('RDGJA_GREEK_IN_GR_SPAN', h.includes('（Χριστοῦ Ἰησοῦ）'), `Greek not in gr span: ${h.slice(0,300)}`);
+    check('RDGJA_NUM1_SHOWN', h.includes('①'), `① missing: ${h.slice(0,300)}`);
+    check('RDGJA_NUM2_SHOWN', h.includes('②'), `② missing: ${h.slice(0,300)}`);
+}
+
+// ── 16. rdgJaEntries なし → ギリシャ語のみ（gr span なし）─────────────────────
+{
+    const entry = {
+        id: 'MAT-0099', lemText: 'ἄλλος',
+        readings: [
+            { text: 'ἄλλος', witnesses: ['WH'] },
+            { text: 'ἕτερος', witnesses: ['RP'] },
+        ],
+    };
+    const h = _buildApparatusHTML([entry], null, null, null);
+    check('RDGJA_NULL_NO_GR_SPAN', !h.includes('mvv-app-rdg-gr'), `gr span should be absent: ${h.slice(0,200)}`);
+    check('RDGJA_NULL_GREEK_SHOWN', h.includes('ἄλλος'), `Greek text missing: ${h.slice(0,200)}`);
+}
+
+// ── 17. isOmission の reading に rdgJa があっても（省略）を表示 ─────────────────
+{
+    const omitEntry = {
+        id: 'MAT-0001', lemText: 'τοῦ',
+        readings: [
+            { text: 'τοῦ', witnesses: ['WH'] },
+            { text: '', isOmission: true, witnesses: ['RP'] },
+        ],
+    };
+    const rdgJa = { 'MAT-0001': { '0': '冠詞' } };
+    const h = _buildApparatusHTML([omitEntry], null, null, rdgJa);
+    check('RDGJA_OMISSION_SHOWS_PAREN', h.includes('（省略）'), `（省略）not shown: ${h.slice(0,200)}`);
+    // （省略）の直後に mvv-app-rdg-gr span が続かないことを確認（省略行に gr span なし）
+    check('RDGJA_OMISSION_NO_GR_SPAN',
+        !h.includes('（省略）<span class="mvv-app-rdg-gr"'),
+        `gr span appeared for omission: ${h.slice(0,200)}`);
+}
+
 // ── 静的ソース監査: CSS / JS ─────────────────────────────────────────────────
 
 // 11. CSS: .mvv-app-anno--auto .mvv-app-tag が font-style: italic で定義されている
@@ -302,6 +359,26 @@ check('SOURCE_JASPAN_PRESENT',
 check('SOURCE_STARTSWITH_WORDORDER',
     html.includes("startsWith('語順: ')"),
     "startsWith('語順: ') not found in _buildApparatusHTML source");
+
+// 19. _loadApparatusRdgJaData 関数が index.html に存在する
+check('SOURCE_LOAD_RDG_JA_FUNCTION',
+    html.includes('async function _loadApparatusRdgJaData()'),
+    '_loadApparatusRdgJaData function not found in index.html');
+
+// 20. _apparatusRdgJaData 状態変数が index.html に存在する
+check('SOURCE_RDG_JA_STATE_VAR',
+    html.includes('_apparatusRdgJaData'),
+    '_apparatusRdgJaData state var not found in index.html');
+
+// 21. _buildApparatusHTML に rdgJaEntries パラメータが存在する
+check('SOURCE_RDGJA_PARAM',
+    html.includes('function _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries)'),
+    'rdgJaEntries param not found in _buildApparatusHTML');
+
+// 22. CSS: .mvv-app-rdg-gr が index.html に定義されている
+check('CSS_RDG_GR_CLASS',
+    html.includes('.mvv-app-rdg-gr'),
+    '.mvv-app-rdg-gr CSS not found in index.html');
 
 // ── 結果出力 ─────────────────────────────────────────────────────────────────
 console.log('\n=== re-apparatus-display-regression ===');
