@@ -283,12 +283,32 @@ async function withMobilePage(browser, name, fn) {
     await withMobilePage(browser, 'L4-5', async (page) => {
         await page.goto(`${BASE}/search-tool.html`);
         await page.waitForLoadState('domcontentloaded');
-        const btn = await page.$('#s-advanced-toggle');
-        if (!btn) { fail('L4-5', '#s-advanced-toggle not found'); return; }
-        await btn.click();
-        const isOpen = await page.$eval('#s-advanced-panel', el => el.classList.contains('open'));
-        if (!isOpen) { fail('L4-5', '詳細パネルが開かない'); return; }
-        pass('L4-5', '詳細オプションが s-advanced-toggle タップで展開');
+        const toggle = await page.$('#s-advanced-toggle');
+        if (toggle) { fail('L4-5', '詳細オプショントグルが残っている'); return; }
+        const filters = page.locator('#search-filters');
+        const initiallyHidden = await filters.evaluate(el => getComputedStyle(el).display === 'none');
+        if (!initiallyHidden) { fail('L4-5', '空欄時に絞り込み提案が表示されている'); return; }
+        await page.fill('#unified-search-input', 'λόγος');
+        const single = await filters.evaluate(el => ({
+            visible: getComputedStyle(el).display !== 'none',
+            mode: el.classList.contains('single-word'),
+            morph: getComputedStyle(document.getElementById('morph-sub')).display !== 'none',
+            prox: getComputedStyle(document.getElementById('prox-sub')).display !== 'none'
+        }));
+        if (!single.visible || !single.mode || !single.morph || single.prox) {
+            fail('L4-5', `単語1語の絞り込み表示が不正: ${JSON.stringify(single)}`); return;
+        }
+        await page.fill('#unified-search-input', 'λόγος θεοῦ');
+        const multi = await filters.evaluate(el => ({
+            visible: getComputedStyle(el).display !== 'none',
+            mode: el.classList.contains('multi-word'),
+            morph: getComputedStyle(document.getElementById('morph-sub')).display !== 'none',
+            prox: getComputedStyle(document.getElementById('prox-sub')).display !== 'none'
+        }));
+        if (!multi.visible || !multi.mode || multi.morph || !multi.prox) {
+            fail('L4-5', `複数語の絞り込み表示が不正: ${JSON.stringify(multi)}`); return;
+        }
+        pass('L4-5', '空欄は非表示、1語は品詞・語形、複数語は近接距離を提案');
     });
 
     await withPage(browser, 'L4-7', async (page) => {
@@ -416,9 +436,9 @@ async function withMobilePage(browser, name, fn) {
         await page.goto(`${BASE}/search-tool.html`);
         await page.waitForFunction(() => typeof IDX !== 'undefined' && IDX.ready, { timeout: 30000 });
         await page.screenshot({ path: `${SP}/04-mobile-lobby.png`, fullPage: false });
-        // Advanced toggle
-        await page.click('#s-advanced-toggle');
-        await page.screenshot({ path: `${SP}/05-mobile-advanced-open.png`, fullPage: false });
+        // Query-aware filter suggestions
+        await page.fill('#unified-search-input', 'λόγος θεοῦ');
+        await page.screenshot({ path: `${SP}/05-mobile-multiword-filters.png`, fullPage: false });
         pass('SS-mobile', 'モバイルスクリーンショット完了');
     });
 
