@@ -18,6 +18,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const zlib = require('node:zlib');
 
 const argValue = (name, fallback) => {
     const i = process.argv.indexOf(name);
@@ -158,7 +159,10 @@ for (const corpus of ['NT', 'LXX']) {
             textToJp: value.textToJp,
         },
     }));
-    console.log(`[search-index] wrote ${path.relative(ROOT, file)}: ${value.tokens.length.toLocaleString()} tokens`);
+    const rawBytes = fs.statSync(file).size;
+    const gzipBytes = zlib.gzipSync(fs.readFileSync(file), { level: 9 }).length;
+    const mib = bytes => (bytes / (1024 * 1024)).toFixed(2) + ' MiB';
+    console.log(`[search-index] wrote ${path.relative(ROOT, file)}: ${value.tokens.length.toLocaleString()} tokens; raw ${mib(rawBytes)}, gzip estimate ${mib(gzipBytes)}`);
 }
 const meta = {
     schemaVersion: 1,
