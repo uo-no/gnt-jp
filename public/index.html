@@ -4065,6 +4065,76 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
     margin-bottom: 0;
 }
 
+/* PC StudyPanel: 本文批評欄。モバイル専用の視覚指定を流用せず、PC側に独立して適用する。 */
+#word-list-view .study-panel-apparatus-note {
+    display: block;
+    flex-shrink: 0;
+    margin: 0 var(--rhythm-macro-min) var(--space-sm);
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid var(--border-soft);
+    color: var(--text-main);
+    font-size: var(--text-caption);
+}
+#word-list-view .study-panel-apparatus-note > summary {
+    cursor: pointer;
+    list-style: none;
+    color: var(--text-sub);
+    font-size: var(--text-caption);
+    user-select: none;
+}
+#word-list-view .study-panel-apparatus-note > summary::-webkit-details-marker { display: none; }
+#word-list-view .study-panel-apparatus-note > summary::after {
+    content: '+';
+    float: right;
+    color: var(--text-sub);
+}
+#word-list-view .study-panel-apparatus-note[open] > summary::after { content: '−'; }
+#word-list-view .study-panel-apparatus-note .mvv-apparatus-entries { padding-top: var(--space-sm); }
+#word-list-view .study-panel-apparatus-note .mvv-app-entry {
+    padding: var(--space-xs) 0;
+    border-bottom: 1px solid var(--border-soft);
+}
+#word-list-view .study-panel-apparatus-note .mvv-app-entry:last-child { border-bottom: 0; }
+#word-list-view .study-panel-apparatus-note .mvv-app-lem {
+    margin-bottom: var(--space-xs);
+    color: var(--text-main);
+}
+#word-list-view .study-panel-apparatus-note .mvv-app-lem-gr,
+#word-list-view .study-panel-apparatus-note .mvv-app-rdg-gr,
+#word-list-view .study-panel-apparatus-note .mvv-app-rdg-wit {
+    color: var(--text-sub);
+    font-size: calc(var(--text-caption) * 0.9);
+}
+#word-list-view .study-panel-apparatus-note .mvv-app-rdg {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-sm);
+    margin-bottom: 2px;
+}
+#word-list-view .study-panel-apparatus-note .mvv-app-rdg-num {
+    flex-shrink: 0;
+    width: 1.3em;
+    color: var(--text-sub);
+    font-size: calc(var(--text-caption) * 0.85);
+}
+#word-list-view .study-panel-apparatus-note .mvv-app-rdg-text { flex: 1; }
+#word-list-view .study-panel-apparatus-note .mvv-app-anno {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-xs);
+}
+#word-list-view .study-panel-apparatus-note .mvv-app-tag {
+    padding: 1px 4px;
+    border-radius: 2px;
+    background: var(--bg-soft, rgba(0,0,0,0.04));
+    color: var(--text-sub);
+    font-size: calc(var(--text-caption) * 0.85);
+}
+#word-list-view .study-panel-apparatus-note .mvv-app-anno--auto .mvv-app-tag { font-style: italic; }
+#word-list-view .study-panel-apparatus-note .mvv-app-ja { color: var(--text-sub); }
+
 .wlv-flow-section-compact {
     padding: var(--rhythm-macro-min) var(--rhythm-macro-min) 0;
     flex-shrink: 0;
@@ -8938,7 +9008,7 @@ function _studyPanelCompanionMode(transA) {
 
 /* WORD_ORDER → JA1955: 同期描画後に口語訳テキストを非同期注入する。
    _openWordListInternal / _mobileInspectorRender の描画完了後に fire-and-forget で呼ぶ。 */
-async function _fillStudyPanelTranslation(transId, vNum, bookKey, ch, container) {
+async function _fillStudyPanelTranslation(transId, vNum, bookKey, ch, container, words) {
     const data = await _fetchTranslation(transId, bookKey, String(ch));
     if (!data || !data.verses) return;
     const text = data.verses[String(vNum)];
@@ -8953,6 +9023,26 @@ async function _fillStudyPanelTranslation(transId, vNum, bookKey, ch, container)
     );
     container.innerHTML = renderColumn(rep);
     _wlvChipCache = [];
+    /* 口語訳で描画を置き換えても、PC版の読書メモ・本文批評欄を再配置する。 */
+    _ensureStudyPanelReadingSections(container, words, bookKey, ch, vNum);
+}
+
+/* PC版 StudyPanel の節読書メモ・本文批評欄を、描画後に必ず確保する。
+   mobile inspector の表示経路には介入しない。 */
+function _ensureStudyPanelReadingSections(container, words, bookKey, ch, vNum) {
+    if (!container) return;
+    let passageSlot = container.querySelector('#wlv-passage-note-slot');
+    if (!passageSlot) {
+        container.insertAdjacentHTML('afterbegin', '<div id="wlv-passage-note-slot"></div>');
+        passageSlot = container.querySelector('#wlv-passage-note-slot');
+    }
+    if (passageSlot && !container.querySelector('#wlv-apparatus-slot')) {
+        passageSlot.insertAdjacentHTML('afterend', '<div id="wlv-apparatus-slot"></div>');
+    }
+    _fillWallacePassageNote(words || [], container);
+    if (bookKey && ch != null && vNum != null) {
+        _fillApparatusSection(bookKey, ch, vNum, container);
+    }
 }
 
 /* 内部: 語形一覧を開く（depth stackは変えない） */
@@ -9031,14 +9121,16 @@ function _openWordListInternal(vNum, words, book, ch) {
             _wlvChipCache = (_vrRep && _vrRep.chips) ? _vrRep.chips : [];
             if (_spMode === 'JA1955') {
                 /* WORD_ORDER → JA1955: 語順を即時表示後、口語訳テキストで非同期上書き */
-                _fillStudyPanelTranslation('JA1955', vNum, _vrBookKey, _vrCh, listEl);
+                _fillStudyPanelTranslation('JA1955', vNum, _vrBookKey, _vrCh, listEl, words);
             }
         }
     }
     sidePanel.appendChild(listEl);
-    /* 節全体の読書メモ（ReadingFormatter駆動）を非同期に注入。
-       表示すべき内容が無ければ何も起きない（静寂優先）。 */
-    _fillWallacePassageNote(words, listEl);
+    /* PC版の節読書メモと本文批評欄を、通常表示・口語訳表示の両方で維持する。 */
+    const _noteBook = book || AppState.location.book;
+    const _noteBookKey = _noteBook ? _noteBook.key : '';
+    const _noteChapter = ch != null ? ch : (AppState.location.chapter != null ? AppState.location.chapter : null);
+    _ensureStudyPanelReadingSections(listEl, words, _noteBookKey, _noteChapter, vNum);
 
     /* モバイルナビバー・戻るボタン・スクロール調整 */
     const chapterLabel = vNum ? vNum + '節' : '';
@@ -15037,7 +15129,8 @@ async function _fillApparatusSection(bookKey, ch, vNum, area) {
     if (!html) return;
     const slot = area && area.querySelector('#wlv-apparatus-slot');
     if (!slot) return;
-    slot.outerHTML = `<details class="mvv-passage-note mvv-apparatus-note"><summary>本文の異読 <span class="mvv-app-count">${entries.length}</span></summary>${html}</details>`;
+    const desktopClass = area.id === 'word-list-view' ? ' study-panel-apparatus-note' : '';
+    slot.outerHTML = `<details class="mvv-passage-note mvv-apparatus-note${desktopClass}"><summary>本文の異読 <span class="mvv-app-count">${entries.length}</span></summary>${html}</details>`;
 }
 
 /**
