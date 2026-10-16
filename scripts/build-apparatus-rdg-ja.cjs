@@ -30,23 +30,32 @@ const APPARATUS_PATH = path.join(__dirname, '..', 'public', 'assets', 'data', 'a
 const MORPH_DIR      = path.join(__dirname, '..', 'public', 'morph-index', 'word');
 const OUT_PATH       = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-rdg-ja.json');
 
-// morph-index/word/*.json を全走査して ref → japanese のマップを構築
+// morph-index/word/ を再帰的に走査して ref → japanese のマップを構築
+// （単語によってはサブディレクトリ内の part_*.json に分割格納されている）
 console.log('Building ref → japanese map from morph-index/word/ ...');
 const refMap = {};
-const files = fs.readdirSync(MORPH_DIR).filter(f => f.endsWith('.json'));
 let fileCount = 0;
-for (const file of files) {
-    const data = JSON.parse(fs.readFileSync(path.join(MORPH_DIR, file), 'utf8'));
-    for (const entries of Object.values(data)) {
-        for (const e of entries) {
-            if (e.ref && e.japanese && e.japanese.trim()) {
-                refMap[e.ref] = e.japanese.trim();
+
+function readMorphDir(dir) {
+    const items = fs.readdirSync(dir, { withFileTypes: true });
+    for (const item of items) {
+        if (item.isDirectory()) {
+            readMorphDir(path.join(dir, item.name));
+        } else if (item.name.endsWith('.json') && item.name !== 'index.json') {
+            const data = JSON.parse(fs.readFileSync(path.join(dir, item.name), 'utf8'));
+            for (const entries of Object.values(data)) {
+                for (const e of entries) {
+                    if (e.ref && e.japanese && e.japanese.trim()) {
+                        refMap[e.ref] = e.japanese.trim();
+                    }
+                }
             }
+            fileCount++;
+            if (fileCount % 50 === 0) process.stdout.write(`  ${fileCount} files\r`);
         }
     }
-    fileCount++;
-    if (fileCount % 50 === 0) process.stdout.write(`  ${fileCount}/${files.length} files\r`);
 }
+readMorphDir(MORPH_DIR);
 console.log(`\nBuilt ref map: ${Object.keys(refMap).length} entries from ${fileCount} files`);
 
 // apparatus.json を読み込む
