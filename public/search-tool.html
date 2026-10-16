@@ -243,7 +243,7 @@ body {
 .s-results {
     max-width: var(--s-content-max);
     margin: 0 auto;
-    padding: var(--s-sp-5) var(--s-sp-5) var(--s-sp-8);
+    padding: var(--s-sp-5) var(--s-sp-5) calc(var(--s-sp-8) + env(safe-area-inset-bottom, 0px));
     width: 100%;
 }
 
@@ -259,16 +259,16 @@ body {
     align-items: flex-start;
     gap: 4px;
     padding-top: 6px;
-    height: 2.5rem;      /* 2行分を確保し高さを固定 — 状態変化で検索欄が動かない */
+    max-height: 2.5rem;  /* height → max-height: done 時にスムーズに折りたたむ */
     overflow: hidden;
     font-size: 0.72rem;
     color: var(--text-sub);
     opacity: 0.52;
     line-height: 1.5;
     letter-spacing: 0.01em;
-    transition: opacity 1.2s ease;
+    transition: opacity 1.2s ease, max-height 0.8s ease 0.4s;
 }
-.idx-status.done { opacity: 0; pointer-events: none; }
+.idx-status.done { opacity: 0; max-height: 0; pointer-events: none; }
 
 /* search-panel, container: 旧サイドバー構造（廃止 — 新レイアウトは .s-header/.s-search-block/.s-results）*/
 .search-panel { display: none !important; }
@@ -286,7 +286,7 @@ body {
     .s-search-block { padding: var(--s-sp-4) var(--s-sp-4) var(--s-sp-3); }
     .s-search-title { font-size: var(--s-ts-lg); text-align: left; }
     .s-advanced-panel { padding: 0 var(--s-sp-4); }
-    .s-results { padding: var(--s-sp-4) var(--s-sp-4) var(--s-sp-7); }
+    .s-results { padding: var(--s-sp-4) var(--s-sp-4) calc(var(--s-sp-7) + env(safe-area-inset-bottom, 0px)); }
     .s-search-divider { margin: 0 var(--s-sp-4); }
 }
 
@@ -362,6 +362,17 @@ body {
 .suggest-gr { font-family: 'Gentium Plus', serif; font-size: 1rem; color: var(--text-main); }
 .suggest-pos { font-size: 0.65rem; color: var(--text-sub); margin-left: 5px; opacity: 0.7; }
 .suggest-count { font-size: 0.65rem; color: var(--text-sub); white-space: nowrap; flex-shrink: 0; }
+/* 履歴アイテム（空欄フォーカス時） */
+.suggest-item.suggest-history { gap: 0; justify-content: space-between; }
+.s-h-query {
+    font-family: 'Gentium Plus', serif; font-size: 0.92rem;
+    color: var(--text-main); flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.s-h-layers {
+    font-size: 0.6rem; color: var(--text-sub);
+    opacity: 0.65; white-space: nowrap; flex-shrink: 0; margin-left: 8px;
+}
 
 
 /* ============================================================
@@ -398,7 +409,7 @@ body {
     font-size: 0.6rem; color: transparent;
 }
 .layer-check svg { width: 10px; height: 10px; display: block; }
-.layer-row.active-lemma  .layer-check { background: var(--lemma);  border-color: var(--lemma);  color: #fff; }
+.layer-row.active-lemma  .layer-check { background: var(--s-accent);  border-color: var(--s-accent);  color: #fff; }
 .layer-row.active-phrase .layer-check { background: var(--phrase); border-color: var(--phrase); color: #fff; }
 .layer-row.active-prox   .layer-check { background: var(--prox);   border-color: var(--prox);   color: #fff; }
 .layer-row.active-morph  .layer-check { background: var(--morph);  border-color: var(--morph);  color: #fff; }
@@ -548,7 +559,7 @@ body {
     font-size: 0.72rem; color: var(--text-sub);
 }
 .history-item:hover { background: var(--bg-panel); color: var(--text-main); }
-.history-badges { display: flex; gap: 3px; flex-shrink: 0; }
+.history-badges { display: none; }
 .h-badge {
     font-size: 0.52rem; font-weight: 700; padding: 1px 4px;
     border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase;
@@ -1494,11 +1505,6 @@ body {
 
 <!-- ═══════════════════════════ Search Block ═══════════════════════════ -->
 <div class="s-search-block" id="s-search-block">
-    <div class="idx-status" id="idx-pill">
-        <span id="idx-dot">○</span>
-        <span id="idx-label">準備中…</span>
-    </div>
-
     <div class="s-search-title logo-home-btn" onclick="_returnToLobby()" title="今日のみことばへ戻る">聖書原文検索</div>
 
     <!-- Search input -->
@@ -1515,6 +1521,12 @@ body {
 
     <!-- データ取得の警告 -->
     <div id="fetch-warning-panel" style="margin-top:8px;"></div>
+
+    <!-- Index status (入力欄の下: 準備中 → 完了後フェードアウト) -->
+    <div class="idx-status" id="idx-pill">
+        <span id="idx-dot">○</span>
+        <span id="idx-label">準備中…</span>
+    </div>
 
     <!-- Mode bar: lemma toggle + advanced toggle + SQS -->
     <div class="s-mode-bar" id="s-mode-bar">
@@ -3124,15 +3136,49 @@ function _showSuggest(suggestions){
     dd.appendChild(hint);
     dd.classList.add('open');
 }
+/* [T7] 空欄フォーカス時: 履歴を suggest-dropdown に表示する */
+function _renderHistoryInDropdown(){
+    const dd=document.getElementById('suggest-dropdown');
+    if(!dd)return;
+    dd.innerHTML='';
+    if(_history.length===0){dd.classList.remove('open');return;}
+    _history.slice(0,6).forEach(({query,layers})=>{
+        const item=document.createElement('div');
+        item.className='suggest-item suggest-history';
+        const layerLabels=['lemma','phrase','prox','morph']
+            .filter(l=>layers[l])
+            .map(l=>_BADGE_JP_HIST[l]||l).join(' · ');
+        item.innerHTML=`<span class="s-h-query">${_escH(query)}</span>`+
+            (layerLabels?`<span class="s-h-layers">${_escH(layerLabels)}</span>`:'');
+        item.addEventListener('mousedown',e=>{
+            e.preventDefault();
+            const inp=document.getElementById('unified-search-input');
+            inp.value=query;
+            /* レイヤー状態を履歴から復元 */
+            const h=_history.find(h=>h.query===query);
+            if(h)Object.keys(_layers).forEach(k=>{_layers[k]=!!h.layers[k];_syncLayerUI(k);});
+            dd.classList.remove('open');
+            unifiedSearch();
+        });
+        dd.appendChild(item);
+    });
+    dd.classList.add('open');
+}
 function _initSuggest(){
     const inp=document.getElementById('unified-search-input');
-    inp.addEventListener('input',()=>{
+    inp.addEventListener('input',(e)=>{
+        if(e.isComposing)return;  /* IME 確定前はスキップ */
         const val=inp.value.trim();
+        if(!val){_renderHistoryInDropdown();return;}
         const qtype=detectQueryType(val);
-        if(qtype!=='japanese'||!val){document.getElementById('suggest-dropdown').classList.remove('open');return;}
+        if(qtype!=='japanese'){document.getElementById('suggest-dropdown').classList.remove('open');return;}
         _showSuggest(_getSuggestions(val));
     });
-    inp.addEventListener('focus',()=>_renderEmptyStateHistory());
+    inp.addEventListener('focus',()=>{
+        const val=inp.value.trim();
+        if(!val){_renderHistoryInDropdown();}
+        else if(detectQueryType(val)==='japanese'){_showSuggest(_getSuggestions(val));}
+    });
     inp.addEventListener('blur',()=>{
         setTimeout(()=>document.getElementById('suggest-dropdown').classList.remove('open'),150);
         setTimeout(()=>{const s=document.getElementById('history-recent-section');if(s)s.style.display='none';},150);
@@ -3362,6 +3408,9 @@ function _renderHistory(){
         });
         list.appendChild(item);
     });
+    /* [T6] 履歴表示中は Discovery Lobby を非表示にする */
+    const lobby = document.getElementById('discovery-lobby');
+    if (lobby) lobby.hidden = true;
 }
 
 /* 空き状態の「最近の検索」チップ（最大5件） */
@@ -4274,7 +4323,8 @@ function _returnToLobby() {
     document.getElementById('state-loading').style.display = 'none';
     const es = document.getElementById('state-empty');
     es.style.display = 'flex';
-    document.getElementById('discovery-lobby').hidden = false;
+    /* [T6] 履歴がある場合は Lobby を表示しない */
+    document.getElementById('discovery-lobby').hidden = _history.length > 0;
     _renderEmptyStateHistory();
 }
 function _showEmpty(title,desc){
