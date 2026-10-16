@@ -46,7 +46,7 @@ async function measure(mode) {
     const start = Date.now();
     await page.evaluate(() => _ensureFullIndex());
     const ntReadyMs = Date.now() - start;
-    await page.waitForFunction(() => typeof ALL_TOKENS !== 'undefined' && ALL_TOKENS.length >= 617364 && IDX.l3Ready, { timeout:300000 });
+    await page.waitForFunction(() => typeof ALL_TOKENS !== 'undefined' && ALL_TOKENS.length >= 617364 && IDX.l3Ready, null, { timeout:300000 });
     const fullReadyMs = Date.now() - start;
     const stats = await page.evaluate(() => ({
       tokens:ALL_TOKENS.length,
