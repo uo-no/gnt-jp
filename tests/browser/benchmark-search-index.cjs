@@ -42,7 +42,7 @@ async function measure(mode) {
     if (mode === 'fallback') {
       await page.route('**/search-index/meta.json', route => route.fulfill({ status:404, body:'forced fallback benchmark' }));
     }
-    await page.goto('http://127.0.0.1:8765/search-tool.html', { waitUntil:'domcontentloaded', timeout:60000 });
+    await page.goto('http://127.0.0.1:8765/search-tool.html', { waitUntil:'load', timeout:60000 });
     const start = Date.now();
     await page.evaluate(() => _ensureFullIndex());
     const ntReadyMs = Date.now() - start;
