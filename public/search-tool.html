@@ -435,15 +435,54 @@ body {
 #layer-phrase, #phrase-sub { display: none !important; }
 
 /* ── Proximity distance sub-control ── */
+.search-filters {
+    max-width: var(--s-content-max);
+    margin: 0 auto;
+    padding: 0 var(--s-sp-5);
+    width: 100%;
+}
+.search-filters .morph-sub {
+    margin-top: 8px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 8px 0 0;
+}
+.search-filters .morph-section-label {
+    color: var(--text-sub);
+    opacity: 1;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    font-size: 0.68rem;
+}
+.search-filters .morph-chip {
+    border-radius: 6px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 0.68rem;
+    padding: 5px 9px;
+}
+.search-filters .morph-chip.selected {
+    background: var(--highlight);
+    border-color: var(--highlight);
+    color: #fff;
+}
+.search-filters .morph-hint {
+    color: var(--text-sub);
+    opacity: 0.7;
+}
+@media (max-width: 700px) {
+    .search-filters { padding: 0 var(--s-sp-4); }
+}
+
 .prox-sub {
     margin-top: 6px;
     padding: 10px 12px;
     background: rgba(255,255,255,0.62);
     border: 1px solid rgba(90,83,71,0.12);
     border-radius: 8px;
-    /* 詳細オプションを開いた時点で距離を調整できるよう常時表示 */
-    display: block;
+    display: none;
 }
+ .prox-sub.visible { display: block; }
 .prox-sub-row {
     display: flex; align-items: center; gap: 10px;
     margin-bottom: 8px;
@@ -487,7 +526,6 @@ body {
     background: rgba(255,255,255,0.62);
     border: 1px solid rgba(90,83,71,0.12);
     border-radius: 8px;
-    /* 詳細オプションを開いた時点で品詞・語形を選べるよう常時表示 */
     display: block;
 }
 .morph-section {
@@ -1537,12 +1575,6 @@ body {
 
     <!-- Mode bar: lemma toggle + advanced toggle + SQS -->
     <div class="s-mode-bar" id="s-mode-bar">
-        <!-- Advanced options toggle -->
-        <button class="s-advanced-toggle" id="s-advanced-toggle"
-                onclick="_toggleAdvanced()" aria-expanded="false" aria-controls="s-advanced-panel">
-            <span class="s-adv-arrow">▾</span> 詳細オプション
-        </button>
-
         <!-- SQS: アクティブなフィルタ条件 -->
         <div id="sqs-filter-bar"></div>
     </div>
@@ -1554,105 +1586,55 @@ body {
     </div>
 </div>
 
-<!-- ═══════════════════════════ Advanced Options Panel ═══════════════════════════ -->
-<div class="s-advanced-panel" id="s-advanced-panel" aria-hidden="true">
-    <div class="s-advanced-panel-inner">
-        <div class="s-advanced-panel-body">
-            <div class="layers-grid">
-
-                <!-- proximity -->
-                <div class="layer-row" id="layer-prox"
-                     role="checkbox" aria-checked="false" tabindex="0"
-                     onclick="toggleLayer('prox')"
-                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('prox');}"
-                     title="距離ベース共起">
-                    <div class="layer-check" id="chk-prox"></div>
-                    <div class="layer-info">
-                        <div class="layer-name">近くに出てくる語</div>
-                        <div class="layer-desc">指定した語の近くに現れる箇所を検索</div>
-                    </div>
-                </div>
-                <div class="prox-sub" id="prox-sub">
-                    <div class="prox-sub-row">
-                        <span class="prox-sub-label">距離</span>
-                        <span class="prox-sub-val" id="prox-val-label">±5語</span>
-                    </div>
-                    <input type="range" class="prox-slider" id="prox-slider"
-                        min="1" max="15" value="5"
-                        oninput="onProxSlider(this.value)">
-                    <div class="prox-presets">
-                        <button class="prox-preset" data-d="3" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;">狭い</span></button>
-                        <button class="prox-preset active" data-d="5" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;">標準</span></button>
-                        <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
-                    </div>
-                </div>
-
-                <!-- phrase -->
-                <div class="layer-row" id="layer-phrase"
-                     role="checkbox" aria-checked="false" tabindex="0"
-                     onclick="toggleLayer('phrase')"
-                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('phrase');}"
-                     title="lemmaの連続一致">
-                    <div class="layer-check" id="chk-phrase"></div>
-                    <div class="layer-info">
-                        <div class="layer-name">フレーズで探す</div>
-                        <div class="layer-desc">入力した語をそのままの順番・並びで完全一致検索</div>
-                    </div>
-                </div>
-                <div class="phrase-sub" id="phrase-sub">
-                    複数語を空白で区切って入力すると連続一致を検索します。<br>
-                    例：<code style="font-family:'JetBrains Mono',monospace;">ἀγαπάω θεός</code>
-                </div>
-
-                <!-- morph -->
-                <div class="layer-row" id="layer-morph"
-                     role="checkbox" aria-checked="false" tabindex="0"
-                     onclick="toggleLayer('morph')"
-                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('morph');}"
-                     title="形態素フィルタ">
-                    <div class="layer-check" id="chk-morph"></div>
-                    <div class="layer-info">
-                        <div class="layer-name">品詞・語形で絞る</div>
-                        <div class="layer-desc">格・時制・人称などの語形タグで結果を絞り込み</div>
-                    </div>
-                </div>
-                <div class="morph-sub" id="morph-sub">
-                    <div class="morph-section">
-                        <span class="morph-section-label">品詞</span>
-                        <div class="morph-chips" id="morph-chips-pos"></div>
-                    </div>
-                    <div class="morph-section" id="morph-sec-case" style="display:none;">
-                        <span class="morph-section-label">格</span>
-                        <div class="morph-chips" id="morph-chips-case"></div>
-                    </div>
-                    <div class="morph-section" id="morph-sec-num" style="display:none;">
-                        <span class="morph-section-label">数</span>
-                        <div class="morph-chips" id="morph-chips-num"></div>
-                    </div>
-                    <div class="morph-section" id="morph-sec-gen" style="display:none;">
-                        <span class="morph-section-label">性</span>
-                        <div class="morph-chips" id="morph-chips-gen"></div>
-                    </div>
-                    <div class="morph-section" id="morph-sec-tense" style="display:none;">
-                        <span class="morph-section-label">時制</span>
-                        <div class="morph-chips" id="morph-chips-tense"></div>
-                    </div>
-                    <div class="morph-section" id="morph-sec-voice" style="display:none;">
-                        <span class="morph-section-label">態</span>
-                        <div class="morph-chips" id="morph-chips-voice"></div>
-                    </div>
-                    <div class="morph-section" id="morph-sec-mood" style="display:none;">
-                        <span class="morph-section-label">法</span>
-                        <div class="morph-chips" id="morph-chips-mood"></div>
-                    </div>
-                    <button class="morph-clear-btn" id="morph-clear-btn" onclick="_morphClearAll()">選択をクリア</button>
-                    <div class="morph-hint" id="morph-hint-text">品詞を選ぶとさらに絞り込めます</div>
-                </div>
-
-            </div><!-- /.layers-grid -->
-        </div><!-- /.s-advanced-panel-body -->
-    </div><!-- /.s-advanced-panel-inner -->
-</div><!-- /#s-advanced-panel -->
+<!-- 検索条件：語数に応じて近接距離を表示し、品詞チップは常時表示 -->
+<div class="search-filters" id="search-filters">
+    <div class="prox-sub" id="prox-sub" aria-hidden="true">
+        <div class="prox-sub-row">
+            <span class="prox-sub-label">近接距離</span>
+            <span class="prox-sub-val" id="prox-val-label">±5語</span>
+        </div>
+        <input type="range" class="prox-slider" id="prox-slider"
+            min="1" max="15" value="5"
+            oninput="onProxSlider(this.value)" aria-label="近接距離">
+        <div class="prox-presets">
+            <button class="prox-preset" data-d="3" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;">狭い</span></button>
+            <button class="prox-preset active" data-d="5" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;">標準</span></button>
+            <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
+        </div>
+    </div>
+    <div class="morph-sub" id="morph-sub">
+        <div class="morph-section">
+            <span class="morph-section-label">品詞</span>
+            <div class="morph-chips" id="morph-chips-pos"></div>
+        </div>
+        <div class="morph-section" id="morph-sec-case" style="display:none;">
+            <span class="morph-section-label">格</span>
+            <div class="morph-chips" id="morph-chips-case"></div>
+        </div>
+        <div class="morph-section" id="morph-sec-num" style="display:none;">
+            <span class="morph-section-label">数</span>
+            <div class="morph-chips" id="morph-chips-num"></div>
+        </div>
+        <div class="morph-section" id="morph-sec-gen" style="display:none;">
+            <span class="morph-section-label">性</span>
+            <div class="morph-chips" id="morph-chips-gen"></div>
+        </div>
+        <div class="morph-section" id="morph-sec-tense" style="display:none;">
+            <span class="morph-section-label">時制</span>
+            <div class="morph-chips" id="morph-chips-tense"></div>
+        </div>
+        <div class="morph-section" id="morph-sec-voice" style="display:none;">
+            <span class="morph-section-label">態</span>
+            <div class="morph-chips" id="morph-chips-voice"></div>
+        </div>
+        <div class="morph-section" id="morph-sec-mood" style="display:none;">
+            <span class="morph-section-label">法</span>
+            <div class="morph-chips" id="morph-chips-mood"></div>
+        </div>
+        <button class="morph-clear-btn" id="morph-clear-btn" onclick="_morphClearAll()">選択をクリア</button>
+        <div class="morph-hint" id="morph-hint-text">品詞を選ぶとさらに絞り込めます</div>
+    </div>
+</div>
 
 <hr class="s-search-divider">
 
@@ -3164,6 +3146,7 @@ function _renderHistoryInDropdown(){
 function _initSuggest(){
     const inp=document.getElementById('unified-search-input');
     inp.addEventListener('input',(e)=>{
+        _updateSearchControls();
         if(e.isComposing)return;  /* IME 確定前はスキップ */
         const val=inp.value.trim();
         if(!val){_renderHistoryInDropdown();return;}
@@ -3244,11 +3227,14 @@ const _sqState = {
 const _layers = _sqState.layers;
 
 function toggleLayer(name){
+    if (name === 'prox' || name === 'morph') return;
     _layers[name]=!_layers[name];
     _syncLayerUI(name);
 }
 function activateLayer(name){
-    _layers[name]=true;
+    if (name === 'prox') _layers.prox = true;
+    else if (name === 'morph') _layers.morph = true;
+    else _layers[name]=true;
     _syncLayerUI(name);
     document.getElementById('unified-search-input').focus();
 }
@@ -3261,19 +3247,36 @@ function _syncLayerUI(name){
     const active=_layers[name];
     const row=document.getElementById(`layer-${name}`);
     const chk=document.getElementById(`chk-${name}`);
-    if(!row||!chk)return;
-    row.classList.toggle(`active-${name}`,active);
-    row.setAttribute('aria-checked', active ? 'true' : 'false');
-    renderIcon(chk, active ? 'check' : null);
-    // Show/hide sub-controls
+    if(row){
+        row.classList.toggle(`active-${name}`,active);
+        row.setAttribute('aria-checked', active ? 'true' : 'false');
+    }
+    if(chk) renderIcon(chk, active ? 'check' : null);
     if(name==='prox'){
-        document.getElementById('prox-sub').classList.toggle('visible',active);
+        const sub=document.getElementById('prox-sub');
+        if(sub) sub.classList.toggle('visible',active);
     }
     if(name==='morph'){
-        document.getElementById('morph-sub').classList.toggle('visible',active);
+        const sub=document.getElementById('morph-sub');
+        if(sub) sub.classList.toggle('visible',active);
     }
     if(name==='phrase'){
-        document.getElementById('phrase-sub').classList.toggle('visible',active);
+        const sub=document.getElementById('phrase-sub');
+        if(sub) sub.classList.toggle('visible',active);
+    }
+}
+
+function _updateSearchControls(){
+    const input=document.getElementById('unified-search-input');
+    const words=input ? input.value.trim().split(/\s+/).filter(Boolean) : [];
+    const hasMultipleWords=words.length > 1;
+    _layers.lemma=true;
+    _layers.morph=true;
+    _layers.prox=hasMultipleWords;
+    const prox=document.getElementById('prox-sub');
+    if(prox){
+        prox.classList.toggle('visible',hasMultipleWords);
+        prox.setAttribute('aria-hidden',hasMultipleWords?'false':'true');
     }
 }
 
@@ -3439,10 +3442,9 @@ let _lastQuery        = '';
 let _activeLayerSet   = {};
 
 async function unifiedSearch(){
-    // レマ検索は標準動作。利用者に検索レイヤーを選ばせず、形が変わった語も探す。
-    // 追加条件が必要な場合のみ、詳細オプション（近接検索・品詞/語形フィルター）を使う。
-    _layers.lemma = true;
+    // 単語数に応じて検索条件を自動表示・適用する。
     const query=document.getElementById('unified-search-input').value.trim();
+    _updateSearchControls();
     if(!query){document.getElementById('unified-search-input').focus();return;}
 
     // Check at least one non-morph layer is active
@@ -4352,7 +4354,8 @@ function init(){
     _renderStaticIcons();
     _initSuggest();
     _initMorphChips();
-    // Initial layer sync
+    // 品詞チップは常時表示。近接距離は複数語入力時だけ表示する。
+    _updateSearchControls();
     Object.keys(_layers).forEach(k=>_syncLayerUI(k));
     BookMaster.attachWarningPanel(document.getElementById('fetch-warning-panel'));
     // Start data loading（全書物の索引化が完了するまで unifiedSearch はブロックされる）
@@ -5124,6 +5127,7 @@ async function _synInit(syntaxId) {
     if (!query) return;
     const inp = document.getElementById('unified-search-input');
     if (inp) inp.value = query;
+    _updateSearchControls();
 
     // layers: URL指定時のみ _layers をURL値で上書き（未指定時は既存挙動を維持）
     const layersParam = p.get('layers');
