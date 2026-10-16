@@ -142,43 +142,84 @@ if (missingOrInvalid.length) {
 
 fs.mkdirSync(outDir, { recursive: true });
 const version = sourceHash.digest('hex').slice(0, 16);
+const mib = bytes => (bytes / (1024 * 1024)).toFixed(2) + ' MiB';
+const corpusMeta = { NT: [], LXX: [] };
+let totalRawBytes = 0;
+let totalGzipBytes = 0;
+
 for (const corpus of ['NT', 'LXX']) {
     const value = indexes[corpus];
-    const file = path.join(outDir, `${corpus.toLowerCase()}.json`);
-    fs.writeFileSync(file, JSON.stringify({
-        schemaVersion: 1,
-        sourceVersion: version,
-        corpus,
-        tokenCount: value.tokens.length,
-        globalIdxStart: value.tokens.length ? value.tokens[0].globalIdx : null,
-        globalIdxEnd: value.tokens.length ? value.tokens[value.tokens.length - 1].globalIdx : null,
-        tokens: value.tokens,
-        index: {
-            lemma: value.lemma,
-            text: value.text,
-            strong: value.strong,
-            morph: value.morph,
-            textToJp: value.textToJp,
-        },
-    }));
-    const rawBytes = fs.statSync(file).size;
-    const gzipBytes = zlib.gzipSync(fs.readFileSync(file), { level: 9 }).length;
-    const mib = bytes => (bytes / (1024 * 1024)).toFixed(2) + ' MiB';
-    console.log(`[search-index] wrote ${path.relative(ROOT, file)}: ${value.tokens.length.toLocaleString()} tokens; raw ${mib(rawBytes)}, gzip estimate ${mib(gzipBytes)}`);
+    const byBook = new Map();
+    for (const tok of value.tokens) {
+        if (!byBook.has(tok.bookKey)) byBook.set(tok.bookKey, []);
+        byBook.get(tok.bookKey).push(tok);
+    }
+    for (const [bookKey, tokens] of byBook) {
+        const first = tokens[0].globalIdx;
+        const last = tokens[tokens.length - 1].globalIdx;
+        const inRange = arr => arr.filter(idx => idx >= first && idx <= last);
+        const sliceMap = map => {
+            const result = Object.create(null);
+            for (const [term, postings] of Object.entries(map)) {
+                const filtered = inRange(postings);
+                if (filtered.length) result[term] = filtered;
+            }
+            return result;
+        };
+        const bookTexts = new Set(tokens.map(tok => tok.text));
+        const textToJp = Object.create(null);
+        for (const text of bookTexts) {
+            if (Object.hasOwn(value.textToJp, text)) textToJp[text] = value.textToJp[text];
+        }
+        const shard = {
+            schemaVersion: 2,
+            sourceVersion: version,
+            corpus,
+            bookKey,
+            tokenCount: tokens.length,
+            globalIdxStart: first,
+            globalIdxEnd: last,
+            tokens,
+            index: {
+                lemma: sliceMap(value.lemma),
+                text: sliceMap(value.text),
+                strong: sliceMap(value.strong),
+                morph: sliceMap(value.morph),
+                textToJp,
+            },
+        };
+        const dir = path.join(outDir, corpus.toLowerCase());
+        fs.mkdirSync(dir, { recursive: true });
+        const file = path.join(dir, `${bookKey}.json`);
+        const serialized = JSON.stringify(shard);
+        fs.writeFileSync(file, serialized);
+        const rawBytes = Buffer.byteLength(serialized);
+        const gzipBytes = zlib.gzipSync(serialized, { level: 9 }).length;
+        totalRawBytes += rawBytes;
+        totalGzipBytes += gzipBytes;
+        corpusMeta[corpus].push({
+            bookKey, path: `${corpus.toLowerCase()}/${bookKey}.json`,
+            tokenCount: tokens.length, globalIdxStart: first, globalIdxEnd: last,
+            rawBytes, gzipBytes,
+        });
+        console.log(`[search-index] wrote ${corpus.toLowerCase()}/${bookKey}.json: ${tokens.length.toLocaleString()} tokens; raw ${mib(rawBytes)}, gzip ${mib(gzipBytes)}`);
+    }
 }
 const meta = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     sourceVersion: version,
     generatedAt: new Date().toISOString(),
     booksSource: path.relative(ROOT, booksPath),
     dataRoot: path.relative(ROOT, dataRoot),
     chapterCount,
     tokenCount,
+    totalRawBytes,
+    totalGzipBytes,
     corpora: {
-        NT: { tokenCount: indexes.NT.tokens.length },
-        LXX: { tokenCount: indexes.LXX.tokens.length },
+        NT: { tokenCount: indexes.NT.tokens.length, books: corpusMeta.NT },
+        LXX: { tokenCount: indexes.LXX.tokens.length, books: corpusMeta.LXX },
     },
-    japanesePartialIndex: 'intentionally omitted in schema v1; preserve current runtime fallback until separately benchmarked',
+    japanesePartialIndex: 'intentionally omitted in schema v2; preserve current runtime fallback until separately benchmarked',
 };
 fs.writeFileSync(path.join(outDir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
-console.log(`[search-index] complete: ${chapterCount.toLocaleString()} chapters, ${tokenCount.toLocaleString()} tokens, source ${version}`);
+console.log(`[search-index] complete: ${chapterCount.toLocaleString()} chapters, ${tokenCount.toLocaleString()} tokens, source ${version}; raw ${mib(totalRawBytes)}, gzip ${mib(totalGzipBytes)}`);
