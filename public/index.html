@@ -718,9 +718,16 @@ pointer-events: auto;
         gap: var(--space-sm);
         margin-bottom: 2px;
     }
+    #mobile-verse-area .mvv-app-rdg-num {
+        font-size: calc(var(--text-caption) * 0.85);
+        color: var(--text-sub);
+        flex-shrink: 0;
+        width: 1.3em;
+    }
     #mobile-verse-area .mvv-app-rdg-text {
         font-size: var(--text-caption);
         color: var(--text-main);
+        flex: 1;
     }
     #mobile-verse-area .mvv-app-rdg-wit {
         font-size: calc(var(--text-caption) * 0.9);
@@ -731,10 +738,11 @@ pointer-events: auto;
         font-size: 0.9em;
         color: var(--text-sub);
     }
-    /* 日本語補助注釈（確認済みエントリのみ表示） */
+    /* 日本語補助注釈（確認済み・自動生成共通） */
     #mobile-verse-area .mvv-app-anno {
         display: flex;
         align-items: baseline;
+        flex-wrap: wrap;
         gap: var(--space-xs);
         margin-bottom: var(--space-xs);
     }
@@ -745,11 +753,14 @@ pointer-events: auto;
         padding: 1px 4px;
         border-radius: 2px;
         flex-shrink: 0;
-        white-space: nowrap;
     }
     #mobile-verse-area .mvv-app-ja {
         font-size: var(--text-caption);
         color: var(--text-sub);
+    }
+    /* 自動生成注釈（人手未確認）— タグチップを斜体にして本文可読性を維持しつつ区別 */
+    #mobile-verse-area .mvv-app-anno--auto .mvv-app-tag {
+        font-style: italic;
     }
     /* 語の読書メモは節メモと共通の開閉 UI を使う。 */
     #mobile-inspector-area #mvv-reading-slot {
@@ -13591,6 +13602,8 @@ let _apparatusLoadP        = null;  // 進行中 fetch Promise
 let _apparatusNoteGen      = 0;     // 古い非同期注入を防ぐ世代カウンタ
 let _apparatusJaData       = null;  // apparatus-ja.json キャッシュ（失敗時は null のまま）
 let _apparatusJaLoadP      = null;  // 進行中 fetch Promise
+let _apparatusJaAllData    = null;  // 4データセット統合キャッシュ（失敗時は null のまま）
+let _apparatusJaAllLoadP   = null;  // 進行中 fetch Promise
 
 async function _ensureWallacePipeline() {
     if (_wallacePipeline || _wallacePipelineFailed) return _wallacePipeline;
@@ -14885,21 +14898,69 @@ async function _loadApparatusJaData() {
     return _apparatusJaLoadP;
 }
 
+/** apparatus-ja の4データセット（manual + Phase 1〜3）を並列 fetch してマージする。
+ *  優先順位: manual > Phase 1 > Phase 2 > Phase 3。
+ *  個別 fetch が失敗したデータセットは空として扱い、残りを統合して返す。
+ *  全て失敗した場合は { entries: {} } を返す（静寂優先、ギリシャ語 apparatus 表示には影響しない）。 */
+async function _loadApparatusJaAllData() {
+    if (_apparatusJaAllData) return _apparatusJaAllData;
+    if (_apparatusJaAllLoadP) return _apparatusJaAllLoadP;
+    const fetchJson = url => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
+    _apparatusJaAllLoadP = Promise.all([
+        fetchJson('../assets/data/apparatus-ja.json'),
+        fetchJson('../assets/data/apparatus-ja-auto.json'),
+        fetchJson('../assets/data/apparatus-ja-phase2.json'),
+        fetchJson('../assets/data/apparatus-ja-phase3.json'),
+    ]).then(([manual, p1, p2, p3]) => {
+        const merged = {};
+        // Phase 3 → Phase 2 → Phase 1 の順で先書きし、manual で上書き（manual 最優先）
+        for (const src of [p3, p2, p1, manual]) {
+            if (src && src.entries) Object.assign(merged, src.entries);
+        }
+        _apparatusJaAllData = { entries: merged };
+        return _apparatusJaAllData;
+    }).catch(() => null);
+    return _apparatusJaAllLoadP;
+}
+
+/** apparatus-ja の tag 値 → 日本語話者向け表示ラベルのマッピング。
+ *  データ側の tag 値は変更しない。表示層でのみ変換する。 */
+const _APPARATUS_TAG_LABELS = {
+    '語順差':   '語句の並び順が異なります',
+    '添加':     '一方の本文には語句が加わっています',
+    '省略':     '一方の本文では語句が省かれています',
+    '読み差':   '使用されている語句が異なります',
+    '形態差':   '語形が異なります',
+    '表記差':   'つづり・表記が異なります',
+    '節構造差': '文の組み立て方が異なります',
+    '語彙差':   '異なる語が使われています',
+};
+
 /** apparatus entries を <div class="mvv-apparatus-entries"> に変換する。
- *  jaEntries は apparatus-ja.json の entries オブジェクト（省略可）。
- *  status が「確認済み」のエントリのみ日本語補助を表示する。 */
+ *  jaEntries は _loadApparatusJaAllData() の entries オブジェクト（省略可）。
+ *  status='確認済み' → mvv-app-anno、status='自動生成' → mvv-app-anno mvv-app-anno--auto で表示。
+ *  status='保留' および未知のステータスは表示しない（静寂優先）。 */
 function _buildApparatusHTML(entries, jaEntries) {
     if (!entries || !entries.length) return '';
     const parts = entries.map(e => {
         const lemHtml = `<div class="mvv-app-lem">${_escH(e.lemText)}</div>`;
         const ja = jaEntries && jaEntries[e.id];
-        const annoHtml = (ja && ja.status === '確認済み' && ja.tag && ja.ja)
-            ? `<div class="mvv-app-anno"><span class="mvv-app-tag">${_escH(ja.tag)}</span><span class="mvv-app-ja">${_escH(ja.ja)}</span></div>`
+        const isConfirmed = ja && ja.status === '確認済み' && ja.tag && ja.ja;
+        const isAuto      = ja && ja.status === '自動生成' && ja.tag && ja.ja;
+        const tagLabel = (tag) => _escH(_APPARATUS_TAG_LABELS[tag] || tag);
+        const annoHtml = isConfirmed
+            ? `<div class="mvv-app-anno"><span class="mvv-app-tag">${tagLabel(ja.tag)}</span><span class="mvv-app-ja">${_escH(ja.ja)}</span></div>`
+            : isAuto
+            ? `<div class="mvv-app-anno mvv-app-anno--auto"><span class="mvv-app-tag">${tagLabel(ja.tag)}</span><span class="mvv-app-ja">${_escH(ja.ja)}</span></div>`
             : '';
-        const rdgHtml = e.readings.map(r => {
+        const _rdgNums = ['①', '②', '③', '④'];
+        const rdgHtml = e.readings.map((r, idx) => {
+            const numHtml = e.readings.length >= 2
+                ? `<span class="mvv-app-rdg-num">${_rdgNums[idx] || (idx + 1)}</span>`
+                : '';
             const text = r.isOmission ? '（省略）' : _escH(r.text || '');
             const wit  = _escH((r.witnesses || []).join(' · '));
-            return `<div class="mvv-app-rdg"><span class="mvv-app-rdg-text">${text}</span><span class="mvv-app-rdg-wit">${wit}</span></div>`;
+            return `<div class="mvv-app-rdg">${numHtml}<span class="mvv-app-rdg-text">${text}</span><span class="mvv-app-rdg-wit">${wit}</span></div>`;
         }).join('');
         return `<div class="mvv-app-entry">${lemHtml}${annoHtml}${rdgHtml}</div>`;
     });
@@ -14913,7 +14974,7 @@ function _buildApparatusHTML(entries, jaEntries) {
  */
 async function _fillApparatusSection(bookKey, ch, vNum, area) {
     const myGen = ++_apparatusNoteGen;
-    const [data, jaData] = await Promise.all([_loadApparatusData(), _loadApparatusJaData()]);
+    const [data, jaData] = await Promise.all([_loadApparatusData(), _loadApparatusJaAllData()]);
     if (myGen !== _apparatusNoteGen) return;
     if (!data) return;
     const verseKey = `${bookKey} ${ch}:${vNum}`;
