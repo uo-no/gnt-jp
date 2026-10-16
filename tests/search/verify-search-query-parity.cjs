@@ -2,10 +2,10 @@
 'use strict';
 
 /*
- * Compare generated postings with the legacy token-scan semantics on the full
- * generated corpus. This validates the indexed query families and phrase
- * adjacency; Japanese substring/phrase search is intentionally excluded
- * because schema v2 does not prebuild the Japanese partial index.
+ * Compare generated postings with legacy token-scan semantics against the full
+ * corpus. Each book shard is read once per corpus to keep CI time and memory
+ * bounded. Japanese substring/phrase search is excluded because schema v2 does
+ * not prebuild the Japanese partial index.
  */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -18,7 +18,6 @@ const arg = (name, fallback) => {
 const root = path.resolve(arg('--root', path.resolve(__dirname, '../..')));
 const indexDir = path.resolve(arg('--index-dir', path.join(root, 'public/search-index')));
 const meta = JSON.parse(fs.readFileSync(path.join(indexDir, 'meta.json'), 'utf8'));
-
 function normalizeGreek(str) {
   return String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g, '').replace(/ς/g, 'σ').toLowerCase().trim();
@@ -39,77 +38,62 @@ function equalIds(label, actual, expected) {
     throw err;
   }
 }
-function posting(corpus, indexName, term) {
-  const ids = [];
-  for (const book of meta.corpora[corpus].books) {
-    const shard = JSON.parse(fs.readFileSync(path.join(indexDir, book.path), 'utf8'));
-    ids.push(...(shard.index[indexName][term] || []));
-  }
-  return ids;
-}
-function scanCorpus(corpus, visit) {
-  for (const book of meta.corpora[corpus].books) {
-    const shard = JSON.parse(fs.readFileSync(path.join(indexDir, book.path), 'utf8'));
-    for (const tok of shard.tokens) visit(tok);
-  }
-}
+const greekQueries = ['ἀγάπη', 'Ἰησοῦς', 'λόγος', 'ἐν'];
+const strongQueries = ['G25', 'G3056', 'G2316'];
+const morphQueries = ['V-PAM-2P', 'V-PAI-3S', 'N-NSM'];
+const phrases = [['ἐν', 'ἀρχή'], ['Ἰησοῦς', 'Χριστός']];
 let checks = 0;
 
 for (const corpus of ['NT', 'LXX']) {
-  for (const query of ['ἀγάπη', 'Ἰησοῦς', 'λόγος', 'ἐν']) {
-    const norm = normalizeGreek(query);
-    const expected = [];
-    scanCorpus(corpus, tok => {
-      if (tok.text === query || tok.lemma === query ||
-          normalizeGreek(tok.text) === norm || normalizeGreek(tok.lemma) === norm) {
-        expected.push(tok.globalIdx);
+  const expected = new Map();
+  const actual = new Map();
+  const put = (map, key, id) => { if (!map.has(key)) map.set(key, []); map.get(key).push(id); };
+  const greekNorms = new Map(greekQueries.map(q => [q, normalizeGreek(q)]));
+  const phraseWords = new Set(phrases.flat().map(normalizeGreek));
+
+  // One streaming pass: compute reference scan results and collect generated postings.
+  for (const book of meta.corpora[corpus].books) {
+    const shard = JSON.parse(fs.readFileSync(path.join(indexDir, book.path), 'utf8'));
+    for (const tok of shard.tokens) {
+      for (const q of greekQueries) {
+        const norm = greekNorms.get(q);
+        if (tok.text === q || tok.lemma === q ||
+            normalizeGreek(tok.text) === norm || normalizeGreek(tok.lemma) === norm) {
+          put(expected, 'greek:' + q, tok.globalIdx);
+        }
       }
-    });
-    const actual = [
-      ...posting(corpus, 'text', query),
-      ...posting(corpus, 'lemma', query),
-      ...(norm !== query ? posting(corpus, 'text', norm) : []),
-      ...(norm !== query ? posting(corpus, 'lemma', norm) : []),
-    ];
-    equalIds(corpus + ' Greek/lemma query ' + query, actual, expected); checks++;
-  }
-
-  for (const query of ['G25', 'G3056', 'G2316']) {
-    const expected = [];
-    scanCorpus(corpus, tok => {
-      if (normalizeStrong(tok.strong) === normalizeStrong(query)) expected.push(tok.globalIdx);
-    });
-    equalIds(corpus + ' Strong query ' + query,
-      posting(corpus, 'strong', normalizeStrong(query)), expected);
-    checks++;
-  }
-
-  for (const query of ['V-PAM-2P', 'V-PAI-3S', 'N-NSM']) {
-    const expected = [];
-    scanCorpus(corpus, tok => { if (tok.morph === query) expected.push(tok.globalIdx); });
-    equalIds(corpus + ' morphology query ' + query, posting(corpus, 'morph', query), expected);
-    checks++;
-  }
-
-  // Reproduce searchPhrase's legacy lemma-index semantics and contiguous globalIdx check.
-  for (const phrase of [['ἐν', 'ἀρχή'], ['Ἰησοῦς', 'Χριστός']]) {
-    const lists = phrase.map(q => {
-      const norm = normalizeGreek(q), ids = [];
-      scanCorpus(corpus, tok => {
-        const key = tok.lemma || tok.text;
-        if (key === q || normalizeGreek(key) === norm) ids.push(tok.globalIdx);
-      });
-      return new Set(ids);
-    });
-    const expected = [];
-    for (const gi of lists[0]) {
-      if (phrase.slice(1).every((_, i) => lists[i + 1].has(gi + i + 1))) expected.push(gi);
+      for (const q of strongQueries) {
+        if (normalizeStrong(tok.strong) === normalizeStrong(q)) put(expected, 'strong:' + q, tok.globalIdx);
+      }
+      for (const q of morphQueries) if (tok.morph === q) put(expected, 'morph:' + q, tok.globalIdx);
+      const lemmaKey = normalizeGreek(tok.lemma || tok.text);
+      if (phraseWords.has(lemmaKey)) put(expected, 'phraseword:' + lemmaKey, tok.globalIdx);
     }
-    const actual = [];
-    const anchor = posting(corpus, 'lemma', normalizeGreek(phrase[0]));
-    const next = phrase.slice(1).map(q => new Set(posting(corpus, 'lemma', normalizeGreek(q))));
-    for (const gi of anchor) if (next.every((set, i) => set.has(gi + i + 1))) actual.push(gi);
-    equalIds(corpus + ' Greek phrase ' + phrase.join(' '), actual, expected); checks++;
+
+    for (const q of greekQueries) {
+      for (const indexName of ['text', 'lemma']) {
+        const terms = new Set([q, greekNorms.get(q)]);
+        for (const term of terms) for (const id of (shard.index[indexName][term] || [])) {
+          put(actual, 'greek:' + q, id);
+        }
+      }
+    }
+    for (const q of strongQueries) for (const id of (shard.index.strong[normalizeStrong(q)] || [])) put(actual, 'strong:' + q, id);
+    for (const q of morphQueries) for (const id of (shard.index.morph[q] || [])) put(actual, 'morph:' + q, id);
+    for (const word of phraseWords) for (const id of (shard.index.lemma[word] || [])) put(actual, 'phraseword:' + word, id);
+  }
+
+  for (const q of greekQueries) { equalIds(corpus + ' Greek/lemma query ' + q, actual.get('greek:' + q) || [], expected.get('greek:' + q) || []); checks++; }
+  for (const q of strongQueries) { equalIds(corpus + ' Strong query ' + q, actual.get('strong:' + q) || [], expected.get('strong:' + q) || []); checks++; }
+  for (const q of morphQueries) { equalIds(corpus + ' morphology query ' + q, actual.get('morph:' + q) || [], expected.get('morph:' + q) || []); checks++; }
+  for (const phrase of phrases) {
+    const first = expected.get('phraseword:' + normalizeGreek(phrase[0])) || [];
+    const nextSets = phrase.slice(1).map(q => new Set(expected.get('phraseword:' + normalizeGreek(q)) || []));
+    const expectedHits = first.filter(gi => nextSets.every((set, i) => set.has(gi + i + 1)));
+    const actualFirst = actual.get('phraseword:' + normalizeGreek(phrase[0])) || [];
+    const actualNextSets = phrase.slice(1).map(q => new Set(actual.get('phraseword:' + normalizeGreek(q)) || []));
+    const actualHits = actualFirst.filter(gi => actualNextSets.every((set, i) => set.has(gi + i + 1)));
+    equalIds(corpus + ' Greek phrase ' + phrase.join(' '), actualHits, expectedHits); checks++;
   }
 }
 console.log('PASS: ' + checks + ' generated-index/legacy-scan parity checks.');
