@@ -343,7 +343,8 @@ body {
 .search-icon-btn svg { width: 16px; height: 16px; display: block; }
 /* Suggest dropdown */
 .suggest-dropdown {
-    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    position: static;
+    margin-top: 4px;
     background: var(--bg-paper);
     border: 1px solid var(--border-soft);
     border-radius: 10px;
@@ -436,11 +437,21 @@ body {
 
 /* ── Proximity distance sub-control ── */
 .search-filters {
-    max-width: var(--s-content-max);
-    margin: 0 auto;
-    padding: 0 var(--s-sp-5);
+    display: none;
     width: 100%;
+    margin: 12px 0 0;
+    padding: 0;
 }
+.search-filters.has-query { display: block; }
+.search-filters .filter-suggestion-title {
+    margin: 0 0 4px;
+    color: var(--text-sub);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+.search-filters.single-word .morph-sub { display: block; }
+.search-filters.multi-word .morph-sub { display: none; }
 .search-filters .morph-sub {
     margin-top: 8px;
     background: transparent;
@@ -471,7 +482,7 @@ body {
     opacity: 0.7;
 }
 @media (max-width: 700px) {
-    .search-filters { padding: 0 var(--s-sp-4); }
+    .search-filters { padding: 0; }
 }
 
 .prox-sub {
@@ -1562,6 +1573,55 @@ body {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         </button>
         <div class="suggest-dropdown" id="suggest-dropdown"></div>
+        <div class="search-filters" id="search-filters" aria-live="polite">
+            <div class="filter-suggestion-title" id="filter-suggestion-title">絞り込みの提案</div>
+            <div class="prox-sub" id="prox-sub" aria-hidden="true">
+                <div class="prox-sub-row">
+                    <span class="prox-sub-label">近接距離</span>
+                    <span class="prox-sub-val" id="prox-val-label">±5語</span>
+                </div>
+                <input type="range" class="prox-slider" id="prox-slider"
+                    min="1" max="15" value="5"
+                    oninput="onProxSlider(this.value)" aria-label="近接距離">
+                <div class="prox-presets">
+                    <button class="prox-preset" data-d="3" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;">狭い</span></button>
+                    <button class="prox-preset active" data-d="5" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;">標準</span></button>
+                    <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
+                </div>
+            </div>
+            <div class="morph-sub" id="morph-sub">
+                <div class="morph-section">
+                    <span class="morph-section-label">品詞</span>
+                    <div class="morph-chips" id="morph-chips-pos"></div>
+                </div>
+                <div class="morph-section" id="morph-sec-case" style="display:none;">
+                    <span class="morph-section-label">格</span>
+                    <div class="morph-chips" id="morph-chips-case"></div>
+                </div>
+                <div class="morph-section" id="morph-sec-num" style="display:none;">
+                    <span class="morph-section-label">数</span>
+                    <div class="morph-chips" id="morph-chips-num"></div>
+                </div>
+                <div class="morph-section" id="morph-sec-gen" style="display:none;">
+                    <span class="morph-section-label">性</span>
+                    <div class="morph-chips" id="morph-chips-gen"></div>
+                </div>
+                <div class="morph-section" id="morph-sec-tense" style="display:none;">
+                    <span class="morph-section-label">時制</span>
+                    <div class="morph-chips" id="morph-chips-tense"></div>
+                </div>
+                <div class="morph-section" id="morph-sec-voice" style="display:none;">
+                    <span class="morph-section-label">態</span>
+                    <div class="morph-chips" id="morph-chips-voice"></div>
+                </div>
+                <div class="morph-section" id="morph-sec-mood" style="display:none;">
+                    <span class="morph-section-label">法</span>
+                    <div class="morph-chips" id="morph-chips-mood"></div>
+                </div>
+                <button class="morph-clear-btn" id="morph-clear-btn" onclick="_morphClearAll()">選択をクリア</button>
+                <div class="morph-hint" id="morph-hint-text">品詞を選ぶとさらに絞り込めます</div>
+            </div>
+        </div>
     </div>
 
     <!-- データ取得の警告 -->
@@ -1583,56 +1643,6 @@ body {
     <div class="history-block" id="history-block" style="display:none;">
         <div class="s-label" style="margin-bottom:6px;margin-top:8px;">履歴</div>
         <div class="history-list" id="history-list"></div>
-    </div>
-</div>
-
-<!-- 検索条件：語数に応じて近接距離を表示し、品詞チップは常時表示 -->
-<div class="search-filters" id="search-filters">
-    <div class="prox-sub" id="prox-sub" aria-hidden="true">
-        <div class="prox-sub-row">
-            <span class="prox-sub-label">近接距離</span>
-            <span class="prox-sub-val" id="prox-val-label">±5語</span>
-        </div>
-        <input type="range" class="prox-slider" id="prox-slider"
-            min="1" max="15" value="5"
-            oninput="onProxSlider(this.value)" aria-label="近接距離">
-        <div class="prox-presets">
-            <button class="prox-preset" data-d="3" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;">狭い</span></button>
-            <button class="prox-preset active" data-d="5" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;">標準</span></button>
-            <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
-        </div>
-    </div>
-    <div class="morph-sub" id="morph-sub">
-        <div class="morph-section">
-            <span class="morph-section-label">品詞</span>
-            <div class="morph-chips" id="morph-chips-pos"></div>
-        </div>
-        <div class="morph-section" id="morph-sec-case" style="display:none;">
-            <span class="morph-section-label">格</span>
-            <div class="morph-chips" id="morph-chips-case"></div>
-        </div>
-        <div class="morph-section" id="morph-sec-num" style="display:none;">
-            <span class="morph-section-label">数</span>
-            <div class="morph-chips" id="morph-chips-num"></div>
-        </div>
-        <div class="morph-section" id="morph-sec-gen" style="display:none;">
-            <span class="morph-section-label">性</span>
-            <div class="morph-chips" id="morph-chips-gen"></div>
-        </div>
-        <div class="morph-section" id="morph-sec-tense" style="display:none;">
-            <span class="morph-section-label">時制</span>
-            <div class="morph-chips" id="morph-chips-tense"></div>
-        </div>
-        <div class="morph-section" id="morph-sec-voice" style="display:none;">
-            <span class="morph-section-label">態</span>
-            <div class="morph-chips" id="morph-chips-voice"></div>
-        </div>
-        <div class="morph-section" id="morph-sec-mood" style="display:none;">
-            <span class="morph-section-label">法</span>
-            <div class="morph-chips" id="morph-chips-mood"></div>
-        </div>
-        <button class="morph-clear-btn" id="morph-clear-btn" onclick="_morphClearAll()">選択をクリア</button>
-        <div class="morph-hint" id="morph-hint-text">品詞を選ぶとさらに絞り込めます</div>
     </div>
 </div>
 
@@ -3269,7 +3279,14 @@ function _syncLayerUI(name){
 function _updateSearchControls(){
     const input=document.getElementById('unified-search-input');
     const words=input ? input.value.trim().split(/\s+/).filter(Boolean) : [];
+    const hasQuery=words.length > 0;
     const hasMultipleWords=words.length > 1;
+    const filters=document.getElementById('search-filters');
+    if(filters){
+        filters.classList.toggle('has-query',hasQuery);
+        filters.classList.toggle('single-word',hasQuery && !hasMultipleWords);
+        filters.classList.toggle('multi-word',hasMultipleWords);
+    }
     _layers.lemma=true;
     _layers.morph=true;
     _layers.prox=hasMultipleWords;
@@ -3277,6 +3294,10 @@ function _updateSearchControls(){
     if(prox){
         prox.classList.toggle('visible',hasMultipleWords);
         prox.setAttribute('aria-hidden',hasMultipleWords?'false':'true');
+    }
+    const title=document.getElementById('filter-suggestion-title');
+    if(title){
+        title.textContent=hasMultipleWords ? '複数の語を検索する条件' : '絞り込みの提案';
     }
 }
 
