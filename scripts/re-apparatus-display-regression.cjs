@@ -469,15 +469,13 @@ check('BUILD_RECURSIVE_READ',
     buildSrc.includes('readMorphDir') && buildSrc.includes('isDirectory()'),
     'recursive readMorphDir not found in build-apparatus-rdg-ja.cjs');
 
-// 25. build-apparatus-rdg-ja.cjs: textJaMap フォールバックが存在する
-//     （Task 53: 語彙置換ヴァリアント対応 — 語形が morph-index で一意な場合のみ採用）
+// 25. textJaMap は出典確認済みの語形だけを明示的に許可する（Task 53）
 check('BUILD_TEXTJAMAP_PRESENT',
-    buildSrc.includes('textJaMap') && buildSrc.includes('textJaCandidates'),
-    'textJaMap/textJaCandidates not found in build-apparatus-rdg-ja.cjs');
-// 一意性チェック: jaSet.size === 1 のみ採用
-check('BUILD_TEXTJAMAP_UNIQUE_ONLY',
-    buildSrc.includes('jaSet.size === 1'),
-    'jaSet.size === 1 uniqueness check not found in build-apparatus-rdg-ja.cjs');
+    buildSrc.includes("const textJaMap = {") && buildSrc.includes("'ὑπὲρ': '〜のために'"),
+    'explicit ὑπὲρ fallback not found in build-apparatus-rdg-ja.cjs');
+check('BUILD_TEXTJAMAP_NO_GLOBAL_INFERENCE',
+    !buildSrc.includes('textJaCandidates') && !buildSrc.includes('jaSet.size === 1'),
+    'global text-to-Japanese inference must not be used');
 // wordMap 優先: wordMap にある語は wordMap 値を使う
 check('BUILD_WORDMAP_PRIORITY',
     buildSrc.includes('(w in wordMap) ? wordMap[w] : textJaMap[w]'),
