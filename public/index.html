@@ -11068,15 +11068,25 @@ window.addEventListener('resize', () => {
     closeMobileSidebar();
     _syncStudyVerseNav();
 });
-/* 開閉経路が別関数から実行された場合も、StudyPanel の状態変化に追従する。 */
-document.addEventListener('DOMContentLoaded', () => {
-    const panel = document.getElementById('bottom-depth-panel');
-    if (panel && typeof MutationObserver !== 'undefined') {
-        new MutationObserver(() => _syncStudyVerseNav())
-            .observe(panel, { attributes: true, attributeFilter: ['class'] });
+/* 開閉経路が別関数から実行された場合も、StudyPanel の状態変化に追従する。
+   このスクリプトが DOMContentLoaded 後に評価された場合も初期化を取りこぼさない。 */
+(() => {
+    const bind = () => {
+        const panel = document.getElementById('bottom-depth-panel');
+        if (panel && typeof MutationObserver !== 'undefined') {
+            new MutationObserver(() => _syncStudyVerseNav())
+                .observe(panel, { attributes: true, attributeFilter: ['class'] });
+        }
+        _syncStudyVerseNav();
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bind, { once: true });
+    } else {
+        bind();
     }
-    _syncStudyVerseNav();
-});
+    window.addEventListener('pageshow', _syncStudyVerseNav);
+    window.addEventListener('orientationchange', _syncStudyVerseNav);
+})();
 
 document.querySelector('.container')?.addEventListener('click', (e) => {
     if (!_isSidebarOpen()) return;
@@ -20425,15 +20435,19 @@ function _syncStudyVerseNav() {
     const nav = document.getElementById('study-verse-nav');
     const panel = document.getElementById('bottom-depth-panel');
     if (!nav || !panel) return;
-    const visible = window.matchMedia('(max-width: 768px)').matches
+    /* アプリのモバイルレイアウト基準（900px）に統一。word詳細だけを除外する。 */
+    const visible = window.innerWidth <= 900
         && panel.classList.contains('open')
-        && _panelContentMode === 'verse';
+        && _panelContentMode !== 'word';
     nav.classList.toggle('is-visible', visible);
-    /* CSS のメディアクエリや既存レイアウトに display を打ち消されないよう、
-       表示条件の唯一の判定結果を inline style にも反映する。 */
-    nav.style.display = visible ? 'flex' : 'none';
-    nav.style.visibility = visible ? 'visible' : 'hidden';
-    nav.style.pointerEvents = visible ? 'auto' : 'none';
+    nav.style.setProperty('display', visible ? 'flex' : 'none', 'important');
+    nav.style.setProperty('visibility', visible ? 'visible' : 'hidden', 'important');
+    nav.style.setProperty('opacity', visible ? '1' : '0', 'important');
+    nav.style.setProperty('pointer-events', visible ? 'auto' : 'none', 'important');
+    nav.style.setProperty('position', 'fixed', 'important');
+    nav.style.setProperty('right', 'max(16px, env(safe-area-inset-right, 0px))', 'important');
+    nav.style.setProperty('bottom', 'max(18px, env(safe-area-inset-bottom, 0px))', 'important');
+    nav.style.setProperty('z-index', '2147483647', 'important');
 }
 
 function _navigateVerse(delta) {
