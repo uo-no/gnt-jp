@@ -106,7 +106,7 @@ for (const book of [...booksMaster.NT, ...booksMaster.OT]) {
 }
 
 function asObject(map) {
-    const result = Object.create(null);
+    const result = {};
     for (const [key, value] of map) result[key] = value;
     return result;
 }
@@ -137,7 +137,7 @@ for (const corpus of ['NT', 'LXX']) {
             assert.deepStrictEqual(shard.index[name], postingsForBook(corpus, expected, name),
                 `${corpus}/${bookKey} ${name} postings`);
         }
-        const expectedTextToJp = Object.create(null);
+        const expectedTextToJp = {};
         for (const tok of expected.tokens) {
             if (tok.text && corpusData[corpus].textToJp.has(tok.text)) {
                 expectedTextToJp[tok.text] = corpusData[corpus].textToJp.get(tok.text);
