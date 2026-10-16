@@ -1781,8 +1781,16 @@ body {
    init() の冒頭で applyBookMaster() が下記変数を実値で埋めるまで、
    これらは空のまま（書物リストに依存する処理は init() 完了後のみ実行される）。
    ============================================================ */
-let FLAT_BOOKS    = [];   // [{key, name, ch}] — NT(27書)+OT(39書) 全件
-let NT_BOOK_KEYS   = new Set();
+var FLAT_BOOKS    = [];   // [{key, name, ch}] — NT(27書)+OT(39書) 全件
+var NT_BOOK_KEYS   = new Set();
+/* BookMaster.load() は検索画面の初期化と並行して完了するため、
+   applyBookMaster() が参照する構文検索用バインディングも先に初期化する。 */
+var SYN_NT_BOOKS = new Set();
+var SYN_BOOK_JP = {};
+var SYN_BOOK_GROUPS = [];
+var _SYN_NT_CHAPTERS = [];
+var _SYN_BOOK_ORDER = {};
+var _synEnabledGroups = new Set();
 
 let _bookMasterPromise = null;
 /* books.json の読み込み+反映を1回だけ行う（複数箇所から呼ばれても安全）。
@@ -2177,34 +2185,166 @@ async function _buildL3Background(){
     IDX.l3Ready=true;
 }
 let _fullIndexPromise=null;
-function _ensureFullIndex(){
-    if(!_fullIndexPromise){
-        _fullIndexPromise=ensureBookMasterApplied().then(async ()=>{
-            /* ── フェーズ1: NT のみ構築 → IDX.ready を立て UI 利用可能にする ── */
-            await _buildFullIndex(['NT']);
-            console.info('[search-index] NT ready');
-            IDX.ready=true;
-            _buildAndExposeLemmaIndex();
-            _buildAndExposeMorphIndex();
 
-            /* ── フェーズ2: LXX をバックグラウンド構築 ── */
-            const _buildLxx=async()=>{
-                console.info('[search-index] LXX background build started');
+/* Prebuilt index loader.
+   Missing/stale/invalid generated assets are a normal fallback condition: the legacy
+   browser builder remains the source of truth until the generated path is verified. */
+let _prebuiltMetaPromise = null;
+async function _loadPrebuiltMeta(){
+    if(!_prebuiltMetaPromise){
+        _prebuiltMetaPromise=(async()=>{
+            const res=await fetch('../search-index/meta.json');
+            if(!res.ok)throw new Error('prebuilt search index meta unavailable');
+            const meta=await res.json();
+            if(meta.schemaVersion!==2||!meta.sourceVersion||!meta.corpora?.NT?.books||!meta.corpora?.LXX?.books){
+                throw new Error('unsupported prebuilt index metadata');
+            }
+            return meta;
+        })().catch(err=>{_prebuiltMetaPromise=null;throw err;});
+    }
+    return _prebuiltMetaPromise;
+}
+async function _fetchPrebuiltCorpus(corpus){
+    const meta=await _loadPrebuiltMeta();
+    const descriptor=meta.corpora?.[corpus];
+    if(!descriptor||!Array.isArray(descriptor.books)||!descriptor.books.length){
+        throw new Error(`prebuilt ${corpus} book manifest unavailable`);
+    }
+    /* Fetch book shards concurrently; Promise.all preserves manifest order. */
+    const shards=await Promise.all(descriptor.books.map(async book=>{
+        if(!book||typeof book.bookKey!=='string'||typeof book.path!=='string'||!/^[-A-Z0-9]+\.json$/.test(book.path.split('/').pop())){
+            throw new Error(`prebuilt ${corpus} invalid book manifest entry`);
+        }
+        const res=await fetch(`../search-index/${book.path}`);
+        if(!res.ok)throw new Error(`prebuilt ${corpus} shard unavailable: ${book.bookKey}`);
+        const data=await res.json();
+        if(data.schemaVersion!==meta.schemaVersion||data.sourceVersion!==meta.sourceVersion||
+           data.corpus!==corpus||data.bookKey!==book.bookKey||!Array.isArray(data.tokens)||!data.index){
+            throw new Error(`prebuilt ${corpus} shard metadata mismatch: ${book.bookKey}`);
+        }
+        if(data.tokenCount!==data.tokens.length||data.tokens.length===0||
+           data.tokenCount!==book.tokenCount||data.globalIdxStart!==book.globalIdxStart||data.globalIdxEnd!==book.globalIdxEnd){
+            throw new Error(`prebuilt ${corpus} shard count/range mismatch: ${book.bookKey}`);
+        }
+        if(!Number.isInteger(data.globalIdxStart)||!Number.isInteger(data.globalIdxEnd)||
+           data.globalIdxEnd!==data.globalIdxStart+data.tokens.length-1){
+            throw new Error(`prebuilt ${corpus} shard globalIdx metadata invalid: ${book.bookKey}`);
+        }
+        for(const key of ['lemma','text','strong','morph','textToJp']){
+            if(!data.index[key]||typeof data.index[key]!=='object')throw new Error(`prebuilt ${corpus} shard missing ${key}`);
+        }
+        for(const key of ['lemma','text','strong','morph']){
+            for(const [term,arr] of Object.entries(data.index[key])){
+                if(!Array.isArray(arr)||arr.some(idx=>!Number.isInteger(idx)||idx<data.globalIdxStart||idx>data.globalIdxEnd)){
+                    throw new Error(`prebuilt ${corpus} invalid postings for ${key}:${term}`);
+                }
+            }
+        }
+        return data;
+    }));
+    let expectedStart=corpus==='NT'?0:meta.corpora.NT.tokenCount;
+    let totalTokens=0;
+    for(const shard of shards){
+        if(shard.globalIdxStart!==expectedStart)throw new Error(`prebuilt ${corpus} shard sequence has a gap at ${shard.bookKey}`);
+        expectedStart=shard.globalIdxEnd+1;
+        totalTokens+=shard.tokenCount;
+    }
+    if(totalTokens!==descriptor.tokenCount)throw new Error(`prebuilt ${corpus} aggregate token count mismatch`);
+    return shards;
+}
+function _mergePrebuiltCorpus(data){
+    const expectedStart=ALL_TOKENS.length;
+    if(data.globalIdxStart!==expectedStart||data.globalIdxEnd!==expectedStart+data.tokens.length-1)throw new Error('prebuilt globalIdx range mismatch');
+    for(let i=0;i<data.tokens.length;i++){
+        const tok=data.tokens[i];
+        if(!tok||tok.globalIdx!==expectedStart+i)throw new Error('prebuilt token order/globalIdx mismatch');
+    }
+    for(const tok of data.tokens)ALL_TOKENS.push(tok);
+    for(const name of ['lemma','text','strong']){
+        const target=SEARCH_INDEX[name];
+        for(const [key,arr] of Object.entries(data.index[name])){
+            let current=target.get(key);
+            if(!current){current=[];target.set(key,current);}
+            for(const idx of arr)current.push(idx);
+        }
+    }
+    for(const [key,value] of Object.entries(data.index.textToJp)){
+        if(!TEXT_TO_JP.has(key))TEXT_TO_JP.set(key,value);
+    }
+    /* lemmaIndex and morphIndex are materialized directly from generated postings. */
+    if(!window.lemmaIndex)window.lemmaIndex=new Map();
+    for(const [key,arr] of Object.entries(data.index.lemma)){
+        let current=window.lemmaIndex.get(key);
+        if(!current){current=[];window.lemmaIndex.set(key,current);}
+        for(const idx of arr)current.push(idx);
+    }
+    if(!window.morphIndex)window.morphIndex=new Map();
+    for(const [key,arr] of Object.entries(data.index.morph)){
+        let current=window.morphIndex.get(key);
+        if(!current){current=[];window.morphIndex.set(key,current);}
+        for(const idx of arr)current.push(idx);
+    }
+    /* Arrays are already ordered within each corpus; NT precedes LXX globally. */
+}
+function _startPrebuiltLxxAndJapanese(metaVersion){
+    (async()=>{
+        try{
+            let lxx;
+            try{
+                lxx=await _fetchPrebuiltCorpus('LXX');
+                if(lxx.some(shard=>shard.sourceVersion!==metaVersion))throw new Error('prebuilt LXX source version mismatch');
+                for(const shard of lxx)_mergePrebuiltCorpus(shard);
+                console.info(`[search-index] LXX prebuilt ready (${lxx.length} book shards)`);
+            }catch(prebuiltError){
+                console.warn('[search-index] LXX prebuilt unavailable; using browser fallback',prebuiltError);
                 await _buildFullIndex(['LXX']);
-                console.info('[search-index] LXX ready');
-                /* NT+LXX 全体で lemmaIndex / morphIndex を再構築する。
-                   _buildAndExpose* は冪等ガードを持つため、null に戻してから呼ぶ。 */
                 window.lemmaIndex=null;
                 window.morphIndex=null;
                 _buildAndExposeLemmaIndex();
                 _buildAndExposeMorphIndex();
-                /* JP_PARTIAL_INDEX を NT+LXX 全体で構築し、IDX.l3Ready を立てる */
-                _buildL3Background();
-            };
-            if(typeof requestIdleCallback==='function'){
-                requestIdleCallback(()=>_buildLxx(),{timeout:2000});
-            }else{
-                setTimeout(()=>_buildLxx(),100);
+            }
+            _buildL3Background();
+        }catch(err){
+            console.error('[search-index] LXX index build failed',err);
+        }
+    })();
+}
+function _ensureFullIndex(){
+    if(!_fullIndexPromise){
+        _fullIndexPromise=ensureBookMasterApplied().then(async ()=>{
+            /* 生成済み索引が存在すれば優先利用。無ければ従来のブラウザ構築へ戻す。 */
+            try{
+                const meta=await _loadPrebuiltMeta();
+                const nt=await _fetchPrebuiltCorpus('NT');
+                if(nt.some(shard=>shard.sourceVersion!==meta.sourceVersion))throw new Error('prebuilt NT source version mismatch');
+                for(const shard of nt)_mergePrebuiltCorpus(shard);
+                console.info(`[search-index] NT prebuilt ready (${nt.length} book shards)`);
+                IDX.ready=true;
+                _startPrebuiltLxxAndJapanese(meta.sourceVersion);
+            }catch(prebuiltError){
+                console.info('[search-index] prebuilt index unavailable; using browser builder',prebuiltError);
+                /* ── フォールバック: 既存経路を維持 ── */
+                await _buildFullIndex(['NT']);
+                console.info('[search-index] NT ready');
+                IDX.ready=true;
+                _buildAndExposeLemmaIndex();
+                _buildAndExposeMorphIndex();
+
+                const _buildLxx=async()=>{
+                    console.info('[search-index] LXX background build started');
+                    await _buildFullIndex(['LXX']);
+                    console.info('[search-index] LXX ready');
+                    window.lemmaIndex=null;
+                    window.morphIndex=null;
+                    _buildAndExposeLemmaIndex();
+                    _buildAndExposeMorphIndex();
+                    _buildL3Background();
+                };
+                if(typeof requestIdleCallback==='function'){
+                    requestIdleCallback(()=>_buildLxx(),{timeout:2000});
+                }else{
+                    setTimeout(()=>_buildLxx(),100);
+                }
             }
         });
     }
@@ -3342,7 +3482,6 @@ function _sqsClearFilters() {
 function onProxSlider(val){
     currentDist=parseInt(val);
     document.getElementById('prox-val-label').textContent=`±${currentDist}語`;
-    document.getElementById('prox-label-inline').textContent=currentDist;
     const pct=((currentDist-1)/14)*100;
     document.getElementById('prox-slider').style.setProperty('--pct',pct+'%');
     document.querySelectorAll('.prox-preset').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.d)===currentDist));
@@ -3484,7 +3623,7 @@ async function unifiedSearch(){
        NT完了後は LXX バックグラウンド構築中でも NT 範囲で検索できる。
        IDX.l3Ready（全書物+日本語索引完了）後は NT+LXX を全文検索できる。 */
     if(!IDX.ready){
-        _showLoading('NT・LXXのインデックスを構築中です。完了まで検索は実行されません…');
+        _showLoading('新約聖書の検索データを読み込み中です…');
     } else {
         _showLoading();
     }
@@ -4697,9 +4836,6 @@ init();
 
 /* SYN_NT_BOOKS / SYN_BOOK_JP / SYN_BOOK_GROUPS は books.json（book-master.js）由来。
    applyBookMaster() が BookMaster.load() 完了後に実値で埋める。 */
-let SYN_NT_BOOKS   = new Set();
-let SYN_BOOK_JP    = {};
-let SYN_BOOK_GROUPS = [];
 const SYN_PAGE_SIZE = 50;
 
 /* ── SyntaxAnalyzer が参照するグローバル関数（syntax-search.html と同一） ── */
@@ -4747,8 +4883,6 @@ function cleanText(e) {
 }
 
 /* NT書物・章数（オンデマンド解析で使用）。books.json 由来、applyBookMaster() が埋める。 */
-let _SYN_NT_CHAPTERS = [];
-let _SYN_BOOK_ORDER  = {};
 let _synAnalyzerInstance = null, _synAnalyzerLoading = null;
 
 class SyntaxIndexCache {
@@ -4872,7 +5006,6 @@ async function _synAnalyzeOnDemand(syntaxId) {
 
 let _synAllHits = [], _synFiltered = [], _synDisplayed = 0;
 let _synSortOrder = 'canonical', _synConfMin = 0.30, _synIncludeStub = false;
-let _synEnabledGroups = new Set(); // applyBookMaster() が全グループ有効状態で埋める
 let _synVerseCache = new Map(), _synRegistryData = null;
 
 function _synBuildRefLabel(bookKey, ch, verse) { return `${SYN_BOOK_JP[bookKey]||bookKey} ${ch}章${verse}節`; }
