@@ -11089,7 +11089,10 @@ window.addEventListener('resize', () => {
         if (typeof MutationObserver !== 'undefined') {
             const observer = new MutationObserver(() => _syncStudyVerseNav());
             if (panel) observer.observe(panel, { attributes: true, attributeFilter: ['class'] });
-            if (mobileVerseView) observer.observe(mobileVerseView, { attributes: true, attributeFilter: ['class'] });
+            /* MVV 内で後から生成される語句ドロワーの開閉も追跡する。 */
+            if (mobileVerseView) observer.observe(mobileVerseView, {
+                attributes: true, attributeFilter: ['class'], subtree: true, childList: true
+            });
         }
         _syncStudyVerseNav();
     };
@@ -18870,6 +18873,7 @@ function _clearTranslationInlineStyles(el) {
 function _wlvDrawerClose() {
     const drawer = document.getElementById('wlv-detail-drawer');
     if (drawer) drawer.classList.remove('visible');
+    _syncStudyVerseNav();
     document.querySelectorAll('.wlv-chip').forEach(c => c.classList.remove('active'));
     _wlvActiveTokenId = null;
     const _mia = document.getElementById('mobile-inspector-area');
@@ -19214,6 +19218,7 @@ function _wlvChipClick(chipEl, tokenId) {
            責務のため、ここでは注入しない（_fillWlvResonance の呼び出しを停止）。 */
         if (ddReso) ddReso.textContent = '';
         drawer.classList.add('visible');
+        _syncStudyVerseNav();
         const _miaOpen = document.getElementById('mobile-inspector-area');
         if (_miaOpen) _miaOpen.classList.add('drawer-open');
         _collapseInlineTranslation();
@@ -20454,10 +20459,13 @@ function _syncStudyVerseNav() {
     const mobileVerseView = document.getElementById('mobile-verse-view');
     /* MVV は z-index:200 で DepthPanel(z-index:150) 全体を覆う。
        節ナビも MVV 内に置き、実際に前面に出ている画面の open 状態で判定する。 */
+    const wordDrawer = document.getElementById('wlv-detail-drawer');
+    const isWordDrawerOpen = !!wordDrawer && wordDrawer.classList.contains('visible');
     const visible = window.innerWidth <= 768
         && !!mobileVerseView
         && mobileVerseView.classList.contains('open')
-        && _panelContentMode !== 'word';
+        && _panelContentMode !== 'word'
+        && !isWordDrawerOpen;
     nav.classList.toggle('is-visible', visible);
     nav.style.setProperty('display', visible ? 'flex' : 'none', 'important');
     nav.style.setProperty('visibility', visible ? 'visible' : 'hidden', 'important');
