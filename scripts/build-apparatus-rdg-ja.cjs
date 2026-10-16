@@ -100,9 +100,9 @@ for (const entry of entries) {
             continue;
         }
 
-        // 各語の japanese を取得してフィルタ・結合
-        const jaWords = rWords.map(w => wordMap[w]).filter(Boolean);
-        if (jaWords.length === 0) {
+        // 全語に空でない日本語ラベルがある場合のみ出力（部分ラベルを防ぐ）
+        const jaWords = rWords.map(w => wordMap[w]);
+        if (!jaWords.every(Boolean)) {
             nullReadings++;
             continue;
         }

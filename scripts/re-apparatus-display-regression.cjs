@@ -304,6 +304,71 @@ const fakeEntry = {
         `gr span appeared for omission: ${h.slice(0,200)}`);
 }
 
+// ── ビルドスクリプトのラベル生成ロジック回帰テスト ──────────────────────────────
+// build-apparatus-rdg-ja.cjs のコアロジックをインライン再現して検証する。
+// 実際のファイル I/O は行わず、単語マッピングだけを検証する。
+
+function _computeRdgLabel(rText, wordMap) {
+    const rWords = rText.split(/\s+/).filter(Boolean).map(w => w.normalize('NFC'));
+    if (!rWords.every(w => w in wordMap)) return null;
+    const jaWords = rWords.map(w => wordMap[w]);
+    if (!jaWords.every(Boolean)) return null;
+    return jaWords.join('・');
+}
+
+// 18. 全語に日本語がある → ラベルを生成する
+{
+    const wordMap = { 'Χριστοῦ': 'キリスト', 'Ἰησοῦ': 'イエス' };
+    check('BUILDLOGIC_ALL_JA_PRODUCES_LABEL',
+        _computeRdgLabel('Χριστοῦ Ἰησοῦ', wordMap) === 'キリスト・イエス',
+        'complete wordMap should produce label');
+}
+
+// 19. 1語でも日本語が欠ける（null）→ ラベルを生成しない
+{
+    const wordMapPartial = { 'φαίνεται': '輝く', "κατ᾽": null, 'ὄναρ': '夢' };
+    check('BUILDLOGIC_PARTIAL_JA_NO_LABEL',
+        _computeRdgLabel("φαίνεται κατ᾽ ὄναρ", wordMapPartial) === null,
+        'partial wordMap (null value) must not produce label');
+}
+
+// 20. 語順を維持する（ギリシャ語語順に日本語が対応する）
+{
+    const wordMap = { 'Ἰησοῦ': 'イエス', 'Χριστοῦ': 'キリスト' };
+    const label0 = _computeRdgLabel('Χριστοῦ Ἰησοῦ', wordMap);
+    const label1 = _computeRdgLabel('Ἰησοῦ Χριστοῦ', wordMap);
+    check('BUILDLOGIC_ORDER_R0', label0 === 'キリスト・イエス', `expected キリスト・イエス got ${label0}`);
+    check('BUILDLOGIC_ORDER_R1', label1 === 'イエス・キリスト', `expected イエス・キリスト got ${label1}`);
+}
+
+// 21. lemWords にない語が reading にある → ラベルを生成しない
+{
+    const wordMap = { 'Χριστοῦ': 'キリスト', 'Ἰησοῦ': 'イエス' };
+    check('BUILDLOGIC_UNKNOWN_WORD_NO_LABEL',
+        _computeRdgLabel('Χριστοῦ Κυρίου', wordMap) === null,
+        'word not in wordMap must not produce label');
+}
+
+// 22. 実データ: apparatus-rdg-ja.json で MAT-0017 が除外されていること
+//     （κατ᾽ に日本語ラベルがなく部分ラベルになるため）
+{
+    const RDG_JA_PATH = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-rdg-ja.json');
+    try {
+        const rdgJaData = JSON.parse(fs.readFileSync(RDG_JA_PATH, 'utf8'));
+        check('RDGJA_MAT0017_EXCLUDED',
+            rdgJaData.entries['MAT-0017'] === undefined,
+            'MAT-0017 should be excluded (κατ᾽ has no Japanese label)');
+        check('RDGJA_ROM0001_PRESENT',
+            rdgJaData.entries['ROM-0001'] !== undefined,
+            'ROM-0001 should still be present (all words have Japanese)');
+        const rom = rdgJaData.entries['ROM-0001'];
+        check('RDGJA_ROM0001_R0', rom && rom['0'] === 'キリスト・イエス', `ROM-0001[0]: ${rom && rom['0']}`);
+        check('RDGJA_ROM0001_R1', rom && rom['1'] === 'イエス・キリスト', `ROM-0001[1]: ${rom && rom['1']}`);
+    } catch (e) {
+        check('RDGJA_DATA_LOAD', false, e.message);
+    }
+}
+
 // ── 静的ソース監査: CSS / JS ─────────────────────────────────────────────────
 
 // 11. CSS: .mvv-app-anno--auto .mvv-app-tag が font-style: italic で定義されている
@@ -379,6 +444,17 @@ check('SOURCE_RDGJA_PARAM',
 check('CSS_RDG_GR_CLASS',
     html.includes('.mvv-app-rdg-gr'),
     '.mvv-app-rdg-gr CSS not found in index.html');
+
+// 23. build-apparatus-rdg-ja.cjs: 部分ラベル防止ロジックが存在する
+const BUILD_PATH = path.join(__dirname, 'build-apparatus-rdg-ja.cjs');
+const buildSrc = fs.existsSync(BUILD_PATH) ? fs.readFileSync(BUILD_PATH, 'utf8') : '';
+check('BUILD_PARTIAL_PREVENTION_EVERY',
+    buildSrc.includes('jaWords.every(Boolean)'),
+    'jaWords.every(Boolean) not found in build-apparatus-rdg-ja.cjs');
+// 旧 filter(Boolean) が jaWords に対して使われていないこと
+check('BUILD_NO_FILTER_BOOLEAN_ON_JAWORDS',
+    !buildSrc.includes('jaWords.length === 0'),
+    'old partial-label pattern jaWords.length === 0 found (should be removed)');
 
 // ── 結果出力 ─────────────────────────────────────────────────────────────────
 console.log('\n=== re-apparatus-display-regression ===');
