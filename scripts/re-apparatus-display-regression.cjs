@@ -469,6 +469,39 @@ check('BUILD_RECURSIVE_READ',
     buildSrc.includes('readMorphDir') && buildSrc.includes('isDirectory()'),
     'recursive readMorphDir not found in build-apparatus-rdg-ja.cjs');
 
+// 25. build-apparatus-rdg-ja.cjs: textJaMap フォールバックが存在する
+//     （Task 53: 語彙置換ヴァリアント対応 — 語形が morph-index で一意な場合のみ採用）
+check('BUILD_TEXTJAMAP_PRESENT',
+    buildSrc.includes('textJaMap') && buildSrc.includes('textJaCandidates'),
+    'textJaMap/textJaCandidates not found in build-apparatus-rdg-ja.cjs');
+// 一意性チェック: jaSet.size === 1 のみ採用
+check('BUILD_TEXTJAMAP_UNIQUE_ONLY',
+    buildSrc.includes('jaSet.size === 1'),
+    'jaSet.size === 1 uniqueness check not found in build-apparatus-rdg-ja.cjs');
+// wordMap 優先: wordMap にある語は wordMap 値を使う
+check('BUILD_WORDMAP_PRIORITY',
+    buildSrc.includes('(w in wordMap) ? wordMap[w] : textJaMap[w]'),
+    'wordMap priority expression not found in build-apparatus-rdg-ja.cjs');
+
+// 26. 実データ: ROM-0002 語彙置換ヴァリアント — ὑπὲρ が日本語ラベルを持つ（Task 53）
+{
+    const RDG_JA_PATH = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-rdg-ja.json');
+    try {
+        const rdgJaData = JSON.parse(fs.readFileSync(RDG_JA_PATH, 'utf8'));
+        const rom2 = rdgJaData.entries['ROM-0002'];
+        // reading[0] περὶ → 〜について（既存、wordMap 由来）
+        check('RDGJA_ROM0002_R0',
+            rom2 && rom2['0'] === '〜について',
+            `ROM-0002[0]: expected '〜について' got ${rom2 && rom2['0']}`);
+        // reading[1] ὑπὲρ → 〜のために（新規、textJaMap 由来）
+        check('RDGJA_ROM0002_R1_LEXICAL',
+            rom2 && rom2['1'] === '〜のために',
+            `ROM-0002[1]: expected '〜のために' got ${rom2 && rom2['1']}`);
+    } catch (e) {
+        check('RDGJA_ROM0002_DATA_LOAD', false, e.message);
+    }
+}
+
 // ── 結果出力 ─────────────────────────────────────────────────────────────────
 console.log('\n=== re-apparatus-display-regression ===');
 for (const [status, name] of results) {
