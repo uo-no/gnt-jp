@@ -28,6 +28,18 @@ The generator reads the existing `books.json` and chapter JSON files without edi
 
 The corpus files contain normalized token records and inverted postings for lemma, surface text, Strong number, morphology, and the text-to-first-Japanese-gloss lookup. `globalIdx` is kept global across both files, not reset per corpus. A content-derived source version allows the client to reject stale assets.
 
+## Cloudflare Pages build integration
+
+The runtime loader probes `/search-index/meta.json` and then loads `nt.json` first; after NT search becomes available, it loads `lxx.json` in the background. If generated files are missing or inconsistent, the legacy browser builder remains active.
+
+To produce the assets during a Cloudflare Pages deployment, configure the Pages project build settings as follows (after the generation run and asset-size check pass):
+
+- Build command: `node scripts/build-search-index.js`
+- Build output directory: `public`
+- Root directory: repository root
+
+This is a dashboard-level setting, not something this repository can verify or apply automatically. Until the Pages build command is configured, production will use the legacy fallback unless generated files are otherwise present in `public/search-index/`.
+
 ## Migration gates
 
 1. Generate the files in the repository's real build environment and record raw/gzipped sizes, token counts, and generation time.
