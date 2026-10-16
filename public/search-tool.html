@@ -2188,7 +2188,9 @@ async function _loadPrebuiltMeta(){
             const res=await fetch('../search-index/meta.json');
             if(!res.ok)throw new Error('prebuilt search index meta unavailable');
             const meta=await res.json();
-            if(meta.schemaVersion!==1||!meta.sourceVersion)throw new Error('unsupported prebuilt index metadata');
+            if(meta.schemaVersion!==2||!meta.sourceVersion||!meta.corpora?.NT?.books||!meta.corpora?.LXX?.books){
+                throw new Error('unsupported prebuilt index metadata');
+            }
             return meta;
         })().catch(err=>{_prebuiltMetaPromise=null;throw err;});
     }
@@ -2196,27 +2198,51 @@ async function _loadPrebuiltMeta(){
 }
 async function _fetchPrebuiltCorpus(corpus){
     const meta=await _loadPrebuiltMeta();
-    const res=await fetch(`../search-index/${corpus.toLowerCase()}.json`);
-    if(!res.ok)throw new Error(`prebuilt ${corpus} index unavailable`);
-    const data=await res.json();
-    if(data.schemaVersion!==meta.schemaVersion||data.sourceVersion!==meta.sourceVersion||
-       data.corpus!==corpus||!Array.isArray(data.tokens)||!data.index){
-        throw new Error(`prebuilt ${corpus} index metadata mismatch`);
+    const descriptor=meta.corpora?.[corpus];
+    if(!descriptor||!Array.isArray(descriptor.books)||!descriptor.books.length){
+        throw new Error(`prebuilt ${corpus} book manifest unavailable`);
     }
-    if(data.tokenCount!==data.tokens.length||data.tokens.length===0)throw new Error(`prebuilt ${corpus} token count mismatch`);
-    if(!Number.isInteger(data.globalIdxStart)||!Number.isInteger(data.globalIdxEnd)||
-       data.globalIdxEnd!==data.globalIdxStart+data.tokens.length-1)throw new Error(`prebuilt ${corpus} globalIdx metadata invalid`);
-    for(const key of ['lemma','text','strong','morph','textToJp']){
-        if(!data.index[key]||typeof data.index[key]!=='object')throw new Error(`prebuilt ${corpus} index missing ${key}`);
-    }
-    for(const key of ['lemma','text','strong','morph']){
-        for(const [term,arr] of Object.entries(data.index[key])){
-            if(!Array.isArray(arr)||arr.some(idx=>!Number.isInteger(idx)||idx<data.globalIdxStart||idx>data.globalIdxEnd)){
-                throw new Error(`prebuilt ${corpus} invalid postings for ${key}:${term}`);
+    /* Fetch book shards concurrently; Promise.all preserves manifest order. */
+    const shards=await Promise.all(descriptor.books.map(async book=>{
+        if(!book||typeof book.bookKey!=='string'||typeof book.path!=='string'||!/^[-A-Z0-9]+\\.json$/.test(book.path.split('/').pop())){
+            throw new Error(`prebuilt ${corpus} invalid book manifest entry`);
+        }
+        const res=await fetch(`../search-index/${book.path}`);
+        if(!res.ok)throw new Error(`prebuilt ${corpus} shard unavailable: ${book.bookKey}`);
+        const data=await res.json();
+        if(data.schemaVersion!==meta.schemaVersion||data.sourceVersion!==meta.sourceVersion||
+           data.corpus!==corpus||data.bookKey!==book.bookKey||!Array.isArray(data.tokens)||!data.index){
+            throw new Error(`prebuilt ${corpus} shard metadata mismatch: ${book.bookKey}`);
+        }
+        if(data.tokenCount!==data.tokens.length||data.tokens.length===0||
+           data.tokenCount!==book.tokenCount||data.globalIdxStart!==book.globalIdxStart||data.globalIdxEnd!==book.globalIdxEnd){
+            throw new Error(`prebuilt ${corpus} shard count/range mismatch: ${book.bookKey}`);
+        }
+        if(!Number.isInteger(data.globalIdxStart)||!Number.isInteger(data.globalIdxEnd)||
+           data.globalIdxEnd!==data.globalIdxStart+data.tokens.length-1){
+            throw new Error(`prebuilt ${corpus} shard globalIdx metadata invalid: ${book.bookKey}`);
+        }
+        for(const key of ['lemma','text','strong','morph','textToJp']){
+            if(!data.index[key]||typeof data.index[key]!=='object')throw new Error(`prebuilt ${corpus} shard missing ${key}`);
+        }
+        for(const key of ['lemma','text','strong','morph']){
+            for(const [term,arr] of Object.entries(data.index[key])){
+                if(!Array.isArray(arr)||arr.some(idx=>!Number.isInteger(idx)||idx<data.globalIdxStart||idx>data.globalIdxEnd)){
+                    throw new Error(`prebuilt ${corpus} invalid postings for ${key}:${term}`);
+                }
             }
         }
+        return data;
+    }));
+    let expectedStart=corpus==='NT'?0:meta.corpora.NT.tokenCount;
+    let totalTokens=0;
+    for(const shard of shards){
+        if(shard.globalIdxStart!==expectedStart)throw new Error(`prebuilt ${corpus} shard sequence has a gap at ${shard.bookKey}`);
+        expectedStart=shard.globalIdxEnd+1;
+        totalTokens+=shard.tokenCount;
     }
-    return data;
+    if(totalTokens!==descriptor.tokenCount)throw new Error(`prebuilt ${corpus} aggregate token count mismatch`);
+    return shards;
 }
 function _mergePrebuiltCorpus(data){
     const expectedStart=ALL_TOKENS.length;
@@ -2225,7 +2251,7 @@ function _mergePrebuiltCorpus(data){
         const tok=data.tokens[i];
         if(!tok||tok.globalIdx!==expectedStart+i)throw new Error('prebuilt token order/globalIdx mismatch');
     }
-    ALL_TOKENS=ALL_TOKENS.concat(data.tokens);
+    for(const tok of data.tokens)ALL_TOKENS.push(tok);
     for(const name of ['lemma','text','strong']){
         const target=SEARCH_INDEX[name];
         for(const [key,arr] of Object.entries(data.index[name])){
@@ -2259,8 +2285,8 @@ function _startPrebuiltLxxAndJapanese(metaVersion){
             try{
                 lxx=await _fetchPrebuiltCorpus('LXX');
                 if(lxx.sourceVersion!==metaVersion)throw new Error('prebuilt LXX source version mismatch');
-                _mergePrebuiltCorpus(lxx);
-                console.info('[search-index] LXX prebuilt ready');
+                for(const shard of lxx)_mergePrebuiltCorpus(shard);
+                console.info(`[search-index] LXX prebuilt ready (${lxx.length} book shards)`);
             }catch(prebuiltError){
                 console.warn('[search-index] LXX prebuilt unavailable; using browser fallback',prebuiltError);
                 await _buildFullIndex(['LXX']);
@@ -2283,8 +2309,8 @@ function _ensureFullIndex(){
                 const meta=await _loadPrebuiltMeta();
                 const nt=await _fetchPrebuiltCorpus('NT');
                 if(nt.sourceVersion!==meta.sourceVersion)throw new Error('prebuilt NT source version mismatch');
-                _mergePrebuiltCorpus(nt);
-                console.info('[search-index] NT prebuilt ready');
+                for(const shard of nt)_mergePrebuiltCorpus(shard);
+                console.info(`[search-index] NT prebuilt ready (${nt.length} book shards)`);
                 IDX.ready=true;
                 _startPrebuiltLxxAndJapanese(meta.sourceVersion);
             }catch(prebuiltError){
