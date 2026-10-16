@@ -20,7 +20,7 @@ const dataRoot = fs.existsSync(path.join(root, 'public/bible_data'))
     ? path.join(root, 'public/bible_data') : path.join(root, 'bible_data');
 const ntKeys = new Set(booksMaster.NT.map(b => b.key));
 const meta = JSON.parse(fs.readFileSync(path.join(indexDir, 'meta.json'), 'utf8'));
-assert.equal(meta.schemaVersion, 2);
+assert.equal(meta.schemaVersion, 3);
 
 let globalIdx = 0;
 let chapterCount = 0;
@@ -107,6 +107,25 @@ for (const book of [...booksMaster.NT, ...booksMaster.OT]) {
     for (const name of ['lemma', 'text', 'strong', 'morph']) {
         assert.deepStrictEqual(shard.index[name], asObject(postings[name]), `${corpus}/${book.key} ${name} postings`);
     }
+    const japanesePartial = new Map();
+    for (const tok of expectedTokens) {
+        const jpVals = tok.japanese ? (Array.isArray(tok.japanese) ? tok.japanese : [tok.japanese]) : (tok.gloss ? [tok.gloss] : []);
+        const seenForToken = new Set();
+        for (const value of jpVals) {
+            if (typeof value !== 'string' || !value) continue;
+            const maxLen = Math.min(value.length, 8);
+            for (let start = 0; start < value.length; start++) {
+                for (let length = 1; length <= maxLen - start; length++) {
+                    const term = value.slice(start, start + length);
+                    if (seenForToken.has(term)) continue;
+                    seenForToken.add(term);
+                    if (!japanesePartial.has(term)) japanesePartial.set(term, []);
+                    japanesePartial.get(term).push(tok.globalIdx);
+                }
+            }
+        }
+    }
+    assert.deepStrictEqual(shard.index.japanesePartial, asObject(japanesePartial), `${corpus}/${book.key} Japanese partial postings`);
     const expectedTextToJp = {};
     for (const tok of expectedTokens) {
         if (tok.text && textToJpByCorpus[corpus].has(tok.text)) {
