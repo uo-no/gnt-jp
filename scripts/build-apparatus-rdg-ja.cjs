@@ -10,7 +10,12 @@
  *   1. entry.lemWords と entry.tokenRefs が同じ長さで空でない
  *   2. lemWords に重複語形がない（マッピングの一意性）
  *   3. reading.isOmission が false で text が空でない
- *   4. reading.text の各語がすべて lemWords に含まれる
+ *   4. reading.text の各語が wordMap または明示的な textJaMap に存在する
+ *
+ * 語形フォールバック（textJaMap）:
+ *   lemWords に含まれない語形（語彙置換ヴァリアント）は、
+ *   出典と採用ラベルを個別に確認した明示的な対応だけを許可する。
+ *   morph-index 全体の語形一意性だけで意味を自動確定しない（L-0）。
  *
  * 出力形式:
  *   { "entries": { "ROM-0001": { "0": "キリスト・イエス", "1": "イエス・キリスト" }, ... } }
@@ -32,6 +37,7 @@ const OUT_PATH       = path.join(__dirname, '..', 'public', 'assets', 'data', 'a
 
 // morph-index/word/ を再帰的に走査して ref → japanese のマップを構築
 // （単語によってはサブディレクトリ内の part_*.json に分割格納されている）
+// 語彙置換ヴァリアント用フォールバックは、出典確認済み語形を textJaMap に明示するする
 console.log('Building ref → japanese map from morph-index/word/ ...');
 const refMap = {};
 let fileCount = 0;
@@ -57,6 +63,12 @@ function readMorphDir(dir) {
 }
 readMorphDir(MORPH_DIR);
 console.log(`\nBuilt ref map: ${Object.keys(refMap).length} entries from ${fileCount} files`);
+
+// 出典を確認した語形のみ許可する限定フォールバック。
+// 語形の一意性だけで意味を自動確定しない（L-0）。
+const textJaMap = {
+    'ὑπὲρ': '〜のために',
+};
 
 // apparatus.json を読み込む
 const apparatus = JSON.parse(fs.readFileSync(APPARATUS_PATH, 'utf8'));
@@ -102,15 +114,15 @@ for (const entry of entries) {
 
         const rWords = r.text.split(/\s+/).filter(Boolean).map(w => w.normalize('NFC'));
 
-        // すべての語が wordMap のキーとして存在するか確認
-        // （lemWords にない語形が reading に含まれる場合はスキップ）
-        if (!rWords.every(w => w in wordMap)) {
+        // すべての語が wordMap（lemWords 由来）または textJaMap（出典確認済み語形別フォールバック）に存在するか確認
+        if (!rWords.every(w => w in wordMap || w in textJaMap)) {
             nullReadings++;
             continue;
         }
 
         // 全語に空でない日本語ラベルがある場合のみ出力（部分ラベルを防ぐ）
-        const jaWords = rWords.map(w => wordMap[w]);
+        // wordMap 優先・不在の場合のみ textJaMap を使用
+        const jaWords = rWords.map(w => (w in wordMap) ? wordMap[w] : textJaMap[w]);
         if (!jaWords.every(Boolean)) {
             nullReadings++;
             continue;
@@ -131,8 +143,8 @@ console.log(`Readings: covered=${coveredReadings}, null=${nullReadings}`);
 
 const output = {
     _meta: {
-        description: 'apparatus 各読みの日本語ラベル（morph-index の lemWords 一致から自動生成）',
-        source: 'public/morph-index/word/ の japanese フィールド（lemWords と同一語形の読みのみ対応）',
+        description: 'apparatus 各読みの日本語ラベル（morph-index から自動生成）',
+        source: 'public/morph-index/word/ の japanese フィールド（lemWords 由来の wordMap + 出典確認済みの明示的な語形別フォールバック）',
         generatedAt: new Date().toISOString().slice(0, 10),
         entriesCount: entriesOut,
         readingsCovered: coveredReadings,
