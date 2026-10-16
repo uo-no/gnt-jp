@@ -13696,10 +13696,10 @@ function _wlvSwitchTab(name) {
 
 let _wallacePipeline       = null;  // { sa, pa, ca, rf } キャッシュ（初回のみ registry を fetch）
 let _wallacePipelineFailed = false; // 初期化に失敗した場合は再試行せず静かに諦める
-let _wallacePassageNoteGen = 0;     // 古い非同期結果の注入を防ぐ世代カウンタ
+// 読書メモの非同期世代はコンテナごとに保持し、PC/Mobile の描画が互いを無効化しない。
 let _apparatusData         = null;  // apparatus.json キャッシュ（初回のみ fetch）
 let _apparatusLoadP        = null;  // 進行中 fetch Promise
-let _apparatusNoteGen      = 0;     // 古い非同期注入を防ぐ世代カウンタ
+// 本文批評欄の非同期世代はコンテナごとに保持し、PC/Mobile 間の競合を防ぐ。
 let _apparatusJaData       = null;  // apparatus-ja.json キャッシュ（失敗時は null のまま）
 let _apparatusJaLoadP      = null;  // 進行中 fetch Promise
 let _apparatusJaAllData    = null;  // 4データセット統合キャッシュ（失敗時は null のまま）
@@ -14958,9 +14958,11 @@ async function _buildWallacePassageNoteHTML(words) {
  * 世代カウンタで自分が最新の呼び出しかを確認してから反映する。
  */
 async function _fillWallacePassageNote(words, container) {
-    const myGen = ++_wallacePassageNoteGen;
+    if (!container) return;
+    const myGen = (container._wallacePassageNoteGen || 0) + 1;
+    container._wallacePassageNoteGen = myGen;
     const html = await _buildWallacePassageNoteHTML(words);
-    if (myGen !== _wallacePassageNoteGen) return;       // 既に次の節に移動済み
+    if (myGen !== container._wallacePassageNoteGen) return; // 同じコンテナで既に別の節へ移動済み
     if (!html) return;                                   // 静寂優先：空スロットのまま
     const slot = container && container.querySelector('#wlv-passage-note-slot');
     if (slot) {
@@ -15114,9 +15116,11 @@ function _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries) {
  * 世代カウンタで fast verse-switching による古い結果の誤注入を防ぐ。
  */
 async function _fillApparatusSection(bookKey, ch, vNum, area) {
-    const myGen = ++_apparatusNoteGen;
+    if (!area) return;
+    const myGen = (area._apparatusNoteGen || 0) + 1;
+    area._apparatusNoteGen = myGen;
     const [data, jaData, lemJaData, rdgJaData] = await Promise.all([_loadApparatusData(), _loadApparatusJaAllData(), _loadApparatusLemJaData(), _loadApparatusRdgJaData()]);
-    if (myGen !== _apparatusNoteGen) return;
+    if (myGen !== area._apparatusNoteGen) return;
     if (!data) return;
     const verseKey = `${bookKey} ${ch}:${vNum}`;
     const idxs = data.byVerse[verseKey];
