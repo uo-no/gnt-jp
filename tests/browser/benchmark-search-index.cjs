@@ -101,6 +101,8 @@ async function measure(mode) {
       console.log(JSON.stringify(result));
       if (!result.loaderConfirmed) throw new Error('Expected loader path was not confirmed: ' + mode + '; console=' + JSON.stringify(result.consoleTail));
       if (result.tokens !== 617364) throw new Error('Unexpected token count: ' + mode + ' ' + result.tokens);
+      const pageErrors = result.loaderDiagnostics.filter(d => d.type === 'pageerror');
+      if (pageErrors.length) throw new Error('Unexpected browser page error in ' + mode + ': ' + JSON.stringify(pageErrors));
     }
   } finally { await new Promise(resolve=>server.close(resolve)); }
 })().catch(err=>{ console.error(err); process.exitCode=1; });
