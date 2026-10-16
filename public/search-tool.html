@@ -429,6 +429,9 @@ body {
     outline-offset: 1px;
 }
 
+/* ── Search simplification: phrase search is automatic for multiword queries ── */
+#layer-phrase, #phrase-sub { display: none !important; }
+
 /* ── Proximity distance sub-control ── */
 .prox-sub {
     margin-top: 6px;
@@ -3448,8 +3451,8 @@ async function unifiedSearch(){
     if(!query){document.getElementById('unified-search-input').focus();return;}
 
     // Check at least one non-morph layer is active
-    if(!_layers.lemma&&!_layers.phrase&&!_layers.prox){
-        _showEmpty('レイヤーを選択してください','lemma / phrase / proximity のいずれかをオNにしてください');
+    if(!_layers.lemma&&!_layers.prox&&query.split(/\s+/).filter(Boolean).length<2&&detectQueryType(query)!=='japanese'){
+        _showEmpty('レイヤーを選択してください','検索条件を選択してください');
         return;
     }
 
@@ -3495,7 +3498,9 @@ async function unifiedSearch(){
     performance.mark('search-start');
     const tasks=[];
 
-    if(_layers.lemma){
+    // 単語検索は従来どおり。日本語は検索レイヤー未選択でも通常検索できるようにする。
+    const singleJapaneseQuery = words.length===1 && detectQueryType(word1)==='japanese';
+    if((_layers.lemma&&words.length===1)||(singleJapaneseQuery&&!_layers.prox)){
         tasks.push((async()=>{
             const qtype=detectQueryType(word1);
             let idxs;
@@ -3528,7 +3533,8 @@ async function unifiedSearch(){
         })());
     }
 
-    if(_layers.phrase&&(words.length>=2||detectQueryType(word1)==='japanese')){
+    // 複数語入力のみ連続フレーズ検索を自動実行。単語検索にフレーズ種別を誤付与しない。
+    if(words.length>=2){
         tasks.push((async()=>{
             const isJp=detectQueryType(word1)==='japanese';
             const idxs=isJp?searchPhraseJapanese(words):searchPhrase(words);

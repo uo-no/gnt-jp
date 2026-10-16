@@ -1,0 +1,51 @@
+name: Search Phrase Preview Browser Test
+
+on:
+  pull_request:
+    paths:
+      - 'public/search-tool.html'
+      - 'tests/browser/verify-search-phrase-auto.cjs'
+      - '.github/workflows/search-phrase-preview-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview-browser-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Wait for Cloudflare Pages preview
+        env:
+          PREVIEW_URL: https://feat-search-auto-phrase-dist.bible-text.pages.dev/search-tool.html
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -L -s -o /dev/null -w '%{http_code}' "$PREVIEW_URL" || true)
+            if [ "$code" = "200" ]; then
+              echo "Preview is responding (HTTP 200)."
+              exit 0
+            fi
+            echo "Preview not ready yet (HTTP $code); retry $i/30."
+            sleep 10
+          done
+          echo "Cloudflare Pages preview did not become available."
+          exit 1
+
+      - name: Verify automatic phrase-search behavior
+        env:
+          SEARCH_PREVIEW_URL: https://feat-search-auto-phrase-dist.bible-text.pages.dev/search-tool.html
+        run: node tests/browser/verify-search-phrase-auto.cjs
