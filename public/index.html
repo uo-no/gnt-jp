@@ -4066,30 +4066,17 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 }
 
 /* PC StudyPanel: 本文批評欄。モバイル専用の視覚指定を流用せず、PC側に独立して適用する。 */
+/* PC StudyPanel: 本文の異読は「この節の読書メモ」と同じ階層で常時表示。 */
 #word-list-view .study-panel-apparatus-note {
-    display: block;
-    flex-shrink: 0;
-    margin: 0 var(--rhythm-macro-min) var(--space-sm);
-    padding: var(--space-sm) 0;
-    border-bottom: 1px solid var(--border-soft);
-    color: var(--text-main);
-    font-size: var(--text-caption);
+    margin-bottom: var(--space-xs);
 }
-#word-list-view .study-panel-apparatus-note > summary {
-    cursor: pointer;
-    list-style: none;
-    color: var(--text-sub);
-    font-size: var(--text-caption);
-    user-select: none;
+#word-list-view .study-panel-apparatus-note .wlv-pn-label {
+    margin-bottom: var(--rhythm-medium-y);
 }
-#word-list-view .study-panel-apparatus-note > summary::-webkit-details-marker { display: none; }
-#word-list-view .study-panel-apparatus-note > summary::after {
-    content: '+';
-    float: right;
-    color: var(--text-sub);
+#word-list-view .study-panel-apparatus-note .mvv-apparatus-entries {
+    padding-left: var(--rhythm-medium-x);
+    border-left: 2px solid var(--accent-mid);
 }
-#word-list-view .study-panel-apparatus-note[open] > summary::after { content: '−'; }
-#word-list-view .study-panel-apparatus-note .mvv-apparatus-entries { padding-top: var(--space-sm); }
 #word-list-view .study-panel-apparatus-note .mvv-app-entry {
     padding: var(--space-xs) 0;
     border-bottom: 1px solid var(--border-soft);
@@ -15133,8 +15120,13 @@ async function _fillApparatusSection(bookKey, ch, vNum, area) {
     if (!html) return;
     const slot = area && area.querySelector('#wlv-apparatus-slot');
     if (!slot) return;
-    const desktopClass = area.id === 'word-list-view' ? ' study-panel-apparatus-note' : '';
-    slot.outerHTML = `<details class="mvv-passage-note mvv-apparatus-note${desktopClass}"><summary>本文の異読 <span class="mvv-app-count">${entries.length}</span></summary>${html}</details>`;
+    if (area.id === 'word-list-view') {
+        /* PC版は「この節の読書メモ」と同じく常時表示。開閉 UI は付けない。 */
+        slot.outerHTML = `<section class="wlv-reading-passage-note study-panel-apparatus-note"><span class="wlv-pn-label">本文の異読 <span class="mvv-app-count">${entries.length}</span></span>${html}</section>`;
+    } else {
+        /* モバイル版の既存 UI はそのまま維持する。 */
+        slot.outerHTML = `<details class="mvv-passage-note mvv-apparatus-note"><summary>本文の異読 <span class="mvv-app-count">${entries.length}</span></summary>${html}</details>`;
+    }
 }
 
 /**
