@@ -2196,34 +2196,52 @@ let _fullIndexPromise=null;
    Missing/stale/invalid generated assets are a normal fallback condition: the legacy
    browser builder remains the source of truth until the generated path is verified. */
 let _prebuiltMetaPromise = null;
+/* Runtime diagnostics separate network/JSON validation from merging so slow stages
+   can be identified on real devices without changing index semantics. */
+const _prebuiltLoadMetrics = { startedAt:0, stages:[] };
+function _recordPrebuiltMetric(stage, startedAt, detail={}){
+    const metric={stage,ms:Math.round((performance.now()-startedAt)*10)/10,...detail};
+    _prebuiltLoadMetrics.stages.push(metric);
+    console.info('[search-index][timing]',metric);
+}
 async function _loadPrebuiltMeta(){
     if(!_prebuiltMetaPromise){
         _prebuiltMetaPromise=(async()=>{
+            const startedAt=performance.now();
             const res=await fetch('../search-index/meta.json');
             if(!res.ok)throw new Error('prebuilt search index meta unavailable');
             const meta=await res.json();
             if(meta.schemaVersion!==3||!meta.sourceVersion||!meta.corpora?.NT?.books||!meta.corpora?.LXX?.books){
                 throw new Error('unsupported prebuilt index metadata');
             }
+            _recordPrebuiltMetric('meta-fetch-parse-validate',startedAt,{status:res.status});
             return meta;
         })().catch(err=>{_prebuiltMetaPromise=null;throw err;});
     }
     return _prebuiltMetaPromise;
 }
 async function _fetchPrebuiltCorpus(corpus){
+    const corpusStartedAt=performance.now();
     const meta=await _loadPrebuiltMeta();
     const descriptor=meta.corpora?.[corpus];
     if(!descriptor||!Array.isArray(descriptor.books)||!descriptor.books.length){
         throw new Error(`prebuilt ${corpus} book manifest unavailable`);
     }
     /* Fetch book shards concurrently; Promise.all preserves manifest order. */
+    const shardMetrics={fetchMs:0,parseMs:0,validateMs:0};
     const shards=await Promise.all(descriptor.books.map(async book=>{
+        const shardStartedAt=performance.now();
         if(!book||typeof book.bookKey!=='string'||typeof book.path!=='string'||!/^[-A-Z0-9]+\.json$/.test(book.path.split('/').pop())){
             throw new Error(`prebuilt ${corpus} invalid book manifest entry`);
         }
+        const fetchStartedAt=performance.now();
         const res=await fetch(`../search-index/${book.path}`);
+        shardMetrics.fetchMs+=performance.now()-fetchStartedAt;
         if(!res.ok)throw new Error(`prebuilt ${corpus} shard unavailable: ${book.bookKey}`);
+        const parseStartedAt=performance.now();
         const data=await res.json();
+        shardMetrics.parseMs+=performance.now()-parseStartedAt;
+        const validateStartedAt=performance.now();
         if(data.schemaVersion!==meta.schemaVersion||data.sourceVersion!==meta.sourceVersion||
            data.corpus!==corpus||data.bookKey!==book.bookKey||!Array.isArray(data.tokens)||!data.index){
             throw new Error(`prebuilt ${corpus} shard metadata mismatch: ${book.bookKey}`);
@@ -2246,8 +2264,15 @@ async function _fetchPrebuiltCorpus(corpus){
                 }
             }
         }
+        shardMetrics.validateMs+=performance.now()-validateStartedAt;
         return data;
     }));
+    _recordPrebuiltMetric('corpus-fetch-parse-validate',corpusStartedAt,{
+        corpus,shards:shards.length,tokens:descriptor.tokenCount,
+        summedFetchMs:Math.round(shardMetrics.fetchMs),
+        summedParseMs:Math.round(shardMetrics.parseMs),
+        summedValidateMs:Math.round(shardMetrics.validateMs)
+    });
     let expectedStart=corpus==='NT'?0:meta.corpora.NT.tokenCount;
     let totalTokens=0;
     for(const shard of shards){
@@ -2259,6 +2284,7 @@ async function _fetchPrebuiltCorpus(corpus){
     return shards;
 }
 function _mergePrebuiltCorpus(data){
+    const mergeStartedAt=performance.now();
     const expectedStart=ALL_TOKENS.length;
     if(data.globalIdxStart!==expectedStart||data.globalIdxEnd!==expectedStart+data.tokens.length-1)throw new Error('prebuilt globalIdx range mismatch');
     for(let i=0;i<data.tokens.length;i++){
@@ -2297,6 +2323,10 @@ function _mergePrebuiltCorpus(data){
         for(const idx of arr)current.push(idx);
     }
     /* Arrays are already ordered within each corpus; NT precedes LXX globally. */
+    _recordPrebuiltMetric('shard-merge',mergeStartedAt,{
+        corpus:data.corpus,bookKey:data.bookKey,tokens:data.tokens.length,
+        indexKeys:Object.fromEntries(['lemma','text','strong','morph','textToJp','japanesePartial'].map(k=>[k,Object.keys(data.index[k]||{}).length]))
+    });
 }
 function _startPrebuiltLxxAndJapanese(metaVersion){
     (async()=>{
