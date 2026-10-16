@@ -716,6 +716,10 @@ pointer-events: auto;
         color: var(--text-sub);
         font-size: calc(var(--text-caption) * 0.9);
     }
+    #mobile-verse-area .mvv-app-rdg-gr {
+        color: var(--text-sub);
+        font-size: calc(var(--text-caption) * 0.9);
+    }
     #mobile-verse-area .mvv-app-rdg {
         display: flex;
         justify-content: space-between;
@@ -13610,6 +13614,8 @@ let _apparatusJaAllData    = null;  // 4データセット統合キャッシュ�
 let _apparatusJaAllLoadP   = null;  // 進行中 fetch Promise
 let _apparatusLemJaData    = null;  // apparatus-lem-ja.json キャッシュ（失敗時は null のまま）
 let _apparatusLemJaLoadP   = null;  // 進行中 fetch Promise
+let _apparatusRdgJaData    = null;  // apparatus-rdg-ja.json キャッシュ（失敗時は null のまま）
+let _apparatusRdgJaLoadP   = null;  // 進行中 fetch Promise
 
 async function _ensureWallacePipeline() {
     if (_wallacePipeline || _wallacePipelineFailed) return _wallacePipeline;
@@ -14941,6 +14947,18 @@ async function _loadApparatusLemJaData() {
     return _apparatusLemJaLoadP;
 }
 
+/** apparatus-rdg-ja.json を fetch して各読みの日本語マッピングを返す。
+ *  失敗時は null を返す（静寂優先）。 */
+async function _loadApparatusRdgJaData() {
+    if (_apparatusRdgJaData) return _apparatusRdgJaData;
+    if (_apparatusRdgJaLoadP) return _apparatusRdgJaLoadP;
+    _apparatusRdgJaLoadP = fetch('../assets/data/apparatus-rdg-ja.json')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { _apparatusRdgJaData = d; return d; })
+        .catch(() => null);
+    return _apparatusRdgJaLoadP;
+}
+
 /** apparatus-ja の tag 値 → 日本語話者向け表示ラベルのマッピング。
  *  データ側の tag 値は変更しない。表示層でのみ変換する。 */
 const _APPARATUS_TAG_LABELS = {
@@ -14957,9 +14975,10 @@ const _APPARATUS_TAG_LABELS = {
 /** apparatus entries を <div class="mvv-apparatus-entries"> に変換する。
  *  jaEntries は _loadApparatusJaAllData() の entries オブジェクト（省略可）。
  *  lemJaEntries は _loadApparatusLemJaData() の entries オブジェクト（省略可）。
+ *  rdgJaEntries は _loadApparatusRdgJaData() の entries オブジェクト（省略可）。
  *  status='確認済み' → mvv-app-anno、status='自動生成' → mvv-app-anno mvv-app-anno--auto で表示。
  *  status='保留' および未知のステータスは表示しない（静寂優先）。 */
-function _buildApparatusHTML(entries, jaEntries, lemJaEntries) {
+function _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries) {
     if (!entries || !entries.length) return '';
     const parts = entries.map(e => {
         const lemJa = lemJaEntries && lemJaEntries[e.id];
@@ -14970,19 +14989,27 @@ function _buildApparatusHTML(entries, jaEntries, lemJaEntries) {
         const isConfirmed = ja && ja.status === '確認済み' && ja.tag && ja.ja;
         const isAuto      = ja && ja.status === '自動生成' && ja.tag && ja.ja;
         const tagLabel = (tag) => _escH(_APPARATUS_TAG_LABELS[tag] || tag);
+        const showJaText = (isConfirmed || isAuto) && !(e.readings.length >= 2 && ja.ja.startsWith('語順: '));
+        const jaSpan = showJaText ? `<span class="mvv-app-ja">${_escH(ja.ja)}</span>` : '';
         const annoHtml = isConfirmed
-            ? `<div class="mvv-app-anno"><span class="mvv-app-tag">${tagLabel(ja.tag)}</span><span class="mvv-app-ja">${_escH(ja.ja)}</span></div>`
+            ? `<div class="mvv-app-anno"><span class="mvv-app-tag">${tagLabel(ja.tag)}</span>${jaSpan}</div>`
             : isAuto
-            ? `<div class="mvv-app-anno mvv-app-anno--auto"><span class="mvv-app-tag">${tagLabel(ja.tag)}</span><span class="mvv-app-ja">${_escH(ja.ja)}</span></div>`
+            ? `<div class="mvv-app-anno mvv-app-anno--auto"><span class="mvv-app-tag">${tagLabel(ja.tag)}</span>${jaSpan}</div>`
             : '';
         const _rdgNums = ['①', '②', '③', '④'];
+        const entryRdgJa = rdgJaEntries && rdgJaEntries[e.id];
         const rdgHtml = e.readings.map((r, idx) => {
             const numHtml = e.readings.length >= 2
                 ? `<span class="mvv-app-rdg-num">${_rdgNums[idx] || (idx + 1)}</span>`
                 : '';
-            const text = r.isOmission ? '（省略）' : _escH(r.text || '');
+            const rdgJa = !r.isOmission && entryRdgJa && entryRdgJa[String(idx)];
+            const textInner = r.isOmission
+                ? '（省略）'
+                : rdgJa
+                ? `${_escH(rdgJa)}<span class="mvv-app-rdg-gr">（${_escH(r.text || '')}）</span>`
+                : _escH(r.text || '');
             const wit  = _escH((r.witnesses || []).join(' · '));
-            return `<div class="mvv-app-rdg">${numHtml}<span class="mvv-app-rdg-text">${text}</span><span class="mvv-app-rdg-wit">${wit}</span></div>`;
+            return `<div class="mvv-app-rdg">${numHtml}<span class="mvv-app-rdg-text">${textInner}</span><span class="mvv-app-rdg-wit">${wit}</span></div>`;
         }).join('');
         return `<div class="mvv-app-entry">${lemHtml}${annoHtml}${rdgHtml}</div>`;
     });
@@ -14996,7 +15023,7 @@ function _buildApparatusHTML(entries, jaEntries, lemJaEntries) {
  */
 async function _fillApparatusSection(bookKey, ch, vNum, area) {
     const myGen = ++_apparatusNoteGen;
-    const [data, jaData, lemJaData] = await Promise.all([_loadApparatusData(), _loadApparatusJaAllData(), _loadApparatusLemJaData()]);
+    const [data, jaData, lemJaData, rdgJaData] = await Promise.all([_loadApparatusData(), _loadApparatusJaAllData(), _loadApparatusLemJaData(), _loadApparatusRdgJaData()]);
     if (myGen !== _apparatusNoteGen) return;
     if (!data) return;
     const verseKey = `${bookKey} ${ch}:${vNum}`;
@@ -15005,7 +15032,8 @@ async function _fillApparatusSection(bookKey, ch, vNum, area) {
     const entries = idxs.map(i => data.entries[i]);
     const jaEntries = jaData && jaData.entries;
     const lemJaEntries = lemJaData && lemJaData.entries;
-    const html = _buildApparatusHTML(entries, jaEntries, lemJaEntries);
+    const rdgJaEntries = rdgJaData && rdgJaData.entries;
+    const html = _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries);
     if (!html) return;
     const slot = area && area.querySelector('#wlv-apparatus-slot');
     if (!slot) return;
