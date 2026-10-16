@@ -30,6 +30,4 @@ jobs:
       - name: Generate indexes from repository data and measure size
         run: |
           node scripts/build-search-index.js --out-dir /tmp/search-index-generated
-          du -h /tmp/search-index-generated/*.json
-          gzip -c /tmp/search-index-generated/nt.json | wc -c
-          gzip -c /tmp/search-index-generated/lxx.json | wc -c
+          node -e "const fs=require('node:fs'); const p='/tmp/search-index-generated'; const m=JSON.parse(fs.readFileSync(p+'/meta.json','utf8')); const files=[]; for(const c of ['NT','LXX']) for(const b of m.corpora[c].books) files.push({path:b.path,raw:b.rawBytes,gzip:b.gzipBytes}); files.sort((a,b)=>b.raw-a.raw); console.log(JSON.stringify({chapterCount:m.chapterCount,tokenCount:m.tokenCount,totalRawBytes:m.totalRawBytes,totalGzipBytes:m.totalGzipBytes,largestShards:files.slice(0,10)},null,2));"
