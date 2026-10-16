@@ -2215,13 +2215,13 @@ function _mergePrebuiltCorpus(data){
         const tok=data.tokens[i];
         if(!tok||tok.globalIdx!==expectedStart+i)throw new Error('prebuilt token order/globalIdx mismatch');
     }
-    ALL_TOKENS.push(...data.tokens);
+    ALL_TOKENS=ALL_TOKENS.concat(data.tokens);
     for(const name of ['lemma','text','strong']){
         const target=SEARCH_INDEX[name];
         for(const [key,arr] of Object.entries(data.index[name])){
             let current=target.get(key);
             if(!current){current=[];target.set(key,current);}
-            current.push(...arr);
+            for(const idx of arr)current.push(idx);
         }
     }
     for(const [key,value] of Object.entries(data.index.textToJp)){
@@ -2232,7 +2232,7 @@ function _mergePrebuiltCorpus(data){
     for(const [key,arr] of Object.entries(data.index.lemma)){
         let current=window.lemmaIndex.get(key);
         if(!current){current=[];window.lemmaIndex.set(key,current);}
-        current.push(...arr);
+        for(const idx of arr)current.push(idx);
     }
     if(!window.morphIndex)window.morphIndex=new Map();
     for(const [key,arr] of Object.entries(data.index.morph)){
