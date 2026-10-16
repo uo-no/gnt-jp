@@ -40,11 +40,19 @@ async function measure(mode) {
     const consoleLines = [];
     const failedResponses = [];
     const loaderDiagnostics = [];
-    page.on('console', msg => {
+    page.on('console', async msg => {
       const line = msg.text();
       consoleLines.push(line);
-      if (/search-index|prebuilt|Error/i.test(line)) loaderDiagnostics.push({ type:msg.type(), text:line });
+      if (/search-index|prebuilt|Error/i.test(line)) {
+        const args = await Promise.all(msg.args().map(arg => arg.evaluate(value => value instanceof Error
+          ? { name:value.name, message:value.message, stack:value.stack }
+          : value
+        ).catch(() => '[unavailable console arg]')));
+        loaderDiagnostics.push({ type:msg.type(), text:line, args });
+      }
     });
+    page.on('pageerror', error => loaderDiagnostics.push({ type:'pageerror', text:error.message, stack:error.stack }));
+    page.on('requestfailed', request => loaderDiagnostics.push({ type:'requestfailed', url:request.url(), error:request.failure()?.errorText }));
     page.on('response', res => { if (res.status() >= 400) failedResponses.push({ status: res.status(), url: res.url() }); });
     if (mode === 'fallback') {
       await page.route('**/search-index/meta.json', route => route.fulfill({ status:404, body:'forced fallback benchmark' }));
