@@ -7,7 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-const repoRoot = path.resolve(__dirname, '..');
+const repoRoot = path.resolve(__dirname, '../..');
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'search-index-fixture-'));
 const writeJson = (file, value) => {
     fs.mkdirSync(path.dirname(file), { recursive: true });
