@@ -7451,10 +7451,6 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
         </div>
 
         <div id="bottom-depth-panel">
-            <div id="study-verse-nav" aria-label="節の移動">
-    <button type="button" onclick="_navigateVerse(-1)" aria-label="前の節" title="前の節">‹</button>
-    <button type="button" onclick="_navigateVerse(1)" aria-label="次の節" title="次の節">›</button>
-</div>
             <div id="panel-resize-handle"></div>
 
             <div id="mobile-nav-bar">
@@ -7498,6 +7494,10 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
         <!-- Mobile Verse View（Phase A-2: 器のみ。本文/Inspector の中身は次Phase以降）
              モバイル専用Inspector画面。closed 時は非表示。既存 StudyPanel とは独立。 -->
         <div id="mobile-verse-view">
+            <div id="study-verse-nav" aria-label="節の移動">
+    <button type="button" onclick="_navigateVerse(-1)" aria-label="前の節" title="前の節">‹</button>
+    <button type="button" onclick="_navigateVerse(1)" aria-label="次の節" title="次の節">›</button>
+</div>
             <div id="mobile-verse-view-bar">
                 <button id="mobile-verse-view-back" onclick="_mobileVerseViewBack()" aria-label="戻る">
                     <span aria-hidden="true">‹</span>
@@ -20440,15 +20440,19 @@ function _syncStudyVerseNav() {
     const panel = document.getElementById('bottom-depth-panel');
     if (!nav || !panel) return;
     /* アプリのモバイルレイアウト基準（900px）に統一。word詳細だけを除外する。 */
-    const visible = window.innerWidth <= 900
-        && panel.classList.contains('open')
+    const mobileVerseView = document.getElementById('mobile-verse-view');
+    /* MVV は z-index:200 で DepthPanel(z-index:150) 全体を覆う。
+       節ナビも MVV 内に置き、実際に前面に出ている画面の open 状態で判定する。 */
+    const visible = window.innerWidth <= 768
+        && !!mobileVerseView
+        && mobileVerseView.classList.contains('open')
         && _panelContentMode !== 'word';
     nav.classList.toggle('is-visible', visible);
     nav.style.setProperty('display', visible ? 'flex' : 'none', 'important');
     nav.style.setProperty('visibility', visible ? 'visible' : 'hidden', 'important');
     nav.style.setProperty('opacity', visible ? '1' : '0', 'important');
     nav.style.setProperty('pointer-events', visible ? 'auto' : 'none', 'important');
-    /* nav は DepthPanel 内の absolute 配置。親パネルの下端＝画面下端に揃える。 */
+    /* nav は前面に出ている Mobile Verse View 内で画面右下に固定する。 */
     nav.style.setProperty('position', 'absolute', 'important');
     nav.style.setProperty('right', 'max(16px, env(safe-area-inset-right, 0px))', 'important');
     nav.style.setProperty('bottom', 'max(18px, env(safe-area-inset-bottom, 0px))', 'important');
@@ -22104,6 +22108,6 @@ function _hlSetFilter(color) {
     </div>
     <button class="hl-picker-delete" onclick="_hlColorSelected(null)">ハイライトを削除</button>
 </div>
-<!-- StudyPanel節ナビはDepthPanel内に配置 -->
+
 </body>
 </html>
