@@ -10,7 +10,7 @@
  *   1. entry.lemWords と entry.tokenRefs が同じ長さで空でない
  *   2. lemWords に重複語形がない（マッピングの一意性）
  *   3. reading.isOmission が false で text が空でない
- *   4. reading.text の各語が wordMap または textJaMap に存在する
+ *   4. reading.text の各語が wordMap または出典確認済み textJaMap に存在する
  *
  * 語形フォールバック（textJaMap）:
  *   lemWords に含まれない語形（語彙置換ヴァリアント）が reading に現れる場合、
@@ -40,7 +40,6 @@ const OUT_PATH       = path.join(__dirname, '..', 'public', 'assets', 'data', 'a
 // 同時に text → Set<japanese> を収集し、後でフォールバック用 textJaMap を構築する
 console.log('Building ref → japanese map from morph-index/word/ ...');
 const refMap = {};
-const textJaCandidates = {};  // text（NFC）→ Set<japanese>（非 null のみ）
 let fileCount = 0;
 
 function readMorphDir(dir) {
@@ -55,11 +54,6 @@ function readMorphDir(dir) {
                     if (e.ref && e.japanese && e.japanese.trim()) {
                         refMap[e.ref] = e.japanese.trim();
                     }
-                    if (e.text && e.japanese && e.japanese.trim()) {
-                        const key = e.text.normalize('NFC');
-                        if (!textJaCandidates[key]) textJaCandidates[key] = new Set();
-                        textJaCandidates[key].add(e.japanese.trim());
-                    }
                 }
             }
             fileCount++;
@@ -70,14 +64,11 @@ function readMorphDir(dir) {
 readMorphDir(MORPH_DIR);
 console.log(`\nBuilt ref map: ${Object.keys(refMap).length} entries from ${fileCount} files`);
 
-// textJaMap: 同一語形で日本語が一意な場合のみ採用（複数の異なる日本語は除外）
-const textJaMap = {};
-for (const [text, jaSet] of Object.entries(textJaCandidates)) {
-    if (jaSet.size === 1) {
-        textJaMap[text] = [...jaSet][0];
-    }
-}
-console.log(`Text-form fallback map: ${Object.keys(textJaMap).length} unambiguous forms (out of ${Object.keys(textJaCandidates).length} total forms)`);
+// 出典を確認した語形のみ許可する限定フォールバック。
+// 語形の一意性だけで意味を自動確定しない（L-0）。
+const textJaMap = {
+    'ὑπὲρ': '〜のために',
+};
 
 // apparatus.json を読み込む
 const apparatus = JSON.parse(fs.readFileSync(APPARATUS_PATH, 'utf8'));
@@ -123,7 +114,7 @@ for (const entry of entries) {
 
         const rWords = r.text.split(/\s+/).filter(Boolean).map(w => w.normalize('NFC'));
 
-        // すべての語が wordMap（lemWords 由来）または textJaMap（語形一意フォールバック）に存在するか確認
+        // すべての語が wordMap（lemWords 由来）または textJaMap（出典確認済み語形別フォールバック）に存在するか確認
         if (!rWords.every(w => w in wordMap || w in textJaMap)) {
             nullReadings++;
             continue;
