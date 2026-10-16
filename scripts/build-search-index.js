@@ -10,8 +10,8 @@
  *   books.json order (NT, then OT/LXX), chapter ascending, token order in source.
  * globalIdx is therefore compatible with the current contiguous-token search model.
  *
- * This is a generation step only. Runtime integration is a separate, parity-gated
- * change; do not remove the browser fallback until search results are compared.
+ * The runtime loader uses these files when present and validates schema/order; the
+ * legacy browser builder remains a fallback until search parity is verified.
  */
 'use strict';
 
