@@ -57,6 +57,24 @@ try {
     assert.deepEqual(nt.index.morph['N-NSF'], [0]);
     assert.equal(nt.tokens[0].globalIdx, 0);
     assert.equal(lxx.tokens[0].globalIdx, 2);
+    assert.deepEqual(nt.index.text['Βίβλος'], [0]);
+    assert.deepEqual(nt.index.text['βιβλοσ'], [0]);
+    assert.deepEqual(nt.index.textToJp['Βίβλος'], '書物');
+    for (const shard of [nt, lxx]) {
+        assert.equal(shard.tokens.length, shard.tokenCount);
+        for (const key of ['lemma', 'text', 'strong', 'morph']) {
+            for (const [term, postings] of Object.entries(shard.index[key])) {
+                assert.ok(Array.isArray(postings), `${shard.bookKey} ${key}:${term} must be an array`);
+                assert.ok(postings.every(idx => idx >= shard.globalIdxStart && idx <= shard.globalIdxEnd),
+                    `${shard.bookKey} ${key}:${term} posting outside shard range`);
+            }
+        }
+    }
+
+    // Regression guard: corpus loading returns an array of book shards, not a single object.
+    const runtime = fs.readFileSync(path.join(repoRoot, 'public/search-tool.html'), 'utf8');
+    assert.match(runtime, /nt\.some\(shard=>shard\.sourceVersion!==meta\.sourceVersion\)/);
+    assert.match(runtime, /lxx\.some\(shard=>shard\.sourceVersion!==metaVersion\)/);
 
     // Missing chapter files must fail rather than silently emit a partial index.
     fs.unlinkSync(path.join(fixture, 'public/bible_data/lxx/GEN/1.json'));
