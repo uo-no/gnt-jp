@@ -209,6 +209,25 @@ pointer-events: auto;
         box-shadow: 0 -8px 40px rgba(0,0,0,0.10);
     }
 
+    /* StudyPanel 第1層専用：画面右下の節移動。本文側のハンバーガー位置に対応 */
+    #study-verse-nav {
+        display: none; position: fixed;
+        right: max(16px, env(safe-area-inset-right, 0px));
+        bottom: max(18px, env(safe-area-inset-bottom, 0px));
+        z-index: 260; align-items: center; gap: 8px; pointer-events: none;
+    }
+    #study-verse-nav.is-visible { display: flex; }
+    #study-verse-nav button {
+        display: flex; align-items: center; justify-content: center;
+        width: 46px; height: 46px; border: 1px solid var(--border-soft);
+        border-radius: 50%; background: var(--bg-paper); color: var(--text-main);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+        font-size: 28px; font-weight: 300; line-height: 1;
+        pointer-events: auto; -webkit-tap-highlight-color: transparent;
+    }
+    #study-verse-nav button:active { opacity: var(--opacity-secondary); }
+    @media (min-width: 769px) { #study-verse-nav { display: none !important; } }
+
     /* compare-mode を強制シングル表示に（769px〜900px：縦積み未満の中間サイズ） */
     #main-reading-area.compare-mode {
         grid-template-columns: 1fr !important;
@@ -7432,6 +7451,11 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
             <div id="panel-resize-handle"></div>
 
             <!-- モバイル専用ナビゲーションバー（iOS風） -->
+            <div id="study-verse-nav" aria-label="節の移動">
+                <button type="button" onclick="_navigateVerse(-1)" aria-label="前の節" title="前の節">‹</button>
+                <button type="button" onclick="_navigateVerse(1)" aria-label="次の節" title="次の節">›</button>
+            </div>
+
             <div id="mobile-nav-bar">
                 <button id="mobile-panel-back" onclick="panelGoBack()">
                     <span id="mobile-panel-back-chevron">‹</span>
@@ -9060,6 +9084,7 @@ function _openWordListInternal(vNum, words, book, ch) {
        未調整なら CSS 既定。従来の style.height='' 一律リセットは廃止 */
     _applyPanelHeightFromState(sidePanel);
     sidePanel.classList.add('open');
+    _syncStudyVerseNav();
     _syncReadingPanelPadding();
     document.getElementById('open-panel-btn').style.display = 'none';
 
@@ -19903,6 +19928,7 @@ function openStudyPanel(greek, rawMorph, ref, lemma, options = {}) {
        （word モードの上限 80vh へは適用時のみ clamp。state は保持） */
     _applyPanelHeightFromState(sidePanel);
     sidePanel.classList.add('open');
+    _syncStudyVerseNav();
     _syncReadingPanelPadding();
 const activeVEl = document.getElementById('active-v');
     if (activeVEl && greek) activeVEl.textContent = greek;
@@ -20385,6 +20411,13 @@ function _mobileCompareTeardown() {
         g.style.display = '';
     });
     _mobileVerseList = [];
+}
+
+function _syncStudyVerseNav() {
+    const nav = document.getElementById('study-verse-nav');
+    const panel = document.getElementById('bottom-depth-panel');
+    if (!nav || !panel) return;
+    nav.classList.toggle('is-visible', window.matchMedia('(max-width: 768px)').matches && panel.classList.contains('open') && _panelContentMode === 'verse');
 }
 
 function _navigateVerse(delta) {
