@@ -106,13 +106,18 @@ function record(id, status, detail) {
         record('T6-AFTER-HISTORY', lobbyAfterHistory === true ? 'PASS' : 'FAIL',
                `lobby.hidden=${lobbyAfterHistory} after search history (should be true)`);
 
-        // 直接 _renderHistory() の効果も確認
-        const historyVisible = await pg.evaluate(() => {
+        // 旧履歴エリアは非表示。履歴は検索欄のドロップダウンだけに表示する
+        const legacyHistory = await pg.evaluate(() => {
             const block = document.getElementById('history-block');
-            return block ? getComputedStyle(block).display !== 'none' : false;
+            const recent = document.getElementById('history-recent-section');
+            return {
+                blockDisplay: block ? getComputedStyle(block).display : 'missing',
+                recentDisplay: recent ? getComputedStyle(recent).display : 'missing'
+            };
         });
-        record('T6-HISTORY-VISIBLE', historyVisible ? 'PASS' : 'FAIL',
-               `history-block visible=${historyVisible}`);
+        const legacyHidden = legacyHistory.blockDisplay === 'none' && legacyHistory.recentDisplay === 'none';
+        record('T6-LEGACY-HISTORY-HIDDEN', legacyHidden ? 'PASS' : 'FAIL',
+               `history-block=${legacyHistory.blockDisplay}, history-recent-section=${legacyHistory.recentDisplay}`);
 
         await ctx.close();
     }
