@@ -11077,9 +11077,11 @@ window.addEventListener('resize', () => {
 (() => {
     const bind = () => {
         const panel = document.getElementById('bottom-depth-panel');
-        if (panel && typeof MutationObserver !== 'undefined') {
-            new MutationObserver(() => _syncStudyVerseNav())
-                .observe(panel, { attributes: true, attributeFilter: ['class'] });
+        const mobileVerseView = document.getElementById('mobile-verse-view');
+        if (typeof MutationObserver !== 'undefined') {
+            const observer = new MutationObserver(() => _syncStudyVerseNav());
+            if (panel) observer.observe(panel, { attributes: true, attributeFilter: ['class'] });
+            if (mobileVerseView) observer.observe(mobileVerseView, { attributes: true, attributeFilter: ['class'] });
         }
         _syncStudyVerseNav();
     };
@@ -13280,6 +13282,7 @@ function openMobileVerseView(vNum, words, book, ch) {
     const view = document.getElementById('mobile-verse-view');
     if (!view) return;
     view.classList.add('open');
+    _syncStudyVerseNav();
     /* MN: MobileVerseView 全画面中は Bottom Nav を隠す */
     document.getElementById('app')?.classList.add('mobile-mvv-open');
     /* E-1C: Android/ブラウザの戻るで MVV を閉じられるよう履歴エントリを1つ積む（URL は不変）。 */
