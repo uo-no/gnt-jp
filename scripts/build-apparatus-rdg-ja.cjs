@@ -10,12 +10,12 @@
  *   1. entry.lemWords と entry.tokenRefs が同じ長さで空でない
  *   2. lemWords に重複語形がない（マッピングの一意性）
  *   3. reading.isOmission が false で text が空でない
- *   4. reading.text の各語が wordMap または出典確認済み textJaMap に存在する
+ *   4. reading.text の各語が wordMap または明示的な textJaMap に存在する
  *
  * 語形フォールバック（textJaMap）:
- *   lemWords に含まれない語形（語彙置換ヴァリアント）が reading に現れる場合、
- *   morph-index 全体でその語形の日本語が一意である場合のみラベルを採用する。
- *   複数の異なる日本語を持つ語形は採用しない（L-0: 意味の自動選択をしない）。
+ *   lemWords に含まれない語形（語彙置換ヴァリアント）は、
+ *   出典と採用ラベルを個別に確認した明示的な対応だけを許可する。
+ *   morph-index 全体の語形一意性だけで意味を自動確定しない（L-0）。
  *
  * 出力形式:
  *   { "entries": { "ROM-0001": { "0": "キリスト・イエス", "1": "イエス・キリスト" }, ... } }
@@ -37,7 +37,7 @@ const OUT_PATH       = path.join(__dirname, '..', 'public', 'assets', 'data', 'a
 
 // morph-index/word/ を再帰的に走査して ref → japanese のマップを構築
 // （単語によってはサブディレクトリ内の part_*.json に分割格納されている）
-// 同時に text → Set<japanese> を収集し、後でフォールバック用 textJaMap を構築する
+// 語彙置換ヴァリアント用フォールバックは、出典確認済み語形を textJaMap に明示するする
 console.log('Building ref → japanese map from morph-index/word/ ...');
 const refMap = {};
 let fileCount = 0;
@@ -144,7 +144,7 @@ console.log(`Readings: covered=${coveredReadings}, null=${nullReadings}`);
 const output = {
     _meta: {
         description: 'apparatus 各読みの日本語ラベル（morph-index から自動生成）',
-        source: 'public/morph-index/word/ の japanese フィールド（lemWords 由来の wordMap + 語形一意フォールバック textJaMap）',
+        source: 'public/morph-index/word/ の japanese フィールド（lemWords 由来の wordMap + 出典確認済みの明示的な語形別フォールバック）',
         generatedAt: new Date().toISOString().slice(0, 10),
         entriesCount: entriesOut,
         readingsCovered: coveredReadings,
