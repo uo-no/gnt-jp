@@ -12,6 +12,16 @@ Move the expensive work currently performed by `public/search-tool.html` on ever
 - The current order is `books.json` order (NT followed by OT/LXX), chapter ascending, then source token order.
 - Japanese substring candidates are separately built by `_buildL3Background` with `_addJpPartial`; this can consume substantial memory and is deliberately not included in schema v1 until size/latency is measured.
 
+## Local fixture test
+
+Run the isolated synthetic-data test (it does not require the full Bible corpus):
+
+```sh
+node tests/search/build-search-index.test.cjs
+```
+
+It checks NT/LXX separation, contiguous `globalIdx`, Greek normalization, Strong/morphology postings, and failure on a missing declared chapter. This fixture test is not a substitute for running the generator on the complete production data or comparing real search results.
+
 ## Schema v1 generator
 
 Run:
