@@ -43,11 +43,11 @@ This is a dashboard-level setting, not something this repository can verify or a
 ## Migration gates
 
 1. Generate the files in the repository's real build environment and record raw/gzipped sizes, token counts, and generation time.
-2. Wire the browser to fetch the prebuilt corpus file(s) and populate `ALL_TOKENS`, `SEARCH_INDEX`, `TEXT_TO_JP`, `lemmaIndex`, and `morphIndex` from them.
-3. Keep the current browser builder as a fallback if a generated asset is missing, stale, or invalid.
-4. Compare result IDs for representative lemma, surface-form, Strong, morphology, Greek phrase, proximity, and Japanese phrase queries against the legacy builder before enabling prebuilt assets by default.
+2. The browser loader now probes these files, loads NT first, then LXX in the background, and hydrates token/posting maps. Missing or inconsistent assets fall back to the legacy browser builder.
+3. Run the generator against the complete repository data, record raw/gzipped sizes, and confirm Cloudflare Pages can build and serve the generated assets within its limits.
+4. Compare result IDs for representative lemma, surface-form, Strong, morphology, Greek phrase, proximity, and Japanese phrase queries against the legacy builder before enabling generated assets in production.
 5. Benchmark the Japanese partial index independently. Do not silently remove substring semantics; consider a compact representation only after parity tests exist.
-6. Confirm Cloudflare Pages build/deploy behavior before claiming the generated files are live.
+6. Confirm the actual Cloudflare Pages build/deploy configuration and verify the deployed `/search-index/meta.json` before claiming the speedup is live.
 
 ## Important constraints
 
