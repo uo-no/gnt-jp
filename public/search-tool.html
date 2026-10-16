@@ -2203,7 +2203,7 @@ async function _fetchPrebuiltCorpus(corpus){
         throw new Error(`prebuilt ${corpus} book manifest unavailable`);
     }
     /* Fetch book shards concurrently; Promise.all preserves manifest order. */
-    return Promise.all(descriptor.books.map(async book=>{
+    const shards=await Promise.all(descriptor.books.map(async book=>{
         if(!book||typeof book.bookKey!=='string'||typeof book.path!=='string'||!/^[-A-Z0-9]+\\.json$/.test(book.path.split('/').pop())){
             throw new Error(`prebuilt ${corpus} invalid book manifest entry`);
         }
@@ -2234,6 +2234,15 @@ async function _fetchPrebuiltCorpus(corpus){
         }
         return data;
     }));
+    let expectedStart=corpus==='NT'?0:meta.corpora.NT.tokenCount;
+    let totalTokens=0;
+    for(const shard of shards){
+        if(shard.globalIdxStart!==expectedStart)throw new Error(`prebuilt ${corpus} shard sequence has a gap at ${shard.bookKey}`);
+        expectedStart=shard.globalIdxEnd+1;
+        totalTokens+=shard.tokenCount;
+    }
+    if(totalTokens!==descriptor.tokenCount)throw new Error(`prebuilt ${corpus} aggregate token count mismatch`);
+    return shards;
 }
 function _mergePrebuiltCorpus(data){
     const expectedStart=ALL_TOKENS.length;
@@ -2242,7 +2251,7 @@ function _mergePrebuiltCorpus(data){
         const tok=data.tokens[i];
         if(!tok||tok.globalIdx!==expectedStart+i)throw new Error('prebuilt token order/globalIdx mismatch');
     }
-    ALL_TOKENS=ALL_TOKENS.concat(data.tokens);
+    for(const tok of data.tokens)ALL_TOKENS.push(tok);
     for(const name of ['lemma','text','strong']){
         const target=SEARCH_INDEX[name];
         for(const [key,arr] of Object.entries(data.index[name])){
