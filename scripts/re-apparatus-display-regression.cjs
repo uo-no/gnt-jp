@@ -349,21 +349,28 @@ function _computeRdgLabel(rText, wordMap) {
         'word not in wordMap must not produce label');
 }
 
-// 22. 実データ: apparatus-rdg-ja.json で MAT-0017 が除外されていること
-//     （κατ᾽ に日本語ラベルがなく部分ラベルになるため）
+// 22. 実データ: apparatus-rdg-ja.json のキーエントリを検証する
+//     Task 51 修正後: κατ᾽ が morph-index サブディレクトリから解決されるため MAT-0017 は含まれる
 {
     const RDG_JA_PATH = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-rdg-ja.json');
     try {
         const rdgJaData = JSON.parse(fs.readFileSync(RDG_JA_PATH, 'utf8'));
-        check('RDGJA_MAT0017_EXCLUDED',
-            rdgJaData.entries['MAT-0017'] === undefined,
-            'MAT-0017 should be excluded (κατ᾽ has no Japanese label)');
+        // ROM-0001: 語順差の基本ケース
         check('RDGJA_ROM0001_PRESENT',
             rdgJaData.entries['ROM-0001'] !== undefined,
-            'ROM-0001 should still be present (all words have Japanese)');
+            'ROM-0001 should be present (all words have Japanese)');
         const rom = rdgJaData.entries['ROM-0001'];
         check('RDGJA_ROM0001_R0', rom && rom['0'] === 'キリスト・イエス', `ROM-0001[0]: ${rom && rom['0']}`);
         check('RDGJA_ROM0001_R1', rom && rom['1'] === 'イエス・キリスト', `ROM-0001[1]: ${rom && rom['1']}`);
+        // MAT-0017: κατ᾽ が morph-index サブディレクトリ（03BA03B1）から日本語解決
+        const mat17 = rdgJaData.entries['MAT-0017'];
+        check('RDGJA_MAT0017_PRESENT', mat17 !== undefined, 'MAT-0017 should now be present (κατ᾽ resolved from subdir)');
+        check('RDGJA_MAT0017_R0',
+            mat17 && mat17['0'] === '輝く・〜に従って・夢',
+            `MAT-0017[0]: ${mat17 && mat17['0']}`);
+        check('RDGJA_MAT0017_R1',
+            mat17 && mat17['1'] === '〜に従って・夢・輝く',
+            `MAT-0017[1]: ${mat17 && mat17['1']}`);
     } catch (e) {
         check('RDGJA_DATA_LOAD', false, e.message);
     }
@@ -455,6 +462,12 @@ check('BUILD_PARTIAL_PREVENTION_EVERY',
 check('BUILD_NO_FILTER_BOOLEAN_ON_JAWORDS',
     !buildSrc.includes('jaWords.length === 0'),
     'old partial-label pattern jaWords.length === 0 found (should be removed)');
+
+// 24. build-apparatus-rdg-ja.cjs: morph-index サブディレクトリを再帰的に読み込む
+//     （Task 51: αυ・ει・εν・κα・τη・το 等の高頻度語が subdirs に分割格納されている）
+check('BUILD_RECURSIVE_READ',
+    buildSrc.includes('readMorphDir') && buildSrc.includes('isDirectory()'),
+    'recursive readMorphDir not found in build-apparatus-rdg-ja.cjs');
 
 // ── 結果出力 ─────────────────────────────────────────────────────────────────
 console.log('\n=== re-apparatus-display-regression ===');
