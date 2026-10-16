@@ -35,16 +35,20 @@ try {
 
     const out = path.join(fixture, 'public/search-index');
     const meta = JSON.parse(fs.readFileSync(path.join(out, 'meta.json'), 'utf8'));
-    const nt = JSON.parse(fs.readFileSync(path.join(out, 'nt.json'), 'utf8'));
-    const lxx = JSON.parse(fs.readFileSync(path.join(out, 'lxx.json'), 'utf8'));
+    const nt = JSON.parse(fs.readFileSync(path.join(out, 'nt/MAT.json'), 'utf8'));
+    const lxx = JSON.parse(fs.readFileSync(path.join(out, 'lxx/GEN.json'), 'utf8'));
 
-    assert.equal(meta.schemaVersion, 1);
+    assert.equal(meta.schemaVersion, 2);
     assert.equal(meta.chapterCount, 2);
     assert.equal(meta.tokenCount, 3);
     assert.equal(nt.tokenCount, 2);
+    assert.equal(nt.bookKey, 'MAT');
+    assert.equal(meta.corpora.NT.books[0].path, 'nt/MAT.json');
     assert.equal(nt.globalIdxStart, 0);
     assert.equal(nt.globalIdxEnd, 1);
     assert.equal(lxx.tokenCount, 1);
+    assert.equal(lxx.bookKey, 'GEN');
+    assert.equal(meta.corpora.LXX.books[0].path, 'lxx/GEN.json');
     assert.equal(lxx.globalIdxStart, 2);
     assert.equal(lxx.globalIdxEnd, 2);
     assert.deepEqual(nt.index.lemma['βίβλος'], [0]);
