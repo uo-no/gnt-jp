@@ -2216,19 +2216,12 @@ function _mergePrebuiltCorpus(data){
         if(!tok||tok.globalIdx!==expectedStart+i)throw new Error('prebuilt token order/globalIdx mismatch');
     }
     ALL_TOKENS.push(...data.tokens);
-    for(const name of ['lemma','text','strong','morph']){
-        const target=name==='morph'?null:SEARCH_INDEX[name];
-        const entries=Object.entries(data.index[name]);
-        for(const [key,arr] of entries){
-            if(name==='morph'){
-                let current=window.morphIndex?.get(key);
-                if(!current){current=[];if(window.morphIndex)window.morphIndex.set(key,current);}
-                if(current)current.push(...arr);
-            }else{
-                let current=target.get(key);
-                if(!current){current=[];target.set(key,current);}
-                current.push(...arr);
-            }
+    for(const name of ['lemma','text','strong']){
+        const target=SEARCH_INDEX[name];
+        for(const [key,arr] of Object.entries(data.index[name])){
+            let current=target.get(key);
+            if(!current){current=[];target.set(key,current);}
+            current.push(...arr);
         }
     }
     for(const [key,value] of Object.entries(data.index.textToJp)){
