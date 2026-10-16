@@ -2173,6 +2173,13 @@ async function _buildL3Background(){
     if(JP_PARTIAL_PREBUILT_CORPORA.has('NT')&&JP_PARTIAL_PREBUILT_CORPORA.has('LXX')){
         IDX.l3Ready=true;
         console.info('[search-index] Japanese partial index prebuilt ready');
+        if(_prebuiltLoadMetrics.startedAt&&!_prebuiltLoadMetrics.readyRecorded){
+            _prebuiltLoadMetrics.readyRecorded=true;
+            _recordPrebuiltMetric('prebuilt-all-indexes-ready',_prebuiltLoadMetrics.startedAt,{
+                ntReady:IDX.ready,lxxReady:JP_PARTIAL_PREBUILT_CORPORA.has('LXX'),japanesePartialReady:IDX.l3Ready,
+                totalTokens:ALL_TOKENS.length
+            });
+        }
         return;
     }
     const BATCH=500;
@@ -2198,7 +2205,7 @@ let _fullIndexPromise=null;
 let _prebuiltMetaPromise = null;
 /* Runtime diagnostics separate network/JSON validation from merging so slow stages
    can be identified on real devices without changing index semantics. */
-const _prebuiltLoadMetrics = { startedAt:0, stages:[] };
+const _prebuiltLoadMetrics = { startedAt:0, stages:[], readyRecorded:false };
 function _recordPrebuiltMetric(stage, startedAt, detail={}){
     const metric={stage,ms:Math.round((performance.now()-startedAt)*10)/10,...detail};
     _prebuiltLoadMetrics.stages.push(metric);
@@ -2353,6 +2360,7 @@ function _startPrebuiltLxxAndJapanese(metaVersion){
 }
 function _ensureFullIndex(){
     if(!_fullIndexPromise){
+        if(!_prebuiltLoadMetrics.startedAt)_prebuiltLoadMetrics.startedAt=performance.now();
         _fullIndexPromise=ensureBookMasterApplied().then(async ()=>{
             /* 生成済み索引が存在すれば優先利用。無ければ従来のブラウザ構築へ戻す。 */
             try{
