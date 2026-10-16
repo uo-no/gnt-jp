@@ -7,6 +7,7 @@ on:
       - "tests/search/build-search-index.test.cjs"
       - "tests/search/verify-generated-index-parity.cjs"
       - "tests/search/verify-search-query-parity.cjs"
+      - "tests/browser/benchmark-search-index.cjs"
       - ".github/workflows/search-index-generator-test.yml"
   workflow_dispatch:
 
@@ -16,24 +17,32 @@ permissions:
 jobs:
   fixture-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Check JavaScript syntax
         run: |
           node --check scripts/build-search-index.js
           node --check tests/search/build-search-index.test.cjs
           node --check tests/search/verify-generated-index-parity.cjs
           node --check tests/search/verify-search-query-parity.cjs
+          node --check tests/browser/benchmark-search-index.cjs
       - name: Run synthetic-data generator test
         run: node tests/search/build-search-index.test.cjs
       - name: Generate indexes from repository data and measure size
         run: |
-          node scripts/build-search-index.js --out-dir /tmp/search-index-generated
-          node tests/search/verify-generated-index-parity.cjs --index-dir /tmp/search-index-generated
-          node tests/search/verify-search-query-parity.cjs --index-dir /tmp/search-index-generated
-          node -e "const fs=require('node:fs'); const p='/tmp/search-index-generated'; const m=JSON.parse(fs.readFileSync(p+'/meta.json','utf8')); const files=[]; for(const c of ['NT','LXX']) for(const b of m.corpora[c].books) files.push({path:b.path,raw:b.rawBytes,gzip:b.gzipBytes}); files.sort((a,b)=>b.raw-a.raw); console.log(JSON.stringify({chapterCount:m.chapterCount,tokenCount:m.tokenCount,totalRawBytes:m.totalRawBytes,totalGzipBytes:m.totalGzipBytes,largestShards:files.slice(0,10)},null,2));"
+          node scripts/build-search-index.js --out-dir public/search-index
+          node tests/search/verify-generated-index-parity.cjs --index-dir public/search-index
+          node tests/search/verify-search-query-parity.cjs --index-dir public/search-index
+          node -e "const fs=require('node:fs'); const p='public/search-index'; const m=JSON.parse(fs.readFileSync(p+'/meta.json','utf8')); const files=[]; for(const c of ['NT','LXX']) for(const b of m.corpora[c].books) files.push({path:b.path,raw:b.rawBytes,gzip:b.gzipBytes}); files.sort((a,b)=>b.raw-a.raw); console.log(JSON.stringify({chapterCount:m.chapterCount,tokenCount:m.tokenCount,totalRawBytes:m.totalRawBytes,totalGzipBytes:m.totalGzipBytes,largestShards:files.slice(0,10)},null,2));"
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Benchmark generated index versus browser fallback
+        run: node tests/browser/benchmark-search-index.cjs
