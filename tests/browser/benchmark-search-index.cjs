@@ -65,6 +65,11 @@ async function measure(mode) {
     const ntReadyMs = Date.now() - start;
     await page.waitForFunction(() => typeof ALL_TOKENS !== 'undefined' && ALL_TOKENS.length >= 617364 && IDX.l3Ready, null, { timeout:300000 });
     const fullReadyMs = Date.now() - start;
+    // Normalize retained-heap measurement by collecting unreachable parsed shard objects first.
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('HeapProfiler.enable');
+    await cdp.send('HeapProfiler.collectGarbage');
+    await cdp.detach();
     const stats = await page.evaluate(() => ({
       tokens:ALL_TOKENS.length,
       heapBytes:performance.memory?.usedJSHeapSize ?? null,
