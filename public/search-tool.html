@@ -3498,8 +3498,9 @@ async function unifiedSearch(){
     performance.mark('search-start');
     const tasks=[];
 
-    // 複数語入力では先頭語だけの語根結果を混ぜず、連続フレーズ結果を中心にする。
-    if(_layers.lemma&&words.length===1){
+    // 単語検索は従来どおり。日本語は検索レイヤー未選択でも通常検索できるようにする。
+    const singleJapaneseQuery = words.length===1 && detectQueryType(word1)==='japanese';
+    if((_layers.lemma&&words.length===1)||(singleJapaneseQuery&&!_layers.prox)){
         tasks.push((async()=>{
             const qtype=detectQueryType(word1);
             let idxs;
@@ -3532,8 +3533,8 @@ async function unifiedSearch(){
         })());
     }
 
-    // 複数語入力は連続フレーズ検索も自動実行。近接検索だけ距離指定付きの任意条件として残す。
-    if(words.length>=2||detectQueryType(word1)==='japanese'){
+    // 複数語入力のみ連続フレーズ検索を自動実行。単語検索にフレーズ種別を誤付与しない。
+    if(words.length>=2){
         tasks.push((async()=>{
             const isJp=detectQueryType(word1)==='japanese';
             const idxs=isJp?searchPhraseJapanese(words):searchPhrase(words);
