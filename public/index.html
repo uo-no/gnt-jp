@@ -11068,6 +11068,15 @@ window.addEventListener('resize', () => {
     closeMobileSidebar();
     _syncStudyVerseNav();
 });
+/* 開閉経路が別関数から実行された場合も、StudyPanel の状態変化に追従する。 */
+document.addEventListener('DOMContentLoaded', () => {
+    const panel = document.getElementById('bottom-depth-panel');
+    if (panel && typeof MutationObserver !== 'undefined') {
+        new MutationObserver(() => _syncStudyVerseNav())
+            .observe(panel, { attributes: true, attributeFilter: ['class'] });
+    }
+    _syncStudyVerseNav();
+});
 
 document.querySelector('.container')?.addEventListener('click', (e) => {
     if (!_isSidebarOpen()) return;
@@ -20416,7 +20425,15 @@ function _syncStudyVerseNav() {
     const nav = document.getElementById('study-verse-nav');
     const panel = document.getElementById('bottom-depth-panel');
     if (!nav || !panel) return;
-    nav.classList.toggle('is-visible', window.matchMedia('(max-width: 768px)').matches && panel.classList.contains('open') && _panelContentMode === 'verse');
+    const visible = window.matchMedia('(max-width: 768px)').matches
+        && panel.classList.contains('open')
+        && _panelContentMode === 'verse';
+    nav.classList.toggle('is-visible', visible);
+    /* CSS のメディアクエリや既存レイアウトに display を打ち消されないよう、
+       表示条件の唯一の判定結果を inline style にも反映する。 */
+    nav.style.display = visible ? 'flex' : 'none';
+    nav.style.visibility = visible ? 'visible' : 'hidden';
+    nav.style.pointerEvents = visible ? 'auto' : 'none';
 }
 
 function _navigateVerse(delta) {
