@@ -1,0 +1,29 @@
+name: Search index generator test
+
+on:
+  pull_request:
+    paths:
+      - "scripts/build-search-index.js"
+      - "tests/search/build-search-index.test.cjs"
+      - ".github/workflows/search-index-generator-test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixture-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check JavaScript syntax
+        run: |
+          node --check scripts/build-search-index.js
+          node --check tests/search/build-search-index.test.cjs
+      - name: Run synthetic-data generator test
+        run: node tests/search/build-search-index.test.cjs
