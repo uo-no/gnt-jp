@@ -40,7 +40,8 @@ const dataRoot = firstExisting([
 ], 'bible_data directory');
 const outDirArg = argValue('--out-dir', 'public/search-index');
 const outDir = path.isAbsolute(outDirArg) ? outDirArg : path.join(ROOT, outDirArg);
-const booksMaster = JSON.parse(fs.readFileSync(booksPath, 'utf8'));
+const booksRaw = fs.readFileSync(booksPath);
+const booksMaster = JSON.parse(booksRaw.toString('utf8'));
 if (!Array.isArray(booksMaster.NT) || !Array.isArray(booksMaster.OT)) {
     throw new Error('books.json must contain NT and OT arrays.');
 }
@@ -52,6 +53,8 @@ const indexes = {
     LXX: { lemma: Object.create(null), text: Object.create(null), strong: Object.create(null), morph: Object.create(null), textToJp: Object.create(null), tokens: [] },
 };
 const sourceHash = crypto.createHash('sha256');
+sourceHash.update('books.json\\0');
+sourceHash.update(booksRaw);
 let globalIdx = 0;
 let chapterCount = 0;
 let tokenCount = 0;
