@@ -37,27 +37,220 @@
     --morph:        #7b3d9a;
     --morph-bg:     rgba(123,61,154,0.08);
     --morph-border: rgba(123,61,154,0.3);
+
+    /* ── Search redesign variables (--s-* namespace, independent of tokens.css) ── */
+    --s-bg:           #f5f3ee;
+    --s-surface:      #ffffff;
+    --s-surface-2:    #f0ede6;
+    --s-text:         #1c1a16;
+    --s-text-sub:     #5a5347;
+    --s-text-hint:    #8a8275;
+    --s-accent:       #2e4d8a;
+    --s-accent-soft:  rgba(46, 77, 138, 0.08);
+    --s-accent-mid:   rgba(46, 77, 138, 0.18);
+    --s-greek:        #1c2d52;
+    --s-border:       #ddd9cf;
+    --s-divider:      #e8e4db;
+    --s-divider-strong: #ccc8be;
+    --s-shadow-modal: 0 4px 24px rgba(28, 26, 22, 0.16), 0 1px 4px rgba(28, 26, 22, 0.08);
+    --s-ff-ui:        'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+    --s-ff-greek:     'Gentium Plus', Georgia, 'Times New Roman', serif;
+    --s-ff-prose:     'Noto Serif JP', Georgia, serif;
+    --s-ts-xs:     0.72rem;
+    --s-ts-sm:     0.82rem;
+    --s-ts-base:   0.92rem;
+    --s-ts-md:     1.0rem;
+    --s-ts-greek:  1.08rem;
+    --s-ts-lg:     1.2rem;
+    --s-ts-xl:     1.6rem;
+    --s-lh-tight:  1.35;
+    --s-lh-base:   1.6;
+    --s-lh-prose:  1.85;
+    --s-ls-caps:   0.10em;
+    --s-ls-ref:    0.04em;
+    --s-sp-1:  4px;
+    --s-sp-2:  8px;
+    --s-sp-3:  12px;
+    --s-sp-4:  16px;
+    --s-sp-5:  24px;
+    --s-sp-6:  32px;
+    --s-sp-7:  48px;
+    --s-sp-8:  64px;
+    --s-content-max:  720px;
+    --s-header-h:      56px;
+    --s-header-h-mob:  48px;
+    --s-radius-input:  6px;
+    --s-radius-chip:   4px;
+    --s-radius-btn:    6px;
+    --s-radius-modal:  10px;
+    --s-radius-panel:  8px;
+    --s-ease:          cubic-bezier(0.2, 0.8, 0.2, 1);
+    --s-dur-fast:      0.14s;
+    --s-dur-base:      0.22s;
+    --s-dur-panel:     0.28s;
+    --s-dur-result:    0.18s;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; height: 100%; }
+html, body { margin: 0; padding: 0; }
 body {
-    font-family: 'Noto Sans JP', sans-serif;
-    background: var(--bg-paper);
-    color: var(--text-main);
+    font-family: var(--s-ff-ui);
+    background: var(--s-bg);
+    color: var(--s-text);
     -webkit-font-smoothing: antialiased;
-    min-height: 100%;
 }
 
 /* ============================================================
-   Layout — unified with index.html
+   New single-column layout
    ============================================================ */
-html, body { overflow: hidden; width: 100%; height: 100%; }
-.main-layout {
+
+/* ── Sticky header ── */
+.s-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    height: var(--s-header-h);
+    background: var(--s-bg);
+    border-bottom: 1px solid var(--s-divider);
     display: flex;
-    height: 100%;
+    align-items: center;
+    gap: var(--s-sp-2);
+    padding: 0 var(--s-sp-5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.s-btn-back {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; font-size: var(--s-ts-sm);
+    color: var(--s-text-sub); padding: 4px 0;
+    white-space: nowrap; flex-shrink: 0;
+    transition: color var(--s-dur-fast) var(--s-ease);
+    -webkit-tap-highlight-color: transparent;
+}
+.s-btn-back:hover { color: var(--s-text); }
+.s-header-spacer { flex: 1; }
+.s-mini-search {
+    display: none;
+    flex: 1;
+    font-size: var(--s-ts-sm);
+    color: var(--s-text-sub);
+    background: var(--s-surface);
+    border: 1px solid var(--s-border);
+    border-radius: var(--s-radius-input);
+    padding: 4px 10px;
+    cursor: pointer;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 240px;
+}
+.s-header.scrolled .s-mini-search { display: block; }
+.s-header .share-url-btn {
+    flex-shrink: 0;
+}
+
+/* ── Search block ── */
+.s-search-block {
+    max-width: var(--s-content-max);
+    margin: 0 auto;
+    padding: var(--s-sp-7) var(--s-sp-5) var(--s-sp-4);
     width: 100%;
+}
+.s-search-title {
+    font-size: var(--s-ts-xl);
+    font-weight: 700;
+    color: var(--s-text-sub);
+    text-align: center;
+    margin-bottom: var(--s-sp-3);
+    cursor: pointer;
+    user-select: none;
+    transition: opacity var(--s-dur-fast) var(--s-ease);
+}
+.s-search-title:hover { opacity: 0.7; }
+
+/* ── Mode bar (lemma toggle + advanced toggle + SQS pills) ── */
+.s-mode-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--s-sp-2) var(--s-sp-3);
+    margin-top: var(--s-sp-2);
+    font-size: var(--s-ts-sm);
+}
+.s-lemma-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    cursor: pointer; user-select: none;
+    padding: 0; background: none; border: none;
+    font-family: inherit; font-size: var(--s-ts-sm);
+    color: var(--s-text-sub);
+    -webkit-tap-highlight-color: transparent;
+}
+.s-lemma-toggle .layer-check {
+    width: 16px; height: 16px;
+}
+.s-lemma-toggle:hover { color: var(--s-text); }
+.s-lemma-toggle.active { color: var(--s-text); }
+.s-advanced-toggle {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; font-size: var(--s-ts-sm);
+    color: var(--s-text-hint); padding: 0;
+    transition: color var(--s-dur-fast) var(--s-ease);
+    -webkit-tap-highlight-color: transparent;
+}
+.s-advanced-toggle:hover { color: var(--s-text-sub); }
+.s-advanced-toggle.open {
+    color: var(--s-accent);
+    border-bottom: 1px solid var(--s-accent);
+}
+.s-advanced-toggle .s-adv-arrow { transition: transform var(--s-dur-fast) var(--s-ease); }
+.s-advanced-toggle.open .s-adv-arrow { transform: rotate(180deg); }
+
+/* ── Advanced panel (grid-template-rows animation) ── */
+.s-advanced-panel {
+    max-width: var(--s-content-max);
+    margin: 0 auto;
+    padding: 0 var(--s-sp-5);
+    width: 100%;
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows var(--s-dur-panel) var(--s-ease);
+}
+.s-advanced-panel.open {
+    grid-template-rows: 1fr;
+}
+.s-advanced-panel-inner {
     overflow: hidden;
+}
+.s-advanced-panel-body {
+    background: var(--s-surface-2);
+    border: 1px solid var(--s-divider);
+    border-radius: var(--s-radius-panel);
+    padding: var(--s-sp-4);
+    margin-top: var(--s-sp-2);
+    margin-bottom: var(--s-sp-2);
+}
+
+/* ── Search/results divider ── */
+.s-search-divider {
+    max-width: var(--s-content-max);
+    margin: 0 auto;
+    border: none;
+    border-top: 1px solid var(--s-divider-strong);
+    padding: 0 var(--s-sp-5);
+}
+
+/* ── Results area ── */
+.s-results {
+    max-width: var(--s-content-max);
+    margin: 0 auto;
+    padding: var(--s-sp-5) var(--s-sp-5) var(--s-sp-8);
+    width: 100%;
+}
+
+/* ── idx-status in new layout ── */
+.s-search-block .idx-status {
+    text-align: center;
+    justify-content: center;
 }
 
 
@@ -77,145 +270,25 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 .idx-status.done { opacity: 0; pointer-events: none; }
 
-/* ── Left panel: search control ── */
-.search-panel {
-    width: 300px;
-    background: var(--bg-sidebar);
-    border-right: 1px solid var(--border-soft);
-    padding: 24px 22px 40px;
-    display: flex; flex-direction: column; gap: 0;
-    overflow-y: auto;
-    scrollbar-gutter: stable;  /* スクロールバー出現時もパネル幅を保持 */
-    flex-shrink: 0;
+/* search-panel, container: 旧サイドバー構造（廃止 — 新レイアウトは .s-header/.s-search-block/.s-results）*/
+.search-panel { display: none !important; }
+.container { display: contents; }
+.main-layout { display: contents; }
+
+/* FAB / overlay / mn-back-bar: 廃止 */
+.mobile-search-toggle { display: none !important; }
+.mobile-overlay { display: none !important; }
+#mn-back-bar { display: none !important; }
+
+/* ── Mobile (≤700px) ── */
+@media (max-width: 700px) {
+    .s-header { height: var(--s-header-h-mob); padding: 0 var(--s-sp-4); }
+    .s-search-block { padding: var(--s-sp-4) var(--s-sp-4) var(--s-sp-3); }
+    .s-search-title { font-size: var(--s-ts-lg); text-align: left; }
+    .s-advanced-panel { padding: 0 var(--s-sp-4); }
+    .s-results { padding: var(--s-sp-4) var(--s-sp-4) var(--s-sp-7); }
+    .s-search-divider { margin: 0 var(--s-sp-4); }
 }
-
-/* ── Container wrapping header + content ── */
-.container {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-/* ── Mobile toggle button ── */
-.mobile-search-toggle {
-    display: none;
-    position: fixed;
-    bottom: 20px; right: 20px;
-    z-index: 200;
-    width: auto; height: 48px;
-    border-radius: 24px;
-    padding: 0 var(--space-lg);
-    gap: 6px;
-    background: var(--highlight);
-    color: #fff;
-    border: none; cursor: pointer;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.22);
-    font-size: 1.1rem;
-    align-items: center; justify-content: center;
-    transition: transform 0.2s, background 0.2s;
-}
-.mobile-search-toggle:active { transform: scale(0.93); }
-.mobile-search-toggle.panel-open { background: var(--text-main); }
-.mobile-fab-label { font-size: 0.9rem; font-weight: 700; letter-spacing: 0.02em; }
-
-/* ── Mobile overlay ── */
-.mobile-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.35);
-    z-index: 150;
-    opacity: 0;
-    transition: opacity 0.25s;
-    pointer-events: none; /* パネルが閉じている間は pointer event を遮蔽しない */
-}
-.mobile-overlay.visible { opacity: 1; pointer-events: auto; }
-
-/* default: hidden (sidebar shows back btn at >680px) */
-#mn-back-bar { display: none; }
-
-@media (max-width: 680px) {
-    html, body { overflow: auto; height: auto; }
-
-    .main-layout {
-        flex-direction: column;
-        height: auto;
-        overflow: visible;
-    }
-
-    /* Search panel becomes a bottom drawer */
-    .search-panel {
-        position: fixed;
-        left: 0; right: 0; bottom: 0;
-        width: 100%;
-        max-height: 82vh;
-        border-right: none;
-        border-top: 1px solid var(--border-soft);
-        border-radius: 18px 18px 0 0;
-        box-shadow: 0 -6px 32px rgba(0,0,0,0.13);
-        z-index: 160;
-        transform: translateY(100%);
-        transition: transform 0.32s cubic-bezier(0.32,0.72,0,1);
-        padding: 0 20px 40px;
-        overflow-y: auto;
-    }
-    .search-panel.mobile-open {
-        transform: translateY(0);
-    }
-
-    /* Drag handle */
-    .search-panel::before {
-        content: '';
-        display: block;
-        width: 36px; height: 4px;
-        background: var(--border-soft);
-        border-radius: 2px;
-        margin: 12px auto 14px;
-        flex-shrink: 0;
-    }
-
-    /* Container takes full viewport */
-    .container {
-        width: 100%;
-        overflow: visible;
-        min-height: 100vh;
-    }
-
-    .result-panel {
-        padding: 20px 18px 100px; /* bottom padding for FAB */
-        overflow: visible;
-    }
-
-    .mobile-search-toggle { display: flex; }
-    .mobile-overlay { display: block; }
-
-    #mn-back-bar {
-        display: flex;
-        align-items: center;
-        padding: 10px 18px 10px;
-        border-bottom: 1px solid var(--border-soft);
-        background: var(--bg-paper);
-        position: sticky;
-        top: 0;
-        z-index: 10;
-    }
-}
-
-#mn-back-bar-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.85rem;
-    color: var(--text-sub);
-    padding: 4px 0;
-    -webkit-tap-highlight-color: transparent;
-}
-#mn-back-bar-btn:active { opacity: 0.65; }
 
 /* ── Section label ── */
 .s-label {
@@ -265,11 +338,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     transition: color var(--transition-fast);
 }
 .search-icon-btn:hover { color: var(--text-main); }
-.search-icon-btn:focus-visible {
-    outline: 2px solid var(--highlight);
-    outline-offset: 3px;
-    color: var(--text-main);
-}
 .search-icon-btn svg { width: 16px; height: 16px; display: block; }
 /* Suggest dropdown */
 .suggest-dropdown {
@@ -278,10 +346,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     border: 1px solid var(--border-soft);
     border-radius: 10px;
     box-shadow: 0 8px 28px rgba(0,0,0,0.10);
-    z-index: 50; display: none;
-    max-height: min(360px, 45vh);
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    z-index: 50; display: none; overflow: hidden;
 }
 .suggest-dropdown.open { display: block; }
 .suggest-item {
@@ -292,8 +357,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     gap: 8px;
 }
 .suggest-item:last-child { border-bottom: none; }
-.suggest-item:hover, .suggest-item[aria-selected="true"] { background: var(--bg-panel); }
-.suggest-item[aria-selected="true"] { outline: 2px solid var(--highlight); outline-offset: -2px; }
+.suggest-item:hover { background: var(--bg-panel); }
 .suggest-jp { font-size: 0.78rem; color: var(--text-sub); margin-right: 4px; }
 .suggest-gr { font-family: 'Gentium Plus', serif; font-size: 1rem; color: var(--text-main); }
 .suggest-pos { font-size: 0.65rem; color: var(--text-sub); margin-left: 5px; opacity: 0.7; }
@@ -321,18 +385,10 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     user-select: none;
 }
 .layer-row:hover { background: var(--bg-panel); }
-.layer-row:focus-visible {
-    outline: 2px solid var(--highlight);
-    outline-offset: 3px;
-    position: relative;
-    z-index: 1;
-}
-/* 選択中の方式も枠線では強調しすぎず、4方式を同じ視覚階層に保つ。
-   選択状態はチェック部分と aria-checked で示す。 */
-.layer-row.active-lemma,
-.layer-row.active-phrase,
-.layer-row.active-prox,
-.layer-row.active-morph { border-color: var(--border-soft); }
+.layer-row.active-lemma  { border-color: rgba(26,95,168,0.22); }
+.layer-row.active-phrase { border-color: rgba(46,125,70,0.22); }
+.layer-row.active-prox   { border-color: rgba(184,74,26,0.22); }
+.layer-row.active-morph  { border-color: rgba(123,61,154,0.22); }
 
 .layer-check {
     width: 16px; height: 16px; border-radius: 4px;
@@ -392,10 +448,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     border-radius: 2px; outline: none; cursor: pointer;
     margin-bottom: 8px;
 }
-.prox-slider:focus-visible {
-    outline: 2px solid var(--prox);
-    outline-offset: 5px;
-}
 .prox-slider::-webkit-slider-thumb {
     -webkit-appearance: none; width: 14px; height: 14px;
     border-radius: 50%; background: var(--prox);
@@ -435,7 +487,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     display: flex; flex-wrap: wrap; gap: 3px;
 }
 .morph-chip {
-    -webkit-appearance: none; appearance: none;
     display: inline-flex; align-items: center; gap: 3px;
     padding: 3px 7px;
     border: 1px solid var(--morph-border);
@@ -447,10 +498,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     font-family: monospace; letter-spacing: 0.02em;
 }
 .morph-chip:hover { background: var(--morph-bg); }
-.morph-chip:focus-visible {
-    outline: 2px solid var(--highlight);
-    outline-offset: 2px;
-}
 .morph-chip.selected {
     background: var(--morph); color: #fff;
     border-color: var(--morph);
@@ -495,19 +542,12 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .history-block { margin-top: 10px; }
 .history-list { display: flex; flex-direction: column; gap: 2px; }
 .history-item {
-    width: 100%;
     display: flex; align-items: center; gap: 7px;
-    padding: 6px 8px; border: 0; border-radius: 6px;
-    background: transparent; text-align: left;
+    padding: 6px 8px; border-radius: 6px;
     cursor: pointer; transition: background 0.1s;
-    font-family: inherit; font-size: 0.72rem; color: var(--text-sub);
+    font-size: 0.72rem; color: var(--text-sub);
 }
 .history-item:hover { background: var(--bg-panel); color: var(--text-main); }
-.history-item:focus-visible {
-    outline: 2px solid var(--highlight);
-    outline-offset: 2px;
-    color: var(--text-main);
-}
 .history-badges { display: flex; gap: 3px; flex-shrink: 0; }
 .h-badge {
     font-size: 0.52rem; font-weight: 700; padding: 1px 4px;
@@ -523,16 +563,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* ============================================================
-   Right panel: results
-   ============================================================ */
-.result-panel {
-    flex: 1;
-    min-width: 0;
-    overflow-y: auto;
-    padding: 28px 32px 60px;
-    background: var(--bg-paper);
-}
+/* result-panel: 旧サイドバー内のメインエリア（廃止 — .s-results に統合） */
+.result-panel { display: contents; }
 
 /* ── Empty / loading state ── */
 .state-empty, .state-loading {
@@ -552,8 +584,8 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .empty-desc { font-size: 0.78rem; color: var(--text-sub); max-width: 320px; line-height: 1.65; }
 .layer-chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
 .layer-chip {
-    padding: 4px 11px; border-radius: 12px; font-family: inherit; font-size: 0.68rem; font-weight: 700;
-    letter-spacing: 0.05em; line-height: inherit; cursor: pointer; transition: opacity 0.15s;
+    padding: 4px 11px; border-radius: 12px; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.05em; cursor: pointer; transition: opacity 0.15s;
     border: 1px solid;
 }
 .layer-chip.lemma  { background: var(--lemma-bg);  color: var(--lemma);  border-color: var(--lemma-border); }
@@ -561,10 +593,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .layer-chip.prox   { background: var(--prox-bg);   color: var(--prox);   border-color: var(--prox-border); }
 .layer-chip.morph  { background: var(--morph-bg);  color: var(--morph);  border-color: var(--morph-border); }
 .layer-chip:hover { opacity: 0.75; }
-.layer-chip:focus-visible {
-    outline: 2px solid var(--highlight);
-    outline-offset: 3px;
-}
 /* Pattern chips reuse class="layer-chip prox" in JS — override in context to phrase-green.
    Prox (orange) = word-distance condition; Pattern (green) = biblical expression preset. */
 #pattern-chips .layer-chip.prox,
@@ -590,10 +618,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     transition: background var(--transition-fast);
 }
 .pe-card:hover { background: var(--bg-panel); }
-.pe-card:focus-visible {
-    outline: 2px solid var(--highlight);
-    outline-offset: 3px;
-}
 .pe-label {
     font-size: var(--text-body); font-weight: 700;
     color: var(--text); margin-bottom: var(--space-xs);
@@ -641,23 +665,30 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 #sqs-filter-bar {
     display: none; flex-wrap: wrap; align-items: center;
     gap: var(--space-xs);
-    margin-top: var(--space-sm);
-    padding-top: 0;
-    border-top: 0;
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-soft);
 }
-/* 選択済み条件は検索方式と同じ流れに置き、独立したセクションに見せない。 */
+#sqs-filter-bar::before {
+    content: '追加条件';
+    display: block; width: 100%;
+    font-size: var(--text-caption); font-weight: 600;
+    letter-spacing: 0.06em; color: var(--text-sub);
+    opacity: var(--opacity-secondary);
+    margin-bottom: var(--space-xs);
+}
 .sqs-pill {
     display: inline-flex; align-items: center; gap: 4px;
-    padding: 3px var(--space-sm); border: 1px solid var(--highlight);
-    border-radius: var(--radius-s); font-size: var(--text-caption);
-    color: var(--text-sub); background: var(--bg-panel);
+    padding: 2px var(--s-sp-2); border: 1px solid var(--s-accent-mid);
+    border-radius: var(--s-radius-chip); font-size: var(--s-ts-xs);
+    color: var(--s-accent); background: var(--s-accent-soft);
 }
 .sqs-pill-x {
     background: none; border: none; cursor: pointer; line-height: 1;
-    color: var(--text-hint); font-size: 0.72rem; padding: 0 2px;
-    font-family: inherit; transition: color var(--transition-fast);
+    color: var(--s-accent); font-size: var(--s-ts-xs); padding: 0 2px;
+    font-family: inherit; transition: opacity var(--s-dur-fast);
 }
-.sqs-pill-x:hover { color: var(--text-main); }
+.sqs-pill-x:hover { opacity: 0.6; }
 .ci-header {
     font-size: var(--text-caption);
     font-weight: 600;
@@ -678,7 +709,19 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     margin-bottom: var(--space-xs);
 }
 .ci-chips { justify-content: flex-start; }
-.ci-related-more-btn { white-space: nowrap; }
+.ci-related-more-btn {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
+    cursor: pointer;
+    background: none;
+    border: 1px dashed var(--border-soft);
+    border-radius: var(--radius-s);
+    padding: var(--space-xs) var(--space-sm);
+    font-family: inherit;
+    line-height: 1;
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+.ci-related-more-btn:hover { border-color: var(--highlight); color: var(--highlight); }
 
 /* 関連するギリシャ語（Phase 6-2）: 語彙 → 語義 → 出現数 → 辞書の導線行。
    値はすべて既存トークンのみ */
@@ -711,35 +754,29 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 
 .spinner {
     width: 32px; height: 32px; border-radius: 50%;
-    border: 3px solid var(--bg-panel);
-    border-top-color: var(--highlight);
+    border: 3px solid var(--s-surface-2);
+    border-top-color: var(--s-accent);
     animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.loading-label { font-size: 0.78rem; color: var(--text-sub); }
+.loading-label { font-size: var(--s-ts-sm); color: var(--s-text-sub); }
 
 /* ── Result header ── */
 .result-header {
     display: none;
     align-items: baseline; gap: 12px; flex-wrap: wrap;
-    margin-bottom: 20px; padding-bottom: 14px;
-    border-bottom: 1px solid var(--border-soft);
+    margin-bottom: var(--s-sp-5); padding-bottom: var(--s-sp-3);
+    border-bottom: 1px solid var(--s-divider-strong);
 }
 .result-header.visible { display: flex; }
 .result-query {
-    appearance: none; -webkit-appearance: none;
-    padding: 0; margin: 0; background: transparent;
-    border: 0;
-    font-family: 'Gentium Plus', serif;
-    font-size: 1.35rem; font-weight: 700; color: var(--text-main);
-    letter-spacing: 0.02em; text-align: left; cursor: pointer;
-    transition: border-color 0.15s, color 0.15s;
+    font-family: var(--s-ff-greek);
+    font-size: var(--s-ts-lg); font-weight: 700; color: var(--s-text);
+    letter-spacing: 0.02em;
+    cursor: pointer; border-bottom: 2px dotted var(--s-divider);
+    transition: border-color var(--s-dur-fast), color var(--s-dur-fast);
 }
-.result-query:focus-visible {
-    outline: 2px solid var(--highlight);
-    outline-offset: 4px; border-radius: 2px;
-}
-.result-query:hover { color: var(--highlight); }
+.result-query:hover { border-bottom-color: var(--s-accent); color: var(--s-accent); }
 
 /* ── Abbott-Smith Modal ── */
 #as-backdrop {
@@ -749,40 +786,39 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 #as-backdrop.open { display: flex; }
 #as-modal {
-    background: var(--bg-panel); border-radius: 12px;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+    background: var(--s-surface); border-radius: var(--s-radius-modal);
+    box-shadow: var(--s-shadow-modal);
     max-width: 640px; width: 100%; max-height: 80vh;
     display: flex; flex-direction: column; overflow: hidden;
 }
 #as-modal-head {
     display: flex; align-items: center; gap: 10px;
-    padding: 16px 20px 12px; border-bottom: 1px solid var(--border-soft);
+    padding: 16px 20px 12px; border-bottom: 1px solid var(--s-divider);
     flex-shrink: 0;
 }
 #as-modal-lemma {
-    font-family: 'Gentium Plus', serif; font-size: 1.5rem;
-    font-weight: 700; color: var(--text-main); flex: 1;
+    font-family: var(--s-ff-greek); font-size: var(--s-ts-lg);
+    font-weight: 700; color: var(--s-text); flex: 1;
 }
 #as-modal-strong {
-    font-size: 0.68rem; font-weight: 700; color: var(--text-sub);
-    background: var(--bg-sub); border-radius: 6px; padding: 2px 7px;
+    font-size: var(--s-ts-xs); font-weight: 700; color: var(--s-text-sub);
+    background: var(--s-surface-2); border-radius: var(--s-radius-chip); padding: 2px 7px;
 }
 #as-modal-close {
     width: 28px; height: 28px; border-radius: 50%; border: none;
-    background: var(--bg-sub); cursor: pointer; font-size: 0.9rem;
-    color: var(--text-sub); display: flex; align-items: center; justify-content: center;
-    transition: background 0.12s;
+    background: var(--s-surface-2); cursor: pointer;
+    color: var(--s-text-sub); display: flex; align-items: center; justify-content: center;
+    transition: background var(--s-dur-fast) var(--s-ease);
 }
 #as-modal-close svg { width: 16px; height: 16px; display: block; }
-#as-modal-close:hover { background: var(--border-soft); }
+#as-modal-close:hover { background: var(--s-divider); }
 #as-modal-body {
     padding: 16px 20px; overflow-y: auto; flex: 1;
-    font-size: 0.82rem; line-height: 1.75; color: var(--text-main);
-    white-space: pre-wrap; font-family: 'Noto Serif JP', Georgia, serif;
+    font-size: var(--s-ts-base); line-height: var(--s-lh-prose);
+    color: var(--s-text); white-space: pre-wrap;
+    font-family: var(--s-ff-prose);
 }
-#as-modal-body .as-empty {
-    color: var(--text-sub); font-style: italic;
-}
+#as-modal-body .as-empty { color: var(--s-text-sub); font-style: italic; }
 .result-count {
     font-size: 0.78rem; font-weight: 700;
     color: var(--text-sub);
@@ -823,26 +859,13 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .rank-item {
     padding: 7px 10px;
     border-radius: 6px;
+    cursor: pointer;
     transition: background 0.1s;
     margin-bottom: 3px;
 }
 .rank-item:hover { background: var(--bg-panel); }
 .rank-item.highlighted { background: var(--prox-bg); }
-.rank-top { display: flex; align-items: stretch; gap: 5px; margin-bottom: 3px; }
-.rank-select-btn {
-    display: flex; align-items: center; gap: 5px;
-    flex: 1; min-width: 0; padding: 0;
-    border: 0; background: transparent; color: inherit;
-    text-align: left; cursor: pointer; font: inherit;
-    flex-wrap: wrap;
-}
-.rank-select-btn:focus-visible {
-    outline: 2px solid var(--highlight);
-    outline-offset: 3px;
-    border-radius: 3px;
-}
-.rank-select-btn .rank-word-wrap { flex: 1; }
-.rank-select-btn .rank-bar-track { flex-basis: 100%; }
+.rank-top { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
 .rank-word-wrap { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .rank-word { font-family: 'Gentium Plus', serif; font-size: 0.92rem; color: var(--text-main); }
 .rank-gloss { font-size: 0.65rem; color: var(--text-sub); }
@@ -894,18 +917,11 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 .dist-bar-list { display: flex; flex-direction: column; gap: 4px; }
 .dist-bar-row {
-    width: 100%;
     display: flex; align-items: center; gap: 8px;
-    border: 0; background: transparent; color: inherit;
-    font: inherit; text-align: left;
     cursor: pointer; padding: 3px 5px; border-radius: 6px;
     transition: background 0.1s;
 }
 .dist-bar-row:hover { background: var(--bg-panel); }
-.dist-bar-row:focus-visible {
-    outline: 2px solid var(--highlight);
-    outline-offset: 2px;
-}
 .dist-bar-row.active { background: var(--border-soft); }
 .dist-bar-name { font-size: 0.68rem; color: var(--text-sub); width: 70px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dist-bar-track { flex: 1; height: 5px; background: var(--border-soft); border-radius: 3px; overflow: hidden; }
@@ -922,8 +938,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .lemma-groups { margin-bottom: 16px; }
 .lg-row { margin-bottom: 6px; }
 .lg-bar {
-    appearance: none; -webkit-appearance: none;
-    width: 100%; font: inherit; color: inherit; text-align: left;
     display: flex; align-items: center; gap: 8px;
     padding: 8px 12px;
     background: var(--bg-paper); border-radius: 6px;
@@ -931,7 +945,6 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     transition: background 0.12s;
 }
 .lg-bar:hover { background: var(--bg-panel); }
-.lg-bar:focus-visible { outline: 2px solid var(--focus, var(--prox)); outline-offset: 2px; }
 .lg-bar.open  { background: var(--bg-panel); border-radius: 6px 6px 0 0; }
 .lg-toggle { font-size: 0.55rem; color: var(--text-sub); transition: transform 0.18s; display: inline-flex; align-items: center; }
 .lg-bar.open .lg-toggle { transform: rotate(90deg); }
@@ -952,40 +965,36 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .lg-cooc-list { display: flex; flex-wrap: wrap; gap: 4px; }
 .lg-cooc-sec { margin-top: var(--space-sm); padding-top: var(--space-sm); border-top: 1px solid var(--border-soft); }
 .lg-chip {
-    appearance: none; -webkit-appearance: none;
     display: inline-flex; align-items: center; gap: 4px;
     padding: 3px 8px; border-radius: 10px;
     background: var(--prox-bg); border: 1px solid var(--prox-border);
-    color: inherit; font: inherit; font-size: 0.68rem; line-height: inherit;
-    text-align: left; cursor: pointer; transition: opacity 0.1s;
+    font-size: 0.68rem; cursor: pointer; transition: opacity 0.1s;
 }
 .lg-chip:hover { opacity: 0.7; }
-.lg-chip:focus-visible { outline: 2px solid var(--focus, var(--prox)); outline-offset: 2px; }
 .lg-chip-jp { color: var(--text-sub); }
 .lg-chip-gr { font-family: 'Gentium Plus', serif; color: var(--prox); }
 .lg-chip-ct { font-size: 0.58rem; color: var(--text-sub); }
-.lg-more-btn { width: 100%; margin-top: 6px; }
+.lg-more-btn {
+    width: 100%; margin-top: 6px; padding: 5px;
+    font-size: 0.68rem; color: var(--text-sub); cursor: pointer;
+    background: none; border: 1px dashed var(--border-soft);
+    border-radius: 6px; font-family: inherit; transition: border-color 0.12s;
+}
+.lg-more-btn:hover { border-color: var(--highlight); color: var(--highlight); }
 
 /* ============================================================
-   Hit card — unified for all layers
+   Hit card — リスト型（区切り線のみ、カードシャドウなし）
    ============================================================ */
-.hit-card {
-    background: var(--bg-paper);
-    border: 1px solid var(--border-soft);
-    border-radius: 10px;
-    padding: 14px 16px;
-    margin-bottom: 8px;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    animation: fadeUp 0.2s ease both;
-}
-.hit-card:hover {
-    border-color: rgba(0,0,0,0.13);
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-}
 @keyframes fadeUp {
     from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0); }
 }
+.hit-card {
+    padding: var(--s-sp-5) 0;
+    border-top: 1px solid var(--s-divider);
+    animation: fadeUp var(--s-dur-result) var(--s-ease) both;
+}
+.hit-card:hover { background: none; }
 
 /* Hit card top row */
 .hit-top {
@@ -1038,13 +1047,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 .ht-badge.prox   { background: var(--prox-bg);   color: var(--prox); }
 .ht-badge.morph  { background: var(--morph-bg);  color: var(--morph); }
 
-/* Snippet */
-.hit-snippet {
-    font-family: 'Gentium Plus', serif;
-    font-size: 1.05rem; line-height: 1.7;
-    color: var(--text-main); word-wrap: break-word;
-    margin-bottom: 8px;
-}
+/* Snippet highlight colors (スニペット強調 — 既存レイヤー色を継承) */
 .hit-snippet .hl-lemma  { color: var(--lemma);  font-weight: 700; text-decoration: underline; text-decoration-color: rgba(26,95,168,0.35); text-underline-offset: 3px; }
 .hit-snippet .hl-phrase { color: var(--phrase); font-weight: 700; background: var(--phrase-bg); border-radius: 2px; padding: 0 1px; }
 .hit-snippet .hl-prox-w1{ color: var(--prox);   font-weight: 700; }
@@ -1069,28 +1072,9 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 .prox-target { font-family: 'Gentium Plus', serif; font-weight: 700; color: var(--prox); opacity: 0.7; }
 
-/* Translation — now primary display */
-.hit-trans-row { margin-bottom: 8px; }
-.hit-trans-text {
-    font-size: 0.82rem; color: var(--text-main); line-height: 1.65;
-    display: none;
-}
-.hit-trans-text.visible { display: block; }
-
-/* Greek snippet — secondary context under the Japanese translation */
-.hit-greek-row { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; }
-.hit-greek-label { font-size: 0.66rem; color: var(--text-sub); letter-spacing: 0.03em; }
-.hit-snippet {
-    font-family: 'Gentium Plus', serif;
-    font-size: 1.05rem; line-height: 1.7;
-    color: var(--text-main); word-wrap: break-word;
-}
-.hit-snippet-hidden {
-    display: none;
-}
-.hit-snippet-hidden.open {
-    display: block;
-}
+/* hit-trans-row / hit-trans-text / hit-snippet: 新定義は下部 qtype セクション参照 */
+.hit-trans-row { margin-bottom: var(--s-sp-2); }
+.hit-greek-row { display: flex; flex-direction: column; gap: 6px; }
 
 
 /* Refinement banner */
@@ -1133,22 +1117,16 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     justify-content: center; margin-top: 16px;
 }
 .ex-chip {
-    appearance: none; -webkit-appearance: none;
     padding: 6px 14px;
     border: 1.5px solid var(--border-soft);
     border-radius: 20px;
     font-family: 'Gentium Plus', serif;
     font-size: 0.9rem;
-    line-height: 1.4;
     color: var(--text-sub);
     cursor: pointer;
     background: var(--bg-paper);
     transition: border-color 0.15s, color 0.15s, background 0.15s;
     user-select: none;
-}
-.ex-chip:focus-visible {
-    outline: 2px solid var(--highlight);
-    outline-offset: 3px;
 }
 .ex-chip:hover {
     border-color: var(--highlight);
@@ -1162,66 +1140,62 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
     opacity: 0.6;
 }
 
-/* ── Discovery Lobby (UX-10-1C / UX-10-1D / UX-10-2B) ── */
+/* ── Discovery Lobby ── */
 #discovery-lobby {
     display: flex; flex-direction: column;
     align-items: center;
     width: 100%;
-    padding: 48px var(--space-md) var(--space-xl);
+    padding: var(--s-sp-6) 0 var(--s-sp-7);
 }
 .discovery-title {
-    font-size: 1rem; font-weight: 400;
-    color: var(--text-sub);
+    font-size: var(--s-ts-sm); font-weight: 400;
+    color: var(--s-text-sub);
     text-align: center;
-    line-height: 1.75;
+    line-height: var(--s-lh-base);
     margin: 0 0 4px;
 }
 .discovery-date {
-    font-size: 0.72rem;
-    color: var(--text-sub);
-    opacity: 0.6;
+    font-size: var(--s-ts-xs);
+    color: var(--s-text-hint);
     text-align: center;
-    margin: 0 0 20px;
+    margin: 0 0 var(--s-sp-5);
     letter-spacing: 0.04em;
 }
 .discovery-verse-card {
-    background: var(--bg-paper);
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius-l);
-    padding: var(--space-xl) var(--space-lg);
-    max-width: 450px;
+    background: var(--s-surface-2);
+    border: 1px solid var(--s-divider);
+    border-radius: 12px;
+    padding: var(--s-sp-5) var(--s-sp-5);
+    max-width: 420px;
     width: 100%;
     text-align: center;
-    box-sizing: border-box;
-    box-shadow: var(--shadow-card);
 }
 .discovery-verse-text {
-    font-size: 1.15rem;
-    line-height: 1.8;
-    color: var(--text-main);
+    font-family: var(--s-ff-prose);
+    font-size: var(--s-ts-md);
+    line-height: var(--s-lh-prose);
+    color: var(--s-text);
     margin: 0 0 12px;
     font-weight: 400;
 }
 .discovery-verse-ref {
-    font-size: 0.72rem;
-    color: var(--text-sub);
-    letter-spacing: 0.06em;
+    font-size: var(--s-ts-xs);
+    color: var(--s-text-sub);
+    letter-spacing: 0.04em;
     margin: 0;
 }
 .discovery-verse-themes {
-    margin-top: 20px;
-    padding-bottom: 10px;
+    margin-top: var(--s-sp-5);
     display: flex; flex-direction: column;
     align-items: center;
-    gap: 8px;
-    max-width: 450px;
+    gap: var(--s-sp-2);
+    max-width: 420px;
     width: 100%;
 }
 .discovery-verse-label {
-    font-size: var(--text-caption);
-    color: var(--text-sub);
-    letter-spacing: 0.06em;
-    opacity: 1;
+    font-size: var(--s-ts-xs);
+    color: var(--s-text-hint);
+    letter-spacing: 0.04em;
 }
 .discovery-verse-pills {
     display: flex; flex-wrap: wrap;
@@ -1230,99 +1204,156 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 .discovery-verse-pill {
     padding: 4px 12px;
-    border: 1px solid var(--border-soft);
+    border: 1px solid var(--s-divider);
     border-radius: 20px;
     background: transparent;
-    font-family: 'Noto Sans JP', sans-serif;
-    font-size: 0.72rem;
-    color: var(--text-sub);
+    font-family: var(--s-ff-ui);
+    font-size: var(--s-ts-xs);
+    color: var(--s-text-sub);
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background var(--s-dur-fast) var(--s-ease);
     user-select: none;
 }
-.discovery-verse-pill:hover {
-    background: var(--bg-panel);
-}
+.discovery-verse-pill:hover { background: var(--s-surface); }
 .discovery-verse-pill:focus-visible {
-    background: var(--bg-panel);
-    outline: 2px solid var(--highlight);
+    background: var(--s-surface);
+    outline: 2px solid var(--s-accent);
     outline-offset: 2px;
 }
 
-/* ── Concept discovery section ── */
-#concept-discovery-section {
-    width: 100%;
-    max-width: 450px;
-    text-align: center;
-    margin-top: var(--space-lg);
-}
-
-/* ── Hit card redesign ── */
+/* ── Hit card header / ref / badges ── */
 .hit-header {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 10px;
+    display: flex; align-items: center; gap: var(--s-sp-2);
+    margin-bottom: var(--s-sp-3);
 }
 .hit-ref {
-    font-size: 0.72rem; font-weight: 700;
-    color: var(--highlight); letter-spacing: 0.04em;
+    font-size: var(--s-ts-sm); font-weight: 700;
+    color: var(--s-accent); letter-spacing: var(--s-ls-ref);
 }
 .hit-badges-subtle {
     display: flex; gap: 3px; margin-left: auto; flex-shrink: 0;
 }
 .hit-badges-subtle .ht-badge {
-    font-size: 0.60rem; padding: 1px 5px;
-    opacity: 0.55; font-weight: 600;
+    font-size: var(--s-ts-xs); padding: 1px 5px;
+    background: var(--s-surface-2); color: var(--s-text-sub);
+    border-radius: var(--s-radius-chip); font-weight: 600;
 }
 .corpus-badge {
-    font-size: var(--text-caption);
+    font-size: var(--s-ts-xs);
     font-weight: 400;
     padding: 1px 5px;
-    border-radius: var(--radius-s);
-    border: 1px solid var(--border);
-    color: var(--text-sub);
+    border-radius: var(--s-radius-chip);
+    border: 1px solid var(--s-divider);
+    color: var(--s-text-sub);
     letter-spacing: 0.04em;
     flex-shrink: 0;
 }
-.hit-body {
-    margin-bottom: 10px;
-}
+.hit-body { margin-bottom: var(--s-sp-3); }
 .hit-footer {
-    display: flex; align-items: center; gap: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--border-soft);
+    display: flex; align-items: center; gap: var(--s-sp-2);
 }
 .hit-open-btn-lg {
     display: inline-flex; align-items: center; gap: 5px;
     margin-left: auto;
     padding: 5px 14px;
-    min-height: 36px;
-    background: var(--highlight);
+    min-height: 34px;
+    background: var(--s-accent);
     color: #fff;
-    border-radius: 8px;
-    font-size: 0.75rem; font-weight: 700;
+    border-radius: var(--s-radius-btn);
+    font-size: var(--s-ts-sm); font-weight: 600;
     font-family: inherit;
     text-decoration: none;
-    transition: opacity 0.15s, transform 0.1s;
+    transition: opacity var(--s-dur-fast) var(--s-ease), transform var(--s-dur-fast);
     flex-shrink: 0;
-    letter-spacing: 0.02em;
 }
-.hit-open-btn-lg:hover { opacity: 0.85; transform: translateY(-1px); }
+.hit-open-btn-lg:hover { opacity: 0.82; }
 .hit-open-btn-lg:active { transform: scale(0.97); }
 .hit-morph-btn {
     display: inline-flex; align-items: center;
     padding: 5px 14px;
     border: 1px solid var(--morph-border);
-    border-radius: 8px;
-    background: var(--bg-paper);
+    border-radius: var(--s-radius-btn);
+    background: transparent;
     color: var(--morph);
-    font-size: 0.75rem; font-weight: 700;
+    font-size: var(--s-ts-sm); font-weight: 600;
     font-family: inherit;
     cursor: pointer;
-    transition: background 0.12s, color 0.12s;
+    transition: background var(--s-dur-fast) var(--s-ease);
     flex-shrink: 0;
-    letter-spacing: 0.02em;
 }
 .hit-morph-btn:hover { background: var(--morph-bg); }
+
+/* ── Translation text: qtype-based styling ── */
+/* デフォルト（日本語クエリ）: 訳文がメイン */
+.hit-trans-text {
+    font-family: var(--s-ff-prose);
+    font-size: var(--s-ts-md);
+    color: var(--s-text);
+    line-height: var(--s-lh-prose);
+    display: none;
+}
+.hit-trans-text.visible { display: block; }
+
+/* ギリシャ語/Strong/morph クエリ: 訳文は副次 */
+.hit-card[data-qtype="greek"] .hit-trans-text,
+.hit-card[data-qtype="strong"] .hit-trans-text,
+.hit-card[data-qtype="text"] .hit-trans-text {
+    font-size: var(--s-ts-base);
+    color: var(--s-text-sub);
+}
+
+/* ── Greek snippet: qtype-based ── */
+.hit-snippet {
+    font-family: var(--s-ff-greek);
+    font-size: var(--s-ts-greek);
+    line-height: var(--s-lh-prose);
+    color: var(--s-greek);
+    word-wrap: break-word;
+    margin-bottom: var(--s-sp-2);
+}
+
+/* 日本語クエリ: ギリシャ語スニペットは折りたたみ */
+.hit-card[data-qtype="japanese"] .hit-snippet,
+.hit-card:not([data-qtype]) .hit-snippet {
+    display: none;
+}
+.hit-card[data-qtype="japanese"] .hit-snippet.open,
+.hit-card:not([data-qtype]) .hit-snippet.open {
+    display: block;
+}
+
+/* ギリシャ語クエリ: スニペット展開 */
+.hit-card[data-qtype="greek"] .hit-snippet,
+.hit-card[data-qtype="strong"] .hit-snippet,
+.hit-card[data-qtype="text"] .hit-snippet {
+    display: block;
+}
+
+/* 日本語クエリ: 折りたたみトグルボタン */
+.hit-greek-toggle {
+    font-size: var(--s-ts-xs);
+    color: var(--s-text-hint);
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; padding: 0;
+    margin-bottom: var(--s-sp-2);
+    display: none;
+    -webkit-tap-highlight-color: transparent;
+}
+.hit-greek-toggle:hover { color: var(--s-text-sub); }
+.hit-card[data-qtype="japanese"] .hit-greek-toggle,
+.hit-card:not([data-qtype]) .hit-greek-toggle {
+    display: inline-flex; align-items: center; gap: 4px;
+}
+/* ギリシャ語クエリ: トグルボタン不要 */
+.hit-card[data-qtype="greek"] .hit-greek-toggle,
+.hit-card[data-qtype="strong"] .hit-greek-toggle,
+.hit-card[data-qtype="text"] .hit-greek-toggle {
+    display: none;
+}
+
+/* 旧 .hit-snippet-hidden パターン（互換） */
+.hit-snippet-hidden { display: none; }
+.hit-snippet-hidden.open { display: block; }
 
 /* ── Concept Insight redesign ── */
 .ci-concept-title {
@@ -1427,26 +1458,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 /* ============================================================
    Mobile responsive
    ============================================================ */
-@media (max-width: 860px) {
-    .main-layout { flex-direction: column; overflow-y: auto; }
-    .search-panel {
-        width: 100%;
-        border-right: none; border-bottom: 1px solid var(--border-soft);
-        padding: 16px 16px 24px;
-    }
-    .result-panel { padding: 20px 16px 40px; }
-    .results-grid { grid-template-columns: 1fr; }
-    .results-grid:not(.no-cooc) .cooc-col { display: none; }
-}
-
-/* PC: カード幅を 580px に拡張（モバイル ≤680px は width:100% で追従） */
-@media (min-width: 681px) {
-    .discovery-verse-card,
-    .discovery-verse-themes,
-    #concept-discovery-section {
-        max-width: 580px;
-    }
-}
+/* 旧860px ブレークポイント廃止済み */
 
 .share-url-btn {
     background: none; border: none; cursor: pointer;
@@ -1455,43 +1467,7 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 }
 .share-url-btn:hover { opacity: 1; background: rgba(0,0,0,0.05); }
 .share-url-btn svg { width: 16px; height: 16px; display: block; }
-
-/* Keep keyboard focus visible on native search and result controls. */
-.prox-preset:focus-visible,
-.morph-clear-btn:focus-visible,
-.sqs-pill-x:focus-visible,
-.ci-lex-row:focus-visible,
-.add-btn:focus-visible,
-.hit-open-btn:focus-visible,
-.hit-open-btn-lg:focus-visible,
-.hit-morph-btn:focus-visible,
-.ci-advanced-toggle:focus-visible,
-.advanced-layers-toggle:focus-visible,
-.share-url-btn:focus-visible {
-    outline: 2px solid var(--highlight);
-    outline-offset: 3px;
-}
 .lg-toggle svg { width: 9px; height: 9px; display: block; }
-/* Keep keyboard focus visible on result sorting, expansion, and navigation controls. */
-.sort-btn:focus-visible,
-.load-more-btn:focus-visible,
-.expand-btn:focus-visible,
-.app-card-head:focus-visible,
-.filter-chip-toggle:focus-visible,
-.mobile-search-toggle:focus-visible,
-.logo-home-btn:focus-visible,
-#mn-back-bar-btn:focus-visible,
-#as-modal-close:focus-visible {
-    outline: 2px solid var(--highlight);
-    outline-offset: 3px;
-}
-
-.search-back-link:focus-visible {
-    outline: 2px solid var(--highlight);
-    outline-offset: 3px;
-    border-radius: 2px;
-}
-
 /* syn-filter: override components.css '▶' → '›' to align with advanced-layers › pattern */
 .syn-filter summary::before { content: '›'; font-size: 1rem; }
 
@@ -1505,189 +1481,174 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
 </head>
 <body>
 <div id="share-toast" class="share-toast"></div>
-<div class="main-layout">
 
-<!-- ═══════════════════════════ Search Panel ═══════════════════════════ -->
-<aside class="search-panel" id="search-panel" aria-label="検索パネル">
-    <!-- Header inside sidebar -->
-    <div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--border-soft);">
-        <!-- MN: 聖書に戻るリンク -->
-        <button type="button" class="search-back-link" onclick="_searchGoBack()"
-                style="display:inline-flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:0.8rem;color:var(--text-sub);padding:0 0 10px 0;letter-spacing:0.01em;-webkit-tap-highlight-color:transparent;"
-                aria-label="聖書リーダーに戻る">
-            ‹ 聖書に戻る
-        </button>
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-            <button type="button" class="logo-home-btn" onclick="_returnToLobby()" title="今日のみことばへ戻る" aria-label="今日のみことばへ戻る"
-                style="font-family:'Noto Sans JP',sans-serif;font-size:1rem;font-weight:700;color:var(--text-main);letter-spacing:-0.01em;background:none;border:0;padding:0;cursor:pointer;">聖書原文検索</button>
-            <button type="button" class="share-url-btn" data-icon="link" onclick="copyShareUrl()" aria-label="このURLをコピー" title="このURLをコピー"></button>
-        </div>
-        <div class="idx-status" id="idx-pill">
-            <span id="idx-dot">○</span>
-            <span id="idx-label">準備中…</span>
-        </div>
+<!-- ═══════════════════════════ Sticky Header ═══════════════════════════ -->
+<header class="s-header" id="s-header">
+    <button class="s-btn-back" onclick="_searchGoBack()" aria-label="聖書リーダーに戻る">
+        ‹ 聖書に戻る
+    </button>
+    <span class="s-header-spacer"></span>
+    <span class="s-mini-search" id="s-mini-search" onclick="document.getElementById('unified-search-input').focus()" title="検索欄へ"></span>
+    <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
+</header>
+
+<!-- ═══════════════════════════ Search Block ═══════════════════════════ -->
+<div class="s-search-block" id="s-search-block">
+    <div class="idx-status" id="idx-pill">
+        <span id="idx-dot">○</span>
+        <span id="idx-label">準備中…</span>
     </div>
+
+    <div class="s-search-title logo-home-btn" onclick="_returnToLobby()" title="今日のみことばへ戻る">聖書原文検索</div>
 
     <!-- Search input -->
-    <div class="s-label">検索語</div>
-    <div class="search-input-wrap" style="margin-bottom:22px;">
+    <div class="search-input-wrap">
         <input class="unified-input" id="unified-search-input"
             type="text"
-            aria-label="検索語"
-            role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="suggest-dropdown"
-            enterkeyhint="search"
-            placeholder="愛・信じる・ἀγαπάω・G25 …"
+            placeholder="愛・信じる・ἀγαπάω …"
             autocomplete="off" spellcheck="false">
-        <button type="button" class="search-icon-btn" onclick="unifiedSearch()" aria-label="検索" title="検索する">
+        <button class="search-icon-btn" onclick="unifiedSearch()" tabindex="-1" aria-label="検索" title="検索する">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         </button>
-        <div class="suggest-dropdown" id="suggest-dropdown" role="listbox" aria-label="検索候補"></div>
+        <div class="suggest-dropdown" id="suggest-dropdown"></div>
     </div>
 
-    <!-- データ取得の警告（失敗ファイル・章数不整合） -->
+    <!-- データ取得の警告 -->
     <div id="fetch-warning-panel" style="margin-top:8px;"></div>
 
-    <!-- Interpretation layers -->
-    <div class="layers-block">
-        <div class="s-label">探し方</div>
-        <div class="layers-grid">
-
-            <!-- lemma: 基本検索モード（先頭・デフォルトON） -->
-            <div class="layer-row active-lemma" id="layer-lemma"
-                 role="checkbox" aria-checked="true" tabindex="0"
-                 onclick="toggleLayer('lemma')"
-                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('lemma');}"
-                 title="活用形が違っても同じ語を探す">
-                <div class="layer-check" id="chk-lemma"></div>
-                <div class="layer-info">
-                    <div class="layer-name">形が変わっても探す</div>
-                    <div class="layer-desc">同じ単語の形の違いをまとめて検索</div>
-                </div>
-            </div>
-
-            <!-- proximity -->
-            <div class="layer-row" id="layer-prox"
-                 role="checkbox" aria-checked="false" aria-controls="prox-sub" aria-expanded="false" tabindex="0"
-                 onclick="toggleLayer('prox')"
-                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('prox');}"
-                 title="指定した語の近くに現れる語を探す">
-                <div class="layer-check" id="chk-prox"></div>
-                <div class="layer-info">
-                    <div class="layer-name">近くに出てくる語</div>
-                    <div class="layer-desc">指定した語が ±<span id="prox-label-inline">5</span> 語以内に一緒に現れる箇所を検索</div>
-                </div>
-            </div>
-            <div class="prox-sub" id="prox-sub">
-                <div class="prox-sub-row">
-                    <span class="prox-sub-label">距離</span>
-                    <span class="prox-sub-val" id="prox-val-label">±5語</span>
-                </div>
-                <input type="range" class="prox-slider" id="prox-slider"
-                    aria-label="共起検索の距離"
-                    min="1" max="15" value="5"
-                    oninput="onProxSlider(this.value)">
-                <div class="prox-presets">
-                    <button type="button" class="prox-preset" data-d="3" aria-pressed="false" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;">狭い</span></button>
-                    <button type="button" class="prox-preset active" data-d="5" aria-pressed="true" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;">標準</span></button>
-                    <button type="button" class="prox-preset" data-d="10" aria-pressed="false" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
-                </div>
-            </div>
-
-            <!-- phrase -->
-            <div class="layer-row" id="layer-phrase"
-                 role="checkbox" aria-checked="false" aria-controls="phrase-sub" aria-expanded="false" tabindex="0"
-                 onclick="toggleLayer('phrase')"
-                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('phrase');}"
-                 title="入力した語の並びがそのまま現れる箇所を探す">
-                <div class="layer-check" id="chk-phrase"></div>
-                <div class="layer-info">
-                    <div class="layer-name">フレーズで探す</div>
-                    <div class="layer-desc">入力した語をそのままの順番・並びで完全一致検索</div>
-                </div>
-            </div>
-            <div class="phrase-sub" id="phrase-sub">
-                複数語を空白で区切って入力すると連続一致を検索します。<br>
-                例：<code style="font-family:'JetBrains Mono',monospace;">ἀγαπάω θεός</code>
-            </div>
-
-            <!-- morph -->
-            <div class="layer-row" id="layer-morph"
-                 role="checkbox" aria-checked="false" aria-controls="morph-sub" aria-expanded="false" tabindex="0"
-                 onclick="toggleLayer('morph')"
-                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('morph');}"
-                 title="品詞や時制などで検索結果を絞り込む">
-                <div class="layer-check" id="chk-morph"></div>
-                <div class="layer-info">
-                    <div class="layer-name">品詞・語形で絞る</div>
-                    <div class="layer-desc">格・時制・人称などの語形タグで結果を絞り込み</div>
-                </div>
-            </div>
-            <div class="morph-sub" id="morph-sub">
-                <!-- 品詞 -->
-                <div class="morph-section">
-                    <span class="morph-section-label">品詞</span>
-                    <div class="morph-chips" id="morph-chips-pos"></div>
-                </div>
-                <!-- 格 -->
-                <div class="morph-section" id="morph-sec-case" style="display:none;">
-                    <span class="morph-section-label">格</span>
-                    <div class="morph-chips" id="morph-chips-case"></div>
-                </div>
-                <!-- 数 -->
-                <div class="morph-section" id="morph-sec-num" style="display:none;">
-                    <span class="morph-section-label">数</span>
-                    <div class="morph-chips" id="morph-chips-num"></div>
-                </div>
-                <!-- 性 -->
-                <div class="morph-section" id="morph-sec-gen" style="display:none;">
-                    <span class="morph-section-label">性</span>
-                    <div class="morph-chips" id="morph-chips-gen"></div>
-                </div>
-                <!-- 時制（動詞） -->
-                <div class="morph-section" id="morph-sec-tense" style="display:none;">
-                    <span class="morph-section-label">時制</span>
-                    <div class="morph-chips" id="morph-chips-tense"></div>
-                </div>
-                <!-- 態（動詞） -->
-                <div class="morph-section" id="morph-sec-voice" style="display:none;">
-                    <span class="morph-section-label">態</span>
-                    <div class="morph-chips" id="morph-chips-voice"></div>
-                </div>
-                <!-- 法（動詞） -->
-                <div class="morph-section" id="morph-sec-mood" style="display:none;">
-                    <span class="morph-section-label">法</span>
-                    <div class="morph-chips" id="morph-chips-mood"></div>
-                </div>
-                <button type="button" class="morph-clear-btn" id="morph-clear-btn" onclick="_morphClearAll()">選択をクリア</button>
-                <div class="morph-hint" id="morph-hint-text">品詞を選ぶとさらに絞り込めます</div>
-            </div>
-
+    <!-- Mode bar: lemma toggle + advanced toggle + SQS -->
+    <div class="s-mode-bar" id="s-mode-bar">
+        <!-- lemma layer row (primary toggle) -->
+        <div class="layer-row active-lemma s-lemma-toggle active" id="layer-lemma"
+             role="checkbox" aria-checked="true" tabindex="0"
+             onclick="toggleLayer('lemma')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('lemma');}"
+             title="活用形を問わず同一語根の全出現">
+            <div class="layer-check" id="chk-lemma"></div>
+            <div class="layer-name">形が変わっても探す</div>
         </div>
 
-        <!-- SQS: アクティブなフィルタ条件（追加した条件）-->
+        <!-- Advanced options toggle -->
+        <button class="s-advanced-toggle" id="s-advanced-toggle"
+                onclick="_toggleAdvanced()" aria-expanded="false" aria-controls="s-advanced-panel">
+            <span class="s-adv-arrow">▾</span> 詳細オプション
+        </button>
+
+        <!-- SQS: アクティブなフィルタ条件 -->
         <div id="sqs-filter-bar"></div>
     </div>
 
     <!-- History -->
     <div class="history-block" id="history-block" style="display:none;">
-        <div class="s-label" style="margin-bottom:6px;">履歴</div>
+        <div class="s-label" style="margin-bottom:6px;margin-top:8px;">履歴</div>
         <div class="history-list" id="history-list"></div>
     </div>
-
-</aside>
-
-<!-- ═══════════════════════════ Main Container ═══════════════════════════ -->
-<div class="container">
-
-<!-- MN: モバイル（≤680px）専用バック行。サイドバーが引き出しになるため常時表示が必要 -->
-<div id="mn-back-bar">
-    <button type="button" id="mn-back-bar-btn" onclick="_searchGoBack()" aria-label="聖書リーダーに戻る">
-        ‹ 聖書に戻る
-    </button>
 </div>
 
-<!-- ═══════════════════════════ Result Panel ═══════════════════════════ -->
-<main class="result-panel" id="result-panel">
+<!-- ═══════════════════════════ Advanced Options Panel ═══════════════════════════ -->
+<div class="s-advanced-panel" id="s-advanced-panel" aria-hidden="true">
+    <div class="s-advanced-panel-inner">
+        <div class="s-advanced-panel-body">
+            <div class="layers-grid">
+
+                <!-- proximity -->
+                <div class="layer-row" id="layer-prox"
+                     role="checkbox" aria-checked="false" tabindex="0"
+                     onclick="toggleLayer('prox')"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('prox');}"
+                     title="距離ベース共起">
+                    <div class="layer-check" id="chk-prox"></div>
+                    <div class="layer-info">
+                        <div class="layer-name">近くに出てくる語</div>
+                        <div class="layer-desc">指定した語が ±<span id="prox-label-inline">5</span> 語以内に一緒に現れる箇所を検索</div>
+                    </div>
+                </div>
+                <div class="prox-sub" id="prox-sub">
+                    <div class="prox-sub-row">
+                        <span class="prox-sub-label">距離</span>
+                        <span class="prox-sub-val" id="prox-val-label">±5語</span>
+                    </div>
+                    <input type="range" class="prox-slider" id="prox-slider"
+                        min="1" max="15" value="5"
+                        oninput="onProxSlider(this.value)">
+                    <div class="prox-presets">
+                        <button class="prox-preset" data-d="3" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;">狭い</span></button>
+                        <button class="prox-preset active" data-d="5" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;">標準</span></button>
+                        <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
+                    </div>
+                </div>
+
+                <!-- phrase -->
+                <div class="layer-row" id="layer-phrase"
+                     role="checkbox" aria-checked="false" tabindex="0"
+                     onclick="toggleLayer('phrase')"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('phrase');}"
+                     title="lemmaの連続一致">
+                    <div class="layer-check" id="chk-phrase"></div>
+                    <div class="layer-info">
+                        <div class="layer-name">フレーズで探す</div>
+                        <div class="layer-desc">入力した語をそのままの順番・並びで完全一致検索</div>
+                    </div>
+                </div>
+                <div class="phrase-sub" id="phrase-sub">
+                    複数語を空白で区切って入力すると連続一致を検索します。<br>
+                    例：<code style="font-family:'JetBrains Mono',monospace;">ἀγαπάω θεός</code>
+                </div>
+
+                <!-- morph -->
+                <div class="layer-row" id="layer-morph"
+                     role="checkbox" aria-checked="false" tabindex="0"
+                     onclick="toggleLayer('morph')"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('morph');}"
+                     title="形態素フィルタ">
+                    <div class="layer-check" id="chk-morph"></div>
+                    <div class="layer-info">
+                        <div class="layer-name">品詞・語形で絞る</div>
+                        <div class="layer-desc">格・時制・人称などの語形タグで結果を絞り込み</div>
+                    </div>
+                </div>
+                <div class="morph-sub" id="morph-sub">
+                    <div class="morph-section">
+                        <span class="morph-section-label">品詞</span>
+                        <div class="morph-chips" id="morph-chips-pos"></div>
+                    </div>
+                    <div class="morph-section" id="morph-sec-case" style="display:none;">
+                        <span class="morph-section-label">格</span>
+                        <div class="morph-chips" id="morph-chips-case"></div>
+                    </div>
+                    <div class="morph-section" id="morph-sec-num" style="display:none;">
+                        <span class="morph-section-label">数</span>
+                        <div class="morph-chips" id="morph-chips-num"></div>
+                    </div>
+                    <div class="morph-section" id="morph-sec-gen" style="display:none;">
+                        <span class="morph-section-label">性</span>
+                        <div class="morph-chips" id="morph-chips-gen"></div>
+                    </div>
+                    <div class="morph-section" id="morph-sec-tense" style="display:none;">
+                        <span class="morph-section-label">時制</span>
+                        <div class="morph-chips" id="morph-chips-tense"></div>
+                    </div>
+                    <div class="morph-section" id="morph-sec-voice" style="display:none;">
+                        <span class="morph-section-label">態</span>
+                        <div class="morph-chips" id="morph-chips-voice"></div>
+                    </div>
+                    <div class="morph-section" id="morph-sec-mood" style="display:none;">
+                        <span class="morph-section-label">法</span>
+                        <div class="morph-chips" id="morph-chips-mood"></div>
+                    </div>
+                    <button class="morph-clear-btn" id="morph-clear-btn" onclick="_morphClearAll()">選択をクリア</button>
+                    <div class="morph-hint" id="morph-hint-text">品詞を選ぶとさらに絞り込めます</div>
+                </div>
+
+            </div><!-- /.layers-grid -->
+        </div><!-- /.s-advanced-panel-body -->
+    </div><!-- /.s-advanced-panel-inner -->
+</div><!-- /#s-advanced-panel -->
+
+<hr class="s-search-divider">
+
+<!-- ═══════════════════════════ Results ═══════════════════════════ -->
+<main class="s-results" id="result-panel">
 
     <!-- Empty state -->
     <div class="state-empty" id="state-empty">
@@ -1695,33 +1656,27 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
         <div id="discovery-lobby">
             <h2 class="discovery-title">今日のみことば</h2>
             <p class="discovery-date" id="discovery-date"></p>
-            <!-- verse card / themes: renderDiscoveryLobby() が insertBefore でここより前に挿入 -->
-            <!-- concept chips: _renderConceptDiscoveryChips() がコンセプトデータ取得後に表示 -->
-            <div id="concept-discovery-section" style="display:none;">
-                <p class="discovery-verse-label">テーマから探す</p>
-                <div id="concept-discovery-chips" class="empty-examples"></div>
-            </div>
         </div>
         <!-- 以下は温存。Discovery Lobby 非表示時（エラー等）に _showEmpty() が復元する -->
         <div class="empty-glyph" style="display:none">λόγος</div>
-        <div class="empty-title" role="status" aria-live="polite" aria-atomic="true" style="display:none">聖書を検索する</div>
+        <div class="empty-title" style="display:none">聖書を検索する</div>
         <div class="empty-desc" style="display:none">日本語・ギリシャ語・Strong番号で検索できます</div>
         <div id="history-recent-section" style="display:none;margin-top:var(--space-lg);">
             <div class="empty-section-label">最近の検索</div>
-            <div class="empty-examples" id="history-recent-chips" role="group" aria-label="最近の検索候補"></div>
+            <div class="empty-examples" id="history-recent-chips"></div>
         </div>
     </div>
 
     <!-- Loading state -->
     <div class="state-loading" id="state-loading">
         <div class="spinner"></div>
-        <div class="loading-label" id="loading-label" role="status" aria-live="polite" aria-atomic="true">検索中…</div>
+        <div class="loading-label" id="loading-label">検索中…</div>
     </div>
 
     <!-- Result header -->
     <div class="result-header" id="result-header">
-        <button type="button" class="result-query" id="result-query-label" aria-haspopup="dialog" aria-controls="as-modal" title="Abbott-Smith辞書を開く"></button>
-        <span class="result-count" id="result-count" aria-live="polite" aria-atomic="true"></span>
+        <span class="result-query" id="result-query-label"></span>
+        <span class="result-count" id="result-count"></span>
     </div>
 
     <!-- Concept Insight（Phase 4-3）: Concept 発火時のみ表示される知識カード。
@@ -1768,15 +1723,15 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
                 <div class="syn-filter-row">
                     <div class="syn-filter-label">ソート</div>
                     <div class="sort-btns">
-                        <button type="button" class="sort-btn active" aria-pressed="true" onclick="_synSetSort('canonical',this)">正典順</button>
-                        <button type="button" class="sort-btn" aria-pressed="false" onclick="_synSetSort('confidence_desc',this)">確信度順</button>
-                        <button type="button" class="sort-btn" aria-pressed="false" onclick="_synSetSort('book_frequency',this)">書物頻度順</button>
+                        <button class="sort-btn active" onclick="_synSetSort('canonical',this)">正典順</button>
+                        <button class="sort-btn" onclick="_synSetSort('confidence_desc',this)">確信度順</button>
+                        <button class="sort-btn" onclick="_synSetSort('book_frequency',this)">書物頻度順</button>
                     </div>
                 </div>
                 <div class="syn-filter-row">
                     <div class="syn-filter-label">確信度しきい値</div>
                     <div class="conf-row">
-                        <input type="range" class="conf-slider" id="syn-conf-slider" aria-label="確信度しきい値" min="0" max="90" value="30" oninput="_synOnConfSlider(this)">
+                        <input type="range" class="conf-slider" id="syn-conf-slider" min="0" max="90" value="30" oninput="_synOnConfSlider(this)">
                         <span class="conf-value" id="syn-conf-value-label">30%</span>
                     </div>
                 </div>
@@ -1788,35 +1743,28 @@ html, body { overflow: hidden; width: 100%; height: 100%; }
                 </div>
             </div>
         </details>
-        <div class="syn-status" id="syn-status" role="status" aria-live="polite" aria-atomic="true"></div>
+        <div class="syn-status" id="syn-status"></div>
         <div id="syn-results-list"></div>
-        <button type="button" class="load-more-btn" id="syn-load-more" style="display:none;" onclick="_synLoadMore()">さらに表示</button>
+        <button class="load-more-btn" id="syn-load-more" style="display:none;" onclick="_synLoadMore()">さらに表示</button>
     </div><!-- /#syntax-panel -->
 
 </main>
 
-</div><!-- /.container -->
-
-</div><!-- /.main-layout -->
-
 <!-- Abbott-Smith Modal -->
 <div id="as-backdrop" onclick="_asClose()">
-    <section id="as-modal" role="dialog" aria-modal="true" aria-labelledby="as-modal-lemma" aria-describedby="as-modal-body" onclick="event.stopPropagation()">
+    <div id="as-modal" onclick="event.stopPropagation()">
         <div id="as-modal-head">
             <span id="as-modal-lemma"></span>
             <span id="as-modal-strong"></span>
-            <button id="as-modal-close" type="button" data-icon="close" aria-label="辞書を閉じる" title="辞書を閉じる" onclick="_asClose()"></button>
+            <button id="as-modal-close" data-icon="close" onclick="_asClose()"></button>
         </div>
         <div id="as-modal-body"></div>
-    </section>
+    </div>
 </div>
 
-<!-- Mobile overlay & FAB -->
-<div class="mobile-overlay" id="mobile-overlay" onclick="_closeMobilePanel()"></div>
-<button type="button" class="mobile-search-toggle" id="mobile-fab" onclick="_toggleMobilePanel()" aria-label="検索パネルを開く" aria-controls="search-panel" aria-expanded="false">
-    <span class="material-symbols-outlined" id="mobile-fab-icon">search</span>
-    <span class="mobile-fab-label">検索</span>
-</button>
+<!-- Mobile overlay & FAB: 廃止済み（hidden via CSS） -->
+<div class="mobile-overlay" id="mobile-overlay"></div>
+<button class="mobile-search-toggle" id="mobile-fab" aria-hidden="true"></button>
 
 <!-- ═══════════════════════════════════════════════════════════════
      ORIGINAL LOGIC BLOCK — All algorithms preserved verbatim.
@@ -1904,7 +1852,6 @@ const STOP_WORDS = new Set([
 const currentScope = 'all';
 let currentDist  = 5;
 let isSearching  = false;
-let _unifiedSearchRequestId = 0;
 
 /* ============================================================
    Data layer（original — unchanged）
@@ -1939,7 +1886,7 @@ const JP_PARTIAL_INDEX = new Map();
    LXXはバックグラウンド構築（IDX.ready=true後に開始）。
    IDX.l3Ready: NT+LXX全書物のfetch・索引化および日本語インデックス構築が完了したフラグ。
    検索ゲート（unifiedSearch）は IDX.ready で開くが、LXX 未完了中は NT 結果のみ返る。 */
-const IDX = { ready: false, l3Ready: false, lxxError: null };
+const IDX = { ready: false, l3Ready: false };
 const POS_JP = {
     'V':'動詞','N':'名詞','A':'形容詞','R':'関係代名詞',
     'P':'代名詞','T':'冠詞','D':'指示代名詞',
@@ -2047,7 +1994,6 @@ async function _buildFullIndex(corpora){
 
     /* 章ごとのフェーズ別タイミング収集 */
     const _phTimings=[];
-    const _failedChapters=[];
 
     for(let i=0;i<tasks.length;i+=BATCH){
         const slice=tasks.slice(i,i+BATCH);
@@ -2070,8 +2016,7 @@ async function _buildFullIndex(corpora){
             }catch(e){ console.info(`[buildFullIndex:fetch] ${t.key}/${t.ch} error`,e); }
             const fetchMs=performance.now()-tFetch;
 
-            if(!text) return {t,toks:[],fetchMs,parseMs:0,mapMs:0,cached:false,failed:'fetch'};
-
+            if(!text) return {t,toks:[],fetchMs,parseMs:0,mapMs:0,cached:false};
 
             /* フェーズ2: JSON.parse（CPU、文字列→オブジェクトツリー） */
             const tParse=performance.now();
@@ -2079,7 +2024,7 @@ async function _buildFullIndex(corpora){
             try{ rawArr=JSON.parse(text); }catch(e){ console.info(`[buildFullIndex:parse] ${t.key}/${t.ch} parse error`,e); }
             const parseMs=performance.now()-tParse;
 
-            if(!Array.isArray(rawArr)) return {t,toks:[],fetchMs,parseMs,mapMs:0,cached:false,failed:'parse'};
+            if(!Array.isArray(rawArr)) return {t,toks:[],fetchMs,parseMs,mapMs:0,cached:false};
 
             /* フェーズ2b: token mapping（CPU、生オブジェクト→正規化 token 構造） */
             const tMap=performance.now();
@@ -2106,19 +2051,15 @@ async function _buildFullIndex(corpora){
         }));
 
         /* ── フェーズ3: _indexChapter（シリアル、SEARCH_INDEX 更新） ── */
-        for(const {t,toks,fetchMs,parseMs,mapMs,cached,failed} of batchResults){
-            if(failed){
-                _failedChapters.push({key:t.key,ch:t.ch,reason:failed});
-                continue;
-            }
-            /* キャッシュ済み章は既に索引化済み。再実行時の重複登録を防ぐ。 */
-            if(cached) continue;
+        for(const {t,toks,fetchMs,parseMs,mapMs,cached} of batchResults){
             const tIdx=performance.now();
             _indexChapter(toks);
             const indexMs=performance.now()-tIdx;
-            const corpus=NT_BOOK_KEYS.has(t.key)?'NT':'LXX';
-            _phTimings.push({key:t.key,ch:t.ch,corpus,
-                fetchMs,parseMs,mapMs,indexMs,tokCount:toks.length});
+            if(!cached){
+                const corpus=NT_BOOK_KEYS.has(t.key)?'NT':'LXX';
+                _phTimings.push({key:t.key,ch:t.ch,corpus,
+                    fetchMs,parseMs,mapMs,indexMs,tokCount:toks.length});
+            }
         }
 
         await new Promise(r=>setTimeout(r,0));
@@ -2126,12 +2067,6 @@ async function _buildFullIndex(corpora){
 
     _logPerfMeasure('data-load',`${tasks.length} chapters (${corpora?.join(',')||'all'}), ${ALL_TOKENS.length.toLocaleString()} tokens`);
     _logBuildPhaseTimings(_phTimings);
-    if(_failedChapters.length){
-        const sample=_failedChapters.slice(0,12).map(x=>`${x.key} ${x.ch} (${x.reason})`).join(', ');
-        const error=new Error(`索引構築に失敗した章が ${_failedChapters.length} 件あります: ${sample}${_failedChapters.length>12?' …':''}`);
-        error.failedChapters=_failedChapters;
-        throw error;
-    }
 
     /* NT の診断: NT 構築時のみ ἀφορίζω チェック */
     if(!corpusSet||corpusSet.has('NT')){
@@ -2254,14 +2189,7 @@ function _ensureFullIndex(){
             /* ── フェーズ2: LXX をバックグラウンド構築 ── */
             const _buildLxx=async()=>{
                 console.info('[search-index] LXX background build started');
-                try{
-                    await _buildFullIndex(['LXX']);
-                }catch(error){
-                    IDX.lxxError=error?.message||'LXX 索引の構築に失敗しました';
-                    console.error('[search-index] LXX background build failed',error);
-                    return;
-                }
-                IDX.lxxError=null;
+                await _buildFullIndex(['LXX']);
                 console.info('[search-index] LXX ready');
                 /* NT+LXX 全体で lemmaIndex / morphIndex を再構築する。
                    _buildAndExpose* は冪等ガードを持つため、null に戻してから呼ぶ。 */
@@ -2863,8 +2791,7 @@ function _renderConceptDiscoveryChips() {
     if (top.length === 0) return;
     wrap.innerHTML = '';
     top.forEach(concept => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
+        const chip = document.createElement('span');
         chip.className = 'ex-chip';
         chip.textContent = concept.label;
         chip.addEventListener('click', () => _exampleSearch(concept.label));
@@ -2928,16 +2855,16 @@ function _renderConceptInsight(concept) {
            <div class="layer-chips ci-chips">${chips}</div></div>` : '';
     const _REL_FOLD = 8;
     const _mkRelChip = c =>
-        `<button type="button" class="layer-chip lemma" onclick="_ciConceptClick('${_escH(c.label)}')">${_escH(c.label)}</button>`;
+        `<span class="layer-chip lemma" onclick="_ciConceptClick('${_escH(c.label)}')">${_escH(c.label)}</span>`;
     const relHtml = rel.length <= _REL_FOLD
         ? rel.map(_mkRelChip).join('')
         : rel.slice(0, _REL_FOLD).map(_mkRelChip).join('')
-            + `<button type="button" class="expand-btn ci-related-more-btn" onclick="this.style.display='none';this.nextElementSibling.style.display='contents'">さらに表示 (${rel.length - _REL_FOLD})</button>`
+            + `<button class="ci-related-more-btn" onclick="this.style.display='none';this.nextElementSibling.style.display='contents'">さらに表示 (${rel.length - _REL_FOLD})</button>`
             + `<span style="display:none">${rel.slice(_REL_FOLD).map(_mkRelChip).join('')}</span>`;
     const patHtml = pats.map(p =>
-        `<button type="button" class="layer-chip prox" onclick="runPatternSearch(${p.i})">${_escH(p.label)}</button>`).join('');
+        `<span class="layer-chip prox" onclick="runPatternSearch(${p.i})">${_escH(p.label)}</span>`).join('');
     const synHtml = syns.map(s =>
-        `<button type="button" class="layer-chip morph" onclick="_ciSyntaxClick('${_escH(s.id)}')">${_escH(s.label)}</button>`).join('');
+        `<span class="layer-chip morph" onclick="_ciSyntaxClick('${_escH(s.id)}')">${_escH(s.label)}</span>`).join('');
 
     /* 関連するギリシャ語（Phase 6-2）: 「日本語概念 → ギリシャ語語彙 → 語義 →
        文法/用例」の読書導線。件数は既存 resolveTerm を呼ぶだけ（表示専用 —
@@ -2967,11 +2894,11 @@ function _renderConceptInsight(concept) {
             if (rows.length) {
                 lexHtml = `<div class="ci-section"><div class="ci-section-title">関連するギリシャ語</div>
                     <div class="ci-lex">${rows.map(r =>
-                        `<button type="button" class="ci-lex-row" onclick="_ciLexiconClick('${_escH(r.lemma)}')" title="Abbott-Smith 辞書を開く">
+                        `<span class="ci-lex-row" onclick="_ciLexiconClick('${_escH(r.lemma)}')" title="Abbott-Smith 辞書を開く">
                             <span class="ci-lex-greek">${_escH(r.lemma)}</span
                             ><span class="ci-lex-gloss">${_escH(r.gloss)}</span
                             ><span class="ci-lex-count">${r.n}回</span>
-                        </button>`).join('')}</div></div>`;
+                        </span>`).join('')}</div></div>`;
             }
         }
     } catch (_) { lexHtml = ''; }   /* 失敗はセクション非表示のみ（静寂） */
@@ -3022,7 +2949,6 @@ function _ciSyntaxClick(id) {
 }
 
 async function _loadSearchPatterns() {
-    if (SEARCH_PATTERNS.length) return;
     try {
         const r = await fetch('../assets/data/search-patterns.json');
         if (!r.ok) return;
@@ -3039,8 +2965,8 @@ function _renderPatternChips() {
     const wrap = document.getElementById('pattern-chips');
     if (!sec || !wrap || SEARCH_PATTERNS.length === 0) return;
     wrap.innerHTML = SEARCH_PATTERNS.map((p, i) =>
-        `<button type="button" class="layer-chip prox" title="${_escH(p.description || '')}"
-            onclick="runPatternSearch(${i})">${_escH(p.label)}</button>`).join('');
+        `<span class="layer-chip prox" title="${_escH(p.description || '')}"
+            onclick="runPatternSearch(${i})">${_escH(p.label)}</span>`).join('');
     sec.style.display = '';
 }
 
@@ -3049,7 +2975,7 @@ function _renderPatternExplore() {
     const wrap = document.getElementById('pattern-explore-chips');
     if (!sec || !wrap || SEARCH_PATTERNS.length === 0) return;
     wrap.innerHTML = SEARCH_PATTERNS.map((p, i) =>
-        `<button type="button" class="pe-card" onclick="runPatternSearch(${i})">
+        `<button class="pe-card" onclick="runPatternSearch(${i})">
             <div class="pe-label">${_escH(p.label)}</div>
             <div class="pe-pattern">${_escH(p.pattern || '')}</div>
             <div class="pe-desc">${_escH(p.description || '')}</div>
@@ -3170,48 +3096,12 @@ function _getSuggestions(query){
                 pos:[...posSet].map(p=>POS_JP[p]||p).join('・')||'',count};
         });
 }
-let _suggestActiveIndex = -1;
-function _closeSuggest(){
-    const dd=document.getElementById('suggest-dropdown');
-    const inp=document.getElementById('unified-search-input');
-    dd.classList.remove('open');
-    inp.setAttribute('aria-expanded','false');
-    inp.removeAttribute('aria-activedescendant');
-    dd.querySelectorAll('[role="option"]').forEach(item=>item.setAttribute('aria-selected','false'));
-    _suggestActiveIndex=-1;
-}
-function _chooseSuggest(item){
-    if(!item)return;
-    const inp=document.getElementById('unified-search-input');
-    inp.value=item.dataset.lemma;
-    _closeSuggest();
-    unifiedSearch();
-}
-function _setSuggestActive(index){
-    const inp=document.getElementById('unified-search-input');
-    const dd=document.getElementById('suggest-dropdown');
-    const items=[...dd.querySelectorAll('[role="option"]')];
-    if(!items.length){_suggestActiveIndex=-1;inp.removeAttribute('aria-activedescendant');return;}
-    _suggestActiveIndex=(index+items.length)%items.length;
-    items.forEach((item,i)=>item.setAttribute('aria-selected',String(i===_suggestActiveIndex)));
-    const activeItem = items[_suggestActiveIndex];
-    inp.setAttribute('aria-activedescendant',activeItem.id);
-    // Scroll the keyboard-highlighted option into view inside the capped dropdown.
-    activeItem.scrollIntoView({block:'nearest'});
-}
 function _showSuggest(suggestions){
     const dd=document.getElementById('suggest-dropdown');
-    const inp=document.getElementById('unified-search-input');
     dd.innerHTML='';
-    _suggestActiveIndex=-1;
-    inp.removeAttribute('aria-activedescendant');
-    if(suggestions.length===0){_closeSuggest();return;}
-    suggestions.forEach((s,i)=>{
+    if(suggestions.length===0){dd.classList.remove('open');return;}
+    suggestions.forEach(s=>{
         const item=document.createElement('div');
-        item.id='search-suggest-option-'+i;
-        item.setAttribute('role','option');
-        item.setAttribute('aria-selected','false');
-        item.dataset.lemma=s.lemma;
         item.className='suggest-item';
         item.innerHTML=`
             <div style="display:flex;align-items:baseline;gap:4px;">
@@ -3222,68 +3112,34 @@ function _showSuggest(suggestions){
             <span class="suggest-count">${s.count}箇所</span>`;
         item.addEventListener('mousedown',e=>{
             e.preventDefault();
-            _chooseSuggest(item);
+            document.getElementById('unified-search-input').value=s.lemma;
+            dd.classList.remove('open');
+            unifiedSearch();
         });
         dd.appendChild(item);
     });
+    const hint=document.createElement('div');
+    hint.style.cssText='font-size:0.6rem;color:var(--ink-soft);padding:5px 14px;opacity:0.5;';
+    hint.textContent='クリックで選択';
+    dd.appendChild(hint);
     dd.classList.add('open');
-    inp.setAttribute('aria-expanded','true');
 }
 function _initSuggest(){
     const inp=document.getElementById('unified-search-input');
     inp.addEventListener('input',()=>{
         const val=inp.value.trim();
-        // 入力中は履歴を隠し、入力欄を空に戻したら履歴を再表示する。
-        const recentHistory = document.getElementById('history-recent-section');
-        if (val) {
-            if (recentHistory) recentHistory.style.display = 'none';
-        } else {
-            _renderEmptyStateHistory();
-        }
         const qtype=detectQueryType(val);
-        if(qtype!=='japanese'||!val){_closeSuggest();return;}
+        if(qtype!=='japanese'||!val){document.getElementById('suggest-dropdown').classList.remove('open');return;}
         _showSuggest(_getSuggestions(val));
     });
-    inp.addEventListener('focus',()=>{
-        const recentHistory = document.getElementById('history-recent-section');
-        if (inp.value.trim()) {
-            if (recentHistory) recentHistory.style.display = 'none';
-            return;
-        }
-        _renderEmptyStateHistory();
-    });
+    inp.addEventListener('focus',()=>_renderEmptyStateHistory());
     inp.addEventListener('blur',()=>{
-        setTimeout(_closeSuggest,150);
-        setTimeout(()=>{
-            const section=document.getElementById('history-recent-section');
-            // キーボードで履歴チップへ移動した場合は、フォーカス先を隠さない。
-            if(section && section.contains(document.activeElement)) return;
-            if(section) section.style.display='none';
-        },150);
+        setTimeout(()=>document.getElementById('suggest-dropdown').classList.remove('open'),150);
+        setTimeout(()=>{const s=document.getElementById('history-recent-section');if(s)s.style.display='none';},150);
     });
     inp.addEventListener('keydown',e=>{
-        // 日本語IMEの変換中は Enter を候補確定に使うため、検索・候補選択を横取りしない。
-        // keyCode 229 は isComposing が不安定な環境向けの互換ガード。
-        if(e.isComposing || e.keyCode===229) return;
-        const dd=document.getElementById('suggest-dropdown');
-        const items=dd.querySelectorAll('[role="option"]');
-        if(e.key==='Escape'&&dd.classList.contains('open')){e.preventDefault();_closeSuggest();return;}
-        if(e.key==='ArrowDown'&&dd.classList.contains('open')&&items.length){e.preventDefault();_setSuggestActive(_suggestActiveIndex+1);return;}
-        if(e.key==='ArrowDown' && !inp.value.trim() && !dd.classList.contains('open')){
-            const section=document.getElementById('history-recent-section');
-            const firstChip=section && section.querySelector('button');
-            if(firstChip && section.style.display!=='none'){
-                e.preventDefault();
-                firstChip.focus();
-                return;
-            }
-        }
-        if(e.key==='ArrowUp'&&dd.classList.contains('open')&&items.length){e.preventDefault();_setSuggestActive(_suggestActiveIndex<0?items.length-1:_suggestActiveIndex-1);return;}
-        if(e.key==='Enter'){
-            if(dd.classList.contains('open')&&_suggestActiveIndex>=0){e.preventDefault();_chooseSuggest(items[_suggestActiveIndex]);return;}
-            _closeSuggest();
-            unifiedSearch();
-        }
+        if(e.key==='Escape'){document.getElementById('suggest-dropdown').classList.remove('open');return;}
+        if(e.key==='Enter'){document.getElementById('suggest-dropdown').classList.remove('open');unifiedSearch();}
     });
 }
 
@@ -3310,10 +3166,6 @@ function _watchIndexProgress(){
                 setTimeout(()=>{ if(status) status.style.display='none'; },1300);
             },1000);
             clearInterval(timer);
-        }else if(IDX.lxxError){
-            dot.textContent='!';
-            label.textContent='NT検索できます。LXXの準備に失敗しました';
-            label.title=IDX.lxxError;
         }else if(IDX.ready){
             dot.textContent='✓';
             label.innerHTML='NT検索できます<br><span style="opacity:0.75">LXX・日本語を準備中…</span>';
@@ -3369,9 +3221,6 @@ function _syncLayerUI(name){
     if(!row||!chk)return;
     row.classList.toggle(`active-${name}`,active);
     row.setAttribute('aria-checked', active ? 'true' : 'false');
-    if (name === 'prox' || name === 'phrase' || name === 'morph') {
-        row.setAttribute('aria-expanded', active ? 'true' : 'false');
-    }
     renderIcon(chk, active ? 'check' : null);
     // Show/hide sub-controls
     if(name==='prox'){
@@ -3390,21 +3239,9 @@ function _renderFilterBar() {
     const bar = document.getElementById('sqs-filter-bar');
     if (!bar) return;
     if (_sqState.filters.length === 0) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
-    bar.innerHTML = '';
-    _sqState.filters.forEach(f => {
-        const pill = document.createElement('span');
-        pill.className = 'sqs-pill';
-        pill.appendChild(document.createTextNode(f.pattern || f.label || '絞り込み条件'));
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'sqs-pill-x';
-        remove.setAttribute('aria-label', '条件を外す');
-        remove.title = 'この条件を外す';
-        remove.textContent = '×';
-        remove.addEventListener('click', () => _sqsRemoveFilter(f.id));
-        pill.appendChild(remove);
-        bar.appendChild(pill);
-    });
+    bar.innerHTML = _sqState.filters.map(f =>
+        `<span class="sqs-pill">${_escH(f.pattern || f.label)}<button class="sqs-pill-x" onclick="_sqsRemoveFilter('${_escH(f.id)}')" aria-label="条件を外す" title="この条件を外す">×</button></span>`
+    ).join('');
     bar.style.display = 'flex';
 }
 
@@ -3430,24 +3267,18 @@ function _sqsRemoveFilter(id) {
 function _sqsClearFilters() {
     _sqState.filters = [];
     _renderFilterBar();
-    // 絞り込み条件を解除したら、現在の検索語で結果もすぐに更新する。
-    if (_lastQuery) unifiedSearch();
 }
 
 /* ============================================================
    Proximity slider / presets — UI controls
    ============================================================ */
 function onProxSlider(val){
-    const requested = Number(val);
-    // UI・履歴・将来の呼び出し元すべてで距離を整数1〜15に統一する。
-    currentDist = Number.isInteger(requested) && requested >= 1 && requested <= 15 ? requested : 5;
-    const slider = document.getElementById('prox-slider');
-    slider.value = currentDist;
+    currentDist=parseInt(val);
     document.getElementById('prox-val-label').textContent=`±${currentDist}語`;
     document.getElementById('prox-label-inline').textContent=currentDist;
     const pct=((currentDist-1)/14)*100;
-    slider.style.setProperty('--pct',pct+'%');
-    document.querySelectorAll('.prox-preset').forEach(b=>{const active=parseInt(b.dataset.d)===currentDist;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active?'true':'false');});
+    document.getElementById('prox-slider').style.setProperty('--pct',pct+'%');
+    document.querySelectorAll('.prox-preset').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.d)===currentDist));
 }
 function setProxPreset(v){
     currentDist=v;
@@ -3466,7 +3297,7 @@ const _history = [];
 function _saveHistory() {
     try {
         localStorage.setItem(_HISTORY_KEY,
-            JSON.stringify(_history.map(({query,layers,ts,dist,morph,filters}) => ({query,layers,ts,dist,morph,filters}))));
+            JSON.stringify(_history.map(({query,layers,ts}) => ({query,layers,ts}))));
     } catch(_) {}
 }
 
@@ -3477,33 +3308,15 @@ function _loadHistory() {
         if (!raw) return;
         const saved = JSON.parse(raw);
         if (!Array.isArray(saved)) return;
-        // 先に有効な検索語のレコードを抽出する。破損レコードが先頭に並んでいても、
-        // 件数上限を消費して後続の有効な履歴が失われないようにする。
-        const seenQueries = new Set();
-        const validSaved = saved.filter(item => {
-            if (!item || typeof item.query !== 'string' || !item.query.trim()) return false;
-            // 履歴は新しい順。古い版や手動編集で重複していても、最新の1件だけを残す。
-            if (seenQueries.has(item.query)) return false;
-            seenQueries.add(item.query);
-            return true;
-        });
-        for (const item of validSaved.slice(0, _HISTORY_MAX)) {
-            // localStorage は古い版・手動編集・破損データを含み得るため、
-            // レイヤー構造などの残りの項目も検証してから履歴へ取り込む。
-            const rawLayers = item.layers && typeof item.layers === 'object' && !Array.isArray(item.layers)
-                ? item.layers : {};
-            const layers = Object.fromEntries(
-                ['lemma','phrase','prox','morph'].map(key => [key, rawLayers[key] === true])
-            );
-            _history.push({
-                key:    item.query,
-                query:  item.query,
-                layers,
-                dist: Number.isInteger(item.dist) && item.dist >= 1 && item.dist <= 15 ? item.dist : 5,
-                morph: item.morph && typeof item.morph === 'object' && !Array.isArray(item.morph) ? item.morph : null,
-                filters: Array.isArray(item.filters) ? item.filters : [],
-                ts:     Number.isFinite(item.ts) ? item.ts : 0,
-            });
+        for (const item of saved.slice(0, _HISTORY_MAX)) {
+            if (item && item.query) {
+                _history.push({
+                    key:    item.query,
+                    query:  item.query,
+                    layers: item.layers || {lemma:true,phrase:false,prox:false,morph:false},
+                    ts:     item.ts || 0,
+                });
+            }
         }
     } catch(_) {}
     _renderHistory();
@@ -3511,60 +3324,13 @@ function _loadHistory() {
 
 function _addHistory(query,layers){
     if(!query) return;
-    // 同じ検索語は最新の検索条件で置き換える。
+    // query ベースで重複排除（レイヤーが違っても同語を移動）
     const idx = _history.findIndex(h => h.query === query);
     if(idx >= 0) _history.splice(idx, 1);
-    const morph = Object.fromEntries(Object.entries(_activeMorphSelection || _morphSel)
-        .map(([slot, values]) => [slot, [...values]]));
-    const filters = (_activePatternFilters || []).map(f => ({...f, query: f.query ? {...f.query} : f.query}));
-    _history.unshift({
-        key:query, query, layers:{...layers}, dist:_activeSearchDist,
-        morph, filters, ts:Date.now()
-    });
+    _history.unshift({key:query, query, layers:{...layers}, ts:Date.now()});
     if(_history.length > _HISTORY_MAX) _history.pop();
     _saveHistory();
     _renderHistory();
-}
-
-/* 履歴を選んだら、検索語だけでなく保存した検索条件も復元する。
-   保存済みパターン条件はIDだけを信頼し、定義ファイルの正規データから再構築する。 */
-async function _restoreHistorySettings(item) {
-    await _loadSearchPatterns();
-    Object.keys(_layers).forEach(k => { _layers[k] = !!item.layers?.[k]; _syncLayerUI(k); });
-    onProxSlider(Number.isInteger(item.dist) && item.dist >= 1 && item.dist <= 15 ? item.dist : 5);
-    // 古い履歴には morph がないため、情報がない場合も絞り込みを解除する。
-    // 保存値は正式なチップ定義に存在する文字列コードだけを復元する。
-    const morphDefinitions = {
-        pos: MORPH_POS, case: MORPH_CASE, num: MORPH_NUM, gen: MORPH_GEN,
-        tense: MORPH_TENSE, voice: MORPH_VOICE, mood: MORPH_MOOD,
-    };
-    Object.keys(_morphSel).forEach(slot => {
-        _morphSel[slot].clear();
-        const allowedCodes = new Set((morphDefinitions[slot] || []).map(option => option.code));
-        const savedCodes = item.morph && typeof item.morph === 'object' && !Array.isArray(item.morph)
-            && Array.isArray(item.morph[slot]) ? item.morph[slot] : [];
-        savedCodes.forEach(code => {
-            if (typeof code === 'string' && allowedCodes.has(code)) _morphSel[slot].add(code);
-        });
-        document.querySelectorAll('#morph-chips-' + slot + ' .morph-chip').forEach(chip => {
-            const code = chip.firstChild?.textContent || '';
-            const selected = _morphSel[slot].has(code);
-            chip.classList.toggle('selected', selected);
-            chip.setAttribute('aria-pressed', String(selected));
-        });
-    });
-    _updateMorphSubSections();
-    _updateMorphClearBtn();
-    const savedIds = new Set(Array.isArray(item.filters)
-        ? item.filters.filter(f => f && typeof f.id === 'string').map(f => f.id)
-        : []);
-    _sqState.filters = SEARCH_PATTERNS
-        .filter(pattern => savedIds.has(pattern.id))
-        .map(pattern => ({
-            type: 'pattern', id: pattern.id, label: pattern.label,
-            pattern: pattern.pattern, query: pattern.query,
-        }));
-    _renderFilterBar();
 }
 
 /* 表示専用のHTMLエスケープ。_renderHistory()のquery展開のみに使用する。 */
@@ -3572,7 +3338,7 @@ function _escH(s){
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-const _BADGE_JP_HIST = {lemma:'形の違い', phrase:'フレーズ', prox:'近くの語', morph:'絞り込み'};
+const _BADGE_JP_HIST = {lemma:'語根', phrase:'フレーズ', prox:'近接', morph:'品詞'};
 
 function _renderHistory(){
     const block = document.getElementById('history-block');
@@ -3581,21 +3347,17 @@ function _renderHistory(){
     block.style.display = '';
     list.innerHTML = '';
     _history.slice(0, 6).forEach(({query,layers}) => {
-        const item = document.createElement('button');
-        item.type = 'button';
+        const item = document.createElement('div');
         item.className = 'history-item';
         const badges = ['lemma','phrase','prox','morph']
             .filter(l => layers[l])
             .map(l => `<span class="h-badge ${l}">${_BADGE_JP_HIST[l]||l}</span>`).join('');
         item.innerHTML = `
-            <span class="history-badges">${badges}</span>
+            <div class="history-badges">${badges}</div>
             <span class="h-query">${_escH(query)}</span>`;
-        item.addEventListener('click', async () => {
-            const saved = _history.find(h => h.query === query);
-            if (saved) await _restoreHistorySettings(saved);
+        item.addEventListener('click', () => {
             document.getElementById('unified-search-input').value = query;
-            // 履歴に保存されたパターン条件をクエリ変更時の自動解除から保護する。
-            _lastQuery = query;
+            Object.keys(_layers).forEach(k => { _layers[k] = !!layers[k]; _syncLayerUI(k); });
             unifiedSearch();
         });
         list.appendChild(item);
@@ -3608,22 +3370,12 @@ function _renderEmptyStateHistory() {
     const wrap = document.getElementById('history-recent-chips');
     if(!sec || !wrap) return;
     if(_history.length === 0){ sec.style.display = 'none'; return; }
-    // 初期状態では非表示。入力欄にフォーカスしたとき、履歴があれば表示する。
-    sec.style.display = '';
     wrap.innerHTML = '';
-    _history.slice(0, 5).forEach(({query,layers}) => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
+    _history.slice(0, 5).forEach(({query}) => {
+        const chip = document.createElement('span');
         chip.className = 'ex-chip';
         chip.textContent = query;
-        chip.addEventListener('click', async () => {
-            // 最近の検索も履歴一覧と同じ条件一式を復元する。
-            const saved = _history.find(h => h.query === query);
-            if (saved) await _restoreHistorySettings(saved);
-            // _exampleSearch() 内の検索でも、復元したパターン条件を保持する。
-            _lastQuery = query;
-            _exampleSearch(query);
-        });
+        chip.addEventListener('click', () => _exampleSearch(query));
         wrap.appendChild(chip);
     });
     sec.style.display = '';
@@ -3639,39 +3391,19 @@ let _allMergedResults = new Map();   // globalIdx → {tok, hitTypes: Set, hit?:
 let _proxCoocMap      = new Map();
 let _lastQuery        = '';
 let _activeLayerSet   = {};
-let _activeSearchDist  = currentDist;
-let _activeSearchScope = currentScope;
-let _activeMorphSelection = null;
-let _activePatternFilters = [];
 
 async function unifiedSearch(){
-    const requestId=++_unifiedSearchRequestId;
     const query=document.getElementById('unified-search-input').value.trim();
-    if(!query){
-        isSearching=false;
-        _showEmpty('語を入力して検索する','検索したい語を入力してから、もう一度検索してください。');
-        document.getElementById('unified-search-input').focus();
-        return;
-    }
+    if(!query){document.getElementById('unified-search-input').focus();return;}
 
     // Check at least one non-morph layer is active
     if(!_layers.lemma&&!_layers.phrase&&!_layers.prox){
-        isSearching=false;
-        _showEmpty('検索方法を選んでください','「形が変わっても探す」「フレーズで探す」「近くに出てくる語」のいずれかをONにしてください。「品詞・語形で絞る」は、これらと組み合わせて使います。');
+        _showEmpty('レイヤーを選択してください','lemma / phrase / proximity のいずれかをオNにしてください');
         return;
     }
 
     _activeLayerSet={..._layers};
-    // 検索開始時点の距離・範囲を保持し、検索中のUI変更でURLと結果が食い違わないようにする。
-    _activeSearchDist = currentDist;
-    _activeSearchScope = currentScope;
-    // 語形フィルターも検索開始時点の選択を保持する。
-    _activeMorphSelection = Object.fromEntries(Object.entries(_morphSel).map(([k, values]) => [k, new Set(values)]));
-    // クエリ変更時のフィルター解除を待機処理より前に行い、今回の検索条件を固定する。
-    if (query !== _lastQuery) { _sqState.filters = []; _renderFilterBar(); }
-    _activePatternFilters = _sqState.filters.map(f => ({...f, query: f.query ? {...f.query} : f.query}));
     isSearching=true;
-    try {
     // Close mobile panel when search fires
     if(window.innerWidth<=680) _closeMobilePanel();
 
@@ -3685,14 +3417,13 @@ async function unifiedSearch(){
         _showLoading();
     }
     await _ensureFullIndex();
-    if(requestId!==_unifiedSearchRequestId) return;
     if(!window.lemmaIndex){
         _buildAndExposeLemmaIndex();
         _buildAndExposeMorphIndex();
     }
 
     // Read morph filter value from checkbox state
-    const morphFilter=_activeLayerSet.morph?_getMorphFilterPattern(_activeMorphSelection):null;
+    const morphFilter=_layers.morph?_getMorphFilterPattern():null;
 
     // Parse words for phrase / proximity
     const words=query.trim().split(/\s+/).filter(Boolean);
@@ -3713,7 +3444,7 @@ async function unifiedSearch(){
     performance.mark('search-start');
     const tasks=[];
 
-    if(_activeLayerSet.lemma){
+    if(_layers.lemma){
         tasks.push((async()=>{
             const qtype=detectQueryType(word1);
             let idxs;
@@ -3746,7 +3477,7 @@ async function unifiedSearch(){
         })());
     }
 
-    if(_activeLayerSet.phrase&&(words.length>=2||detectQueryType(word1)==='japanese')){
+    if(_layers.phrase&&(words.length>=2||detectQueryType(word1)==='japanese')){
         tasks.push((async()=>{
             const isJp=detectQueryType(word1)==='japanese';
             const idxs=isJp?searchPhraseJapanese(words):searchPhrase(words);
@@ -3766,10 +3497,10 @@ async function unifiedSearch(){
         })());
     }
 
-    if(_activeLayerSet.prox){
+    if(_layers.prox){
         tasks.push((async()=>{
             const{coocMap,hits}=await runProximitySearch({
-                word1,word2,distance:_activeSearchDist,scope:_activeSearchScope,ref:'',
+                word1,word2,distance:currentDist,scope:currentScope,ref:'',
             });
             proxCoocMap=coocMap;
             for(const h of hits){
@@ -3784,7 +3515,6 @@ async function unifiedSearch(){
     }
 
     await Promise.all(tasks);
-    if(requestId!==_unifiedSearchRequestId) return;
     _logPerfMeasure('search', `layers=${Object.keys(_activeLayerSet).filter(k=>_activeLayerSet[k]).join(',')}, ${merged.size.toLocaleString()} hits`);
 
     // --- Morph post-filter ---
@@ -3855,13 +3585,18 @@ async function unifiedSearch(){
         }
     }
 
-    /* ── SQS: パターンフィルタを検索開始時のスナップショットで適用 ── */
-    if (_activePatternFilters.length > 0) {
-        for (const f of _activePatternFilters) {
+    _allMergedResults=merged;
+    _proxCoocMap=proxCoocMap;
+
+    /* ── SQS: クエリが変わったらフィルタをクリア ── */
+    if (query !== _lastQuery) _sqState.filters = [];
+
+    /* ── SQS: パターンフィルタを verse-level AND で適用 ── */
+    if (_sqState.filters.length > 0) {
+        for (const f of _sqState.filters) {
             if (f.type !== 'pattern' || !f.query) continue;
             const fRes = await runTermProximitySearch(
                 f.query.termA, f.query.termB, { scope: f.query.scope || 'verse' });
-            if(requestId!==_unifiedSearchRequestId) return;
             const fKeys = new Set(fRes.hits.map(h => {
                 const t = ALL_TOKENS[h.anchorIdx]; return t ? _verseKeyOf(t) : null;
             }).filter(Boolean));
@@ -3869,10 +3604,8 @@ async function unifiedSearch(){
                 if (!fKeys.has(_verseKeyOf(e.tok))) merged.delete(gi);
             }
         }
+        _allMergedResults = merged;
     }
-    if(requestId!==_unifiedSearchRequestId) return;
-    _allMergedResults=merged;
-    _proxCoocMap=proxCoocMap;
     _renderFilterBar();
 
     isSearching=false;
@@ -3880,29 +3613,18 @@ async function unifiedSearch(){
     _lastQuery=query;
     performance.mark('render-start');
     /* SQS: フィルタラベルを × で連結してタイトルに反映 */
-    const _sqsLabels = _activePatternFilters.map(f => f.label);
+    const _sqsLabels = _sqState.filters.map(f => f.label);
     const _sqsQuery = _sqsLabels.length > 0 ? `${query} × ${_sqsLabels.join(' × ')}` : query;
     _renderUnifiedResults(_sqsQuery,words,word2);
     _logPerfMeasure('render', `${_allMergedResults.size.toLocaleString()} hits merged`);
     /* この時点で IDX.ready は必ず true（上のゲートで保証済み）。
        「索引未完成のまま検索→後から件数が増える」事象は構造的に発生しない。 */
-    syncURL(_activeLayerSet, _activeSearchDist, _activeMorphSelection, _activePatternFilters);
-    } catch (error) {
-        if (requestId === _unifiedSearchRequestId) {
-            console.error('[unifiedSearch] 検索に失敗しました', error);
-            _showEmpty(
-                '検索を完了できませんでした',
-                '検索処理で問題が発生しました。通信状態を確認し、ページを再読み込みしてからもう一度お試しください。'
-            );
-        }
-    } finally {
-        if (requestId === _unifiedSearchRequestId) isSearching = false;
-    }
+    syncURL();
 }
 
 /* allow-list（このページの実際の検索条件のみ）からゼロ構築する。
    location.searchをベースにしない＝他ページのパラメータ混入を防ぐ。 */
-function syncURL(layerSnapshot = null, distSnapshot = null, morphSnapshot = null, patternSnapshot = null) {
+function syncURL() {
     const p = new URLSearchParams();
     p.set('tool', 'search');
 
@@ -3911,21 +3633,13 @@ function syncURL(layerSnapshot = null, distSnapshot = null, morphSnapshot = null
 
     const slotToParam = { pos:'pos', tense:'tense', mood:'mood', voice:'voice', case:'case', num:'number', gen:'gender' };
     Object.entries(slotToParam).forEach(([slot, paramName]) => {
-        const set = (morphSnapshot || _morphSel)[slot];
+        const set = _morphSel[slot];
         if (set && set.size > 0) p.set(paramName, Array.from(set).join(','));
     });
 
-    const urlLayers = layerSnapshot || _layers;
-    const activeLayers = ['lemma','phrase','prox','morph'].filter(k => urlLayers[k]);
+    const activeLayers = ['lemma','phrase','prox','morph'].filter(k => _layers[k]);
     if (activeLayers.length) p.set('layers', activeLayers.join(','));
-    p.set('dist', String(distSnapshot ?? currentDist));
-
-    // 保存済み検索URLで、追加したパターン絞り込みも再現できるようにする。
-    // パターン本体は共有データを参照し、URLには安定したIDだけを含める。
-    const patternIds = (patternSnapshot || _sqState.filters)
-        .filter(f => f.type === 'pattern' && f.id)
-        .map(f => f.id);
-    if (patternIds.length) p.set('patterns', [...new Set(patternIds)].join(','));
+    p.set('dist', String(currentDist));
 
     history.replaceState(null, '', '?' + p.toString());
 }
@@ -3988,17 +3702,17 @@ function _renderUnifiedResults(query,words,word2){
     document.getElementById('state-loading').style.display='none';
     document.getElementById('result-header').classList.add('visible');
     document.getElementById('result-query-label').textContent=query;
-    // 件数表示: total / corpus内訳は一致トークン数。下の一覧は重複をまとめた節数。
+    // 件数表示: LXX>0 の場合のみ内訳を追加。NT のみなら従来表示を維持。
     const _countEl=document.getElementById('result-count');
     if(lxxCount>0){
         const _parts=[];
-        if(ntCount>0) _parts.push(`新約聖書 ${ntCount.toLocaleString()}回`);
-        _parts.push(`旧約ギリシア語訳（LXX） ${lxxCount.toLocaleString()}回`);
+        if(ntCount>0) _parts.push(`新約聖書 ${ntCount.toLocaleString()}件`);
+        _parts.push(`旧約ギリシア語訳（LXX） ${lxxCount.toLocaleString()}件`);
         _countEl.innerHTML=
-            `<span>一致語 ${total.toLocaleString()}語</span>`+
+            `<span>${total.toLocaleString()} 件</span>`+
             `<span class="result-count-sub">${_parts.join(' ／ ')}</span>`;
     } else {
-        _countEl.textContent=`一致した語 ${total.toLocaleString()}回`;
+        _countEl.textContent=`${total.toLocaleString()} 件`;
     }
 
     // Result body
@@ -4020,10 +3734,10 @@ function _renderUnifiedResults(query,words,word2){
                     <div class="empty-section-label">試してみる</div>
                     <div style="font-size:0.78rem;color:var(--text-sub);margin-top:4px;">次のテーマから検索できます。</div>
                     <div class="empty-examples">
-                        <button type="button" class="ex-chip" onclick="_exampleSearch('愛')">愛</button>
-                        <button type="button" class="ex-chip" onclick="_exampleSearch('祈り')">祈り</button>
-                        <button type="button" class="ex-chip" onclick="_exampleSearch('救い')">救い</button>
-                        <button type="button" class="ex-chip" onclick="_exampleSearch('キリスト')">キリスト</button>
+                        <span class="ex-chip" onclick="_exampleSearch('愛')">愛</span>
+                        <span class="ex-chip" onclick="_exampleSearch('祈り')">祈り</span>
+                        <span class="ex-chip" onclick="_exampleSearch('救い')">救い</span>
+                        <span class="ex-chip" onclick="_exampleSearch('キリスト')">キリスト</span>
                     </div>
                     <div class="zero-hint">例：「神」「恵み」「希望」などの言葉で検索できます<br>ギリシャ語や Strong 番号でも検索できます</div>
                 </div>
@@ -4078,28 +3792,29 @@ function _renderHitCards(entries,words,word2){
     const countEl=document.getElementById('hits-count');
     list.innerHTML='';
 
+    const SHOW=80;
     // ★ De-dup by verse（bookKey + ch + verse）を globalIdx 経由で構成。
     //   entry.tok.ref をキーにしない（ref はロジック禁止・表示専用）。
     //   同一 verse 内で最多 hitTypes を持つ gi を代表として残す。
     const byVerse=new Map();
     for(const[gi,entry]of entries){
         const t=entry.tok;
+        // verseKey = 位置情報フィールドから生成（refを使わない）
         const verseKey=`${t.bookKey||'?'}:${t.ch??'?'}:${t.verse??'?'}`;
         if(!byVerse.has(verseKey)||entry.hitTypes.size>byVerse.get(verseKey).entry.hitTypes.size){
             byVerse.set(verseKey,{gi,entry});
         }
     }
-    const byRef=byVerse;
+    const byRef=byVerse; // 変数名を後続で統一して使用
 
     countEl.textContent=_filterWord
-        ?`「${_filterWord}」との共起：${byRef.size.toLocaleString()}節`
-        :`該当箇所：${byRef.size.toLocaleString()}節`;
+        ?`「${_filterWord}」との共起：?件 / 全${byRef.size}件`
+        :`${byRef.size.toLocaleString()} 節`;
 
-    const FOLD = 8;
-    const PAGE_SIZE = 40;
-    const allEntries = [...byRef.values()];
+    const FOLD = 8; // 最初に表示する件数
+    const allEntries = [...byRef.values()].slice(0, SHOW);
     const visible = allEntries.slice(0, FOLD);
-    let nextIndex = visible.length;
+    const folded  = allEntries.slice(FOLD);
 
     let rendered = 0;
     for (const { gi, entry } of visible) {
@@ -4109,43 +3824,44 @@ function _renderHitCards(entries,words,word2){
         rendered++;
     }
 
-    // 残りの結果は段階的に追加。件数による打ち切りは行わない。
-    if (nextIndex < allEntries.length) {
+    if (folded.length > 0) {
+        // 折りたたみボタン
         const btn = document.createElement('button');
-        btn.className = 'expand-btn expand-btn--block hits-toggle-btn';
-        btn.type = 'button';
+        btn.className = 'hits-toggle-btn';
         const btnIcon = document.createElement('span');
         btnIcon.className = 'material-symbols-outlined mat-icon';
         btnIcon.textContent = 'expand_more';
         const btnLabel = document.createElement('span');
-        btn.appendChild(btnIcon);
-        btn.appendChild(btnLabel);
+        btnLabel.textContent = `残り ${folded.length} 節を表示`;
+        btn.appendChild(btnIcon); btn.appendChild(btnLabel);
 
-        const updateLabel = () => {
-            const remaining = allEntries.length - nextIndex;
-            const batch = Math.min(PAGE_SIZE, remaining);
-            btnLabel.textContent = `さらに ${batch} 節を表示（残り ${remaining} 節）`;
-        };
+        // 折りたたみコンテナ
+        const overflow = document.createElement('div');
+        overflow.className = 'hits-overflow closed';
+        for (const { gi, entry } of folded) {
+            const card = _buildUnifiedCard(gi, entry, words, word2);
+            card.style.animationDelay = `${rendered * 0.02}s`;
+            overflow.appendChild(card);
+            rendered++;
+        }
 
         btn.onclick = () => {
-            const stop = Math.min(nextIndex + PAGE_SIZE, allEntries.length);
-            while (nextIndex < stop) {
-                const { gi, entry } = allEntries[nextIndex];
-                const card = _buildUnifiedCard(gi, entry, words, word2);
-                card.style.animationDelay = `${(nextIndex - FOLD) * 0.01}s`;
-                list.insertBefore(card, btn);
-                nextIndex++;
-            }
-
-            if (nextIndex >= allEntries.length) {
-                btn.remove();
-            } else {
-                updateLabel();
-            }
+            const isOpen = btn.classList.contains('open');
+            btn.classList.toggle('open', !isOpen);
+            overflow.classList.toggle('closed', isOpen);
+            btnIcon.textContent = isOpen ? 'expand_more' : 'expand_less';
+            btnLabel.textContent = isOpen ? `残り ${folded.length} 節を表示` : '折りたたむ';
         };
 
-        updateLabel();
         list.appendChild(btn);
+        list.appendChild(overflow);
+    }
+
+    if (byRef.size > SHOW) {
+        const more = document.createElement('div');
+        more.style.cssText = 'text-align:center;padding:12px;font-size:0.75rem;color:var(--ink-soft);opacity:0.5;';
+        more.textContent = `…他 ${byRef.size - SHOW} 節`;
+        list.appendChild(more);
     }
 }
 
@@ -4153,6 +3869,7 @@ function _renderHitCards(entries,words,word2){
 function _buildUnifiedCard(anchorGi,entry,words,word2){
     const card=document.createElement('div');
     card.className='hit-card';
+    card.dataset.qtype = detectQueryType(words[0]);
 
     const tok=entry.tok;
     // ★ rawRef は表示専用（リンクラベルの文字列にのみ使う）
@@ -4202,7 +3919,7 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         :'';
 
     // Hit-type badges — Japanese short labels matching menu names
-    const BADGE_JP={lemma:'形の違い',phrase:'フレーズ',prox:'近くの語',morph:'絞り込み'};
+    const BADGE_JP={lemma:'語根',phrase:'フレーズ',prox:'近接',morph:'品詞'};
     const badgesHtml=[...entry.hitTypes].map(t=>`<span class="ht-badge ${t}">${BADGE_JP[t]||t}</span>`).join('');
 
     // Build context window
@@ -4238,14 +3955,14 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
             const isLemma=hitTypes.has('lemma');
             const isPh=hitTypes.has('phrase');
             const isPrx=hitTypes.has('prox');
-            if(isLemma&&isPh)return`<span class="hl-multi">${_escH(t.text)}</span>`;
-            if(isLemma)return`<span class="hl-lemma">${_escH(t.text)}</span>`;
-            if(isPrx)return`<span class="hl-prox-w1">${_escH(t.text)}</span>`;
-            if(isPh)return`<span class="hl-phrase">${_escH(t.text)}</span>`;
-            return`<span class="hl-lemma">${_escH(t.text)}</span>`;
+            if(isLemma&&isPh)return`<span class="hl-multi">${t.text}</span>`;
+            if(isLemma)return`<span class="hl-lemma">${t.text}</span>`;
+            if(isPrx)return`<span class="hl-prox-w1">${t.text}</span>`;
+            if(isPh)return`<span class="hl-phrase">${t.text}</span>`;
+            return`<span class="hl-lemma">${t.text}</span>`;
         }
-        if(isW2)return`<span class="hl-prox-w2">${_escH(t.text)}</span>`;
-        if(isPhrase)return`<span class="hl-phrase">${_escH(t.text)}</span>`;
+        if(isW2)return`<span class="hl-prox-w2">${t.text}</span>`;
+        if(isPhrase)return`<span class="hl-phrase">${t.text}</span>`;
         return t.text;
     }).join(' ');
 
@@ -4274,13 +3991,11 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         </div>
         ${proxVizHtml}
         <div class="hit-body">
+            <div class="hit-snippet" aria-label="ギリシャ語原文">${snippetHtml}</div>
+            <button class="hit-greek-toggle" aria-expanded="false">▸ ギリシャ語原文を見る</button>
             <div class="hit-trans-row">
                 <span class="hit-trans-text hit-trans-main"></span>
-                <span class="hit-trans-loading" style="font-size:0.72rem;color:var(--ink-muted);">読み込み中…</span>
-            </div>
-            <div class="hit-greek-row">
-                <span class="hit-greek-label">ギリシャ語原文</span>
-                <div class="hit-snippet">${snippetHtml}</div>
+                <span class="hit-trans-loading" style="font-size:var(--s-ts-xs);color:var(--s-text-hint);">読み込み中…</span>
             </div>
         </div>
         <div class="hit-footer">
@@ -4316,7 +4031,16 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         transText.classList.add('visible');
     })();
 
-
+    // ギリシャ語スニペット展開トグル（日本語クエリ時のみ表示）
+    const greekToggle = card.querySelector('.hit-greek-toggle');
+    const greekSnippet = card.querySelector('.hit-snippet');
+    if(greekToggle && greekSnippet){
+        greekToggle.addEventListener('click', function(){
+            const open = greekSnippet.classList.toggle('open');
+            greekToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            greekToggle.textContent = (open ? '▾ ' : '▸ ') + 'ギリシャ語原文を見る';
+        });
+    }
 
     return card;
 }
@@ -4336,36 +4060,24 @@ function _renderCooccurrence(coocMap,containerId,limit=10){
         item.style.animationDelay=`${idx*0.04}s`;
         item.innerHTML=`
             <div class="rank-top">
-                <button type="button" class="rank-select-btn" title="この語を検索条件に追加">
-                    <span class="rank-word-wrap">
-                        <span class="rank-word">${word}</span>
-                        ${jpGloss?`<span class="rank-gloss">${jpGloss}</span>`:''}
-                    </span>
-                    <span class="rank-score">${rawCount}回</span>
-                    <span class="rank-bar-track"><span class="rank-bar-fill" style="width:${pct}%"></span></span>
-                </button>
-                <button type="button" class="add-btn" data-word="${word}" title="この語を検索欄に追加して近接検索を絞り込む">+ 絞り込む</button>
-            </div>`;
-        item.querySelector('.rank-select-btn').addEventListener('click',()=>{
+                <div class="rank-word-wrap">
+                    <span class="rank-word">${word}</span>
+                    ${jpGloss?`<span class="rank-gloss">${jpGloss}</span>`:''}
+                </div>
+                <span class="rank-score">${rawCount}回</span>
+                <button class="add-btn" data-word="${word}" title="この語を検索欄に追加して近接検索を絞り込む">+ 絞り込む</button>
+            </div>
+            <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${pct}%"></div></div>`;
+        item.addEventListener('click',()=>{
             const inp=document.getElementById('unified-search-input');
             const cur=inp.value.trim().split(/\s+/)[0];
             inp.value=`${cur} ${word}`;
         });
         item.querySelector('.add-btn').addEventListener('click',e=>{
+            e.stopPropagation();
             const inp=document.getElementById('unified-search-input');
             const cur=inp.value.trim().split(/\s+/)[0];
-            const nextWord=e.currentTarget.dataset.word;
-            if(!cur||!nextWord)return;
-            inp.value=`${cur} ${nextWord}`;
-            // 「絞り込む」は2語の近接検索として実行する。
-            // ほかの検索レイヤーを残すと結果が和集合になり、絞り込みにならない。
-            _layers.lemma=false;
-            _layers.phrase=false;
-            _layers.prox=true;
-            _syncLayerUI('lemma');
-            _syncLayerUI('phrase');
-            _syncLayerUI('prox');
-            unifiedSearch();
+            inp.value=`${cur} ${e.currentTarget.dataset.word}`;
         });
         el.appendChild(item);
     });
@@ -4388,7 +4100,7 @@ function _renderLemmaGroups(groups,query,word2,words){
     const list=document.getElementById('hits-list');
     container.innerHTML='';list.innerHTML='';
     document.getElementById('hits-count').textContent=
-        `検索例：${groups.reduce((s,g)=>s+g.hits.length,0).toLocaleString()}件（${groups.length.toLocaleString()}語に分類）`;
+        `${groups.reduce((s,g)=>s+g.hits.length,0)}件（${groups.length}語形に分類）`;
     groups.forEach((group,groupIdx)=>{
         let glossStr='';
         if(group.japanese){
@@ -4398,13 +4110,13 @@ function _renderLemmaGroups(groups,query,word2,words){
         const primaryLabel=glossStr||group.lemma;
         const secondaryLabel=glossStr?group.lemma:'';
         const row=document.createElement('div');row.className='lg-row';
-        const bar=document.createElement('button');bar.type='button';bar.className='lg-bar';bar.setAttribute('aria-expanded','false');bar.setAttribute('aria-controls',`lg-panel-${groupIdx}`);
+        const bar=document.createElement('div');bar.className='lg-bar';
         bar.innerHTML=`
             <span class="lg-toggle">${icon('chevronRight')}</span>
             <span class="lg-form">${primaryLabel}</span>
             ${secondaryLabel?`<span class="lg-greek">${secondaryLabel}</span>`:''}
             <span class="lg-count">${group.hits.length}件</span>`;
-        const panel=document.createElement('div');panel.className='lg-panel';panel.id=`lg-panel-${groupIdx}`;
+        const panel=document.createElement('div');panel.className='lg-panel';
         // cooc chips
         const topCooc=[...group.coocMap.entries()].sort((a,b)=>b[1].weightedScore-a[1].weightedScore).slice(0,3);
         const coocSec=document.createElement('div');
@@ -4414,7 +4126,7 @@ function _renderLemmaGroups(groups,query,word2,words){
         if(topCooc.length===0){chipWrap.innerHTML='<span style="font-size:0.75rem;color:var(--ink-soft);opacity:0.4;">—</span>';}
         else{
             topCooc.forEach(([word,{rawCount}])=>{
-                const chip=document.createElement('button');chip.type='button';chip.className='lg-chip';
+                const chip=document.createElement('span');chip.className='lg-chip';
                 const jp=TEXT_TO_JP.get(word)||_lookupJpFromCache(word);
                 chip.innerHTML=jp
                     ?`<span class="lg-chip-jp">${_escH(jp)}</span><span class="lg-chip-gr">${_escH(word)}</span><span class="lg-chip-ct">${rawCount}</span>`
@@ -4436,7 +4148,7 @@ function _renderLemmaGroups(groups,query,word2,words){
         _renderLgHitSlice(hitsWrap,group.hits,query,word2,0,3,words);
         if(group.hits.length>3){
             let shown=3;
-            const moreBtn=document.createElement('button');moreBtn.className='expand-btn lg-more-btn';
+            const moreBtn=document.createElement('button');moreBtn.className='lg-more-btn';
             moreBtn.textContent=`さらに表示（残り${group.hits.length-shown}件）`;
             moreBtn.addEventListener('click',()=>{
                 _renderLgHitSlice(hitsWrap,group.hits,query,word2,shown,shown+3,words);
@@ -4451,13 +4163,11 @@ function _renderLemmaGroups(groups,query,word2,words){
         bar.addEventListener('click',()=>{
             const open=panel.classList.toggle('open');
             bar.classList.toggle('open',open);
-            bar.setAttribute('aria-expanded',String(open));
         });
         // 最大ヒット数グループ（groups[0]）を自動展開
         if(groupIdx===0){
             panel.classList.add('open');
             bar.classList.add('open');
-            bar.setAttribute('aria-expanded','true');
         }
         row.appendChild(bar);row.appendChild(panel);
         container.appendChild(row);
@@ -4513,21 +4223,20 @@ function _renderBookDist(entries){
             const pct=Math.round((count/maxCount)*100);
             const bookName=bookNameMap.get(bookKey)||bookKey;
             const shortName=bookName.length>10?bookName.slice(0,10)+'…':bookName;
-            const row=document.createElement('button');row.type='button';row.className='dist-bar-row';
+            const row=document.createElement('div');row.className='dist-bar-row';
             row.title=`${bookName}：${count}件`;
-            row.setAttribute('aria-pressed','false');
             row.innerHTML=`
                 <span class="dist-bar-name">${shortName}</span>
                 <div class="dist-bar-track"><div class="dist-bar-fill" style="width:${pct}%"></div></div>
                 <span class="dist-bar-count">${count}</span>`;
             row.addEventListener('click',()=>{
                 if(activeRow===row){
-                    row.classList.remove('active');row.setAttribute('aria-pressed','false');activeRow=null;
+                    row.classList.remove('active');activeRow=null;
                     _renderHitCards([..._allMergedResults.entries()],
                         _lastQuery.split(/\s+/),_lastQuery.split(/\s+/)[1]||null);
                 }else{
-                    if(activeRow){activeRow.classList.remove('active');activeRow.setAttribute('aria-pressed','false');}
-                    row.classList.add('active');row.setAttribute('aria-pressed','true');activeRow=row;
+                    if(activeRow)activeRow.classList.remove('active');
+                    row.classList.add('active');activeRow=row;
                     const filtered=[..._allMergedResults.entries()].filter(([,e])=>(e.tok.bookKey||'')===bookKey);
                     _renderHitCards(filtered,_lastQuery.split(/\s+/),_lastQuery.split(/\s+/)[1]||null);
                 }
@@ -4552,22 +4261,14 @@ function _renderBookDist(entries){
 /* ── UI helpers ── */
 function _showLoading(msg){
     document.getElementById('state-empty').style.display='none';
-    // 検索中は直前の検索語に属する概念カードを残さない。
-    document.getElementById('concept-insight').style.display='none';
     document.getElementById('result-header').classList.remove('visible');
     document.getElementById('result-body').style.display='none';
     document.getElementById('state-loading').style.display='flex';
     if(msg)document.getElementById('loading-label').textContent=msg;
 }
 function _returnToLobby() {
-    // 進行中の非同期検索がロビー画面を後から上書きしないよう無効化する。
-    _unifiedSearchRequestId++;
-    isSearching = false;
     document.getElementById('unified-search-input').value = '';
-    // ロビーへ戻るときは検索状態も終了し、古い検索語や共有条件をURLに残さない。
-    _lastQuery = '';
     _sqsClearFilters();
-    syncURL();
     document.getElementById('result-header').classList.remove('visible');
     document.getElementById('result-body').style.display = 'none';
     document.getElementById('state-loading').style.display = 'none';
@@ -4578,9 +4279,7 @@ function _returnToLobby() {
 }
 function _showEmpty(title,desc){
     document.getElementById('state-loading').style.display='none';
-    document.getElementById('result-header').classList.remove('visible');
     document.getElementById('result-body').style.display='none';
-    document.getElementById('concept-insight').style.display='none';
     const es=document.getElementById('state-empty');
     es.style.display='flex';
     // Discovery Lobby を隠してエラーコンテンツを前面へ
@@ -4607,12 +4306,6 @@ function init(){
     _ensureFullIndex().then(()=>{
         _buildAndExposeLemmaIndex();
         _buildAndExposeMorphIndex();
-    }).catch(error => {
-        console.error('[search-index] 初期化に失敗しました', error);
-        _showEmpty(
-            '検索データを読み込めませんでした',
-            '検索用データの読み込みに失敗しました。通信状態を確認し、ページを再読み込みしてください。'
-        );
     });
     _watchIndexProgress();
     // Initial prox slider
@@ -4669,19 +4362,19 @@ const MORPH_MOOD = [
 const _morphSel = {pos:new Set(),case:new Set(),num:new Set(),gen:new Set(),tense:new Set(),voice:new Set(),mood:new Set()};
 
 /* Build pattern string from selections — returns null if nothing selected */
-function _getMorphFilterPattern(selection = _morphSel){
-    if(selection.pos.size===0&&selection.case.size===0&&selection.num.size===0&&
-       selection.gen.size===0&&selection.tense.size===0&&selection.voice.size===0&&
-       selection.mood.size===0) return null;
+function _getMorphFilterPattern(){
+    if(_morphSel.pos.size===0&&_morphSel.case.size===0&&_morphSel.num.size===0&&
+       _morphSel.gen.size===0&&_morphSel.tense.size===0&&_morphSel.voice.size===0&&
+       _morphSel.mood.size===0) return null;
     // Return structured selection object for matching
     return {
-        pos:  selection.pos.size>0  ? new Set(selection.pos)  : null,
-        case: selection.case.size>0 ? new Set(selection.case) : null,
-        num:  selection.num.size>0  ? new Set(selection.num)  : null,
-        gen:  selection.gen.size>0  ? new Set(selection.gen)  : null,
-        tense:selection.tense.size>0? new Set(selection.tense): null,
-        voice:selection.voice.size>0? new Set(selection.voice): null,
-        mood: selection.mood.size>0 ? new Set(selection.mood) : null,
+        pos:  _morphSel.pos.size>0  ? new Set(_morphSel.pos)  : null,
+        case: _morphSel.case.size>0 ? new Set(_morphSel.case) : null,
+        num:  _morphSel.num.size>0  ? new Set(_morphSel.num)  : null,
+        gen:  _morphSel.gen.size>0  ? new Set(_morphSel.gen)  : null,
+        tense:_morphSel.tense.size>0? new Set(_morphSel.tense): null,
+        voice:_morphSel.voice.size>0? new Set(_morphSel.voice): null,
+        mood: _morphSel.mood.size>0 ? new Set(_morphSel.mood) : null,
     };
 }
 
@@ -4818,18 +4511,13 @@ function _renderMorphChips(containerId, items, slot){
     const el = document.getElementById(containerId);
     el.innerHTML='';
     items.forEach(({code,jp})=>{
-        const chip = document.createElement('button');
-        const selected = _morphSel[slot].has(code);
-        chip.type = 'button';
-        chip.className='morph-chip'+(selected?' selected':'');
-        chip.setAttribute('aria-pressed', String(selected));
+        const chip = document.createElement('span');
+        chip.className='morph-chip'+(_morphSel[slot].has(code)?' selected':'');
         chip.innerHTML=`${code}<span class="chip-jp">${jp}</span>`;
         chip.addEventListener('click',()=>{
             if(_morphSel[slot].has(code)) _morphSel[slot].delete(code);
             else _morphSel[slot].add(code);
-            const isSelected = _morphSel[slot].has(code);
-            chip.classList.toggle('selected', isSelected);
-            chip.setAttribute('aria-pressed', String(isSelected));
+            chip.classList.toggle('selected',_morphSel[slot].has(code));
             _updateMorphSubSections();
             _updateMorphClearBtn();
         });
@@ -4863,10 +4551,7 @@ function _updateMorphClearBtn(){
 function _morphClearAll(){
     Object.values(_morphSel).forEach(s=>s.clear());
     ['pos','case','num','gen','tense','voice','mood'].forEach(slot=>{
-        document.querySelectorAll(`#morph-chips-${slot} .morph-chip`).forEach(c=>{
-            c.classList.remove('selected');
-            c.setAttribute('aria-pressed', 'false');
-        });
+        document.querySelectorAll(`#morph-chips-${slot} .morph-chip`).forEach(c=>c.classList.remove('selected'));
     });
     _updateMorphSubSections();
     _updateMorphClearBtn();
@@ -4884,83 +4569,48 @@ function _initMorphChips(){
 }
 
 /* ============================================================
-   Mobile panel toggle
+   Advanced panel toggle (詳細オプション開閉)
    ============================================================ */
-function _syncMobilePanelInert(){
-    const panel = document.getElementById('search-panel');
-    if (!panel) return;
-    // Desktop sidebar is always available; the off-canvas mobile drawer is not.
-    panel.inert = window.innerWidth <= 680 && !panel.classList.contains('mobile-open');
+function _toggleAdvanced(){
+    const panel = document.getElementById('s-advanced-panel');
+    const btn   = document.getElementById('s-advanced-toggle');
+    if(!panel||!btn) return;
+    const isOpen = panel.classList.contains('open');
+    panel.classList.toggle('open', !isOpen);
+    panel.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
+    btn.classList.toggle('open', !isOpen);
+    btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
 }
-function _toggleMobilePanel(){
-    const panel = document.getElementById('search-panel');
-    const overlay = document.getElementById('mobile-overlay');
-    const fab = document.getElementById('mobile-fab');
-    const icon = document.getElementById('mobile-fab-icon');
-    const isOpen = panel.classList.contains('mobile-open');
-    if(isOpen){ _closeMobilePanel(); }
-    else {
-        panel.inert = false;
-        panel.classList.add('mobile-open');
-        overlay.classList.add('visible');
-        fab.classList.add('panel-open');
-        fab.setAttribute('aria-expanded', 'true');
-        fab.setAttribute('aria-label', '検索パネルを閉じる');
-        icon.textContent = 'close';
-        document.getElementById('unified-search-input')?.focus();
-    }
-}
-function _closeMobilePanel(){
-    const panel = document.getElementById('search-panel');
-    const overlay = document.getElementById('mobile-overlay');
-    const fab = document.getElementById('mobile-fab');
-    const icon = document.getElementById('mobile-fab-icon');
-    const wasOpen = panel?.classList.contains('mobile-open');
-    panel?.classList.remove('mobile-open');
-    if (panel && window.innerWidth <= 680) panel.inert = true;
-    overlay?.classList.remove('visible');
-    fab?.classList.remove('panel-open');
-    fab?.setAttribute('aria-expanded', 'false');
-    fab?.setAttribute('aria-label', '検索パネルを開く');
-    if (icon) icon.textContent = 'search';
-    if (wasOpen) fab?.focus();
-}
-// Keep the drawer's keyboard availability in sync when crossing the mobile breakpoint.
-window.addEventListener('resize', _syncMobilePanelInert);
-_syncMobilePanelInert();
 
-document.addEventListener('keydown', e => {
-    const panel = document.getElementById('search-panel');
-    const modal = document.getElementById('as-backdrop');
-    if (!panel?.classList.contains('mobile-open') || modal?.classList.contains('open')) return;
+/* ============================================================
+   Mobile panel toggle (廃止 — 検索パネルは常時表示)
+   ============================================================ */
+function _toggleMobilePanel(){ /* no-op: FAB廃止 */ }
+function _closeMobilePanel(){ /* no-op: ドロワー廃止 */ }
 
-    // 入力欄などで Escape が先に処理された場合は、同じキー操作でパネルまで閉じない。
-    if (e.key === 'Escape') {
-        if (e.defaultPrevented) return;
-        e.preventDefault();
-        _closeMobilePanel();
-        return;
-    }
-
-    // モバイルの検索パネルはオーバーレイ付きのドロワーなので、
-    // Tab / Shift+Tab で背後の検索結果へフォーカスが抜けないようにする。
-    if (e.key !== 'Tab' || window.innerWidth > 680) return;
-    const focusable = [...panel.querySelectorAll(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    )].filter(el => !el.hidden && el.getClientRects().length > 0 && el.getAttribute('aria-hidden') !== 'true');
-    if (!focusable.length) return;
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = document.activeElement;
-    if (e.shiftKey && (active === first || !panel.contains(active))) {
-        e.preventDefault();
-        last.focus();
-    } else if (!e.shiftKey && (active === last || !panel.contains(active))) {
-        e.preventDefault();
-        first.focus();
-    }
-});
+/* ============================================================
+   Scroll-aware sticky header (ミニ検索バー)
+   ============================================================ */
+(function(){
+    let ticking = false;
+    window.addEventListener('scroll', function(){
+        if(ticking) return;
+        ticking = true;
+        requestAnimationFrame(function(){
+            const header = document.getElementById('s-header');
+            const mini   = document.getElementById('s-mini-search');
+            if(!header) { ticking=false; return; }
+            const scrolled = window.scrollY > 100;
+            header.classList.toggle('scrolled', scrolled);
+            if(mini){
+                const inp = document.getElementById('unified-search-input');
+                const val = inp ? inp.value.trim() : '';
+                mini.textContent = val ? `「${val}」を検索中` : '検索する';
+            }
+            ticking = false;
+        });
+    }, { passive: true });
+})();
 
 init();
 
@@ -5180,7 +4830,8 @@ function _synSortHits(hits, order) {
 }
 function _synSetSort(order, btn) {
     _synSortOrder = order;
-    document.querySelectorAll('#syntax-panel .sort-btn').forEach(b => { const active = b === btn; b.classList.toggle('active', active); b.setAttribute('aria-pressed', active ? 'true' : 'false'); });
+    document.querySelectorAll('#syntax-panel .sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
     _synApplyFilters();
 }
 function _synOnConfSlider(el) {
@@ -5194,7 +4845,6 @@ function _synToggleGroup(key) {
         const on = _synEnabledGroups.has(c.dataset.group);
         c.classList.toggle('on', on);
         c.classList.toggle('off', !on);
-        c.setAttribute('aria-pressed', on ? 'true' : 'false');
         const dot = c.querySelector('.filter-chip-dot');
         if (dot) renderIcon(dot, on ? 'check' : null);
     });
@@ -5259,12 +4909,12 @@ function _synBuildCard(hit) {
     const cls = _synConfClass(hit.confidence);
     const ctxId = `syn-ctx-${hit.bookKey}-${hit.chapter}-${hit.verse}-${hit.globalIdx}`;
     card.innerHTML = `
-        <button type="button" class="app-card-head" aria-expanded="false" onclick="_synToggleCard(this.parentElement)">
+        <div class="app-card-head" onclick="_synToggleCard(this.parentElement)">
             <span class="app-card-ref">${ref}</span>
             <span class="app-card-word">${_synEsc(hit.word)}</span>
             <span class="app-card-meta"><span class="result-conf ${cls}">${pct}%</span></span>
             <span class="app-card-arrow">›</span>
-        </button>
+        </div>
         <div class="app-card-body">
             <div class="result-lemma">レンマ: <span style="font-family:'Gentium Plus',serif;">${_synEsc(hit.lemma)}</span></div>
             <div class="ctx-loading" id="${ctxId}">展開中…</div>
@@ -5274,8 +4924,6 @@ function _synBuildCard(hit) {
 function _synToggleCard(card) {
     const wasOpen = card.classList.contains('open');
     card.classList.toggle('open');
-    const toggle = card.querySelector('.app-card-head');
-    if (toggle) toggle.setAttribute('aria-expanded', String(!wasOpen));
     if (!wasOpen) _synLoadContext(card);
 }
 async function _synLoadContext(card) {
@@ -5307,9 +4955,9 @@ async function _synLoadContext(card) {
 
 function _synRenderBookChips() {
     document.getElementById('syn-book-chips').innerHTML = SYN_BOOK_GROUPS.map(g =>
-        `<button type="button" class="filter-chip-toggle on" data-group="${g.key}" aria-pressed="true" onclick="_synToggleGroup('${g.key}')">
-            <span class="filter-chip-dot">${icon('check')}</span>${g.label}
-        </button>`
+        `<div class="filter-chip-toggle on" data-group="${g.key}" onclick="_synToggleGroup('${g.key}')">
+            <div class="filter-chip-dot">${icon('check')}</div>${g.label}
+        </div>`
     ).join('');
 }
 
@@ -5352,7 +5000,7 @@ async function _synInit(syntaxId) {
 }
 
 /* URL パラメータから検索語を引き継ぐ */
-(async function initFromUrl() {
+(function initFromUrl() {
     const p = new URLSearchParams(location.search);
     const _w1 = p.get('word1') || '';
     const _w2 = p.get('word2') || '';
@@ -5390,17 +5038,6 @@ async function _synInit(syntaxId) {
         num:   splitVals(p.get('number')).map(v => toCode('num', v)),
         gen:   splitVals(p.get('gender')).map(v => toCode('gen', v)),
     };
-
-    // 共有 URL の形態論コードも、画面で使う正式な定義に照らして検証する。
-    // index.html から渡されるフルワードは上でコード化した後に判定する。
-    const morphDefinitions = {
-        pos: MORPH_POS, case: MORPH_CASE, num: MORPH_NUM, gen: MORPH_GEN,
-        tense: MORPH_TENSE, voice: MORPH_VOICE, mood: MORPH_MOOD,
-    };
-    for (const [slot, vals] of Object.entries(morphFromUrl)) {
-        const allowed = new Set(morphDefinitions[slot].map(item => item.code));
-        morphFromUrl[slot] = vals.filter(code => allowed.has(code));
-    }
     /* [DIAG] 受信 URL パラメータ */
     console.info('[initFromUrl] 受信パラメータ:', {
         lemma:  p.get('lemma'), word:   p.get('word'), layers: p.get('layers'),
@@ -5438,51 +5075,18 @@ async function _synInit(syntaxId) {
     // layers: URL指定時のみ _layers をURL値で上書き（未指定時は既存挙動を維持）
     const layersParam = p.get('layers');
     if (layersParam) {
-        const allowedLayers = new Set(['lemma', 'phrase', 'prox', 'morph']);
-        const requestedLayers = layersParam.split(',').map(k => k.trim()).filter(k => allowedLayers.has(k));
-        // 不明な値だけのURLはレイヤー設定を上書きしない。
-        // 有効な値が1つでもあれば、その集合を明示的な設定として復元する。
-        if (requestedLayers.length) {
-            const activeFromUrl = new Set(requestedLayers);
-            ['lemma','phrase','prox','morph'].forEach(k => {
-                _layers[k] = activeFromUrl.has(k);
-                _syncLayerUI(k);
-            });
-        }
+        const activeFromUrl = new Set(layersParam.split(',').filter(Boolean));
+        ['lemma','phrase','prox','morph'].forEach(k => {
+            _layers[k] = activeFromUrl.has(k);
+            _syncLayerUI(k);
+        });
     }
 
     // dist: URL指定時のみ既存スライダー更新処理(setProxPreset)を再利用して反映
     const distParam = p.get('dist');
     if (distParam) {
-        const d = Number(distParam);
-        // 距離スライダーの有効範囲外や小数を共有URLから適用しない。
-        if (Number.isInteger(d) && d >= 1 && d <= 15) setProxPreset(d);
-    }
-
-    // パターンIDを受け取った場合だけ定義データを読み込み、既知の条件を復元する。
-    // 旧URL（patternsなし）は従来どおりの動作を維持する。
-    const patternsParam = p.get('patterns');
-    if (patternsParam) {
-        await _loadSearchPatterns();
-        const requestedIds = new Set(patternsParam.split(',').map(id => id.trim()).filter(Boolean));
-        const restoredFilters = SEARCH_PATTERNS
-            .filter(pattern => requestedIds.has(pattern.id))
-            .map(pattern => ({
-                type: 'pattern',
-                id: pattern.id,
-                label: pattern.label,
-                pattern: pattern.pattern,
-                query: pattern.query,
-            }));
-        // 未知のIDしかないURLで、現在のフィルターを空に上書きしない。
-        // 有効なIDが1つでもあれば、有効な条件だけを復元する。
-        if (restoredFilters.length) {
-            _sqState.filters = restoredFilters;
-            _renderFilterBar();
-            // unifiedSearch() はクエリ変更時にフィルタをクリアするため、
-            // URLから復元した検索語を既知のクエリとして設定してから実行する。
-            _lastQuery = query;
-        }
+        const d = parseInt(distParam, 10);
+        if (!isNaN(d)) setProxPreset(d);
     }
 
     unifiedSearch();
@@ -5492,86 +5096,37 @@ async function _synInit(syntaxId) {
    Abbott-Smith 辞書モーダル
    ============================================================ */
 let _abbottDict = null;
-let _abbottLoadPromise = null;
+let _abbottLoading = false;
 
 async function _loadAbbott() {
     if (_abbottDict) return;
-    // 同時に複数回開かれても、同じ読み込みを待つ。
-    if (_abbottLoadPromise) return _abbottLoadPromise;
-    _abbottLoadPromise = (async () => {
+    if (_abbottLoading) return;
+    _abbottLoading = true;
+    try {
         const res = await fetch('../assets/data/abbott-smith.tsv');
-        if (!res.ok) throw new Error(`Abbott-Smith fetch failed: HTTP ${res.status}`);
         const text = await res.text();
-        const dict = {};
+        _abbottDict = {};
         text.split('\n').forEach((line, i) => {
             if (i === 0) return; // header
             const cols = line.split('\t');
             if (cols.length < 5) return;
             const strong = cols[0].trim();
-            dict[strong] = { lemma: cols[1]?.trim() || '', description: cols[4]?.trim() || '' };
+            _abbottDict[strong] = { lemma: cols[1]?.trim() || '', description: cols[4]?.trim() || '' };
         });
-        _abbottDict = dict;
-    })().catch(error => {
-        console.warn('Abbott-Smith load error', error);
-        throw error;
-    }).finally(() => {
-        // 失敗時は Promise を破棄し、次回の辞書表示で再試行できるようにする。
-        _abbottLoadPromise = null;
-    });
-    return _abbottLoadPromise;
+    } catch(e) {
+        console.warn('Abbott-Smith load error', e);
+    }
 }
 
 // result-query-label クリックでモーダル表示
-let _asReturnFocus = null;
-
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('result-query-label').addEventListener('click', _asOpen);
-    document.addEventListener('keydown', e => {
-        const backdrop = document.getElementById('as-backdrop');
-        if (!backdrop?.classList.contains('open')) return;
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            _asClose();
-            return;
-        }
-        if (e.key !== 'Tab') return;
-        const modal = document.getElementById('as-modal');
-        const focusable = [...modal.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
-            .filter(el => el.getClientRects().length > 0);
-        if (!focusable.length) {
-            e.preventDefault();
-            modal.focus();
-            return;
-        }
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (e.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
-            e.preventDefault();
-            last.focus();
-        } else if (!e.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
-            e.preventDefault();
-            first.focus();
-        }
-    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') _asClose(); });
 });
 
 function _asOpen() {
     const query = _lastQuery.trim();
     if (!query) return;
-
-    _asReturnFocus = document.activeElement;
-    const backdrop = document.getElementById('as-backdrop');
-    const lemmaEl = document.getElementById('as-modal-lemma');
-    const strongEl = document.getElementById('as-modal-strong');
-    const bodyEl = document.getElementById('as-modal-body');
-
-    // Open synchronously so Escape can close the dialog even while the dictionary loads.
-    backdrop.classList.add('open');
-    lemmaEl.textContent = query;
-    strongEl.textContent = '';
-    bodyEl.innerHTML = '<span role="status">辞書を読み込み中…</span>';
-    bodyEl.setAttribute('aria-busy', 'true');
-    document.getElementById('as-modal-close').focus();
 
     // Strong番号で検索中の場合
     let strongKey = null;
@@ -5589,9 +5144,11 @@ function _asOpen() {
     }
 
     _loadAbbott().then(() => {
-        // If the user closed the dialog while loading, don't update a hidden dialog.
-        if (!backdrop.classList.contains('open')) return;
         const entry = _abbottDict && strongKey ? _abbottDict[strongKey] : null;
+        const lemmaEl = document.getElementById('as-modal-lemma');
+        const strongEl = document.getElementById('as-modal-strong');
+        const bodyEl = document.getElementById('as-modal-body');
+
         lemmaEl.textContent = (entry && entry.lemma) ? entry.lemma : query;
         strongEl.textContent = strongKey ? `G${strongKey}` : '';
         if (entry && entry.description) {
@@ -5599,19 +5156,12 @@ function _asOpen() {
         } else {
             bodyEl.innerHTML = '<span class="as-empty">この語のAbbott-Smith辞書データが見つかりませんでした。</span>';
         }
-        bodyEl.setAttribute('aria-busy', 'false');
-    }).catch(() => {
-        if (!backdrop.classList.contains('open')) return;
-        bodyEl.textContent = '辞書を読み込めませんでした。もう一度お試しください。';
-        bodyEl.setAttribute('aria-busy', 'false');
+        document.getElementById('as-backdrop').classList.add('open');
     });
 }
+
 function _asClose() {
-    const backdrop = document.getElementById('as-backdrop');
-    if (!backdrop?.classList.contains('open')) return;
-    backdrop.classList.remove('open');
-    if (_asReturnFocus?.isConnected) _asReturnFocus.focus();
-    _asReturnFocus = null;
+    document.getElementById('as-backdrop').classList.remove('open');
 }
 
 
@@ -5708,15 +5258,8 @@ function renderDiscoveryLobby() {
     themesSection.appendChild(pills);
     card.appendChild(vText);
     card.appendChild(vRef);
-    // concept-discovery-section の直前に挿入して verse→themes→concepts の順を保証
-    const _conceptSec = document.getElementById('concept-discovery-section');
-    if (_conceptSec) {
-        lobby.insertBefore(card, _conceptSec);
-        lobby.insertBefore(themesSection, _conceptSec);
-    } else {
-        lobby.appendChild(card);
-        lobby.appendChild(themesSection);
-    }
+    lobby.appendChild(card);
+    lobby.appendChild(themesSection);
 }
 
 /* ============================================================
