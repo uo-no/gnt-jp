@@ -47,22 +47,31 @@ function _escH(s) {
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function _buildApparatusHTML(entries, jaEntries) {
+function _buildApparatusHTML(entries, jaEntries, lemJaEntries) {
     if (!entries || !entries.length) return '';
+    const _rdgNums = ['①', '②', '③', '④'];
     const parts = entries.map(e => {
-        const lemHtml = `<div class="mvv-app-lem">${_escH(e.lemText)}</div>`;
+        const lemJa   = lemJaEntries && lemJaEntries[e.id];
+        const lemHtml = lemJa
+            ? `<div class="mvv-app-lem">${_escH(lemJa)}<span class="mvv-app-lem-gr">（${_escH(e.lemText)}）</span></div>`
+            : `<div class="mvv-app-lem">${_escH(e.lemText)}</div>`;
         const ja = jaEntries && jaEntries[e.id];
         const isConfirmed = ja && ja.status === '確認済み' && ja.tag && ja.ja;
         const isAuto      = ja && ja.status === '自動生成' && ja.tag && ja.ja;
+        const showJaText = (isConfirmed || isAuto) && !(e.readings.length >= 2 && ja.ja.startsWith('語順: '));
+        const jaSpan = showJaText ? `<span class="mvv-app-ja">${_escH(ja.ja)}</span>` : '';
         const annoHtml = isConfirmed
-            ? `<div class="mvv-app-anno"><span class="mvv-app-tag">${_escH(ja.tag)}</span><span class="mvv-app-ja">${_escH(ja.ja)}</span></div>`
+            ? `<div class="mvv-app-anno"><span class="mvv-app-tag">${_escH(ja.tag)}</span>${jaSpan}</div>`
             : isAuto
-            ? `<div class="mvv-app-anno mvv-app-anno--auto"><span class="mvv-app-tag">${_escH(ja.tag)}</span><span class="mvv-app-ja">${_escH(ja.ja)}</span></div>`
+            ? `<div class="mvv-app-anno mvv-app-anno--auto"><span class="mvv-app-tag">${_escH(ja.tag)}</span>${jaSpan}</div>`
             : '';
-        const rdgHtml = e.readings.map(r => {
+        const rdgHtml = e.readings.map((r, idx) => {
+            const numHtml = e.readings.length >= 2
+                ? `<span class="mvv-app-rdg-num">${_rdgNums[idx] || (idx + 1)}</span>`
+                : '';
             const text = r.isOmission ? '（省略）' : _escH(r.text || '');
             const wit  = _escH((r.witnesses || []).join(' · '));
-            return `<div class="mvv-app-rdg"><span class="mvv-app-rdg-text">${text}</span><span class="mvv-app-rdg-wit">${wit}</span></div>`;
+            return `<div class="mvv-app-rdg">${numHtml}<span class="mvv-app-rdg-text">${text}</span><span class="mvv-app-rdg-wit">${wit}</span></div>`;
         }).join('');
         return `<div class="mvv-app-entry">${lemHtml}${annoHtml}${rdgHtml}</div>`;
     });
@@ -170,6 +179,74 @@ const fakeEntry = {
     check('MIXED_AUTO_COUNT',       autoCount === 1, `auto count: ${autoCount}`);
 }
 
+// ── 11. 語順差 + 2 readings + "語順: X / Y" → mvv-app-ja を表示しない ──────────
+// ROM-0001 相当のケース — 番号付き語順が冗長な ja テキストを隠す
+{
+    const woEntry = {
+        id: 'ROM-0001', lemText: 'Χριστοῦ Ἰησοῦ',
+        readings: [
+            { text: 'Χριστοῦ Ἰησοῦ', witnesses: ['Treg', 'NIV'] },
+            { text: 'Ἰησοῦ Χριστοῦ', witnesses: ['WH', 'RP'] },
+        ],
+    };
+    const ja = { 'ROM-0001': { status: '確認済み', tag: '語順差', ja: '語順: Χριστοῦ Ἰησοῦ / Ἰησοῦ Χριστοῦ' } };
+    const h = _buildApparatusHTML([woEntry], ja);
+    check('WORDORDER_JA_SPAN_HIDDEN',   !h.includes('mvv-app-ja'),         `ja span should be absent: ${h.slice(0,250)}`);
+    check('WORDORDER_ANNO_PRESENT',      h.includes('mvv-app-anno'),        `anno div should remain: ${h.slice(0,250)}`);
+    check('WORDORDER_TAG_PRESENT',       h.includes('mvv-app-tag'),         `tag chip should remain: ${h.slice(0,250)}`);
+    check('WORDORDER_NUM1_SHOWN',        h.includes('①'),                  `① not in output: ${h.slice(0,250)}`);
+    check('WORDORDER_NUM2_SHOWN',        h.includes('②'),                  `② not in output: ${h.slice(0,250)}`);
+    check('WORDORDER_READING1_PRESENT',  h.includes('Χριστοῦ Ἰησοῦ'),     `reading 1 missing: ${h.slice(0,250)}`);
+    check('WORDORDER_READING2_PRESENT',  h.includes('Ἰησοῦ Χριστοῦ'),     `reading 2 missing: ${h.slice(0,250)}`);
+    check('WORDORDER_WITNESS_PRESENT',   h.includes('Treg'),                `witness missing: ${h.slice(0,250)}`);
+}
+
+// ── 12. 語順差 + 非 "語順: " テキスト → mvv-app-ja を保持する ───────────────────
+// MRK-0392 相当のケース — 説明的テキストは抑制しない
+{
+    const descEntry = {
+        id: 'MRK-0392', lemText: 'test',
+        readings: [
+            { text: 'A', witnesses: ['WH'] },
+            { text: 'B', witnesses: ['RP'] },
+        ],
+    };
+    const ja = { 'MRK-0392': { status: '確認済み', tag: '語順差', ja: 'リストの語順の入れ替え' } };
+    const h = _buildApparatusHTML([descEntry], ja);
+    check('WORDORDER_DESCRIPTIVE_JA_KEPT', h.includes('mvv-app-ja'), `descriptive ja should be shown: ${h.slice(0,200)}`);
+}
+
+// ── 13. 他タグ（添加）+ 2 readings → mvv-app-ja を抑制しない ─────────────────────
+{
+    const ja = { 'MAT-0001': { status: '確認済み', tag: '添加', ja: '＋ὁ βασιλεύς（RP）' } };
+    const h = _buildApparatusHTML([fakeEntry], ja);
+    check('NON_WORDORDER_JA_NOT_SUPPRESSED', h.includes('mvv-app-ja'), `添加 ja should still show: ${h.slice(0,200)}`);
+}
+
+// ── 14. 実データ: ROM-0001 の HTML に "語順: " 行なし、①② 保持 ──────────────────
+{
+    const APP_PATH2 = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus.json');
+    const JAR_PATH  = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-ja.json');
+    try {
+        const appData  = JSON.parse(fs.readFileSync(APP_PATH2, 'utf8'));
+        const jaData2  = JSON.parse(fs.readFileSync(JAR_PATH, 'utf8'));
+        const rom0001  = appData.entries.find(e => e.id === 'ROM-0001');
+        check('ROM0001_ENTRY_EXISTS',       !!rom0001,                    'ROM-0001 not found in apparatus.json');
+        if (rom0001) {
+            const jaMap = { 'ROM-0001': jaData2.entries['ROM-0001'] };
+            const h = _buildApparatusHTML([rom0001], jaMap);
+            check('ROM0001_NO_DUPLICATE_LABEL', !h.includes('語順: '),      `found 語順: in: ${h.slice(0,300)}`);
+            check('ROM0001_JA_SPAN_ABSENT',     !h.includes('mvv-app-ja'),   `mvv-app-ja should be absent: ${h.slice(0,300)}`);
+            check('ROM0001_ANNO_PRESENT',        h.includes('mvv-app-anno'),  `anno div missing: ${h.slice(0,300)}`);
+            check('ROM0001_NUM1_SHOWN',          h.includes('①'),             `① missing: ${h.slice(0,300)}`);
+            check('ROM0001_NUM2_SHOWN',          h.includes('②'),             `② missing: ${h.slice(0,300)}`);
+            check('ROM0001_WITNESS_PRESENT',     h.includes('Treg'),           `witness missing: ${h.slice(0,300)}`);
+        }
+    } catch (e) {
+        check('ROM0001_REAL_DATA_LOAD', false, e.message);
+    }
+}
+
 // ── 静的ソース監査: CSS / JS ─────────────────────────────────────────────────
 
 // 11. CSS: .mvv-app-anno--auto .mvv-app-tag が font-style: italic で定義されている
@@ -214,6 +291,17 @@ check('GEN_COUNTER_PRESENT',
 check('BUILD_HTML_COMMENT_UPDATED',
     html.includes("status='確認済み'") && html.includes("status='自動生成'"),
     'updated comment not found in _buildApparatusHTML');
+
+// 18. 語順重複抑制ロジック（showJaText / jaSpan / startsWith）が index.html に存在する
+check('SOURCE_SHOWJATEXT_PRESENT',
+    html.includes('showJaText'),
+    'showJaText not found in _buildApparatusHTML source');
+check('SOURCE_JASPAN_PRESENT',
+    html.includes('jaSpan'),
+    'jaSpan not found in _buildApparatusHTML source');
+check('SOURCE_STARTSWITH_WORDORDER',
+    html.includes("startsWith('語順: ')"),
+    "startsWith('語順: ') not found in _buildApparatusHTML source");
 
 // ── 結果出力 ─────────────────────────────────────────────────────────────────
 console.log('\n=== re-apparatus-display-regression ===');
