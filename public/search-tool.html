@@ -2203,14 +2203,25 @@ async function _fetchPrebuiltCorpus(corpus){
        data.corpus!==corpus||!Array.isArray(data.tokens)||!data.index){
         throw new Error(`prebuilt ${corpus} index metadata mismatch`);
     }
+    if(data.tokenCount!==data.tokens.length||data.tokens.length===0)throw new Error(`prebuilt ${corpus} token count mismatch`);
+    const expectedStart=corpus==='NT'?0:data.globalIdxStart;
+    if(!Number.isInteger(data.globalIdxStart)||!Number.isInteger(data.globalIdxEnd)||
+       data.globalIdxEnd!==data.globalIdxStart+data.tokens.length-1)throw new Error(`prebuilt ${corpus} globalIdx metadata invalid`);
     for(const key of ['lemma','text','strong','morph','textToJp']){
         if(!data.index[key]||typeof data.index[key]!=='object')throw new Error(`prebuilt ${corpus} index missing ${key}`);
+    }
+    for(const key of ['lemma','text','strong','morph']){
+        for(const [term,arr] of Object.entries(data.index[key])){
+            if(!Array.isArray(arr)||arr.some(idx=>!Number.isInteger(idx)||idx<data.globalIdxStart||idx>data.globalIdxEnd)){
+                throw new Error(`prebuilt ${corpus} invalid postings for ${key}:${term}`);
+            }
+        }
     }
     return data;
 }
 function _mergePrebuiltCorpus(data){
     const expectedStart=ALL_TOKENS.length;
-    if(data.tokens.length && data.globalIdxStart!==expectedStart)throw new Error('prebuilt globalIdx range mismatch');
+    if(data.globalIdxStart!==expectedStart||data.globalIdxEnd!==expectedStart+data.tokens.length-1)throw new Error('prebuilt globalIdx range mismatch');
     for(let i=0;i<data.tokens.length;i++){
         const tok=data.tokens[i];
         if(!tok||tok.globalIdx!==expectedStart+i)throw new Error('prebuilt token order/globalIdx mismatch');
