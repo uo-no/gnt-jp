@@ -2335,12 +2335,14 @@ function _mergePrebuiltCorpus(data){
         indexKeys:Object.fromEntries(['lemma','text','strong','morph','textToJp','japanesePartial'].map(k=>[k,Object.keys(data.index[k]||{}).length]))
     });
 }
-function _startPrebuiltLxxAndJapanese(metaVersion){
+function _startPrebuiltLxxAndJapanese(metaVersion,preloadedLxxPromise=null){
     (async()=>{
         try{
             let lxx;
             try{
-                lxx=await _fetchPrebuiltCorpus('LXX');
+                const loaded=await (preloadedLxxPromise||_fetchPrebuiltCorpus('LXX').then(shards=>({shards}),error=>({error})));
+                if(loaded.error)throw loaded.error;
+                lxx=loaded.shards;
                 if(lxx.some(shard=>shard.sourceVersion!==metaVersion))throw new Error('prebuilt LXX source version mismatch');
                 for(const shard of lxx)_mergePrebuiltCorpus(shard);
                 console.info(`[search-index] LXX prebuilt ready (${lxx.length} book shards)`);
@@ -2365,12 +2367,14 @@ function _ensureFullIndex(){
             /* 生成済み索引が存在すれば優先利用。無ければ従来のブラウザ構築へ戻す。 */
             try{
                 const meta=await _loadPrebuiltMeta();
+                /* Load the large LXX corpus while NT shards are fetched and validated. */
+                const lxxLoadPromise=_fetchPrebuiltCorpus('LXX').then(shards=>({shards}),error=>({error}));
                 const nt=await _fetchPrebuiltCorpus('NT');
                 if(nt.some(shard=>shard.sourceVersion!==meta.sourceVersion))throw new Error('prebuilt NT source version mismatch');
                 for(const shard of nt)_mergePrebuiltCorpus(shard);
                 console.info(`[search-index] NT prebuilt ready (${nt.length} book shards)`);
                 IDX.ready=true;
-                _startPrebuiltLxxAndJapanese(meta.sourceVersion);
+                _startPrebuiltLxxAndJapanese(meta.sourceVersion,lxxLoadPromise);
             }catch(prebuiltError){
                 console.info('[search-index] prebuilt index unavailable; using browser builder',prebuiltError);
                 /* ── フォールバック: 既存経路を維持 ── */
