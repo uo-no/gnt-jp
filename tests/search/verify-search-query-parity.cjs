@@ -95,5 +95,25 @@ for (const corpus of ['NT', 'LXX']) {
     const actualHits = actualFirst.filter(gi => actualNextSets.every((set, i) => set.has(gi + i + 1)));
     equalIds(corpus + ' Greek phrase ' + phrase.join(' '), actualHits, expectedHits); checks++;
   }
+
+  // Existing proximity semantics: every w1 anchor with w2 within +/- 5
+  // globalIdx positions, excluding the anchor itself. Compare IDs derived from
+  // the legacy scan against IDs derived from generated postings.
+  {
+    const w1 = 'λόγος', w2 = 'ἐν', distance = 5;
+    const expectedW1 = expected.get('greek:' + w1) || [];
+    const expectedW2 = new Set(expected.get('greek:' + w2) || []);
+    const actualW1 = actual.get('greek:' + w1) || [];
+    const actualW2 = new Set(actual.get('greek:' + w2) || []);
+    const within = (anchors, others) => anchors.filter(anchor => {
+      for (let gi = Math.max(0, anchor - distance); gi <= anchor + distance; gi++) {
+        if (gi !== anchor && others.has(gi)) return true;
+      }
+      return false;
+    });
+    equalIds(corpus + ' proximity ' + w1 + ' near ' + w2 + ' (±' + distance + ')',
+      within(actualW1, actualW2), within(expectedW1, expectedW2));
+    checks++;
+  }
 }
 console.log('PASS: ' + checks + ' generated-index/legacy-scan parity checks.');
