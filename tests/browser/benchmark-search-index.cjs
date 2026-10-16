@@ -44,6 +44,8 @@ async function measure(mode) {
     }
     await page.goto('http://127.0.0.1:8765/search-tool.html', { waitUntil:'load', timeout:60000 });
     const start = Date.now();
+    await page.waitForFunction(() => document.readyState === 'complete' && typeof ensureBookMasterApplied === 'function' && typeof _ensureFullIndex === 'function');
+    await page.evaluate(async () => { await ensureBookMasterApplied(); });
     await page.evaluate(() => _ensureFullIndex());
     const ntReadyMs = Date.now() - start;
     await page.waitForFunction(() => typeof ALL_TOKENS !== 'undefined' && ALL_TOKENS.length >= 617364 && IDX.l3Ready, null, { timeout:300000 });
