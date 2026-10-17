@@ -512,6 +512,94 @@ body {
 }
 @media (max-width: 700px) {
     .search-filters { padding: 0; }
+    /* モバイルでは文法フィルターを右下のフローティングボタンから開く */
+    .search-filters .morph-panel-toggle { display: none !important; }
+    #morph-filter-fab {
+        display: none;
+        position: fixed;
+        right: 20px;
+        bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+        z-index: 160;
+        width: 54px;
+        height: 54px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255,255,255,0.72);
+        border-radius: 50%;
+        background: #54775b;
+        color: #fff;
+        box-shadow: 0 3px 12px rgba(28,26,22,0.20);
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    #morph-filter-fab svg { width: 22px; height: 22px; }
+    #morph-filter-fab .morph-fab-count {
+        position: absolute;
+        top: -3px;
+        right: -3px;
+        min-width: 19px;
+        height: 19px;
+        padding: 0 4px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid var(--s-bg);
+        border-radius: 12px;
+        background: #fff;
+        color: #45694d;
+        font: 700 10px/1 var(--s-ff-ui);
+    }
+    #morph-filter-fab.has-selection .morph-fab-count { display: flex; }
+    #morph-filter-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 170;
+        background: rgba(28,26,22,0.28);
+        -webkit-tap-highlight-color: transparent;
+    }
+    body.morph-filter-open #morph-filter-backdrop { display: block; }
+    .search-filters #morph-sub {
+        display: none !important;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 180;
+        max-height: min(78dvh, 680px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        margin: 0;
+        padding: 8px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+        border: 0;
+        border-radius: 18px 18px 0 0;
+        background: var(--s-bg);
+        box-shadow: var(--s-shadow-modal);
+    }
+    body.morph-filter-open .search-filters #morph-sub,
+    .search-filters #morph-sub.is-open { display: block !important; }
+    .morph-sheet-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        position: sticky;
+        top: -8px;
+        z-index: 1;
+        padding: 8px 0 12px;
+        margin-bottom: 4px;
+        background: var(--s-bg);
+        border-bottom: 1px solid var(--s-divider);
+    }
+    .morph-sheet-title { font-size: 0.98rem; font-weight: 700; color: var(--s-text-sub); }
+    .morph-sheet-close {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 36px; height: 36px; flex: 0 0 auto;
+        border: 1px solid var(--s-border); border-radius: 50%;
+        background: transparent; color: var(--s-text-sub); font-size: 1.2rem;
+        cursor: pointer;
+    }
+    body.morph-filter-open { overflow: hidden; }
 }
 
 .prox-sub {
@@ -1622,6 +1710,7 @@ body {
                 <span>文法で絞り込む</span><span class="morph-panel-count" id="morph-panel-count"></span><span class="morph-panel-chevron" aria-hidden="true">⌄</span>
             </button>
             <div class="morph-sub" id="morph-sub">
+                <div class="morph-sheet-head"><span class="morph-sheet-title">文法で絞り込む</span><button class="morph-sheet-close" type="button" aria-label="閉じる" onclick="_closeMorphFilterSheet()">×</button></div>
                 <div class="morph-section" id="morph-sec-pos" data-slot="pos">
                     <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-pos" onclick="_toggleMorphSection('pos')"><span class="morph-section-label">品詞</span><span class="morph-selected-summary" id="morph-summary-pos"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
                     <div class="morph-chips" id="morph-chips-pos"></div>
@@ -1677,6 +1766,9 @@ body {
         <div class="history-list" id="history-list"></div>
     </div>
 </div>
+
+<button id="morph-filter-fab" type="button" aria-label="文法で絞り込む" onclick="_toggleMorphFilters(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/><circle cx="9" cy="6" r="2" fill="#54775b"/><circle cx="15" cy="12" r="2" fill="#54775b"/></svg><span class="morph-fab-count" aria-hidden="true">0</span></button>
+<div id="morph-filter-backdrop" onclick="_closeMorphFilterSheet()" aria-hidden="true"></div>
 
 <hr class="s-search-divider">
 
@@ -4831,14 +4923,34 @@ function _closeMorphFilters(){
     if(toggle) toggle.setAttribute('aria-expanded','false');
     _morphOpenSection=null; _updateMorphAccordionUI();
 }
-function _toggleMorphFilters(){
+function _toggleMorphFilters(forceOpen){
     const panel=document.getElementById('morph-sub'), toggle=document.getElementById('morph-panel-toggle');
     if(!panel||!toggle) return;
-    const open=!panel.classList.contains('is-open');
+    const mobile=window.matchMedia('(max-width: 700px)').matches;
+    const open=typeof forceOpen==='boolean'?forceOpen:!document.body.classList.contains('morph-filter-open');
+    if(mobile){
+        document.body.classList.toggle('morph-filter-open',open);
+        panel.classList.toggle('is-open',open);
+        toggle.setAttribute('aria-expanded',open?'true':'false');
+        if(!open) _morphOpenSection=null;
+        _updateMorphAccordionUI();
+        return;
+    }
     panel.classList.toggle('is-open',open); toggle.setAttribute('aria-expanded',open?'true':'false');
     if(!open) _morphOpenSection=null;
     _updateMorphAccordionUI();
 }
+function _syncMorphFilterFab(){
+    const fab=document.getElementById('morph-filter-fab');
+    if(!fab) return;
+    const filters=document.getElementById('search-filters');
+    const total=[...Object.values(_morphSel)].reduce((sum,set)=>sum+set.size,0);
+    fab.style.display=window.matchMedia('(max-width: 700px)').matches && !!filters && filters.classList.contains('single-word') && filters.classList.contains('has-query') ? 'flex' : 'none';
+    fab.classList.toggle('has-selection',total>0);
+    const count=fab.querySelector('.morph-fab-count');
+    if(count) count.textContent=total>9?'9+':String(total);
+}
+function _closeMorphFilterSheet(){ _toggleMorphFilters(false); }
 function _toggleMorphSection(slot){
     const section=document.querySelector('.morph-section[data-slot="'+slot+'"]');
     if(!section||section.style.display==='none') return;
@@ -4860,6 +4972,7 @@ function _updateMorphAccordionUI(){
     const total=[...Object.values(_morphSel)].reduce((s,set)=>s+set.size,0);
     const count=document.getElementById('morph-panel-count');
     if(count) count.textContent=total?total+'条件選択中':'';
+    _syncMorphFilterFab();
     const hint=document.getElementById('morph-hint-text');
     if(hint) hint.textContent=total?'選択した条件を組み合わせて検索できます':'カテゴリを開いて条件を選択';
 }
