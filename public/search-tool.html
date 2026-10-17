@@ -510,6 +510,15 @@ body {
     color: var(--text-sub);
     opacity: 0.72;
 }
+.search-filters .morph-mood-explanation {
+    display: none;
+    flex: 0 0 100%;
+    margin-top: 2px;
+    color: var(--text-sub);
+    font-size: 0.68rem;
+    line-height: 1.55;
+}
+.search-filters .morph-mood-explanation.visible { display: block; }
 @media (max-width: 700px) {
     .search-filters { padding: 0; }
     /* モバイルでは文法フィルターを右下のフローティングボタンから開く */
@@ -705,7 +714,7 @@ body {
     transition: border-color 0.12s;
     display: none;
 }
-.morph-clear-btn.visible { display: inline-block; }
+.morph-clear-btn.visible { display: block; width: max-content; margin-left: auto; }
 .morph-clear-btn:hover { border-color: var(--morph); }
 
 /* ── Phrase note ── */
@@ -4747,8 +4756,12 @@ const MORPH_VOICE = [
     {code:'A',jp:'能動'},{code:'M',jp:'中動'},{code:'P',jp:'受動'},
 ];
 const MORPH_MOOD = [
-    {code:'I',jp:'直説法'},{code:'S',jp:'接続法'},{code:'O',jp:'希求法'},
-    {code:'M',jp:'命令法'},{code:'N',jp:'不定詞'},{code:'P',jp:'分詞'},
+    {code:'I',jp:'直説法',help:'事実・現実として述べる'},
+    {code:'S',jp:'接続法',help:'目的・可能性などを表す'},
+    {code:'O',jp:'希求法',help:'願い・可能性などを表す'},
+    {code:'M',jp:'命令法',help:'命令・勧めを表す'},
+    {code:'N',jp:'不定詞',help:'「〜すること」などを表す'},
+    {code:'P',jp:'分詞',help:'動詞と形容詞の性質をもつ'},
 ];
 
 /* State: selected values per slot */
@@ -4903,19 +4916,45 @@ function _morphMatchesPattern(morphTag, pattern){
 function _renderMorphChips(containerId, items, slot){
     const el = document.getElementById(containerId);
     el.innerHTML='';
+    const moodHelp = slot === 'mood' ? document.createElement('div') : null;
+    if(moodHelp){
+        moodHelp.className='morph-mood-explanation';
+        moodHelp.setAttribute('aria-live','polite');
+        moodHelp.textContent='';
+    }
+    const updateMoodHelp = () => {
+        if(!moodHelp) return;
+        const selected = items.find(item => _morphSel[slot].has(item.code));
+        moodHelp.textContent = selected ? selected.help : '';
+        moodHelp.classList.toggle('visible', !!selected);
+    };
     items.forEach(({code,jp})=>{
         const chip = document.createElement('span');
         chip.className='morph-chip'+(_morphSel[slot].has(code)?' selected':'');
-        chip.innerHTML=`${code}<span class="chip-jp">${jp}</span>`;
-        chip.addEventListener('click',()=>{
+        chip.textContent = slot === 'mood' ? jp : '';
+        if(slot !== 'mood') chip.innerHTML=`${code}<span class="chip-jp">${jp}</span>`;
+        chip.setAttribute('role','button');
+        chip.setAttribute('tabindex','0');
+        chip.setAttribute('aria-pressed',_morphSel[slot].has(code)?'true':'false');
+        const toggle = () => {
             if(_morphSel[slot].has(code)) _morphSel[slot].delete(code);
             else _morphSel[slot].add(code);
             chip.classList.toggle('selected',_morphSel[slot].has(code));
+            chip.setAttribute('aria-pressed',_morphSel[slot].has(code)?'true':'false');
+            updateMoodHelp();
             _updateMorphSubSections();
             _updateMorphClearBtn();
+        };
+        chip.addEventListener('click',toggle);
+        chip.addEventListener('keydown',event=>{
+            if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle();}
         });
         el.appendChild(chip);
     });
+    if(moodHelp){
+        el.appendChild(moodHelp);
+        updateMoodHelp();
+    }
 }
 
 let _morphOpenSection = null;
