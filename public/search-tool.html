@@ -495,32 +495,58 @@ body {
 .morph-section:not(.is-open) .morph-chips { display: none; }
 .morph-section.is-open .morph-chips { display: flex; }
 .search-filters .morph-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
     border-radius: 5px;
+    border: 1px solid var(--morph-border);
+    background: var(--bg-paper);
     font-family: 'Noto Sans JP', sans-serif;
     font-size: 0.69rem;
-    padding: 6px 10px;
+    text-align: left;
+    padding: 9px 11px;
+    cursor: pointer;
     transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.search-filters .morph-chip-label { flex: 0 0 auto; white-space: nowrap; }
+.search-filters .morph-chip-help {
+    min-width: 0;
+    color: var(--text-sub);
+    font-size: 0.62rem;
+    font-weight: 400;
+    line-height: 1.4;
+    text-align: right;
 }
 .search-filters .morph-chip.selected {
     background: rgba(112,145,119,0.12);
     border-color: rgba(94,130,102,0.58);
     color: #45694d;
 }
+.search-filters .morph-chip.selected .morph-chip-help { color: #66816b; }
 .search-filters .morph-hint {
     color: var(--text-sub);
     opacity: 0.72;
 }
-.search-filters .morph-mood-explanation {
-    display: none;
-    flex: 0 0 100%;
-    margin-top: 2px;
-    color: var(--text-sub);
-    font-size: 0.68rem;
-    line-height: 1.55;
-}
-.search-filters .morph-mood-explanation.visible { display: block; }
 @media (max-width: 700px) {
     .search-filters { padding: 0; }
+    .search-filters .morph-section .morph-chips.morph-chip-group {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 7px;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 3px 0 13px;
+    }
+    .search-filters .morph-chip-group .morph-chip {
+        width: 100%;
+        min-height: 46px;
+        box-sizing: border-box;
+        padding: 8px 9px;
+    }
+    .search-filters .morph-chip-group .morph-chip-label { font-size: 0.68rem; }
+    .search-filters .morph-chip-group .morph-chip-help { font-size: 0.58rem; }
     /* モバイルでは文法フィルターを右下のフローティングボタンから開く */
     .search-filters .morph-panel-toggle { display: none !important; }
     #morph-filter-fab {
@@ -4725,35 +4751,47 @@ function init(){
 
 /* Morph tag definitions */
 const MORPH_POS = [
-    {code:'N',  jp:'名詞'},
-    {code:'V',  jp:'動詞'},
-    {code:'A',  jp:'形容詞'},
-    {code:'R',  jp:'関係代名詞'},
-    {code:'T',  jp:'冠詞'},
-    {code:'P',  jp:'代名詞'},
-    {code:'D',  jp:'指示代名詞'},
-    {code:'ADV',jp:'副詞'},
-    {code:'PREP',jp:'前置詞'},
-    {code:'CONJ',jp:'接続詞'},
-    {code:'PRT', jp:'添語'},
-    {code:'X',   jp:'その他'},
+    {code:'N',jp:'名詞',help:'人・物・事など'},
+    {code:'V',jp:'動詞',help:'動作・状態'},
+    {code:'A',jp:'形容詞',help:'性質・状態'},
+    {code:'R',jp:'関係代名詞',help:'前の名詞などを説明'},
+    {code:'T',jp:'冠詞',help:'名詞を特定する'},
+    {code:'P',jp:'代名詞',help:'名詞の代わり'},
+    {code:'D',jp:'指示代名詞',help:'これ・それなど'},
+    {code:'ADV',jp:'副詞',help:'動詞などを詳しく説明'},
+    {code:'PREP',jp:'前置詞',help:'語と語の関係を示す'},
+    {code:'CONJ',jp:'接続詞',help:'語句・文をつなぐ'},
+    {code:'PRT',jp:'添語',help:'意味や働きを添える語'},
+    {code:'X',jp:'その他',help:'ほかの分類'},
 ];
 const MORPH_CASE = [
-    {code:'N',jp:'主格'},{code:'G',jp:'属格'},{code:'D',jp:'与格'},
-    {code:'A',jp:'対格'},{code:'V',jp:'呼格'},
+    {code:'N',jp:'主格',help:'主語など'},
+    {code:'G',jp:'属格',help:'「〜の」など'},
+    {code:'D',jp:'与格',help:'「〜に」など'},
+    {code:'A',jp:'対格',help:'目的語など'},
+    {code:'V',jp:'呼格',help:'呼びかけ'},
 ];
 const MORPH_NUM = [
-    {code:'S',jp:'単数'},{code:'P',jp:'複数'},
+    {code:'S',jp:'単数',help:'1人・1つ'},
+    {code:'P',jp:'複数',help:'複数の人・物'},
 ];
 const MORPH_GEN = [
-    {code:'M',jp:'男性'},{code:'F',jp:'女性'},{code:'N',jp:'中性'},
+    {code:'M',jp:'男性',help:'文法上の男性形'},
+    {code:'F',jp:'女性',help:'文法上の女性形'},
+    {code:'N',jp:'中性',help:'文法上の中性形'},
 ];
 const MORPH_TENSE = [
-    {code:'P',jp:'現在'},{code:'I',jp:'未完了'},{code:'F',jp:'未来'},
-    {code:'A',jp:'アオリスト'},{code:'X',jp:'完了'},{code:'Y',jp:'過去完了'},
+    {code:'P',jp:'現在',help:'継続・進行など'},
+    {code:'I',jp:'未完了',help:'過去の継続・反復'},
+    {code:'F',jp:'未来',help:'未来の動作・状態'},
+    {code:'A',jp:'アオリスト',help:'動作をひとまとまりに捉える'},
+    {code:'X',jp:'完了',help:'結果が続く状態'},
+    {code:'Y',jp:'過去完了',help:'過去の時点での結果状態'},
 ];
 const MORPH_VOICE = [
-    {code:'A',jp:'能動'},{code:'M',jp:'中動'},{code:'P',jp:'受動'},
+    {code:'A',jp:'能動',help:'主語が動作をする'},
+    {code:'M',jp:'中動',help:'主語が動作に関わる'},
+    {code:'P',jp:'受動',help:'主語が動作を受ける'},
 ];
 const MORPH_MOOD = [
     {code:'I',jp:'直説法',help:'事実・現実として述べる'},
@@ -4916,45 +4954,23 @@ function _morphMatchesPattern(morphTag, pattern){
 function _renderMorphChips(containerId, items, slot){
     const el = document.getElementById(containerId);
     el.innerHTML='';
-    const moodHelp = slot === 'mood' ? document.createElement('div') : null;
-    if(moodHelp){
-        moodHelp.className='morph-mood-explanation';
-        moodHelp.setAttribute('aria-live','polite');
-        moodHelp.textContent='';
-    }
-    const updateMoodHelp = () => {
-        if(!moodHelp) return;
-        const selected = items.find(item => _morphSel[slot].has(item.code));
-        moodHelp.textContent = selected ? selected.help : '';
-        moodHelp.classList.toggle('visible', !!selected);
-    };
-    items.forEach(({code,jp})=>{
-        const chip = document.createElement('span');
+    el.classList.add('morph-chip-group', 'morph-chip-group-' + slot);
+    items.forEach(({code,jp,help})=>{
+        const chip = document.createElement('button');
+        chip.type='button';
         chip.className='morph-chip'+(_morphSel[slot].has(code)?' selected':'');
-        chip.textContent = slot === 'mood' ? jp : '';
-        if(slot !== 'mood') chip.innerHTML=`${code}<span class="chip-jp">${jp}</span>`;
-        chip.setAttribute('role','button');
-        chip.setAttribute('tabindex','0');
+        chip.innerHTML=`<span class="morph-chip-label">${jp}</span><span class="morph-chip-help">${help || ''}</span>`;
         chip.setAttribute('aria-pressed',_morphSel[slot].has(code)?'true':'false');
-        const toggle = () => {
+        chip.addEventListener('click',()=>{
             if(_morphSel[slot].has(code)) _morphSel[slot].delete(code);
             else _morphSel[slot].add(code);
             chip.classList.toggle('selected',_morphSel[slot].has(code));
             chip.setAttribute('aria-pressed',_morphSel[slot].has(code)?'true':'false');
-            updateMoodHelp();
             _updateMorphSubSections();
             _updateMorphClearBtn();
-        };
-        chip.addEventListener('click',toggle);
-        chip.addEventListener('keydown',event=>{
-            if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle();}
         });
         el.appendChild(chip);
     });
-    if(moodHelp){
-        el.appendChild(moodHelp);
-        updateMoodHelp();
-    }
 }
 
 let _morphOpenSection = null;
