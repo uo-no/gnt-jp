@@ -460,28 +460,40 @@ body {
 }
 .search-filters.has-query { display: block; }
 .search-filters .filter-suggestion-title {
-    margin: 0 0 4px;
-    color: var(--text-sub);
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    margin: 0 0 4px; color: var(--text-sub); font-size: 0.68rem;
+    font-weight: 700; letter-spacing: 0.02em;
 }
-.search-filters.single-word .morph-sub { display: block; }
-.search-filters.multi-word .morph-sub { display: none; }
-.search-filters .morph-sub {
-    margin-top: 8px;
-    background: transparent;
-    border: 0;
-    border-radius: 0;
-    padding: 8px 0 0;
+.search-filters.single-word .filter-suggestion-title { display: none; }
+.search-filters .morph-panel-toggle {
+    display: none; width: 100%; align-items: center; gap: 8px;
+    margin: 8px 0 0; padding: 9px 0;
+    border: 0; border-top: 1px solid rgba(90,83,71,0.13);
+    border-bottom: 1px solid rgba(90,83,71,0.13);
+    background: transparent; color: var(--text-main); text-align: left;
+    font: inherit; font-size: 0.82rem; font-weight: 650; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
 }
-.search-filters .morph-section-label {
-    color: var(--text-sub);
-    opacity: 1;
-    letter-spacing: 0.04em;
-    text-transform: none;
-    font-size: 0.68rem;
+.search-filters.single-word .morph-panel-toggle { display: flex; }
+.morph-panel-toggle .morph-panel-count { margin-left: auto; color: var(--text-sub); font-size: 0.72rem; font-weight: 500; }
+.morph-panel-toggle .morph-panel-chevron { color: var(--text-sub); font-size: 0.8rem; transition: transform 0.15s ease; }
+.morph-panel-toggle[aria-expanded="true"] .morph-panel-chevron { transform: rotate(180deg); }
+.search-filters .morph-sub { display: none; margin-top: 2px; padding: 4px 0 0; background: transparent; border: 0; border-radius: 0; }
+.search-filters .morph-sub.is-open { display: block; }
+.search-filters.multi-word .morph-sub { display: none !important; }
+.search-filters .morph-section-label { color: var(--text-sub); opacity: 1; letter-spacing: 0; text-transform: none; font-size: 0.76rem; }
+.morph-section { margin: 0; border-bottom: 1px solid rgba(90,83,71,0.10); }
+.morph-section:last-of-type { border-bottom: 0; }
+.morph-section-toggle {
+    display: flex; align-items: center; gap: 8px; width: 100%; min-height: 42px; padding: 7px 0;
+    border: 0; background: transparent; text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
+.morph-section-toggle .morph-section-label { margin: 0; display: inline; font-weight: 650; }
+.morph-section-toggle .morph-selected-summary { margin-left: auto; color: var(--morph); font-size: 0.72rem; font-weight: 500; text-align: right; }
+.morph-section-toggle .morph-chevron { flex: 0 0 auto; color: var(--text-sub); font-size: 0.78rem; transition: transform 0.15s ease; }
+.morph-section.is-open .morph-chevron { transform: rotate(180deg); }
+.morph-section .morph-chips { padding: 2px 0 12px; }
+.morph-section:not(.is-open) .morph-chips { display: none; }
+.morph-section.is-open .morph-chips { display: flex; }
 .search-filters .morph-chip {
     border-radius: 6px;
     font-family: 'Noto Sans JP', sans-serif;
@@ -1605,34 +1617,37 @@ body {
                     <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
                 </div>
             </div>
+            <button class="morph-panel-toggle" id="morph-panel-toggle" type="button" aria-expanded="false" aria-controls="morph-sub" onclick="_toggleMorphFilters()">
+                <span>文法で絞り込む</span><span class="morph-panel-count" id="morph-panel-count"></span><span class="morph-panel-chevron" aria-hidden="true">⌄</span>
+            </button>
             <div class="morph-sub" id="morph-sub">
-                <div class="morph-section">
-                    <span class="morph-section-label">品詞</span>
+                <div class="morph-section" id="morph-sec-pos" data-slot="pos">
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-pos" onclick="_toggleMorphSection('pos')"><span class="morph-section-label">品詞</span><span class="morph-selected-summary" id="morph-summary-pos"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
                     <div class="morph-chips" id="morph-chips-pos"></div>
                 </div>
-                <div class="morph-section" id="morph-sec-case" style="display:none;">
-                    <span class="morph-section-label">格</span>
-                    <div class="morph-chips" id="morph-chips-case"></div>
+                <div class="morph-section" id="morph-sec-mood" data-slot="mood">
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-mood" onclick="_toggleMorphSection('mood')"><span class="morph-section-label">法</span><span class="morph-selected-summary" id="morph-summary-mood"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
+                    <div class="morph-chips" id="morph-chips-mood"></div>
                 </div>
-                <div class="morph-section" id="morph-sec-num" style="display:none;">
-                    <span class="morph-section-label">数</span>
-                    <div class="morph-chips" id="morph-chips-num"></div>
-                </div>
-                <div class="morph-section" id="morph-sec-gen" style="display:none;">
-                    <span class="morph-section-label">性</span>
-                    <div class="morph-chips" id="morph-chips-gen"></div>
-                </div>
-                <div class="morph-section" id="morph-sec-tense" style="display:none;">
-                    <span class="morph-section-label">時制</span>
+                <div class="morph-section" id="morph-sec-tense" data-slot="tense">
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-tense" onclick="_toggleMorphSection('tense')"><span class="morph-section-label">時制</span><span class="morph-selected-summary" id="morph-summary-tense"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
                     <div class="morph-chips" id="morph-chips-tense"></div>
                 </div>
-                <div class="morph-section" id="morph-sec-voice" style="display:none;">
-                    <span class="morph-section-label">態</span>
+                <div class="morph-section" id="morph-sec-voice" data-slot="voice">
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-voice" onclick="_toggleMorphSection('voice')"><span class="morph-section-label">態</span><span class="morph-selected-summary" id="morph-summary-voice"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
                     <div class="morph-chips" id="morph-chips-voice"></div>
                 </div>
-                <div class="morph-section" id="morph-sec-mood" style="display:none;">
-                    <span class="morph-section-label">法</span>
-                    <div class="morph-chips" id="morph-chips-mood"></div>
+                <div class="morph-section" id="morph-sec-case" data-slot="case" style="display:none;">
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-case" onclick="_toggleMorphSection('case')"><span class="morph-section-label">格</span><span class="morph-selected-summary" id="morph-summary-case"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
+                    <div class="morph-chips" id="morph-chips-case"></div>
+                </div>
+                <div class="morph-section" id="morph-sec-num" data-slot="num" style="display:none;">
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-num" onclick="_toggleMorphSection('num')"><span class="morph-section-label">数</span><span class="morph-selected-summary" id="morph-summary-num"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
+                    <div class="morph-chips" id="morph-chips-num"></div>
+                </div>
+                <div class="morph-section" id="morph-sec-gen" data-slot="gen" style="display:none;">
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-gen" onclick="_toggleMorphSection('gen')"><span class="morph-section-label">性</span><span class="morph-selected-summary" id="morph-summary-gen"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
+                    <div class="morph-chips" id="morph-chips-gen"></div>
                 </div>
                 <button class="morph-clear-btn" id="morph-clear-btn" onclick="_morphClearAll()">選択をクリア</button>
                 <div class="morph-hint" id="morph-hint-text">品詞を選ぶとさらに絞り込めます</div>
@@ -3497,18 +3512,15 @@ function _updateSearchControls(){
         filters.classList.toggle('single-word',hasQuery && !hasMultipleWords);
         filters.classList.toggle('multi-word',hasMultipleWords);
     }
-    _layers.lemma=true;
-    _layers.morph=true;
-    _layers.prox=hasMultipleWords;
+    _layers.lemma=true; _layers.morph=true; _layers.prox=hasMultipleWords;
     const prox=document.getElementById('prox-sub');
     if(prox){
         prox.classList.toggle('visible',hasMultipleWords);
         prox.setAttribute('aria-hidden',hasMultipleWords?'false':'true');
     }
     const title=document.getElementById('filter-suggestion-title');
-    if(title){
-        title.textContent=hasMultipleWords ? '複数の語を検索する条件' : '絞り込みの提案';
-    }
+    if(title) title.textContent='複数の語を検索する条件';
+    if(!hasQuery) _closeMorphFilters();
 }
 
 /* ── SQS: フィルタバー描画 ── */
@@ -4811,27 +4823,62 @@ function _renderMorphChips(containerId, items, slot){
     });
 }
 
+let _morphOpenSection = null;
+function _closeMorphFilters(){
+    const panel=document.getElementById('morph-sub'), toggle=document.getElementById('morph-panel-toggle');
+    if(panel) panel.classList.remove('is-open');
+    if(toggle) toggle.setAttribute('aria-expanded','false');
+    _morphOpenSection=null; _updateMorphAccordionUI();
+}
+function _toggleMorphFilters(){
+    const panel=document.getElementById('morph-sub'), toggle=document.getElementById('morph-panel-toggle');
+    if(!panel||!toggle) return;
+    const open=!panel.classList.contains('is-open');
+    panel.classList.toggle('is-open',open); toggle.setAttribute('aria-expanded',open?'true':'false');
+    if(!open) _morphOpenSection=null;
+    _updateMorphAccordionUI();
+}
+function _toggleMorphSection(slot){
+    const section=document.querySelector('.morph-section[data-slot="'+slot+'"]');
+    if(!section||section.style.display==='none') return;
+    _morphOpenSection=_morphOpenSection===slot?null:slot;
+    _updateMorphAccordionUI();
+}
+function _updateMorphAccordionUI(){
+    const labels={pos:MORPH_POS,mood:MORPH_MOOD,tense:MORPH_TENSE,voice:MORPH_VOICE,case:MORPH_CASE,num:MORPH_NUM,gen:MORPH_GEN};
+    Object.keys(labels).forEach(slot=>{
+        const section=document.querySelector('.morph-section[data-slot="'+slot+'"]');
+        if(!section) return;
+        const open=_morphOpenSection===slot && section.style.display!=='none';
+        section.classList.toggle('is-open',open);
+        const btn=section.querySelector('.morph-section-toggle');
+        if(btn) btn.setAttribute('aria-expanded',open?'true':'false');
+        const summary=document.getElementById('morph-summary-'+slot);
+        if(summary) summary.textContent=[..._morphSel[slot]].map(code=>(labels[slot].find(item=>item.code===code)||{}).jp).filter(Boolean).join('、');
+    });
+    const total=[...Object.values(_morphSel)].reduce((s,set)=>s+set.size,0);
+    const count=document.getElementById('morph-panel-count');
+    if(count) count.textContent=total?total+'条件選択中':'';
+    const hint=document.getElementById('morph-hint-text');
+    if(hint) hint.textContent=total?'選択した条件を組み合わせて検索できます':'カテゴリを開いて条件を選択';
+}
 /* Show/hide sub-sections based on selected POS */
 function _updateMorphSubSections(){
-    const sel = _morphSel.pos;
-    const hasNominal = sel.size===0||[...sel].some(p=>['N','A','T','R','P','D'].includes(p));
-    const hasVerbal  = sel.size===0||[...sel].some(p=>['V'].includes(p));
-    const show = (id,val)=>{ document.getElementById(id).style.display = val?'':'none'; };
-    show('morph-sec-case',  hasNominal);
-    show('morph-sec-num',   true);
-    show('morph-sec-gen',   hasNominal);
-    show('morph-sec-tense', hasVerbal);
-    show('morph-sec-voice', hasVerbal);
-    show('morph-sec-mood',  hasVerbal);
-    // Update hint text
-    const hint = document.getElementById('morph-hint-text');
-    const total = [...Object.values(_morphSel)].reduce((s,set)=>s+set.size,0);
-    hint.textContent = total===0 ? '品詞を選ぶとさらに絞り込めます' : `${total}項目選択中 — 検索を実行してください`;
+    const sel=_morphSel.pos;
+    const hasNominal=sel.size===0||[...sel].some(p=>['N','A','T','R','P','D'].includes(p));
+    const hasVerbal=sel.size===0||[...sel].some(p=>p==='V');
+    const show=(id,val)=>{const el=document.getElementById(id);if(el)el.style.display=val?'':'none';};
+    show('morph-sec-pos',true); show('morph-sec-case',hasNominal); show('morph-sec-num',true);
+    show('morph-sec-gen',hasNominal); show('morph-sec-tense',hasVerbal); show('morph-sec-voice',hasVerbal); show('morph-sec-mood',hasVerbal);
+    const active=document.querySelector('.morph-section[data-slot="'+_morphOpenSection+'"]');
+    if(active&&active.style.display==='none') _morphOpenSection=null;
+    _updateMorphAccordionUI();
 }
 
 function _updateMorphClearBtn(){
-    const total = [...Object.values(_morphSel)].reduce((s,set)=>s+set.size,0);
-    document.getElementById('morph-clear-btn').classList.toggle('visible', total>0);
+    const total=[...Object.values(_morphSel)].reduce((s,set)=>s+set.size,0);
+    document.getElementById('morph-clear-btn').classList.toggle('visible',total>0);
+    _updateMorphAccordionUI();
 }
 
 function _morphClearAll(){
@@ -4839,6 +4886,7 @@ function _morphClearAll(){
     ['pos','case','num','gen','tense','voice','mood'].forEach(slot=>{
         document.querySelectorAll(`#morph-chips-${slot} .morph-chip`).forEach(c=>c.classList.remove('selected'));
     });
+    _morphOpenSection=null;
     _updateMorphSubSections();
     _updateMorphClearBtn();
 }
@@ -4852,6 +4900,7 @@ function _initMorphChips(){
     _renderMorphChips('morph-chips-voice', MORPH_VOICE, 'voice');
     _renderMorphChips('morph-chips-mood',  MORPH_MOOD,  'mood');
     _updateMorphSubSections();
+    _updateMorphAccordionUI();
 }
 
 /* ============================================================
