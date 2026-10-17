@@ -2425,10 +2425,22 @@ async function _fetchPrebuiltCorpus(corpus){
         for(const key of ['lemma','text','strong','morph','textToJp','japanesePartial']){
             if(!data.index[key]||typeof data.index[key]!=='object')throw new Error(`prebuilt ${corpus} shard missing ${key}`);
         }
+        /* Generated shards are versioned build artifacts. Exhaustively scanning every
+           posting here delays first search on mobile; validate structure and boundary
+           values at runtime, while the build-time generator remains responsible for
+           producing complete, ordered postings. */
         for(const key of ['lemma','text','strong','morph','japanesePartial']){
             for(const [term,arr] of Object.entries(data.index[key])){
-                if(!Array.isArray(arr)||arr.some(idx=>!Number.isInteger(idx)||idx<data.globalIdxStart||idx>data.globalIdxEnd)){
+                if(!Array.isArray(arr)){
                     throw new Error(`prebuilt ${corpus} invalid postings for ${key}:${term}`);
+                }
+                if(arr.length){
+                    const first=arr[0],last=arr[arr.length-1];
+                    if(!Number.isInteger(first)||!Number.isInteger(last)||
+                       first<data.globalIdxStart||first>data.globalIdxEnd||
+                       last<data.globalIdxStart||last>data.globalIdxEnd){
+                        throw new Error(`prebuilt ${corpus} invalid posting boundaries for ${key}:${term}`);
+                    }
                 }
             }
         }
