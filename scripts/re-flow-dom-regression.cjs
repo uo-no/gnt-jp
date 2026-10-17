@@ -518,6 +518,9 @@ check('invariant(2A-4): _navigateVerse の章末遷移が _navChBlock.dataset.ch
                 vn.className = 'v-num'; vn.textContent = String(v);
                 vb.appendChild(vn);
                 vb._scrolled = false;
+                /* _navigateVerse calls the real verse block's click handler; provide the DOM method in this behavioral shim. */
+                vb._clicked = false;
+                vb.click = function () { this._clicked = true; };
                 vb.scrollIntoView = function () { this._scrolled = true; };
                 cb.appendChild(vb);
                 vbs.push(vb);
@@ -603,6 +606,9 @@ check('invariant(2A-4): _navigateVerse の章末遷移が _navChBlock.dataset.ch
                 vn.className = 'v-num'; vn.textContent = String(v);
                 vb.appendChild(vn);
                 vb._scrolled = false;
+                /* _navigateVerse uses the native DOM click method before scrolling. */
+                vb._clicked = false;
+                vb.click = function () { this._clicked = true; };
                 vb.scrollIntoView = function () { this._scrolled = true; };
                 cb.appendChild(vb);
                 vbs.push(vb);
