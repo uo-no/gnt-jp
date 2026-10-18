@@ -7685,6 +7685,7 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 <script src="../core/discourse-reading-renderer.js"></script>
 <script>
 let abbottSmithDict = null;
+let abbottSmithDictPromise = null;
 let _proximityTokens = [];
 
 /* decodeMorph / cleanText — bible_data tokens have direct case/mood/tense/voice fields */
@@ -7784,13 +7785,14 @@ function _buildEtymPartsHTML(parts) {
 
 /* Abbott-Smith ポップアップを開く。
    lexemeId で _lexiconData を直接引く。headword 文字列検索は行わない。 */
-function _openEtymPopup(lexemeId) {
+async function _openEtymPopup(lexemeId) {
     const entry = _lexiconData?.[lexemeId];
     const form  = entry?.headword || '';
     const gloss = entry?.gloss_ja || '';
     let   desc  = entry?.abbottSmith || '';
     if (!desc && lexemeId) {
         const digits = lexemeId.replace(/^grc:G/i, '');
+        if (!abbottSmithDict) await loadDict();
         desc = abbottSmithDict?.[digits]?.description || '';
     }
     const bd = document.getElementById('rn-etym-backdrop');
@@ -9190,20 +9192,33 @@ const JPN_MAP = {
     person: { '1': '1人称', '2': '2人称', '3': '3人称' }
 };
 
-async function loadDict() {
-    try {
-        abbottSmithDict = {};
-        const resAbbott = await fetch('../assets/data/abbott-smith.tsv');
-        if (!resAbbott.ok) return;
-        const textAbbott = await resAbbott.text();
-        textAbbott.split(/\r?\n/).forEach(row => {
-            const cols = row.split('\t');
-            const strong = String(cols[0]).trim();
-            if (strong) {
-                abbottSmithDict[strong] = { description: cols[4]?.trim() || "" };
-            }
-        });
-    } catch (e) { console.error("Dict Error:", e); }
+function loadDict() {
+    if (abbottSmithDict) return Promise.resolve(abbottSmithDict);
+    if (abbottSmithDictPromise) return abbottSmithDictPromise;
+
+    abbottSmithDictPromise = (async () => {
+        try {
+            const resAbbott = await fetch('../assets/data/abbott-smith.tsv');
+            if (!resAbbott.ok) throw new Error(`Abbott-Smith fetch failed: ${resAbbott.status}`);
+            const textAbbott = await resAbbott.text();
+            const parsed = {};
+            textAbbott.split(/\r?\n/).forEach(row => {
+                const cols = row.split('\t');
+                const strong = String(cols[0]).trim();
+                if (strong) parsed[strong] = { description: cols[4]?.trim() || "" };
+            });
+            abbottSmithDict = parsed;
+            return abbottSmithDict;
+        } catch (e) {
+            /* 失敗時は未読込状態を維持し、次回の要求で再試行できるようにする。 */
+            console.error("Dict Error:", e);
+            return null;
+        } finally {
+            abbottSmithDictPromise = null;
+        }
+    })();
+
+    return abbottSmithDictPromise;
 }
 
 /* ══════════════════════════════════════════
@@ -10249,8 +10264,11 @@ function _renderSemanticsTab(area, p) {
     const semanticsURL = `semantic-search.html?${qs.toString()}`;
 
     const jaWord = (_inspectData && _inspectData.jaWord) || '-';
-    const desc   = (_inspectData && _inspectData.desc)   || '';
-    const strong = (_inspectData && _inspectData.strong)  || '';
+    const strong = (_inspectData && _inspectData.strong) || '';
+    const strongDigits = String(strong).replace(/[^0-9]/g, '');
+    const desc = (_inspectData && _inspectData.desc)
+        || (abbottSmithDict && abbottSmithDict[strongDigits]?.description)
+        || '';
 
     const abbottHtml = desc
         ? `<div class="ac-abbottsmith">${_escH(desc).replace(/\n/g,'<br>')}</div>`
@@ -10268,6 +10286,15 @@ function _renderSemanticsTab(area, p) {
             <a href="${semanticsURL}" class="morph-search-btn">語の意味を詳しく調べる →</a>
         </div>
     `;
+
+    /* 辞書読み込みとタブ表示が競合した場合、同じ語が引き続き選択されていれば再描画する。 */
+    if (!desc && strong && !abbottSmithDict) {
+        loadDict().then(dict => {
+            if (!dict || !area.isConnected) return;
+            const currentStrong = String((_inspectData && _inspectData.strong) || '');
+            if (currentStrong === String(strong)) _renderSemanticsTab(area, p);
+        });
+    }
 }
 
 /* ══════════════════════════════════════════
@@ -12144,7 +12171,8 @@ async function init() {
 
     sbInitState(book, chNum);
 
-    await loadDict();
+    /* Abbott-Smith辞書は本文描画のクリティカルパスから外す。
+       本文を先に表示し、初回描画後に辞書を取得・解析する。 */
 
     const hasGreek = GREEK_BOOKS.has(book);
 
@@ -12219,6 +12247,8 @@ async function init() {
         _applyHighlights(); /* BUG-1: 初回ロード時、Storage準備済みで再適用 */
         requestAnimationFrame(() => requestAnimationFrame(() => {
             document.getElementById('bible-text-area').style.opacity = '1';
+            /* 辞書取得・TSV解析による本文表示の遅延を避け、初回描画後に開始する。 */
+            loadDict();
         }));
 
         /* 冒頭の urlParams を再利用する（syncUrlState() が既に history を
