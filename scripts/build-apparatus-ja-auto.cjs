@@ -21,6 +21,7 @@ const path = require('path');
 
 const BASE_PATH   = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus.json');
 const MANUAL_PATH = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-ja.json');
+const LEM_JA_PATH = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-lem-ja.json');
 const OUT_PATH    = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-ja-auto.json');
 
 const MAX_ADDED_LEN = 30;
@@ -28,6 +29,9 @@ const MAX_LEM_LEN   = 25;
 
 const base   = JSON.parse(fs.readFileSync(BASE_PATH,   'utf8'));
 const manual = JSON.parse(fs.readFileSync(MANUAL_PATH, 'utf8'));
+const lemJa = JSON.parse(fs.readFileSync(LEM_JA_PATH, 'utf8')).entries || {};
+// 出典・語形を確認した添加語の日本語ラベル。未登録語は原語のまま残す（L-0）。
+const addedJa = { 'εὑρηκέναι': '見つける' };
 
 const manualIds = new Set(Object.keys(manual.entries));
 
@@ -74,7 +78,9 @@ function generateEntry(e) {
             lemTruncated = true;
         }
         // lemTruncated=true: 生成処理による切り詰め（元データの省略記号ではない）を明示
-        parts.push(`${lem} の省略（${wits.join(' ')}${lemTruncated ? '・長文lem' : ''}）`);
+        const jaLem = lemJa[e.id];
+        const lemmaLabel = jaLem ? `${jaLem}（${lem}）` : lem;
+        parts.push(`${lemmaLabel} の省略（${wits.join(' ')}${lemTruncated ? '・長文lem' : ''}）`);
     }
 
     const tag = plusRdgs.length > 0 ? '添加' : '省略';
