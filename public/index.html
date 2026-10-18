@@ -11990,6 +11990,31 @@ function _localizeAbbottAbbreviations(text, locale) {
         const pattern = new RegExp('(^|[^A-Za-z])' + escaped + '(?=\\s|$|[,;:)：、。）])', 'g');
         result = result.replace(pattern, (match, prefix) => prefix + terms[abbr]);
     });
+    /* 日本語化した文法用語の直後に原文由来の空白が残ると読みにくいため、
+       変換済みラベルと日本語の間だけ空白を詰める。その他の原文の空白は維持する。 */
+    if (language !== 'en') {
+        const localizedLabels = [
+            ...Object.values(terms),
+            '対格＋不定詞構文', '属格を伴って', '不定詞を伴って',
+            '人を表す対格', '事物を表す対格', '人を表す属格', '事物を表す属格',
+            '目的語的属格', '主語的属格', '人を表す与格', '事物を表す与格',
+            '手段を表す与格', '場所を表す対格', '場所を表す属格', '時間を表す対格',
+            '同族目的語の対格', '部分を表す属格', '二重対格', '女性形の対格',
+            '複数与格', '分詞を伴う対格', '冠詞付き不定詞', '述語的対格',
+            '目的語を表す対格', '関係・観点を表す対格', '処罰を表す属格',
+            '価格を表す属格', 'アオリスト接続法', '現在不定詞',
+            'ヒトパエル形', 'ヒフィル形', 'ピエル形', 'ニファル形', 'プアル形', 'ホファル形'
+        ];
+        const labelAlternation = [...new Set(localizedLabels)]
+            .sort((a, b) => b.length - a.length)
+            .map(label => label.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\    return result;
+}
+
+function _renderAbbottFullText(text) {'))
+            .join('|');
+        const labelBoundary = new RegExp('(' + labelAlternation + ')\\\\s+(?=[ぁ-んァ-ヶ一-龯])', 'g');
+        result = result.replace(labelBoundary, '$1');
+    }
     return result;
 }
 
