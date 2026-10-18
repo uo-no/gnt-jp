@@ -10264,8 +10264,11 @@ function _renderSemanticsTab(area, p) {
     const semanticsURL = `semantic-search.html?${qs.toString()}`;
 
     const jaWord = (_inspectData && _inspectData.jaWord) || '-';
-    const desc   = (_inspectData && _inspectData.desc)   || '';
-    const strong = (_inspectData && _inspectData.strong)  || '';
+    const strong = (_inspectData && _inspectData.strong) || '';
+    const strongDigits = String(strong).replace(/[^0-9]/g, '');
+    const desc = (_inspectData && _inspectData.desc)
+        || (abbottSmithDict && abbottSmithDict[strongDigits]?.description)
+        || '';
 
     const abbottHtml = desc
         ? `<div class="ac-abbottsmith">${_escH(desc).replace(/\n/g,'<br>')}</div>`
@@ -10283,6 +10286,15 @@ function _renderSemanticsTab(area, p) {
             <a href="${semanticsURL}" class="morph-search-btn">語の意味を詳しく調べる →</a>
         </div>
     `;
+
+    /* 辞書読み込みとタブ表示が競合した場合、同じ語が引き続き選択されていれば再描画する。 */
+    if (!desc && strong && !abbottSmithDict) {
+        loadDict().then(dict => {
+            if (!dict || !area.isConnected) return;
+            const currentStrong = String((_inspectData && _inspectData.strong) || '');
+            if (currentStrong === String(strong)) _renderSemanticsTab(area, p);
+        });
+    }
 }
 
 /* ══════════════════════════════════════════
