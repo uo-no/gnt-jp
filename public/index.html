@@ -12144,7 +12144,8 @@ async function init() {
 
     sbInitState(book, chNum);
 
-    await loadDict();
+    /* Abbott-Smith辞書は本文描画のクリティカルパスから外す。
+       本文を先に表示し、初回描画後に辞書を取得・解析する。 */
 
     const hasGreek = GREEK_BOOKS.has(book);
 
@@ -12219,6 +12220,8 @@ async function init() {
         _applyHighlights(); /* BUG-1: 初回ロード時、Storage準備済みで再適用 */
         requestAnimationFrame(() => requestAnimationFrame(() => {
             document.getElementById('bible-text-area').style.opacity = '1';
+            /* 辞書取得・TSV解析による本文表示の遅延を避け、初回描画後に開始する。 */
+            loadDict();
         }));
 
         /* 冒頭の urlParams を再利用する（syncUrlState() が既に history を
