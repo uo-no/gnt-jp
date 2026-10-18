@@ -8695,8 +8695,6 @@ function syncUIFromState() {
    翻訳選択（transA/transB/mode）を保持したまま遷移する
    ══════════════════════════════════════════ */
 function _navTo(book, ch) {
-    const area = document.getElementById('bible-text-area');
-    if (area) area.style.opacity = '0';
     const url = ShareURLService.generate({
         book,
         chapter: ch,
@@ -8705,7 +8703,42 @@ function _navTo(book, ch) {
         transB: _transB,
         mode: _transMode,
     });
-    setTimeout(() => { window.location.href = url.href; }, 150);
+
+    /* ピッカー／節詳細表示からの遷移は、開閉履歴と内部状態を安全に初期化するため従来どおり再読み込みする。 */
+    const mobileVerseView = document.getElementById('mobile-verse-view');
+    const mobileBookPicker = document.getElementById('mobile-book-picker');
+    const mobileModePicker = document.getElementById('mobile-mode-picker');
+    const hasTransientOverlay =
+        mobileVerseView?.classList.contains('open') ||
+        mobileBookPicker?.classList.contains('mbp-open') ||
+        mobileModePicker?.classList.contains('mmp-open');
+
+    const area = document.getElementById('bible-text-area');
+    if (hasTransientOverlay) {
+        if (area) area.style.opacity = '0';
+        setTimeout(() => { window.location.href = url.href; }, 150);
+        return;
+    }
+
+    /* 通常の章移動はページ全体を再読み込みせず、既存の本文再描画経路を使う。
+       非表示にしてから再描画すると失敗／キャンセル時に本文が透明のまま残るため、
+       通常経路では opacity を変更しない。 */
+    if (document.getElementById('bottom-depth-panel')?.classList.contains('open')) {
+        closeStudyPanel();
+    }
+    closeMobileSidebar();
+    history.pushState({ chapterNavigation: true }, '', url.href);
+
+    renderCurrentPage().then(rendered => {
+        if (rendered === false) return;
+        const mainArea = document.getElementById('main-reading-area');
+        if (mainArea) mainArea.scrollTop = 0;
+        requestAnimationFrame(() => {
+            if (area) area.style.opacity = '1';
+        });
+    }).catch(() => {
+        if (area) area.style.opacity = '1';
+    });
 }
 
 function _gbcGoChapter() {
@@ -13449,6 +13482,14 @@ window.addEventListener('popstate', function (e) {
     /* ④ MN: Mode picker close */
     if (_mmpIgnoreNextPop) { _mmpIgnoreNextPop = false; return; }
     if (_mmpHistoryActive) { _mmpHistoryActive = false; _closeMobileModePicker(); return; }
+
+    /* 通常の章移動でブラウザの戻る／進むが発生した場合、URL と本文を同期する。 */
+    const route = Router.parse();
+    const routeBook = route.book || 'ROM';
+    const routeChapter = parseInt(route.chapter || '1', 10);
+    if (AppState.location.book?.key !== routeBook || AppState.location.chapter !== routeChapter) {
+        renderCurrentPage();
+    }
 });
 
 /* ── E-1A: MobileVerseView 限定のキーボード回避（visualViewport）。desktop / StudyPanel 非影響。 ── */
@@ -20177,7 +20218,10 @@ function switchTab(evt, tabName) {
     document.getElementById('main-reading-area').scrollTop = 0;
 }
 
+let _renderCurrentPageToken = 0;
+
 async function renderCurrentPage() {
+    const renderToken = ++_renderCurrentPageToken;
     document.getElementById('main-reading-area').classList.remove('static-view');
     const urlParams = Router.parse();
     const book = urlParams.book || 'ROM';
@@ -20261,10 +20305,13 @@ async function renderCurrentPage() {
             { colMode: _colA, jpData: resolvedJpData },
             { colMode: _colB, jpData: jpDataB },
         ];
+        /* 連続した章移動では、後から完了した古い fetch が新しい章を上書きしないようにする。 */
+        if (renderToken !== _renderCurrentPageToken) return false;
         render(columns, elData, hasGreek && elData.length > 0);
         document.getElementById('active-v').innerText = "";
         syncUrlState();
         _applyHighlights();
+        return true;
 
 // 本文レンダリング完了後
 
@@ -20274,7 +20321,9 @@ async function renderCurrentPage() {
         // data-onboarding-anchor="true" を付与する。
         // 対象語優先順: ἠγάπησεν → οὕτως → （先頭カード）
     } catch (err) {
+        if (renderToken !== _renderCurrentPageToken) return false;
         document.getElementById('bible-text-area').innerHTML = `<p style="color:red">データが見つかりません。</p>`;
+        return false;
     }
 }
 
