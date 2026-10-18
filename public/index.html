@@ -7272,6 +7272,30 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 
     </style>
 
+
+<style id="chapter-navigation-loading-guard">
+/* 章の取得・再描画中は、古い節や描画途中の本文へのタップを防ぐ */
+body.chapter-navigation-loading #main-reading-area {
+    pointer-events: none !important;
+    position: relative;
+}
+body.chapter-navigation-loading #main-reading-area::after {
+    content: '読み込み中';
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 28vh;
+    background: rgba(255, 255, 255, 0.82);
+    color: #65736a;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    pointer-events: auto;
+}
+</style>
+
 </head>
 <body>
 
@@ -20222,6 +20246,7 @@ let _renderCurrentPageToken = 0;
 
 async function renderCurrentPage() {
     const renderToken = ++_renderCurrentPageToken;
+    document.body.classList.add('chapter-navigation-loading');
     document.getElementById('main-reading-area').classList.remove('static-view');
     const urlParams = Router.parse();
     const book = urlParams.book || 'ROM';
@@ -20324,6 +20349,11 @@ async function renderCurrentPage() {
         if (renderToken !== _renderCurrentPageToken) return false;
         document.getElementById('bible-text-area').innerHTML = `<p style="color:red">データが見つかりません。</p>`;
         return false;
+    } finally {
+        /* 古いリクエストの完了では、新しい章のローディング表示を解除しない */
+        if (renderToken === _renderCurrentPageToken) {
+            document.body.classList.remove('chapter-navigation-loading');
+        }
     }
 }
 
