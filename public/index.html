@@ -11880,6 +11880,38 @@ function _renderDictionaryLinkedText(value) {
     return html + _escH(source.slice(cursor)).replace(/\n/g, '<br>');
 }
 
+function _localizeAbbottAbbreviations(text) {
+    /* Abbott-Smith の英語・ラテン語文法略号を表示時だけ日本語化する。
+       原データは変更せず、辞書記述中の略号だけを語境界付きで置換する。 */
+    const replacements = [
+        [/\\bc\\.\\s*/gi, '〜を伴う '],
+        [/\\bet\\b/gi, 'および'],
+        [/\\bcf\\.\\s*/gi, '比較：'],
+        [/\\bsc\\.\\s*/gi, '省略を補うと '],
+        [/\\bgen\\.\\s*/gi, '属格（「〜の」など） '],
+        [/\\bacc\\.\\s*/gi, '対格（動作の対象など） '],
+        [/\\bdat\\.\\s*/gi, '与格（「〜に」など） '],
+        [/\\bnom\\.\\s*/gi, '主格（主語など） '],
+        [/\\bvoc\\.\\s*/gi, '呼格（呼びかけ） '],
+        [/\\bloc\\.\\s*/gi, '場所を表す格 '],
+        [/\\binstr\\.\\s*/gi, '手段を表す格 '],
+        [/\\babl\\.\\s*/gi, '起点・分離を表す格 '],
+        [/\\binf\\.\\s*/gi, '不定詞 '],
+        [/\\bpart\\.\\s*/gi, '分詞 '],
+        [/\\bsubj\\.\\s*/gi, '接続法 '],
+        [/\\bimper\\.\\s*/gi, '命令法 '],
+        [/\\bimpf\\.\\s*/gi, '未完了過去形 '],
+        [/\\bpres\\.\\s*/gi, '現在形 '],
+        [/\\baor\\.\\s*/gi, 'アオリスト '],
+        [/\\bfut\\.\\s*/gi, '未来形 '],
+        [/\\bpl\\.\\s*/gi, '複数形 '],
+        [/\\bfem\\.\\s*/gi, '女性形 ']
+    ];
+    let result = String(text == null ? '' : text);
+    replacements.forEach(([pattern, label]) => { result = result.replace(pattern, label); });
+    return result;
+}
+
 function _renderAbbottFullText(text) {
     const source = String(text == null ? '' : text);
     const re = /【([^】]+)】([^【]*)/g;
