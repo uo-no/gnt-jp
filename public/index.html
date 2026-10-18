@@ -11797,6 +11797,7 @@ function _renderDictionaryLinkedText(value) {
         mark:'MRK', mk:'MRK', マルコ:'MRK', マコ:'MRK',
         luke:'LUK', lk:'LUK', ルカ:'LUK',
         john:'JHN', jn:'JHN', ヨハネ:'JHN', ヨハ:'JHN',
+        ヨハ一:'1JN', ヨハ二:'2JN', ヨハ三:'3JN', ヨ一:'1JN', ヨ二:'2JN', ヨ三:'3JN',
         acts:'ACT', act:'ACT', ac:'ACT', 使:'ACT', 使徒:'ACT', '使徒の働き':'ACT',
         rom:'ROM', romans:'ROM', ro:'ROM', ローマ:'ROM', ロマ:'ROM',
         '1 cor':'1CO', '1 corinthians':'1CO', コリント第一:'1CO', コリ一:'1CO',
@@ -11820,15 +11821,16 @@ function _renderDictionaryLinkedText(value) {
         '3 jn':'3JN', '3 john':'3JN', ヨハネ第三:'3JN',
         jude:'JUD', ユダ:'JUD', rev:'REV', revelation:'REV', 黙示録:'REV'
     };
-    const bookNames = '(?:Matthew|Matt|Mt|Mark|Mk|Luke|Lk|John|Jn|Acts|Act|Ac|Romans|Rom|Ro|Corinthians|Cor|Galatians|Gal|Ephesians|Eph|Philippians|Phil|Colossians|Col|Thessalonians|Thess|Timothy|Tim|Titus|Tit|Philemon|Philem|Hebrews|Heb|James|Jas|Peter|Pet|Jude|Revelation|Rev|ヨハネ第一|ヨハネ第二|ヨハネ第三|コリント第一|コリント第二|テサロニケ第一|テサロニケ第二|テモテ第一|テモテ第二|ペテロ第一|ペテロ第二|使徒の働き|使|マタイ|マタ|マルコ|マコ|ルカ|ヨハネ|ヨハ|使徒|ユダ|ローマ|ロマ|コリ一|コリ二|ガラテヤ|ガラ|エペソ|エペ|ピリピ|ピリ|コロサイ|コロ|テサ一|テサ二|テモ一|テモ二|テトス|ピレモン|ヘブル|ヤコブ|ペテ一|ペテ二|黙示録)';
+    const bookNames = '(?:Matthew|Matt|Mt|Mark|Mk|Luke|Lk|John|Jn|Acts|Act|Ac|Romans|Rom|Ro|Corinthians|Cor|Galatians|Gal|Ephesians|Eph|Philippians|Phil|Colossians|Col|Thessalonians|Thess|Timothy|Tim|Titus|Tit|Philemon|Philem|Hebrews|Heb|James|Jas|Peter|Pet|Jude|Revelation|Rev|ヨハネ第一|ヨハネ第二|ヨハネ第三|ヨハ一|ヨハ二|ヨハ三|ヨ一|ヨ二|ヨ三|コリント第一|コリント第二|テサロニケ第一|テサロニケ第二|テモテ第一|テモテ第二|ペテロ第一|ペテロ第二|使徒の働き|使|マタイ|マタ|マルコ|マコ|ルカ|ヨハネ|ヨハ|使徒|ユダ|ローマ|ロマ|コリ一|コリ二|ガラテヤ|ガラ|エペソ|エペ|ピリピ|ピリ|コロサイ|コロ|テサ一|テサ二|テモ一|テモ二|テトス|ピレモン|ヘブル|ヤコブ|ペテ一|ペテ二|黙示録)';
     const pattern = new RegExp(
         '(?<full>(?<prefix>(?:1|2|3)\\s*)?(?<book>' + bookNames + ')\\.?\\s*(?<chapter>\\d{1,3}):(?<verse>\\d{1,3})(?:\\s*[-–]\\s*(?<endverse>\\d{1,3}))?)' +
-        '|(?<single>(?<singleprefix>(?:2|3)\\s*)?(?<singlebook>Philemon|Philem|Phlm|ヨハネ第二|ヨハネ第三|Jude|ユダ|ピレモン)\\s*(?<singleverse>\\d{1,3})(?!\\s*:))' +
+        '|(?<single>(?<singleprefix>(?:2|3)\\s*)?(?<singlebook>Philemon|Philem|Phlm|ヨハネ第二|ヨハネ第三|ヨハ二|ヨハ三|ヨ二|ヨ三|Jude|ユダ|ピレモン)\\s*(?<singleverse>\\d{1,3})(?!\\s*:))' +
         '|(?<continued>(?<sep>[,、;]\\s*)(?<cchapter>\\d{1,3}):(?<cverse>\\d{1,3})(?:\\s*[-–]\\s*(?<cendverse>\\d{1,3}))?)' +
+        '|(?<continuedVerse>(?<vsep>[,、;]\\s*)(?<onlyverse>\\d{1,3})(?!\\s*[:\\d]))' +
         '|(?<greek>[\\u0370-\\u03FF\\u1F00-\\u1FFF]+(?:[\'’][\\u0370-\\u03FF\\u1F00-\\u1FFF]+)*)',
         'gi'
     );
-    let html = '', cursor = 0, match, lastBookCode = null;
+    let html = '', cursor = 0, match, lastBookCode = null, lastChapter = null;
     while ((match = pattern.exec(source)) !== null) {
         html += _escH(source.slice(cursor, match.index)).replace(/\n/g, '<br>');
         const g = match.groups || {};
@@ -11837,6 +11839,7 @@ function _renderDictionaryLinkedText(value) {
             const book = books[name];
             if (book) {
                 lastBookCode = book;
+                lastChapter = g.chapter;
                 html += '<a class="rn-inline-bible-ref" href="/' + book + '/' + g.chapter + '/' + g.verse + '" title="聖書本文を開く">' + _escH(g.full) + '</a>';
             } else {
                 lastBookCode = null;
@@ -11847,6 +11850,7 @@ function _renderDictionaryLinkedText(value) {
             const book = books[singleName];
             if (['JUD', 'PHM', '2JN', '3JN'].includes(book)) {
                 lastBookCode = book;
+                lastChapter = '1';
                 html += '<a class="rn-inline-bible-ref" href="/' + book + '/1/' + g.singleverse + '" title="聖書本文を開く">' + _escH(g.single) + '</a>';
             } else {
                 html += _escH(g.single);
@@ -11854,9 +11858,17 @@ function _renderDictionaryLinkedText(value) {
         } else if (g.continued) {
             html += _escH(g.sep);
             if (lastBookCode) {
+                lastChapter = g.cchapter;
                 html += '<a class="rn-inline-bible-ref" href="/' + lastBookCode + '/' + g.cchapter + '/' + g.cverse + '" title="聖書本文を開く">' + _escH(g.continued.slice(g.sep.length)) + '</a>';
             } else {
                 html += _escH(g.continued.slice(g.sep.length));
+            }
+        } else if (g.continuedVerse) {
+            html += _escH(g.vsep);
+            if (lastBookCode && lastChapter) {
+                html += '<a class="rn-inline-bible-ref" href="/' + lastBookCode + '/' + lastChapter + '/' + g.onlyverse + '" title="聖書本文を開く">' + _escH(g.onlyverse) + '</a>';
+            } else {
+                html += _escH(g.onlyverse);
             }
         } else if (g.greek) {
             const query = new URLSearchParams({ tool: 'search', word: g.greek, layers: 'lemma,morph' });
