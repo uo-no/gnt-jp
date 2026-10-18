@@ -12026,6 +12026,19 @@ function _localizeAbbottAbbreviations(text, locale) {
         const labelBoundary = new RegExp('(' + labelAlternation + ')\\s+(?=[ぁ-んァ-ヶ一-龯])', 'g');
         result = result.replace(labelBoundary, '$1');
     }
+    /* 日本語説明に残る通常の英語表現を、文脈が特定できる完全一致で訳す。
+       略号・人名・ラテン語などを単語単位で誤変換しない。 */
+    if (language === 'ja') {
+        const ordinaryEnglishFragments = [
+            ['英語 else', '英語「ほかの」'],
+            ['（and, now, but）', '（「そして」「ところで」「しかし」）'],
+            ['（but, on the other hand）', '（「しかし」「一方で」）'],
+            ['（κατά，against）', '（κατά「〜に逆らって」）']
+        ];
+        ordinaryEnglishFragments.forEach(([source, translation]) => {
+            result = result.split(source).join(translation);
+        });
+    }
     return result;
 }
 
