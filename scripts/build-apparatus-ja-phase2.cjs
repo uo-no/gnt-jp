@@ -29,12 +29,14 @@ const BASE_PATH    = path.join(__dirname, '..', 'public', 'assets', 'data', 'app
 const MANUAL_PATH  = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-ja.json');
 const PHASE1_PATH  = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-ja-auto.json');
 const OUT_PATH     = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-ja-phase2.json');
+const RDG_JA_PATH  = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-rdg-ja.json');
 
 const MAX_TEXT_LEN = 30;
 
 const base   = JSON.parse(fs.readFileSync(BASE_PATH,   'utf8'));
 const manual = JSON.parse(fs.readFileSync(MANUAL_PATH, 'utf8'));
 const phase1 = JSON.parse(fs.readFileSync(PHASE1_PATH, 'utf8'));
+const rdgJaData = JSON.parse(fs.readFileSync(RDG_JA_PATH, 'utf8')).entries || {};
 
 const manualIds = new Set(Object.keys(manual.entries));
 const phase1Ids = new Set(Object.keys(phase1.entries));
@@ -77,9 +79,13 @@ for (const e of base.entries) {
     }
 
     // ja 生成: TEXT（WITNESSES）・TEXT（WITNESSES）...
-    const parts = rdgs.map(r => {
+    const parts = rdgs.map((r, idx) => {
         const witStr = r.witnesses.join(' ');
-        return r.text + '（' + witStr + '）';
+        const jaLabel = rdgJaData[e.id] && rdgJaData[e.id][String(idx)];
+        // 日本語ラベルが既存データにある読みだけ「日本語（ギリシャ語）」で表示。
+        // 未対応の語形は推測で訳さず、原語表記を保持する（L-0）。
+        const readingLabel = jaLabel ? `${jaLabel}（${r.text}）` : r.text;
+        return readingLabel + '（' + witStr + '）';
     });
     const ja = parts.join('・');
 
