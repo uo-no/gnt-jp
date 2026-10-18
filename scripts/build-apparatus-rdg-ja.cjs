@@ -68,6 +68,8 @@ console.log(`\nBuilt ref map: ${Object.keys(refMap).length} entries from ${fileC
 // 語形の一意性だけで意味を自動確定しない（L-0）。
 const textJaMap = {
     'ὑπὲρ': '〜のために',
+    // ROM-0039: apparatus の読み替え πατέρα。語形と訳語を個別確認済み。
+    'πατέρα': '父',
 };
 
 // apparatus.json を読み込む
