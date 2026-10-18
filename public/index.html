@@ -8714,13 +8714,15 @@ function _navTo(book, ch) {
         mobileModePicker?.classList.contains('mmp-open');
 
     const area = document.getElementById('bible-text-area');
-    if (area) area.style.opacity = '0';
     if (hasTransientOverlay) {
+        if (area) area.style.opacity = '0';
         setTimeout(() => { window.location.href = url.href; }, 150);
         return;
     }
 
-    /* 通常の章移動はページ全体を再読み込みせず、既存の本文再描画経路を使う。 */
+    /* 通常の章移動はページ全体を再読み込みせず、既存の本文再描画経路を使う。
+       非表示にしてから再描画すると失敗／キャンセル時に本文が透明のまま残るため、
+       通常経路では opacity を変更しない。 */
     if (document.getElementById('bottom-depth-panel')?.classList.contains('open')) {
         closeStudyPanel();
     }
@@ -13486,12 +13488,7 @@ window.addEventListener('popstate', function (e) {
     const routeBook = route.book || 'ROM';
     const routeChapter = parseInt(route.chapter || '1', 10);
     if (AppState.location.book?.key !== routeBook || AppState.location.chapter !== routeChapter) {
-        const area = document.getElementById('bible-text-area');
-        if (area) area.style.opacity = '0';
-        renderCurrentPage().then(rendered => {
-            if (rendered === false) return;
-            requestAnimationFrame(() => { if (area) area.style.opacity = '1'; });
-        }).catch(() => { if (area) area.style.opacity = '1'; });
+        renderCurrentPage();
     }
 });
 
