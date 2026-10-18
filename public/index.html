@@ -11880,35 +11880,44 @@ function _renderDictionaryLinkedText(value) {
     return html + _escH(source.slice(cursor)).replace(/\n/g, '<br>');
 }
 
-function _localizeAbbottAbbreviations(text) {
-    /* Abbott-Smith の英語・ラテン語文法略号を表示時だけ日本語化する。
-       原データは変更せず、辞書記述中の略号だけを語境界付きで置換する。 */
-    const replacements = [
-        [/\bc\.\s*/gi, '〜を伴う '],
-        [/\bet\b/gi, 'および'],
-        [/\bcf\.\s*/gi, '比較：'],
-        [/\bsc\.\s*/gi, '省略を補うと '],
-        [/\bgen\.\s*/gi, '属格（「〜の」など） '],
-        [/\bacc\.\s*/gi, '対格（動作の対象など） '],
-        [/\bdat\.\s*/gi, '与格（「〜に」など） '],
-        [/\bnom\.\s*/gi, '主格（主語など） '],
-        [/\bvoc\.\s*/gi, '呼格（呼びかけ） '],
-        [/\bloc\.\s*/gi, '場所を表す格 '],
-        [/\binstr\.\s*/gi, '手段を表す格 '],
-        [/\babl\.\s*/gi, '起点・分離を表す格 '],
-        [/\binf\.\s*/gi, '不定詞 '],
-        [/\bpart\.\s*/gi, '分詞 '],
-        [/\bsubj\.\s*/gi, '接続法 '],
-        [/\bimper\.\s*/gi, '命令法 '],
-        [/\bimpf\.\s*/gi, '未完了過去形 '],
-        [/\bpres\.\s*/gi, '現在形 '],
-        [/\baor\.\s*/gi, 'アオリスト '],
-        [/\bfut\.\s*/gi, '未来形 '],
-        [/\bpl\.\s*/gi, '複数形 '],
-        [/\bfem\.\s*/gi, '女性形 ']
-    ];
+/* 文法略号の説明は表示言語ごとに管理する。辞書原文は変更しない。 */
+const _ABBOTT_GRAMMAR_TERMS = {
+    ja: {
+        'gen.': '属格（「〜の」など）', 'acc.': '対格（動作の対象など）',
+        'dat.': '与格（「〜に」など）', 'nom.': '主格（主語など）',
+        'voc.': '呼格（呼びかけ）', 'loc.': '場所を表す格',
+        'instr.': '手段を表す格', 'abl.': '起点・分離を表す格',
+        'inf.': '不定詞', 'part.': '分詞', 'subj.': '接続法',
+        'imper.': '命令法', 'impf.': '未完了過去形', 'pres.': '現在形',
+        'aor.': 'アオリスト', 'fut.': '未来形', 'pl.': '複数形',
+        'fem.': '女性形', 'cf.': '比較：', 'sc.': '省略を補うと：'
+    },
+    en: {
+        'gen.': 'genitive', 'acc.': 'accusative', 'dat.': 'dative',
+        'nom.': 'nominative', 'voc.': 'vocative', 'loc.': 'locative',
+        'instr.': 'instrumental', 'abl.': 'ablative', 'inf.': 'infinitive',
+        'part.': 'participle', 'subj.': 'subjunctive', 'imper.': 'imperative',
+        'impf.': 'imperfect', 'pres.': 'present', 'aor.': 'aorist',
+        'fut.': 'future', 'pl.': 'plural', 'fem.': 'feminine',
+        'cf.': 'compare:', 'sc.': 'understand the omitted word as:'
+    }
+};
+
+function _localizeAbbottAbbreviations(text, locale) {
+    const language = String(locale || document.documentElement.lang || 'ja').toLowerCase().split('-')[0];
+    const terms = _ABBOTT_GRAMMAR_TERMS[language] || _ABBOTT_GRAMMAR_TERMS.ja;
     let result = String(text == null ? '' : text);
-    replacements.forEach(([pattern, label]) => { result = result.replace(pattern, label); });
+    Object.keys(terms).sort((a, b) => b.length - a.length).forEach(abbr => {
+        const escaped = abbr.replace(/[.*+?^\${}()|[\]\\]/g, '\\$&');
+        const pattern = new RegExp('(^|[^A-Za-z])' + escaped + '(?=\\s|$|[,;:)])', 'g');
+        result = result.replace(pattern, (match, prefix) => prefix + terms[abbr]);
+    });
+    /* 複合表現は、意味が明確なものだけを個別に扱う。 */
+    if (language === 'ja' || !_ABBOTT_GRAMMAR_TERMS[language]) {
+        result = result.replace(/\bc\.\s*acc\.\s*et\s*inf\./gi, '対格＋不定詞構文');
+    } else {
+        result = result.replace(/\bc\.\s*acc\.\s*et\s*inf\./gi, 'accusative-and-infinitive construction');
+    }
     return result;
 }
 
