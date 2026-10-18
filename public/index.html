@@ -11890,8 +11890,7 @@ const _ABBOTT_GRAMMAR_TERMS = {
         'inf.': '不定詞', 'part.': '分詞', 'subj.': '接続法',
         'imper.': '命令法', 'impf.': '未完了過去形', 'pres.': '現在形',
         'aor.': 'アオリスト', 'fut.': '未来形', 'pl.': '複数形',
-        'fem.': '女性形', 'cf.': '比較：', 'sc.': '省略を補うと：',
-        'c.': '〜を伴う'
+        'fem.': '女性形', 'cf.': '比較：', 'sc.': '省略を補うと：'
     },
     en: {
         'gen.': 'genitive', 'acc.': 'accusative', 'dat.': 'dative',
@@ -11900,8 +11899,7 @@ const _ABBOTT_GRAMMAR_TERMS = {
         'part.': 'participle', 'subj.': 'subjunctive', 'imper.': 'imperative',
         'impf.': 'imperfect', 'pres.': 'present', 'aor.': 'aorist',
         'fut.': 'future', 'pl.': 'plural', 'fem.': 'feminine',
-        'cf.': 'compare:', 'sc.': 'understand the omitted word as:',
-        'c.': 'with'
+        'cf.': 'compare:', 'sc.': 'understand the omitted word as:'
     }
 };
 
@@ -11911,11 +11909,19 @@ function _localizeAbbottAbbreviations(text, locale) {
     const terms = _ABBOTT_GRAMMAR_TERMS[language] || _ABBOTT_GRAMMAR_TERMS.ja;
     let result = String(text == null ? '' : text);
 
-    /* 複合略記は、構成要素を個別に置換する前に処理する。 */
-    const compoundLabel = language === 'en'
-        ? 'accusative-and-infinitive construction'
-        : '対格＋不定詞構文';
-    result = result.replace(/\bc\.\s*acc\.\s*et\s*inf\./gi, compoundLabel);
+    /* c. (= cum) は文脈依存なので、既知の複合表現だけを翻訳する。 */
+    const compounds = language === 'en'
+        ? [
+            [/\bc\.\s*acc\.\s*et\s*inf\./gi, 'accusative-and-infinitive construction'],
+            [/\bc\.\s*gen\./gi, 'with the genitive'],
+            [/\bc\.\s*inf\./gi, 'with the infinitive']
+        ]
+        : [
+            [/\bc\.\s*acc\.\s*et\s*inf\./gi, '対格＋不定詞構文'],
+            [/\bc\.\s*gen\./gi, '属格を伴って'],
+            [/\bc\.\s*inf\./gi, '不定詞を伴って']
+        ];
+    compounds.forEach(([pattern, label]) => { result = result.replace(pattern, label); });
 
     Object.keys(terms).sort((a, b) => b.length - a.length).forEach(abbr => {
         const escaped = abbr.replace(/[.*+?^\${}()|[\]\\]/g, '\\$&');
