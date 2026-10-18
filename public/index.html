@@ -7789,19 +7789,30 @@ function _openEtymPopup(lexemeId) {
     const form  = entry?.headword || '';
     const gloss = entry?.gloss_ja || '';
     let   desc  = entry?.abbottSmith || '';
-    if (!desc && lexemeId) {
-        const digits = lexemeId.replace(/^grc:G/i, '');
-        desc = abbottSmithDict?.[digits]?.description || '';
-    }
+    const digits = lexemeId ? lexemeId.replace(/^grc:G/i, '') : '';
+    if (!desc) desc = abbottSmithDict?.[digits]?.description || '';
+
     const bd = document.getElementById('rn-etym-backdrop');
     if (!bd) return;
     document.getElementById('rn-etym-modal-gr').textContent = form;
     document.getElementById('rn-etym-modal-ja').textContent = gloss;
     const bodyEl = document.getElementById('rn-etym-modal-body');
-    bodyEl.innerHTML = desc
-        ? `<div class="rn-etym-as-label">Abbott-Smith</div>${_escH(desc).replace(/\n/g, '<br>')}`
-        : '<span class="rn-etym-empty">Abbott-Smithデータなし</span>';
+    const renderDescription = value => {
+        bodyEl.innerHTML = value
+            ? `<div class="rn-etym-as-label">Abbott-Smith</div>${_escH(value).replace(/\n/g, '<br>')}`
+            : '<span class="rn-etym-empty">Abbott-Smithデータなし</span>';
+    };
+    renderDescription(desc);
     bd.classList.add('open');
+
+    /* 辞書がまだ未読込なら、ポップアップ表示を妨げずに補完する。 */
+    if (!desc && lexemeId && !abbottSmithDict) {
+        loadDict().then(dict => {
+            if (!dict || !bd.classList.contains('open')) return;
+            if (document.getElementById('rn-etym-modal-gr')?.textContent !== form) return;
+            renderDescription(dict[digits]?.description || '');
+        });
+    }
 }
 
 function _resolveLemmaId(strong) {
@@ -9190,20 +9201,36 @@ const JPN_MAP = {
     person: { '1': '1人称', '2': '2人称', '3': '3人称' }
 };
 
-async function loadDict() {
-    try {
-        abbottSmithDict = {};
-        const resAbbott = await fetch('../assets/data/abbott-smith.tsv');
-        if (!resAbbott.ok) return;
-        const textAbbott = await resAbbott.text();
-        textAbbott.split(/\r?\n/).forEach(row => {
-            const cols = row.split('\t');
-            const strong = String(cols[0]).trim();
-            if (strong) {
-                abbottSmithDict[strong] = { description: cols[4]?.trim() || "" };
-            }
-        });
-    } catch (e) { console.error("Dict Error:", e); }
+let _abbottSmithDictPromise = null;
+
+/* 辞書は本文表示を妨げず、必要になったときに共有Promise経由で読み込む。 */
+function loadDict() {
+    if (abbottSmithDict && Object.keys(abbottSmithDict).length) {
+        return Promise.resolve(abbottSmithDict);
+    }
+    if (_abbottSmithDictPromise) return _abbottSmithDictPromise;
+
+    _abbottSmithDictPromise = (async () => {
+        try {
+            const resAbbott = await fetch('../assets/data/abbott-smith.tsv');
+            if (!resAbbott.ok) throw new Error(`Abbott-Smith fetch failed: ${resAbbott.status}`);
+            const textAbbott = await resAbbott.text();
+            const nextDict = {};
+            textAbbott.split(/\r?\n/).forEach(row => {
+                const cols = row.split('\t');
+                const strong = String(cols[0]).trim();
+                if (strong) nextDict[strong] = { description: cols[4]?.trim() || "" };
+            });
+            abbottSmithDict = nextDict;
+            return abbottSmithDict;
+        } catch (e) {
+            console.error("Dict Error:", e);
+            return null;
+        } finally {
+            _abbottSmithDictPromise = null;
+        }
+    })();
+    return _abbottSmithDictPromise;
 }
 
 /* ══════════════════════════════════════════
@@ -12144,7 +12171,7 @@ async function init() {
 
     sbInitState(book, chNum);
 
-    await loadDict();
+    /* Abbott-Smith辞書は本文描画のクリティカルパスから外す。 */
 
     const hasGreek = GREEK_BOOKS.has(book);
 
@@ -12216,6 +12243,8 @@ async function init() {
             { colMode: _colB, jpData: jpDataB },
         ];
         render(columns, elData, hasGreek && elData.length > 0);
+        /* 本文が描画された後に辞書をバックグラウンドで読み込む。 */
+        setTimeout(() => { void loadDict(); }, 0);
         _applyHighlights(); /* BUG-1: 初回ロード時、Storage準備済みで再適用 */
         requestAnimationFrame(() => requestAnimationFrame(() => {
             document.getElementById('bible-text-area').style.opacity = '1';
