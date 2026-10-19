@@ -87,3 +87,9 @@ If the text above differs on what to load or read, follow this section.
 - **Navigation**: `ReadingLocationBar` — The top-of-surface bar that answers "where am I in the Bible" (left, breadcrumb) separately from "how am I reading it" (right, chips)
 - **Structural Reading**: `StructuralNode` — The Reed–Kellogg-style box used by STRUCTURE, CLAUSE_ROLE and RELATION — one shared component, not three
 - **Reading**: `Verse` — The atomic reading unit: a verse number paired with reading text, in either verse-ja (Japanese translations) or verse-source (Greek, and future Hebrew)
+
+## Implementation note — theme-token alignment (2026-10-19)
+
+The current app implementation uses `public/css/tokens.css` as the shared runtime token source. The green accent is `--accent: #2c4f34`; semantic-domain markers and search lemma/phrase markers now follow that accent rather than retaining isolated purple/blue hues. Search marker distinctions must remain readable through labels and content, not hue alone. Structural Reading's function/construction/morphology colors remain a separate semantic system and were not changed in this pass.
+
+The design direction anticipates future red and blue product variants, but theme switching and variant-specific contrast/accessibility validation are not yet complete. See `DESIGN.md` for the implementation record and `docs/development/search-design-system.md` for search-specific token usage.
