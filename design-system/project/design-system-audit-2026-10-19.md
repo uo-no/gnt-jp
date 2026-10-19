@@ -65,6 +65,19 @@
 9. **Token provenance:** `design-system/project/tokens.json`、生成物の `tokens.css`、現行 `public/css/tokens.css` の関係と生成手順。生成物を手編集しない。
 10. **Screen audit matrix:** Reading / StudyPanel / Search / Highlights / Historyごとに、実装値、設計値、差分、目視検証状況を追跡する。
 
+### 暫定の不足定義案（採用前に目視検証）
+
+以下は実装済みの値ではなく、欠落していた設計項目を検討できる状態にするための提案である。
+
+- **Font weight:** 400 / 500 / 600 / 700。本文400、UIラベル500–600、強調700を基本候補とする。
+- **Line-height:** UI tight 1.35、UI body 1.6、日本語読書本文2.0–2.1、辞書・注釈本文1.5–1.7を候補とする。日本語本文とギリシャ語本文の現行値をセレクタ単位で確認してから確定する。
+- **Letter-spacing:** 本文0–0.01em、UIラベル0.04–0.10em、セクションラベル0.14emを候補とする。既存tracking tokenとの対応を整理する。
+- **Spacing:** 既存の4 / 8 / 16 / 24 / 32pxを基本とし、12px、section-gap 40px、48px、64pxを意味付き拡張候補として定義する。不要な値を増やすのではなく、実装上の反復と役割を確認して採否を決める。
+- **Responsive:** 390 / 480 / 520 / 600 / 768–800 / 900pxを候補群として棚卸しする。隣接する768/769、900/901は、切替挙動の確認後に整理する。
+- **Layering:** z-indexの共通役割スケールが未定義。header / drawer / StudyPanel / modal / overlayの重なり順を実装調査してから定義する。
+- **Interaction states:** default / hover / pressed / selected / focus-visible / disabled / loading / empty / errorを画面横断のチェック項目にする。
+- **Token source:** JSONと生成CSS、runtime CSSの生成関係を確認するまでは、生成物に新規キーを手作業で追加しない。
+
 これらは全ての値を機械的に一つに揃えるという意味ではない。読書本文、検索操作、構造意味色のように目的が違う値は、違いの理由を定義する。
 
 ## HTML参照
