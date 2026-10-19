@@ -60,15 +60,15 @@ Design Systemの役割別サイズは定義済みだが、runtime側には同じ
 
 | DS role | DS size / line-height / weight | Runtime evidence | Status / decision |
 |---|---|---|---|
-| `ui-caption` | 12px / 16px / 500 | `--text-caption: .75rem`（通常12px） | **部分一致**。行間・ウェイトはローカル指定。 |
+| `ui-caption` | 12px / 16px / 500 | `--text-caption: .75rem`（通常12px） | **部分一致**。captionサイズは共通、行間・ウェイトのトークンは段階導入中。 |
 | `ui-label` | 13px / 18px / 500 | `--text-label: 13px` | **部分一致**。行間・ウェイトはローカル指定。 |
 | `ui-body` | 15px / 22px / 400 | `--text-reading: 15px`、`--text-body: .9rem`（通常14.4px） | **判断待ち**。15px本文と14.4px UI本文は役割を分けて維持する可能性がある。 |
 | `ui-title` | 17px / 24px / 600 | `--text-title: 1.25rem`（通常20px） | **役割不一致の可能性**。同名扱いで統合しない。 |
 | `ui-display` | 22px / 28px / 600 | `--text-display: 2rem`（通常32px） | **不一致**。見出しの実装用途を確認してから対応づける。 |
-| `verse-ja` | 17px / 34px / 400 | `--text-body-lg: 1rem`（通常16px）、本文ルールに `line-height: 2.1` など | **要確認**。実装の本文サイズと行間をモード別に採取する。 |
+| `verse-ja` | 17px / 34px / 400 | `--text-body-lg: 1rem`（通常16px）、StudyPanel内本文は `--line-height-reading-ja: 2.1` / `--tracking-reading` | **部分対応**。行間・字間は役割トークン化済みだが、本文サイズ17pxへの変更は保留。表示モードごとの実効値を採取する。 |
 | `verse-ja-comparison` | 16px / 30px / 400 | 実装の複数の比較ルール | **要確認**。単一表示と比較表示は別役割として対応づける。 |
 | `verse-ja-compact` | 14px / 24px / 400 | ピッカー等のコンパクト表示 | **要確認**。通常本文へ統合しない。 |
-| `verse-source` | 18px / 34px / 400 | `--font-greek` はあるがサイズ・行間は複数箇所で指定 | **部分一致**。Greek本文・比較・語順表示を分けて確認する。 |
+| `verse-source` | 18px / 34px / 400 | `--font-greek` はあるがサイズ・行間は複数箇所で指定 | **部分一致**。Greek本文・比較・語順表示を分けて確認する。Greek見出しには `--line-height-greek-headword: 1.2` を導入済み。 |
 | `word-source-inline` | 16px / 26px / 400 | 語順・構造表示の個別指定 | **要確認**。単語チップと辞書見出しを同じ役割にしない。 |
 | `gloss-source` | 12px / 16px / 400 | 語義・グロスの個別指定 | **要確認**。日本語グロスとギリシャ語ソースのフォント役割を分ける。 |
 | `structural-tag` | 11px / 14px / 600 | runtimeの完全対応トークンなし | **未対応**。構造図に限定した役割トークン候補。 |
@@ -141,3 +141,31 @@ Design Systemの役割別サイズは定義済みだが、runtime側には同じ
 - Design Systemの値、runtimeの値、画面固有の値、ユーザー選択値が混同されていない。
 - 対応づけのないトークンが「不足」「意図的な別管理」「未使用候補」のどれかに分類されている。
 - 変更は見た目を変えない共通化から始め、意図的な見た目の変更は別コミットとして視覚確認後に実施する。
+
+## 10. 2026-10-19 実装移行ログ：Typography Phase B（値を変えない）
+
+runtime側に役割別line-height / weightトークンを追加し、同じ役割が確認できたセレクタから参照を切り替えた。**数値は変更していない。**
+
+- `public/css/tokens.css`:
+  - `--weight-regular: 400`, `--weight-medium: 500`, `--weight-semibold: 600`, `--weight-bold: 700`
+  - `--line-height-reading-ja: 2.1`
+  - `--line-height-reading-prose: 1.9`
+  - `--line-height-dictionary: 1.8`
+  - `--line-height-word-chip: 1.4`
+  - `--line-height-greek-headword: 1.2`
+  - `--tracking-reading: 0.01em`
+- `public/index.html`: `.reading-prose`, `.greek-headword`, StudyPanel内の節本文、辞書・用例本文、語チップの行間／字間を役割トークン参照に変更。
+- `public/index.html`: `.ui-label` と辞書・用例本文のfont-weightを共通weightトークン参照へ変更。
+- `public/search-tool.html`: `.s-label` のfont-weightを共通weightトークン参照へ変更。
+
+### この段階で変更していないこと
+
+- Design Systemの17px / 34pxという日本語本文規範を実装へ強制していない。
+- 検索専用の `--s-lh-*` / `--s-ts-*` は値と使用箇所の対応が完了するまで維持。
+- `public/index.html` の他の直接指定は一括置換していない。数値が同じでも用途が異なる可能性があるため。
+
+### 検証状況
+
+- GitHubから各変更ファイルを再取得し、トークン定義と参照への置換を確認。
+- ブラウザのcomputed style、視覚比較、Playwright回帰テストは未実施。トークンが定義されていない環境ではなく、通常のCSS読み込み順であることをブラウザ側で確認する必要がある。
+
