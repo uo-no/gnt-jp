@@ -98,5 +98,6 @@ The design direction anticipates future red and blue product variants, but theme
 
 - **Browser-viewable full reference:** [design-system.html](./design-system.html) — colors, typography, spacing, dimensions, shape, borders, shadows, motion, responsive behavior, components, accessibility, and unresolved differences.
 - **Cross-source audit:** [design-system-audit-2026-10-19.md](./design-system-audit-2026-10-19.md) — compares shared tokens, search-specific tokens, design decisions, and implementation; distinguishes confirmed values from unverified gaps.
+- **Runtime token mapping:** [runtime-token-mapping.md](./runtime-token-mapping.md) — maps `tokens.json` / generated `tokens.css` to `public/css/tokens.css`, including typography, color, spacing, shape, and motion.
 
 The HTML is a documentation surface, not a generated stylesheet or the token source of truth. Runtime shared tokens remain in `public/css/tokens.css`; the search surface still has its own `--s-*` token family in `public/search-tool.html`. When these differ, record the difference and its reason rather than silently assuming they are already unified.
