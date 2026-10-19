@@ -29,6 +29,14 @@
 - `public/search-tool.html` の `.s-label` で `--weight-semibold` を参照。
 - これらは元の数値と同値。見た目を変える意図はないが、ブラウザでの視覚確認はまだ行っていない。
 
+## 2026-10-19 追跡：Spacing / Radius
+
+- 共通runtime spacingへ12px / 48px / 64pxを拡張値として追加。既存の基本リズム値は維持。
+- 検索画面の `--s-sp-1`〜`--s-sp-8` を、値が一致する共通spacing tokenへのaliasに変更。
+- 検索画面のチップ角丸4pxとパネル角丸8pxを `--radius-s` / `--radius-m` へ接続。
+- 背景、独自フォント・行間、6px / 10px角丸、motionは未変更。
+- GitHubソースを再取得して確認。computed style・視覚比較・Playwrightは未実施。
+
 ## 共有トークンへの対応で優先する候補
 
 1. **高:** mvv-ref の色を --text-hint に統一（実装済み、視覚確認待ち）。
