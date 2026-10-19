@@ -93,3 +93,10 @@ If the text above differs on what to load or read, follow this section.
 The current app implementation uses `public/css/tokens.css` as the shared runtime token source. The green accent is `--accent: #2c4f34`; semantic-domain markers and search lemma/phrase markers now follow that accent rather than retaining isolated purple/blue hues. Search marker distinctions must remain readable through labels and content, not hue alone. Structural Reading's function/construction/morphology colors remain a separate semantic system and were not changed in this pass.
 
 The design direction anticipates future red and blue product variants, but theme switching and variant-specific contrast/accessibility validation are not yet complete. See `DESIGN.md` for the implementation record and `docs/development/search-design-system.md` for search-specific token usage.
+
+## Current full reference (2026-10-19)
+
+- **Browser-viewable full reference:** [design-system.html](./design-system.html) — colors, typography, spacing, dimensions, shape, borders, shadows, motion, responsive behavior, components, accessibility, and unresolved differences.
+- **Cross-source audit:** [design-system-audit-2026-10-19.md](./design-system-audit-2026-10-19.md) — compares shared tokens, search-specific tokens, design decisions, and implementation; distinguishes confirmed values from unverified gaps.
+
+The HTML is a documentation surface, not a generated stylesheet or the token source of truth. Runtime shared tokens remain in `public/css/tokens.css`; the search surface still has its own `--s-*` token family in `public/search-tool.html`. When these differ, record the difference and its reason rather than silently assuming they are already unified.
