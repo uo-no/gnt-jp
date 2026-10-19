@@ -258,3 +258,8 @@ GitHubから再取得し、先行ルールにモバイルセレクタが含ま�
 `public/index.html` のモバイル用CSSで、`#word-list-view .wlv-pn-prose p` と `#mobile-verse-area .wlv-pn-prose p` を同じルールにまとめていたが、後者の `font-size: var(--text-reading)` は直後の `font-size: var(--text-caption)` に上書きされていた。
 
 フォントサイズ指定を `#word-list-view .wlv-pn-prose p` に分離し、行間・字間は両方のセレクタで共有する形に変更。PC側は `--text-reading`、モバイルの節メモは従来どおり `--text-caption` となり、意図した表示値は維持される。GitHub再取得で旧ルールの削除と両方の有効指定を確認。ブラウザcomputed style・視覚回帰・Playwrightは未実施。
+
+
+## 18. Mobile dictionary text margin reset cleanup（2026-10-19）
+
+`public/index.html` の `#mobile-inspector-area .rn-dict-full-section .rn-dict-full-text` で指定していた `margin-top: 0` は、基本ルール `.rn-dict-full-text` に同じ値がすでにあり、モバイル側の追加指定としては重複していたため削除。モバイル固有の `overflow-wrap: anywhere` は維持。GitHub再取得で重複指定の削除と基本ルールの残存を確認。ブラウザ表示確認・Playwrightは未実施。
