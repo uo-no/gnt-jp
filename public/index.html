@@ -11896,9 +11896,11 @@ function _listItemCard(opts) {
     const previewHtml = opts.preview ? `<div class="list-item-preview">${_escH(opts.preview)}</div>` : '';
     const subHtml     = opts.sub ? `<div class="list-item-sub">${_escH(opts.sub)}</div>` : '';
     const metaHtml    = opts.meta ? `<div class="list-item-meta">${_escH(opts.meta)}</div>` : '';
-    const onclickAttr = opts.href ? ` onclick="location.href='${opts.href}'"` : '';
+    const hasHref = Boolean(opts.href);
+    const onclickAttr = hasHref ? ` onclick="location.href='${opts.href}'"` : '';
+    const keyboardAttr = hasHref ? ` tabindex="0" role="${opts.actions ? 'group' : 'link'}" onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();location.href='${opts.href}'}"` : '';
     const actionsHtml = opts.actions ? `<div class="list-item-actions" onclick="event.stopPropagation()">${opts.actions}</div>` : '';
-    return `<div class="list-item-card"${onclickAttr}><div class="list-item-main">${titleHtml}${previewHtml}${subHtml}</div>${metaHtml}${actionsHtml}</div>`;
+    return `<div class="list-item-card"${onclickAttr}${keyboardAttr}><div class="list-item-main">${titleHtml}${previewHtml}${subHtml}</div>${metaHtml}${actionsHtml}</div>`;
 }
 
 /* 最近読んだ箇所一覧画面。
@@ -21951,7 +21953,7 @@ async function _hlRenderHighlightList(app) {
             const previewHtml = verseText ? `<div class="list-item-preview">${_escH(verseText)}</div>` : '';
             const titleHtml = `<span class="hl-list-dot" data-color="${_escH(h.color)}"></span><span>${_escH(titleText)}</span>`;
             const subHtml   = `<div class="list-item-sub">${_escH(rangeLabel + ' · ' + _listMetaDate(h.createdAt))}</div>`;
-            return `<div class="list-item-card" onclick="location.href='${href}'"><div class="list-item-main"><div class="list-item-title">${titleHtml}</div>${previewHtml}${subHtml}</div></div>`;
+            return `<div class="list-item-card" role="link" tabindex="0" onclick="location.href='${href}'" onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();location.href='${href}'}"><div class="list-item-main"><div class="list-item-title">${titleHtml}</div>${previewHtml}${subHtml}</div></div>`;
         }).join('');
     } else if (_hlListFilter === 'all' && !totalHL) {
         rowsHtml = `<p class="list-item-empty">ハイライトはまだありません。読んでいて残しておきたい箇所を選んで色をつけることができます。</p>`;
