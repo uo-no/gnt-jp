@@ -89,3 +89,25 @@
 - GitHub上の対象ファイルを再取得してソース内容を確認。
 - 色トークン変更と今回のfocus-visible輪郭変更はGitHub上で再取得確認済み。読書画面の紫色fallbackは0件になった。
 - HTMLのブラウザ表示・全画面の視覚回帰テスト・コントラスト実測は未実施。
+
+## 2026-10-19 追跡監査：フォーカス輪郭・残存色・トークン構造
+
+### 実装変更済み（GitHub再取得で確認）
+
+- `public/index.html`: `#study-verse-nav`、履歴／読書カード、StudyPanel内の読書アクションなど主要な `focus-visible` 輪郭を `var(--focus-ring)` に揃えた。
+- `public/index.html`: `--color-domain` の紫色fallback `#7a7aaa` を全5箇所で除去し、`var(--color-domain, var(--accent))` に置換した。現在のファイルに `#7a7aaa` は0件。
+- `public/search-tool.html`: `.layer-row:focus-visible` と `.discovery-verse-pill:focus-visible` を `--focus-ring` 参照に変更した。
+- 上記の変更はGitHubから再取得してソース内容を確認。ブラウザ表示や視認性の目視確認は未実施。
+
+### 残す色と残存候補
+
+- `public/index.html` の黄色／青／緑／ピンクのハイライトはユーザーが選ぶマーク色で、Product Accentとは役割が異なる。緑テーマ化のために単色へ潰さない。
+- `public/css/components.css` の `.app-badge--blue`、`.app-badge--green`、`.app-badge--amber` は対象の読書画面・検索画面でクラス使用が見つからず、定義だけが残っている。現在の見た目に影響するとは確認できないため、この段階では削除せず、後日全体の参照確認後に整理する。
+- 構造読解のFUNCTION / CONSTRUCTION / MORPHOLOGY色、成功・注意・エラー色は意味色として維持する。RK固有色は今回のUI統一対象外。
+
+### トークン正本の関係（修正）
+
+- `design-system/project/tokens.json` → `design-system/project/tokens.css` は生成関係がファイル冒頭に明記されている。
+- 現行アプリのruntimeは別ファイル `public/css/tokens.css` を参照している。両体系は命名・粒度・一部値が異なり、Design System側には役割別の文字サイズ・行間・ウェイトがある一方、runtime側は行間・ウェイトの役割別トークンを持たない。
+- よって問題は「トークンが存在しない」だけではなく、**設計トークンとruntimeトークンの対応づけがない**こと。次の作業では両者の対応表を作り、画面単位で差分を分類する。生成CSSを直接手編集しない。
+
