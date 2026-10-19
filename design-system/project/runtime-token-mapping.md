@@ -169,3 +169,10 @@ runtime側に役割別line-height / weightトークンを追加し、同じ役�
 - GitHubから各変更ファイルを再取得し、トークン定義と参照への置換を確認。
 - ブラウザのcomputed style、視覚比較、Playwright回帰テストは未実施。トークンが定義されていない環境ではなく、通常のCSS読み込み順であることをブラウザ側で確認する必要がある。
 
+## 11. Spacing / Radius Phase B（2026-10-19）
+
+- `public/css/tokens.css` に `--space-3: 12px`、`--space-7: 48px`、`--space-8: 64px` を追加。基本の読書リズム5値は変更せず、既存画面とDesign Systemの間隔段階を対応させた。
+- `public/search-tool.html` の `--s-sp-1`〜`--s-sp-8` はローカル名を保ちつつ、同値の共通spacing tokenを参照するaliasに変更。
+- `--s-radius-chip`（4px）を `--radius-s`、`--s-radius-panel`（8px）を `--radius-m` に接続。
+- 6px / 10px角丸、検索画面独自の背景色、フォント、line-height、motionは今回変更していない。
+- GitHubから再取得して定義とaliasを確認。ブラウザcomputed style・視覚回帰・Playwrightは未実施。
