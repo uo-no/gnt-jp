@@ -380,7 +380,7 @@ DS はトークン構造は定義しているが、アプリ上での言語テ�
 
 Reed–Kellogg 式のネスト+インデント表現。`structural-connector` 色の細い接続線で親子関係を示す。既定は FUNCTION 層のみ展開、CONSTRUCTION/MORPHOLOGY はタップで開く（Progressive Disclosure）。
 
-**focus-visible の競合 (CONFIRMED from code):** 現行は `outline: 2px solid var(--color-domain, #7a7aaa)`（紫）。DS は `focus-ring: ink-primary`。方針が一致していない。focus-ring を ink-primary に変更する方針自体は §7-1 で CONFIRMED 済み。実装後、StructuralNode 上での境界線との視覚的区別が保たれるかを目視確認する（H-8、👁 VISUAL REVIEW）。
+**focus-visible の競合（旧監査結果・解消コード反映済み）:** 以前は `outline: 2px solid var(--color-domain, #7a7aaa)`（紫）など、アクセント色を使う箇所があった。2026-10-19に読書画面と検索画面の主要なfocus-visible輪郭を `--focus-ring`（本文色）参照へ更新し、読書画面の紫fallbackも解消した。GitHub上の再取得では反映確認済み。StructuralNodeの境界や他の操作要素との視覚的区別はブラウザ目視確認待ち。
 
 ### 6-3. ReadingModePicker（再設計要件）🔶 PROVISIONAL
 
@@ -417,7 +417,7 @@ DS が定義する連続スクロール型の Mobile Comparison（`space-7` で�
 **原則:** フォーカスリングはアクセント色（`accent-greek-700`）・構造色（`structural-*`）・選択状態（`surface-selected`）と混同しないよう、意図的に ink 色にする。
 
 **現行との競合 (CONFIRMED from code):**
-- `StructuralNode` の `.hdg-clause--sub > .hdg-clause-label:focus-visible`: `var(--color-domain, #7a7aaa)`（紫）
+- `StructuralNode` の `.hdg-clause--sub > .hdg-clause-label:focus-visible`: `var(--focus-ring, var(--text))`（本文色参照。実装コード上の確認済み）
 - WORD_ORDER モード時: `outline-color: #3a6aab`（青のオーバーライド）
 - `.role-view:focus-visible`: `var(--accent)`（青灰）
 
@@ -586,6 +586,6 @@ Structural Reading 各層は色に加えて `structural-tag` ラベルを必ず�
 - 閲覧用HTML: `design-system.html`
 - 監査記録: `design-system-audit-2026-10-19.md`
 
-この監査で、共通トークンと実装の間に直指定・別体系・未確定値が残っていることを記録した。特に共通の文字サイズトークンはあるが、line-height / font-weightの役割別スケールが不足している。検索画面には別の文字サイズ・行間・余白・角丸・duration体系がある。ブレークポイント、タップ領域、フォーカス輪郭、コントラスト、reduced-motionの全画面検証も未完了。
+この監査で、共通トークンと実装の間に直指定・別体系・未確定値が残っていることを記録した。`design-system/project/tokens.json` には役割別の文字サイズ・行間・ウェイトがあるが、生成CSSと現行 `public/css/tokens.css` は別体系で、runtimeへの対応づけが未完了。検索画面にも独自の文字サイズ・行間・余白・角丸・duration体系がある。ブレークポイント、タップ領域、フォーカス輪郭の視認性、コントラスト、reduced-motionの全画面検証も未完了。
 
 **状態の注意:** 本文中の古い監査記録は、当時のコードを記述した履歴として残す。後日の実装で値が変わった項目（例: `--color-domain` の紫色フォールバック記述）は、最新の実装確認を示すものとして参照せず、現在の状態は上記監査ファイルと `public/css/tokens.css` を優先する。HTML・監査記録の作成はブラウザでの目視検証を意味しない。
