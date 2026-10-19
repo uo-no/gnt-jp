@@ -56,11 +56,11 @@
 
 ## 4. Typography roles
 
-Design Systemの役割別サイズは定義済みだが、runtime側には同じ粒度の役割トークンがない。フォントファミリーも完全一致していない。**ここは値を機械的に変換せず、画面・状態ごとの役割対応を先に決める。**
+Design Systemの役割別サイズとruntime tokenは粒度・名前・値が完全一致していない。一方、runtime側にはweight / line-height / trackingの役割別tokenを導入済み。**ここは値を機械的に変換せず、画面・状態ごとの役割対応を先に決める。**
 
 | DS role | DS size / line-height / weight | Runtime evidence | Status / decision |
 |---|---|---|---|
-| `ui-caption` | 12px / 16px / 500 | `--text-caption: .75rem`（通常12px） | **部分一致**。captionサイズは共通、行間・ウェイトのトークンは段階導入中。 |
+| `ui-caption` | 12px / 16px / 500 | `--text-caption: .75rem`（通常12px） | **部分一致**。captionサイズは共通。weight role tokenは導入済みだが、全セレクタが参照しているとは限らない。 |
 | `ui-label` | 13px / 18px / 500 | `--text-label: 13px` | **部分一致**。行間・ウェイトはローカル指定。 |
 | `ui-body` | 15px / 22px / 400 | `--text-reading: 15px`、`--text-body: .9rem`（通常14.4px） | **判断待ち**。15px本文と14.4px UI本文は役割を分けて維持する可能性がある。 |
 | `ui-title` | 17px / 24px / 600 | `--text-title: 1.25rem`（通常20px） | **役割不一致の可能性**。同名扱いで統合しない。 |
@@ -87,7 +87,7 @@ Design Systemの役割別サイズは定義済みだが、runtime側には同じ
 
 | Role | Design System | Runtime | Status / decision |
 |---|---|---|---|
-| spacing scale | 4, 8, 12, 16, 24, 32, 48, 64px | `--space-xs/sm/md/lg/xl` = 4, 8, 16, 24, 32px。ほかに直接指定が残る | **部分対応**。12/48/64pxはDSに定義があるがruntimeの汎用spacing tokenにはない。40pxや画面固有寸法は意味を調べてから扱う。 |
+| spacing scale | 4, 8, 12, 16, 24, 32, 48, 64px | `--space-xs/sm/3/md/lg/xl/7/8` = 4, 8, 12, 16, 24, 32, 48, 64px | **token値は対応済み**。40pxなどの直接指定は意味を調べてから扱う。 |
 | radius | 4, 8, 16, 999px | `--radius-s/m/l/pill` = 同値 | **値一致**。検索画面には6px・10pxなど別の役割がある。 |
 | border width | 1 / 1.5 / 2px | 直接指定が中心 | **未対応**。既存境界の強さを見てから役割トークン候補を追加。 |
 | shadow | `shadow-panel`, `shadow-sheet` | `--shadow-card` | **部分対応**。パネルとモバイルシートの区別がruntimeにない。 |
@@ -104,8 +104,8 @@ Design Systemの役割別サイズは定義済みだが、runtime側には同じ
 - **近いが同一でない色:** `--s-bg: #f5f3ee`、`--s-surface-2: #f0ede6`、`--s-border: #ddd9cf`、`--s-divider: #e8e4db`。runtimeの背景・境界と値が異なるため、検索結果の階層を目視してから決める。
 - **フォント:** `--s-ff-ui` / `--s-ff-prose` / `--s-ff-greek` はruntime familyに近いがfallbackが異なる。文字化け・ギリシャ語字形を確認してから統合。
 - **文字サイズ・行間・字間:** `--s-ts-*`, `--s-lh-*`, `--s-ls-*` は検索結果と絞り込みUIの役割別尺度。名前が違うだけでなく値もruntimeの尺度と異なるので、1対1で機械置換しない。
-- **余白:** `--s-sp-1…8` は4/8/12/16/24/32/48/64px。runtimeの4/8/16/24/32pxと重なる値はあるが、12/48/64pxを追加する前に他の画面で同じ役割があるか確認。
-- **角丸:** input/chip/button/modal/panelで4/6/6/10/8px。runtimeの4/8/16pxとは部分一致。検索固有の入力・モーダル形状として残す可能性あり。
+- **余白:** `--s-sp-1…8` は4/8/12/16/24/32/48/64pxで、現在は `--space-xs/sm/3/md/lg/xl/7/8` へのalias接続済み。検索側の意味名を維持し、同じ値でも役割が異なる直接指定は別途確認。
+- **角丸:** 検索のchip 4pxとpanel 8pxは `--radius-s` / `--radius-m` にalias接続済み。6px・10pxなどの残りは検索固有の入力・モーダル形状として維持し、役割確認なしに4/8pxへ置換しない。
 - **duration:** 140/180/220/280ms。既存runtimeの150/200/300msへ置換する場合は、検索操作の体感と回帰テストが必要。
 
 ## 7. Migration plan — 先に行うこと／後で行うこと
@@ -263,3 +263,13 @@ GitHubから再取得し、先行ルールにモバイルセレクタが含ま�
 ## 18. Mobile dictionary text margin reset cleanup（2026-10-19）
 
 `public/index.html` の `#mobile-inspector-area .rn-dict-full-section .rn-dict-full-text` で指定していた `margin-top: 0` は、基本ルール `.rn-dict-full-text` に同じ値がすでにあり、モバイル側の追加指定としては重複していたため削除。モバイル固有の `overflow-wrap: anywhere` は維持。GitHub再取得で重複指定の削除と基本ルールの残存を確認。ブラウザ表示確認・Playwrightは未実施。
+
+
+## 12. 2026-10-19 更新：現在のruntime token状態
+
+この表の初期記述の一部は、同日進めたPhase Bの実装を反映していなかったため修正した。
+
+- `public/css/tokens.css`: weight 400/500/600/700、役割別line-height（2.1 / 1.9 / 1.8 / 1.4 / 1.2）、tracking token（.01em / .1em / .08em / .045em / .14em）が定義済み。
+- spacing tokens `--space-3` (12px)、`--space-7` (48px)、`--space-8` (64px) を追加し、runtime spacing scaleは4 / 8 / 12 / 16 / 24 / 32 / 48 / 64pxとなった。
+- `public/search-tool.html` の `--s-sp-1…8` は対応するruntime spacing tokensへalias接続済み。`--s-radius-chip` と `--s-radius-panel` もそれぞれ `--radius-s` / `--radius-m` を参照する。
+- これらは値・aliasの接続状態を示す。全画面での実効スタイルや見た目の検証完了を意味しない。日本語本文16px/2.1と17px/34pxの設計差、検索専用のtype/line-height/tracking、40pxの余白や個別寸法は引き続き役割別の確認対象。
