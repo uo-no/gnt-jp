@@ -235,3 +235,12 @@ runtime側に役割別line-height / weightトークンを追加し、同じ役�
 - 残る差は単なる「token未使用」ではなく、モバイル固有の上書き、固定pxの行高、表示モードの違いが混在している。
 - 次の変更候補は、まず mobile override のcascadeを解析し、到達不能・重複している宣言を確認すること。サイズ値の変更や固定pxの一括置換はしない。
 - この表はGitHub上のCSSソースを対象にした静的照合。ブラウザcomputed style、実画面でのフォントレンダリング、Playwrightによる視覚回帰は未実施。
+
+
+## 15. Mobile chip typography override cleanup（2026-10-19）
+
+`public/index.html` の `@media (max-width: 600px)` 内で、`.wlv-chip-ja` に対する `#mobile-verse-area` / `#mobile-inspector-area` の `font-size: 16px; line-height: 1.5` が、後続の同じmedia query内で `font-size: var(--text-body-lg) !important; line-height: 1.4` に上書きされていた。
+
+この2つのモバイルセレクタを先行ルールから外し、`#word-list-view .wlv-chip-ja` にのみ `16px / 1.5` を残した。モバイル表示の最終値は変更せず、上書き済みの宣言だけを削除した。これによりモバイル側の文字サイズ指定が二重に見える状態を解消した。
+
+GitHubから再取得し、先行ルールにモバイルセレクタが含まれないこと、および後段の `!important` 指定が残っていることを確認。ブラウザcomputed style、モバイル/デスクトップの視覚回帰、Playwrightは未実施。
