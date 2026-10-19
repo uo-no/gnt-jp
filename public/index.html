@@ -2401,6 +2401,10 @@ animation: ac-blink 1.2s ease-in-out infinite;
     transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 .list-item-card:hover, .list-item-card:focus-within { background: var(--highlight-light); border-left-color: var(--highlight); }
+.list-item-card[tabindex="0"]:focus-visible {
+    outline: 2px solid var(--highlight);
+    outline-offset: 2px;
+}
 .list-item-main { min-width: 0; flex: 1; }
 .list-item-title {
     font-size: var(--text-body);
@@ -2662,6 +2666,10 @@ animation: ac-blink 1.2s ease-in-out infinite;
     -webkit-tap-highlight-color: transparent;
 }
 .rv-continue-card:hover { background: var(--accent-light); }
+.rv-continue-card:focus-visible {
+    outline: 2px solid var(--highlight);
+    outline-offset: 2px;
+}
 .rv-continue-loc {
     font-size: var(--text-body);
     font-weight: 500;
@@ -11898,7 +11906,7 @@ function _listItemCard(opts) {
     const metaHtml    = opts.meta ? `<div class="list-item-meta">${_escH(opts.meta)}</div>` : '';
     const hasHref = Boolean(opts.href);
     const onclickAttr = hasHref ? ` onclick="location.href='${opts.href}'"` : '';
-    const keyboardAttr = hasHref ? ` tabindex="0" role="${opts.actions ? 'group' : 'link'}" onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();location.href='${opts.href}'}"` : '';
+    const keyboardAttr = hasHref ? ` tabindex="0" role="${opts.actions ? 'group' : 'link'}" onkeydown="if(event.target===this&&event.key==='Enter'){event.preventDefault();location.href='${opts.href}'}"` : '';
     const actionsHtml = opts.actions ? `<div class="list-item-actions" onclick="event.stopPropagation()">${opts.actions}</div>` : '';
     return `<div class="list-item-card"${onclickAttr}${keyboardAttr}><div class="list-item-main">${titleHtml}${previewHtml}${subHtml}</div>${metaHtml}${actionsHtml}</div>`;
 }
@@ -11951,7 +11959,7 @@ async function showRecentVerses() {
         continueHtml = `
             <section class="rv-continue-section">
                 <div class="rv-section-label">続きを読む</div>
-                <div class="rv-continue-card" onclick="location.href='${href}'">
+                <div class="rv-continue-card" role="link" tabindex="0" onclick="location.href='${href}'" onkeydown="if(event.target===this&&event.key==='Enter'){event.preventDefault();location.href='${href}'}">
                     <div class="rv-continue-loc">${_escH(bookName)} ${_escH(String(latest.chapter))}:${_escH(String(latest.verse))}</div>
                     ${previewHtml}
                     <div class="rv-continue-action">読む →</div>
@@ -21953,7 +21961,7 @@ async function _hlRenderHighlightList(app) {
             const previewHtml = verseText ? `<div class="list-item-preview">${_escH(verseText)}</div>` : '';
             const titleHtml = `<span class="hl-list-dot" data-color="${_escH(h.color)}"></span><span>${_escH(titleText)}</span>`;
             const subHtml   = `<div class="list-item-sub">${_escH(rangeLabel + ' · ' + _listMetaDate(h.createdAt))}</div>`;
-            return `<div class="list-item-card" role="link" tabindex="0" onclick="location.href='${href}'" onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();location.href='${href}'}"><div class="list-item-main"><div class="list-item-title">${titleHtml}</div>${previewHtml}${subHtml}</div></div>`;
+            return `<div class="list-item-card" role="link" tabindex="0" onclick="location.href='${href}'" onkeydown="if(event.target===this&&event.key==='Enter'){event.preventDefault();location.href='${href}'}"><div class="list-item-main"><div class="list-item-title">${titleHtml}</div>${previewHtml}${subHtml}</div></div>`;
         }).join('');
     } else if (_hlListFilter === 'all' && !totalHL) {
         rowsHtml = `<p class="list-item-empty">ハイライトはまだありません。読んでいて残しておきたい箇所を選んで色をつけることができます。</p>`;
