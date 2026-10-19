@@ -107,7 +107,7 @@
 
 ### トークン正本の関係（修正）
 
-- `design-system/project/tokens.json` → `design-system/project/tokens.css` は生成関係がファイル冒頭に明記されている。詳細な値の対応表は [runtime-token-mapping.md](./runtime-token-mapping.md) に分離した。
+- `design-system/project/tokens.json` → `design-system/project/tokens.css` は生成関係がファイル冒頭に明記されている。詳細な値の対応表は [runtime-token-mapping.md](./runtime-token-mapping.md) に分離した。画面別の実装値と検証項目は [screen-style-audit-2026-10-19.md](./screen-style-audit-2026-10-19.md) に記録した。
 - 現行アプリのruntimeは別ファイル `public/css/tokens.css` を参照している。両体系は命名・粒度・一部値が異なり、Design System側には役割別の文字サイズ・行間・ウェイトがある一方、runtime側は行間・ウェイトの役割別トークンを持たない。
 - よって問題は「トークンが存在しない」だけではなく、**設計トークンとruntimeトークンの対応づけがない**こと。次の作業では両者の対応表を作り、画面単位で差分を分類する。生成CSSを直接手編集しない。
 
