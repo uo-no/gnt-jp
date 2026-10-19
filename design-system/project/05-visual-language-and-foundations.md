@@ -32,7 +32,7 @@ Structural axis   ↑ top to bottom      （階層・従属関係）
 3つの意味レイヤーを、色相ではなく色相+明度+ラベルの組み合わせで区別する（`structural-function-*` / `structural-construction-*` / `structural-morphology-*`、いずれも `structural-tag` という同一の小さなラベルクラスでテキストを添える）：
 
 - **FUNCTION**（主語・動詞・目的語・補語など文法上の働き）— 淡い青系の箱（`structural-function-fill`）。
-- **CONSTRUCTION**（同格・並列・節の入れ子といった構成関係）— 淡い紫系の箱（`structural-construction-fill`）。
+- **CONSTRUCTION**（同格・並列・節の入れ子といった構成関係）— 淡い青緑系の箱（`structural-construction-fill`。現行値 `#cce6db`）。
 - **MORPHOLOGY**（格・時制・法などの語形変化タグ）— 淡い緑系のチップ（`structural-morphology-fill`）。MORPHOLOGYの緑はProduct Accentの`accent-greek-*`とは明度・彩度が異なる別トークンであり、意味の混同を避ける（§4参照）。
 
 色・線・レイアウト・Typography・Spacing・Shapeは、情報量を増やすためではなく、構造的意味がより直感的に理解できるようにするために使う。1つの文に3層すべてを同時に、常時オーバーレイしない——既定はFUNCTIONのみを見せ、CONSTRUCTIONとMORPHOLOGYはProgressive Disclosure（§5）で段階的に開く。
@@ -122,7 +122,7 @@ Reading Measure（1行あたりの文字数・行幅）は、Spacing（§5, 縦�
 
 ## 8. 2026-10-19 実装更新メモ — テーマ色と意味マーカー
 
-現在の緑版実装では、意味領域マーカー `--color-domain` と検索画面の lemma / phrase マーカーを固定色から共通アクセントトークン参照へ変更した。検索画面では `--lemma` / `--phrase` が `--s-accent`、背景・枠線が `--s-accent-soft` / `--s-accent-mid` を参照する。
+現在の緑版実装では、意味領域マーカー `--color-domain` と検索画面の lemma / phrase マーカーを固定色から共通アクセントトークン参照へ変更した。検索画面では `--lemma` / `--phrase` が `--s-accent`、背景・枠線が `--s-accent-soft` / `--s-accent-mid` を参照する。さらに、読書画面と検索画面の主要な `focus-visible` 輪郭を `--focus-ring`（本文色）参照へ揃え、読書画面に残っていた紫色のfallbackも解消した。コードはGitHub上で再取得確認済みだが、実際の画面で構造境界とフォーカス輪郭が十分区別できるかは目視未検証。
 
 この変更は「緑版の色相を揃え、将来の赤版・青版でテーマ色を差し替えやすくする」ための実装上の整理である。**Structural Reading の FUNCTION / CONSTRUCTION / MORPHOLOGY の塗り・文字色トークンは別の意味体系であり、今回の変更対象ではない。** また、色だけで分類せず、ラベルや形状を残す。
 
@@ -132,4 +132,4 @@ Reading Measure（1行あたりの文字数・行幅）は、Spacing（§5, 縦�
 
 デザイン値の横断確認は [design-system.html](./design-system.html) と [design-system-audit-2026-10-19.md](./design-system-audit-2026-10-19.md) に集約した。配色に限らず、font family / size / weight / line-height / letter-spacing、spacing、layout dimensions、radius、border、shadow、opacity、motion、breakpoint、focus、tap target、reduced-motionの定義・実装差分を追跡する。
 
-現在の共通UIトークンと検索画面固有トークンは完全には統合されていない。実装に残る直指定を全て一律に消すのではなく、用途・意味を確認してから共通化する。
+Design Systemの `tokens.json` から生成される `design-system/project/tokens.css` と、現行アプリが参照する `public/css/tokens.css` は別体系である。前者には役割別の文字サイズ・行間・ウェイトが定義されるが、後者への対応づけは未完了。検索画面にも独自の `--s-*` 体系が残る。実装に残る直指定を全て一律に消すのではなく、用途・意味を確認してから共通化する。
