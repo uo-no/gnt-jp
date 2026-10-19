@@ -244,3 +244,10 @@ runtime側に役割別line-height / weightトークンを追加し、同じ役�
 この2つのモバイルセレクタを先行ルールから外し、`#word-list-view .wlv-chip-ja` にのみ `16px / 1.5` を残した。モバイル表示の最終値は変更せず、上書き済みの宣言だけを削除した。これによりモバイル側の文字サイズ指定が二重に見える状態を解消した。
 
 GitHubから再取得し、先行ルールにモバイルセレクタが含まれないこと、および後段の `!important` 指定が残っていることを確認。ブラウザcomputed style、モバイル/デスクトップの視覚回帰、Playwrightは未実施。
+
+
+## 16. Mobile StudyPanel spacing override cleanup（2026-10-19）
+
+`public/index.html` の最初の `@media (max-width: 600px)` 内にあった `#mobile-inspector-area .wlv-flow-section-compact { padding-top: 18px; }` は、後続の同じブレークポイントで `#mobile-inspector-area .wlv-flow-section-compact` を含むルールが `padding: 16px 18px 0` を指定しており、全方向のpaddingが上書きされていたため削除。
+
+有効な後続ルールと最終表示値は維持。GitHubから再取得し、先行指定の削除と後続指定の残存を確認した。ブラウザcomputed style・視覚回帰・Playwrightは未実施。
