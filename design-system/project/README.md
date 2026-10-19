@@ -101,4 +101,11 @@ The design direction anticipates future red and blue product variants, but theme
 - **Runtime token mapping:** [runtime-token-mapping.md](./runtime-token-mapping.md) — maps `tokens.json` / generated `tokens.css` to `public/css/tokens.css`, including typography, color, spacing, shape, and motion.
 - **Screen audit matrix:** [screen-style-audit-2026-10-19.md](./screen-style-audit-2026-10-19.md) — observed CSS values for Reading, StudyPanel, Search, Highlights, and History, with next verification steps.
 
-The HTML is a documentation surface, not a generated stylesheet or the token source of truth. Runtime shared tokens remain in `public/css/tokens.css`; the search surface still has its own `--s-*` token family in `public/search-tool.html`. When these differ, record the difference and its reason rather than silently assuming they are already unified.
+The HTML is a documentation surface, not a generated stylesheet or the token source of truth. The editable reference is `design-system/project/design-system.html`; its deployable copy is `public/design-system.html`, opened from the desktop Information (i) menu. When the reference changes, update both files and convert document links in the public copy to GitHub URLs. Runtime shared tokens remain in `public/css/tokens.css`; `design-system/project/tokens.json` generates `design-system/project/tokens.css`; the search surface keeps role-specific `--s-*` names in `public/search-tool.html`, with spacing and selected radius aliases connected to runtime tokens. When these differ, record the difference and its reason rather than silently assuming they are already unified.
+
+
+## Public reference entry
+
+- Public URL after deployment: `https://bible-text.pages.dev/design-system.html`
+- Desktop entry: Information (i) menu → 「デザインシステム」. It opens in a new tab so the reading position remains available.
+- The HTML is a current implementation reference, not a claim that every visual state has been browser-tested. See the status section in the HTML for confirmed source checks and outstanding visual verification.
