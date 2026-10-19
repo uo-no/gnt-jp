@@ -176,3 +176,13 @@ runtime側に役割別line-height / weightトークンを追加し、同じ役�
 - `--s-radius-chip`（4px）を `--radius-s`、`--s-radius-panel`（8px）を `--radius-m` に接続。
 - 6px / 10px角丸、検索画面独自の背景色、フォント、line-height、motionは今回変更していない。
 - GitHubから再取得して定義とaliasを確認。ブラウザcomputed style・視覚回帰・Playwrightは未実施。
+
+## 12. Search typography Phase B（2026-10-19・同値置換）
+
+`public/search-tool.html` 内で繰り返し使われていた3つのfont-size直接指定を、同じ値を持つ既存の検索用タイポグラフィトークンへ移行した。
+
+- `font-size: 0.72rem`：8箇所 → `var(--s-ts-xs)`
+- `font-size: 0.82rem`：3箇所 → `var(--s-ts-sm)`
+- `font-size: 0.92rem`：2箇所 → `var(--s-ts-base)`
+
+いずれもトークン定義と同じ値で、サイズ変更を意図しない。GitHubから再取得し、対象の直接指定が0件になったことを確認した。検索画面には `0.6rem` など、別の情報密度・バッジ階層のために残している値もあるため、一括置換は行っていない。視覚回帰・Playwrightは未実施。
