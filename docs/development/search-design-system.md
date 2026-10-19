@@ -722,3 +722,20 @@ StudyPanel の「さらに調べる」セクションからの導線、および
 | §10.5 G-3 境界 | G-3 | 検索ツール画面役割境界確定・FROZEN（Concordance 独立・Morph/Syntax は Research Side Panel 内） |
 
 **次フェーズ**: UX-9（実装フェーズ）は本文書の §5 CTA Hierarchy および §4 Component System を根拠として進める。
+
+---
+
+## 12. 2026-10-19 テーマ色トークン更新
+
+検索画面の語句・句マーカーは、個別の固定色ではなくアプリのテーマアクセントを参照する。
+
+- `--lemma` / `--phrase`: `var(--s-accent)`
+- `--lemma-bg` / `--phrase-bg`: `var(--s-accent-soft)`
+- `--lemma-border` / `--phrase-border`: `var(--s-accent-mid)`
+- `--s-accent` / `--s-accent-soft` / `--s-accent-mid` は `public/css/tokens.css` の共通アクセントトークンに接続する。
+- 検索結果内の lemma 下線もテーマの中間アクセントを参照する。
+- lemma と phrase の区別は色相差に頼らず、既存の種別ラベル・結果内容で表す。
+
+選択中の lemma / phrase / proximity / morphology の枠とチェック状態も共通アクセントに揃えている。パターン探索チップは用途上の文脈スタイルを維持する。
+
+この記録は実装状態の記録であり、ブラウザでの目視確認やコントラスト検証が完了したことを意味しない。将来の赤版・青版では、テーマ切替機構と色の識別性を別途検証する。
