@@ -127,3 +127,9 @@ Reading Measure（1行あたりの文字数・行幅）は、Spacing（§5, 縦�
 この変更は「緑版の色相を揃え、将来の赤版・青版でテーマ色を差し替えやすくする」ための実装上の整理である。**Structural Reading の FUNCTION / CONSTRUCTION / MORPHOLOGY の塗り・文字色トークンは別の意味体系であり、今回の変更対象ではない。** また、色だけで分類せず、ラベルや形状を残す。
 
 実装反映は GitHub 上で確認済み。ブラウザでの目視確認・アクセシビリティ検証は未実施。
+
+## 9. 全体スタイル監査の参照（2026-10-19）
+
+デザイン値の横断確認は [design-system.html](./design-system.html) と [design-system-audit-2026-10-19.md](./design-system-audit-2026-10-19.md) に集約した。配色に限らず、font family / size / weight / line-height / letter-spacing、spacing、layout dimensions、radius、border、shadow、opacity、motion、breakpoint、focus、tap target、reduced-motionの定義・実装差分を追跡する。
+
+現在の共通UIトークンと検索画面固有トークンは完全には統合されていない。実装に残る直指定を全て一律に消すのではなく、用途・意味を確認してから共通化する。
