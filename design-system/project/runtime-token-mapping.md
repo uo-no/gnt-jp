@@ -209,3 +209,29 @@ runtime側に役割別line-height / weightトークンを追加し、同じ役�
 ### 実施判断
 
 この走査では、異なる意味の値を無理に共通化するリスクを避け、コード変更は行っていない。次のコード移行は、同じ画面役割であることと、実効値が同等であることを確認できたセレクタに限定する。ブラウザのcomputed styleおよび視覚回帰は未実施。
+
+
+## 14. Reading / StudyPanel selector-level typography mapping（2026-10-19）
+
+`public/index.html` と `public/css/tokens.css` を照合し、現行セレクタ単位の対応を追加記録。ここでは値を変えるコード修正は行わず、同じトークンを使っていても上書きや表示モード差がある箇所を明示する。
+
+| Selector / region | Current size | Other typography | Mapping decision |
+|---|---|---|---|
+| `.verse-pair-right .jp-text`（比較表示の日本語） | `--text-body-lg` = `1rem` | `line-height: 30px`、`--font-prose` | 本文サイズtokenは既存利用。行高は固定pxなので、可変化は視覚確認後に判断。 |
+| `#mobile-verse-area .mvv-body`（モバイル節本文） | `--text-body` = `0.9rem` | `line-height: 1.9` | 比較表示より小さいが、別のモバイル表示領域。表示モード間の意図を確認せず拡大しない。 |
+| `#mobile-verse-area .mvv-ref`（節参照） | `--text-caption` = `0.75rem` | weight 600、hint色 | UI補助情報として一貫。本文tokenへ統合しない。 |
+| `.wlv-chip-ja`（語順チップ日本語） | `--text-body-lg` = `1rem` | prose font、line-height指定あり | 基本ルールはtoken利用済み。後続のmobile overrideに直接指定 `16px` があり、後段で `--text-body-lg !important` に上書きされる箇所もある。cascade確認なしに削除しない。 |
+| `.wlv-flow-label` / `.wlv-flow-label-compact`（語順ラベル） | `--text-caption` = `0.75rem` | weight 600、字間はルールごとに異なる | サイズは同じtoken。字間・margin・opacityはmobile後段overrideがあるため、サイズ統一を理由にルールを統合しない。 |
+| `.rn-dict-full-text`（辞書本文） | `--text-reading` = `15px` | prose font、通常weight 400 | `--text-body`（0.9rem）とはサイズ・読み物としての役割が異なるため維持。 |
+| `.rn-dict-label.ui-label` / `.rn-usage-label.ui-label`（辞書見出し） | `--text-label` = `13px` | prose font、weight 600 | 辞書本文とは別役割。既存label tokenを利用済み。 |
+| `.semantics-abbott`（辞書補助・折りたたみ内） | `--text-caption` = `0.75rem` | line-height 1.8、sub色 | 補助層としてcaption tokenを利用済み。辞書本文と統合しない。 |
+| `.study-summary` / `.study-summary-sub`（StudyPanelの開閉見出し・補助行） | どちらも `--text-caption` = `0.75rem` | weight 600 / 400、letter-spacingも異なる | サイズは同じだが階層差はweight・trackingで表現。別selectorのまま維持。 |
+| `.rn-level-heading`（研究項目の見出し） | `--text-body` = `0.9rem` | weight 500、sub色 | StudyPanelのsummaryと異なる階層。共通captionへ落とさない。 |
+| `.panel-header`（StudyPanel header） | `--text-body-lg` = `1rem` | weight 700、line-height 1.4 | 本文サイズtokenと値は同じでも見出し用途。既存指定を維持。 |
+
+### 今回の判定
+
+- 主要な読書本文とStudyPanelの見出し・辞書本文は、すでに役割別tokenを利用している箇所が多い。
+- 残る差は単なる「token未使用」ではなく、モバイル固有の上書き、固定pxの行高、表示モードの違いが混在している。
+- 次の変更候補は、まず mobile override のcascadeを解析し、到達不能・重複している宣言を確認すること。サイズ値の変更や固定pxの一括置換はしない。
+- この表はGitHub上のCSSソースを対象にした静的照合。ブラウザcomputed style、実画面でのフォントレンダリング、Playwrightによる視覚回帰は未実施。
