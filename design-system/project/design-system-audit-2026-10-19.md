@@ -27,14 +27,14 @@
 ### フォント・文字サイズ
 - 共通トークンにはUI `--font-ui`、日本語読書系 `--font-prose`、ギリシャ語 `--font-greek` がある。
 - 共通サイズ階層は `--text-caption`、`--text-body`、`--text-body-lg`、`--text-title`、`--text-headline`、`--text-display`、加えて `--text-reading` / `--text-label`。
-- 現行runtime `public/css/tokens.css` には行間・font-weightの役割別スケールがない。一方、Design Systemの `tokens.json` にはUI・日本語本文・ギリシャ語本文などの役割別font-size / line-height / font-weightがある。生成された `design-system/project/tokens.css` も存在するが、runtimeのトークン体系へ対応づけられていない。実装ではline-heightやfont-weightが直指定される。
+- 現行runtime `public/css/tokens.css` にはweight 400/500/600/700、役割別line-height、tracking tokenが追加済み。同じ役割が確認できたセレクタから参照を移行しているが、全セレクタの参照・computed style確認は未完了。Design Systemの `tokens.json` / 生成CSSとは名前・粒度・値体系が異なり、1対1の対応が完了したわけではない。
 - 設計資料には日本語本文16px / line-height 2.1と17px / 34pxの記録差がある。ギリシャ語本文にも18px / 34pxの設計記録がある。現行画面の全セレクタを実測・照合してから正式値を確定する。
 - 検索画面は `--s-ts-*` と `--s-lh-*`、独立したフォントファミリーを持つ。意味は近いが共通体系へ完全統合されていない。
 
 ### 余白・寸法
-- 共通トークンは4 / 8 / 16 / 24 / 32px。役割の別名としてmicro、medium、macroのリズムを持つ。
+- 共通runtime spacing tokenは4 / 8 / 12 / 16 / 24 / 32 / 48 / 64px。役割の別名としてmicro、medium、macroのリズムを持つ。40pxなどの直接指定は残る。
 - 共通CSSには40pxのセクション間隔などの直接指定がある。読書画面にも12px、48px、vhなどの個別値がある。
-- 検索画面は4 / 8 / 12 / 16 / 24 / 32 / 48 / 64pxの別スケール。
+- 検索画面は4 / 8 / 12 / 16 / 24 / 32 / 48 / 64pxの別名体系 `--s-sp-*` を持つが、現在は対応するruntime spacing tokenへalias接続済み。検索固有のtype・line-height・tracking・角丸の例外は維持。
 - 本文側のページ例は680px、検索側の最大幅は720px。読書面と検索面の役割差があるため、値を即時統一せず意図を明文化する。
 - StudyPanelの高さは画面幅・モードによりvh/px/clampを組み合わせている。単純なspacing tokenに押し込まず、パネル寸法の役割別仕様が必要。
 
@@ -111,3 +111,15 @@
 - 現行アプリのruntimeは別ファイル `public/css/tokens.css` を参照している。両体系は命名・粒度・一部値が異なり、Design System側には役割別の文字サイズ・行間・ウェイトがある一方、runtime側は行間・ウェイトの役割別トークンを持たない。
 - よって問題は「トークンが存在しない」だけではなく、**設計トークンとruntimeトークンの対応づけがない**こと。次の作業では両者の対応表を作り、画面単位で差分を分類する。生成CSSを直接手編集しない。
 
+
+
+## 2026-10-19 更新：runtime tokenの実装反映
+
+初期監査後に、以下が実装されたため、この記録の「不足」判定を更新する。
+
+- `public/css/tokens.css`：`--weight-regular/medium/semibold/bold`、役割別line-height、tracking tokenを追加。
+- spacing：`--space-3` (12px)、`--space-7` (48px)、`--space-8` (64px) を追加し、共通scaleを4 / 8 / 12 / 16 / 24 / 32 / 48 / 64pxに拡張。
+- `public/search-tool.html`：`--s-sp-1…8`、`--s-radius-chip`、`--s-radius-panel` を対応するruntime tokensへalias接続。
+- StudyPanelの上書き・重複CSS整理は `screen-style-audit-2026-10-19.md` に記録済み。
+
+これらのソース更新は確認済みだが、ブラウザのcomputed style、全対象画面の視覚回帰、コントラスト測定は未実施。トークン定義の追加をもってデザインシステム全体の視覚検証完了とはしない。
