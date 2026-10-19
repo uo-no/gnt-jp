@@ -84,3 +84,17 @@
 3. 主要操作をPlaywright等で回帰確認し、必要ならスクリーンショットを保存。
 
 この時点ではGitHubソースの確認のみ。ブラウザのcomputed style、視覚回帰、Playwright、Cloudflareデプロイ状態は未確認のため、デザインシステム全体を「検証完了」とは扱わない。
+
+
+## 2026-10-19 最終確認結果
+
+- GitHub Actions `VR-5 Regression Gate`: success（commit `07c262147d93261e531a0c4bcc5ddb4bc9494d28`）。Flow DOM、Reading Japanese Stage B、path audit、apparatusデータ回帰、apparatus日本語注釈、再現性チェックが通過。
+- GitHub Actions `Path Structure Check`: success（同commit）。
+- GitHub `main` HEADを再確認し、監査記録更新commitがHEADであることを確認。
+- GitHubから取得した最新 `public/index.html` と `public/search-tool.html` のインラインJavaScriptを、実行せず構文コンパイルで検査。両方とも syntax error なし。
+- 両HTMLのstyleブロックはCSS波括弧の開閉数が一致（main: 1305/1305、24/24、2/2。search: 406/406）。これはCSSの完全な構文検証や実効スタイル検証の代わりではない。
+- 公開URLはこの実行環境から取得できず、ローカルリポジトリのクローンもネットワーク名前解決で失敗。よってブラウザ操作、computed style、画面キャプチャ、Playwright視覚回帰、Cloudflare公開版の実際の表示は検証できていない。
+
+### 最終ステータス
+
+**ソース整理と取得可能な自動検査は完了。ブラウザによる視覚確認だけは未検証として明示しておく。** 未確認の見た目を「問題なし」とは判定しない。これ以上のCSS一括統一や推測による調整は行わない。
