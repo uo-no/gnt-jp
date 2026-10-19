@@ -20,6 +20,15 @@
 | ハイライト | ユーザー選択色は yellow / blue / green / pink を保持。CSSには色別のswatchと本文マーカーがある。 | ユーザー選択色として独立 | Product Accentに統一しない。各色のコントラスト、ダーク背景・選択状態での視認性を別途評価する。 |
 | 読書履歴・再開カード | .list-item-card と .rv-continue-card のfocus-visible輪郭は --focus-ring に変更済み。 | focus色は共有トークン | 行間、ラベルサイズ、アイコンのタップ領域、空状態と削除操作は未監査。 |
 
+## 2026-10-19 追跡：役割別タイポグラフィトークンの導入
+
+値を変えずに共通参照へ移行した箇所：
+
+- `public/css/tokens.css` にfont-weight役割（400/500/600/700）、日本語本文・読書本文・辞書・語チップ・ギリシャ語見出しのline-height役割、本文字間 `--tracking-reading` を追加。
+- `public/index.html` の `.reading-prose`、`.greek-headword`、StudyPanel内本文・辞書本文・語チップ、`.ui-label` で対応トークンを参照。
+- `public/search-tool.html` の `.s-label` で `--weight-semibold` を参照。
+- これらは元の数値と同値。見た目を変える意図はないが、ブラウザでの視覚確認はまだ行っていない。
+
 ## 共有トークンへの対応で優先する候補
 
 1. **高:** mvv-ref の色を --text-hint に統一（実装済み、視覚確認待ち）。
