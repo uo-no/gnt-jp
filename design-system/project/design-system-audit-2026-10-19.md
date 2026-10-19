@@ -27,7 +27,7 @@
 ### フォント・文字サイズ
 - 共通トークンにはUI `--font-ui`、日本語読書系 `--font-prose`、ギリシャ語 `--font-greek` がある。
 - 共通サイズ階層は `--text-caption`、`--text-body`、`--text-body-lg`、`--text-title`、`--text-headline`、`--text-display`、加えて `--text-reading` / `--text-label`。
-- 共通トークンに行間・font-weightの役割別スケールがない。実装ではline-heightやfont-weightが直指定される。
+- 現行runtime `public/css/tokens.css` には行間・font-weightの役割別スケールがない。一方、Design Systemの `tokens.json` にはUI・日本語本文・ギリシャ語本文などの役割別font-size / line-height / font-weightがある。生成された `design-system/project/tokens.css` も存在するが、runtimeのトークン体系へ対応づけられていない。実装ではline-heightやfont-weightが直指定される。
 - 設計資料には日本語本文16px / line-height 2.1と17px / 34pxの記録差がある。ギリシャ語本文にも18px / 34pxの設計記録がある。現行画面の全セレクタを実測・照合してから正式値を確定する。
 - 検索画面は `--s-ts-*` と `--s-lh-*`、独立したフォントファミリーを持つ。意味は近いが共通体系へ完全統合されていない。
 
@@ -40,7 +40,7 @@
 
 ### 形・境界・影・透明度
 - 共通角丸は4 / 8 / 16 / pill。検索側は4 / 6 / 6 / 10 / 8pxの別値。
-- 共通トークンの境界線色とDesign System側のborder-hairline等は命名・構成が一致していない。
+- `design-system/project/tokens.json` → `design-system/project/tokens.css` はgenerated CSSとして関係が明記されている。別途、現行runtimeは `public/css/tokens.css` を参照し、色・フォント・余白・角丸などの名前と値が異なる。両体系の対応表が未整備で、境界線色も命名・構成が一致していない。
 - 共通CSSにはborder-radius 999pxや個別の境界幅の直接指定が残る。ドット・円形アイコンなど意図的な例外を分けて確認する。
 - opacityは1 / .6 / .3 / .15の役割値があるが、適用後の文字コントラストは画面ごとの確認が必要。
 - 共通影は `--shadow-card`、検索側は独立したmodal shadowを持つ。
@@ -62,7 +62,7 @@
 6. **Interaction states:** default / hover / active / selected / pressed / focus-visible / disabled / loading / empty / errorの見た目とアクセシビリティ要件。
 7. **Accessibility:** タップ領域、コントラスト、色に依存しない区別、reduced-motion、フォーカスの共通検証表。
 8. **Theme family:** Product Accentだけを差し替える層、固定する意味色、赤版・青版で検証する項目の分離。
-9. **Token provenance:** `design-system/project/tokens.json`、生成物の `tokens.css`、現行 `public/css/tokens.css` の関係と生成手順。生成物を手編集しない。
+9. **Token mapping:** `design-system/project/tokens.json` → `design-system/project/tokens.css` は生成関係が明記されている。これと独立したruntime `public/css/tokens.css` の対応表を作り、意味・値・使用箇所を照合する。生成物は手編集しない。
 10. **Screen audit matrix:** Reading / StudyPanel / Search / Highlights / Historyごとに、実装値、設計値、差分、目視検証状況を追跡する。
 
 ### 暫定の不足定義案（採用前に目視検証）
@@ -87,5 +87,5 @@
 ## 検証状況
 
 - GitHub上の対象ファイルを再取得してソース内容を確認。
-- 色トークン変更はGitHub上で再取得確認済み。
+- 色トークン変更と今回のfocus-visible輪郭変更はGitHub上で再取得確認済み。読書画面の紫色fallbackは0件になった。
 - HTMLのブラウザ表示・全画面の視覚回帰テスト・コントラスト実測は未実施。
