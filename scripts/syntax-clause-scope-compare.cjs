@@ -6,7 +6,6 @@
 // the sole registry type using clause_is_narrative().
 const fs = require('fs');
 const path = require('path');
-const vm = require('vm');
 const assert = require('assert/strict');
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'public');
@@ -39,12 +38,12 @@ global.entryPosCode = t => {
   return '';
 };
 function requireCjs(filePath) {
-  const code = fs.readFileSync(filePath, 'utf8');
-  const mod = { exports: {}, id: filePath, filename: filePath, loaded: false };
-  const fn = vm.runInThisContext('(function(module,exports,require,__dirname,__filename){\n' + code + '\n})', { filename: filePath, displayErrors: true });
-  fn(mod, mod.exports, require, path.dirname(filePath), filePath);
-  return mod.exports;
+  // syntax-analyzer.js has a CommonJS export; use Node's native loader.
+  const resolved = require.resolve(filePath);
+  delete require.cache[resolved];
+  return require(resolved);
 }
+
 const baseline = requireCjs(baselinePath);
 const current = requireCjs(path.join(PUBLIC, 'core/syntax-analyzer.js'));
 const books = JSON.parse(fs.readFileSync(path.join(PUBLIC, 'books.json'), 'utf8'));
@@ -64,7 +63,7 @@ function candidateMap(output) {
   ]));
 }
 function verseKey(token) {
-  const m = String(token.ref || '').match(/^([A-Z0-9]+)\\s+(\\d+):(\\d+)!/);
+  const m = String(token.ref || '').match(/^([A-Z0-9]+)\s+(\d+):(\d+)!/);
   return m ? m[1] + ' ' + m[2] + ':' + m[3] : null;
 }
 for (const book of books.NT) {
