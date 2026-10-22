@@ -2,7 +2,7 @@
 
 ## 結論（優先度：最優先）
 
-レジストリ242型と `public/core/syntax-analyzer.js` を機械的に照合したところ、**39件の `xsc.signals[].id` が同じ型の `detection.conditions[].id` に存在しない**ことを確認した。
+レジストリ242型と `public/core/syntax-analyzer.js` を機械的に照合したところ、**39件の `xsc.signals[].id` が同じ型の `detection.conditions[].id` に存在しない**ことを確認した。さらに同じ検査を `main` で再実施し、39件すべてがmainにも存在することを確認した。これは閉じられた未マージPR #219のブランチだけの問題ではなく、現行mainにもある。
 
 `CandidateScorer._evaluateType()` は各シグナルIDに対応する条件を `conditions.find(c => c.id === signal.id)` で探す。条件が見つかればそのチェック結果に応じて加点するが、条件が見つからない場合はコメントどおり「condition なし → 常に加算」としている。
 
@@ -51,6 +51,17 @@
 | `participle.genitive_absolute` | `distinct_subject` | +25 | 主節主語と非同一 |
 | `participle.indirect_discourse` | `perception_verb` | +50 | 知覚・認識動詞と共起 |
 | `participle.indirect_discourse` | `no_article` | -5 | 冠詞なし |
+
+## 検証対象の確定
+
+2026-10-22時点のGitHub取得結果：
+- `main` の `public/assets/data/syntax-registry.json` blob SHA: `a80206bbed9ea37880dcc19fc55e838862c773e8`
+- `main` の `public/core/syntax-analyzer.js` blob SHA: `7e51f03add73a2687fc867f4b7a85ea15989e0cd`
+- 対象型数：242
+- ID不一致シグナル：39
+- `main` のスコアラーにも `// condition なし → 常に加算` の実装を確認
+
+PR #219 (`fix(syntax-description-ja-update`) はclosed / unmergedだが、上記の39件はmainでも再現した。したがって、これはPR #219の差分だけを原因とみなしてはいけない。
 
 ## 影響の大きさ
 
