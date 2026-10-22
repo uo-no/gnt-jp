@@ -23,6 +23,33 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Checkout PR base analyzer for clause-scope comparison
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: baseline
+          sparse-checkout: public/core/syntax-analyzer.js
+          sparse-checkout-cone-mode: false
+
+      - name: Clause-scoped narrative predicate regression
+        run: npm run test:syntax-clause-scope
+
+      - name: Whole-NT impact comparison for clause-scope fix
+        if: github.event_name == 'pull_request'
+        env:
+          SYNTAX_BASELINE_DIR: baseline
+        run: npm run test:syntax-clause-scope-compare
+
+      - name: Upload clause-scope whole-NT impact report
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: syntax-clause-scope-compare-report
+          path: syntax-clause-scope-compare-report.json
+          if-no-files-found: ignore
+
       - name: Flow DOM transition regression（VR-5-H-7 保護ゲート）
         run: npm run test:flow-dom
 
