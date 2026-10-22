@@ -4587,15 +4587,15 @@ if (typeof module !== 'undefined' && module.exports) {
 //
 // ③ has_adjectival_equivalent()
 //    対応形容詞がある場合に true（ヒューリスティック・文脈依存）。
-//    Registry が定義できないため、常に false を返す（安全側）。
-//    warn なしで false を返すよう登録して console.warn を抑制する。
+//    自動判定に必要な意味・文脈情報が未定義。false と断定せず unsupported として返す。
+//    スコアには加算せず、診断情報に記録する。
 //
 // ④ semantic_equivalence_test()
 //    「すなわち」置換テスト（ヒューリスティック・自動判定困難）。
-//    常に false（安全側）。warn 抑制のため登録。
+//    自動判定未実装。unsupported として返し、スコアに加算しない。
 //
 // ⑤ semantic_substitution_test(prep)
-//    前置詞句置換テスト（ヒューリスティック）。常に false。warn 抑制。
+//    前置詞句置換テスト（意味・文脈依存）。自動判定未実装のため unsupported。
 //
 // ⑥ context_discourse_type_eq(type)
 //    談話タイプ判定（論証的文体等）。自動判定不可。常に false。warn 抑制。
@@ -4629,22 +4629,22 @@ CheckEvaluator.register('target_is_abstract_noun',
     }
 );
 
-// ③ has_adjectival_equivalent — ヒューリスティック・自動判定不可 → false
+// ③ has_adjectival_equivalent — 意味的等価性は自動判定未実装 → unsupported
 CheckEvaluator.register('has_adjectival_equivalent',
     (_ctx) => CHECK_UNSUPPORTED
 );
 
-// ④ semantic_equivalence_test — ヒューリスティック → false
+// ④ semantic_equivalence_test — 言い換えの意味的等価性は未実装 → unsupported
 CheckEvaluator.register('semantic_equivalence_test',
     (_ctx) => CHECK_UNSUPPORTED
 );
 
-// ⑤ semantic_substitution_test — ヒューリスティック → false
+// ⑤ semantic_substitution_test — 置換可能性は文脈依存・未実装 → unsupported
 CheckEvaluator.register('semantic_substitution_test',
     (_ctx) => CHECK_UNSUPPORTED
 );
 
-// ⑥ context_discourse_type_eq — 自動判定不可 → false
+// ⑥ context_discourse_type_eq — 談話タイプ判定は未実装 → unsupported
 CheckEvaluator.register('context_discourse_type_eq',
     (_ctx) => CHECK_UNSUPPORTED
 );
