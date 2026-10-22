@@ -54,6 +54,15 @@
 Wallaceの *Greek Grammar Beyond the Basics* を第一資料とし、分類の定義・識別の鍵・本文例を確認する。出版社の書誌説明は同書が統語と釈義を結びつけ、文脈・語彙・その他の言語的特徴を併せて考える必要を明記している。書誌情報だけで個別の分類を確定せず、採用版の該当節・ページと新約聖書本文例を照合する。
 参考： https://zondervanacademic.com/products/greek-grammar-beyond-the-basics
 
-## 状態
+## 実装状況
 
-この段階では監査文書のみを更新。レジストリ、スコアラー、UIの動作は変更していない。
+この監査で特定した時制シグナルの意味的不一致について、別コードPR #229 を作成した：
+https://github.com/uo-no/gnt-jp/pull/229
+
+変更内容：
+- `temporal_tense` を `tense_aorist` に変更し、条件を `target_tense_eq('aorist')` に限定。
+- `temporal_tense → tense_aorist` のフォールバックマッピングを削除。
+- シグナル表示を「アオリスト形（先行関係の手掛かり）」に変更。
+- `scripts/genitive-regression-test.cjs` に4件の回帰アサーションを追加。
+
+コードブランチ上でJSON構文検証と242型の静的再走査を実施し、フォールバック後の孤立シグナル0件を確認した。Node.js回帰テスト自体はこの環境から実行できていないため、PRはDraftのまま。CI実行後に合否を確認する。UIは変更していない。
