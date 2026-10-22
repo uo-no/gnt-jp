@@ -39,10 +39,15 @@ global.entryPosCode = t => {
   return '';
 };
 function requireCjs(filePath) {
-  // Use Node's native CommonJS loader; no source-string wrapper is needed.
-  const resolved = require.resolve(filePath);
-  delete require.cache[resolved];
-  return require(resolved);
+  // Evaluate as CommonJS with a real line break after the wrapper opening.
+  // syntax-analyzer.js exposes its API through the browser/global scope.
+  const code = fs.readFileSync(filePath, 'utf8');
+  const mod = { exports: {}, id: filePath, filename: filePath, loaded: false };
+  const nl = String.fromCharCode(10);
+  const wrapper = '(function(module,exports,require,__dirname,__filename){' + nl + code + nl + '})';
+  const fn = vm.runInThisContext(wrapper, { filename: filePath, displayErrors: true });
+  fn(mod, mod.exports, require, path.dirname(filePath), filePath);
+  return { ...mod.exports, SyntaxAnalyzer: global.SyntaxAnalyzer };
 }
 
 const baseline = requireCjs(baselinePath);
