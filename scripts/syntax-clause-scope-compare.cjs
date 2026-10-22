@@ -117,7 +117,7 @@ for (const book of books.NT) {
           bs.changedTargets++;
           const chapterTargetIndex = tokens.findIndex(t => t.globalIdx === target.globalIdx);
           const contextTokens = tokens.slice(Math.max(0, chapterTargetIndex - 15), Math.min(tokens.length, chapterTargetIndex + 16))
-            .map(t => ({ ref: t.ref, text: t.text, lemma: t.lemma, morph: t.morph, role: t.role }));
+            .map(t => ({ ref: t.ref, tokenIndex: t.tokenIndex, text: t.text, lemma: t.lemma, morph: t.morph, role: t.role, after: t.after }));
           report.changedExamples.push({
             ref, book:book.key, tokenIndex:target.tokenIndex, text:target.text, lemma:target.lemma,
             contextTokens,
