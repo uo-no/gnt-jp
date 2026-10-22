@@ -115,7 +115,7 @@ for (const book of books.NT) {
           report.comparisons.changedTargets++;
           if (rankChanged) report.comparisons.rankChangedTargets++;
           bs.changedTargets++;
-          if (report.changedExamples.length < 250) report.changedExamples.push({
+          report.changedExamples.push({
             ref, book:book.key, tokenIndex:target.tokenIndex, text:target.text, lemma:target.lemma,
             oldCandidates:[...oldMap.entries()].map(([id,v])=>({id,...v})),
             newCandidates:[...newMap.entries()].map(([id,v])=>({id,...v})),
@@ -130,6 +130,19 @@ assert.equal(report.corpus.books, 27, 'expected all 27 NT books');
 assert.equal(report.corpus.chapters, 260, 'expected all 260 NT chapters');
 assert(report.corpus.tokens > 100000, 'unexpectedly low NT token count');
 assert(report.targets.perfectTense > 0, 'no perfect-tense targets evaluated');
+assert.equal(report.comparisons.candidatesAdded, 0, 'scope fix must not add candidates');
+assert.equal(report.comparisons.candidatesRemoved, 0, 'scope fix must not remove candidates');
+assert.equal(report.comparisons.changedScores, report.comparisons.changedTargets,
+  'every changed target should have a direct score change');
+assert.equal(report.comparisons.rankChangedTargets, report.comparisons.changedTargets,
+  'all score changes should be reflected in candidate ordering');
+for (const example of report.changedExamples) {
+  const scoreDiffs = example.changed.filter(change => typeof change.delta === 'number');
+  assert(scoreDiffs.length > 0, 'changed example must include a direct score difference');
+  assert(scoreDiffs.every(change => change.id === 'verb.perfect_dramatic' && change.delta === -15),
+    'only verb.perfect_dramatic should lose the cross-clause narrative bonus');
+}
+
 fs.writeFileSync(path.join(ROOT, 'syntax-clause-scope-compare-report.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify({
   corpus: report.corpus, targets: report.targets, comparisons: report.comparisons,
