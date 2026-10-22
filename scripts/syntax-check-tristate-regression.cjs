@@ -85,6 +85,29 @@ assert.deepEqual(unregisteredNames, [], 'every check function used by the regist
 const unsupportedNames = ['has_adjectival_equivalent', 'semantic_equivalence_test', 'semantic_substitution_test', 'context_discourse_type_eq'];
 const unsupportedUsage = Object.fromEntries(unsupportedNames.map(name => [name, checkExpressions.filter(expression => new RegExp('\\b' + name + '\\s*\\(').test(expression)).length]));
 assert.deepEqual(unsupportedUsage, { has_adjectival_equivalent: 1, semantic_equivalence_test: 2, semantic_substitution_test: 2, context_discourse_type_eq: 2 }, 'all current unsupported-handler usages must be explicitly accounted for');
+const expectedUnsupportedConditions = [
+  ['genitive.attributive', 'semantically_replaceable_by_adjective', 'has_adjectival_equivalent()'],
+  ['genitive.attributive', 'semitic_context', "context_discourse_type_eq('semitic')"],
+  ['genitive.epexegetical', 'paraphrasable_with_namely', 'semantic_equivalence_test()'],
+  ['genitive.epexegetical', 'no_possessive_semantics', 'semantic_equivalence_test()'],
+  ['dative.means', 'substitutable_with_dia', "semantic_substitution_test('διά')"],
+  ['dative.manner', 'adverb_substitutable', "semantic_substitution_test('adverb')"],
+  ['participle.adverbial_causal', 'logical_discourse_marker', "context_discourse_type_eq('argumentative')"],
+];
+for (const [typeId, conditionId, check] of expectedUnsupportedConditions) {
+  const type = registryTypes.find(item => item.id === typeId);
+  assert(type, 'unsupported check type must exist: ' + typeId);
+  const condition = (type.detection.conditions || []).find(item => item.id === conditionId);
+  assert(condition, 'unsupported check condition must exist: ' + typeId + '/' + conditionId);
+  assert.equal(condition.check, check, 'unsupported check must remain explicitly linked: ' + typeId + '/' + conditionId);
+}
+for (const type of registryTypes) {
+  for (const condition of type.detection.conditions || []) {
+    if (!expectedUnsupportedConditions.some(([typeId, conditionId]) => typeId === type.id && conditionId === condition.id)) continue;
+    assert(!/恒偽|常に false|always false/i.test(condition.note || ''), 'registry notes must not misdescribe unsupported as a known false result: ' + type.id + '/' + condition.id);
+  }
+}
+console.log('PASS unsupported condition inventory (7 conditions across 4 handlers; no false-result wording)');
 console.log('PASS whole-registry coverage (' + registryTypes.length + ' types, ' + checkExpressions.length + ' check expressions, ' + referencedNames.size + ' handler names)');
 
 
