@@ -41,7 +41,7 @@ global.entryPosCode = t => {
 function requireCjs(filePath) {
   const code = fs.readFileSync(filePath, 'utf8');
   const mod = { exports: {}, id: filePath, filename: filePath, loaded: false };
-  const fn = vm.runInThisContext('(function(module,exports,require,__dirname,__filename){\\n' + code + '\\n})', { filename: filePath, displayErrors: true });
+  const fn = vm.runInThisContext('(function(module,exports,require,__dirname,__filename){\n' + code + '\n})', { filename: filePath, displayErrors: true });
   fn(mod, mod.exports, require, path.dirname(filePath), filePath);
   return mod.exports;
 }
@@ -64,7 +64,7 @@ function candidateMap(output) {
   ]));
 }
 function verseKey(token) {
-  const m = String(token.ref || '').match(/^([A-Z0-9]+)\\s+(\\d+):(\\d+)!/);
+  const m = String(token.ref || '').match(/^([A-Z0-9]+)\s+(\d+):(\d+)!/);
   return m ? m[1] + ' ' + m[2] + ':' + m[3] : null;
 }
 for (const book of books.NT) {
@@ -124,7 +124,7 @@ assert.equal(report.corpus.books, 27, 'expected all 27 NT books');
 assert.equal(report.corpus.chapters, 260, 'expected all 260 NT chapters');
 assert(report.corpus.tokens > 100000, 'unexpectedly low NT token count');
 assert(report.targets.perfectTense > 0, 'no perfect-tense targets evaluated');
-fs.writeFileSync(path.join(ROOT, 'syntax-clause-scope-compare-report.json'), JSON.stringify(report, null, 2) + '\\n');
+fs.writeFileSync(path.join(ROOT, 'syntax-clause-scope-compare-report.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify({
   corpus: report.corpus, targets: report.targets, comparisons: report.comparisons,
   changedExamples: report.changedExamples.length,
