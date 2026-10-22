@@ -4,7 +4,7 @@
 
 `participle.attributive`（形容詞用法／限定的）、`participle.substantival`（実体用法）、`participle.predicate`（述語的分詞）、`participle.periphrastic`（迂言的分詞）。
 
-参照した公開資料は Wallace, *The Basics of New Testament Syntax* の分詞節（ExSyn pp.617–621）および Smyth §§2049–2050。公開資料では、形容詞的分詞が名詞を修飾する用法と、名詞が明示されず分詞が名詞相当になる用法が区別される。また、形容詞的分詞には限定的（attributive）と叙述的（predicate）の両方があり、冠詞の有無だけでは一般的な判定法にならない。
+主資料は Wallace, *Greek Grammar Beyond the Basics* §27.A（ExSyn pp.617–621）および *The Basics of New Testament Syntax* の分詞章とする。Smyth §§2049–2050は一般的なギリシャ語文法の補助資料に限る。Wallaceの分類では、名詞を修飾する形容詞的分詞の限定的用法と述語的用法、名詞相当の実体用法を区別する。冠詞の有無だけでは一般的な判定法にならない。
 
 ## 1. 形容詞用法と実体用法
 
@@ -62,11 +62,17 @@
 - アプリの解析器が、各例で形態・冠詞位置・名詞との関係を正しく扱っているか。
 - 242型全体の中で、実際にこれらの候補が同じトークンに同時に現れる頻度と、その比較表示が有用か。
 
-## 出典
+## 出典と優先順位
 
-- Wallace, *The Basics of New Testament Syntax*, “Adjectival Proper (Dependent)” / “Substantival (Independent),” pp.617–621: https://www.obinfonet.ro/docs/gk/resgk/wallace-basic-nt-greek.pdf
-- Herbert Weir Smyth, *A Greek Grammar for Colleges*, §§2049–2050: https://www.perseus.tufts.edu/hopper/text?doc=Perseus%3Atext%3A1999.04.0007%3Apart%3D4%3Achapter%3D46%3Asection%3D116
-- Wallace, *Greek Grammar Beyond the Basics*, bibliographic record: https://books.google.com/books/about/Greek_Grammar_Beyond_the_Basics.html?id=SfglAQAAIAAJ
+### 主資料
+- Wallace, *Greek Grammar Beyond the Basics*, §27.A, pp.617–621: https://books.google.com/books/about/Greek_Grammar_Beyond_the_Basics.html?id=SfglAQAAIAAJ
+- Wallace, *The Basics of New Testament Syntax*, “The Participle”: https://www.obinfonet.ro/docs/gk/resgk/wallace-basic-nt-greek.pdf
+- Wallace, “The Participle,” Bible.org: https://bible.org/article/participle
+
+### 補助資料
+- Smyth, *A Greek Grammar for Colleges*, §§2049–2050: https://www.perseus.tufts.edu/hopper/text?doc=Perseus%3Atext%3A1999.04.0007%3Apart%3D4%3Achapter%3D46%3Asection%3D116
+
+Smythは補助照合であり、Wallaceの分類や新約聖書の用例判断に代わる基準ではない。
 
 ## 実装方針
 
