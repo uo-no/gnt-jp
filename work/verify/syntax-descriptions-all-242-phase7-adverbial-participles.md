@@ -1,6 +1,10 @@
 # 第7段階：副詞的分詞の区別と候補比較
 
+> **資料の優先順位：本監査ではWallaceを主資料とする。** 本書の分類と新約聖書の用例を基準にし、Smythは必要な場合に限って一般的なギリシャ語文法の補助照合に用いる。Smythの分類をWallaceの分類に代用したり、Wallaceと異なる場合に無注記で混在させたりしない。
+
 ## 監査の結論
+
+主たる照合対象はWallace, *Greek Grammar Beyond the Basics* §27.B（ExSyn pp.623–645）および *The Basics of New Testament Syntax* の分詞章である。Wallaceの体系では、副詞的分詞の時間・様態・手段・原因・条件・譲歩・目的・結果が区別され、付帯状況などは別項目として扱われる。Smyth §§2060–2069は、必要な場合の一般文法上の補助照合に限る。
 
 副詞的分詞は、分詞の形だけで「時間」「理由」「条件」「譲歩」などの意味が自動的に決まるわけではない。Smyth §§2060–2069 は、時間・様態・手段・原因・目的・譲歩・条件・付帯状況などの関係は文脈から生じ、同じ分詞を複数の関係で理解できる場合があると明記する。Bible.orgの分詞解説も、時制形・語順・文脈・動詞の語彙的意味・意味状況を合わせて候補を絞ると説明する。
 
@@ -83,9 +87,12 @@
 
 ## 5. 出典と限界
 
-- Smyth, *A Greek Grammar for Colleges*, §§2060–2069 (circumstantial participle): https://www.perseus.tufts.edu/hopper/text?doc=Perseus%3Atext%3A1999.04.0007%3Apart%3D4%3Achapter%3D46%3Asection%3D117
-- Smyth, *A Greek Grammar for Schools and Colleges*, §§1274–1276: https://campus.wts.edu/~vpoythress/nt123/pdfs/Smyth.AGreekGrammarForSchoolsAndColleges1916.pdf
-- Bible.org, “The Participle,” adverbial participles and attendant circumstance: https://bible.org/article/participle
-- Perseus Digital Library, Smyth §2039–2047: https://grammars.alpheios.net/smyth/xhtml/body.1_div1.4_div2.22.html
+### 主資料
+- Wallace, *Greek Grammar Beyond the Basics: An Exegetical Syntax of the New Testament*, §27.B (ExSyn pp.623–645), §27.C; 出版社の説明でも、新約聖書の統語と釈義を結びつける文法書として位置づけられる: https://zondervanacademic.com/products/greek-grammar-beyond-the-basics
+- Wallace, *The Basics of New Testament Syntax*, “The Participle,” pp.266–284（短縮版。ExSynの該当箇所への相互参照あり）: https://www.obinfonet.ro/docs/gk/resgk/wallace-basic-nt-greek.pdf
+- Wallace, “The Participle,” Bible.orgに公開された本文: https://bible.org/article/participle
 
-この監査は分類の一般的な説明と比較文案を整えたもので、個々の新約聖書箇所の解析判定を検証したものではない。アプリの採用版でページ番号・用例を最終照合し、実際の候補データに対する全件テストを別途行う必要がある。
+### 補助資料
+- Smyth, *A Greek Grammar for Colleges*, §§2060–2070: https://www.perseus.tufts.edu/hopper/text?doc=Perseus%3Atext%3A1999.04.0007%3Apart%3D4%3Achapter%3D46%3Asection%3D117
+
+この監査はWallaceの分類を主軸に一般的な説明と比較文案を整えたもので、個々の新約聖書箇所の解析判定を検証したものではない。アプリの採用版でページ番号・用例を最終照合し、実際の候補データに対する全件テストを別途行う必要がある。
