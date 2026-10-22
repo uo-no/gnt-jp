@@ -128,6 +128,14 @@ for (const book of books.NT) {
             ref, book:book.key, tokenIndex:target.tokenIndex, text:target.text, lemma:target.lemma,
             contextTokens,
             verseTokens: verseTokens.map(t => ({ ref: t.ref, tokenIndex: t.tokenIndex, text: t.text, lemma: t.lemma, morph: t.morph, role: t.role, after: t.after })),
+            versePastIndicatives: verseTokens.filter(t => {
+              if (t === target) return false;
+              const morph = global.decodeMorph(t);
+              return morph.mood === 'indicative' && ['aorist', 'imperfect'].includes(morph.tense);
+            }).map(t => {
+              const morph = global.decodeMorph(t);
+              return { ref: t.ref, text: t.text, lemma: t.lemma, morph: t.morph, tense: morph.tense, voice: morph.voice };
+            }),
             oldCandidates:[...oldMap.entries()].map(([id,v])=>({id,...v})),
             newCandidates:[...newMap.entries()].map(([id,v])=>({id,...v})),
             changed:diffs,
@@ -150,8 +158,8 @@ assert(report.comparisons.changedScores <= report.comparisons.changedTargets,
   'direct score changes cannot exceed changed targets');
 assert(report.comparisons.rankChangedTargets <= report.comparisons.changedTargets,
   'rank-changed targets cannot exceed all changed targets');
-assert(report.changedExamples.every(example => Array.isArray(example.contextTokens) && example.contextTokens.length > 0 && Array.isArray(example.verseTokens) && example.verseTokens.length > 0),
-  'every changed target must include both the complete target verse and neighboring chapter context for review');
+assert(report.changedExamples.every(example => Array.isArray(example.contextTokens) && example.contextTokens.length > 0 && Array.isArray(example.verseTokens) && example.verseTokens.length > 0 && Array.isArray(example.versePastIndicatives) && example.versePastIndicatives.length > 0),
+  'every changed target must include complete verse, neighboring context, and the exact past-indicative cue');
 // Keep the registry's own Wallace example visible in the impact report. This
 // is a deliberate review sentinel, not a claim that the score reduction is correct.
 const wallaceExample = report.changedExamples.find(example => example.ref === 'JHN 1:15' && example.text === 'κέκραγεν');
