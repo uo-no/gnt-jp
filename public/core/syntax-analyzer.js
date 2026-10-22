@@ -1500,7 +1500,9 @@ CheckEvaluator.register('clause_has_distributive_temporal',
 
 // 詩節が物語文脈か（過去直説法が 1 つ以上ある）
 CheckEvaluator.register('clause_is_narrative',
-    (ctx) => (ctx.tokens ?? []).some(t => {
+    // 物語性の判定対象は対象トークンが属する節に限定する。
+    // ctx.tokens 全体（聖句全体）を走査すると、別節の過去直説法で誤発火する。
+    (ctx) => _clauseTokens(ctx).some(t => {
         const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
         return m.mood === 'indicative' && ['aorist', 'imperfect'].includes(m.tense ?? '');
     })
