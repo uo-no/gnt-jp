@@ -152,6 +152,8 @@ assert(wallaceExample.oldCandidates.some(candidate => candidate.id === 'verb.per
   'the cited Wallace example must have the baseline dramatic-perfect candidate');
 assert(wallaceExample.newCandidates.some(candidate => candidate.id === 'verb.perfect_dramatic'),
   'the clause-scope change must not delete the cited Wallace example candidate');
+// Persist diagnostics before semantic assertions so failed CI still uploads the full report.
+fs.writeFileSync(path.join(ROOT, 'syntax-clause-scope-compare-report.json'), JSON.stringify(report, null, 2) + '\\n');
 for (const example of report.changedExamples) {
   const scoreDiffs = example.changed.filter(change => typeof change.delta === 'number');
   assert(scoreDiffs.length > 0, 'changed example must include a direct score difference');
