@@ -207,3 +207,12 @@
 - 今回は採点経路のコード監査であり、NT全体での候補数・順位変化や適合率／再現率の測定ではない。
 - 次に必要なのは、実コーパスから対象ラベルを抽出し、各候補の `rawScore`・一致／失敗／unsupported シグナル・最終順位を保存するテストである。特に条件が同一のラベル群は、順位だけで一つを確定しないことを回帰条件に含める。
 - Wallace原典の直接確認と独立した人手判定が終わるまで、これらの意味分類は自動確定ではなく「候補」として扱う。
+
+
+### 2026-10-22 実装追跡の更新
+
+- `scripts/genitive-regression-test.cjs` の既存コーパス回帰ハーネスに、命令法ラベルの負例を追加した。
+  - LUK 18:12 `νηστεύω`（現在直説法）に `verb.imperative_customary` が出ないこと。
+  - REV 20:4 `ἐβασίλευσαν`（アオリスト直説法）に `verb.imperative_constative` / `verb.imperative_ingressive` が出ないこと。
+- 変更コミット: `e3e2cddff6654fac77dffea5b8cf25f047829f28`。
+- コミットに対する GitHub Actions は確認時点で `Path Structure Check` と `VR-5 Regression Gate` がともに `queued`。このため、負例テストの実行結果はまだ未確認であり、合格とは記録しない。
