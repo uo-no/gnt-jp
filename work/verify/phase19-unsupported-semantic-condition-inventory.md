@@ -38,6 +38,40 @@ PR #230 で導入した三値評価（matched / not_matched / unsupported）を�
 
 追加監査では、既存の `genitive.attributive` の `adjectival_equivalent` シグナルに「条件なし登録なので unconditional 扱い」と誤解を招く TODO が残っていたため、条件→シグナル対応表で接続され、unsupported の間は加点されないことを明記した。回帰テストも7条件すべてに明示的な「未実装／判定不能」説明があることを要求する。
 
+## Wallace を主参照とした定義確認（一次資料への参照）
+
+以下は公開されている Wallace 著作の説明・要約から確認できた判定原則であり、個別の新約用例を評価した結果ではない。
+
+- **説明的属格（genitive of apposition / epexegetical genitive）**: 属格名詞がヘッド名詞の指す大きなカテゴリーを具体化することがあり、「which is / that is / namely」への言い換えは識別の手掛かり。ただし、置換が自然かどうかを文脈と他の候補に照らして判断する必要がある。単なる文字列置換テストを自動判定の根拠にしない。
+- **与格の様態（dative of manner）**: 動作が「どのように」行われるかを表す。副詞への変換は有用なテストだが、常に変換できるわけではない。手段（means）と様態（manner）は意味上の区別が必要で、抽象名詞か具体名詞かは傾向であって絶対条件ではない。
+- **副詞的分詞**: 原動詞との関係（いつ／どのように／なぜ等）を文脈で判断し、文脈が解釈に大きく関与する。接続詞や句読点の存在だけでは、原因・論証的談話を確定できない。
+- **ヘブライ語的文体／形容詞相当性／非所有関係**: 今回確認できた公開資料だけでは、アプリ内で機械判定するための再現可能な十分条件を確立できていない。よって unsupported のまま保留する。
+
+参照:
+- Wallace, *The Basics of New Testament Syntax* — [公開PDF内の説明的属格の識別基準](https://www.obinfonet.ro/docs/gk/resgk/wallace-basic-nt-greek.pdf)（同書 pp. 52–53 の該当節が検索結果で確認できる公開ミラー）
+- Wallace, *The Basics of New Testament Syntax* — [副詞的分詞の定義と文脈の役割](https://www.obinfonet.ro/docs/gk/resgk/wallace-basic-nt-greek.pdf)（同書 p. 272 の該当節が検索結果で確認できる公開ミラー）
+- Wallace の著作内容を参照して説明する補助資料: [Zondervan Academic の解説](https://zondervanacademic.com/blog/when-does-of-mean-namely-or-is-mondays-with-mounce)
+- 著者・出版社による書籍概要: [Zondervan Academic — *Greek Grammar Beyond the Basics*](https://zondervanacademic.com/products/greek-grammar-beyond-the-basics)
+
+この確認で根拠が得られたのは、主に識別のための問いと文脈依存性であり、これだけで自動分類器を実装できるわけではない。とくに「すなわち」テストや副詞変換は人間の解釈を助ける診断手段として扱い、判定を自動化するには、用例ごとの正解ラベルと反例を先に用意する。
+
+## ゴールドセットの記録形式
+
+今後、実装候補にする場合は各条件について少なくとも次の項目を記録する。現時点では例文を推測で埋めず、検証済みの聖書箇所と参照箇所が揃ってから登録する。
+
+| フィールド | 要件 |
+|---|---|
+| `condition_id` | 上記7条件のいずれか |
+| `reference` / `token_index` | 節参照と対象語の安定した位置ID |
+| `human_label` | `matched` / `not_matched` / `unsupported` |
+| `reason_ja` | 文脈・統語関係・意味上の根拠を日本語で記録 |
+| `alternatives` | 競合する読みと、それぞれを支持／弱める根拠 |
+| `wallace_reference` | 章・節・ページ。確認できたものだけを記録 |
+| `review_status` | 未レビュー／独立レビュー済み |
+| `reviewer_note` | 意見が分かれる場合の理由 |
+
+各条件に肯定例・否定例・判定不能例を用意し、別のレビュー者が根拠を追えるまで本番の判定ロジックには接続しない。
+
 ## 次の実装順
 
 1. **入力データの棚卸し** — `AnalysisContext` に節・句・統語関係・語彙情報のどれが利用可能かを確認し、各判定に必要な情報との差を明記する。
