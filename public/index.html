@@ -9413,6 +9413,29 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
             </details>
         </div>`;
     }
+    /*
+     * 全トークン共通のフォールバック：
+     * 個別に人手レビュー済みの比較がない場合も、レジストリの日本語定義を
+     * 用いて複数候補を見比べられるようにする。特定の節・単語には限定しない。
+     */
+    if (!comparisonHTML && unique.length > 1) {
+        const comparisonItems = unique.map(c => {
+            const label = _escH(c.label_ja);
+            const detail = typeof c.description_ja === 'string' && c.description_ja.trim()
+                ? c.description_ja.trim()
+                : (typeof c.hint_ja === 'string' ? c.hint_ja.trim() : '');
+            return `<div class="rn-syntax-comparison-item"><strong>${label}</strong>${detail ? `<p>${_escH(detail)}</p>` : '<p>この候補の説明はまだ登録されていません。</p>'}</div>`;
+        }).join('');
+        comparisonHTML = `<div class="rn-syntax-comparison rn-syntax-comparison-generic">
+            <details class="rn-syntax-evidence">
+                <summary>候補の違いを比べる</summary>
+                <div class="rn-syntax-evidence-body">
+                    <p>以下は、今回の解析で残った候補を、それぞれの文法上の意味から説明したものです。本文と前後の文脈に照らして比べてください。表示順位やスコアだけで解釈が確定するわけではありません。</p>
+                    ${comparisonItems}
+                </div>
+            </details>
+        </div>`;
+    }
     return `<span class="rn-dict-label ui-label">文の中での役割</span><div class="rn-syntax-candidates">${tiedNotice}${primaryHTML}${otherHTML}${comparisonHTML}</div>`;
 }
 
