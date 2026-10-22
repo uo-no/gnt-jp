@@ -609,6 +609,9 @@ check('_BUILTIN_CONDITION_SIGNAL_MAP が公開されている',
           temporal?.hint_ja ?? 'missing hint');
     check('temporal participle: diagnostics consider context and main verb',
           (temporal?.dictionary?.diagnostics ?? []).some(x => /主動詞.*文脈/.test(x)));
+    check('temporal participle: classification acknowledges semantic context',
+          temporal?.dictionary?.classification === 'Hybrid' &&
+          /文脈上の意味解釈/.test(temporal?.dictionary?.classification_def ?? ''));
 }
 
 // 恒偽であることが既知のチェック関数（意図的 dormant — WARN 対象）
