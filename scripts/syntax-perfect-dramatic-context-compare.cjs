@@ -67,13 +67,27 @@ const report = {
   changedExamples: [], byBook: {},
 };
 function candidateMap(output) {
-  // Normalize floating-point accumulation noise and make score ties deterministic.
+  // Keep the exact scoring evidence alongside rank/score so reviewers can tell
+  // whether a change came from clause-local or cross-clause narrative context.
   const candidates = (output?.candidates || []).map(candidate => ({
     id: candidate.id,
     score: Number(Number(candidate.raw_score ?? candidate.rawScore ?? candidate.confidence ?? 0).toFixed(6)),
+    signalsMatched: [...(candidate.signals_matched ?? candidate.signalsMatched ?? [])],
+    signalsFailed: [...(candidate.signals_failed ?? candidate.signalsFailed ?? [])],
+    deltas: (candidate.xsc?.deltas ?? candidate.deltas ?? []).map(delta => ({
+      signal_id: delta.signal_id ?? delta.signalId ?? '',
+      value: Number(delta.value ?? 0),
+      label_ja: delta.label_ja ?? delta.labelJa ?? '',
+    })),
   }));
   candidates.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
-  return new Map(candidates.map((candidate, index) => [candidate.id, { rank: index + 1, score: candidate.score }]));
+  return new Map(candidates.map((candidate, index) => [candidate.id, {
+    rank: index + 1,
+    score: candidate.score,
+    signalsMatched: candidate.signalsMatched,
+    signalsFailed: candidate.signalsFailed,
+    deltas: candidate.deltas,
+  }]));
 }
 function verseKey(token) {
   const m = String(token.ref || '').match(/^([A-Z0-9]+)\s+(\d+):(\d+)!/);
