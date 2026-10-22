@@ -1846,6 +1846,38 @@ border-bottom: 1px dotted rgba(0,0,0,0.15);
     margin-bottom: var(--space-xs);
 }
 
+.rn-syntax-comparison {
+    margin-top: var(--space-sm);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border-soft);
+    color: var(--text-sub);
+    font-size: var(--text-caption);
+    line-height: 1.7;
+}
+.rn-syntax-comparison-title {
+    margin-bottom: var(--space-xs);
+    color: var(--text-main);
+    font-weight: 600;
+}
+.rn-syntax-comparison p,
+.rn-syntax-evidence-body p {
+    margin: 0 0 var(--space-xs);
+}
+.rn-syntax-evidence {
+    margin-top: var(--space-xs);
+}
+.rn-syntax-evidence > summary {
+    cursor: pointer;
+    color: var(--text-sub);
+    text-decoration: underline;
+    text-decoration-color: var(--border-soft);
+    text-underline-offset: 2px;
+    width: fit-content;
+}
+.rn-syntax-evidence-body {
+    padding-top: var(--space-xs);
+}
+
 /* ─── Layer 3: 「単語を調べる」reference layer ─── */
 /* 読書から分離された最下層。折りたたみ。annotation feel。 */
 .rn-ref-section {
@@ -9293,12 +9325,95 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
     };
     const primaryHTML = primaryCandidates.map(c => renderCandidate(c, true)).join('');
     const tiedNotice = !topHasLead && primaryCandidates.length > 1
-        ? '<div class="rn-syntax-tied-notice">候補の確度に大きな差がなく、今回の解析では一つに絞れていません。</div>'
+        ? '<div class="rn-syntax-tied-notice">今回の解析では、一つの候補に絞れていません。</div>'
         : '';
     const otherHTML = otherCandidates.length
         ? `<details class="rn-syntax-alternatives"><summary>ほかの候補を見る（${otherCandidates.length}件）</summary><div class="rn-syntax-alternatives-list">${otherCandidates.map(c => renderCandidate(c, false)).join('')}</div></details>`
         : '';
-    return `<span class="rn-dict-label ui-label">文の中での役割</span><div class="rn-syntax-candidates">${tiedNotice}${primaryHTML}${otherHTML}</div>`;
+
+    /*
+     * 候補比較は、意味の対立と適用箇所を人手レビューしたケースに限定する。
+     * confidence の大小や共通シグナルを、解釈の決め手として扱わない。
+     * 対象外・候補不足では何も追加しない（静寂優先）。
+     */
+    const candidateIds = new Set(unique.map(c => c.id));
+    const targetLemma = String(words[targetIdx]?.lemma || '').normalize('NFC');
+    const refText = String(targetRef || '');
+    const hasLemma = lemma => words.some(t => String(t.lemma || '').normalize('NFC') === lemma);
+    let comparisonHTML = '';
+    if (
+        targetLemma === 'οἶκος' &&
+        /(?:JHN|John)[\s._:-]*2[\s._:-]*17(?:[\s._:!-]|$)/i.test(refText) &&
+        hasLemma('ζῆλος') &&
+        candidateIds.has('genitive.objective') &&
+        candidateIds.has('genitive.subjective')
+    ) {
+        comparisonHTML = `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p><strong>目的語的属格</strong>なら「家に対する熱意」で、「家」は熱意の向かう対象です。<strong>主語的属格</strong>なら「家が示す熱意」で、「家」は熱意を示す側です。</p>
+            <details class="rn-syntax-evidence">
+                <summary>根拠を詳しく見る</summary>
+                <div class="rn-syntax-evidence-body">
+                    <p><strong>本文で確認できること：</strong>「熱意」を表す <span lang="el">ζῆλος</span> に、<span lang="el">τοῦ οἴκου σου</span> という属格句が続いています。</p>
+                    <p><strong>ここから言えること：</strong>動作・感情を表す名詞と属格句の関係が問題になります。ただし、動作名詞があるという手がかりは両候補に共通するため、それだけでは「熱意を向ける側」か「熱意を示す側」かを決められません。</p>
+                </div>
+            </details>
+        </div>`;
+    } else if (
+        targetLemma === 'Χριστός' &&
+        /(?:ROM|Romans)[\s._:-]*8[\s._:-]*35(?:[\s._:!-]|$)/i.test(refText) &&
+        hasLemma('ἀγάπη') &&
+        candidateIds.has('genitive.subjective') &&
+        candidateIds.has('genitive.objective')
+    ) {
+        comparisonHTML = `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p><strong>主語的属格</strong>なら「キリストが私たちを愛する愛」、<strong>目的語的属格</strong>なら「キリストに向けられた愛」です。違いは、キリストが愛する側なのか、愛を向けられる側なのかにあります。</p>
+            <details class="rn-syntax-evidence">
+                <summary>根拠を詳しく見る</summary>
+                <div class="rn-syntax-evidence-body">
+                    <p><strong>本文で確認できること：</strong><span lang="el">τοῦ Χριστοῦ</span> は <span lang="el">τῆς ἀγάπης</span> に続く属格です。</p>
+                    <p><strong>ここから言えること：</strong>文法上の形だけでは、キリストが愛する主体か、愛の対象かは確定しません。前後の文脈と「キリストの愛」という表現全体の意味を合わせて判断する必要があります。解析スコアは確率を表すものではありません。</p>
+                </div>
+            </details>
+        </div>`;
+    }
+
+    /* 一般的な候補比較：人手レビュー済みの型の組み合わせだけを比較する。 */
+    if (!comparisonHTML &&
+        candidateIds.has('nominal_syntax.nested_np') &&
+        candidateIds.has('nominal_syntax.modified_np')) {
+        comparisonHTML = `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">候補の違い</div>
+            <p><strong>入れ子名詞句</strong>は、名詞句の内部にもう一つの名詞句が組み込まれる構造です。たとえば冠詞・名詞・冠詞・属格名詞という Apollonius 型が該当します。</p>
+            <p><strong>修飾名詞句</strong>は、中心となる名詞に形容詞・属格・分詞・前置詞句などの修飾語が付く構造です。</p>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong>名詞句の内部に別の名詞句が組み込まれているか、中心語に修飾語が付いているか、という構造上の違いです。</p>
+            <details class="rn-syntax-evidence">
+                <summary>根拠を詳しく見る</summary>
+                <div class="rn-syntax-evidence-body">
+                    <p>この二つは名詞句の構造を説明する候補です。どちらが適切かは、対象語だけでなく、周囲の冠詞・名詞・修飾語の並びとまとまりを確認して判断します。候補の表示順位やスコアだけで構造が確定するわけではありません。</p>
+                </div>
+            </details>
+        </div>`;
+    } else if (!comparisonHTML &&
+        candidateIds.has('genitive.subjective') &&
+        candidateIds.has('genitive.possessive') &&
+        candidateIds.has('genitive.objective')) {
+        comparisonHTML = `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">候補の違い</div>
+            <p><strong>主語的属格：</strong>属格が動作を行う側を表します。動作名詞を動詞に置き換えると、属格が主語に当たります。</p>
+            <p><strong>所有属格：</strong>属格が中心語との所有・所属・帰属の関係を表します。「〜の」と訳せることがあります。</p>
+            <p><strong>目的語的属格：</strong>属格が動作の向かう対象を表します。動作名詞を動詞に置き換えると、属格が目的語に当たります。</p>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong>属格が「動作をする側」「所有・帰属の関係」「動作を受ける対象」のどれを表すか、という意味上の違いです。</p>
+            <details class="rn-syntax-evidence">
+                <summary>根拠を詳しく見る</summary>
+                <div class="rn-syntax-evidence-body">
+                    <p>属格という形だけで三つの用法を区別できるわけではありません。中心となる名詞の意味、属格との関係、文脈を合わせて判断します。候補のスコアは確率を表すものではありません。</p>
+                </div>
+            </details>
+        </div>`;
+    }
+    return `<span class="rn-dict-label ui-label">文の中での役割</span><div class="rn-syntax-candidates">${tiedNotice}${primaryHTML}${otherHTML}${comparisonHTML}</div>`;
 }
 
 async function _renderReadingNotes(p) {
