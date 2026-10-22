@@ -6,6 +6,7 @@
 // the sole registry type using clause_is_narrative().
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 const assert = require('assert/strict');
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'public');
@@ -38,10 +39,16 @@ global.entryPosCode = t => {
   return '';
 };
 function requireCjs(filePath) {
-  // syntax-analyzer.js has a CommonJS export; use Node's native loader.
-  const resolved = require.resolve(path.resolve(filePath));
-  delete require.cache[resolved];
-  return require(resolved);
+  // Evaluate source as CommonJS even though package.json declares type=module.
+  // Build line breaks as characters to avoid accidentally embedding literal \\n.
+  const code = fs.readFileSync(filePath, 'utf8');
+  const resolved = path.resolve(filePath);
+  const mod = { exports: {}, id: resolved, filename: resolved, loaded: false };
+  const nl = String.fromCharCode(10);
+  const wrapper = '(function(module,exports,require,__dirname,__filename){' + nl + code + nl + '})';
+  const fn = vm.runInThisContext(wrapper, { filename: resolved, displayErrors: true });
+  fn(mod, mod.exports, require, path.dirname(resolved), resolved);
+  return mod.exports;
 }
 
 const baseline = requireCjs(baselinePath);
