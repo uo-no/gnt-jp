@@ -1213,6 +1213,8 @@ class RegistryLoader {
 // § 7.  CheckEvaluator — 実装
 // =============================================================
 
+const CHECK_UNSUPPORTED = Symbol('CHECK_UNSUPPORTED');
+
 const CheckEvaluator = (() => {
     // check名 → (ctx, args) => boolean のマップ
     const _handlers = new Map();
@@ -1242,7 +1244,9 @@ const CheckEvaluator = (() => {
 
             // ── NOT プレフィックス ──────────────────────────────────────
             if (str.startsWith('NOT ')) {
-                return !_api.eval(str.slice(4).trim(), ctx);
+                const inner = _api.evalDetailed(str.slice(4).trim(), ctx);
+                if (inner.status === 'unsupported') return false;
+                return inner.status !== 'matched';
             }
 
             // ── AND（左結合・最低優先度）──────────────────────────────
@@ -1284,7 +1288,50 @@ const CheckEvaluator = (() => {
                 console.warn(`[CheckEvaluator] unknown check: "${funcName}"`);
                 return false; // 安全側
             }
-            return !!handler(ctx, args);
+            const value = handler(ctx, args);
+            return value !== CHECK_UNSUPPORTED && !!value;
+        },
+
+        /** Three-valued check evaluation used by the scorer. */
+        evalDetailed(checkStr, ctx) {
+            const unsupported = (reason) => ({ status: 'unsupported', reason });
+            if (!checkStr || typeof checkStr !== 'string') return unsupported('invalid_check');
+            const str = checkStr.trim();
+            if (!str) return unsupported('empty_check');
+
+            if (str.startsWith('NOT ')) {
+                const inner = _api.evalDetailed(str.slice(4).trim(), ctx);
+                if (inner.status === 'unsupported') return inner;
+                return { status: inner.status === 'matched' ? 'not_matched' : 'matched', reason: null };
+            }
+            if (str.includes(' AND ')) {
+                const parts = str.split(' AND ').map(part => _api.evalDetailed(part.trim(), ctx));
+                if (parts.some(result => result.status === 'not_matched')) return { status: 'not_matched', reason: null };
+                return parts.find(result => result.status === 'unsupported') ?? { status: 'matched', reason: null };
+            }
+            if (str.includes(' OR ')) {
+                const parts = str.split(' OR ').map(part => _api.evalDetailed(part.trim(), ctx));
+                if (parts.some(result => result.status === 'matched')) return { status: 'matched', reason: null };
+                return parts.find(result => result.status === 'unsupported') ?? { status: 'not_matched', reason: null };
+            }
+
+            const match = str.match(/^(\w+)\(([^)]*)\)$/);
+            if (!match) return unsupported('parse_failed');
+            const [, funcName, argsStr] = match;
+            let args;
+            if (argsStr) {
+                const trimmedArgsStr = argsStr.trim();
+                const arrayMatch = trimmedArgsStr.match(/^\[([^\]]*)\]$/);
+                const inner = arrayMatch ? arrayMatch[1] : trimmedArgsStr;
+                args = inner ? inner.split(',').map(a => a.trim().replace(/^['"]|['"]$/g, '')) : [];
+            } else {
+                args = [];
+            }
+            const handler = _handlers.get(funcName);
+            if (!handler) return unsupported('unknown_handler:' + funcName);
+            const value = handler(ctx, args);
+            if (value === CHECK_UNSUPPORTED) return unsupported('handler_unsupported:' + funcName);
+            return { status: value ? 'matched' : 'not_matched', reason: null };
         },
     };
 
@@ -2133,6 +2180,12 @@ class CandidateNormalizer {
                     status:          raw.typeDef?.status           ?? 'stub',
                     signals_matched: raw.signalsMatched            ?? [],
                     signals_failed:  raw.signalsFailed             ?? [],
+                    // Keep three-valued diagnostics in the public candidate output.
+                    // Otherwise unsupported semantic checks disappear during normalization.
+                    signals_unsupported: raw.signalsUnsupported    ?? [],
+                    checks_unsupported:  raw.checksUnsupported     ?? [],
+                    has_unsupported_checks: (raw.signalsUnsupported?.length ?? 0) > 0
+                        || (raw.checksUnsupported?.length ?? 0) > 0,
                     raw_score:       raw.rawScore,
                     alternatives:    raw.typeDef?.alternatives     ?? [],
                     xsc: {
@@ -2291,6 +2344,10 @@ class CandidateScorer {
      */
     _evalCheck(checkStr, ctx) {
         return CheckEvaluator.eval(checkStr, ctx);
+    }
+
+    _evalCheckDetailed(checkStr, ctx) {
+        return CheckEvaluator.evalDetailed(checkStr, ctx);
     }
 }
 
@@ -4423,29 +4480,33 @@ if (typeof module !== 'undefined' && module.exports) {
                 rawScore:       (typeDef.xsc?.default_confidence ?? 0) + _computeTieBreakScore(typeDef),
                 signalsMatched: [],
                 signalsFailed:  [],
+                signalsUnsupported: [],
+                checksUnsupported: [],
                 deltas:         [],
                 typeDef,
             };
         }
 
-        // exclusions: 既存と同じ（1件でも true なら rawScore = 0）
+        // unsupportedな除外条件は除外を発火させず、診断情報に記録する。
+        const checksUnsupported = [];
         for (const excl of det.exclusions ?? []) {
-            if (this._evalCheck(excl.check, ctx)) {
+            const result = this._evalCheckDetailed(excl.check, ctx);
+            if (result.status === 'matched') {
                 return {
-                    typeId:         typeDef.id,
-                    rawScore:       0,
-                    signalsMatched: [],
-                    signalsFailed:  [excl.id],
-                    deltas:         [],
-                    typeDef,
+                    typeId: typeDef.id, rawScore: 0,
+                    signalsMatched: [], signalsFailed: [excl.id],
+                    signalsUnsupported: [], checksUnsupported,
+                    deltas: [], typeDef,
                 };
             }
+            if (result.status === 'unsupported') checksUnsupported.push({ id: excl.id, check: excl.check, reason: result.reason });
         }
 
         // ── signals 評価（拡張版）────────────────────────────────────────
         let score       = typeDef.xsc?.base_weight ?? 0;
         const matched   = [];
         const failed    = [];
+        const unsupported = [];
         const deltas    = [];
         const signals   = typeDef.xsc?.signals    ?? [];
         const conditions = det.conditions          ?? [];
@@ -4456,11 +4517,13 @@ if (typeof module !== 'undefined' && module.exports) {
             const directCond = conditions.find(c => c.id === signal.id);
             if (directCond) {
                 // 既存と同じ評価
-                const hit = this._evalCheck(directCond.check, ctx);
-                if (hit) {
+                const result = this._evalCheckDetailed(directCond.check, ctx);
+                if (result.status === 'matched') {
                     score += signal.value;
                     matched.push(signal.id);
                     deltas.push({ signal_id: signal.id, value: signal.value, label_ja: signal.label_ja ?? '' });
+                } else if (result.status === 'unsupported') {
+                    unsupported.push({ id: signal.id, check: directCond.check, reason: result.reason });
                 } else {
                     failed.push(signal.id);
                 }
@@ -4479,11 +4542,13 @@ if (typeof module !== 'undefined' && module.exports) {
             if (mappedCondId) {
                 const mappedCond = conditions.find(c => c.id === mappedCondId);
                 if (mappedCond) {
-                    const hit = this._evalCheck(mappedCond.check, ctx);
-                    if (hit) {
+                    const result = this._evalCheckDetailed(mappedCond.check, ctx);
+                    if (result.status === 'matched') {
                         score += signal.value;
                         matched.push(signal.id);
                         deltas.push({ signal_id: signal.id, value: signal.value, label_ja: signal.label_ja ?? '' });
+                    } else if (result.status === 'unsupported') {
+                        unsupported.push({ id: signal.id, check: mappedCond.check, reason: result.reason });
                     } else {
                         failed.push(signal.id);
                     }
@@ -4501,6 +4566,8 @@ if (typeof module !== 'undefined' && module.exports) {
             rawScore: score + _computeTieBreakScore(typeDef),
             signalsMatched: matched,
             signalsFailed: failed,
+            signalsUnsupported: unsupported,
+            checksUnsupported,
             deltas,
             typeDef,
         };
@@ -4526,18 +4593,18 @@ if (typeof module !== 'undefined' && module.exports) {
 //
 // ③ has_adjectival_equivalent()
 //    対応形容詞がある場合に true（ヒューリスティック・文脈依存）。
-//    Registry が定義できないため、常に false を返す（安全側）。
-//    warn なしで false を返すよう登録して console.warn を抑制する。
+//    自動判定に必要な意味・文脈情報が未定義。false と断定せず unsupported として返す。
+//    スコアには加算せず、診断情報に記録する。
 //
 // ④ semantic_equivalence_test()
 //    「すなわち」置換テスト（ヒューリスティック・自動判定困難）。
-//    常に false（安全側）。warn 抑制のため登録。
+//    自動判定未実装。unsupported として返し、スコアに加算しない。
 //
 // ⑤ semantic_substitution_test(prep)
-//    前置詞句置換テスト（ヒューリスティック）。常に false。warn 抑制。
+//    前置詞句置換テスト（意味・文脈依存）。自動判定未実装のため unsupported。
 //
 // ⑥ context_discourse_type_eq(type)
-//    談話タイプ判定（論証的文体等）。自動判定不可。常に false。warn 抑制。
+//    談話タイプ判定（論証的文体等）。自動判定未実装のため unsupported として記録。
 //
 // =============================================================
 
@@ -4568,24 +4635,24 @@ CheckEvaluator.register('target_is_abstract_noun',
     }
 );
 
-// ③ has_adjectival_equivalent — ヒューリスティック・自動判定不可 → false
+// ③ has_adjectival_equivalent — 意味的等価性は自動判定未実装 → unsupported
 CheckEvaluator.register('has_adjectival_equivalent',
-    (_ctx) => false
+    (_ctx) => CHECK_UNSUPPORTED
 );
 
-// ④ semantic_equivalence_test — ヒューリスティック → false
+// ④ semantic_equivalence_test — 言い換えの意味的等価性は未実装 → unsupported
 CheckEvaluator.register('semantic_equivalence_test',
-    (_ctx) => false
+    (_ctx) => CHECK_UNSUPPORTED
 );
 
-// ⑤ semantic_substitution_test — ヒューリスティック → false
+// ⑤ semantic_substitution_test — 置換可能性は文脈依存・未実装 → unsupported
 CheckEvaluator.register('semantic_substitution_test',
-    (_ctx) => false
+    (_ctx) => CHECK_UNSUPPORTED
 );
 
-// ⑥ context_discourse_type_eq — 自動判定不可 → false
+// ⑥ context_discourse_type_eq — 談話タイプ判定は未実装 → unsupported
 CheckEvaluator.register('context_discourse_type_eq',
-    (_ctx) => false
+    (_ctx) => CHECK_UNSUPPORTED
 );
 
 // ⑦ context_lemma_in_list — 節内全トークンのレンマを named list と照合

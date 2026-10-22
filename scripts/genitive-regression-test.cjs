@@ -1905,6 +1905,21 @@ console.log('\n  ─── FP ガード ───');
     const r = analyzeTokenCat('ACT', 1, 11, 'ἔρχομαι', 'verb.');
     check('FP: ACT 1:11 — predictive が deliberative に優先',
           r.topId === 'verb.future_predictive', `top=${r.topId}`);
+    // required_mood の負例: 同じ時制でも命令法でなければ命令法ラベルを候補化しない。
+    // LUK 18:12 νηστεύω は現在直説法、REV 20:4 ἐβασίλευσαν はアオリスト直説法。
+    const nonImperativePresent = analyzeTokenCat('LUK', 18, 12, 'νηστεύω', 'verb.');
+    for (const id of ['verb.imperative_customary']) {
+        check(`FP: LUK 18:12 — 非命令法に ${id} を出さない`,
+              !nonImperativePresent.allCandidates.some(x => x.id === id),
+              nonImperativePresent.allCandidates.filter(x => x.id === id).map(x => x.id).join(','));
+    }
+    const nonImperativeAorist = analyzeTokenCat('REV', 20, 4, 'βασιλεύω', 'verb.');
+    for (const id of ['verb.imperative_constative', 'verb.imperative_ingressive']) {
+        check(`FP: REV 20:4 — 非命令法に ${id} を出さない`,
+              !nonImperativeAorist.allCandidates.some(x => x.id === id),
+              nonImperativeAorist.allCandidates.filter(x => x.id === id).map(x => x.id).join(','));
+    }
+
     // 9A mood 旗艦の非回帰
     const m1 = analyzeTokenCat('MAT', 6, 11, 'δίδωμι', 'verb.');
     check('回帰: MAT 6:11 δός — imperative_urgency top 維持',
