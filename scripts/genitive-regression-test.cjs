@@ -604,6 +604,11 @@ check('_BUILTIN_CONDITION_SIGNAL_MAP が公開されている',
     check('temporal participle: aorist signal label avoids certainty',
           /手掛かり/.test(aoristSignal?.label_ja ?? ''),
           aoristSignal?.label_ja ?? 'missing signal');
+    check('temporal participle: hint warns against deciding by form alone',
+          /語形だけでは確定しない/.test(temporal?.hint_ja ?? ''),
+          temporal?.hint_ja ?? 'missing hint');
+    check('temporal participle: diagnostics consider context and main verb',
+          (temporal?.dictionary?.diagnostics ?? []).some(x => /主動詞.*文脈/.test(x)));
 }
 
 // 恒偽であることが既知のチェック関数（意図的 dormant — WARN 対象）
