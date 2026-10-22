@@ -152,13 +152,6 @@ assert(wallaceExample.oldCandidates.some(candidate => candidate.id === 'verb.per
   'the cited Wallace example must have the baseline dramatic-perfect candidate');
 assert(wallaceExample.newCandidates.some(candidate => candidate.id === 'verb.perfect_dramatic'),
   'the clause-scope change must not delete the cited Wallace example candidate');
-const invalidDeltaExamples = report.changedExamples.filter(example => {
-  const scoreDiffs = example.changed.filter(change => typeof change.delta === 'number');
-  return scoreDiffs.length === 0 || !scoreDiffs.every(change => change.id === 'verb.perfect_dramatic' && change.delta === -10);
-});
-if (invalidDeltaExamples.length) {
-  console.error('Unexpected delta examples:', JSON.stringify(invalidDeltaExamples.slice(0, 12).map(example => ({ref:example.ref,text:example.text,lemma:example.lemma,changed:example.changed})), null, 2));
-}
 for (const example of report.changedExamples) {
   const scoreDiffs = example.changed.filter(change => typeof change.delta === 'number');
   assert(scoreDiffs.length > 0, 'changed example must include a direct score difference');
