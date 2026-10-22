@@ -4347,7 +4347,6 @@ if (typeof module !== 'undefined' && module.exports) {
         'article_full_agreement':               'article_case_match',
         'no_article_before':                    'no_article',
         'no_matching_noun':                     'no_match_noun',
-        'temporal_tense':                       'tense_aorist',
         'aorist_tense':                         'aorist_ptc',
         'main_verb_aorist_imperative':          'aorist_imperative_main',
         'causal_adverb_present':                'causal_particle',
