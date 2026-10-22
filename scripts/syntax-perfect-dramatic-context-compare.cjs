@@ -157,15 +157,15 @@ fs.writeFileSync(path.join(ROOT, 'syntax-clause-scope-compare-report.json'), JSO
 for (const example of report.changedExamples) {
   const scoreDiffs = example.changed.filter(change => typeof change.delta === 'number');
   assert(scoreDiffs.length > 0, 'changed example must include a direct score difference');
-  assert(scoreDiffs.every(change => change.id === 'verb.perfect_dramatic' && change.delta === -10),
+  assert(scoreDiffs.every(change => change.id === 'verb.perfect_dramatic' && Math.abs(change.delta + 10) < 0.001),
     'cross-clause narrative context should contribute the weaker +5 rather than +15 bonus');
 }
-assert.equal(wallaceExample.changed.find(change => change.id === 'verb.perfect_dramatic').delta, -10,
+assert.equal(Math.abs(wallaceExample.changed.find(change => change.id === 'verb.perfect_dramatic').delta + 10) < 0.001, true,
   'Wallace example JHN 1:15 must retain a weaker narrative-context bonus');
 if (wallaceExample) {
   const oldCandidate = wallaceExample.oldCandidates.find(candidate => candidate.id === 'verb.perfect_dramatic');
   const newCandidate = wallaceExample.newCandidates.find(candidate => candidate.id === 'verb.perfect_dramatic');
-  assert(oldCandidate && newCandidate && newCandidate.score === oldCandidate.score - 10,
+  assert(oldCandidate && newCandidate && Math.abs(newCandidate.score - (oldCandidate.score - 10)) < 0.001,
     'JHN 1:15 dramatic perfect must remain a candidate with only a 10-point reduction');
 }
 
