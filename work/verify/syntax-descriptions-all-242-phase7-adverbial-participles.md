@@ -6,7 +6,7 @@
 
 主たる照合対象はWallace, *Greek Grammar Beyond the Basics* §27.B（ExSyn pp.623–645）および *The Basics of New Testament Syntax* の分詞章である。Wallaceの体系では、副詞的分詞の時間・様態・手段・原因・条件・譲歩・目的・結果が区別され、付帯状況などは別項目として扱われる。Smyth §§2060–2069は、必要な場合の一般文法上の補助照合に限る。
 
-副詞的分詞は、分詞の形だけで「時間」「理由」「条件」「譲歩」などの意味が自動的に決まるわけではない。Smyth §§2060–2069 は、時間・様態・手段・原因・目的・譲歩・条件・付帯状況などの関係は文脈から生じ、同じ分詞を複数の関係で理解できる場合があると明記する。Bible.orgの分詞解説も、時制形・語順・文脈・動詞の語彙的意味・意味状況を合わせて候補を絞ると説明する。
+副詞的分詞は、分詞の形だけで「時間」「理由」「条件」「譲歩」などの意味が自動的に決まるわけではない。Wallaceは、文脈が分詞の意味を決めるうえで大きな役割を持つとし、動詞形・語順・主動詞との関係を手掛かりに候補を絞る。Smyth §§2060–2069も一般文法の補助照合として参照できるが、本監査の分類基準はWallaceに置く。
 
 したがって、現行レジストリの説明にある「形だけで機械的に決めない」「文脈で判断する」という注意は方向として正しい。ただし、これだけでは読者に何を根拠に見分けるかが伝わりにくい。比較文では、各候補の意味と、本文から確認する具体的な問いを併記する。
 
@@ -93,6 +93,6 @@
 - Wallace, “The Participle,” Bible.orgに公開された本文: https://bible.org/article/participle
 
 ### 補助資料
-- Smyth, *A Greek Grammar for Colleges*, §§2060–2070: https://www.perseus.tufts.edu/hopper/text?doc=Perseus%3Atext%3A1999.04.0007%3Apart%3D4%3Achapter%3D46%3Asection%3D117
+- Smyth, *A Greek Grammar for Colleges*, §§2060–2070（補助資料）: https://www.perseus.tufts.edu/hopper/text?doc=Perseus%3Atext%3A1999.04.0007%3Apart%3D4%3Achapter%3D46%3Asection%3D117
 
 この監査はWallaceの分類を主軸に一般的な説明と比較文案を整えたもので、個々の新約聖書箇所の解析判定を検証したものではない。アプリの採用版でページ番号・用例を最終照合し、実際の候補データに対する全件テストを別途行う必要がある。
