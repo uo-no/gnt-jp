@@ -128,6 +128,10 @@ assert(report.corpus.tokens > 100000, 'unexpectedly low NT token count: ' + repo
 assert(report.targets.total > 0, 'no syntax-scored targets were evaluated');
 const outPath = path.join(ROOT, 'syntax-score-compare-report.json');
 fs.writeFileSync(outPath, JSON.stringify(report, null, 2) + '\n');
+assert.equal(report.comparisons.changedScores, 0, 'tri-state change must not alter any NT candidate score without an explicit reviewed baseline update');
+assert.equal(report.comparisons.rankChangedTargets, 0, 'tri-state change must not alter NT candidate rankings without an explicit reviewed baseline update');
+assert.equal(report.comparisons.candidatesAdded, 0, 'tri-state change must not add NT candidates unexpectedly');
+assert.equal(report.comparisons.candidatesRemoved, 0, 'tri-state change must not remove NT candidates unexpectedly');
 console.log('Whole-NT syntax score/rank comparison');
 console.log(JSON.stringify({
   corpus:report.corpus, targets:report.targets, comparisons:report.comparisons,
