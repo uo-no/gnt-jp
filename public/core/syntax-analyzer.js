@@ -2180,6 +2180,12 @@ class CandidateNormalizer {
                     status:          raw.typeDef?.status           ?? 'stub',
                     signals_matched: raw.signalsMatched            ?? [],
                     signals_failed:  raw.signalsFailed             ?? [],
+                    // Keep three-valued diagnostics in the public candidate output.
+                    // Otherwise unsupported semantic checks disappear during normalization.
+                    signals_unsupported: raw.signalsUnsupported    ?? [],
+                    checks_unsupported:  raw.checksUnsupported     ?? [],
+                    has_unsupported_checks: (raw.signalsUnsupported?.length ?? 0) > 0
+                        || (raw.checksUnsupported?.length ?? 0) > 0,
                     raw_score:       raw.rawScore,
                     alternatives:    raw.typeDef?.alternatives     ?? [],
                     xsc: {
