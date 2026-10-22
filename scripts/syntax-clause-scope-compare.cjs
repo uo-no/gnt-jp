@@ -39,12 +39,18 @@ global.entryPosCode = t => {
   return '';
 };
 function requireCjs(filePath) {
+  // Evaluate source as CommonJS even though package.json declares type=module.
+  // Build line breaks as characters to avoid accidentally embedding literal \\n.
   const code = fs.readFileSync(filePath, 'utf8');
-  const mod = { exports: {}, id: filePath, filename: filePath, loaded: false };
-  const fn = vm.runInThisContext('(function(module,exports,require,__dirname,__filename){\n' + code + '\n})', { filename: filePath, displayErrors: true });
-  fn(mod, mod.exports, require, path.dirname(filePath), filePath);
+  const resolved = path.resolve(filePath);
+  const mod = { exports: {}, id: resolved, filename: resolved, loaded: false };
+  const nl = String.fromCharCode(10);
+  const wrapper = '(function(module,exports,require,__dirname,__filename){' + nl + code + nl + '})';
+  const fn = vm.runInThisContext(wrapper, { filename: resolved, displayErrors: true });
+  fn(mod, mod.exports, require, path.dirname(resolved), resolved);
   return mod.exports;
 }
+
 const baseline = requireCjs(baselinePath);
 const current = requireCjs(path.join(PUBLIC, 'core/syntax-analyzer.js'));
 const books = JSON.parse(fs.readFileSync(path.join(PUBLIC, 'books.json'), 'utf8'));
@@ -64,7 +70,7 @@ function candidateMap(output) {
   ]));
 }
 function verseKey(token) {
-  const m = String(token.ref || '').match(/^([A-Z0-9]+)\\s+(\\d+):(\\d+)!/);
+  const m = String(token.ref || '').match(/^([A-Z0-9]+)\s+(\d+):(\d+)!/);
   return m ? m[1] + ' ' + m[2] + ':' + m[3] : null;
 }
 for (const book of books.NT) {
@@ -109,8 +115,12 @@ for (const book of books.NT) {
           report.comparisons.changedTargets++;
           if (rankChanged) report.comparisons.rankChangedTargets++;
           bs.changedTargets++;
-          if (report.changedExamples.length < 250) report.changedExamples.push({
+          const chapterTargetIndex = tokens.findIndex(t => t.globalIdx === target.globalIdx);
+          const contextTokens = tokens.slice(Math.max(0, chapterTargetIndex - 15), Math.min(tokens.length, chapterTargetIndex + 16))
+            .map(t => ({ ref: t.ref, text: t.text, lemma: t.lemma, morph: t.morph, role: t.role }));
+          report.changedExamples.push({
             ref, book:book.key, tokenIndex:target.tokenIndex, text:target.text, lemma:target.lemma,
+            contextTokens,
             oldCandidates:[...oldMap.entries()].map(([id,v])=>({id,...v})),
             newCandidates:[...newMap.entries()].map(([id,v])=>({id,...v})),
             changed:diffs,
@@ -124,6 +134,29 @@ assert.equal(report.corpus.books, 27, 'expected all 27 NT books');
 assert.equal(report.corpus.chapters, 260, 'expected all 260 NT chapters');
 assert(report.corpus.tokens > 100000, 'unexpectedly low NT token count');
 assert(report.targets.perfectTense > 0, 'no perfect-tense targets evaluated');
+assert.equal(report.comparisons.candidatesAdded, 0, 'scope fix must not add candidates');
+assert.equal(report.comparisons.candidatesRemoved, 0, 'scope fix must not remove candidates');
+assert.equal(report.comparisons.changedScores, report.comparisons.changedTargets,
+  'every changed target should have a direct score change');
+assert.equal(report.comparisons.rankChangedTargets, report.comparisons.changedTargets,
+  'all score changes should be reflected in candidate ordering');
+assert(report.changedExamples.every(example => Array.isArray(example.contextTokens) && example.contextTokens.length > 0),
+  'every changed target must include chapter context for review');
+// Keep the registry's own Wallace example visible in the impact report. This
+// is a deliberate review sentinel, not a claim that the score reduction is correct.
+const wallaceExample = report.changedExamples.find(example => example.ref === 'JHN 1:15' && example.text === 'κέκραγεν');
+assert(wallaceExample, 'registry example JHN 1:15 κέκραγεν must be present for explicit review');
+assert(wallaceExample.oldCandidates.some(candidate => candidate.id === 'verb.perfect_dramatic'),
+  'the cited Wallace example must have the baseline dramatic-perfect candidate');
+assert(wallaceExample.newCandidates.some(candidate => candidate.id === 'verb.perfect_dramatic'),
+  'the clause-scope change must not delete the cited Wallace example candidate');
+for (const example of report.changedExamples) {
+  const scoreDiffs = example.changed.filter(change => typeof change.delta === 'number');
+  assert(scoreDiffs.length > 0, 'changed example must include a direct score difference');
+  assert(scoreDiffs.every(change => change.id === 'verb.perfect_dramatic' && change.delta === -15),
+    'only verb.perfect_dramatic should lose the cross-clause narrative bonus');
+}
+
 fs.writeFileSync(path.join(ROOT, 'syntax-clause-scope-compare-report.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify({
   corpus: report.corpus, targets: report.targets, comparisons: report.comparisons,
