@@ -1244,7 +1244,9 @@ const CheckEvaluator = (() => {
 
             // ── NOT プレフィックス ──────────────────────────────────────
             if (str.startsWith('NOT ')) {
-                return !_api.eval(str.slice(4).trim(), ctx);
+                const inner = _api.evalDetailed(str.slice(4).trim(), ctx);
+                if (inner.status === 'unsupported') return false;
+                return inner.status !== 'matched';
             }
 
             // ── AND（左結合・最低優先度）──────────────────────────────
