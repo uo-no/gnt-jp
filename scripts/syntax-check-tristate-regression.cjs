@@ -83,6 +83,6 @@ for (const expression of checkExpressions) { for (const match of expression.matc
 const unregisteredNames = [...referencedNames].filter(name => !registeredNames.has(name));
 assert.deepEqual(unregisteredNames, [], 'every check function used by the registry must have a handler');
 const unsupportedNames = ['has_adjectival_equivalent', 'semantic_equivalence_test', 'semantic_substitution_test', 'context_discourse_type_eq'];
-const unsupportedUsage = Object.fromEntries(unsupportedNames.map(name => [name, checkExpressions.filter(expression => new RegExp('\\\\b' + name + '\\\\s*\\\\(').test(expression)).length]));
+const unsupportedUsage = Object.fromEntries(unsupportedNames.map(name => [name, checkExpressions.filter(expression => new RegExp('\\b' + name + '\\s*\\(').test(expression)).length]));
 assert.deepEqual(unsupportedUsage, { has_adjectival_equivalent: 1, semantic_equivalence_test: 2, semantic_substitution_test: 2, context_discourse_type_eq: 2 }, 'all current unsupported-handler usages must be explicitly accounted for');
 console.log('PASS whole-registry coverage (' + registryTypes.length + ' types, ' + checkExpressions.length + ' check expressions, ' + referencedNames.size + ' handler names)');
