@@ -115,8 +115,12 @@ for (const book of books.NT) {
           report.comparisons.changedTargets++;
           if (rankChanged) report.comparisons.rankChangedTargets++;
           bs.changedTargets++;
+          const chapterTargetIndex = tokens.findIndex(t => t.globalIdx === target.globalIdx);
+          const contextTokens = tokens.slice(Math.max(0, chapterTargetIndex - 15), Math.min(tokens.length, chapterTargetIndex + 16))
+            .map(t => ({ ref: t.ref, text: t.text, lemma: t.lemma, morph: t.morph, role: t.role }));
           report.changedExamples.push({
             ref, book:book.key, tokenIndex:target.tokenIndex, text:target.text, lemma:target.lemma,
+            contextTokens,
             oldCandidates:[...oldMap.entries()].map(([id,v])=>({id,...v})),
             newCandidates:[...newMap.entries()].map(([id,v])=>({id,...v})),
             changed:diffs,
