@@ -2,8 +2,8 @@
 
 更新日: 2026-10-22
 対象PR: [#233](https://github.com/uo-no/gnt-jp/pull/233)
-検証CI: [VR-5 Regression Gate](https://github.com/uo-no/gnt-jp/actions/runs/39786734616)
-レポート artifact: `syntax-perfect-dramatic-context-report`（ID `12428768721`）
+検証CI: [VR-5 Regression Gate](https://github.com/uo-no/gnt-jp/actions/runs/39786849154)
+レポート artifact: `syntax-perfect-dramatic-context-report`（ID `12428383509`）
 
 ## 目的
 
@@ -12,11 +12,12 @@
 ## CI 結果
 
 - 節内／聖句内文脈の対照テスト: PASS（4 checks）
-- Path Structure Check: PASS
-- VR-5 Regression Gate: PASS
+- Path Structure Check: PASS（[run](https://github.com/uo-no/gnt-jp/actions/runs/39786849170)）
+- VR-5 Regression Gate: PASS（[run](https://github.com/uo-no/gnt-jp/actions/runs/39786849154)）
 - 全新約走査: 27巻・260章・137,741トークン・7,939節
 - 比較対象: 完了形1,572トークン
-- スコア・順位が変わった対象: 311
+- スコアが変わった対象: 311
+- 候補順位が変わった対象: 311
 - 変更は全311件で `verb.perfect_dramatic` のスコア -10
 - 候補追加: 0、候補削除: 0
 - 変更例311件すべてに章内前後文脈を含めた
@@ -37,8 +38,13 @@ MAT 26、MRK 22、LUK 30、JHN 90、ACT 28、ROM 12、1CO 19、2CO 14、GAL 6、
 
 ## 判定と残作業
 
-技術的な比較は成功し、全311件が同じ -10 の差分で、候補集合に追加・削除はない。tie-break 条件数が増えることで起きる意図しない +0.05 のスコア変動は、当該ラベルの base weight 補正と小数第2位の安定化で抑制した。
+技術的な比較は成功し、全311件が同じ -10 の差分で、候補集合に追加・削除はない。比較スクリプトは浮動小数点の微小誤差を小数第6位で正規化し、同点時の候補順を ID で決定して、意味のないスコア差・順位差を回帰差分として数えない。現行の全新約比較では、311件すべてが劇的完了の -10 点だけで説明できる。
 
 ただし、この結果は311件の意味的正しさを証明するものではない。順位低下が不適切な誤発火の抑制か、正当な劇的完了候補の過小評価かを判断するには、変更例の文脈と Wallace の説明を確認する必要がある。特に JHN 1:15 の rank 18 は UI での見え方を実機確認する。
 
 **マージ判断は保留。** 全311件の文脈レビューと UI 表示確認が終わるまではマージしない。
+
+
+## 比較スクリプトの安定化（2026-10-22）
+
+比較処理で約 10⁻¹⁴ の浮動小数点誤差が別差分として数えられるケースを確認した。比較専用のスコア正規化と同点時の決定的な並べ替えを導入し、全新約比較を再実行した。最新レポートは上記 artifact。解析ロジックそのものはこの正規化で変更していない。
