@@ -216,3 +216,10 @@
   - REV 20:4 `ἐβασίλευσαν`（アオリスト直説法）に `verb.imperative_constative` / `verb.imperative_ingressive` が出ないこと。
 - 変更コミット: `e3e2cddff6654fac77dffea5b8cf25f047829f28`。
 - コミットに対する GitHub Actions は確認時点で `Path Structure Check` と `VR-5 Regression Gate` がともに `queued`。このため、負例テストの実行結果はまだ未確認であり、合格とは記録しない。
+
+
+### CIの再確認（2026-10-22）
+
+- コミット `e3e2cddff6654fac77dffea5b8cf25f047829f28` について、`Path Structure Check` と `VR-5 Regression Gate` の両方が `success` になったことを後続確認した。
+- ただし `VR-5 Regression Gate` は `test:syntax-tristate` と `test:syntax-score-compare` などを実行し、`test:genitive` は実行していない。したがって、同コミットで追加した `genitive-regression-test.cjs` 内の命令法負例テストが実行・合格したことを意味しない。
+- その後に監査文書を更新したコミットのCI結果は確認できていない。最新HEADの合格とは記録しない。
