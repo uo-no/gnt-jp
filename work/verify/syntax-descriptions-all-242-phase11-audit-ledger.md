@@ -72,7 +72,7 @@
 - 第13段階では、`has_adjectival_equivalent`、`semantic_equivalence_test`、`semantic_substitution_test`、`context_discourse_type_eq` が常に `false` を返すことをコードで確認した。
 - 第14段階の直接ID照合では39件の不一致を検出したが、後続の第16段階で `_BUILTIN_CONDITION_SIGNAL_MAP` と実行時逆引きを照合した結果、39件すべてに同じ型内のフォールバック条件が存在すると判明。したがって「39件が無条件加点される」という当初結論は撤回した。
 - 第15段階の初版にあったID修正案は撤回。直接IDの一括置換は行わず、対応条件の意味と実装状態を監査する。
-- 第16段階では、フォールバック自体は機能している一方、`participle.adverbial_temporal` の `temporal_tense` 条件が `tense_aorist` シグナルに対応する意味的不一致を確認した。コード修正PR #229 で条件をアオリスト形に限定し、回帰アサーションを追加した。Node.jsテスト未実行のためDraft。
+- 第16段階では、フォールバック自体は機能している一方、`participle.adverbial_temporal` の `temporal_tense` 条件が `tense_aorist` シグナルに対応する意味的不一致を確認した。コード修正PR #229 で条件をアオリスト形に限定し、時間関係の説明を文脈依存に改稿、分類をHybridに変更し、回帰アサーションを追加した。Node.js回帰テストは未実行。VR-5 Regression GateとPath Structure Checkを最新コミットで実行中。
 - 第16段階で挙げた常時falseのチェックに依存する型も別途問題として残る。
 - PR #219はclosed / unmergedだが、39件のID不一致はmainにも存在するため、PR #219の差分だけの問題ではない。
 
