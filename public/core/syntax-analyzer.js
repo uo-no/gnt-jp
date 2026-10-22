@@ -1313,13 +1313,13 @@ const CheckEvaluator = (() => {
                 return parts.find(result => result.status === 'unsupported') ?? { status: 'not_matched', reason: null };
             }
 
-            const match = str.match(/^(\\w+)\\(([^)]*)\\)$/);
+            const match = str.match(/^(\w+)\(([^)]*)\)$/);
             if (!match) return unsupported('parse_failed');
             const [, funcName, argsStr] = match;
             let args;
             if (argsStr) {
                 const trimmedArgsStr = argsStr.trim();
-                const arrayMatch = trimmedArgsStr.match(/^\\[([^\\]]*)\\]$/);
+                const arrayMatch = trimmedArgsStr.match(/^\[([^\]]*)\]$/);
                 const inner = arrayMatch ? arrayMatch[1] : trimmedArgsStr;
                 args = inner ? inner.split(',').map(a => a.trim().replace(/^['"]|['"]$/g, '')) : [];
             } else {
