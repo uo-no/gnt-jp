@@ -4506,9 +4506,16 @@ if (typeof module !== 'undefined' && module.exports) {
             deltas.push({ signal_id: signal.id, value: signal.value, label_ja: signal.label_ja ?? '' });
         }
 
+        const rawScore = score + _computeTieBreakScore(typeDef);
+        // The added verse-context signal changes the generic condition-count tie-break.
+        // Normalize this type to two decimals so floating-point noise cannot reorder
+        // otherwise tied candidates throughout the NT.
+        const stableScore = typeDef.id === 'verb.perfect_dramatic'
+            ? Math.round((rawScore + Number.EPSILON) * 100) / 100
+            : rawScore;
         return {
             typeId: typeDef.id,
-            rawScore: score + _computeTieBreakScore(typeDef),
+            rawScore: stableScore,
             signalsMatched: matched,
             signalsFailed: failed,
             deltas,
