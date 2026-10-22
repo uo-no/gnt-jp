@@ -19,9 +19,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout PR base analyzer and syntax registry for comparison
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: baseline
+          sparse-checkout: |
+            public/core/syntax-analyzer.js
+            public/assets/data/syntax-registry.json
+          sparse-checkout-cone-mode: false
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: Perfect dramatic context weighting regression
+        run: npm run test:syntax-perfect-dramatic
+
+      - name: Whole-NT comparison for weighted dramatic-perfect context
+        if: github.event_name == 'pull_request'
+        run: npm run test:syntax-perfect-dramatic-compare
+        env:
+          SYNTAX_BASELINE_DIR: baseline
+
+      - name: Upload weighted dramatic-perfect context report
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: syntax-perfect-dramatic-context-report
+          path: syntax-clause-scope-compare-report.json
+          if-no-files-found: ignore
 
       - name: Flow DOM transition regression（VR-5-H-7 保護ゲート）
         run: npm run test:flow-dom
