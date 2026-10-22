@@ -86,3 +86,37 @@ const unsupportedNames = ['has_adjectival_equivalent', 'semantic_equivalence_tes
 const unsupportedUsage = Object.fromEntries(unsupportedNames.map(name => [name, checkExpressions.filter(expression => new RegExp('\\b' + name + '\\s*\\(').test(expression)).length]));
 assert.deepEqual(unsupportedUsage, { has_adjectival_equivalent: 1, semantic_equivalence_test: 2, semantic_substitution_test: 2, context_discourse_type_eq: 2 }, 'all current unsupported-handler usages must be explicitly accounted for');
 console.log('PASS whole-registry coverage (' + registryTypes.length + ' types, ' + checkExpressions.length + ' check expressions, ' + referencedNames.size + ' handler names)');
+
+
+// Ensure every scoring signal across all 242 types resolves to a condition, including the 39 legacy ID fallbacks.
+const mapStart = source.indexOf('const _BUILTIN_CONDITION_SIGNAL_MAP = {');
+const mapEnd = source.indexOf('\n    };', mapStart);
+assert(mapStart >= 0 && mapEnd > mapStart, 'built-in condition-to-signal map must be present');
+const mapEntries = [...source.slice(mapStart, mapEnd).matchAll(/'([^']+)'\s*:\s*'([^']+)'/g)].map(match => [match[1], match[2]]);
+const reverseMap = new Map();
+for (const [conditionId, signalId] of mapEntries) {
+  if (!reverseMap.has(signalId)) reverseMap.set(signalId, []);
+  reverseMap.get(signalId).push(conditionId);
+}
+let directSignalMatches = 0;
+let fallbackSignalMatches = 0;
+let signalsWithoutCondition = 0;
+let conditionsWithoutSignal = 0;
+for (const type of registryTypes) {
+  const conditions = type.detection.conditions || [];
+  const signals = type.xsc.signals || [];
+  for (const signal of signals) {
+    if (conditions.some(condition => condition.id === signal.id)) { directSignalMatches++; continue; }
+    const mappedConditionIds = reverseMap.get(signal.id) || [];
+    if (mappedConditionIds.some(id => conditions.some(condition => condition.id === id))) fallbackSignalMatches++;
+    else signalsWithoutCondition++;
+  }
+  for (const condition of conditions) {
+    if (!signals.some(signal => signal.id === condition.id) && !Object.prototype.hasOwnProperty.call(Object.fromEntries(mapEntries), condition.id)) conditionsWithoutSignal++;
+  }
+}
+assert.equal(directSignalMatches, 410, 'direct condition/signal IDs must match for all expected signals');
+assert.equal(fallbackSignalMatches, 39, 'all 39 legacy ID-mismatched signals must resolve through the fallback map');
+assert.equal(signalsWithoutCondition, 0, 'no scoring signal may silently score without a condition');
+assert.equal(conditionsWithoutSignal, 1, 'the known single non-scoring condition must remain explicit and auditable');
+console.log('PASS scoring-map coverage (410 direct, 39 fallback, 0 unconditioned signals, 1 non-scoring condition)');
