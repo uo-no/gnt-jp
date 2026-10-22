@@ -137,7 +137,7 @@ for (const book of books.NT) {
   }
 }
 // Persist the full diagnostic report before assertions so CI artifacts survive failures.
-fs.writeFileSync(path.join(ROOT, 'syntax-clause-scope-compare-report.json'), JSON.stringify(report, null, 2) + '\n');
+fs.writeFileSync(path.join(ROOT, 'syntax-perfect-dramatic-context-report.json'), JSON.stringify(report, null, 2) + '\n');
 // Persist diagnostics before assertions so a failed review gate still uploads the report.
 assert.equal(report.corpus.books, 27, 'expected all 27 NT books');
 assert.equal(report.corpus.chapters, 260, 'expected all 260 NT chapters');
@@ -178,5 +178,5 @@ if (wallaceExample) {
 console.log(JSON.stringify({
   corpus: report.corpus, targets: report.targets, comparisons: report.comparisons,
   changedExamples: report.changedExamples.length,
-  report: 'syntax-clause-scope-compare-report.json'
+  report: 'syntax-perfect-dramatic-context-report.json'
 }, null, 2));
