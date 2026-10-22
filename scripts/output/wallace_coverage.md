@@ -1,6 +1,6 @@
 # Coverage Report — Wallace Core + Engine Extensions
 
-Generated: 2026-08-20T14:39:26.840Z
+Generated: 2026-10-22T05:04:48.197Z
 Engine Version: 0.2.0
 Wallace: Wallace, Daniel B. Greek Grammar Beyond the Basics. Zondervan, 1996.
 
@@ -453,7 +453,7 @@ Status: **complete**  |  GGBB 関連箇所: 51–53, 526–532, 622–625 passim
 | Genitive | relationship | MAT 1:1 | ✓ |
 | Genitive | material | REV 18:12 | ✓ |
 | Genitive | content | JHN 21:8 | ✓ |
-| Genitive | attributed | ROM 6:4 | ✓ |
+| Genitive | attributed |  | ✓ |
 | Genitive | predicate | 1CO 6:19 | ✓ |
 | Genitive | subjective | ROM 8:35 | ✓ |
 | Genitive | objective | ROM 3:22 | ✓ |
@@ -679,11 +679,10 @@ Status: **complete**  |  GGBB 関連箇所: 51–53, 526–532, 622–625 passim
 
 - FAIL: 0
 - WARN: 0
-- INFO: 64
+- INFO: 63
   - ℹ️ 代表節の共有: MAT 5:3 (genitive.possessive, clause.causal_hoti, nominal_syntax.substantival_phrase)
   - ℹ️ 代表節の共有: ROM 7:24 (genitive.descriptive, nominative.exclamation)
   - ℹ️ 代表節の共有: MAT 1:1 (genitive.relationship, nominative.title_nominative)
-  - ℹ️ 代表節の共有: ROM 6:4 (genitive.attributed, dative.association)
   - ℹ️ 代表節の共有: MAT 3:11 (genitive.comparison, infinitive.epexegetical, preposition.proper_with_dative)
   - ℹ️ 代表節の共有: ROM 6:11 (dative.reference, conjunction.correlative_men_de)
   - ℹ️ 代表節の共有: LUK 23:15 (dative.agent, adjective.genitive_complement)
