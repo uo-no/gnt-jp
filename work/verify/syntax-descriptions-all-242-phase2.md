@@ -1,6 +1,7 @@
 # 統語説明文・第2段階監査：属格・与格・分詞の優先確認
 
 対象レジストリ：`fix/syntax-description-ja-update` の `public/assets/data/syntax-registry.json`。
+**資料の優先順位：Wallaceの *Greek Grammar Beyond the Basics* と *The Basics of New Testament Syntax* を主資料とする。** Smythなど他の文法書は必要な場合の補助照合に限り、分類が異なる場合は混在させず、その差を記録する。
 この段階では、実際の本文・原典を照合せずに説明文を直接書き換えることはしない。以下は説明文の内部整合性と、候補比較時に読者が区別できるかを確認した結果。確定的な文法判断ではなく、次に原典・実例で検証するレビュー項目である。
 
 ## 1. 属格：隣接候補の区別
