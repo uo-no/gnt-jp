@@ -59,3 +59,30 @@ for (const name of ['has_adjectival_equivalent', 'semantic_equivalence_test', 's
   assert(source.includes(`CheckEvaluator.register('${name}',\n    (_ctx) => CHECK_UNSUPPORTED\n);`), name + ' must be explicitly unsupported');
 }
 console.log('PASS scorer integration source guards');
+
+
+// Whole-registry structural coverage: this is deliberately not a two-example-only test.
+const registryPath = path.join(__dirname, '..', 'public/assets/data/syntax-registry.json');
+const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+const registryTypes = [];
+const checkExpressions = [];
+function walkRegistry(node) {
+  if (!node || typeof node !== 'object') return;
+  if (Array.isArray(node)) { for (const item of node) walkRegistry(item); return; }
+  if (node.id && node.detection && node.xsc) registryTypes.push(node);
+  if (typeof node.check === 'string') checkExpressions.push(node.check);
+  for (const value of Object.values(node)) walkRegistry(value);
+}
+walkRegistry(registry.categories);
+assert.equal(registryTypes.length, 242, 'all 242 syntax types must be included in the registry audit');
+assert(registryTypes.every(type => Array.isArray(type.xsc?.signals) && type.xsc.signals.length > 0), 'all 242 types must have scoring signals');
+assert(registryTypes.every(type => Array.isArray(type.detection?.conditions) && type.detection.conditions.length > 0), 'all 242 types must have detection conditions');
+const registeredNames = new Set([...source.matchAll(/CheckEvaluator\\.register\\(['\"]([^'\"]+)['\"]/g)].map(match => match[1]));
+const referencedNames = new Set();
+for (const expression of checkExpressions) { for (const match of expression.matchAll(/([A-Za-z_]\\w*)\\s*\\(/g)) referencedNames.add(match[1]); }
+const unregisteredNames = [...referencedNames].filter(name => !registeredNames.has(name));
+assert.deepEqual(unregisteredNames, [], 'every check function used by the registry must have a handler');
+const unsupportedNames = ['has_adjectival_equivalent', 'semantic_equivalence_test', 'semantic_substitution_test', 'context_discourse_type_eq'];
+const unsupportedUsage = Object.fromEntries(unsupportedNames.map(name => [name, checkExpressions.filter(expression => new RegExp('\\\\b' + name + '\\\\s*\\\\(').test(expression)).length]));
+assert.deepEqual(unsupportedUsage, { has_adjectival_equivalent: 1, semantic_equivalence_test: 2, semantic_substitution_test: 2, context_discourse_type_eq: 2 }, 'all current unsupported-handler usages must be explicitly accounted for');
+console.log('PASS whole-registry coverage (' + registryTypes.length + ' types, ' + checkExpressions.length + ' check expressions, ' + referencedNames.size + ' handler names)');
