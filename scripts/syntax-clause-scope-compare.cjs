@@ -39,12 +39,12 @@ global.entryPosCode = t => {
   return '';
 };
 function requireCjs(filePath) {
-  const code = fs.readFileSync(filePath, 'utf8');
-  const mod = { exports: {}, id: filePath, filename: filePath, loaded: false };
-  const fn = vm.runInThisContext('(function(module,exports,require,__dirname,__filename){\n' + code + '\n})', { filename: filePath, displayErrors: true });
-  fn(mod, mod.exports, require, path.dirname(filePath), filePath);
-  return mod.exports;
+  // Use Node's native CommonJS loader; no source-string wrapper is needed.
+  const resolved = require.resolve(filePath);
+  delete require.cache[resolved];
+  return require(resolved);
 }
+
 const baseline = requireCjs(baselinePath);
 const current = requireCjs(path.join(PUBLIC, 'core/syntax-analyzer.js'));
 const books = JSON.parse(fs.readFileSync(path.join(PUBLIC, 'books.json'), 'utf8'));
