@@ -2128,6 +2128,7 @@ class CandidateNormalizer {
                     label_ja:        raw.typeDef?.label_ja        ?? '',
                     label_en:        raw.typeDef?.label_en        ?? '',
                     wallace_ref:     raw.typeDef?.wallace_ref      ?? '',
+                    description_ja:  raw.typeDef?.description_ja   ?? '',
                     hint_ja:         raw.typeDef?.hint_ja          ?? '',
                     status:          raw.typeDef?.status           ?? 'stub',
                     signals_matched: raw.signalsMatched            ?? [],

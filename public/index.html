@@ -1778,24 +1778,72 @@ border-bottom: 1px dotted rgba(0,0,0,0.15);
 .rn-syntax-labels {
     margin-bottom: var(--space-sm);
 }
-.rn-syntax-chips {
+.rn-syntax-candidates {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-xs);
+    flex-direction: column;
+    gap: var(--space-sm);
     margin-top: var(--space-xs);
 }
-.rn-syntax-chip {
-    display: inline-flex;
-    align-items: center;
+.rn-syntax-item {
+    min-width: 0;
+}
+.rn-syntax-item-heading {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+}
+.rn-syntax-term {
+    font-size: var(--text-body);
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--text-main);
+}
+.rn-syntax-item-primary .rn-syntax-term {
+    color: var(--text-main);
+}
+.rn-syntax-best-label {
     font-size: var(--text-caption);
     font-weight: 500;
-    line-height: 1.5;
-    padding: var(--space-xs) var(--space-sm);
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius-l);
-    background: var(--bg-panel);
-    color: var(--text-main);
-    letter-spacing: 0.01em;
+    color: var(--text-sub);
+    white-space: nowrap;
+}
+.rn-syntax-description {
+    margin-top: 2px;
+    color: var(--text-sub);
+    font-size: var(--text-caption);
+    line-height: 1.65;
+}
+.rn-syntax-alternatives {
+    margin-top: var(--space-sm);
+    border-top: 1px solid var(--border-soft);
+    padding-top: var(--space-xs);
+}
+.rn-syntax-alternatives > summary {
+    cursor: pointer;
+    list-style: none;
+    color: var(--text-sub);
+    font-size: var(--text-caption);
+    padding: var(--space-xs) 0;
+}
+.rn-syntax-alternatives > summary::-webkit-details-marker { display: none; }
+.rn-syntax-alternatives > summary::after {
+    content: '+';
+    float: right;
+    color: var(--text-sub);
+}
+.rn-syntax-alternatives[open] > summary::after { content: '−'; }
+.rn-syntax-alternatives-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding-top: var(--space-xs);
+}
+.rn-syntax-tied-notice {
+    color: var(--text-sub);
+    font-size: var(--text-caption);
+    line-height: 1.6;
+    margin-bottom: var(--space-xs);
 }
 
 /* ─── Layer 3: 「単語を調べる」reference layer ─── */
@@ -9213,16 +9261,44 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         output = pipeline.sa.analyze({ target: words[targetIdx], tokens: words, targetIdx });
     } catch (_) { return ''; }
     if (!output || !Array.isArray(output.candidates) || !output.candidates.length) return '';
-    /* 0.60 以上かつ非 stub の候補を label_ja 重複排除で収集 */
+    /* 0.60 以上かつ非 stub の候補を、スコア順に並べて重複排除 */
     const CONF_MEDIUM = 0.60;
-    const seen = new Set();
-    const chips = output.candidates
+    const candidates = output.candidates
         .filter(c => c.confidence >= CONF_MEDIUM && c.status !== 'stub' && c.label_ja)
-        .filter(c => { if (seen.has(c.label_ja)) return false; seen.add(c.label_ja); return true; })
-        .map(c => `<span class="rn-syntax-chip">${_escH(c.label_ja)}</span>`)
-        .join('');
-    if (!chips) return '';
-    return `<span class="rn-dict-label ui-label">統語論</span><div class="rn-syntax-chips">${chips}</div>`;
+        .sort((a, b) => b.confidence - a.confidence);
+    const seen = new Set();
+    const unique = candidates.filter(c => {
+        if (seen.has(c.label_ja)) return false;
+        seen.add(c.label_ja);
+        return true;
+    });
+    if (!unique.length) return '';
+    /* 最高候補と次点の差が小さい場合は、近い候補を同列に表示 */
+    const topHasLead = unique.length > 1 && (unique[0].confidence - unique[1].confidence) >= 0.05;
+    const primaryCount = topHasLead ? 1 : unique.filter(c => unique[0].confidence - c.confidence < 0.05).length;
+    const primaryCandidates = unique.slice(0, primaryCount);
+    const otherCandidates = unique.slice(primaryCount);
+    const renderCandidate = (c, primary) => {
+        const label = _escH(c.label_ja);
+        const explanation = typeof c.description_ja === 'string' && c.description_ja.trim()
+            ? c.description_ja.trim()
+            : (typeof c.hint_ja === 'string' ? c.hint_ja.trim() : '');
+        const description = explanation
+            ? `<div class="rn-syntax-description">${_escH(explanation)}</div>`
+            : '';
+        const badge = primary && topHasLead
+            ? '<span class="rn-syntax-best-label">最有力</span>'
+            : '';
+        return `<div class="rn-syntax-item${primary && topHasLead ? ' rn-syntax-item-primary' : ''}"><div class="rn-syntax-item-heading"><span class="rn-syntax-term">${label}</span>${badge}</div>${description}</div>`;
+    };
+    const primaryHTML = primaryCandidates.map(c => renderCandidate(c, true)).join('');
+    const tiedNotice = !topHasLead && primaryCandidates.length > 1
+        ? '<div class="rn-syntax-tied-notice">候補の確度に大きな差がなく、今回の解析では一つに絞れていません。</div>'
+        : '';
+    const otherHTML = otherCandidates.length
+        ? `<details class="rn-syntax-alternatives"><summary>ほかの候補を見る（${otherCandidates.length}件）</summary><div class="rn-syntax-alternatives-list">${otherCandidates.map(c => renderCandidate(c, false)).join('')}</div></details>`
+        : '';
+    return `<span class="rn-dict-label ui-label">文の中での役割</span><div class="rn-syntax-candidates">${tiedNotice}${primaryHTML}${otherHTML}</div>`;
 }
 
 async function _renderReadingNotes(p) {
