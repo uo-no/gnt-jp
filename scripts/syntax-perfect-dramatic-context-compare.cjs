@@ -67,9 +67,16 @@ const report = {
   changedExamples: [], byBook: {},
 };
 function candidateMap(output) {
-  return new Map((output?.candidates || []).map((candidate, index) => [
-    candidate.id, { rank: index + 1, score: Number(candidate.raw_score ?? candidate.rawScore ?? candidate.confidence ?? 0) }
-  ]));
+  // Ignore IEEE-754 accumulation noise when comparing scores and ranks.
+  // The app displays these scores to two decimals; six decimals is more than enough
+  // to preserve meaningful differences while preventing ~1e-14 drift from faking changes.
+  const candidates = (output?.candidates || []).map((candidate, index) => ({
+    id: candidate.id,
+    originalRank: index + 1,
+    score: Number(Number(candidate.raw_score ?? candidate.rawScore ?? candidate.confidence ?? 0).toFixed(6)),
+  }));
+  candidates.sort((a, b) => b.score - a.score || a.originalRank - b.originalRank);
+  return new Map(candidates.map((candidate, index) => [candidate.id, { rank: index + 1, score: candidate.score }]));
 }
 function verseKey(token) {
   const m = String(token.ref || '').match(/^([A-Z0-9]+)\s+(\d+):(\d+)!/);
@@ -153,7 +160,7 @@ assert(wallaceExample.oldCandidates.some(candidate => candidate.id === 'verb.per
 assert(wallaceExample.newCandidates.some(candidate => candidate.id === 'verb.perfect_dramatic'),
   'the clause-scope change must not delete the cited Wallace example candidate');
 // Persist diagnostics before semantic assertions so failed CI still uploads the full report.
-fs.writeFileSync(path.join(ROOT, 'syntax-clause-scope-compare-report.json'), JSON.stringify(report, null, 2) + '\\n');
+fs.writeFileSync(path.join(ROOT, 'syntax-clause-scope-compare-report.json'), JSON.stringify(report, null, 2) + '\n');
 for (const example of report.changedExamples) {
   const scoreDiffs = example.changed.filter(change => typeof change.delta === 'number');
   assert(scoreDiffs.length > 0, 'changed example must include a direct score difference');
