@@ -67,15 +67,12 @@ const report = {
   changedExamples: [], byBook: {},
 };
 function candidateMap(output) {
-  // Ignore IEEE-754 accumulation noise when comparing scores and ranks.
-  // The app displays these scores to two decimals; six decimals is more than enough
-  // to preserve meaningful differences while preventing ~1e-14 drift from faking changes.
-  const candidates = (output?.candidates || []).map((candidate, index) => ({
+  // Normalize floating-point accumulation noise and make score ties deterministic.
+  const candidates = (output?.candidates || []).map(candidate => ({
     id: candidate.id,
-    originalRank: index + 1,
     score: Number(Number(candidate.raw_score ?? candidate.rawScore ?? candidate.confidence ?? 0).toFixed(6)),
   }));
-  candidates.sort((a, b) => b.score - a.score || a.originalRank - b.originalRank);
+  candidates.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
   return new Map(candidates.map((candidate, index) => [candidate.id, { rank: index + 1, score: candidate.score }]));
 }
 function verseKey(token) {
@@ -141,6 +138,7 @@ for (const book of books.NT) {
 }
 // Persist the full diagnostic report before assertions so CI artifacts survive failures.
 fs.writeFileSync(path.join(ROOT, 'syntax-clause-scope-compare-report.json'), JSON.stringify(report, null, 2) + '\n');
+// Persist diagnostics before assertions so a failed review gate still uploads the report.
 assert.equal(report.corpus.books, 27, 'expected all 27 NT books');
 assert.equal(report.corpus.chapters, 260, 'expected all 260 NT chapters');
 assert(report.corpus.tokens > 100000, 'unexpectedly low NT token count');
@@ -162,7 +160,6 @@ assert(wallaceExample.oldCandidates.some(candidate => candidate.id === 'verb.per
 assert(wallaceExample.newCandidates.some(candidate => candidate.id === 'verb.perfect_dramatic'),
   'the clause-scope change must not delete the cited Wallace example candidate');
 // Persist diagnostics before semantic assertions so failed CI still uploads the full report.
-fs.writeFileSync(path.join(ROOT, 'syntax-clause-scope-compare-report.json'), JSON.stringify(report, null, 2) + '\n');
 for (const example of report.changedExamples) {
   const scoreDiffs = example.changed.filter(change => typeof change.delta === 'number');
   assert(scoreDiffs.length > 0, 'changed example must include a direct score difference');
@@ -178,7 +175,6 @@ if (wallaceExample) {
     'JHN 1:15 dramatic perfect must remain a candidate with only a 10-point reduction');
 }
 
-fs.writeFileSync(path.join(ROOT, 'syntax-clause-scope-compare-report.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify({
   corpus: report.corpus, targets: report.targets, comparisons: report.comparisons,
   changedExamples: report.changedExamples.length,
