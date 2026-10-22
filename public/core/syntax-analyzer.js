@@ -1506,6 +1506,16 @@ CheckEvaluator.register('clause_is_narrative',
     })
 );
 
+// 節内の過去直説法は、物語文脈を示す比較的強い形態的手掛かり。
+// ただし、節内に過去形がないことだけで談話上の物語性を否定しない。
+CheckEvaluator.register('clause_has_past_indicative',
+    (ctx) => _clauseTokens(ctx).some(t => {
+        if (t === ctx.target) return false;
+        const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
+        return m.mood === 'indicative' && ['aorist', 'imperfect'].includes(m.tense ?? '');
+    })
+);
+
 // 節内に未来参照（未来形動詞・αὔριον・μέλλω）があるか
 CheckEvaluator.register('clause_has_future_reference',
     (ctx) => _clauseTokens(ctx).some(t => {
