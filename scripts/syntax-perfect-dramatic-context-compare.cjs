@@ -127,6 +127,7 @@ for (const book of books.NT) {
           report.changedExamples.push({
             ref, book:book.key, tokenIndex:target.tokenIndex, text:target.text, lemma:target.lemma,
             contextTokens,
+            verseTokens: verseTokens.map(t => ({ ref: t.ref, tokenIndex: t.tokenIndex, text: t.text, lemma: t.lemma, morph: t.morph, role: t.role, after: t.after })),
             oldCandidates:[...oldMap.entries()].map(([id,v])=>({id,...v})),
             newCandidates:[...newMap.entries()].map(([id,v])=>({id,...v})),
             changed:diffs,
@@ -149,8 +150,8 @@ assert(report.comparisons.changedScores <= report.comparisons.changedTargets,
   'direct score changes cannot exceed changed targets');
 assert(report.comparisons.rankChangedTargets <= report.comparisons.changedTargets,
   'rank-changed targets cannot exceed all changed targets');
-assert(report.changedExamples.every(example => Array.isArray(example.contextTokens) && example.contextTokens.length > 0),
-  'every changed target must include chapter context for review');
+assert(report.changedExamples.every(example => Array.isArray(example.contextTokens) && example.contextTokens.length > 0 && Array.isArray(example.verseTokens) && example.verseTokens.length > 0),
+  'every changed target must include both the complete target verse and neighboring chapter context for review');
 // Keep the registry's own Wallace example visible in the impact report. This
 // is a deliberate review sentinel, not a claim that the score reduction is correct.
 const wallaceExample = report.changedExamples.find(example => example.ref === 'JHN 1:15' && example.text === 'κέκραγεν');
