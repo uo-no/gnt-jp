@@ -51,10 +51,17 @@ assert.equal(verseCue(ctx), true,
 console.log('PASS clause-local evidence ignores the other clause');
 console.log('PASS verse-level narrative cue is preserved separately');
 
-ctx.clauseStart = 2;
-ctx.clauseEnd = 3;
+const localClauseTokens = [
+  { lemma: 'ἦν', morph: { mood: 'indicative', tense: 'imperfect' } },
+  { lemma: 'κέκραγεν', morph: { mood: 'indicative', tense: 'perfect' } },
+];
+ctx.tokens = localClauseTokens;
+ctx.target = localClauseTokens[1];
+ctx.targetIdx = 1;
+ctx.clauseStart = 0;
+ctx.clauseEnd = 1;
 assert.equal(clauseCue(ctx), true,
-  'past indicative inside the current clause must count as clause-local evidence');
+  'a different token with past indicative inside the target clause must count as clause-local evidence');
 console.log('PASS clause-local past indicative is detected');
 
 const registry = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'public/assets/data/syntax-registry.json'), 'utf8'));
