@@ -39,7 +39,7 @@ global.entryPosCode = t => {
 };
 function requireCjs(filePath) {
   // syntax-analyzer.js has a CommonJS export; use Node's native loader.
-  const resolved = require.resolve(filePath);
+  const resolved = require.resolve(path.resolve(filePath));
   delete require.cache[resolved];
   return require(resolved);
 }
