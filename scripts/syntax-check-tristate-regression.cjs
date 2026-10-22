@@ -104,7 +104,9 @@ for (const [typeId, conditionId, check] of expectedUnsupportedConditions) {
 for (const type of registryTypes) {
   for (const condition of type.detection.conditions || []) {
     if (!expectedUnsupportedConditions.some(([typeId, conditionId]) => typeId === type.id && conditionId === condition.id)) continue;
-    assert(!/恒偽|常に false|always false/i.test(condition.note || ''), 'registry notes must not misdescribe unsupported as a known false result: ' + type.id + '/' + condition.id);
+    assert(typeof condition.note === 'string' && condition.note.trim().length > 0, 'every unsupported condition must explain its current status: ' + type.id + '/' + condition.id);
+    assert(/未実装|判定不能|unsupported/i.test(condition.note), 'every unsupported condition note must explicitly say it is unimplemented/undecidable: ' + type.id + '/' + condition.id);
+    assert(!/恒偽|常に false|always false/i.test(condition.note), 'registry notes must not misdescribe unsupported as a known false result: ' + type.id + '/' + condition.id);
   }
 }
 console.log('PASS unsupported condition inventory (7 conditions across 4 handlers; no false-result wording)');
