@@ -1839,6 +1839,12 @@ border-bottom: 1px dotted rgba(0,0,0,0.15);
     gap: var(--space-sm);
     padding-top: var(--space-xs);
 }
+.rn-syntax-tied-notice {
+    color: var(--text-sub);
+    font-size: var(--text-caption);
+    line-height: 1.6;
+    margin-bottom: var(--space-xs);
+}
 
 /* ─── Layer 3: 「単語を調べる」reference layer ─── */
 /* 読書から分離された最下層。折りたたみ。annotation feel。 */
@@ -9286,10 +9292,13 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         return `<div class="rn-syntax-item${primary && topHasLead ? ' rn-syntax-item-primary' : ''}"><div class="rn-syntax-item-heading"><span class="rn-syntax-term">${label}</span>${badge}</div>${description}</div>`;
     };
     const primaryHTML = primaryCandidates.map(c => renderCandidate(c, true)).join('');
-    const otherHTML = otherCandidates.length
-        ? `<details class="rn-syntax-alternatives"><summary>ほかの候補（${otherCandidates.length}件）</summary><div class="rn-syntax-alternatives-list">${otherCandidates.map(c => renderCandidate(c, false)).join('')}</div></details>`
+    const tiedNotice = !topHasLead && primaryCandidates.length > 1
+        ? '<div class="rn-syntax-tied-notice">候補の確度に大きな差がなく、今回の解析では一つに絞れていません。</div>'
         : '';
-    return `<span class="rn-dict-label ui-label">文の中での役割</span><div class="rn-syntax-candidates">${primaryHTML}${otherHTML}</div>`;
+    const otherHTML = otherCandidates.length
+        ? `<details class="rn-syntax-alternatives"><summary>ほかの候補を見る（${otherCandidates.length}件）</summary><div class="rn-syntax-alternatives-list">${otherCandidates.map(c => renderCandidate(c, false)).join('')}</div></details>`
+        : '';
+    return `<span class="rn-dict-label ui-label">文の中での役割</span><div class="rn-syntax-candidates">${tiedNotice}${primaryHTML}${otherHTML}</div>`;
 }
 
 async function _renderReadingNotes(p) {
