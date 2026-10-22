@@ -77,9 +77,9 @@ walkRegistry(registry.categories);
 assert.equal(registryTypes.length, 242, 'all 242 syntax types must be included in the registry audit');
 assert(registryTypes.every(type => Array.isArray(type.xsc?.signals) && type.xsc.signals.length > 0), 'all 242 types must have scoring signals');
 assert(registryTypes.every(type => Array.isArray(type.detection?.conditions) && type.detection.conditions.length > 0), 'all 242 types must have detection conditions');
-const registeredNames = new Set([...source.matchAll(/CheckEvaluator\\.register\\(['\"]([^'\"]+)['\"]/g)].map(match => match[1]));
+const registeredNames = new Set([...source.matchAll(/CheckEvaluator\.register\(['"]([^'"]+)['"]/g)].map(match => match[1]));
 const referencedNames = new Set();
-for (const expression of checkExpressions) { for (const match of expression.matchAll(/([A-Za-z_]\\w*)\\s*\\(/g)) referencedNames.add(match[1]); }
+for (const expression of checkExpressions) { for (const match of expression.matchAll(/([A-Za-z_]\w*)\s*\(/g)) referencedNames.add(match[1]); }
 const unregisteredNames = [...referencedNames].filter(name => !registeredNames.has(name));
 assert.deepEqual(unregisteredNames, [], 'every check function used by the registry must have a handler');
 const unsupportedNames = ['has_adjectival_equivalent', 'semantic_equivalence_test', 'semantic_substitution_test', 'context_discourse_type_eq'];
