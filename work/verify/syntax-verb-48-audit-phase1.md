@@ -1,0 +1,110 @@
+# 動詞ラベル48件・一次監査（Phase 1）
+
+- 対象ブランチ: `fix/syntax-check-unsupported-tristate`
+- 対象データ: `public/assets/data/syntax-registry.json`（取得時 blob SHA `54b7971122eeed94e9aaff014b647e18fb6ed3fc`）
+- 基準: Wallace, *Greek Grammar Beyond the Basics*。Smyth等を分類の主根拠に置き換えない。
+- 状態: **レジストリ条件の一次レビュー**。本文例・形態解析・Wallace本文を一例ずつ照合した完了監査ではない。
+- 目的: 形態・統語構造として機械的に観測できる条件と、文脈・意味・談話解釈を要するラベルを分ける。以下の懸念は要検証事項であり、本文例の誤りや実装バグと確定したものではない。
+
+## 全体所見
+
+48件すべてが `dictionary.classification` 未設定だった。現時点で自動確定可能なA判定は付けない。ラベルの名称が示す分類軸は、少なくとも次の三群に分けて監査する必要がある。
+
+1. **形態・形式で候補を絞れるもの**: 時制・態・法・人称・数、μή / οὐ μή、ἵνα / ἐάν 等の形式標識。ただし、形式標識の検出は意味機能の確定と同義ではない。
+2. **文脈から解釈するもの**: 歴史的現在、格言的用法、進行・習慣・反復、起動・結果到達・総括、命令の語用的機能、動詞態の意味機能。
+3. **複数条件が競合するもの**: 現在／アオリスト／完了の意味分類、希求法の機能分類、中動態の意味分類。対立候補と文脈根拠を併記し、スコアだけで確定しない。
+
+## 先に調べるべき構造的リスク
+
+### 1. 時制・法だけでは意味機能を区別できない
+
+- `verb.imperative_customary` は `target_tense_eq('present')` のみ、`verb.imperative_constative` と `verb.imperative_ingressive` はともに `target_tense_eq('aorist')` のみ。時制アスペクトは候補の手掛かりになっても、継続／総括／起動の意味を単独で確定する条件ではない。
+- `verb.present_customary` と `verb.present_iterative` は同じ `target_tense_eq('present')` + `clause_has_iterative_marker()` を使う。現状の条件だけでは両者を区別する根拠が見えない。
+- `verb.perfect_extensive` は完了形＋主節、`verb.perfect_dramatic` は完了形＋物語節。節種別の判定が正しくても、完了の意味分類を直接証明するわけではない。
+
+**対応方針:** これらはB（競合候補を提示）を暫定案とし、Wallaceの区別基準と肯定・否定・曖昧例の人手判定が揃うまでAにしない。
+
+### 2. 文脈標識の存在を意味判定に直結させている
+
+- `verb.gnomic_present` / `verb.aorist_gnomic` / `verb.future_gnomic` は、γάρ・πᾶς・τις等の存在を条件に含む。これらは格言的意味を自動的に確定しない。
+- `verb.present_progressive` は時間副詞の存在、`verb.present_customary` / `verb.present_iterative` は反復標識の存在を利用するが、標識と対象動詞の意味的関係を別途確認する必要がある。
+- `verb.historical_present` は節頭の καί または同節・同節外の過去直説法の存在を使う。物語文脈、談話の時間基準、語りの機能を確認せずに確定できない。
+- `verb.imperative_urgency` は意志的文脈または νῦν・σήμερον・ταχύ 等を使う。副詞の存在だけでは命令の切迫性を保証しない。
+
+**対応方針:** 標識検出を「観測事実」として表示し、意味機能は文脈根拠と競合候補の比較を必要とする。
+
+### 3. 条件の重複・広さをコードで確認する
+
+- `verb.future_deliberative` の条件に `target_person_eq('1')` が単独条件としても、疑問節とのAND条件内にもある。重複が意図した加点なのか、条件の重複記述なのか、XSCのシグナル対応と照合する。
+- `verb.voice_permissive_passive` は `target_voice_eq('passive')` と `target_voice_eq('passive') AND target_mood_eq('imperative')` を併記する。前者は後者に含まれるため、独立した根拠として二重計上されていないかを確認する。
+- `verb.voice_passive` は `target_voice_eq('passive')` に加えて `clause_has_agent_phrase()` を要求する。これが「受動態一般」ではなく「行為者句を伴う受動態」を検出しているなら、ラベルの意味範囲と条件が一致しているか確認する。
+- `verb.imperative_customary` / `verb.imperative_constative` / `verb.imperative_ingressive` はID上は命令法の下位分類だが、各タイプの `detection.required_mood` と必須条件を別途確認する。条件欄に時制だけが記載されている場合、呼び出し側が法を保証しているかを検証する。
+
+**注意:** 以上はレジストリ記述から検出したレビュー項目であり、実行時に二重計上・誤検出が起きていると断定するものではない。XSCのシグナル重み、`CandidateScorer`、`AnalysisContext` の前提を追って結論を出す。
+
+## 48件の現行条件一覧
+
+| ID | ラベル | 登録例 | Wallace参照（レジストリ記載） | 登録条件 | 分類 |
+|---|---|---|---|---|---|
+| `verb.declarative` | 叙述的直説法 | JHN 1:1 | Indicative (p.449) | main_clause: `main_clause()`<br>not_question: `NOT clause_is_question()` | 未検証 |
+| `verb.historical_present` | 歴史的現在 | MRK 1:40 | Present tense (pp.526–532) | present_tense: `target_tense_eq('present')`<br>narrative_context: `clause_initial_kai() OR verse_has_past_indicative()`<br>third_person: `target_person_eq('3')` | 未検証 |
+| `verb.gnomic_present` | 格言的現在 | 2CO 9:7 | Present tense (pp.523–525) | present_tense: `target_tense_eq('present')`<br>gnomic_marker: `context_has_lemma_in(['γάρ','πᾶς'])` | 未検証 |
+| `verb.futuristic_present` | 未来的現在 | JHN 4:25 | Present tense (pp.535–537) | present_tense: `target_tense_eq('present')`<br>motion_lemma: `target_lemma_in_list('futuristic_motion_lemmas')` | 未検証 |
+| `verb.epistolary_aorist` | 書簡的アオリスト | PHP 2:28 | Aorist tense (pp.562–563) | aorist_tense_v: `target_tense_eq('aorist')`<br>epistolary_lemma: `target_lemma_in_list('epistolary_verb_lemmas')`<br>first_person: `target_person_eq('1')` | 未検証 |
+| `verb.dramatic_aorist` | 劇的アオリスト | MAT 3:17 | Aorist tense (pp.564–565) | aorist_tense_v: `target_tense_eq('aorist')`<br>present_context: `clause_has_present_indicative()` | 未検証 |
+| `verb.imperative_customary` | 継続命令（現在命令法） | LUK 11:3 | Imperative (pp.485–486, 521) | present_impv: `target_tense_eq('present')` | 未検証 |
+| `verb.imperative_constative` | 総括命令（アオリスト命令法） | ACT 2:38 | Imperative (pp.485–486, 720–721) | aorist_impv: `target_tense_eq('aorist')` | 未検証 |
+| `verb.imperative_ingressive` | 起動命令 | JHN 2:7 | Imperative (pp.485–486, 720) | aorist_impv: `target_tense_eq('aorist')` | 未検証 |
+| `verb.imperative_urgency` | 切迫命令 | MAT 6:11 | Imperative in prayers/requests (pp.487–488) | aorist_impv: `target_tense_eq('aorist')`<br>urgency_marker: `is_volitive_context() OR context_has_lemma_in(['νῦν','σήμερον','ταχύ'])` | 未検証 |
+| `verb.imperative_permissive` | 許容命令（3人称） | MAT 27:42 | Imperative 3rd person (pp.485–486) | third_person_impv: `target_person_eq('3')` | 未検証 |
+| `verb.hortatory` | 勧告的接続法 | HEB 12:1 | Subjunctive (pp.464–465) | first_plural: `first_person_plural() AND main_clause()`<br>not_question: `NOT clause_is_question()` | 未検証 |
+| `verb.prohibitory` | 禁止の接続法 | MAT 6:13 | Subjunctive (p.469) | me_before: `prev_token_lemma_in(['μή']) AND NOT ou_me_before()`<br>aorist_subj: `target_tense_eq('aorist')` | 未検証 |
+| `verb.deliberative` | 審議的接続法 | MAT 6:31 | Subjunctive (pp.465–467) | question: `clause_is_question()`<br>main_clause: `main_clause()` | 未検証 |
+| `verb.emphatic_negation` | 強調否定（οὐ μή） | JHN 10:28 | Subjunctive (p.468) | ou_me: `ou_me_before()`<br>aorist_subj: `target_tense_eq('aorist')` | 未検証 |
+| `verb.purpose_clause` | 目的節の接続法（ἵνα） | JHN 17:3 | Subjunctive in purpose clauses (pp.471–473) | hina: `has_hina()` | 未検証 |
+| `verb.indefinite_relative` | 不定関係節の接続法 | MRK 3:29 | Subjunctive (pp.478–479) | relative_an: `has_relative_pronoun() AND context_has_lemma_in(['ἄν'])` | 未検証 |
+| `verb.conditional_subjunctive` | 条件節の接続法（ἐάν） | 1JN 1:9 | Subjunctive (pp.469–471) | ean: `has_ean()` | 未検証 |
+| `verb.potential_optative` | 可能性の希求法 | ACT 8:31 | Optative (pp.483–484) | an_particle: `context_has_lemma_in(['ἄν'])` | 未検証 |
+| `verb.wish_optative` | 祈願の希求法 | ROM 6:2 | Optative (pp.481–483) | main_clause: `main_clause()`<br>no_an: `NOT context_has_lemma_in(['ἄν'])` | 未検証 |
+| `verb.optative_indirect_discourse` | 間接話法の希求法 | LUK 8:9 | Optative (p.483) | oblique_context: `clause_is_question() OR clause_is_subordinate()`<br>matrix_speech: `matrix_speech_verb()` | 未検証 |
+| `verb.present_progressive` | 進行的現在 | MAT 25:8 | Present (pp.518–519) | present_t: `target_tense_eq('present')`<br>now_adverb: `clause_has_temporal_adverb()` | 未検証 |
+| `verb.present_customary` | 習慣的現在 | LUK 18:12 | Present (pp.521–522) | present_t: `target_tense_eq('present')`<br>iter_marker: `clause_has_iterative_marker()` | 未検証 |
+| `verb.present_iterative` | 反復的現在 | MAT 17:15 | Present (pp.520–521) | present_t: `target_tense_eq('present')`<br>iter_marker: `clause_has_iterative_marker()` | 未検証 |
+| `verb.imperfect_progressive` | 進行的未完了 | MRK 9:31 | Imperfect (pp.543–544) | impf_t: `target_tense_eq('imperfect')`<br>main_clause: `main_clause()` | 未検証 |
+| `verb.imperfect_ingressive` | 起動的未完了 | MAT 5:2 | Imperfect (pp.544–545) | impf_t: `target_tense_eq('imperfect')`<br>aor_before: `past_verbal_before_target()` | 未検証 |
+| `verb.imperfect_iterative` | 反復的未完了 | JHN 19:3 | Imperfect (pp.546–547) | impf_t: `target_tense_eq('imperfect')`<br>iter_marker: `clause_has_iterative_marker()` | 未検証 |
+| `verb.imperfect_customary` | 習慣的未完了 | MRK 15:6 | Imperfect (p.548) | impf_t: `target_tense_eq('imperfect')`<br>distributive: `clause_has_distributive_temporal('distributive_temporal_lemmas')` | 未検証 |
+| `verb.imperfect_conative` | 企図的未完了 | MAT 3:14 | Imperfect (pp.550–551) | impf_t: `target_tense_eq('imperfect')`<br>conative_lemma: `target_lemma_in_list('conative_verb_lemmas')` | 未検証 |
+| `verb.aorist_constative` | 総括的アオリスト | REV 20:4 | Aorist (p.557) | aor_t: `target_tense_eq('aorist')`<br>main_clause: `main_clause()` | 未検証 |
+| `verb.aorist_ingressive` | 起動的アオリスト | 2CO 8:9 | Aorist (pp.558–559) | aor_t: `target_tense_eq('aorist')`<br>stative_lemma: `target_lemma_in_list('ingressive_stative_lemmas')` | 未検証 |
+| `verb.aorist_culminative` | 結果到達アオリスト | PHP 4:11 | Aorist (pp.559–561) | aor_t: `target_tense_eq('aorist')`<br>culminative_lemma: `target_lemma_in_list('culminative_verb_lemmas')` | 未検証 |
+| `verb.aorist_gnomic` | 格言的アオリスト | 1PE 1:24 | Aorist (p.562) | aor_t: `target_tense_eq('aorist')`<br>gnomic_marker: `context_has_lemma_in(['γάρ','πᾶς'])` | 未検証 |
+| `verb.perfect_intensive` | 強意的完了（現在状態） | MAT 4:4 | Perfect (pp.574–576) | perf_t: `target_tense_eq('perfect')`<br>stative_perfect: `target_lemma_in_list('intensive_perfect_lemmas')` | 未検証 |
+| `verb.perfect_extensive` | 広延的完了（完結行為） | JHN 1:34 | Perfect (p.577) | perf_t: `target_tense_eq('perfect')`<br>main_clause: `main_clause()` | 未検証 |
+| `verb.perfect_dramatic` | 劇的完了 | JHN 1:15 | Perfect (p.578) | perf_t: `target_tense_eq('perfect')`<br>narrative: `clause_is_narrative()` | 未検証 |
+| `verb.pluperfect_intensive` | 強意的過去完了 | MRK 1:34 | Pluperfect (pp.584–585) | plup_t: `target_tense_eq('pluperfect')`<br>stative_plup: `target_lemma_in_list('intensive_pluperfect_lemmas')` | 未検証 |
+| `verb.pluperfect_extensive` | 広延的過去完了 | JHN 4:8 | Pluperfect (pp.585–586) | plup_t: `target_tense_eq('pluperfect')` | 未検証 |
+| `verb.future_predictive` | 予告的未来 | ACT 1:11 | Future (p.568) | fut_t: `target_tense_eq('future')`<br>main_clause: `main_clause()` | 未検証 |
+| `verb.future_imperatival` | 命令的未来 | MAT 22:39 | Future (p.569) | fut_t: `target_tense_eq('future')`<br>second_person: `target_person_eq('2')`<br>legal_lemma: `target_lemma_in_list('imperatival_future_lemmas')` | 未検証 |
+| `verb.future_deliberative` | 審議的未来 | ROM 6:1 | Future (p.570) | fut_t: `target_tense_eq('future')`<br>question: `clause_is_question() AND target_person_eq('1')`<br>first_p: `target_person_eq('1')` | 未検証 |
+| `verb.future_gnomic` | 格言的未来 | ROM 5:7 | Future (p.571) | fut_t: `target_tense_eq('future')`<br>gnomic_marker: `context_has_lemma_in(['γάρ','τις','πᾶς'])` | 未検証 |
+| `verb.voice_active` | 単純能動態 | JHN 3:16 | Voice (pp.410–412) | active_v: `target_voice_eq('active')` | 未検証 |
+| `verb.voice_middle_direct` | 直接中動態 | MAT 27:5 | Voice (pp.416–417) | middle_v: `target_voice_eq('middle')`<br>direct_lemma: `target_lemma_in_list('direct_middle_lemmas')` | 未検証 |
+| `verb.voice_middle_reflexive` | 再帰的中動態 | MAT 16:7 | Voice (pp.416–418) | middle_v: `target_voice_eq('middle')`<br>reflexive: `clause_has_reflexive()` | 未検証 |
+| `verb.voice_middle_reciprocal` | 相互的中動態 | JHN 9:22 | Voice (p.427) | middle_v: `target_voice_eq('middle')`<br>reciprocal: `clause_has_reciprocal_marker() OR context_verb_has_syn_prefix()`<br>plural_subj: `target_number_eq('plural')` | 未検証 |
+| `verb.voice_passive` | 受動態 | MAT 4:1 | Voice (pp.431–438) | passive_v: `target_voice_eq('passive')`<br>agent_phrase: `clause_has_agent_phrase()` | 未検証 |
+| `verb.voice_permissive_passive` | 許容受動態 | 2CO 5:20 | Voice (pp.440–441) | passive_v: `target_voice_eq('passive')`<br>impv_mood: `target_voice_eq('passive') AND target_mood_eq('imperative')` | 未検証 |
+
+## 検証手順（未完了）
+
+- [ ] 各登録例のギリシャ語本文・形態・節境界を実データと照合
+- [ ] Wallaceの該当節で定義と識別基準を確認（頁表記だけを根拠確認済みとしない）
+- [ ] 各ラベルにつき肯定例・否定例・競合例を最低1例ずつ独立評価セットに登録
+- [ ] 共有条件（例: `clause_has_iterative_marker()`）の実装と入力範囲を確認
+- [ ] 条件の重複とXSC重みの対応を追跡
+- [ ] 候補順位・confidence・unsupported表示への影響を全NT回帰で確認
+- [ ] 根拠が揃ったラベルのみA/B/Cを決定
+
+## Phase 1結論
+
+動詞48件は、現在の条件式だけでは意味・アスペクト・談話機能を十分に分離できているとは判断できない。形式標識を使った候補生成は維持しつつ、意味分類は「検出された形式」「解釈候補」「未評価の文脈条件」を別々に扱う設計を優先する。登録例の直接照合とWallace原典の確認を終えるまでは、これはリリース認定ではなく監査計画・リスク一覧として扱う。
