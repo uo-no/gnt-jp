@@ -1797,6 +1797,18 @@ border-bottom: 1px dotted rgba(0,0,0,0.15);
     color: var(--text-main);
     letter-spacing: 0.01em;
 }
+.rn-syntax-chip-primary {
+    border-color: var(--accent, var(--border-soft));
+    background: var(--bg-panel);
+    font-weight: 600;
+}
+.rn-syntax-best-label {
+    margin-left: var(--space-xs);
+    font-size: 0.9em;
+    font-weight: 500;
+    color: var(--text-sub);
+    white-space: nowrap;
+}
 
 /* ─── Layer 3: 「単語を調べる」reference layer ─── */
 /* 読書から分離された最下層。折りたたみ。annotation feel。 */
@@ -9213,15 +9225,27 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         output = pipeline.sa.analyze({ target: words[targetIdx], tokens: words, targetIdx });
     } catch (_) { return ''; }
     if (!output || !Array.isArray(output.candidates) || !output.candidates.length) return '';
-    /* 0.60 以上かつ非 stub の候補を label_ja 重複排除で収集 */
+    /* 0.60 以上かつ非 stub の候補を、スコア順に並べて重複排除 */
     const CONF_MEDIUM = 0.60;
-    const seen = new Set();
-    const chips = output.candidates
+    const candidates = output.candidates
         .filter(c => c.confidence >= CONF_MEDIUM && c.status !== 'stub' && c.label_ja)
-        .filter(c => { if (seen.has(c.label_ja)) return false; seen.add(c.label_ja); return true; })
-        .map(c => `<span class="rn-syntax-chip">${_escH(c.label_ja)}</span>`)
-        .join('');
-    if (!chips) return '';
+        .sort((a, b) => b.confidence - a.confidence);
+    const seen = new Set();
+    const unique = candidates.filter(c => {
+        if (seen.has(c.label_ja)) return false;
+        seen.add(c.label_ja);
+        return true;
+    });
+    if (!unique.length) return '';
+    /* 最高候補と次点の差が小さい場合は、最有力を断定的に強調しない */
+    const topHasLead = unique.length === 1 || (unique[0].confidence - unique[1].confidence) >= 0.05;
+    const chips = unique.map((c, i) => {
+        const primary = i === 0 && topHasLead;
+        const label = _escH(c.label_ja);
+        return primary
+            ? `<span class="rn-syntax-chip rn-syntax-chip-primary">${label}<span class="rn-syntax-best-label">最有力</span></span>`
+            : `<span class="rn-syntax-chip">${label}</span>`;
+    }).join('');
     return `<span class="rn-dict-label ui-label">文の中での役割</span><div class="rn-syntax-chips">${chips}</div>`;
 }
 
