@@ -587,6 +587,33 @@ const CONDITION_SIGNAL_MAP = globalThis._BUILTIN_CONDITION_SIGNAL_MAP || {};
 check('_BUILTIN_CONDITION_SIGNAL_MAP が公開されている',
       Object.keys(CONDITION_SIGNAL_MAP).length > 0);
 
+{
+    const temporal = allTypeDefs.find(t => t.id === 'participle.adverbial_temporal');
+    const conditions = temporal?.detection?.conditions ?? [];
+    const signals = temporal?.xsc?.signals ?? [];
+    const aoristCondition = conditions.find(c => c.id === 'tense_aorist');
+    const aoristSignal = signals.find(s => s.id === 'tense_aorist');
+
+    check('temporal participle: aorist signal has a matching condition',
+          Boolean(aoristCondition && aoristSignal));
+    check('temporal participle: aorist condition only matches aorist',
+          aoristCondition?.check === "target_tense_eq('aorist')",
+          aoristCondition?.check ?? 'missing condition');
+    check('temporal participle: broad temporal_tense mapping removed',
+          !Object.prototype.hasOwnProperty.call(CONDITION_SIGNAL_MAP, 'temporal_tense'));
+    check('temporal participle: aorist signal label avoids certainty',
+          /手掛かり/.test(aoristSignal?.label_ja ?? ''),
+          aoristSignal?.label_ja ?? 'missing signal');
+    check('temporal participle: hint warns against deciding by form alone',
+          /語形だけでは確定しない/.test(temporal?.hint_ja ?? ''),
+          temporal?.hint_ja ?? 'missing hint');
+    check('temporal participle: diagnostics consider context and main verb',
+          (temporal?.dictionary?.diagnostics ?? []).some(x => /主動詞.*文脈/.test(x)));
+    check('temporal participle: classification acknowledges semantic context',
+          temporal?.dictionary?.classification === 'Hybrid' &&
+          /文脈上の意味解釈/.test(temporal?.dictionary?.classification_def ?? ''));
+}
+
 // 恒偽であることが既知のチェック関数（意図的 dormant — WARN 対象）
 const DEAD_CHECK_FNS = [
     'has_adjectival_equivalent',
