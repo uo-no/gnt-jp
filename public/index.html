@@ -9325,7 +9325,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
     };
     const primaryHTML = primaryCandidates.map(c => renderCandidate(c, true)).join('');
     const tiedNotice = !topHasLead && primaryCandidates.length > 1
-        ? '<div class="rn-syntax-tied-notice">候補の確度に大きな差がなく、今回の解析では一つに絞れていません。</div>'
+        ? '<div class="rn-syntax-tied-notice">今回の解析では、一つの候補に絞れていません。</div>'
         : '';
     const otherHTML = otherCandidates.length
         ? `<details class="rn-syntax-alternatives"><summary>ほかの候補を見る（${otherCandidates.length}件）</summary><div class="rn-syntax-alternatives-list">${otherCandidates.map(c => renderCandidate(c, false)).join('')}</div></details>`
@@ -9374,6 +9374,41 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
                 <div class="rn-syntax-evidence-body">
                     <p><strong>本文で確認できること：</strong><span lang="el">τοῦ Χριστοῦ</span> は <span lang="el">τῆς ἀγάπης</span> に続く属格です。</p>
                     <p><strong>ここから言えること：</strong>文法上の形だけでは、キリストが愛する主体か、愛の対象かは確定しません。前後の文脈と「キリストの愛」という表現全体の意味を合わせて判断する必要があります。解析スコアは確率を表すものではありません。</p>
+                </div>
+            </details>
+        </div>`;
+    }
+
+    /* 一般的な候補比較：人手レビュー済みの型の組み合わせだけを比較する。 */
+    if (!comparisonHTML &&
+        candidateIds.has('nominal_syntax.nested_np') &&
+        candidateIds.has('nominal_syntax.modified_np')) {
+        comparisonHTML = `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">候補の違い</div>
+            <p><strong>入れ子名詞句</strong>は、名詞句の内部にもう一つの名詞句が組み込まれる構造です。たとえば冠詞・名詞・冠詞・属格名詞という Apollonius 型が該当します。</p>
+            <p><strong>修飾名詞句</strong>は、中心となる名詞に形容詞・属格・分詞・前置詞句などの修飾語が付く構造です。</p>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong>名詞句の内部に別の名詞句が組み込まれているか、中心語に修飾語が付いているか、という構造上の違いです。</p>
+            <details class="rn-syntax-evidence">
+                <summary>根拠を詳しく見る</summary>
+                <div class="rn-syntax-evidence-body">
+                    <p>この二つは名詞句の構造を説明する候補です。どちらが適切かは、対象語だけでなく、周囲の冠詞・名詞・修飾語の並びとまとまりを確認して判断します。候補の表示順位やスコアだけで構造が確定するわけではありません。</p>
+                </div>
+            </details>
+        </div>`;
+    } else if (!comparisonHTML &&
+        candidateIds.has('genitive.subjective') &&
+        candidateIds.has('genitive.possessive') &&
+        candidateIds.has('genitive.objective')) {
+        comparisonHTML = `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">候補の違い</div>
+            <p><strong>主語的属格：</strong>属格が動作を行う側を表します。動作名詞を動詞に置き換えると、属格が主語に当たります。</p>
+            <p><strong>所有属格：</strong>属格が中心語との所有・所属・帰属の関係を表します。「〜の」と訳せることがあります。</p>
+            <p><strong>目的語的属格：</strong>属格が動作の向かう対象を表します。動作名詞を動詞に置き換えると、属格が目的語に当たります。</p>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong>属格が「動作をする側」「所有・帰属の関係」「動作を受ける対象」のどれを表すか、という意味上の違いです。</p>
+            <details class="rn-syntax-evidence">
+                <summary>根拠を詳しく見る</summary>
+                <div class="rn-syntax-evidence-body">
+                    <p>属格という形だけで三つの用法を区別できるわけではありません。中心となる名詞の意味、属格との関係、文脈を合わせて判断します。候補のスコアは確率を表すものではありません。</p>
                 </div>
             </details>
         </div>`;
