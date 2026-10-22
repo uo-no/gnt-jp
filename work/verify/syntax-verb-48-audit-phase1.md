@@ -132,3 +132,23 @@
 3. 命令法3ラベルの `required_mood`、対象トークン、条件、XSCシグナルの対応を照合する。
 4. 検証例はNT本文と形態データから実際に抽出し、人手判定が終わるまで例を「正解」と扱わない。
 
+## 追加検証：`clause_is_narrative()` のスコープ不一致をコード上で確認
+
+**判定: 実装上のスコープ不一致を確認。実際の候補誤順位の頻度は未測定。**
+
+確認できたコード上の事実:
+
+1. `ContextBuilder.build()` は `clauseStart: clause.start` と `clauseEnd: clause.end` を `AnalysisContext` に設定する（`public/core/syntax-analyzer.js` のコンテキスト組み立て部）。
+2. 共通ヘルパー `_clauseTokens(ctx)` はその開始・終了位置を使い、節内トークンに限定する。
+3. `clause_has_future_reference()`、`context_has_lemma_in()` など複数の文脈チェックは `_clauseTokens(ctx)` を利用している。
+4. 一方 `clause_is_narrative()` は `(ctx.tokens ?? []).some(...)` としており、節境界を無視して全入力トークンを走査する。
+5. `scripts/syntax-score-compare.cjs` も対象聖句のトークン配列を `SyntaxAnalyzer.analyze({ target, tokens: verseTokens, targetIdx })` に渡している。ContextBuilder は節境界を計算しているため、このハンドラーだけがその境界を使わないことはコード上で確認できる。
+
+このため、同じ聖句内の別節にアオリスト／未完了過去の直説法があると、対象節自体にその標識がなくても `clause_is_narrative()` が真になる可能性がある。これが `verb.perfect_dramatic` 等のどのラベルに影響するかは、レジストリ参照と実例の対照テストで測る必要がある。
+
+### 修正判断
+
+- 最小修正候補はハンドラー内の `(ctx.tokens ?? []).some(...)` を `_clauseTokens(ctx).some(...)` に変えること。
+- ただし、PR #230 の `syntax-score-compare.cjs` は三値判定導入前後で全NTのスコア・順位・候補集合が変わらないことを保証する回帰テストである。この修正は意図的に判定スコープを変えるため、同じPRに混ぜるとその保証の目的が崩れる。
+- よってこのバグ修正はPR #230とは分離し、節内／別節の対照テスト、対象ラベルの影響一覧、全NT差分レポートを持つ独立PRで扱う。対照テストと差分を確認する前に本番コードを変更しない。
+
