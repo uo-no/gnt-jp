@@ -44,6 +44,7 @@ expect('OR with false and unsupported is unsupported', status('test_false() OR t
 expect('OR with two false predicates is false', status('test_false() OR test_false()'), 'not_matched');
 assert.equal(typeof evaluator.eval('test_true()', {}), 'boolean', 'legacy eval must retain boolean return');
 assert.equal(evaluator.eval('test_unsupported()', {}), false, 'legacy eval maps unsupported to false');
+assert.equal(evaluator.eval('NOT test_unsupported()', {}), false, 'legacy NOT must not invert unsupported into true');
 console.log('PASS legacy eval remains boolean-compatible');
 
 // Guard scorer integration and all intentionally unsupported handlers.
