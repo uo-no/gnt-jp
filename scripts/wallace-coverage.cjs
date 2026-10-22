@@ -125,6 +125,8 @@ function generateCoverage() {
     // representative-missing 免除リスト（Wallace 上代表例が稀少で文献確認待ちの型）
     const NO_REPRESENTATIVE_ALLOWED = new Set([
         'genitive.means',
+        // Wallace §4.A.4 p.88 の直接確認待ち。ROM 6:4 は候補だが原典照合保留中。
+        'genitive.attributed',
         // Phase 17: περ/τοι の単独形は SBLGNT 本文に出現しない（dormant 型）
         'particle.emphasis_per',
         'particle.emphasis_toi',
