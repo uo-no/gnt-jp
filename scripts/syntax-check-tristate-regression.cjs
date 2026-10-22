@@ -55,6 +55,15 @@ assert(scorer.includes('this._evalCheckDetailed(directCond.check, ctx)'), 'direc
 assert(scorer.includes('this._evalCheckDetailed(mappedCond.check, ctx)'), 'mapped conditions use detailed results');
 assert(scorer.includes('signalsUnsupported: unsupported'), 'unsupported signals are exposed separately');
 assert(scorer.includes('checksUnsupported'), 'unsupported exclusions are diagnosed');
+const normalizerStart = source.indexOf('class CandidateNormalizer');
+const normalizerEnd = source.indexOf('// =============================================================', normalizerStart + 1);
+assert(normalizerStart >= 0 && normalizerEnd > normalizerStart, 'CandidateNormalizer source boundaries must exist');
+const normalizer = source.slice(normalizerStart, normalizerEnd);
+assert(normalizer.includes('signals_unsupported: raw.signalsUnsupported'), 'normalized candidates must preserve unsupported signal diagnostics');
+assert(normalizer.includes('checks_unsupported:  raw.checksUnsupported'), 'normalized candidates must preserve unsupported exclusion diagnostics');
+assert(normalizer.includes('has_unsupported_checks:'), 'normalized candidates must expose an unsupported-check indicator');
+console.log('PASS unsupported diagnostics survive CandidateNormalizer');
+
 for (const name of ['has_adjectival_equivalent', 'semantic_equivalence_test', 'semantic_substitution_test', 'context_discourse_type_eq']) {
   assert(source.includes(`CheckEvaluator.register('${name}',\n    (_ctx) => CHECK_UNSUPPORTED\n);`), name + ' must be explicitly unsupported');
 }
