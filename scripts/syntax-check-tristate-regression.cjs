@@ -63,6 +63,13 @@ assert(normalizer.includes('signals_unsupported: raw.signalsUnsupported'), 'norm
 assert(normalizer.includes('checks_unsupported:  raw.checksUnsupported'), 'normalized candidates must preserve unsupported exclusion diagnostics');
 assert(normalizer.includes('has_unsupported_checks:'), 'normalized candidates must expose an unsupported-check indicator');
 console.log('PASS unsupported diagnostics survive CandidateNormalizer');
+const syntaxUi = fs.readFileSync(path.join(__dirname, '..', 'public/syntax-search.html'), 'utf8');
+assert(syntaxUi.includes('function _unsupportedCandidateNote(cand)'), 'syntax UI must provide a visible unsupported-candidate notice');
+assert(syntaxUi.includes('表示スコアだけで意味・用法が確定したとは判断できません'), 'unsupported notice must explicitly prevent score-as-certainty interpretation');
+assert(syntaxUi.includes('signals_unsupported || []'), 'syntax UI must read unsupported signal diagnostics');
+assert(syntaxUi.includes('：未判定'), 'unsupported signal chips must be visibly distinguished');
+console.log('PASS unsupported semantic checks are disclosed in syntax UI');
+
 
 for (const name of ['has_adjectival_equivalent', 'semantic_equivalence_test', 'semantic_substitution_test', 'context_discourse_type_eq']) {
   assert(source.includes(`CheckEvaluator.register('${name}',\n    (_ctx) => CHECK_UNSUPPORTED\n);`), name + ' must be explicitly unsupported');
