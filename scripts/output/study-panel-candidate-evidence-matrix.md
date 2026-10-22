@@ -449,3 +449,13 @@ main の `public/core/syntax-analyzer.js`、`public/core/icl-engine.js`、`publi
 ### 実行検証の制約
 
 この作業環境からは GitHub 上のソースと回帰テスト定義を参照できるが、リポジトリの Node.js テストを実行するランナー／ターミナル操作は提供されていない。そのため候補順位、実発火シグナル、テスト PASS は報告していない。ローカルで `node scripts/genitive-regression-test.cjs --verbose` を実行し、4例の候補ID・順位・シグナルを確認するまでは、結果を実測済みとして扱わない。
+## 11. 追加確認：表示経路と ICL エンジンの接続を混同しない
+
+追加のソース確認で、重要な境界を確認した。
+
+- `public/core/syntax-analyzer.js` の候補出力契約は `id`、`confidence`、`label_ja`、`hint_ja`、`signals_matched`、`signals_failed`、`raw_score`、`alternatives`、`xsc.deltas` などを想定している。
+- これに対し、`public/core/icl-engine.js` の別の評価経路には `support_level`、`r2_grammar_signals`、`r3_context_signals`、`signals_missed`、`_internal.confidence_internal` がある。
+- これらは似た概念を持つが、同じデータ契約ではない。`syntax-analyzer.js` の実行時候補に `support_level` が存在すると仮定してはならず、ICL のフィールドがそのまま StudyPanel に届いているとも仮定できない。
+- したがって実測時は、StudyPanel が実際に呼び出す経路を確認し、その経路が返す生の候補オブジェクトを記録する必要がある。ICL の静的な設計だけで候補表示の根拠データが利用可能だと結論しない。
+
+この点を踏まえ、先に定義した候補比較データ契約は目標案であって、現行 API の説明ではない。現時点では、表示経路と ICL の統合状態・実行時候補出力は未検証である。
