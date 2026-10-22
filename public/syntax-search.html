@@ -1287,6 +1287,8 @@ body.in-iframe-desktop .role-primary-word { font-size: 3.2rem; }
     margin-left: 12px;
     flex-shrink: 0;
 }
+
+.candidate-unsupported-note{margin:7px 0;padding:7px 9px;border-left:2px solid var(--text-hint);background:rgba(120,120,120,.07);color:var(--text-hint);font-size:.76rem;line-height:1.55;border-radius:0 4px 4px 0}
 </style>
    <script src="../core/syntax-analyzer.js"></script>
 </head>
@@ -2588,7 +2590,7 @@ function renderRoleHero(entry, tokens, idx, analysisOutput) {
             <div class="role-primary-label" style="color:${meta.barColor}">${_escH(top.label_ja)}</div>
             <div class="role-primary-conf" style="${confStyle}">${confLabel}</div>
         </div>
-    </div>`;
+    </div>${_unsupportedCandidateNote(top)}`;
 }
 
 /* § 2 構文上の結論 — top候補の説明 */
@@ -2625,7 +2627,7 @@ function renderConclusion(entry, tokens, idx, analysisOutput) {
         return;
     }
 
-    let html = '';
+    let html = _unsupportedCandidateNote(top);
 
     if (summary) {
         html += `<div class="cand-section" style="padding-top:0">
@@ -2736,6 +2738,7 @@ function renderOneCandidateItem(cand, rank, total) {
         bodyHtml += `<div class="candidate-stub-note">判定ロジック未実装のため参考値です</div>`;
     } else {
         const typeDef = _getRegistryType(cand.id);
+        bodyHtml += _unsupportedCandidateNote(cand);
 
         /* evidence pointer（軽量版）*/
         bodyHtml += _buildEvidencePointerS2(cand, typeDef);
@@ -2996,6 +2999,7 @@ function _typeStructureLabel(typeId) {
 function _buildEvSignalChips(cand, typeDef) {
     const matched  = new Set(cand.signals_matched || []);
     const failed   = new Set(cand.signals_failed  || []);
+    const unsupported = new Set((cand.signals_unsupported || []).map(x => typeof x === 'string' ? x : x.id));
     const signals  = typeDef?.xsc?.signals        || [];
     const chips    = [];
     for (const s of signals) {
@@ -3003,10 +3007,17 @@ function _buildEvSignalChips(cand, typeDef) {
             chips.push(`<span class="ev-chip pos">${_escH(s.label_ja || s.id)}</span>`);
         } else if (failed.has(s.id)) {
             chips.push(`<span class="ev-chip neg">${_escH(s.label_ja || s.id)}</span>`);
+        } else if (unsupported.has(s.id)) {
+            chips.push(`<span class="ev-chip none" title="この条件は自動判定できていません">${_escH(s.label_ja || s.id)}：未判定</span>`);
         }
     }
     if (!chips.length) return '<span class="ev-chip none">条件未一致</span>';
     return chips.join('');
+}
+
+function _unsupportedCandidateNote(cand) {
+    if (!cand?.has_unsupported_checks) return '';
+    return '<div class="candidate-unsupported-note" role="note">この候補には自動判定できていない条件があります。表示スコアだけで意味・用法が確定したとは判断できません。</div>';
 }
 
 function _buildEvScoreFull(cand, typeDef) {
