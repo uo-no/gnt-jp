@@ -140,6 +140,16 @@ assert.equal(report.comparisons.changedScores, report.comparisons.changedTargets
   'every changed target should have a direct score change');
 assert.equal(report.comparisons.rankChangedTargets, report.comparisons.changedTargets,
   'all score changes should be reflected in candidate ordering');
+assert(report.changedExamples.every(example => Array.isArray(example.contextTokens) && example.contextTokens.length > 0),
+  'every changed target must include chapter context for review');
+// Keep the registry's own Wallace example visible in the impact report. This
+// is a deliberate review sentinel, not a claim that the score reduction is correct.
+const wallaceExample = report.changedExamples.find(example => example.ref === 'JHN 1:15' && example.text === 'κέκραγεν');
+assert(wallaceExample, 'registry example JHN 1:15 κέκραγεν must be present for explicit review');
+assert(wallaceExample.oldCandidates.some(candidate => candidate.id === 'verb.perfect_dramatic'),
+  'the cited Wallace example must have the baseline dramatic-perfect candidate');
+assert(wallaceExample.newCandidates.some(candidate => candidate.id === 'verb.perfect_dramatic'),
+  'the clause-scope change must not delete the cited Wallace example candidate');
 for (const example of report.changedExamples) {
   const scoreDiffs = example.changed.filter(change => typeof change.delta === 'number');
   assert(scoreDiffs.length > 0, 'changed example must include a direct score difference');
