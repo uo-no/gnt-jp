@@ -19,12 +19,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout PR base for old-vs-new scorer comparison
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: baseline
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Syntax CheckEvaluator three-valued regression
         run: npm run test:syntax-tristate
+
+      - name: Whole-NT syntax scorer old-vs-new score and rank comparison
+        if: github.event_name == 'pull_request'
+        env:
+          SYNTAX_BASELINE_DIR: baseline
+        run: npm run test:syntax-score-compare
+
+      - name: Upload whole-NT syntax score comparison report
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: syntax-score-compare-report
+          path: syntax-score-compare-report.json
+          if-no-files-found: ignore
 
       - name: Flow DOM transition regression（VR-5-H-7 保護ゲート）
         run: npm run test:flow-dom
