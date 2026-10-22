@@ -4598,7 +4598,7 @@ if (typeof module !== 'undefined' && module.exports) {
 //    前置詞句置換テスト（意味・文脈依存）。自動判定未実装のため unsupported。
 //
 // ⑥ context_discourse_type_eq(type)
-//    談話タイプ判定（論証的文体等）。自動判定不可。常に false。warn 抑制。
+//    談話タイプ判定（論証的文体等）。自動判定未実装のため unsupported として記録。
 //
 // =============================================================
 
