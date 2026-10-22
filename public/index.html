@@ -1727,6 +1727,30 @@ cursor: help;
 border-bottom: 1px dotted rgba(0,0,0,0.15);
 }
 
+/* 統語論ラベル — StudyPanel Level 2 */
+.rn-syntax-labels {
+    margin-bottom: var(--space-sm);
+}
+.rn-syntax-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    margin-top: var(--space-xs);
+}
+.rn-syntax-chip {
+    display: inline-flex;
+    align-items: center;
+    font-size: var(--text-caption);
+    font-weight: 500;
+    line-height: 1.5;
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-l);
+    background: var(--bg-panel);
+    color: var(--text-main);
+    letter-spacing: 0.01em;
+}
+
 /* ─── Layer 3: 「単語を調べる」reference layer ─── */
 /* 読書から分離された最下層。折りたたみ。annotation feel。 */
 .rn-ref-section {
@@ -9158,6 +9182,36 @@ function closeAnalysis() {
    本関数は _buildWordResonanceText() 経由で ReadingFormatter.format() の
    結果を受け取り、そのまま描画するだけ（新規の文章生成は行わない）。
    ══════════════════════════════════════════ */
+
+/**
+ * 統語論ラベル HTML を返す（SyntaxAnalyzer の candidates から生成）。
+ * confidence >= 0.60 かつ status !== 'stub' の候補のみ表示。
+ * 候補がない場合・エンジン未初期化の場合は '' を返す（静寂）。
+ * _wallacePipeline を再利用するため registry の二重 fetch は発生しない。
+ */
+async function _buildSyntaxLabelHTML(words, targetRef) {
+    if (!words || !words.length || !targetRef) return '';
+    const targetIdx = words.findIndex(t => t.ref === targetRef);
+    if (targetIdx === -1) return '';
+    const pipeline = await _ensureWallacePipeline();
+    if (!pipeline) return '';
+    let output;
+    try {
+        output = pipeline.sa.analyze({ target: words[targetIdx], tokens: words, targetIdx });
+    } catch (_) { return ''; }
+    if (!output || !Array.isArray(output.candidates) || !output.candidates.length) return '';
+    /* 0.60 以上かつ非 stub の候補を label_ja 重複排除で収集 */
+    const CONF_MEDIUM = 0.60;
+    const seen = new Set();
+    const chips = output.candidates
+        .filter(c => c.confidence >= CONF_MEDIUM && c.status !== 'stub' && c.label_ja)
+        .filter(c => { if (seen.has(c.label_ja)) return false; seen.add(c.label_ja); return true; })
+        .map(c => `<span class="rn-syntax-chip">${_escH(c.label_ja)}</span>`)
+        .join('');
+    if (!chips) return '';
+    return `<span class="rn-dict-label ui-label">統語論</span><div class="rn-syntax-chips">${chips}</div>`;
+}
+
 async function _renderReadingNotes(p) {
     const area = document.getElementById('reading-notes-area');
     if (!area) return;
@@ -9392,6 +9446,8 @@ async function _renderReadingNotes(p) {
         ? `<details class="rn-word-reading-note" open><summary>この語の読書メモ</summary>${wordReadingMemoBody}</details>`
         : '';
 
+    const syntaxLabelHTML = await _buildSyntaxLabelHTML(_wlvWordCache, ref);
+
     /* ═══════════════════════════════════════════════════════
        HTML 出力 — 4階層構造
        ═══════════════════════════════════════════════════════ */
@@ -9415,6 +9471,7 @@ async function _renderReadingNotes(p) {
                 ${morphGridHTML}
                 ${morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML}</div>` : ''}
                 ${etymologyHTML ? `<div data-study-section="etymology">${etymologyHTML}</div>` : ''}
+                ${syntaxLabelHTML ? `<div class="rn-syntax-labels" data-study-section="syntax">${syntaxLabelHTML}</div>` : ''}
                 ${abbottFullHTML ? `<div data-study-section="abbott">${abbottFullHTML}</div>` : ''}
             </div>
         </section>
@@ -19264,6 +19321,8 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
     }
     /* SF-22: Structure Flow を mobile 語詳細へ非同期注入（fire-and-forget・世代管理）。 */
     _fillMvvFlowSlot(AppState.inspect.data?.ref || ref);
+    /* 統語論ラベルを非同期注入（_buildSyntaxLabelHTML を desktop と共用）。 */
+    _fillMvvSyntaxSlot(_scopeWords, AppState.inspect.data?.ref || ref);
     /* StudyPanel parity: Usage trends / Etymology / Abbott-Smith を非同期注入。 */
     _fillMvvLevel2Slot(_mvvResolvedId);
 }
@@ -19459,16 +19518,36 @@ async function _fillMvvSemanticSlot(resolvedId, greek, strong) {
     }
 }
 
+/* 統語論ラベルを mobile 語詳細の #mvv-syntax-slot へ非同期注入する。
+ * _buildSyntaxLabelHTML（desktop と共通）を再利用し、世代管理で stale を防ぐ。 */
+let _mvvSyntaxGen = 0;
+async function _fillMvvSyntaxSlot(words, targetRef) {
+    const slot = document.getElementById('mvv-syntax-slot');
+    if (!slot) return;
+    const myGen = ++_mvvSyntaxGen;
+    slot.innerHTML = '';
+    slot.style.display = 'none';
+    let html = '';
+    try { html = await _buildSyntaxLabelHTML(words, targetRef); } catch (_) { html = ''; }
+    if (myGen !== _mvvSyntaxGen) return;
+    if (html) {
+        slot.innerHTML = html;
+        slot.style.display = '';
+    }
+}
+
 /* StudyPanel parity: _fillMvvLevel2Slot — 「単語を詳しく調べる」内の非同期コンテンツ
  * （Usage trends / Etymology / Abbott-Smith）を _lexiconData 経由で注入する。
  * Desktop _renderReadingNotes の同名セクションと同じデータ・HTML 構造を使う。
  * 世代管理は _mvvLevel2Gen で stale 注入を防ぐ。 */
 let _mvvLevel2Gen = 0;
 async function _fillMvvLevel2Slot(resolvedId) {
-    const slot = document.getElementById('mvv-level2-async-slot');
-    if (!slot) return;
+    const etmSlot = document.getElementById('mvv-etymology-slot');
+    const abbSlot = document.getElementById('mvv-abbott-slot');
+    if (!etmSlot && !abbSlot) return;
     const myGen = ++_mvvLevel2Gen;
-    slot.innerHTML = '';
+    if (etmSlot) etmSlot.innerHTML = '';
+    if (abbSlot) abbSlot.innerHTML = '';
 
     try {
         await _ensureSemanticData();
@@ -19497,9 +19576,11 @@ async function _fillMvvLevel2Slot(resolvedId) {
             : '';
 
         if (myGen !== _mvvLevel2Gen) return;
-        const slotCheck = document.getElementById('mvv-level2-async-slot');
-        if (!slotCheck) return;
-        slotCheck.innerHTML = etymologyHTML + abbottFullHTML;
+        const etmSlotCheck = document.getElementById('mvv-etymology-slot');
+        const abbSlotCheck = document.getElementById('mvv-abbott-slot');
+        if (!etmSlotCheck && !abbSlotCheck) return;
+        if (etmSlotCheck) etmSlotCheck.innerHTML = etymologyHTML;
+        if (abbSlotCheck) abbSlotCheck.innerHTML = abbottFullHTML;
     } catch (_) {
         /* 静寂：失敗時はスロット空のまま */
     }
@@ -19588,8 +19669,12 @@ function _renderMobileWordDetail(d) {
             ${d.strong ? `<div class="mvv-l3-strong" style="margin-top:var(--space-xs);">Strong: ${_escH(String(d.strong))}</div>` : ''}
             ${morphTags ? `<div style="margin-top:var(--space-md);">${morphTags}</div>` : ''}
             ${morphCandidatesHTML}
-            <!-- Usage trends / Etymology / Abbott-Smith — _fillMvvLevel2Slot が非同期注入 -->
-            <div id="mvv-level2-async-slot"></div>
+            <!-- Etymology — _fillMvvLevel2Slot が非同期注入 -->
+            <div id="mvv-etymology-slot"></div>
+            <!-- 統語論ラベル — _fillMvvSyntaxSlot が非同期注入 -->
+            <div id="mvv-syntax-slot" class="rn-syntax-labels" data-study-section="syntax" style="display:none;"></div>
+            <!-- Abbott-Smith — _fillMvvLevel2Slot が非同期注入 -->
+            <div id="mvv-abbott-slot"></div>
           </div>
         </section>` : ''}
 
