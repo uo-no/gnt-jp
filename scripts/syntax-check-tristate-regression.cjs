@@ -68,7 +68,8 @@ assert(syntaxUi.includes('function _unsupportedCandidateNote(cand)'), 'syntax UI
 assert(syntaxUi.includes('表示スコアだけで意味・用法が確定したとは判断できません'), 'unsupported notice must explicitly prevent score-as-certainty interpretation');
 assert(syntaxUi.includes('signals_unsupported || []'), 'syntax UI must read unsupported signal diagnostics');
 assert(syntaxUi.includes('：未判定'), 'unsupported signal chips must be visibly distinguished');
-console.log('PASS unsupported semantic checks are disclosed in syntax UI');
+assert(syntaxUi.includes('wrap.innerHTML = _unsupportedCandidateNote(top);'), 'unsupported notice must survive missing registry definition or summary');
+console.log('PASS unsupported semantic checks are disclosed in syntax UI, including missing-summary fallback');
 
 
 for (const name of ['has_adjectival_equivalent', 'semantic_equivalence_test', 'semantic_substitution_test', 'context_discourse_type_eq']) {
