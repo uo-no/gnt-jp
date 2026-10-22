@@ -8373,11 +8373,11 @@
               "wallace_freq": "rare",
               "priority": 4,
               "status": "active",
-              "description_ja": "物語の生々しさのための完了（κέκραγεν）。",
+              "description_ja": "物語の生々しさを伝える完了形（κέκραγεν）。節内の過去形と、同じ聖句内の別節の過去形を異なる重みの手掛かりとして扱う。",
               "example_verse": "JHN 1:15",
               "example_greek": "κέκραγεν λέγων",
               "example_gloss": "「叫んで言った」——劇的完了（Wallace 引用例）",
-              "hint_ja": "完了形（物語文脈・低確度並記）。",
+              "hint_ja": "完了形。対象節内の過去直説法は強い手掛かり、同じ聖句の別節の過去形は弱い手掛かり。用法は前後文脈で確認。",
               "detection": {
                 "conditions": [
                   {
@@ -8386,15 +8386,20 @@
                     "check": "target_tense_eq('perfect')"
                   },
                   {
-                    "id": "narrative",
-                    "signal": "物語文脈",
-                    "check": "clause_is_narrative()"
+                    "id": "narrative_clause",
+                    "signal": "節内の物語文脈",
+                    "check": "clause_has_past_indicative()"
+                  },
+                  {
+                    "id": "narrative_verse_context",
+                    "signal": "同じ聖句内の別節にある物語文脈（弱い手掛かり）",
+                    "check": "verse_has_past_indicative() AND NOT clause_has_past_indicative()"
                   }
                 ],
                 "required_mood": "indicative"
               },
               "xsc": {
-                "base_weight": 10,
+                "base_weight": 9.95,
                 "signals": [
                   {
                     "id": "perf_t",
@@ -8402,9 +8407,14 @@
                     "label_ja": "完了形"
                   },
                   {
-                    "id": "narrative",
+                    "id": "narrative_clause",
                     "value": 15,
-                    "label_ja": "物語文脈"
+                    "label_ja": "節内の物語文脈"
+                  },
+                  {
+                    "id": "narrative_verse_context",
+                    "value": 5,
+                    "label_ja": "同じ聖句の別節にある過去形（弱い手掛かり）"
                   }
                 ],
                 "default_confidence": 35

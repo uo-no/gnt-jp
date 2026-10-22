@@ -127,3 +127,27 @@
 - This shows the issue cannot be treated as simply removing false positives from other clauses. A canonical example based on Wallace is not detected by clause-local morphology alone.
 - Do not merge the current clause-only implementation. clause_is_narrative likely represents a discourse-context cue, not a strictly syntactic condition. Separate clause-local morphological evidence from cross-clause narrative-context evidence, and do not treat the mere presence of a past form in another clause as a definitive semantic classification.
 - The existing verse_has_past_indicative() handler is also used as a narrative-context cue for historical present. Scope should therefore be decided per signal and label, in light of its meaning, Wallace, and registered examples—not by applying a universal clause-only rule.
+
+
+## 2026-10-22: 重み分離案の全新約検証（PR #233）
+
+- CI: [VR-5 Regression Gate](https://github.com/uo-no/gnt-jp/actions/runs/39787094945) PASS。節内／聖句内の手掛かりを分離する回帰テストを含む。
+- 全新約27巻・260章・137,741トークン・7,939節を走査し、完了形1,572対象を比較。
+- 311対象でスコア／順位が変化。候補追加0、候補削除0。全311件で `verb.perfect_dramatic` のスコア差は -10。その他の候補の直接スコアは変化しておらず、順位の変化はこの候補が下がったことによる相対的な並び替え。
+- 全311件の文脈窓をレポートに含め、欠落がないことを確認。JHN 1:15 `κέκραγεν` は候補として維持され、35.15点／5位から25.15点／18位に変化。
+- レポート artifact ID `12429387092`。全体の技術ゲートは通過したが、これは311件の意味的正しさを保証しない。特に順位が18位まで下がる代表例は、UI上で利用者が見つけにくくなるリスクを別途評価する。
+- テストフィクスチャも見直し、節内手掛かりテストの対象トークンが実際にその節内に含まれる形に修正した。
+
+### 暫定評価
+
+節内形態を強い手掛かり、聖句内の別節の過去形を弱い手掛かりとして分離できた点は、単純な節限定より妥当。ただし「+15 / +5」は校正済み確率ではなく候補順位用のヒューリスティック値である。PR #233 はレビュー用として保持し、全311件の文脈レビューと UI での順位・説明の妥当性確認が済むまでマージしない。
+
+
+## 2026-10-22: 最新重み分離レポートの追加分析（CI run 39789093547）
+
+- 最新 artifact `12430171912` を展開し、変更例311件すべてを再集計した。
+- 311件すべてで同じ聖句内に過去直説法が存在するが、候補の差分は一律 `verb.perfect_dramatic` の -10点。つまりこの変更は「過去形がある／ない」の判定ではなく、「過去形が対象節内か、聖句内の別節か」で加点を分ける。
+- 候補追加・削除は0件。順位は311件すべてで変化する。理由は直接スコアが下がるためで、他候補の直接スコアは変わらない。
+- 代表例 JHN 1:15 `κέκραγεν` は35.15点・5位から25.15点・18位へ移動。MAT 2:5 `γέγραπται` は35.15点・7位から25.15点・23位へ移動。REV 16:17 `Γέγονεν` は35.15点・6位から25.15点・18位へ移動。
+- これは文脈手掛かりの分離という点では意図どおりだが、順位低下が大きく、読書メモの表示件数や確度しきい値によっては候補が利用者から見えにくくなる。候補順位の変化をすべて改善と見なすことはできない。
+- +15 / +5 は統計的に校正された確率ではなく、候補スコアのヒューリスティックである。マージ前に、少なくとも代表例（JHN 1:15、MAT 2:5、MAT 4:4、REV 16:17）を含む複数例で、表示順位・確度ラベル・説明文がユーザー向けに妥当か確認する。レビュー完了まではマージしない。

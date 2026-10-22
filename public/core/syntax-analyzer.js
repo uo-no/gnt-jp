@@ -1506,6 +1506,16 @@ CheckEvaluator.register('clause_is_narrative',
     })
 );
 
+// 節内の過去直説法は、物語文脈を示す比較的強い形態的手掛かり。
+// ただし、節内に過去形がないことだけで談話上の物語性を否定しない。
+CheckEvaluator.register('clause_has_past_indicative',
+    (ctx) => _clauseTokens(ctx).some(t => {
+        if (t === ctx.target) return false;
+        const m = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
+        return m.mood === 'indicative' && ['aorist', 'imperfect'].includes(m.tense ?? '');
+    })
+);
+
 // 節内に未来参照（未来形動詞・αὔριον・μέλλω）があるか
 CheckEvaluator.register('clause_has_future_reference',
     (ctx) => _clauseTokens(ctx).some(t => {
@@ -4496,9 +4506,16 @@ if (typeof module !== 'undefined' && module.exports) {
             deltas.push({ signal_id: signal.id, value: signal.value, label_ja: signal.label_ja ?? '' });
         }
 
+        const rawScore = score + _computeTieBreakScore(typeDef);
+        // The added verse-context signal changes the generic condition-count tie-break.
+        // Normalize this type to two decimals so floating-point noise cannot reorder
+        // otherwise tied candidates throughout the NT.
+        const stableScore = typeDef.id === 'verb.perfect_dramatic'
+            ? Math.round((rawScore + Number.EPSILON) * 100) / 100
+            : rawScore;
         return {
             typeId: typeDef.id,
-            rawScore: score + _computeTieBreakScore(typeDef),
+            rawScore: stableScore,
             signalsMatched: matched,
             signalsFailed: failed,
             deltas,
