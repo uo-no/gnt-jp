@@ -117,6 +117,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
       morphCandidatesPresent: !!candidates && visible(candidates),
       dictionaryVisible: visible(dictionary),
       dictionaryTextLength: (dictionary?.textContent || '').trim().length,
+      dictionaryTextSample: (dictionary?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40),
       usageTrendsTextPresent: scopeText.includes('使用傾向'),
       semanticSectionPresent: !!scope?.querySelector('[data-study-section="semantic"]'),
       researchLinksPresent: !!scope?.querySelector('.rn-research-links'),
@@ -141,6 +142,17 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
   }
   assert.ok(state.dictionaryVisible && state.dictionaryTextLength > 20,
     `${mobile ? 'Mobile' : 'Desktop'}: Abbott-Smith dictionary text is present for ${target}`);
+  const lexicalGroup = state.visibleGroups.find(group => group.key === 'lexical');
+  const analysisGroup = state.visibleGroups.find(group => group.key === 'analysis');
+  const normalizeGroupText = value => String(value || '').replace(/\s+/g, ' ').trim();
+  if (state.dictionaryTextSample && lexicalGroup) {
+    assert.ok(normalizeGroupText(lexicalGroup.text).includes(normalizeGroupText(state.dictionaryTextSample)),
+      `${mobile ? 'Mobile' : 'Desktop'}: Abbott-Smith dictionary content must belong to the lexical-resources group for ${target}`);
+  }
+  if (state.dictionaryTextSample && analysisGroup) {
+    assert.equal(normalizeGroupText(analysisGroup.text).includes(normalizeGroupText(state.dictionaryTextSample)), false,
+      `${mobile ? 'Mobile' : 'Desktop'}: analysis group must not duplicate Abbott-Smith dictionary content for ${target}`);
+  }
   assert.equal(state.usageTrendsTextPresent, false,
     `${mobile ? 'Mobile' : 'Desktop'}: Usage Trends should stay in the search tool, not duplicate in StudyPanel`);
   assert.equal(state.semanticSectionPresent, false,
