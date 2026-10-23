@@ -70,7 +70,7 @@ function requireCjs(filePath) {
 }
 const loadJson = p => JSON.parse(fs.readFileSync(p, 'utf8'));
 const books = loadJson(path.join(PUBLIC, 'books.json'));
-const { SyntaxAnalyzer } = requireCjs(path.join(PUBLIC, 'core', 'syntax-analyzer.js'));
+const { SyntaxAnalyzer, ContextBuilder } = requireCjs(path.join(PUBLIC, 'core', 'syntax-analyzer.js'));
 const registry = loadJson(path.join(PUBLIC, 'assets', 'data', 'syntax-registry.json'));
 const analyzer = new SyntaxAnalyzer(registry);
 const ntBooks = books.NT;
@@ -83,7 +83,7 @@ const report = {
     candidateStats: {}
 };
 
-function checkCandidate(token, candidate, ref) {
+function checkCandidate(token, candidate, ref, ctx = null) {
     const m = global.decodeMorph(token);
     const stats = report.candidateStats[candidate.id] || (report.candidateStats[candidate.id] = {
         count:0, matchedAny:0, noMatchedSignals:0, confidenceBelow40:0, signalCounts:{}
@@ -115,7 +115,18 @@ function checkCandidate(token, candidate, ref) {
     if (ref.startsWith('EPH 1:10!')) {
         report.eph110.tokens[ref] = { tokenId:item.tokenId, text:item.text, morph:item.morph, case:item.case, mood:item.mood };
         if (['nominative.pendens','discourse.left_dislocation','infinitive.imperatival'].includes(candidate.id)) {
-            report.eph110.candidates.push(item);
+            report.eph110.candidates.push({
+                ...item,
+                context: ctx ? {
+                    targetIdx:ctx.targetIdx, prevPos:ctx.prevPos,
+                    prevToken:ctx.prevToken?.text || ctx.prevToken?.normalized || null,
+                    governorPOS:ctx.governorPOS, governorLemma:ctx.governorLemma,
+                    phraseType:ctx.phrase?.type || null,
+                    clauseMainVerb:ctx.clause?.mainVerb?.text || ctx.clause?.mainVerb?.normalized || null,
+                    clauseStart:ctx.clauseStart, clauseEnd:ctx.clauseEnd,
+                    mainVerb:ctx.mainVerb?.text || ctx.mainVerb?.normalized || null
+                } : null
+            });
         }
     }
 }
@@ -156,7 +167,10 @@ for (const book of ntBooks) {
                 const token = verseTokens[i];
                 if (!row || !row.output) continue;
                 report.analyzedTokens++;
-                for (const candidate of row.output.candidates || []) checkCandidate(token, candidate, token.ref || ref);
+                const ctx = ref === 'EPH 1:10'
+                    ? ContextBuilder.build(token, verseTokens, i, analyzer.registry)
+                    : null;
+                for (const candidate of row.output.candidates || []) checkCandidate(token, candidate, token.ref || ref, ctx);
             }
         }
     }
