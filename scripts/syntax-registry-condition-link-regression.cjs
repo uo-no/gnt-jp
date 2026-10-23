@@ -8,14 +8,10 @@ const assert = require('node:assert/strict');
 const registryPath = path.join(__dirname, '..', 'public', 'assets', 'data', 'syntax-registry.json');
 const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
 
-// Temporary, explicit baseline for the five types still awaiting semantic review.
+// Temporary, explicit baseline for the one type whose semantic-substitution check needs implementation/review.
 // Exact matching prevents fixed IDs from drifting back and prevents new mismatches.
 const EXPECTED_UNRESOLVED = {
-  'genitive.source': ['no_separation_verb', 'prep_source_present'],
-  'dative.interest_disadvantage': ['adversative_context'],
   'dative.means': ['substitutable_with_dia'],
-  'participle.substantival': ['article_before_ptc', 'article_full_agreement'],
-  'participle.adverbial_temporal': ['no_article_before', 'no_matching_noun', 'temporal_tense'],
 };
 
 const actual = {};
@@ -25,10 +21,15 @@ function walk(value) {
   if (value.id && value.detection && value.xsc) {
     typeCount++;
     const signalIds = new Set((value.xsc.signals || []).map(signal => signal.id));
-    const unmatched = (value.detection.conditions || [])
+    const conditions = value.detection.conditions || [];
+    const unmatched = conditions
       .map(condition => condition.id)
       .filter(id => id && !signalIds.has(id))
       .sort();
+    const conditionIds = conditions.map(condition => condition.id).filter(Boolean);
+    const duplicates = conditionIds.filter((id, index) => conditionIds.indexOf(id) !== index);
+    assert.deepEqual([...new Set(duplicates)].sort(), [],
+      'Duplicate condition IDs in ' + value.id + '; every scored signal must have one unambiguous condition.');
     if (unmatched.length) actual[value.id] = unmatched;
   }
   for (const child of Object.values(value)) {
