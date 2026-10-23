@@ -1339,6 +1339,38 @@ class ReadingFormatter {
     }
 
     // -----------------------------------------------------------------
+    // formatEvidence — SyntaxAnalyzer の実際に一致した根拠を、読者向けの
+    // 観察文へ変換する。候補 ID や signal ID は画面に出さず、必要条件が
+    // 揃わない場合は null（静寂）を返す。解釈の断定ではなく、根拠と確認点を示す。
+    // -----------------------------------------------------------------
+    formatEvidence(item) {
+        const id = item?.id ?? '';
+        const signals = new Set(Array.isArray(item?.signals) ? item.signals : []);
+        let text = null;
+
+        if (id === 'nominative.pendens') {
+            if (!signals.has('initial') || !signals.has('resume')) return null;
+            text = 'この語は文の初め近くに置かれ、後の代名詞が受け直しています。主題を先に示す構造かどうか、代名詞が何を受けているかを本文で確かめられます。';
+        } else if (id === 'infinitive.imperatival') {
+            if (!signals.has('no_finite_verb') || !signals.has('anarthrous_inf')) return null;
+            text = 'この読み方の手がかりは、文の中心となる動詞が見当たらず、冠詞も付いていないことです。ただし、この二点だけで命令とは決まりません。目的や補足を表す働きではないか、前後の文とのつながりも確かめてください。';
+        }
+
+        if (!text) return null;
+        return assertReadingTextSafe(text);
+    }
+
+    // -----------------------------------------------------------------
+    // formatSubjrefEvidence — 明示された subjref を、文法上の主語と混同
+    // しないよう、参照関係として記述する。推論は追加しない。
+    // -----------------------------------------------------------------
+    formatSubjrefEvidence(targetLabel) {
+        const label = String(targetLabel ?? '').trim();
+        if (!label) return null;
+        return assertReadingTextSafe(`この語が表す動作を行う側として「${label}」が参照されています。`);
+    }
+
+    // -----------------------------------------------------------------
     // combine — 複数の format() 出力文を「ここでは、」1回だけの
     // 1つの自然文に統合し、節境界に読書リズム（接続語の軽い変化）を
     // 持たせる。
