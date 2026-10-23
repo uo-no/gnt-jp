@@ -41,6 +41,9 @@ function _projectCandidate(c) {
         signals:    Array.isArray(c.signals_matched)
             ? c.signals_matched.map(s => (s && s.id) ? s.id : String(s)).filter(Boolean)
             : [],
+        failedSignals: Array.isArray(c.signals_failed)
+            ? c.signals_failed.map(s => (s && s.id) ? s.id : String(s)).filter(Boolean)
+            : [],
         wallaceRef: typeof c.wallace_ref === 'string' ? c.wallace_ref : '',
     };
 }
@@ -109,6 +112,12 @@ class ReadingSupportProjection {
                     categories[cat] = {
                         id: c.id,
                         confidence: typeof c.confidence === 'number' ? c.confidence : 0,
+                        signals: Array.isArray(c.signals_matched)
+                            ? c.signals_matched.map(s => (s && s.id) ? s.id : String(s)).filter(Boolean)
+                            : [],
+                        failedSignals: Array.isArray(c.signals_failed)
+                            ? c.signals_failed.map(s => (s && s.id) ? s.id : String(s)).filter(Boolean)
+                            : [],
                     };
                 }
             }
@@ -117,7 +126,7 @@ class ReadingSupportProjection {
                 ref:          tokens[i]?.ref ?? '',
                 top,
                 alternatives: cands.slice(1, 5).map(_projectCandidate).filter(Boolean)
-                    .map(({ id, confidence }) => ({ id, confidence })),
+                    .map(({ id, confidence, signals, failedSignals }) => ({ id, confidence, signals, failedSignals })),
                 categories,
                 relatedIds:   _relatedIdsOf(registry, top.id),
                 searchParams: _searchParamsOf(tokens[i]),
