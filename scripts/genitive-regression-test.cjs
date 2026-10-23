@@ -2155,6 +2155,13 @@ nomRepr('title MAT 1:1 Βίβλος γενέσεως', 'MAT', 1, 1, 'βίβλο�
     }
 }
 
+{
+    const genealogyStart = analyzeTokenCat('MAT', 1, 1, 'βίβλος', 'nominative.');
+    check('vocative_nominative: MAT 1:1 の表題語を呼びかけと誤認しない',
+          !genealogyStart.allCandidates.some(x => x.id === 'nominative.vocative_nominative'),
+          `candidates=${genealogyStart.allCandidates.map(x => x.id).join(',')}`);
+}
+
 // ── Regression（仕様指定 7 項目） ────────────────────────────────
 console.log('\n  ─── Regression ───');
 {
