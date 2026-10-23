@@ -1187,6 +1187,21 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           accTypes.filter(t => t.status === 'active').length >= 3);
 }
 
+// ── Dative possession requires copula + possessor pronoun ─────────
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'dative.possession');
+    const required = ['copula_present', 'possessor_pronoun'];
+    check('dative.possession — コプラと所有者代名詞を必須化',
+          Boolean(type) && required.every(id => type.detection?.required_signals?.includes(id)),
+          `required_signals=${JSON.stringify(type?.detection?.required_signals ?? [])}`);
+}
+
 // ── Predicate genitive requires copula + no adnominal head ────────
 {
     const all = [];
