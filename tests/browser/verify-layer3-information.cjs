@@ -105,7 +105,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
       .map(el => {
         const body = el.cloneNode(true);
         body.querySelectorAll('.rn-l3-group-label').forEach(label => label.remove());
-        return { key:el.getAttribute('data-study-group'), text:(body.innerText || '').trim() };
+        return { key:el.getAttribute('data-study-group'), label:el.querySelector('.rn-l3-group-label')?.innerText.trim() || '', text:(body.innerText || '').trim() };
       });
     const emptyWrappers = [...(scope?.querySelectorAll('.rn-word-head, .rn-glosses, .mvv-l3-word, .rn-level-heading') || [])]
       .filter(el => !(el.textContent || '').trim())
@@ -132,6 +132,10 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
   const orderPositions = groupKeys.map(key => groupOrder.indexOf(key)).filter(index => index >= 0);
   assert.deepEqual(orderPositions, [...orderPositions].sort((a, b) => a - b), `${mobile ? 'Mobile' : 'Desktop'}: visible Layer 3 groups must preserve facts → analysis → lexical order for ${target}: ${JSON.stringify(groupKeys)}`);
   assert.ok(state.visibleGroups.every(group => group.text.length > 0), `${mobile ? 'Mobile' : 'Desktop'}: visible Layer 3 groups must not be empty for ${target}`);
+  if (state.visibleGroups.some(group => group.key === 'analysis')) {
+    assert.equal(state.visibleGroups.find(group => group.key === 'analysis').label, '分析候補・統語情報',
+      `${mobile ? 'Mobile' : 'Desktop'}: analysis group label must describe displayed candidates/labels, not imply explicit evidence for ${target}`);
+  }
   if (expectMorphCandidates) {
     assert.ok(state.morphCandidatesPresent, `${mobile ? 'Mobile' : 'Desktop'}: expected alternative morphology candidates for ${target} (JHN ${chapter}:${verse})`);
   }
