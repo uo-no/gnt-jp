@@ -4551,6 +4551,16 @@ if (typeof module !== 'undefined' && module.exports) {
             deltas.push({ signal_id: signal.id, value: signal.value, label_ja: signal.label_ja ?? '' });
         }
 
+        // Keep the evidence-first contract from the base evaluator. This override
+        // handles condition-to-signal mapping, so it must enforce the same gates itself:
+        // a declared conjunction must be fully satisfied, and a type with structural
+        // conditions must not survive when every condition failed.
+        if (Array.isArray(det.required_signals) &&
+            det.required_signals.some(id => !matched.includes(id))) {
+            return null;
+        }
+        if (conditions.length > 0 && matched.length === 0) return null;
+
         const rawScore = score + _computeTieBreakScore(typeDef);
         // The added verse-context signal changes the generic condition-count tie-break.
         // Normalize this type to two decimals so floating-point noise cannot reorder
