@@ -79,11 +79,24 @@ const report = {
     books: 0, chapters: 0, verses: 0, tokens: 0, analyzedTokens: 0,
     nominativePendens: 0, discourseLeftDislocation: 0, imperativalInfinitive: 0,
     nominativeCaseConflicts: [], infinitiveMoodConflicts: [],
-    eph110: { tokens: {}, candidates: [] }
+    eph110: { tokens: {}, candidates: [] },
+    candidateStats: {}
 };
 
 function checkCandidate(token, candidate, ref) {
     const m = global.decodeMorph(token);
+    const stats = report.candidateStats[candidate.id] || (report.candidateStats[candidate.id] = {
+        count:0, matchedAny:0, noMatchedSignals:0, confidenceBelow40:0, signalCounts:{}
+    });
+    stats.count++;
+    const matchedSignals = candidate.signals_matched || [];
+    if (matchedSignals.length) stats.matchedAny++;
+    else stats.noMatchedSignals++;
+    if ((candidate.confidence ?? 0) < 0.4) stats.confidenceBelow40++;
+    for (const signal of matchedSignals) {
+        const id = signal && signal.id ? signal.id : String(signal);
+        stats.signalCounts[id] = (stats.signalCounts[id] || 0) + 1;
+    }
     const item = { ref, tokenId:token.tokenId || token.globalIdx || null,
         text:token.text || token.normalized || '', morph:token.morph || '',
         case:m.case || null, mood:m.mood || null, id:candidate.id,
@@ -163,7 +176,8 @@ console.log(JSON.stringify({
         nominativePendens:report.nominativeCaseConflicts.filter(x => x.issue === 'case_unavailable').length,
         imperativalInfinitive:report.infinitiveMoodConflicts.filter(x => x.issue === 'mood_unavailable').length
     },
-    EPH_1_10:report.eph110
+    EPH_1_10:report.eph110,
+    candidateEvidenceStats:report.candidateStats
 }, null, 2));
 
 if (VERBOSE) {
