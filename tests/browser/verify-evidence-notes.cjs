@@ -69,7 +69,7 @@ async function openTarget(browser, mobile) {
   await page.waitForTimeout(5500);
   const targetText = await page.evaluate(mobile => {
     const selectors = mobile
-      ? ['#mvv-reading-slot', '#mobile-inspector-area']
+      ? ['#mvv-reading-slot', '#mobile-inspector-area', '#reading-notes-area']
       : ['#reading-notes-area'];
     return selectors.map(sel => document.querySelector(sel)?.innerText || '').join('\n');
   }, mobile);
