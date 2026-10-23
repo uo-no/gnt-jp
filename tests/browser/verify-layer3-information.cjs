@@ -91,7 +91,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
     `${mobile ? 'Mobile' : 'Desktop'}: Layer 3 should be collapsed by default for ${target}`);
   assert.equal(await layer3Entry.locator(':scope > summary').innerText(), '単語を詳しく調べる',
     `${mobile ? 'Mobile' : 'Desktop'}: Layer 3 entry label should be consistent for ${target}`);
-  assert.equal(await page.locator('[data-study-section="morphology"] details [data-study-group="lexical"]').count(), 0,
+  assert.equal(await layer3Entry.evaluate(el => el.querySelectorAll('details').length), 0,
     `${mobile ? 'Mobile' : 'Desktop'}: no nested disclosure should be present inside Layer 3 for ${target}`);
   await layer3Entry.locator(':scope > summary').click();
   await page.waitForFunction(selector => {
