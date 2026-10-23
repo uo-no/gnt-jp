@@ -96,6 +96,8 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
     return lexical?.tagName === 'DETAILS' || !!el.querySelector('.rn-l3-disclosure');
   }), false,
     `${mobile ? 'Mobile' : 'Desktop'}: lexical resources must not add a second disclosure inside Layer 3 for ${target}`);
+  assert.equal(await layer3Entry.locator('details').count(), 0,
+    `${mobile ? 'Mobile' : 'Desktop'}: Layer 3 must not contain nested disclosures for ${target}`);
   await layer3Entry.locator(':scope > summary').click();
   await page.waitForFunction(selector => {
     const el = document.querySelector(selector);
