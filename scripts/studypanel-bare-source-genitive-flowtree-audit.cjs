@@ -12,7 +12,7 @@ const targets = [
   { book: '2CO', chapter: 11, verse: 26, id: 'n47011026004', ref: '2CO 11:26!4', text: 'ποταμῶν',
     expectedAncestorType: 'phrase.np', expectedAncestorRole: 'p', expectedNodeRole: '', expectedFrame: '' },
   { book: '2CO', chapter: 11, verse: 26, id: 'n47011026006', ref: '2CO 11:26!6', text: 'λῃστῶν',
-    expectedAncestorType: 'phrase.np', expectedRole: 'p', expectedFrame: '' },
+    expectedAncestorType: 'phrase.np', expectedAncestorRole: 'p', expectedNodeRole: '', expectedFrame: '' },
   { book: 'JHN', chapter: 6, verse: 45, id: 'n43006045010', ref: 'JHN 6:45!10', text: 'θεοῦ',
     expectedAncestorType: 'phrase.np', expectedRole: 'p', expectedFrame: '' },
   { book: 'LUK', chapter: 19, verse: 8, id: 'n42019008013', ref: 'LUK 19:8!13', text: 'ὑπαρχόντων',
