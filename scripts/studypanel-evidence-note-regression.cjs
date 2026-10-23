@@ -67,4 +67,53 @@ assert.match(html, /'verb', 'infinitive', 'discourse', 'nominative'/);
 console.log('PASS: evidence formatter requires the necessary matched signals');
 console.log('PASS: the imperative-infinitive note includes a caution and a contextual criterion');
 console.log('PASS: Projection preserves matched and failed signals for each category and alternative');
-console.log('PASS: StudyPanel Observation consumes evidence and includes infinitive candidates');
+async function testObservationRendering(id, signals, expectedText) {
+  const start = html.indexOf('async function _buildObservationHTML');
+  const end = html.indexOf('/* __OBSERVATION_END__ */', start);
+  assert.ok(start >= 0 && end > start, 'Observation renderer source must be available');
+  const source = html.slice(start, end);
+  const ph = { scope:'word', priority:'high', phenomenon:id };
+  const projectionForTest = {
+    words:[{
+      categories:{
+        [id.split('.')[0]]: { id, confidence:0.6015, signals, failedSignals:[] }
+      }
+    }]
+  };
+  const sandbox = {
+    _getReadingSupportProjection: async () => projectionForTest,
+    _wallacePipeline: {
+      rf: formatter,
+      policy: {
+        rules: { min_confidence:0.4, observation:{scopes:['word'],priorities:['critical','high','normal']} },
+        byId: { [id]:ph }
+      }
+    },
+    _policyScopes: x => Array.isArray(x.scope) ? x.scope : [x.scope],
+    _WORD_ROLE_TEXT: {},
+    _OBSERVATION_SENTENCES: {},
+    _renderQuoteViaEngine: () => 'unused',
+  };
+  const render = vm.runInNewContext('(' + source + ')', sandbox);
+  const result = await render([{ text:'token', lemma:'token' }], 0, []);
+  assert.ok(result, `Observation should render for ${id}`);
+  assert.match(result, expectedText);
+}
+
+async function main() {
+  await testObservationRendering(
+    'infinitive.imperatival',
+    ['no_finite_verb','anarthrous_inf'],
+    /命令とは決まりません/
+  );
+  await testObservationRendering(
+    'nominative.pendens',
+    ['initial','resume'],
+    /代名詞が受け直しています/
+  );
+  console.log('PASS: StudyPanel Observation renders evidence-based notes for both categories');
+}
+main().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
