@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
 const BASE = process.env.TEST_BASE_URL || 'http://127.0.0.1:8765';
-const TARGETS = ['θεὸς', 'κόσμον', 'ἠγάπησεν'];
+const TARGETS = ['θεὸς', 'κόσμον', 'ἠγάπησεν', 'μονογενῆ'];
 const SHOTS = process.env.TEST_SCREENSHOT_DIR || '/tmp/gnt-jp-layer3';
 
 fs.mkdirSync(SHOTS, { recursive:true });
