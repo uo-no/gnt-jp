@@ -125,4 +125,5 @@ console.log(JSON.stringify({ books: report.books, chapters: report.chapters, tok
   genitiveTokens: report.genitiveTokens, coverage: report.coverage,
   missingTreeChapters: report.missingTreeChapter.length, missingWordNodes: report.missingWordNode.length,
   report: outPath, failures: failures.length }, null, 2));
+if (report.genitivesWithWordNode === 0 && report.genitiveTokens > 0) failures.push('No genitive tokens matched flow-tree word nodes; check token-ID mapping.');
 if (failures.length) { console.error(failures.join('\n')); process.exit(1); }
