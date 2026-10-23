@@ -116,6 +116,8 @@ async function openTarget(browser, mobile, target, captureScreenshot) {
     `${mobile ? 'Mobile' : 'Desktop'}: LN semantic section should remain disabled until license/quality review`);
   assert.equal(state.researchLinksPresent, false,
     `${mobile ? 'Mobile' : 'Desktop'}: current markup should not claim a Research Links section without a rendered implementation`);
+  assert.equal(state.emptyWrappers.some(wrapper => wrapper.visible), false,
+    `${mobile ? 'Mobile' : 'Desktop'}: empty Layer 3 wrappers should not occupy visible space for ${target}: ${JSON.stringify(state.emptyWrappers)}`);
   assert.equal(consoleErrors.length, 0,
     `${mobile ? 'Mobile' : 'Desktop'}: page errors for ${target}: ${consoleErrors.join('; ')}`);
 
