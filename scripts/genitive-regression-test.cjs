@@ -1187,6 +1187,21 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           accTypes.filter(t => t.status === 'active').length >= 3);
 }
 
+// ── Relationship genitive requires kinship head + proper name ────
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'genitive.relationship');
+    const required = ['kinship_noun_head', 'proper_name_genitive'];
+    check('genitive.relationship — 関係名詞ヘッドと固有名詞属格を必須化',
+          Boolean(type) && required.every(id => type.detection?.required_signals?.includes(id)),
+          `required_signals=${JSON.stringify(type?.detection?.required_signals ?? [])}`);
+}
+
 // ── Dative possession requires copula + possessor pronoun ─────────
 {
     const all = [];
