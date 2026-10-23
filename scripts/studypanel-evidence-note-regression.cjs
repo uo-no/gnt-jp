@@ -46,7 +46,7 @@ assert.equal(formatter.formatEvidence({
 }), null, 'imperatival infinitive must stay silent unless both evidence signals match');
 
 const subjref = formatter.formatSubjrefEvidence('神');
-assert.match(subjref, /動作主として「神」が参照されています/);
+assert.match(subjref, /動作を行う側として「神」が参照されています/);
 assert.doesNotMatch(subjref, /主語は/);
 assert.equal(formatter.formatSubjrefEvidence(''), null);
 
