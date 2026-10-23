@@ -76,6 +76,12 @@ async function openTarget(browser, mobile) {
   await page.screenshot({ path:path.join(SHOTS, mobile ? 'evidence-note-mobile.png' : 'evidence-note-desktop.png') });
   assert.ok(targetText.includes(EXPECTED),
     `${mobile ? 'Mobile' : 'Desktop'}: evidence note should include caution phrase; excerpt=${targetText.slice(0,500)}`);
+  assert.ok(targetText.includes('動作主として'),
+    `${mobile ? 'Mobile' : 'Desktop'}: subjref should be described as an agent reference, not a grammatical subject`);
+  assert.ok(!targetText.includes('この語の主語は「神」です'),
+    `${mobile ? 'Mobile' : 'Desktop'}: old categorical subject wording must not remain`);
+  assert.ok(targetText.includes('文の中で考えられる役割'),
+    `${mobile ? 'Mobile' : 'Desktop'}: syntax label section should signal a possible role`);
   assert.equal(consoleErrors.length, 0,
     `${mobile ? 'Mobile' : 'Desktop'}: page errors: ${consoleErrors.join('; ')}`);
 
