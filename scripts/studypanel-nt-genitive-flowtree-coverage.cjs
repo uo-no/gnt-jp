@@ -54,6 +54,7 @@ const report = {
 const failures = [];
 for (const book of books.NT) {
   report.books++;
+  const canonicalBookNumber = 40 + report.books - 1;
   const bookStats = report.byBook[book.key] = { chapters: 0, tokens: 0, genitives: 0, wordNode: 0, ownRole: 0, ownFrame: 0, frameLink: 0, npAncestor: 0 };
   for (let chapter = 1; chapter <= book.chapters; chapter++) {
     const corpusPath = path.join(PUBLIC, 'bible_data', books.corpora.NT, book.key, chapter + '.json');
@@ -81,12 +82,13 @@ for (const book of books.NT) {
     for (const token of corpus) {
       if (decodeCase(token) !== 'genitive') continue;
       report.genitiveTokens++; bookStats.genitives++;
-      const id = token.tokenId || token.globalIdx || '';
+      const refMatch = String(token.ref || '').match(/^[A-Z0-9]+\s+(\d+):(\d+)!([0-9]+)$/);
+      const id = refMatch ? `n${String(canonicalBookNumber).padStart(2, '0')}${String(Number(refMatch[1])).padStart(3, '0')}${String(Number(refMatch[2])).padStart(3, '0')}${String(Number(refMatch[3])).padStart(3, '0')}` : '';
       const node = byId.get(id);
-      const row = { ref: token.ref || null, tokenId: id || null, text: token.text || token.normalized || token.word || '', morph: token.morph || '', wordNode: !!node,
+      const row = { ref: token.ref || null, flowTreeTokenId: id || null, corpusTokenId: token.tokenId || token.globalIdx || null, text: token.text || token.normalized || token.word || '', morph: token.morph || '', wordNode: !!node,
         nodeRole: node?.role || null, nodeFrame: node?.frame || null, npAncestors: [], predicateFramesTargetingToken: frameTargets.get(id) || [] };
       if (!node || node.type !== 'word') {
-        report.missingWordNode.push({ ref: row.ref, tokenId: row.tokenId, text: row.text, morph: row.morph });
+        report.missingWordNode.push({ ref: row.ref, flowTreeTokenId: row.flowTreeTokenId, corpusTokenId: row.corpusTokenId, text: row.text, morph: row.morph });
         if (report.samples.length < 30) report.samples.push(row);
         continue;
       }
@@ -125,4 +127,5 @@ console.log(JSON.stringify({ books: report.books, chapters: report.chapters, tok
   genitiveTokens: report.genitiveTokens, coverage: report.coverage,
   missingTreeChapters: report.missingTreeChapter.length, missingWordNodes: report.missingWordNode.length,
   report: outPath, failures: failures.length }, null, 2));
+if (report.genitivesWithWordNode === 0 && report.genitiveTokens > 0) failures.push('No genitive tokens matched flow-tree word nodes; check token-ID mapping.');
 if (failures.length) { console.error(failures.join('\n')); process.exit(1); }
