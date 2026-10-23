@@ -2293,6 +2293,20 @@ class CandidateScorer {
             }
         }
 
+        // Evidence-first gate: a positive prior/base weight is not itself evidence
+        // that a conditional syntax type applies. If every signal is conditional
+        // and none matched, omit the candidate instead of letting score clamping
+        // promote a no-evidence hypothesis to the minimum confidence tier.
+        const conditionalSignals = signals.filter(signal =>
+            conditions.some(condition => condition.id === signal.id));
+        const unconditionalSignals = signals.filter(signal =>
+            !conditions.some(condition => condition.id === signal.id));
+        if (conditionalSignals.length > 0 &&
+            matched.length === 0 &&
+            unconditionalSignals.length === 0) {
+            return null;
+        }
+
         return { typeId: typeDef.id, rawScore: score + _computeTieBreakScore(typeDef), signalsMatched: matched, signalsFailed: failed, deltas, typeDef };
     }
 
