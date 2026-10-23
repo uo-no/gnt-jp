@@ -2121,6 +2121,22 @@ function nomRepr(label, b, c, v, lemma, typeId, opt) {
     const l = sa.registry.getList('indeclinable_lemmas');
     check('nominative: indeclinable_lemmas が registry から解決',
           l instanceof Set && l.has('Ἀβραάμ'));
+    const requiredTypes = new Map([
+        ['nominative.subject', ['finite_verb', 'agreement']],
+        ['nominative.predicate_nominative', ['copula', 'pred_pair']],
+        ['nominative.apposition', ['adjacent_nom', 'same_phrase']],
+    ]);
+    for (const [id, expected] of requiredTypes) {
+        const type = nm.find(t => t.id === id);
+        const required = type?.detection?.required_signals ?? [];
+        check(`${id}: 必須根拠ゲートが定義どおり`,
+              expected.every(signal => required.includes(signal)),
+              `required=${required.join(',')}`);
+    }
+    check('nominative: required_signals は各型の conditions に存在',
+          nm.every(t => (t.detection?.required_signals ?? []).every(signal =>
+              (t.detection?.conditions ?? []).some(c => c.id === signal))),
+          'required_signals と conditions の整合性');
 }
 
 // ── 代表例（全 10 型） ───────────────────────────────────────────
