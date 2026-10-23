@@ -43,8 +43,19 @@ jobs:
       - name: StudyPanel evidence-first audit（新約全体の候補・根拠シグナル）
         run: npm run audit:studypanel-evidence-first -- --verbose
 
-      - name: Whole-NT comparison for weighted dramatic-perfect context
+      - name: Detect changes specific to dramatic-perfect context regression
         if: github.event_name == 'pull_request'
+        id: dramatic-perfect-paths
+        uses: dorny/paths-filter@v3
+        with:
+          token: ${{ github.token }}
+          filters: |
+            dramatic_perfect:
+              - 'scripts/syntax-perfect-dramatic-context-regression.cjs'
+              - 'scripts/syntax-perfect-dramatic-context-compare.cjs'
+
+      - name: Whole-NT comparison for weighted dramatic-perfect context
+        if: github.event_name == 'pull_request' && steps.dramatic-perfect-paths.outputs.dramatic_perfect == 'true'
         run: npm run test:syntax-perfect-dramatic-compare
         env:
           SYNTAX_BASELINE_DIR: baseline
