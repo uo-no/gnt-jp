@@ -100,6 +100,13 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
       return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
     };
     const scopeText = scope?.innerText || '';
+    const visibleGroups = [...(scope?.querySelectorAll('[data-study-group]') || [])]
+      .filter(visible)
+      .map(el => {
+        const body = el.cloneNode(true);
+        body.querySelectorAll('.rn-l3-group-label').forEach(label => label.remove());
+        return { key:el.getAttribute('data-study-group'), text:(body.innerText || '').trim() };
+      });
     const emptyWrappers = [...(scope?.querySelectorAll('.rn-word-head, .rn-glosses, .mvv-l3-word, .rn-level-heading') || [])]
       .filter(el => !(el.textContent || '').trim())
       .map(el => ({ className:el.className?.baseVal || el.className || '', visible:visible(el) }));
@@ -113,11 +120,18 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
       usageTrendsTextPresent: scopeText.includes('使用傾向'),
       semanticSectionPresent: !!scope?.querySelector('[data-study-section="semantic"]'),
       researchLinksPresent: !!scope?.querySelector('.rn-research-links'),
+      visibleGroups,
       emptyWrappers
     };
   }, mobile);
 
   assert.ok(state.morphologyTag, `${mobile ? 'Mobile' : 'Desktop'}: morphology section exists for ${target}`);
+  const groupKeys = state.visibleGroups.map(group => group.key);
+  assert.ok(groupKeys.includes('facts'), `${mobile ? 'Mobile' : 'Desktop'}: original-language facts group is visible for ${target}`);
+  const groupOrder = ['facts', 'analysis', 'lexical'];
+  const orderPositions = groupKeys.map(key => groupOrder.indexOf(key)).filter(index => index >= 0);
+  assert.deepEqual(orderPositions, [...orderPositions].sort((a, b) => a - b), `${mobile ? 'Mobile' : 'Desktop'}: visible Layer 3 groups must preserve facts → analysis → lexical order for ${target}: ${JSON.stringify(groupKeys)}`);
+  assert.ok(state.visibleGroups.every(group => group.text.length > 0), `${mobile ? 'Mobile' : 'Desktop'}: visible Layer 3 groups must not be empty for ${target}`);
   if (expectMorphCandidates) {
     assert.ok(state.morphCandidatesPresent, `${mobile ? 'Mobile' : 'Desktop'}: expected alternative morphology candidates for ${target} (JHN ${chapter}:${verse})`);
   }
