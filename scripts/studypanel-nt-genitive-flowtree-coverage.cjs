@@ -33,7 +33,7 @@ function flatten(root, out = []) {
   return out;
 }
 function frameArgs(frame) {
-  return [...String(frame || '').matchAll(/A\\d+:(n[0-9A-Za-z]+)/g)].map(m => m[1]);
+  return [...String(frame || '').matchAll(/A\d+:(n[0-9A-Za-z]+)/g)].map(m => m[1]);
 }
 
 const books = loadJson(path.join(PUBLIC, 'books.json'));
@@ -120,9 +120,9 @@ report.coverage = {
   npAncestorPercent: report.genitiveTokens ? +(100 * report.genitivesWithNpAncestor / report.genitiveTokens).toFixed(2) : 0
 };
 const outPath = path.join(ROOT, 'studypanel-nt-genitive-flowtree-coverage-report.json');
-fs.writeFileSync(outPath, JSON.stringify(report, null, 2) + '\\n');
+fs.writeFileSync(outPath, JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify({ books: report.books, chapters: report.chapters, tokensScanned: report.tokensScanned,
   genitiveTokens: report.genitiveTokens, coverage: report.coverage,
   missingTreeChapters: report.missingTreeChapter.length, missingWordNodes: report.missingWordNode.length,
   report: outPath, failures: failures.length }, null, 2));
-if (failures.length) { console.error(failures.join('\\n')); process.exit(1); }
+if (failures.length) { console.error(failures.join('\n')); process.exit(1); }
