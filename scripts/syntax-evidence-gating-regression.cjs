@@ -92,7 +92,19 @@ for (const word of ['χαίρειν', 'κλαίειν']) {
   assert.ok(found.item.signals_matched.includes('anarthrous_inf'), `${word}: missing anarthrous-infinitive evidence`);
 }
 
+// Romans 3:28: πίστει is a lexical cue for instrumental dative. The candidate must
+// show the type-local lexical signal as matched; this is not an automated semantic substitution test.
+const rom328 = verse('ROM', 3, 28);
+const rom328Outputs = outputs(rom328);
+const pistisToken = rom328.find(t => t.lemma === 'πίστις' || t.text === 'πίστει');
+assert.ok(pistisToken, 'ROM 3:28 must contain the πίστει token');
+const meansCandidate = candidate(rom328Outputs.get(pistisToken.text) || [], 'dative.means');
+assert.ok(meansCandidate, 'ROM 3:28 πίστει should remain a dative.means candidate');
+assert.ok(meansCandidate.signals_matched.includes('instrumental_noun'),
+  'ROM 3:28 πίστει must match the type-local instrumental noun signal');
+
 console.log('PASS: left-dislocation candidates require positive structural evidence');
 console.log('PASS: preposition-governed Χριστῷ is not labelled left-dislocated');
 console.log('PASS: nominative pendens requires initial + resumption signals');
 console.log('PASS: canonical Romans 12:15 imperatival infinitives remain available');
+console.log('PASS: Romans 3:28 πίστει uses the type-local instrumental noun evidence signal');
