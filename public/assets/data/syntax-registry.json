@@ -3623,7 +3623,7 @@
                 "required_case": "dative",
                 "conditions": [
                   {
-                    "id": "abstract_manner_noun",
+                    "id": "manner_noun",
                     "signal": "様態・感情・性質を示す抽象名詞",
                     "check": "target_lemma_in_list('manner_noun_lemmas')"
                   },
@@ -3921,13 +3921,13 @@
                 "required_mood": "participle",
                 "conditions": [
                   {
-                    "id": "matching_noun_present",
+                    "id": "matching_noun",
                     "signal": "節内に格・性・数が一致する名詞がある",
                     "check": "context_has_case_gender_number_match()",
                     "weight_modifier": "+base"
                   },
                   {
-                    "id": "proximity_close",
+                    "id": "proximity_2",
                     "signal": "一致名詞との距離が2語以内",
                     "check": "distance_to_match_le(2)",
                     "weight_modifier": "+bonus"
@@ -3938,10 +3938,16 @@
                     "check": "NOT distance_to_match_le(2)"
                   },
                   {
-                    "id": "no_article_before_ptc",
+                    "id": "no_article",
                     "signal": "分詞直前に冠詞なし",
                     "check": "NOT prev_pos_eq('T')",
                     "weight_modifier": "required"
+                  },
+                  {
+                    "id": "proximity_far",
+                    "signal": "格・性・数一致名詞から3語以上離れている",
+                    "check": "context_has_case_gender_number_match() AND NOT distance_to_match_le(2)",
+                    "note": "近接条件と対になる距離条件。対応する一致名詞がない場合は適用しない。"
                   }
                 ]
               },
@@ -4317,25 +4323,26 @@
                 "required_mood": "participle",
                 "conditions": [
                   {
-                    "id": "aorist_tense",
+                    "id": "aorist_ptc",
                     "signal": "アオリスト分詞",
-                    "check": "target_tense_eq('aorist')"
+                    "check": "target_tense_eq('aorist') AND NOT prev_pos_eq('T')",
+                    "note": "アオリスト分詞かつ直前に冠詞がない場合。"
                   },
                   {
-                    "id": "main_verb_aorist_imperative",
+                    "id": "aorist_imperative_main",
                     "signal": "主動詞がアオリスト命令法",
                     "check": "main_verb_tense_eq('aorist') AND main_verb_mood_eq('imperative')"
-                  },
-                  {
-                    "id": "no_article_before",
-                    "signal": "冠詞なし",
-                    "check": "NOT prev_pos_eq('T')"
                   },
                   {
                     "id": "narrative_sequence",
                     "signal": "物語的連続文脈（主動詞がアオリスト直説法）",
                     "check": "main_verb_tense_eq('aorist') AND main_verb_mood_eq('indicative')",
                     "note": "Wallace p.642 の付帯状況 5 基準のうち『主動詞は直説法（物語）または命令法』を実装。従来は無条件加点だった。"
+                  },
+                  {
+                    "id": "narrative_sequence",
+                    "signal": "物語的連続文脈（アオリスト直説法主動詞）",
+                    "check": "main_verb_tense_eq('aorist') AND main_verb_mood_eq('indicative')"
                   }
                 ]
               },
@@ -4412,12 +4419,12 @@
                 "required_mood": "participle",
                 "conditions": [
                   {
-                    "id": "causal_adverb_present",
+                    "id": "causal_particle",
                     "signal": "因果関係を示す副詞・接続詞が近傍にある",
                     "check": "context_has_lemma_in(['οὖν','γάρ','διό','ὅτι'])"
                   },
                   {
-                    "id": "logical_discourse_marker",
+                    "id": "logical_context",
                     "signal": "論証的文体（推論・結論の文脈）",
                     "check": "context_discourse_type_eq('argumentative')"
                   },
@@ -4426,6 +4433,11 @@
                     "signal": "分詞が受動態（ROM 5:1 δικαιωθέντες 型）",
                     "check": "target_voice_eq('passive')",
                     "note": "Wallace pp.631–632: 論証書簡の理由分詞はアオリスト受動が典型。従来は無条件加点だった。"
+                  },
+                  {
+                    "id": "passive_participle",
+                    "signal": "受動分詞（行為の受け手）",
+                    "check": "target_voice_eq('passive')"
                   }
                 ]
               },
