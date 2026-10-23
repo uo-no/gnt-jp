@@ -29,7 +29,7 @@ const analyzerPath = path.join(PUBLIC, 'core', 'syntax-analyzer.js');
 const analyzerSource = fs.readFileSync(analyzerPath, 'utf8');
 const analyzerModule = { exports:{} };
 const loadAnalyzer = vm.runInThisContext(
-  `(function(module,exports,require,__dirname,__filename){\\n${analyzerSource}\\n})`,
+  `(function(module,exports,require,__dirname,__filename){\n${analyzerSource}\n})`,
   { filename:analyzerPath, displayErrors:true }
 );
 loadAnalyzer(analyzerModule, analyzerModule.exports, require, path.dirname(analyzerPath), analyzerPath);
