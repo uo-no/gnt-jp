@@ -31,7 +31,7 @@ global.decodeMorph = e => {
 global.cleanText = e => String((e && typeof e === 'object') ? (e.word || e.normalized || e.text || '') : e || '').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim();
 function requireCjs(filePath) {
   const code=fs.readFileSync(filePath,'utf8'), mod={exports:{},id:filePath,filename:filePath,loaded:false};
-  const fn=vm.runInThisContext(`(function(module,exports,require,__dirname,__filename){\\n${code}\\n})`,{filename:filePath,displayErrors:true});
+  const fn=vm.runInThisContext(`(function(module,exports,require,__dirname,__filename){\n${code}\n})`,{filename:filePath,displayErrors:true});
   fn(mod,mod.exports,require,path.dirname(filePath),filePath); return mod.exports;
 }
 const loadJson=p=>JSON.parse(fs.readFileSync(p,'utf8'));
@@ -80,5 +80,5 @@ for(const target of targets) {
   }
   report.references.push({...target,ref:verseRef,reason:target.why,verseTokens:verseTokens.map(t=>({text:global.cleanText(t),lemma:t.lemma||null,pos:posLabel[global.entryPosCode(t)]||global.entryPosCode(t)||null,morph:t.morph||'',ref:t.ref||null})),genitives:items});
 }
-fs.writeFileSync('studypanel-bare-source-genitive-context-report.json',JSON.stringify(report,null,2)+'\\n');
+fs.writeFileSync('studypanel-bare-source-genitive-context-report.json',JSON.stringify(report,null,2)+'\n');
 console.log(JSON.stringify({references:report.references.map(r=>({ref:r.ref,genitives:r.genitives.length,targets:r.genitives.map(g=>({word:g.target.text,lemma:g.target.lemma,head:g.nearestHead?.text||null,governor:g.governor?.token?.text||null,isAfterPrep:g.isAfterPrep,candidates:g.candidates.map(c=>c.id)}))})),reportFile:'studypanel-bare-source-genitive-context-report.json'},null,2));
