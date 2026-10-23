@@ -48,6 +48,10 @@ walk(registry);
 assert.equal(typeCount, 242, 'The registry type inventory changed; review the baseline.');
 const analyzerPath = path.join(__dirname, '..', 'public', 'core', 'syntax-analyzer.js');
 const analyzerSource = fs.readFileSync(analyzerPath, 'utf8');
+const registeredChecks = new Set(
+  [...analyzerSource.matchAll(/CheckEvaluator\.register\(\s*['"]([^'"]+)['"]/g)]
+    .map(match => match[1])
+);
 const alwaysFalseChecks = new Set(
   [...analyzerSource.matchAll(/CheckEvaluator\.register\(\s*['"]([^'"]+)['"]\s*,\s*\(\s*[^)]*\)\s*=>\s*false\s*\)/g)]
     .map(match => match[1])
@@ -66,6 +70,11 @@ function auditFalseCheckNotes(value) {
   if (!value || typeof value !== 'object') return;
   if (value.id && value.detection && value.xsc) {
     for (const condition of [...(value.detection.conditions || []), ...(value.detection.exclusions || [])]) {
+      const checkExpression = String(condition.check || '');
+      for (const match of checkExpression.matchAll(/\b([a-zA-Z_]\w*)\s*\(/g)) {
+        assert.ok(registeredChecks.has(match[1]),
+          value.id + '.' + condition.id + ' references unregistered CheckEvaluator handler ' + match[1] + '.');
+      }
       const handler = condition.check?.match(/^\s*([a-zA-Z_]\w*)\s*\(/)?.[1];
       if (handler && alwaysFalseChecks.has(handler)) {
         const note = String(condition.note || '');
