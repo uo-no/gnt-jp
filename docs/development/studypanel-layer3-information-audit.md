@@ -119,3 +119,16 @@ Layer 3 の詳細表示を実装・再確認する際は、各情報を次のい
 - PR #234 — 事実／候補／判断基準を分ける情報方針案。本監査は Layer 3 の具体的な配置・保持判断へ焦点を絞る。
 
 この文書は情報設計上の監査結果であり、コード変更・UI変更・ブラウザ回帰検証を完了したという意味ではない。
+
+
+## 9. 既存監査文書の時点差と検査の限界
+
+過去の監査資料には、現在の Layer Architecture と用語・配置が異なる記録がある。
+
+- `docs/archive/studypanel-information-architecture-audit.md` と `docs/archive/studypanel-cognitive-load-audit.md` は、以前の4段階モデルに基づき、使用傾向を常時表示側に置く記述を含む。
+- 現行の `docs/specs/LAYER_ARCHITECTURE.md` は、使用傾向を Layer 3 の折りたたみ内に分類している。
+- `scripts/output/study-panel-audit.md` は Phase 21 時点の記録であり、242型エンジンのStudyPanel接続状況について、その後の実装・PRより前の説明を含む。
+
+これらは履歴として保持するが、現行の配置判断では更新日の新しい Layer Architecture と、その後の根拠優先方針・マージ済み変更を優先する。古い監査結果を現在の実装事実として再利用しない。必要な場合は歴史的な観察と現在の状態を分けて記載する。
+
+また、`verify-studypanel-parity.cjs` は代表3語について Desktop / Mobile の `data-study-section` の集合を比較する既存テストである。これはその3例の表示セクション集合を確認するテストであり、Layer 3 の辞書内容・出典・重複・意味的妥当性を検証するものではない。Layer 3 の実装監査では、このテストを全体品質の代替指標として扱わず、意図的なプラットフォーム差との関係も確認する必要がある。
