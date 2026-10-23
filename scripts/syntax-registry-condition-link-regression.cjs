@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const registryPath = path.join(__dirname, '..', 'public', 'assets', 'data', 'syntax-registry.json');
 const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
 
-// Temporary, explicit baseline for the nine types still awaiting semantic review.
+// Temporary, explicit baseline for the five types still awaiting semantic review.
 // Exact matching prevents fixed IDs from drifting back and prevents new mismatches.
 const EXPECTED_UNRESOLVED = {
   'genitive.source': ['no_separation_verb', 'prep_source_present'],
@@ -42,4 +42,4 @@ assert.deepEqual(actual, EXPECTED_UNRESOLVED,
   'Condition/signal ID mismatches changed. Review and update the explicit baseline only after semantic review.');
 
 const mismatchCount = Object.values(actual).reduce((sum, ids) => sum + ids.length, 0);
-console.log(`PASS: audited ${typeCount} syntax types; additional condition IDs are connected; ${Object.keys(actual).length} types / ${mismatchCount} conditions remain explicitly tracked for semantic review.`);
+console.log(`PASS: audited ${typeCount} syntax types; 32 condition IDs are connected; ${Object.keys(actual).length} types / ${mismatchCount} conditions remain explicitly tracked for semantic review.`);
