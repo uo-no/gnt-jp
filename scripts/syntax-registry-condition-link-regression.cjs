@@ -8,14 +8,21 @@ const assert = require('node:assert/strict');
 const registryPath = path.join(__dirname, '..', 'public', 'assets', 'data', 'syntax-registry.json');
 const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
 
-// Temporary, explicit baseline for the one type whose semantic-substitution check needs implementation/review.
-// Exact matching prevents fixed IDs from drifting back and prevents new mismatches.
-const EXPECTED_UNRESOLVED = {
-  'dative.means': ['substitutable_with_dia'],
-};
+// All scored condition IDs must map to exactly one signal; semantic judgements remain contextual.
+const EXPECTED_UNRESOLVED = {};
 
 const actual = {};
 let typeCount = 0;
+function findType(value, id) {
+  if (!value || typeof value !== 'object') return null;
+  if (value.id === id && value.detection && value.xsc) return value;
+  for (const child of Object.values(value)) {
+    const found = findType(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
 function walk(value) {
   if (!value || typeof value !== 'object') return;
   if (value.id && value.detection && value.xsc) {
@@ -39,8 +46,18 @@ function walk(value) {
 
 walk(registry);
 assert.equal(typeCount, 242, 'The registry type inventory changed; review the baseline.');
+
+const meansType = findType(registry, 'dative.means');
+assert.ok(meansType, 'dative.means must remain in the registry');
+assert.deepEqual(meansType.detection.instrumental_noun_lemmas.includes('πίστις'), true,
+  'dative.means must retain πίστις in its type-local instrumental noun list');
+assert.ok(meansType.detection.conditions.some(c =>
+  c.id === 'instrumental_noun' &&
+  c.check === "target_lemma_in_type_list('instrumental_noun_lemmas')"),
+  'instrumental_noun must use the type-local list check');
+
 assert.deepEqual(actual, EXPECTED_UNRESOLVED,
   'Condition/signal ID mismatches changed. Review and update the explicit baseline only after semantic review.');
 
 const mismatchCount = Object.values(actual).reduce((sum, ids) => sum + ids.length, 0);
-console.log(`PASS: audited ${typeCount} syntax types; 40 condition IDs are connected; ${Object.keys(actual).length} types / ${mismatchCount} conditions remain explicitly tracked for semantic review.`);
+console.log(`PASS: audited ${typeCount} syntax types; 41 condition IDs are connected; ${Object.keys(actual).length} types / ${mismatchCount} conditions remain explicitly tracked for semantic review.`);

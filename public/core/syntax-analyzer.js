@@ -381,7 +381,7 @@
  *
  *       // 2. exclusions をチェック → 1件でも true なら rawScore = 0
  *       for (const excl of typeDef.detection.exclusions ?? []) {
- *         if (this._evalCheck(excl.check, ctx)) {
+ *         if (this._evalCheck(excl.check, typeCtx)) {
  *           return {
  *             typeId: typeDef.id,
  *             rawScore: 0,
@@ -399,7 +399,7 @@
  *         // condition がある場合はその check を評価
  *         const condition = typeDef.detection.conditions.find(c => c.id === signal.id)
  *         if (condition) {
- *           const hit = this._evalCheck(condition.check, ctx)
+ *           const hit = this._evalCheck(condition.check, typeCtx)
  *           if (hit) {
  *             score += signal.value
  *             matched.push(signal.id)
@@ -1911,6 +1911,16 @@ CheckEvaluator.register('target_lemma_in_list',
     }
 );
 
+// 型定義内に置かれた named list を対象レンマと照合する。
+// 未定義・空リストは一致なしとして扱い、他の型の語彙表へ波及させない。
+CheckEvaluator.register('target_lemma_in_type_list',
+    (ctx, [listName]) => {
+        const list = ctx._typeDef?.detection?.[listName];
+        if (!Array.isArray(list) || list.length === 0) return false;
+        return list.includes(ctx.target?.lemma ?? '');
+    }
+);
+
 // ヘッド名詞のレンマがリストに含まれるか（Phase 3: 共通 ctx.headLemma を参照）
 CheckEvaluator.register('head_lemma_in_list',
     (ctx, [listName]) => {
@@ -2235,6 +2245,8 @@ class CandidateScorer {
      */
     _evaluateType(typeDef, ctx) {
         const det = typeDef.detection ?? {};
+        // 型固有の語彙リストを判定できるよう、各評価に対象 TypeDef を明示する。
+        const typeCtx = Object.assign(Object.create(ctx), { _typeDef: typeDef });
 
         // ── required_case / required_mood / required_pos チェック ──────
         if (det.required_case && ctx.morph?.case !== det.required_case) return null;
@@ -2255,7 +2267,7 @@ class CandidateScorer {
 
         // ── exclusions: 1件でも true なら rawScore = 0 ──────────────────
         for (const excl of det.exclusions ?? []) {
-            if (this._evalCheck(excl.check, ctx)) {
+            if (this._evalCheck(excl.check, typeCtx)) {
                 return {
                     typeId:         typeDef.id,
                     rawScore:       0,
@@ -2278,7 +2290,7 @@ class CandidateScorer {
         for (const signal of signals) {
             const condition = conditions.find(c => c.id === signal.id);
             if (condition) {
-                const hit = this._evalCheck(condition.check, ctx);
+                const hit = this._evalCheck(condition.check, typeCtx);
                 if (hit) {
                     score += signal.value;
                     matched.push(signal.id);
@@ -2534,8 +2546,9 @@ class DativeScorer extends CandidateScorer {
         // dative.sphere / dative.manner より dative.means が勝つよう補正する。
         // Phase 4.5D: 語彙リストは registry（dative.means.detection.
         // instrumental_noun_lemmas）を単一情報源とする。
-        const INSTRUMENTAL_LEMMAS =
-            registry.getList('instrumental_noun_lemmas') ?? new Set();
+        const INSTRUMENTAL_LEMMAS = new Set(
+            registry.getType('dative.means')?.detection?.instrumental_noun_lemmas ?? []
+        );
         const targetLemma = enrichedCtx.target?.lemma ?? '';
         // Phase 4F: 旧実装は「ἐν が target より前のどこかにある」という詩節全域
         // スキャンで補正を抑止していた（無関係な ἐν 句でも抑止される過剰判定）。
