@@ -178,10 +178,19 @@ Layer 3 の詳細表示を実装・再確認する際は、各情報を次のい
 この結果は代表語1語に対する UI 検証であり、全 lemma・全データ状態の辞書表示や、スクロール・URL復元などの全操作を保証するものではない。
 
 
-## 12. PR #257 マージ後の再確認（2026-10-23）
+## 12. PR #257 マージ後の再確認（2026-10-23・当時の記録）
 
 - main: `7486f8dbd5487ac77614d4ea497d8a7d0dc4c021`。PR #257 の `Cloudflare Pages`、`check-old-paths`、`vr5-gate` はすべて success。
 - 追加の VR-5 artifact: [StudyPanel Layer 3 audit screenshots](https://github.com/uo-no/gnt-jp/actions/runs/39907610463/artifacts/12482060031)。
 - Mobile 390×844 の JHN 3:16 スクリーンショットでは、統合済みの「単語を詳しく調べる」の内側に、さらに「候補の違いを比べる」の disclosure が残っている。第3層の内部に開閉をネストしないという本書 §1 / §3 の設計契約とは不一致。
-- このスクリーンショットは JHN 3:16 の表示状態を示すもので、全単語で候補比較が存在することまでは保証しない。候補データは削除せず、比較内容がある場合に内側の disclosure だけを解除し、空の候補区画は表示しない方針で次の UI 変更を行う。
-- 変更時の回帰条件: Desktop 1280×900 / Mobile 390×844、候補がある語と候補がない語、Layer 3 開閉、辞書全文の保持、語の切替後に古い候補が残らないこと。現時点ではこの修正自体は未実装。
+- このスクリーンショットは JHN 3:16 の表示状態を示すもので、全単語で候補比較が存在することまでは保証しない。この時点で残っていた入れ子 disclosure は、後続の PR #259 で修正した。
+
+
+## 13. PR #259 マージ後の再確認（2026-10-23）
+
+- main: `8117edb6ba4b4d88df783267c4337ee113936dea`。PR #259「StudyPanel 第3層の開閉UIを解消」を squash merge。
+- マージ後の `vr5-gate`、`check-old-paths`、`Cloudflare Pages` はすべて success。
+- VR-5 の Desktop / Mobile Layer 3 inventory browser audit と evidence-note browser regression はどちらも success。監査スクリーンショット artifact を生成済み。
+- 実装: `_buildSyntaxLabelHTML` 内の「ほかの候補を見る」「根拠を詳しく見る」「候補の違いを比べる」を入れ子の disclosure から通常の表示ブロックへ変更。候補・比較・根拠の文章は保持し、削除していない。
+- 回帰条件として、第3層レンダラー内の `details/summary` がゼロであることをブラウザ検査に追加。
+- 検証の範囲: CI で Desktop 1280×900 / Mobile 390×844 の代表語監査は通過。これは全語・全操作経路の意味的な妥当性を保証するものではない。引き続き、候補内容の根拠品質、情報の重複、語切替・URL復元などの確認は別途必要。
