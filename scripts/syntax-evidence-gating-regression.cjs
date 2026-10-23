@@ -49,10 +49,36 @@ function outputs(tokens) {
 function candidate(candidates, id) {
   return candidates.find(c => c.id === id);
 }
+function findType(value, id) {
+  if (!value || typeof value !== 'object') return null;
+  if (value.id === id && value.detection && value.xsc) return value;
+  for (const child of Object.values(value)) {
+    const found = findType(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+function assertEvidenceGate(tokens, label) {
+  const byWord = outputs(tokens);
+  for (const [word, candidates] of byWord) {
+    for (const item of candidates) {
+      const typeDef = findType(registry, item.id);
+      if (!typeDef) continue;
+      const conditions = typeDef.detection?.conditions || [];
+      const matched = item.signals_matched || [];
+      assert.ok(conditions.length === 0 || matched.length > 0,
+        `${label} ${word} emitted ${item.id} despite all declared conditions failing`);
+      const required = typeDef.detection?.required_signals || [];
+      assert.ok(required.every(id => matched.includes(id)),
+        `${label} ${word} emitted ${item.id} without all required signals: ${required.join(', ')}`);
+    }
+  }
+}
 
 // Ephesians 1:10: Χριστῷ is governed by ἐν and cannot be the left-dislocated
 // token merely because a later dative pronoun is found in the same verse.
 const eph110 = verse('EPH', 1, 10);
+assertEvidenceGate(eph110, 'EPH 1:10');
 const ephOutputs = outputs(eph110);
 assert.equal(candidate(ephOutputs.get('Χριστῷ') || [], 'discourse.left_dislocation'), undefined,
   'a preposition-governed noun inside ἐν τῷ Χριστῷ must not be labelled left-dislocated');
@@ -68,6 +94,7 @@ for (const [word, candidates] of ephOutputs) {
 // Acts 7:40 is the registry's canonical nominative-pendens example. A nominative
 // form alone is not enough; both clause-initial position and resumption are required.
 const act740 = verse('ACT', 7, 40);
+assertEvidenceGate(act740, 'ACT 7:40');
 const actsOutputs = outputs(act740);
 for (const [word, candidates] of actsOutputs) {
   const pendens = candidate(candidates, 'nominative.pendens');
@@ -80,6 +107,7 @@ for (const [word, candidates] of actsOutputs) {
 // Romans 12:15 is the Registry's canonical imperatival-infinitive example.
 // Require both evidence signals before a candidate can be emitted.
 const rom1215 = verse('ROM', 12, 15);
+assertEvidenceGate(rom1215, 'ROM 12:15');
 const romOutputs = outputs(rom1215);
 const imperativeInfinitives = [...romOutputs.entries()]
   .filter(([word]) => ['χαίρειν', 'κλαίειν'].includes(word))
@@ -92,6 +120,7 @@ for (const word of ['χαίρειν', 'κλαίειν']) {
   assert.ok(found.item.signals_matched.includes('anarthrous_inf'), `${word}: missing anarthrous-infinitive evidence`);
 }
 
+console.log('PASS: emitted candidates satisfy required signals and evidence-first gates');
 console.log('PASS: left-dislocation candidates require positive structural evidence');
 console.log('PASS: preposition-governed Χριστῷ is not labelled left-dislocated');
 console.log('PASS: nominative pendens requires initial + resumption signals');
