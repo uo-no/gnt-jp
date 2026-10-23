@@ -1,0 +1,36 @@
+name: StudyPanel Evidence-First NT Audit
+
+on:
+  pull_request:
+    paths:
+      - 'public/core/syntax-analyzer.js'
+      - 'public/assets/data/syntax-registry.json'
+      - 'public/bible_data/nt/**'
+      - 'scripts/studypanel-evidence-first-audit.cjs'
+      - '.github/workflows/studypanel-evidence-first-audit.yml'
+  push:
+    branches:
+      - 'audit/studypanel-evidence-first-regression'
+    paths:
+      - 'public/core/syntax-analyzer.js'
+      - 'public/assets/data/syntax-registry.json'
+      - 'public/bible_data/nt/**'
+      - 'scripts/studypanel-evidence-first-audit.cjs'
+      - '.github/workflows/studypanel-evidence-first-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run NT-wide evidence-first audit
+        run: npm run audit:studypanel-evidence-first -- --verbose
