@@ -91,3 +91,30 @@ jobs:
 
       - name: Apparatus build reproducibility（XML→JSON 再現性、_meta.generatedAt を除く全フィールド一致）
         run: npm run test:re-apparatus-reproduce
+
+      - name: Install Playwright for StudyPanel browser verification
+        run: npm install --no-save --package-lock=false playwright
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start static Bible app server
+        run: |
+          nohup python3 -m http.server 8765 --directory public >/tmp/gnt-jp-server.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS 'http://127.0.0.1:8765/?book=EPH&ch=1' >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/gnt-jp-server.log
+          exit 1
+
+      - name: StudyPanel evidence-note browser regression（PC / mobile）
+        run: npm run test:browser-evidence-notes
+
+      - name: Upload StudyPanel evidence-note screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studypanel-evidence-note-screenshots
+          path: /tmp/gnt-jp-evidence-note/*.png
+          if-no-files-found: ignore
