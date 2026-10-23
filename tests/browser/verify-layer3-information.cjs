@@ -102,7 +102,11 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
     const scopeText = scope?.innerText || '';
     const visibleGroups = [...(scope?.querySelectorAll('[data-study-group]') || [])]
       .filter(visible)
-      .map(el => ({ key:el.getAttribute('data-study-group'), text:(el.innerText || '').trim() }));
+      .map(el => {
+        const body = el.cloneNode(true);
+        body.querySelectorAll('.rn-l3-group-label').forEach(label => label.remove());
+        return { key:el.getAttribute('data-study-group'), text:(body.innerText || '').trim() };
+      });
     const emptyWrappers = [...(scope?.querySelectorAll('.rn-word-head, .rn-glosses, .mvv-l3-word, .rn-level-heading') || [])]
       .filter(el => !(el.textContent || '').trim())
       .map(el => ({ className:el.className?.baseVal || el.className || '', visible:visible(el) }));
