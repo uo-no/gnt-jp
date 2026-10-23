@@ -1187,6 +1187,26 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           accTypes.filter(t => t.status === 'active').length >= 3);
 }
 
+// ── Direct-object candidates must require all defining evidence ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const required = {
+        'genitive.direct_object': ['valency_genitive_verb', 'no_preposition'],
+        'dative.direct_object': ['valency_dative_verb', 'no_preposition']
+    };
+    for (const [typeId, signals] of Object.entries(required)) {
+        const type = all.find(t => t.id === typeId);
+        check(`${typeId} — 全根拠が必須条件`,
+              Boolean(type) && signals.every(id => type.detection?.required_signals?.includes(id)),
+              `required_signals=${JSON.stringify(type?.detection?.required_signals ?? [])}`);
+    }
+}
+
 // ── Dative 完成 ──────────────────────────────────────────────────
 console.log('\n  ─── Dative: possession / direct_object / agent / measure / ethical ───');
 catVerseTest('LUK 2:7 αὐτοῖς（所有与格）', 'LUK', 2, 7, 'αὐτός', 'dative.', 'dative.possession');
