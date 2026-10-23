@@ -2135,6 +2135,12 @@ nomRepr('indeclinable MAT 1:2 Ἀβραάμ', 'MAT', 1, 2, 'Ἀβραάμ', 'nom
 nomRepr('subject_with_infinitive PHP 1:21 τὸ ζῆν Χριστός', 'PHP', 1, 21, 'Χριστός', 'nominative.subject_with_infinitive', { maxRank: 2, minConf: 0.45 });
 nomRepr('exclamation ROM 7:24 Ταλαίπωρος... ἄνθρωπος', 'ROM', 7, 24, 'ἄνθρωπος', 'nominative.exclamation', { maxRank: 2, minConf: 0.45 });
 nomRepr('title MAT 1:1 Βίβλος γενέσεως', 'MAT', 1, 1, 'βίβλος', 'nominative.title_nominative', { maxRank: 1, minConf: 0.50 });
+{
+    const genealogy = analyzeTokenCat('MAT', 1, 3, 'Ἰούδας', 'nominative.');
+    check('title_nominative: MAT 1:3 の系図人名を表題と誤認しない',
+          !genealogy.allCandidates.some(x => x.id === 'nominative.title_nominative'),
+          `candidates=${genealogy.allCandidates.map(x => x.id).join(',')}`);
+}
 
 // ── Regression（仕様指定 7 項目） ────────────────────────────────
 console.log('\n  ─── Regression ───');
