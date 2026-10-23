@@ -5,7 +5,7 @@
 - 対象: `docs/specs/LAYER_ARCHITECTURE.md`、`docs/development/studypanel-scope-definition.md`、`docs/development/reading-observation-information-architecture.md`、`scripts/output/studypanel-design-principles.md`、既存の StudyPanel 監査資料、PR #224 / #234 の設計案
 - 目的: Layer 3 の情報を「残す／役割を明確化する／重複を統合する／検証まで表示を保留する」に分類し、Layer 2 の読書支援との境界を明確にする。
 - スコープ: 情報設計・既存仕様の静的監査。アプリコード、データ、UIは変更しない。
-- 注意: `public/index.html` の現在の blob（`09403d59b756aa9ec44dc57ce3c4a492d885f9fc`）を取得し、生成経路・HTML文字列を静的に照合した。ブラウザ上の全項目確認、表示状態・開閉・スクロールの実測は未完了。
+- 注意: `public/index.html` の blob（`09403d59b756aa9ec44dc57ce3c4a492d885f9fc`）を静的照合し、PR #241 の PC / Mobile ブラウザ監査も成功した。ブラウザ検証は JHN 3:16 の代表語1語に限定され、他の語・スクロール・URL復元の全体確認は未完了。
 
 ## 1. 結論
 
@@ -38,7 +38,7 @@ Layer 3 は削除対象ではなく、辞書・形態・用例・出典などの
 
 | 項目 | 情報の性質 | 現行仕様での配置 | 処置 | 理由・条件 |
 |---|---|---|---|---|
-| Morphology（形態情報） | 原文・形態データから確認できる事実 | Desktop: `#rn-level2-details` 内。Mobile: `.mvv-l3-section[data-study-section="morphology"]` 内 | **維持・折りたたみ状態を再確認** | 両方の生成HTMLに形態情報はある。ただし現行HTML断片は個別の `<details>` を使っていない。仕様書の「折りたたみ」記述と実装が一致するか、ブラウザで確認する |
+| Morphology（形態情報） | 原文・形態データから確認できる事実 | Desktop: `#rn-level2-details` 内。Mobile: `.mvv-l3-section[data-study-section="morphology"]` 内 | **維持・開閉設計は別途判断** | 両方の生成HTMLに形態情報がある。JHN 3:16 のブラウザ監査では両区画とも表示され、`SECTION` 要素で `<details>` 内ではなかった。現行表示は確認済みだが、設計として折りたたむべきかは未決定 |
 | Lemma（見出し語） | 語の同定情報 | Mobile の morphology 区画にあり。Desktop の `_renderReadingNotes()` 出力では未確認 | **維持・差分を記録** | Mobile の現行HTMLで表示経路を確認。Desktop への追加は自動決定せず、語をさらに調べる入口として扱う |
 | Strong 番号 | 辞書引き用の識別子 | Mobile の morphology 区画にあり。Desktop の `_renderReadingNotes()` 出力では未確認 | **維持・控えめに表示** | 現行HTMLでMobileの表示経路を確認。読書面で前面化せず、Desktop への追加は別途判断する |
 | Abbott-Smith 辞書全文 | 原典辞書に基づく語義・用法資料 | Desktop: `_renderReadingNotes()` 内。Mobile: `#mvv-abbott-slot` へ `_fillMvvLevel2Slot()` が非同期注入 | **全文を保持・仕様書を修正対象に** | 現行HTMLに両方の表示経路がある。Layer Architecture の「Mobileは不在」という記録は実装と食い違う。辞書の語義候補を節の確定訳として転用しない |
@@ -105,7 +105,7 @@ Layer 3 の詳細表示を実装・再確認する際は、各情報を次のい
 2. 「単語を詳しく調べる」「さらに調べる」の各折りたたみについて、同じ内容の二重表示、空欄、ラベルの重複、表示順を調査する。
 3. 辞書全文と構成的な語義説明、使用傾向と用例、Layer 2 の読書メモと詳細根拠について、代表語を使って重複の有無を確認する。
 4. 類義語・意味グループ表示の停止が Desktop / Mobile の双方で守られていることを確認する。再開は権利・精度の別審査後とする。
-5. Desktop / Mobile の実画面で、開閉状態・スクロール・語選択変更・URL復元に回帰がないことを検証する。
+5. PR #241 の代表語ブラウザ検査で Desktop / Mobile の辞書表示と現在の形態区画状態を確認済み。残る語のバリエーション、スクロール、語選択変更、URL復元は追加検証する。
 6. 変更が必要な場合は、この監査結果に基づく小さな別PRに分け、既存資産の削除と表示整理を混同しない。
 
 ## 8. 参照資料と監査の限界
@@ -118,7 +118,7 @@ Layer 3 の詳細表示を実装・再確認する際は、各情報を次のい
 - PR #224 — 242型の候補比較・根拠表示の静的適用マトリクス。静的分類であり実例の妥当性を保証しない。
 - PR #234 — 事実／候補／判断基準を分ける情報方針案。本監査は Layer 3 の具体的な配置・保持判断へ焦点を絞る。
 
-この文書は情報設計上の監査結果であり、コード変更・UI変更・ブラウザ回帰検証を完了したという意味ではない。
+この文書は情報設計監査と代表語のブラウザ検証結果を記録する。UI変更や、全語・全操作経路のブラウザ回帰検証を完了したという意味ではない。
 
 
 ## 9. 既存監査文書の時点差と検査の限界
@@ -126,7 +126,7 @@ Layer 3 の詳細表示を実装・再確認する際は、各情報を次のい
 過去の監査資料には、現在の Layer Architecture と用語・配置が異なる記録がある。
 
 - `docs/archive/studypanel-information-architecture-audit.md` と `docs/archive/studypanel-cognitive-load-audit.md` は、以前の4段階モデルに基づき、使用傾向を常時表示側に置く記述を含む。
-- 現行の `docs/specs/LAYER_ARCHITECTURE.md` は、使用傾向を Layer 3 の折りたたみ内に分類している。
+- `docs/specs/LAYER_ARCHITECTURE.md` の main 版は使用傾向を Layer 3 の折りたたみ内に分類しているが、PR #240 で現行コードに合わせた修正案を作成済み。
 - `scripts/output/study-panel-audit.md` は Phase 21 時点の記録であり、242型エンジンのStudyPanel接続状況について、その後の実装・PRより前の説明を含む。
 
 これらは履歴として保持するが、現行の配置判断では更新日の新しい Layer Architecture と、その後の根拠優先方針・マージ済み変更を優先する。古い監査結果を現在の実装事実として再利用しない。必要な場合は歴史的な観察と現在の状態を分けて記載する。
@@ -136,23 +136,23 @@ Layer 3 の詳細表示を実装・再確認する際は、各情報を次のい
 
 ## 10. 現行 `public/index.html` の静的照合で確認した差分
 
-参照 blob: `09403d59b756aa9ec44dc57ce3c4a492d885f9fc`。以下は HTML 生成コードの確認結果であり、実ブラウザの見え方を検証した結果ではない。
+参照 blob: `09403d59b756aa9ec44dc57ce3c4a492d885f9fc`。静的コード照合に加え、PR #241 のブラウザ検査で JHN 3:16 の `θεὸς` を Desktop / Mobile で開いて確認した。以下のブラウザ結果はこの代表語に限る。
 
 | 項目 | 実装で確認した内容 | 監査判定 |
 |---|---|---|
-| Desktop の詳細区画 | `_renderReadingNotes()` の出力（概ね 9685–9719行）では、形態・形態候補・語源・統語ラベル・Abbott-Smith が `section#rn-level2-details` に入る。該当断片自体は `<details>` / `<summary>` ではない | 現行仕様の「折りたたみ」と一致するか要ブラウザ確認。少なくとも生成断片だけから折りたたみを確認できない |
-| Mobile の詳細区画 | `_renderMobileWordDetail()`（概ね 20143–20174行）では、Lemma・Strong・Morphology・形態候補・語源スロット・統語ラベルスロット・Abbott-Smithスロットを morphology 区画内に配置 | Layer Architecture の「MobileはDictionary不在」という記述は古い。Abbott-Smith は非同期注入経路がある |
+| Desktop の詳細区画 | `_renderReadingNotes()` の出力（概ね 9685–9719行）では、形態・形態候補・語源・統語ラベル・Abbott-Smith が `section#rn-level2-details` に入る。JHN 3:16 のブラウザ検査では表示され、`<details>` 内ではなかった | **確認済み**。現行は直接表示。折りたたみに変更するかは情報設計上の判断として別途扱う |
+| Mobile の詳細区画 | `_renderMobileWordDetail()`（概ね 20143–20174行）では、Lemma・Strong・Morphology・形態候補・語源スロット・統語ラベルスロット・Abbott-Smithスロットを morphology 区画内に配置。JHN 3:16 のブラウザ検査で morphology は表示され、`<details>` 内ではないことを確認 | **確認済み**。Layer Architecture の「MobileはDictionary不在」という記述は古い。Abbott-Smith は実際に表示された |
 | Usage Trends | Desktop と Mobile の両生成経路に「使用傾向は検索ツールで確認するため、第三層では重複表示しない」というコメントがある。現行 blob に `usageTrendsHTML` は存在しない | Layer Architecture の「DesktopにUsage Trendsを表示」という表は現行実装と不一致 |
 | Mobile の Level 2 注入コメント | `_fillMvvLevel2Slot()` のコメントは「Usage trends / Etymology / Abbott-Smith」と書くが、関数本体が生成するのは語源とAbbott-Smithのみ | コメントが実装実態より古い |
 | 意味グループ | `LN_RELATED_WORDS_ENABLED = false`。Desktop の描画・注入と Mobile のスロット注入はいずれもこのフラグでガードされる | 現行コードは表示停止方針と整合 |
-| 表示区画の分類 | Desktop は形態・形態候補・語源・統語ラベル・辞書全文を同じ区画内に置く。Mobile も同様の情報を morphology 区画内にまとめ、統語ラベルは非同期スロットに注入する | 画面全体の再設計は不要。次工程では内部の情報種別を明確にし、同じ内容の重複と表示階層をブラウザで確認する |
+| 表示区画の分類 | Desktop は形態・形態候補・語源・統語ラベル・辞書全文を同じ区画内に置く。Mobile も同様の情報を morphology 区画内にまとめ、統語ラベルは非同期スロットに注入する | 画面全体の再設計は不要。次工程では内部の情報種別を明確にし、同じ内容の重複と表示階層を複数の代表語で確認する |
 
 ### 10.1 文書の更新が必要な箇所
 
 1. `docs/specs/LAYER_ARCHITECTURE.md` の Desktop / Mobile 表を現行コードと照合し、少なくとも Dictionary と Usage Trends の記述を更新する。
-2. 同仕様書の Morphology の折りたたみ状態をブラウザで実測し、生成HTMLだけでは判定できない部分を確定する。
+2. Morphology の実際の表示は JHN 3:16 で確認済み（Desktop / Mobile とも直接表示・`SECTION`・`<details>` 内ではない）。折りたたみを採用するかどうかは、次の UI 設計判断として確定する。
 3. `_fillMvvLevel2Slot()` のコメントに残る Usage trends の記述は、実装変更ではなくコメント整備の対象とする。
-4. Layer 2 の統語ラベルは候補の要約、Layer 3 の詳細根拠は実際に確認されたシグナル・本文上の位置・出典を示す、という役割を実画面で確認する。
+4. Layer 2 の統語ラベルは候補の要約、Layer 3 の詳細根拠は実際に確認されたシグナル・本文上の位置・出典を示す、という役割は今後、別の代表語でも確認する。
 
 
 
@@ -165,3 +165,14 @@ Layer 3 の詳細表示を実装・再確認する際は、各情報を次のい
 - `.rn-word-head` / `.rn-glosses` / `.rn-level-heading` のスタイル定義は残るが、現行の表示HTMLでは該当内容を描画していないものがある。`.rn-level-heading` は現行 blob では CSS 定義のみ確認できた。
 
 これは「画面に重複した文章が表示されている」と確認したものではなく、**空の構造要素・残存CSSの整理候補**である。削除する場合は、セレクタ依存・テスト・PC/Mobile双方の余白や位置変化を確認し、実際に使われている辞書全文・語源合成表示・読書メモの生成経路を変更しない小さな差分にする。
+
+
+## 11. 代表語のブラウザ検証結果（PR #241）
+
+- CI: [VR-5 Regression Gate #1099](https://github.com/uo-no/gnt-jp/actions/runs/39890439176) — **success**。
+- Desktop 1280×900: Abbott-Smith 辞書全文が表示された。Usage Trends、LN由来の意味グループ、Research Links は表示されなかった。Morphology 区画は `SECTION`、表示あり、`<details>` 内ではない。
+- Mobile 390×844: Abbott-Smith 辞書全文が表示された。Usage Trends、LN由来の意味グループ、Research Links は表示されなかった。Morphology 区画は `SECTION`、表示あり、`<details>` 内ではない。
+- スクリーンショット artifact: [Layer 3 audit screenshots](https://github.com/uo-no/gnt-jp/actions/runs/39890439176/artifacts/12474870996)。
+- 既存の evidence-note browser regression も同じ CI run で Desktop / Mobile とも PASS。
+
+この結果は代表語1語に対する UI 検証であり、全 lemma・全データ状態の辞書表示や、スクロール・URL復元などの全操作を保証するものではない。
