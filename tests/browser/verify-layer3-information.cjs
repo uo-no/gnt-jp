@@ -7,12 +7,12 @@ const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
 const BASE = process.env.TEST_BASE_URL || 'http://127.0.0.1:8765';
-const TARGET = 'θεὸς';
+const TARGETS = ['θεὸς', 'κόσμον', 'ἠγάπησεν'];
 const SHOTS = process.env.TEST_SCREENSHOT_DIR || '/tmp/gnt-jp-layer3';
 
 fs.mkdirSync(SHOTS, { recursive:true });
 
-async function openTarget(browser, mobile) {
+async function openTarget(browser, mobile, target, captureScreenshot) {
   const context = await browser.newContext(mobile ? {
     viewport:{ width:390, height:844 },
     isMobile:true,
@@ -26,7 +26,7 @@ async function openTarget(browser, mobile) {
 
   await page.goto(`${BASE}/?book=JHN&ch=3`, { waitUntil:'domcontentloaded', timeout:30000 });
   await page.waitForSelector('#bible-text-area .verse-block .v-num', { timeout:20000 });
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(1200);
 
   const clickedVerse = await page.evaluate(() => {
     for (const block of document.querySelectorAll('#bible-text-area .verse-block:not(.verse-pair-right)')) {
@@ -53,18 +53,18 @@ async function openTarget(browser, mobile) {
     if (!chip) return false;
     chip.click();
     return true;
-  }, TARGET);
-  assert.ok(clickedToken, `${mobile ? 'Mobile' : 'Desktop'}: ${TARGET} chip exists`);
+  }, target);
+  assert.ok(clickedToken, `${mobile ? 'Mobile' : 'Desktop'}: ${target} chip exists`);
 
   await page.waitForSelector('#wlv-detail-drawer.visible', { timeout:12000 });
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(200);
   const clickedStudy = await page.evaluate(() => {
     const btn = document.getElementById('wlv-dd-study-btn');
     if (!btn) return false;
     btn.click();
     return true;
   });
-  assert.ok(clickedStudy, `${mobile ? 'Mobile' : 'Desktop'}: StudyPanel entry exists`);
+  assert.ok(clickedStudy, `${mobile ? 'Mobile' : 'Desktop'}: StudyPanel entry exists for ${target}`);
 
   const dictionarySelector = mobile
     ? '#mvv-abbott-slot .rn-dict-full-text'
@@ -91,6 +91,9 @@ async function openTarget(browser, mobile) {
       return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
     };
     const scopeText = scope?.innerText || '';
+    const emptyWrappers = [...(scope?.querySelectorAll('.rn-word-head, .rn-glosses, .mvv-l3-word, .rn-level-heading') || [])]
+      .filter(el => !(el.textContent || '').trim())
+      .map(el => ({ className:el.className?.baseVal || el.className || '', visible:visible(el) }));
     return {
       morphologyTag: morphology?.tagName || null,
       morphologyVisible: visible(morphology),
@@ -100,12 +103,13 @@ async function openTarget(browser, mobile) {
       usageTrendsTextPresent: scopeText.includes('使用傾向'),
       semanticSectionPresent: !!scope?.querySelector('[data-study-section="semantic"]'),
       researchLinksPresent: !!scope?.querySelector('.rn-research-links'),
+      emptyWrappers
     };
   }, mobile);
 
-  assert.ok(state.morphologyTag, `${mobile ? 'Mobile' : 'Desktop'}: morphology section exists`);
+  assert.ok(state.morphologyTag, `${mobile ? 'Mobile' : 'Desktop'}: morphology section exists for ${target}`);
   assert.ok(state.dictionaryVisible && state.dictionaryTextLength > 20,
-    `${mobile ? 'Mobile' : 'Desktop'}: Abbott-Smith dictionary text is present`);
+    `${mobile ? 'Mobile' : 'Desktop'}: Abbott-Smith dictionary text is present for ${target}`);
   assert.equal(state.usageTrendsTextPresent, false,
     `${mobile ? 'Mobile' : 'Desktop'}: Usage Trends should stay in the search tool, not duplicate in StudyPanel`);
   assert.equal(state.semanticSectionPresent, false,
@@ -113,23 +117,28 @@ async function openTarget(browser, mobile) {
   assert.equal(state.researchLinksPresent, false,
     `${mobile ? 'Mobile' : 'Desktop'}: current markup should not claim a Research Links section without a rendered implementation`);
   assert.equal(consoleErrors.length, 0,
-    `${mobile ? 'Mobile' : 'Desktop'}: page errors: ${consoleErrors.join('; ')}`);
+    `${mobile ? 'Mobile' : 'Desktop'}: page errors for ${target}: ${consoleErrors.join('; ')}`);
 
-  await page.screenshot({
-    path:path.join(SHOTS, mobile ? 'layer3-mobile.png' : 'layer3-desktop.png'),
-    fullPage:false
-  });
+  if (captureScreenshot) {
+    await page.screenshot({
+      path:path.join(SHOTS, mobile ? 'layer3-mobile.png' : 'layer3-desktop.png'),
+      fullPage:false
+    });
+  }
 
-  console.log(`PASS: ${mobile ? 'Mobile 390×844' : 'Desktop 1280×900'} — Abbott-Smith preserved; Usage Trends / semantic / Research Links absent.`);
-  console.log(`AUDIT: ${mobile ? 'Mobile' : 'Desktop'} morphology tag=${state.morphologyTag}, visible=${state.morphologyVisible}, inside <details>=${state.morphologyInsideDetails}`);
+  console.log(`PASS: ${mobile ? 'Mobile 390×844' : 'Desktop 1280×900'} — ${target}: dictionary preserved; duplicate/disabled sections absent.`);
+  console.log(`AUDIT: ${mobile ? 'Mobile' : 'Desktop'} ${target}: morphology=${state.morphologyTag}, visible=${state.morphologyVisible}, inside <details>=${state.morphologyInsideDetails}, empty wrappers=${JSON.stringify(state.emptyWrappers)}`);
   await context.close();
 }
 
 (async () => {
   const browser = await chromium.launch({ headless:true, args:['--no-sandbox'] });
   try {
-    await openTarget(browser, false);
-    await openTarget(browser, true);
+    for (const mobile of [false, true]) {
+      for (let i = 0; i < TARGETS.length; i++) {
+        await openTarget(browser, mobile, TARGETS[i], i === 0);
+      }
+    }
   } finally {
     await browser.close();
   }
