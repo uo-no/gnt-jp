@@ -1187,6 +1187,21 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           accTypes.filter(t => t.status === 'active').length >= 3);
 }
 
+// ── Predicate genitive requires copula + no adnominal head ────────
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'genitive.predicate');
+    const required = ['copula_present', 'no_adnominal_head'];
+    check('genitive.predicate — コプラと連体修飾先の不在を必須化',
+          Boolean(type) && required.every(id => type.detection?.required_signals?.includes(id)),
+          `required_signals=${JSON.stringify(type?.detection?.required_signals ?? [])}`);
+}
+
 // ── Direct-object candidates must require all defining evidence ──
 {
     const all = [];
