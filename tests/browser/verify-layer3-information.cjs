@@ -94,7 +94,8 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
       ? scope?.querySelector('#mvv-abbott-slot .rn-dict-full-text')
       : scope?.querySelector('#rn-level2-details .rn-dict-full-text');
     const visible = el => {
-      if (!el) return false;
+      const closedAncestor = el?.closest('details:not([open])');
+      if (!el || (closedAncestor && closedAncestor !== el)) return false;
       const style = getComputedStyle(el);
       const rect = el.getBoundingClientRect();
       return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
@@ -118,6 +119,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
       dictionaryVisible: visible(dictionary),
       dictionaryTextLength: (dictionary?.textContent || '').trim().length,
       dictionaryTextSample: (dictionary?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40),
+      lexicalGroupOpen: !!scope?.querySelector('[data-study-group="lexical"]')?.open,
       usageTrendsTextPresent: scopeText.includes('使用傾向'),
       semanticSectionPresent: !!scope?.querySelector('[data-study-section="semantic"]'),
       researchLinksPresent: !!scope?.querySelector('.rn-research-links'),
@@ -140,10 +142,15 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
   if (expectMorphCandidates) {
     assert.ok(state.morphCandidatesPresent, `${mobile ? 'Mobile' : 'Desktop'}: expected alternative morphology candidates for ${target} (JHN ${chapter}:${verse})`);
   }
-  assert.ok(state.dictionaryVisible && state.dictionaryTextLength > 20,
-    `${mobile ? 'Mobile' : 'Desktop'}: Abbott-Smith dictionary text is present for ${target}`);
+  assert.equal(state.dictionaryVisible, false,
+    `${mobile ? 'Mobile' : 'Desktop'}: dictionary text should be collapsed by default for ${target}`);
+  assert.ok(state.dictionaryTextLength > 20,
+    `${mobile ? 'Mobile' : 'Desktop'}: Abbott-Smith dictionary text must remain in the DOM for ${target}`);
+  assert.equal(state.lexicalGroupOpen, false,
+    `${mobile ? 'Mobile' : 'Desktop'}: lexical resources group should start collapsed for ${target}`);
   const lexicalGroup = state.visibleGroups.find(group => group.key === 'lexical');
   const analysisGroup = state.visibleGroups.find(group => group.key === 'analysis');
+  assert.ok(lexicalGroup, `${mobile ? 'Mobile' : 'Desktop'}: lexical resources group should exist for ${target}`);
   const normalizeGroupText = value => String(value || '').replace(/\s+/g, ' ').trim();
   if (state.dictionaryTextSample && lexicalGroup) {
     assert.ok(normalizeGroupText(lexicalGroup.text).includes(normalizeGroupText(state.dictionaryTextSample)),
@@ -153,6 +160,21 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
     assert.equal(normalizeGroupText(analysisGroup.text).includes(normalizeGroupText(state.dictionaryTextSample)), false,
       `${mobile ? 'Mobile' : 'Desktop'}: analysis group must not duplicate Abbott-Smith dictionary content for ${target}`);
   }
+  const lexicalSummary = page.locator('[data-study-group="lexical"] > summary');
+  await lexicalSummary.click();
+  await page.waitForFunction(selector => {
+    const el = document.querySelector(selector);
+    return !!el && !!el.closest('details[open]') && el.getBoundingClientRect().height > 0;
+  }, dictionarySelector, { timeout:5000 });
+  const dictionaryVisibleWhenExpanded = await page.evaluate(selector => {
+    const el = document.querySelector(selector);
+    return !!el && !el.closest('details:not([open])') && el.getBoundingClientRect().height > 0;
+  }, dictionarySelector);
+  assert.equal(dictionaryVisibleWhenExpanded, true,
+    `${mobile ? 'Mobile' : 'Desktop'}: dictionary text must be readable after opening lexical resources for ${target}`);
+  await lexicalSummary.click();
+  assert.equal(await page.locator('[data-study-group="lexical"]').evaluate(el => el.open), false,
+    `${mobile ? 'Mobile' : 'Desktop'}: lexical resources group should close on second activation for ${target}`);
   assert.equal(state.usageTrendsTextPresent, false,
     `${mobile ? 'Mobile' : 'Desktop'}: Usage Trends should stay in the search tool, not duplicate in StudyPanel`);
   assert.equal(state.semanticSectionPresent, false,
@@ -163,6 +185,13 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
     `${mobile ? 'Mobile' : 'Desktop'}: StudyPanel should not generate empty Layer 3 identity/heading wrappers for ${target}`);
   assert.equal(consoleErrors.length, 0,
     `${mobile ? 'Mobile' : 'Desktop'}: page errors for ${target}: ${consoleErrors.join('; ')}`);
+
+  if (captureScreenshot) {
+    await page.screenshot({
+      path:path.join(SHOTS, mobile ? 'layer3-mobile.png' : 'layer3-desktop.png'),
+      fullPage:false
+    });
+  }
 
   // Controlled race regression: force an older syntax result to resolve after the newer one.
   // This tests the generation guard deterministically; it is not a substitute for full user-driven token-switch coverage.
@@ -194,14 +223,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
     console.log('PASS: Mobile — delayed stale syntax result cannot overwrite the current token result.');
   }
 
-  if (captureScreenshot) {
-    await page.screenshot({
-      path:path.join(SHOTS, mobile ? 'layer3-mobile.png' : 'layer3-desktop.png'),
-      fullPage:false
-    });
-  }
-
-  console.log(`PASS: ${mobile ? 'Mobile 390×844' : 'Desktop 1280×900'} — JHN ${chapter}:${verse} ${target}: dictionary preserved; duplicate/disabled sections absent.`);
+  console.log(`PASS: ${mobile ? 'Mobile 390×844' : 'Desktop 1280×900'} — JHN ${chapter}:${verse} ${target}: dictionary preserved; lexical disclosure works; duplicate/disabled sections absent.`);
   console.log(`AUDIT: ${mobile ? 'Mobile' : 'Desktop'} JHN ${chapter}:${verse} ${target}: morphology=${state.morphologyTag}, visible=${state.morphologyVisible}, inside <details>=${state.morphologyInsideDetails}, candidates=${state.morphCandidatesPresent}, empty wrappers=${JSON.stringify(state.emptyWrappers)}`);
   await context.close();
 }
