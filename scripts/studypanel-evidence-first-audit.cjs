@@ -7,6 +7,7 @@
  *
  * Run: node scripts/studypanel-evidence-first-audit.cjs
  *      node scripts/studypanel-evidence-first-audit.cjs --verbose
+ *      node scripts/studypanel-evidence-first-audit.cjs --trace-types=genitive.source,genitive.separation
  */
 'use strict';
 
@@ -16,6 +17,7 @@ const vm = require('vm');
 
 const VERBOSE = process.argv.includes('--verbose');
 const STRICT_EVIDENCE = process.argv.includes('--strict-evidence');
+const TRACE_TYPES = (process.argv.find(a => a.startsWith('--trace-types=')) || '--trace-types=').slice('--trace-types='.length).split(',').filter(Boolean);
 const PUBLIC = path.resolve(__dirname, '..', 'public');
 const TENSE = { P:'present', I:'imperfect', F:'future', A:'aorist', X:'perfect', Z:'pluperfect' };
 const VOICE = { A:'active', M:'middle', P:'passive', D:'middle deponent', E:'middle or passive', N:'middle or passive' };
@@ -81,7 +83,7 @@ const report = {
     nominativePendens: 0, discourseLeftDislocation: 0, imperativalInfinitive: 0,
     nominativeCaseConflicts: [], infinitiveMoodConflicts: [],
     eph110: { tokens: {}, candidates: [] },
-    candidateStats: {}
+    candidateStats: {}, tracedCandidates: []
 };
 
 function checkCandidate(token, candidate, ref, ctx = null) {
@@ -102,6 +104,10 @@ function checkCandidate(token, candidate, ref, ctx = null) {
         text:token.text || token.normalized || '', morph:token.morph || '',
         case:m.case || null, mood:m.mood || null, id:candidate.id,
         confidence:candidate.confidence, signals:(candidate.signals_matched || []).map(s => s && s.id || String(s)) };
+    if (TRACE_TYPES.includes(candidate.id)) {
+        report.tracedCandidates.push({ ...item, rawScore:candidate.rawScore ?? null,
+            score:candidate.score ?? null, signalsMatched:(candidate.signals_matched || []).map(s => s && s.id || String(s)) });
+    }
     if (candidate.id === 'nominative.pendens') {
         report.nominativePendens++;
         if (m.case && !['nominative','vocative'].includes(m.case)) report.nominativeCaseConflicts.push(item);
@@ -196,7 +202,8 @@ console.log(JSON.stringify({
     },
     EPH_1_10:report.eph110,
     candidateEvidenceGate: { strict:STRICT_EVIDENCE, zeroEvidenceTypes },
-    candidateEvidenceStats:report.candidateStats
+    candidateEvidenceStats:report.candidateStats,
+    ...(TRACE_TYPES.length ? { tracedCandidates:report.tracedCandidates } : {})
 }, null, 2));
 
 if (VERBOSE) {
