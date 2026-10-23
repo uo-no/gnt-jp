@@ -1,7 +1,7 @@
 # StudyPanel Layer Architecture 仕様（Phase ESM-14〜28）
 
 作成: 2026-08-05
-最終更新: 2026-08-05（Phase ESM-50-A、§4 Lemma/Strong根拠明文化・role参考記録追加）
+最終更新: 2026-10-23（現行 index.html の生成経路を照合。過去の実装記録と現在の表示状態を区別）
 位置づけ: Desktop StudyPanel / Mobile MVV（MobileVerseView）における単語情報の表示階層を、
 Phase ESM-14〜27の監査（コード読解・実ブラウザ検証）で確認した**現在の実装事実**として固定する。
 本書は**仕様の新設ではなく、既に実装されている構造の記録**である。ESM-23〜28時点でコード変更・UI変更は行っていない。
@@ -44,19 +44,19 @@ Phase ESM-14〜27の監査（コード読解・実ブラウザ検証）で確認
 
 **責務**: 必要な場合のみ深掘りする。
 
-**含む情報**: Morphology／Lemma／Strong／Dictionary／Usage Trends／類義語比較／Research Links。
+**分類上の情報**: Morphology／Lemma／Strong／Dictionary／Usage Trends／類義語比較／Research Links／必要時の詳細な統語根拠。なお、分類上の所属と現在ユーザー向けに表示されるかは別の事項であり、現行コードの状態は下表に分けて記録する。
 
 **現在の実装**:
 
-| 情報 | Desktop | Mobile |
+| 情報 | Desktop（現行コード照合） | Mobile（現行コード照合） |
 |---|---|---|
-| Morphology | 「単語を詳しく調べる」折りたたみ | 同名折りたたみ |
-| Lemma | 不在 | 「単語を詳しく調べる」折りたたみ |
-| Strong | 不在 | 同上 |
-| Dictionary | 「単語を詳しく調べる」折りたたみ（条件付き） | 不在 |
-| Usage Trends | 「単語を詳しく調べる」折りたたみ | 不在 |
-| 類義語比較 | 「意味が近い語と比べる」折りたたみ（`_buildClusterLayerHTML`、対話的） | 「意味を見る」折りたたみ（`_fillMvvSemanticSlot`、ドメインラベル列挙のみ） |
-| Research Links | 「さらに調べる」折りたたみ | 不在 |
+| Morphology | `_renderReadingNotes()` が `#rn-level2-details` 区画へ出力。生成断片は `<section>` で、内側の `<details>` はない。PR #241 の JHN 3:16 ブラウザ検査では直接表示・可視を確認 | `_renderMobileWordDetail()` が `.mvv-l3-section[data-study-section="morphology"]` へ出力。生成断片は `<section>` で、内側の `<details>` はない。PR #241 の JHN 3:16 ブラウザ検査では直接表示・可視を確認 |
+| Lemma | `_renderReadingNotes()` の出力では未確認（現行コードでは不在） | morphology 区画内に表示 |
+| Strong | `_renderReadingNotes()` の出力では未確認（現行コードでは不在） | morphology 区画内に表示 |
+| Dictionary | `abbottFullHTML` として morphology 区画内に条件付き表示 | `#mvv-abbott-slot` へ `_fillMvvLevel2Slot()` が非同期注入。現行コードでは表示経路あり |
+| Usage Trends | StudyPanel には表示しない。コードコメントは検索ツールでの確認を案内 | StudyPanel には表示しない。検索ツールでの確認を案内 |
+| 類義語・意味グループ比較 | `LN_RELATED_WORDS_ENABLED = false` により表示停止。データ・関数は保持 | 同じフラグにより表示停止。データ・関数は保持 |
+| Research Links | `.rn-research-links` の CSS は残るが、現行 `index.html` には生成マークアップが見つからず、表示経路は未確認 | 表示経路は未確認 |
 
 ### CLAUDE.md「3階層」との対応関係
 
@@ -64,7 +64,7 @@ Phase ESM-14〜27の監査（コード読解・実ブラウザ検証）で確認
 |---|---|
 | 本文（Reading） | Layer 1 の前段（chip未クリック状態） |
 | 節パネル | Layer 1 |
-| 単語詳細 | Layer 2（常時表示部分）＋ Layer 3（折りたたみ部分）が同一画面に共存 |
+| 単語詳細 | Layer 2（常時表示部分）＋ Layer 3（詳細情報）が同一画面に共存。Layer 3 は任意閲覧を設計目標とするが、現行Morphology区画は直接表示（§3参照） |
 
 ---
 
@@ -91,24 +91,18 @@ Phase ESM-14〜27の監査（コード読解・実ブラウザ検証）で確認
 
 ---
 
-## 3. 意図的な非一致（確定仕様）
+## 3. Desktop / Mobile の差分と現行コード照合（2026-10-23）
 
-以下はMobile非搭載として**正式仕様**である（ESM-27/28で確定）：
+過去の ESM-27/28 では Usage Trends / Dictionary / Research Links を Mobile 非搭載とする責務分離を記録した。しかし、現在の `public/index.html` の生成経路は当時の記録と一致しないため、**過去の判断を現在の実装事実として引用しない**。
 
-- Usage Trends
-- Dictionary
-- Research Links
+- **Abbott-Smith Dictionary**: Mobile の `_renderMobileWordDetail()` は `#mvv-abbott-slot` を持ち、`_fillMvvLevel2Slot()` が辞書全文を非同期注入する。したがって「Mobile は不在」という旧記録を更新する。
+- **Usage Trends**: Desktop / Mobile の両方で、StudyPanel 内に重複表示しない旨のコメントがあり、検索ツールを参照先とする。旧表の「Desktop 折りたたみ」は現行コードと一致しない。
+- **Research Links**: CSS クラス `.rn-research-links` は残るが、現行 `index.html` の生成マークアップは確認できない。表示機能が現在稼働しているとは記載しない。
+- **Morphology / Lemma / Strong**: Morphology は両画面に出力される。Lemma / Strong は Mobile の morphology 区画にあるが、Desktop の `_renderReadingNotes()` 出力には見当たらない。
+- **類義語・意味グループ**: `LN_RELATED_WORDS_ENABLED = false` により Desktop / Mobile とも表示停止中。データ・関数は保持し、権利・精度確認まで再開しない。
+- **Morphology 区画の折りたたみ**: PR #241 の JHN 3:16 ブラウザ検査で、Desktop の `#rn-level2-details` と Mobile の morphology 区画はともに可視の `<section>` であり、当該区画自体は `<details>/<summary>` 内にないことを確認した。設計目標どおり任意閲覧にするかは別のUI判断として扱う。
 
-**理由**:
-- いずれもLayer 3（「さらに調べる」）に分類される（§1参照）。
-- Mobileの「読むことに集中したUI」という設計方針（§2）と一致する。
-- Desktop側StudyPanelの研究補助機能として、Desktop側の責務内に保持する。
-
-**コード根拠**: `_mobileInspectorDetail()` が `_renderReadingNotes()` をそのまま移植しない設計であるため（同関数のコメントに明記）。全文検索の結果、これら3項目の生成コード（`usageTrendsHTML`／`abbottFullHTML`／`.rn-research-links`）は `_renderReadingNotes()` 内でのみ呼び出されており、Mobile側からの呼び出しは存在しない（ESM-21確認済み）。
-
-※この非搭載は**「永久に追加しない」という禁止ではなく、現時点の責務分離**として記録する。将来Mobileへの追加を検討する余地は残す。
-
-**Phrase Reading／Observationについて（過去の設計課題・解消済み）**: 同じ `_mobileInspectorDetail()` の非移植コメントの対象に含まれていたが、この2項目はLayer 2（「読むための理解」）に分類されるため、上記3項目とは異なり非搭載を正式仕様として確定させなかった。当時（ESM-27/28時点）は、Layer 2はWallace Reading Notes／Referent Evidenceと同格の「読むために必要な情報」であるべき（§1）にもかかわらず非搭載である点に、Layer設計上の未解消の緊張があった。**この緊張は、Phrase ReadingのMobile追加（ESM-36）およびObservationのMobile追加（ESM-45-B-1）により解消済みである。** 両項目とも現在はDesktop/Mobile双方に実装されている。詳細は§4を参照。
+この節はコードの静的照合と代表語のブラウザ検査結果である。JHN 3:16 では Morphology 区画が Desktop / Mobile とも直接表示され、当該区画の `<details>` 内にはないことを確認した。スクロール・URL復元・複数の語形データに対する網羅確認は別途行う。
 
 ---
 
@@ -121,7 +115,7 @@ Phase ESM-14〜27の監査（コード読解・実ブラウザ検証）で確認
 - **Lemma／StrongをDesktopにも追加するか**
   - **Layer 3分類の根拠**（ESM-47-A／49-A確認）: Lemma／Strongは、Layer 2の定義「単語が文中でどのように働くかを理解する」（§1）には該当しない。両者は文中での働きではなく単語そのものの同定情報（見出し語形・辞書番号）であり、読解に必須ではなく辞書引き・原語研究の入口情報という性質を持つ。この点でLayer 3（「さらに調べる」）の定義と整合する。
   - Desktop不在の理由を示す明示コメントはコード上に存在しない（ESM-26確認済み）。
-  - Mobileには「単語を詳しく調べる」折りたたみ内に存在する。
+  - Mobileの `.mvv-l3-section[data-study-section="morphology"]` 内に表示される。現行HTML断片にはこの区画を折りたたむ `<details>` はないため、実際の表示状態はブラウザ確認が必要。
   - Strongについては、CLAUDE.md §8「読む面に露出させないもの：分類ラベル・confidence数値・語形コード・生マーカー」との整合確認が必要（ESM-27）。Strong番号は語形コードに近い性質の技術識別子であり、Desktop追加の可否はこの原則との関係を先に判断してからでないと決められない。
 
 - **Phrase Reading**（状態: Desktop/Mobileともに実装済み・ESM-36。以下は未確定事項ではなく現状の記録）
@@ -225,7 +219,7 @@ Phase ESM-14〜27の監査（コード読解・実ブラウザ検証）で確認
 
 - **Layer 1**: 読む入口を汚さない。Greek／最小Gloss／詳しく見る導線以外を持ち込まない。
 - **Layer 2**: 読解補助のみ配置する。「単語が文中でどう働くか」を説明しない情報（統計・外部リンク等）を混在させない。
-- **Layer 3**: 調査情報は折りたたみ・任意閲覧にする。常時表示域を圧迫しない。
+- **Layer 3**: 調査情報は原則として任意閲覧にし、常時表示域を圧迫しない。JHN 3:16 のブラウザ検査では Morphology 区画が Desktop / Mobile とも直接表示で `<details>` 内にないことを確認した。現行実装と設計目標には差があり、UI変更は別途設計判断を経て行う。
 
 **Desktop/Mobile差分について**: 「DesktopにあるものをMobileへ全部移す」を前提にしない。Mobileは独立した読書体験として判断する。DesktopとMobileの差分を埋める変更を行う場合も、機械的な移植ではなく、Layer 1〜3それぞれの責務（§1）に照らして要否を個別に判断する。
 
@@ -234,3 +228,14 @@ Phase ESM-14〜27の監査（コード読解・実ブラウザ検証）で確認
 ## 6. 解決済み履歴
 
 - **`AppState.toBrowsing()` によるinspect.dataリセット問題**（Mobile本文chip直接タップ経路限定でGloss／Strongが欠落していた、ESM-9/16/21で確認）: **ESM-25で修正済み**。`_wlvChipClick()`のMobile分岐で、`referentEvidence`と同じ要領で`jaWordDisplay`／`jaWord`／`strong`を退避・復元する対応を実施。経路A（verse-tap経由）／経路B（本文chip直接タップ）の表示結果が一致することを実測確認済み。§4の未確定事項からは削除した。
+
+
+### 2026-10-23 ブラウザ照合の追記
+
+PR #241 の [VR-5 Regression Gate](https://github.com/uo-no/gnt-jp/actions/runs/39890439176) で JHN 3:16 の `θεὸς` を Desktop 1280×900 / Mobile 390×844 で検査した。
+
+- Abbott-Smith 辞書全文は両画面で表示された。
+- Usage Trends、LN 由来の意味グループ、Research Links は両画面の StudyPanel に表示されなかった。
+- Morphology 区画は両画面で可視の `SECTION` であり、区画自体は `<details>` 内にない。
+- この検査は代表語1語の実測であり、全語・全操作の網羅検証ではない。
+
