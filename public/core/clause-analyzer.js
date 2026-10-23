@@ -1361,6 +1361,16 @@ class ReadingFormatter {
     }
 
     // -----------------------------------------------------------------
+    // formatSubjrefEvidence — 明示された subjref を、文法上の主語と混同
+    // しないよう、参照関係として記述する。推論は追加しない。
+    // -----------------------------------------------------------------
+    formatSubjrefEvidence(targetLabel) {
+        const label = String(targetLabel ?? '').trim();
+        if (!label) return null;
+        return assertReadingTextSafe(`この語の動作主として「${label}」が参照されています。`);
+    }
+
+    // -----------------------------------------------------------------
     // combine — 複数の format() 出力文を「ここでは、」1回だけの
     // 1つの自然文に統合し、節境界に読書リズム（接続語の軽い変化）を
     // 持たせる。
