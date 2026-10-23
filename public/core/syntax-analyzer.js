@@ -2300,19 +2300,10 @@ class CandidateScorer {
             return null;
         }
 
-        // Evidence-first gate: a positive prior/base weight is not itself evidence
-        // that a conditional syntax type applies. If every signal is conditional
-        // and none matched, omit the candidate instead of letting score clamping
-        // promote a no-evidence hypothesis to the minimum confidence tier.
-        const conditionalSignals = signals.filter(signal =>
-            conditions.some(condition => condition.id === signal.id));
-        const unconditionalSignals = signals.filter(signal =>
-            !conditions.some(condition => condition.id === signal.id));
-        if (conditionalSignals.length > 0 &&
-            matched.length === 0 &&
-            unconditionalSignals.length === 0) {
-            return null;
-        }
+        // Evidence-first gate: if a type declares structural conditions, at least
+        // one must match. A prior/base weight or unconditional cue must not promote
+        // a hypothesis whose declared checks all failed to the minimum confidence tier.
+        if (conditions.length > 0 && matched.length === 0) return null;
 
         return { typeId: typeDef.id, rawScore: score + _computeTieBreakScore(typeDef), signalsMatched: matched, signalsFailed: failed, deltas, typeDef };
     }
@@ -3811,20 +3802,12 @@ class SyntaxAnalyzer {
             .filter(candidate => {
                 const typeDef = this.registry.getType(candidate.id);
                 const det = typeDef?.detection ?? {};
-                const signals = typeDef?.xsc?.signals ?? [];
                 const conditions = det.conditions ?? [];
                 const matched = candidate.signals_matched ?? [];
                 const required = det.required_signals ?? [];
 
                 if (required.some(id => !matched.includes(id))) return false;
-
-                const conditionalSignals = signals.filter(signal =>
-                    conditions.some(condition => condition.id === signal.id));
-                const unconditionalSignals = signals.filter(signal =>
-                    !conditions.some(condition => condition.id === signal.id));
-                if (conditionalSignals.length > 0 &&
-                    matched.length === 0 &&
-                    unconditionalSignals.length === 0) return false;
+                if (conditions.length > 0 && matched.length === 0) return false;
 
                 // A noun governed by a preposition is part of a PP, not itself
                 // the left-dislocated topic. Do not infer the phenomenon from a
