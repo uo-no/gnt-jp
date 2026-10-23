@@ -1683,6 +1683,13 @@ display: block;
 margin-bottom: var(--space-sm);
 }
 
+/* Layer 3 information groups: quiet hierarchy, no cards or panels. */
+.rn-l3-group { margin-top: var(--space-md); }
+.rn-l3-group:first-child { margin-top: 0; }
+.rn-l3-group-label { color: var(--text-sub); font-size: var(--text-label); font-weight: 600; line-height: 1.5; letter-spacing: 0.02em; margin: 0 0 var(--space-xs); }
+#mobile-inspector-area .rn-l3-group { margin-top: var(--space-md); }
+#mobile-inspector-area .rn-l3-group:first-child { margin-top: 0; }
+
 /* grammar grid: 同温度・同余白 */
 .rn-morph-grid {
 display: grid;
@@ -9679,6 +9686,13 @@ async function _renderReadingNotes(p) {
 
     const syntaxLabelHTML = await _buildSyntaxLabelHTML(_wlvWordCache, ref);
 
+    const analysisGroupHTML = (morphCandidatesHTML || syntaxLabelHTML)
+        ? `<div class="rn-l3-group" data-study-group="analysis"><div class="rn-l3-group-label">分析候補と判断材料</div>${(morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML}</div>` : '')}${(syntaxLabelHTML ? `<div class="rn-syntax-labels" data-study-section="syntax">${syntaxLabelHTML}</div>` : '')}</div>`
+        : '';
+    const lexicalGroupHTML = (etymologyHTML || abbottFullHTML)
+        ? `<div class="rn-l3-group" data-study-group="lexical"><div class="rn-l3-group-label">語義・語彙資料</div>${(etymologyHTML ? `<div data-study-section="etymology">${etymologyHTML}</div>` : '')}${(abbottFullHTML ? `<div data-study-section="abbott">${abbottFullHTML}</div>` : '')}</div>`
+        : '';
+
     /* ═══════════════════════════════════════════════════════
        HTML 出力 — 4階層構造
        ═══════════════════════════════════════════════════════ */
@@ -9695,11 +9709,9 @@ async function _renderReadingNotes(p) {
         <!-- LEVEL 2: 単語を詳しく調べる（第三層内で直接表示） -->
         <section class="rn-level-section" id="rn-level2-details" data-study-section="morphology">
             <div class="rn-level-body">
-                ${morphGridHTML}
-                ${morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML}</div>` : ''}
-                ${etymologyHTML ? `<div data-study-section="etymology">${etymologyHTML}</div>` : ''}
-                ${syntaxLabelHTML ? `<div class="rn-syntax-labels" data-study-section="syntax">${syntaxLabelHTML}</div>` : ''}
-                ${abbottFullHTML ? `<div data-study-section="abbott">${abbottFullHTML}</div>` : ''}
+                ${(morphGridHTML ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">原文から確認できる情報</div>${morphGridHTML}</div>` : '')}
+                ${analysisGroupHTML}
+                ${lexicalGroupHTML}
             </div>
         </section>
 
@@ -20022,6 +20034,14 @@ async function _fillMvvSyntaxSlot(words, targetRef) {
     try { html = await _buildSyntaxLabelHTML(words, targetRef); } catch (_) { html = ''; }
     if (myGen !== _mvvSyntaxGen) return;
     if (html) {
+        const group = slot.closest('[data-study-group="analysis"]');
+        if (group) group.style.display = '';
+        if (group && !group.querySelector('.rn-l3-group-label')) {
+            const label = document.createElement('div');
+            label.className = 'rn-l3-group-label';
+            label.textContent = '分析候補と判断材料';
+            group.insertBefore(label, group.firstChild);
+        }
         slot.innerHTML = html;
         slot.style.display = '';
     }
@@ -20072,6 +20092,10 @@ async function _fillMvvLevel2Slot(resolvedId) {
         if (!etmSlotCheck && !abbSlotCheck) return;
         if (etmSlotCheck) etmSlotCheck.innerHTML = etymologyHTML;
         if (abbSlotCheck) abbSlotCheck.innerHTML = abbottFullHTML;
+        const lexicalHeading = document.getElementById('mvv-lexical-heading');
+        const lexicalGroup = document.getElementById('mvv-lexical-group');
+        if (lexicalHeading) lexicalHeading.style.display = (etymologyHTML || abbottFullHTML) ? '' : 'none';
+        if (lexicalGroup) lexicalGroup.style.display = (etymologyHTML || abbottFullHTML) ? '' : 'none';
     } catch (_) {
         /* 静寂：失敗時はスロット空のまま */
     }
@@ -20150,16 +20174,20 @@ function _renderMobileWordDetail(d) {
         ${hasStudyDetails ? `
         <section class="mvv-l3-section" data-study-section="morphology">
           <div class="mvv-l3-slot">
-            ${d.lemma ? `<div>見出し語: <span class="mvv-l3-lemma">${_escH(d.lemma)}</span></div>` : ''}
-            ${d.strong ? `<div class="mvv-l3-strong" style="margin-top:var(--space-xs);">Strong: ${_escH(String(d.strong))}</div>` : ''}
-            ${morphTags ? `<div style="margin-top:var(--space-md);">${morphTags}</div>` : ''}
-            ${morphCandidatesHTML}
-            <!-- Etymology — _fillMvvLevel2Slot が非同期注入 -->
-            <div id="mvv-etymology-slot"></div>
-            <!-- 統語論ラベル — _fillMvvSyntaxSlot が非同期注入 -->
-            <div id="mvv-syntax-slot" class="rn-syntax-labels" data-study-section="syntax" style="display:none;"></div>
-            <!-- Abbott-Smith — _fillMvvLevel2Slot が非同期注入 -->
-            <div id="mvv-abbott-slot"></div>
+            ${(d.lemma || d.strong || morphTags) ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">原文から確認できる情報</div>
+              ${(d.lemma ? `<div>見出し語: <span class="mvv-l3-lemma">${_escH(d.lemma)}</span></div>` : '')}
+              ${(d.strong ? `<div class="mvv-l3-strong" style="margin-top:var(--space-xs);">Strong: ${_escH(String(d.strong))}</div>` : '')}
+              ${(morphTags ? `<div style="margin-top:var(--space-md);">${morphTags}</div>` : '')}
+            </div>` : ''}
+            <div class="rn-l3-group" data-study-group="analysis" style="${morphCandidatesHTML ? '' : 'display:none;'}">
+              ${(morphCandidatesHTML ? `<div class="rn-l3-group-label">分析候補と判断材料</div>${morphCandidatesHTML}` : '')}
+              <div id="mvv-syntax-slot" class="rn-syntax-labels" data-study-section="syntax" style="display:none;"></div>
+            </div>
+            <div class="rn-l3-group" data-study-group="lexical" id="mvv-lexical-group" style="display:none;">
+              <div class="rn-l3-group-label" id="mvv-lexical-heading" style="display:none;">語義・語彙資料</div>
+              <div id="mvv-etymology-slot"></div>
+              <div id="mvv-abbott-slot"></div>
+            </div>
           </div>
         </section>` : ''}
 
