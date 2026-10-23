@@ -10,13 +10,13 @@ const ROOT = path.resolve(__dirname, '..');
 const ASSET = path.join(ROOT, 'public', 'assets', 'data', 'flow-tree');
 const targets = [
   { book: '2CO', chapter: 11, verse: 26, id: 'n47011026004', ref: '2CO 11:26!4', text: 'ποταμῶν',
-    expectedAncestorType: 'phrase.np', expectedRole: 'p', expectedFrame: '' },
+    expectedAncestorType: 'phrase.np', expectedAncestorRole: 'p', expectedNodeRole: '', expectedFrame: '' },
   { book: '2CO', chapter: 11, verse: 26, id: 'n47011026006', ref: '2CO 11:26!6', text: 'λῃστῶν',
     expectedAncestorType: 'phrase.np', expectedRole: 'p', expectedFrame: '' },
   { book: 'JHN', chapter: 6, verse: 45, id: 'n43006045010', ref: 'JHN 6:45!10', text: 'θεοῦ',
     expectedAncestorType: 'phrase.np', expectedRole: 'p', expectedFrame: '' },
   { book: 'LUK', chapter: 19, verse: 8, id: 'n42019008013', ref: 'LUK 19:8!13', text: 'ὑπαρχόντων',
-    expectedAncestorType: 'clause', expectedRole: 'v', expectedFrame: 'A0:n00000000000' }
+    expectedAncestorType: 'phrase.np', expectedAncestorRole: 'o', expectedNodeRole: 'v', expectedFrame: 'A0:n00000000000' }
 ];
 
 const report = {
@@ -77,10 +77,10 @@ for (const target of targets) {
     predicateId: n.id, role: n.role || null, frame: n.frame,
     arguments: frameArgs(n.frame)
   }));
-  const nearestExpected = ancestors.find(a => a.type === target.expectedAncestorType);
-  check(!!nearestExpected, target.ref + ' has expected structural ancestor ' + target.expectedAncestorType,
-    'ancestors=' + ancestors.map(a => a.type).join(' > '));
-  check((node.role || '') === target.expectedRole, target.ref + ' word role remains as audited',
+  const expectedAncestor = ancestors.find(a => a.type === target.expectedAncestorType && (a.role || '') === target.expectedAncestorRole);
+  check(!!expectedAncestor, target.ref + ' has expected structural ancestor ' + target.expectedAncestorType + ' role=' + target.expectedAncestorRole,
+    'ancestors=' + ancestors.map(a => a.type + (a.role ? '[' + a.role + ']' : '')).join(' > '));
+  check((node.role || '') === target.expectedNodeRole, target.ref + ' word role remains as audited',
     'role=' + (node.role || ''));
   check((node.frame || '') === target.expectedFrame, target.ref + ' word frame remains as audited',
     'frame=' + (node.frame || ''));
