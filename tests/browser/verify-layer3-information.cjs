@@ -152,6 +152,36 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
   assert.equal(consoleErrors.length, 0,
     `${mobile ? 'Mobile' : 'Desktop'}: page errors for ${target}: ${consoleErrors.join('; ')}`);
 
+  // Controlled race regression: force an older syntax result to resolve after the newer one.
+  // This tests the generation guard deterministically; it is not a substitute for full user-driven token-switch coverage.
+  if (captureScreenshot && mobile) {
+    const staleResult = await page.evaluate(async () => {
+      const fill = window._fillMvvSyntaxSlot;
+      const build = window._buildSyntaxLabelHTML;
+      const slot = document.getElementById('mvv-syntax-slot');
+      if (typeof fill !== 'function' || typeof build !== 'function' || !slot) {
+        return { supported:false, fillType:typeof fill, buildType:typeof build, slotPresent:!!slot };
+      }
+      window._buildSyntaxLabelHTML = async (_words, ref) => {
+        await new Promise(resolve => setTimeout(resolve, ref === 'stale-old' ? 100 : 5));
+        return `<span>${ref}</span>`;
+      };
+      try {
+        const oldRequest = window._fillMvvSyntaxSlot([], 'stale-old');
+        const newRequest = window._fillMvvSyntaxSlot([], 'current-new');
+        await Promise.all([oldRequest, newRequest]);
+        return { supported:true, text:slot.textContent.trim() };
+      } finally {
+        window._buildSyntaxLabelHTML = build;
+      }
+    });
+    assert.equal(staleResult.supported, true,
+      `Mobile: syntax stale-result test hooks must be available: ${JSON.stringify(staleResult)}`);
+    assert.equal(staleResult.text, 'current-new',
+      `Mobile: a late syntax result for an old token must not overwrite the current token: ${JSON.stringify(staleResult)}`);
+    console.log('PASS: Mobile — delayed stale syntax result cannot overwrite the current token result.');
+  }
+
   if (captureScreenshot) {
     await page.screenshot({
       path:path.join(SHOTS, mobile ? 'layer3-mobile.png' : 'layer3-desktop.png'),
