@@ -43,4 +43,4 @@ assert.deepEqual(actual, EXPECTED_UNRESOLVED,
   'Condition/signal ID mismatches changed. Review and update the explicit baseline only after semantic review.');
 
 const mismatchCount = Object.values(actual).reduce((sum, ids) => sum + ids.length, 0);
-console.log(`PASS: audited ${typeCount} syntax types; 32 condition IDs are connected; ${Object.keys(actual).length} types / ${mismatchCount} conditions remain explicitly tracked for semantic review.`);
+console.log(`PASS: audited ${typeCount} syntax types; 40 condition IDs are connected; ${Object.keys(actual).length} types / ${mismatchCount} conditions remain explicitly tracked for semantic review.`);
