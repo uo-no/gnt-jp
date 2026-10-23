@@ -9319,7 +9319,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
             ? `<div class="rn-syntax-description">${_escH(explanation)}</div>`
             : '';
         const badge = primary && topHasLead
-            ? '<span class="rn-syntax-best-label">最有力</span>'
+            ? '<span class="rn-syntax-best-label">第一候補</span>'
             : '';
         return `<div class="rn-syntax-item${primary && topHasLead ? ' rn-syntax-item-primary' : ''}"><div class="rn-syntax-item-heading"><span class="rn-syntax-term">${label}</span>${badge}</div>${description}</div>`;
     };
@@ -9436,7 +9436,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
             </details>
         </div>`;
     }
-    return `<span class="rn-dict-label ui-label">文の中での役割</span><div class="rn-syntax-candidates">${tiedNotice}${primaryHTML}${otherHTML}${comparisonHTML}</div>`;
+    return `<span class="rn-dict-label ui-label">文の中で考えられる役割</span><div class="rn-syntax-candidates">${tiedNotice}${primaryHTML}${otherHTML}${comparisonHTML}</div>`;
 }
 
 async function _renderReadingNotes(p) {
@@ -9657,8 +9657,11 @@ async function _renderReadingNotes(p) {
        文言・生成源は変更しない：bible_data.subjref の transcription のみ、
        createSubjrefEvidence()/_resolveSubjrefEvidenceText() をそのまま利用する。 */
     const _subjText = _resolveSubjrefEvidenceText(AppState.inspect.data?.subjrefEvidence);
-    const subjrefEvidenceHTML = _subjText
-        ? `<div class="rn-subjref-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">この語の主語は「${_escH(_subjText)}」です。</div>`
+    const _subjEvidenceText = _subjText
+        ? _wallacePipeline?.rf?.formatSubjrefEvidence(_subjText)
+        : null;
+    const subjrefEvidenceHTML = _subjEvidenceText
+        ? `<div class="rn-subjref-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">${_escH(_subjEvidenceText)}</div>`
         : '';
 
     /* 語の読書メモは節メモと同じ開閉 UI。初期状態は開いて既存の可視性を保つ。 */
