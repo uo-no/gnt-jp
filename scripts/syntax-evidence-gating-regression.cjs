@@ -120,6 +120,25 @@ for (const word of ['χαίρειν', 'κλαίειν']) {
   assert.ok(found.item.signals_matched.includes('anarthrous_inf'), `${word}: missing anarthrous-infinitive evidence`);
 }
 
+// Genitive of source: a proper name alone is not enough to infer source/origin.
+// James 1:13 supplies explicit ἀπό + genitive evidence and must remain detectable.
+const jas113 = verse('JAS', 1, 13);
+assertEvidenceGate(jas113, 'JAS 1:13');
+const jasOutputs = outputs(jas113);
+const jasGod = candidate(jasOutputs.get('θεοῦ') || [], 'genitive.source');
+assert.ok(jasGod, 'JAS 1:13 θεοῦ should remain a source-genitive candidate with ἀπό');
+assert.ok(jasGod.signals_matched.includes('source_prep'), 'JAS 1:13 source candidate must have source-preposition evidence');
+
+// In 2 Timothy 1:10, the proper names Ἰησοῦ Χριστοῦ are not source genitives
+// merely because they are personal names; the source-preposition signal is absent.
+const twoTi110 = verse('2TI', 1, 10);
+assertEvidenceGate(twoTi110, '2TI 1:10');
+const twoTiOutputs = outputs(twoTi110);
+for (const word of ['Ἰησοῦ', 'Χριστοῦ']) {
+  assert.equal(candidate(twoTiOutputs.get(word) || [], 'genitive.source'), undefined,
+    `2TI 1:10 ${word} must not be labelled source-genitive on proper-name evidence alone`);
+}
+
 console.log('PASS: emitted candidates satisfy required signals and evidence-first gates');
 console.log('PASS: left-dislocation candidates require positive structural evidence');
 console.log('PASS: preposition-governed Χριστῷ is not labelled left-dislocated');
