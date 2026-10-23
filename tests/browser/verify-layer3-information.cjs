@@ -94,7 +94,8 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
       ? scope?.querySelector('#mvv-abbott-slot .rn-dict-full-text')
       : scope?.querySelector('#rn-level2-details .rn-dict-full-text');
     const visible = el => {
-      if (!el || el.closest('details:not([open])')) return false;
+      const closedAncestor = el?.closest('details:not([open])');
+      if (!el || (closedAncestor && closedAncestor !== el)) return false;
       const style = getComputedStyle(el);
       const rect = el.getBoundingClientRect();
       return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
@@ -149,6 +150,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
     `${mobile ? 'Mobile' : 'Desktop'}: lexical resources group should start collapsed for ${target}`);
   const lexicalGroup = state.visibleGroups.find(group => group.key === 'lexical');
   const analysisGroup = state.visibleGroups.find(group => group.key === 'analysis');
+  assert.ok(lexicalGroup, `${mobile ? 'Mobile' : 'Desktop'}: lexical resources group should exist for ${target}`);
   const normalizeGroupText = value => String(value || '').replace(/\s+/g, ' ').trim();
   if (state.dictionaryTextSample && lexicalGroup) {
     assert.ok(normalizeGroupText(lexicalGroup.text).includes(normalizeGroupText(state.dictionaryTextSample)),
