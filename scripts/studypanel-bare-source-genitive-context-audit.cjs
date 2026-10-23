@@ -73,6 +73,10 @@ for(const target of targets) {
       governor:ctx.governor?{token:summarize(ctx.governor.token),lemma:ctx.governor.lemma,pos:ctx.governor.pos,idx:ctx.governor.idx}:null,
       governorVerb:summarize(ctx.governorVerb),
       mainVerb:summarize(ctx.mainVerb),
+      // Inspect the dependency helper itself, not only the separate governor shortcut.
+      apiGovernors:typeof ctx.governs==='function'?verseTokens.map((t,j)=>ctx.governs(j,i)?{idx:j,token:summarize(t)}:null).filter(Boolean):[],
+      apiDependents:typeof ctx.dependsOn==='function'?verseTokens.map((t,j)=>ctx.dependsOn(i,j)?{idx:j,token:summarize(t)}:null).filter(Boolean):[],
+      phraseWithNearestHead:typeof ctx.samePhrase==='function'&&ctx.headNoun?ctx.samePhrase(i,verseTokens.indexOf(ctx.headNoun)):null,
       isAfterPrep:!!ctx.isAfterPrep,
       clause:ctx.clause?{start:ctx.clause.start,end:ctx.clause.end,mainVerb:summarize(ctx.clause.mainVerb),subordinate:ctx.clause.subordinate}:null,
       candidates:(row?.candidates||[]).filter(c=>/genitive\.(source|partitive|subjective|possessive|separation|appositional|content)/.test(c.id)).map(c=>({id:c.id,confidence:c.confidence,signals:(c.signals_matched||[]).map(s=>s&&s.id||String(s))}))
