@@ -126,6 +126,16 @@ for (const book of ntBooks) {
         for (const [ref, verseTokens] of verses) {
             report.verses++;
             report.tokens += verseTokens.length;
+            if (ref === 'EPH 1:10') {
+                for (const token of verseTokens) {
+                    const m = global.decodeMorph(token);
+                    report.eph110.tokens[token.ref] = {
+                        tokenId:token.tokenId || token.globalIdx || null,
+                        text:token.text || token.normalized || '',
+                        morph:token.morph || '', case:m.case || null, mood:m.mood || null
+                    };
+                }
+            }
             const all = analyzer.analyzeAll(verseTokens);
             for (let i = 0; i < all.results.length; i++) {
                 const row = all.results[i];
