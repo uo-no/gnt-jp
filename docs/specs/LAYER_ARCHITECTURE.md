@@ -100,7 +100,7 @@ Phase ESM-14〜27の監査（コード読解・実ブラウザ検証）で確認
 - **Research Links**: CSS クラス `.rn-research-links` は残るが、現行 `index.html` の生成マークアップは確認できない。表示機能が現在稼働しているとは記載しない。
 - **Morphology / Lemma / Strong**: Morphology は両画面に出力される。Lemma / Strong は Mobile の morphology 区画にあるが、Desktop の `_renderReadingNotes()` 出力には見当たらない。
 - **類義語・意味グループ**: `LN_RELATED_WORDS_ENABLED = false` により Desktop / Mobile とも表示停止中。データ・関数は保持し、権利・精度確認まで再開しない。
-- **Morphology 区画の折りたたみ**: 現行の生成断片では Desktop の `#rn-level2-details` も Mobile の morphology 区画も通常の `<section>` であり、当該区画自体の `<details>/<summary>` はない。外側の画面構造を含む実際の開閉・可視状態はブラウザ検証で確定する。
+- **Morphology 区画の折りたたみ**: PR #241 の JHN 3:16 ブラウザ検査で、Desktop の `#rn-level2-details` と Mobile の morphology 区画はともに可視の `<section>` であり、当該区画自体は `<details>/<summary>` 内にないことを確認した。設計目標どおり任意閲覧にするかは別のUI判断として扱う。
 
 この節はコードの静的照合と代表語のブラウザ検査結果である。JHN 3:16 では Morphology 区画が Desktop / Mobile とも直接表示され、当該区画の `<details>` 内にはないことを確認した。スクロール・URL復元・複数の語形データに対する網羅確認は別途行う。
 
