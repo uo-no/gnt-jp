@@ -46,6 +46,7 @@ const baseline = new baselineMod.SyntaxAnalyzer(loadJson(path.join(BASELINE, 'pu
 const counts = { baseline:{}, current:{} };
 const added = [];
 const removed = [];
+const currentSourceWithoutPrep = [];
 const candidateDetails = c => ({ id:c.id, confidence:c.confidence ?? null, rawScore:c.raw_score ?? c.rawScore ?? null, signals:(c.signals_matched || []).map(s => s && s.id || String(s)) });
 function collect(analyzer, tokens) {
   const map = new Map();
@@ -55,6 +56,18 @@ function collect(analyzer, tokens) {
     if (!token?.ref || !row?.output) continue;
     for (const c of row.output.candidates || []) if (TARGET_TYPES.includes(c.id)) {
       const key=token.ref;
+      const signals = (c.signals_matched || []).map(s => s && s.id || String(s));
+      if (analyzer === current && c.id === 'genitive.source' && !signals.includes('source_prep')) {
+        const at = tokens.indexOf(token);
+        currentSourceWithoutPrep.push({
+          ref:key, tokenId:token.tokenId||token.globalIdx||null,
+          text:token.text||token.normalized||'', lemma:token.lemma||null, morph:token.morph||'',
+          confidence:c.confidence ?? null, rawScore:c.raw_score ?? c.rawScore ?? null,
+          signals,
+          previous:at>0?{text:tokens[at-1].text||tokens[at-1].normalized||'',lemma:tokens[at-1].lemma||null,ref:tokens[at-1].ref||null}:null,
+          next:at+1<tokens.length?{text:tokens[at+1].text||tokens[at+1].normalized||'',lemma:tokens[at+1].lemma||null,ref:tokens[at+1].ref||null}:null
+        });
+      }
       if (!map.has(key)) map.set(key,{token:{ref:key,tokenId:token.tokenId||token.globalIdx||null,text:token.text||token.normalized||'',lemma:token.lemma||null,morph:token.morph||'',decoded:global.decodeMorph(token)},candidates:{}});
       map.get(key).candidates[c.id]=candidateDetails(c);
       counts[analyzer===baseline?'baseline':'current'][c.id]=(counts[analyzer===baseline?'baseline':'current'][c.id]||0)+1;
@@ -87,6 +100,6 @@ for (const book of books.NT) {
     }
   }
 }
-const report={purpose:'Token-level candidate presence comparison; not a correctness verdict',baselineRef:'43d34c6161e20e87814041c9d122528b00293693',coverage:{books:booksCount,chapters:chaptersCount,verses:versesCount,tokens:tokensCount},counts,delta:Object.fromEntries(TARGET_TYPES.map(id=>[id,{baseline:counts.baseline[id]||0,current:counts.current[id]||0,change:(counts.current[id]||0)-(counts.baseline[id]||0)}])),added,removed};
+const report={purpose:'Token-level candidate presence comparison; not a correctness verdict',baselineRef:'43d34c6161e20e87814041c9d122528b00293693',coverage:{books:booksCount,chapters:chaptersCount,verses:versesCount,tokens:tokensCount},counts,delta:Object.fromEntries(TARGET_TYPES.map(id=>[id,{baseline:counts.baseline[id]||0,current:counts.current[id]||0,change:(counts.current[id]||0)-(counts.baseline[id]||0)}])),added,removed,currentSourceWithoutPrep};
 fs.writeFileSync('studypanel-genitive-delta-report.json',JSON.stringify(report,null,2)+'\n');
-console.log(JSON.stringify({coverage:report.coverage,delta:report.delta,added:added.length,removed:removed.length,reportFile:'studypanel-genitive-delta-report.json'},null,2));
+console.log(JSON.stringify({coverage:report.coverage,delta:report.delta,added:added.length,removed:removed.length,currentSourceWithoutPrep:currentSourceWithoutPrep.length,reportFile:'studypanel-genitive-delta-report.json'},null,2));
