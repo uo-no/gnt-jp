@@ -54,7 +54,7 @@ const report = {
 const failures = [];
 for (const book of books.NT) {
   report.books++;
-  const bookStats = report.byBook[book.key] = { chapters: 0, tokens: 0, genitives: 0, wordNode: 0, ownRole: 0, ownFrame: 0, frameLink: 0, npAncestor: 0 };
+  const canonicalBookNumber = 40 + report.books - 1;\n  const bookStats = report.byBook[book.key] = { chapters: 0, tokens: 0, genitives: 0, wordNode: 0, ownRole: 0, ownFrame: 0, frameLink: 0, npAncestor: 0 };
   for (let chapter = 1; chapter <= book.chapters; chapter++) {
     const corpusPath = path.join(PUBLIC, 'bible_data', books.corpora.NT, book.key, chapter + '.json');
     const treePath = path.join(PUBLIC, 'assets', 'data', 'flow-tree', book.key, chapter + '.json');
@@ -83,10 +83,10 @@ for (const book of books.NT) {
       report.genitiveTokens++; bookStats.genitives++;
       const id = token.tokenId || token.globalIdx || '';
       const node = byId.get(id);
-      const row = { ref: token.ref || null, tokenId: id || null, text: token.text || token.normalized || token.word || '', morph: token.morph || '', wordNode: !!node,
+      const row = { ref: token.ref || null, flowTreeTokenId: id || null, corpusTokenId: token.tokenId || token.globalIdx || null, text: token.text || token.normalized || token.word || '', morph: token.morph || '', wordNode: !!node,
         nodeRole: node?.role || null, nodeFrame: node?.frame || null, npAncestors: [], predicateFramesTargetingToken: frameTargets.get(id) || [] };
       if (!node || node.type !== 'word') {
-        report.missingWordNode.push({ ref: row.ref, tokenId: row.tokenId, text: row.text, morph: row.morph });
+        report.missingWordNode.push({ ref: row.ref, flowTreeTokenId: row.flowTreeTokenId, corpusTokenId: row.corpusTokenId, text: row.text, morph: row.morph });
         if (report.samples.length < 30) report.samples.push(row);
         continue;
       }
