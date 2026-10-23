@@ -13,7 +13,17 @@ const EXPECTED_UNRESOLVED = {};
 
 const actual = {};
 let typeCount = 0;
-function findType(value, id) {\n  if (!value || typeof value !== 'object') return null;\n  if (value.id === id && value.detection && value.xsc) return value;\n  for (const child of Object.values(value)) {\n    const found = findType(child, id);\n    if (found) return found;\n  }\n  return null;\n}\n\nfunction walk(value) {
+function findType(value, id) {
+  if (!value || typeof value !== 'object') return null;
+  if (value.id === id && value.detection && value.xsc) return value;
+  for (const child of Object.values(value)) {
+    const found = findType(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+function walk(value) {
   if (!value || typeof value !== 'object') return;
   if (value.id && value.detection && value.xsc) {
     typeCount++;
