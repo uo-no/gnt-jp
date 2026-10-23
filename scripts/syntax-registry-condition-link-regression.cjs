@@ -46,6 +46,41 @@ function walk(value) {
 
 walk(registry);
 assert.equal(typeCount, 242, 'The registry type inventory changed; review the baseline.');
+const analyzerPath = path.join(__dirname, '..', 'public', 'core', 'syntax-analyzer.js');
+const analyzerSource = fs.readFileSync(analyzerPath, 'utf8');
+const alwaysFalseChecks = new Set(
+  [...analyzerSource.matchAll(/CheckEvaluator\\.register\\(\\s*['"]([^'"]+)['"]\\s*,\\s*\\(\\s*[^)]*\\)\\s*=>\\s*false\\s*\\)/g)]
+    .map(match => match[1])
+);
+const knownAlwaysFalse = new Set([
+  'has_adjectival_equivalent',
+  'semantic_equivalence_test',
+  'semantic_substitution_test',
+  'context_discourse_type_eq',
+]);
+assert.deepEqual([...alwaysFalseChecks].sort(), [...knownAlwaysFalse].sort(),
+  'The inventory of constant-false check handlers changed; audit every affected registry condition.');
+
+const unimplementedUses = [];
+function auditFalseCheckNotes(value) {
+  if (!value || typeof value !== 'object') return;
+  if (value.id && value.detection && value.xsc) {
+    for (const condition of [...(value.detection.conditions || []), ...(value.detection.exclusions || [])]) {
+      const handler = condition.check?.match(/^\\s*([a-zA-Z_]\\w*)\\s*\\(/)?.[1];
+      if (handler && alwaysFalseChecks.has(handler)) {
+        const note = String(condition.note || '');
+        assert.match(note, /未実装|恒偽|文脈依存|自動判定困難|別途判断|ヒューリスティック|自動判定ではない/,
+          value.id + '.' + condition.id + ' uses always-false handler ' + handler + ' without an explicit limitation note.');
+        unimplementedUses.push(value.id + '.' + condition.id);
+      }
+    }
+  }
+  for (const child of Object.values(value)) auditFalseCheckNotes(child);
+}
+auditFalseCheckNotes(registry);
+assert.equal(unimplementedUses.length, 6,
+  'The number of conditions using constant-false semantic handlers changed; review new or removed uses.');
+
 
 const meansType = findType(registry, 'dative.means');
 assert.ok(meansType, 'dative.means must remain in the registry');
