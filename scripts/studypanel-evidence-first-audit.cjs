@@ -77,7 +77,7 @@ const ntBooks = books.NT;
 const failures = [];
 const report = {
     books: 0, chapters: 0, verses: 0, tokens: 0, analyzedTokens: 0,
-    nominativePendens: 0, imperativalInfinitive: 0,
+    nominativePendens: 0, discourseLeftDislocation: 0, imperativalInfinitive: 0,
     nominativeCaseConflicts: [], infinitiveMoodConflicts: [],
     eph110: { tokens: {}, candidates: [] }
 };
@@ -93,6 +93,7 @@ function checkCandidate(token, candidate, ref) {
         if (m.case && !['nominative','vocative'].includes(m.case)) report.nominativeCaseConflicts.push(item);
         else if (!m.case) report.nominativeCaseConflicts.push({ ...item, issue:'case_unavailable' });
     }
+    if (candidate.id === 'discourse.left_dislocation') report.discourseLeftDislocation++;
     if (candidate.id === 'infinitive.imperatival') {
         report.imperativalInfinitive++;
         if (m.mood && m.mood !== 'infinitive') report.infinitiveMoodConflicts.push(item);
@@ -100,7 +101,7 @@ function checkCandidate(token, candidate, ref) {
     }
     if (ref.startsWith('EPH 1:10!')) {
         report.eph110.tokens[ref] = { tokenId:item.tokenId, text:item.text, morph:item.morph, case:item.case, mood:item.mood };
-        if (candidate.id === 'nominative.pendens' || candidate.id === 'infinitive.imperatival') {
+        if (['nominative.pendens','discourse.left_dislocation','infinitive.imperatival'].includes(candidate.id)) {
             report.eph110.candidates.push(item);
         }
     }
@@ -155,6 +156,7 @@ console.log(JSON.stringify({
     coverage: { books:report.books, chapters:report.chapters, verses:report.verses,
         tokens:report.tokens, analyzedTokens:report.analyzedTokens },
     candidateCounts: { nominativePendens:report.nominativePendens,
+        discourseLeftDislocation:report.discourseLeftDislocation,
         imperativalInfinitive:report.imperativalInfinitive },
     morphologyConflicts: { nominativePendens:errors.length, imperativalInfinitive:moodErrors.length },
     unavailableMorphology: {
