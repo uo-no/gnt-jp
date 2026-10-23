@@ -45,6 +45,11 @@ assert.equal(formatter.formatEvidence({
   id:'infinitive.imperatival', signals:['no_finite_verb']
 }), null, 'imperatival infinitive must stay silent unless both evidence signals match');
 
+const subjref = formatter.formatSubjrefEvidence('神');
+assert.match(subjref, /動作主として「神」が参照されています/);
+assert.doesNotMatch(subjref, /主語は/);
+assert.equal(formatter.formatSubjrefEvidence(''), null);
+
 const projection = ReadingSupportProjection.build({
   tokens:[{ ref:'EPH 1:10!7', text:'ἀνακεφαλαιώσασθαι', lemma:'ἀνακεφαλαιόω', class:'verb' }],
   syntaxResults:[{ candidates:[
@@ -63,6 +68,7 @@ assert.deepEqual(projection.words[0].alternatives[0].failedSignals, ['independen
 const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
 assert.match(html, /formatEvidence\(\{/);
 assert.match(html, /'verb', 'infinitive', 'discourse', 'nominative'/);
+assert.match(html, /文の中で考えられる役割/);
 
 console.log('PASS: evidence formatter requires the necessary matched signals');
 console.log('PASS: the imperative-infinitive note includes a caution and a contextual criterion');
