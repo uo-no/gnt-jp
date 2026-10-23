@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 
+// Guard the evidence-first wording and ensure its supporting signals survive projection.
+
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
