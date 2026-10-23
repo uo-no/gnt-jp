@@ -36,7 +36,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
   await page.waitForSelector('#bible-text-area .verse-block .v-num', { timeout:20000 });
   await page.waitForTimeout(1200);
 
-  const clickedVerse = await page.evaluate(() => {
+  const clickedVerse = await page.evaluate(verse => {
     for (const block of document.querySelectorAll('#bible-text-area .verse-block:not(.verse-pair-right)')) {
       if (block.querySelector('.v-num')?.textContent.trim() === String(verse)) {
         block.click();
@@ -44,7 +44,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
       }
     }
     return false;
-  });
+  }, String(verse));
   assert.ok(clickedVerse, `${mobile ? 'Mobile' : 'Desktop'}: JHN ${chapter}:${verse} exists`);
 
   await page.waitForSelector(mobile ? '#mobile-verse-view.open' : '#bottom-depth-panel.open', { timeout:12000 });
