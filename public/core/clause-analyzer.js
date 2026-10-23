@@ -1367,7 +1367,7 @@ class ReadingFormatter {
     formatSubjrefEvidence(targetLabel) {
         const label = String(targetLabel ?? '').trim();
         if (!label) return null;
-        return assertReadingTextSafe(`この語の動作主として「${label}」が参照されています。`);
+        return assertReadingTextSafe(`この語が表す動作を行う側として「${label}」が参照されています。`);
     }
 
     // -----------------------------------------------------------------
