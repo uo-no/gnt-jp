@@ -30,6 +30,16 @@ jobs:
             public/assets/data/syntax-registry.json
           sparse-checkout-cone-mode: false
 
+      - name: Checkout pre-evidence-gate analyzer for genitive delta audit
+        uses: actions/checkout@v4
+        with:
+          ref: 43d34c6161e20e87814041c9d122528b00293693
+          path: baseline-pre-gate
+          sparse-checkout: |
+            public/core/syntax-analyzer.js
+            public/assets/data/syntax-registry.json
+          sparse-checkout-cone-mode: false
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -48,6 +58,17 @@ jobs:
 
       - name: StudyPanel evidence-first audit（新約全体の候補・根拠シグナル）
         run: npm run audit:studypanel-evidence-first -- --verbose --strict-evidence
+
+      - name: Whole-NT token-level genitive source/separation delta audit
+        run: node scripts/studypanel-genitive-delta-audit.cjs --baseline-dir=baseline-pre-gate
+
+      - name: Upload whole-NT genitive delta report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studypanel-genitive-delta-report
+          path: studypanel-genitive-delta-report.json
+          if-no-files-found: ignore
 
       - name: Detect changes specific to dramatic-perfect context regression
         if: github.event_name == 'pull_request'
