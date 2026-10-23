@@ -89,7 +89,7 @@ for(const target of targets) {
         .filter(({t})=>['N','A','R'].includes(global.entryPosCode(t)))
         .map(({t,j})=>({distance:i-j,token:summarize(t),
           morph:global.decodeMorph(t),samePhrase:typeof ctx.samePhrase==='function'?ctx.samePhrase(j,i):null,
-          governedByTarget:typeof ctx.governs==='function'?ctx.governs(i,j):null})),
+          candidateGovernsTarget:typeof ctx.governs==='function'?ctx.governs(j,i):null})),
       governor:ctx.governor?{token:summarize(ctx.governor.token),lemma:ctx.governor.lemma,pos:ctx.governor.pos,idx:ctx.governor.idx}:null,
       governorVerb:summarize(ctx.governorVerb),
       mainVerb:summarize(ctx.mainVerb),
