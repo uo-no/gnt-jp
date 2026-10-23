@@ -105,7 +105,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
       .map(el => {
         const body = el.cloneNode(true);
         body.querySelectorAll('.rn-l3-group-label').forEach(label => label.remove());
-        return { key:el.getAttribute('data-study-group'), label:el.querySelector('.rn-l3-group-label')?.innerText.trim() || '', text:(body.innerText || '').trim() };
+        return { key:el.getAttribute('data-study-group'), label:el.querySelector('.rn-l3-group-label')?.innerText.trim() || '', text:(body.textContent || '').trim() };
       });
     const emptyWrappers = [...(scope?.querySelectorAll('.rn-word-head, .rn-glosses, .mvv-l3-word, .rn-level-heading') || [])]
       .filter(el => !(el.textContent || '').trim())
@@ -117,7 +117,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
       morphCandidatesPresent: !!candidates && visible(candidates),
       dictionaryVisible: visible(dictionary),
       dictionaryTextLength: (dictionary?.textContent || '').trim().length,
-      dictionaryTextSample: (dictionary?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40),
+      dictionaryTextSample: (dictionary?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40),
       usageTrendsTextPresent: scopeText.includes('使用傾向'),
       semanticSectionPresent: !!scope?.querySelector('[data-study-section="semantic"]'),
       researchLinksPresent: !!scope?.querySelector('.rn-research-links'),
