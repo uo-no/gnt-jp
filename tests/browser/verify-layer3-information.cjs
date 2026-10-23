@@ -7,12 +7,20 @@ const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
 const BASE = process.env.TEST_BASE_URL || 'http://127.0.0.1:8765';
-const TARGETS = ['θεὸς', 'κόσμον', 'ἠγάπησεν'];
+const TARGETS = [
+  { chapter:3, verse:16, text:'θεὸς', expectMorphCandidates:false },
+  { chapter:3, verse:16, text:'κόσμον', expectMorphCandidates:false },
+  { chapter:3, verse:16, text:'ἠγάπησεν', expectMorphCandidates:false },
+  { chapter:3, verse:16, text:'μονογενῆ', expectMorphCandidates:false },
+  // JHN 15:27: μαρτυρεῖτε permits a present indicative / imperative analysis.
+  { chapter:15, verse:27, text:'μαρτυρεῖτε', expectMorphCandidates:true }
+];
 const SHOTS = process.env.TEST_SCREENSHOT_DIR || '/tmp/gnt-jp-layer3';
 
 fs.mkdirSync(SHOTS, { recursive:true });
 
-async function openTarget(browser, mobile, target, captureScreenshot) {
+async function openTarget(browser, mobile, targetCase, captureScreenshot) {
+  const { chapter, verse, text:target, expectMorphCandidates } = targetCase;
   const context = await browser.newContext(mobile ? {
     viewport:{ width:390, height:844 },
     isMobile:true,
@@ -24,20 +32,20 @@ async function openTarget(browser, mobile, target, captureScreenshot) {
   const consoleErrors = [];
   page.on('pageerror', error => consoleErrors.push(error.message));
 
-  await page.goto(`${BASE}/?book=JHN&ch=3`, { waitUntil:'domcontentloaded', timeout:30000 });
+  await page.goto(`${BASE}/?book=JHN&ch=${chapter}`, { waitUntil:'domcontentloaded', timeout:30000 });
   await page.waitForSelector('#bible-text-area .verse-block .v-num', { timeout:20000 });
   await page.waitForTimeout(1200);
 
-  const clickedVerse = await page.evaluate(() => {
+  const clickedVerse = await page.evaluate(verse => {
     for (const block of document.querySelectorAll('#bible-text-area .verse-block:not(.verse-pair-right)')) {
-      if (block.querySelector('.v-num')?.textContent.trim() === '16') {
+      if (block.querySelector('.v-num')?.textContent.trim() === String(verse)) {
         block.click();
         return true;
       }
     }
     return false;
-  });
-  assert.ok(clickedVerse, `${mobile ? 'Mobile' : 'Desktop'}: JHN 3:16 exists`);
+  }, String(verse));
+  assert.ok(clickedVerse, `${mobile ? 'Mobile' : 'Desktop'}: JHN ${chapter}:${verse} exists`);
 
   await page.waitForSelector(mobile ? '#mobile-verse-view.open' : '#bottom-depth-panel.open', { timeout:12000 });
   await page.waitForSelector(mobile ? '#mobile-inspector-area .wlv-chip' : '#word-list-view .wlv-chip', { timeout:12000 });
@@ -64,7 +72,7 @@ async function openTarget(browser, mobile, target, captureScreenshot) {
     btn.click();
     return true;
   });
-  assert.ok(clickedStudy, `${mobile ? 'Mobile' : 'Desktop'}: StudyPanel entry exists for ${target}`);
+  assert.ok(clickedStudy, `${mobile ? 'Mobile' : 'Desktop'}: StudyPanel entry exists for ${target} (JHN ${chapter}:${verse})`);
 
   const dictionarySelector = mobile
     ? '#mvv-abbott-slot .rn-dict-full-text'
@@ -81,6 +89,7 @@ async function openTarget(browser, mobile, target, captureScreenshot) {
     const morphology = mobile
       ? scope?.querySelector('.mvv-l3-section[data-study-section="morphology"]')
       : scope?.querySelector('#rn-level2-details');
+    const candidates = scope?.querySelector('[data-study-section="candidates"] .rn-mc-details, [data-study-section="candidates"] .rn-mc-list, .rn-mc-details');
     const dictionary = mobile
       ? scope?.querySelector('#mvv-abbott-slot .rn-dict-full-text')
       : scope?.querySelector('#rn-level2-details .rn-dict-full-text');
@@ -98,6 +107,7 @@ async function openTarget(browser, mobile, target, captureScreenshot) {
       morphologyTag: morphology?.tagName || null,
       morphologyVisible: visible(morphology),
       morphologyInsideDetails: !!morphology?.closest('details'),
+      morphCandidatesPresent: !!candidates && visible(candidates),
       dictionaryVisible: visible(dictionary),
       dictionaryTextLength: (dictionary?.textContent || '').trim().length,
       usageTrendsTextPresent: scopeText.includes('使用傾向'),
@@ -108,6 +118,9 @@ async function openTarget(browser, mobile, target, captureScreenshot) {
   }, mobile);
 
   assert.ok(state.morphologyTag, `${mobile ? 'Mobile' : 'Desktop'}: morphology section exists for ${target}`);
+  if (expectMorphCandidates) {
+    assert.ok(state.morphCandidatesPresent, `${mobile ? 'Mobile' : 'Desktop'}: expected alternative morphology candidates for ${target} (JHN ${chapter}:${verse})`);
+  }
   assert.ok(state.dictionaryVisible && state.dictionaryTextLength > 20,
     `${mobile ? 'Mobile' : 'Desktop'}: Abbott-Smith dictionary text is present for ${target}`);
   assert.equal(state.usageTrendsTextPresent, false,
@@ -128,8 +141,8 @@ async function openTarget(browser, mobile, target, captureScreenshot) {
     });
   }
 
-  console.log(`PASS: ${mobile ? 'Mobile 390×844' : 'Desktop 1280×900'} — ${target}: dictionary preserved; duplicate/disabled sections absent.`);
-  console.log(`AUDIT: ${mobile ? 'Mobile' : 'Desktop'} ${target}: morphology=${state.morphologyTag}, visible=${state.morphologyVisible}, inside <details>=${state.morphologyInsideDetails}, empty wrappers=${JSON.stringify(state.emptyWrappers)}`);
+  console.log(`PASS: ${mobile ? 'Mobile 390×844' : 'Desktop 1280×900'} — JHN ${chapter}:${verse} ${target}: dictionary preserved; duplicate/disabled sections absent.`);
+  console.log(`AUDIT: ${mobile ? 'Mobile' : 'Desktop'} JHN ${chapter}:${verse} ${target}: morphology=${state.morphologyTag}, visible=${state.morphologyVisible}, inside <details>=${state.morphologyInsideDetails}, candidates=${state.morphCandidatesPresent}, empty wrappers=${JSON.stringify(state.emptyWrappers)}`);
   await context.close();
 }
 
