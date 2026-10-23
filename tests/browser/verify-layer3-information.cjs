@@ -82,6 +82,23 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
     return !!el && (el.textContent || '').trim().length > 20;
   }, dictionarySelector, { timeout:20000 });
 
+  const layer3Entry = page.locator(mobile
+    ? '#mobile-inspector-area [data-study-section="morphology"]'
+    : '#reading-notes-area #rn-level2-details');
+  assert.equal(await layer3Entry.evaluate(el => el.tagName), 'DETAILS',
+    `${mobile ? 'Mobile' : 'Desktop'}: Layer 3 should have one native disclosure entry for ${target}`);
+  assert.equal(await layer3Entry.evaluate(el => el.open), false,
+    `${mobile ? 'Mobile' : 'Desktop'}: Layer 3 should be collapsed by default for ${target}`);
+  assert.equal(await layer3Entry.locator(':scope > summary').innerText(), '単語を詳しく調べる',
+    `${mobile ? 'Mobile' : 'Desktop'}: Layer 3 entry label should be consistent for ${target}`);
+  assert.equal(await page.locator('[data-study-section="morphology"] details [data-study-group="lexical"]').count(), 0,
+    `${mobile ? 'Mobile' : 'Desktop'}: no nested disclosure should be present inside Layer 3 for ${target}`);
+  await layer3Entry.locator(':scope > summary').click();
+  await page.waitForFunction(selector => {
+    const el = document.querySelector(selector);
+    return !!el && el.getBoundingClientRect().height > 0 && !el.closest('details:not([open])');
+  }, dictionarySelector, { timeout:10000 });
+
   const state = await page.evaluate(mobile => {
     const scope = mobile
       ? document.querySelector('#mobile-inspector-area')
@@ -142,12 +159,12 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
   if (expectMorphCandidates) {
     assert.ok(state.morphCandidatesPresent, `${mobile ? 'Mobile' : 'Desktop'}: expected alternative morphology candidates for ${target} (JHN ${chapter}:${verse})`);
   }
-  assert.equal(state.dictionaryVisible, false,
-    `${mobile ? 'Mobile' : 'Desktop'}: dictionary text should be collapsed by default for ${target}`);
+  assert.equal(state.dictionaryVisible, true,
+    `${mobile ? 'Mobile' : 'Desktop'}: dictionary text should be visible when the single Layer 3 entry is open for ${target}`);
   assert.ok(state.dictionaryTextLength > 20,
     `${mobile ? 'Mobile' : 'Desktop'}: Abbott-Smith dictionary text must remain in the DOM for ${target}`);
   assert.equal(state.lexicalGroupOpen, false,
-    `${mobile ? 'Mobile' : 'Desktop'}: lexical resources group should start collapsed for ${target}`);
+    `${mobile ? 'Mobile' : 'Desktop'}: lexical resources are a heading group, not a nested disclosure, for ${target}`);
   const lexicalGroup = state.visibleGroups.find(group => group.key === 'lexical');
   const analysisGroup = state.visibleGroups.find(group => group.key === 'analysis');
   assert.ok(lexicalGroup, `${mobile ? 'Mobile' : 'Desktop'}: lexical resources group should exist for ${target}`);
@@ -160,21 +177,21 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
     assert.equal(normalizeGroupText(analysisGroup.text).includes(normalizeGroupText(state.dictionaryTextSample)), false,
       `${mobile ? 'Mobile' : 'Desktop'}: analysis group must not duplicate Abbott-Smith dictionary content for ${target}`);
   }
-  const lexicalSummary = page.locator('[data-study-group="lexical"] > summary');
-  await lexicalSummary.click();
-  await page.waitForFunction(selector => {
-    const el = document.querySelector(selector);
-    return !!el && !!el.closest('details[open]') && el.getBoundingClientRect().height > 0;
-  }, dictionarySelector, { timeout:5000 });
   const dictionaryVisibleWhenExpanded = await page.evaluate(selector => {
     const el = document.querySelector(selector);
     return !!el && !el.closest('details:not([open])') && el.getBoundingClientRect().height > 0;
   }, dictionarySelector);
   assert.equal(dictionaryVisibleWhenExpanded, true,
-    `${mobile ? 'Mobile' : 'Desktop'}: dictionary text must be readable after opening lexical resources for ${target}`);
-  await lexicalSummary.click();
-  assert.equal(await page.locator('[data-study-group="lexical"]').evaluate(el => el.open), false,
-    `${mobile ? 'Mobile' : 'Desktop'}: lexical resources group should close on second activation for ${target}`);
+    `${mobile ? 'Mobile' : 'Desktop'}: dictionary text must be readable inside the single Layer 3 entry for ${target}`);
+  await layer3Entry.locator(':scope > summary').click();
+  assert.equal(await layer3Entry.evaluate(el => el.open), false,
+    `${mobile ? 'Mobile' : 'Desktop'}: the single Layer 3 entry should close on second activation for ${target}`);
+  assert.equal(await page.evaluate(selector => {
+    const el = document.querySelector(selector);
+    return !!el && !!el.closest('details:not([open])');
+  }, dictionarySelector), true,
+    `${mobile ? 'Mobile' : 'Desktop'}: closing Layer 3 should hide long dictionary content for ${target}`);
+  await layer3Entry.locator(':scope > summary').click();
   assert.equal(state.usageTrendsTextPresent, false,
     `${mobile ? 'Mobile' : 'Desktop'}: Usage Trends should stay in the search tool, not duplicate in StudyPanel`);
   assert.equal(state.semanticSectionPresent, false,
