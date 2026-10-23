@@ -2293,6 +2293,13 @@ class CandidateScorer {
             }
         }
 
+        // Some analyses require a conjunction of evidence signals, not merely
+        // one matching cue. The registry declares these explicitly.
+        if (Array.isArray(det.required_signals) &&
+            det.required_signals.some(id => !matched.includes(id))) {
+            return null;
+        }
+
         // Evidence-first gate: a positive prior/base weight is not itself evidence
         // that a conditional syntax type applies. If every signal is conditional
         // and none matched, omit the candidate instead of letting score clamping
