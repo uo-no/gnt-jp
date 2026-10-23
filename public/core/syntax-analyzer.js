@@ -3804,8 +3804,36 @@ class SyntaxAnalyzer {
         // 3. 候補スコア計算（全スコアラーの結果を統合）
         const rawCandidates = activeScorers.flatMap(s => s.score(ctx, this.registry));
 
-        // 4. 正規化
-        const candidates = this.normalizer.normalize(rawCandidates, this.registry.getShared());
+        // 4. 正規化 + evidence-first gate
+        // Registry の条件付き候補は、候補の基礎点だけで表示されないよう
+        // 正規化後にも一元検査する（各 scorer の実装差による漏れを防ぐ）。
+        const candidates = this.normalizer.normalize(rawCandidates, this.registry.getShared())
+            .filter(candidate => {
+                const typeDef = this.registry.getType(candidate.id);
+                const det = typeDef?.detection ?? {};
+                const signals = typeDef?.xsc?.signals ?? [];
+                const conditions = det.conditions ?? [];
+                const matched = candidate.signals_matched ?? [];
+                const required = det.required_signals ?? [];
+
+                if (required.some(id => !matched.includes(id))) return false;
+
+                const conditionalSignals = signals.filter(signal =>
+                    conditions.some(condition => condition.id === signal.id));
+                const unconditionalSignals = signals.filter(signal =>
+                    !conditions.some(condition => condition.id === signal.id));
+                if (conditionalSignals.length > 0 &&
+                    matched.length === 0 &&
+                    unconditionalSignals.length === 0) return false;
+
+                // A noun governed by a preposition is part of a PP, not itself
+                // the left-dislocated topic. Do not infer the phenomenon from a
+                // later matching pronoun elsewhere in the verse.
+                if (candidate.id === 'discourse.left_dislocation' && ctx.governorPOS === 'P') {
+                    return false;
+                }
+                return true;
+            });
 
         // 5. 語順解析
         const wordOrder = this.woAnalyzer.analyze(target, tokens, targetIdx, ctx.roleMap);
