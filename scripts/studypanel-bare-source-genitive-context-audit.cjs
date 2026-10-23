@@ -70,6 +70,26 @@ for(const target of targets) {
       previous:verseTokens.slice(Math.max(0,i-2),i).map(summarize),
       next:verseTokens.slice(i+1,i+3).map(summarize),
       nearestHead:summarize(ctx.headNoun),
+      // Record the actual backward scan path so a nearest-head result can be audited,
+      // rather than treating that result as a validated syntactic dependency.
+      headScanPath:(() => {
+        const path=[];
+        for(let j=i-1;j>=0;j--) {
+          const t=verseTokens[j], pos=global.entryPosCode(t);
+          path.push({distance:i-j,token:summarize(t),pos,
+            scanAction:['N','A','R'].includes(pos)?'candidate-and-stop':
+              ['T','D'].includes(pos)?'skip-and-continue':'barrier-and-stop'});
+          if(['N','A','R'].includes(pos)) break;
+          if(!['T','D'].includes(pos)) break;
+        }
+        return path;
+      })(),
+      // All preceding nominal tokens are context alternatives, not asserted heads.
+      precedingNominalCandidates:verseTokens.slice(0,i).map((t,j)=>({t,j}))
+        .filter(({t})=>['N','A','R'].includes(global.entryPosCode(t)))
+        .map(({t,j})=>({distance:i-j,token:summarize(t),
+          morph:global.decodeMorph(t),samePhrase:typeof ctx.samePhrase==='function'?ctx.samePhrase(j,i):null,
+          candidateGovernsTarget:typeof ctx.governs==='function'?ctx.governs(j,i):null})),
       governor:ctx.governor?{token:summarize(ctx.governor.token),lemma:ctx.governor.lemma,pos:ctx.governor.pos,idx:ctx.governor.idx}:null,
       governorVerb:summarize(ctx.governorVerb),
       mainVerb:summarize(ctx.mainVerb),
