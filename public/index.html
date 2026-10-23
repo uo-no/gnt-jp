@@ -919,7 +919,7 @@ pointer-events: auto;
         gap: var(--space-xs);
     }
     #mobile-verse-view .mvv-l3-summary::-webkit-details-marker { display: none; }
-    /* 「単語を詳しく調べる」は第三層内で直接表示するため、見出しに開閉インジケータを付けない。 */
+    /* 第3層は「単語を詳しく調べる」一つの入口から任意に開く。 */
     /* 開閉インジケータ（▶ / 開いたら▼）。native details の open 状態で回転。 */
     #mobile-verse-view .mvv-l3-summary::before {
         content: '';
@@ -1686,6 +1686,12 @@ margin-bottom: var(--space-sm);
 /* Layer 3 information groups: quiet hierarchy, no cards or panels. */
 .rn-l3-group { margin-top: var(--space-md); }
 .rn-l3-group:first-child { margin-top: 0; }
+/* Layer 3 は一つの disclosure にまとめ、内部の分類は開閉を重ねず見出しで区別する。 */
+.rn-l3-entry > .rn-l3-entry-summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: var(--space-xs); color: var(--text-sub); font-size: var(--text-caption); font-weight: 600; letter-spacing: 0.02em; padding: var(--space-sm) 0; }
+.rn-l3-entry > .rn-l3-entry-summary::-webkit-details-marker { display: none; }
+.rn-l3-entry > .rn-l3-entry-summary::before { content: ''; width: 0; height: 0; border-left: 5px solid currentColor; border-top: 4px solid transparent; border-bottom: 4px solid transparent; flex-shrink: 0; transition: transform var(--transition-fast); }
+.rn-l3-entry[open] > .rn-l3-entry-summary::before { transform: rotate(90deg); }
+.rn-l3-entry > .rn-l3-entry-summary + .rn-level-body { padding-top: var(--space-xs); }
 .rn-l3-group-label { color: var(--text-sub); font-size: var(--text-label); font-weight: 600; line-height: 1.5; letter-spacing: 0.02em; margin: 0 0 var(--space-xs); }
 /* 長い辞書・語彙資料は必要なときだけ開く。カード化せず、静かな disclosure として扱う。 */
 .rn-l3-disclosure > summary { display: flex; align-items: center; gap: var(--space-xs); cursor: pointer; list-style: none; }
@@ -9696,7 +9702,7 @@ async function _renderReadingNotes(p) {
         ? `<div class="rn-l3-group" data-study-group="analysis"><div class="rn-l3-group-label">分析候補・統語情報</div>${(morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML}</div>` : '')}${(syntaxLabelHTML ? `<div class="rn-syntax-labels" data-study-section="syntax">${syntaxLabelHTML}</div>` : '')}</div>`
         : '';
     const lexicalGroupHTML = (etymologyHTML || abbottFullHTML)
-        ? `<details class="rn-l3-group rn-l3-disclosure" data-study-group="lexical"><summary class="rn-l3-group-label">語義・語彙資料</summary><div class="rn-l3-group-content">${(etymologyHTML ? `<div data-study-section="etymology">${etymologyHTML}</div>` : '')}${(abbottFullHTML ? `<div data-study-section="abbott">${abbottFullHTML}</div>` : '')}</div></details>`
+        ? `<div class="rn-l3-group" data-study-group="lexical"><div class="rn-l3-group-label">語義・語彙資料</div><div class="rn-l3-group-content">${(etymologyHTML ? `<div data-study-section="etymology">${etymologyHTML}</div>` : '')}${(abbottFullHTML ? `<div data-study-section="abbott">${abbottFullHTML}</div>` : '')}</div></div>`
         : '';
 
     /* ═══════════════════════════════════════════════════════
@@ -9712,14 +9718,15 @@ async function _renderReadingNotes(p) {
 
         <div data-study-section="structure">${neighborhoodViewHTML}</div>
 
-        <!-- LEVEL 2: 単語を詳しく調べる（第三層内で直接表示） -->
-        <section class="rn-level-section" id="rn-level2-details" data-study-section="morphology">
+        <!-- LEVEL 3: 詳細資料は一つの入口から任意に開く -->
+        <details class="rn-level-section rn-l3-entry" id="rn-level2-details" data-study-section="morphology">
+            <summary class="rn-l3-entry-summary">単語を詳しく調べる</summary>
             <div class="rn-level-body">
                 ${(morphGridHTML ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">原文から確認できる情報</div>${morphGridHTML}</div>` : '')}
                 ${analysisGroupHTML}
                 ${lexicalGroupHTML}
             </div>
-        </section>
+        </details>
 
 ${LN_RELATED_WORDS_ENABLED ? `
         <!-- TEMPORARILY DISABLED: LN 由来の関連語表示。再開条件は docs/DATA_LICENSE.md を参照。 -->
@@ -20178,7 +20185,8 @@ function _renderMobileWordDetail(d) {
         <div id="mvv-flow-slot" data-study-section="structure" style="margin-top:var(--space-md);"></div>
 
         ${hasStudyDetails ? `
-        <section class="mvv-l3-section" data-study-section="morphology">
+        <details class="mvv-l3-section rn-l3-entry" data-study-section="morphology">
+          <summary class="mvv-l3-summary">単語を詳しく調べる</summary>
           <div class="mvv-l3-slot">
             ${(d.lemma || d.strong || morphTags) ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">原文から確認できる情報</div>
               ${(d.lemma ? `<div>見出し語: <span class="mvv-l3-lemma">${_escH(d.lemma)}</span></div>` : '')}
@@ -20189,15 +20197,15 @@ function _renderMobileWordDetail(d) {
               ${(morphCandidatesHTML ? `<div class="rn-l3-group-label">分析候補・統語情報</div>${morphCandidatesHTML}` : '')}
               <div id="mvv-syntax-slot" class="rn-syntax-labels" data-study-section="syntax" style="display:none;"></div>
             </div>
-            <details class="rn-l3-group rn-l3-disclosure" data-study-group="lexical" id="mvv-lexical-group" style="display:none;">
-              <summary class="rn-l3-group-label" id="mvv-lexical-heading" style="display:none;">語義・語彙資料</summary>
+            <div class="rn-l3-group" data-study-group="lexical" id="mvv-lexical-group" style="display:none;">
+              <div class="rn-l3-group-label" id="mvv-lexical-heading" style="display:none;">語義・語彙資料</div>
               <div class="rn-l3-group-content">
                 <div id="mvv-etymology-slot"></div>
                 <div id="mvv-abbott-slot"></div>
               </div>
-            </details>
+            </div>
           </div>
-        </section>` : ''}
+        </details>` : ''}
 
 ${LN_RELATED_WORDS_ENABLED ? `
         <!-- TEMPORARILY DISABLED: LN 由来の関連語表示。再開条件は docs/DATA_LICENSE.md を参照。 -->

@@ -67,6 +67,12 @@ async function openTarget(browser, mobile) {
   assert.ok(clickedStudy, `${mobile ? 'Mobile' : 'Desktop'}: StudyPanel button exists`);
 
   await page.waitForTimeout(5500);
+  // Layer 3 is intentionally collapsed by default; open it before asserting the rendered syntax/evidence text.
+  const layer3Entry = page.locator(mobile
+    ? '#mobile-inspector-area [data-study-section="morphology"]'
+    : '#reading-notes-area #rn-level2-details');
+  await layer3Entry.locator(':scope > summary').click();
+  await page.waitForTimeout(250);
   const targetText = await page.evaluate(mobile => {
     const selectors = mobile
       ? ['#mvv-reading-slot', '#mobile-inspector-area', '#reading-notes-area']
