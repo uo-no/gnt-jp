@@ -1686,14 +1686,7 @@ margin-bottom: var(--space-sm);
 /* Layer 3 information groups: quiet hierarchy, no cards or panels. */
 .rn-l3-group { margin-top: var(--space-md); }
 .rn-l3-group:first-child { margin-top: 0; }
-.rn-l3-group-label {
-    color: var(--text-sub);
-    font-size: var(--text-label);
-    font-weight: 600;
-    line-height: 1.5;
-    letter-spacing: 0.02em;
-    margin: 0 0 var(--space-xs);
-}
+.rn-l3-group-label { color: var(--text-sub); font-size: var(--text-label); font-weight: 600; line-height: 1.5; letter-spacing: 0.02em; margin: 0 0 var(--space-xs); }
 #mobile-inspector-area .rn-l3-group { margin-top: var(--space-md); }
 #mobile-inspector-area .rn-l3-group:first-child { margin-top: 0; }
 
@@ -9692,16 +9685,17 @@ async function _renderReadingNotes(p) {
         : '';
 
     const syntaxLabelHTML = await _buildSyntaxLabelHTML(_wlvWordCache, ref);
+
     const analysisGroupHTML = (morphCandidatesHTML || syntaxLabelHTML)
-        ? `${(morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML${</div>` : '')
-           ${(syntaxLabelHTML ? `<div class="rn-syntax-labels" data-study-section="syntax">${syntaxLabelHTML${</div>` : '')
-           ? `<div class="rn-l3-group" data-study-group="analysis"><div class="rn-l3-group-label">分析候補と判断材料</div>${(morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML${<        <section class="rn-level-section" id="rn-level2-details" data-study-section="morphology">
-            <div class="rn-level-body">
-                ${(morphGridHTML ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">原文から確認できる情報</div>${morphGridHTML${</div>` : '')
-                ${analysisGroupHTML
-                ${lexicalGroupHTML
-            </div>
-        </section>════════ */
+        ? `<div class="rn-l3-group" data-study-group="analysis"><div class="rn-l3-group-label">分析候補と判断材料</div>${(morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML}</div>` : '')}${(syntaxLabelHTML ? `<div class="rn-syntax-labels" data-study-section="syntax">${syntaxLabelHTML}</div>` : '')}</div>`
+        : '';
+    const lexicalGroupHTML = (etymologyHTML || abbottFullHTML)
+        ? `<div class="rn-l3-group" data-study-group="lexical"><div class="rn-l3-group-label">語義・語彙資料</div>${(etymologyHTML ? `<div data-study-section="etymology">${etymologyHTML}</div>` : '')}${(abbottFullHTML ? `<div data-study-section="abbott">${abbottFullHTML}</div>` : '')}</div>`
+        : '';
+
+    /* ═══════════════════════════════════════════════════════
+       HTML 出力 — 4階層構造
+       ═══════════════════════════════════════════════════════ */
     area.innerHTML = `
         <!-- ギリシャ語見出し・日本語代表語義は画面ヘッダーに表示済み。重複する空領域は生成しない。 -->
         ${glossesHTML}
@@ -9715,11 +9709,9 @@ async function _renderReadingNotes(p) {
         <!-- LEVEL 2: 単語を詳しく調べる（第三層内で直接表示） -->
         <section class="rn-level-section" id="rn-level2-details" data-study-section="morphology">
             <div class="rn-level-body">
-                ${morphGridHTML}
-                ${morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML}</div>` : ''}
-                ${etymologyHTML ? `<div data-study-section="etymology">${etymologyHTML}</div>` : ''}
-                ${syntaxLabelHTML ? `<div class="rn-syntax-labels" data-study-section="syntax">${syntaxLabelHTML}</div>` : ''}
-                ${abbottFullHTML ? `<div data-study-section="abbott">${abbottFullHTML}</div>` : ''}
+                ${(morphGridHTML ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">原文から確認できる情報</div>${morphGridHTML}</div>` : '')}
+                ${analysisGroupHTML
+                ${lexicalGroupHTML
             </div>
         </section>
 
@@ -20180,12 +20172,12 @@ function _renderMobileWordDetail(d) {
         <section class="mvv-l3-section" data-study-section="morphology">
           <div class="mvv-l3-slot">
             ${(d.lemma || d.strong || morphTags) ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">原文から確認できる情報</div>
-              ${(d.lemma ? `<div>見出し語: <span class="mvv-l3-lemma">${_escH(d.lemma)${</span></div>` : '')
-              ${(d.strong ? `<div class="mvv-l3-strong" style="margin-top:var(--space-xs);">Strong: ${_escH(String(d.strong))${</div>` : '')
-              ${(morphTags ? `<div style="margin-top:var(--space-md);">${morphTags${</div>` : '')
-            </div>` : ''}
+              ${(d.lemma ? `<div>見出し語: <span class="mvv-l3-lemma">${_escH(d.lemma)}</span></div>` : '')}
+              ${(d.strong ? `<div class="mvv-l3-strong" style="margin-top:var(--space-xs);">Strong: ${_escH(String(d.strong))}</div>` : '')}
+              ${(morphTags ? `<div style="margin-top:var(--space-md);">${morphTags}</div>` : '')}
+            </div>` : '')}
             <div class="rn-l3-group" data-study-group="analysis">
-              ${(morphCandidatesHTML ? `<div class="rn-l3-group-label">分析候補と判断材料</div>${morphCandidatesHTML` : '')
+              ${(morphCandidatesHTML ? `<div class="rn-l3-group-label">分析候補と判断材料</div>${morphCandidatesHTML}` : '')}
               <div id="mvv-syntax-slot" class="rn-syntax-labels" data-study-section="syntax" style="display:none;"></div>
             </div>
             <div class="rn-l3-group" data-study-group="lexical">
