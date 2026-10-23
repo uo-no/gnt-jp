@@ -2480,16 +2480,10 @@
                 "required_case": "genitive",
                 "conditions": [
                   {
-                    "id": "prep_source_present",
+                    "id": "source_prep",
                     "signal": "ἀπό/ἐκ/παρά が直前",
                     "check": "governor_lemma_in(['ἀπό','ἐκ','παρά'])",
                     "note": "起源・出所を示す前置詞"
-                  },
-                  {
-                    "id": "no_separation_verb",
-                    "signal": "分離動詞と共起しない",
-                    "check": "NOT context_verb_lemma_in_list('separation_verb_lemmas')",
-                    "note": "分離属格との弁別。χωρίζω 等の分離動詞があれば genitive.separation を優先"
                   },
                   {
                     "id": "divine_or_personal_source",
@@ -2502,6 +2496,13 @@
                   "ἀπό",
                   "ἐκ",
                   "παρά"
+                ],
+                "exclusions": [
+                  {
+                    "id": "separation_verb_present",
+                    "check": "context_verb_lemma_in_list('separation_verb_lemmas')",
+                    "note": "分離動詞が共起する場合は分離属格を優先し、起源属格候補から除外。"
+                  }
                 ]
               },
               "xsc": {
@@ -2974,7 +2975,7 @@
                 "required_case": "dative",
                 "conditions": [
                   {
-                    "id": "adversative_context",
+                    "id": "adversative_verb",
                     "signal": "否定・反抗文脈の動詞",
                     "check": "context_has_negation() OR context_verb_lemma_in_list('adversative_verb_lemmas')"
                   },
@@ -3935,19 +3936,14 @@
                   {
                     "id": "proximity_far",
                     "signal": "一致名詞との距離が3語以上",
-                    "check": "NOT distance_to_match_le(2)"
+                    "check": "context_has_case_gender_number_match() AND NOT distance_to_match_le(2)",
+                    "note": "一致名詞が存在する場合にのみ距離ペナルティを適用する。"
                   },
                   {
                     "id": "no_article",
                     "signal": "分詞直前に冠詞なし",
                     "check": "NOT prev_pos_eq('T')",
                     "weight_modifier": "required"
-                  },
-                  {
-                    "id": "proximity_far",
-                    "signal": "格・性・数一致名詞から3語以上離れている",
-                    "check": "context_has_case_gender_number_match() AND NOT distance_to_match_le(2)",
-                    "note": "近接条件と対になる距離条件。対応する一致名詞がない場合は適用しない。"
                   }
                 ]
               },
@@ -4087,13 +4083,13 @@
                 "required_mood": "participle",
                 "conditions": [
                   {
-                    "id": "article_before_ptc",
+                    "id": "article_present",
                     "signal": "直前に冠詞（T）がある",
                     "check": "prev_pos_eq('T')",
                     "weight_modifier": "+critical"
                   },
                   {
-                    "id": "article_full_agreement",
+                    "id": "article_case_match",
                     "signal": "冠詞と格・性・数が完全一致",
                     "check": "article_agrees_case_gender_number()",
                     "weight_modifier": "+critical"
@@ -4127,7 +4123,7 @@
                   {
                     "id": "article_case_match",
                     "value": 20,
-                    "label_ja": "格が冠詞と一致"
+                    "label_ja": "冠詞と格・性・数が一致"
                   },
                   {
                     "id": "article_gender_match",
@@ -4205,19 +4201,14 @@
                 "required_mood": "participle",
                 "conditions": [
                   {
-                    "id": "no_article_before",
+                    "id": "no_article",
                     "signal": "分詞直前に冠詞なし（実体用法を除外）",
                     "check": "NOT prev_pos_eq('T')"
                   },
                   {
-                    "id": "no_matching_noun",
+                    "id": "no_match_noun",
                     "signal": "格・性・数一致名詞なし（形容詞用法を除外）",
                     "check": "NOT context_has_case_gender_number_match()"
-                  },
-                  {
-                    "id": "temporal_tense",
-                    "signal": "アオリスト・現在・完了のいずれか",
-                    "check": "target_tense_in(['aorist','present','perfect'])"
                   },
                   {
                     "id": "tense_present",
@@ -4233,6 +4224,12 @@
                     "id": "default_adverbial",
                     "signal": "デフォルト推定（副詞用法）",
                     "check": "NOT target_tense_in(['aorist','present','perfect'])"
+                  },
+                  {
+                    "id": "tense_aorist",
+                    "signal": "アオリスト分詞（先行動作の候補）",
+                    "check": "target_tense_eq('aorist')",
+                    "note": "時制は時間関係の候補を示す手掛かりであり、時間的解釈は文脈で確定する。"
                   }
                 ]
               },
@@ -4338,11 +4335,6 @@
                     "signal": "物語的連続文脈（主動詞がアオリスト直説法）",
                     "check": "main_verb_tense_eq('aorist') AND main_verb_mood_eq('indicative')",
                     "note": "Wallace p.642 の付帯状況 5 基準のうち『主動詞は直説法（物語）または命令法』を実装。従来は無条件加点だった。"
-                  },
-                  {
-                    "id": "narrative_sequence",
-                    "signal": "物語的連続文脈（アオリスト直説法主動詞）",
-                    "check": "main_verb_tense_eq('aorist') AND main_verb_mood_eq('indicative')"
                   }
                 ]
               },
@@ -4433,11 +4425,6 @@
                     "signal": "分詞が受動態（ROM 5:1 δικαιωθέντες 型）",
                     "check": "target_voice_eq('passive')",
                     "note": "Wallace pp.631–632: 論証書簡の理由分詞はアオリスト受動が典型。従来は無条件加点だった。"
-                  },
-                  {
-                    "id": "passive_participle",
-                    "signal": "受動分詞（行為の受け手）",
-                    "check": "target_voice_eq('passive')"
                   }
                 ]
               },
