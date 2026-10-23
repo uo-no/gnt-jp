@@ -18,6 +18,7 @@ const vm = require('vm');
 const VERBOSE = process.argv.includes('--verbose');
 const STRICT_EVIDENCE = process.argv.includes('--strict-evidence');
 const TRACE_TYPES = (process.argv.find(a => a.startsWith('--trace-types=')) || '--trace-types=').slice('--trace-types='.length).split(',').filter(Boolean);
+const LOW_CONFIDENCE_SAMPLE_LIMIT = 5;
 const PUBLIC = path.resolve(__dirname, '..', 'public');
 const TENSE = { P:'present', I:'imperfect', F:'future', A:'aorist', X:'perfect', Z:'pluperfect' };
 const VOICE = { A:'active', M:'middle', P:'passive', D:'middle deponent', E:'middle or passive', N:'middle or passive' };
@@ -89,7 +90,7 @@ const report = {
 function checkCandidate(token, candidate, ref, ctx = null) {
     const m = global.decodeMorph(token);
     const stats = report.candidateStats[candidate.id] || (report.candidateStats[candidate.id] = {
-        count:0, matchedAny:0, noMatchedSignals:0, confidenceBelow40:0, signalCounts:{}
+        count:0, matchedAny:0, noMatchedSignals:0, confidenceBelow40:0, signalCounts:{}, lowConfidenceSamples:[]
     });
     stats.count++;
     const matchedSignals = candidate.signals_matched || [];
@@ -104,6 +105,11 @@ function checkCandidate(token, candidate, ref, ctx = null) {
         text:token.text || token.normalized || '', morph:token.morph || '',
         case:m.case || null, mood:m.mood || null, id:candidate.id,
         confidence:candidate.confidence, signals:(candidate.signals_matched || []).map(s => s && s.id || String(s)) };
+    // Deterministic triage examples only: first five low-confidence instances in NT traversal order.
+    // These are not a representative sample and must not be treated as a defect list.
+    if ((candidate.confidence ?? 0) < 0.4 && stats.lowConfidenceSamples.length < LOW_CONFIDENCE_SAMPLE_LIMIT) {
+        stats.lowConfidenceSamples.push(item);
+    }
     if (TRACE_TYPES.includes(candidate.id)) {
         report.tracedCandidates.push({ ...item, rawScore:candidate.rawScore ?? null,
             score:candidate.score ?? null, signalsMatched:(candidate.signals_matched || []).map(s => s && s.id || String(s)) });
