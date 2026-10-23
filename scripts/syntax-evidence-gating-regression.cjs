@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('node:assert/strict');
+const vm = require('node:vm');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 const POS = {
@@ -24,7 +25,15 @@ global.decodeMorph = token => ({
 global.cleanText = token => String(token?.text || token?.normalized || token || '')
   .replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g, '').trim();
 
-const { SyntaxAnalyzer } = require(path.join(PUBLIC, 'core', 'syntax-analyzer.js'));
+const analyzerPath = path.join(PUBLIC, 'core', 'syntax-analyzer.js');
+const analyzerSource = fs.readFileSync(analyzerPath, 'utf8');
+const analyzerModule = { exports:{} };
+const loadAnalyzer = vm.runInThisContext(
+  `(function(module,exports,require,__dirname,__filename){\\n${analyzerSource}\\n})`,
+  { filename:analyzerPath, displayErrors:true }
+);
+loadAnalyzer(analyzerModule, analyzerModule.exports, require, path.dirname(analyzerPath), analyzerPath);
+const { SyntaxAnalyzer } = analyzerModule.exports;
 const registry = JSON.parse(fs.readFileSync(path.join(PUBLIC, 'assets/data/syntax-registry.json'), 'utf8'));
 const books = JSON.parse(fs.readFileSync(path.join(PUBLIC, 'books.json'), 'utf8'));
 const analyzer = new SyntaxAnalyzer(registry);
