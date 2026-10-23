@@ -15,6 +15,7 @@ const path = require('path');
 const vm = require('vm');
 
 const VERBOSE = process.argv.includes('--verbose');
+const STRICT_EVIDENCE = process.argv.includes('--strict-evidence');
 const PUBLIC = path.resolve(__dirname, '..', 'public');
 const TENSE = { P:'present', I:'imperfect', F:'future', A:'aorist', X:'perfect', Z:'pluperfect' };
 const VOICE = { A:'active', M:'middle', P:'passive', D:'middle deponent', E:'middle or passive', N:'middle or passive' };
@@ -178,6 +179,9 @@ for (const book of ntBooks) {
 
 const errors = report.nominativeCaseConflicts.filter(x => x.issue !== 'case_unavailable');
 const moodErrors = report.infinitiveMoodConflicts.filter(x => x.issue !== 'mood_unavailable');
+const zeroEvidenceTypes = Object.entries(report.candidateStats)
+    .filter(([, stats]) => stats.noMatchedSignals > 0)
+    .map(([id, stats]) => ({ id, candidates:stats.count, noMatchedSignals:stats.noMatchedSignals }));
 console.log('StudyPanel evidence-first NT audit');
 console.log(JSON.stringify({
     coverage: { books:report.books, chapters:report.chapters, verses:report.verses,
@@ -191,6 +195,7 @@ console.log(JSON.stringify({
         imperativalInfinitive:report.infinitiveMoodConflicts.filter(x => x.issue === 'mood_unavailable').length
     },
     EPH_1_10:report.eph110,
+    candidateEvidenceGate: { strict:STRICT_EVIDENCE, zeroEvidenceTypes },
     candidateEvidenceStats:report.candidateStats
 }, null, 2));
 
@@ -198,8 +203,9 @@ if (VERBOSE) {
     console.log('\nNominative-pendens case conflicts:\n' + JSON.stringify(errors, null, 2));
     console.log('\nImperatival-infinitive mood conflicts:\n' + JSON.stringify(moodErrors, null, 2));
 }
-if (failures.length || errors.length || moodErrors.length) {
+if (failures.length || errors.length || moodErrors.length || (STRICT_EVIDENCE && zeroEvidenceTypes.length)) {
     for (const f of failures) console.error('FAIL', f);
+    if (STRICT_EVIDENCE && zeroEvidenceTypes.length) console.error('FAIL: candidates with no matched evidence signals', JSON.stringify(zeroEvidenceTypes));
     process.exitCode = 1;
 } else {
     console.log('\nPASS: no detected morphology/type contradictions in scanned NT candidates.');
