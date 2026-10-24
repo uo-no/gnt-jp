@@ -3886,6 +3886,29 @@ section('§7ae  Observation Integration');
     }
 }
 
+// ── Particle interpretations require lexical plus contextual evidence ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    for (const [id, signals] of [
+      ['particle.interrogative_particle', ['int_lemma', 'in_question']],
+      ['particle.rhetorical_particle', ['me_opt', 'neg_q']],
+      ['particle.emphatic_ge', ['ge', 'ge_focus']],
+      ['particle.restrictive_monon', ['monon_acc']],
+      ['particle.inferential_oun', ['oun', 'oun_focus']]
+    ]) {
+      const type = all.find(t => t.id === id);
+      const gates = type?.detection?.required_signals ?? [];
+      check(id + ' — 語彙・文脈の根拠を必須化',
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
