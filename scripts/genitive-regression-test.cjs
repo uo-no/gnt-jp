@@ -1203,6 +1203,26 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           'required_signals=' + JSON.stringify(gates));
 }
 
+// ── Dative of association requires either a syn-compound or σύν preposition ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'dative.association');
+    const det = type?.detection;
+    const gates = det?.required_signals ?? [];
+    const marker = det?.conditions?.find(c => c.id === 'association_marker');
+    const scored = type?.xsc?.signals?.some(s => s.id === 'association_marker');
+    check('dative.association — OR根拠をスコア対象かつ必須条件として登録',
+          Boolean(type) && gates.includes('association_marker') && scored &&
+              marker?.check === "context_verb_has_syn_prefix() OR governor_lemma_eq('σύν')",
+          'required_signals=' + JSON.stringify(gates) +
+              '; scored=' + scored + '; marker=' + JSON.stringify(marker?.check));
+}
+
 // ── Dative of measure requires degree-lexeme evidence; comparative context remains supporting ──
 {
     const all = [];
