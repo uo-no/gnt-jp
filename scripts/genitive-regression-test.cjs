@@ -3459,6 +3459,25 @@ section('§7ae  Observation Integration');
 }
 
 // ════════════════════════════════════════════════════════════════
+// ── Batch 21: require positive defining evidence for five classifications ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const expected = [
+      ['verb.voice_active', ['active_v']],
+      ['preposition.proper_with_genitive', ['gen_object']],
+      ['preposition.proper_with_dative', ['dat_object']],
+      ['preposition.proper_with_accusative', ['acc_object']],
+      ['adjective.substantival', ['has_article', 'no_head_noun']]
+    ];
+    for (const [id, signals] of expected) {
+      const type = all.find(t => t.id === id);
+      const gates = type?.detection?.required_signals ?? [];
+      check(id + ' — 定義的な根拠シグナルを必須化',
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
+}
+
 // §8  最終カバレッジレポート
 // ════════════════════════════════════════════════════════════════
 // ── Dative means requires an ungoverned dative ───────────────────
