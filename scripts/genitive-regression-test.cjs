@@ -4062,6 +4062,25 @@ section('§7ae  Observation Integration');
     }
 }
 
+// ── Batch 29: require defining signals for five syntax classifications ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const expected = [
+        ["verb.future_deliberative", ["fut_t", "question", "first_p"]],
+        ["verb.voice_middle_reflexive", ["middle_v", "reflexive"]],
+        ["verb.voice_middle_reciprocal", ["middle_v", "reciprocal", "plural_subj"]],
+        ["vocative.nominative_for_vocative", ["nom_or_voc", "article"]],
+        ["clause.result_hoste", ["hoste", "inf_or_ind"]],
+    ];
+    for (const [id, signals] of expected) {
+        const type = all.find(t => t.id === id);
+        const gates = type?.detection?.required_signals ?? [];
+        check(id + ' — 定義的な根拠シグナルを必須化',
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
