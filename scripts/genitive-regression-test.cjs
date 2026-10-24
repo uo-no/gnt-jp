@@ -1203,6 +1203,22 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           'required_signals=' + JSON.stringify(gates));
 }
 
+// ── Dative of measure requires degree-lexeme evidence; comparative context remains supporting ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'dative.measure');
+    const gates = type?.detection?.required_signals ?? [];
+    check('dative.measure — 程度語を必須化し、比較級文脈は補助シグナルとして保持',
+          Boolean(type) && gates.includes('measure_lemma') &&
+              !gates.includes('comparative_present'),
+          'required_signals=' + JSON.stringify(gates));
+}
+
 // ── Dative of agent requires passive-perfect context + personal target ──
 {
     const all = [];
