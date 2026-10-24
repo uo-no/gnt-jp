@@ -4287,6 +4287,21 @@ section('§7ae  Observation Integration');
         JSON.stringify({ hint: directObject?.hint_ja }));
 }
 
+ // ── Batch 42: article agreement and Granville Sharp pattern are cues, not proof ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const substantival = all.find(t => t.id === "participle.substantival");
+    const granvilleSharp = all.find(t => t.id === "article.granville_sharp");
+    check("participle.substantival — 冠詞一致だけを最も確実な判定として表示しない",
+        Boolean(substantival)
+            && substantival.hint_ja === "冠詞と格・性・数が一致することは手掛かりの一つ。「〜する者（もの）」という名詞的な読みと文脈を確認する。",
+        JSON.stringify({ hint: substantival?.hint_ja }));
+    check("article.granville_sharp — 無冠詞名詞だけで同一指示を断定しない",
+        Boolean(granvilleSharp)
+            && granvilleSharp.hint_ja === "単一冠詞＋καίで結ばれた単数人称名詞の構文が候補。第2名詞が無冠詞であることは手掛かりだが、同一指示は名詞の種類と文脈を含めて判断する。",
+        JSON.stringify({ hint: granvilleSharp?.hint_ja }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
