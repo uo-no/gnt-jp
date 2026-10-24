@@ -571,3 +571,21 @@ main の VR-5 Regression Gate（run 39971377171）の StudyPanel evidence-first 
 **監査上の結論：** これら7件は「根拠の確認を忘れた未監査」ではなく、「現行の条件モデルでは誤った必須化を避けるべき」と判断した例外として記録する。必須ゲートの設定数だけを監査完了率と同一視しない。今後 OR ゲートまたはタイプ分割を実装する場合は、肯定例・反例を含む回帰テストを追加してから再評価する。
 
 この追記は監査判断の記録のみで、分類ロジック、スコア、UI は変更しない。
+
+
+### 14.22 OR 根拠ゲート導入後に残る4タイプの再確認（2026-10-24）
+
+PR #368 で `required_signal_groups`（グループ間は OR、各グループ内は AND）を導入し、`infinitive.purpose`、`conjunction.correlative_men_de`、`particle.emphatic_negative` に代替パターンを設定した。これら3タイプは、旧来の `required_signals` が空でも、ゲートなしとは数えない。
+
+現行 `main` の `public/assets/data/syntax-registry.json` を再走査した結果、`detection.conditions` があり、`required_signals` と `required_signal_groups` の両方が空のタイプは次の4件だった。
+
+| タイプ | 現在の条件 | 再確認の判断 |
+|---|---|---|
+| `participle.adverbial_temporal` | `tense_present`、`tense_perfect`、`tense_aorist`、`default_adverbial`、冠詞・一致名詞の除外条件 | 時制は同じ時間関係の必須条件ではなく代替的な手掛かり。現状の型名のまま時制を1つ必須にしない。将来は「時間的候補」自体を支える肯定根拠と、時間関係の説明を分離する必要がある。 |
+| `participle.adverbial_purpose_result` | `future_participle`、`no_article_before` | 未来分詞は目的解釈の根拠にはなり得るが、目的と結果を併記したラベル全体の十分条件ではない。結果用法の肯定根拠が定義されるまでは自動ゲートを足さず、型の分割可能性を検討する。 |
+| `accusative.direct_object` | `finite_verb_present`、`no_preposition` | いずれも周辺構造の特徴であり、直接目的語との正の依存関係を示さない。動詞がある・前置詞支配がないという条件だけではゲートにしない。項構造または検証済みの head–dependent 関係が利用できるかを別途調べる。 |
+| `preposition.adverbial_pp` | `no_article` | 無冠詞は副詞的機能の肯定的証拠ではない。前置詞句の係り先または機能を示す検証済み構造情報がない限り、これだけを必須ゲートにしない。 |
+
+**集計ルール：** ゲート整備数は `required_signals` と `required_signal_groups` を別々に表示し、いずれかが設定されたタイプを「何らかの必須ゲートあり」と数える。一方、意味内容の監査完了数はゲートの有無から推定しない。この4タイプは根拠不足のため保留中であり、監査完了として計上しない。
+
+この確認はレジストリと設計判断の読み取り専用レビューであり、4タイプの分類・スコア・UIは変更していない。
