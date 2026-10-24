@@ -1527,6 +1527,10 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
               disadvantage?.detection?.adversative_verb_lemmas?.includes('ὑποτάσσω') &&
               disadvantage.xsc?.signals?.some(s => s.id === 'adversative_verb'),
           'required_signals=' + JSON.stringify(disadvantageGates));
+    check('dative.interest_disadvantage — 補助シグナルの説明が実装と一致',
+          disadvantage?.detection?.conditions?.find(c => c.id === 'negation_present')?.signal === '否定語・反抗語が節内にある' &&
+              disadvantage?.xsc?.signals?.find(s => s.id === 'negation_present')?.label_ja === '否定語・反抗語が節内にある',
+          'condition=' + JSON.stringify(disadvantage?.detection?.conditions?.find(c => c.id === 'negation_present')));
 
     const sphere = all.find(t => t.id === 'dative.sphere');
     const sphereGates = sphere?.detection?.required_signals ?? [];
