@@ -3542,3 +3542,33 @@ console.log(`最終結果: ${allPass ? 'PASS' : 'FAIL'}  (PASS=${PASS} FAIL=${FA
 console.log('══════════════════════════════════════════════════════\n');
 
 process.exit(allPass ? 0 : 1);
+
+
+// ── Participle periphrastic construction requires both defining cues ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'participle.periphrastic');
+    const required = ['copula_present', 'periphrastic_tense'];
+    check('participle.periphrastic — コプラと現在・完了分詞を必須化',
+          Boolean(type) && required.every(id => type.detection?.required_signals?.includes(id)),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
+
+// ── Complementary participle requires a complement-selecting verb ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'participle.complementary');
+    check('participle.complementary — 補語分詞を要求する動詞を必須化',
+          Boolean(type) && type.detection?.required_signals?.includes('valency_complement_verb'),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
