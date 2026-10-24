@@ -4372,6 +4372,22 @@ section('§7ae  Observation Integration');
         JSON.stringify({ reasoning, impact }));
 }
 
+
+ // ── Batch 48: possessive genitive frequency is not an individual-token default rule ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const possessive = all.find(t => t.id === "genitive.possessive");
+    const reasoning = possessive?.dictionary?.reasoning || [];
+    const impact = possessive?.dictionary?.reading_impact_detail || "";
+    check("genitive.possessive — 頻度や単一条件だけで個別箇所を確定しない",
+        Boolean(possessive)
+            && reasoning.some(x => x.includes("補助的なテスト"))
+            && reasoning.some(x => x.includes("単一の条件だけで他の候補を排除しない"))
+            && impact.includes("頻度だけで個々の箇所の解釈を決めず")
+            && !impact.includes("デフォルト候補として機能する"),
+        JSON.stringify({ reasoning, impact }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
