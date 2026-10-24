@@ -3504,7 +3504,164 @@ section('§7ae  Observation Integration');
 }
 
 
+
+
+// ── Genitive absolute requires a genitive participle and genitive subject ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'participle.genitive_absolute');
+    const required = ['ptc_genitive_case', 'genitive_noun_present'];
+    check('participle.genitive_absolute — 属格分詞と属格主語を必須化',
+          Boolean(type) && required.every(id => type.detection?.required_signals?.includes(id)),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
+
+// ── Participle periphrastic construction requires both defining cues ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'participle.periphrastic');
+    const required = ['copula_present', 'periphrastic_tense'];
+    check('participle.periphrastic — コプラと現在・完了分詞を必須化',
+          Boolean(type) && required.every(id => type.detection?.required_signals?.includes(id)),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
+
+// ── Concessive participle requires an explicit concessive marker ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'participle.adverbial_concessive');
+    check('participle.adverbial_concessive — 譲歩標識を必須化',
+          Boolean(type) && type.detection?.required_signals?.includes('concessive_particle'),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
+
+// ── Indirect-discourse participle requires its accusative pattern ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'participle.indirect_discourse');
+    check('participle.indirect_discourse — 対格分詞パターンを必須化',
+          Boolean(type) && type.detection?.required_signals?.includes('verb_type_pattern'),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
+
+// ── Complementary participle requires a complement-selecting verb ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'participle.complementary');
+    check('participle.complementary — 補語分詞を要求する動詞を必須化',
+          Boolean(type) && type.detection?.required_signals?.includes('valency_complement_verb'),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
+
+// ── Granville Sharp construction requires the defining TSKS pattern ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'article.granville_sharp');
+    check('article.granville_sharp — TSKS 構文を必須化',
+          Boolean(type) && type.detection?.required_signals?.includes('tsks_pattern'),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
  
+// ── Article-use types require their defining detection cues ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const cases = [
+        ['article.monadic', 'monadic_noun'],
+        ['article.generic', 'generic_noun'],
+        ['article.previous_reference', 'repeated_head'],
+        ['article.par_excellence', 'par_excellence_noun'],
+        ['article.well_known', 'well_known_noun'],
+        ['article.abstract', 'abstract_head'],
+        ['article.deictic', 'adjacent_demonstrative'],
+        ['article.kataphoric', 'forward_modifier']
+    ];
+    for (const [id, signal] of cases) {
+        const type = all.find(t => t.id === id);
+        check(id + ' — 定義的シグナルを必須化',
+              Boolean(type) && type.detection?.required_signals?.includes(signal),
+              'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+    }
+}
+
+// ── Accusative and infinitive classifications require defining structural cues ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const cases = [
+        ['accusative.double_person_thing', ['valency_da_verb', 'two_acc_chunks']],
+        ['accusative.object_complement', ['valency_oc_verb', 'two_acc_chunks']],
+        ['infinitive.complementary', ['valency_inf_verb']]
+    ];
+    for (const [id, required] of cases) {
+        const type = all.find(t => t.id === id);
+        check(id + ' — 構文を定義する動詞・句構造シグナルを必須化',
+              Boolean(type) && required.every(signal => type.detection?.required_signals?.includes(signal)),
+              'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+    }
+}
+
+// ── Adverbial infinitive classifications require their defining construction markers ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const cases = [
+        ['infinitive.result', 'hoste_present'],
+        ['infinitive.time', 'temporal_prep_to'],
+        ['infinitive.cause', 'dia_to'],
+        ['infinitive.means', 'en_to']
+    ];
+    for (const [id, signal] of cases) {
+        const type = all.find(t => t.id === id);
+        check(id + ' — 用法を定義する構文標識を必須化',
+              Boolean(type) && type.detection?.required_signals?.includes(signal),
+              'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+    }
+}
+
+
 // ── Additional syntax evidence gates ──
 {
  const all=[];
@@ -3513,21 +3670,43 @@ section('§7ae  Observation Integration');
  for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 定義的シグナルを必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
 }
 
+
 section('§8  最終カバレッジレポート');
-const mappedCount=genitiveIds.filter(id=>{try{const r=rf.format({type:id});return r?.summary&&r.summary!==UNCLASSIFIED_TEXT;}catch(_){return false;}}).length;
-const allTemplateTypes=[...genitiveIds,'clause.condition','clause.contrast'];
-const totalMapped=allTemplateTypes.filter(id=>{try{const r=rf.format({type:id});return r?.summary&&r.summary!==UNCLASSIFIED_TEXT;}catch(_){return false;}}).length;
+
+// ReadingFormatter テンプレート数（genitive 分）
+const mappedCount = genitiveIds.filter(id => {
+    try {
+        const r = rf.format({ type: id });
+        return r?.summary && r.summary !== UNCLASSIFIED_TEXT;
+    } catch (_) { return false; }
+}).length;
+
+// format() が返す有効テンプレート総数（genitive 以外も含む）
+// ※ _WALLACE_TEXT は外部公開されていないため間接推計
+const allTemplateTypes = [
+    ...genitiveIds,
+    'clause.condition', 'clause.contrast',
+];
+const totalMapped = allTemplateTypes.filter(id => {
+    try {
+        const r = rf.format({ type: id });
+        return r?.summary && r.summary !== UNCLASSIFIED_TEXT;
+    } catch (_) { return false; }
+}).length;
+
 console.log('');
 console.log(`  レジストリ genitive.* 型数   : ${genitiveIds.length}`);
 console.log(`  ReadingFormatter テンプレート : ${mappedCount} / ${genitiveIds.length} (genitive 分)`);
 console.log(`  マッピング済み総型数          : ${totalMapped}`);
-console.log(`  テスト総数                    : ${PASS+FAIL}`);
+console.log(`  テスト総数                    : ${PASS + FAIL}`);
 console.log(`    PASS  : ${PASS}`);
 console.log(`    FAIL  : ${FAIL}`);
 console.log(`    WARN  : ${WARN}`);
 console.log('');
-const allPass=FAIL===0;
+
+const allPass = FAIL === 0;
 console.log('══════════════════════════════════════════════════════');
-console.log(`最終結果: ${allPass?'PASS':'FAIL'}  (PASS=${PASS} FAIL=${FAIL} WARN=${WARN})`);
-console.log('══════════════════════════════════════════════════════\\n');
-process.exit(allPass?0:1);
+console.log(`最終結果: ${allPass ? 'PASS' : 'FAIL'}  (PASS=${PASS} FAIL=${FAIL} WARN=${WARN})`);
+console.log('══════════════════════════════════════════════════════\n');
+
+process.exit(allPass ? 0 : 1);
