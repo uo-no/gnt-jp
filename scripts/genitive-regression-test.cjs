@@ -1187,6 +1187,23 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           accTypes.filter(t => t.status === 'active').length >= 3);
 }
 
+// ── Partitive genitive requires a quantifying/partitive head cue ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'genitive.partitive');
+    const required = ['partitive_trigger'];
+    const gates = type?.detection?.required_signals ?? [];
+    check('genitive.partitive — 部分・全体関係を示すヘッド根拠を必須化',
+          Boolean(type) && required.every(id => gates.includes(id)) &&
+              !gates.includes('plural_genitive') && !gates.includes('no_preposition'),
+          'required_signals=' + JSON.stringify(gates));
+}
+
 // ── Relationship genitive requires kinship head + proper name ────
 {
     const all = [];
