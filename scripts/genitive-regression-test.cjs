@@ -3951,6 +3951,20 @@ section('§7ae  Observation Integration');
     }
 }
 
+// ════════════════════════════════════════════════════════════════
+// ── Batch 22: require positive defining evidence for five classifications ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const expected = [["genitive.absolute",["genitive_participle","genitive_noun_present","distinct_subject"]],["verb.purpose_clause",["hina"]],["verb.indefinite_relative",["relative_an"]],["verb.conditional_subjunctive",["ean"]],["verb.potential_optative",["an_particle"]]];
+    for (const [id, signals] of expected) {
+      const type = all.find(t => t.id === id);
+      const gates = type?.detection?.required_signals ?? [];
+      check(id + ' — 定義的な根拠シグナルを必須化',
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
