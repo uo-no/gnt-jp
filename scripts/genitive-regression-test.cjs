@@ -4268,6 +4268,25 @@ section('§7ae  Observation Integration');
         JSON.stringify({ hint: type?.hint_ja, signalLabel: signal?.label_ja }));
 }
 
+// ── Batch 41: tense and co-occurrence cues must not be phrased as proof ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const temporal = all.find(t => t.id === "participle.adverbial_temporal");
+    const directObject = all.find(t => t.id === "accusative.direct_object");
+    const signalLabel = (type, id) => type?.xsc?.signals?.find(s => s.id === id)?.label_ja;
+    check("participle.adverbial_temporal — 時制を確定的な時間解釈として表示しない",
+        Boolean(temporal)
+            && temporal.hint_ja === "アオリスト分詞は先行動作、現在分詞は同時動作、完了分詞は結果状態という読みを支えることがある。ただし、時間関係は分詞の形だけで確定せず、文脈から判断する。"
+            && signalLabel(temporal, "tense_present") === "現在（同時動作の候補）"
+            && signalLabel(temporal, "tense_perfect") === "完了（結果状態の候補）"
+            && signalLabel(temporal, "tense_aorist") === "アオリスト（先行動作の候補）",
+        JSON.stringify({ hint: temporal?.hint_ja }));
+    check("accusative.direct_object — 定形動詞との共起を直接目的語の証明としない",
+        Boolean(directObject)
+            && directObject.hint_ja === "定形動詞との共起や前置詞に支配されていないことは確認材料の一つ。対格だけでは直接目的語と確定せず、動詞との関係と文脈を確認する。",
+        JSON.stringify({ hint: directObject?.hint_ja }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
