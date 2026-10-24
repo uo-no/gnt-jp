@@ -3503,45 +3503,7 @@ section('§7ae  Observation Integration');
           'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
 }
 
-section('§8  最終カバレッジレポート');
 
-// ReadingFormatter テンプレート数（genitive 分）
-const mappedCount = genitiveIds.filter(id => {
-    try {
-        const r = rf.format({ type: id });
-        return r?.summary && r.summary !== UNCLASSIFIED_TEXT;
-    } catch (_) { return false; }
-}).length;
-
-// format() が返す有効テンプレート総数（genitive 以外も含む）
-// ※ _WALLACE_TEXT は外部公開されていないため間接推計
-const allTemplateTypes = [
-    ...genitiveIds,
-    'clause.condition', 'clause.contrast',
-];
-const totalMapped = allTemplateTypes.filter(id => {
-    try {
-        const r = rf.format({ type: id });
-        return r?.summary && r.summary !== UNCLASSIFIED_TEXT;
-    } catch (_) { return false; }
-}).length;
-
-console.log('');
-console.log(`  レジストリ genitive.* 型数   : ${genitiveIds.length}`);
-console.log(`  ReadingFormatter テンプレート : ${mappedCount} / ${genitiveIds.length} (genitive 分)`);
-console.log(`  マッピング済み総型数          : ${totalMapped}`);
-console.log(`  テスト総数                    : ${PASS + FAIL}`);
-console.log(`    PASS  : ${PASS}`);
-console.log(`    FAIL  : ${FAIL}`);
-console.log(`    WARN  : ${WARN}`);
-console.log('');
-
-const allPass = FAIL === 0;
-console.log('══════════════════════════════════════════════════════');
-console.log(`最終結果: ${allPass ? 'PASS' : 'FAIL'}  (PASS=${PASS} FAIL=${FAIL} WARN=${WARN})`);
-console.log('══════════════════════════════════════════════════════\n');
-
-process.exit(allPass ? 0 : 1);
 
 
 // ── Genitive absolute requires a genitive participle and genitive subject ──
@@ -3698,3 +3660,53 @@ process.exit(allPass ? 0 : 1);
               'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
     }
 }
+
+
+// ── Additional syntax evidence gates ──
+{
+ const all=[];
+ for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
+ const cases=[['infinitive.subject',['impersonal_verb']],['infinitive.indirect_discourse',['discourse_verb']],['infinitive.epexegetical',['epexegetical_head']],['article.colwell',['colwell_pattern']],['participle.redundant',['redundant_ptc_lemma','saying_main_verb']]];
+ for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 定義的シグナルを必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
+}
+
+
+section('§8  最終カバレッジレポート');
+
+// ReadingFormatter テンプレート数（genitive 分）
+const mappedCount = genitiveIds.filter(id => {
+    try {
+        const r = rf.format({ type: id });
+        return r?.summary && r.summary !== UNCLASSIFIED_TEXT;
+    } catch (_) { return false; }
+}).length;
+
+// format() が返す有効テンプレート総数（genitive 以外も含む）
+// ※ _WALLACE_TEXT は外部公開されていないため間接推計
+const allTemplateTypes = [
+    ...genitiveIds,
+    'clause.condition', 'clause.contrast',
+];
+const totalMapped = allTemplateTypes.filter(id => {
+    try {
+        const r = rf.format({ type: id });
+        return r?.summary && r.summary !== UNCLASSIFIED_TEXT;
+    } catch (_) { return false; }
+}).length;
+
+console.log('');
+console.log(`  レジストリ genitive.* 型数   : ${genitiveIds.length}`);
+console.log(`  ReadingFormatter テンプレート : ${mappedCount} / ${genitiveIds.length} (genitive 分)`);
+console.log(`  マッピング済み総型数          : ${totalMapped}`);
+console.log(`  テスト総数                    : ${PASS + FAIL}`);
+console.log(`    PASS  : ${PASS}`);
+console.log(`    FAIL  : ${FAIL}`);
+console.log(`    WARN  : ${WARN}`);
+console.log('');
+
+const allPass = FAIL === 0;
+console.log('══════════════════════════════════════════════════════');
+console.log(`最終結果: ${allPass ? 'PASS' : 'FAIL'}  (PASS=${PASS} FAIL=${FAIL} WARN=${WARN})`);
+console.log('══════════════════════════════════════════════════════\n');
+
+process.exit(allPass ? 0 : 1);
