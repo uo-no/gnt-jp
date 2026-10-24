@@ -3655,3 +3655,24 @@ process.exit(allPass ? 0 : 1);
               'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
     }
 }
+
+// ── Accusative and infinitive classifications require defining structural cues ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const cases = [
+        ['accusative.double_person_thing', ['valency_da_verb', 'two_acc_chunks']],
+        ['accusative.object_complement', ['valency_oc_verb', 'two_acc_chunks']],
+        ['infinitive.complementary', ['valency_inf_verb']]
+    ];
+    for (const [id, required] of cases) {
+        const type = all.find(t => t.id === id);
+        check(id + ' — 構文を定義する動詞・句構造シグナルを必須化',
+              Boolean(type) && required.every(signal => type.detection?.required_signals?.includes(signal)),
+              'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+    }
+}
