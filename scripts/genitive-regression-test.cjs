@@ -3738,6 +3738,21 @@ section('§7ae  Observation Integration');
  for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 節の種類を定義する標識と法を必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
 }
 
+
+
+// ── Purpose, relative, and conditional clause types require defining cues ──
+{
+ const all=[];
+ for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
+ const cases=[
+  ['clause.purpose_hina',['hina','subjunctive']],
+  ['clause.adjectival_relative',['rel','antecedent','finite']],
+  ['clause.conditional_second_class',['ei','past_ind','an_apodosis']],
+  ['clause.substantival_hoti',['hoti','matrix']]
+ ];
+ for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 節の種類を定義する標識・構造を必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
