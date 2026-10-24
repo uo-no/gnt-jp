@@ -3671,6 +3671,23 @@ section('§7ae  Observation Integration');
 }
 
 
+
+
+
+// ── Additional defining-signal gates ──
+{
+ const all=[];
+ for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
+ const cases=[
+  ['article.simple_identification',['has_head_noun']],
+  ['accusative.subject_of_infinitive',['infinitive_present','no_preposition']],
+  ['participle.adverbial_manner',['manner_ptc_lemma','no_article_before']],
+  ['infinitive.articular',['article_before_inf','no_prep_governor']]
+ ];
+ for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 定義的シグナルを必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
+}
+
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
