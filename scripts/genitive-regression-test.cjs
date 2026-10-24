@@ -3992,6 +3992,19 @@ section('§7ae  Observation Integration');
     }
 }
 
+// ── Batch 25: require defining signals for five nominal phrase structures ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const expected = [["nominal_syntax.simple_np",["bare","no_mod"]],["nominal_syntax.articular_np",["art"]],["nominal_syntax.anarthrous_np",["anarth"]],["nominal_syntax.modified_np",["mod1"]],["nominal_syntax.multiple_modifier_np",["mod2"]]];
+    for (const [id, signals] of expected) {
+      const type = all.find(t => t.id === id);
+      const gates = type?.detection?.required_signals ?? [];
+      check(id + ' — 定義的な根拠シグナルを必須化',
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
