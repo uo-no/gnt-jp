@@ -3979,6 +3979,19 @@ section('§7ae  Observation Integration');
     }
 }
 
+// ── Batch 24: require defining signals for five tense/aspect classifications ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const expected = [["verb.futuristic_present",["present_tense","motion_lemma"]],["verb.present_progressive",["present_t","now_adverb"]],["verb.present_iterative",["present_t","iter_marker"]],["verb.imperfect_customary",["impf_t","distributive"]],["verb.aorist_culminative",["aor_t","culminative_lemma"]]];
+    for (const [id, signals] of expected) {
+      const type = all.find(t => t.id === id);
+      const gates = type?.detection?.required_signals ?? [];
+      check(id + ' — 定義的な根拠シグナルを必須化',
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
