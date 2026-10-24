@@ -1187,6 +1187,22 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           accTypes.filter(t => t.status === 'active').length >= 3);
 }
 
+// ── Dative of manner requires lexical evidence; semantic substitution remains non-gating ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'dative.manner');
+    const gates = type?.detection?.required_signals ?? [];
+    check('dative.manner — 様態名詞を必須化し、未実装の副詞置換判定は必須化しない',
+          Boolean(type) && gates.includes('manner_noun') &&
+              !gates.includes('adverb_substitutable'),
+          'required_signals=' + JSON.stringify(gates));
+}
+
 // ── Dative of agent requires passive-perfect context + personal target ──
 {
     const all = [];
