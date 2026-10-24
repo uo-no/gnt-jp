@@ -4256,6 +4256,18 @@ section('§7ae  Observation Integration');
     }
 }
 
+// ── Batch 40: avoid treating article absence as proof of adverbial PP function ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const type = all.find(t => t.id === "preposition.adverbial_pp");
+    const signal = type?.xsc?.signals?.find(s => s.id === "no_article");
+    check("preposition.adverbial_pp — 無冠詞を決定的根拠として表示しない",
+        Boolean(type)
+            && type.hint_ja === "冠詞の有無だけでは副詞的機能を確定せず、句の係り先と文脈を確認する。"
+            && signal?.label_ja === "冠詞なし（補助的な手掛かり）",
+        JSON.stringify({ hint: type?.hint_ja, signalLabel: signal?.label_ja }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
