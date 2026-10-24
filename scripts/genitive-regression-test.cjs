@@ -4312,6 +4312,16 @@ section('§7ae  Observation Integration');
         JSON.stringify({ hint: ga?.hint_ja }));
 }
 
+// ── Batch 44: attributive participle article position is a cue, not a confidence verdict ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const attributive = all.find(t => t.id === "participle.attributive");
+    check("participle.attributive — 無冠詞だけで確度を一律に下げる説明を避ける",
+        Boolean(attributive)
+            && attributive.hint_ja === "格・性・数が一致する名詞を限定位置（冠詞＋名詞＋冠詞＋分詞 等）で修飾する。冠詞の位置は手掛かりだが、無冠詞の場合も含め、名詞句の構造と文脈から用法を確認する。",
+        JSON.stringify({ hint: attributive?.hint_ja }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
