@@ -4343,6 +4343,19 @@ section('§7ae  Observation Integration');
         JSON.stringify({ reasoning }));
 }
 
+// ── Batch 46: descriptive genitive must not be concluded by elimination alone ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const descriptive = all.find(t => t.id === "genitive.descriptive");
+    const reasoning = descriptive?.dictionary?.reasoning || [];
+    check("genitive.descriptive — 言い換えと消去法を確定根拠として扱わない",
+        Boolean(descriptive)
+            && reasoning.some(x => x.includes("補助的なテスト"))
+            && reasoning.some(x => x.includes("消去法だけで確定せず"))
+            && !reasoning.some(x => x.includes("記述用法に収束する")),
+        JSON.stringify({ reasoning, impact: descriptive?.dictionary?.reading_impact_detail }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
