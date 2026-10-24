@@ -1235,7 +1235,7 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
     }
     for (const [id, signals, label] of [
       ['genitive.partitive', ['partitive_trigger', 'plural_genitive'], '部分属格 — 部分関係と複数属格の根拠を必須化'],
-      ['genitive.source', ['source_prep', 'divine_or_personal_source'], '起源属格 — 起源前置詞と人称・固有名詞の根拠を必須化']
+      ['genitive.source', ['source_prep'], '起源属格 — 起源前置詞の根拠を必須化（JAS 1:13 の θεοῦ は普通名詞形の神名）']
     ]) {
       const type = all.find(t => t.id === id);
       const gates = type?.detection?.required_signals ?? [];
