@@ -1233,6 +1233,16 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
             Boolean(type) && signals.every(signal => gates.includes(signal)),
             'required_signals=' + JSON.stringify(gates));
     }
+    for (const [id, signals, label] of [
+      ['genitive.partitive', ['partitive_trigger', 'plural_genitive'], '部分属格 — 部分関係と複数属格の根拠を必須化'],
+      ['genitive.source', ['source_prep', 'divine_or_personal_source'], '起源属格 — 起源前置詞と人称・固有名詞の根拠を必須化']
+    ]) {
+      const type = all.find(t => t.id === id);
+      const gates = type?.detection?.required_signals ?? [];
+      check(id + ' — ' + label,
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
     const agency = all.find(t => t.id === 'genitive.agency');
     const agencyGates = agency?.detection?.required_signals ?? [];
     check('genitive.agency — 動形容詞ヘッドを必須化',
