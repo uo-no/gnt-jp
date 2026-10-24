@@ -3768,6 +3768,21 @@ section('§7ae  Observation Integration');
  for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 分類を定義する形態・構造シグナルを必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
 }
 
+
+
+// ── Pronoun classifications require lexical/positional evidence ──
+{
+ const all=[];
+ for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
+ const cases=[
+  ['pronoun.personal',['personal_lemma']],
+  ['pronoun.intensive',['autos_lemma','intensive_pos']],
+  ['pronoun.reflexive',['reflexive_lemma']],
+  ['pronoun.reciprocal',['reciprocal_lemma']]
+ ];
+ for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 代名詞の分類根拠を必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
