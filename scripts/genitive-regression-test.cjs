@@ -3898,7 +3898,7 @@ section('§7ae  Observation Integration');
       ['particle.interrogative_particle', ['int_lemma', 'in_question']],
       ['particle.rhetorical_particle', ['me_opt', 'neg_q']],
       ['particle.emphatic_ge', ['ge', 'ge_focus']],
-      ['particle.restrictive_monon', ['monon_adv', 'monon_acc']],
+      ['particle.restrictive_monon', ['monon_acc']],
       ['particle.inferential_oun', ['oun', 'oun_focus']]
     ]) {
       const type = all.find(t => t.id === id);
