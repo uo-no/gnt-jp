@@ -3629,3 +3629,29 @@ process.exit(allPass ? 0 : 1);
           Boolean(type) && type.detection?.required_signals?.includes('tsks_pattern'),
           'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
 }
+ 
+// ── Article-use types require their defining detection cues ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const cases = [
+        ['article.monadic', 'monadic_noun'],
+        ['article.generic', 'generic_noun'],
+        ['article.previous_reference', 'repeated_head'],
+        ['article.par_excellence', 'par_excellence_noun'],
+        ['article.well_known', 'well_known_noun'],
+        ['article.abstract', 'abstract_head'],
+        ['article.deictic', 'adjacent_demonstrative'],
+        ['article.kataphoric', 'forward_modifier']
+    ];
+    for (const [id, signal] of cases) {
+        const type = all.find(t => t.id === id);
+        check(id + ' — 定義的シグナルを必須化',
+              Boolean(type) && type.detection?.required_signals?.includes(signal),
+              'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+    }
+}
