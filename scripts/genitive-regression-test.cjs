@@ -1187,6 +1187,19 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           accTypes.filter(t => t.status === 'active').length >= 3);
 }
 
+// ── Content genitive requires container and filling-verb evidence ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) all.push(...(subcategory.types ?? []));
+    }
+    const type = all.find(t => t.id === 'genitive.content');
+    const gates = type?.detection?.required_signals ?? [];
+    check('genitive.content — 容器ヘッドと充満動詞の根拠を必須化',
+          Boolean(type) && ['container_head', 'filling_verb'].every(signal => gates.includes(signal)),
+          'required_signals=' + JSON.stringify(gates));
+}
+
 // ── Genitive of time requires a positive temporal-lexeme cue ──
 {
     const all = [];
