@@ -1195,6 +1195,11 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
             all.push(...(subcategory.types ?? []));
         }
     }
+    const attributed = all.find(t => t.id === 'genitive.attributed');
+    const attributedGates = attributed?.detection?.required_signals ?? [];
+    check('genitive.attributed — 属性名詞ヘッドを必須化',
+          Boolean(attributed) && attributedGates.includes('attributed_head'),
+          'required_signals=' + JSON.stringify(attributedGates));
     const placeType = all.find(t => t.id === 'genitive.place');
     const placeGates = placeType?.detection?.required_signals ?? [];
     check('genitive.place — 前置詞支配なしを必須化', Boolean(placeType) &&
