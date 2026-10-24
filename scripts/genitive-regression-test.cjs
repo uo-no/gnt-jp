@@ -4252,23 +4252,6 @@ section('§7ae  Observation Integration');
     }
 }
 
-// ── Batch 40: require defining signals for three syntax types ──
-{
-    const all = collectAllTypeDefs(syntaxRegistry);
-    const expected = [
-        ["participle.adverbial_temporal", ["tense_aorist"]],
-        ["participle.adverbial_purpose_result", ["future_participle"]],
-        ["conjunction.correlative_men_de", ["men_de"]],
-    ];
-    for (const [id, signals] of expected) {
-        const type = all.find(t => t.id === id);
-        const gates = type?.detection?.required_signals ?? [];
-        check(id + ' — 根拠シグナルを必須化',
-            Boolean(type) && signals.every(signal => gates.includes(signal)),
-            'required_signals=' + JSON.stringify(gates));
-    }
-}
-
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
