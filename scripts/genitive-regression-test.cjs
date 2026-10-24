@@ -1187,6 +1187,22 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           accTypes.filter(t => t.status === 'active').length >= 3);
 }
 
+// ── Genitive of time requires a positive temporal-lexeme cue ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'genitive.time');
+    const gates = type?.detection?.required_signals ?? [];
+    check('genitive.time — 時間語彙を必須化し、前置詞不在だけでは確定しない',
+          Boolean(type) && gates.includes('temporal_lemma') &&
+              !gates.includes('no_preposition'),
+          'required_signals=' + JSON.stringify(gates));
+}
+
 // ── Dative of manner requires lexical evidence; semantic substitution remains non-gating ──
 {
     const all = [];
