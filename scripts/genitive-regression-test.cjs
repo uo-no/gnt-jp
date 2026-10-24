@@ -4403,6 +4403,27 @@ section('§7ae  Observation Integration');
         JSON.stringify({ reasoning, impact }));
 }
 
+// ── Batch 50: dative roles and temporal readings are candidates, not guaranteed conclusions ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const indirect = all.find(t => t.id === "dative.indirect_object");
+    const time = all.find(t => t.id === "dative.time");
+    const indirectImpact = indirect?.dictionary?.reading_impact_detail || "";
+    const timeReasoning = time?.dictionary?.reasoning || [];
+    const timeImpact = time?.dictionary?.reading_impact_detail || "";
+    check("dative.indirect_object — 受取人を文法ラベルだけで確定しない",
+        Boolean(indirect)
+            && indirectImpact.includes("動詞の意味、与格名詞との関係、構文、文脈")
+            && !indirectImpact.includes("受信者が確定する"),
+        indirectImpact);
+    check("dative.time — 時点・時系列の判断に文脈と競合候補を含める",
+        Boolean(time)
+            && timeReasoning.some(x => x.includes("補助的なテスト"))
+            && timeImpact.includes("競合候補と文脈を合わせて判断")
+            && !timeImpact.includes("時系列を確定する"),
+        JSON.stringify({ timeReasoning, timeImpact }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
