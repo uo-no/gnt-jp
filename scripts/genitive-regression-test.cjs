@@ -1187,6 +1187,22 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           accTypes.filter(t => t.status === 'active').length >= 3);
 }
 
+// ── Dative of agent requires passive-perfect context + personal target ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'dative.agent');
+    const required = ['perfect_passive', 'personal_target'];
+    const gates = type?.detection?.required_signals ?? [];
+    check('dative.agent — 完了受動環境と人称的対象を必須化',
+          Boolean(type) && required.every(id => gates.includes(id)),
+          'required_signals=' + JSON.stringify(gates));
+}
+
 // ── Dative of time requires a temporal noun; article is supporting evidence ──
 {
     const all = [];
