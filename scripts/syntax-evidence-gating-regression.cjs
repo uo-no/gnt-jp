@@ -75,6 +75,22 @@ function assertEvidenceGate(tokens, label) {
   }
 }
 
+// OR-of-AND evidence groups: one complete alternative pattern is sufficient.
+{
+  const type = findType(registry, 'infinitive.purpose');
+  assert.deepEqual(type?.detection?.required_signal_groups,
+    [['eis_pros_to'], ['tou_infinitive']],
+    'purpose infinitive must accept either supported construction');
+  const correlative = findType(registry, 'conjunction.correlative_men_de');
+  assert.deepEqual(correlative?.detection?.required_signal_groups,
+    [['men_de'], ['de_men']],
+    'correlative μέν…δέ must accept either token orientation');
+  const emphatic = findType(registry, 'particle.emphatic_negative');
+  assert.deepEqual(emphatic?.detection?.required_signal_groups,
+    [['ou_me_subj'], ['ou_me_fut']],
+    'οὐ μή must accept either subjunctive or future pattern');
+}
+
 // Ephesians 1:10: Χριστῷ is governed by ἐν and cannot be the left-dislocated
 // token merely because a later dative pronoun is found in the same verse.
 const eph110 = verse('EPH', 1, 10);
