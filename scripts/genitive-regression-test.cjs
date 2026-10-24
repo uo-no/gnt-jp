@@ -3462,6 +3462,34 @@ section('§7ae  Observation Integration');
 // ════════════════════════════════════════════════════════════════
 // §8  最終カバレッジレポート
 // ════════════════════════════════════════════════════════════════
+// ── Dative means requires an ungoverned dative ───────────────────
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'dative.means');
+    check('dative.means — 前置詞支配のない与格を必須化',
+          Boolean(type) && type.detection?.required_signals?.includes('no_preposition'),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
+
+// ── Attributive participle requires a matching nominal head ──────
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'participle.attributive');
+    check('participle.attributive — 一致する修飾先名詞を必須化',
+          Boolean(type) && type.detection?.required_signals?.includes('matching_noun'),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
