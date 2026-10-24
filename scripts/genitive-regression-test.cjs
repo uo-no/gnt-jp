@@ -3704,6 +3704,24 @@ section('§7ae  Observation Integration');
 }
 
 
+
+ 
+// ── Additional accusative and subordinating conjunction evidence gates ──
+{
+ const all=[];
+ for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
+ const cases=[
+  ['accusative.cognate',['cognate_pair']],
+  ['accusative.adverbial',['adverbial_acc_lemma']],
+  ['conjunction.subordinating_purpose',['subord']],
+  ['conjunction.subordinating_temporal',['subord']],
+  ['conjunction.subordinating_conditional',['subord']],
+  ['conjunction.subordinating_result',['subord']]
+ ];
+ for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 定義的シグナルを必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
+}
+
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
