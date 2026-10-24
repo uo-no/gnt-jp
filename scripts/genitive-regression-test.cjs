@@ -1247,6 +1247,22 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
 }
 
+// ── Content genitive requires a container/content head cue; filling verb is supporting evidence ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'genitive.content');
+    const required = ['container_head'];
+    check('genitive.content — 容器ヘッドを必須化（充満動詞は補助根拠）',
+          Boolean(type) && required.every(id => type.detection?.required_signals?.includes(id)) &&
+              !type.detection?.required_signals?.includes('filling_verb'),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
+
 // ── Direct-object candidates must require all defining evidence ──
 {
     const all = [];
