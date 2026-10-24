@@ -1205,6 +1205,11 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
             Boolean(type) && type.detection?.required_signals?.includes(signal),
             'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
     }
+    const agency = all.find(t => t.id === 'genitive.agency');
+    const agencyGates = agency?.detection?.required_signals ?? [];
+    check('genitive.agency — 動形容詞ヘッドを必須化',
+          Boolean(agency) && agencyGates.includes('verbal_adjective_head'),
+          'required_signals=' + JSON.stringify(agencyGates));
     const attributed = all.find(t => t.id === 'genitive.attributed');
     const attributedGates = attributed?.detection?.required_signals ?? [];
     check('genitive.attributed — 属性名詞ヘッドを必須化',
