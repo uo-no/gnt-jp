@@ -2312,6 +2312,19 @@ class CandidateScorer {
             return null;
         }
 
+        // Alternative evidence patterns use OR between groups and AND within each
+        // group. Keep this separate from required_signals, which remains conjunctive.
+        if (Array.isArray(det.required_signal_groups) &&
+            det.required_signal_groups.length > 0) {
+            const groups = det.required_signal_groups;
+            const hasValidGroup = groups.some(group =>
+                Array.isArray(group) &&
+                group.length > 0 &&
+                group.every(id => matched.includes(id))
+            );
+            if (!hasValidGroup) return null;
+        }
+
         // Evidence-first gate: if a type declares structural conditions, at least
         // one must match. A prior/base weight or unconditional cue must not promote
         // a hypothesis whose declared checks all failed to the minimum confidence tier.
