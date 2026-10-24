@@ -4081,6 +4081,25 @@ section('§7ae  Observation Integration');
     }
 }
 
+// ── Batch 30: require defining signals for five discourse/particle types ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const expected = [
+        ["particle.continuative_de", ["de_focus"]],
+        ["particle.explanatory_gar", ["gar_focus"]],
+        ["discourse.parenthetical", ["paren"]],
+        ["discourse.explanatory_parenthesis", ["expl"]],
+        ["discourse.contrast_men_de", ["contrast"]],
+    ];
+    for (const [id, signals] of expected) {
+        const type = all.find(t => t.id === id);
+        const gates = type?.detection?.required_signals ?? [];
+        check(id + ' — 定義的な根拠シグナルを必須化',
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
