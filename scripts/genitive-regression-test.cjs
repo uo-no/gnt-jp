@@ -1203,6 +1203,25 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           'required_signals=' + JSON.stringify(gates));
 }
 
+// ── Dative of association requires either a syn-compound or σύν preposition ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'dative.association');
+    const det = type?.detection;
+    const gates = det?.required_signals ?? [];
+    const marker = det?.conditions?.find(c => c.id === 'association_marker');
+    check('dative.association — σύν前置詞または syn- 複合動詞のいずれかを必須化',
+          Boolean(type) && gates.includes('association_marker') &&
+              marker?.check === "context_verb_has_syn_prefix() OR governor_lemma_eq('σύν')",
+          'required_signals=' + JSON.stringify(gates) +
+              '; marker=' + JSON.stringify(marker?.check));
+}
+
 // ── Dative of measure requires degree-lexeme evidence; comparative context remains supporting ──
 {
     const all = [];
