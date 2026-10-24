@@ -1222,6 +1222,17 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
             Boolean(type) && signals.every(signal => gates.includes(signal)),
             'required_signals=' + JSON.stringify(gates));
     }
+    for (const [id, signals, label] of [
+      ['genitive.possessive', ['follows_head_noun'], '所有属格 — 名詞ヘッドとの関係を必須化'],
+      ['genitive.descriptive', ['follows_head_noun', 'qualitative_noun'], '描写的属格 — 名詞ヘッドと性質語の根拠を必須化'],
+      ['genitive.means', ['passive_main', 'abstract_target'], '手段属格 — 受動態と抽象対象の根拠を必須化']
+    ]) {
+      const type = all.find(t => t.id === id);
+      const gates = type?.detection?.required_signals ?? [];
+      check(id + ' — ' + label,
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
     const agency = all.find(t => t.id === 'genitive.agency');
     const agencyGates = agency?.detection?.required_signals ?? [];
     check('genitive.agency — 動形容詞ヘッドを必須化',
