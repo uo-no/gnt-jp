@@ -3544,6 +3544,21 @@ console.log('══════════════════════�
 process.exit(allPass ? 0 : 1);
 
 
+// ── Genitive absolute requires a genitive participle and genitive subject ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'participle.genitive_absolute');
+    const required = ['ptc_genitive_case', 'genitive_noun_present'];
+    check('participle.genitive_absolute — 属格分詞と属格主語を必須化',
+          Boolean(type) && required.every(id => type.detection?.required_signals?.includes(id)),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
+
 // ── Participle periphrastic construction requires both defining cues ──
 {
     const all = [];
