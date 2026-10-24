@@ -1385,6 +1385,23 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
     }
 }
 
+// ── Dative of interest (advantage) requires positive benefactive-verb evidence ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'dative.interest_advantage');
+    const gates = type?.detection?.required_signals ?? [];
+    check('dative.interest_advantage — 受益文脈動詞を必須化（人格名詞・授与動詞不在は補助根拠）',
+          Boolean(type) && gates.includes('benefactive_verb') &&
+              !gates.includes('personal_noun') && !gates.includes('no_indirect_obj_verb') &&
+              type.xsc?.signals?.some(s => s.id === 'benefactive_verb'),
+          'required_signals=' + JSON.stringify(gates));
+}
+
 // ── Dative 完成 ──────────────────────────────────────────────────
 console.log('\n  ─── Dative: possession / direct_object / agent / measure / ethical ───');
 catVerseTest('LUK 2:7 αὐτοῖς（所有与格）', 'LUK', 2, 7, 'αὐτός', 'dative.', 'dative.possession');
