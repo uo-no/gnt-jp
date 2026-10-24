@@ -3688,6 +3688,22 @@ section('§7ae  Observation Integration');
 }
 
 
+
+ 
+// ── Additional conjunction evidence gates ──
+{
+ const all=[];
+ for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
+ const cases=[
+  ['conjunction.coordinating_additive',['kai_te']],
+  ['conjunction.coordinating_adversative',['alla']],
+  ['conjunction.coordinating_inferential',['oun']],
+  ['conjunction.coordinating_explanatory',['gar']]
+ ];
+ for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 定義的シグナルを必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
+}
+
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
