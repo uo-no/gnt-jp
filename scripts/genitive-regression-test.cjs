@@ -3841,6 +3841,28 @@ section('§7ae  Observation Integration');
  for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 小辞を定義する標識を必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
 }
 
+// ── Particle classifications require their defining lexical cue ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    for (const [id, signal] of [
+      ['particle.connective_te', 'te'],
+      ['particle.assertive_de', 'de_assert'],
+      ['particle.attention_de', 'de_volitional'],
+      ['particle.emphasis_per', 'per'],
+      ['particle.emphasis_toi', 'toi']
+    ]) {
+      const type = all.find(t => t.id === id);
+      check(id + ' — 型を定義する語彙的根拠を必須化',
+            Boolean(type) && type.detection?.required_signals?.includes(signal),
+            'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+    }
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
