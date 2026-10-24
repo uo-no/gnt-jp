@@ -1205,6 +1205,12 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
             Boolean(type) && type.detection?.required_signals?.includes(signal),
             'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
     }
+    const epexegetical = all.find(t => t.id === 'genitive.epexegetical');
+    const epexegeticalGates = epexegetical?.detection?.required_signals ?? [];
+    check('genitive.epexegetical — 抽象・象徴ヘッドを必須化し、未実装の同格置換判定は必須化しない',
+          Boolean(epexegetical) && epexegeticalGates.includes('head_is_abstract') &&
+              !epexegeticalGates.includes('namely_substitutable'),
+          'required_signals=' + JSON.stringify(epexegeticalGates));
     const agency = all.find(t => t.id === 'genitive.agency');
     const agencyGates = agency?.detection?.required_signals ?? [];
     check('genitive.agency — 動形容詞ヘッドを必須化',
