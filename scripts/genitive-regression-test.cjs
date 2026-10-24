@@ -4320,6 +4320,12 @@ section('§7ae  Observation Integration');
         Boolean(attributive)
             && attributive.hint_ja === "格・性・数が一致する名詞を限定位置（冠詞＋名詞＋冠詞＋分詞 等）で修飾する。冠詞の位置は手掛かりだが、無冠詞の場合も含め、名詞句の構造と文脈から用法を確認する。",
         JSON.stringify({ hint: attributive?.hint_ja }));
+    check("participle.attributive — 診断資料も冠詞不在だけで除外しない",
+        Boolean(attributive) && attributive.dictionary?.diagnostics?.includes("述語的分詞との区別も確認し、冠詞の不在だけで限定用法を除外しない"),
+        JSON.stringify({ diagnostics: attributive?.dictionary?.diagnostics }));
+    check("participle.attributive — 推論資料が構造的手掛かりと判定を区別する",
+        Boolean(attributive) && attributive.dictionary?.reasoning?.some(x => x.includes("それだけで用法を確定しない")) && attributive.dictionary?.reasoning?.some(x => x.includes("補助的な方法")),
+        JSON.stringify({ reasoning: attributive?.dictionary?.reasoning }));
 }
 
 section('§8  最終カバレッジレポート');
