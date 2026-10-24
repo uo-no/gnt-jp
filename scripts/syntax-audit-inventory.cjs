@@ -36,6 +36,7 @@ const rows = types.map(type => {
   const conditionIds = conditions.map(c => c && c.id).filter(Boolean);
   const signalIds = signals.map(s => s && s.id).filter(Boolean);
   const required = Array.isArray(type.detection.required_signals) ? type.detection.required_signals : [];
+  const requiredGroups = Array.isArray(type.detection.required_signal_groups) ? type.detection.required_signal_groups : [];
   const signalSet = new Set(signalIds);
   const conditionSet = new Set(conditionIds);
   return {
@@ -47,12 +48,16 @@ const rows = types.map(type => {
     exclusionCount: exclusions.length,
     signalCount: signals.length,
     requiredSignals: required,
+    requiredSignalGroups: requiredGroups,
+    requiredSignalGroupMappingIssues: requiredGroups.flatMap((group, groupIndex) =>
+      Array.isArray(group) ? group.filter(id => !conditionSet.has(id)).map(id => ({ groupIndex, id })) : [{ groupIndex, id: '(group is not an array)' }]),
+    hasRequiredGate: required.length > 0 || requiredGroups.length > 0,
     missingRequiredSignalMappings: required.filter(id => !signalSet.has(id)),
     conditionIdsWithoutScoredSignal: [...new Set(conditionIds.filter(id => !signalSet.has(id)))],
     requiredSignalsWithoutCondition: required.filter(id => !conditionSet.has(id)),
     conditionsWithoutCheck: conditions.filter(c => !c || typeof c.check !== 'string' || !c.check.trim()).map(c => c?.id || '(missing id)'),
     exclusionsWithoutCheck: exclusions.filter(c => !c || typeof c.check !== 'string' || !c.check.trim()).map(c => c?.id || '(missing id)'),
-    missingRequiredGate: conditions.length > 0 && required.length === 0,
+    missingRequiredGate: conditions.length > 0 && required.length === 0 && requiredGroups.length === 0,
     duplicateId: idCounts.get(type.id) > 1
   };
 });
@@ -71,6 +76,9 @@ const summary = {
   duplicateTypeIds: [...idCounts].filter(([, count]) => count > 1).map(([id, count]) => ({ id, count })),
   typesWithConditions: sum(rows.map(r => Number(r.conditionCount > 0))),
   typesWithRequiredSignals: sum(rows.map(r => Number(r.requiredSignals.length > 0))),
+  typesWithRequiredSignalGroups: sum(rows.map(r => Number(r.requiredSignalGroups.length > 0))),
+  typesWithAnyRequiredGate: sum(rows.map(r => Number(r.hasRequiredGate))),
+  typesWithRequiredSignalGroupMappingIssues: sum(rows.map(r => Number(r.requiredSignalGroupMappingIssues.length > 0))),
   reviewCandidatesMissingRequiredGate: sum(rows.map(r => Number(r.missingRequiredGate))),
   typesWithUnmappedConditionIds: sum(rows.map(r => Number(r.conditionIdsWithoutScoredSignal.length > 0))),
   totalUnmappedConditionIds: sum(rows.map(r => r.conditionIdsWithoutScoredSignal.length)),
@@ -80,7 +88,7 @@ const summary = {
   byFamily: [...byFamily.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([family, list]) => ({
     family,
     total: list.length,
-    gated: sum(list.map(r => Number(r.requiredSignals.length > 0))),
+    gated: sum(list.map(r => Number(r.hasRequiredGate))),
     reviewCandidates: sum(list.map(r => Number(r.missingRequiredGate))),
     mappingIssues: sum(list.map(r => Number(r.conditionIdsWithoutScoredSignal.length > 0)))
   }))
@@ -93,10 +101,13 @@ if (process.argv.includes('--json')) {
   console.log('Missing required_signals is a review queue, not an automatic defect.');
   console.log('');
   console.log(`Registry types: ${summary.totalTypes}; unique IDs: ${summary.uniqueTypeIds}`);
-  console.log(`Types with required_signals: ${summary.typesWithRequiredSignals}`);
+  console.log(`Types with required_signals (AND): ${summary.typesWithRequiredSignals}`);
+  console.log(`Types with required_signal_groups (OR of AND groups): ${summary.typesWithRequiredSignalGroups}`);
+  console.log(`Types with either required gate: ${summary.typesWithAnyRequiredGate}`);
   console.log(`Review candidates without a required gate: ${summary.reviewCandidatesMissingRequiredGate}`);
   console.log(`Types with condition/signal mapping issues: ${summary.typesWithUnmappedConditionIds} (${summary.totalUnmappedConditionIds} unmapped condition IDs)`);
   console.log(`Required signals without a scored signal: ${summary.typesWithUnmappedRequiredSignals}`);
+  console.log(`Types with required_signal_groups mapping issues: ${summary.typesWithRequiredSignalGroupMappingIssues}`);
   console.log(`Conditions without check expression: ${summary.conditionsWithoutCheck}`);
   console.log(`Exclusions without check expression: ${summary.exclusionsWithoutCheck}`);
   console.log('');
@@ -113,7 +124,7 @@ if (process.argv.includes('--json')) {
   }
   console.log('');
   if (summary.duplicateTypeIds.length) console.log('DUPLICATE TYPE IDS: ' + JSON.stringify(summary.duplicateTypeIds));
-  if (summary.typesWithUnmappedConditionIds || summary.typesWithUnmappedRequiredSignals || summary.conditionsWithoutCheck || summary.exclusionsWithoutCheck) {
+  if (summary.typesWithUnmappedConditionIds || summary.typesWithUnmappedRequiredSignals || summary.typesWithRequiredSignalGroupMappingIssues || summary.conditionsWithoutCheck || summary.exclusionsWithoutCheck) {
     console.log('Review the detailed --json output for mapping/handler issues.');
     process.exitCode = 1;
   }
