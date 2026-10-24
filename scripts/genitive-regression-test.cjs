@@ -1447,6 +1447,23 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           'required_signals=' + JSON.stringify(sphereGates));
 }
 
+// ── Indirect-object dative requires a positive giving/communication cue ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const indirect = all.find(t => t.id === 'dative.indirect_object');
+    const gates = indirect?.detection?.required_signals ?? [];
+    check('dative.indirect_object — 授与・伝達動詞を必須根拠にする',
+          Boolean(indirect) && gates.includes('giving_verb') &&
+              indirect.detection?.conditions?.some(c => c.id === 'giving_verb') &&
+              indirect.xsc?.signals?.some(s => s.id === 'giving_verb'),
+          'required_signals=' + JSON.stringify(gates));
+}
+
 // ── Dative 完成 ──────────────────────────────────────────────────
 console.log('\n  ─── Dative: possession / direct_object / agent / measure / ethical ───');
 catVerseTest('LUK 2:7 αὐτοῖς（所有与格）', 'LUK', 2, 7, 'αὐτός', 'dative.', 'dative.possession');
