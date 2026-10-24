@@ -4005,6 +4005,25 @@ section('§7ae  Observation Integration');
     }
 }
 
+// ── Batch 26: require defining signals for five nominal structures ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const expected = [
+        ["nominal_syntax.appositional_np", ["appos"]],
+        ["nominal_syntax.substantival_phrase", ["subst"]],
+        ["nominal_syntax.head_initial_np", ["h_init"]],
+        ["nominal_syntax.head_final_np", ["h_fin"]],
+        ["nominal_syntax.nested_np", ["nested"]],
+    ];
+    for (const [id, signals] of expected) {
+        const type = all.find(t => t.id === id);
+        const gates = type?.detection?.required_signals ?? [];
+        check(id + ' — 定義的な根拠シグナルを必須化',
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
