@@ -74,7 +74,7 @@ function assertEvidenceGate(tokens, label) {
       const groups = typeDef.detection?.required_signal_groups || [];
       if (groups.length > 0) {
         assert.ok(groups.some(group => Array.isArray(group) && group.length > 0 &&
-          group.every(id => matched.includes(id)),
+          group.every(id => matched.includes(id))),
           `${label} ${word} emitted ${item.id} without a complete alternative evidence group`);
       }
     }
