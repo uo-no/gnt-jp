@@ -4356,6 +4356,22 @@ section('§7ae  Observation Integration');
         JSON.stringify({ reasoning, impact: descriptive?.dictionary?.reading_impact_detail }));
 }
 
+
+ // ── Batch 47: epexegetical genitive interpretation is not uniquely determined by classification ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const epexegetical = all.find(t => t.id === "genitive.epexegetical");
+    const reasoning = epexegetical?.dictionary?.reasoning || [];
+    const impact = epexegetical?.dictionary?.reading_impact_detail || "";
+    check("genitive.epexegetical — 同格候補の識別だけで解釈が一意に決まるとしない",
+        Boolean(epexegetical)
+            && reasoning.some(x => x.includes("補助的なテスト"))
+            && reasoning.some(x => x.includes("文脈を合わせて判断する"))
+            && impact.includes("翻訳・解釈が一意に決まるわけではない")
+            && !impact.includes("翻訳・解釈が一意に定まる"),
+        JSON.stringify({ reasoning, impact }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
