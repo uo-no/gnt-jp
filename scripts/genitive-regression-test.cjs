@@ -4388,6 +4388,21 @@ section('§7ae  Observation Integration');
         JSON.stringify({ reasoning, impact }));
 }
 
+// ── Batch 49: separation genitive cues support but do not settle semantic direction ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const separation = all.find(t => t.id === "genitive.separation");
+    const reasoning = separation?.dictionary?.reasoning || [];
+    const impact = separation?.dictionary?.reading_impact_detail || "";
+    check("genitive.separation — 分離の方向を単一の手掛かりで確定しない",
+        Boolean(separation)
+            && reasoning.some(x => x.includes("支持する手掛かり"))
+            && reasoning.some(x => x.includes("補助的なテスト"))
+            && impact.includes("文脈を合わせて方向性を判断")
+            && !impact.includes("関係方向が確定する"),
+        JSON.stringify({ reasoning, impact }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
