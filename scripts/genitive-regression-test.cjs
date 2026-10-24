@@ -3863,6 +3863,29 @@ section('§7ae  Observation Integration');
     }
 }
 
+// ── Pronoun and particle types require positive lexical evidence ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    for (const [id, signals] of [
+      ['pronoun.distributive', ['distr_lemma']],
+      ['pronoun.possessive_pronoun', ['poss_lemma', 'poss_type']],
+      ['particle.deliberative_particle', ['oun_q']],
+      ['particle.correlative_men', ['men_de']],
+      ['particle.correlative_de', ['de_men']]
+    ]) {
+      const type = all.find(t => t.id === id);
+      const gates = type?.detection?.required_signals ?? [];
+      check(id + ' — 肯定的な語彙・構文根拠を必須化',
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
