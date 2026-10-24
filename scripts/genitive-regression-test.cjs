@@ -1211,6 +1211,17 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           Boolean(epexegetical) && epexegeticalGates.includes('head_is_abstract') &&
               !epexegeticalGates.includes('namely_substitutable'),
           'required_signals=' + JSON.stringify(epexegeticalGates));
+    for (const [id, signals, label] of [
+      ['genitive.attributive', ['abstract_genitive'], '属性属格 — 抽象属格語の根拠を必須化'],
+      ['genitive.comparison', ['comparative_adjective'], '比較属格 — 比較級の根拠を必須化'],
+      ['genitive.separation', ['separation_verb', 'prep_apo_ek'], '分離属格 — 分離動詞と ἀπό/ἐκ の両根拠を必須化']
+    ]) {
+      const type = all.find(t => t.id === id);
+      const gates = type?.detection?.required_signals ?? [];
+      check(id + ' — ' + label,
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
     const agency = all.find(t => t.id === 'genitive.agency');
     const agencyGates = agency?.detection?.required_signals ?? [];
     check('genitive.agency — 動形容詞ヘッドを必須化',
