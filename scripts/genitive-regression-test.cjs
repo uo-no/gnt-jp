@@ -3559,6 +3559,34 @@ process.exit(allPass ? 0 : 1);
           'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
 }
 
+// ── Concessive participle requires an explicit concessive marker ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'participle.adverbial_concessive');
+    check('participle.adverbial_concessive — 譲歩標識を必須化',
+          Boolean(type) && type.detection?.required_signals?.includes('concessive_particle'),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
+
+// ── Indirect-discourse participle requires its accusative pattern ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'participle.indirect_discourse');
+    check('participle.indirect_discourse — 対格分詞パターンを必須化',
+          Boolean(type) && type.detection?.required_signals?.includes('verb_type_pattern'),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
+
 // ── Complementary participle requires a complement-selecting verb ──
 {
     const all = [];
