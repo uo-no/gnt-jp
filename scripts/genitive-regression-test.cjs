@@ -4337,7 +4337,9 @@ section('§7ae  Observation Integration');
         Boolean(temporal)
             && reasoning.some(x => x.includes("それだけで時間関係を確定せず"))
             && reasoning.some(x => x.includes("文脈を合わせて判断する"))
-            && !reasoning.includes("主語一致と時間副詞への言い換えが時間用法を確定する"),
+            && reasoning.some(x => x.includes("相対的な時間関係は形だけで決まらず"))
+            && !reasoning.includes("主語一致と時間副詞への言い換えが時間用法を確定する")
+            && !reasoning.includes("分詞のアスペクトが主動詞との相対時制を決定する"),
         JSON.stringify({ reasoning }));
 }
 
