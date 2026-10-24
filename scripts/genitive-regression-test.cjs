@@ -1419,6 +1419,34 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           'required_signals=' + JSON.stringify(gates));
 }
 
+// ── Dative disadvantage/sphere gates require positive defining evidence ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const disadvantage = all.find(t => t.id === 'dative.interest_disadvantage');
+    const disadvantageGates = disadvantage?.detection?.required_signals ?? [];
+    check('dative.interest_disadvantage — 否定語だけでなく対抗動詞を必須化',
+          Boolean(disadvantage) && disadvantageGates.includes('adversative_verb') &&
+              !disadvantageGates.includes('negation_present') &&
+              disadvantage?.detection?.conditions?.find(c => c.id === 'adversative_verb')?.check ===
+                  "context_verb_lemma_in_list('adversative_verb_lemmas')" &&
+              disadvantage?.detection?.adversative_verb_lemmas?.includes('ὑποτάσσω') &&
+              disadvantage.xsc?.signals?.some(s => s.id === 'adversative_verb'),
+          'required_signals=' + JSON.stringify(disadvantageGates));
+
+    const sphere = all.find(t => t.id === 'dative.sphere');
+    const sphereGates = sphere?.detection?.required_signals ?? [];
+    check('dative.sphere — 領域語彙を必須化し、前置詞不在は補助条件にする',
+          Boolean(sphere) && sphereGates.includes('sphere_noun') &&
+              !sphereGates.includes('no_preposition') &&
+              sphere.xsc?.signals?.some(s => s.id === 'sphere_noun'),
+          'required_signals=' + JSON.stringify(sphereGates));
+}
+
 // ── Dative 完成 ──────────────────────────────────────────────────
 console.log('\n  ─── Dative: possession / direct_object / agent / measure / ethical ───');
 catVerseTest('LUK 2:7 αὐτοῖς（所有与格）', 'LUK', 2, 7, 'αὐτός', 'dative.', 'dative.possession');
