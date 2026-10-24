@@ -3615,3 +3615,17 @@ process.exit(allPass ? 0 : 1);
           Boolean(type) && type.detection?.required_signals?.includes('valency_complement_verb'),
           'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
 }
+
+// ── Granville Sharp construction requires the defining TSKS pattern ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'article.granville_sharp');
+    check('article.granville_sharp — TSKS 構文を必須化',
+          Boolean(type) && type.detection?.required_signals?.includes('tsks_pattern'),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
