@@ -4302,6 +4302,16 @@ section('§7ae  Observation Integration');
         JSON.stringify({ hint: granvilleSharp?.hint_ja }));
 }
 
+// ── Batch 43: genitive absolute structure vs. semantic relation ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const ga = all.find(t => t.id === "genitive.absolute");
+    check("genitive.absolute — 構文の識別と意味関係の判断を分ける",
+        Boolean(ga)
+            && ga.hint_ja === "属格の分詞と名詞・代名詞がまとまり、主節とは別の主語を持つ構文が候補。構造の確認と、時間・理由・条件などの意味の判断を分ける。",
+        JSON.stringify({ hint: ga?.hint_ja }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
