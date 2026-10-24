@@ -3811,6 +3811,21 @@ section('§7ae  Observation Integration');
  for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 分類根拠を必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
 }
 
+
+// ── Adjective position and identical-pronoun evidence gates ──
+{
+ const all=[];
+ for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
+ const cases=[
+  ['adjective.attributive',["attr_position"]],
+  ['adjective.predicate',["pred_position","copula"]],
+  ['adjective.attributive_position',["attr_position"]],
+  ['adjective.predicate_position',["pred_position"]],
+  ['pronoun.identical',["autos_lemma","article_before"]]
+ ];
+ for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 定義的な位置・形態シグナルを必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
