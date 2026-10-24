@@ -3676,3 +3676,25 @@ process.exit(allPass ? 0 : 1);
               'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
     }
 }
+
+// ── Adverbial infinitive classifications require their defining construction markers ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const cases = [
+        ['infinitive.result', 'hoste_present'],
+        ['infinitive.time', 'temporal_prep_to'],
+        ['infinitive.cause', 'dia_to'],
+        ['infinitive.means', 'en_to']
+    ];
+    for (const [id, signal] of cases) {
+        const type = all.find(t => t.id === id);
+        check(id + ' — 用法を定義する構文標識を必須化',
+              Boolean(type) && type.detection?.required_signals?.includes(signal),
+              'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+    }
+}
