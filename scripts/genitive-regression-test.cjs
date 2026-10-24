@@ -4100,6 +4100,25 @@ section('§7ae  Observation Integration');
     }
 }
 
+// ── Batch 31: require defining evidence for five syntax classifications ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const expected = [
+        ["adjective.proper_adjective", ["agreeing_noun"]],
+        ["adjective.restrictive", ["attr_position"]],
+        ["pronoun.reciprocal_emphasis", ["reciprocal_lemma", "prep_gov"]],
+        ["clause.causal_hoti", ["hoti", "no_matrix"]],
+        ["preposition.improper", ["improper_prep", "improper_gen"]],
+    ];
+    for (const [id, signals] of expected) {
+        const type = all.find(t => t.id === id);
+        const gates = type?.detection?.required_signals ?? [];
+        check(id + ' — 定義的な根拠シグナルを必須化',
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
