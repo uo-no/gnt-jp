@@ -1385,6 +1385,23 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
     }
 }
 
+// ── Dative of reference requires an explicit reference-frame cue ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'dative.reference');
+    const gates = type?.detection?.required_signals ?? [];
+    check('dative.reference — 基準・観点を示す文脈語を必須化（神学的名詞は補助根拠）',
+          Boolean(type) && gates.includes('reference_head') &&
+              !gates.includes('theological_noun') && !gates.includes('no_giving_verb') &&
+              type.xsc?.signals?.some(s => s.id === 'reference_head'),
+          'required_signals=' + JSON.stringify(gates));
+}
+
 // ── Dative of interest (advantage) requires positive benefactive-verb evidence ──
 {
     const all = [];
