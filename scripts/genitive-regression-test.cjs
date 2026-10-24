@@ -1195,6 +1195,16 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
             all.push(...(subcategory.types ?? []));
         }
     }
+    for (const [id, signal] of [
+      ['genitive.subjective', 'action_noun_head'],
+      ['genitive.objective', 'action_noun_head'],
+      ['genitive.plenary', 'head_is_action_noun']
+    ]) {
+      const type = all.find(t => t.id === id);
+      check(id + ' — 動作名詞ヘッドを必須化',
+            Boolean(type) && type.detection?.required_signals?.includes(signal),
+            'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+    }
     const placeType = all.find(t => t.id === 'genitive.place');
     const placeGates = placeType?.detection?.required_signals ?? [];
     check('genitive.place — 前置詞支配なしを必須化', Boolean(placeType) &&
