@@ -3490,6 +3490,20 @@ section('§7ae  Observation Integration');
           'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
 }
 
+// ── Predicate participle requires a copula in the clause ────────
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'participle.predicate');
+    check('participle.predicate — コプラ共起を必須化',
+          Boolean(type) && type.detection?.required_signals?.includes('copula_present'),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
