@@ -4328,6 +4328,21 @@ section('§7ae  Observation Integration');
         JSON.stringify({ reasoning: attributive?.dictionary?.reasoning }));
 }
 
+// ── Batch 45: temporal participle reasoning cues are not conclusive proof ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const temporal = all.find(t => t.id === "participle.adverbial_temporal");
+    const reasoning = temporal?.dictionary?.reasoning || [];
+    check("participle.adverbial_temporal — 研究資料も時間用法を手掛かりだけで確定しない",
+        Boolean(temporal)
+            && reasoning.some(x => x.includes("それだけで時間関係を確定せず"))
+            && reasoning.some(x => x.includes("文脈を合わせて判断する"))
+            && reasoning.some(x => x.includes("相対的な時間関係は形だけで決まらず"))
+            && !reasoning.includes("主語一致と時間副詞への言い換えが時間用法を確定する")
+            && !reasoning.includes("分詞のアスペクトが主動詞との相対時制を決定する"),
+        JSON.stringify({ reasoning }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
