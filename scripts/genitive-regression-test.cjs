@@ -3826,6 +3826,21 @@ section('§7ae  Observation Integration');
  for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 定義的な位置・形態シグナルを必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
 }
 
+
+// ── Lexical particle evidence gates ──
+{
+ const all=[];
+ for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
+ const cases=[
+  ['particle.negative_ou',["ou"]],
+  ['particle.negative_me',["me"]],
+  ['particle.double_negative',["ou_me"]],
+  ['particle.particle_an',["an"]],
+  ['particle.particle_ean',["ean"]]
+ ];
+ for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 小辞を定義する標識を必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
