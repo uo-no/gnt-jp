@@ -3722,6 +3722,22 @@ section('§7ae  Observation Integration');
 }
 
 
+
+
+// ── Conditional and clause classifications require defining morphology/structure ──
+{
+ const all=[];
+ for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
+ const cases=[
+  ['clause.conditional_third_class',['ean','subjunctive']],
+  ['clause.conditional_fourth_class',['ei','optative']],
+  ['clause.temporal_hotan',['hotan','subjunctive']],
+  ['clause.temporal_hote',['hote','indicative']],
+  ['clause.comparative_kathos',['kathos','finite']]
+ ];
+ for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 節の種類を定義する標識と法を必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
