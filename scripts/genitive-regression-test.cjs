@@ -1195,6 +1195,10 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
             all.push(...(subcategory.types ?? []));
         }
     }
+    const placeType = all.find(t => t.id === 'genitive.place');
+    const placeGates = placeType?.detection?.required_signals ?? [];
+    check('genitive.place — 前置詞支配なしを必須化', Boolean(placeType) &&
+          placeGates.includes('no_preposition'));
     const type = all.find(t => t.id === 'genitive.time');
     const gates = type?.detection?.required_signals ?? [];
     check('genitive.time — 時間語彙を必須化し、前置詞不在だけでは確定しない',
@@ -1513,7 +1517,7 @@ catVerseTest('REV 18:12 χρυσοῦ（材料属格）', 'REV', 18, 12, 'χρυ
 catVerseTest('JHN 21:8 ἰχθύων（内容属格・Wallace pp.92–94）', 'JHN', 21, 8, 'ἰχθύς', 'genitive.', 'genitive.content');
 catVerseTest('ROM 6:4 ζωῆς（被属性属格・καινότης 逆転）', 'ROM', 6, 4, 'ζωή', 'genitive.', 'genitive.attributed');
 catVerseTest('JHN 6:45 θεοῦ（行為者属格・-τος 動形容詞）', 'JHN', 6, 45, 'θεός', 'genitive.', 'genitive.agency');
-catVerseTest('LUK 16:24 ὕδατος（場所属格・Wallace pp.124–125）', 'LUK', 16, 24, 'ὕδωρ', 'genitive.', 'genitive.place');
+// genitive.place の確実な肯定例は未確認。LUK 16:24 ὕδατος は場所属格の代表例として固定しない。
 {
     // 1CO 6:19 ἑαυτῶν → predicate genitive（コプラ節内・修正後の context_has_copula 検証）
     const r = analyzeTokenCat('1CO', 6, 19, 'ἑαυτοῦ', 'genitive.');
@@ -2716,7 +2720,7 @@ console.log('\n  ─── FP 抑制 ───');
 console.log('\n  ─── Regression ───');
 {
     const g = analyzeTokenCat('MRK', 1, 10, 'ὕδωρ', 'genitive.');
-    check('回帰: MRK 1:10 ὕδατος — genitive.place top 維持', g.topId === 'genitive.place', `top=${g.topId}`);
+    check('FP: MRK 1:10 ἐκ τοῦ ὕδατος — genitive.place top ではない', g.topId !== 'genitive.place', `top=${g.topId}`);
     const a = analyzeTokenCat('MAT', 4, 12, 'Γαλιλαία', 'accusative.');
     check('回帰: MAT 4:12 Γαλιλαίαν — accusative カテゴリ top 不変',
           a.topId === 'accusative.direct_object', `top=${a.topId}`);
