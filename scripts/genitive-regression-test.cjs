@@ -1187,6 +1187,23 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           accTypes.filter(t => t.status === 'active').length >= 3);
 }
 
+// ── Dative of time requires a temporal noun; article is supporting evidence ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'dative.time');
+    const required = ['temporal_lemma'];
+    const gates = type?.detection?.required_signals ?? [];
+    check('dative.time — 時間名詞を必須化し、冠詞は補助根拠に留める',
+          Boolean(type) && required.every(id => gates.includes(id)) &&
+              !gates.includes('article_present'),
+          'required_signals=' + JSON.stringify(gates));
+}
+
 // ── Partitive genitive requires a quantifying/partitive head cue ──
 {
     const all = [];
