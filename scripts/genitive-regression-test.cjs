@@ -3909,6 +3909,29 @@ section('§7ae  Observation Integration');
     }
 }
 
+// ── Verb aspect/tense classifications require defining evidence ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    for (const [id, signals] of [
+      ['verb.historical_present', ['present_tense', 'narrative_context']],
+      ['verb.gnomic_present', ['present_tense', 'gnomic_marker']],
+      ['verb.imperfect_ingressive', ['impf_t', 'aor_before']],
+      ['verb.imperfect_iterative', ['impf_t', 'iter_marker']],
+      ['verb.aorist_ingressive', ['aor_t', 'stative_lemma']]
+    ]) {
+      const type = all.find(t => t.id === id);
+      const gates = type?.detection?.required_signals ?? [];
+      check(id + ' — 時制・アスペクトと用法根拠を必須化',
+            Boolean(type) && signals.every(signal => gates.includes(signal)),
+            'required_signals=' + JSON.stringify(gates));
+    }
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
