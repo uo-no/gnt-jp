@@ -1449,10 +1449,9 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
         }
     }
     const type = all.find(t => t.id === 'genitive.content');
-    const required = ['container_head'];
-    check('genitive.content — 容器ヘッドを必須化（充満動詞は補助根拠）',
-          Boolean(type) && required.every(id => type.detection?.required_signals?.includes(id)) &&
-              !type.detection?.required_signals?.includes('filling_verb'),
+    const required = ['container_head', 'filling_verb'];
+    check('genitive.content — 容器ヘッドと充満動詞を必須化',
+          Boolean(type) && required.every(id => type.detection?.required_signals?.includes(id)),
           'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []));
 }
 
