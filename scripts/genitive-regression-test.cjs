@@ -3753,6 +3753,21 @@ section('§7ae  Observation Integration');
  for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 節の種類を定義する標識・構造を必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
 }
 
+
+
+// ── Clause, case, and verbal aspect classifications require defining cues ──
+{
+ const all=[];
+ for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
+ const cases=[
+  ['clause.conditional_first_class',['ei','indicative','no_an']],
+  ['accusative.predicate',['copula_infinitive','anarthrous']],
+  ['verb.epistolary_aorist',['aorist_tense_v','epistolary_lemma','first_person']],
+  ['verb.imperative_urgency',['aorist_impv','urgency_marker']]
+ ];
+ for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 分類を定義する形態・構造シグナルを必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
