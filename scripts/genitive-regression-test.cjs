@@ -3797,6 +3797,20 @@ section('§7ae  Observation Integration');
  for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 定義的な形態・構造シグナルを必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
 }
 
+// ── Adjective epithet and remaining core pronoun evidence gates ──
+{
+ const all=[];
+ for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
+ const cases=[
+  ['adjective.epithet',['proper_head']],
+  ['pronoun.demonstrative',['dem_lemma','dem_type']],
+  ['pronoun.relative',['rel_lemma','antecedent']],
+  ['pronoun.interrogative',['interr_lemma']],
+  ['pronoun.indefinite',['indef_lemma','indef_type']]
+ ];
+ for(const [id,required] of cases){const type=all.find(t=>t.id===id);check(id+' — 分類根拠を必須化',Boolean(type)&&required.every(signal=>type.detection?.required_signals?.includes(signal)),'required_signals='+JSON.stringify(type?.detection?.required_signals??[]));}
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
