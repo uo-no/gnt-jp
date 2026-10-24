@@ -1447,6 +1447,24 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           'required_signals=' + JSON.stringify(sphereGates));
 }
 
+// ── Ethical dative requires a positive personal-pronoun cue ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const ethical = all.find(t => t.id === 'dative.ethical');
+    const gates = ethical?.detection?.required_signals ?? [];
+    check('dative.ethical — 1・2人称代名詞を定義的な根拠として必須化',
+          Boolean(ethical) && gates.includes('ethical_pronoun') &&
+              !gates.includes('no_giving_verb') &&
+              ethical.detection?.conditions?.some(c => c.id === 'ethical_pronoun') &&
+              ethical.xsc?.signals?.some(s => s.id === 'ethical_pronoun'),
+          'required_signals=' + JSON.stringify(gates));
+}
+
 // ── Dative 完成 ──────────────────────────────────────────────────
 console.log('\n  ─── Dative: possession / direct_object / agent / measure / ethical ───');
 catVerseTest('LUK 2:7 αὐτοῖς（所有与格）', 'LUK', 2, 7, 'αὐτός', 'dative.', 'dative.possession');
