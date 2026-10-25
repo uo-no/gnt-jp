@@ -4424,6 +4424,33 @@ section('§7ae  Observation Integration');
         JSON.stringify({ timeReasoning, timeImpact }));
 }
 
+// ── Batch 51: dative of reference is a supported reading, not a predetermined translation ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const reference = all.find(t => t.id === "dative.reference");
+    const reasoning = reference?.dictionary?.reasoning || [];
+    const diagnostics = reference?.dictionary?.diagnostics || [];
+    const impact = reference?.dictionary?.reading_impact_detail || "";
+    const tip = reference?.reading_impact?.tip_ja || "";
+    const hint = reference?.hint_ja || "";
+    check("dative.reference — 観点・評価基準の読みを候補として示す",
+        Boolean(reference)
+            && reasoning.some(x => x.includes("候補になる場合がある"))
+            && reasoning.some(x => x.includes("補助的なテスト"))
+            && diagnostics.some(x => x.includes("関係から確認する"))
+            && hint.includes("候補")
+            && !reasoning.some(x => x.includes("評価基準として要求している")),
+        JSON.stringify({ reasoning, diagnostics, hint }));
+    check("dative.reference — 分類名だけで訳や適用範囲を確定しない",
+        Boolean(reference)
+            && impact.includes("分類名だけから適用範囲や訳を確定しない")
+            && tip.includes("この分類だけで一意に決めず")
+            && !impact.includes("解釈に不可欠")
+            && !impact.includes("主張が無制限に拡大解釈される")
+            && !tip.includes("訳を決定する"),
+        JSON.stringify({ impact, tip }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
