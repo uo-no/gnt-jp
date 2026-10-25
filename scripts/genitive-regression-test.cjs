@@ -4856,6 +4856,42 @@ console.log('');
 }
 
 
+
+
+// ── Batch 67: manner dative diagnostics remain supplementary and Colwell pattern does not prove definiteness ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const manner = all.find(t => t.id === "dative.manner");
+    const diagnostics = manner?.dictionary?.diagnostics || [];
+    const evidence = manner?.dictionary?.evidence || [];
+    const reasoning = manner?.dictionary?.reasoning || [];
+    const impact = manner?.dictionary?.reading_impact_detail || "";
+    check("Batch 67 — manner dative paraphrase is supplementary and alternatives remain open",
+        Boolean(manner)
+            && manner.hint_ja.includes("候補")
+            && manner.hint_ja.includes("補助的な手掛かり")
+            && manner.hint_ja.includes("候補と文脈を比較")
+            && diagnostics.some(x => x.includes("補助的なテスト"))
+            && diagnostics.some(x => x.includes("手段与格・領域与格"))
+            && !evidence.some(x => x.includes("排除確認")),
+        JSON.stringify({hint:manner?.hint_ja,diagnostics,evidence}));
+    check("Batch 67 — manner dative does not infer authorial intent or meaning role from paraphrase alone",
+        reasoning.some(x => x.includes("文脈から判断する"))
+            && reasoning.some(x => x.includes("それだけで意味役割を確定しない"))
+            && impact.includes("分類ラベルだけで確定せず")
+            && !reasoning.some(x => x.includes("命題の骨格が保たれる")),
+        JSON.stringify({reasoning,impact}));
+    const colwell = all.find(t => t.id === "article.colwell");
+    const colwellLabel = colwell?.xsc?.signals?.find(x => x.id === "colwell_pattern")?.label_ja || "";
+    check("Batch 67 — Colwell pattern does not make definiteness or subject status automatic",
+        Boolean(colwell)
+            && colwell.description_en.includes("does not establish definiteness")
+            && colwell.description_en.includes("context must also be considered")
+            && colwellLabel.includes("語順・冠詞配置")
+            && !colwellLabel.includes("主語標識"),
+        JSON.stringify({description_en:colwell?.description_en,colwellLabel}));
+}
+
 const allPass = FAIL === 0;
 
 console.log('══════════════════════════════════════════════════════');
