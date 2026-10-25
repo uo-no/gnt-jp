@@ -4587,11 +4587,6 @@ console.log(`    WARN  : ${WARN}`);
 console.log('');
 
 const allPass = FAIL === 0;
-console.log('══════════════════════════════════════════════════════');
-console.log(`最終結果: ${allPass ? 'PASS' : 'FAIL'}  (PASS=${PASS} FAIL=${FAIL} WARN=${WARN})`);
-console.log('══════════════════════════════════════════════════════\n');
-
-process.exit(allPass ? 0 : 1);
 
 
 // ── Batch 56: indirect-object dative is a candidate, not a purely structural certainty ──
@@ -4647,3 +4642,9 @@ process.exit(allPass ? 0 : 1);
             && !tip.includes("与格は特定の時点を指す"),
         JSON.stringify({ articleSignal, xscArticle, diagnostics, classificationDef }));
 }
+
+console.log('══════════════════════════════════════════════════════');
+console.log(`最終結果: ${allPass ? 'PASS' : 'FAIL'}  (PASS=${PASS} FAIL=${FAIL} WARN=${WARN})`);
+console.log('══════════════════════════════════════════════════════\n');
+
+process.exit(allPass ? 0 : 1);
