@@ -4728,6 +4728,35 @@ console.log('');
     }
 }
 
+// ── Batch 63: article candidate labels do not overstate uniqueness or default exclusion ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const monadic = all.find(t => t.id === "article.monadic");
+    const simple = all.find(t => t.id === "article.simple_identification");
+    const monadicLabel = monadic?.xsc?.signals?.find(x => x.id === "monadic_noun")?.label_ja || "";
+    const monadicCondition = monadic?.detection?.conditions?.find(x => x.id === "monadic_noun")?.signal || "";
+    const simpleLabel = simple?.xsc?.signals?.find(x => x.id === "has_head_noun")?.label_ja || "";
+    const simpleCondition = simple?.detection?.conditions?.find(x => x.id === "has_head_noun")?.signal || "";
+    check("Batch 63 — article.monadic treats registered nouns as candidate cues, not proof of uniqueness",
+        Boolean(monadic)
+            && monadic.description_ja.includes("候補抽出の手掛かり")
+            && monadic.description_ja.includes("文脈で確認する")
+            && monadic.hint_ja.includes("語彙の一致だけで")
+            && monadicLabel.includes("候補語彙")
+            && monadicCondition.includes("文脈で確認"),
+        JSON.stringify({description:monadic?.description_ja,hint:monadic?.hint_ja,monadicLabel,monadicCondition}));
+    check("Batch 63 — article.simple_identification is not a default unless other types are excluded",
+        Boolean(simple)
+            && simple.description_ja.includes("基本候補")
+            && simple.description_ja.includes("特殊用法との区別")
+            && simple.hint_ja.includes("用法と比較")
+            && simpleLabel.includes("候補")
+            && simpleCondition.includes("候補")
+            && !simple.description_ja.includes("デフォルト分類"),
+        JSON.stringify({description:simple?.description_ja,hint:simple?.hint_ja,simpleLabel,simpleCondition}));
+}
+
+
 // ── Batch 62: objective genitive remains a candidate, not a fixed theological direction ──
 {
     const all = collectAllTypeDefs(syntaxRegistry);
