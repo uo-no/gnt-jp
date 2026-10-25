@@ -4504,6 +4504,31 @@ section('§7ae  Observation Integration');
         JSON.stringify({ impact, tip }));
 }
 
+// ── Batch 54: dative of association is a candidate, not an exclusive conclusion ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const association = all.find(t => t.id === "dative.association");
+    const reasoning = association?.dictionary?.reasoning || [];
+    const diagnostics = association?.dictionary?.diagnostics || [];
+    const impact = association?.dictionary?.reading_impact_detail || "";
+    const tip = association?.reading_impact?.tip_ja || "";
+    check("dative.association — σύν 言い換えを排他的な陽性指標にしない",
+        Boolean(association)
+            && reasoning.some(x => x.includes("補助的なテスト"))
+            && reasoning.some(x => x.includes("競合候補"))
+            && diagnostics.some(x => x.includes("補助的なテスト"))
+            && !reasoning.some(x => x.includes("排他的陽性指標"))
+            && !diagnostics.some(x => x === "σύν + 与格への言い換えが成立する"),
+        JSON.stringify({ reasoning, diagnostics }));
+    check("dative.association — 連帯・神学的帰結を文法ラベルだけで確定しない",
+        Boolean(association)
+            && impact.includes("文法ラベルだけで確定せず")
+            && impact.includes("競合候補と比較する")
+            && tip.includes("神学的な結論や連帯の範囲を格の分類だけで確定せず")
+            && !impact.includes("連帯の範囲を確定する"),
+        JSON.stringify({ impact, tip }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
