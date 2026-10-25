@@ -4478,6 +4478,32 @@ section('§7ae  Observation Integration');
         JSON.stringify({ impact, tip }));
 }
 
+
+ // ── Batch 53: dative of means cues do not settle theological conclusions ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const means = all.find(t => t.id === "dative.means");
+    const reasoning = means?.dictionary?.reasoning || [];
+    const diagnostics = means?.dictionary?.diagnostics || [];
+    const impact = means?.dictionary?.reading_impact_detail || "";
+    const tip = means?.reading_impact?.tip_ja || "";
+    check("dative.means — 手段・媒介の読みを競合候補と比較する",
+        Boolean(means)
+            && reasoning.some(x => x.includes("補助的なテスト"))
+            && reasoning.some(x => x.includes("競合候補"))
+            && diagnostics.some(x => x.includes("名詞の意味と述語との関係"))
+            && !reasoning.some(x => x.includes("道具・手段として言い換えると文意が成立する")),
+        JSON.stringify({ reasoning, diagnostics }));
+    check("dative.means — 神学的結論を文法ラベルだけで確定しない",
+        Boolean(means)
+            && impact.includes("文法ラベルだけで確定しない")
+            && impact.includes("競合候補と比較する")
+            && tip.includes("神学的な結論を格の分類だけで確定せず")
+            && !tip.includes("神学的に決定的")
+            && !impact.includes("責任主体の誤認につながる"),
+        JSON.stringify({ impact, tip }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
