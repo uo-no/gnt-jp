@@ -4728,6 +4728,31 @@ console.log('');
     }
 }
 
+// ── Batch 66: causal participle cues and γάρ insertion do not uniquely prove causation ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const causal = all.find(t => t.id === "participle.adverbial_causal");
+    const tip = causal?.reading_impact?.tip_ja || "";
+    const detail = causal?.dictionary?.reading_impact_detail || "";
+    const reasoning = causal?.dictionary?.reasoning || [];
+    check("Batch 66 — causal participle and aorist-passive pattern are candidate cues",
+        Boolean(causal)
+            && causal.description_ja.includes("読みを検討する用法")
+            && causal.hint_ja.includes("手掛かり")
+            && causal.hint_ja.includes("時間・条件"),
+        JSON.stringify({description:causal?.description_ja,hint:causal?.hint_ja}));
+    check("Batch 66 — γάρ insertion is not an exclusive discriminator",
+        reasoning.some(x => x.includes("挿入可能性だけで用法を一意に判定せず"))
+            && reasoning.some(x => x.includes("競合する読み")),
+        reasoning.join("\n"));
+    check("Batch 66 — causal interpretation does not automatically establish theological argument structure",
+        tip.includes("分類名だけで確定せず")
+            && detail.includes("理解する助け")
+            && detail.includes("一律に決めず"),
+        JSON.stringify({tip,detail}));
+}
+
+
 // ── Batch 65: source-genitive cues do not prove origin or theological attribution ──
 {
     const all = collectAllTypeDefs(syntaxRegistry);
