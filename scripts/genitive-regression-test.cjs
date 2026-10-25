@@ -4643,6 +4643,41 @@ const allPass = FAIL === 0;
         JSON.stringify({ articleSignal, xscArticle, diagnostics, classificationDef }));
 }
 
+
+
+// ── Batch 58: bulk certainty-claim audit across nine syntax types ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const get = id => all.find(t => t.id === id);
+    const partitive = get("genitive.partitive")?.dictionary?.reading_impact_detail || "";
+    const epexegetical = get("genitive.epexegetical");
+    const relationship = get("genitive.relationship")?.reading_impact?.tip_ja || "";
+    const subjective = get("genitive.subjective");
+    const substantive = get("participle.substantival");
+    const complementary = get("participle.complementary");
+    const reference = get("dative.reference");
+    const means = get("dative.means");
+    const articular = get("nominal_syntax.articular_np")?.description_ja || "";
+    check("Batch 58 — partitive relation and superlative implications remain contextual",
+        partitive.includes("文脈に合う場合") && partitive.includes("文脈を合わせて判断する") && !partitive.includes("読み取りに直結する"), partitive);
+    check("Batch 58 — epexegetical paraphrase remains a candidate, not a frequent certainty claim",
+        Boolean(epexegetical) && epexegetical.reading_impact?.tip_ja?.includes("候補になる場合") && epexegetical.dictionary?.reasoning?.some(x => x.includes("確定せず")), JSON.stringify(epexegetical?.reading_impact));
+    check("Batch 58 — relationship dative/genitive labels do not claim certainty",
+        relationship.includes("候補") && relationship.includes("文脈を合わせて確認する") && !relationship.includes("関係を確定する"), relationship);
+    check("Batch 58 — subjective genitive compares semantic alternatives and context",
+        Boolean(subjective) && subjective.reading_impact?.tip_ja?.includes("競合候補") && subjective.dictionary?.reading_impact_detail?.includes("分類名だけで確定せず"), JSON.stringify(subjective?.reading_impact));
+    check("Batch 58 — substantival participle does not force nominalization or determine referent attributes alone",
+        Boolean(substantive) && substantive.dictionary?.reasoning?.some(x => x.includes("競合分析と比較する")) && substantive.dictionary?.reading_impact_detail?.includes("格・性・数だけで確定せず"), JSON.stringify(substantive?.dictionary));
+    check("Batch 58 — complementary participle is checked against structure and context",
+        Boolean(complementary) && complementary.dictionary?.reasoning?.some(x => x.includes("統語構造・文脈で確認する")) && complementary.dictionary?.reading_impact_detail?.includes("文脈と合わせて判断する"), JSON.stringify(complementary?.dictionary));
+    check("Batch 58 — dative reference remains explicitly contextual",
+        Boolean(reference) && reference.reading_impact?.tip_ja?.includes("この分類だけで一意に決めず") && reference.dictionary?.reasoning?.some(x => x.includes("補助的なテスト")), JSON.stringify(reference?.reading_impact));
+    check("Batch 58 — dative means does not determine theology from case label alone",
+        Boolean(means) && means.reading_impact?.tip_ja?.includes("格の分類だけで確定せず") && means.dictionary?.reading_impact_detail?.includes("文法ラベルだけで確定しない"), JSON.stringify(means?.reading_impact));
+    check("Batch 58 — articular NP description explicitly avoids article=definiteness certainty",
+        articular.includes("有冠詞だから必ず特定とは限らない"), articular);
+}
+
 console.log('══════════════════════════════════════════════════════');
 console.log(`最終結果: ${allPass ? 'PASS' : 'FAIL'}  (PASS=${PASS} FAIL=${FAIL} WARN=${WARN})`);
 console.log('══════════════════════════════════════════════════════\n');
