@@ -4712,6 +4712,25 @@ const allPass = FAIL === 0;
     }
 }
 
+
+
+// ── Batch 61: temporal and attributive readings are not determined by form alone ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const cases = [
+        ["genitive.attributive", "最上級や絶対的卓越性を確定しない", "不可欠な識別"],
+        ["genitive.time", "格の形だけで確定せず", "時間的文脈を確定し"],
+        ["participle.adverbial_temporal", "分詞の形だけで確定せず", "倫理的帰責が変化する"],
+        ["participle.adverbial_attendant", "形や語順だけで確定せず", "指示数が不完全となる"]
+    ];
+    for (const [id, required, oldPhrase] of cases) {
+        const t = all.find(x => x.id === id);
+        const impact = t?.dictionary?.reading_impact_detail || "";
+        const reasoning = t?.dictionary?.reasoning || [];
+        check(`Batch 61 — ${id} compares contextual alternatives`, Boolean(t) && impact.includes(required) && reasoning.some(x => x.includes("手掛かり") || x.includes("比較")) && !impact.includes(oldPhrase), JSON.stringify({impact,reasoning}));
+    }
+}
+
 console.log('══════════════════════════════════════════════════════');
 console.log(`最終結果: ${allPass ? 'PASS' : 'FAIL'}  (PASS=${PASS} FAIL=${FAIL} WARN=${WARN})`);
 console.log('══════════════════════════════════════════════════════\n');
