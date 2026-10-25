@@ -4892,6 +4892,58 @@ console.log('');
         JSON.stringify({description_en:colwell?.description_en,colwellLabel}));
 }
 
+
+
+// ── Batch 68: elimination-only diagnostics and role/typicality claims remain contextual candidates ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const descriptive = all.find(t => t.id === "genitive.descriptive");
+    const descriptiveDiagnostics = descriptive?.dictionary?.diagnostics || [];
+    const descriptiveEvidence = descriptive?.dictionary?.evidence || [];
+    const descriptiveImpact = descriptive?.dictionary?.reading_impact_detail || "";
+    check("Batch 68 — descriptive genitive diagnostics do not rely on elimination alone",
+        Boolean(descriptive)
+            && descriptiveDiagnostics.some(x => x.includes("競合候補と比較する"))
+            && descriptiveDiagnostics.some(x => x.includes("それだけで描写用法を確定しない"))
+            && descriptiveEvidence.some(x => x.includes("競合候補との比較"))
+            && descriptiveImpact.includes("著者の意図は分類名だけで推定せず")
+            && !descriptiveEvidence.some(x => x.includes("排除確認")),
+        JSON.stringify({descriptiveDiagnostics,descriptiveEvidence,descriptiveImpact}));
+    const subjective = all.find(t => t.id === "genitive.subjective");
+    const subjectiveDiagnostics = subjective?.dictionary?.diagnostics || [];
+    const subjectiveEvidence = subjective?.dictionary?.evidence || [];
+    const subjectiveReasoning = subjective?.dictionary?.reasoning || [];
+    check("Batch 68 — subjective-genitive expansion test is supplementary and objective alternatives remain open",
+        Boolean(subjective)
+            && subjectiveDiagnostics.some(x => x.includes("競合候補と比較する"))
+            && subjectiveEvidence.some(x => x.includes("目的語的属格との比較"))
+            && subjectiveReasoning.some(x => x.includes("補助的なテスト"))
+            && subjectiveReasoning.some(x => x.includes("競合候補も比較する"))
+            && !subjectiveDiagnostics.some(x => x.includes("目的語的読み") && x.includes("成立しない"))
+            && !subjectiveEvidence.some(x => x.includes("排除確認")),
+        JSON.stringify({subjectiveDiagnostics,subjectiveEvidence,subjectiveReasoning}));
+    const disadvantage = all.find(t => t.id === "dative.interest_disadvantage");
+    const disadvantageReasoning = disadvantage?.dictionary?.reasoning || [];
+    const disadvantageImpact = disadvantage?.dictionary?.reading_impact_detail || "";
+    check("Batch 68 — disadvantage dative does not infer victim or legal/ethical consequences from label alone",
+        Boolean(disadvantage)
+            && disadvantageReasoning.some(x => x.includes("手掛かりになる"))
+            && disadvantageReasoning.some(x => x.includes("補助的な比較"))
+            && disadvantageImpact.includes("分類名だけで確定せず")
+            && !disadvantageImpact.includes("被害者を隠蔽し"),
+        JSON.stringify({disadvantageReasoning,disadvantageImpact}));
+    const par = all.find(t => t.id === "article.par_excellence");
+    const parLabel = par?.xsc?.signals?.find(x => x.id === "par_excellence_noun")?.label_ja || "";
+    check("Batch 68 — par-excellence article use is a contextual reading, not a lexeme-list conclusion",
+        Boolean(par)
+            && par.description_ja.includes("読みとして分析されることがある")
+            && par.description_ja.includes("文脈を確認する")
+            && par.hint_ja.includes("手掛かり")
+            && parLabel.includes("候補語彙")
+            && !par.description_ja.includes("最も著名・卓越した存在を指す冠詞用法"),
+        JSON.stringify({description:par?.description_ja,hint:par?.hint_ja,parLabel}));
+}
+
 const allPass = FAIL === 0;
 
 console.log('══════════════════════════════════════════════════════');

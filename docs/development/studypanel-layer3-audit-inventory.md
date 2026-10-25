@@ -1,19 +1,19 @@
 # StudyPanel Layer 3 semantic-audit inventory
 
-Snapshot basis: `main` at `2b2e744bee6e1509375b9e7cafd55783074a834a` (after PR #406).
+Snapshot basis: main after PR #407 (`a51eddfa4de058cb4ec11ec8ae047b1a57c5c03c`) plus the proposed §14.49 audit in PR #408.
 Registry: `public/assets/data/syntax-registry.json` — 242 unique type IDs.
-Audit log reviewed: §§14.24–14.48. Historical merged semantic/cue-audit PRs reviewed: #374–#400, #402–#403, and #406. PR #401 is still open and is not counted.
+Historical merged semantic/cue-audit PRs reviewed: #374–#400, #402–#403, #406. PR #401 is still open and is not counted.
 
 ## What this inventory measures
 
-This is a **traceability/activity baseline**, not a claim that every type with an audit entry has passed a complete all-fields audit. Counts include explicit type-level audit work recorded in the current log or the reviewed merged PRs.
+This is a **traceability/activity baseline**, not a claim that every type with an audit entry has passed a complete all-fields audit. Counts include explicit type-level audit work in the current log or the reviewed merged PRs.
 
-- **個別焦点の監査記録あり:** 20 types have a focused entry in §§14.24–14.48 outside the multi-type scan sections.
-- **対象タイプ別の判断を含む一括監査記録あり:** 12 additional types have per-type findings/dispositions in §§14.37–14.40. These are not merely raw string matches.
-- **過去PRで個別監査あり（現行範囲に個別節なし）:** 1 type has a focused merged PR audit not represented by a focused section in §§14.24–14.48.
-- **今回照合した監査系列でタイプ別の意味・根拠監査記録を未確認:** 209 types have no explicit type-level semantic/evidence audit record in the current log or reviewed merged PRs.
+- **個別焦点の監査記録あり:** 18 types have a focused entry in §§14.24–14.36 and §§14.41, 14.43–14.46.
+- **対象タイプ別の判断を含む複数タイプ監査:** 16 additional types have per-type findings/dispositions in §§14.37–14.40 and §§14.48–14.49, without also being counted in the focused category.
+- **過去PRで個別監査あり（現行範囲に個別節なし）:** 1 type has a focused merged PR audit (#375) but no focused section in §§14.24–14.49.
+- **今回照合した監査系列でタイプ別の意味・根拠監査記録を未確認:** 207 types have no explicit type-level semantic/evidence audit record in the current log or reviewed merged PRs.
 
-Total: 242 types; 33 types with traceable audit activity; 209 without such a record in this audit series. **Traceable audit activity is not the same as fully complete.** A completion count should only be assigned after checking each type against the completion rule below.
+Total: 242 types; 35 types with traceable audit activity; 207 without such a record in this audit series. **Traceable audit activity is not the same as fully complete.** A completion count should only be assigned after checking each type against the completion rule below.
 
 The earlier taxonomy-label audit is a separate dimension: PR #221 reviewed all 242 Japanese syntax labels, updating 124 descriptions, retaining 116, and leaving 2 awaiting source verification. Those numbers are not added to this Layer 3 semantic/evidence activity count.
 
@@ -40,13 +40,13 @@ The earlier taxonomy-label audit is a separate dimension: PR #221 reviewed all 2
 | `adjective.substantival` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `adjective.superlative` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `article.abstract` | 今回照合した監査系列でタイプ別記録を未確認 |
-| `article.colwell` | 個別焦点の監査記録あり（完了は要項目別確認） |
+| `article.colwell` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
 | `article.deictic` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `article.generic` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `article.granville_sharp` | PR #375で個別のヒント・回帰監査あり（現行範囲に個別節なし） |
 | `article.kataphoric` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `article.monadic` | 個別焦点の監査記録あり（完了は要項目別確認） |
-| `article.par_excellence` | 今回照合した監査系列でタイプ別記録を未確認 |
+| `article.par_excellence` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
 | `article.previous_reference` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `article.simple_identification` | 個別焦点の監査記録あり（完了は要項目別確認） |
 | `article.well_known` | 今回照合した監査系列でタイプ別記録を未確認 |
@@ -80,8 +80,8 @@ The earlier taxonomy-label audit is a separate dimension: PR #221 reviewed all 2
 | `dative.ethical` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `dative.indirect_object` | 個別焦点の監査記録あり（完了は要項目別確認） |
 | `dative.interest_advantage` | 個別焦点の監査記録あり（完了は要項目別確認） |
-| `dative.interest_disadvantage` | 今回照合した監査系列でタイプ別記録を未確認 |
-| `dative.manner` | 個別焦点の監査記録あり（完了は要項目別確認） |
+| `dative.interest_disadvantage` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
+| `dative.manner` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
 | `dative.means` | 個別焦点の監査記録あり（完了は要項目別確認） |
 | `dative.measure` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `dative.possession` | 今回照合した監査系列でタイプ別記録を未確認 |
@@ -98,28 +98,28 @@ The earlier taxonomy-label audit is a separate dimension: PR #221 reviewed all 2
 | `discourse.parenthetical` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `discourse.right_dislocation` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `discourse.topic_fronting` | 今回照合した監査系列でタイプ別記録を未確認 |
-| `genitive.absolute` | 対象タイプ別の判断を含む一括監査記録あり（単独の節なし） |
+| `genitive.absolute` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
 | `genitive.agency` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `genitive.attributed` | 今回照合した監査系列でタイプ別記録を未確認 |
-| `genitive.attributive` | 対象タイプ別の判断を含む一括監査記録あり（単独の節なし） |
+| `genitive.attributive` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
 | `genitive.comparison` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `genitive.content` | 今回照合した監査系列でタイプ別記録を未確認 |
-| `genitive.descriptive` | 対象タイプ別の判断を含む一括監査記録あり（単独の節なし） |
+| `genitive.descriptive` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
 | `genitive.direct_object` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `genitive.epexegetical` | 個別焦点の監査記録あり（完了は要項目別確認） |
 | `genitive.material` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `genitive.means` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `genitive.objective` | 個別焦点の監査記録あり（完了は要項目別確認） |
-| `genitive.partitive` | 対象タイプ別の判断を含む一括監査記録あり（単独の節なし） |
+| `genitive.partitive` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
 | `genitive.place` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `genitive.plenary` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `genitive.possessive` | 個別焦点の監査記録あり（完了は要項目別確認） |
 | `genitive.predicate` | 今回照合した監査系列でタイプ別記録を未確認 |
-| `genitive.relationship` | 対象タイプ別の判断を含む一括監査記録あり（単独の節なし） |
+| `genitive.relationship` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
 | `genitive.separation` | 個別焦点の監査記録あり（完了は要項目別確認） |
 | `genitive.source` | 個別焦点の監査記録あり（完了は要項目別確認） |
-| `genitive.subjective` | 対象タイプ別の判断を含む一括監査記録あり（単独の節なし） |
-| `genitive.time` | 対象タイプ別の判断を含む一括監査記録あり（単独の節なし） |
+| `genitive.subjective` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
+| `genitive.time` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
 | `infinitive.articular` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `infinitive.cause` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `infinitive.complementary` | 今回照合した監査系列でタイプ別記録を未確認 |
@@ -133,7 +133,7 @@ The earlier taxonomy-label audit is a separate dimension: PR #221 reviewed all 2
 | `infinitive.time` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `nominal_syntax.anarthrous_np` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `nominal_syntax.appositional_np` | 今回照合した監査系列でタイプ別記録を未確認 |
-| `nominal_syntax.articular_np` | 対象タイプ別の判断を含む一括監査記録あり（単独の節なし） |
+| `nominal_syntax.articular_np` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
 | `nominal_syntax.complex_np` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `nominal_syntax.head_final_np` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `nominal_syntax.head_initial_np` | 今回照合した監査系列でタイプ別記録を未確認 |
@@ -153,7 +153,7 @@ The earlier taxonomy-label audit is a separate dimension: PR #221 reviewed all 2
 | `nominative.subject_with_infinitive` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `nominative.title_nominative` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `nominative.vocative_nominative` | 今回照合した監査系列でタイプ別記録を未確認 |
-| `participle.adverbial_attendant` | 対象タイプ別の判断を含む一括監査記録あり（単独の節なし） |
+| `participle.adverbial_attendant` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
 | `participle.adverbial_causal` | 個別焦点の監査記録あり（完了は要項目別確認） |
 | `participle.adverbial_concessive` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `participle.adverbial_conditional` | 今回照合した監査系列でタイプ別記録を未確認 |
@@ -162,14 +162,14 @@ The earlier taxonomy-label audit is a separate dimension: PR #221 reviewed all 2
 | `participle.adverbial_purpose_result` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `participle.adverbial_temporal` | 個別焦点の監査記録あり（完了は要項目別確認） |
 | `participle.attributive` | 個別焦点の監査記録あり（完了は要項目別確認） |
-| `participle.complementary` | 対象タイプ別の判断を含む一括監査記録あり（単独の節なし） |
-| `participle.genitive_absolute` | 対象タイプ別の判断を含む一括監査記録あり（単独の節なし） |
+| `participle.complementary` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
+| `participle.genitive_absolute` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
 | `participle.imperatival` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `participle.indirect_discourse` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `participle.periphrastic` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `participle.predicate` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `participle.redundant` | 今回照合した監査系列でタイプ別記録を未確認 |
-| `participle.substantival` | 対象タイプ別の判断を含む一括監査記録あり（単独の節なし） |
+| `participle.substantival` | 対象タイプ別の判断を含む複数タイプ監査記録あり（単独の節なし） |
 | `particle.assertive_de` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `particle.attention_de` | 今回照合した監査系列でタイプ別記録を未確認 |
 | `particle.connective_te` | 今回照合した監査系列でタイプ別記録を未確認 |
@@ -266,4 +266,4 @@ The earlier taxonomy-label audit is a separate dimension: PR #221 reviewed all 2
 
 ## Completion rule going forward
 
-Mark **個別監査完了** only after the relevant registry fields have been compared with actual detection signals/conditions, candidate alternatives and contextual judgment have been checked, user-facing summaries have been compared with research detail, and regression coverage or an explicit reason for no new assertion has been recorded. A bulk entry counts as audit activity only where it contains a per-type disposition; it does not automatically close all remaining checks for that type.
+Mark **個別監査完了** only after the relevant registry fields have been compared with actual detection signals/conditions, candidate alternatives and contextual judgment have been checked, user-facing summaries have been compared with research detail, and regression coverage or an explicit reason for no new assertion has been recorded. A multi-type audit counts as activity where it contains a per-type disposition; it does not automatically close all remaining checks for that type.
