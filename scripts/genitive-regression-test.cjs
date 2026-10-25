@@ -4504,6 +4504,30 @@ section('§7ae  Observation Integration');
         JSON.stringify({ impact, tip }));
 }
 
+// ── Batch 55: dative of sphere is a candidate, not a fixed scope ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const sphere = all.find(t => t.id === "dative.sphere");
+    const reasoning = sphere?.dictionary?.reasoning || [];
+    const diagnostics = sphere?.dictionary?.diagnostics || [];
+    const impact = sphere?.dictionary?.reading_impact_detail || "";
+    const tip = sphere?.reading_impact?.tip_ja || "";
+    check("dative.sphere — 領域・ἐν 言い換えを補助的な手掛かりとして扱う",
+        Boolean(sphere)
+            && reasoning.some(x => x.includes("競合候補"))
+            && diagnostics.some(x => x.includes("補助的なテスト"))
+            && diagnostics.some(x => x.includes("同じ機能を持つとは限らない"))
+            && !reasoning.some(x => x.includes("概念的領域を画定している")),
+        JSON.stringify({ reasoning, diagnostics }));
+    check("dative.sphere — 適用範囲を分類名だけで確定しない",
+        Boolean(sphere)
+            && impact.includes("分類名だけで確定せず")
+            && impact.includes("競合候補と比較する")
+            && tip.includes("適用範囲や主張の射程を格の分類だけで確定せず")
+            && !impact.includes("領域与格を確定することで"),
+        JSON.stringify({ impact, tip }));
+}
+
 // ── Batch 54: dative of association is a candidate, not an exclusive conclusion ──
 {
     const all = collectAllTypeDefs(syntaxRegistry);
