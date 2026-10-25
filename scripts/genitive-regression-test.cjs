@@ -4678,6 +4678,24 @@ const allPass = FAIL === 0;
         articular.includes("有冠詞だから必ず特定とは限らない"), articular);
 }
 
+
+
+// ── Batch 59: structural classification does not eliminate semantic/contextual judgment ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const expected = {
+        "genitive.absolute": "構文の同定と、時間・理由・条件などの意味関係の判断を分け",
+        "participle.attributive": "競合候補、文脈も確認する",
+        "participle.adverbial_temporal": "時間関係は形態・統語的配置だけでは確定しない",
+        "participle.genitive_absolute": "構文の同定と、時間・理由・条件などの意味関係の判断を分け"
+    };
+    for (const [id, phrase] of Object.entries(expected)) {
+        const def = all.find(t => t.id === id)?.dictionary?.classification_def || "";
+        check(`Batch 59 — ${id} separates structural identification from contextual interpretation`,
+            def.includes(phrase) && !def.includes("意味内容の解釈を必要としない"), def);
+    }
+}
+
 console.log('══════════════════════════════════════════════════════');
 console.log(`最終結果: ${allPass ? 'PASS' : 'FAIL'}  (PASS=${PASS} FAIL=${FAIL} WARN=${WARN})`);
 console.log('══════════════════════════════════════════════════════\n');
