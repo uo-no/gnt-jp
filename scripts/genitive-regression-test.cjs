@@ -4592,3 +4592,29 @@ console.log(`最終結果: ${allPass ? 'PASS' : 'FAIL'}  (PASS=${PASS} FAIL=${FA
 console.log('══════════════════════════════════════════════════════\n');
 
 process.exit(allPass ? 0 : 1);
+
+
+// ── Batch 56: indirect-object dative is a candidate, not a purely structural certainty ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const indirect = all.find(t => t.id === "dative.indirect_object");
+    const reasoning = indirect?.dictionary?.reasoning || [];
+    const diagnostics = indirect?.dictionary?.diagnostics || [];
+    const impact = indirect?.dictionary?.reading_impact_detail || "";
+    const tip = indirect?.reading_impact?.tip_ja || "";
+    const classificationDef = indirect?.dictionary?.classification_def || "";
+    check("dative.indirect_object — 受取人読みを文法ラベルだけで確定しない",
+        Boolean(indirect)
+            && reasoning.some(x => x.includes("競合候補と比較する"))
+            && diagnostics.some(x => x.includes("補助的な手掛かり"))
+            && !reasoning.some(x => x.includes("統語的に成立する"))
+            && !classificationDef.includes("意味内容の解釈を必要としない"),
+        JSON.stringify({ reasoning, diagnostics, classificationDef }));
+    check("dative.indirect_object — 読書上の効果を候補・文脈判断として説明する",
+        Boolean(indirect)
+            && tip.includes("分類名だけで確定せず")
+            && impact.includes("文法分類だけから命題の受信者を確定しない")
+            && classificationDef.includes("動詞の語義")
+            && !tip.includes("論旨の方向性を決定する"),
+        JSON.stringify({ tip, impact, classificationDef }));
+}
