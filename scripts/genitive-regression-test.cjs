@@ -4586,9 +4586,6 @@ console.log(`    FAIL  : ${FAIL}`);
 console.log(`    WARN  : ${WARN}`);
 console.log('');
 
-const allPass = FAIL === 0;
-
-
 // ── Batch 56: indirect-object dative is a candidate, not a purely structural certainty ──
 {
     const all = collectAllTypeDefs(syntaxRegistry);
@@ -4730,6 +4727,37 @@ const allPass = FAIL === 0;
         check(`Batch 61 — ${id} compares contextual alternatives`, Boolean(t) && impact.includes(required) && reasoning.some(x => x.includes("手掛かり") || x.includes("比較")) && !impact.includes(oldPhrase), JSON.stringify({impact,reasoning}));
     }
 }
+
+// ── Batch 62: objective genitive remains a candidate, not a fixed theological direction ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const objective = all.find(t => t.id === "genitive.objective");
+    const impact = objective?.dictionary?.reading_impact_detail || "";
+    const tip = objective?.reading_impact?.tip_ja || "";
+    const diagnostics = objective?.dictionary?.diagnostics || [];
+    const evidence = objective?.dictionary?.evidence || [];
+    const reasoning = objective?.dictionary?.reasoning || [];
+    check("Batch 62 — objective genitive reading is a contextual candidate, not a fixed direction",
+        Boolean(objective)
+            && impact.includes("読みが支持される場合")
+            && impact.includes("決定的証拠として扱わない")
+            && !impact.includes("信仰論的方向が正反対になる")
+            && !impact.includes("参照が必須"),
+        JSON.stringify({impact, tip}));
+    check("Batch 62 — objective-genitive diagnostics compare subjective alternatives rather than excluding them",
+        diagnostics.some(x => x.includes("競合する読みも比較する"))
+            && evidence.some(x => x.includes("主語的属格との比較"))
+            && !diagnostics.some(x => x.includes("成立しない"))
+            && !evidence.some(x => x.includes("排除確認")),
+        JSON.stringify({diagnostics, evidence}));
+    check("Batch 62 — verbal expansion is a test, not a standalone proof",
+        reasoning.some(x => x.includes("補助的なテスト"))
+            && reasoning.some(x => x.includes("競合候補も比較する")),
+        JSON.stringify(reasoning));
+}
+
+
+const allPass = FAIL === 0;
 
 console.log('══════════════════════════════════════════════════════');
 console.log(`最終結果: ${allPass ? 'PASS' : 'FAIL'}  (PASS=${PASS} FAIL=${FAIL} WARN=${WARN})`);
