@@ -4728,6 +4728,28 @@ console.log('');
     }
 }
 
+// ── Batch 65: source-genitive cues do not prove origin or theological attribution ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const source = all.find(t => t.id === "genitive.source");
+    const tip = source?.reading_impact?.tip_ja || "";
+    const diagnostics = source?.dictionary?.diagnostics || [];
+    const reasoning = source?.dictionary?.reasoning || [];
+    const detail = source?.dictionary?.reading_impact_detail || "";
+    check("Batch 65 — source-genitive paraphrase and preposition are cues, not proof",
+        Boolean(source)
+            && diagnostics.some(x => x.includes("補助的なテスト"))
+            && reasoning.some(x => x.includes("手掛かりになる"))
+            && reasoning.some(x => x.includes("それだけで起源と確定せず")),
+        JSON.stringify({diagnostics,reasoning}));
+    check("Batch 65 — source-genitive reading memo does not fix theological attribution",
+        tip.includes("分類だけで起源の帰属や神学的含意を決めず")
+            && detail.includes("分類名だけで確定せず")
+            && detail.includes("競合する読み"),
+        JSON.stringify({tip,detail}));
+}
+
+
 // ── Batch 64: direct-object and temporal reading summaries remain cues, not requirements ──
 {
     const all = collectAllTypeDefs(syntaxRegistry);
