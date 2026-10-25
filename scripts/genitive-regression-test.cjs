@@ -4451,6 +4451,33 @@ section('§7ae  Observation Integration');
         JSON.stringify({ impact, tip }));
 }
 
+
+ // ── Batch 52: dative of advantage is a candidate, not a guaranteed theological conclusion ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const advantage = all.find(t => t.id === "dative.interest_advantage");
+    const reasoning = advantage?.dictionary?.reasoning || [];
+    const diagnostics = advantage?.dictionary?.diagnostics || [];
+    const impact = advantage?.dictionary?.reading_impact_detail || "";
+    const tip = advantage?.reading_impact?.tip_ja || "";
+    const hint = advantage?.hint_ja || "";
+    check("dative.interest_advantage — 受益の読みを候補として文脈と照合する",
+        Boolean(advantage)
+            && hint.includes("候補")
+            && reasoning.some(x => x.includes("補助的なテスト"))
+            && diagnostics.some(x => x.includes("それだけで用法を確定しない"))
+            && !reasoning.some(x => x.includes("恩恵方向が与格名詞に向かうと文脈が整合する")),
+        JSON.stringify({ hint, reasoning, diagnostics }));
+    check("dative.interest_advantage — 神学的帰結を文法分類だけで確定しない",
+        Boolean(advantage)
+            && impact.includes("文法分類だけで確定しない")
+            && impact.includes("競合候補と比較する")
+            && tip.includes("受益対象や神学的帰結を文法分類だけで確定しない")
+            && !impact.includes("目的論的方向を確定する")
+            && !impact.includes("直接影響する"),
+        JSON.stringify({ impact, tip }));
+}
+
 section('§8  最終カバレッジレポート');
 
 // ReadingFormatter テンプレート数（genitive 分）
