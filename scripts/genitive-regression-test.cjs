@@ -4618,3 +4618,32 @@ process.exit(allPass ? 0 : 1);
             && !tip.includes("論旨の方向性を決定する"),
         JSON.stringify({ tip, impact, classificationDef }));
 }
+
+
+// ── Batch 57: temporal dative is a contextual reading, not an article/lemma certainty ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const time = all.find(t => t.id === "dative.time");
+    const reasoning = time?.dictionary?.reasoning || [];
+    const diagnostics = time?.dictionary?.diagnostics || [];
+    const impact = time?.dictionary?.reading_impact_detail || "";
+    const tip = time?.reading_impact?.tip_ja || "";
+    const classificationDef = time?.dictionary?.classification_def || "";
+    const articleSignal = time?.detection?.conditions?.find(x => x.id === "article_present");
+    const xscArticle = time?.xsc?.signals?.find(x => x.id === "article_present");
+    check("dative.time — 時点読みを名詞・構文・文脈で判断する",
+        Boolean(time)
+            && reasoning.some(x => x.includes("文脈に照らして判断する"))
+            && reasoning.some(x => x.includes("候補と比較する"))
+            && impact.includes("文法ラベルだけで確定せず")
+            && tip.includes("時間属格や時間対格などの候補と比較する"),
+        JSON.stringify({ reasoning, impact, tip }));
+    check("dative.time — 冠詞・分類を時点の確定証拠として扱わない",
+        Boolean(time)
+            && articleSignal?.signal?.includes("補助的な手掛かり")
+            && xscArticle?.label_ja?.includes("補助的な手掛かり")
+            && classificationDef.includes("文脈も関わる")
+            && !diagnostics.includes("特定の祭日・時刻・年代が与格で特定される")
+            && !tip.includes("与格は特定の時点を指す"),
+        JSON.stringify({ articleSignal, xscArticle, diagnostics, classificationDef }));
+}
