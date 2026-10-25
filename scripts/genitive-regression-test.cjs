@@ -4696,6 +4696,22 @@ const allPass = FAIL === 0;
     }
 }
 
+
+
+// ── Batch 60: reading-impact summaries do not infer authorial intent or theological conclusions from labels ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const cases = [
+        ["genitive.descriptive", "修辞的効果や著者の意図は、分類名だけで推定せず", "本質的描写"],
+        ["genitive.separation", "神学的含意を分類名だけで確定せず", "神学的に重要（罪から・律法から・死から等）"],
+        ["participle.substantival", "特定の人物類型や属性を分類名だけから決めず", "動的定義・信仰者類型"]
+    ];
+    for (const [id, required, oldPhrase] of cases) {
+        const tip = all.find(t => t.id === id)?.reading_impact?.tip_ja || "";
+        check(`Batch 60 — ${id} qualifies reading-impact claims`, tip.includes(required) && !tip.includes(oldPhrase), tip);
+    }
+}
+
 console.log('══════════════════════════════════════════════════════');
 console.log(`最終結果: ${allPass ? 'PASS' : 'FAIL'}  (PASS=${PASS} FAIL=${FAIL} WARN=${WARN})`);
 console.log('══════════════════════════════════════════════════════\n');
