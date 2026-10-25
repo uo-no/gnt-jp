@@ -4728,6 +4728,29 @@ console.log('');
     }
 }
 
+// ── Batch 64: direct-object and temporal reading summaries remain cues, not requirements ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const directObject = all.find(t => t.id === "accusative.direct_object");
+    const temporal = all.find(t => t.id === "participle.adverbial_temporal");
+    const directDescription = directObject?.description_ja || "";
+    const temporalTip = temporal?.reading_impact?.tip_ja || "";
+    check("Batch 64 — accusative form alone does not define direct-object role",
+        Boolean(directObject)
+            && directDescription.includes("読みが支持される場合")
+            && directDescription.includes("格だけで直接目的語と決めず")
+            && !directDescription.includes("他動詞の動作の直接の受け手"),
+        directDescription);
+    check("Batch 64 — aorist participle plus main verb is a temporal cue, not a required reading",
+        Boolean(temporal)
+            && temporalTip.includes("手掛かりになる")
+            && temporalTip.includes("形だけで時間関係を決めず")
+            && temporalTip.includes("文脈も確認する")
+            && !temporalTip.includes("読みが必要"),
+        temporalTip);
+}
+
+
 // ── Batch 63: article candidate labels do not overstate uniqueness or default exclusion ──
 {
     const all = collectAllTypeDefs(syntaxRegistry);
