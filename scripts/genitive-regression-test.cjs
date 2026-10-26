@@ -390,6 +390,28 @@ console.log('  ローマ 11:17: τινες τῶν κλάδων');
 console.log('  期待: κλάδων → genitive.partitive（τινες が量化ヘッド）');
 verseTest('ROM 11:17 κλάδων', 'ROM', 11, 17, 'κλάδος', 'genitive.partitive');
 
+// ── MRK 6:23 → 半量構文の部分属格（ἡμίσους τῆς βασιλείας μου）
+// 半量経路は通常の複数属格ゲートを迂回するが、実際の候補出力で確認する。
+// 最高スコアまでは要求しない。ここでの目的は候補が消失していないことの確認。
+console.log('\n  ─── MRK 6:23 ────────────────────────────────');
+console.log('  マルコ 6:23: ἡμίσους τῆς βασιλείας μου');
+{
+    const r = analyzeToken('MRK', 6, 23, 'βασιλεία');
+    const candidateSummary = r.allCandidates.length
+        ? r.allCandidates.map(c => `${c.id}(${(c.confidence ?? 0).toFixed(2)})`).join(', ')
+        : '(なし)';
+    if (VERBOSE) {
+        console.log(`\n  [MRK 6:23 βασιλείας] token="${r.tokenText}" idx=${r.tokenIdx}`);
+        console.log(`    candidates: ${candidateSummary}`);
+    }
+    const found = r.allCandidates.find(c => c.id === 'genitive.partitive');
+    check('MRK 6:23 βασιλείας — genitive.partitive が候補に存在',
+          Boolean(found), `実際の候補: ${candidateSummary}`);
+    check('MRK 6:23 βασιλείας — confidence ≥ 0.30',
+          found ? (found.confidence ?? 0) >= 0.30 : false,
+          found ? `confidence=${found.confidence?.toFixed(2)}` : '対象なし');
+}
+
 // ── LUK 19:2 → 属格なし（与格名詞 ὀνόματι）
 console.log('\n  ─── LUK 19:2 ────────────────────────────────');
 console.log('  ルカ 19:2: ὀνόματι καλούμενος Ζακχαῖος');
