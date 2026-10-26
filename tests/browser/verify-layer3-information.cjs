@@ -300,9 +300,19 @@ async function verifyUserDrivenTokenSwitch(browser, mobile) {
         return true;
       });
       assert.ok(clickedStudy, `${label}: StudyPanel entry can be activated for ${target}`);
+      // The dictionary text remains in the DOM while its Layer 3 disclosure is closed;
+      // open the same disclosure a reader would open before reading it.
+      const layer3Entry = page.locator(mobile
+        ? '#mobile-inspector-area [data-study-section="morphology"]'
+        : '#reading-notes-area #rn-level2-details');
+      await layer3Entry.waitFor({ state:'visible', timeout:12000 });
+      if (!(await layer3Entry.evaluate(el => el.open))) {
+        await layer3Entry.locator(':scope > summary').click();
+      }
       await page.waitForFunction(selector => {
         const el = document.querySelector(selector);
-        return !!el && (el.textContent || '').trim().length > 20;
+        return !!el && !el.closest('details:not([open])') &&
+          el.getBoundingClientRect().height > 0 && (el.textContent || '').trim().length > 20;
       }, dictionarySelector, { timeout:20000 });
       return page.locator(dictionarySelector).innerText();
     };
