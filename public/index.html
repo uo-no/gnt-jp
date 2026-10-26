@@ -21867,19 +21867,21 @@ function _hlCurrentVersePos() {
    ref は canonical key としてではなく、座標の導出元として使用する。 */
 function _hlCurrentWordPos() {
     const d = AppState.inspect.data;
-    if (!d || !d.ref) return null;
-    const sp = d.ref.split(' ');
-    if (sp.length < 2) return null;
-    const book = sp[0];
-    const cvt = sp[1].split(':');
-    if (cvt.length < 2) return null;
-    const chapter = parseInt(cvt[0], 10);
-    const vt = cvt[1].split('!');
-    if (vt.length < 2) return null;
-    const verse = parseInt(vt[0], 10);
+    if (!d) return null;
+
+    /* 位置の正本は inspect の構造化フィールド。ref は token index の抽出にだけ使う。 */
+    const ref = typeof d.ref === 'string' ? d.ref : '';
+    const sp = ref.split(' ');
+    const cvt = sp.length > 1 ? sp[1].split(':') : [];
+    const vt = cvt.length > 1 ? cvt[1].split('!') : [];
+    const book = d.bookKey || d.book || sp[0] || '';
+    const chapter = Number(d.ch != null ? d.ch : (cvt[0] || NaN));
+    const verse = Number(d.verse != null ? d.verse : (vt[0] || NaN));
     const tokenStart = parseInt(vt[1], 10);
-    if (!isFinite(chapter) || !isFinite(verse) || !isFinite(tokenStart) || tokenStart < 1) return null;
-    return { book, chapter, verse, tokenStart, tokenEnd: tokenStart };
+
+    if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse) ||
+        !Number.isFinite(tokenStart) || tokenStart < 1) return null;
+    return { book: String(book), chapter, verse, tokenStart, tokenEnd: tokenStart };
 }
 
 /* ── 色ピッカー ── */
@@ -22196,7 +22198,7 @@ function _applyHighlights() {
 
         /* wordOrder の語データは表示状態により verse-block または内側の gf-verse-block に保持される。
            実際に _flowWords を持つ要素から tokenIndex → tokenId を解決する。 */
-        scope.querySelectorAll(`.verse-block[data-vnum="${h.verse}"][data-col-mode="wordOrder"]`).forEach(block => {
+        scope.querySelectorAll(`.verse-block[data-vnum="${h.verse}"]`).forEach(block => {
             const flowBlock = block._flowWords ? block : block.querySelector('.gf-verse-block');
             const words = flowBlock && Array.isArray(flowBlock._flowWords) ? flowBlock._flowWords : [];
             if (!words.length) return;
