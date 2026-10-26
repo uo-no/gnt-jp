@@ -75,7 +75,7 @@ function assertEvidenceGate(tokens, label) {
       if (groups.length > 0) {
         assert.ok(groups.some(group => Array.isArray(group) && group.length > 0 &&
           group.every(id => matched.includes(id))),
-          `${label} ${word} emitted ${item.id} without a complete alternative evidence group`);
+          `${label} ${word} emitted ${item.id} without a complete alternative evidence group; matched=${JSON.stringify(matched)}; groups=${JSON.stringify(groups)}; candidateKeys=${Object.keys(item).join(',')}`);
       }
     }
   }

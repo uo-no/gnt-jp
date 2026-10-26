@@ -343,12 +343,11 @@ function verseTest(label, bookKey, ch, v, targetLemma, expectedId, minConf = 0.3
 }
 
 // ── JAS 1:13 → 分離属格（Ἀπὸ θεοῦ）
-// Fix②(Wallace §4.C.6-4): Separation は広義のデフォルト。Source は特殊例。
-// πειράζω は分離動詞でも起源動詞でもないため、ἀπό + 属格の曖昧ケースでは separation が優先。
-// genitive.source は候補（confidence ~0.49）に残る点は保持される。
+// ἀπό + 属格のこの例は、既存の文法分類回帰として separation を期待する。
+// 現行評価器が source を返す場合は失敗として記録し、期待値を実装出力に合わせて変更しない。
 console.log('\n  ─── JAS 1:13 ────────────────────────────────');
 console.log('  ヤコブ 1:13: Ἀπὸ θεοῦ πειράζομαι');
-console.log('  期待: θεοῦ → genitive.separation（Fix②: ἀπό+属格の曖昧ケースでは separation がデフォルト優先）');
+console.log('  期待: θεοῦ → genitive.separation');
 verseTest('JAS 1:13 θεοῦ', 'JAS', 1, 13, 'θεός', 'genitive.separation');
 
 // ── ROM 8:35 → 主語的属格（τῆς ἀγάπης τοῦ Χριστοῦ）
@@ -389,6 +388,27 @@ console.log('\n  ─── ROM 11:17 ──────────────�
 console.log('  ローマ 11:17: τινες τῶν κλάδων');
 console.log('  期待: κλάδων → genitive.partitive（τινες が量化ヘッド）');
 verseTest('ROM 11:17 κλάδων', 'ROM', 11, 17, 'κλάδος', 'genitive.partitive');
+
+// ── MRK 6:23 → 半量構文の部分属格（ἡμίσους τῆς βασιλείας μου）
+// 半量経路は通常の複数属格ゲートを迂回するが、実際の候補出力で確認する。
+console.log('\n  ─── MRK 6:23 ────────────────────────────────');
+console.log('  マルコ 6:23: ἡμίσους τῆς βασιλείας μου');
+{
+    const r = analyzeToken('MRK', 6, 23, 'βασιλεία');
+    const candidateSummary = r.allCandidates.length
+        ? r.allCandidates.map(c => `${c.id}(${(c.confidence ?? 0).toFixed(2)})`).join(', ')
+        : '(なし)';
+    if (VERBOSE) {
+        console.log(`\n  [MRK 6:23 βασιλείας] token="${r.tokenText}" idx=${r.tokenIdx}`);
+        console.log(`    candidates: ${candidateSummary}`);
+    }
+    const found = r.allCandidates.find(c => c.id === 'genitive.partitive');
+    check('MRK 6:23 βασιλείας — genitive.partitive が候補に存在',
+          Boolean(found), `実際の候補: ${candidateSummary}`);
+    check('MRK 6:23 βασιλείας — confidence ≥ 0.30',
+          found ? (found.confidence ?? 0) >= 0.30 : false,
+          found ? `confidence=${found.confidence?.toFixed(2)}` : '対象なし');
+}
 
 // ── LUK 19:2 → 属格なし（与格名詞 ὀνόματι）
 console.log('\n  ─── LUK 19:2 ────────────────────────────────');
@@ -1246,16 +1266,18 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
             Boolean(type) && signals.every(signal => gates.includes(signal)),
             'required_signals=' + JSON.stringify(gates));
     }
-    for (const [id, signals, label] of [
-      ['genitive.partitive', ['partitive_trigger', 'plural_genitive'], '部分属格 — 部分関係と複数属格の根拠を必須化'],
-      ['genitive.source', ['source_prep'], '起源属格 — 起源前置詞の根拠を必須化（JAS 1:13 の θεοῦ は普通名詞形の神名）']
-    ]) {
-      const type = all.find(t => t.id === id);
-      const gates = type?.detection?.required_signals ?? [];
-      check(id + ' — ' + label,
-            Boolean(type) && signals.every(signal => gates.includes(signal)),
-            'required_signals=' + JSON.stringify(gates));
-    }
+    const partitive = all.find(t => t.id === 'genitive.partitive');
+    const partitiveGroups = partitive?.detection?.required_signal_groups ?? [];
+    check('genitive.partitive — 通常経路と半量経路を required_signal_groups で表す',
+          Boolean(partitive) &&
+          partitiveGroups.some(group => ['partitive_trigger', 'plural_genitive', 'no_preposition'].every(signal => group.includes(signal))) &&
+          partitiveGroups.some(group => ['half_quantity', 'no_preposition'].every(signal => group.includes(signal))),
+          JSON.stringify({ required_signals: partitive?.detection?.required_signals ?? [], required_signal_groups: partitiveGroups }));
+    const source = all.find(t => t.id === 'genitive.source');
+    const sourceGates = source?.detection?.required_signals ?? [];
+    check('genitive.source — 起源前置詞の根拠を必須化（JAS 1:13 の θεοῦ）',
+          Boolean(source) && sourceGates.includes('source_prep'),
+          'required_signals=' + JSON.stringify(sourceGates));
     const agency = all.find(t => t.id === 'genitive.agency');
     const agencyGates = agency?.detection?.required_signals ?? [];
     check('genitive.agency — 動形容詞ヘッドを必須化',
@@ -1363,7 +1385,7 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           'required_signals=' + JSON.stringify(gates));
 }
 
-// ── Partitive genitive requires a quantifying/partitive head cue ──
+// ── Partitive genitive: normal plural path OR narrow half-quantity path ──
 {
     const all = [];
     for (const category of Object.values(syntaxRegistry.categories ?? {})) {
@@ -1372,12 +1394,22 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
         }
     }
     const type = all.find(t => t.id === 'genitive.partitive');
-    const required = ['partitive_trigger'];
-    const gates = type?.detection?.required_signals ?? [];
-    check('genitive.partitive — 部分・全体関係を示すヘッド根拠を必須化',
-          Boolean(type) && required.every(id => gates.includes(id)) &&
-              !gates.includes('plural_genitive') && !gates.includes('no_preposition'),
-          'required_signals=' + JSON.stringify(gates));
+    const det = type?.detection ?? {};
+    const groups = det.required_signal_groups ?? [];
+    const hasGroup = expected => groups.some(group =>
+        Array.isArray(group) && expected.length === group.length &&
+        expected.every(id => group.includes(id))
+    );
+    check('genitive.partitive — 通常経路は部分ヘッド＋複数属格＋前置詞支配なし',
+          Boolean(type) && hasGroup(['partitive_trigger', 'plural_genitive', 'no_preposition']),
+          'required_signal_groups=' + JSON.stringify(groups));
+    check('genitive.partitive — 半量構文だけ単数属格を別経路で許可',
+          Boolean(type) && hasGroup(['half_quantity', 'no_preposition']) &&
+              Array.isArray(det.half_quantity_lemmas) &&
+              det.half_quantity_lemmas.includes('ἥμισυς') &&
+              !(det.required_signals ?? []).includes('plural_genitive'),
+          'half_quantity_lemmas=' + JSON.stringify(det.half_quantity_lemmas) +
+          '; required_signals=' + JSON.stringify(det.required_signals ?? []));
 }
 
 // ── Relationship genitive requires kinship head + proper name ────

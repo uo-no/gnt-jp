@@ -53,6 +53,33 @@ jobs:
       - name: Syntax evidence-gating regression
         run: npm run test:syntax-evidence-gating
 
+      - name: required_signal_groups runtime contract regression
+        run: node scripts/required-signal-groups-regression.cjs
+
+      - name: MRK 6:23 half-quantity partitive runtime regression
+        run: node scripts/half-quantity-partitive-regression.cjs
+
+      # Historical inventory only: this legacy suite has unresolved expectations tracked in Issue #410.
+      # Keep it non-blocking while capturing the exact-SHA failure list; do not confuse it with VR-5 pass/fail.
+      - name: Issue #410 legacy genitive regression inventory（非ブロッキング・失敗一覧を保存）
+        id: issue410-legacy-inventory
+        continue-on-error: true
+        run: |
+          set +e
+          node scripts/genitive-regression-test.cjs > issue-410-genitive-regression-report.txt 2>&1
+          rc=$?
+          echo "\\nEXIT_CODE=$rc" >> issue-410-genitive-regression-report.txt
+          cat issue-410-genitive-regression-report.txt
+          exit 0
+
+      - name: Upload Issue #410 legacy regression inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-410-genitive-regression-inventory
+          path: issue-410-genitive-regression-report.txt
+          if-no-files-found: warn
+
       - name: StudyPanel evidence-note regression
         run: npm run test:studypanel-evidence-notes
 

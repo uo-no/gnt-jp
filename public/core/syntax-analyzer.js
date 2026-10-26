@@ -3995,6 +3995,10 @@ if (typeof module !== 'undefined' && module.exports) {
         'partitive_trigger_lemmas': [
             { typeId: 'genitive.partitive', detKey: 'trigger_lemmas' },
         ],
+        // genitive.partitive の半量構文用（通常の数量詞リストとは分離）
+        'half_quantity_lemmas': [
+            { typeId: 'genitive.partitive', detKey: 'half_quantity_lemmas' },
+        ],
         // genitive.time / dative.time が target_lemma_in_list で参照（時間名詞）
         'temporal_noun_lemmas': [
             { typeId: 'genitive.time', detKey: 'trigger_lemmas' },
@@ -4572,6 +4576,19 @@ if (typeof module !== 'undefined' && module.exports) {
             det.required_signals.some(id => !matched.includes(id))) {
             return null;
         }
+        // Match the base evaluator's alternative evidence contract here too.
+        // This patched evaluator handles condition-to-signal mapping, so omitting
+        // this gate would allow candidates through on a partial signal group.
+        if (Array.isArray(det.required_signal_groups) &&
+            det.required_signal_groups.length > 0) {
+            const hasValidGroup = det.required_signal_groups.some(group =>
+                Array.isArray(group) &&
+                group.length > 0 &&
+                group.every(id => matched.includes(id))
+            );
+            if (!hasValidGroup) return null;
+        }
+
         if (conditions.length > 0 && matched.length === 0) return null;
 
         const rawScore = score + _computeTieBreakScore(typeDef);
