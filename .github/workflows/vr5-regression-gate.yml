@@ -62,6 +62,27 @@ jobs:
       - name: StudyPanel evidence-note regression
         run: npm run test:studypanel-evidence-notes
 
+      # Historical inventory only: this legacy suite has unresolved expectations tracked in Issue #410.
+      # Keep it non-blocking while capturing the exact-SHA failure list; do not confuse it with VR-5 pass/fail.
+      - name: Issue #410 legacy genitive regression inventory（非ブロッキング・失敗一覧を保存）
+        id: issue410-legacy-inventory
+        continue-on-error: true
+        run: |
+          set +e
+          node scripts/genitive-regression-test.cjs > issue-410-genitive-regression-report.txt 2>&1
+          rc=$?
+          echo "\\nEXIT_CODE=$rc" >> issue-410-genitive-regression-report.txt
+          cat issue-410-genitive-regression-report.txt
+          exit 0
+
+      - name: Upload Issue #410 legacy regression inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-410-genitive-regression-inventory
+          path: issue-410-genitive-regression-report.txt
+          if-no-files-found: warn
+
       - name: StudyPanel evidence-first audit（新約全体の候補・根拠シグナル）
         run: npm run audit:studypanel-evidence-first -- --verbose --strict-evidence
 
