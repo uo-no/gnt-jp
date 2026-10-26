@@ -390,6 +390,28 @@ console.log('  ローマ 11:17: τινες τῶν κλάδων');
 console.log('  期待: κλάδων → genitive.partitive（τινες が量化ヘッド）');
 verseTest('ROM 11:17 κλάδων', 'ROM', 11, 17, 'κλάδος', 'genitive.partitive');
 
+// ── MRK 6:23 → 半量構文の部分属格（ἡμίσους τῆς βασιλείας μου）
+// 半量経路は通常の複数属格ゲートを迂回するが、実際の候補出力で確認する。
+// 最高スコアまでは要求しない。ここでの目的は候補が消失していないことの確認。
+console.log('\n  ─── MRK 6:23 ────────────────────────────────');
+console.log('  マルコ 6:23: ἡμίσους τῆς βασιλείας μου');
+{
+    const r = analyzeToken('MRK', 6, 23, 'βασιλεία');
+    const candidateSummary = r.allCandidates.length
+        ? r.allCandidates.map(c => `${c.id}(${(c.confidence ?? 0).toFixed(2)})`).join(', ')
+        : '(なし)';
+    if (VERBOSE) {
+        console.log(`\n  [MRK 6:23 βασιλείας] token="${r.tokenText}" idx=${r.tokenIdx}`);
+        console.log(`    candidates: ${candidateSummary}`);
+    }
+    const found = r.allCandidates.find(c => c.id === 'genitive.partitive');
+    check('MRK 6:23 βασιλείας — genitive.partitive が候補に存在',
+          Boolean(found), `実際の候補: ${candidateSummary}`);
+    check('MRK 6:23 βασιλείας — confidence ≥ 0.30',
+          found ? (found.confidence ?? 0) >= 0.30 : false,
+          found ? `confidence=${found.confidence?.toFixed(2)}` : '対象なし');
+}
+
 // ── LUK 19:2 → 属格なし（与格名詞 ὀνόματι）
 console.log('\n  ─── LUK 19:2 ────────────────────────────────');
 console.log('  ルカ 19:2: ὀνόματι καλούμενος Ζακχαῖος');
@@ -1363,7 +1385,7 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           'required_signals=' + JSON.stringify(gates));
 }
 
-// ── Partitive genitive requires a quantifying/partitive head cue ──
+// ── Partitive genitive: normal plural path OR narrow half-quantity path ──
 {
     const all = [];
     for (const category of Object.values(syntaxRegistry.categories ?? {})) {
@@ -1372,12 +1394,31 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
         }
     }
     const type = all.find(t => t.id === 'genitive.partitive');
-    const required = ['partitive_trigger'];
-    const gates = type?.detection?.required_signals ?? [];
-    check('genitive.partitive — 部分・全体関係を示すヘッド根拠を必須化',
-          Boolean(type) && required.every(id => gates.includes(id)) &&
-              !gates.includes('plural_genitive') && !gates.includes('no_preposition'),
-          'required_signals=' + JSON.stringify(gates));
+    const det = type?.detection ?? {};
+    const groups = det.required_signal_groups ?? [];
+    const hasGroup = (expected) => groups.some(group =>
+        Array.isArray(group) && expected.length === group.length &&
+        expected.every(id => group.includes(id))
+    );
+    check('genitive.partitive — 通常経路は部分ヘッド＋複数属格＋前置詞支配なし',
+          Boolean(type) && hasGroup(['partitive_trigger', 'plural_genitive', 'no_preposition']),
+          'required_signal_groups=' + JSON.stringify(groups));
+    check('genitive.partitive — 半量構文だけ単数属格を別経路で許可',
+          Boolean(type) && hasGroup(['half_quantity', 'no_preposition']) &&
+              Array.isArray(det.half_quantity_lemmas) &&
+              det.half_quantity_lemmas.includes('ἥμισυς') &&
+              !(det.required_signals ?? []).includes('plural_genitive'),
+          'half_quantity_lemmas=' + JSON.stringify(det.half_quantity_lemmas) +
+          '; required_signals=' + JSON.stringify(det.required_signals ?? []));
+    const mrk6 = verseTokens('MRK', 6, 23);
+    const half = mrk6.find(t => t.lemma === 'ἥμισυς' && t.text === 'ἡμίσους');
+    const kingdom = mrk6.find(t => t.lemma === 'βασιλεία' && t.text === 'βασιλείας');
+    check('MRK 6:23 — 半量ヘッドと対象属格の形態データを維持',
+          Boolean(half && kingdom) &&
+              half.case === 'genitive' && half.number === 'singular' &&
+              kingdom.case === 'genitive' && kingdom.number === 'singular',
+          'half=' + JSON.stringify(half && {text:half.text,lemma:half.lemma,case:half.case,number:half.number}) +
+          '; kingdom=' + JSON.stringify(kingdom && {text:kingdom.text,lemma:kingdom.lemma,case:kingdom.case,number:kingdom.number}));
 }
 
 // ── Relationship genitive requires kinship head + proper name ────
@@ -3919,6 +3960,7 @@ section('§7ae  Observation Integration');
     }
     for (const [id, signals] of [
       ['particle.interrogative_particle', ['int_lemma', 'in_question']],
+      ['particle.rhetorical_particle', ['me_opt', 'neg_q']],
       ['particle.emphatic_ge', ['ge', 'ge_focus']],
       ['particle.restrictive_monon', ['monon_acc']],
       ['particle.inferential_oun', ['oun', 'oun_focus']]
@@ -3929,23 +3971,6 @@ section('§7ae  Observation Integration');
             Boolean(type) && signals.every(signal => gates.includes(signal)),
             'required_signals=' + JSON.stringify(gates));
     }
-}
-
-// ── Rhetorical negative particle remains limited to its verified μὴ γένοιτο pattern ──
-{
-    const all = [];
-    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
-        for (const subcategory of category.subcategories ?? []) {
-            all.push(...(subcategory.types ?? []));
-        }
-    }
-    const type = all.find(t => t.id === 'particle.rhetorical_particle');
-    check('particle.rhetorical_particle — 確認済みの μή＋希求法だけを必須条件とする',
-          Boolean(type) &&
-          (type.detection?.required_signals ?? []).includes('me_opt') &&
-          !(type.detection?.conditions ?? []).some(c => c.id === 'neg_q'),
-          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []) +
-          ', conditions=' + JSON.stringify((type?.detection?.conditions ?? []).map(c => c.id)));
 }
 
 // ── Verb aspect/tense classifications require defining evidence ──
