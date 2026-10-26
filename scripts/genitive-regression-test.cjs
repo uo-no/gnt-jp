@@ -342,13 +342,13 @@ function verseTest(label, bookKey, ch, v, targetLemma, expectedId, minConf = 0.3
           found ? `confidence=${found.confidence?.toFixed(2)}` : '対象なし');
 }
 
-// ── JAS 1:13 → 起源属格候補（Ἀπὸ θεοῦ）
-// この回帰テストは現行評価器の出力を確認する。ἀπό + 属格の意味分類の最終判断とは分ける。
-// ここでは genitive.source が候補として出ることを検査し、separation との文法的優先順位は別途監査する。
+// ── JAS 1:13 → 分離属格（Ἀπὸ θεοῦ）
+// ἀπό + 属格のこの例は、既存の文法分類回帰として separation を期待する。
+// 現行評価器が source を返す場合は失敗として記録し、期待値を実装出力に合わせて変更しない。
 console.log('\n  ─── JAS 1:13 ────────────────────────────────');
 console.log('  ヤコブ 1:13: Ἀπὸ θεοῦ πειράζομαι');
-console.log('  期待: θεοῦ → genitive.source（現行評価器の候補出力）');
-verseTest('JAS 1:13 θεοῦ', 'JAS', 1, 13, 'θεός', 'genitive.source');
+console.log('  期待: θεοῦ → genitive.separation');
+verseTest('JAS 1:13 θεοῦ', 'JAS', 1, 13, 'θεός', 'genitive.separation');
 
 // ── ROM 8:35 → 主語的属格（τῆς ἀγάπης τοῦ Χριστοῦ）
 console.log('\n  ─── ROM 8:35 ────────────────────────────────');
