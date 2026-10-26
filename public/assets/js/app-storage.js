@@ -450,7 +450,13 @@
                         const book = word.book != null ? String(word.book) : (currentBook != null ? String(currentBook) : "");
                         const chapter = word.chapter != null ? Number(word.chapter) : Number(currentChapter);
                         const verse = Number(word.verse);
-                        const tokenIndex = Number(word.tokenIndex);
+                        /* bible_data の生トークンでは tokenIndex が省略されることがあるため、
+                           canonical な token.ref の末尾 !N から語位置を復元する。 */
+                        const ref = typeof word.ref === "string" ? word.ref : "";
+                        const refMatch = ref.match(/!(\d+)\s*$/);
+                        const tokenIndex = word.tokenIndex != null && word.tokenIndex !== ""
+                            ? Number(word.tokenIndex)
+                            : (refMatch ? Number(refMatch[1]) : NaN);
                         if (book !== String(h.book) ||
                             chapter !== Number(h.chapter) ||
                             verse !== Number(h.verse) ||
