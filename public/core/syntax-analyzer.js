@@ -3995,6 +3995,10 @@ if (typeof module !== 'undefined' && module.exports) {
         'partitive_trigger_lemmas': [
             { typeId: 'genitive.partitive', detKey: 'trigger_lemmas' },
         ],
+        // genitive.partitive の半量構文用（通常の数量詞リストとは分離）
+        'half_quantity_lemmas': [
+            { typeId: 'genitive.partitive', detKey: 'half_quantity_lemmas' },
+        ],
         // genitive.time / dative.time が target_lemma_in_list で参照（時間名詞）
         'temporal_noun_lemmas': [
             { typeId: 'genitive.time', detKey: 'trigger_lemmas' },
