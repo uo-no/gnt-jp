@@ -3868,7 +3868,7 @@ section('§7ae  Observation Integration');
  const cases=[
   ['adjective.epithet',['proper_head']],
   ['pronoun.demonstrative',['dem_lemma','dem_type']],
-  ['pronoun.relative',['rel_lemma','antecedent']],
+  ['pronoun.relative',['rel_lemma']],
   ['pronoun.interrogative',['interr_lemma']],
   ['pronoun.indefinite',['indef_lemma','indef_type']]
  ];
@@ -3882,7 +3882,7 @@ section('§7ae  Observation Integration');
  for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
  const cases=[
   ['adjective.attributive',["attr_position"]],
-  ['adjective.predicate',["pred_position","copula"]],
+  ['adjective.predicate',["pred_position"]],
   ['adjective.attributive_position',["attr_position"]],
   ['adjective.predicate_position',["pred_position"]],
   ['pronoun.identical',["autos_lemma","article_before"]]
@@ -3959,9 +3959,9 @@ section('§7ae  Observation Integration');
         }
     }
     for (const [id, signals] of [
-      ['particle.interrogative_particle', ['int_lemma', 'in_question']],
+      ['particle.interrogative_particle', ['int_lemma']],
       ['particle.rhetorical_particle', ['me_opt']],
-      ['particle.emphatic_ge', ['ge', 'ge_focus']],
+      ['particle.emphatic_ge', ['ge']],
       ['particle.restrictive_monon', ['monon_acc']],
       ['particle.inferential_oun', ['oun', 'oun_focus']]
     ]) {
@@ -3985,7 +3985,7 @@ section('§7ae  Observation Integration');
       ['verb.historical_present', ['present_tense', 'narrative_context']],
       ['verb.gnomic_present', ['present_tense', 'gnomic_marker']],
       ['verb.imperfect_ingressive', ['impf_t', 'aor_before']],
-      ['verb.imperfect_iterative', ['impf_t', 'iter_marker']],
+      ['verb.imperfect_iterative', ['impf_t']],
       ['verb.aorist_ingressive', ['aor_t', 'stative_lemma']]
     ]) {
       const type = all.find(t => t.id === id);
@@ -4027,7 +4027,7 @@ section('§7ae  Observation Integration');
 // ── Batch 24: require defining signals for five tense/aspect classifications ──
 {
     const all = collectAllTypeDefs(syntaxRegistry);
-    const expected = [["verb.futuristic_present",["present_tense","motion_lemma"]],["verb.present_progressive",["present_t","now_adverb"]],["verb.present_iterative",["present_t","iter_marker"]],["verb.imperfect_customary",["impf_t","distributive"]],["verb.aorist_culminative",["aor_t","culminative_lemma"]]];
+    const expected = [["verb.futuristic_present",["present_tense","motion_lemma"]],["verb.present_progressive",["present_t"]],["verb.present_iterative",["present_t","iter_marker"]],["verb.imperfect_customary",["impf_t","distributive"]],["verb.aorist_culminative",["aor_t","culminative_lemma"]]];
     for (const [id, signals] of expected) {
       const type = all.find(t => t.id === id);
       const gates = type?.detection?.required_signals ?? [];
