@@ -22198,8 +22198,11 @@ function _applyHighlights() {
         scope.querySelectorAll(`.verse-block[data-vnum="${h.verse}"][data-col-mode="wordOrder"]`).forEach(block => {
             if (!block._flowWords) return;
             block._flowWords.forEach(w => {
-                const tidx = parseInt(w.tokenIndex, 10);
-                if (tidx >= h.tokenStart && tidx <= h.tokenEnd) {
+                /* 生トークンには tokenIndex がない場合がある。表示用 ref の !N をフォールバックに使う。 */
+                const tidx = w.tokenIndex != null && w.tokenIndex !== ''
+                    ? parseInt(w.tokenIndex, 10)
+                    : _hlTokenIdxFromRef(w.ref);
+                if (tidx != null && tidx >= h.tokenStart && tidx <= h.tokenEnd) {
                     const chip = block.querySelector(`.wlv-chip[data-token-id="${w.tokenId}"]`);
                     if (chip) {
                         HL_COLORS.forEach(c => chip.classList.remove(`hl-word-${c}`));
