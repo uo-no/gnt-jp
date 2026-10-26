@@ -309,11 +309,11 @@ async function verifyUserDrivenTokenSwitch(browser, mobile) {
     };
 
     const firstText = await clickToken('θεὸς');
-    const firstSample = firstText.replace(/\\s+/g, ' ').trim().slice(0, 80);
+    const firstSample = firstText.replace(/\s+/g, ' ').trim().slice(0, 80);
     assert.ok(firstSample.length > 20, `${label}: first token dictionary content is populated`);
 
     const secondText = await clickToken('κόσμον');
-    const secondSample = secondText.replace(/\\s+/g, ' ').trim().slice(0, 80);
+    const secondSample = secondText.replace(/\s+/g, ' ').trim().slice(0, 80);
     assert.ok(secondSample.length > 20, `${label}: second token dictionary content is populated`);
     assert.notEqual(secondSample, firstSample,
       `${label}: dictionary content must update after an actual chip switch; first=${JSON.stringify(firstSample)}, second=${JSON.stringify(secondSample)}`);
