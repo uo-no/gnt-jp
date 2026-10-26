@@ -21952,8 +21952,11 @@ function _hlVerseHighlight() {
     /* 語順・文構造モードで語が選択されている場合、ヘッダーのハイライト操作はその語を対象にする。
        口語訳など、語を選択していない通常モードでは従来どおり節全体を対象にする。 */
     const wordPos = _hlCurrentWordPos();
-    const isWordReadingMode = (_colB && _colB.kind === 'wordOrder') ||
-        !!document.querySelector('.da-view, .rk-reading-view');
+    /* 読み方は A 列が主表示の場合もある。DA_READING の実DOMには .da-view が
+       付かないため、DOMクラスだけでなく列モードの kind を正として判定する。 */
+    const isWordReadingMode = [_colA, _colB].some(col =>
+        col && (col.kind === 'wordOrder' || col.kind === 'da-reading')
+    ) || !!document.querySelector('.rk-reading-view');
     if (isWordReadingMode && wordPos) {
         _hlWordHighlight();
         return;
