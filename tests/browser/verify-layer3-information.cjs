@@ -281,16 +281,14 @@ async function verifyUserDrivenTokenSwitch(browser, mobile) {
     await page.waitForSelector(mobile ? '#mobile-inspector-area .wlv-chip' : '#word-list-view .wlv-chip', { timeout:12000 });
 
     const clickToken = async target => {
-      const clicked = await page.evaluate(target => {
+      const selector = mobile ? '#mobile-inspector-area .wlv-chip' : '#word-list-view .wlv-chip';
+      const index = await page.locator(selector).evaluateAll((chips, target) => {
         const normalize = value => String(value || '').normalize('NFC').trim();
-        const chips = [...document.querySelectorAll('#word-list-view .wlv-chip, #mobile-inspector-area .wlv-chip')];
-        const chip = chips.find(el => normalize(el.dataset.greek) === target ||
+        return chips.findIndex(el => normalize(el.dataset.greek) === target ||
           normalize(el.getAttribute('title')) === target || normalize(el.textContent).includes(target));
-        if (!chip) return false;
-        chip.click();
-        return true;
       }, target);
-      assert.ok(clicked, `${label}: user can select ${target} chip`);
+      assert.ok(index >= 0, `${label}: ${target} chip exists in the active word list`);
+      await page.locator(selector).nth(index).click();
       await page.waitForSelector('#wlv-detail-drawer.visible', { timeout:12000 });
       await page.waitForTimeout(200);
       const clickedStudy = await page.evaluate(() => {
@@ -338,6 +336,19 @@ async function verifyUserDrivenTokenSwitch(browser, mobile) {
         return !drawer || !drawer.classList.contains('visible');
       }, null, { timeout: 8000 });
     });
+
+    // Opening a token detail can close/collapse the verse word list. Reopen JHN 3:16
+    // through the same verse interaction before locating the next chip.
+    const reopenedVerse = await page.evaluate(() => {
+      const block = [...document.querySelectorAll('#bible-text-area .verse-block:not(.verse-pair-right)')]
+        .find(el => el.querySelector('.v-num')?.textContent.trim() === '16');
+      if (!block) return false;
+      block.click();
+      return true;
+    });
+    assert.ok(reopenedVerse, `${label}: can return to JHN 3:16 word list after closing token details`);
+    await page.waitForSelector(mobile ? '#mobile-verse-view.open' : '#bottom-depth-panel.open', { timeout:12000 });
+    await page.waitForSelector(mobile ? '#mobile-inspector-area .wlv-chip' : '#word-list-view .wlv-chip', { timeout:12000 });
 
     const secondText = await clickToken('κόσμον');
     const secondSample = secondText.replace(/\s+/g, ' ').trim().slice(0, 80);
