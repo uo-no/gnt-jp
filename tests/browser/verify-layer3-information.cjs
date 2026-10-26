@@ -250,6 +250,131 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
   await context.close();
 }
 
+
+async function verifyUserDrivenTokenSwitch(browser, mobile) {
+  const context = await browser.newContext(mobile ? {
+    viewport:{ width:390, height:844 }, isMobile:true, hasTouch:true,
+    userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+  } : { viewport:{ width:1280, height:900 } });
+  const page = await context.newPage();
+  page.setDefaultTimeout(12000);
+  const label = mobile ? 'Mobile' : 'Desktop';
+  const dictionarySelector = mobile
+    ? '#mvv-abbott-slot .rn-dict-full-text'
+    : '#reading-notes-area #rn-level2-details .rn-dict-full-text';
+
+  try {
+    await page.goto(`${BASE}/?book=JHN&ch=3`, { waitUntil:'domcontentloaded', timeout:30000 });
+    await page.waitForSelector('#bible-text-area .verse-block .v-num', { timeout:20000 });
+    await page.waitForTimeout(1200);
+    const verseClicked = await page.evaluate(() => {
+      for (const block of document.querySelectorAll('#bible-text-area .verse-block:not(.verse-pair-right)')) {
+        if (block.querySelector('.v-num')?.textContent.trim() === '16') {
+          block.click();
+          return true;
+        }
+      }
+      return false;
+    });
+    assert.ok(verseClicked, `${label}: JHN 3:16 exists for token-switch regression`);
+    await page.waitForSelector(mobile ? '#mobile-verse-view.open' : '#bottom-depth-panel.open', { timeout:12000 });
+    await page.waitForSelector(mobile ? '#mobile-inspector-area .wlv-chip' : '#word-list-view .wlv-chip', { timeout:12000 });
+
+    const clickToken = async target => {
+      const selector = mobile ? '#mobile-inspector-area .wlv-chip' : '#word-list-view .wlv-chip';
+      const index = await page.locator(selector).evaluateAll((chips, target) => {
+        const normalize = value => String(value || '').normalize('NFC').trim();
+        return chips.findIndex(el => normalize(el.dataset.greek) === target ||
+          normalize(el.getAttribute('title')) === target || normalize(el.textContent).includes(target));
+      }, target);
+      assert.ok(index >= 0, `${label}: ${target} chip exists in the active word list`);
+      await page.locator(selector).nth(index).click();
+      await page.waitForSelector('#wlv-detail-drawer.visible', { timeout:12000 });
+      await page.waitForTimeout(200);
+      const clickedStudy = await page.evaluate(() => {
+        const btn = document.getElementById('wlv-dd-study-btn');
+        if (!btn) return false;
+        btn.click();
+        return true;
+      });
+      assert.ok(clickedStudy, `${label}: StudyPanel entry can be activated for ${target}`);
+      // The dictionary text remains in the DOM while its Layer 3 disclosure is closed;
+      // open the same disclosure a reader would open before reading it.
+      const layer3Entry = page.locator(mobile
+        ? '#mobile-inspector-area [data-study-section="morphology"]'
+        : '#reading-notes-area #rn-level2-details');
+      await layer3Entry.waitFor({ state:'visible', timeout:12000 });
+      if (!(await layer3Entry.evaluate(el => el.open))) {
+        await layer3Entry.locator(':scope > summary').click();
+      }
+      await page.waitForFunction(selector => {
+        const el = document.querySelector(selector);
+        return !!el && !el.closest('details:not([open])') &&
+          el.getBoundingClientRect().height > 0 && (el.textContent || '').trim().length > 20;
+      }, dictionarySelector, { timeout:20000 });
+      return page.locator(dictionarySelector).innerText();
+    };
+
+    const firstText = await clickToken('θεὸς');
+    const firstSample = firstText.replace(/\s+/g, ' ').trim().slice(0, 80);
+    assert.ok(firstSample.length > 20, `${label}: first token dictionary content is populated`);
+
+    // Close the word-detail drawer before choosing another token, as a reader would
+    // when returning to the verse word list. The prior drawer overlay can intercept
+    // clicks on the next chip even though that chip is still present in the DOM.
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => {
+      const drawer = document.getElementById('wlv-detail-drawer');
+      return !drawer || !drawer.classList.contains('visible');
+    }, null, { timeout: 8000 }).catch(async () => {
+      // Some layouts do not bind Escape to the drawer; use its visible close control.
+      const drawer = page.locator('#wlv-detail-drawer');
+      const close = drawer.locator('button').last();
+      if (await close.count()) await close.click();
+      await page.waitForFunction(() => {
+        const drawer = document.getElementById('wlv-detail-drawer');
+        return !drawer || !drawer.classList.contains('visible');
+      }, null, { timeout: 8000 });
+    });
+
+    // Opening a token detail can close/collapse the verse word list. Reopen JHN 3:16
+    // through the same verse interaction before locating the next chip.
+    const reopenedVerse = await page.evaluate(mobile => {
+      const block = [...document.querySelectorAll('#bible-text-area .verse-block:not(.verse-pair-right)')]
+        .find(el => el.querySelector('.v-num')?.textContent.trim() === '16');
+      if (!block) return false;
+      const panel = document.querySelector(mobile ? '#mobile-verse-view' : '#bottom-depth-panel');
+      if (!panel?.classList.contains('open')) block.click();
+      return true;
+    }, mobile);
+    assert.ok(reopenedVerse, `${label}: can return to JHN 3:16 word list after closing token details`);
+    await page.waitForSelector(mobile ? '#mobile-verse-view.open' : '#bottom-depth-panel.open', { timeout:12000 });
+    await page.waitForSelector(mobile ? '#mobile-inspector-area .wlv-chip' : '#word-list-view .wlv-chip', { timeout:12000 });
+
+    const secondText = await clickToken('κόσμον');
+    const secondSample = secondText.replace(/\s+/g, ' ').trim().slice(0, 80);
+    assert.ok(secondSample.length > 20, `${label}: second token dictionary content is populated`);
+    assert.notEqual(secondSample, firstSample,
+      `${label}: dictionary content must update after an actual chip switch; first=${JSON.stringify(firstSample)}, second=${JSON.stringify(secondSample)}`);
+
+    const finalState = await page.evaluate(({ mobile }) => {
+      const scope = mobile ? document.querySelector('#mobile-inspector-area') : document.querySelector('#reading-notes-area');
+      return {
+        drawerVisible: document.getElementById('wlv-detail-drawer')?.classList.contains('visible') || false,
+        targetChipExists: [...document.querySelectorAll(mobile ? '#mobile-inspector-area .wlv-chip' : '#word-list-view .wlv-chip')]
+          .some(el => String(el.dataset.greek || '').normalize('NFC').trim() === 'κόσμον'),
+        dictionaryLength: (scope?.querySelector(mobile ? '#mvv-abbott-slot .rn-dict-full-text' : '#rn-level2-details .rn-dict-full-text')?.textContent || '').trim().length
+      };
+    }, { mobile });
+    assert.ok(finalState.targetChipExists, `${label}: second target chip remains a real selectable word`);
+    assert.ok(finalState.dictionaryLength > 20, `${label}: switched token's dictionary content remains populated`);
+    console.log(`PASS: ${label} — actual chip switch θεὸς → κόσμον updates StudyPanel dictionary content on the same page (${firstSample.length} / ${secondSample.length} sample chars).`);
+  } finally {
+    await context.close();
+  }
+}
+
+
 (async () => {
   const browser = await chromium.launch({ headless:true, args:['--no-sandbox'] });
   try {
@@ -257,6 +382,9 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
       for (let i = 0; i < TARGETS.length; i++) {
         await openTarget(browser, mobile, TARGETS[i], i === 0);
       }
+    }
+    for (const mobile of [false, true]) {
+      await verifyUserDrivenTokenSwitch(browser, mobile);
     }
   } finally {
     await browser.close();
