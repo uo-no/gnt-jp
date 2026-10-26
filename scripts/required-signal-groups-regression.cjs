@@ -66,7 +66,15 @@ category.subcategories[0].types.push({
     ],
     required_signal_groups: [['probe_a', 'probe_b'], ['probe_c']]
   },
-  xsc: { base_weight: 10, signals: [], default_confidence: 40 }
+  xsc: {
+    base_weight: 10,
+    signals: [
+      { id: 'probe_a', value: 10, label_ja: 'probe a' },
+      { id: 'probe_b', value: 10, label_ja: 'probe b' },
+      { id: 'probe_c', value: 10, label_ja: 'probe c' }
+    ],
+    default_confidence: 40
+  }
 });
 
 const analyzer = new SyntaxAnalyzer(registry);
