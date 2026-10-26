@@ -2584,6 +2584,13 @@ nomRepr('title MAT 1:1 Βίβλος γενέσεως', 'MAT', 1, 1, 'βίβλο�
 }
 {
     const title = analyzeTokenCat('MAT', 1, 1, 'βίβλος', 'nominative.');
+    check('indeclinable: MAT 1:1 の表題語を不変化語と誤認しない',
+          !title.allCandidates.some(x => x.id === 'nominative.indeclinable'),
+          `candidates=${title.allCandidates.map(x => x.id).join(',')}`);
+}
+
+{
+    const title = analyzeTokenCat('MAT', 1, 1, 'βίβλος', 'nominative.');
     for (const id of [
         'nominative.subject',
         'nominative.predicate_nominative',
