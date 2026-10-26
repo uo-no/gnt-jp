@@ -3995,6 +3995,10 @@ if (typeof module !== 'undefined' && module.exports) {
         'partitive_trigger_lemmas': [
             { typeId: 'genitive.partitive', detKey: 'trigger_lemmas' },
         ],
+        // genitive.partitive の半量構文用（通常の数量詞リストとは分離）
+        'half_quantity_lemmas': [
+            { typeId: 'genitive.partitive', detKey: 'half_quantity_lemmas' },
+        ],
         // genitive.time / dative.time が target_lemma_in_list で参照（時間名詞）
         'temporal_noun_lemmas': [
             { typeId: 'genitive.time', detKey: 'trigger_lemmas' },
@@ -4571,17 +4575,6 @@ if (typeof module !== 'undefined' && module.exports) {
         if (Array.isArray(det.required_signals) &&
             det.required_signals.some(id => !matched.includes(id))) {
             return null;
-        }
-        // Optional disjunction for types whose definition has alternative evidence paths.
-        // Each group is conjunctive internally; at least one non-empty group must match.
-        if (Array.isArray(det.required_signal_groups) && det.required_signal_groups.length > 0) {
-            const groups = det.required_signal_groups.filter(
-                group => Array.isArray(group) && group.length > 0
-            );
-            if (groups.length === 0 ||
-                !groups.some(group => group.every(id => matched.includes(id)))) {
-                return null;
-            }
         }
         if (conditions.length > 0 && matched.length === 0) return null;
 
