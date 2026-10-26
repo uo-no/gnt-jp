@@ -339,13 +339,14 @@ async function verifyUserDrivenTokenSwitch(browser, mobile) {
 
     // Opening a token detail can close/collapse the verse word list. Reopen JHN 3:16
     // through the same verse interaction before locating the next chip.
-    const reopenedVerse = await page.evaluate(() => {
+    const reopenedVerse = await page.evaluate(mobile => {
       const block = [...document.querySelectorAll('#bible-text-area .verse-block:not(.verse-pair-right)')]
         .find(el => el.querySelector('.v-num')?.textContent.trim() === '16');
       if (!block) return false;
-      block.click();
+      const panel = document.querySelector(mobile ? '#mobile-verse-view' : '#bottom-depth-panel');
+      if (!panel?.classList.contains('open')) block.click();
       return true;
-    });
+    }, mobile);
     assert.ok(reopenedVerse, `${label}: can return to JHN 3:16 word list after closing token details`);
     await page.waitForSelector(mobile ? '#mobile-verse-view.open' : '#bottom-depth-panel.open', { timeout:12000 });
     await page.waitForSelector(mobile ? '#mobile-inspector-area .wlv-chip' : '#word-list-view .wlv-chip', { timeout:12000 });
