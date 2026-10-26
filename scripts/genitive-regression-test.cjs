@@ -3492,8 +3492,8 @@ section('§7ae  Observation Integration');
           !slice.includes('.candidates') && !slice.includes('.top.') &&
           !slice.includes('relatedIds') && !slice.includes('searchParams'));
     check('25B-3: ポリシー由来の最低信頼度で判定し、静寂（return null）を維持',
-          /_obMinConf\\s*=\\s*_obPolicy\\?\\.rules\\?\\.min_confidence\\s*\\?\\?\\s*0\\.40/.test(slice) &&
-          /c\\.confidence\\s*<\\s*_obMinConf/.test(slice) &&
+          /_obMinConf\s*=\s*_obPolicy\?\.rules\?\.min_confidence\s*\?\?\s*0\.40/.test(slice) &&
+          /c\.confidence\s*<\s*_obMinConf/.test(slice) &&
           slice.includes('return null'));
     check('25B-3: 重複禁止ガード（既存文と同内容なら沈黙）がある',
           slice.includes('existingTexts'));
