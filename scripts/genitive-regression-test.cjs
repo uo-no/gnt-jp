@@ -4178,7 +4178,7 @@ section('§7ae  Observation Integration');
         ["adjective.proper_adjective", ["agreeing_noun"]],
         ["pronoun.reciprocal_emphasis", ["reciprocal_lemma", "prep_gov"]],
         ["vocative.direct_address", ["voc_case"]],
-        ["preposition.improper", ["improper_prep"]],
+        ["preposition.improper", ["improper_prep", "improper_gen"]],
     ];
     for (const [id, signals] of expected) {
         const type = all.find(t => t.id === id);
