@@ -2312,6 +2312,19 @@ class CandidateScorer {
             return null;
         }
 
+        // Match the base evaluator's alternative evidence contract here too.
+        // This patched evaluator handles condition-to-signal mapping, so omitting
+        // this gate would allow candidates through on a partial signal group.
+        if (Array.isArray(det.required_signal_groups) &&
+            det.required_signal_groups.length > 0) {
+            const hasValidGroup = det.required_signal_groups.some(group =>
+                Array.isArray(group) &&
+                group.length > 0 &&
+                group.every(id => matched.includes(id))
+            );
+            if (!hasValidGroup) return null;
+        }
+
         // Alternative evidence patterns use OR between groups and AND within each
         // group. Keep this separate from required_signals, which remains conjunctive.
         if (Array.isArray(det.required_signal_groups) &&
@@ -4576,20 +4589,6 @@ if (typeof module !== 'undefined' && module.exports) {
             det.required_signals.some(id => !matched.includes(id))) {
             return null;
         }
-
-        // Match the base evaluator's alternative evidence contract here too.
-        // This patched evaluator handles condition-to-signal mapping, so omitting
-        // this gate would allow candidates through on a partial signal group.
-        if (Array.isArray(det.required_signal_groups) &&
-            det.required_signal_groups.length > 0) {
-            const hasValidGroup = det.required_signal_groups.some(group =>
-                Array.isArray(group) &&
-                group.length > 0 &&
-                group.every(id => matched.includes(id))
-            );
-            if (!hasValidGroup) return null;
-        }
-
         if (conditions.length > 0 && matched.length === 0) return null;
 
         const rawScore = score + _computeTieBreakScore(typeDef);

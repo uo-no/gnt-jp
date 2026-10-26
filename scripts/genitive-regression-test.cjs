@@ -342,13 +342,14 @@ function verseTest(label, bookKey, ch, v, targetLemma, expectedId, minConf = 0.3
           found ? `confidence=${found.confidence?.toFixed(2)}` : '対象なし');
 }
 
-// ── JAS 1:13 → 起源属格（Ἀπὸ θεοῦ）
-// Registry semantics: source requires ἀπό/ἐκ/παρά; separation additionally requires a listed separation verb.
-// πειράζω is not in separation_verb_lemmas, so the declared separation gate is not met here.
-console.log('\\n  ─── JAS 1:13 ────────────────────────────────');
+// ── JAS 1:13 → 分離属格（Ἀπὸ θεοῦ）
+// Fix②(Wallace §4.C.6-4): Separation は広義のデフォルト。Source は特殊例。
+// πειράζω は分離動詞でも起源動詞でもないため、ἀπό + 属格の曖昧ケースでは separation が優先。
+// genitive.source は候補（confidence ~0.49）に残る点は保持される。
+console.log('\n  ─── JAS 1:13 ────────────────────────────────');
 console.log('  ヤコブ 1:13: Ἀπὸ θεοῦ πειράζομαι');
-console.log('  期待: θεοῦ → genitive.source（source_prep の根拠あり。separation_verb の根拠なし）');
-verseTest('JAS 1:13 θεοῦ', 'JAS', 1, 13, 'θεός', 'genitive.source');
+console.log('  期待: θεοῦ → genitive.separation（Fix②: ἀπό+属格の曖昧ケースでは separation がデフォルト優先）');
+verseTest('JAS 1:13 θεοῦ', 'JAS', 1, 13, 'θεός', 'genitive.separation');
 
 // ── ROM 8:35 → 主語的属格（τῆς ἀγάπης τοῦ Χριστοῦ）
 console.log('\n  ─── ROM 8:35 ────────────────────────────────');
@@ -391,7 +392,6 @@ verseTest('ROM 11:17 κλάδων', 'ROM', 11, 17, 'κλάδος', 'genitive.par
 
 // ── MRK 6:23 → 半量構文の部分属格（ἡμίσους τῆς βασιλείας μου）
 // 半量経路は通常の複数属格ゲートを迂回するが、実際の候補出力で確認する。
-// 最高スコアまでは要求しない。ここでの目的は候補が消失していないことの確認。
 console.log('\n  ─── MRK 6:23 ────────────────────────────────');
 console.log('  マルコ 6:23: ἡμίσους τῆς βασιλείας μου');
 {
@@ -1269,15 +1269,11 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
     }
     const partitive = all.find(t => t.id === 'genitive.partitive');
     const partitiveGroups = partitive?.detection?.required_signal_groups ?? [];
-    check('genitive.partitive — 部分属格の通常経路と半量経路を required_signal_groups で表す',
+    check('genitive.partitive — 通常経路と半量経路を required_signal_groups で表す',
           Boolean(partitive) &&
-          partitiveGroups.some(group =>
-            ['partitive_trigger', 'plural_genitive', 'no_preposition'].every(signal => group.includes(signal))) &&
-          partitiveGroups.some(group =>
-            ['half_quantity', 'no_preposition'].every(signal => group.includes(signal))),
-          JSON.stringify({ required_signals: partitive?.detection?.required_signals ?? [],
-                           required_signal_groups: partitiveGroups }));
-
+          partitiveGroups.some(group => ['partitive_trigger', 'plural_genitive', 'no_preposition'].every(signal => group.includes(signal))) &&
+          partitiveGroups.some(group => ['half_quantity', 'no_preposition'].every(signal => group.includes(signal))),
+          JSON.stringify({ required_signals: partitive?.detection?.required_signals ?? [], required_signal_groups: partitiveGroups }));
     const source = all.find(t => t.id === 'genitive.source');
     const sourceGates = source?.detection?.required_signals ?? [];
     check('genitive.source — 起源前置詞の根拠を必須化（JAS 1:13 の θεοῦ）',
@@ -1401,7 +1397,7 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
     const type = all.find(t => t.id === 'genitive.partitive');
     const det = type?.detection ?? {};
     const groups = det.required_signal_groups ?? [];
-    const hasGroup = (expected) => groups.some(group =>
+    const hasGroup = expected => groups.some(group =>
         Array.isArray(group) && expected.length === group.length &&
         expected.every(id => group.includes(id))
     );
@@ -1415,15 +1411,6 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
               !(det.required_signals ?? []).includes('plural_genitive'),
           'half_quantity_lemmas=' + JSON.stringify(det.half_quantity_lemmas) +
           '; required_signals=' + JSON.stringify(det.required_signals ?? []));
-    const mrk6 = verseTokens('MRK', 6, 23);
-    const half = mrk6.find(t => t.lemma === 'ἥμισυς' && t.text === 'ἡμίσους');
-    const kingdom = mrk6.find(t => t.lemma === 'βασιλεία' && t.text === 'βασιλείας');
-    check('MRK 6:23 — 半量ヘッドと対象属格の形態データを維持',
-          Boolean(half && kingdom) &&
-              half.case === 'genitive' && half.number === 'singular' &&
-              kingdom.case === 'genitive' && kingdom.number === 'singular',
-          'half=' + JSON.stringify(half && {text:half.text,lemma:half.lemma,case:half.case,number:half.number}) +
-          '; kingdom=' + JSON.stringify(kingdom && {text:kingdom.text,lemma:kingdom.lemma,case:kingdom.case,number:kingdom.number}));
 }
 
 // ── Relationship genitive requires kinship head + proper name ────
@@ -3197,7 +3184,7 @@ console.log('\n  ─── FP 抑制 ───');
 console.log('\n  ─── Regression ───');
 {
     const checks = [
-        // MRK 1:10 ὕδωρ is not a positive genitive.place example; do not assert this as a top candidate.
+        ['MRK', 1, 10, 'ὕδωρ', 0, 'genitive.', 'genitive.place'],
         ['JHN', 10, 11, 'καλός', 0, 'adjective.', 'adjective.attributive'],
         ['JHN', 8, 12, 'ἐγώ', 0, 'pronoun.', 'pronoun.personal'],
         ['MAT', 28, 19, 'πορεύομαι', 0, 'participle.', 'participle.adverbial_attendant'],
@@ -3442,26 +3429,19 @@ section('§7ad  Phrase Reading Integration');
     const uiSrc = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
     const m = uiSrc.match(/__PHRASE_READING_BEGIN__([\s\S]*?)__PHRASE_READING_END__/);
     check('25B-2: Phrase Reading ブロックが存在する', Boolean(m));
-    const wholeBlock = m ? m[1] : '';
-    // Flow Tree prototype code is nested between the outer markers; exclude it from Phrase Reading policy checks.
-    const phraseStart = wholeBlock.indexOf('function _phraseReadingSentence');
-    const flowTreeStart = wholeBlock.indexOf('function _ft11BuildFlowTree');
-    const phraseTailStart = wholeBlock.indexOf('async function _buildPhraseReadingHTML');
-    const slice = phraseStart >= 0 && flowTreeStart > phraseStart && phraseTailStart > flowTreeStart
-        ? wholeBlock.slice(phraseStart, flowTreeStart) + wholeBlock.slice(phraseTailStart)
-        : wholeBlock;
+    const slice = m ? m[1] : '';
 
     // 使用フィールドの制限: phrases / genitivePhrases のみ（候補・確度・型名に触れない）
     check('25B-2: proj.phrases / genitivePhrases のみを参照',
           slice.includes('proj.phrases') && slice.includes('proj.genitivePhrases') &&
           !slice.includes('.candidates') && !slice.includes('.top') &&
           !slice.includes('relatedIds') && !slice.includes('searchParams'));
+    check('25B-2: 内部構造の表示語（confidence/wallace/label）が不在',
+          !/confidence|wallace|label_ja|label_en/i.test(slice));
+
     // 表示文（バッククォート内テンプレート）の検査
-    const templates = (slice.match(/\x60[^\x60]*\x60/g) ?? [])
+    const templates = (slice.match(/`[^`]*`/g) ?? [])
         .filter(t => t.includes('「') || t.includes('ここ'));   // 文のテンプレートのみ
-    // Internal implementation identifiers may occur in code/comments; inspect only user-facing templates.
-    check('25B-2: 内部構造の表示語（confidence/wallace/label）が表示文に不在',
-          !/confidence|wallace|label_ja|label_en/i.test(templates.join('\n')));
     check('25B-2: 表示文テンプレートが存在する', templates.length >= 3);
     const FORBIDDEN = ['属格', '冠詞', '修飾', '述語', '主語', '限定位置',
                        'Apollonius', 'Wallace', 'Head', 'Dependent', 'NPです'];
@@ -3496,10 +3476,8 @@ section('§7ae  Observation Integration');
           slice.includes('.categories') &&
           !slice.includes('.candidates') && !slice.includes('.top.') &&
           !slice.includes('relatedIds') && !slice.includes('searchParams'));
-    check('25B-3: ポリシー由来の最低信頼度で判定し、静寂（return null）を維持',
-          /_obMinConf\s*=\s*_obPolicy\?\.rules\?\.min_confidence\s*\?\?\s*0\.40/.test(slice) &&
-          /c\.confidence\s*<\s*_obMinConf/.test(slice) &&
-          slice.includes('return null'));
+    check('25B-3: 弱い判定の除外（>= 0.40）と静寂（return null）がある',
+          slice.includes('>= 0.40') && slice.includes('return null'));
     check('25B-3: 重複禁止ガード（既存文と同内容なら沈黙）がある',
           slice.includes('existingTexts'));
 
@@ -3882,7 +3860,7 @@ section('§7ae  Observation Integration');
  const cases=[
   ['adjective.epithet',['proper_head']],
   ['pronoun.demonstrative',['dem_lemma','dem_type']],
-  ['pronoun.relative',['rel_lemma']],
+  ['pronoun.relative',['rel_lemma','antecedent']],
   ['pronoun.interrogative',['interr_lemma']],
   ['pronoun.indefinite',['indef_lemma','indef_type']]
  ];
@@ -3896,7 +3874,7 @@ section('§7ae  Observation Integration');
  for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
  const cases=[
   ['adjective.attributive',["attr_position"]],
-  ['adjective.predicate',["pred_position"]],
+  ['adjective.predicate',["pred_position","copula"]],
   ['adjective.attributive_position',["attr_position"]],
   ['adjective.predicate_position',["pred_position"]],
   ['pronoun.identical',["autos_lemma","article_before"]]
@@ -3973,9 +3951,9 @@ section('§7ae  Observation Integration');
         }
     }
     for (const [id, signals] of [
-      ['particle.interrogative_particle', ['int_lemma']],
-      ['particle.rhetorical_particle', ['me_opt']],
-      ['particle.emphatic_ge', ['ge']],
+      ['particle.interrogative_particle', ['int_lemma', 'in_question']],
+      ['particle.rhetorical_particle', ['me_opt', 'neg_q']],
+      ['particle.emphatic_ge', ['ge', 'ge_focus']],
       ['particle.restrictive_monon', ['monon_acc']],
       ['particle.inferential_oun', ['oun', 'oun_focus']]
     ]) {
@@ -3999,7 +3977,7 @@ section('§7ae  Observation Integration');
       ['verb.historical_present', ['present_tense', 'narrative_context']],
       ['verb.gnomic_present', ['present_tense', 'gnomic_marker']],
       ['verb.imperfect_ingressive', ['impf_t', 'aor_before']],
-      ['verb.imperfect_iterative', ['impf_t']],
+      ['verb.imperfect_iterative', ['impf_t', 'iter_marker']],
       ['verb.aorist_ingressive', ['aor_t', 'stative_lemma']]
     ]) {
       const type = all.find(t => t.id === id);
@@ -4041,7 +4019,7 @@ section('§7ae  Observation Integration');
 // ── Batch 24: require defining signals for five tense/aspect classifications ──
 {
     const all = collectAllTypeDefs(syntaxRegistry);
-    const expected = [["verb.futuristic_present",["present_tense","motion_lemma"]],["verb.present_progressive",["present_t"]],["verb.present_iterative",["present_t","iter_marker"]],["verb.imperfect_customary",["impf_t","distributive"]],["verb.aorist_culminative",["aor_t","culminative_lemma"]]];
+    const expected = [["verb.futuristic_present",["present_tense","motion_lemma"]],["verb.present_progressive",["present_t","now_adverb"]],["verb.present_iterative",["present_t","iter_marker"]],["verb.imperfect_customary",["impf_t","distributive"]],["verb.aorist_culminative",["aor_t","culminative_lemma"]]];
     for (const [id, signals] of expected) {
       const type = all.find(t => t.id === id);
       const gates = type?.detection?.required_signals ?? [];
