@@ -4991,6 +4991,36 @@ console.log('');
         JSON.stringify({description:par?.description_ja,hint:par?.hint_ja,parLabel}));
 }
 
+
+ 
+// ── Batch 69: descriptive-genitive impact and proper-adjective labels remain evidence-calibrated ──
+{
+    const all = collectAllTypeDefs(syntaxRegistry);
+    const descriptive = all.find(t => t.id === "genitive.descriptive");
+    const adjective = all.find(t => t.id === "adjective.proper_adjective");
+    const impact = descriptive?.dictionary?.reading_impact_detail || "";
+    const adjectiveDescription = adjective?.description_ja || "";
+    const adjectiveHint = adjective?.hint_ja || "";
+    const adjectiveSignal = adjective?.detection?.conditions?.find(x => x.id === "agreeing_noun")?.signal || "";
+    const adjectiveLabel = adjective?.xsc?.signals?.find(x => x.id === "agreeing_noun")?.label_ja || "";
+    check("Batch 69 — descriptive-genitive rhetorical effect is contextual, not determined by label",
+        Boolean(descriptive)
+            && impact.includes("読みが支持される場合")
+            && impact.includes("分類だけで意味的色調や著者の意図を決めず")
+            && impact.includes("競合する属格用法")
+            && !impact.includes("意味的な色合いを理解する助け"),
+        impact);
+    check("Batch 69 — proper-adjective agreement cue is a candidate, not an exclusion-tested default",
+        Boolean(adjective)
+            && adjectiveDescription.includes("基本候補")
+            && adjectiveHint.includes("名詞的用法や叙述的用法")
+            && adjectiveSignal.includes("候補")
+            && adjectiveLabel.includes("候補")
+            && !adjectiveHint.includes("デフォルト分類"),
+        JSON.stringify({adjectiveDescription,adjectiveHint,adjectiveSignal,adjectiveLabel}));
+}
+
+
 const allPass = FAIL === 0;
 
 console.log('══════════════════════════════════════════════════════');
