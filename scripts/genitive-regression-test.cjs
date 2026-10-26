@@ -3919,7 +3919,6 @@ section('§7ae  Observation Integration');
     }
     for (const [id, signals] of [
       ['particle.interrogative_particle', ['int_lemma', 'in_question']],
-      ['particle.rhetorical_particle', ['me_opt', 'neg_q']],
       ['particle.emphatic_ge', ['ge', 'ge_focus']],
       ['particle.restrictive_monon', ['monon_acc']],
       ['particle.inferential_oun', ['oun', 'oun_focus']]
@@ -3930,6 +3929,23 @@ section('§7ae  Observation Integration');
             Boolean(type) && signals.every(signal => gates.includes(signal)),
             'required_signals=' + JSON.stringify(gates));
     }
+}
+
+// ── Rhetorical negative particle accepts either of its two defined uses ──
+{
+    const all = [];
+    for (const category of Object.values(syntaxRegistry.categories ?? {})) {
+        for (const subcategory of category.subcategories ?? []) {
+            all.push(...(subcategory.types ?? []));
+        }
+    }
+    const type = all.find(t => t.id === 'particle.rhetorical_particle');
+    const groups = type?.detection?.required_signal_groups ?? [];
+    check('particle.rhetorical_particle — μὴ γένοιτο 型と否定疑問を代替条件として定義',
+          Boolean(type) &&
+          groups.some(g => Array.isArray(g) && g.length === 1 && g[0] === 'me_opt') &&
+          groups.some(g => Array.isArray(g) && g.length === 1 && g[0] === 'neg_q'),
+          'required_signal_groups=' + JSON.stringify(groups));
 }
 
 // ── Verb aspect/tense classifications require defining evidence ──
