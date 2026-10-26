@@ -1363,7 +1363,7 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
           'required_signals=' + JSON.stringify(gates));
 }
 
-// ── Partitive genitive requires a quantifying/partitive head cue ──
+// ── Partitive genitive: normal plural path OR narrow half-quantity path ──
 {
     const all = [];
     for (const category of Object.values(syntaxRegistry.categories ?? {})) {
@@ -1372,12 +1372,31 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
         }
     }
     const type = all.find(t => t.id === 'genitive.partitive');
-    const required = ['partitive_trigger'];
-    const gates = type?.detection?.required_signals ?? [];
-    check('genitive.partitive — 部分・全体関係を示すヘッド根拠を必須化',
-          Boolean(type) && required.every(id => gates.includes(id)) &&
-              !gates.includes('plural_genitive') && !gates.includes('no_preposition'),
-          'required_signals=' + JSON.stringify(gates));
+    const det = type?.detection ?? {};
+    const groups = det.required_signal_groups ?? [];
+    const hasGroup = (expected) => groups.some(group =>
+        Array.isArray(group) && expected.length === group.length &&
+        expected.every(id => group.includes(id))
+    );
+    check('genitive.partitive — 通常経路は部分ヘッド＋複数属格＋前置詞支配なし',
+          Boolean(type) && hasGroup(['partitive_trigger', 'plural_genitive', 'no_preposition']),
+          'required_signal_groups=' + JSON.stringify(groups));
+    check('genitive.partitive — 半量構文だけ単数属格を別経路で許可',
+          Boolean(type) && hasGroup(['half_quantity', 'no_preposition']) &&
+              Array.isArray(det.half_quantity_lemmas) &&
+              det.half_quantity_lemmas.includes('ἥμισυς') &&
+              !(det.required_signals ?? []).includes('plural_genitive'),
+          'half_quantity_lemmas=' + JSON.stringify(det.half_quantity_lemmas) +
+          '; required_signals=' + JSON.stringify(det.required_signals ?? []));
+    const mrk6 = verseTokens('MRK', 6, 23);
+    const half = mrk6.find(t => t.lemma === 'ἥμισυς' && t.text === 'ἡμίσους');
+    const kingdom = mrk6.find(t => t.lemma === 'βασιλεία' && t.text === 'βασιλείας');
+    check('MRK 6:23 — 半量ヘッドと対象属格の形態データを維持',
+          Boolean(half && kingdom) &&
+              half.case === 'genitive' && half.number === 'singular' &&
+              kingdom.case === 'genitive' && kingdom.number === 'singular',
+          'half=' + JSON.stringify(half && {text:half.text,lemma:half.lemma,case:half.case,number:half.number}) +
+          '; kingdom=' + JSON.stringify(kingdom && {text:kingdom.text,lemma:kingdom.lemma,case:kingdom.case,number:kingdom.number}));
 }
 
 // ── Relationship genitive requires kinship head + proper name ────
