@@ -21949,6 +21949,16 @@ function _hlColorSelected(color) {
 /* ── 節全体ハイライト（Phase B） ── */
 
 function _hlVerseHighlight() {
+    /* 語順・文構造モードで語が選択されている場合、ヘッダーのハイライト操作はその語を対象にする。
+       口語訳など、語を選択していない通常モードでは従来どおり節全体を対象にする。 */
+    const wordPos = _hlCurrentWordPos();
+    const isWordReadingMode = (_colB && _colB.kind === 'wordOrder') ||
+        !!document.querySelector('.da-view, .rk-reading-view');
+    if (isWordReadingMode && wordPos) {
+        _hlWordHighlight();
+        return;
+    }
+
     const pos = _hlCurrentVersePos();
     if (!pos) return;
 
