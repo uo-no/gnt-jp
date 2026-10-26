@@ -29,7 +29,7 @@
         };
     }
 
-    var HL_VALID_COLORS = ['yellow', 'blue', 'green', 'pink'];
+    var HL_VALID_COLORS = ['yellow', 'blue', 'green', 'red'];
 
     function migrateHighlightEntry(entry) {
         if (!entry || typeof entry !== 'object') return null;
@@ -44,7 +44,7 @@
             verse:      Number(entry.verse),
             tokenStart: ts,
             tokenEnd:   te,
-            color:      HL_VALID_COLORS.indexOf(entry.color) !== -1 ? entry.color : 'yellow',
+            color:      entry.color === 'pink' ? 'red' : (HL_VALID_COLORS.indexOf(entry.color) !== -1 ? entry.color : 'yellow'),
             createdAt:  entry.createdAt != null ? entry.createdAt : Date.now(),
         };
     }
