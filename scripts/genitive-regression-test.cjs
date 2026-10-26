@@ -3958,9 +3958,9 @@ section('§7ae  Observation Integration');
         }
     }
     for (const [id, signals] of [
-      ['particle.interrogative_particle', ['int_lemma', 'in_question']],
+      ['particle.interrogative_particle', ['int_lemma']],
       ['particle.rhetorical_particle', ['me_opt', 'neg_q']],
-      ['particle.emphatic_ge', ['ge', 'ge_focus']],
+      ['particle.emphatic_ge', ['ge']],
       ['particle.restrictive_monon', ['monon_acc']],
       ['particle.inferential_oun', ['oun', 'oun_focus']]
     ]) {
