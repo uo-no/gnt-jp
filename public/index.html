@@ -2657,6 +2657,15 @@ animation: ac-blink 1.2s ease-in-out infinite;
     font-family: inherit;
 }
 .hl-picker-delete:hover { color: var(--text-sub); }
+.hl-picker-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.hl-picker-action { border: 1px solid var(--border-soft); border-radius: 999px; background: transparent; color: var(--text-main); padding: 7px 10px; font: inherit; font-size: var(--text-caption); cursor: pointer; white-space: nowrap; }
+.hl-picker-action:hover { border-color: var(--accent-mid); }
+#hl-selection-bar { display: none; position: fixed; z-index: 8992; left: 50%; bottom: max(16px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); align-items: center; gap: 10px; max-width: calc(100vw - 24px); padding: 10px 12px; border: 1px solid var(--border-soft); border-radius: 14px; background: var(--bg-paper); box-shadow: 0 6px 24px rgba(0,0,0,.16); color: var(--text-main); font-size: var(--text-caption); }
+#hl-selection-bar.hl-open { display: flex; }
+#hl-selection-count { white-space: nowrap; }
+.hl-selection-bar-btn { border: 1px solid var(--border-soft); border-radius: 999px; background: transparent; color: var(--text-main); padding: 7px 10px; font: inherit; cursor: pointer; white-space: nowrap; }
+.hl-selection-bar-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+.wlv-chip.hl-multi-selected { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; background: rgba(21,114,44,.13); }
 
 /* Highlight slot in word detail (mobile + desktop) */
 .hl-word-slot {
@@ -19453,6 +19462,11 @@ function _wlvChipClick(chipEl, tokenId) {
     }
     if (!chip) return;
 
+    if (_hlMultiSelectActive) {
+        _hlMultiSelectTap(chipEl, chip);
+        return;
+    }
+
     /* ── Highlight 範囲選択モード：範囲終端タップとして処理 ── */
     if (_hlRangeActive && _hlRangePending && chip.bookKey && chip.verse != null) {
         const tokenEnd = _hlTokenIdxFromRef(chip.ref);
@@ -21832,6 +21846,8 @@ let _hlPickerPending = null;    /* 保存待ちのハイライトエントリ */
 /* ── 範囲選択状態 ── */
 let _hlRangeActive = false;
 let _hlRangePending = null;     /* { book, chapter, verse, tokenStart } */
+let _hlMultiSelectActive = false;
+let _hlMultiSelectEntries = [];
 
 /* ── ユーティリティ ── */
 
@@ -21900,19 +21916,16 @@ function _hlOpenPicker(entry, anchorEl) {
     const overlay = document.getElementById('hl-color-picker-overlay');
     if (!picker || !overlay) return;
 
-    /* 既存ハイライトの場合は現在色を選択状態にする */
-    picker.querySelectorAll('.hl-picker-swatch').forEach(s => {
-        s.classList.toggle('hl-selected', s.dataset.color === entry.color);
-    });
-    /* 削除ボタン：新規は非表示、既存は表示 */
+    const pickerEntries = entry._isBatch ? entry.entries : [entry];
+    const sharedColor = pickerEntries.length && pickerEntries.every(item => item.color === pickerEntries[0].color) ? pickerEntries[0].color : null;
+    picker.querySelectorAll('.hl-picker-swatch').forEach(s => s.classList.toggle('hl-selected', !!sharedColor && s.dataset.color === sharedColor));
     const del = picker.querySelector('.hl-picker-delete');
-    if (del) del.style.display = entry._isExisting ? '' : 'none';
-
-    /* 位置決め：画面中央（モバイル/デスクトップ共通で安全） */
-    picker.style.left = '';
-    picker.style.top  = '';
+    if (del) del.style.display = pickerEntries.some(item => item._isExisting) ? '' : 'none';
+    const actions = picker.querySelector('.hl-picker-actions');
+    if (actions) actions.style.display = entry._isBatch || entry.tokenStart != null ? 'flex' : 'none';
+    picker.style.left = '50%';
+    picker.style.top = '';
     picker.style.bottom = '80px';
-    picker.style.left   = '50%';
     picker.style.transform = 'translateX(-50%)';
 
     overlay.classList.add('hl-open');
@@ -21922,27 +21935,26 @@ function _hlOpenPicker(entry, anchorEl) {
 function _hlColorSelected(color) {
     const entry = _hlPickerPending;
     _hlPickerClose();
-    if (!entry) return;
-    if (!window.App || !window.App.storage) return;
-
-    if (color === null) {
-        /* 削除 */
-        window.App.storage.removeHighlight(entry);
-    } else {
-        _hlLastUsedColor = color;
-        if (entry._isExisting) {
-            window.App.storage.updateHighlightColor(entry, color);
+    if (!entry || !window.App || !window.App.storage) return;
+    const entries = entry._isBatch ? entry.entries : [entry];
+    entries.forEach(item => {
+        if (color === null) {
+            if (item._isExisting) window.App.storage.removeHighlight(item);
         } else {
-            const toSave = Object.assign({}, entry);
-            delete toSave._isExisting;
-            toSave.color = color;
-            window.App.storage.addHighlight(toSave);
+            _hlLastUsedColor = color;
+            if (item._isExisting) window.App.storage.updateHighlightColor(item, color);
+            else {
+                const toSave = Object.assign({}, item);
+                delete toSave._isExisting;
+                delete toSave.tokenId;
+                toSave.color = color;
+                window.App.storage.addHighlight(toSave);
+            }
         }
-    }
+    });
+    document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
     _applyHighlights();
-    /* 語スロットを再描画（色変更を反映） */
-    const slot = document.getElementById('mvv-hl-word-slot') ||
-                 document.getElementById('rn-hl-word-slot');
+    const slot = document.getElementById('mvv-hl-word-slot') || document.getElementById('rn-hl-word-slot');
     if (slot) _hlFillWordSlot(slot);
 }
 
@@ -21979,14 +21991,7 @@ function _hlVerseHighlight() {
         color: 'yellow', createdAt: Date.now(),
         _isExisting: false,
     };
-    if (_hlLastUsedColor) {
-        /* 即時保存 */
-        entry.color = _hlLastUsedColor;
-        window.App?.storage?.addHighlight(entry);
-        _applyHighlights();
-    } else {
-        _hlOpenPicker(entry);
-    }
+    _hlOpenPicker(entry);
 }
 
 /* ── 語ハイライト（Phase C/D）── */
@@ -22003,16 +22008,7 @@ function _hlWordHighlight() {
     }
 
     const entry = Object.assign({}, pos, { color: 'yellow', createdAt: Date.now(), _isExisting: false });
-    if (_hlLastUsedColor) {
-        entry.color = _hlLastUsedColor;
-        window.App?.storage?.addHighlight(entry);
-        _applyHighlights();
-        const slot = document.getElementById('mvv-hl-word-slot') ||
-                     document.getElementById('rn-hl-word-slot');
-        if (slot) _hlFillWordSlot(slot);
-    } else {
-        _hlOpenPicker(entry);
-    }
+    _hlOpenPicker(entry);
 }
 
 /* ── 語ハイライト：色直接指定（BUG-2: スウォッチから色を渡す） ── */
@@ -22041,27 +22037,66 @@ function _hlWordHighlightDirect(color) {
 
 /* ── 句・範囲選択（Phase E）── */
 
-function _hlEnterRangeMode() {
-    const pos = _hlCurrentWordPos();
+function _hlShowSelectionBar(mode, count) {
+    const bar = document.getElementById('hl-selection-bar'), label = document.getElementById('hl-selection-count');
+    const finish = document.getElementById('hl-selection-finish');
+    if (!bar) return;
+    if (label) label.textContent = mode === 'range' ? '開始語から末尾の単語をタップ' : (count + ' 語を選択中');
+    if (finish) finish.style.display = mode === 'multi' ? '' : 'none';
+    bar.dataset.mode = mode; bar.classList.add('hl-open');
+}
+function _hlHideSelectionBar() { document.getElementById('hl-selection-bar')?.classList.remove('hl-open'); }
+function _hlEnterMultiSelectMode(entry) {
+    const seed = entry || _hlPickerPending;
+    if (!seed || seed.tokenStart == null) return;
+    _hlPickerClose(); _hlRangeActive = false; _hlRangePending = null;
+    _hlMultiSelectActive = true; _hlMultiSelectEntries = [Object.assign({}, seed)];
+    document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+    document.querySelectorAll('.wlv-chip.active').forEach(c => c.classList.add('hl-multi-selected'));
+    _hlShowSelectionBar('multi', _hlMultiSelectEntries.length);
+}
+function _hlMultiSelectTap(chipEl, chip) {
+    const tokenStart = _hlTokenIdxFromRef(chip.ref), book = chip.bookKey || chip.book;
+    const chapter = Number(chip.ch), verse = Number(chip.verse);
+    if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse) || !tokenStart) return;
+    const key = [String(book), chapter, verse, tokenStart].join(':');
+    const idx = _hlMultiSelectEntries.findIndex(item => [String(item.book), Number(item.chapter), Number(item.verse), Number(item.tokenStart)].join(':') === key);
+    if (idx >= 0) { _hlMultiSelectEntries.splice(idx, 1); chipEl.classList.remove('hl-multi-selected'); }
+    else {
+        const existing = _hlFindExisting(book, chapter, verse, tokenStart, tokenStart);
+        _hlMultiSelectEntries.push(Object.assign({}, existing || { book: String(book), chapter, verse, tokenStart, tokenEnd: tokenStart, color: 'yellow', createdAt: Date.now() }, { _isExisting: !!existing }));
+        chipEl.classList.add('hl-multi-selected');
+    }
+    _hlShowSelectionBar('multi', _hlMultiSelectEntries.length);
+}
+function _hlFinishMultiSelection() {
+    if (!_hlMultiSelectActive) return;
+    const entries = _hlMultiSelectEntries.slice();
+    _hlMultiSelectActive = false; _hlMultiSelectEntries = []; _hlHideSelectionBar();
+    if (!entries.length) { document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected')); return; }
+    _hlOpenPicker({ _isBatch: true, entries });
+}
+function _hlCancelSelection() {
+    if (_hlRangeActive) { _hlExitRangeMode(); return; }
+    _hlMultiSelectActive = false; _hlMultiSelectEntries = []; _hlHideSelectionBar();
+    document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+}
+
+function _hlEnterRangeMode(entry) {
+    const pending = entry || _hlPickerPending, pos = pending && pending.tokenStart != null ? pending : _hlCurrentWordPos();
     if (!pos) return;
-    _hlRangeActive = true;
-    _hlRangePending = { book: pos.book, chapter: pos.chapter, verse: pos.verse, tokenStart: pos.tokenStart };
-
-    /* 開始語チップにマーカー */
-    _hlMarkRangeStart(pos.verse, pos.tokenStart);
-
-    /* スロット更新（キャンセルボタン表示） */
-    const slot = document.getElementById('mvv-hl-word-slot') ||
-                 document.getElementById('rn-hl-word-slot');
+    _hlPickerClose(); _hlRangeActive = true;
+    _hlRangePending = { book: String(pos.book), chapter: Number(pos.chapter), verse: Number(pos.verse), tokenStart: Number(pos.tokenStart) };
+    _hlMarkRangeStart(pos.verse, pos.tokenStart); _hlShowSelectionBar('range', 1);
+    const slot = document.getElementById('mvv-hl-word-slot') || document.getElementById('rn-hl-word-slot');
     if (slot) _hlFillWordSlot(slot);
 }
 
 function _hlExitRangeMode() {
-    _hlRangeActive  = false;
-    _hlRangePending = null;
+    _hlRangeActive = false; _hlRangePending = null;
     document.querySelectorAll('.wlv-chip.hl-range-start').forEach(c => c.classList.remove('hl-range-start'));
-    const slot = document.getElementById('mvv-hl-word-slot') ||
-                 document.getElementById('rn-hl-word-slot');
+    _hlHideSelectionBar();
+    const slot = document.getElementById('mvv-hl-word-slot') || document.getElementById('rn-hl-word-slot');
     if (slot) _hlFillWordSlot(slot);
 }
 
@@ -22105,13 +22140,7 @@ function _hlRangeTap(book, chapter, verse, tokenEnd) {
         tokenStart, tokenEnd,
         color: 'yellow', createdAt: Date.now(), _isExisting: false,
     };
-    if (_hlLastUsedColor) {
-        entry.color = _hlLastUsedColor;
-        window.App?.storage?.addHighlight(entry);
-        _applyHighlights();
-    } else {
-        _hlOpenPicker(entry);
-    }
+    _hlOpenPicker(entry);
     return true;   /* 呼び出し元は通常の chip クリックを抑制してよい */
 }
 
@@ -22391,6 +22420,10 @@ function _hlSetFilter(color) {
 <div id="hl-color-picker-overlay" onclick="_hlPickerClose()"></div>
 <div id="hl-color-picker" role="dialog" aria-label="ハイライトの色">
     <div class="hl-picker-title">ハイライトの色</div>
+    <div class="hl-picker-actions">
+        <button class="hl-picker-action" onclick="_hlEnterRangeMode()">範囲選択</button>
+        <button class="hl-picker-action" onclick="_hlEnterMultiSelectMode()">単語を追加選択</button>
+    </div>
     <div class="hl-picker-row">
         <button class="hl-picker-swatch" data-color="yellow" onclick="_hlColorSelected('yellow')" title="黄"></button>
         <button class="hl-picker-swatch" data-color="blue"   onclick="_hlColorSelected('blue')"   title="青"></button>
@@ -22398,6 +22431,11 @@ function _hlSetFilter(color) {
         <button class="hl-picker-swatch" data-color="red"    onclick="_hlColorSelected('red')"    title="赤"></button>
     </div>
     <button class="hl-picker-delete" onclick="_hlColorSelected(null)">ハイライトを削除</button>
+</div>
+<div id="hl-selection-bar" role="status" aria-live="polite">
+    <span id="hl-selection-count"></span>
+    <button id="hl-selection-finish" class="hl-selection-bar-btn primary" onclick="_hlFinishMultiSelection()">選択した単語を確定</button>
+    <button class="hl-selection-bar-btn" onclick="_hlCancelSelection()">キャンセル</button>
 </div>
 
 </body>
