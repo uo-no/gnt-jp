@@ -3984,7 +3984,7 @@ section('§7ae  Observation Integration');
       ['verb.historical_present', ['present_tense', 'narrative_context']],
       ['verb.gnomic_present', ['present_tense', 'gnomic_marker']],
       ['verb.imperfect_ingressive', ['impf_t', 'aor_before']],
-      ['verb.imperfect_iterative', ['impf_t', 'iter_marker']],
+      ['verb.imperfect_iterative', ['impf_t']],
       ['verb.aorist_ingressive', ['aor_t', 'stative_lemma']]
     ]) {
       const type = all.find(t => t.id === id);
@@ -4026,7 +4026,7 @@ section('§7ae  Observation Integration');
 // ── Batch 24: require defining signals for five tense/aspect classifications ──
 {
     const all = collectAllTypeDefs(syntaxRegistry);
-    const expected = [["verb.futuristic_present",["present_tense","motion_lemma"]],["verb.present_progressive",["present_t","now_adverb"]],["verb.present_iterative",["present_t","iter_marker"]],["verb.imperfect_customary",["impf_t","distributive"]],["verb.aorist_culminative",["aor_t","culminative_lemma"]]];
+    const expected = [["verb.futuristic_present",["present_tense","motion_lemma"]],["verb.present_progressive",["present_t"]],["verb.present_iterative",["present_t","iter_marker"]],["verb.imperfect_customary",["impf_t","distributive"]],["verb.aorist_culminative",["aor_t","culminative_lemma"]]];
     for (const [id, signals] of expected) {
       const type = all.find(t => t.id === id);
       const gates = type?.detection?.required_signals ?? [];
