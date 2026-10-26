@@ -328,14 +328,14 @@ async function verifyUserDrivenTokenSwitch(browser, mobile) {
     await page.waitForFunction(() => {
       const drawer = document.getElementById('wlv-detail-drawer');
       return !drawer || !drawer.classList.contains('visible');
-    }, { timeout: 8000 }).catch(async () => {
+    }, null, { timeout: 8000 }).catch(async () => {
       // Some layouts do not bind Escape to the drawer; use its visible close control.
       const close = page.locator('#wlv-detail-drawer button').filter({ has: page.locator('svg') }).first();
       if (await close.count()) await close.click();
       await page.waitForFunction(() => {
         const drawer = document.getElementById('wlv-detail-drawer');
         return !drawer || !drawer.classList.contains('visible');
-      }, { timeout: 8000 });
+      }, null, { timeout: 8000 });
     });
 
     const secondText = await clickToken('κόσμον');
