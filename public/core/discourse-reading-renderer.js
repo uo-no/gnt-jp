@@ -158,7 +158,7 @@
                     lastVerseKey = vKey;
                     const refEl = document.createElement('div');
                     refEl.className = 'sd-sentence-ref';
-                    refEl.textContent = vKey;
+                    refEl.textContent = String(first.verse);
                     el.insertBefore(refEl, el.firstChild);
                 }
             }
