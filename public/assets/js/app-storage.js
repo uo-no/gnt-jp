@@ -433,10 +433,10 @@
             });
             if (!wordHighlights.length || !daSentences.length) return;
 
-            const currentBook = window.AppState && AppState.location && AppState.location.book
-                ? AppState.location.book.key : null;
-            const currentChapter = window.AppState && AppState.location
-                ? AppState.location.chapter : null;
+            const currentBook = window.AppState && window.AppState.location && window.AppState.location.book
+                ? window.AppState.location.book.key : null;
+            const currentChapter = window.AppState && window.AppState.location
+                ? window.AppState.location.chapter : null;
 
             daSentences.forEach(function (sentence) {
                 const words = Array.isArray(sentence._flowWords) ? sentence._flowWords : [];
