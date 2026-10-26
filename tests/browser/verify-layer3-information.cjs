@@ -330,7 +330,8 @@ async function verifyUserDrivenTokenSwitch(browser, mobile) {
       return !drawer || !drawer.classList.contains('visible');
     }, null, { timeout: 8000 }).catch(async () => {
       // Some layouts do not bind Escape to the drawer; use its visible close control.
-      const close = page.locator('#wlv-detail-drawer button').filter({ has: page.locator('svg') }).first();
+      const drawer = page.locator('#wlv-detail-drawer');
+      const close = drawer.locator('button').last();
       if (await close.count()) await close.click();
       await page.waitForFunction(() => {
         const drawer = document.getElementById('wlv-detail-drawer');
