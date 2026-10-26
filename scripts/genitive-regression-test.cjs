@@ -3888,7 +3888,7 @@ section('§7ae  Observation Integration');
  for(const category of Object.values(syntaxRegistry.categories??{})) for(const subcategory of category.subcategories??[]) all.push(...(subcategory.types??[]));
  const cases=[
   ['adjective.attributive',["attr_position"]],
-  ['adjective.predicate',["pred_position","copula"]],
+  ['adjective.predicate',["pred_position"]],
   ['adjective.attributive_position',["attr_position"]],
   ['adjective.predicate_position',["pred_position"]],
   ['pronoun.identical',["autos_lemma","article_before"]]
