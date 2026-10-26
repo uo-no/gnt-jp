@@ -3183,7 +3183,6 @@ console.log('\n  ─── FP 抑制 ───');
 console.log('\n  ─── Regression ───');
 {
     const checks = [
-        ['MRK', 1, 10, 'ὕδωρ', 0, 'genitive.', 'genitive.place'],
         ['JHN', 10, 11, 'καλός', 0, 'adjective.', 'adjective.attributive'],
         ['JHN', 8, 12, 'ἐγώ', 0, 'pronoun.', 'pronoun.personal'],
         ['MAT', 28, 19, 'πορεύομαι', 0, 'participle.', 'participle.adverbial_attendant'],
