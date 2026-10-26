@@ -3456,12 +3456,12 @@ section('§7ad  Phrase Reading Integration');
           slice.includes('proj.phrases') && slice.includes('proj.genitivePhrases') &&
           !slice.includes('.candidates') && !slice.includes('.top') &&
           !slice.includes('relatedIds') && !slice.includes('searchParams'));
-    check('25B-2: 内部構造の表示語（confidence/wallace/label）が不在',
-          !/confidence|wallace|label_ja|label_en/i.test(slice));
-
     // 表示文（バッククォート内テンプレート）の検査
-    const templates = (slice.match(/`[^`]*`/g) ?? [])
+    const templates = (slice.match(/\x60[^\x60]*\x60/g) ?? [])
         .filter(t => t.includes('「') || t.includes('ここ'));   // 文のテンプレートのみ
+    // Internal implementation identifiers may occur in code/comments; inspect only user-facing templates.
+    check('25B-2: 内部構造の表示語（confidence/wallace/label）が表示文に不在',
+          !/confidence|wallace|label_ja|label_en/i.test(templates.join('\n')));
     check('25B-2: 表示文テンプレートが存在する', templates.length >= 3);
     const FORBIDDEN = ['属格', '冠詞', '修飾', '述語', '主語', '限定位置',
                        'Apollonius', 'Wallace', 'Head', 'Dependent', 'NPです'];
