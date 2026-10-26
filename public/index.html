@@ -22194,16 +22194,20 @@ function _applyHighlights() {
         const scope = cb || document.getElementById('bible-text-area');
         if (!scope) return;
 
-        /* verse-block の _flowWords を使い tokenIndex → tokenId を解決 */
+        /* wordOrder の語データは表示状態により verse-block または内側の gf-verse-block に保持される。
+           実際に _flowWords を持つ要素から tokenIndex → tokenId を解決する。 */
         scope.querySelectorAll(`.verse-block[data-vnum="${h.verse}"][data-col-mode="wordOrder"]`).forEach(block => {
-            if (!block._flowWords) return;
-            block._flowWords.forEach(w => {
+            const flowBlock = block._flowWords ? block : block.querySelector('.gf-verse-block');
+            const words = flowBlock && Array.isArray(flowBlock._flowWords) ? flowBlock._flowWords : [];
+            if (!words.length) return;
+            words.forEach(w => {
                 /* 生トークンには tokenIndex がない場合がある。表示用 ref の !N をフォールバックに使う。 */
                 const tidx = w.tokenIndex != null && w.tokenIndex !== ''
                     ? parseInt(w.tokenIndex, 10)
                     : _hlTokenIdxFromRef(w.ref);
                 if (tidx != null && tidx >= h.tokenStart && tidx <= h.tokenEnd) {
-                    const chip = block.querySelector(`.wlv-chip[data-token-id="${w.tokenId}"]`);
+                    const chip = flowBlock.querySelector(`.wlv-chip[data-token-id="${w.tokenId}"]`) ||
+                                 block.querySelector(`.wlv-chip[data-token-id="${w.tokenId}"]`);
                     if (chip) {
                         HL_COLORS.forEach(c => chip.classList.remove(`hl-word-${c}`));
                         chip.classList.add(`hl-word-${h.color}`);
