@@ -3448,7 +3448,7 @@ section('§7ad  Phrase Reading Integration');
     const flowTreeStart = wholeBlock.indexOf('function _ft11BuildFlowTree');
     const phraseTailStart = wholeBlock.indexOf('async function _buildPhraseReadingHTML');
     const slice = phraseStart >= 0 && flowTreeStart > phraseStart && phraseTailStart > flowTreeStart
-        ? wholeBlock.slice(0, flowTreeStart) + wholeBlock.slice(phraseTailStart)
+        ? wholeBlock.slice(phraseStart, flowTreeStart) + wholeBlock.slice(phraseTailStart)
         : wholeBlock;
 
     // 使用フィールドの制限: phrases / genitivePhrases のみ（候補・確度・型名に触れない）
