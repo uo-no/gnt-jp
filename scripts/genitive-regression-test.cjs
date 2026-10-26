@@ -3396,7 +3396,14 @@ section('§7ad  Phrase Reading Integration');
     const uiSrc = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
     const m = uiSrc.match(/__PHRASE_READING_BEGIN__([\s\S]*?)__PHRASE_READING_END__/);
     check('25B-2: Phrase Reading ブロックが存在する', Boolean(m));
-    const slice = m ? m[1] : '';
+    const wholeBlock = m ? m[1] : '';
+    // Flow Tree prototype code is nested between the outer markers; exclude it from Phrase Reading policy checks.
+    const phraseStart = wholeBlock.indexOf('function _phraseReadingSentence');
+    const flowTreeStart = wholeBlock.indexOf('function _ft11BuildFlowTree');
+    const phraseTailStart = wholeBlock.indexOf('async function _buildPhraseReadingHTML');
+    const slice = phraseStart >= 0 && flowTreeStart > phraseStart && phraseTailStart > flowTreeStart
+        ? wholeBlock.slice(phraseStart, flowTreeStart) + wholeBlock.slice(phraseTailStart)
+        : wholeBlock;
 
     // 使用フィールドの制限: phrases / genitivePhrases のみ（候補・確度・型名に触れない）
     check('25B-2: proj.phrases / genitivePhrases のみを参照',
@@ -3443,8 +3450,10 @@ section('§7ae  Observation Integration');
           slice.includes('.categories') &&
           !slice.includes('.candidates') && !slice.includes('.top.') &&
           !slice.includes('relatedIds') && !slice.includes('searchParams'));
-    check('25B-3: 弱い判定の除外（>= 0.40）と静寂（return null）がある',
-          slice.includes('>= 0.40') && slice.includes('return null'));
+    check('25B-3: ポリシー由来の最低信頼度で判定し、静寂（return null）を維持',
+          /_obMinConf\s*=\s*_obPolicy\?\.rules\?\.min_confidence\s*\?\?\s*0\.40/.test(slice) &&
+          /c\.confidence\s*<\s*_obMinConf/.test(slice) &&
+          slice.includes('return null'));
     check('25B-3: 重複禁止ガード（既存文と同内容なら沈黙）がある',
           slice.includes('existingTexts'));
 
