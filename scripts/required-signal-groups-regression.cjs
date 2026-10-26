@@ -83,11 +83,21 @@ function hasProbe(lemma, klass) {
   const output = analyzer.analyze({ target, tokens: [target], targetIdx: 0 });
   return (output.candidates || []).some(c => c.id === probeId);
 }
+function hasVerifiedMeGenoiToPattern() {
+  const target = { lemma: 'μή', text: 'μή', class: 'particle', pos: 'X', morph: '' };
+  const verb = {
+    lemma: 'γίνομαι', text: 'γένοιτο', class: 'verb', pos: 'V',
+    mood: 'optative', tense: 'aorist', voice: 'middle', morph: ''
+  };
+  const output = analyzer.analyze({ target, tokens: [target, verb], targetIdx: 0 });
+  return (output.candidates || []).some(c => c.id === 'particle.rhetorical_particle');
+}
 const cases = [
   ['AND group succeeds when both signals match', hasProbe('μή', 'particle'), true],
   ['partial AND group is rejected', hasProbe('μή', 'noun'), false],
   ['alternative OR group succeeds', hasProbe('οὐ', 'particle'), true],
-  ['no matching group is rejected', hasProbe('μήτι', 'particle'), false]
+  ['no matching group is rejected', hasProbe('μήτι', 'particle'), false],
+  ['verified μὴ γένοιτο morphology remains detectable', hasVerifiedMeGenoiToPattern(), true]
 ];
 let failed = 0;
 for (const [label, actual, expected] of cases) {
@@ -96,4 +106,4 @@ for (const [label, actual, expected] of cases) {
   if (!ok) failed++;
 }
 if (failed) process.exitCode = 1;
-else process.stdout.write('PASS  required_signal_groups runtime contract (4/4)\n');
+else process.stdout.write('PASS  required_signal_groups and verified rhetorical-pattern runtime contract (5/5)\n');
