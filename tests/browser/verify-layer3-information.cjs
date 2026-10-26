@@ -321,6 +321,23 @@ async function verifyUserDrivenTokenSwitch(browser, mobile) {
     const firstSample = firstText.replace(/\s+/g, ' ').trim().slice(0, 80);
     assert.ok(firstSample.length > 20, `${label}: first token dictionary content is populated`);
 
+    // Close the word-detail drawer before choosing another token, as a reader would
+    // when returning to the verse word list. The prior drawer overlay can intercept
+    // clicks on the next chip even though that chip is still present in the DOM.
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => {
+      const drawer = document.getElementById('wlv-detail-drawer');
+      return !drawer || !drawer.classList.contains('visible');
+    }, { timeout: 8000 }).catch(async () => {
+      // Some layouts do not bind Escape to the drawer; use its visible close control.
+      const close = page.locator('#wlv-detail-drawer button').filter({ has: page.locator('svg') }).first();
+      if (await close.count()) await close.click();
+      await page.waitForFunction(() => {
+        const drawer = document.getElementById('wlv-detail-drawer');
+        return !drawer || !drawer.classList.contains('visible');
+      }, { timeout: 8000 });
+    });
+
     const secondText = await clickToken('κόσμον');
     const secondSample = secondText.replace(/\s+/g, ' ').trim().slice(0, 80);
     assert.ok(secondSample.length > 20, `${label}: second token dictionary content is populated`);
