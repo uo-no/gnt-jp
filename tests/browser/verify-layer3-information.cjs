@@ -282,9 +282,8 @@ async function verifyUserDrivenTokenSwitch(browser, mobile) {
 
     const clickToken = async target => {
       const clicked = await page.evaluate(target => {
-        const scope = document.querySelector('#mobile-inspector-area') || document.querySelector('#word-list-view');
-        const chips = [...(scope?.querySelectorAll('.wlv-chip') || [])];
         const normalize = value => String(value || '').normalize('NFC').trim();
+        const chips = [...document.querySelectorAll('#word-list-view .wlv-chip, #mobile-inspector-area .wlv-chip')];
         const chip = chips.find(el => normalize(el.dataset.greek) === target ||
           normalize(el.getAttribute('title')) === target || normalize(el.textContent).includes(target));
         if (!chip) return false;
