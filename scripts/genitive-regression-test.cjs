@@ -3931,7 +3931,7 @@ section('§7ae  Observation Integration');
     }
 }
 
-// ── Rhetorical negative particle accepts either of its two defined uses ──
+// ── Rhetorical negative particle remains limited to its verified μὴ γένοιτο pattern ──
 {
     const all = [];
     for (const category of Object.values(syntaxRegistry.categories ?? {})) {
@@ -3940,12 +3940,12 @@ section('§7ae  Observation Integration');
         }
     }
     const type = all.find(t => t.id === 'particle.rhetorical_particle');
-    const groups = type?.detection?.required_signal_groups ?? [];
-    check('particle.rhetorical_particle — μὴ γένοιτο 型と否定疑問を代替条件として定義',
+    check('particle.rhetorical_particle — 確認済みの μή＋希求法だけを必須条件とする',
           Boolean(type) &&
-          groups.some(g => Array.isArray(g) && g.length === 1 && g[0] === 'me_opt') &&
-          groups.some(g => Array.isArray(g) && g.length === 1 && g[0] === 'neg_q'),
-          'required_signal_groups=' + JSON.stringify(groups));
+          (type.detection?.required_signals ?? []).includes('me_opt') &&
+          !(type.detection?.conditions ?? []).some(c => c.id === 'neg_q'),
+          'required_signals=' + JSON.stringify(type?.detection?.required_signals ?? []) +
+          ', conditions=' + JSON.stringify((type?.detection?.conditions ?? []).map(c => c.id)));
 }
 
 // ── Verb aspect/tense classifications require defining evidence ──
