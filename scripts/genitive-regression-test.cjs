@@ -342,14 +342,13 @@ function verseTest(label, bookKey, ch, v, targetLemma, expectedId, minConf = 0.3
           found ? `confidence=${found.confidence?.toFixed(2)}` : '対象なし');
 }
 
-// ── JAS 1:13 → 分離属格（Ἀπὸ θεοῦ）
-// Fix②(Wallace §4.C.6-4): Separation は広義のデフォルト。Source は特殊例。
-// πειράζω は分離動詞でも起源動詞でもないため、ἀπό + 属格の曖昧ケースでは separation が優先。
-// genitive.source は候補（confidence ~0.49）に残る点は保持される。
-console.log('\n  ─── JAS 1:13 ────────────────────────────────');
+// ── JAS 1:13 → 起源属格（Ἀπὸ θεοῦ）
+// Registry semantics: source requires ἀπό/ἐκ/παρά; separation additionally requires a listed separation verb.
+// πειράζω is not in separation_verb_lemmas, so the declared separation gate is not met here.
+console.log('\\n  ─── JAS 1:13 ────────────────────────────────');
 console.log('  ヤコブ 1:13: Ἀπὸ θεοῦ πειράζομαι');
-console.log('  期待: θεοῦ → genitive.separation（Fix②: ἀπό+属格の曖昧ケースでは separation がデフォルト優先）');
-verseTest('JAS 1:13 θεοῦ', 'JAS', 1, 13, 'θεός', 'genitive.separation');
+console.log('  期待: θεοῦ → genitive.source（source_prep の根拠あり。separation_verb の根拠なし）');
+verseTest('JAS 1:13 θεοῦ', 'JAS', 1, 13, 'θεός', 'genitive.source');
 
 // ── ROM 8:35 → 主語的属格（τῆς ἀγάπης τοῦ Χριστοῦ）
 console.log('\n  ─── ROM 8:35 ────────────────────────────────');
@@ -1268,16 +1267,22 @@ function catVerseTestAny(label, bookKey, ch, v, targetLemma, prefix, expectedId)
             Boolean(type) && signals.every(signal => gates.includes(signal)),
             'required_signals=' + JSON.stringify(gates));
     }
-    for (const [id, signals, label] of [
-      ['genitive.partitive', ['partitive_trigger', 'plural_genitive'], '部分属格 — 部分関係と複数属格の根拠を必須化'],
-      ['genitive.source', ['source_prep'], '起源属格 — 起源前置詞の根拠を必須化（JAS 1:13 の θεοῦ は普通名詞形の神名）']
-    ]) {
-      const type = all.find(t => t.id === id);
-      const gates = type?.detection?.required_signals ?? [];
-      check(id + ' — ' + label,
-            Boolean(type) && signals.every(signal => gates.includes(signal)),
-            'required_signals=' + JSON.stringify(gates));
-    }
+    const partitive = all.find(t => t.id === 'genitive.partitive');
+    const partitiveGroups = partitive?.detection?.required_signal_groups ?? [];
+    check('genitive.partitive — 部分属格の通常経路と半量経路を required_signal_groups で表す',
+          Boolean(partitive) &&
+          partitiveGroups.some(group =>
+            ['partitive_trigger', 'plural_genitive', 'no_preposition'].every(signal => group.includes(signal))) &&
+          partitiveGroups.some(group =>
+            ['half_quantity', 'no_preposition'].every(signal => group.includes(signal))),
+          JSON.stringify({ required_signals: partitive?.detection?.required_signals ?? [],
+                           required_signal_groups: partitiveGroups }));
+
+    const source = all.find(t => t.id === 'genitive.source');
+    const sourceGates = source?.detection?.required_signals ?? [];
+    check('genitive.source — 起源前置詞の根拠を必須化（JAS 1:13 の θεοῦ）',
+          Boolean(source) && sourceGates.includes('source_prep'),
+          'required_signals=' + JSON.stringify(sourceGates));
     const agency = all.find(t => t.id === 'genitive.agency');
     const agencyGates = agency?.detection?.required_signals ?? [];
     check('genitive.agency — 動形容詞ヘッドを必須化',
@@ -3192,7 +3197,7 @@ console.log('\n  ─── FP 抑制 ───');
 console.log('\n  ─── Regression ───');
 {
     const checks = [
-        ['MRK', 1, 10, 'ὕδωρ', 0, 'genitive.', 'genitive.place'],
+        // MRK 1:10 ὕδωρ is not a positive genitive.place example; do not assert this as a top candidate.
         ['JHN', 10, 11, 'καλός', 0, 'adjective.', 'adjective.attributive'],
         ['JHN', 8, 12, 'ἐγώ', 0, 'pronoun.', 'pronoun.personal'],
         ['MAT', 28, 19, 'πορεύομαι', 0, 'participle.', 'participle.adverbial_attendant'],
