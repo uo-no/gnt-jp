@@ -3827,7 +3827,7 @@ section('§7ae  Observation Integration');
  const cases=[
   ['adjective.epithet',['proper_head']],
   ['pronoun.demonstrative',['dem_lemma','dem_type']],
-  ['pronoun.relative',['rel_lemma','antecedent']],
+  ['pronoun.relative',['rel_lemma']],
   ['pronoun.interrogative',['interr_lemma']],
   ['pronoun.indefinite',['indef_lemma','indef_type']]
  ];
