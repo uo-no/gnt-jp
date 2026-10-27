@@ -22443,7 +22443,16 @@ function _applyDaReadingHighlights(highlights) {
                 const chip = chips.find(function (candidate) {
                     return String(candidate.dataset.tokenId) === String(word.tokenId);
                 });
-                if (chip) chip.classList.add("hl-word-" + h.color);
+                if (chip) {
+                    /* 同じ語に複数の保存範囲が重なる場合も、色クラスは1色に統一する。
+                       通常モードの _applyHighlights と同じく、後から処理する保存項目を優先。 */
+                    HL_COLORS.forEach(function (color) {
+                        chip.classList.remove("hl-word-" + color);
+                    });
+                    if (HL_COLORS.indexOf(h.color) !== -1) {
+                        chip.classList.add("hl-word-" + h.color);
+                    }
+                }
             });
         });
     });
