@@ -22090,9 +22090,6 @@ function _hlWordHighlightDirect(color) {
     window.App.storage.addHighlight(entry);
     _hlState.lastUsedColor = color;
     _applyHighlights();
-    const slot = document.getElementById('mvv-hl-word-slot') ||
-                 document.getElementById('rn-hl-word-slot');
-    if (slot) _hlFillWordSlot(slot);
 }
 
 /* ── 句・範囲選択（Phase E）── */
@@ -22227,39 +22224,6 @@ function _hlRangeTap(book, chapter, verse, tokenEnd) {
     };
     _hlOpenPicker(entry);
     return true;   /* 呼び出し元は通常の chip クリックを抑制してよい */
-}
-
-/* ── 語スロット描画（Phase C/D）── */
-
-function _hlFillWordSlot(slotEl) {
-    if (!slotEl) return;
-    const pos = _hlCurrentWordPos();
-    if (!pos) { slotEl.style.display = 'none'; return; }
-
-    /* WORD_ORDER or CLAUSE_ROLE のチップから来た場合のみ（他モードでは非表示） */
-    const mode = _transA;
-    if (mode !== 'WORD_ORDER' && mode !== 'CLAUSE_ROLE') {
-        slotEl.style.display = 'none';
-        return;
-    }
-
-    slotEl.style.display = '';
-    const existing = _hlFindExisting(pos.book, pos.chapter, pos.verse, pos.tokenStart, pos.tokenEnd);
-    const activeColor = existing ? existing.color : null;
-
-    let html = '<div class="hl-word-slot-label">この語をハイライト</div><div class="hl-word-slot-row">';
-    HL_COLORS.forEach(c => {
-        const active = c === activeColor ? ' hl-active' : '';
-        html += `<button class="hl-slot-swatch${active}" data-color="${c}" onclick="_hlWordHighlightDirect('${c}')" title="${HL_COLOR_NAMES[c]}"></button>`;
-    });
-    html += '</div>';
-
-    if (_hlState.rangeActive) {
-        html += `<div style="margin-top:var(--space-sm);"><button class="hl-slot-range-btn" onclick="_hlExitRangeMode()">範囲選択をキャンセル</button></div>`;
-    } else {
-        html += `<div style="margin-top:var(--space-sm);"><button class="hl-slot-range-btn" onclick="_hlEnterRangeMode()">ここから句を選択…</button></div>`;
-    }
-    slotEl.innerHTML = html;
 }
 
 /* ── ハイライト検索ヘルパー ── */
