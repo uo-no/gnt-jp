@@ -8405,7 +8405,15 @@ function hPhrase(ks){const pi=ks.findIndex(k=>k.tagName==='w'&&A(k,'class')==='p
   return hgt(ks[hi])+hMods(ks.filter((_,i)=>i!==hi))}
 function phrase(ks,x,y,pre){pre=pre||[];
   const pi=ks.findIndex(k=>k.tagName==='w'&&A(k,'class')==='prep');
-  if(pi>=0&&ks.length>1){const p=put(ks[pi],x,y),r=phrase(ks.filter((_,i)=>i!==pi),x+p.w+14,y);
+  if(pi>=0&&ks.length>1){
+    const n0=words.length;const p=put(ks[pi],x,y);const nxX=x+p.w+14;const r=phrase(ks.filter((_,i)=>i!==pi),nxX,y);
+    if(spWrapW!==null&&x>=0&&nxX+r.w>spWrapW){
+      // NP が右にはみ出す: 次行に折り返す（境界＋後続↓ と同じ視覚言語）
+      const dy=ROW+34,dx=x-nxX;
+      words.slice(n0+1).forEach(w=>{w.x+=dx;w.y+=dy;w.ay+=dy;if(!w.manual)w.ax+=dx});
+      if(r.head)edges.push({a:p.head,b:r.lead||r.head,kind:'cont'});
+      // 幅は折り返し前の値を返す：親のclause()が元の幅でスロット折り返しを判断できるようにする
+      return{head:p.head,lead:p.head,tail:r.tail||r.head||p.head,w:p.w+14+r.w,h:dy+r.h}}
     if(r.head)edges.push({a:p.head,b:r.lead||r.head,kind:'cont'});return{head:p.head,lead:p.head,tail:r.tail||r.head||p.head,w:p.w+14+r.w,h:Math.max(r.h,ROW)}}
   let hi=ks.findIndex(k=>k.tagName==='w'&&!NONHEAD.has(A(k,'class')));
   if(hi<0)hi=ks.findIndex(k=>k.tagName==='wg');if(hi<0)hi=0;
@@ -8976,10 +8984,11 @@ function vgAssess(){
   let x1w,y1w,x2w,y2w;
   try{
     const bw=gW.getBBox(),be=gE.getBBox();
-    const bb=gB.children.length?gB.getBBox():{x:bw.x,y:bw.y,width:0,height:0};
-    x1w=Math.min(bw.x,be.x,bb.x);y1w=Math.min(bw.y,be.y,bb.y);
-    x2w=Math.max(bw.x+bw.width,be.x+be.width,bb.x+bb.width);
-    y2w=Math.max(bw.y+bw.height,be.y+be.height,bb.y+bb.height);
+    // gB (phrase boxes) は装飾的な枠線で p=5+4*(depth-1) の余白を持ち、コンテンツ外にはみ出す。
+    // overflow 判定は words + edges の実コンテンツのみで行う。
+    x1w=Math.min(bw.x,be.x);y1w=Math.min(bw.y,be.y);
+    x2w=Math.max(bw.x+bw.width,be.x+be.width);
+    y2w=Math.max(bw.y+bw.height,be.y+be.height);
   }catch(_){
     x1w=Math.min(...words.map(w=>w.x))-4;y1w=Math.min(...words.map(w=>w.y-22));
     x2w=Math.max(...words.map(w=>w.x+w.w))+4;y2w=Math.max(...words.map(w=>w.y+8));
