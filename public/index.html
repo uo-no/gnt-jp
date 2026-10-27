@@ -22531,6 +22531,41 @@ document.addEventListener('keyup', function(event) {
         _hlOpenPickerForTextSelection({target:window.getSelection()?.anchorNode?.parentElement});
     }
 });
+
+/* スマホ/タブレット向け: 長押しで本文の語句を選択し、指を離したら
+   デスクトップのドラッグ選択と同じカラーピッカーを開く。
+   タッチでは選択の確定後に mouseup が来ないため、touchend と
+   selectionchange の安定を起点に、既存の選択解決処理へ委ねる。
+   同じ選択に対する再試行や、選択を残したままのスクロールで
+   誤って開かないよう、選択の署名が変わったときだけ試行する。 */
+let _hlTouchSelSig = '';
+let _hlLastTouchAt = 0;
+let _hlTouchSelTimer = null;
+function _hlTryTouchTextSelection() {
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount || selection.isCollapsed) { _hlTouchSelSig = ''; return; }
+    const anchorEl = selection.anchorNode && selection.anchorNode.parentElement;
+    if (!anchorEl || !anchorEl.closest || !anchorEl.closest('#bible-text-area, #parallel-text-area')) return;
+    const range = selection.getRangeAt(0);
+    const sig = [selection.toString(), range.startOffset, range.endOffset,
+        selection.anchorOffset, selection.focusOffset].join('|');
+    if (sig === _hlTouchSelSig) return;
+    _hlTouchSelSig = sig;
+    _hlOpenPickerForTextSelection({ target: anchorEl });
+}
+function _hlScheduleTouchTextSelection(delay) {
+    if (_hlTouchSelTimer) clearTimeout(_hlTouchSelTimer);
+    _hlTouchSelTimer = setTimeout(_hlTryTouchTextSelection, delay);
+}
+document.addEventListener('touchend', function () {
+    _hlLastTouchAt = Date.now();
+    _hlScheduleTouchTextSelection(350);
+}, { passive: true });
+document.addEventListener('selectionchange', function () {
+    /* タッチ操作由来の選択だけを対象にする（マウスは mouseup 側で処理）。 */
+    if (Date.now() - _hlLastTouchAt > 3000) return;
+    _hlScheduleTouchTextSelection(450);
+});
 </script>
 </body>
 </html>
