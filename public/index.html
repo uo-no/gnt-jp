@@ -7399,7 +7399,6 @@ body.chapter-navigation-loading #main-reading-area::after {
                 </button>
                 <span id="mobile-nav-title"></span>
                 <div class="panel-header-actions">
-                    <button class="share-url-btn hl-panel-btn" id="hl-panel-btn-1" onclick="_hlVerseHighlight()" title="この節をハイライト"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1.1em" height="1.1em" style="display:block"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
                     <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
                 </div>
             </div>
@@ -7412,7 +7411,6 @@ body.chapter-navigation-loading #main-reading-area::after {
                     <span id="active-v" style="font-size: var(--text-caption); color: var(--text-sub); font-weight: 400;"></span>
                 </div>
                 <div class="panel-header-actions">
-                    <button class="share-url-btn hl-panel-btn" id="hl-panel-btn-2" onclick="_hlVerseHighlight()" title="この節をハイライト"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1.1em" height="1.1em" style="display:block"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
                     <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
                 </div>
             </div>
@@ -7420,8 +7418,6 @@ body.chapter-navigation-loading #main-reading-area::after {
             <!-- メインコンテンツエリア（タブなし・単一スクロール） -->
             <div id="reading-notes-wrap" style="display:none;flex:1;min-height:0;overflow-y:auto;flex-direction:column;">
                 <div id="reading-notes-area"></div>
-                <!-- ハイライト語スロット（追記。reading-notes-area とは別要素） -->
-                <div class="hl-word-slot" id="rn-hl-word-slot" data-study-section="highlight" style="display:none;padding: var(--space-sm) var(--space-lg);"></div>
             </div>
 
             <!-- 分析コンテンツエリア（後方互換のため保持・非表示） -->
@@ -19808,8 +19804,6 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
         morphCandidates: _mvvCandidates,
         expLabelHTML: _mvvExpLabelHTML,
     });
-    /* Highlight V1: 語ハイライトスロットに色チップを注入する */
-    _hlFillWordSlot(document.getElementById('mvv-hl-word-slot'));
     /* Phase D-3B: メモは固定領域 #mobile-verse-note-area にあり、Level3 でも同じ ref を編集する。
        ここでは動的領域に注入しない（Level 遷移で内容・開閉状態を保持するため）。 */
 
@@ -20212,7 +20206,6 @@ ${LN_RELATED_WORDS_ENABLED ? `
           <div class="mvv-l3-slot" id="mvv-semantic-slot"></div>
         </details>` : ''}
 
-        <div class="hl-word-slot" id="mvv-hl-word-slot" data-study-section="highlight"></div>
       </div>`;
 }
 
@@ -20426,7 +20419,6 @@ const activeVEl = document.getElementById('active-v');
     if (notesWrap) notesWrap.style.display = 'flex';
 
     _renderReadingNotes(params);
-    _hlFillWordSlot(document.getElementById('rn-hl-word-slot'));
 
     /* スクロール位置の復元（close直前に StudyPanelState.scrollTop へ保存した位置を再適用）。
        _renderReadingNotes は async で DOM を置換するため、2段 rAF で確実に render 後に適用する。
@@ -22024,8 +22016,6 @@ function _hlColorSelected(color) {
     });
     document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
     _applyHighlights();
-    const slot = document.getElementById('mvv-hl-word-slot') || document.getElementById('rn-hl-word-slot');
-    if (slot) _hlFillWordSlot(slot);
 }
 
 /* ── 節全体ハイライト（Phase B） ── */
@@ -22178,16 +22168,12 @@ function _hlEnterRangeMode(entry) {
     _hlState.rangePending = { book: String(pos.book), chapter: Number(pos.chapter), verse: Number(pos.verse), tokenStart: Number(pos.tokenStart) };
     _hlMarkRangeStart(pos.verse, pos.tokenStart);
     _hlShowSelectionBar('range', 1);
-    const slot = document.getElementById('mvv-hl-word-slot') || document.getElementById('rn-hl-word-slot');
-    if (slot) _hlFillWordSlot(slot);
 }
 
 function _hlExitRangeMode() {
     _hlState.rangeActive = false; _hlState.rangePending = null;
     document.querySelectorAll('.wlv-chip.hl-range-start').forEach(c => c.classList.remove('hl-range-start'));
     _hlHideSelectionBar();
-    const slot = document.getElementById('mvv-hl-word-slot') || document.getElementById('rn-hl-word-slot');
-    if (slot) _hlFillWordSlot(slot);
 }
 
 function _hlMarkRangeStart(verse, tokenStart) {
