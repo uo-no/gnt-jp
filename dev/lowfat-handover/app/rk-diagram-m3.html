@@ -8343,10 +8343,13 @@ function stack(ks,x,y){let cy=y,nom=y,W=0,first=null,fl=null,tail=null,conj=null
   return{head:first,tail:tail||first,lead:fl||first,w:W,h:Math.max(cy-y-34,ROW)}}
 /* 修飾語: 頭語の下に縦に積む。高さ・幅は子の実測値を使う（重なり防止） */
 function mods(head,list,x,y0){let cy=y0,nom=y0,W=0;
-  for(const k of list){const py=Math.max(nom+dyOf(k),cy),r=place(k,x+IND+dxOf(k),py);if(!r.head)continue;
+  for(const k of list){const py=Math.max(nom+dyOf(k),cy);const px=x+IND+dxOf(k);const n0=words.length;const r=place(k,px,py);if(!r.head)continue;
+    // SP: インデント後の右端超過 → インデントを除去して x に揃える（同じ視覚言語）
+    let noInd=false;
+    if(spWrapW!==null&&x>=0&&px+r.w>spWrapW){const dx=x-px;words.slice(n0).forEach(w=>{w.x+=dx;if(!w.manual)w.ax+=dx});noInd=true;}
     edges.push({a:head,b:r.lead||r.head,kind:'mod',grp:k.tagName==='wg'?k:null});
     if(k.tagName==='wg')GM.set(k,{nom,py,floor:cy,conj:null});
-    W=Math.max(W,IND+r.w);const hh=Math.max(r.h,ROW)+GAPV;cy=py+hh;nom+=hh}
+    W=Math.max(W,noInd?r.w:IND+r.w);const hh=Math.max(r.h,ROW)+GAPV;cy=py+hh;nom+=hh}
   return{w:W,h:cy-y0}}
 /* ---- グループ移動の確定（ドラッグ・解除操作で共用）----
    groupDyFor: 目標の配置位置 target から rk-dy を決める。直前の項目の下端(floor)以下なら 0（=属性なし。直前の項目に追従）。
