@@ -21846,10 +21846,21 @@ function _hlPickerClose() {
     _hlState.pickerPending = null;
 }
 
+/* ドラッグで作ったブラウザのテキスト選択を解除する。
+   選択が残ったまま同じ語を再ドラッグすると、ブラウザがテキストの
+   ドラッグ操作として扱い mouseup でピッカーが開かなくなる
+   （作成直後の再ドラッグで色変更・削除ができない不具合の原因）。
+   ハイライトの確定・取消のタイミングで毎回片付ける。 */
+function _hlClearNativeSelection() {
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) sel.removeAllRanges();
+}
+
 /* オーバーレイで閉じたときは、確定前の複数語選択の見た目も片付ける。 */
 function _hlPickerDismiss() {
     const pending = _hlState.pickerPending;
     _hlPickerClose();
+    _hlClearNativeSelection();
     if (pending && pending._isBatch) {
         document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
     }
@@ -21939,6 +21950,9 @@ function _hlOpenPicker(entry, anchorEl) {
 function _hlColorSelected(color) {
     const entry = _hlState.pickerPending;
     _hlPickerClose();
+    /* 色の確定（削除含む）でドラッグ選択は消費済み。残すと次の再ドラッグが
+       テキストのドラッグ操作になり、ピッカーが開かなくなるため解除する。 */
+    _hlClearNativeSelection();
     /* 保存処理に進めない場合も、確定前の選択表示だけは残さない。 */
     if (!entry || !window.App || !window.App.storage) {
         document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
