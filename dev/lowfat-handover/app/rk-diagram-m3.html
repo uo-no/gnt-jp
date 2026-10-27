@@ -8300,19 +8300,24 @@ const ser=()=>new XMLSerializer().serializeToString(doc);
 const parse=t=>{const d=new DOMParser().parseFromString(t,'application/xml');return d.querySelector('parsererror')?null:d};
 
 /* ===== 構造モデル → レイアウトモデル。手動(rk-x/rk-y)語は保存位置、他は自動配置 ===== */
-const ROW=38,IND=30,GAPV=8,GAPH=60,PADX=3; // PADX: 下線・修飾枝終点・語枠の左右余白（共通）
+const ROW=38,IND=30,GAPV=8,GAPH=60,PADX=3,SP_MIN_WE=150; // PADX: 下線・修飾枝終点・語枠の左右余白（共通）
 function put(el,x,y){const t=A(el,'unicode')||el.textContent;
   const w={el,id:A(el,'xml:id')||'w'+words.length,text:t,w:ctx.measureText(t).width,x,y,ay:y,ax:x};
   const rx=A(el,'rk-x'),ry=A(el,'rk-y');if(rx!==null&&ry!==null){w.x=+rx;w.y=+ry;w.manual=true}
   const rw=A(el,'rk-w');w.ew=rw!==null&&isFinite(+rw)?+rw:0;
   words.push(w);EW.set(el,w);return{head:w,tail:w,lead:w,w:w.w+10,h:ROW}}
 function place(n,x,y,pre){
-  if(n.tagName==='w')return put(n,x,y);
-  const ks=kids(n);if(!ks.length)return{head:null,w:0,h:0};
-  if(ks.some(k=>SLOT[A(k,'role')]))return clause(ks,x,y);
-  const isCl=k=>k.tagName==='w'?A(k,'class')==='conj':(A(k,'class')==='cl'||A(k,'type')==='group'||/Conj/.test(A(k,'rule')||''));
-  if(n.tagName==='sentence'||(ks.some(k=>k.tagName==='wg')&&ks.every(isCl)))return stack(ks,x,y);
-  return phrase(ks,x,y,pre)}
+  // 実効spWrapW: 現在の絶対x位置から残り幅をコールチェーンに渡す（SP_MIN_WE で下限保護）
+  const _we0=spWrapEff;if(spWrapW!==null){const _r=spWrapW-x;spWrapEff=_r>SP_MIN_WE?_r:SP_MIN_WE}
+  let _pr;
+  if(n.tagName==='w')_pr=put(n,x,y);
+  else{const ks=kids(n);
+    if(!ks.length)_pr={head:null,w:0,h:0};
+    else if(ks.some(k=>SLOT[A(k,'role')]))_pr=clause(ks,x,y);
+    else{const isCl=k=>k.tagName==='w'?A(k,'class')==='conj':(A(k,'class')==='cl'||A(k,'type')==='group'||/Conj/.test(A(k,'rule')||''));
+      if(n.tagName==='sentence'||(ks.some(k=>k.tagName==='wg')&&ks.every(isCl)))_pr=stack(ks,x,y);
+      else _pr=phrase(ks,x,y,pre)}}
+  spWrapEff=_we0;return _pr}
 /* ---- グループ移動 rk-dy（wg の属性）----
    stack()（縦に積む節）と mods()（縦に並ぶ修飾句）の項目だけが対象。通常位置 nom に rk-dy を足した位置に置き、
    直前の項目の下端 cy（間隔込み）を下回らないようにする。これにより
@@ -8322,13 +8327,13 @@ function place(n,x,y,pre){
 const GM=new Map();
 function dyOf(k){if(!k||k.tagName!=='wg')return 0;const v=parseFloat(A(k,'rk-dy'));return isFinite(v)?v:0}
 function dxOf(k){if(!k||k.tagName!=='wg')return 0;const v=parseFloat(A(k,'rk-dx'));return isFinite(v)?v:0}
-function stack(ks,x,y){let cy=y,nom=y,W=0,first=null,fl=null,tail=null,conj=null;
+function stack(ks,x,y){const myWE=spWrapEff;let cy=y,nom=y,W=0,first=null,fl=null,tail=null,conj=null;
   for(let i=0;i<ks.length;i++){const k=ks[i];
     if(k.tagName==='w'){const nx=ks.slice(i+1).find(c=>c.tagName==='wg');conj=put(k,x,Math.max(nom+dyOf(nx),cy));continue}
     const py=Math.max(nom+dyOf(k),cy),cx=(conj?x+conj.w+40:x)+dxOf(k),n0=words.length,r=place(k,cx,py);if(!r.head)continue;
     // SP: conj のオフセットで右端を超えるとき、後続 wg を次行へ送る（境界折り返しと同じ視覚言語）
     let spW=false;
-    if(spWrapW!==null&&x>=0&&conj&&cx>x&&cx-x+r.w>spWrapW){
+    if(myWE!==null&&x>=0&&conj&&cx>x&&cx-x+r.w>myWE){
       const dy=ROW+34,dx=x-cx;
       words.slice(n0).forEach(w=>{w.x+=dx;w.y+=dy;w.ay+=dy;if(!w.manual)w.ax+=dx});
       spW=true;}
@@ -8342,11 +8347,11 @@ function stack(ks,x,y){let cy=y,nom=y,W=0,first=null,fl=null,tail=null,conj=null
     else{W=Math.max(W,cx-x+r.w);const hh=Math.max(r.h,ROW)+34;cy=py+hh;nom+=hh}}
   return{head:first,tail:tail||first,lead:fl||first,w:W,h:Math.max(cy-y-34,ROW)}}
 /* 修飾語: 頭語の下に縦に積む。高さ・幅は子の実測値を使う（重なり防止） */
-function mods(head,list,x,y0){let cy=y0,nom=y0,W=0;
+function mods(head,list,x,y0){const myWE=spWrapEff;let cy=y0,nom=y0,W=0;
   for(const k of list){const py=Math.max(nom+dyOf(k),cy);const px=x+IND+dxOf(k);const n0=words.length;const r=place(k,px,py);if(!r.head)continue;
     // SP: インデント後の右端超過 → インデントを除去して x に揃える（同じ視覚言語）
     let noInd=false;
-    if(spWrapW!==null&&x>=0&&px+r.w>spWrapW){const dx=x-px;words.slice(n0).forEach(w=>{w.x+=dx;if(!w.manual)w.ax+=dx});noInd=true;}
+    if(myWE!==null&&x>=0&&px-x+r.w>myWE){const dx=x-px;words.slice(n0).forEach(w=>{w.x+=dx;if(!w.manual)w.ax+=dx});noInd=true;}
     edges.push({a:head,b:r.lead||r.head,kind:'mod',grp:k.tagName==='wg'?k:null});
     if(k.tagName==='wg')GM.set(k,{nom,py,floor:cy,conj:null});
     W=Math.max(W,noInd?r.w:IND+r.w);const hh=Math.max(r.h,ROW)+GAPV;cy=py+hh;nom+=hh}
@@ -8362,7 +8367,7 @@ function shiftManualByX(old){for(const w of words){if(!w.manual)continue;const o
 function applyGroupDy(gEl,d){const old=new Map(words.map(w=>[w.el,w.ay]));if(d)gEl.setAttribute('rk-dy',String(d));else gEl.removeAttribute('rk-dy');layout();shiftManualBy(old);layout()}
 function applyGroupOffset(gEl,dy,dx){const oldY=new Map(words.map(w=>[w.el,w.ay]));const oldX=new Map(words.map(w=>[w.el,w.ax]));if(dy)gEl.setAttribute('rk-dy',String(dy));else gEl.removeAttribute('rk-dy');if(dx)gEl.setAttribute('rk-dx',String(dx));else gEl.removeAttribute('rk-dx');layout();shiftManualBy(oldY);shiftManualByX(oldX);layout()}
 function clearAllGroupDy(){const gs=[...new Set([...doc.querySelectorAll('wg[rk-dy]'),...doc.querySelectorAll('wg[rk-dx]')])];if(!gs.length)return 0;const oldY=new Map(words.map(w=>[w.el,w.ay]));const oldX=new Map(words.map(w=>[w.el,w.ax]));gs.forEach(g=>{g.removeAttribute('rk-dy');g.removeAttribute('rk-dx')});layout();shiftManualBy(oldY);shiftManualByX(oldX);layout();return gs.length}
-function clause(ks,x,y){
+function clause(ks,x,y){const myWE=spWrapEff;
   const slots=ks.filter(k=>SLOT[A(k,'role')]).sort((a,b)=>SLOT[A(a,'role')]-SLOT[A(b,'role')]);
   const extra=ks.filter(k=>!slots.includes(k));
   let cx=x,H=ROW,prev=null,pt=null,first=null,fl=null,last=null,vseen=false,vTail=null;
@@ -8380,10 +8385,10 @@ function clause(ks,x,y){
     // cx の更新は mods 後（mods が r.w を広げる場合があるため）
     if(!first){first=r.head;fl=r.lead||r.head}
     if(prev){const bN=r.lead||r.head;const src=(vTail&&SLOT[role]!==2&&Math.abs((bN.y||0)-(pt.y||0))>200)?vTail:pt;edges.push({a:src,b:bN,kind:role==='p'?'vp':SLOT[role]===2?'sv':'vo'})}
-    if(SLOT[role]===2&&extra.length&&!vseen){vseen=true;const m=mods(r.head,extra,curX,y+curRY+r.h);r.w=Math.max(r.w,m.w);r.h+=m.h;rowH=Math.max(rowH,r.h)}
+    if(SLOT[role]===2&&extra.length&&!vseen){vseen=true;if(myWE!==null){const _r=spWrapW-curX;spWrapEff=_r>SP_MIN_WE?_r:SP_MIN_WE}const m=mods(r.head,extra,curX,y+curRY+r.h);spWrapEff=myWE;r.w=Math.max(r.w,m.w);r.h+=m.h;rowH=Math.max(rowH,r.h)}
     cx=curX+r.w+GAPH;maxW=Math.max(maxW,curX-x+r.w);
     last={r,x:curX,ry:curRY};prev=r.head;pt=r.tail||r.head;if(SLOT[role]===2)vTail=pt;H=Math.max(H,curRY+r.h)}
-  if(extra.length&&!vseen&&last){const m=mods(prev,extra,last.x,y+last.ry+last.r.h);if(spWrapW===null)cx=last.x+Math.max(last.r.w,m.w)+GAPH;else maxW=Math.max(maxW,last.x-x+Math.max(last.r.w,m.w));H=Math.max(H,last.ry+last.r.h+m.h)}
+  if(extra.length&&!vseen&&last){if(myWE!==null){const _r=spWrapW-last.x;spWrapEff=_r>SP_MIN_WE?_r:SP_MIN_WE}const m=mods(prev,extra,last.x,y+last.ry+last.r.h);spWrapEff=myWE;if(spWrapW===null)cx=last.x+Math.max(last.r.w,m.w)+GAPH;else maxW=Math.max(maxW,last.x-x+Math.max(last.r.w,m.w));H=Math.max(H,last.ry+last.r.h+m.h)}
   return{head:first,tail:pt,lead:fl||first,w:spWrapW!==null?maxW:Math.max(cx-x-GAPH,0),h:H}}
 /* ---- 系譜チェーン限定: 短い直接修飾語を頭語の直下に置く ----
    NPofNP = [ 冠詞(τοῦ 等), Np-Appos ]、Np-Appos = [ 人名, NPofNP ] が深く連なる構造でだけ、
@@ -8413,10 +8418,10 @@ function hPhrase(ks){const pi=ks.findIndex(k=>k.tagName==='w'&&A(k,'class')==='p
   // detInline（cl 頭語、B-1）: head が cl（実質化分詞節）の場合 det は inline → 高さに加算しない
   if(detInline&&ks[hi]&&ks[hi].tagName==='wg'&&A(ks[hi],'class')==='cl'){const rest_=ks.filter((_,i)=>i!==hi);if(rest_.length>0&&rest_.every(k=>k.tagName==='w'&&A(k,'class')==='det'))return hgt(ks[hi])}
   return hgt(ks[hi])+hMods(ks.filter((_,i)=>i!==hi))}
-function phrase(ks,x,y,pre){pre=pre||[];
+function phrase(ks,x,y,pre){pre=pre||[];const myWE=spWrapEff;
   const pi=ks.findIndex(k=>k.tagName==='w'&&A(k,'class')==='prep');
   if(pi>=0&&ks.length>1){
-    const n0=words.length;const p=put(ks[pi],x,y);const nxX=x+p.w+14;const r=phrase(ks.filter((_,i)=>i!==pi),nxX,y);
+    const n0=words.length;const p=put(ks[pi],x,y);const nxX=x+p.w+14;if(myWE!==null){const _r=spWrapW-nxX;spWrapEff=_r>SP_MIN_WE?_r:SP_MIN_WE}const r=phrase(ks.filter((_,i)=>i!==pi),nxX,y);spWrapEff=myWE;
     if(spWrapW!==null&&x>=0&&nxX+r.w>spWrapW){
       // NP が右にはみ出す: 次行に折り返す（境界＋後続↓ と同じ視覚言語）
       const dy=ROW+34,dx=x-nxX;
@@ -8848,6 +8853,7 @@ const VG={'pc-std':{label:'PC標準',dw:1280,dh:800,cw:1280,ch:800,mg:20},'pc-sm
 let vgOn=false,vgKey='pc-std',vgSaved=null,vgSlOn=false;
 let lockedK=null;  // SP座標確定モード中の固定倍率。null=固定なし
 let spWrapW=null;  // SP自動折り返し幅（null=折り返しなし=PC標準）
+let spWrapEff=null; // 実効折り返し幅: place()がコールスタック経由で渡す残り幅（null=PC標準）
 const SP_READABLE=22/22;  // SP座標確定モードの固定倍率(22px×(24/22)=24px表示 = gnt-jp .flow-greek --text-headline基準)
 const vgG=$('#vg'),vgEls={};
 function vgGetP(){const p=VG[vgKey];return{...p,cw:+$('#vgCW').value||p.cw,ch:+$('#vgCH').value||p.ch,mg:+$('#vgMg').value||p.mg}}
