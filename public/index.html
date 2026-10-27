@@ -22247,6 +22247,14 @@ function _hlFindExisting(book, chapter, verse, tokenStart, tokenEnd) {
 function _applyHighlights() {
     if (!window.App || !window.App.storage) return;
     const highlights = window.App.storage.getHighlights();
+
+    /* Clear stale classes before reapplying the saved state, including when empty. */
+    document.querySelectorAll('.verse-block').forEach(block => {
+        HL_COLORS.forEach(c => block.classList.remove('hl-verse-' + c));
+    });
+    document.querySelectorAll('.wlv-chip, .dg-token').forEach(token => {
+        HL_COLORS.forEach(c => token.classList.remove('hl-word-' + c));
+    });
     if (!highlights.length) return;
 
     /* ── A. 節全体ハイライト（全モード共通） ── */
@@ -22489,6 +22497,7 @@ function _hlSetFilter(color) {
     <button class="hl-selection-bar-btn" onclick="_hlCancelSelection()">キャンセル</button>
 </div>
 
+<script>
 /* ── ブラウザ上で選択した複数語をハイライト ── */
 function _hlOpenPickerForTextSelection(event) {
     if (!event || !event.target || !event.target.closest || !event.target.closest('#bible-text-area, #parallel-text-area')) return;
@@ -22545,5 +22554,6 @@ document.addEventListener('keyup', function(event) {
         _hlOpenPickerForTextSelection({target:window.getSelection()?.anchorNode?.parentElement});
     }
 });
+</script>
 </body>
 </html>
