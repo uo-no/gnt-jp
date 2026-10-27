@@ -2597,12 +2597,6 @@ animation: ac-blink 1.2s ease-in-out infinite;
 .dg-token.hl-word-red    { background: rgba(235,97,0,0.25); border-radius: 3px; padding: 1px 2px; }
 
 /* Range selection mode: start chip indicator */
-.wlv-chip.hl-range-start {
-    outline: 2px solid rgba(220,170,0,0.7);
-    outline-offset: 1px;
-    border-radius: 3px;
-}
-
 /* Color picker popup */
 #hl-color-picker-overlay {
     display: none;
@@ -19423,14 +19417,6 @@ function _wlvChipClick(chipEl, tokenId) {
         return;
     }
 
-    /* ── Highlight 範囲選択モード：範囲終端タップとして処理 ── */
-    if (_hlState.rangeActive && _hlState.rangePending && chip.bookKey && chip.verse != null) {
-        const tokenEnd = _hlTokenIdxFromRef(chip.ref);
-        if (tokenEnd && _hlRangeTap(chip.bookKey, Number(chip.ch), Number(chip.verse), tokenEnd)) {
-            return;
-        }
-    }
-
     /* ReadingEngine: 生トークン（decoded フィールドを持つ）から改善済み日本語を取得。
        Phase 2: 節トークン配列から ResolveContext を構築して注入する（同期・軽量）。
        Phase VR-4B-5: Representation lifecycle 是正。
@@ -21789,12 +21775,10 @@ function _mmpSelectMode(id) {
 const HL_COLORS = ['yellow', 'blue', 'green', 'red'];
 const HL_COLOR_NAMES = { yellow: '黄', blue: '青', green: '緑', red: '赤' };
 
-/* ── 操作状態（色選択・範囲選択・複数語選択を一元管理）── */
+/* ── 操作状態（色選択・複数語選択）── */
 const _hlState = {
     lastUsedColor: null,       /* null = 初回のため色選択UIを出す */
     pickerPending: null,       /* 保存待ちのハイライトエントリ */
-    rangeActive: false,
-    rangePending: null,         /* { book, chapter, verse, tokenStart } */
     multiSelectActive: false,
     multiSelectEntries: [],
 };
@@ -22031,13 +22015,13 @@ function _hlWordHighlight() {
     _hlOpenPicker(entry);
 }
 
-/* ── 句・範囲選択（Phase E）── */
+/* ── 複数語選択 ── */
 
 function _hlShowSelectionBar(mode, count) {
     const bar = document.getElementById('hl-selection-bar'), label = document.getElementById('hl-selection-count');
     const finish = document.getElementById('hl-selection-finish');
     if (!bar) return;
-    if (label) label.textContent = mode === 'range' ? '開始語から末尾の単語をタップ' : (count + ' 語を選択中');
+    if (label) label.textContent = count + ' 語を選択中';
     if (finish) finish.style.display = mode === 'multi' ? '' : 'none';
     bar.dataset.mode = mode; bar.classList.add('hl-open');
 }
@@ -22046,11 +22030,6 @@ function _hlEnterMultiSelectMode(entry) {
     const seed = entry || _hlState.pickerPending;
     if (!seed || seed.tokenStart == null) return;
     _hlPickerClose();
-
-    /* 範囲選択から複数語選択へ移る場合、前の選択表示と状態を残さない。 */
-    _hlState.rangeActive = false;
-    _hlState.rangePending = null;
-    document.querySelectorAll('.wlv-chip.hl-range-start').forEach(c => c.classList.remove('hl-range-start'));
 
     _hlState.multiSelectActive = true;
     _hlState.multiSelectEntries = [Object.assign({}, seed)];
@@ -22080,89 +22059,10 @@ function _hlFinishMultiSelection() {
     _hlOpenPicker({ _isBatch: true, entries });
 }
 function _hlCancelSelection() {
-    /* 片方だけでなく、両方の選択状態と表示を必ず初期化する。 */
-    if (_hlState.rangeActive || _hlState.rangePending) _hlExitRangeMode();
     _hlState.multiSelectActive = false;
     _hlState.multiSelectEntries = [];
     _hlHideSelectionBar();
     document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
-    document.querySelectorAll('.wlv-chip.hl-range-start').forEach(c => c.classList.remove('hl-range-start'));
-}
-
-function _hlEnterRangeMode(entry) {
-    const pending = entry || _hlState.pickerPending, pos = pending && pending.tokenStart != null ? pending : _hlCurrentWordPos();
-    if (!pos) return;
-    _hlPickerClose();
-
-    /* 複数語選択から範囲選択へ移る場合、複数語の選択表示・配列を残さない。 */
-    _hlState.multiSelectActive = false;
-    _hlState.multiSelectEntries = [];
-    document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
-
-    document.querySelectorAll('.wlv-chip.hl-range-start').forEach(c => c.classList.remove('hl-range-start'));
-    _hlState.rangeActive = true;
-    _hlState.rangePending = { book: String(pos.book), chapter: Number(pos.chapter), verse: Number(pos.verse), tokenStart: Number(pos.tokenStart) };
-    _hlMarkRangeStart(pos.verse, pos.tokenStart);
-    _hlShowSelectionBar('range', 1);
-}
-
-function _hlExitRangeMode() {
-    _hlState.rangeActive = false; _hlState.rangePending = null;
-    document.querySelectorAll('.wlv-chip.hl-range-start').forEach(c => c.classList.remove('hl-range-start'));
-    _hlHideSelectionBar();
-}
-
-function _hlMarkRangeStart(verse, tokenStart) {
-    /* 通常の語順表示と「文の構造で読む」の両方で開始語を示す。 */
-    const ctx = _hlCurrentContext();
-    if (!ctx) return;
-    const cb = document.querySelector(
-        `.chapter-block[data-book="${ctx.book}"][data-chapter="${ctx.chapter}"]`
-    );
-    const scope = cb || document.getElementById('bible-text-area');
-    if (!scope) return;
-
-    scope.querySelectorAll(
-        `.verse-block[data-vnum="${verse}"] .wlv-chip, .da-sentence .wlv-chip`
-    ).forEach(chip => {
-        const tokenId = chip.dataset.tokenId;
-        const owner = chip.closest('.da-sentence, .gf-verse-block, .verse-block');
-        const words = owner && Array.isArray(owner._flowWords) ? owner._flowWords
-            : (owner && owner.closest('.verse-block') && Array.isArray(owner.closest('.verse-block')._flowWords)
-                ? owner.closest('.verse-block')._flowWords : []);
-        const word = words.find(item => item && String(item.tokenId) === String(tokenId));
-        if (!word || Number(word.verse) !== Number(verse)) return;
-        const tokenIndex = word.tokenIndex != null && word.tokenIndex !== ''
-            ? Number(word.tokenIndex)
-            : _hlTokenIdxFromRef(word.ref);
-        if (Number.isFinite(tokenIndex) && tokenIndex === Number(tokenStart)) {
-            chip.classList.add('hl-range-start');
-        }
-    });
-}
-
-/* 末尾語タップ時（_wlvChipClick から呼ばれる想定）の範囲確定 */
-function _hlRangeTap(book, chapter, verse, tokenEnd) {
-    if (!_hlState.rangeActive || !_hlState.rangePending) return false;
-    if (_hlState.rangePending.book !== book || _hlState.rangePending.chapter !== chapter || _hlState.rangePending.verse !== verse) {
-        /* 別節は範囲外 → キャンセル */
-        _hlExitRangeMode();
-        return false;
-    }
-    const tokenStart = _hlState.rangePending.tokenStart;
-    if (tokenEnd < tokenStart) {
-        _hlExitRangeMode();
-        return false;
-    }
-    _hlExitRangeMode();
-
-    const entry = {
-        book, chapter, verse,
-        tokenStart, tokenEnd,
-        color: 'yellow', createdAt: Date.now(), _isExisting: false,
-    };
-    _hlOpenPicker(entry);
-    return true;   /* 呼び出し元は通常の chip クリックを抑制してよい */
 }
 
 /* ── ハイライト検索ヘルパー ── */
@@ -22504,7 +22404,6 @@ function _hlSetFilter(color) {
 <div id="hl-color-picker" role="dialog" aria-label="ハイライトの色">
     <div class="hl-picker-title">ハイライトの色</div>
     <div class="hl-picker-actions">
-        <button class="hl-picker-action" onclick="_hlEnterRangeMode()">範囲選択</button>
         <button class="hl-picker-action" onclick="_hlEnterMultiSelectMode()">単語を追加選択</button>
     </div>
     <div class="hl-picker-row">
@@ -22525,7 +22424,7 @@ function _hlSetFilter(color) {
 /* ── ブラウザ上で選択した複数語をハイライト ── */
 function _hlOpenPickerForTextSelection(event) {
     if (!event || !event.target || !event.target.closest || !event.target.closest('#bible-text-area, #parallel-text-area')) return;
-    if (_hlState.multiSelectActive || _hlState.rangeActive || _hlState.pickerPending) return;
+    if (_hlState.multiSelectActive || _hlState.pickerPending) return;
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || !selection.rangeCount || !selection.toString().trim()) return;
     const range = selection.getRangeAt(0);
