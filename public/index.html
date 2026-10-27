@@ -2663,6 +2663,30 @@ animation: ac-blink 1.2s ease-in-out infinite;
 }
 .hl-picker-delete svg { width: 13px; height: 13px; display: block; }
 .hl-picker-delete:hover { transform: scale(1.18); border-color: var(--text-sub); }
+/* タッチ選択中に画面下部中央へ出す「ハイライト」ピル（呼び出しボタン）。
+   ピッカーのオーバーレイ（z-index 8990）より下に置き、開いたら隠れる。 */
+#hl-touch-pill {
+    display: none;
+    position: fixed;
+    left: 50%;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    z-index: 8989;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 999px;
+    background: var(--accent-dark, #333);
+    color: #fff;
+    font: inherit;
+    font-size: var(--text-body);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+#hl-touch-pill.hl-show { display: inline-flex; }
+#hl-touch-pill svg { width: 1.05em; height: 1.05em; display: block; }
 .hl-picker-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .hl-picker-action { border: 1px solid var(--border-soft); border-radius: 999px; background: transparent; color: var(--text-main); padding: 7px 10px; font: inherit; font-size: var(--text-caption); cursor: pointer; white-space: nowrap; }
 .hl-picker-action:hover { border-color: var(--accent-mid); }
@@ -21871,11 +21895,16 @@ function _hlClearNativeSelection() {
 /* オーバーレイで閉じたときは、確定前の複数語選択の見た目も片付ける。 */
 function _hlPickerDismiss() {
     const pending = _hlState.pickerPending;
+    const fromTouch = _hlPickerFromTouch;
+    _hlPickerFromTouch = false;
     _hlPickerClose();
-    _hlClearNativeSelection();
+    /* タッチ用ピルから開いた場合は、ハンドルで範囲調整を続けられるよう
+       ネイティブ選択を残す（マウス経由は従来どおり選択を解除する）。 */
+    if (!fromTouch) _hlClearNativeSelection();
     if (pending && pending._isBatch) {
         document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
     }
+    if (fromTouch) _hlScheduleTouchTextSelection(60);
 }
 
 function _hlPositionPicker(picker, anchorEl) {
@@ -21971,6 +22000,8 @@ function _hlOpenPicker(entry, anchorEl) {
 function _hlColorSelected(color) {
     const entry = _hlState.pickerPending;
     _hlPickerClose();
+    _hlPickerFromTouch = false;
+    _hlHideTouchPill();
     /* 色の確定（削除含む）でドラッグ選択は消費済み。残すと次の再ドラッグが
        テキストのドラッグ操作になり、ピッカーが開かなくなるため解除する。 */
     _hlClearNativeSelection();
@@ -22483,6 +22514,7 @@ function _hlSetFilter(color) {
         <button class="hl-picker-delete" onclick="_hlColorSelected(null)" title="ハイライトを削除" aria-label="ハイライトを削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
 </div>
+<button id="hl-touch-pill" onclick="_hlTouchPillTap()" aria-label="選択した範囲をハイライト"><span data-icon="highlighter"></span>ハイライト</button>
 <div id="hl-selection-bar" role="status" aria-live="polite">
     <span id="hl-selection-count"></span>
     <button id="hl-selection-finish" class="hl-selection-bar-btn primary" onclick="_hlFinishMultiSelection()">選択した単語を確定</button>
@@ -22491,14 +22523,13 @@ function _hlSetFilter(color) {
 
 <script>
 /* ── ブラウザ上で選択した複数語をハイライト ── */
-function _hlOpenPickerForTextSelection(event) {
-    if (!event || !event.target || !event.target.closest || !event.target.closest('#bible-text-area, #parallel-text-area')) return;
-    if (_hlState.multiSelectActive || _hlState.pickerPending) return;
+/* 現在のネイティブ選択が本文のどの語に対応するかを解決する（ピッカーは開かない）。 */
+function _hlResolveTextSelection() {
     const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || !selection.rangeCount || !selection.toString().trim()) return;
+    if (!selection || selection.isCollapsed || !selection.rangeCount || !selection.toString().trim()) return [];
     const range = selection.getRangeAt(0);
     const root = range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement;
-    if (!root || !root.closest || !root.closest('#bible-text-area, #parallel-text-area')) return;
+    if (!root || !root.closest || !root.closest('#bible-text-area, #parallel-text-area')) return [];
 
     /* Word-order chips and structure-reading tokens use different DOM shapes.
        Read the structured ref from either shape; never infer a verse from display text. */
@@ -22537,6 +22568,17 @@ function _hlOpenPickerForTextSelection(event) {
             color: 'yellow', createdAt: Date.now()
         }, {_isExisting: !!existing}));
     });
+    return entries;
+}
+
+/* ピッカーがタッチ用ピルから開かれたかどうか（閉じるときの選択保持の判定に使う）。 */
+let _hlPickerFromTouch = false;
+
+function _hlOpenPickerForTextSelection(event) {
+    if (!event || !event.target || !event.target.closest || !event.target.closest('#bible-text-area, #parallel-text-area')) return;
+    if (_hlState.multiSelectActive || _hlState.pickerPending) return;
+    _hlPickerFromTouch = !!event._fromTouchPill;
+    const entries = _hlResolveTextSelection();
     if (entries.length === 1) {
         /* StudyPanel 内の専用ボタンを廃止したため、本文で単語を選択した場合も
            同じポップアップを開き、色変更・削除の入口を本文側に集約する。 */
@@ -22553,30 +22595,38 @@ document.addEventListener('keyup', function(event) {
     }
 });
 
-/* スマホ/タブレット向け: 長押しで本文の語句を選択し、指を離したら
-   デスクトップのドラッグ選択と同じカラーピッカーを開く。
+/* スマホ/タブレット向け: 長押しで本文の語句を選択したら、画面下部中央に
+   「ハイライト」ピルを出す。以前は選択が安定した時点でピッカーを自動で
+   開いていたが、全面オーバーレイが青ハンドルでの範囲調整を妨げ、
+   複数語の選択ができなかった。そのためピッカーはピルのタップで
+   明示的に開く形にし、選択が有効な間はピルを出し続ける
+   （ハンドル調整・スクロールは妨げない）。
    タッチでは選択の確定後に mouseup が来ないため、touchend と
-   selectionchange の安定を起点に、既存の選択解決処理へ委ねる。
-   同じ選択に対する再試行や、選択を残したままのスクロールで
-   誤って開かないよう、選択の署名が変わったときだけ試行する。 */
-let _hlTouchSelSig = '';
+   selectionchange の安定を起点に、ピルの表示可否だけを判定する。 */
 let _hlLastTouchAt = 0;
 let _hlTouchSelTimer = null;
+function _hlTouchPillEl() { return document.getElementById('hl-touch-pill'); }
+function _hlHideTouchPill() { const p = _hlTouchPillEl(); if (p) p.classList.remove('hl-show'); }
 function _hlTryTouchTextSelection() {
+    const pill = _hlTouchPillEl();
+    if (!pill) return;
+    if (_hlState.pickerPending || _hlState.multiSelectActive) { _hlHideTouchPill(); return; }
     const selection = window.getSelection();
-    if (!selection || !selection.rangeCount || selection.isCollapsed) { _hlTouchSelSig = ''; return; }
+    if (!selection || !selection.rangeCount || selection.isCollapsed) { _hlHideTouchPill(); return; }
     const anchorEl = selection.anchorNode && selection.anchorNode.parentElement;
-    if (!anchorEl || !anchorEl.closest || !anchorEl.closest('#bible-text-area, #parallel-text-area')) return;
-    const range = selection.getRangeAt(0);
-    const sig = [selection.toString(), range.startOffset, range.endOffset,
-        selection.anchorOffset, selection.focusOffset].join('|');
-    if (sig === _hlTouchSelSig) return;
-    _hlTouchSelSig = sig;
-    _hlOpenPickerForTextSelection({ target: anchorEl });
+    if (!anchorEl || !anchorEl.closest || !anchorEl.closest('#bible-text-area, #parallel-text-area')) { _hlHideTouchPill(); return; }
+    if (!_hlResolveTextSelection().length) { _hlHideTouchPill(); return; }
+    pill.classList.add('hl-show');
 }
 function _hlScheduleTouchTextSelection(delay) {
     if (_hlTouchSelTimer) clearTimeout(_hlTouchSelTimer);
     _hlTouchSelTimer = setTimeout(_hlTryTouchTextSelection, delay);
+}
+function _hlTouchPillTap() {
+    _hlHideTouchPill();
+    const selection = window.getSelection();
+    const anchorEl = selection && selection.anchorNode && selection.anchorNode.parentElement;
+    _hlOpenPickerForTextSelection({ target: anchorEl, _fromTouchPill: true });
 }
 document.addEventListener('touchend', function () {
     _hlLastTouchAt = Date.now();
@@ -22585,7 +22635,7 @@ document.addEventListener('touchend', function () {
 document.addEventListener('selectionchange', function () {
     /* タッチ操作由来の選択だけを対象にする（マウスは mouseup 側で処理）。 */
     if (Date.now() - _hlLastTouchAt > 3000) return;
-    _hlScheduleTouchTextSelection(450);
+    _hlScheduleTouchTextSelection(300);
 });
 </script>
 </body>
