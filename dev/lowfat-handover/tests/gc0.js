@@ -1,0 +1,6 @@
+const chromium=require('@sparticuz/chromium').default||require('@sparticuz/chromium');const p=require('puppeteer-core');const dir='/home/claude/lf/lowfat/';
+(async()=>{const b=await p.launch({args:chromium.args,executablePath:await chromium.executablePath(),headless:'shell',defaultViewport:{width:1280,height:800}});
+const pg=await b.newPage();await pg.goto('file:///mnt/user-data/outputs/rk-diagram-m3.html');
+await(await pg.$('#fi')).uploadFile(dir+'07-1corinthians.xml');await pg.waitForFunction("BOOK&&BOOK.sents.length>400");
+console.log(JSON.stringify(await pg.evaluate(`(()=>{const hist={},ex={};for(let i=0;i<BOOK.sents.length;i++){doc=parse(BOOK.sents[i].xml);tag(null);layout();const by=new Map();edges.filter(e=>e.kind==='dash'&&e.grp).forEach(e=>{const p=e.grp.parentNode;by.set(p,(by.get(p)||0)+1)});for(const [p,n] of by){const items=[...p.children].filter(c=>c.tagName==='wg').length;const k=n+'dash/'+items+'items';hist[k]=(hist[k]||0)+1;if(!ex[k])ex[k]=i}}
+ let mods=0,modG=0;for(let i=0;i<60;i++){doc=parse(BOOK.sents[i].xml);tag(null);layout();mods+=edges.filter(e=>e.kind==='mod').length;modG+=edges.filter(e=>e.kind==='mod'&&e.grp).length}return{hist,ex,modEdges60:mods,modWithGroup60:modG}})()`)));await b.close();process.exit(0)})();

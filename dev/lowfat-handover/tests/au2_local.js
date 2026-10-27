@@ -1,0 +1,9 @@
+const p=require('puppeteer-core');
+(async()=>{const b=await p.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:'shell',args:['--no-sandbox','--disable-dev-shm-usage'],defaultViewport:{width:1280,height:800}});const errs=[];
+const pg=await b.newPage();pg.on('pageerror',e=>errs.push(e.message));pg.on('console',m=>m.type()==='error'&&errs.push(m.text()));await pg.goto('file:///Users/373da/Claude/開発室/lowfat-handover/app/rk-diagram-m3.html');const ev=f=>pg.evaluate(f);
+await(await pg.$('#fi')).uploadFile('/Users/373da/Claude/開発室/lowfat-handover/data/lowfat/03-luke.xml');await pg.waitForFunction("BOOK&&BOOK.name==='Luke'");await ev('go(119)');await new Promise(r=>setTimeout(r,300));await pg.click('#zf');await new Promise(r=>setTimeout(r,300));
+console.log(JSON.stringify(await ev(`(()=>{const r=svg.getBoundingClientRect();const g=words.map(w=>w.g.getBoundingClientRect());const inside=g.filter(q=>q.left>=r.left-1&&q.right<=r.right+1&&q.top>=r.top-1&&q.bottom<=r.bottom+1).length;
+ return{文:$('#ref').textContent,語数:words.length,画面内の語:inside,fitAll倍率:+view.k.toFixed(4),文字サイズpx:+(22*view.k).toFixed(1),図の外接矩形占有:{幅:Math.round((Math.max(...g.map(q=>q.right))-Math.min(...g.map(q=>q.left)))),高さ:Math.round((Math.max(...g.map(q=>q.bottom))-Math.min(...g.map(q=>q.top))))},キャンバス:[Math.round(r.width),Math.round(r.height)]}})()`)));
+// readable path: initial view and zooming in on the genealogy
+await pg.click('#al');const init=await ev(`({k:view.k,font:22*view.k,visible:(()=>{const r=svg.getBoundingClientRect();return words.filter(w=>{const q=w.g.getBoundingClientRect();return q.right>r.left&&q.left<r.right&&q.bottom>r.top&&q.top<r.bottom}).length})()})`);console.log('初期表示(読める倍率):',JSON.stringify(init));
+console.log('errors',errs.length);await b.close();process.exit(0)})();

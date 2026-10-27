@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Greek Verb Analyzer</title>
+  <style>
+    body {
+      width: 500px;
+      min-height: 300px;
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #fff;
+      color: #1a1a18;
+      font-size: 14px;
+      line-height: 1.6;
+      box-sizing: border-box;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    .app { max-width: 100%; margin: 0 auto; }
+
+    .card {
+      background: #fff;
+      border: 0.5px solid #e5e4de;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .btn {
+      padding: 7px 16px;
+      font-size: 13px;
+      border: 0.5px solid #ccc;
+      border-radius: 8px;
+      background: transparent;
+      color: #1a1a18;
+      cursor: pointer;
+    }
+    .btn:hover { background: #f4f3ee; }
+    .btn.primary { background: #1a1a18; color: #fff; border-color: #1a1a18; }
+    .btn.primary:hover { opacity: 0.85; }
+
+    .output-box {
+      background: #f9f9f8;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-size: 18px;
+      line-height: 2.4;
+      color: #1a1a18;
+      min-height: 60px;
+      border: 0.5px solid #e5e4de;
+      word-break: break-word;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 1rem;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #888;
+    }
+    .legend-sample {
+      font-size: 14px;
+      color: #1a1a18;
+      padding: 0 2px;
+    }
+
+    /* 時制の装飾 */
+    .present     { text-decoration: underline; }
+    .imperfect   { text-decoration: none; }
+    .future      { text-decoration: underline double; }
+    .aorist      { text-decoration: underline dotted; }
+    .perfect     { text-decoration: underline wavy; }
+    .pluperfect  { text-decoration: none; }
+
+    /* 態の装飾 */
+    .middle::after,
+    .passive::after {
+      content: "*";
+      margin-left: 2px;
+      font-size: 0.7em;
+      vertical-align: super;
+      opacity: 0.9;
+    }
+
+    /* 法による背景色 */
+    .indicative  { background-color: #fffacd; padding: 0 3px; }
+    .imperative  { background-color: #fffacd; padding: 0 3px; }
+    .subjunctive { background-color: transparent; }
+    .optative    { background-color: transparent; }
+    .infinitive  { background-color: transparent; }
+    .participle  { background-color: transparent; }
+
+    /* ツールチップ */
+    .verb-hit { position: relative; cursor: help; }
+    .verb-hit::before {
+      content: attr(data-info);
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a18;
+      color: #fff;
+      font-size: 11px;
+      white-space: nowrap;
+      padding: 4px 8px;
+      border-radius: 6px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .verb-hit:hover::before { display: block; }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 500;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+
+    /* タイトル（タップで節選択） */
+    .nav-title {
+      flex: 1;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 500;
+      color: #1a1a18;
+      padding: 5px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .nav-title::after { content: " ▾"; color: #888; font-size: 11px; }
+    .nav-title:hover { background: #f4f3ee; }
+    .nav-title:focus-visible { outline: 2px solid #1a1a18; outline-offset: 1px; }
+
+    /* 節番号の帯 */
+    .verse-strip {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 2px 2px 8px;
+      margin-bottom: 0.5rem;
+      scrollbar-width: thin;
+    }
+    .verse-chip {
+      flex: 0 0 auto;
+      min-width: 30px;
+      height: 28px;
+      padding: 0 8px;
+      font-size: 12px;
+      border: 0.5px solid #ccc;
+      border-radius: 14px;
+      background: #fff;
+      color: #1a1a18;
+      cursor: pointer;
+    }
+    .verse-chip:hover { background: #f4f3ee; }
+    .verse-chip.current { background: #1a1a18; color: #fff; border-color: #1a1a18; }
+
+    /* 同期スイッチ（左右にスライド） */
+    .sync-switch {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      cursor: pointer;
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .sync-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .sync-track {
+      position: relative;
+      width: 34px;
+      height: 18px;
+      border-radius: 9px;
+      background: #c9c8c2;
+      transition: background-color 0.2s;
+    }
+    .sync-knob {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s;
+    }
+    .sync-switch input:checked + .sync-track { background: #34a853; }
+    .sync-switch input:checked + .sync-track .sync-knob { transform: translateX(16px); }
+    .sync-switch input:focus-visible + .sync-track { outline: 2px solid #1a1a18; outline-offset: 2px; }
+    .sync-text { font-size: 10px; line-height: 1; color: #888; }
+    .sync-text::after { content: "同期OFF"; }
+    .sync-switch input:checked ~ .sync-text { color: #2b8a3e; }
+    .sync-switch input:checked ~ .sync-text::after { content: "同期ON"; }
+
+    /* 節選択ダイアログ用スタイル */
+    .verse-dialog {
+      padding: 0;
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+      width: 90%;
+      max-width: 400px;
+    }
+    .verse-dialog::backdrop {
+      background: rgba(0, 0, 0, 0.4);
+    }
+    .modal-content {
+      padding: 20px;
+      background: #fff;
+      border-radius: 12px;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .modal-header h3 {
+      font-size: 15px;
+      color: #1a1a18;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: #888;
+    }
+    .verse-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 4px;
+    }
+    .verse-grid-item {
+      padding: 8px 0;
+      text-align: center;
+      background-color: #f9f9f8;
+      border: 0.5px solid #ccc;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background-color 0.2s;
+    }
+    .verse-grid-item:hover {
+      background-color: #f4f3ee;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <!-- ナビゲーションカード（前へボタン、タイトル、次へボタン、節を選ぶボタン） -->
+  <div class="card" style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+    <button class="btn" id="prev-verse-btn" style="padding: 6px 10px;">◀ 前</button>
+    <span class="nav-title" id="nav-title" role="button" tabindex="0" title="タップして節を選ぶ">読み込み中...</span>
+    <button class="btn" id="next-verse-btn" style="padding: 6px 10px;">次 ▶</button>
+    <label class="sync-switch" title="ON: 開いているタブの聖句に自動で追従 / OFF: 表示を固定">
+      <input type="checkbox" id="auto-sync-toggle" checked>
+      <span class="sync-track"><span class="sync-knob"></span></span>
+      <span class="sync-text"></span>
+    </label>
+  </div>
+  <!-- 節番号の帯 -->
+  <div class="verse-strip" id="verse-strip"></div>
+  <!-- 解析結果カード -->
+  <div class="card" id="outputCard">
+    <p class="section-title">解析結果</p>
+    <div class="output-box" id="output"></div>
+    <div class="legend">
+      <div class="legend-item">
+        <span class="legend-sample" style="text-decoration:underline">［動詞］</span>
+        <span>現在形</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-sample" style="text-decoration:underline dotted">［動詞］</span>
+        <span>アオリスト形</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-sample" style="text-decoration:underline wavy">［動詞］</span>
+        <span>完了形</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-sample" style="text-decoration:underline double">［動詞］</span>
+        <span>未来形</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-sample">［動詞］*</span>
+        <span>中動・受動態</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-sample" style="background-color:#fffacd;padding:0 3px">［動詞］</span>
+        <span>直説法・命令法</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 節選択ポップアップ用のダイアログ -->
+<dialog id="verse-modal" class="verse-dialog">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>節を選択</h3>
+      <button id="close-verse-modal" class="close-btn">&times;</button>
+    </div>
+    <div id="verse-grid" class="verse-grid"></div>
+  </div>
+</dialog>
+
+<script src="popup.js"></script>
+</body>
+</html>

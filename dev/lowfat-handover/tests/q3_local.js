@@ -1,0 +1,21 @@
+const p=require('puppeteer-core');const {REF,READ,matches}=require('./m7lib.js');
+const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)process.exitCode=1};
+(async()=>{const b=await p.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:'shell',args:['--no-sandbox','--disable-dev-shm-usage'],defaultViewport:{width:1280,height:800}});const errs=[];
+const pg=await b.newPage();pg.on('pageerror',e=>errs.push(e.message));pg.on('console',m=>m.type()==='error'&&errs.push(m.text()));await pg.goto('file:///Users/373da/Claude/開発室/lowfat-handover/app/rk-diagram-m3.html');const ev=f=>pg.evaluate(f);await ev(REF);
+await(await pg.$('#fi')).uploadFile('/Users/373da/Claude/開発室/lowfat-handover/data/lowfat/03-luke.xml');await pg.waitForFunction("BOOK&&BOOK.name==='Luke'");await ev('go(119)');const s0=await ev('ser()');
+// search for a truly ambiguous point near the genealogy: nearest and 2nd nearest are different words with different parents and nearly equal distance
+const amb=await ev(`(()=>{const names=words.filter(w=>A(w.el,'class')==='noun'&&A(w.el.parentNode,'rule')==='Np-Appos');const X=names[8];const rect=w=>({l:w.x-3,r:w.x+w.w+3,t:w.y-22,b:w.y+8});const dd=(w,x,y)=>{const q=rect(w);return Math.hypot(Math.max(q.l-x,0,x-q.r),Math.max(q.t-y,0,y-q.b))};
+ let best=null;for(let x=X.x-120;x<X.x+260;x+=1)for(let y=X.y-60;y<X.y+120;y+=1){const s=words.map(w=>({w,d:dd(w,x,y)})).sort((a,b)=>a.d-b.d);const a=s[0],c=s[1];if(a.w.el.parentNode!==c.w.el.parentNode&&a.d>8&&c.d-a.d<1.2){if(!best||a.d<best.d1){best={x,y,a:a.w.text,b:c.w.text,d1:Math.round(a.d),d2:Math.round(c.d),ax:(a.w.x+a.w.w/2),ay:a.w.y-8,bx:c.w.x+c.w.w/2,by:c.w.y-8}}}}return best})()`);
+console.log('曖昧な位置:',JSON.stringify(amb));ok(!!amb,'最近傍と2番目の語（親が異なる）の距離差が1.2px未満の位置が存在する（'+amb.a+' '+amb.d1+'px / '+amb.b+' '+amb.d2+'px）');
+await ev(`(()=>{const r=svg.getBoundingClientRect();view.k=1;view.x=r.width/2-${amb.x};view.y=r.height/2-${amb.y};applyView()})()`);
+const wi=await ev(`(()=>{const r=svg.getBoundingClientRect();const c=words.map((w,i)=>({i,d:Math.hypot(w.x-${amb.x},w.y-${amb.y}),g:w.g.getBoundingClientRect()})).filter(o=>o.g.left>r.left+60&&o.g.right<r.right-60&&o.g.top>r.top+80&&o.g.bottom<r.bottom-40&&o.d>60).sort((a,b)=>a.d-b.d);return c[2].i})()`);
+await ev(`window.__dw=words[${wi}].el`);const from=await ev(`(()=>{const g=words[${wi}].g.getBoundingClientRect();return[g.x+g.width/2,g.y+g.height/2]})()`);
+const toS=(x,y)=>ev(`(()=>{const r=svg.getBoundingClientRect();return[r.left+view.x+${x}*view.k,r.top+view.y+${y}*view.k]})()`);
+await pg.mouse.move(from[0],from[1]);await pg.mouse.down();
+const probe=async(label,x,y)=>{const t=await toS(x,y);await pg.mouse.move(t[0],t[1],{steps:3});const pw=await ev(`(()=>{const r=svg.getBoundingClientRect();return[(${t[0]}-r.left-view.x)/view.k,(${t[1]}-r.top-view.y)/view.k]})()`);const ref=await ev(`__ref(${pw[0]},${pw[1]},words[${wi}],0)`);const pv=await ev(READ);ok(matches(pv,ref),`${label}: プレビュー = 参照実装 [最近傍 ${ref.nearest} ${ref.nd}px, ${ref.target?ref.target.split(' > ').slice(-2).join(' > '):'-'}]`);return{ref,pv}};
+const u=(1),dxv=amb.bx-amb.ax,dyv=amb.by-amb.ay,L=Math.hypot(dxv,dyv),ux=dxv/L,uy=dyv/L;
+const mid=await probe('曖昧な点',amb.x,amb.y);const towardA=await probe('語A側へ6px',amb.x-ux*6,amb.y-uy*6);const towardB=await probe('語B側へ6px',amb.x+ux*6,amb.y+uy*6);
+ok(towardA.ref.nearest!==towardB.ref.nearest||JSON.stringify(towardA.pv.ring)!==JSON.stringify(towardB.pv.ring),'6px動かすと、最近傍語のリング（と対象）が切り替わり、プレビューが追従');
+ok(towardA.ref.target!==towardB.ref.target,'語A側・語B側で移動先の句が異なる（曖昧さが実際に対象を分けている）');
+await pg.mouse.up();await pg.keyboard.down('Control');await pg.keyboard.press('KeyZ');await pg.keyboard.up('Control');ok(await ev('ser()')===s0,'Undoで完全復元');
+console.log('errors',errs.length);ok(errs.length===0,'console error 0');await b.close()})().catch(e=>{console.log('ERR',e.stack.slice(0,600));process.exit(1)});

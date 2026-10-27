@@ -1,0 +1,2043 @@
+/* 拡張機能版: インラインJSを分離（MV3のCSP対応）。クリックは syntax-boot.js の data-act 委譲で処理 */
+_renderStaticIcons();
+
+(function detectIframe() {
+    try {
+        if (window.self !== window.top) {
+            document.body.classList.add('in-iframe');
+        }
+    } catch(e) {
+        // cross-origin fallback
+        document.body.classList.add('in-iframe');
+    }
+})();
+
+/* ══════════════════════════════════════════
+   定数・ラベルマップ
+   ══════════════════════════════════════════ */
+const TENSE_JP  = { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'過去完了（大過去）' };const VOICE_JP  = { active:'能動',middle:'中動',passive:'受動','middle deponent':'中動自動','middle or passive':'中動/受動' };
+const MOOD_JP   = { indicative:'直説法',subjunctive:'接続法',optative:'希求法',imperative:'命令法',infinitive:'不定詞',participle:'分詞' };
+const GENDER_JP = { masculine:'男性',feminine:'女性',neuter:'中性' };
+const NUMBER_JP = { singular:'単数',plural:'複数' };
+const CASE_JP   = { nominative:'主格',genitive:'属格',dative:'与格',accusative:'対格',vocative:'呼格' };
+const POS_JP    = { V:'動詞',N:'名詞',A:'形容詞',R:'関係代名詞',P:'人称代名詞',T:'冠詞',D:'指示代名詞',C:'接続詞',X:'不変化詞' };
+
+/* 役割定義 */
+const ROLE_META = {
+    verb:     { label:'動詞',          color:'var(--c-verb)',  bg:'var(--c-verb-bg)',  barColor:'#3d6b9a' },
+    subj:     { label:'主語（推定）',    color:'var(--c-subj)',  bg:'var(--c-subj-bg)',  barColor:'#4a8a62' },
+    'pred-nom':{ label:'述語主格（推定）', color:'var(--c-subj)', bg:'rgba(74,138,98,0.06)', barColor:'#7aaa8a' },
+    obj:      { label:'目的語（推定）',  color:'var(--c-obj)',   bg:'var(--c-obj-bg)',   barColor:'#8a5a38' },
+    prep:     { label:'前置詞句',      color:'var(--c-prep)', bg:'var(--c-prep-bg)',  barColor:'#6a58a0' },
+    mod:      { label:'修飾語（推定）',  color:'var(--c-mod)',   bg:'var(--c-mod-bg)',   barColor:'#8a7030' },
+    ptc:      { label:'分詞句',        color:'var(--c-ptc)',   bg:'var(--c-ptc-bg)',   barColor:'#c47028' },
+    inf:      { label:'不定詞',        color:'var(--c-inf)',   bg:'var(--c-inf-bg)',   barColor:'#5a7a8a' },
+    conj:     { label:'接続詞',        color:'var(--c-conj)',  bg:'rgba(136,136,136,0.07)', barColor:'#888' },
+    vocative: { label:'呼格',          color:'var(--text-hint)', bg:'var(--bg-panel)', barColor:'#888' },
+    other:    { label:'その他',        color:'var(--text-hint)', bg:'var(--bg-panel)', barColor:'#bbb' },
+};
+
+/* ROLE_META に無い ui_role（registry の np / adj / disc / ptcl / clause / pron / voc など）の hero 用 fallback。
+   「role 色が未定義」を示す中立色で、意味のある role 色ではない。ROLE_META.other の #bbb は
+   文字色として薄すぎる（白地で 1.9:1）ため流用せず、#666（白地で 5.7:1）を専用に定義する。
+   hero の役割名は、ROLE_META の label ではなく候補自身の label_ja を使うので、ここに label は持たない。 */
+const ROLE_FALLBACK_META = { bg:'var(--bg-panel)', barColor:'#666666' };
+
+/* ══════════════════════════════════════════
+   URLパラメータ
+   ══════════════════════════════════════════ */
+function getParams() {
+    const p = new URLSearchParams(location.search);
+    return {
+        ref:      p.get('ref')      || '',
+        word:     p.get('word')     || '',
+        lemma:    p.get('lemma')    || '',
+        pos:      p.get('pos')      || '',
+        tense:    p.get('tense')    || '',
+        mood:     p.get('mood')     || '',
+        voice:    p.get('voice')    || '',
+        case:     p.get('case')     || '',
+        gender:   p.get('gender')   || '',
+        number:   p.get('number')   || '',
+        books:    p.get('books')    || '',
+        scope:    p.get('scope')    || '',
+        category: p.get('category') || '',
+        jword:    p.get('jword')    || '',
+    };
+}
+const params = getParams();
+
+/* allow-list（このページの実際の検索条件のみ）からゼロ構築する。
+   location.searchをベースにしない＝他ページのパラメータ混入を防ぐ。
+   選択中トークン（_selectedIdx）があればその語の情報を優先し、
+   なければ初期paramsの値を維持する。 */
+function syncURL() {
+    const p = new URLSearchParams();
+    p.set('tool', 'syntax');
+    if (params.ref) p.set('ref', params.ref);
+
+    const entry = (typeof _selectedIdx !== 'undefined' && _selectedIdx >= 0 && _tokens && _tokens[_selectedIdx])
+        ? _tokens[_selectedIdx] : null;
+
+    if (entry) {
+        const m = decodeMorph(entry);
+        const word = entry.text || entry.normalized || '';
+        const lemma = entry.lemma || '';
+        if (word)     p.set('word',   word);
+        if (lemma)    p.set('lemma',  lemma);
+        if (m.pos)    p.set('pos',    m.pos);
+        if (m.tense)  p.set('tense',  m.tense);
+        if (m.mood)   p.set('mood',   m.mood);
+        if (m.voice)  p.set('voice',  m.voice);
+        if (m.case)   p.set('case',   m.case);
+        if (m.gender) p.set('gender', m.gender);
+        if (m.number) p.set('number', m.number);
+    } else {
+        if (params.word)   p.set('word',   params.word);
+        if (params.lemma)  p.set('lemma',  params.lemma);
+        if (params.pos)    p.set('pos',    params.pos);
+        if (params.tense)  p.set('tense',  params.tense);
+        if (params.mood)   p.set('mood',   params.mood);
+        if (params.voice)  p.set('voice',  params.voice);
+        if (params.case)   p.set('case',   params.case);
+        if (params.gender) p.set('gender', params.gender);
+        if (params.number) p.set('number', params.number);
+    }
+
+    if (params.books)    p.set('books',    params.books);
+    if (params.scope)    p.set('scope',    params.scope);
+    if (params.category) p.set('category', params.category);
+    if (params.jword)    p.set('jword',    params.jword);
+
+    history.replaceState(null, '', '?' + p.toString());
+}
+
+/* 現在表示中のURLをそのままクリップボードへコピーする（URL生成ロジックは呼ばない）。 */
+async function copyShareUrl() {
+    const url = location.href;
+    try {
+        await navigator.clipboard.writeText(url);
+        _showShareToast();
+    } catch (e) {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = url;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            _showShareToast();
+        } catch (e2) {
+            console.warn('copyShareUrl: コピーに失敗しました', e2);
+        }
+    }
+}
+function _showShareToast() {
+    const t = document.getElementById('share-toast');
+    if (!t) return;
+    t.textContent = 'URLをコピーしました';
+    t.classList.add('visible');
+    clearTimeout(t._hideTimer);
+    t._hideTimer = setTimeout(() => t.classList.remove('visible'), 2000);
+}
+
+/* ══════════════════════════════════════════
+   Syntax Beginner Mode: removed (analysis tool)
+   ══════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════
+   共有フィルター状態 (Morph から引き継ぐ)
+   ══════════════════════════════════════════ */
+/* BOOK_GROUPS / bookFilterState / BOOK_MAP / BOOK_JP は books.json（book-master.js）が
+   唯一の出典。applyBookMaster() が初期化処理の冒頭で実値を埋める。 */
+let BOOK_GROUPS = [];
+let bookFilterState = [];
+
+function applyBookMaster(master) {
+    BOOK_GROUPS = master.groups;
+    bookFilterState = BOOK_GROUPS.map(g => {
+        let enabled = true;
+        if (params.scope) {
+            enabled = (g.key === params.scope);
+        } else if (params.books) {
+            const booksSet = new Set(params.books.split(',').filter(Boolean));
+            enabled = g.books.some(b => booksSet.has(b));
+        }
+        return { ...g, enabled };
+    });
+    BOOK_MAP = Object.fromEntries(master.ALL.map(b => [b.code, b.key]));
+    BOOK_JP  = Object.fromEntries(master.ALL.map(b => [b.key, b.name]));
+}
+
+function getEnabledBooks() {
+    const allOff = bookFilterState.every(g => !g.enabled);
+    if (allOff) return null;
+    return new Set(bookFilterState.filter(g => g.enabled).flatMap(g => g.books));
+}
+
+function notifyFilterChanged() {
+    const enabledBooks = bookFilterState.filter(g => g.enabled).flatMap(g => g.books);
+    const enabledGroups = bookFilterState.filter(g => g.enabled).map(g => g.key);
+    const msg = {
+        type: 'FILTER_CHANGED',
+        filters: {
+            books: enabledBooks,
+            groups: enabledGroups,
+            scope: enabledGroups.length === 1 ? enabledGroups[0] : '',
+        }
+    };
+    if (window.parent && window.parent !== window) window.parent.postMessage(msg, '*');
+    else if (window.opener && !window.opener.closed) window.opener.postMessage(msg, '*');
+}
+
+/* 初期描画 */
+
+/* ══════════════════════════════════════════
+   データ共通ユーティリティ
+   ══════════════════════════════════════════ */
+let BOOK_MAP = {};
+let BOOK_JP  = {};
+
+const CLASS_TO_POS = {
+    'verb':'V','noun':'N','adjective':'A','article':'T',
+    'preposition':'P','conjunction':'C','adverb':'D',
+    'particle':'X','pronoun':'P','relative pronoun':'R',
+    'personal pronoun':'P','demonstrative pronoun':'D',
+};
+const TENSE_CODE  = { P:'present',I:'imperfect',F:'future',A:'aorist',X:'perfect',Z:'pluperfect' };
+const VOICE_CODE  = { A:'active',M:'middle',P:'passive',D:'middle deponent',E:'middle or passive',N:'middle or passive' };
+const MOOD_CODE   = { I:'indicative',S:'subjunctive',O:'optative',M:'imperative',N:'infinitive',P:'participle' };
+const CASE_CODE   = { N:'nominative',G:'genitive',D:'dative',A:'accusative',V:'vocative' };
+const NUMBER_CODE = { S:'singular',P:'plural' };
+const GENDER_CODE = { M:'masculine',F:'feminine',N:'neuter' };
+
+/* bible_data の class 値は短縮形（prep/adv/conj等）と完全形（preposition/adverb等）が
+   混在しているため、CLASS_TO_POS を引く前に完全形へ正規化する。 */
+function normalizeClass(c) {
+    if (!c) return '';
+    const map = {
+        prep:'preposition',
+        adv:'adverb',
+        conj:'conjunction',
+        num:'numeral',
+        adj:'adjective',
+        det:'article',
+        pron:'pronoun',
+        ptcl:'particle',
+        intj:'interjection'
+    };
+    return map[String(c).toLowerCase()] || String(c).toLowerCase();
+}
+
+function entryPosCode(e) {
+    if (e.pos) return String(e.pos).replace(/-$/,'').toUpperCase();
+    if (e.class) return CLASS_TO_POS[normalizeClass(e.class)] || '';
+    return '';
+}
+function decodeMorph(e) {
+    const result = (function () {
+        const n = v => (!v||v==='-')?'':v;
+        if (e.tense||e.mood||e.voice) return {
+            pos:entryPosCode(e), tense:n(e.tense), voice:n(e.voice), mood:n(e.mood),
+            case:n(e.case), number:n(e.number), gender:n(e.gender), person:n(e.person),
+        };
+        if (e.morph&&typeof e.morph==='object') { const m=e.morph; return {
+            pos:n(e.pos||'').replace(/-$/,''), tense:n(m.tense), voice:n(m.voice), mood:n(m.mood),
+            case:n(m.case), number:n(m.number), gender:n(m.gender), person:n(m.person),
+        };}
+        const raw = typeof e.morph==='string'?e.morph:'';
+        const parts=raw.split('-');
+        const pos=n(e.pos||parts[0]||'').replace(/-$/,'');
+        if (pos.toUpperCase()==='V'&&parts[1]) {
+            const seg=parts[1],off=/^[0-9]/.test(seg)?1:0;
+            return {pos,tense:TENSE_CODE[seg[off]]||'',voice:VOICE_CODE[seg[off+1]]||'',
+                    mood:MOOD_CODE[seg[off+2]]||'',person:seg[off+3]||'',
+                    number:NUMBER_CODE[seg[off+4]]||'',gender:'',case:''};
+        }
+        if (parts[1]){const seg=parts[1],hp=['1','2','3'].includes(seg[0]),b=hp?seg.slice(1):seg;
+            return {pos,tense:'',voice:'',mood:'',person:hp?seg[0]:'',
+                    case:CASE_CODE[b[0]]||'',number:NUMBER_CODE[b[1]]||'',gender:GENDER_CODE[b[2]]||''};}
+        return {pos,tense:'',voice:'',mood:'',case:'',number:'',gender:'',person:''};
+    })();
+    /* 安全フォールバック（追加分）: case/number/gender が全て空の場合のみ、
+       entry の直接フィールドを使用する。上記の既存ロジックは一切変更していない。 */
+    if (!result.case && !result.number && !result.gender) {
+        const n = v => (!v||v==='-')?'':v;
+        result.case   = n(e.case);
+        result.number = n(e.number);
+        result.gender = n(e.gender);
+    }
+    return result;
+}
+
+/* ══════════════════════════════════════════
+   表示・解析用マージ（追加分・検索ロジックには関与しない）
+   ══════════════════════════════════════════
+   構文判定の決定ロジックは decodeMorph に統一されている
+   （assignSyntacticRoles は decodeMorph(t) を直接参照する。
+   このファイルに resolveMorphAttrs の戻り値を渡してはならない）。
+   この関数は entry.* を decoded（decodeMorphの出力）に対して上書きしない。
+   返り値の case/number/gender/tense/mood/voice は decoded と完全に同じ値を
+   保持したまま、entry.* 側の値を entry_case 等の別キーで補助的に保持するだけの
+   “表示・解析用マージ”である。
+   entry.* と decodeMorph(entry) の値が一致しない場合は
+   window.__morphAttrDisagreements に記録する（削除・無視はしない。594件existing）。 */
+window.__morphAttrDisagreements = window.__morphAttrDisagreements || [];
+const _MORPH_ATTR_KEYS = ['case','number','gender','tense','mood','voice'];
+function resolveMorphAttrs(e, decoded) {
+    const n = v => (!v || v === '-') ? '' : v;
+    const resolved = Object.assign({}, decoded); // 検索判定に使う値は decoded のまま、一切上書きしない
+    for (const key of _MORPH_ATTR_KEYS) {
+        const entryValue = n(e[key]);
+        if (entryValue && entryValue !== decoded[key]) {
+            window.__morphAttrDisagreements.push({
+                ref: e.ref, tokenId: e.tokenId, globalIdx: e.globalIdx,
+                attr: key, entryValue: entryValue, decodeMorphValue: decoded[key],
+            });
+        }
+        resolved['entry_' + key] = entryValue; // 表示・解析用の補助情報として保持するのみ
+    }
+    return resolved;
+}
+
+function cleanText(e) {
+    return (e.word||e.normalized||e.text||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim();
+}
+function normalizeGreek(s) {
+    return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g,'').replace(/ς/g,'σ').toLowerCase().trim();
+}
+
+function buildRefLabel(ref) {
+    const r=String(ref||'');
+    const m=r.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
+    if (m) return `${BOOK_JP[m[1]]||m[1]} ${m[2]}章${m[3]}節`;
+    if (r.length===6&&/^\d+$/.test(r)) {
+        const bk=BOOK_MAP[r.slice(0,2)];
+        return `${(bk&&BOOK_JP[bk])||bk||r.slice(0,2)} ${parseInt(r.slice(2,4))}章${parseInt(r.slice(4,6))}節`;
+    }
+    return r;
+}
+
+/* ══════════════════════════════════════════
+   語順マーカー（discourse有標語順検出）
+   ══════════════════════════════════════════
+
+   ギリシャ語の「通常語順」基準：
+     - 動詞は節の後半（中央〜末尾）に置かれることが多い
+     - 主語（主格）は動詞の直前か直後が無標
+     - 目的語（対格）は動詞の後が基本
+     - 属格修飾は被修飾語の直後が基本
+   動詞より前に名詞句・副詞句・前置詞句が置かれている場合、
+   それは意図的な前置（topicalization / focus）とみなす。
+   接続詞・不変化詞は語順分析から除外する。
+   ────────────────────────────────────────── */
+
+/**
+ * トークン配列中の有標語順要素を検出する。
+ * @param {Array}  tokens  節内のトークン配列
+ * @param {Map}    roleMap assignSyntacticRoles() の結果
+ * @returns {Map<Object, {type:string, note:string}>}  token → 語順マーカー
+ */
+function detectWordOrderMarkers(tokens, roleMap) {
+    const markers = new Map();
+
+    // 主動詞のインデックスを取得
+    const mainVerbIdx = tokens.findIndex(t => {
+        const pos = entryPosCode(t);
+        const m   = decodeMorph(t);
+        return pos === 'V' && m.mood && m.mood !== 'participle' && m.mood !== 'infinitive';
+    });
+    if (mainVerbIdx < 0) return markers; // 動詞なし→分析不能
+
+    // 除外品詞：接続詞・不変化詞・冠詞（これらの位置は語順効果と無関係）
+    const SKIP_POS = new Set(['C','T']);
+
+    tokens.forEach((t, i) => {
+        if (i === mainVerbIdx) return;
+        const pos  = entryPosCode(t);
+        if (SKIP_POS.has(pos)) return;
+
+        const role = roleMap.get(t)?.role;
+        if (!role || role === 'other' || role === 'conj') return;
+
+        // ── ① 動詞より前にある実質語 → 前置の可能性 ──
+        if (i < mainVerbIdx) {
+
+            // 主語（主格）が動詞より前は比較的普通。ただし接続詞も除いた上で
+            // 動詞が節の先頭（i=0 か 接続詞の直後）にない場合は無標とみなす。
+            if (role === 'subj') {
+                // 接続詞を除いた実効先頭位置を調べる
+                const effectiveStart = tokens.findIndex(t2 => !SKIP_POS.has(entryPosCode(t2)));
+                // 主語が接続詞直後の最初の実質語であれば無標
+                if (i === effectiveStart) return;
+                // 主語より前に他の実質語（副詞句・前置詞句・名詞句等）がある場合はトピック化
+                const hasPriorContent = tokens.slice(0, i).some(t2 => !SKIP_POS.has(entryPosCode(t2)));
+                if (!hasPriorContent) return; // 事実上先頭→無標
+            }
+
+            // 目的語・修飾語・前置詞句が動詞より前 → topicalization
+            if (['obj','mod','prep','ptc','inf'].includes(role)) {
+                const word = cleanText(t);
+                markers.set(t, {
+                    type: 'topicalized',
+                    note: `この語は通常より前（動詞「${cleanText(tokens[mainVerbIdx])}」より前）に置かれています。話題化・強調の可能性があります。`,
+                });
+                return;
+            }
+
+            // 主語でも上記フィルタを通過した場合（非先頭主語）
+            if (role === 'subj') {
+                markers.set(t, {
+                    type: 'fronted-subj',
+                    note: `主語が節の比較的前方に置かれています。文脈的な強調・対比の可能性があります。`,
+                });
+            }
+        }
+
+        // ── ② 動詞が節の最初（接続詞除く）→ 動詞前置（VS語順）──
+        // 動詞インデックス == 0 か 接続詞直後、かつ主語が後ろにある場合
+        if (i === mainVerbIdx) return; // 自分自身はスキップ（動詞マーカーは動詞に付けない）
+    });
+
+    // ── ③ 動詞前置（VS語順）の検出 ──
+    // 動詞が節内の実質語の先頭に来ている場合
+    const firstContentIdx = tokens.findIndex(t2 => !SKIP_POS.has(entryPosCode(t2)));
+    if (mainVerbIdx === firstContentIdx && tokens.length > mainVerbIdx + 1) {
+        // 動詞の後に主語がある (VS語順) → 動詞側にマーカー
+        const verbToken = tokens[mainVerbIdx];
+        if (!markers.has(verbToken)) {
+            markers.set(verbToken, {
+                type: 'verb-initial',
+                note: `動詞が節の先頭に置かれています（動詞前置語順）。叙述の焦点が動作そのものに当たっているか、物語的な躍動感を表す場合があります。`,
+            });
+        }
+    }
+
+    return markers;
+}
+
+/* ══════════════════════════════════════════
+   統語的役割判定エンジン
+   ══════════════════════════════════════════ */
+
+function findMainVerb(tokens) {
+    return tokens.find(t => {
+        const m = decodeMorph(t);
+        const pos = entryPosCode(t);
+        return pos === 'V' && m.mood && m.mood !== 'participle' && m.mood !== 'infinitive';
+    }) || null;
+}
+
+/**
+ * コプラ動詞（εἰμί / γίνομαι）を節内で探す
+ */
+const COPULA_LEMMAS = new Set([
+    'εἰμί','εἶναι','ἐστιν','ἐστί','εἰσίν','ἦν','ἦσαν','ἔσται',
+    'γίνομαι','γίνεσθαι','γίγνομαι',
+]);
+function findCopulaVerb(tokens) {
+    return tokens.find(t => {
+        const pos = entryPosCode(t);
+        if (pos !== 'V') return false;
+        const lemma = (t.lemma || '').trim();
+        const word  = cleanText(t);
+        return COPULA_LEMMAS.has(lemma) || COPULA_LEMMAS.has(word);
+    }) || null;
+}
+
+/**
+ * 述語主格（Predicate Nominative）を検出する
+ * コルウェルの規則：コプラ動詞 + 複数の主格名詞がある場合、
+ *   冠詞あり → 主語、冠詞なし（動詞の前に置かれることが多い）→ 述語主格
+ *
+ * @param {Array}  tokens
+ * @returns {Map<Object, 'subj'|'pred-nom'>}  token → 役割の上書きMap
+ */
+function detectPredicateNominatives(tokens) {
+    const overrides = new Map();
+    const copula = findCopulaVerb(tokens);
+    if (!copula) return overrides;
+
+    const copulaIdx = tokens.indexOf(copula);
+
+    // 主格名詞/代名詞をすべて収集（分詞・不定詞の主格は除く）
+    const nominatives = tokens.reduce((acc, t, i) => {
+        const pos = entryPosCode(t);
+        if (!['N','A','R','P','D','T'].includes(pos)) return acc;
+        const m = decodeMorph(t);
+        if (m.case !== 'nominative') return acc;
+        // 冠詞単体は除外（後続の名詞と一緒に判定する）
+        if (pos === 'T') return acc;
+        acc.push({ idx: i, tok: t, m });
+        return acc;
+    }, []);
+
+    if (nominatives.length < 2) return overrides; // 1つだけなら主語のみ
+
+    // 直前に冠詞（T）があるかチェックするヘルパー
+    const hasArticleBefore = (idx) => {
+        // 直前または2つ前に冠詞があるか（形容詞が間に挟まることがある）
+        for (let back = 1; back <= 2; back++) {
+            if (idx - back < 0) break;
+            const prevPos = entryPosCode(tokens[idx - back]);
+            if (prevPos === 'T') return true;
+            if (prevPos !== 'A') break; // 形容詞以外が間にあれば中断
+        }
+        return false;
+    };
+
+    // コプラの前後で分類
+    // 原則：冠詞あり → 主語 / 冠詞なし → 述語主格
+    // 補助：コプラより前（述語主格が動詞前に置かれやすい）
+    let hasAssignedSubject = false;
+    for (const { idx, tok } of nominatives) {
+        const withArticle = hasArticleBefore(idx);
+        if (withArticle) {
+            overrides.set(tok, 'subj');
+            hasAssignedSubject = true;
+        } else {
+            overrides.set(tok, 'pred-nom');
+        }
+    }
+
+    // 冠詞なし名詞しかない場合：コプラの後の名詞を主語と推定
+    if (!hasAssignedSubject && nominatives.length >= 1) {
+        const afterCopula = nominatives.find(n => n.idx > copulaIdx);
+        const firstNom    = nominatives[0];
+        const target = afterCopula || firstNom;
+        if (target) {
+            overrides.set(target.tok, 'subj');
+            // 残りは述語主格のまま（すでに pred-nom が設定されている）
+        }
+    }
+
+    return overrides;
+}
+
+function assignSyntacticRoles(tokens) {
+    const roles = new Map();
+
+    // まず述語主格を先行検出
+    const predNomOverrides = detectPredicateNominatives(tokens);
+
+    tokens.forEach((t, idx) => {
+        const m   = decodeMorph(t);
+        const pos = entryPosCode(t);
+        let role = 'other';
+        // confidence: 'high' | 'medium' | 'low'
+        // high  = 格情報 + 一致が明確（動詞・接続詞・呼格など形態論的に確定）
+        // medium = 格情報のみで推定（語順情報を必要としない）
+        // low   = 語順 fallback または前置詞有無のみ
+        let confidence = 'medium';
+
+        if (pos === 'V') {
+            if (m.mood === 'participle') role = 'ptc';
+            else if (m.mood === 'infinitive') role = 'inf';
+            else role = 'verb';
+            confidence = 'high'; // 動詞は形態論で確定
+        } else if (pos === 'C') {
+            role = 'conj';
+            confidence = 'high';
+        } else if (pos === 'P') {
+            role = 'prep';
+            confidence = 'high';
+        } else if (['N','T','A','R','D'].includes(pos) || pos === '') {
+            if (m.case === 'vocative') {
+                // 呼格は統語的主語ではない——明示的に除外
+                role = 'vocative';
+                confidence = 'high';
+            } else if (m.case === 'nominative') {
+                // 述語主格の上書きがあればそちらを優先
+                if (predNomOverrides.has(t)) {
+                    role = predNomOverrides.get(t);
+                    confidence = 'medium'; // コルウェル規則はヒューリスティック
+                } else {
+                    role = 'subj';
+                    confidence = 'medium'; // 主格=主語は語順依存
+                }
+            } else if (m.case === 'accusative') {
+                const prev = idx > 0 ? tokens[idx-1] : null;
+                if (prev && entryPosCode(prev) === 'P') {
+                    role = 'other';
+                    confidence = 'high'; // 前置詞直後は確定
+                } else {
+                    role = 'obj';
+                    confidence = 'medium'; // 対格=目的語は語順依存
+                }
+            } else if (m.case === 'genitive' || m.case === 'dative') {
+                const prev = idx > 0 ? tokens[idx-1] : null;
+                if (prev && entryPosCode(prev) === 'P') {
+                    role = 'other';
+                    confidence = 'high';
+                } else {
+                    role = 'mod';
+                    confidence = 'medium';
+                }
+            } else if (!m.case) {
+                // 格情報なし——解析不能
+                role = null;
+                confidence = 'low';
+            } else {
+                role = 'mod';
+                confidence = 'low'; // 上記以外は語順 fallback
+            }
+        } else if (pos === 'D') {
+            role = 'mod';
+            confidence = 'low';
+        }
+
+        roles.set(t, { role, idx, confidence });
+    });
+
+    return roles;
+}
+
+/**
+ * 分詞の統語的用法を判定（Explainable Scoring 付き）
+ * Phase C: shared-insight.js 依存を除去、ローカル実装のみ使用
+ */
+function classifyParticiple(ptcEntry, tokens, ptcIdx) {
+    return classifyParticipleFull(ptcEntry, tokens, ptcIdx);
+}
+
+/**
+ * フォールバック用完全実装（shared-insight.js未読込時）
+ */
+function classifyParticipleFull(ptcEntry, tokens, ptcIdx) {
+    const hm  = decodeMorph(ptcEntry);
+    const ptcCase = hm.case, ptcGender = hm.gender, ptcNumber = hm.number;
+
+    const prevToken = ptcIdx > 0 ? tokens[ptcIdx - 1] : null;
+    const prevPos   = prevToken ? entryPosCode(prevToken) : '';
+
+    function makeResult(type, label, desc, cls, baseDeltas, alternatives, reasons) {
+        const total = baseDeltas.reduce((s, d) => s + d.value, 0);
+        const confidence = Math.min(99, Math.max(30, total));
+        return { type, label, desc, cls, confidence, deltas: baseDeltas, alternatives, reasons };
+    }
+
+    if (prevPos === 'T') {
+        const pm = decodeMorph(prevToken);
+        const caseMatch   = pm.case   === ptcCase;
+        const genderMatch = pm.gender === ptcGender;
+        const numberMatch = pm.number === ptcNumber;
+        if (caseMatch && genderMatch && numberMatch) {
+            return makeResult(
+                'substantival', '実体用法（名詞的）',
+                'この分詞は冠詞を伴い、名詞として機能しています。「〜する者」「〜するもの」などに相当します。',
+                'substantival',
+                [
+                    { label:'直前に冠詞あり',         value: +45 },
+                    { label:'格一致（' + (CASE_JP[ptcCase]||ptcCase) + '）', value: +20 },
+                    { label:'性一致（' + (GENDER_JP[ptcGender]||ptcGender||'—') + '）', value: +15 },
+                    { label:'数一致（' + (NUMBER_JP[ptcNumber]||ptcNumber||'—') + '）', value: +15 },
+                ],
+                [
+                    { label:'形容詞用法', score: 35 },
+                    { label:'副詞用法',   score: 20 },
+                ],
+                ['直前の冠詞と格・性・数が完全一致している', '冠詞＋分詞は実体用法の最強シグナル']
+            );
+        }
+    }
+
+    let matchScore = 0;
+    const matchingNoun = tokens.find((t, i) => {
+        if (i === ptcIdx) return false;
+        const pos = entryPosCode(t);
+        if (!['N','T','A','D','R'].includes(pos)) return false;
+        const tm = decodeMorph(t);
+        let s = 0;
+        if (tm.case   === ptcCase)   s += 20;
+        if (tm.gender === ptcGender) s += 15;
+        if (tm.number === ptcNumber) s += 15;
+        if (Math.abs(i - ptcIdx) <= 2) s += 10;
+        if (s >= 35) { matchScore = s; return true; }
+        return false;
+    });
+    if (matchingNoun) {
+        const nw = cleanText(matchingNoun);
+        const dist = Math.abs(tokens.indexOf(matchingNoun) - ptcIdx);
+        return makeResult(
+            'attributive', '形容詞用法',
+            `この分詞は「${nw}」を修飾する形容詞として機能しています。格・性・数が一致しています。`,
+            'attributive',
+            [
+                { label:'格一致（' + (CASE_JP[ptcCase]||ptcCase) + '）', value: +20 },
+                { label:'性一致',               value: +15 },
+                { label:'数一致',               value: +15 },
+                { label: dist <= 2 ? '近接（距離' + dist + '語）' : '距離あり（' + dist + '語）',
+                  value: dist <= 2 ? +10 : -5 },
+                { label:'冠詞なし',             value: -10 },
+            ],
+            [
+                { label:'副詞用法',   score: 48 },
+                { label:'実体用法',   score: 22 },
+            ],
+            [
+                `「${nw}」と格・性・数が一致している`,
+                '冠詞がないため実体用法ではなく形容詞用法と判定',
+            ],
+            { relWord: nw }
+        );
+    }
+
+    if (ptcCase === 'genitive') {
+        const genNoun = tokens.find((t, i) => {
+            if (i === ptcIdx) return false;
+            const pos = entryPosCode(t);
+            if (!['N','T','A','D','R'].includes(pos)) return false;
+            return decodeMorph(t).case === 'genitive';
+        });
+        if (genNoun) {
+            return makeResult(
+                'genabs', '属格絶対分詞',
+                `主節から独立した副詞節を形成しています。「${cleanText(genNoun)}」とともに属格節を構成し、時間・理由・条件などの状況を表します。`,
+                'genabs',
+                [
+                    { label:'分詞が属格形',               value: +30 },
+                    { label:'同節に属格名詞あり',          value: +35 },
+                    { label:'主動詞と独立した構造',        value: +20 },
+                    { label:'主格名詞との格不一致',        value: -5 },
+                ],
+                [
+                    { label:'副詞用法',   score: 40 },
+                    { label:'形容詞用法', score: 15 },
+                ],
+                [
+                    '分詞が属格形をとっている',
+                    `同節に属格名詞「${cleanText(genNoun)}」がある`,
+                    '属格絶対は主節から独立した時間・条件節を形成する',
+                ]
+            );
+        }
+    }
+
+    const COMP_VERBS = ['βλέπω','ἀκούω','οἶδα','γινώσκω','ὁράω','θεάομαι','εὑρίσκω'];
+    const compVerb = tokens.find(t => {
+        if (entryPosCode(t) !== 'V') return false;
+        const tm = decodeMorph(t);
+        if (tm.mood === 'participle' || tm.mood === 'infinitive') return false;
+        const lemma = (t.lemma || '').replace(/[ʼ']/g, '');
+        return COMP_VERBS.some(v => v === lemma || lemma.startsWith(v.slice(0,4)));
+    });
+    if (compVerb) {
+        return makeResult(
+            'complementary', '補語用法',
+            `知覚・認識動詞「${cleanText(compVerb)}」の補語として機能しています。主動詞が表す知覚・認識の対象を補足します。`,
+            'complementary',
+            [
+                { label:'知覚・認識動詞あり（' + cleanText(compVerb) + '）', value: +50 },
+                { label:'補語動詞の典型パターン',                            value: +20 },
+                { label:'冠詞なし',                                          value: -5  },
+            ],
+            [
+                { label:'副詞用法', score: 35 },
+                { label:'形容詞用法', score: 20 },
+            ],
+            [
+                `知覚・認識動詞「${cleanText(compVerb)}」が主動詞として存在する`,
+                'この動詞クラスは分詞を補語として取ることが多い',
+            ]
+        );
+    }
+
+    const tenseHint = hm.tense === 'aorist' ? '主動詞より先に起きた動作を表します（先行）。'
+                    : hm.tense === 'present' ? '主動詞と同時進行の動作を表します（同時）。'
+                    : hm.tense === 'perfect' ? '先行する動作の結果状態を表します（結果）。'
+                    : '';
+    const tenseBonus = hm.tense === 'aorist' ? 15 : hm.tense === 'present' ? 12 : 5;
+    return makeResult(
+        'adverbial', '副詞用法（推定）',
+        `主動詞を状況的に補足する副詞的分詞です。${tenseHint}時間・理由・条件・付帯状況などのいずれかを表します。`,
+        'adverbial',
+        [
+            { label:'冠詞なし（実体用法除外）',           value: +15 },
+            { label:'格一致名詞なし（形容詞用法除外）',   value: +10 },
+            { label:'補語動詞なし（補語用法除外）',       value: +10 },
+            { label:'時制シグナル（' + (TENSE_JP[hm.tense]||hm.tense||'—') + '）', value: +tenseBonus },
+            { label:'副詞用法はデフォルト推定',           value: -5  },
+        ],
+        [
+            { label:'時間（〜してから/〜しながら）', score: hm.tense === 'aorist' ? 68 : 55 },
+            { label:'理由（〜なので）',              score: 45 },
+            { label:'条件（〜なら）',                score: 30 },
+            { label:'付帯状況',                      score: hm.tense === 'present' ? 60 : 35 },
+        ],
+        [
+            '他の用法（実体・形容詞・属格絶対・補語）のシグナルが見当たらない',
+            'デフォルトとして副詞用法と推定（文脈での確認が必要）',
+        ]
+    );
+}
+
+/* ══════════════════════════════════════════
+   XSC パネル生成ユーティリティ（ローカル実装）
+   Phase C: shared-insight.js 依存除去済み
+   ══════════════════════════════════════════ */
+function buildXscPanel(usage, panelId) {
+    if (!usage.deltas || !usage.deltas.length) return '';
+
+    const maxAbs = Math.max(...usage.deltas.map(d => Math.abs(d.value)), 1);
+    const confColor = usage.confidence >= 75 ? '#4a7a5a' : usage.confidence >= 55 ? '#a09050' : '#b05050';
+
+    const deltaRows = usage.deltas.map(d => {
+        const cls   = d.value > 0 ? 'pos' : d.value < 0 ? 'neg' : '';
+        const sign  = d.value > 0 ? '+' : '';
+        const barW  = Math.round(Math.abs(d.value) / maxAbs * 100);
+        const barColor = d.value > 0 ? 'rgba(74,122,90,0.55)' : 'rgba(176,80,80,0.45)';
+        return `<div class="xsc-row">
+            <span class="xsc-delta ${cls}">${sign}${d.value}</span>
+            <div class="xsc-bar-wrap"><div class="xsc-bar" style="width:${barW}%;background:${barColor};"></div></div>
+            <span class="xsc-row-label">${d.label}</span>
+        </div>`;
+    }).join('');
+
+    const altRows = (usage.alternatives || []).map(a => {
+        return `<div class="xsc-alt-row">
+            <span style="flex:1;">${a.label}</span>
+            <div class="xsc-alt-bar-wrap"><div class="xsc-alt-bar" style="width:${a.score}%;"></div></div>
+            <span class="xsc-alt-pct">${a.score}</span>
+        </div>`;
+    }).join('');
+
+    const reasonRows = (usage.reasons || []).map(r =>
+        `<div class="xsc-reason-item">${r}</div>`
+    ).join('');
+
+    return `<div class="xsc-panel" id="${panelId}">
+        <div class="xsc-head" data-act="toggleXsc" data-arg="${panelId}">
+            <span class="xsc-head-label ui-section-label">なぜこの判定？</span>
+            <div class="xsc-head-right">
+                <span class="xsc-conf" style="color:${confColor};">評価スコア ${usage.confidence}</span>
+                <span class="xsc-arrow">${icon('chevronDown')}</span>
+            </div>
+        </div>
+        <div class="xsc-body">
+            <div style="font-size: 0.68rem;font-weight:700;color:var(--text-hint);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;">判定内訳</div>
+            <div class="xsc-rows">${deltaRows}</div>
+            ${altRows ? `<div class="xsc-alts"><div class="xsc-alts-label">競合候補</div>${altRows}</div>` : ''}
+            ${reasonRows ? `<div class="xsc-reasons">${reasonRows}</div>` : ''}
+        </div>
+    </div>`;
+}
+
+function toggleXsc(panelId) {
+    const panel = document.getElementById(panelId);
+    if (panel) panel.classList.toggle('open');
+}
+
+/**
+ * 不定詞の統語的役割を判定
+ */
+function classifyInfinitive(infEntry, tokens, infIdx) {
+    const prevVerb = tokens.slice(0, infIdx).reverse().find(t => {
+        const m = decodeMorph(t), pos = entryPosCode(t);
+        return pos === 'V' && m.mood !== 'infinitive' && m.mood !== 'participle';
+    });
+
+    if (prevVerb) {
+        return {
+            label: '目的語（補語）用法',
+            desc: `動詞「${cleanText(prevVerb)}」の補語として機能しています。「〜すること」という動作の名詞化形として目的語の役割を担います。`,
+            cls: 'inf-obj',
+        };
+    }
+    return {
+        label: '主語用法',
+        desc: '文の主語として機能している不定詞です。「〜すること（が）」という意味で、文の主題を示します。',
+        cls: 'inf-subj',
+    };
+}
+
+/* ══════════════════════════════════════════
+   グループ化（前置詞＋補語を1グループに）
+   ══════════════════════════════════════════ */
+function groupTokens(tokens, roleMap) {
+    const groups = [];
+    let i = 0;
+    while (i < tokens.length) {
+        const t   = tokens[i];
+        const pos = entryPosCode(t);
+        if (pos === 'P') {
+            const members = [t];
+            let j = i + 1;
+            while (j < tokens.length) {
+                const np = entryPosCode(tokens[j]);
+                const nm = decodeMorph(tokens[j]);
+                // 名詞系・冠詞・形容詞・副詞・代名詞、および属格修飾語（名詞の属格）を継続取り込む
+                const isNominal = ['N','T','A','D','R'].includes(np) || np === '';
+                const isGenitiveModifier = np === 'N' && nm.case === 'genitive';
+                if (isNominal || isGenitiveModifier) {
+                    members.push(tokens[j]); j++;
+                } else break;
+            }
+            groups.push({ role: 'prep', members, baseIdx: i });
+            i = j;
+        } else {
+            const r = roleMap.get(t);
+            groups.push({ role: r ? r.role : 'other', members: [t], baseIdx: i });
+            i++;
+        }
+    }
+    return groups;
+}
+
+/* ══════════════════════════════════════════
+   レンダリング
+   ══════════════════════════════════════════ */
+let _tokens = [];
+let _roleMap = new Map();
+let _wordOrderMarkers = new Map();
+let _selectedIdx = -1;
+let _targetRef  = '';
+
+function renderAll(tokens, targetRef, forcedIdx) {
+    _tokens   = tokens;
+    _targetRef = targetRef;
+    _selectedIdx = -1;
+
+    /* 位置（idx）の指定があればそれを使う。表記（word）での検索は、同じ語が複数あると
+       最初の出現が選ばれてしまうため、idx が無い場合だけの代替。 */
+    let autoIdx;
+    if (Number.isInteger(forcedIdx)) {
+        autoIdx = forcedIdx < tokens.length ? forcedIdx : -1;
+    } else {
+        const targetNorm = normalizeGreek(params.word);
+        autoIdx = tokens.findIndex(t => normalizeGreek(cleanText(t)) === targetNorm);
+        if (autoIdx < 0) autoIdx = 0;
+    }
+
+    renderSentence(tokens);
+    if (autoIdx < 0) { _clearSelectionView(); return; }
+    selectToken(autoIdx);
+
+    /* 発見カード更新 — 常にローカル推定でベースラインを確立し、
+       SyntaxAnalyzer の高信頼度結果があれば上書きする。
+       未知 syntax id や低信頼度でもカードが「読み込み中…」のまま停止しない。 */
+    renderSyntaxDiscoveryCard(tokens, autoIdx);
+
+}
+
+/* ── 発見カード描画（統語論・ローカル推定） ── */
+function renderSyntaxDiscoveryCard(tokens, targetIdx) {
+    const entry = tokens[targetIdx];
+    const word = (entry && cleanText(entry)) || params.word || params.lemma || '—';
+    document.getElementById('disc-word').textContent = word;
+
+    const m     = entry ? decodeMorph(entry) : {};
+    const pos   = entry ? entryPosCode(entry) : '';
+
+    // spec § 3 — ローカル推定テキストテーブル
+    let row1 = '文の要素として機能している';
+    if (pos === 'V') {
+        const mood = m.mood || '';
+        if (mood === 'participle')  row1 = '分詞として動作に付随した状況を表している';
+        else if (mood === 'infinitive') row1 = '不定詞として動作の目的・内容を示している';
+        else row1 = '動詞として文を進めている語';
+    } else if (['N','A','R','D'].includes(pos)) {
+        const c = m.case || '';
+        if (c === 'nominative')  row1 = '主語として機能している可能性がある語';
+        else if (c === 'accusative') row1 = '目的語として機能している可能性がある語';
+        else if (c === 'genitive')   row1 = '属格として他の語を限定・修飾している';
+        else if (c === 'dative')     row1 = '与格として動作の受け手・手段等を示している';
+    } else if (pos === 'T') {
+        row1 = '冠詞として、直後の名詞を特定・限定している';
+    } else if (pos === 'P') {
+        row1 = '前置詞句として場所・時・方法を示している';
+    } else if (pos === 'C') {
+        row1 = '文と文をつなぐ接続詞';
+    }
+
+    document.getElementById('disc-rows').innerHTML = `
+        <div class="discovery-row">
+            <span class="discovery-arrow">→</span>
+            <span class="discovery-text">${row1}</span>
+        </div>`;
+}
+
+/* ① チップ型トークン列 */
+function renderSentence(tokens) {
+    const line = document.getElementById('token-line');
+    performance.mark('html-gen-sentence-start');
+    const groups = groupTokens(tokens, _roleMap);
+
+    const html = groups.map(g => {
+        const role = g.role || 'other';
+        const hasRole = role !== 'other' && role !== null;
+        const baseIdx = g.baseIdx;
+
+        if (g.members.length > 1) {
+            /* 前置詞句グループ */
+            const jaLabel = g.members.map(m => m.japanese || '').filter(Boolean).join('');
+            const grLabel = '[' + g.members.map(m => cleanText(m)).join(' ') + ']';
+            const isSelected = g.members.some((_, i) => (baseIdx + i) === _selectedIdx);
+            return `<div class="token-chip-group${isSelected?' selected':''}"
+                data-idx="${baseIdx}"
+                data-act="selectToken" data-arg="${baseIdx}">
+                <span class="token-chip-group-label">${_escH(jaLabel || grLabel)}</span>
+                <span class="token-chip-group-gr">${_escH(grLabel)}</span>
+            </div>`;
+        }
+
+        /* 単体トークン */
+        const t = g.members[0];
+        const word = cleanText(t);
+        if (!word) return '';
+        const ja = t.japanese || '';
+        const woMarker = _wordOrderMarkers.get(t);
+        const woClass  = woMarker ? ' word-order-marked' : '';
+        return `<div class="token-chip ${hasRole?'has-role':''}${woClass}"
+            data-idx="${baseIdx}"
+            data-role="${role}"
+            data-act="selectToken" data-arg="${baseIdx}">
+            <span class="token-chip-ja">${_escH(ja || word)}</span>
+            ${ja ? `<span class="token-chip-gr">${_escH(word)}</span>` : ''}
+        </div>`;
+    }).filter(Boolean).join('');
+    _logPerfMeasure('html-gen-sentence', `${groups.length} groups → ${html.length} chars`);
+
+    performance.mark('render-sentence-start');
+    line.innerHTML = html;
+    _logPerfMeasure('render-sentence', `DOM write`);
+}
+
+function renderLegend(analysisOutput) {
+    const legend = document.getElementById('legend');
+    if (!legend) return;
+    if (!analysisOutput || !analysisOutput.candidates || analysisOutput.candidates.length === 0) {
+        legend.innerHTML = '';
+        return;
+    }
+    const seen = new Set();
+    for (const cand of analysisOutput.candidates) {
+        const typeDef = _getRegistryType(cand.id);
+        if (typeDef?.ui_role) seen.add(typeDef.ui_role);
+    }
+    legend.innerHTML = [...seen].map(role => {
+        const meta = ROLE_META[role];
+        if (!meta) return '';
+        return `<div class="legend-item">
+            <div class="legend-dot" style="background:${meta.barColor}"></div>
+            <span>${meta.label}</span>
+        </div>`;
+    }).join('');
+}
+
+/* ③ 選択処理 */
+function selectToken(idx) {
+    _selectedIdx = idx;
+    const tokens = _tokens;
+
+    document.querySelectorAll('.token-chip, .token-chip-group').forEach(el => {
+        el.classList.remove('selected', 'related');
+    });
+    const targetEl = document.querySelector(`.token-chip[data-idx="${idx}"], .token-chip-group[data-idx="${idx}"]`);
+    if (targetEl) targetEl.classList.add('selected');
+
+    if (idx >= 0 && idx < tokens.length) {
+        const entry = tokens[idx];
+        // SyntaxAnalyzer が利用可能な場合は候補ベースで表示
+        let analysisOutput = null;
+        performance.mark('syntax-analyze-start');
+        if (window._syntaxAnalyzer) {
+            try {
+                analysisOutput = window._syntaxAnalyzer.analyze({
+                    target: entry, tokens, targetIdx: idx
+                });
+            } catch(e) {
+                console.warn('SyntaxAnalyzer.analyze failed:', e);
+            }
+        }
+        _logPerfMeasure('syntax-analyze', window._syntaxAnalyzer ? 'SyntaxAnalyzer.analyze' : 'skipped (no analyzer)');
+
+        performance.mark('detail-render-start');
+        renderRoleHero(entry, tokens, idx, analysisOutput);
+        renderCandidates(entry, tokens, idx, analysisOutput);
+        renderLegend(analysisOutput);
+        renderWordOrder(entry, tokens, idx, analysisOutput);
+        renderMorphTags(entry, tokens, idx, analysisOutput);
+        if (analysisOutput) {
+            updateDiscoveryCardFromAnalysis(analysisOutput);
+        }
+        highlightRelated(entry, tokens, idx);
+        updateNavInherit(entry, analysisOutput);
+        _logPerfMeasure('detail-render', 'renderRoleHero+renderCandidates+renderWordOrder+renderMorphTags+highlightRelated+updateNavInherit');
+
+        syncURL();
+    }
+}
+
+/* 関連語をハイライト */
+function highlightRelated(entry, tokens, idx) {
+    const m = decodeMorph(entry);
+    const pos = entryPosCode(entry);
+
+    if (pos === 'V' && m.mood === 'participle') {
+        tokens.forEach((t, i) => {
+            if (i === idx) return;
+            const tp = entryPosCode(t), tm = decodeMorph(t);
+            if (['N','T','A','D','R'].includes(tp)) {
+                if (tm.case === m.case && tm.gender === m.gender && tm.number === m.number) {
+                    const el = document.querySelector(`.token[data-idx="${i}"]`);
+                    if (el) el.classList.add('related');
+                }
+            }
+        });
+    } else if (['N','A','D','R'].includes(pos)) {
+        tokens.forEach((t, i) => {
+            if (i === idx) return;
+            const tp = entryPosCode(t), tm = decodeMorph(t);
+            if (tp === 'T') {
+                if (tm.case === m.case && tm.gender === m.gender && tm.number === m.number) {
+                    const el = document.querySelector(`.token[data-idx="${i}"]`);
+                    if (el) el.classList.add('related');
+                }
+            }
+        });
+    }
+}
+
+/* ══════════════════════════════════════════
+   Phase C — 新レンダリング関数群
+   ══════════════════════════════════════════ */
+
+
+/* ── 競合状態（表示用） ───────────────────────────────────────────
+   競合の判定そのもの（1位と2位の差 < 0.15）は、従来から変更していない。
+   競合の内側を「競合」と「ほぼ拮抗」に分けるのは、表示のための分類のみ。
+   registry の重み・シグナルは大半が5点刻みなので、5点未満の差は「評価の1段階に満たない差」。
+   スコア計算・候補順位・閾値(0.15)には触れない。 */
+const COMP_TIE_PTS = 5;
+const COMP_NOTE = { conflict: '⚠ 別の解釈も有力です', tie: '⚠ 別の読み方も十分考えられます' };
+let _heroShown = false;   // 直近のヒーローが表示されたか（型定義や ui_role が無い等で安全に中止した場合は別枠で扱うため）
+
+function getCompetition(candidates) {
+    if (!candidates || candidates.length < 2) return { state: 'clear', rival: null };
+    const c0 = candidates[0], c1 = candidates[1];
+    if (!(c0.confidence - c1.confidence < 0.15)) return { state: 'clear', rival: null };
+    const near = Math.round(c0.confidence * 100) - Math.round(c1.confidence * 100) < COMP_TIE_PTS;
+    return { state: near ? 'tie' : 'conflict', rival: c1 };
+}
+
+function _competitionHtml(comp, showRival) {
+    if (!comp || comp.state === 'clear') return '';
+    const rival = (showRival && comp.rival) ? `<div class="comp-note-rival">${_escH(comp.rival.label_ja || comp.rival.id)}</div>` : '';
+    return `<div class="conflict-note comp-note" data-comp="${comp.state}">
+        <div class="comp-note-head">${COMP_NOTE[comp.state]}</div>${rival}
+    </div>`;
+}
+
+/* § 1 役割ヒーロー更新 */
+function renderRoleHero(entry, tokens, idx, analysisOutput) {
+    const roleHeroEl = document.getElementById('role-hero');
+    _heroShown = false;
+    if (!roleHeroEl) return;
+
+    if (!analysisOutput || !analysisOutput.candidates || analysisOutput.candidates.length === 0) {
+        roleHeroEl.innerHTML = '';
+        return;
+    }
+
+    const top     = analysisOutput.candidates[0];
+    const typeDef = _getRegistryType(top.id);
+    if (!typeDef || !typeDef.ui_role) {
+        roleHeroEl.innerHTML = '';
+        return;
+    }
+
+    /* ROLE_META にある role は従来どおりの表示・色。無い role は fallback 色で、役割名は候補自身の label_ja */
+    const meta = ROLE_META[typeDef.ui_role] || ROLE_FALLBACK_META;
+
+    const word       = analysisOutput.targetWord || cleanText(entry);
+    const comp       = getCompetition(analysisOutput.candidates);
+    const stateLabel = comp.state === 'tie' ? '有力な候補' : '有力な解釈';
+
+    const evPtrHtml = _buildEvidencePointerS1(top, analysisOutput.candidates, typeDef, _competitionHtml(comp, true))
+                    + _buildScoreDetail(top, analysisOutput.candidates, typeDef);
+    _heroShown = true;
+    roleHeroEl.innerHTML = `<div class="role-primary-display"
+        style="background:${meta.bg};border:1px solid ${meta.barColor}22">
+        <span class="role-primary-word" style="color:${meta.barColor}">${word}</span>
+        <div class="role-primary-right">
+            <div class="role-primary-label" style="color:${meta.barColor}">${_escH(top.label_ja)}</div>
+            <div class="role-primary-state" data-comp-state="${comp.state}">${stateLabel}</div>
+        </div>
+    </div>${evPtrHtml}`;
+}
+
+/* § 2 統語関係タグ */
+/* § 2 候補リスト — ヘルパー */
+function _escH(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function _getRegistryType(candidateId) {
+    if (!window._syntaxRegistryData) return null;
+    const cats = window._syntaxRegistryData.categories || {};
+    for (const catVal of Object.values(cats)) {
+        for (const sc of (catVal.subcategories || [])) {
+            for (const t of (sc.types || [])) {
+                if (t.id === candidateId) return t;
+            }
+        }
+    }
+    return null;
+}
+
+/* § 2 候補リスト */
+function renderCandidates(entry, tokens, idx, analysisOutput) {
+    const wrap = document.getElementById('candidate-list-wrap');
+    if (!wrap) return;
+
+    const conflictWrap = document.getElementById('conflict-note-wrap');
+    if (conflictWrap) conflictWrap.innerHTML = '';
+
+    if (!analysisOutput || !analysisOutput.candidates || analysisOutput.candidates.length < 2) {
+        wrap.innerHTML = '';
+        return;
+    }
+
+    const candidates = analysisOutput.candidates;
+
+    // 競合注記。ヒーロー内に出すのが基本。ヒーローが出ない場合（型定義や ui_role が無い等）はここに出す
+    // （競合の判定は getCompetition = 従来と同じ「1位と2位の差 < 0.15」）
+    const comp = getCompetition(candidates);
+    if (conflictWrap && comp.state !== 'clear' && !_heroShown) {
+        conflictWrap.innerHTML = _competitionHtml(comp, false);
+    }
+
+    _currentCandidatesMap = new Map(candidates.map(c => [c.id, c]));
+
+    const rest  = candidates.slice(1, 6).map((cand, i) => ({ cand, rank: i + 1 }));
+    const shown = rest.filter(x => x.cand.status !== 'stub').slice(0, 2);
+    const more  = rest.filter(x => !shown.includes(x));
+    let html = '<div class="candidate-list"><div class="cand-list-label">他の候補</div>';
+    shown.forEach(x => { html += renderOneCandidateItem(x.cand, x.rank, candidates.length); });
+    if (more.length) {
+        html += `<div class="cand-more" id="cand-more">
+            <button class="cand-more-toggle" data-act="toggleId" data-arg="cand-more">他 ${more.length} 件の候補<span class="candidate-arrow">${icon('chevronDown')}</span></button>
+            <div class="cand-more-body">${more.map(x => renderOneCandidateItem(x.cand, x.rank, candidates.length)).join('')}</div>
+        </div>`;
+    }
+    html += '</div>';
+    wrap.innerHTML = html;
+}
+
+function renderOneCandidateItem(cand, rank, total) {
+
+    const isTop  = rank === 0;
+    const isStub = cand.status === 'stub';
+
+    const panelId = 'xsc-cand-' + cand.id.replace(/\./g,'-') + '-' + rank;
+
+    const stubBadge = isStub ? '<span class="candidate-stub-badge">参考</span>' : '';
+
+    let bodyHtml = '';
+
+    if (isStub) {
+        bodyHtml += `<div class="candidate-stub-note">判定ロジック未実装のため参考値です</div>`;
+    } else {
+        const typeDef = _getRegistryType(cand.id);
+
+        /* evidence pointer（軽量版）*/
+        bodyHtml += _buildEvidencePointerS2(cand, typeDef);
+
+        /* §1 構文機能 — dictionary.summary */
+        const summary = typeDef?.dictionary?.summary || '';
+        if (summary) {
+            bodyHtml += `<div class="cand-section">
+                <div class="cand-section-label">構文機能</div>
+                <div class="cand-def-text">${_escH(summary)}</div>
+            </div>`;
+        }
+
+        /* §2 解釈への影響 — dictionary.reading_impact_detail || reading_impact.tip_ja */
+        const impactDetail = typeDef?.dictionary?.reading_impact_detail
+            || typeDef?.reading_impact?.tip_ja || '';
+        if (impactDetail) {
+            bodyHtml += `<div class="cand-section">
+                <div class="cand-section-label">解釈への影響</div>
+                <div class="cand-def-text">${_escH(processTipJa(impactDetail))}</div>
+            </div>`;
+        }
+
+        /* §3 構造と見分け方 — 構造図 → diagnostics → reasoning → evidence → deltas → XSC panel */
+        const diagnostics = typeDef?.dictionary?.diagnostics || [];
+        const reasoning   = typeDef?.dictionary?.reasoning   || [];
+        const evidence    = typeDef?.dictionary?.evidence    || [];
+        const deltas      = cand.xsc?.deltas || [];
+        const relTreeHtml = buildGenitiveRelTree(cand.id, _tokens[_selectedIdx], _tokens, _selectedIdx);
+        const hasStructure = relTreeHtml || diagnostics.length > 0 || reasoning.length > 0 || evidence.length > 0 || deltas.length > 0;
+        if (hasStructure) {
+            bodyHtml += `<div class="cand-section">
+                <div class="cand-section-label">構造と見分け方</div>`;
+            /* 属格関係図 */
+            if (relTreeHtml) bodyHtml += relTreeHtml;
+            /* dictionary.diagnostics */
+            if (diagnostics.length > 0) {
+                bodyHtml += `<div class="cand-sub-label">見分け方</div>`;
+                bodyHtml += `<div class="cand-bullets" style="margin-bottom:6px;">`;
+                diagnostics.forEach(d => {
+                    bodyHtml += `<div class="cand-bullet">${_escH(d)}</div>`;
+                });
+                bodyHtml += `</div>`;
+            }
+            /* dictionary.reasoning */
+            if (reasoning.length > 0) {
+                bodyHtml += `<div class="cand-sub-label">判定根拠</div>`;
+                bodyHtml += `<div class="cand-bullets" style="margin-bottom:6px;">`;
+                reasoning.forEach(r => {
+                    bodyHtml += `<div class="cand-bullet">${_escH(r)}</div>`;
+                });
+                bodyHtml += `</div>`;
+            }
+            /* dictionary.evidence */
+            if (evidence.length > 0) {
+                bodyHtml += `<div class="cand-sub-label">確認事項</div>`;
+                bodyHtml += `<div class="cand-bullets" style="margin-bottom:6px;">`;
+                evidence.forEach(e => {
+                    bodyHtml += `<div class="cand-bullet">□ ${_escH(e)}</div>`;
+                });
+                bodyHtml += `</div>`;
+            }
+            /* XSC panel */
+            if (deltas.length > 0) {
+                bodyHtml += buildXscPanelFromCandidate(cand, panelId);
+            }
+            bodyHtml += `</div>`;
+        }
+
+        /* §4 類例 — example_verse / greek / gloss */
+        if (typeDef?.example_verse) {
+            bodyHtml += `<div class="cand-section">
+                <div class="cand-section-label">類例</div>
+                <div class="cand-example">
+                    <div class="cand-example-ref">${_escH(buildRefLabel(typeDef.example_verse))}</div>
+                    ${typeDef.example_greek ? `<div class="cand-example-greek">${_escH(typeDef.example_greek)}</div>` : ''}
+                    ${typeDef.example_gloss  ? `<div class="cand-example-gloss">${_escH(typeDef.example_gloss)}</div>`  : ''}
+                </div>
+            </div>`;
+        }
+    }
+
+    /* 類似構文検索リンク → search-tool.html に word/lemma + 形態フィルター + syntax_id 付きで遷移 */
+    if (!isStub) {
+        const _qs = new URLSearchParams();
+        _qs.set('tool', 'search');
+        const _simSelTok = (_selectedIdx >= 0 && _tokens[_selectedIdx]) ? _tokens[_selectedIdx] : null;
+        if (_simSelTok) {
+            const _sm = decodeMorph(_simSelTok);
+            const _w = _simSelTok.text || _simSelTok.normalized || '';
+            if (_w) _qs.set('word', _w);
+            if ((_simSelTok.lemma || '').trim()) _qs.set('lemma', _simSelTok.lemma.trim());
+            ['pos', 'tense', 'mood', 'voice', 'case', 'number', 'gender'].forEach(k => { if (_sm[k]) _qs.set(k, _sm[k]); });
+        }
+        if (cand.id)       _qs.set('syntax_id', cand.id);
+        _qs.set('layers', 'lemma,morph');
+        const simUrl = `https://bible-text.pages.dev/search-tool?${_qs.toString()}`;
+        bodyHtml += `<a class="similar-syntax-link" href="${simUrl}" target="_blank" rel="noopener noreferrer">🔍 同じ構文を検索 ↗</a>`;
+    }
+
+    const openClass = isTop ? ' open' : '';
+
+    return `<div class="candidate-item${isTop?' top':''}${openClass}" id="${panelId}-item">
+        <div class="candidate-item-head" data-act="toggleCandidateItem" data-arg="${panelId}-item">
+            <span class="candidate-rank">${rank+1}</span>
+            <span class="candidate-label">${cand.label_ja || cand.id}</span>
+            ${stubBadge}
+            <span class="candidate-arrow">${icon('chevronDown')}</span>
+        </div>
+        <div class="candidate-item-body">${bodyHtml}</div>
+    </div>`;
+}
+
+/* ── 属格関係図 ──────────────────────────────────────────────────────── */
+function buildGenitiveRelTree(candidateId, entry, tokens, tokenIdx) {
+    const GENITIVE_TARGETS = new Set([
+        'genitive.possessive',
+        'genitive.subjective',
+        'genitive.objective',
+    ]);
+    if (!GENITIVE_TARGETS.has(candidateId)) return '';
+
+    const RELATION_LABEL = {
+        'genitive.possessive': '所有者',
+        'genitive.subjective': '主体',
+        'genitive.objective':  '対象',
+    };
+    const relationLabel = RELATION_LABEL[candidateId];
+
+    const SKIP_CLASS = new Set(['adv', 'det', 'punct', 'conj']);
+    const STOP_CLASS = new Set(['verb', 'prep']);
+    const NOMINAL    = new Set(['noun', 'adj', 'pron']);
+
+    /* 直前の非属格名詞を head として探す */
+    let headToken = null;
+    for (let j = tokenIdx - 1; j >= 0; j--) {
+        const t = tokens[j];
+        const c = t.class || '';
+        if (SKIP_CLASS.has(c)) continue;
+        if (STOP_CLASS.has(c)) break;
+        if (NOMINAL.has(c) && t.case !== 'genitive') { headToken = t; break; }
+    }
+    if (!headToken) return '';
+
+    const headWord   = _escH(headToken.text || headToken.normalized || '');
+    const headGloss  = _escH(headToken.japanese || headToken.gloss || '');
+    const depWord    = _escH(entry.text || entry.normalized || '');
+
+    return `<div class="cand-rel-tree">
+        <div class="cand-rel-node">
+            <div class="cand-rel-bar"></div>
+            <span class="cand-rel-word greek-headword">${headWord}</span>
+            ${headGloss ? `<span class="cand-rel-gloss">${headGloss}</span>` : ''}
+        </div>
+        <div class="cand-rel-children">
+            <div class="cand-rel-child">
+                <span class="cand-rel-edge">└─</span>
+                <span class="cand-rel-child-word greek-headword">${depWord}</span>
+                <span class="cand-rel-label">${relationLabel}</span>
+            </div>
+        </div>
+    </div>`;
+}
+
+function buildXscPanelFromCandidate(cand, panelId) {
+    const deltas = cand.xsc?.deltas || [];
+    if (!deltas.length) return '';
+    const maxAbs = Math.max(...deltas.map(d => Math.abs(d.value)), 1);
+
+    const deltaRows = deltas.map(d => {
+        const cls   = d.value > 0 ? 'pos' : d.value < 0 ? 'neg' : '';
+        const sign  = d.value > 0 ? '+' : '';
+        const barW  = Math.round(Math.abs(d.value) / maxAbs * 100);
+        const barColor = d.value > 0 ? 'rgba(74,122,90,0.55)' : 'rgba(176,80,80,0.45)';
+        return `<div class="xsc-row">
+            <span class="xsc-delta ${cls}">${sign}${d.value}</span>
+            <div class="xsc-bar-wrap"><div class="xsc-bar" style="width:${barW}%;background:${barColor};"></div></div>
+            <span class="xsc-row-label">${d.label_ja || d.signal_id}</span>
+        </div>`;
+    }).join('');
+
+    const altRows = '';
+
+    return `<div class="xsc-panel" id="${panelId}">
+        <div class="xsc-head" data-act="toggleXsc" data-arg="${panelId}">
+            <span class="xsc-head-label ui-section-label">なぜこの判定？</span>
+            <div class="xsc-head-right">
+                <span class="xsc-arrow">${icon('chevronDown')}</span>
+            </div>
+        </div>
+        <div class="xsc-body">
+            <div style="font-size:0.68rem;font-weight:700;color:var(--text-hint);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;">判定内訳</div>
+            <div class="xsc-rows">${deltaRows}</div>
+            ${altRows}
+        </div>
+    </div>`;
+}
+
+let _currentCandidatesMap = null;
+let _typeContextIndex     = null;   // Map<typeId, group_label_ja>
+
+function _buildTypeContextIndex(registryData) {
+    const index = new Map();
+    for (const cat of Object.values(registryData.categories || {})) {
+        const catLabel = cat.label_ja || '';
+        for (const sc of (cat.subcategories || [])) {
+            const groupLabel = sc.group_label_ja || catLabel;
+            for (const t of (sc.types || [])) {
+                index.set(t.id, groupLabel);
+            }
+        }
+    }
+    return index;
+}
+
+/* ── Evidence Pointer ヘルパー ──────────────────────────────────── */
+
+function _typeStructureLabel(typeId) {
+    return _typeContextIndex?.get(typeId) || '統語構造';
+}
+
+function _buildEvSignalChips(cand, typeDef) {
+    const matched  = new Set(cand.signals_matched || []);
+    const failed   = new Set(cand.signals_failed  || []);
+    const signals  = typeDef?.xsc?.signals        || [];
+    const chips    = [];
+    for (const s of signals) {
+        if (matched.has(s.id)) {
+            chips.push(`<span class="ev-chip pos">${_escH(s.label_ja || s.id)}</span>`);
+        } else if (failed.has(s.id)) {
+            chips.push(`<span class="ev-chip neg">${_escH(s.label_ja || s.id)}</span>`);
+        }
+    }
+    if (!chips.length) return '<span class="ev-chip none">条件未一致</span>';
+    return chips.join('');
+}
+
+const SCORE_NOTE = '評価スコアは確率ではなく、解析ルールによる相対的な評価値です。';
+
+function _scoreParts(cand, typeDef) {
+    const base   = typeDef?.xsc?.base_weight ?? '—';
+    const deltas = cand.xsc?.deltas || [];
+    const pos    = deltas.filter(d => d.value > 0).map(d => `+${d.value}`).join(' ');
+    const neg    = deltas.filter(d => d.value < 0).map(d => String(d.value)).join(' ');
+    return [`基本重み${base}`, pos, neg].filter(Boolean).join(' ');
+}
+
+/* 詳細な評価（折りたたみ・視覚的に弱い）。内部評価値は上級者向けにここへ集約する */
+function _buildScoreDetail(top, allCandidates, typeDef) {
+    const others = (allCandidates || []).filter(c => c.id !== top.id).slice(0, 3);
+    const othersHtml = others.length
+        ? `<div class="ev-row"><span class="ev-label">他の候補</span><span class="ev-rivals">${others.map(c =>
+            `<span class="ev-rival">${_escH(c.label_ja || c.id)} ${Math.round(c.confidence * 100)}</span>`).join('')}</span></div>`
+        : '';
+    return `<div class="ev-ptr-s1 ev-ptr-detail" id="ev-detail-main">
+        <button class="ev-ptr-toggle" data-act="toggleId" data-arg="ev-detail-main">詳細な評価</button>
+        <div class="ev-ptr-body">
+            <div class="ev-score-line">評価スコア：${Math.round(top.confidence * 100)}（${_escH(_scoreParts(top, typeDef))}）</div>
+            ${othersHtml}
+            <div class="score-note">${SCORE_NOTE}</div>
+        </div>
+    </div>`;
+}
+
+
+function _buildEvScoreBrief(cand) {
+    const deltas  = cand.xsc?.deltas || [];
+    const posSum  = deltas.filter(d => d.value > 0).reduce((a, d) => a + d.value, 0);
+    const negSum  = deltas.filter(d => d.value < 0).reduce((a, d) => a + d.value, 0);
+    let s = `評価スコア：${Math.round(cand.confidence * 100)}`;
+    if (posSum > 0) s += `（検出 +${posSum}）`;
+    if (negSum < 0) s += `（低減 ${negSum}）`;
+    return s;
+}
+
+function _buildEvRivalsFromAlternatives(cand) {
+    const alts = (cand.alternatives || []).slice(0, 3);
+    if (!alts.length) return '<span class="ev-none">なし</span>';
+    return `<span class="ev-rivals">${alts.map(altId => {
+        const label = (_getRegistryType(altId)?.label_ja) || altId;
+        return `<span class="ev-rival">${_escH(label)}</span>`;
+    }).join('')}</span>`;
+}
+
+function _buildEvidencePointerS1(top, allCandidates, typeDef, competitionHtml) {
+    const struct  = _typeStructureLabel(top.id);
+    const chips   = _buildEvSignalChips(top, typeDef);
+    const interp  = typeDef?.hint_ja || typeDef?.dictionary?.summary || '';
+
+    return `${interp ? `<div class="hero-interp">${_escH(interp)}</div>` : ''}${competitionHtml || ''}<div class="ev-ptr-s1" id="ev-ptr-s1-main">
+        <button class="ev-ptr-toggle" data-act="toggleId" data-arg="ev-ptr-s1-main">判定根拠</button>
+        <div class="ev-ptr-body">
+            ${struct ? `<div class="ev-row">
+                <span class="ev-label">分類</span>
+                <span class="ev-value">${_escH(struct)}</span>
+            </div>` : ''}
+            <div class="ev-row">
+                <span class="ev-label">検出根拠</span>
+                <div class="ev-chips">${chips}</div>
+            </div>
+        </div>
+    </div>`;
+}
+
+function _buildEvidencePointerS2(cand, typeDef) {
+    const struct   = _typeStructureLabel(cand.id);
+    const chips   = _buildEvSignalChips(cand, typeDef);
+    const score   = _buildEvScoreBrief(cand);
+    const rivals  = _buildEvRivalsFromAlternatives(cand);
+
+    return `<div class="ev-ptr-s2">
+        ${struct ? `<div class="ev-row">
+            <span class="ev-label">分類</span>
+            <span class="ev-value">${_escH(struct)}</span>
+        </div>` : ''}
+        <div class="ev-row">
+            <span class="ev-label">検出根拠</span>
+            <div class="ev-chips">${chips}</div>
+        </div>
+        <div class="ev-score-line">${_escH(score)}</div>
+        <div class="ev-row">
+            <span class="ev-label">別の解釈</span>
+            ${rivals}
+        </div>
+        <div class="score-note">${SCORE_NOTE}</div>
+    </div>`;
+}
+
+function toggleCandidateItem(itemId) {
+    const item = document.getElementById(itemId);
+    if (!item) return;
+    item.classList.toggle('open');
+}
+
+
+/* § 2 語順マーカー */
+function renderWordOrder(entry, tokens, idx, analysisOutput) {
+    const wrap = document.getElementById('word-order-wrap');
+    if (!wrap) return;
+
+    let woMarker = null;
+    if (analysisOutput && analysisOutput.wordOrder) {
+        woMarker = analysisOutput.wordOrder;
+    } else {
+        woMarker = _wordOrderMarkers.get(entry) || null;
+    }
+
+    if (!woMarker) { wrap.innerHTML = ''; return; }
+
+    const typeLabel = {
+        'topicalized':  '前置・話題化',
+        'fronted-subj': '主語前置',
+        'verb-initial': '動詞前置語順（VS語順）',
+    }[woMarker.type] || '有標語順';
+
+    wrap.innerHTML = `<div style="
+        padding:9px 12px;
+        background:rgba(90,107,154,0.07);
+        border:1px solid rgba(90,107,154,0.22);
+        border-left:3px solid rgba(90,107,154,0.55);
+        border-radius:0 6px 6px 0;
+        font-size:0.8rem;
+        line-height:1.7;
+        color:var(--text);
+        margin-top:12px;
+    ">
+        <div style="font-size:0.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(90,107,154,0.8);margin-bottom:4px;">${typeLabel}</div>
+        ${woMarker.note}
+        <div style="font-size:0.68rem;color:var(--text-hint);margin-top:5px;">※ これは語順から読み取れる傾向です。文脈・レジスターによって解釈が変わります。</div>
+    </div>`;
+}
+
+/* § 2 形態タグ */
+function renderMorphTags(entry, tokens, idx, analysisOutput) {
+    const wrap = document.getElementById('morph-tags-wrap');
+    if (!wrap) return;
+
+    const m = analysisOutput ? (analysisOutput.morph || decodeMorph(entry)) : decodeMorph(entry);
+    resolveMorphAttrs(entry, decodeMorph(entry)); // 表示専用ログ: entry.*とdecodeMorphの差分計測のみ。mには影響しない
+    const pos = m.pos || entryPosCode(entry);
+
+    const tagParts = [];
+    if (pos === 'V' || pos === 'v') {
+        if (m.mood)   tagParts.push(MOOD_JP[m.mood]   || m.mood);
+        if (m.tense)  tagParts.push(TENSE_JP[m.tense] || m.tense);
+        if (m.voice)  tagParts.push(VOICE_JP[m.voice] || m.voice);
+    } else {
+        if (m.case)   tagParts.push(CASE_JP[m.case]    || m.case);
+        if (m.number) tagParts.push(NUMBER_JP[m.number] || m.number);
+        if (m.gender) tagParts.push(GENDER_JP[m.gender] || m.gender);
+        if (m.person) tagParts.push(`${m.person}人称`);
+    }
+
+    if (!tagParts.length) { wrap.innerHTML = ''; return; }
+
+    wrap.innerHTML = `<div style="margin-bottom:14px;">
+        <div class="cand-section-label" style="margin-bottom:6px;">形態</div>
+        <div class="rel-tags">
+            ${tagParts.map(t=>`<span class="rel-tag">${t}</span>`).join('')}
+        </div>
+    </div>`;
+}
+
+/* 発見カード更新（SyntaxAnalyzer 結果から） */
+function updateDiscoveryCardFromAnalysis(output) {
+    if (!output || !output.candidates) return;
+    const word = output.targetWord || params.word || '—';
+    document.getElementById('disc-word').textContent = word;
+
+    // stub（未実装型）は Discovery Card に出さない（P0-3: default_confidence が
+    // 閾値を跨いで実装済み型を装う事故の防止）
+    const top = output.candidates.find(c => (c.status ?? 'active') !== 'stub');
+    if (!top || top.confidence < 0.4) {
+        // 低確信度 or なし → ローカル推定維持
+        return;
+    }
+
+    const rows = [];
+    if (top.label_ja) {
+        rows.push(top.label_ja);
+    }
+    if (top.hint_ja) {
+        // hint_ja を1文以内に短縮
+        const hint = top.hint_ja.split('。')[0] + '。';
+        if (hint !== '。') rows.push(hint);
+    }
+    if (rows.length === 0) return;
+
+    document.getElementById('disc-rows').innerHTML = rows.map(r => `
+        <div class="discovery-row">
+            <span class="discovery-arrow">→</span>
+            <span class="discovery-text">${r}</span>
+        </div>`).join('');
+}
+
+/* ──────────────────────────────────────
+   発見カード — ローカル推定（ページロード即時）
+   ────────────────────────────────────── */
+/* renderJudge: removed */
+
+/* ══════════════════════════════════════════
+   ナビゲーション
+   ══════════════════════════════════════════ */
+function updateNavInherit(entry, analysisOutput) {
+    const section = document.getElementById('nav-next-section');
+    const chipsEl = document.getElementById('nav-inherit-chips');
+    if (!section || !chipsEl) return;
+
+    section.style.display = '';
+
+    const m = analysisOutput ? (analysisOutput.morph || decodeMorph(entry)) : decodeMorph(entry);
+    const pos = m.pos || entryPosCode(entry);
+    const lemma = (entry.lemma || entry.normalized || entry.text || '').trim();
+
+    const chips = [];
+
+    if (lemma) {
+        chips.push({ key: '基本形', val: lemma, greek: true });
+    }
+    const posJa = POS_JP[pos] || POS_JP[pos.toUpperCase()] || '';
+    if (posJa) {
+        chips.push({ key: '品詞', val: posJa });
+    }
+
+    if (pos === 'V' || pos === 'v') {
+        if (m.mood)   chips.push({ key: '法',   val: MOOD_JP[m.mood]   || m.mood });
+        if (m.tense)  chips.push({ key: '時制', val: TENSE_JP[m.tense] || m.tense });
+        if (m.voice)  chips.push({ key: '態',   val: VOICE_JP[m.voice] || m.voice });
+        if (m.person) chips.push({ key: '人称', val: m.person });
+        if (m.number) chips.push({ key: '数',   val: NUMBER_JP[m.number] || m.number });
+    } else {
+        if (m.number) chips.push({ key: '数', val: NUMBER_JP[m.number] || m.number });
+        if (m.gender) chips.push({ key: '性', val: GENDER_JP[m.gender] || m.gender });
+        if (m.case)   chips.push({ key: '格', val: CASE_JP[m.case]     || m.case });
+    }
+
+    chipsEl.innerHTML = chips.map(c =>
+        `<span class="nav-inherit-chip">
+            <span class="nav-inherit-chip-key">${_escH(c.key)}</span>
+            <span class="nav-inherit-chip-val${c.greek ? ' greek' : ''}">${_escH(c.val)}</span>
+        </span>`
+    ).join('');
+}
+
+function navTo(target, e) {
+    e.preventDefault();
+    const enabledGroups = bookFilterState.filter(g => g.enabled).map(g => g.key);
+    const enabledBooks  = bookFilterState.filter(g => g.enabled).flatMap(g => g.books);
+    const filters = {
+        books: enabledBooks,
+        groups: enabledGroups,
+        scope: enabledGroups.length === 1 ? enabledGroups[0] : '',
+    };
+    const allOn = bookFilterState.every(g => g.enabled);
+
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage(
+            { type: `NAV_TO_${target.toUpperCase()}`, ref: params.ref, word: params.word,
+              filters: allOn ? null : filters }, '*'
+        );
+        return;
+    }
+    if (window.opener && !window.opener.closed) {
+        window.opener.postMessage(
+            { type: `NAV_TO_${target.toUpperCase()}`, ref: params.ref, word: params.word,
+              filters: allOn ? null : filters }, '*'
+        );
+        return;
+    }
+    const fileMap = {
+        morph:     'morph-search.html',
+        semantics: 'search-tool.html',
+    };
+    const qs = new URLSearchParams();
+    if (params.ref)   qs.set('ref',   params.ref);
+    /* 選択トークンの語形・lemmaを優先し、なければparamsにフォールバック */
+    const _selTok = (_selectedIdx >= 0 && _tokens[_selectedIdx]) ? _tokens[_selectedIdx] : null;
+    const _selTokWord = _selTok ? (_selTok.text || _selTok.normalized || '') : '';
+    const _wordToSend = _selTokWord || params.word || '';
+    if (_wordToSend)  qs.set('word',  _wordToSend);
+    const _selTokLemma = _selTok ? (_selTok.lemma || '').trim() : '';
+    const _lemmaToSend = _selTokLemma || params.lemma;
+    if (_lemmaToSend) qs.set('lemma', _lemmaToSend);
+    if (params.pos)   qs.set('pos',   params.pos);
+    /* 形態情報を引き継ぐ */
+    if (_selTok) {
+        const _m = decodeMorph(_selTok);
+        if (_m.tense)  qs.set('tense',  _m.tense);
+        if (_m.mood)   qs.set('mood',   _m.mood);
+        if (_m.voice)  qs.set('voice',  _m.voice);
+        if (_m.case)   qs.set('case',   _m.case);
+        if (_m.number) qs.set('number', _m.number);
+        if (_m.gender) qs.set('gender', _m.gender);
+    }
+    if (target === 'semantics') qs.set('layers', 'lemma,morph');
+    const url = `${fileMap[target]}?${qs.toString()}`;
+    window.open(url, '_blank');
+}
+
+/* ══════════════════════════════════════════
+   親からのフィルター同期受信
+   ══════════════════════════════════════════ */
+window.addEventListener('message', function(e) {
+    if (!e.data || typeof e.data !== 'object') return;
+    if (e.data.type === 'FILTER_CHANGED' && e.data.filters) {
+        const f = e.data.filters;
+        if (f.groups && Array.isArray(f.groups)) {
+            const groupSet = new Set(f.groups);
+            bookFilterState = bookFilterState.map(g => ({
+                ...g,
+                enabled: f.groups.length === 0 ? true : groupSet.has(g.key)
+            }));
+            notifyFilterChanged();
+        }
+    }
+});
+
+function getVerseTokens(allData, ref) {
+    const prefix = String(ref).replace(/!.*$/,'').trim();
+    return allData.filter(e => String(e.ref||'').replace(/!.*$/,'').trim() === prefix);
+}
+
+/* 性能計測ヘルパー（監査用。ロジックには影響しない） */
+function _logPerfMeasure(name, note) {
+    performance.mark(name + '-end');
+    performance.measure(name, name + '-start', name + '-end');
+    const dur = performance.getEntriesByName(name).pop().duration;
+    console.log(`[perf] ${name}${note ? ' (' + note + ')' : ''}: ${dur.toFixed(1)} ms`);
+    performance.clearMarks(name + '-start');
+    performance.clearMarks(name + '-end');
+    performance.clearMeasures(name);
+}
+
+/* ══════════════════════════════════════════
+   ヘルプポップオーバー
+══════════════════════════════════════════ */
+(function initHelpPopup() {
+    const btn   = document.getElementById('help-btn');
+    const popup = document.getElementById('help-popup');
+    if (!btn || !popup) return;
+
+    function openPopup() {
+        popup.classList.remove('align-right');
+        popup.style.left = '';
+        popup.style.right = '';
+        popup.style.top = '';
+        const rect = btn.getBoundingClientRect();
+        const popW = 260;
+        const margin = 16;
+        let top = rect.bottom + 8;
+        if (rect.left + popW > window.innerWidth - margin) {
+            popup.classList.add('align-right');
+            popup.style.right = (window.innerWidth - rect.right) + 'px';
+        } else {
+            popup.style.left = rect.left + 'px';
+        }
+        popup.style.top = top + 'px';
+        popup.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+    }
+    function closePopup() {
+        popup.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+    }
+    function togglePopup(e) {
+        e.stopPropagation();
+        popup.classList.contains('open') ? closePopup() : openPopup();
+    }
+
+    btn.addEventListener('click', togglePopup);
+    btn.addEventListener('touchend', function(e){ e.preventDefault(); togglePopup(e); });
+
+    document.addEventListener('click', function(e) {
+        if (!popup.contains(e.target) && e.target !== btn) closePopup();
+    });
+    document.addEventListener('touchend', function(e) {
+        if (!popup.contains(e.target) && e.target !== btn) closePopup();
+    });
+})();
+
+/* ══════════════════════════════════════════
+   初期化
+   ══════════════════════════════════════════ */
+
+const _bcWordEl = document.getElementById('bc-word');
+if (params.jword) {
+    _bcWordEl.textContent = params.jword;
+    _bcWordEl.style.fontFamily = "'Noto Sans JP', sans-serif";
+    _bcWordEl.style.fontSize   = '';
+} else {
+    _bcWordEl.textContent = params.word || '—';
+}
+
+/* ══════════════════════════════════════════
+   節の表示（拡張機能版: ページを作り直さず、何度でも呼べる）
+   - 解析エンジン・レジストリ・書名マスターは最初の1回だけ初期化
+   - 章データは章ごとにキャッシュ
+   - idx: 選択する語の位置（省略/範囲外=params.word で探す, -1=選択なし）
+   ══════════════════════════════════════════ */
+const _chapterCache = new Map();
+let _showSeq = 0;
+let _bootPromise = null;
+let _firstRenderDone = false;
+
+function _showLoadError(html) {
+    const el = document.getElementById('main-loading');
+    el.style.display = '';
+    el.innerHTML = html;
+    document.getElementById('main-content').style.display = 'none';
+}
+
+function _boot() {
+    if (_bootPromise) return _bootPromise;
+    _bootPromise = (async () => {
+        /* 書物マスター（BOOK_MAP/BOOK_JP/BOOK_GROUPS）を最初に確定させる */
+        const master = await BookMaster.load();
+        applyBookMaster(master);
+        BookMaster.attachWarningPanel(document.getElementById('fetch-warning-panel'));
+
+        /* Phase C: SyntaxAnalyzer 初期化 */
+        const _SyntaxAnalyzer = (window.App && window.App.syntax && window.App.syntax.Analyzer)
+                              || (typeof SyntaxAnalyzer === 'function' ? SyntaxAnalyzer : null);
+        const registryJson = await BookMaster.fetchJSON('syntax/syntax-registry.json');
+        if (registryJson) {
+            window._syntaxRegistryData = registryJson; /* Phase H: reading_impact 参照用 */
+            _typeContextIndex = _buildTypeContextIndex(registryJson);
+            if (_SyntaxAnalyzer) {
+                try { window._syntaxAnalyzer = new _SyntaxAnalyzer(registryJson); }
+                catch (e) { console.warn('[Phase C] SyntaxAnalyzer init failed:', e); }
+            }
+        }
+    })();
+    _bootPromise.catch(() => { _bootPromise = null; });
+    return _bootPromise;
+}
+
+async function _loadChapter(book, ch) {
+    const key = book + '/' + ch;
+    if (!_chapterCache.has(key)) {
+        const p = (async () => {
+            const data = await BookMaster.fetchJSON(await BookMaster.pathFor(book, ch));
+            const arr = Array.isArray(data) ? data : [];
+            arr.forEach(e => { e._bookKey = book; });
+            return arr;
+        })();
+        _chapterCache.set(key, p);
+        p.then(a => { if (!a.length) _chapterCache.delete(key); }, () => _chapterCache.delete(key));
+    }
+    return _chapterCache.get(key);
+}
+
+/* 選択なし（語をまだ選んでいない）の表示 */
+function _clearSelectionView() {
+    _selectedIdx = -1;
+    _heroShown = false;
+    ['role-hero', 'candidate-list-wrap', 'conflict-note-wrap', 'morph-tags-wrap', 'word-order-wrap', 'legend'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '';
+    });
+    const hero = document.getElementById('role-hero');
+    if (hero) hero.innerHTML = '<div class="role-hero-empty">語をタップして役割を確認</div>';
+    document.querySelectorAll('.token-chip, .token-chip-group').forEach(el => el.classList.remove('selected', 'related'));
+}
+
+async function showVerse(ref, idx) {
+    const my = ++_showSeq;
+    const refMatch = String(ref || '').match(/^([A-Z0-9]{3})\s+(\d+):(\d+)/);
+    if (!refMatch) {
+        _showLoadError('<p style="color:#c00;font-size:0.82rem;">節の指定（ref）が見つかりません。</p>');
+        return false;
+    }
+    try { await _boot(); }
+    catch (e) { _showLoadError('<p style="color:#c00;font-size:0.82rem;">初期化に失敗しました。拡張機能を再読み込みしてください。</p>'); return false; }
+
+    const book = refMatch[1], chapter = parseInt(refMatch[2], 10);
+    const loadTxt = document.getElementById('load-text');
+    if (loadTxt && !_firstRenderDone) loadTxt.textContent = '読み込み中…';
+    const allData = await _loadChapter(book, chapter);
+    if (my !== _showSeq) return false; /* 後から来た要求を優先 */
+    if (!allData.length) {
+        _showLoadError(`<p style="color:#c00;font-size:0.82rem;">データが見つかりませんでした（${_escH(book)} ${chapter}章）。</p>`);
+        return false;
+    }
+    window._morphData = allData;
+
+    const tokens = getVerseTokens(allData, ref);
+    if (!tokens.length) {
+        _showLoadError(`<p style="color:#888;font-size:0.82rem;">節「${_escH(ref)}」のデータが見つかりませんでした。</p>`);
+        return false;
+    }
+
+    params.ref = ref;
+    if (idx !== undefined && idx !== null) params.word = ''; /* 位置指定が来たら、表記での検索はしない */
+    document.getElementById('bc-ref').textContent = buildRefLabel(ref) || ref;
+    document.getElementById('main-loading').style.display = 'none';
+    document.getElementById('main-content').style.display = 'block';
+
+    renderAll(tokens, ref, idx);
+    const first = !_firstRenderDone;
+    _firstRenderDone = true;
+    try {
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'GVA_SYNTAX_SHOWN', ref, idx: _selectedIdx }, '*');
+            if (first) window.parent.postMessage({ type: 'GVA_SYNTAX_READY' }, '*');
+        }
+    } catch (e) {}
+    return true;
+}
+
+/* 親（パネル）からの指示: { type:'GVA_SYNTAX_SET', ref:'1CO 1:2', idx: 3 }  idx=-1 で選択解除 */
+window.addEventListener('message', function (e) {
+    if (e.source !== window.parent || window.parent === window) return;
+    const d = e.data;
+    if (!d || d.type !== 'GVA_SYNTAX_SET') return;
+    if (typeof d.ref !== 'string' || !/^[0-9A-Z]{3} \d+:\d+$/.test(d.ref)) return;
+    showVerse(d.ref, Number.isInteger(d.idx) ? d.idx : -1);
+});
+
+/* 起動: URL の ref（と idx / word）で最初の節を表示 */
+(function () {
+    const idxParam = new URLSearchParams(location.search).get('idx');
+    const idx = idxParam !== null && /^-?\d+$/.test(idxParam) ? parseInt(idxParam, 10) : undefined;
+    document.getElementById('bc-ref').textContent = '—';
+    showVerse(params.ref, idx);
+})();
+
+/* tip_ja 断定形末尾パターン → 非断定変換 */
+const TIP_JA_ASSERTIVE = [
+    // 末尾パターン: [正規表現, 置換後]
+    [/する。$/, 'することが多い。'],
+    [/する$/, 'することが多い。'],
+    [/である。$/, 'と読まれることが多い。'],
+    [/である$/, 'と読まれることが多い。'],
+    [/なる。$/, 'なりやすい傾向がある。'],
+    [/なる$/, 'なりやすい傾向がある。'],
+    [/示す。$/, '示すことが多い。'],
+    [/示す$/, '示すことが多い。'],
+    [/される。$/, 'される傾向がある。'],
+    [/される$/, 'される傾向がある。'],
+    [/決定する。$/, '左右することが多い。'],
+    [/決定する$/, '左右することが多い。'],
+];
+
+function processTipJa(tip) {
+    if (!tip) return '';
+    let result = tip;
+    for (const [pattern, replacement] of TIP_JA_ASSERTIVE) {
+        if (pattern.test(result)) {
+            result = result.replace(pattern, replacement);
+            break;
+        }
+    }
+    return result;
+}
+
+/* ══════════════════════════════════════════
+   Phase G: § 3 構文ツリー描画関数
+══════════════════════════════════════════ */
