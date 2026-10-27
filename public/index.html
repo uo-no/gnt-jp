@@ -22301,7 +22301,7 @@ function _applyHighlights() {
         const chStr = String(h.chapter);
         /* chapter-block が存在する場合はそのスコープで検索 */
         const cb = document.querySelector(
-            `.chapter-block[data-book="${h.book}"][data-chapter="${chStr}"]`
+            `.chapter-block[data-book="${h.book}"][data-chapter="${chStr}"], .compare-chapter-block[data-book="${h.book}"][data-chapter="${chStr}"]`
         );
         /* chapter-block がない場合は AppState で現在の書/章を確認して誤適用を防ぐ */
         if (!cb) {
@@ -22309,7 +22309,10 @@ function _applyHighlights() {
             const curCh   = AppState.location?.chapter;
             if (String(h.book) !== String(curBook) || Number(h.chapter) !== Number(curCh)) return;
         }
-        const scope = cb || document.getElementById('bible-text-area');
+        const mainArea = document.getElementById('main-reading-area');
+        const scope = cb || (mainArea && mainArea.classList.contains('compare-mode')
+            ? mainArea
+            : document.getElementById('bible-text-area'));
         if (!scope) return;
 
         scope.querySelectorAll(`.verse-block[data-vnum="${h.verse}"]:not(.verse-pair-right)`).forEach(block => {
@@ -22324,14 +22327,17 @@ function _applyHighlights() {
     wordHighlights.forEach(h => {
         const chStr = String(h.chapter);
         const cb = document.querySelector(
-            `.chapter-block[data-book="${h.book}"][data-chapter="${chStr}"]`
+            `.chapter-block[data-book="${h.book}"][data-chapter="${chStr}"], .compare-chapter-block[data-book="${h.book}"][data-chapter="${chStr}"]`
         );
         if (!cb) {
             const curBook = AppState.location?.book?.key;
             const curCh   = AppState.location?.chapter;
             if (String(h.book) !== String(curBook) || Number(h.chapter) !== Number(curCh)) return;
         }
-        const scope = cb || document.getElementById('bible-text-area');
+        const mainArea = document.getElementById('main-reading-area');
+        const scope = cb || (mainArea && mainArea.classList.contains('compare-mode')
+            ? mainArea
+            : document.getElementById('bible-text-area'));
         if (!scope) return;
 
         /* wordOrder の語データは表示状態により verse-block または内側の gf-verse-block に保持される。
