@@ -19462,13 +19462,13 @@ function _wlvChipClick(chipEl, tokenId) {
     }
     if (!chip) return;
 
-    if (_hlMultiSelectActive) {
+    if (_hlState.multiSelectActive) {
         _hlMultiSelectTap(chipEl, chip);
         return;
     }
 
     /* ── Highlight 範囲選択モード：範囲終端タップとして処理 ── */
-    if (_hlRangeActive && _hlRangePending && chip.bookKey && chip.verse != null) {
+    if (_hlState.rangeActive && _hlState.rangePending && chip.bookKey && chip.verse != null) {
         const tokenEnd = _hlTokenIdxFromRef(chip.ref);
         if (tokenEnd && _hlRangeTap(chip.bookKey, Number(chip.ch), Number(chip.verse), tokenEnd)) {
             return;
@@ -21837,17 +21837,15 @@ function _mmpSelectMode(id) {
 const HL_COLORS = ['yellow', 'blue', 'green', 'red'];
 const HL_COLOR_NAMES = { yellow: '黄', blue: '青', green: '緑', red: '赤' };
 
-/* ── セッション変数 ── */
-let _hlLastUsedColor = null;    /* null = 初回のため色選択UIを出す */
-
-/* ── 色ピッカー状態 ── */
-let _hlPickerPending = null;    /* 保存待ちのハイライトエントリ */
-
-/* ── 範囲選択状態 ── */
-let _hlRangeActive = false;
-let _hlRangePending = null;     /* { book, chapter, verse, tokenStart } */
-let _hlMultiSelectActive = false;
-let _hlMultiSelectEntries = [];
+/* ── 操作状態（色選択・範囲選択・複数語選択を一元管理）── */
+const _hlState = {
+    lastUsedColor: null,       /* null = 初回のため色選択UIを出す */
+    pickerPending: null,       /* 保存待ちのハイライトエントリ */
+    rangeActive: false,
+    rangePending: null,         /* { book, chapter, verse, tokenStart } */
+    multiSelectActive: false,
+    multiSelectEntries: [],
+};
 
 /* ── ユーティリティ ── */
 
@@ -21907,13 +21905,13 @@ function _hlPickerClose() {
     const picker  = document.getElementById('hl-color-picker');
     if (overlay) overlay.classList.remove('hl-open');
     if (picker)  picker.classList.remove('hl-open');
-    _hlPickerPending = null;
+    _hlState.pickerPending = null;
 }
 
 function _hlPositionPicker(picker, anchorEl) {
     const selection = window.getSelection();
     let anchorRect = null;
-    if (_hlPickerPending && _hlPickerPending._isBatch && selection && selection.rangeCount && !selection.isCollapsed && selection.toString().trim()) {
+    if (_hlState.pickerPending && _hlState.pickerPending._isBatch && selection && selection.rangeCount && !selection.isCollapsed && selection.toString().trim()) {
         try { anchorRect = selection.getRangeAt(0).getBoundingClientRect(); } catch (_) {}
     }
     if (!anchorRect || (!anchorRect.width && !anchorRect.height)) {
@@ -21967,7 +21965,7 @@ function _hlPositionPicker(picker, anchorEl) {
     picker.style.transform = 'none';
 }
 function _hlOpenPicker(entry, anchorEl) {
-    _hlPickerPending = entry;
+    _hlState.pickerPending = entry;
     const picker = document.getElementById('hl-color-picker');
     const overlay = document.getElementById('hl-color-picker-overlay');
     if (!picker || !overlay) return;
@@ -21984,7 +21982,7 @@ function _hlOpenPicker(entry, anchorEl) {
 }
 
 function _hlColorSelected(color) {
-    const entry = _hlPickerPending;
+    const entry = _hlState.pickerPending;
     _hlPickerClose();
     if (!entry || !window.App || !window.App.storage) return;
     const entries = entry._isBatch ? entry.entries : [entry];
@@ -21992,7 +21990,7 @@ function _hlColorSelected(color) {
         if (color === null) {
             if (item._isExisting) window.App.storage.removeHighlight(item);
         } else {
-            _hlLastUsedColor = color;
+            _hlState.lastUsedColor = color;
             if (item._isExisting) window.App.storage.updateHighlightColor(item, color);
             else {
                 const toSave = Object.assign({}, item);
@@ -22079,7 +22077,7 @@ function _hlWordHighlightDirect(color) {
     /* 新規：クリックした色で即保存 */
     const entry = Object.assign({}, pos, { color: color, createdAt: Date.now() });
     window.App.storage.addHighlight(entry);
-    _hlLastUsedColor = color;
+    _hlState.lastUsedColor = color;
     _applyHighlights();
     const slot = document.getElementById('mvv-hl-word-slot') ||
                  document.getElementById('rn-hl-word-slot');
@@ -22098,53 +22096,53 @@ function _hlShowSelectionBar(mode, count) {
 }
 function _hlHideSelectionBar() { document.getElementById('hl-selection-bar')?.classList.remove('hl-open'); }
 function _hlEnterMultiSelectMode(entry) {
-    const seed = entry || _hlPickerPending;
+    const seed = entry || _hlState.pickerPending;
     if (!seed || seed.tokenStart == null) return;
-    _hlPickerClose(); _hlRangeActive = false; _hlRangePending = null;
-    _hlMultiSelectActive = true; _hlMultiSelectEntries = [Object.assign({}, seed)];
+    _hlPickerClose(); _hlState.rangeActive = false; _hlState.rangePending = null;
+    _hlState.multiSelectActive = true; _hlState.multiSelectEntries = [Object.assign({}, seed)];
     document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
     document.querySelectorAll('.wlv-chip.active').forEach(c => c.classList.add('hl-multi-selected'));
-    _hlShowSelectionBar('multi', _hlMultiSelectEntries.length);
+    _hlShowSelectionBar('multi', _hlState.multiSelectEntries.length);
 }
 function _hlMultiSelectTap(chipEl, chip) {
     const tokenStart = _hlTokenIdxFromRef(chip.ref), book = chip.bookKey || chip.book;
     const chapter = Number(chip.ch), verse = Number(chip.verse);
     if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse) || !tokenStart) return;
     const key = [String(book), chapter, verse, tokenStart].join(':');
-    const idx = _hlMultiSelectEntries.findIndex(item => [String(item.book), Number(item.chapter), Number(item.verse), Number(item.tokenStart)].join(':') === key);
-    if (idx >= 0) { _hlMultiSelectEntries.splice(idx, 1); chipEl.classList.remove('hl-multi-selected'); }
+    const idx = _hlState.multiSelectEntries.findIndex(item => [String(item.book), Number(item.chapter), Number(item.verse), Number(item.tokenStart)].join(':') === key);
+    if (idx >= 0) { _hlState.multiSelectEntries.splice(idx, 1); chipEl.classList.remove('hl-multi-selected'); }
     else {
         const existing = _hlFindExisting(book, chapter, verse, tokenStart, tokenStart);
-        _hlMultiSelectEntries.push(Object.assign({}, existing || { book: String(book), chapter, verse, tokenStart, tokenEnd: tokenStart, color: 'yellow', createdAt: Date.now() }, { _isExisting: !!existing }));
+        _hlState.multiSelectEntries.push(Object.assign({}, existing || { book: String(book), chapter, verse, tokenStart, tokenEnd: tokenStart, color: 'yellow', createdAt: Date.now() }, { _isExisting: !!existing }));
         chipEl.classList.add('hl-multi-selected');
     }
-    _hlShowSelectionBar('multi', _hlMultiSelectEntries.length);
+    _hlShowSelectionBar('multi', _hlState.multiSelectEntries.length);
 }
 function _hlFinishMultiSelection() {
-    if (!_hlMultiSelectActive) return;
-    const entries = _hlMultiSelectEntries.slice();
-    _hlMultiSelectActive = false; _hlMultiSelectEntries = []; _hlHideSelectionBar();
+    if (!_hlState.multiSelectActive) return;
+    const entries = _hlState.multiSelectEntries.slice();
+    _hlState.multiSelectActive = false; _hlState.multiSelectEntries = []; _hlHideSelectionBar();
     if (!entries.length) { document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected')); return; }
     _hlOpenPicker({ _isBatch: true, entries });
 }
 function _hlCancelSelection() {
-    if (_hlRangeActive) { _hlExitRangeMode(); return; }
-    _hlMultiSelectActive = false; _hlMultiSelectEntries = []; _hlHideSelectionBar();
+    if (_hlState.rangeActive) { _hlExitRangeMode(); return; }
+    _hlState.multiSelectActive = false; _hlState.multiSelectEntries = []; _hlHideSelectionBar();
     document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
 }
 
 function _hlEnterRangeMode(entry) {
-    const pending = entry || _hlPickerPending, pos = pending && pending.tokenStart != null ? pending : _hlCurrentWordPos();
+    const pending = entry || _hlState.pickerPending, pos = pending && pending.tokenStart != null ? pending : _hlCurrentWordPos();
     if (!pos) return;
-    _hlPickerClose(); _hlRangeActive = true;
-    _hlRangePending = { book: String(pos.book), chapter: Number(pos.chapter), verse: Number(pos.verse), tokenStart: Number(pos.tokenStart) };
+    _hlPickerClose(); _hlState.rangeActive = true;
+    _hlState.rangePending = { book: String(pos.book), chapter: Number(pos.chapter), verse: Number(pos.verse), tokenStart: Number(pos.tokenStart) };
     _hlMarkRangeStart(pos.verse, pos.tokenStart); _hlShowSelectionBar('range', 1);
     const slot = document.getElementById('mvv-hl-word-slot') || document.getElementById('rn-hl-word-slot');
     if (slot) _hlFillWordSlot(slot);
 }
 
 function _hlExitRangeMode() {
-    _hlRangeActive = false; _hlRangePending = null;
+    _hlState.rangeActive = false; _hlState.rangePending = null;
     document.querySelectorAll('.wlv-chip.hl-range-start').forEach(c => c.classList.remove('hl-range-start'));
     _hlHideSelectionBar();
     const slot = document.getElementById('mvv-hl-word-slot') || document.getElementById('rn-hl-word-slot');
@@ -22173,13 +22171,13 @@ function _hlMarkRangeStart(verse, tokenStart) {
 
 /* 末尾語タップ時（_wlvChipClick から呼ばれる想定）の範囲確定 */
 function _hlRangeTap(book, chapter, verse, tokenEnd) {
-    if (!_hlRangeActive || !_hlRangePending) return false;
-    if (_hlRangePending.book !== book || _hlRangePending.chapter !== chapter || _hlRangePending.verse !== verse) {
+    if (!_hlState.rangeActive || !_hlState.rangePending) return false;
+    if (_hlState.rangePending.book !== book || _hlState.rangePending.chapter !== chapter || _hlState.rangePending.verse !== verse) {
         /* 別節は範囲外 → キャンセル */
         _hlExitRangeMode();
         return false;
     }
-    const tokenStart = _hlRangePending.tokenStart;
+    const tokenStart = _hlState.rangePending.tokenStart;
     if (tokenEnd < tokenStart) {
         _hlExitRangeMode();
         return false;
@@ -22220,7 +22218,7 @@ function _hlFillWordSlot(slotEl) {
     });
     html += '</div>';
 
-    if (_hlRangeActive) {
+    if (_hlState.rangeActive) {
         html += `<div style="margin-top:var(--space-sm);"><button class="hl-slot-range-btn" onclick="_hlExitRangeMode()">範囲選択をキャンセル</button></div>`;
     } else {
         html += `<div style="margin-top:var(--space-sm);"><button class="hl-slot-range-btn" onclick="_hlEnterRangeMode()">ここから句を選択…</button></div>`;
@@ -22501,7 +22499,7 @@ function _hlSetFilter(color) {
 /* ── ブラウザ上で選択した複数語をハイライト ── */
 function _hlOpenPickerForTextSelection(event) {
     if (!event || !event.target || !event.target.closest || !event.target.closest('#bible-text-area, #parallel-text-area')) return;
-    if (_hlMultiSelectActive || _hlRangeActive || _hlPickerPending) return;
+    if (_hlState.multiSelectActive || _hlState.rangeActive || _hlState.pickerPending) return;
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || !selection.rangeCount || !selection.toString().trim()) return;
     const range = selection.getRangeAt(0);
