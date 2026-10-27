@@ -22011,6 +22011,7 @@ function _hlColorSelected(color) {
     const entry = _hlState.pickerPending;
     _hlPickerClose();
     _hlPickerFromTouch = false;
+    _hlTouchEntries = [];
     _hlHideTouchPill();
     /* 色の確定（削除含む）でドラッグ選択は消費済み。残すと次の再ドラッグが
        テキストのドラッグ操作になり、ピッカーが開かなくなるため解除する。 */
@@ -22525,8 +22526,8 @@ function _hlSetFilter(color) {
     </div>
 </div>
 <div id="hl-touch-pill" role="group" aria-label="ハイライト操作">
-    <button type="button" class="hl-pill-btn" onclick="_hlTouchPillTap()"><span data-icon="highlighter"></span>ハイライト</button>
-    <button type="button" class="hl-pill-btn" onclick="_hlEnterTouchRangeMode()">範囲指定</button>
+    <button type="button" class="hl-pill-btn" id="hl-pill-btn-color" onclick="_hlTouchPillTap()"><span data-icon="highlighter"></span>ハイライト</button>
+    <button type="button" class="hl-pill-btn" id="hl-pill-btn-range" onclick="_hlEnterTouchRangeMode()">範囲指定</button>
 </div>
 <div id="hl-selection-bar" role="status" aria-live="polite">
     <span id="hl-selection-count"></span>
@@ -22626,17 +22627,28 @@ document.addEventListener('keyup', function(event) {
    selectionchange の安定を起点に、ピルの表示可否だけを判定する。 */
 let _hlLastTouchAt = 0;
 let _hlTouchSelTimer = null;
+/* ピル表示時点の解決済みエントリ。ピルのアクションはタップ時点の
+   ライブ選択を読み直さない（iOS ではタップ処理より先にネイティブ
+   選択やメニューが解除され、読み直すと空になって無反応に見える）。 */
+let _hlTouchEntries = [];
+let _hlLastTouchInPill = false;
 function _hlTouchPillEl() { return document.getElementById('hl-touch-pill'); }
 function _hlHideTouchPill() { const p = _hlTouchPillEl(); if (p) p.classList.remove('hl-show'); }
 function _hlTryTouchTextSelection() {
     const pill = _hlTouchPillEl();
     if (!pill) return;
-    if (_hlState.pickerPending || _hlState.multiSelectActive) { _hlHideTouchPill(); return; }
+    if (_hlState.pickerPending || _hlState.multiSelectActive) { _hlTouchEntries = []; _hlHideTouchPill(); return; }
     const selection = window.getSelection();
-    if (!selection || !selection.rangeCount || selection.isCollapsed) { _hlHideTouchPill(); return; }
+    if (!selection || !selection.rangeCount || selection.isCollapsed) {
+        /* ピルへのタップで選択が解除されただけなら、ピルと種データを残す。 */
+        if (_hlTouchEntries.length && _hlLastTouchInPill) { pill.classList.add('hl-show'); return; }
+        _hlTouchEntries = []; _hlHideTouchPill(); return;
+    }
     const anchorEl = selection.anchorNode && selection.anchorNode.parentElement;
-    if (!anchorEl || !anchorEl.closest || !anchorEl.closest('#bible-text-area, #parallel-text-area')) { _hlHideTouchPill(); return; }
-    if (!_hlResolveTextSelection().length) { _hlHideTouchPill(); return; }
+    if (!anchorEl || !anchorEl.closest || !anchorEl.closest('#bible-text-area, #parallel-text-area')) { _hlTouchEntries = []; _hlHideTouchPill(); return; }
+    const entries = _hlResolveTextSelection();
+    if (!entries.length) { _hlTouchEntries = []; _hlHideTouchPill(); return; }
+    _hlTouchEntries = entries;
     pill.classList.add('hl-show');
 }
 function _hlScheduleTouchTextSelection(delay) {
@@ -22645,6 +22657,15 @@ function _hlScheduleTouchTextSelection(delay) {
 }
 function _hlTouchPillTap() {
     _hlHideTouchPill();
+    const entries = _hlTouchEntries;
+    _hlTouchEntries = [];
+    if (entries.length) {
+        _hlPickerFromTouch = true;
+        if (entries.length === 1) { _hlOpenPicker(entries[0]); return; }
+        _hlOpenPicker({ _isBatch: true, entries });
+        return;
+    }
+    /* 種データがない場合の保険: ライブ選択から開く。 */
     const selection = window.getSelection();
     const anchorEl = selection && selection.anchorNode && selection.anchorNode.parentElement;
     _hlOpenPickerForTextSelection({ target: anchorEl, _fromTouchPill: true });
@@ -22654,8 +22675,9 @@ function _hlTouchPillTap() {
    安定しないため、長押しで選んだ語を種にして、以降は語のタップで
    選択を増減するモードへ移る。状態管理は既存の複数選択と共用する。 */
 function _hlEnterTouchRangeMode() {
-    const entries = _hlResolveTextSelection();
+    const entries = _hlTouchEntries.length ? _hlTouchEntries : _hlResolveTextSelection();
     if (!entries.length) return;
+    _hlTouchEntries = [];
     _hlHideTouchPill();
     _hlClearNativeSelection();
     _hlState.multiSelectActive = true;
@@ -22683,10 +22705,18 @@ document.addEventListener('click', function (event) {
     event.preventDefault();
     _hlMultiSelectTap(token, { ref: token.dataset.dgRef, bookKey: m[1], ch: Number(m[2]), verse: Number(m[3]) });
 }, true);
-document.addEventListener('touchend', function () {
+document.addEventListener('touchend', function (event) {
     _hlLastTouchAt = Date.now();
+    _hlLastTouchInPill = !!(event.target && event.target.closest && event.target.closest('#hl-touch-pill'));
     _hlScheduleTouchTextSelection(350);
 }, { passive: true });
+/* ピルのボタンは click だけでなく touchend でも発火させる。
+   iOS の選択メニュー表示中は click が届かないことがあるため。
+   どちらが先に発火しても、種データの消費により二重実行にはならない。 */
+[['hl-pill-btn-color', _hlTouchPillTap], ['hl-pill-btn-range', _hlEnterTouchRangeMode]].forEach(([id, fn]) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('touchend', function (event) { event.preventDefault(); fn(); }, { passive: false });
+});
 document.addEventListener('selectionchange', function () {
     /* タッチ操作由来の選択だけを対象にする（マウスは mouseup 側で処理）。 */
     if (Date.now() - _hlLastTouchAt > 3000) return;
