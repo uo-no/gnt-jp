@@ -22235,15 +22235,45 @@ function _applyDaReadingHighlights(highlights) {
         });
     });
 
-    const wordHighlights = highlights.filter(function (h) {
-        return h && h.tokenStart != null;
-    });
-    if (!wordHighlights.length || !daSentences.length) return;
-
     const currentBook = window.AppState && window.AppState.location && window.AppState.location.book
         ? window.AppState.location.book.key : null;
     const currentChapter = window.AppState && window.AppState.location
         ? window.AppState.location.chapter : null;
+
+    /* 節ハイライト: その節を含む文ブロックの左帯にも反映する。
+       DA の文ブロック（.da-sentence.verse-block）には data-vnum が無いため、
+       _applyHighlights 本体の節ハイライト適用（data-vnum セレクタ）では拾えない。
+       ここで sentence._flowWords の書・章・節と照合して hl-verse-<color> を付け替える
+       （古い色クラスは _applyHighlights 冒頭の全 .verse-block クリアで除去済み）。 */
+    const verseHighlights = highlights.filter(function (h) {
+        return h && h.tokenStart == null;
+    });
+    if (verseHighlights.length && daSentences.length) {
+        daSentences.forEach(function (sentence) {
+            const words = Array.isArray(sentence._flowWords) ? sentence._flowWords : [];
+            if (!words.length) return;
+            verseHighlights.forEach(function (h) {
+                if (HL_COLORS.indexOf(h.color) === -1) return;
+                const hit = words.some(function (word) {
+                    if (!word) return false;
+                    const book = word.book != null ? String(word.book) : (currentBook != null ? String(currentBook) : "");
+                    const chapter = word.chapter != null ? Number(word.chapter) : Number(currentChapter);
+                    return book === String(h.book) && chapter === Number(h.chapter) && Number(word.verse) === Number(h.verse);
+                });
+                if (hit) {
+                    HL_COLORS.forEach(function (color) {
+                        sentence.classList.remove("hl-verse-" + color);
+                    });
+                    sentence.classList.add("hl-verse-" + h.color);
+                }
+            });
+        });
+    }
+
+    const wordHighlights = highlights.filter(function (h) {
+        return h && h.tokenStart != null;
+    });
+    if (!wordHighlights.length || !daSentences.length) return;
 
     daSentences.forEach(function (sentence) {
         const words = Array.isArray(sentence._flowWords) ? sentence._flowWords : [];
