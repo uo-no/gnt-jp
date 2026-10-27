@@ -22191,20 +22191,29 @@ function _hlExitRangeMode() {
 }
 
 function _hlMarkRangeStart(verse, tokenStart) {
-    /* 現在の verse block を探して開始chip にクラス付与 */
+    /* 通常の語順表示と「文の構造で読む」の両方で開始語を示す。 */
     const ctx = _hlCurrentContext();
     if (!ctx) return;
     const cb = document.querySelector(
         `.chapter-block[data-book="${ctx.book}"][data-chapter="${ctx.chapter}"]`
     );
     const scope = cb || document.getElementById('bible-text-area');
-    scope?.querySelectorAll(`.verse-block[data-vnum="${verse}"] .wlv-chip`).forEach(chip => {
-        /* tokenIndex を tokenId から解決するためにブロックの _flowWords を参照 */
-        const block = chip.closest('.verse-block');
-        if (!block || !block._flowWords) return;
+    if (!scope) return;
+
+    scope.querySelectorAll(
+        `.verse-block[data-vnum="${verse}"] .wlv-chip, .da-sentence .wlv-chip`
+    ).forEach(chip => {
         const tokenId = chip.dataset.tokenId;
-        const w = block._flowWords.find(x => String(x.tokenId) === String(tokenId));
-        if (w && parseInt(w.tokenIndex, 10) === tokenStart) {
+        const owner = chip.closest('.da-sentence, .gf-verse-block, .verse-block');
+        const words = owner && Array.isArray(owner._flowWords) ? owner._flowWords
+            : (owner && owner.closest('.verse-block') && Array.isArray(owner.closest('.verse-block')._flowWords)
+                ? owner.closest('.verse-block')._flowWords : []);
+        const word = words.find(item => item && String(item.tokenId) === String(tokenId));
+        if (!word || Number(word.verse) !== Number(verse)) return;
+        const tokenIndex = word.tokenIndex != null && word.tokenIndex !== ''
+            ? Number(word.tokenIndex)
+            : _hlTokenIdxFromRef(word.ref);
+        if (Number.isFinite(tokenIndex) && tokenIndex === Number(tokenStart)) {
             chip.classList.add('hl-range-start');
         }
     });
