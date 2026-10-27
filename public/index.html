@@ -22477,26 +22477,46 @@ function _hlOpenPickerForTextSelection(event) {
     const range = selection.getRangeAt(0);
     const root = range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement;
     if (!root || !root.closest || !root.closest('#bible-text-area, #parallel-text-area')) return;
-    const chips = Array.from(document.querySelectorAll('#bible-text-area .wlv-chip, #parallel-text-area .wlv-chip'));
-    const selected = chips.filter(el => { try { return range.intersectsNode(el); } catch (_) { return false; } });
+
+    /* Word-order chips and structure-reading tokens use different DOM shapes.
+       Read the structured ref from either shape; never infer a verse from display text. */
+    const selected = Array.from(document.querySelectorAll(
+        '#bible-text-area .wlv-chip, #parallel-text-area .wlv-chip, ' +
+        '#bible-text-area .dg-token[data-dg-ref], #parallel-text-area .dg-token[data-dg-ref]'
+    )).filter(el => {
+        try { return range.intersectsNode(el); } catch (_) { return false; }
+    });
     const entries = [], seen = new Set();
     selected.forEach(el => {
-        const tokenId = el.dataset.tokenId, block = el.closest('.gf-verse-block, .verse-block');
-        const list = block && (block._flowChips || block._flowWords);
-        let chip = list && list.find(item => String(item.tokenId) === String(tokenId));
-        if (!chip && typeof _wlvGetChipData === 'function') chip = _wlvGetChipData(tokenId);
-        if (!chip) return;
-        const tokenStart = _hlTokenIdxFromRef(chip.ref), book = chip.bookKey || chip.book;
-        const chapter = Number(chip.ch), verse = Number(chip.verse);
+        let book, chapter, verse, tokenStart;
+        if (el.matches('.dg-token[data-dg-ref]')) {
+            const ref = el.dataset.dgRef || '';
+            const parts = ref.split(' ');
+            const cvt = parts.length > 1 ? parts[1].match(/^(\d+):(\d+)!(\d+)$/) : null;
+            if (!cvt) return;
+            book = parts[0]; chapter = Number(cvt[1]); verse = Number(cvt[2]); tokenStart = Number(cvt[3]);
+        } else {
+            const tokenId = el.dataset.tokenId, block = el.closest('.gf-verse-block, .verse-block');
+            const list = block && (block._flowChips || block._flowWords);
+            let chip = list && list.find(item => String(item.tokenId) === String(tokenId));
+            if (!chip && typeof _wlvGetChipData === 'function') chip = _wlvGetChipData(tokenId);
+            if (!chip) return;
+            tokenStart = _hlTokenIdxFromRef(chip.ref);
+            book = chip.bookKey || chip.book;
+            chapter = Number(chip.ch); verse = Number(chip.verse);
+        }
         if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse) || !Number.isFinite(tokenStart) || tokenStart < 1) return;
         const key = [String(book), chapter, verse, tokenStart].join(':');
         if (seen.has(key)) return;
         seen.add(key);
         const existing = _hlFindExisting(book, chapter, verse, tokenStart, tokenStart);
-        entries.push(Object.assign({}, existing || {book:String(book),chapter,verse,tokenStart,tokenEnd:tokenStart,color:'yellow',createdAt:Date.now()}, {_isExisting:!!existing}));
+        entries.push(Object.assign({}, existing || {
+            book: String(book), chapter, verse, tokenStart, tokenEnd: tokenStart,
+            color: 'yellow', createdAt: Date.now()
+        }, {_isExisting: !!existing}));
     });
     if (entries.length < 2) return;
-    _hlOpenPicker({_isBatch:true,entries});
+    _hlOpenPicker({_isBatch: true, entries});
 }
 document.addEventListener('mouseup', _hlOpenPickerForTextSelection);
 document.addEventListener('keyup', function(event) {
