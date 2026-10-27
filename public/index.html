@@ -21910,12 +21910,46 @@ function _hlPickerClose() {
     _hlPickerPending = null;
 }
 
+function _hlPositionPicker(picker, anchorEl) {
+    const selection = window.getSelection();
+    let anchorRect = null;
+    if (_hlPickerPending && _hlPickerPending._isBatch && selection && selection.rangeCount && !selection.isCollapsed && selection.toString().trim()) {
+        try { anchorRect = selection.getRangeAt(0).getBoundingClientRect(); } catch (_) {}
+    }
+    if (!anchorRect || (!anchorRect.width && !anchorRect.height)) {
+        const anchor = anchorEl || document.querySelector('.wlv-chip.active') || document.querySelector('#bible-text-area .verse-block');
+        if (anchor) anchorRect = anchor.getBoundingClientRect();
+    }
+    const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+    const pw = picker.offsetWidth || 240, ph = picker.offsetHeight || 150, gap = 10, pad = 12;
+    const panel = document.getElementById('bottom-depth-panel');
+    const panelRect = panel && getComputedStyle(panel).display !== 'none' ? panel.getBoundingClientRect() : null;
+    const overlapsPanel = (x, y) => !!panelRect && x < panelRect.right && x + pw > panelRect.left && y < panelRect.bottom && y + ph > panelRect.top;
+    const clamp = (v, min, max) => Math.max(min, Math.min(v, Math.max(min, max)));
+    const candidates = [];
+    if (anchorRect) {
+        candidates.push({x: anchorRect.left, y: anchorRect.bottom + gap});
+        candidates.push({x: anchorRect.right + gap, y: anchorRect.top});
+        candidates.push({x: anchorRect.left - pw - gap, y: anchorRect.top});
+        candidates.push({x: anchorRect.left, y: anchorRect.top - ph - gap});
+    }
+    candidates.push({x: vw - pw - pad, y: vh - ph - pad});
+    let chosen = null;
+    for (const c of candidates) {
+        const x = clamp(c.x, pad, vw - pw - pad), y = clamp(c.y, pad, vh - ph - pad);
+        if (!overlapsPanel(x, y)) { chosen = {x, y}; break; }
+    }
+    if (!chosen) chosen = {x: clamp((vw - pw) / 2, pad, vw - pw - pad), y: clamp(16, pad, vh - ph - pad)};
+    picker.style.left = chosen.x + 'px';
+    picker.style.top = chosen.y + 'px';
+    picker.style.bottom = 'auto';
+    picker.style.transform = 'none';
+}
 function _hlOpenPicker(entry, anchorEl) {
     _hlPickerPending = entry;
     const picker = document.getElementById('hl-color-picker');
     const overlay = document.getElementById('hl-color-picker-overlay');
     if (!picker || !overlay) return;
-
     const pickerEntries = entry._isBatch ? entry.entries : [entry];
     const sharedColor = pickerEntries.length && pickerEntries.every(item => item.color === pickerEntries[0].color) ? pickerEntries[0].color : null;
     picker.querySelectorAll('.hl-picker-swatch').forEach(s => s.classList.toggle('hl-selected', !!sharedColor && s.dataset.color === sharedColor));
@@ -21923,13 +21957,9 @@ function _hlOpenPicker(entry, anchorEl) {
     if (del) del.style.display = pickerEntries.some(item => item._isExisting) ? '' : 'none';
     const actions = picker.querySelector('.hl-picker-actions');
     if (actions) actions.style.display = !entry._isBatch && entry.tokenStart != null ? 'flex' : 'none';
-    picker.style.left = '50%';
-    picker.style.top = '';
-    picker.style.bottom = '80px';
-    picker.style.transform = 'translateX(-50%)';
-
     overlay.classList.add('hl-open');
     picker.classList.add('hl-open');
+    _hlPositionPicker(picker, anchorEl);
 }
 
 function _hlColorSelected(color) {
@@ -22438,5 +22468,61 @@ function _hlSetFilter(color) {
     <button class="hl-selection-bar-btn" onclick="_hlCancelSelection()">キャンセル</button>
 </div>
 
+/* ── ブラウザ上で選択した複数語をハイライト ── */
+function _hlOpenPickerForTextSelection(event) {
+    if (!event || !event.target || !event.target.closest || !event.target.closest('#bible-text-area, #parallel-text-area')) return;
+    if (_hlMultiSelectActive || _hlRangeActive || _hlPickerPending) return;
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount || !selection.toString().trim()) return;
+    const range = selection.getRangeAt(0);
+    const root = range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement;
+    if (!root || !root.closest || !root.closest('#bible-text-area, #parallel-text-area')) return;
+
+    /* Word-order chips and structure-reading tokens use different DOM shapes.
+       Read the structured ref from either shape; never infer a verse from display text. */
+    const selected = Array.from(document.querySelectorAll(
+        '#bible-text-area .wlv-chip, #parallel-text-area .wlv-chip, ' +
+        '#bible-text-area .dg-token[data-dg-ref], #parallel-text-area .dg-token[data-dg-ref]'
+    )).filter(el => {
+        try { return range.intersectsNode(el); } catch (_) { return false; }
+    });
+    const entries = [], seen = new Set();
+    selected.forEach(el => {
+        let book, chapter, verse, tokenStart;
+        if (el.matches('.dg-token[data-dg-ref]')) {
+            const ref = el.dataset.dgRef || '';
+            const parts = ref.split(' ');
+            const cvt = parts.length > 1 ? parts[1].match(/^(\d+):(\d+)!(\d+)$/) : null;
+            if (!cvt) return;
+            book = parts[0]; chapter = Number(cvt[1]); verse = Number(cvt[2]); tokenStart = Number(cvt[3]);
+        } else {
+            const tokenId = el.dataset.tokenId, block = el.closest('.gf-verse-block, .verse-block');
+            const list = block && (block._flowChips || block._flowWords);
+            let chip = list && list.find(item => String(item.tokenId) === String(tokenId));
+            if (!chip && typeof _wlvGetChipData === 'function') chip = _wlvGetChipData(tokenId);
+            if (!chip) return;
+            tokenStart = _hlTokenIdxFromRef(chip.ref);
+            book = chip.bookKey || chip.book;
+            chapter = Number(chip.ch); verse = Number(chip.verse);
+        }
+        if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse) || !Number.isFinite(tokenStart) || tokenStart < 1) return;
+        const key = [String(book), chapter, verse, tokenStart].join(':');
+        if (seen.has(key)) return;
+        seen.add(key);
+        const existing = _hlFindExisting(book, chapter, verse, tokenStart, tokenStart);
+        entries.push(Object.assign({}, existing || {
+            book: String(book), chapter, verse, tokenStart, tokenEnd: tokenStart,
+            color: 'yellow', createdAt: Date.now()
+        }, {_isExisting: !!existing}));
+    });
+    if (entries.length < 2) return;
+    _hlOpenPicker({_isBatch: true, entries});
+}
+document.addEventListener('mouseup', _hlOpenPickerForTextSelection);
+document.addEventListener('keyup', function(event) {
+    if (['Shift','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) {
+        _hlOpenPickerForTextSelection({target:window.getSelection()?.anchorNode?.parentElement});
+    }
+});
 </body>
 </html>
