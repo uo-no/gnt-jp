@@ -2663,7 +2663,7 @@ animation: ac-blink 1.2s ease-in-out infinite;
 }
 .hl-picker-delete svg { width: 13px; height: 13px; display: block; }
 .hl-picker-delete:hover { transform: scale(1.18); border-color: var(--text-sub); }
-/* タッチ選択中に画面下部中央へ出す「ハイライト」ピル（呼び出しボタン）。
+/* タッチ選択中に画面下部中央へ出す操作ピル（ハイライト／範囲指定）。
    ピッカーのオーバーレイ（z-index 8990）より下に置き、開いたら隠れる。 */
 #hl-touch-pill {
     display: none;
@@ -2673,20 +2673,29 @@ animation: ac-blink 1.2s ease-in-out infinite;
     transform: translateX(-50%);
     z-index: 8989;
     align-items: center;
-    gap: 6px;
-    padding: 10px 18px;
-    border: none;
+    padding: 5px;
     border-radius: 999px;
     background: var(--accent-dark, #333);
-    color: #fff;
-    font: inherit;
-    font-size: var(--text-body);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-    cursor: pointer;
     -webkit-tap-highlight-color: transparent;
 }
 #hl-touch-pill.hl-show { display: inline-flex; }
-#hl-touch-pill svg { width: 1.05em; height: 1.05em; display: block; }
+.hl-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: #fff;
+    font: inherit;
+    font-size: var(--text-body);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.hl-pill-btn + .hl-pill-btn { border-left: 1px solid rgba(255, 255, 255, 0.35); border-radius: 0 999px 999px 0; }
+.hl-pill-btn svg { width: 1.05em; height: 1.05em; display: block; }
 .hl-picker-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .hl-picker-action { border: 1px solid var(--border-soft); border-radius: 999px; background: transparent; color: var(--text-main); padding: 7px 10px; font: inherit; font-size: var(--text-caption); cursor: pointer; white-space: nowrap; }
 .hl-picker-action:hover { border-color: var(--accent-mid); }
@@ -2696,6 +2705,7 @@ animation: ac-blink 1.2s ease-in-out infinite;
 .hl-selection-bar-btn { border: 1px solid var(--border-soft); border-radius: 999px; background: transparent; color: var(--text-main); padding: 7px 10px; font: inherit; cursor: pointer; white-space: nowrap; }
 .hl-selection-bar-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
 .wlv-chip.hl-multi-selected { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; background: rgba(21,114,44,.13); }
+.dg-token.hl-multi-selected { outline: 2px solid var(--accent); outline-offset: 1px; background: rgba(21,114,44,.18); }
 
 /* Highlight list page: color filter tabs */
 .hl-filter-tabs {
@@ -21902,7 +21912,7 @@ function _hlPickerDismiss() {
        ネイティブ選択を残す（マウス経由は従来どおり選択を解除する）。 */
     if (!fromTouch) _hlClearNativeSelection();
     if (pending && pending._isBatch) {
-        document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+        document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
     }
     if (fromTouch) _hlScheduleTouchTextSelection(60);
 }
@@ -21980,7 +21990,7 @@ function _hlOpenPicker(entry, anchorEl) {
         _hlState.pickerPending = null;
         /* バッチ選択のピッカーを開けない場合だけ、一時選択表示を解除する。 */
         if (entry && entry._isBatch) {
-            document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+            document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
         }
         return;
     }
@@ -22007,7 +22017,7 @@ function _hlColorSelected(color) {
     _hlClearNativeSelection();
     /* 保存処理に進めない場合も、確定前の選択表示だけは残さない。 */
     if (!entry || !window.App || !window.App.storage) {
-        document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+        document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
         return;
     }
     const entries = entry._isBatch ? entry.entries : [entry];
@@ -22026,7 +22036,7 @@ function _hlColorSelected(color) {
             }
         }
     });
-    document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+    document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
     _applyHighlights();
 }
 
@@ -22103,7 +22113,7 @@ function _hlEnterMultiSelectMode(entry) {
 
     _hlState.multiSelectActive = true;
     _hlState.multiSelectEntries = [Object.assign({}, seed)];
-    document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+    document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
     document.querySelectorAll('.wlv-chip.active').forEach(c => c.classList.add('hl-multi-selected'));
     _hlShowSelectionBar('multi', _hlState.multiSelectEntries.length);
 }
@@ -22125,14 +22135,14 @@ function _hlFinishMultiSelection() {
     if (!_hlState.multiSelectActive) return;
     const entries = _hlState.multiSelectEntries.slice();
     _hlState.multiSelectActive = false; _hlState.multiSelectEntries = []; _hlHideSelectionBar();
-    if (!entries.length) { document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected')); return; }
+    if (!entries.length) { document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected')); return; }
     _hlOpenPicker({ _isBatch: true, entries });
 }
 function _hlCancelSelection() {
     _hlState.multiSelectActive = false;
     _hlState.multiSelectEntries = [];
     _hlHideSelectionBar();
-    document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+    document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
 }
 
 /* ── ハイライト検索ヘルパー ── */
@@ -22514,7 +22524,10 @@ function _hlSetFilter(color) {
         <button class="hl-picker-delete" onclick="_hlColorSelected(null)" title="ハイライトを削除" aria-label="ハイライトを削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
 </div>
-<button id="hl-touch-pill" onclick="_hlTouchPillTap()" aria-label="選択した範囲をハイライト"><span data-icon="highlighter"></span>ハイライト</button>
+<div id="hl-touch-pill" role="group" aria-label="ハイライト操作">
+    <button type="button" class="hl-pill-btn" onclick="_hlTouchPillTap()"><span data-icon="highlighter"></span>ハイライト</button>
+    <button type="button" class="hl-pill-btn" onclick="_hlEnterTouchRangeMode()">範囲指定</button>
+</div>
 <div id="hl-selection-bar" role="status" aria-live="polite">
     <span id="hl-selection-count"></span>
     <button id="hl-selection-finish" class="hl-selection-bar-btn primary" onclick="_hlFinishMultiSelection()">選択した単語を確定</button>
@@ -22523,6 +22536,31 @@ function _hlSetFilter(color) {
 
 <script>
 /* ── ブラウザ上で選択した複数語をハイライト ── */
+/* チップ/トークン要素から {book, chapter, verse, tokenStart} を返す。解決できなければ null。
+   Word-order chips and structure-reading tokens use different DOM shapes.
+   Read the structured ref from either shape; never infer a verse from display text. */
+function _hlRefFromEl(el) {
+    let book, chapter, verse, tokenStart;
+    if (el.matches('.dg-token[data-dg-ref]')) {
+        const ref = el.dataset.dgRef || '';
+        const parts = ref.split(' ');
+        const cvt = parts.length > 1 ? parts[1].match(/^(\d+):(\d+)!(\d+)$/) : null;
+        if (!cvt) return null;
+        book = parts[0]; chapter = Number(cvt[1]); verse = Number(cvt[2]); tokenStart = Number(cvt[3]);
+    } else {
+        const tokenId = el.dataset.tokenId, block = el.closest('.gf-verse-block, .verse-block');
+        const list = block && (block._flowChips || block._flowWords);
+        let chip = list && list.find(item => String(item.tokenId) === String(tokenId));
+        if (!chip && typeof _wlvGetChipData === 'function') chip = _wlvGetChipData(tokenId);
+        if (!chip) return null;
+        tokenStart = _hlTokenIdxFromRef(chip.ref);
+        book = chip.bookKey || chip.book;
+        chapter = Number(chip.ch); verse = Number(chip.verse);
+    }
+    if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse) || !Number.isFinite(tokenStart) || tokenStart < 1) return null;
+    return { book: String(book), chapter, verse, tokenStart };
+}
+
 /* 現在のネイティブ選択が本文のどの語に対応するかを解決する（ピッカーは開かない）。 */
 function _hlResolveTextSelection() {
     const selection = window.getSelection();
@@ -22531,8 +22569,6 @@ function _hlResolveTextSelection() {
     const root = range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement;
     if (!root || !root.closest || !root.closest('#bible-text-area, #parallel-text-area')) return [];
 
-    /* Word-order chips and structure-reading tokens use different DOM shapes.
-       Read the structured ref from either shape; never infer a verse from display text. */
     const selected = Array.from(document.querySelectorAll(
         '#bible-text-area .wlv-chip, #parallel-text-area .wlv-chip, ' +
         '#bible-text-area .dg-token[data-dg-ref], #parallel-text-area .dg-token[data-dg-ref]'
@@ -22541,30 +22577,15 @@ function _hlResolveTextSelection() {
     });
     const entries = [], seen = new Set();
     selected.forEach(el => {
-        let book, chapter, verse, tokenStart;
-        if (el.matches('.dg-token[data-dg-ref]')) {
-            const ref = el.dataset.dgRef || '';
-            const parts = ref.split(' ');
-            const cvt = parts.length > 1 ? parts[1].match(/^(\d+):(\d+)!(\d+)$/) : null;
-            if (!cvt) return;
-            book = parts[0]; chapter = Number(cvt[1]); verse = Number(cvt[2]); tokenStart = Number(cvt[3]);
-        } else {
-            const tokenId = el.dataset.tokenId, block = el.closest('.gf-verse-block, .verse-block');
-            const list = block && (block._flowChips || block._flowWords);
-            let chip = list && list.find(item => String(item.tokenId) === String(tokenId));
-            if (!chip && typeof _wlvGetChipData === 'function') chip = _wlvGetChipData(tokenId);
-            if (!chip) return;
-            tokenStart = _hlTokenIdxFromRef(chip.ref);
-            book = chip.bookKey || chip.book;
-            chapter = Number(chip.ch); verse = Number(chip.verse);
-        }
-        if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse) || !Number.isFinite(tokenStart) || tokenStart < 1) return;
-        const key = [String(book), chapter, verse, tokenStart].join(':');
+        const r = _hlRefFromEl(el);
+        if (!r) return;
+        const { book, chapter, verse, tokenStart } = r;
+        const key = [book, chapter, verse, tokenStart].join(':');
         if (seen.has(key)) return;
         seen.add(key);
         const existing = _hlFindExisting(book, chapter, verse, tokenStart, tokenStart);
         entries.push(Object.assign({}, existing || {
-            book: String(book), chapter, verse, tokenStart, tokenEnd: tokenStart,
+            book, chapter, verse, tokenStart, tokenEnd: tokenStart,
             color: 'yellow', createdAt: Date.now()
         }, {_isExisting: !!existing}));
     });
@@ -22628,6 +22649,40 @@ function _hlTouchPillTap() {
     const anchorEl = selection && selection.anchorNode && selection.anchorNode.parentElement;
     _hlOpenPickerForTextSelection({ target: anchorEl, _fromTouchPill: true });
 }
+/* 「範囲指定」: iOS では青ハンドルのドラッグがチップ単位で効かず
+   （inline-flex / inline-block の塊ごとに選択が飛ぶ）複数語の調整が
+   安定しないため、長押しで選んだ語を種にして、以降は語のタップで
+   選択を増減するモードへ移る。状態管理は既存の複数選択と共用する。 */
+function _hlEnterTouchRangeMode() {
+    const entries = _hlResolveTextSelection();
+    if (!entries.length) return;
+    _hlHideTouchPill();
+    _hlClearNativeSelection();
+    _hlState.multiSelectActive = true;
+    _hlState.multiSelectEntries = entries.slice();
+    const keys = new Set(entries.map(e => [String(e.book), Number(e.chapter), Number(e.verse), Number(e.tokenStart)].join(':')));
+    document.querySelectorAll(
+        '#bible-text-area .wlv-chip, #parallel-text-area .wlv-chip, ' +
+        '#bible-text-area .dg-token[data-dg-ref], #parallel-text-area .dg-token[data-dg-ref]'
+    ).forEach(el => {
+        const r = _hlRefFromEl(el);
+        if (r && keys.has([r.book, r.chapter, r.verse, r.tokenStart].join(':'))) el.classList.add('hl-multi-selected');
+    });
+    _hlShowSelectionBar('multi', _hlState.multiSelectEntries.length);
+}
+/* 複数選択モード中は、構造モードのトークンのタップも選択の増減にする
+   （トークン自体のクリックは StudyPanel を開くため、捕捉フェーズで先取りする）。
+   語順チップ側は既存のチップタップ処理が同じ役割を担う。 */
+document.addEventListener('click', function (event) {
+    if (!_hlState.multiSelectActive) return;
+    const token = event.target && event.target.closest && event.target.closest('.dg-token[data-dg-ref]');
+    if (!token || !token.closest('#bible-text-area, #parallel-text-area')) return;
+    const m = (token.dataset.dgRef || '').match(/^(\S+) (\d+):(\d+)!(\d+)$/);
+    if (!m) return;
+    event.stopPropagation();
+    event.preventDefault();
+    _hlMultiSelectTap(token, { ref: token.dataset.dgRef, bookKey: m[1], ch: Number(m[2]), verse: Number(m[3]) });
+}, true);
 document.addEventListener('touchend', function () {
     _hlLastTouchAt = Date.now();
     _hlScheduleTouchTextSelection(350);
