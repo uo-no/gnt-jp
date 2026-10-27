@@ -21890,6 +21890,22 @@ function _hlPositionPicker(picker, anchorEl) {
     const overlapsPanel = (x, y) => !!panelRect && x < panelRect.right && x + pw > panelRect.left && y < panelRect.bottom && y + ph > panelRect.top;
     const clamp = (v, min, max) => Math.max(min, Math.min(v, Math.max(min, max)));
     const candidates = [];
+    if (vw <= 900) {
+        /* スマホ幅（アプリのモバイル表示ブレークポイント）では、横位置は
+           選択位置に寄せず画面中央を優先する。縦位置は従来どおり
+           選択範囲・パネルとの重なりを避けて候補順に決める。
+           中央の候補がすべてパネルと重なる場合は、従来候補へフォールバックする。 */
+        const cx = (vw - pw) / 2;
+        if (anchorRect) {
+            candidates.push({x: cx, y: anchorRect.bottom + gap});
+            candidates.push({x: cx, y: anchorRect.top - ph - gap});
+        }
+        if (panelRect) {
+            candidates.push({x: cx, y: panelRect.top - ph - gap});
+        }
+        candidates.push({x: cx, y: pad});
+        candidates.push({x: cx, y: vh - ph - pad});
+    }
     if (anchorRect) {
         candidates.push({x: anchorRect.left, y: anchorRect.bottom + gap});
         candidates.push({x: anchorRect.right + gap, y: anchorRect.top});
