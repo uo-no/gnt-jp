@@ -21908,6 +21908,15 @@ function _hlPickerClose() {
     _hlState.pickerPending = null;
 }
 
+/* オーバーレイで閉じたときは、確定前の複数語選択の見た目も片付ける。 */
+function _hlPickerDismiss() {
+    const pending = _hlState.pickerPending;
+    _hlPickerClose();
+    if (pending && pending._isBatch) {
+        document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+    }
+}
+
 function _hlPositionPicker(picker, anchorEl) {
     const selection = window.getSelection();
     let anchorRect = null;
@@ -22494,7 +22503,7 @@ function _hlSetFilter(color) {
 </div>
 
 <!-- Highlight V1: color picker popup -->
-<div id="hl-color-picker-overlay" onclick="_hlPickerClose()"></div>
+<div id="hl-color-picker-overlay" onclick="_hlPickerDismiss()"></div>
 <div id="hl-color-picker" role="dialog" aria-label="ハイライトの色">
     <div class="hl-picker-title">ハイライトの色</div>
     <div class="hl-picker-actions">
