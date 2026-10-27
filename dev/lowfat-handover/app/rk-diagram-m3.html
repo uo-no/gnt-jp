@@ -8356,13 +8356,25 @@ function clause(ks,x,y){
   const slots=ks.filter(k=>SLOT[A(k,'role')]).sort((a,b)=>SLOT[A(a,'role')]-SLOT[A(b,'role')]);
   const extra=ks.filter(k=>!slots.includes(k));
   let cx=x,H=ROW,prev=null,pt=null,first=null,fl=null,last=null,vseen=false,vTail=null;
-  for(const k of slots){const role=A(k,'role'),r=place(k,cx,y);if(!r.head)continue;
+  let rowH=ROW,rowY=0,maxW=0;  // SP折り返し追跡
+  for(const k of slots){const role=A(k,'role');
+    const n0=words.length;
+    const r=place(k,cx,y+rowY);if(!r.head)continue;
+    let curX=cx,curRY=rowY;
+    if(spWrapW!==null&&x>=0&&cx>x&&cx-x+r.w>spWrapW){
+      // 幅超過: 後続グループを次行へ（境界＋後続↓ と同じ視覚言語）
+      const dy=rowH+34,dx=x-cx;
+      words.slice(n0).forEach(w=>{w.x+=dx;w.y+=dy;w.ay+=dy;if(!w.manual)w.ax+=dx});
+      curX=x;curRY=rowY+dy;rowY+=dy;rowH=r.h;
+    }else{rowH=Math.max(rowH,r.h);}
+    // cx の更新は mods 後（mods が r.w を広げる場合があるため）
     if(!first){first=r.head;fl=r.lead||r.head}
     if(prev){const bN=r.lead||r.head;const src=(vTail&&SLOT[role]!==2&&Math.abs((bN.y||0)-(pt.y||0))>200)?vTail:pt;edges.push({a:src,b:bN,kind:role==='p'?'vp':SLOT[role]===2?'sv':'vo'})}
-    if(SLOT[role]===2&&extra.length&&!vseen){vseen=true;const m=mods(r.head,extra,cx,y+r.h);r.w=Math.max(r.w,m.w);r.h+=m.h}
-    last={r,x:cx};prev=r.head;pt=r.tail||r.head;if(SLOT[role]===2)vTail=pt;cx+=r.w+GAPH;H=Math.max(H,r.h)}
-  if(extra.length&&!vseen&&last){const m=mods(prev,extra,last.x,y+last.r.h);cx=last.x+Math.max(last.r.w,m.w)+GAPH;H=Math.max(H,last.r.h+m.h)}
-  return{head:first,tail:pt,lead:fl||first,w:Math.max(cx-x-GAPH,0),h:H}}
+    if(SLOT[role]===2&&extra.length&&!vseen){vseen=true;const m=mods(r.head,extra,curX,y+curRY+r.h);r.w=Math.max(r.w,m.w);r.h+=m.h;rowH=Math.max(rowH,r.h)}
+    cx=curX+r.w+GAPH;maxW=Math.max(maxW,curX-x+r.w);
+    last={r,x:curX,ry:curRY};prev=r.head;pt=r.tail||r.head;if(SLOT[role]===2)vTail=pt;H=Math.max(H,curRY+r.h)}
+  if(extra.length&&!vseen&&last){const m=mods(prev,extra,last.x,y+last.ry+last.r.h);if(spWrapW===null)cx=last.x+Math.max(last.r.w,m.w)+GAPH;else maxW=Math.max(maxW,last.x-x+Math.max(last.r.w,m.w));H=Math.max(H,last.ry+last.r.h+m.h)}
+  return{head:first,tail:pt,lead:fl||first,w:spWrapW!==null?maxW:Math.max(cx-x-GAPH,0),h:H}}
 /* ---- 系譜チェーン限定: 短い直接修飾語を頭語の直下に置く ----
    NPofNP = [ 冠詞(τοῦ 等), Np-Appos ]、Np-Appos = [ 人名, NPofNP ] が深く連なる構造でだけ、
    頭語が入れ子の句のとき、短い修飾語(1語)を「子句全体の高さの下」ではなく頭語の直下に置く。
@@ -8770,6 +8782,7 @@ function spLayout(){
 }
 function resetSpLayout(){
   svg.style.height='';svg.style.width='';svg.style.touchAction='';mid.style.overflow='';
+  spWrapW=null;
 }
 /* 表示倍率の役割分担
    fitInfo()  : 文全体が収まる倍率(fit-all)の計算。
@@ -8816,6 +8829,7 @@ $('#sv').onclick=save;
 const VG={'pc-std':{label:'PC標準',dw:1280,dh:800,cw:1280,ch:800,mg:20},'pc-sm':{label:'PC小画面',dw:1280,dh:720,cw:1280,ch:720,mg:20},'sp-std':{label:'スマホ標準',dw:390,dh:844,cw:390,ch:844,mg:16},'sp-sm':{label:'スマホ小画面',dw:360,dh:740,cw:360,ch:740,mg:16}};
 let vgOn=false,vgKey='pc-std',vgSaved=null,vgSlOn=false;
 let lockedK=null;  // SP座標確定モード中の固定倍率。null=固定なし
+let spWrapW=null;  // SP自動折り返し幅（null=折り返しなし=PC標準）
 const SP_READABLE=22/22;  // SP座標確定モードの固定倍率(22px×(24/22)=24px表示 = gnt-jp .flow-greek --text-headline基準)
 const vgG=$('#vg'),vgEls={};
 function vgGetP(){const p=VG[vgKey];return{...p,cw:+$('#vgCW').value||p.cw,ch:+$('#vgCH').value||p.ch,mg:+$('#vgMg').value||p.mg}}
@@ -8923,6 +8937,9 @@ function vgFitAll(){
   if(isSp){
     // SP座標確定モード: 初回のみvgSavedを保存。SP_READABLEで固定(view.kに依存しない)し、コンテンツ上端を画角上端に合わせる
     if(!lockedK){vgSaved={x:view.x,y:view.y,k:view.k,slOn:vgSlOn};$('#vgRst').style.display='';vgSlOn=true;const cb=$('#vgSlChk');if(cb)cb.checked=true;}
+    // SP自動折り返し幅を設定して再レイアウト（幅が変わった場合のみ）
+    const newWrapW=p.cw-2*PAD;
+    if(spWrapW!==newWrapW){spWrapW=newWrapW;if(words.length)refresh();}
     const k=SP_READABLE;
     const x1=Math.min(...words.map(w=>w.x))-PAD;
     const y1=Math.min(...words.map(w=>w.y-40))-PAD;
@@ -8943,10 +8960,11 @@ function vgFitAll(){
 }
 function vgRestoreView(){
   if(!vgSaved)return;
-  view.x=vgSaved.x;view.y=vgSaved.y;view.k=vgSaved.k;
-  resetSpLayout();
+  resetSpLayout();  // spWrapW=null にする
   lockedK=null;
   if(typeof vgSaved.slOn==='boolean'){vgSlOn=vgSaved.slOn;const cb=$('#vgSlChk');if(cb)cb.checked=vgSlOn;vgSlDraw();}
+  if(words.length)refresh();  // PC座標で再レイアウト
+  view.x=vgSaved.x;view.y=vgSaved.y;view.k=vgSaved.k;
   applyView();
   vgSaved=null;$('#vgRst').style.display='none';
   updateLockUI();
@@ -9000,12 +9018,15 @@ $('#vgPre').onchange=e=>{
   const p=VG[vgKey];$('#vgCW').value=p.cw;$('#vgCH').value=p.ch;$('#vgMg').value=p.mg;
   const isSp=vgKey==='sp-std'||vgKey==='sp-sm';
   if(!isSp&&lockedK!==null){
-    // PC presetへの切り替え: 固定解除
-    resetSpLayout();
+    // PC presetへの切り替え: 固定解除・PC座標で再レイアウト
+    resetSpLayout();  // spWrapW=null にする
     lockedK=null;vgSaved=null;$('#vgRst').style.display='none';updateLockUI();
+    if(words.length)refresh();
   }else if(isSp&&lockedK!==null&&words.length){
-    // SP preset間の切り替え: 倍率維持・コンテンツ先頭位置を新しい画角に再調整
+    // SP preset間の切り替え: 折り返し幅を更新してレイアウト再計算→新しい画角に再調整
     const PAD=p.mg+8;
+    const newWrapW=p.cw-2*PAD;
+    if(spWrapW!==newWrapW){spWrapW=newWrapW;refresh();}
     const x1=Math.min(...words.map(w=>w.x))-PAD;
     const y1=Math.min(...words.map(w=>w.y-40))-PAD;
     view.k=lockedK;view.x=PAD-x1*lockedK;view.y=PAD-y1*lockedK;applyView();
