@@ -8326,13 +8326,20 @@ function stack(ks,x,y){let cy=y,nom=y,W=0,first=null,fl=null,tail=null,conj=null
   for(let i=0;i<ks.length;i++){const k=ks[i];
     if(k.tagName==='w'){const nx=ks.slice(i+1).find(c=>c.tagName==='wg');conj=put(k,x,Math.max(nom+dyOf(nx),cy));continue}
     const py=Math.max(nom+dyOf(k),cy),cx=(conj?x+conj.w+40:x)+dxOf(k),n0=words.length,r=place(k,cx,py);if(!r.head)continue;
+    // SP: conj のオフセットで右端を超えるとき、後続 wg を次行へ送る（境界折り返しと同じ視覚言語）
+    let spW=false;
+    if(spWrapW!==null&&x>=0&&conj&&cx>x&&cx-x+r.w>spWrapW){
+      const dy=ROW+34,dx=x-cx;
+      words.slice(n0).forEach(w=>{w.x+=dx;w.y+=dy;w.ay+=dy;if(!w.manual)w.ax+=dx});
+      spW=true;}
     if(!first){first=r.head;fl=conj?conj.head:(r.lead||r.head);
       /* 1行目に実際に置かれた語（自動配置の行 ay===py）のうち、現在の実座標で x+語幅 が最大の語を末尾語にする */
       const row=words.slice(n0).filter(w=>w.ay===py);if(conj)row.push(conj.head);
       tail=row.length?row.reduce((m,w)=>w.x+w.w>m.x+m.w?w:m,row[0]):(r.tail||r.head)}
     GM.set(k,{nom,py,floor:cy,conj:conj?conj.head:null});
     if(conj){edges.push({a:conj.head,b:r.head,kind:'dash',grp:k});conj=null}
-    W=Math.max(W,cx-x+r.w);const hh=Math.max(r.h,ROW)+34;cy=py+hh;nom+=hh}
+    if(spW){W=Math.max(W,r.w);const hh=Math.max(r.h,ROW)+34;cy=py+(ROW+34)+hh;nom+=hh}
+    else{W=Math.max(W,cx-x+r.w);const hh=Math.max(r.h,ROW)+34;cy=py+hh;nom+=hh}}
   return{head:first,tail:tail||first,lead:fl||first,w:W,h:Math.max(cy-y-34,ROW)}}
 /* 修飾語: 頭語の下に縦に積む。高さ・幅は子の実測値を使う（重なり防止） */
 function mods(head,list,x,y0){let cy=y0,nom=y0,W=0;
