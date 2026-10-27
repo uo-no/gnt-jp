@@ -22281,13 +22281,32 @@ function _hlFillWordSlot(slotEl) {
 function _hlFindExisting(book, chapter, verse, tokenStart, tokenEnd) {
     if (!window.App || !window.App.storage) return null;
     const list = window.App.storage.getHighlights();
-    return list.find(h =>
+    const sameVerse = h =>
         h.book === String(book) &&
         Number(h.chapter) === Number(chapter) &&
-        Number(h.verse)   === Number(verse)   &&
+        Number(h.verse) === Number(verse);
+    const sameRange = h =>
         (h.tokenStart == null ? null : Number(h.tokenStart)) === (tokenStart == null ? null : Number(tokenStart)) &&
-        (h.tokenEnd   == null ? null : Number(h.tokenEnd))   === (tokenEnd   == null ? null : Number(tokenEnd))
-    ) || null;
+        (h.tokenEnd   == null ? null : Number(h.tokenEnd))   === (tokenEnd == null ? null : Number(tokenEnd));
+
+    /* まず保存範囲の完全一致を優先する。 */
+    const exact = list.find(h => sameVerse(h) && sameRange(h));
+    if (exact) return exact;
+
+    /* 範囲ハイライトの途中の語を選んだ場合も、その保存済み範囲を編集・削除できるようにする。
+       節全体ハイライト（tokenStart=null）は語ハイライトの候補に含めない。 */
+    if (tokenStart != null && tokenEnd != null) {
+        const start = Number(tokenStart);
+        const end = Number(tokenEnd);
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+        return list.find(h =>
+            sameVerse(h) &&
+            h.tokenStart != null && h.tokenEnd != null &&
+            Number(h.tokenStart) <= start &&
+            Number(h.tokenEnd) >= end
+        ) || null;
+    }
+    return null;
 }
 
 /* ── DOM 適用（Phase G）── */
