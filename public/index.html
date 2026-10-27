@@ -21920,6 +21920,13 @@ function _hlPositionPicker(picker, anchorEl) {
         const anchor = anchorEl || document.querySelector('.wlv-chip.active') || document.querySelector('#bible-text-area .verse-block');
         if (anchor) anchorRect = anchor.getBoundingClientRect();
     }
+
+    // Portal both elements to body so they cannot remain inside a StudyPanel
+    // subtree or inherit a transformed ancestor's fixed-position coordinate space.
+    if (picker.parentElement !== document.body) document.body.appendChild(picker);
+    const overlay = document.getElementById('hl-color-picker-overlay');
+    if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
+
     const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
     const pw = picker.offsetWidth || 240, ph = picker.offsetHeight || 150, gap = 10, pad = 12;
     const panel = document.getElementById('bottom-depth-panel');
@@ -21933,15 +21940,29 @@ function _hlPositionPicker(picker, anchorEl) {
         candidates.push({x: anchorRect.left - pw - gap, y: anchorRect.top});
         candidates.push({x: anchorRect.left, y: anchorRect.top - ph - gap});
     }
+    if (panelRect) {
+        candidates.push({x: pad, y: panelRect.top - ph - gap});
+        candidates.push({x: pad, y: panelRect.bottom + gap});
+        candidates.push({x: panelRect.left - pw - gap, y: pad});
+        candidates.push({x: panelRect.right + gap, y: pad});
+    }
+    candidates.push({x: vw - pw - pad, y: pad});
+    candidates.push({x: pad, y: pad});
     candidates.push({x: vw - pw - pad, y: vh - ph - pad});
     let chosen = null;
     for (const c of candidates) {
         const x = clamp(c.x, pad, vw - pw - pad), y = clamp(c.y, pad, vh - ph - pad);
         if (!overlapsPanel(x, y)) { chosen = {x, y}; break; }
     }
-    if (!chosen) chosen = {x: clamp((vw - pw) / 2, pad, vw - pw - pad), y: clamp(16, pad, vh - ph - pad)};
+    if (!chosen) {
+        // If the panel fills almost the whole viewport, use the topmost available strip.
+        const top = panelRect ? Math.min(vh - ph - pad, panelRect.top - ph - gap) : pad;
+        chosen = {x: clamp((vw - pw) / 2, pad, vw - pw - pad), y: clamp(top, pad, vh - ph - pad)};
+    }
+    picker.style.position = 'fixed';
     picker.style.left = chosen.x + 'px';
     picker.style.top = chosen.y + 'px';
+    picker.style.right = 'auto';
     picker.style.bottom = 'auto';
     picker.style.transform = 'none';
 }
