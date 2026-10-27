@@ -22098,8 +22098,15 @@ function _hlHideSelectionBar() { document.getElementById('hl-selection-bar')?.cl
 function _hlEnterMultiSelectMode(entry) {
     const seed = entry || _hlState.pickerPending;
     if (!seed || seed.tokenStart == null) return;
-    _hlPickerClose(); _hlState.rangeActive = false; _hlState.rangePending = null;
-    _hlState.multiSelectActive = true; _hlState.multiSelectEntries = [Object.assign({}, seed)];
+    _hlPickerClose();
+
+    /* 範囲選択から複数語選択へ移る場合、前の選択表示と状態を残さない。 */
+    _hlState.rangeActive = false;
+    _hlState.rangePending = null;
+    document.querySelectorAll('.wlv-chip.hl-range-start').forEach(c => c.classList.remove('hl-range-start'));
+
+    _hlState.multiSelectActive = true;
+    _hlState.multiSelectEntries = [Object.assign({}, seed)];
     document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
     document.querySelectorAll('.wlv-chip.active').forEach(c => c.classList.add('hl-multi-selected'));
     _hlShowSelectionBar('multi', _hlState.multiSelectEntries.length);
@@ -22126,17 +22133,30 @@ function _hlFinishMultiSelection() {
     _hlOpenPicker({ _isBatch: true, entries });
 }
 function _hlCancelSelection() {
-    if (_hlState.rangeActive) { _hlExitRangeMode(); return; }
-    _hlState.multiSelectActive = false; _hlState.multiSelectEntries = []; _hlHideSelectionBar();
+    /* 片方だけでなく、両方の選択状態と表示を必ず初期化する。 */
+    if (_hlState.rangeActive || _hlState.rangePending) _hlExitRangeMode();
+    _hlState.multiSelectActive = false;
+    _hlState.multiSelectEntries = [];
+    _hlHideSelectionBar();
     document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+    document.querySelectorAll('.wlv-chip.hl-range-start').forEach(c => c.classList.remove('hl-range-start'));
 }
 
 function _hlEnterRangeMode(entry) {
     const pending = entry || _hlState.pickerPending, pos = pending && pending.tokenStart != null ? pending : _hlCurrentWordPos();
     if (!pos) return;
-    _hlPickerClose(); _hlState.rangeActive = true;
+    _hlPickerClose();
+
+    /* 複数語選択から範囲選択へ移る場合、複数語の選択表示・配列を残さない。 */
+    _hlState.multiSelectActive = false;
+    _hlState.multiSelectEntries = [];
+    document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+
+    document.querySelectorAll('.wlv-chip.hl-range-start').forEach(c => c.classList.remove('hl-range-start'));
+    _hlState.rangeActive = true;
     _hlState.rangePending = { book: String(pos.book), chapter: Number(pos.chapter), verse: Number(pos.verse), tokenStart: Number(pos.tokenStart) };
-    _hlMarkRangeStart(pos.verse, pos.tokenStart); _hlShowSelectionBar('range', 1);
+    _hlMarkRangeStart(pos.verse, pos.tokenStart);
+    _hlShowSelectionBar('range', 1);
     const slot = document.getElementById('mvv-hl-word-slot') || document.getElementById('rn-hl-word-slot');
     if (slot) _hlFillWordSlot(slot);
 }
