@@ -7006,6 +7006,21 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 .role-reading-view .role-svg text { font: 22px "GFS Didot","Palatino Linotype",Georgia,serif; fill: var(--text-main); }
 .role-reading-view .role-svg .ul { stroke: var(--text-main); stroke-width: 1.8; }
 .role-reading-view .role-svg .e { stroke: var(--text-sub); stroke-width: 1.8; fill: none; }
+/* 第3層の局所表示: 中心語の強調と、内容があるときだけの余白 */
+.role-reading-view .wn.focus text { fill: var(--accent); font-weight: 700; }
+.role-reading-view .wn.focus .ul { stroke: var(--accent); stroke-width: 2.6; }
+#rn-relation-slot:not(:empty), #mvv-relation-slot:not(:empty) { margin: var(--space-md) 0 var(--space-xs); }
+/* 局所表示の枠: 文全体の図を上下左右に動かして見る（地図アプリ式） */
+.local-rel-wrap { position: relative; }
+.local-rel-frame { height: 240px; overflow: auto; border: 1px solid var(--line, #d8d8d8); border-radius: 8px; cursor: grab; overscroll-behavior: contain; user-select: none; -webkit-user-select: none; background: var(--bg); scrollbar-width: none; }
+.local-rel-frame::-webkit-scrollbar { display: none; }
+.local-rel-frame.dragging { cursor: grabbing; }
+.local-rel-frame svg.role-svg { max-width: none; }
+/* 地図アプリ式コントロール（拡大・縮小・選択語へ戻る）: 枠の右下に固定 */
+.local-rel-controls { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 8px; z-index: 2; }
+.local-rel-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line, #d8d8d8); background: var(--bg, #fff); color: var(--text-main); box-shadow: 0 1px 4px rgba(0, 0, 0, .18); cursor: pointer; display: grid; place-items: center; padding: 0; }
+.local-rel-btn svg { width: 18px; height: 18px; }
+.local-rel-btn:active { background: var(--bg-panel); }
 .role-reading-view .role-svg .wn:hover text { fill: var(--accent); }
 
 .rk-reading-view .wn rect {
@@ -9689,6 +9704,9 @@ async function _renderReadingNotes(p) {
 
         <div data-study-section="structure">${neighborhoodViewHTML}</div>
 
+        <!-- 語の役割の局所表示（選択語の文全体をパン可能な枠に表示）: _fillRnRelationSlot が非同期注入 -->
+        <div id="rn-relation-slot" class="role-reading-view"></div>
+
         <!-- LEVEL 3: 詳細資料は2つの入口（形と関係／辞書的意味）から任意に開く -->
         ${(morphGridHTML || analysisGroupHTML) ? `
         <details class="rn-level-section rn-l3-entry" data-study-section="morphology" open>
@@ -9724,6 +9742,9 @@ ${LN_RELATED_WORDS_ENABLED ? `
             strong, resolvedId, word
         );
     }
+
+    /* 語の役割の局所表示を非同期注入（世代管理は filler 側）。 */
+    _fillRnRelationSlot(ref);
 
     /* SF-14: Structure Flow の frame/referent 弧をレイアウト後に描画（無ければ無処理）。 */
     _sfScheduleEnhance();
@@ -18965,21 +18986,14 @@ async function _renderRoleReadingView(app, srData, elData) {
     }
 
     /* 表示倍率: 他のモードのギリシャ語（--text-body）と同じ大きさになる固定値 */
-    if (window._roleTextScale == null) {
-        let targetPx = 14.4;
-        try {
-            const cs = getComputedStyle(document.documentElement);
-            const v = parseFloat(cs.getPropertyValue('--text-body'));
-            const rootPx = parseFloat(cs.fontSize) || 16;
-            if (v > 0 && rootPx > 0) targetPx = v * rootPx;
-        } catch (_) { /* フォールバック 14.4px */ }
-        window._roleTextScale = targetPx / 22;
-    }
-    const textScale = window._roleTextScale;
+    const textScale = _roleTextScale();
 
     let chapter, result;
     try {
-        chapter = RoleReadingAdapter.buildChapter(srData, offsets);
+        /* 表示は bible_data の japanese（語順で読む／文の構造で読むと同じ語義） */
+        const jaByRef = new Map();
+        for (const [r, tok] of _rkRefToBd) { if (tok && tok.japanese) jaByRef.set(r, tok.japanese); }
+        chapter = RoleReadingAdapter.buildChapter(srData, offsets, jaByRef);
         /* PCでも横に長い文は下へ折り返す（スマホと同じ折り返し機構）。
            折り返し幅は「表示カラム幅 ÷ 表示倍率」でレイアウト単位に換算する。 */
         let wrapW;
@@ -19066,6 +19080,225 @@ async function _renderRoleReadingView(app, srData, elData) {
         }
         wrap.appendChild(secEl);
     });
+}
+
+/* 表示倍率（レイアウト上の22単位 = 他のモードのギリシャ語 --text-body のpx数）。
+   読書モード本体と第3層の局所表示で共用する。 */
+function _roleTextScale() {
+    /* 注意: キャッシュ名を関数名と別にすること（同名だと window._roleTextScale が
+       関数自身を指し、計算が走らず倍率が壊れる）。 */
+    if (window._roleTextScaleCache == null) {
+        let targetPx = 14.4;
+        try {
+            const cs = getComputedStyle(document.documentElement);
+            const v = parseFloat(cs.getPropertyValue('--text-body'));
+            const rootPx = parseFloat(cs.fontSize) || 16;
+            if (v > 0 && rootPx > 0) targetPx = v * rootPx;
+        } catch (_) { /* フォールバック 14.4px */ }
+        window._roleTextScaleCache = targetPx / 22;
+    }
+    return window._roleTextScaleCache;
+}
+
+/* bible_data 章トークンのキャッシュ付きローダ（局所表示の japanese 参照用） */
+const _bdChapterCache = {};
+async function _loadBdChapter(book, chapter) {
+    const key = book + '/' + chapter;
+    if (key in _bdChapterCache) return _bdChapterCache[key];
+    let data = null;
+    try {
+        const res = await fetch(`../bible_data/nt/${book}/${chapter}.json`);
+        if (res.ok) data = await res.json();
+    } catch (_) { data = null; }
+    _bdChapterCache[key] = data; // null も cache（再 fetch 抑止・静音）
+    return data;
+}
+
+/* ─────────────────────────────────────────────
+   語の役割の局所表示（StudyPanel 第3層）:
+   選択中の語が属する文全体の図を、2つのトグルの上の
+   枠（パン可能なビューポート）の中に表示する。レイアウト・
+   倍率・折り返し・公開ゲートは読書モード本体と同一で、
+   初期表示は選択語が枠の中心に来る位置。表示専用。
+   ───────────────────────────────────────────── */
+async function _buildLocalRelationFrame(ref) {
+    const parsed = _flowTreeParseRef(ref);
+    if (!parsed) return null;
+    if (!window.RoleReadingAdapter || !window.RoleReadingLayout) return null;
+    if (window._rkAvailPromise) { try { await window._rkAvailPromise; } catch (_) { /* ゲート側で判定 */ } }
+    if (!_roleReadingAvailableFor(parsed.book, parsed.chapter)) return null;
+    const sr = await _loadSrChapter(parsed.book, parsed.chapter);
+    if (!sr) return null;
+    const offsets = await _loadRkOffsets(parsed.book);
+    /* 表示は bible_data の japanese（読書モード本体と同じ） */
+    const bd = await _loadBdChapter(parsed.book, parsed.chapter);
+    const jaByRef = new Map();
+    if (Array.isArray(bd)) {
+        for (const tok of bd) { if (tok && tok.ref && tok.japanese) jaByRef.set(tok.ref, tok.japanese); }
+    }
+    const chapter = RoleReadingAdapter.buildChapter(sr, offsets, jaByRef);
+    let sentence = null, centerId = null;
+    for (const s of chapter.sentences) {
+        for (const [id, meta] of s.tokenMeta) {
+            if (meta && meta.ref === ref) { sentence = s; centerId = id; break; }
+        }
+        if (sentence) break;
+    }
+    if (!sentence) return null;
+    const scale = _roleTextScale();
+    /* 折り返しは読書モード本体と同一（表示カラム幅 ÷ 倍率、SPは342） */
+    let wrapW;
+    if (window.innerWidth <= 900) {
+        wrapW = 342;
+    } else {
+        const col = document.getElementById('bible-text-area');
+        const availPx = ((col && col.clientWidth > 0) ? col.clientWidth : 680) - 8;
+        wrapW = Math.round(availPx / scale);
+        if (wrapW < 500) wrapW = 500;
+        if (wrapW > 1600) wrapW = 1600;
+    }
+    const result = RoleReadingLayout.layoutChapter([sentence.root], { spWrapW: wrapW });
+    const laid = result && result.sentences && result.sentences[0];
+    if (!laid || !laid.words.length) return null;
+    const words = laid.words, edges = laid.edges;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, center = null;
+    for (const w of words) {
+        minX = Math.min(minX, w.x); maxX = Math.max(maxX, w.x + w.w);
+        minY = Math.min(minY, w.y); maxY = Math.max(maxY, w.y);
+        if (w.id === centerId) center = w;
+    }
+    if (!center) return null;
+    minX -= 18; maxX += 18;
+    const top = minY - 40, widthU = maxX - minX, heightU = (maxY - minY) + 70;
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', `${minX} ${top} ${widthU} ${heightU}`);
+    svg.setAttribute('class', 'role-svg');
+    svg.style.width = Math.round(widthU * scale) + 'px';
+    svg.style.height = Math.round(heightU * scale) + 'px';
+    for (const e of edges) {
+        const p = document.createElementNS(NS, 'path');
+        p.setAttribute('d', RoleReadingLayout.edgePath(e));
+        p.setAttribute('class', 'e ' + e.kind);
+        svg.appendChild(p);
+    }
+    for (const w of words) {
+        const g = document.createElementNS(NS, 'g');
+        g.setAttribute('class', 'wn' + (w.id === centerId ? ' focus' : ''));
+        const ul = document.createElementNS(NS, 'line');
+        ul.setAttribute('x1', String(w.x - RoleReadingLayout.PADX));
+        ul.setAttribute('x2', String(w.x + w.w + RoleReadingLayout.PADX + (w.ew || 0)));
+        ul.setAttribute('y1', String(w.y + 4));
+        ul.setAttribute('y2', String(w.y + 4));
+        ul.setAttribute('class', 'ul');
+        g.appendChild(ul);
+        const t = document.createElementNS(NS, 'text');
+        t.setAttribute('x', String(w.x));
+        t.setAttribute('y', String(w.y));
+        t.textContent = w.text;
+        g.appendChild(t);
+        svg.appendChild(g);
+    }
+    const frame = document.createElement('div');
+    frame.className = 'local-rel-frame';
+    frame.appendChild(svg);
+    /* 地図式UIの状態: 倍率・ズーム・中心（レイアウト単位、viewBox原点基準） */
+    frame._svgEl = svg;
+    frame._baseScale = scale;
+    frame._zoom = 1;
+    frame._widthU = widthU;
+    frame._heightU = heightU;
+    frame._centerU = { x: center.x + center.w / 2 - minX, y: center.y - top };
+    _attachPanScroll(frame);
+    /* コントロール（拡大・縮小・選択語へ戻る）: 枠の右下に固定（地図アプリ式） */
+    const controls = document.createElement('div');
+    controls.className = 'local-rel-controls';
+    controls.innerHTML =
+        '<button type="button" class="local-rel-btn" data-act="zin" aria-label="拡大" title="拡大"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>' +
+        '<button type="button" class="local-rel-btn" data-act="zout" aria-label="縮小" title="縮小"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>' +
+        '<button type="button" class="local-rel-btn" data-act="recenter" aria-label="選択中の語へ戻る" title="選択中の語へ戻る"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5.5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/></svg></button>';
+    controls.addEventListener('click', e => {
+        const btn = e.target.closest('[data-act]');
+        if (!btn) return;
+        const act = btn.getAttribute('data-act');
+        if (act === 'zin') _setLocalRelZoom(frame, frame._zoom * 1.3);
+        else if (act === 'zout') _setLocalRelZoom(frame, frame._zoom / 1.3);
+        else if (act === 'recenter') _centerLocalRelationFrame(frame);
+    });
+    const wrap = document.createElement('div');
+    wrap.className = 'local-rel-wrap';
+    wrap.appendChild(frame);
+    wrap.appendChild(controls);
+    wrap._frameEl = frame;
+    return wrap;
+}
+
+/* ズーム変更: 図の表示倍率だけを変え、選択語が中央に来る位置へ寄せ直す */
+function _setLocalRelZoom(frame, z) {
+    if (!frame || !frame._svgEl) return;
+    if (z < 0.5) z = 0.5;
+    if (z > 3) z = 3;
+    frame._zoom = z;
+    frame._svgEl.style.width = Math.round(frame._widthU * frame._baseScale * z) + 'px';
+    frame._svgEl.style.height = Math.round(frame._heightU * frame._baseScale * z) + 'px';
+    _centerLocalRelationFrame(frame);
+}
+
+/* 地図アプリ式のドラッグスクロール（マウスのみ。タッチはネイティブスクロール） */
+function _attachPanScroll(frame) {
+    let down = false, sx = 0, sy = 0, sl = 0, st = 0;
+    frame.addEventListener('pointerdown', e => {
+        if (e.pointerType !== 'mouse') return;
+        e.preventDefault();   /* ドラッグ中の文字選択を防ぐ */
+        down = true; sx = e.clientX; sy = e.clientY; sl = frame.scrollLeft; st = frame.scrollTop;
+        try { frame.setPointerCapture(e.pointerId); } catch (_) { /* 任意 */ }
+        frame.classList.add('dragging');
+    });
+    frame.addEventListener('pointermove', e => {
+        if (!down) return;
+        frame.scrollLeft = sl - (e.clientX - sx);
+        frame.scrollTop = st - (e.clientY - sy);
+    });
+    const end = () => { down = false; frame.classList.remove('dragging'); };
+    frame.addEventListener('pointerup', end);
+    frame.addEventListener('pointercancel', end);
+}
+
+function _centerLocalRelationFrame(frame) {
+    if (!frame || !frame._centerU) return;
+    const k = frame._baseScale * (frame._zoom || 1);
+    frame.scrollLeft = Math.max(0, Math.round(frame._centerU.x * k - frame.clientWidth / 2));
+    frame.scrollTop = Math.max(0, Math.round(frame._centerU.y * k - frame.clientHeight / 2));
+}
+
+let _rnRelationGen = 0;
+async function _fillRnRelationSlot(ref) {
+    const slot0 = document.getElementById('rn-relation-slot');
+    if (!slot0) return;
+    const myGen = ++_rnRelationGen;
+    slot0.innerHTML = '';
+    let frame = null;
+    try { frame = await _buildLocalRelationFrame(ref); } catch (_) { frame = null; }
+    if (myGen !== _rnRelationGen) return;
+    const slot = document.getElementById('rn-relation-slot');
+    if (!slot) return;
+    slot.innerHTML = '';
+    if (frame) { slot.appendChild(frame); _centerLocalRelationFrame(frame._frameEl); }   /* null は空のまま（静寂） */
+}
+
+let _mvvRelationGen = 0;
+async function _fillMvvRelationSlot(ref) {
+    const slot0 = document.getElementById('mvv-relation-slot');
+    if (!slot0) return;
+    const myGen = ++_mvvRelationGen;
+    slot0.innerHTML = '';
+    let frame = null;
+    try { frame = await _buildLocalRelationFrame(ref); } catch (_) { frame = null; }
+    if (myGen !== _mvvRelationGen) return;
+    const slot = document.getElementById('mvv-relation-slot');
+    if (!slot) return;
+    slot.innerHTML = '';
+    if (frame) { slot.appendChild(frame); _centerLocalRelationFrame(frame._frameEl); }   /* null は空のまま（静寂） */
 }
 
 /* Phase L.2: Reed-Kellogg 縦型読書モード レンダー関数。
@@ -20009,6 +20242,8 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
     }
     /* SF-22: Structure Flow を mobile 語詳細へ非同期注入（fire-and-forget・世代管理）。 */
     _fillMvvFlowSlot(AppState.inspect.data?.ref || ref);
+    /* 語の役割の局所表示を非同期注入（fire-and-forget・世代管理）。 */
+    _fillMvvRelationSlot(AppState.inspect.data?.ref || ref);
     /* 統語論ラベルを非同期注入（_buildSyntaxLabelHTML を desktop と共用）。 */
     _fillMvvSyntaxSlot(_scopeWords, AppState.inspect.data?.ref || ref);
     /* StudyPanel parity: Usage trends / Etymology / Abbott-Smith を非同期注入。 */
@@ -20362,6 +20597,9 @@ function _renderMobileWordDetail(d) {
         <!-- SF-22: Structure Flow スロット（desktop reading-notes-area と同じ生成 HTML を非同期注入。
              生成物が自前の <details class="rn-level-section"> を持つため外側に details を足さない）。 -->
         <div id="mvv-flow-slot" data-study-section="structure" style="margin-top:var(--space-md);"></div>
+
+        <!-- 語の役割の局所表示（選択語の文全体をパン可能な枠に表示）: _fillMvvRelationSlot が非同期注入 -->
+        <div id="mvv-relation-slot" class="role-reading-view"></div>
 
         ${hasStudyDetails ? `
         <details class="mvv-l3-section rn-l3-entry" data-study-section="morphology" open>
