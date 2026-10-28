@@ -6972,21 +6972,29 @@ function applyShareState(state) {
        VR-2 Phase 2）で構成されている（実機検証で確認済み）。既存の
        _wlvChipClick / _wlvStudyBtnClick 経路（「詳しく見る」ボタンと同じ処理）を再利用する。 */
     if (state.panel !== 'study' || !state.word) return;
-    requestAnimationFrame(() => {
-        const idx = words.findIndex(w => normalizeStrong(w.strong) === 'G' + state.word);
-        if (idx === -1) {
-            console.warn('applyShareState: word not found:', state.word);
-            return;
-        }
-        const tokenId = words[idx].tokenId;
-        const chipEl = document.querySelector('#word-list-view .wlv-chip[data-token-id="' + tokenId + '"]');
+    const idx = words.findIndex(w => normalizeStrong(w.strong) === 'G' + state.word);
+    if (idx === -1) {
+        console.warn('applyShareState: word not found:', state.word);
+        return;
+    }
+    const tokenId = words[idx].tokenId;
+    /* chip の探索先は Desktop の #word-list-view と Mobile の #mobile-inspector-area の両方。
+       MobileVerseView の一覧は非同期描画のため、見つかるまで一定フレーム再試行する
+       （Desktop では従来どおり最初のフレームで見つかる）。 */
+    let _shareWordTries = 0;
+    const _tryShareWord = () => {
+        const chipEl = document.querySelector(
+            '#word-list-view .wlv-chip[data-token-id="' + tokenId + '"], ' +
+            '#mobile-inspector-area .wlv-chip[data-token-id="' + tokenId + '"]');
         if (!chipEl) {
+            if (++_shareWordTries < 90) { requestAnimationFrame(_tryShareWord); return; }
             console.warn('applyShareState: word chip not found:', state.word);
             return;
         }
         _wlvChipClick(chipEl, tokenId);
         _wlvStudyBtnClick();
-    });
+    };
+    requestAnimationFrame(_tryShareWord);
 }
 
 // ギリシャ語データが存在する書物のキーセット
@@ -15244,35 +15252,26 @@ function _centerLocalRelationFrame(frame) {
     frame.scrollTop = Math.max(0, Math.round(frame._centerU.y * k - frame.clientHeight / 2));
 }
 
-let _rnRelationGen = 0;
-async function _fillRnRelationSlot(ref) {
-    const slot0 = document.getElementById('rn-relation-slot');
+/* 局所図スロットへの注入は Desktop / Mobile で同一処理のため共通化した。
+   世代カウンタはスロットごとに保持し、競合時の打ち切りは従来どおりスロット単位。 */
+const _relationSlotGen = { 'rn-relation-slot': 0, 'mvv-relation-slot': 0 };
+async function _fillRelationSlot(slotId, ref) {
+    const slot0 = document.getElementById(slotId);
     if (!slot0) return;
-    const myGen = ++_rnRelationGen;
+    const myGen = ++_relationSlotGen[slotId];
     slot0.innerHTML = '';
     let frame = null;
     try { frame = await _buildLocalRelationFrame(ref); } catch (_) { frame = null; }
-    if (myGen !== _rnRelationGen) return;
-    const slot = document.getElementById('rn-relation-slot');
+    if (myGen !== _relationSlotGen[slotId]) return;
+    const slot = document.getElementById(slotId);
     if (!slot) return;
     slot.innerHTML = '';
     if (frame) { slot.appendChild(frame); _centerLocalRelationFrame(frame._frameEl); }   /* null は空のまま（静寂） */
 }
 
-let _mvvRelationGen = 0;
-async function _fillMvvRelationSlot(ref) {
-    const slot0 = document.getElementById('mvv-relation-slot');
-    if (!slot0) return;
-    const myGen = ++_mvvRelationGen;
-    slot0.innerHTML = '';
-    let frame = null;
-    try { frame = await _buildLocalRelationFrame(ref); } catch (_) { frame = null; }
-    if (myGen !== _mvvRelationGen) return;
-    const slot = document.getElementById('mvv-relation-slot');
-    if (!slot) return;
-    slot.innerHTML = '';
-    if (frame) { slot.appendChild(frame); _centerLocalRelationFrame(frame._frameEl); }   /* null は空のまま（静寂） */
-}
+async function _fillRnRelationSlot(ref) { return _fillRelationSlot('rn-relation-slot', ref); }
+
+async function _fillMvvRelationSlot(ref) { return _fillRelationSlot('mvv-relation-slot', ref); }
 
 /**
  * Representation を HTML 文字列に変換する。Renderer Registry（VR-4-B §E で「今回は
@@ -15932,17 +15931,26 @@ function _wlvStudyBtnClick() {
  *
  * chip 経路の Level3 遷移はこの関数を経由し、Desktop / Mobile の振り分けをここに閉じ込める。
  *   Desktop → openStudyPanel()（従来どおり Bottom Sheet）
- *   Mobile（かつ MobileVerseView 表示中）→ #mobile-inspector-area 内で詳細表示（今回は仮実装）
+ *   Mobile → #mobile-inspector-area 内で詳細表示（MobileVerseView 経路に統一）
  *
- * モバイル判定は既存 _isMobile()（≤900px）を使う。
- * ガード: MobileVerseView が開いていないモバイル文脈（本文 FLOW チップ直タップ等）では、
- *         非表示コンテナへ書いても見えないため従来どおり openStudyPanel にフォールバックする
- *         （既存挙動の非改変を優先）。openStudyPanel は削除しない。
+ * モバイル判定は _isActualMobile()（≤900px + タッチ）を使う。
+ * MobileVerseView が開いていないモバイル文脈では、選択中の節コンテキスト
+ * （AppState.selectedVerse）があれば先に MobileVerseView を開いてから詳細を表示し、
+ * 呼び出し元によらずモバイルの表示経路が1つに揃うようにする。
+ * 節コンテキストが無い場合のみ、従来どおり openStudyPanel にフォールバックする
+ * （openStudyPanel は削除しない）。
  */
 function openInspectorDetail(greek, rawMorph, ref, lemma) {
     const mvv = document.getElementById('mobile-verse-view');
-    if (_isActualMobile() && mvv && mvv.classList.contains('open')) {
-        return _mobileInspectorDetail(greek, rawMorph, ref, lemma);
+    if (_isActualMobile() && mvv) {
+        if (mvv.classList.contains('open')) {
+            return _mobileInspectorDetail(greek, rawMorph, ref, lemma);
+        }
+        const sv = AppState.selectedVerse;
+        if (sv && sv.vNum != null && Array.isArray(sv.elWords) && sv.elWords.length) {
+            openMobileVerseView(sv.vNum, sv.elWords, null, sv.ch != null ? sv.ch : null);
+            return _mobileInspectorDetail(greek, rawMorph, ref, lemma);
+        }
     }
     return openStudyPanel(greek, rawMorph, ref, lemma);
 }
