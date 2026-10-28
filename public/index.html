@@ -7769,10 +7769,21 @@ const TRANSLATIONS = {
     /* 語の役割で読む: 作業スペースで確定した RK 座標レイアウトを読むモード。
        章×デバイスの公開可否は rk-availability.json で管理する。 */
     'ROLE_READING': { label: '語の役割で読む',   code: 'ROLE_READING' },
-    /* 旧モード（DISCOURSE / STRUCTURAL / STRUCTURE / CLAUSE_ROLE / RELATION /
-       RK_READING / RK_READING_V）は 2026-10-28 のモード整理で登録を削除した。
-       旧URLは _toColumnMode のフォールバックで「語順で読む」に着地する。
-       実装（core スクリプト群）は参照閉包を確認してから別途撤去する。 */
+    /* DA-1: 談話分析（節と節のつながり）。WORD_ORDER と同じく疑似翻訳ID（訳文JSONを持たない
+       Greek由来の読み方）。URL互換のため TRANSLATIONS に置く。 */
+    'DISCOURSE': { label: '談話分析',        code: 'DISCOURSE' },
+    /* P2: 構文ダイアグラム。SR JSON（public/assets/data/sr/）を読み取り専用で消費する
+       独立パイプライン。flow-tree・Reading Engine とは完全に分離。 */
+    'STRUCTURAL': { label: '構文ダイアグラム', code: 'STRUCTURAL' },
+    /* C-17 Phase 1: 3-mode registry. STRUCTURAL は CLAUSE_ROLE の legacy URL alias として維持。 */
+    'STRUCTURE':   { label: '構造で読む',       code: 'STRUCTURE'   },
+    'CLAUSE_ROLE': { label: '文の役割で読む',   code: 'CLAUSE_ROLE' },
+    /* E-4-D: Relation View（つながりで読む）。SR JSON を消費する独立パイプライン。 */
+    'RELATION': { label: 'つながりで読む', code: 'RELATION' },
+    /* Phase E: Reed-Kellogg 読書モード。SR JSON + RK Renderer + RK Adapter パイプライン。 */
+    'RK_READING': { label: '語句の関係で読む', code: 'RK_READING' },
+    /* Phase L.2: Reed-Kellogg 縦型読書モード。 */
+    'RK_READING_V': { label: '縦型読み解きで読む', code: 'RK_READING_V' },
 };
 const TRANS_LIST   = Object.entries(TRANSLATIONS).map(([id, t]) => ({ id, name: t.label, code: t.code }));
 const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t]) => [id, t.label]));
@@ -9026,6 +9037,7 @@ function _studyPanelCompanionMode(transA) {
         'JA1955':     'WORD_ORDER',
         'WORD_ORDER': 'JA1955',
         'DA_READING': 'WORD_ORDER',
+        'RK_READING': 'DA_READING',
     };
     return map[transA] || 'WORD_ORDER';
 }
@@ -11579,6 +11591,11 @@ function _sbRenderModes() {
         { id: 'WORD_ORDER',  label: '語順で読む'      },
         { id: 'DA_READING',   label: '文の構造で読む'       },
         { id: 'ROLE_READING', label: '語の役割で読む'   },
+//        { id: 'STRUCTURE',   label: '構造で読む'      },
+//        { id: 'CLAUSE_ROLE', label: '文の役割で読む'  },
+//        { id: 'RELATION',    label: 'つながりで読む'  },
+//        { id: 'RK_READING',   label: '語句の関係で読む'   }, /* Phase E */
+//        { id: 'RK_READING_V', label: '縦型読み解きで読む' }, /* Phase L.2 */
     ];
     list.innerHTML = items.filter(it => it.id !== 'ROLE_READING' || _roleReadingAvailable()).map(item => {
         const active = (_transA === item.id && _transMode === 'single') ? ' active' : '';
@@ -12480,8 +12497,8 @@ async function init() {
     const ch   = urlParams.chapter || '1';
 
     if (urlParams.transA) _transA = normalizeModeId(urlParams.transA);
-    /* Legacy ?view=hierarchical → STRUCTURE は 2026-10-28 の整理で削除済みのため WORD_ORDER に着地させる。 */
-    if (!urlParams.transA && _hdgInitViewParam === 'hierarchical') _transA = 'WORD_ORDER';
+    /* C-17 Phase 1: Legacy ?view=hierarchical → normalize to STRUCTURE mode (D-2). */
+    if (!urlParams.transA && _hdgInitViewParam === 'hierarchical') _transA = 'STRUCTURE';
     if (urlParams.mode) {
         _transMode = urlParams.mode;
     }
@@ -16055,15 +16072,19 @@ function _buildReadingContext(words, idx) {
 function _toColumnMode(transId) {
     if (transId === 'WORD_ORDER')  return { kind: 'wordOrder' };
     if (transId === 'DA_READING') return { kind: 'da-reading' };
+    if (transId === 'STRUCTURE')   return { kind: 'hierarchical' };
+    if (transId === 'CLAUSE_ROLE') return { kind: 'structural-diagram' };
+    if (transId === 'RELATION')    return { kind: 'relation' };               /* E-4-D */
+    if (transId === 'DISCOURSE')   return { kind: 'discourse' };              /* DA-1 */
+    if (transId === 'RK_READING')  return { kind: 'rk-reading' };            /* Phase E */
+    if (transId === 'RK_READING_V') return { kind: 'rk-reading-v' };         /* Phase L.2 */
+    if (transId === 'RK_READING_P') return { kind: 'rk-reading-p' };         /* Phase M */
     if (transId === 'ROLE_READING') return { kind: 'role-reading' };         /* 語の役割で読む */
-    /* 2026-10-28 のモード整理で削除した旧モードの ID と、その legacy alias は、
-       旧URLを壊さないよう「語順で読む」にフォールバックさせる。 */
-    if (transId === 'DISCOURSE' || transId === 'STRUCTURAL' || transId === 'STRUCTURE'
-        || transId === 'CLAUSE_ROLE' || transId === 'RELATION' || transId === 'RK_READING'
-        || transId === 'RK_READING_V' || transId === 'RK_READING_P'
-        || transId === 'HIERARCHICAL' || transId === 'REED_KELLOGG') return { kind: 'wordOrder' };
     /* Legacy aliases — kept for URL backward compatibility (old deep links) */
     if (transId === 'FLOW')         return { kind: 'wordOrder' };          /* legacy → WORD_ORDER */
+    if (transId === 'HIERARCHICAL') return { kind: 'hierarchical' };       /* legacy → STRUCTURE */
+    if (transId === 'REED_KELLOGG') return { kind: 'structural-diagram' }; /* legacy → CLAUSE_ROLE */
+    if (transId === 'STRUCTURAL')   return { kind: 'structural-diagram' }; /* P2 legacy */
     return { kind: 'translation', translationId: transId };
 }
 
@@ -16076,7 +16097,7 @@ function _toColumnMode(transId) {
  * @returns {boolean}
  */
 function _isGreekReadingMode(kind) {
-    return kind === 'wordOrder' || kind === 'da-reading' || kind === 'role-reading'; /* 旧モードの kind は 2026-10-28 の整理で削除 */
+    return kind === 'wordOrder' || kind === 'discourse' || kind === 'da-reading' || kind === 'structural-diagram' || kind === 'hierarchical' || kind === 'relation' || kind === 'rk-reading' || kind === 'rk-reading-v' || kind === 'rk-reading-p' || kind === 'role-reading'; /* C-17 Phase 1 / E-4-D / Phase E / L.2 / M */
 }
 
 /**
@@ -16087,7 +16108,7 @@ function _isGreekReadingMode(kind) {
  * @returns {boolean}
  */
 function _isAutoloadBlockedMode(kind) {
-    return kind === 'role-reading'; /* 旧モードの kind は 2026-10-28 の整理で削除 */
+    return kind === 'discourse' || kind === 'structural-diagram' || kind === 'hierarchical' || kind === 'relation' || kind === 'rk-reading' || kind === 'rk-reading-v' || kind === 'rk-reading-p' || kind === 'role-reading'; /* Phase E / L.2 / M */
 }
 
 /**
@@ -16582,26 +16603,18 @@ const DiscourseRenderer = {
 /* 語の役割で読む: 章×デバイスの公開可否（rk-availability.json）と
    手動オフセット（rk-offsets/{BOOK}.json）の読み込み。 */
 window._rkAvail = null;
-window._rkAvailPromise = fetch('../assets/data/rk-availability.json')
+fetch('../assets/data/rk-availability.json')
     .then(r => r.ok ? r.json() : {})
-    .then(d => {
-        window._rkAvail = d || {};
-        /* 取得完了後にモード一覧を再描画する（初期描画とのレース回避） */
-        if (typeof _sbRenderModes === 'function') _sbRenderModes();
-        if (typeof _mmpRenderModes === 'function') _mmpRenderModes();
-        return window._rkAvail;
-    })
-    .catch(() => { window._rkAvail = {}; return window._rkAvail; });
-function _roleReadingAvailableFor(book, chapter) {
-    const a = window._rkAvail;
-    if (!a || !book || chapter == null) return false;
-    const dev = window.innerWidth <= 900 ? 'sp' : 'pc';
-    const ch = String(chapter);
-    return !!(a[book] && a[book][ch] && a[book][ch][dev]);
-}
+    .then(d => { window._rkAvail = d || {}; })
+    .catch(() => { window._rkAvail = {}; });
 function _roleReadingAvailable() {
+    const a = window._rkAvail;
+    if (!a) return false;
     const loc = (typeof AppState !== 'undefined' && AppState.location) || {};
-    return _roleReadingAvailableFor(loc.book ? loc.book.key : '', loc.chapter);
+    const book = loc.book ? loc.book.key : '';
+    const ch = loc.chapter != null ? String(loc.chapter) : '';
+    const dev = window.innerWidth <= 900 ? 'sp' : 'pc';
+    return !!(book && ch && a[book] && a[book][ch] && a[book][ch][dev]);
 }
 const _rkOffsetsCache = {};
 async function _loadRkOffsets(book) {
@@ -18959,17 +18972,6 @@ async function _renderRoleReadingView(app, srData, elData) {
     app.appendChild(wrap);
 
     const book = ((srData.sentences[0] || {}).ref || '').split(' ')[0] || '';
-    /* 公開ゲート: 座標の確定が済んでいない章は、URL直打ちでも表示しない */
-    await window._rkAvailPromise;
-    if (!wrap.isConnected) return; /* 描画中に画面が切り替わった */
-    const _locCh = (typeof AppState !== 'undefined' && AppState.location) ? AppState.location.chapter : null;
-    if (!_roleReadingAvailableFor(book, _locCh)) {
-        const naEl = document.createElement('div');
-        naEl.className = 'sd-empty';
-        naEl.textContent = '「語の役割で読む」はこの章ではまだ利用できません（座標の確定が済んだ章から順に公開します）。';
-        wrap.appendChild(naEl);
-        return;
-    }
     const offsets = await _loadRkOffsets(book);
     if (!wrap.isConnected) return; /* 描画中に画面が切り替わった */
 
@@ -21924,6 +21926,11 @@ const MN_MODE_LIST = [
     { id: 'WORD_ORDER',  label: '語順で読む'         },
     { id: 'DA_READING',   label: '文の構造で読む'          },
     { id: 'ROLE_READING', label: '語の役割で読む'          },
+//    { id: 'STRUCTURE',   label: '構造で読む'         },
+//    { id: 'CLAUSE_ROLE', label: '文の役割で読む'     },
+//    { id: 'RELATION',    label: 'つながりで読む'     },
+//    { id: 'RK_READING',   label: '語句の関係で読む'      }, /* Phase F */
+//    { id: 'RK_READING_V', label: '縦型読み解きで読む'  }, /* Phase L.2 */
 ];
 
 function _openMobileModePicker() {
