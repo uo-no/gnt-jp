@@ -919,7 +919,7 @@ pointer-events: auto;
         gap: var(--space-xs);
     }
     #mobile-verse-view .mvv-l3-summary::-webkit-details-marker { display: none; }
-    /* 第3層は「単語を詳しく調べる」一つの入口から任意に開く。 */
+    /* 第3層は「形と関係を見る」「辞書的意味を見る」の2つの入口から任意に開く。 */
     /* 開閉インジケータ（▶ / 開いたら▼）。native details の open 状態で回転。 */
     #mobile-verse-view .mvv-l3-summary::before {
         content: '';
@@ -9705,15 +9705,22 @@ async function _renderReadingNotes(p) {
 
         <div data-study-section="structure">${neighborhoodViewHTML}</div>
 
-        <!-- LEVEL 3: 詳細資料は一つの入口から任意に開く -->
-        <details class="rn-level-section rn-l3-entry" id="rn-level2-details" data-study-section="morphology">
-            <summary class="rn-l3-entry-summary">単語を詳しく調べる</summary>
+        <!-- LEVEL 3: 詳細資料は2つの入口（形と関係／辞書的意味）から任意に開く -->
+        ${(morphGridHTML || analysisGroupHTML) ? `
+        <details class="rn-level-section rn-l3-entry" data-study-section="morphology" open>
+            <summary class="rn-l3-entry-summary">形と関係を見る</summary>
             <div class="rn-level-body">
                 ${(morphGridHTML ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">原文から確認できる情報</div>${morphGridHTML}</div>` : '')}
                 ${analysisGroupHTML}
+            </div>
+        </details>` : ''}
+        ${lexicalGroupHTML ? `
+        <details class="rn-level-section rn-l3-entry" data-study-section="lexical">
+            <summary class="rn-l3-entry-summary">辞書的意味を見る</summary>
+            <div class="rn-level-body">
                 ${lexicalGroupHTML}
             </div>
-        </details>
+        </details>` : ''}
 
 ${LN_RELATED_WORDS_ENABLED ? `
         <!-- TEMPORARILY DISABLED: LN 由来の関連語表示。再開条件は docs/DATA_LICENSE.md を参照。 -->
@@ -20042,7 +20049,7 @@ async function _fillMvvSyntaxSlot(words, targetRef) {
     }
 }
 
-/* StudyPanel parity: _fillMvvLevel2Slot — 「単語を詳しく調べる」内の非同期コンテンツ
+/* StudyPanel parity: _fillMvvLevel2Slot — 「辞書的意味を見る」内の非同期コンテンツ
  * （Usage trends / Etymology / Abbott-Smith）を _lexiconData 経由で注入する。
  * Desktop _renderReadingNotes の同名セクションと同じデータ・HTML 構造を使う。
  * 世代管理は _mvvLevel2Gen で stale 注入を防ぐ。 */
@@ -20089,8 +20096,10 @@ async function _fillMvvLevel2Slot(resolvedId) {
         if (abbSlotCheck) abbSlotCheck.innerHTML = abbottFullHTML;
         const lexicalHeading = document.getElementById('mvv-lexical-heading');
         const lexicalGroup = document.getElementById('mvv-lexical-group');
+        const lexicalDetails = document.getElementById('mvv-lexical-details');
         if (lexicalHeading) lexicalHeading.style.display = (etymologyHTML || abbottFullHTML) ? '' : 'none';
         if (lexicalGroup) lexicalGroup.style.display = (etymologyHTML || abbottFullHTML) ? '' : 'none';
+        if (lexicalDetails) lexicalDetails.style.display = (etymologyHTML || abbottFullHTML) ? '' : 'none';
     } catch (_) {
         /* 静寂：失敗時はスロット空のまま */
     }
@@ -20106,8 +20115,10 @@ async function _fillMvvLevel2Slot(resolvedId) {
  *      内容生成ロジックは _fillMvvReadingSlot() のまま変更なし。該当なしの間は
  *      display:none で非表示＝静寂優先。ESM-16まで存在した「読みを深める」の
  *      折りたたみは廃止し、Desktop同様Layer 2として常時表示域に置く）
- *   〔単語を詳しく調べる〕…折りたたみ（native details・既定閉、Layer 3 = 調べる）:
- *     Lemma / Strong / Morphology（Desktopの「単語を詳しく調べる」に相当する研究情報）
+ *   〔形と関係を見る〕…折りたたみ（native details・既定開、Layer 3 = 調べる）:
+ *     Lemma / Strong / Morphology・分析候補（Desktopの同名トグルに相当する研究情報）
+ *   〔辞書的意味を見る〕…折りたたみ（native details・既定閉）＋語源・辞書全文スロット
+ *     （内容が無い語ではセクションごと非表示。_fillMvvLevel2Slot が表示を制御）
  *   〔意味を見る〕…折りたたみ（native details・既定閉）＋空スロット #mvv-semantic-slot
  *
  * 折りたたみは native <details>/<summary> のみで実現（新規 AppState / storage / URL 状態なし）。
@@ -20167,8 +20178,8 @@ function _renderMobileWordDetail(d) {
         <div id="mvv-flow-slot" data-study-section="structure" style="margin-top:var(--space-md);"></div>
 
         ${hasStudyDetails ? `
-        <details class="mvv-l3-section rn-l3-entry" data-study-section="morphology">
-          <summary class="mvv-l3-summary">単語を詳しく調べる</summary>
+        <details class="mvv-l3-section rn-l3-entry" data-study-section="morphology" open>
+          <summary class="mvv-l3-summary">形と関係を見る</summary>
           <div class="mvv-l3-slot">
             ${(d.lemma || d.strong || morphTags) ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">原文から確認できる情報</div>
               ${(d.lemma ? `<div>見出し語: <span class="mvv-l3-lemma">${_escH(d.lemma)}</span></div>` : '')}
@@ -20179,6 +20190,11 @@ function _renderMobileWordDetail(d) {
               ${(morphCandidatesHTML ? `<div class="rn-l3-group-label">分析候補・統語情報</div>${morphCandidatesHTML}` : '')}
               <div id="mvv-syntax-slot" class="rn-syntax-labels" data-study-section="syntax" style="display:none;"></div>
             </div>
+          </div>
+        </details>
+        <details class="mvv-l3-section rn-l3-entry" data-study-section="lexical" id="mvv-lexical-details" style="display:none;">
+          <summary class="mvv-l3-summary">辞書的意味を見る</summary>
+          <div class="mvv-l3-slot">
             <div class="rn-l3-group" data-study-group="lexical" id="mvv-lexical-group" style="display:none;">
               <div class="rn-l3-group-label" id="mvv-lexical-heading" style="display:none;">語義・語彙資料</div>
               <div class="rn-l3-group-content">
