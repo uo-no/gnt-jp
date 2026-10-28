@@ -19006,12 +19006,14 @@ async function _renderRoleReadingView(app, srData, elData) {
             svg.setAttribute('viewBox', `${minX} ${laid.y0 - 36} ${maxX - minX} ${laid.h + 66}`);
             svg.setAttribute('class', 'role-svg');
             /* 文字サイズを文ごとに揃える: 等倍（22px）を上限とし、収まらない
-               文は最小0.5倍まで縮小、それでも超える分は横スクロールに委ねる。
-               （幅100%フィットだと文ごとに 6px〜150px 相当にばらつくため） */
+               文は最小0.65倍（約14px）まで縮小、それでも超える分は横スクロール
+               に委ねる。（幅100%フィットだと文ごとに 6px〜150px 相当にばらつく
+               ため。0.5倍では長い文が読みにくいという検証結果を受けて下限を
+               0.65 に引き上げた） */
             const extentW = maxX - minX;
             const availW = Math.max(280, (wrap.clientWidth || extentW) - 4);
             let scale = Math.min(1, availW / extentW);
-            if (scale < 0.5) scale = 0.5;
+            if (scale < 0.65) scale = 0.65;
             svg.style.width = Math.round(extentW * scale) + 'px';
             svg.style.height = Math.round((laid.h + 66) * scale) + 'px';
             for (const e of laid.edges) {
