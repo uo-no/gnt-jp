@@ -3389,85 +3389,6 @@ details[open] > summary .sd-fold-arrow { transform: rotate(-135deg); }
     .sd-greek { font-size: var(--text-caption); }
 }
 
-/* ── ICL候補パネル（P3-H PoC: ROM 6:10 τῇ ἁμαρτίᾳ のみ） ── */
-.icl-panel {
-    margin-top: 8px;
-    border: 1px solid var(--border-soft);
-    border-radius: 5px;
-    overflow: hidden;
-}
-.icl-panel-hd {
-    padding: 4px 8px 3px;
-    background: var(--bg-panel);
-    color: var(--text-sub);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    cursor: pointer;
-    list-style: none;
-}
-.icl-panel-hd::-webkit-details-marker { display: none; }
-/* border-bottom はopen時のみ表示（collapsed時は不要） */
-details.icl-panel[open] > .icl-panel-hd {
-    border-bottom: 1px solid var(--border-soft);
-}
-.icl-panel-sub {
-    font-size: 9px;
-    font-weight: 400;
-    color: var(--text-hint, #8e8e93);
-    margin-top: 1px;
-}
-.icl-candidates { padding: 2px 0; }
-.icl-cand {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    padding: 4px 8px;
-}
-.icl-cand + .icl-cand { border-top: 1px solid var(--divider); }
-.icl-ev-dot {
-    flex-shrink: 0;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    margin-top: 4px;
-}
-.icl-ev-STRONG   { background: var(--text-sub); }
-.icl-ev-MODERATE { background: var(--border-strong, rgba(0,0,0,0.12)); }
-.icl-ev-WEAK     { border: 1.5px solid var(--border-strong, rgba(0,0,0,0.12)); background: transparent; }
-.icl-cand-main { flex: 1; min-width: 0; }
-.icl-cand-id  {
-    font-size: 9px;
-    font-family: monospace;
-    color: var(--text-hint, #8e8e93);
-}
-.icl-cand-ja {
-    font-size: var(--text-caption);
-    color: var(--text-sub);
-    margin-left: 3px;
-}
-.icl-cand-ref {
-    font-size: 9px;
-    color: var(--text-hint, #8e8e93);
-    margin-top: 1px;
-}
-.icl-cand-unresolved {
-    font-size: 9px;
-    color: var(--color-caution, #a09050);
-    margin-top: 2px;
-    font-style: italic;
-}
-.icl-footnote {
-    padding: 3px 8px 4px;
-    font-size: 9px;
-    color: var(--text-hint, #8e8e93);
-    border-top: 1px solid var(--divider);
-    background: var(--bg-inset, #fafafa);
-}
-@media (max-width: 390px) {
-    .icl-cand { padding: 3px 6px; }
-    .icl-cand-id { font-size: 8px; }
-}
 /* ══════════════════════════════════════════════════════════════════════════════ */
 
 .flow-signal-text {
@@ -6240,7 +6161,6 @@ body.chapter-navigation-loading #main-reading-area::after {
 <script src="../core/presentation-policy.js"></script>
 <script src="../core/flow-tree-adapter.js"></script>
 <script src="../core/neighborhood-view.js"></script>
-<script src="../core/icl-engine.js"></script>
 <script src="../core/rk-reading-adapter.js"></script>
 <script src="../core/role-reading-layout.js"></script>
 <script src="../core/role-reading-adapter.js"></script>
@@ -11185,20 +11105,6 @@ async function init() {
             || _colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical' || _colB.kind === 'relation' || _colB.kind === 'da-reading' || _colB.kind === 'rk-reading' || _colB.kind === 'rk-reading-v' || _colB.kind === 'rk-reading-p' || _colB.kind === 'role-reading' /* B列 passage-level */
         ) ? await _loadSrChapter(book, ch) : null;
 
-        /* P4-ICL: ICL インデックスを事前計算（structural-diagram ビューかつ iclEnabled 時のみ）。 */
-        _sdIclIndex = null;
-        if (_sdChapterDataForRender && window.App && window.App.flags && window.App.flags.iclEnabled
-                && window.App.icl && window.App.icl.buildICLIndex) {
-            try {
-                const _iclReg = await _ensureIclRegistry();
-                if (_iclReg && elData && elData.length > 0) {
-                    const _iclTokenMap = new Map(elData.map(t => [t.verseId, t]));
-                    _sdIclIndex = window.App.icl.buildICLIndex(
-                        _sdChapterDataForRender, _iclTokenMap, _iclReg, book + ' ' + ch
-                    );
-                }
-            } catch (_iclErr) { _sdIclIndex = null; }
-        }
 
         /* VR-5-D: resolvedJpData 決定ロジックを _getVerseSource() へ抽出（VR-5-C 参照） */
         const resolvedJpData = _getVerseSource(_colA, jpData, elData);
@@ -14887,21 +14793,6 @@ let _dcvChapterTreeForRender = null;
    DA-1 の _dcvChapterTreeForRender と同じタイミングで事前 fetch して格納する。 */
 let _sdChapterDataForRender = null;
 
-/* P4-ICL: 章単位の ICL インデックス（Map<nodeId, CandidateSet>）。
-   _sdChapterDataForRender と同タイミングで buildICLIndex() により計算。
-   window.App.flags.iclEnabled=false のとき null のまま。 */
-let _sdIclIndex = null;
-
-/* P4-ICL: syntax-registry.json の独立キャッシュ（_wallacePipeline とは別）。 */
-let _iclRegistryCached = null;
-async function _ensureIclRegistry() {
-    if (_iclRegistryCached) return _iclRegistryCached;
-    try {
-        const res = await fetch('../assets/data/syntax-registry.json');
-        if (res.ok) _iclRegistryCached = await res.json();
-    } catch (_) {}
-    return _iclRegistryCached;
-}
 
 /* ══════════════════════════════════════════
    P2: Structural Diagram Renderer
@@ -16990,20 +16881,6 @@ async function renderCurrentPage() {
             || _colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical' || _colB.kind === 'relation' || _colB.kind === 'da-reading' || _colB.kind === 'rk-reading' || _colB.kind === 'rk-reading-v' || _colB.kind === 'rk-reading-p' || _colB.kind === 'role-reading' /* B列 passage-level */
         ) ? await _loadSrChapter(book, ch) : null;
 
-        /* P4-ICL: ICL インデックスを事前計算（structural-diagram ビューかつ iclEnabled 時のみ）。 */
-        _sdIclIndex = null;
-        if (_sdChapterDataForRender && window.App && window.App.flags && window.App.flags.iclEnabled
-                && window.App.icl && window.App.icl.buildICLIndex) {
-            try {
-                const _iclReg = await _ensureIclRegistry();
-                if (_iclReg && elData && elData.length > 0) {
-                    const _iclTokenMap = new Map(elData.map(t => [t.verseId, t]));
-                    _sdIclIndex = window.App.icl.buildICLIndex(
-                        _sdChapterDataForRender, _iclTokenMap, _iclReg, book + ' ' + ch
-                    );
-                }
-            } catch (_iclErr) { _sdIclIndex = null; }
-        }
 
         /* VR-5-D: resolvedJpData 決定ロジックを _getVerseSource() へ抽出（VR-5-C 参照） */
         const resolvedJpData = _getVerseSource(_colA, jpData, elData);
