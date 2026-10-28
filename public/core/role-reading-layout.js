@@ -294,8 +294,226 @@
     }
   }
 
+  /* ── 複数行エッジの迂回ルーティング ─────────────────────────────
+   * 複数行にまたがる mod / dash を直線で結ぶと、途中の行の語の字形を
+   * 横切ってしまう（日本語ラベルは幅が広く、列間隔 IND=30 に対して
+   * 字形がはみ出すため、素直な縦チャネルも空いていないことがある）。
+   * そこで文の全語の字形ボックスを避ける縦チャネルを実測で探し、
+   * 「横移動（アンダーライン高さ）→ 縦に降りる → 最後に斜め/横に入る」
+   * 経路を e.d として事前計算する。直線より交差が減らない場合は直線のまま。 */
+  function _inkBox(w) { return { l: w.x - 1, r: w.x + w.w + 1, t: w.y - 19, b: w.y + 3 }; }
+  function _segHits(x1, y1, x2, y2, r) {
+    var inX = function (x) { return x >= r.l && x <= r.r; }, inY = function (y) { return y >= r.t && y <= r.b; };
+    if (inX(x1) && inY(y1) || inX(x2) && inY(y2)) return true;
+    if (x1 === x2) return inX(x1) && Math.max(Math.min(y1, y2), r.t) <= Math.min(Math.max(y1, y2), r.b) && !(Math.max(y1, y2) < r.t || Math.min(y1, y2) > r.b);
+    if (y1 === y2) return inY(y1) && !(Math.max(x1, x2) < r.l || Math.min(x1, x2) > r.r);
+    var dx = x2 - x1, dy = y2 - y1, t0 = 0, t1 = 1, p, q, u;
+    var clip = function (pp, qq) { if (pp === 0) return qq >= 0; u = qq / pp; if (pp < 0) { if (u > t1) return false; if (u > t0) t0 = u; } else { if (u < t0) return false; if (u < t1) t1 = u; } return true; };
+    return clip(-dx, x1 - r.l) && clip(dx, r.r - x1) && clip(-dy, y1 - r.t) && clip(dy, r.b - y1) && t0 <= t1;
+  }
+  function _countHits(segs, boxes) {
+    var n = 0;
+    for (var i = 0; i < boxes.length; i++) for (var j = 0; j < segs.length; j++) if (_segHits(segs[j][0], segs[j][1], segs[j][2], segs[j][3], boxes[i])) { n++; break; }
+    return n;
+  }
+  function _parsePath(d) {
+    var toks = d.match(/[MLVH]|-?\d+(?:\.\d+)?/g), segs = [], i = 0, cx = 0, cy = 0, cmd = null;
+    while (i < toks.length) {
+      if (/^[MLVH]$/.test(toks[i])) { cmd = toks[i++]; continue; }
+      var v = parseFloat(toks[i++]);
+      if (cmd === 'M') { cx = v; cy = parseFloat(toks[i++]); cmd = 'L'; }
+      else if (cmd === 'L') { segs.push([cx, cy, v, parseFloat(toks[i])]); cx = v; cy = parseFloat(toks[i++]); }
+      else if (cmd === 'V') { segs.push([cx, cy, cx, v]); cy = v; }
+      else if (cmd === 'H') { segs.push([cx, cy, v, cy]); cx = v; }
+    }
+    return segs;
+  }
+  /* e.d 未設定時に edgePath が返す既定経路のセグメント（比較の基準）。 */
+  function _defaultSegs(e) { return _parsePath(edgePath({ kind: e.kind, a: e.a, b: e.b })); }
+  function _routeLongEdges(sent) {
+    var boxes = sent.words.map(_inkBox);
+    for (var ei = 0; ei < sent.edges.length; ei++) {
+      var e = sent.edges[ei];
+      var a = e.a, b = e.b, ay = a.y + 4, by = b.y + 4;
+      if (e.kind === 'sv' || e.kind === 'vo' || e.kind === 'vp' || e.kind === 'cont') {
+        if (Math.abs(by - ay) <= 46) continue;
+        var ar = a.x + a.w + 4, bl = b.x - 4;
+        var ob = boxes.filter(function (_, i) { return sent.words[i] !== a && sent.words[i] !== b; });
+        var bestH = _countHits(_defaultSegs(e), ob), bestDD = null;
+        var candS = [ar, bl];
+        for (var cs = 0; cs < ob.length; cs++) { candS.push(ob[cs].l - 3); candS.push(ob[cs].r + 3); }
+        var seenS = {};
+        for (var ks = 0; ks < candS.length; ks++) {
+          var X = Math.round(candS[ks]);
+          if (seenS[X]) continue; seenS[X] = 1;
+          var px = (X + bl) / 2;
+          var segs = [];
+          if (X !== ar) segs.push([ar, ay, X, ay]);
+          segs.push([X, ay, X, by]);
+          if (X !== bl) segs.push([X, by, bl, by]);
+          if (e.kind !== 'cont') segs.push([px, by - 24, px, e.kind === 'sv' ? by + 10 : by]);
+          var hh = _countHits(segs, ob);
+          if (hh < bestH) { bestH = hh; bestDD = 'M' + ar + ',' + ay + (X !== ar ? 'H' + X : '') + 'V' + by + (X !== bl ? 'H' + bl : '') + (e.kind !== 'cont' ? 'M' + px + ',' + (by - 24) + 'L' + px + ',' + (e.kind === 'sv' ? by + 10 : by) : ''); if (hh === 0) break; }
+        }
+        if (bestDD) e.d = bestDD;
+        continue;
+      }
+      if (e.kind !== 'mod' && e.kind !== 'dash') continue;
+      if (Math.abs(by - ay) <= 46) {
+        /* 同一行の dash は、間の語（冠詞など）の上を斜めに横切ることがある。
+           その場合は上側を迂回する「帽子」型の経路を試す。 */
+        if (e.kind !== 'dash') continue;
+        var a2 = e.a, b2 = e.b;
+        var sxH = a2.x + a2.w / 2, txH = b2.x + b2.w / 2, syH = ay + 6, tyH = by - 24;
+        var obH = boxes.filter(function (_, i) { return sent.words[i] !== a2 && sent.words[i] !== b2; });
+        var baseH = _countHits(_defaultSegs(e), obH);
+        if (baseH === 0) continue;
+        var hatSegs = [[sxH, syH, sxH, by - 30], [sxH, by - 30, txH, by - 30], [txH, by - 30, txH, tyH]];
+        if (_countHits(hatSegs, obH) < baseH) e.d = 'M' + sxH + ',' + syH + 'V' + (by - 30) + 'H' + txH + 'V' + tyH;
+        continue;
+      }
+      var isMod = e.kind === 'mod';
+      var sx = isMod ? a.x + Math.min(14, a.w) : a.x + a.w / 2;
+      var sy = isMod ? ay : ay + 6;
+      var tx = isMod ? b.x - PADX : b.x + b.w / 2;
+      var ty = isMod ? by : by - 24;
+      var others = boxes.filter(function (_, i) { return sent.words[i] !== a && sent.words[i] !== b; });
+      var bestHits = _countHits(_defaultSegs(e), others), bestD = null;
+      var yMid = isMod ? (by > ay ? by - 30 : by + 30) : ty;
+      var cand = [sx, tx, a.x + 4, b.x - PADX - 6];
+      for (var ci = 0; ci < others.length; ci++) { cand.push(others[ci].l - 3); cand.push(others[ci].r + 3); }
+      var lo = Math.min(a.x, b.x) - 260, hi = Math.max(a.x + a.w, b.x + b.w) + 80;
+      var seen = {};
+      for (var k = 0; k < cand.length; k++) {
+        var X = Math.round(cand[k]);
+        if (X < lo || X > hi || seen[X]) continue; seen[X] = 1;
+        var segs = [];
+        if (X !== sx) segs.push([sx, sy, X, sy]);
+        segs.push([X, sy, X, yMid]);
+        segs.push([X, yMid, tx, ty]);
+        var h = _countHits(segs, others);
+        if (h < bestHits) { bestHits = h; bestD = 'M' + sx + ',' + sy + (X !== sx ? 'H' + X : '') + 'V' + yMid + 'L' + tx + ',' + ty; if (h === 0) break; }
+      }
+      if (bestD) e.d = bestD;
+      /* 単一チャネルで解消できない mod は、行間の水平回廊でチャネルを
+         乗り換える2チャネル経路を試す（V→回廊H→V→斜め）。 */
+      if (isMod && bestHits > 0) {
+        var yTop = Math.min(sy, ty), yBot = Math.max(sy, ty);
+        var bases = [];
+        for (var bi = 0; bi < others.length; bi++) { var bb = Math.round(others[bi].t + 19); if (bases.indexOf(bb) < 0) bases.push(bb); }
+        bases.sort(function (p, q) { return p - q; });
+        var corridors = [];
+        for (var ci2 = 0; ci2 + 1 < bases.length; ci2++) {
+          if (bases[ci2 + 1] - bases[ci2] >= 24) {
+            var yc = Math.floor((bases[ci2] + 3 + bases[ci2 + 1] - 19) / 2) + 4;
+            if (yc > yTop + 20 && yc < yBot - 20) corridors.push(yc);
+          }
+        }
+        var cand2 = [sx, tx];
+        for (var cj = 0; cj < others.length; cj++) { cand2.push(others[cj].l - 3); cand2.push(others[cj].r + 3); }
+        var seen2 = {}, Xs = [];
+        for (var kk = 0; kk < cand2.length; kk++) { var Xv = Math.round(cand2[kk]); if (Xv < lo || Xv > hi || seen2[Xv]) continue; seen2[Xv] = 1; Xs.push(Xv); }
+        var budget = 260000, found2 = null;
+        outer:
+        for (var co = 0; co < corridors.length; co++) {
+          var yC = corridors[co];
+          for (var x1i = 0; x1i < Xs.length; x1i++) {
+            var X1 = Xs[x1i];
+            var segA = []; if (X1 !== sx) segA.push([sx, sy, X1, sy]); segA.push([X1, sy, X1, yC]);
+            budget -= segA.length * others.length; if (budget < 0) break outer;
+            if (_countHits(segA, others) > 0) continue;
+            for (var x2i = 0; x2i < Xs.length; x2i++) {
+              var X2 = Xs[x2i];
+              var segB = []; if (X2 !== X1) segB.push([X1, yC, X2, yC]); segB.push([X2, yC, X2, yMid]); segB.push([X2, yMid, tx, ty]);
+              budget -= segB.length * others.length; if (budget < 0) break outer;
+              if (_countHits(segB, others) === 0) {
+                found2 = 'M' + sx + ',' + sy + (X1 !== sx ? 'H' + X1 : '') + 'V' + yC + (X2 !== X1 ? 'H' + X2 : '') + 'V' + yMid + 'L' + tx + ',' + ty;
+                break outer;
+              }
+            }
+          }
+        }
+        if (found2) e.d = found2;
+        else if (isMod) {
+          /* 最終手段: バンド（行）ごとに空きチャネルを動的計画法でつなぐ。
+             系図のような超長距離でも、行間の回廊でチャネルを乗り換えながら降りる。 */
+          var allB = [];
+          for (var bq = 0; bq < sent.words.length; bq++) { var yq = sent.words[bq].y; if (allB.indexOf(yq) < 0) allB.push(yq); }
+          var loB = Math.min(a.y, b.y), hiB = Math.max(a.y, b.y);
+          var bandY = allB.filter(function (Y) { return Y > loB && Y < hiB; });
+          bandY.sort(function (p, q) { return by > ay ? p - q : q - p; });
+          /* 近すぎる行は1バンドにまとめる（インク帯が重なるため回廊が作れない） */
+          var bands = [];
+          for (var bg = 0; bg < bandY.length; bg++) {
+            if (bands.length && Math.abs(bandY[bg] - bands[bands.length - 1][bands[bands.length - 1].length - 1]) < 24) bands[bands.length - 1].push(bandY[bg]);
+            else bands.push([bandY[bg]]);
+          }
+          if (bands.length > 0 && bands.length <= 220) {
+            var blocked = bands.map(function (grp) {
+              return others.filter(function (bx) { return grp.indexOf(Math.round(bx.t + 19)) >= 0; }).map(function (bx) { return [bx.l, bx.r]; });
+            });
+            var corY = bands.map(function (grp, gi) {
+              var prevY = gi === 0 ? a.y : bands[gi - 1][bands[gi - 1].length - 1];
+              return by > ay
+                ? Math.floor((prevY + 3 + grp[0] - 19) / 2) + 4
+                : Math.floor((prevY - 19 + grp[grp.length - 1] + 3) / 2) + 4;
+            });
+            var candX = function (gi) {
+              var set = [sx, tx], iv = blocked[gi];
+              for (var iv2 = 0; iv2 < iv.length; iv2++) { set.push(iv[iv2][0] - 3); set.push(iv[iv2][1] + 3); }
+              var out = [], seen3 = {};
+              for (var s3 = 0; s3 < set.length; s3++) { var xv = Math.round(set[s3]); if (xv < lo - 40 || xv > hi + 40 || seen3[xv]) continue; seen3[xv] = 1; out.push(xv); }
+              return out;
+            };
+            var hitAt = function (gi, X) { var iv = blocked[gi]; for (var q2 = 0; q2 < iv.length; q2++) if (X > iv[q2][0] && X < iv[q2][1]) return 1; return 0; };
+            var INF = 1e9;
+            var dpPrev = new Map(), par = [];
+            var xs0 = candX(0);
+            for (var x0 = 0; x0 < xs0.length; x0++) dpPrev.set(xs0[x0], hitAt(0, xs0[x0]) * 1000 + (xs0[x0] !== sx ? 1 : 0));
+            par.push(new Map());
+            for (var gi2 = 1; gi2 < bands.length; gi2++) {
+              var xs = candX(gi2), dpCur = new Map(), parCur = new Map();
+              dpPrev.forEach(function (cost, Xp) {
+                for (var xc = 0; xc < xs.length; xc++) {
+                  var Xn = xs[xc], add = hitAt(gi2, Xn) * 1000;
+                  if (Xn !== Xp) {
+                    add += 1;
+                    /* 回廊での横移動が字形に触れないこと */
+                    var hseg = [[Math.min(Xp, Xn), corY[gi2], Math.max(Xp, Xn), corY[gi2]]];
+                    if (_countHits(hseg, others) > 0) return;
+                  }
+                  var nc = cost + add;
+                  if (!dpCur.has(Xn) || nc < dpCur.get(Xn)) { dpCur.set(Xn, nc); parCur.set(Xn, Xp); }
+                }
+              });
+              par.push(parCur); dpPrev = dpCur;
+            }
+            var bestX = null, bestC = INF;
+            dpPrev.forEach(function (cost, Xl) {
+              var c2 = cost + _countHits([[Xl, yMid, tx, ty]], others) * 1000;
+              if (c2 < bestC) { bestC = c2; bestX = Xl; }
+            });
+            if (bestX !== null && bestC < bestHits * 1000) {
+              var chain = [bestX];
+              for (var gb = bands.length - 1; gb >= 1; gb--) { chain.unshift(par[gb].get(chain[0])); }
+              var dStr = 'M' + sx + ',' + sy, curX = sx;
+              for (var gc = 0; gc < chain.length; gc++) {
+                var target = chain[gc], yTo = gc === 0 ? corY[0] : corY[gc];
+                if (gc === 0) { if (target !== curX) { dStr += 'H' + target; curX = target; } dStr += 'V' + yTo; }
+                else { dStr += 'V' + corY[gc]; if (target !== curX) { dStr += 'H' + target; curX = target; } }
+              }
+              dStr += 'V' + yMid + 'L' + tx + ',' + ty;
+              e.d = dStr;
+            }
+          }
+        }
+      }
+    }
+  }
+
   /* エディタの draw() の pd() を移植（線の経路生成）。 */
   function edgePath(e) {
+    if (e.d) return e.d;
     var a = e.a, b = e.b, ay = a.y + 4, by = b.y + 4;
     if (e.kind === 'mod') {
       var sx = a.x + Math.min(14, a.w), tx = b.x - PADX;
@@ -329,6 +547,7 @@
       cy += (r ? r.h : 0) + 70;
     }
     resolve();
+    for (var oi = 0; oi < out.length; oi++) _routeLongEdges(out[oi]);
     return { sentences: out, height: cy };
   }
 
