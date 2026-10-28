@@ -432,7 +432,20 @@
         segs.push([X, sy, X, yMid]);
         segs.push([X, yMid, tx, ty]);
         var c2 = _count2(segs, others, othersB);
-        if (_better2(c2, bestC2)) { bestC2 = c2; bestD = 'M' + sx + ',' + sy + (X !== sx ? 'H' + X : '') + 'V' + yMid + 'L' + tx + ',' + ty; if (c2[0] === 0 && c2[1] === 0) break; }
+        var dStr2 = 'M' + sx + ',' + sy + (X !== sx ? 'H' + X : '') + 'V' + yMid + 'L' + tx + ',' + ty;
+        /* mod の帰還は、斜め（(X,yMid)→(tx,ty)、横幅の割に浅く「もう1本の
+           横線」に見える）より、チャネルを接続先のベースラインまで降ろして
+           下線の高さで横に入るエルボー形の方がたどりやすい。チャネルが
+           接続先の左にある場合に限り、交差が悪化しないエルボーを優先する。 */
+        if (isMod && X <= tx) {
+          var segsE = [];
+          if (X !== sx) segsE.push([sx, sy, X, sy]);
+          segsE.push([X, sy, X, ty]);
+          if (X !== tx) segsE.push([X, ty, tx, ty]);
+          var cE = _count2(segsE, others, othersB);
+          if (!_better2(c2, cE)) { c2 = cE; dStr2 = 'M' + sx + ',' + sy + (X !== sx ? 'H' + X : '') + 'V' + ty + (X !== tx ? 'H' + tx : ''); }
+        }
+        if (_better2(c2, bestC2)) { bestC2 = c2; bestD = dStr2; if (c2[0] === 0 && c2[1] === 0) break; }
       }
       if (bestD) e.d = bestD;
       /* 単一チャネルで解消できない mod は、行間の水平回廊でチャネルを
@@ -552,6 +565,82 @@
             }
           }
         }
+      }
+    }
+    _separateCoincident(sent);
+  }
+
+  /* ── 線同士の分離（レーンずらし） ─────────────────────────────
+   * _routeLongEdges は各辺を「語との交差」だけで独立に評価するため、
+   * 同じ親を持つ mod 辺どうしが同じ始点・同じチャネル X を選び、
+   * 長い水平/垂直区間が完全に重なって1本に見えることがある
+   * （例: コロサイ1:14-16、贖い・像・すべての から出る辺）。
+   * 文の全辺の確定経路を見比べ、単一チャネル形の mod 辺に限り、
+   * (a) 始点直後の小さな段差（ジョグ）で水平レーンを下へずらす、
+   * (b) チャネル X をずらす、の組合せで重なりを解消する。
+   * 変換は語との交差 [字形,ブロック] が元の経路より悪化しない
+   * （辞書順で同等以下）場合だけ採用する。語の配置は変えない。 */
+  function _parseSingleChannel(segs) {
+    if (segs.length < 2 || segs.length > 3) return null;
+    var sx = segs[0][0], sy = segs[0][1], X, hasH = false, vi;
+    if (segs[0][1] === segs[0][3] && segs[0][0] !== segs[0][2]) { hasH = true; X = segs[0][2]; vi = 1; }
+    else if (segs[0][0] === segs[0][2] && segs[0][1] !== segs[0][3]) { X = sx; vi = 0; }
+    else return null;
+    var v = segs[vi];
+    if (!v || v[0] !== X || v[2] !== X || v[1] !== sy) return null;
+    var yEnd = v[3];
+    var last = segs[vi + 1];
+    if (!last) return { sx: sx, sy: sy, X: X, hasH: hasH, elbow: true, tx: X, ty: yEnd, yMid: yEnd };
+    if (last[0] !== X || last[1] !== yEnd) return null;
+    if (last[1] === last[3] && last[0] !== last[2]) return { sx: sx, sy: sy, X: X, hasH: hasH, elbow: true, tx: last[2], ty: last[3], yMid: yEnd };
+    if (last[0] !== last[2] && last[1] !== last[3]) return { sx: sx, sy: sy, X: X, hasH: hasH, elbow: false, tx: last[2], ty: last[3], yMid: yEnd };
+    return null;
+  }
+  function _buildSingleChannel(p, off, dx) {
+    var Xn = p.X + dx, segs = [], d = 'M' + p.sx + ',' + p.sy, startY = p.sy;
+    if (off > 0) { segs.push([p.sx, p.sy, p.sx, p.sy + off]); d += 'V' + (p.sy + off); startY = p.sy + off; }
+    if (Xn !== p.sx) { segs.push([p.sx, startY, Xn, startY]); d += 'H' + Xn; }
+    var yEnd = p.elbow ? p.ty : p.yMid;
+    segs.push([Xn, startY, Xn, yEnd]); d += 'V' + yEnd;
+    if (p.elbow) { if (Xn !== p.tx) { segs.push([Xn, p.ty, p.tx, p.ty]); d += 'H' + p.tx; } }
+    else { segs.push([Xn, yEnd, p.tx, p.ty]); d += 'L' + p.tx + ',' + p.ty; }
+    return { segs: segs, d: d };
+  }
+  function _separateCoincident(sent) {
+    var boxes = sent.words.map(_inkBox);
+    var blocks = sent.words.map(_blockBox);
+    /* 全辺の確定経路を先に登録する（処理順に依存せず、後続の辺のレーンへ
+       割り込む変換を防ぐ）。登録には辺の番号を持たせ、自己との重なりは除く。 */
+    var regH = [], regV = [];
+    function longH(segs, ei) { var out = []; for (var i = 0; i < segs.length; i++) { var s = segs[i]; if (s[1] === s[3] && Math.abs(s[2] - s[0]) >= 60) out.push({ y: s[1], x1: Math.min(s[0], s[2]), x2: Math.max(s[0], s[2]), ei: ei }); } return out; }
+    function longV(segs, ei) { var out = []; for (var i = 0; i < segs.length; i++) { var s = segs[i]; if (s[0] === s[2] && Math.abs(s[3] - s[1]) >= 60) out.push({ x: s[0], y1: Math.min(s[1], s[3]), y2: Math.max(s[1], s[3]), ei: ei }); } return out; }
+    function conflicts(segs, selfEi) {
+      var bad = false;
+      longH(segs, -1).forEach(function (h) { regH.forEach(function (r) { if (r.ei !== selfEi && Math.abs(h.y - r.y) <= 1 && Math.min(h.x2, r.x2) - Math.max(h.x1, r.x1) >= 40) bad = true; }); });
+      longV(segs, -1).forEach(function (v) { regV.forEach(function (r) { if (r.ei !== selfEi && Math.abs(v.x - r.x) <= 1 && Math.min(v.y2, r.y2) - Math.max(v.y1, r.y1) >= 40) bad = true; }); });
+      return bad;
+    }
+    function register(segs, ei) { longH(segs, ei).forEach(function (h) { regH.push(h); }); longV(segs, ei).forEach(function (v) { regV.push(v); }); }
+    function unregister(ei) { regH = regH.filter(function (r) { return r.ei !== ei; }); regV = regV.filter(function (r) { return r.ei !== ei; }); }
+    var allSegs = sent.edges.map(function (e) { return _parsePath(edgePath(e)); });
+    allSegs.forEach(function (segs, ei) { register(segs, ei); });
+    for (var ei = 0; ei < sent.edges.length; ei++) {
+      var e = sent.edges[ei];
+      if (e.kind !== 'mod' || !e.d) continue;
+      var segs = allSegs[ei];
+      if (!conflicts(segs, ei)) continue;
+      var parsed = _parseSingleChannel(segs);
+      if (!parsed) continue;
+      var origC = _count2(segs, boxes, blocks);
+      var cands = [[6, 0], [12, 0], [18, 0], [24, 0], [30, 0], [0, -6], [0, 6], [0, -12], [0, 12], [0, -18], [0, 18], [6, -6], [6, 6], [12, -6], [12, 6], [18, -6], [18, 6], [24, -6], [24, 6], [30, -6], [30, 6], [6, -18], [6, 18], [12, -18], [12, 18]];
+      for (var ci = 0; ci < cands.length; ci++) {
+        var built = _buildSingleChannel(parsed, cands[ci][0], cands[ci][1]);
+        var nc = _count2(built.segs, boxes, blocks);
+        if (_better2(origC, nc)) continue; /* 交差が悪化する変換は採用しない */
+        if (conflicts(built.segs, ei)) continue;
+        e.d = built.d;
+        unregister(ei); register(built.segs, ei);
+        break;
       }
     }
   }
