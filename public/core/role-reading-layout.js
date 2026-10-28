@@ -335,13 +335,16 @@
     for (var ei = 0; ei < sent.edges.length; ei++) {
       var e = sent.edges[ei];
       var a = e.a, b = e.b, ay = a.y + 4, by = b.y + 4;
+      var dy = Math.abs(by - ay);
+      /* 端点の語も障害物に含めて既定経路を数える。到達の斜め線が
+         自分自身の接続先の字形の角を切るケースをここで拾う。 */
+      var defHits = _countHits(_defaultSegs(e), boxes);
       if (e.kind === 'sv' || e.kind === 'vo' || e.kind === 'vp' || e.kind === 'cont') {
-        if (Math.abs(by - ay) <= 46) continue;
+        if (defHits === 0) continue;
         var ar = a.x + a.w + 4, bl = b.x - 4;
-        var ob = boxes.filter(function (_, i) { return sent.words[i] !== a && sent.words[i] !== b; });
-        var bestH = _countHits(_defaultSegs(e), ob), bestDD = null;
+        var bestH = defHits, bestDD = null;
         var candS = [ar, bl];
-        for (var cs = 0; cs < ob.length; cs++) { candS.push(ob[cs].l - 3); candS.push(ob[cs].r + 3); }
+        for (var cs = 0; cs < boxes.length; cs++) { candS.push(boxes[cs].l - 3); candS.push(boxes[cs].r + 3); }
         var seenS = {};
         for (var ks = 0; ks < candS.length; ks++) {
           var X = Math.round(candS[ks]);
@@ -352,33 +355,46 @@
           segs.push([X, ay, X, by]);
           if (X !== bl) segs.push([X, by, bl, by]);
           if (e.kind !== 'cont') segs.push([px, by - 24, px, e.kind === 'sv' ? by + 10 : by]);
-          var hh = _countHits(segs, ob);
+          var hh = _countHits(segs, boxes);
           if (hh < bestH) { bestH = hh; bestDD = 'M' + ar + ',' + ay + (X !== ar ? 'H' + X : '') + 'V' + by + (X !== bl ? 'H' + bl : '') + (e.kind !== 'cont' ? 'M' + px + ',' + (by - 24) + 'L' + px + ',' + (e.kind === 'sv' ? by + 10 : by) : ''); if (hh === 0) break; }
         }
         if (bestDD) e.d = bestDD;
         continue;
       }
       if (e.kind !== 'mod' && e.kind !== 'dash') continue;
-      if (Math.abs(by - ay) <= 46) {
-        /* 同一行の dash は、間の語（冠詞など）の上を斜めに横切ることがある。
-           その場合は上側を迂回する「帽子」型の経路を試す。 */
-        if (e.kind !== 'dash') continue;
-        var a2 = e.a, b2 = e.b;
-        var sxH = a2.x + a2.w / 2, txH = b2.x + b2.w / 2, syH = ay + 6, tyH = by - 24;
-        var obH = boxes.filter(function (_, i) { return sent.words[i] !== a2 && sent.words[i] !== b2; });
-        var baseH = _countHits(_defaultSegs(e), obH);
-        if (baseH === 0) continue;
-        var hatSegs = [[sxH, syH, sxH, by - 30], [sxH, by - 30, txH, by - 30], [txH, by - 30, txH, tyH]];
-        if (_countHits(hatSegs, obH) < baseH) e.d = 'M' + sxH + ',' + syH + 'V' + (by - 30) + 'H' + txH + 'V' + tyH;
-        continue;
+      if (defHits === 0) continue;
+      var preBest = defHits, preD = null;
+      if (e.kind === 'dash' && dy <= 46) {
+        /* 近距離の dash: 既定の斜め線は両端の語の角を切りやすい。
+           下線より下を水平に進んで接続先の脇で立ち上がる直交経路と、
+           上を迂回する帽子型を候補に、最も交差の少ないものを選ぶ。 */
+        var sxD = a.x + a.w / 2, txD = b.x + b.w / 2, syD = ay + 6, tyD = by - 24;
+        var vxSet = [b.x - 6, b.x + b.w + 6, a.x + a.w + 6, a.x - 6];
+        for (var vd = 0; vd < boxes.length; vd++) { vxSet.push(boxes[vd].l - 3); vxSet.push(boxes[vd].r + 3); }
+        var seenD = {};
+        for (var kd = 0; kd < vxSet.length; kd++) {
+          var vx = Math.round(vxSet[kd]);
+          if (seenD[vx]) continue; seenD[vx] = 1;
+          var segsD = [[sxD, syD, vx, syD], [vx, syD, vx, tyD], [vx, tyD, txD, tyD]];
+          var hD = _countHits(segsD, boxes);
+          if (hD < preBest) { preBest = hD; preD = 'M' + sxD + ',' + syD + 'H' + vx + 'V' + tyD + 'H' + txD; if (hD === 0) break; }
+        }
+        if (preBest > 0) {
+          var hatSegs = [[sxD, syD, sxD, by - 30], [sxD, by - 30, txD, by - 30], [txD, by - 30, txD, tyD]];
+          var hHat = _countHits(hatSegs, boxes);
+          if (hHat < preBest) { preBest = hHat; preD = 'M' + sxD + ',' + syD + 'V' + (by - 30) + 'H' + txD + 'V' + tyD; }
+        }
+        if (preBest === 0) { e.d = preD; continue; }
+        if (dy <= 8) { if (preD) e.d = preD; continue; }
+        /* 直交で解消しきれなければ、その結果を持ってチャネル経路へ進む */
       }
       var isMod = e.kind === 'mod';
       var sx = isMod ? a.x + Math.min(14, a.w) : a.x + a.w / 2;
       var sy = isMod ? ay : ay + 6;
       var tx = isMod ? b.x - PADX : b.x + b.w / 2;
       var ty = isMod ? by : by - 24;
-      var others = boxes.filter(function (_, i) { return sent.words[i] !== a && sent.words[i] !== b; });
-      var bestHits = _countHits(_defaultSegs(e), others), bestD = null;
+      var others = boxes;
+      var bestHits = preBest, bestD = preD;
       var yMid = isMod ? (by > ay ? by - 30 : by + 30) : ty;
       var cand = [sx, tx, a.x + 4, b.x - PADX - 6];
       for (var ci = 0; ci < others.length; ci++) { cand.push(others[ci].l - 3); cand.push(others[ci].r + 3); }
@@ -434,7 +450,7 @@
           }
         }
         if (found2) e.d = found2;
-        else if (isMod) {
+        else {
           /* 最終手段: バンド（行）ごとに空きチャネルを動的計画法でつなぐ。
              系図のような超長距離でも、行間の回廊でチャネルを乗り換えながら降りる。 */
           var allB = [];
