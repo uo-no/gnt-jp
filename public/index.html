@@ -3247,6 +3247,12 @@ display: none;
     margin-bottom: var(--space-xl);
     padding-left: var(--space-sm);
 }
+/* 「語の役割で読む」は巨大なSVGが並ぶため、画面外の文の描画を遅らせて
+   スクロール時の描画遅れ（空白）を抑える */
+.role-reading-view .sd-sentence {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 800px;
+}
 .sd-sentence-ref {
     font-size: var(--text-caption);
     color: var(--text-sub);
@@ -14968,7 +14974,7 @@ async function _renderRoleReadingView(app, srData, elData) {
     }
 
     const NS = 'http://www.w3.org/2000/svg';
-    chapter.sentences.forEach((s, si) => {
+    const _buildRoleSection = (s, si) => {
         const laid = result.sentences[si];
         const secEl = document.createElement('section');
         secEl.className = 'sd-sentence';
@@ -15029,7 +15035,21 @@ async function _renderRoleReadingView(app, srData, elData) {
             secEl.appendChild(svg);
         }
         wrap.appendChild(secEl);
-    });
+    };
+    /* 巨大な文のSVGを一括構築すると初回描画まで画面が固まるため、
+       文単位で少しずつ作り、先頭の文から順に表示する。 */
+    let _rsi = 0;
+    const _buildNextSections = () => {
+        if (!wrap.isConnected) return;
+        const _t0 = (window.performance && performance.now) ? performance.now() : 0;
+        while (_rsi < chapter.sentences.length) {
+            _buildRoleSection(chapter.sentences[_rsi], _rsi);
+            _rsi++;
+            if (_t0 && _rsi < chapter.sentences.length && performance.now() - _t0 > 24) break;
+        }
+        if (_rsi < chapter.sentences.length) requestAnimationFrame(_buildNextSections);
+    };
+    _buildNextSections();
 }
 
 /* 表示倍率（レイアウト上の22単位 = 他のモードのギリシャ語 --text-body のpx数）。
