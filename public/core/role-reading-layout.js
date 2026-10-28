@@ -330,19 +330,44 @@
   }
   /* e.d 未設定時に edgePath が返す既定経路のセグメント（比較の基準）。 */
   function _defaultSegs(e) { return _parsePath(edgePath({ kind: e.kind, a: e.a, b: e.b })); }
+  /* 語ブロック（字形＋下線プラットフォーム、左右3のマージン）。
+     線がプラットフォームを斜め・縦に切り抜けるのも「被り」として扱う。 */
+  function _blockBox(w) { return { l: w.x - 3, r: w.x + w.w + 3, t: w.y - 19, b: w.y + 4 }; }
+  function _segHitsB(x1, y1, x2, y2, r) {
+    /* ベースライン（下線の高さ）上の水平移動は共有インフラとして除外。
+       一点接触（区間の長さゼロ）もヒットにしない。 */
+    if (y1 === y2 && y1 === r.b) return false;
+    var dx = x2 - x1, dy = y2 - y1, t0 = 0, t1 = 1, u;
+    var clip = function (p, q) { if (p === 0) return q >= 0; u = q / p; if (p < 0) { if (u > t1) return false; if (u > t0) t0 = u; } else { if (u < t0) return false; if (u < t1) t1 = u; } return true; };
+    if (!(clip(-dx, x1 - r.l) && clip(dx, r.r - x1) && clip(-dy, y1 - r.t) && clip(dy, r.b - y1))) return false;
+    return t1 - t0 > 1e-9;
+  }
+  /* [字形ヒット数, ブロックヒット数] を返す。辞書順で比較する
+     （字形ヒットを増やしてブロックヒットを減らす交換はしない）。 */
+  function _count2(segs, ink, blk) {
+    var ni = 0, nb = 0;
+    for (var i = 0; i < ink.length; i++) {
+      for (var j = 0; j < segs.length; j++) if (_segHits(segs[j][0], segs[j][1], segs[j][2], segs[j][3], ink[i])) { ni++; break; }
+      for (var k = 0; k < segs.length; k++) if (_segHitsB(segs[k][0], segs[k][1], segs[k][2], segs[k][3], blk[i])) { nb++; break; }
+    }
+    return [ni, nb];
+  }
+  function _better2(c, best) { return c[0] < best[0] || (c[0] === best[0] && c[1] < best[1]); }
+
   function _routeLongEdges(sent) {
     var boxes = sent.words.map(_inkBox);
+    var blocks = sent.words.map(_blockBox);
     for (var ei = 0; ei < sent.edges.length; ei++) {
       var e = sent.edges[ei];
       var a = e.a, b = e.b, ay = a.y + 4, by = b.y + 4;
       var dy = Math.abs(by - ay);
       /* 端点の語も障害物に含めて既定経路を数える。到達の斜め線が
          自分自身の接続先の字形の角を切るケースをここで拾う。 */
-      var defHits = _countHits(_defaultSegs(e), boxes);
+      var defC = _count2(_defaultSegs(e), boxes, blocks);
+      if (defC[0] === 0 && defC[1] === 0) continue;
       if (e.kind === 'sv' || e.kind === 'vo' || e.kind === 'vp' || e.kind === 'cont') {
-        if (defHits === 0) continue;
         var ar = a.x + a.w + 4, bl = b.x - 4;
-        var bestH = defHits, bestDD = null;
+        var bestC = defC, bestDD = null;
         var candS = [ar, bl];
         for (var cs = 0; cs < boxes.length; cs++) { candS.push(boxes[cs].l - 3); candS.push(boxes[cs].r + 3); }
         var seenS = {};
@@ -355,15 +380,14 @@
           segs.push([X, ay, X, by]);
           if (X !== bl) segs.push([X, by, bl, by]);
           if (e.kind !== 'cont') segs.push([px, by - 24, px, e.kind === 'sv' ? by + 10 : by]);
-          var hh = _countHits(segs, boxes);
-          if (hh < bestH) { bestH = hh; bestDD = 'M' + ar + ',' + ay + (X !== ar ? 'H' + X : '') + 'V' + by + (X !== bl ? 'H' + bl : '') + (e.kind !== 'cont' ? 'M' + px + ',' + (by - 24) + 'L' + px + ',' + (e.kind === 'sv' ? by + 10 : by) : ''); if (hh === 0) break; }
+          var cc = _count2(segs, boxes, blocks);
+          if (_better2(cc, bestC)) { bestC = cc; bestDD = 'M' + ar + ',' + ay + (X !== ar ? 'H' + X : '') + 'V' + by + (X !== bl ? 'H' + bl : '') + (e.kind !== 'cont' ? 'M' + px + ',' + (by - 24) + 'L' + px + ',' + (e.kind === 'sv' ? by + 10 : by) : ''); if (cc[0] === 0 && cc[1] === 0) break; }
         }
         if (bestDD) e.d = bestDD;
         continue;
       }
       if (e.kind !== 'mod' && e.kind !== 'dash') continue;
-      if (defHits === 0) continue;
-      var preBest = defHits, preD = null;
+      var preC = defC, preD = null;
       if (e.kind === 'dash' && dy <= 46) {
         /* 近距離の dash: 既定の斜め線は両端の語の角を切りやすい。
            下線より下を水平に進んで接続先の脇で立ち上がる直交経路と、
@@ -376,15 +400,15 @@
           var vx = Math.round(vxSet[kd]);
           if (seenD[vx]) continue; seenD[vx] = 1;
           var segsD = [[sxD, syD, vx, syD], [vx, syD, vx, tyD], [vx, tyD, txD, tyD]];
-          var hD = _countHits(segsD, boxes);
-          if (hD < preBest) { preBest = hD; preD = 'M' + sxD + ',' + syD + 'H' + vx + 'V' + tyD + 'H' + txD; if (hD === 0) break; }
+          var cD = _count2(segsD, boxes, blocks);
+          if (_better2(cD, preC)) { preC = cD; preD = 'M' + sxD + ',' + syD + 'H' + vx + 'V' + tyD + 'H' + txD; if (cD[0] === 0 && cD[1] === 0) break; }
         }
-        if (preBest > 0) {
+        if (preC[0] > 0 || preC[1] > 0) {
           var hatSegs = [[sxD, syD, sxD, by - 30], [sxD, by - 30, txD, by - 30], [txD, by - 30, txD, tyD]];
-          var hHat = _countHits(hatSegs, boxes);
-          if (hHat < preBest) { preBest = hHat; preD = 'M' + sxD + ',' + syD + 'V' + (by - 30) + 'H' + txD + 'V' + tyD; }
+          var cHat = _count2(hatSegs, boxes, blocks);
+          if (_better2(cHat, preC)) { preC = cHat; preD = 'M' + sxD + ',' + syD + 'V' + (by - 30) + 'H' + txD + 'V' + tyD; }
         }
-        if (preBest === 0) { e.d = preD; continue; }
+        if (preC[0] === 0 && preC[1] === 0) { e.d = preD; continue; }
         if (dy <= 8) { if (preD) e.d = preD; continue; }
         /* 直交で解消しきれなければ、その結果を持ってチャネル経路へ進む */
       }
@@ -393,8 +417,8 @@
       var sy = isMod ? ay : ay + 6;
       var tx = isMod ? b.x - PADX : b.x + b.w / 2;
       var ty = isMod ? by : by - 24;
-      var others = boxes;
-      var bestHits = preBest, bestD = preD;
+      var others = boxes, othersB = blocks;
+      var bestC2 = preC, bestD = preD;
       var yMid = isMod ? (by > ay ? by - 30 : by + 30) : ty;
       var cand = [sx, tx, a.x + 4, b.x - PADX - 6];
       for (var ci = 0; ci < others.length; ci++) { cand.push(others[ci].l - 3); cand.push(others[ci].r + 3); }
@@ -407,13 +431,13 @@
         if (X !== sx) segs.push([sx, sy, X, sy]);
         segs.push([X, sy, X, yMid]);
         segs.push([X, yMid, tx, ty]);
-        var h = _countHits(segs, others);
-        if (h < bestHits) { bestHits = h; bestD = 'M' + sx + ',' + sy + (X !== sx ? 'H' + X : '') + 'V' + yMid + 'L' + tx + ',' + ty; if (h === 0) break; }
+        var c2 = _count2(segs, others, othersB);
+        if (_better2(c2, bestC2)) { bestC2 = c2; bestD = 'M' + sx + ',' + sy + (X !== sx ? 'H' + X : '') + 'V' + yMid + 'L' + tx + ',' + ty; if (c2[0] === 0 && c2[1] === 0) break; }
       }
       if (bestD) e.d = bestD;
       /* 単一チャネルで解消できない mod は、行間の水平回廊でチャネルを
          乗り換える2チャネル経路を試す（V→回廊H→V→斜め）。 */
-      if (isMod && bestHits > 0) {
+      if (isMod && (bestC2[0] > 0 || bestC2[1] > 0)) {
         var yTop = Math.min(sy, ty), yBot = Math.max(sy, ty);
         var bases = [];
         for (var bi = 0; bi < others.length; bi++) { var bb = Math.round(others[bi].t + 19); if (bases.indexOf(bb) < 0) bases.push(bb); }
@@ -436,13 +460,15 @@
           for (var x1i = 0; x1i < Xs.length; x1i++) {
             var X1 = Xs[x1i];
             var segA = []; if (X1 !== sx) segA.push([sx, sy, X1, sy]); segA.push([X1, sy, X1, yC]);
-            budget -= segA.length * others.length; if (budget < 0) break outer;
-            if (_countHits(segA, others) > 0) continue;
+            budget -= segA.length * others.length * 2; if (budget < 0) break outer;
+            var cA = _count2(segA, others, othersB);
+            if (cA[0] > 0 || cA[1] > 0) continue;
             for (var x2i = 0; x2i < Xs.length; x2i++) {
               var X2 = Xs[x2i];
               var segB = []; if (X2 !== X1) segB.push([X1, yC, X2, yC]); segB.push([X2, yC, X2, yMid]); segB.push([X2, yMid, tx, ty]);
-              budget -= segB.length * others.length; if (budget < 0) break outer;
-              if (_countHits(segB, others) === 0) {
+              budget -= segB.length * others.length * 2; if (budget < 0) break outer;
+              var cB = _count2(segB, others, othersB);
+              if (cB[0] === 0 && cB[1] === 0) {
                 found2 = 'M' + sx + ',' + sy + (X1 !== sx ? 'H' + X1 : '') + 'V' + yC + (X2 !== X1 ? 'H' + X2 : '') + 'V' + yMid + 'L' + tx + ',' + ty;
                 break outer;
               }
@@ -452,7 +478,8 @@
         if (found2) e.d = found2;
         else {
           /* 最終手段: バンド（行）ごとに空きチャネルを動的計画法でつなぐ。
-             系図のような超長距離でも、行間の回廊でチャネルを乗り換えながら降りる。 */
+             系図のような超長距離でも、行間の回廊でチャネルを乗り換えながら降りる。
+             バンドの遮断区間は語ブロック（プラットフォーム込み）で取る。 */
           var allB = [];
           for (var bq = 0; bq < sent.words.length; bq++) { var yq = sent.words[bq].y; if (allB.indexOf(yq) < 0) allB.push(yq); }
           var loB = Math.min(a.y, b.y), hiB = Math.max(a.y, b.y);
@@ -466,7 +493,7 @@
           }
           if (bands.length > 0 && bands.length <= 220) {
             var blocked = bands.map(function (grp) {
-              return others.filter(function (bx) { return grp.indexOf(Math.round(bx.t + 19)) >= 0; }).map(function (bx) { return [bx.l, bx.r]; });
+              return othersB.filter(function (bx) { return grp.indexOf(Math.round(bx.t + 19)) >= 0; }).map(function (bx) { return [bx.l, bx.r]; });
             });
             var corY = bands.map(function (grp, gi) {
               var prevY = gi === 0 ? a.y : bands[gi - 1][bands[gi - 1].length - 1];
@@ -476,7 +503,7 @@
             });
             var candX = function (gi) {
               var set = [sx, tx], iv = blocked[gi];
-              for (var iv2 = 0; iv2 < iv.length; iv2++) { set.push(iv[iv2][0] - 3); set.push(iv[iv2][1] + 3); }
+              for (var iv2 = 0; iv2 < iv.length; iv2++) { set.push(iv[iv2][0] - 1); set.push(iv[iv2][1] + 1); }
               var out = [], seen3 = {};
               for (var s3 = 0; s3 < set.length; s3++) { var xv = Math.round(set[s3]); if (xv < lo - 40 || xv > hi + 40 || seen3[xv]) continue; seen3[xv] = 1; out.push(xv); }
               return out;
@@ -485,18 +512,19 @@
             var INF = 1e9;
             var dpPrev = new Map(), par = [];
             var xs0 = candX(0);
-            for (var x0 = 0; x0 < xs0.length; x0++) dpPrev.set(xs0[x0], hitAt(0, xs0[x0]) * 1000 + (xs0[x0] !== sx ? 1 : 0));
+            for (var x0 = 0; x0 < xs0.length; x0++) dpPrev.set(xs0[x0], hitAt(0, xs0[x0]) * 10000 + (xs0[x0] !== sx ? 1 : 0));
             par.push(new Map());
             for (var gi2 = 1; gi2 < bands.length; gi2++) {
               var xs = candX(gi2), dpCur = new Map(), parCur = new Map();
               dpPrev.forEach(function (cost, Xp) {
                 for (var xc = 0; xc < xs.length; xc++) {
-                  var Xn = xs[xc], add = hitAt(gi2, Xn) * 1000;
+                  var Xn = xs[xc], add = hitAt(gi2, Xn) * 10000;
                   if (Xn !== Xp) {
                     add += 1;
-                    /* 回廊での横移動が字形に触れないこと */
+                    /* 回廊での横移動が字形・ブロックに触れないこと */
                     var hseg = [[Math.min(Xp, Xn), corY[gi2], Math.max(Xp, Xn), corY[gi2]]];
-                    if (_countHits(hseg, others) > 0) return;
+                    var cH = _count2(hseg, others, othersB);
+                    if (cH[0] > 0 || cH[1] > 0) return;
                   }
                   var nc = cost + add;
                   if (!dpCur.has(Xn) || nc < dpCur.get(Xn)) { dpCur.set(Xn, nc); parCur.set(Xn, Xp); }
@@ -506,10 +534,11 @@
             }
             var bestX = null, bestC = INF;
             dpPrev.forEach(function (cost, Xl) {
-              var c2 = cost + _countHits([[Xl, yMid, tx, ty]], others) * 1000;
-              if (c2 < bestC) { bestC = c2; bestX = Xl; }
+              var cF = _count2([[Xl, yMid, tx, ty]], others, othersB);
+              var c2v = cost + cF[0] * 10000 + cF[1];
+              if (c2v < bestC) { bestC = c2v; bestX = Xl; }
             });
-            if (bestX !== null && bestC < bestHits * 1000) {
+            if (bestX !== null && bestC < bestC2[0] * 10000 + bestC2[1]) {
               var chain = [bestX];
               for (var gb = bands.length - 1; gb >= 1; gb--) { chain.unshift(par[gb].get(chain[0])); }
               var dStr = 'M' + sx + ',' + sy, curX = sx;
