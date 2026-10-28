@@ -7011,9 +7011,16 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 .role-reading-view .wn.focus .ul { stroke: var(--accent); stroke-width: 2.6; }
 #rn-relation-slot:not(:empty), #mvv-relation-slot:not(:empty) { margin: var(--space-md) 0 var(--space-xs); }
 /* 局所表示の枠: 文全体の図を上下左右に動かして見る（地図アプリ式） */
-.local-rel-frame { height: 240px; overflow: auto; border: 1px solid var(--line, #d8d8d8); border-radius: 8px; cursor: grab; overscroll-behavior: contain; user-select: none; -webkit-user-select: none; }
+.local-rel-wrap { position: relative; }
+.local-rel-frame { height: 240px; overflow: auto; border: 1px solid var(--line, #d8d8d8); border-radius: 8px; cursor: grab; overscroll-behavior: contain; user-select: none; -webkit-user-select: none; background: var(--bg-panel); scrollbar-width: none; }
+.local-rel-frame::-webkit-scrollbar { display: none; }
 .local-rel-frame.dragging { cursor: grabbing; }
 .local-rel-frame svg.role-svg { max-width: none; }
+/* 地図アプリ式コントロール（拡大・縮小・選択語へ戻る）: 枠の右下に固定 */
+.local-rel-controls { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 8px; z-index: 2; }
+.local-rel-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line, #d8d8d8); background: var(--bg, #fff); color: var(--text-main); box-shadow: 0 1px 4px rgba(0, 0, 0, .18); cursor: pointer; display: grid; place-items: center; padding: 0; }
+.local-rel-btn svg { width: 18px; height: 18px; }
+.local-rel-btn:active { background: var(--bg-panel); }
 .role-reading-view .role-svg .wn:hover text { fill: var(--accent); }
 
 .rk-reading-view .wn rect {
@@ -19181,10 +19188,46 @@ async function _buildLocalRelationFrame(ref) {
     const frame = document.createElement('div');
     frame.className = 'local-rel-frame';
     frame.appendChild(svg);
-    /* 初期表示の中心（px換算）: 選択語が枠の中央に来るようにスクロールする */
-    frame._centerOn = { x: (center.x + center.w / 2 - minX) * scale, y: (center.y - top) * scale };
+    /* 地図式UIの状態: 倍率・ズーム・中心（レイアウト単位、viewBox原点基準） */
+    frame._svgEl = svg;
+    frame._baseScale = scale;
+    frame._zoom = 1;
+    frame._widthU = widthU;
+    frame._heightU = heightU;
+    frame._centerU = { x: center.x + center.w / 2 - minX, y: center.y - top };
     _attachPanScroll(frame);
-    return frame;
+    /* コントロール（拡大・縮小・選択語へ戻る）: 枠の右下に固定（地図アプリ式） */
+    const controls = document.createElement('div');
+    controls.className = 'local-rel-controls';
+    controls.innerHTML =
+        '<button type="button" class="local-rel-btn" data-act="zin" aria-label="拡大" title="拡大"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>' +
+        '<button type="button" class="local-rel-btn" data-act="zout" aria-label="縮小" title="縮小"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>' +
+        '<button type="button" class="local-rel-btn" data-act="recenter" aria-label="選択中の語へ戻る" title="選択中の語へ戻る"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5.5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/></svg></button>';
+    controls.addEventListener('click', e => {
+        const btn = e.target.closest('[data-act]');
+        if (!btn) return;
+        const act = btn.getAttribute('data-act');
+        if (act === 'zin') _setLocalRelZoom(frame, frame._zoom * 1.3);
+        else if (act === 'zout') _setLocalRelZoom(frame, frame._zoom / 1.3);
+        else if (act === 'recenter') _centerLocalRelationFrame(frame);
+    });
+    const wrap = document.createElement('div');
+    wrap.className = 'local-rel-wrap';
+    wrap.appendChild(frame);
+    wrap.appendChild(controls);
+    wrap._frameEl = frame;
+    return wrap;
+}
+
+/* ズーム変更: 図の表示倍率だけを変え、選択語が中央に来る位置へ寄せ直す */
+function _setLocalRelZoom(frame, z) {
+    if (!frame || !frame._svgEl) return;
+    if (z < 0.5) z = 0.5;
+    if (z > 3) z = 3;
+    frame._zoom = z;
+    frame._svgEl.style.width = Math.round(frame._widthU * frame._baseScale * z) + 'px';
+    frame._svgEl.style.height = Math.round(frame._heightU * frame._baseScale * z) + 'px';
+    _centerLocalRelationFrame(frame);
 }
 
 /* 地図アプリ式のドラッグスクロール（マウスのみ。タッチはネイティブスクロール） */
@@ -19208,9 +19251,10 @@ function _attachPanScroll(frame) {
 }
 
 function _centerLocalRelationFrame(frame) {
-    if (!frame || !frame._centerOn) return;
-    frame.scrollLeft = Math.max(0, Math.round(frame._centerOn.x - frame.clientWidth / 2));
-    frame.scrollTop = Math.max(0, Math.round(frame._centerOn.y - frame.clientHeight / 2));
+    if (!frame || !frame._centerU) return;
+    const k = frame._baseScale * (frame._zoom || 1);
+    frame.scrollLeft = Math.max(0, Math.round(frame._centerU.x * k - frame.clientWidth / 2));
+    frame.scrollTop = Math.max(0, Math.round(frame._centerU.y * k - frame.clientHeight / 2));
 }
 
 let _rnRelationGen = 0;
@@ -19225,7 +19269,7 @@ async function _fillRnRelationSlot(ref) {
     const slot = document.getElementById('rn-relation-slot');
     if (!slot) return;
     slot.innerHTML = '';
-    if (frame) { slot.appendChild(frame); _centerLocalRelationFrame(frame); }   /* null は空のまま（静寂） */
+    if (frame) { slot.appendChild(frame); _centerLocalRelationFrame(frame._frameEl); }   /* null は空のまま（静寂） */
 }
 
 let _mvvRelationGen = 0;
@@ -19240,7 +19284,7 @@ async function _fillMvvRelationSlot(ref) {
     const slot = document.getElementById('mvv-relation-slot');
     if (!slot) return;
     slot.innerHTML = '';
-    if (frame) { slot.appendChild(frame); _centerLocalRelationFrame(frame); }   /* null は空のまま（静寂） */
+    if (frame) { slot.appendChild(frame); _centerLocalRelationFrame(frame._frameEl); }   /* null は空のまま（静寂） */
 }
 
 /* Phase L.2: Reed-Kellogg 縦型読書モード レンダー関数。
