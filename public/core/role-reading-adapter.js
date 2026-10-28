@@ -33,14 +33,17 @@
   }
 
   /* SR ノード → シム木。parent を設定し、トークンメタを tokenMeta に集める。 */
-  function buildShim(node, parent, tokenMeta) {
+  function buildShim(node, parent, tokenMeta, jaByRef) {
     if (!node || typeof node !== 'object') return null;
     if (node.type === 'token') {
       var ev = node.evidence || {};
       var id = ev.nodeId || '';
+      /* 表示テキスト: bible_data の japanese（語順で読む／文の構造で読むと同じ語義）を
+         優先し、無い語だけ原文を表示する。tokenMeta.text は原文のまま（パネル見出し用）。 */
+      var ja = (jaByRef && ev.ref) ? jaByRef.get(ev.ref) : null;
       var shimW = {
         tag: 'w', attrs: {}, children: [], parent: parent,
-        text: node.text || '', id: id
+        text: ja || node.text || '', id: id
       };
       if (id) shimW.attrs['xml:id'] = id;
       var mc = morphClass(ev.morph_raw);
@@ -63,7 +66,7 @@
     if (fn && ROLE_MAP[fn]) shim.attrs['role'] = ROLE_MAP[fn];
     var children = node.children || [];
     for (var i = 0; i < children.length; i++) {
-      var c = buildShim(children[i], shim, tokenMeta);
+      var c = buildShim(children[i], shim, tokenMeta, jaByRef);
       if (c) shim.children.push(c);
     }
     return shim;
@@ -102,12 +105,12 @@
   }
 
   /* SR 章データ → { sentences: [{ref, root, tokenMeta}] } */
-  function buildChapter(srData, offsets) {
+  function buildChapter(srData, offsets, jaByRef) {
     var out = [];
     var sentences = (srData && srData.sentences) || [];
     for (var i = 0; i < sentences.length; i++) {
       var tokenMeta = new Map();
-      var rootShim = buildShim(sentences[i].root, null, tokenMeta);
+      var rootShim = buildShim(sentences[i].root, null, tokenMeta, jaByRef);
       if (!rootShim) continue;
       var sentenceShim = { tag: 'sentence', attrs: {}, children: [rootShim], parent: null, text: '', id: '' };
       rootShim.parent = sentenceShim;

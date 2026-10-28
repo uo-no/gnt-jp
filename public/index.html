@@ -18999,7 +18999,10 @@ async function _renderRoleReadingView(app, srData, elData) {
 
     let chapter, result;
     try {
-        chapter = RoleReadingAdapter.buildChapter(srData, offsets);
+        /* 表示は bible_data の japanese（語順で読む／文の構造で読むと同じ語義） */
+        const jaByRef = new Map();
+        for (const [r, tok] of _rkRefToBd) { if (tok && tok.japanese) jaByRef.set(r, tok.japanese); }
+        chapter = RoleReadingAdapter.buildChapter(srData, offsets, jaByRef);
         /* PCでも横に長い文は下へ折り返す（スマホと同じ折り返し機構）。
            折り返し幅は「表示カラム幅 ÷ 表示倍率」でレイアウト単位に換算する。 */
         let wrapW;
@@ -19106,6 +19109,20 @@ function _roleTextScale() {
     return window._roleTextScaleCache;
 }
 
+/* bible_data 章トークンのキャッシュ付きローダ（局所表示の japanese 参照用） */
+const _bdChapterCache = {};
+async function _loadBdChapter(book, chapter) {
+    const key = book + '/' + chapter;
+    if (key in _bdChapterCache) return _bdChapterCache[key];
+    let data = null;
+    try {
+        const res = await fetch(`../bible_data/nt/${book}/${chapter}.json`);
+        if (res.ok) data = await res.json();
+    } catch (_) { data = null; }
+    _bdChapterCache[key] = data; // null も cache（再 fetch 抑止・静音）
+    return data;
+}
+
 /* ─────────────────────────────────────────────
    語の役割の局所表示（StudyPanel 第3層）:
    選択中の語が属する文全体の図を、2つのトグルの上の
@@ -19122,7 +19139,13 @@ async function _buildLocalRelationFrame(ref) {
     const sr = await _loadSrChapter(parsed.book, parsed.chapter);
     if (!sr) return null;
     const offsets = await _loadRkOffsets(parsed.book);
-    const chapter = RoleReadingAdapter.buildChapter(sr, offsets);
+    /* 表示は bible_data の japanese（読書モード本体と同じ） */
+    const bd = await _loadBdChapter(parsed.book, parsed.chapter);
+    const jaByRef = new Map();
+    if (Array.isArray(bd)) {
+        for (const tok of bd) { if (tok && tok.ref && tok.japanese) jaByRef.set(tok.ref, tok.japanese); }
+    }
+    const chapter = RoleReadingAdapter.buildChapter(sr, offsets, jaByRef);
     let sentence = null, centerId = null;
     for (const s of chapter.sentences) {
         for (const [id, meta] of s.tokenMeta) {
