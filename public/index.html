@@ -7004,8 +7004,8 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 /* 語の役割で読む（role-reading）: エディタと同じ線・文字で描く */
 .role-reading-view .role-svg { display: block; }
 .role-reading-view .role-svg text { font: 22px "GFS Didot","Palatino Linotype",Georgia,serif; fill: var(--text-main); }
-.role-reading-view .role-svg .ul { stroke: var(--text-main); stroke-width: 1.2; }
-.role-reading-view .role-svg .e { stroke: var(--text-sub); stroke-width: 1.2; fill: none; }
+.role-reading-view .role-svg .ul { stroke: var(--text-main); stroke-width: 1.8; }
+.role-reading-view .role-svg .e { stroke: var(--text-sub); stroke-width: 1.8; fill: none; }
 .role-reading-view .role-svg .wn:hover text { fill: var(--accent); }
 
 .rk-reading-view .wn rect {
@@ -19005,15 +19005,22 @@ async function _renderRoleReadingView(app, srData, elData) {
             const svg = document.createElementNS(NS, 'svg');
             svg.setAttribute('viewBox', `${minX} ${laid.y0 - 36} ${maxX - minX} ${laid.h + 66}`);
             svg.setAttribute('class', 'role-svg');
-            /* 文字サイズを文ごとに揃える: 等倍（22px）を上限とし、収まらない
-               文は最小0.65倍（約14px）まで縮小、それでも超える分は横スクロール
-               に委ねる。（幅100%フィットだと文ごとに 6px〜150px 相当にばらつく
-               ため。0.5倍では長い文が読みにくいという検証結果を受けて下限を
-               0.65 に引き上げた） */
+            /* 文字サイズは他のモードに合わせ、全ての文で固定倍率にする:
+               「文の構造で読む」のギリシャ語（.sd-greek = --text-body）を
+               目標サイズとし、レイアウト上の 22 単位がそのpx数になる倍率で
+               一律に描く。収まらない文は横スクロールに委ねる。 */
             const extentW = maxX - minX;
-            const availW = Math.max(280, (wrap.clientWidth || extentW) - 4);
-            let scale = Math.min(1, availW / extentW);
-            if (scale < 0.65) scale = 0.65;
+            if (window._roleTextScale == null) {
+                let targetPx = 14.4;
+                try {
+                    const cs = getComputedStyle(document.documentElement);
+                    const v = parseFloat(cs.getPropertyValue('--text-body'));
+                    const rootPx = parseFloat(cs.fontSize) || 16;
+                    if (v > 0 && rootPx > 0) targetPx = v * rootPx;
+                } catch (_) { /* フォールバック 14.4px */ }
+                window._roleTextScale = targetPx / 22;
+            }
+            const scale = window._roleTextScale;
             svg.style.width = Math.round(extentW * scale) + 'px';
             svg.style.height = Math.round((laid.h + 66) * scale) + 'px';
             for (const e of laid.edges) {
