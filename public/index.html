@@ -8490,12 +8490,8 @@ function renderGlobalBreadcrumb() {
         const _GBC_MODE_LABELS = {
             'JA1955':      '口語訳',
             'WORD_ORDER':  '語順で読む',
-            'STRUCTURE':   '構造で読む',
-            'CLAUSE_ROLE': '文の役割で読む',
-            'RELATION':    'つながりで読む',
-            'RK_READING':   '語句の関係で読む',
-            'RK_READING_V': '縦型読み解きで読む',
             'DA_READING': '文の構造で読む',
+            'ROLE_READING': '語の役割で読む',
         };
         const _modeLabel = _GBC_MODE_LABELS[_transA];
         if (_modeLabel) {
@@ -11592,8 +11588,9 @@ function _sbRenderModesL0() {
         { id: 'JA1955',     label: '口語訳で読む'  },
         { id: 'WORD_ORDER', label: '語順で読む'     },
         { id: 'DA_READING', label: '文の構造で読む' },
+        { id: 'ROLE_READING', label: '語の役割で読む' },
     ];
-    list.innerHTML = items.map(item => {
+    list.innerHTML = items.filter(it => it.id !== 'ROLE_READING' || _roleReadingAvailable()).map(item => {
         const active = (_transA === item.id && _transMode === 'single') ? ' active' : '';
         return `<div class="sb-row${active}" onclick="_sbSelectMode('${item.id}')"><span class="menu-text">${item.label}</span></div>`;
     }).join('');
@@ -16583,6 +16580,7 @@ window._rkAvailPromise = fetch('../assets/data/rk-availability.json')
         window._rkAvail = d || {};
         /* 取得完了後にモード一覧を再描画する（初期描画とのレース回避） */
         if (typeof _sbRenderModes === 'function') _sbRenderModes();
+        if (typeof _sbRenderModesL0 === 'function') _sbRenderModesL0();
         if (typeof _mmpRenderModes === 'function') _mmpRenderModes();
         return window._rkAvail;
     })
