@@ -365,11 +365,31 @@
          自分自身の接続先の字形の角を切るケースをここで拾う。 */
       var defC = _count2(_defaultSegs(e), boxes, blocks);
       if (defC[0] === 0 && defC[1] === 0) continue;
+      /* 近接エントリー（mod のみ）: 既定の斜め線が接続先自身の字形の角を
+         切るだけの近距離辺では、チャネル迂回にすると「後ろに続く語の前を
+         通って四角く戻る」小さなフックになる。代わりに、接続先の字形の
+         左上へ斜めに届いてから、その左縁を短く降りてベースラインへ入る
+         経路が交差ゼロで引ける場合はそちらを優先する（斜め+短い縦）。 */
+      if (e.kind === 'mod' && dy >= 30) {
+        var sxN = a.x + Math.min(14, a.w);
+        var exN = b.x - PADX - 2, eyN = by > ay ? by - 24 : by + 22;
+        /* 横に長い浅い斜めにならないよう、エントリー点が始点から
+           140 以内のときだけ使う（折り返し幅ではチャネル迂回に任せる）。 */
+        if (Math.abs(exN - sxN) > 140) exN = null;
+        if (exN !== null) {
+          var segsN = [[sxN, ay, exN, eyN], [exN, eyN, exN, by]];
+          var cN = _count2(segsN, boxes, blocks);
+          if (cN[0] === 0 && cN[1] === 0) { e.d = 'M' + sxN + ',' + ay + 'L' + exN + ',' + eyN + 'V' + by; continue; }
+        }
+      }
       if (e.kind === 'sv' || e.kind === 'vo' || e.kind === 'vp' || e.kind === 'cont') {
         var ar = a.x + a.w + 4, bl = b.x - 4;
         var bestC = defC, bestDD = null;
         var candS = [ar, bl];
         for (var cs = 0; cs < boxes.length; cs++) { candS.push(boxes[cs].l - 3); candS.push(boxes[cs].r + 3); }
+        /* 候補は始点に近い順に試す（文の語順のままだと文頭の語の左端など
+           遠いチャネルが先に当たり、大きく前へ迂回する経路が選ばれる）。 */
+        candS.sort(function (p, q) { return Math.abs(p - ar) - Math.abs(q - ar); });
         var seenS = {};
         for (var ks = 0; ks < candS.length; ks++) {
           var X = Math.round(candS[ks]);
@@ -395,6 +415,7 @@
         var sxD = a.x + a.w / 2, txD = b.x + b.w / 2, syD = ay + 6, tyD = by - 24;
         var vxSet = [b.x - 6, b.x + b.w + 6, a.x + a.w + 6, a.x - 6];
         for (var vd = 0; vd < boxes.length; vd++) { vxSet.push(boxes[vd].l - 3); vxSet.push(boxes[vd].r + 3); }
+        vxSet.sort(function (p, q) { return Math.abs(p - sxD) - Math.abs(q - sxD); });
         var seenD = {};
         for (var kd = 0; kd < vxSet.length; kd++) {
           var vx = Math.round(vxSet[kd]);
@@ -422,6 +443,8 @@
       var yMid = isMod ? (by > ay ? by - 30 : by + 30) : ty;
       var cand = [sx, tx, a.x + 4, b.x - PADX - 6];
       for (var ci = 0; ci < others.length; ci++) { cand.push(others[ci].l - 3); cand.push(others[ci].r + 3); }
+      /* 候補は始点に近い順に試す（同上：遠い前側チャネルへの迂回を避ける）。 */
+      cand.sort(function (p, q) { return Math.abs(p - sx) - Math.abs(q - sx); });
       var lo = Math.min(a.x, b.x) - 260, hi = Math.max(a.x + a.w, b.x + b.w) + 80;
       var seen = {};
       for (var k = 0; k < cand.length; k++) {
