@@ -19126,7 +19126,10 @@ async function _buildLocalRelationFrame(ref) {
     if (!parsed) return null;
     if (!window.RoleReadingAdapter || !window.RoleReadingLayout) return null;
     if (window._rkAvailPromise) { try { await window._rkAvailPromise; } catch (_) { /* ゲート側で判定 */ } }
-    if (!_roleReadingAvailableFor(parsed.book, parsed.chapter)) return null;
+    /* パネル内の枠は幅に合わせる必要がない（パンして見る）ため、読書モード本体の
+       デバイス別ゲートは適用しない。章の役割データが公開済みかだけを見る。 */
+    const _avail = window._rkAvail && window._rkAvail[parsed.book] && window._rkAvail[parsed.book][parsed.chapter];
+    if (!_avail || (!_avail.pc && !_avail.sp)) return null;
     const sr = await _loadSrChapter(parsed.book, parsed.chapter);
     if (!sr) return null;
     const offsets = await _loadRkOffsets(parsed.book);
