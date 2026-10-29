@@ -53,7 +53,7 @@
         );
     }
 
-    function renderConnectorRow(sentenceEl, leadingConjs) {
+    function renderConnectorRow(sentenceEl, containerEl, leadingConjs) {
         if (!leadingConjs.length) return;
 
         const row = document.createElement('div');
@@ -76,7 +76,7 @@
            sentence container側に保持する。 */
         sentenceEl._daConnectorChips = chips;
         row.appendChild(stream);
-        sentenceEl.appendChild(row);
+        containerEl.appendChild(row);
     }
 
     function renderSentence(sentence, bdMap) {
@@ -110,7 +110,20 @@
         sentenceEl._flowWords = bdTokens;
         sentenceEl._flowChips = makeChips(bdTokens, book, chapter);
 
-        renderConnectorRow(sentenceEl, leadingConjs);
+        /* 節番号は他のモードと同様に先頭の語の左に置く（従来は番号だけの
+           行が文の上にあり、番号の右側が一列空白になっていた）。
+           番号の器（.da-ref）は全ての文に用意し、節の開始文だけ render() が
+           番号を入れる。番号の無い文は器が空のままガターとして揃う。 */
+        const refEl = document.createElement('span');
+        refEl.className = 'sd-sentence-ref da-ref';
+        sentenceEl.appendChild(refEl);
+        sentenceEl._refEl = refEl;
+
+        const bodyEl = document.createElement('div');
+        bodyEl.className = 'da-body';
+        sentenceEl.appendChild(bodyEl);
+
+        renderConnectorRow(sentenceEl, bodyEl, leadingConjs);
 
         const flowRow = document.createElement('div');
         flowRow.className = 'da-flow wlv-flow-stream';
@@ -118,7 +131,7 @@
             stopPropagation: false,
             showOnboardingAnchor: false,
         });
-        sentenceEl.appendChild(flowRow);
+        bodyEl.appendChild(flowRow);
 
         return sentenceEl;
     }
@@ -156,10 +169,7 @@
                 const vKey = `${first.chapter}:${first.verse}`;
                 if (vKey !== lastVerseKey) {
                     lastVerseKey = vKey;
-                    const refEl = document.createElement('div');
-                    refEl.className = 'sd-sentence-ref';
-                    refEl.textContent = String(first.verse);
-                    el.insertBefore(refEl, el.firstChild);
+                    if (el._refEl) el._refEl.textContent = String(first.verse);
                 }
             }
 
