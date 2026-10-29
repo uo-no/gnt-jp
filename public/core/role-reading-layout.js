@@ -92,6 +92,11 @@
     return { head: first, tail: tail || first, lead: fl || first, w: W, h: Math.max(cy - y - 34, ROW) };
   }
 
+  /* mods の第3引数 x は「アンカー」＝見出し語そのものの x。呼び出し側は
+     句やスロットの起点ではなく head.x を渡す。修飾グループを句の起点から
+     ぶら下げると、見出し語が句の右寄りにある場合にグループ全体が見出し語
+     より左へ流れ、線が重なる。見出し語からぶら下げれば、連なる語は
+     1段ごとに右へ流れ、線は \ 方向にそろう。 */
   function mods(head, list, x, y0) {
     var myWE = spWrapEff; var cy = y0, nom = y0, W = 0;
     for (var ki = 0; ki < list.length; ki++) {
@@ -127,16 +132,16 @@
       if (prev) { var bN = r.lead || r.head; var src = (vTail && SLOT[role] !== 2 && Math.abs((bN.y || 0) - (pt.y || 0)) > 200) ? vTail : pt; edges.push({ a: src, b: bN, kind: role === 'p' ? 'vp' : SLOT[role] === 2 ? 'sv' : 'vo' }); }
       if (SLOT[role] === 2 && extra.length && !vseen) {
         vseen = true;
-        if (myWE !== null) { var _r2 = spWrapW - curX; spWrapEff = _r2 > SP_MIN_WE ? _r2 : SP_MIN_WE; }
-        var m = mods(r.head, extra, curX, y + curRY + r.h); spWrapEff = myWE; r.w = Math.max(r.w, m.w); r.h += m.h; rowH = Math.max(rowH, r.h);
+        if (myWE !== null) { var _r2 = spWrapW - r.head.x; spWrapEff = _r2 > SP_MIN_WE ? _r2 : SP_MIN_WE; }
+        var m = mods(r.head, extra, r.head.x, y + curRY + r.h); spWrapEff = myWE; r.w = Math.max(r.w, (r.head.x - curX) + m.w); r.h += m.h; rowH = Math.max(rowH, r.h);
       }
       cx = curX + r.w + GAPH; maxW = Math.max(maxW, curX - x + r.w);
       last = { r: r, x: curX, ry: curRY }; prev = r.head; pt = r.tail || r.head; if (SLOT[role] === 2) vTail = pt; H = Math.max(H, curRY + r.h);
     }
     if (extra.length && !vseen && last) {
-      if (myWE !== null) { var _r3 = spWrapW - last.x; spWrapEff = _r3 > SP_MIN_WE ? _r3 : SP_MIN_WE; }
-      var m2 = mods(prev, extra, last.x, y + last.ry + last.r.h); spWrapEff = myWE;
-      if (spWrapW === null) cx = last.x + Math.max(last.r.w, m2.w) + GAPH; else maxW = Math.max(maxW, last.x - x + Math.max(last.r.w, m2.w));
+      if (myWE !== null) { var _r3 = spWrapW - prev.x; spWrapEff = _r3 > SP_MIN_WE ? _r3 : SP_MIN_WE; }
+      var m2 = mods(prev, extra, prev.x, y + last.ry + last.r.h); spWrapEff = myWE;
+      if (spWrapW === null) cx = last.x + Math.max(last.r.w, (prev.x - last.x) + m2.w) + GAPH; else maxW = Math.max(maxW, last.x - x + Math.max(last.r.w, (prev.x - last.x) + m2.w));
       H = Math.max(H, last.ry + last.r.h + m2.h);
     }
     return { head: first, tail: pt, lead: fl || first, w: spWrapW !== null ? maxW : Math.max(cx - x - GAPH, 0), h: H };
@@ -261,18 +266,18 @@
         if (b2UL && firstDr5) b2Pairs.push({ det: firstDr5.head, noun: hr5.head, el: null });
         return { head: hr5.head, lead: EW.get(rest[0]) || hr5.head, tail: hr5.tail || hr5.head, w: cx5 - x + hr5.w, h: hr5.h, usedPre: true };
       }
-      var hr = place(ks[hi], x, y), m = mods(hr.head, rest, x, y + hr.h);
-      return { head: hr.head, lead: hr.lead || hr.head, tail: hr.tail || hr.head, w: Math.max(hr.w, m.w), h: hr.h + m.h, usedPre: true };
+      var hr = place(ks[hi], x, y), m = mods(hr.head, rest, hr.head.x, y + hr.h);
+      return { head: hr.head, lead: hr.lead || hr.head, tail: hr.tail || hr.head, w: Math.max(hr.w, (hr.head.x - x) + m.w), h: hr.h + m.h, usedPre: true };
     }
     var hr6, m6;
     if (isWg) {
       hr6 = place(ks[hi], x, y, pre.concat(hoist ? short : []));
-      if (hr6.usedPre) { m6 = mods(hr6.head, hoist ? long : rest, x, y + hr6.h); }
-      else { m6 = mods(hr6.head, pre.concat(hoist ? short.concat(long) : rest), x, y + hr6.h); }
+      if (hr6.usedPre) { m6 = mods(hr6.head, hoist ? long : rest, hr6.head.x, y + hr6.h); }
+      else { m6 = mods(hr6.head, pre.concat(hoist ? short.concat(long) : rest), hr6.head.x, y + hr6.h); }
     } else {
-      hr6 = place(ks[hi], x, y); m6 = mods(hr6.head, pre.concat(rest), x, y + hr6.h);
+      hr6 = place(ks[hi], x, y); m6 = mods(hr6.head, pre.concat(rest), hr6.head.x, y + hr6.h);
     }
-    return { head: hr6.head, lead: hr6.lead || hr6.head, tail: hr6.tail || hr6.head, w: Math.max(hr6.w, m6.w), h: hr6.h + m6.h, usedPre: true };
+    return { head: hr6.head, lead: hr6.lead || hr6.head, tail: hr6.tail || hr6.head, w: Math.max(hr6.w, (hr6.head.x - x) + m6.w), h: hr6.h + m6.h, usedPre: true };
   }
 
   function resolve() {
@@ -355,6 +360,9 @@
   function _better2(c, best) { return c[0] < best[0] || (c[0] === best[0] && c[1] < best[1]); }
 
   function _routeLongEdges(sent) {
+    var sRegV = [], sRegTopH = []; /* 反転S経路同士のレーン登録（文単位） */
+    var sRegRetH = []; /* 反転Sの帰還横線レーン */
+    var sTrunks = new Map(); /* 見出し語 -> 採用済みSの幹 [{XR, topY, reg}] */
     var boxes = sent.words.map(_inkBox);
     var blocks = sent.words.map(_blockBox);
     for (var ei = 0; ei < sent.edges.length; ei++) {
@@ -365,11 +373,35 @@
          自分自身の接続先の字形の角を切るケースをここで拾う。 */
       var defC = _count2(_defaultSegs(e), boxes, blocks);
       if (defC[0] === 0 && defC[1] === 0) continue;
+      /* 近接エントリー（mod のみ）: 既定の斜め線が接続先自身の字形の角を
+         切るだけの近距離辺では、チャネル迂回にすると「後ろに続く語の前を
+         通って四角く戻る」小さなフックになる。代わりに、接続先の字形の
+         左上へ斜めに届いてから、その左縁を短く降りてベースラインへ入る
+         経路が交差ゼロで引ける場合はそちらを優先する（斜め+短い縦）。 */
+      if (e.kind === 'mod' && dy >= 30) {
+        var sxN = a.x + Math.min(14, a.w);
+        var exN = b.x - PADX - 2, eyN = by > ay ? by - 24 : by + 22;
+        /* 横に長い浅い斜めにならないよう、エントリー点が始点から
+           140 以内のときだけ使う（折り返し幅ではチャネル迂回に任せる）。
+           また、エントリーの斜めが / 方向（右上から左下へ入る形）になる
+           場合は使わない。連なる語への線は \ 方向（左上から右下）で
+           入るのが原則で、/ で入ると同列の線と重なって見えるため、
+           その場合は左側チャネル＋ \ 帰還（チャネル探索）に任せる。 */
+        if (Math.abs(exN - sxN) > 140 || exN < sxN - 6) exN = null;
+        if (exN !== null) {
+          var segsN = [[sxN, ay, exN, eyN], [exN, eyN, exN, by]];
+          var cN = _count2(segsN, boxes, blocks);
+          if (cN[0] === 0 && cN[1] === 0) { e.d = 'M' + sxN + ',' + ay + 'L' + exN + ',' + eyN + 'V' + by; continue; }
+        }
+      }
       if (e.kind === 'sv' || e.kind === 'vo' || e.kind === 'vp' || e.kind === 'cont') {
         var ar = a.x + a.w + 4, bl = b.x - 4;
-        var bestC = defC, bestDD = null;
+        var bestC = defC, bestDD = null, winX = null;
         var candS = [ar, bl];
         for (var cs = 0; cs < boxes.length; cs++) { candS.push(boxes[cs].l - 3); candS.push(boxes[cs].r + 3); }
+        /* 候補は始点に近い順に試す（文の語順のままだと文頭の語の左端など
+           遠いチャネルが先に当たり、大きく前へ迂回する経路が選ばれる）。 */
+        candS.sort(function (p, q) { return Math.abs(p - ar) - Math.abs(q - ar); });
         var seenS = {};
         for (var ks = 0; ks < candS.length; ks++) {
           var X = Math.round(candS[ks]);
@@ -381,9 +413,41 @@
           if (X !== bl) segs.push([X, by, bl, by]);
           if (e.kind !== 'cont') segs.push([px, by - 24, px, e.kind === 'sv' ? by + 10 : by]);
           var cc = _count2(segs, boxes, blocks);
-          if (_better2(cc, bestC)) { bestC = cc; bestDD = 'M' + ar + ',' + ay + (X !== ar ? 'H' + X : '') + 'V' + by + (X !== bl ? 'H' + bl : '') + (e.kind !== 'cont' ? 'M' + px + ',' + (by - 24) + 'L' + px + ',' + (e.kind === 'sv' ? by + 10 : by) : ''); if (cc[0] === 0 && cc[1] === 0) break; }
+          if (_better2(cc, bestC)) { bestC = cc; winX = X; bestDD = 'M' + ar + ',' + ay + (X !== ar ? 'H' + X : '') + 'V' + by + (X !== bl ? 'H' + bl : '') + (e.kind !== 'cont' ? 'M' + px + ',' + (by - 24) + 'L' + px + ',' + (e.kind === 'sv' ? by + 10 : by) : ''); if (cc[0] === 0 && cc[1] === 0) break; }
         }
-        if (bestDD) e.d = bestDD;
+        /* 反転S（sv/vo/vp/cont）: 左チャネルが始点より左へ逆行する場合、
+           mod と同条件で「右へ出て右側を降り、接続先の少し上で左へ寄せ、
+           最後に右へ入る」形を優先する。目盛りは帰還の横線の中央に吊るす。 */
+        var sAdopted = false;
+        if (by > ay + 120 && ((winX !== null && winX < ar - 4 && bestC[0] === 0 && bestC[1] === 0) || bestC[0] > 0 || bestC[1] > 0)) {
+          var XL7 = bl - 10, yS7 = by - 26;
+          var xrSet7 = {}, xrList7 = [];
+          for (var xi7 = 0; xi7 < boxes.length; xi7++) { var xv7 = Math.round(boxes[xi7].r + 18); if (xv7 >= ar + 40 && !xrSet7[xv7]) { xrSet7[xv7] = 1; xrList7.push(xv7); } }
+          xrList7.sort(function (p, q) { return p - q; });
+          for (var xr7 = 0; xr7 < xrList7.length && !sAdopted; xr7++) {
+            for (var sh7 = 0; sh7 < 3 && !sAdopted; sh7++) {
+              var XR7 = xrList7[xr7] + sh7 * 12;
+              if (XR7 <= XL7 + 30) continue;
+              var vConf7 = false;
+              for (var rv7 = 0; rv7 < sRegV.length; rv7++) { var u7 = sRegV[rv7]; if (Math.abs(XR7 - u7.x) < 12 && Math.min(yS7, u7.y2) - Math.max(ay, u7.y1) >= 40) { vConf7 = true; break; } }
+              if (vConf7) continue;
+              var hConf7 = false;
+              for (var rh7 = 0; rh7 < sRegTopH.length; rh7++) { var uh7 = sRegTopH[rh7]; if (Math.abs(ay - uh7.y) < 12 && Math.min(XR7, uh7.x2) - Math.max(ar, uh7.x1) >= 40) { hConf7 = true; break; } }
+              if (hConf7) continue;
+              var px7 = Math.round((XR7 + XL7) / 2);
+              var segs7 = [[ar, ay, XR7, ay], [XR7, ay, XR7, yS7], [XR7, yS7, XL7, yS7], [XL7, yS7, XL7, by], [XL7, by, bl, by]];
+              if (e.kind !== 'cont') segs7.push([px7, by - 24, px7, e.kind === 'sv' ? by + 10 : by]);
+              var cS7 = _count2(segs7, boxes, blocks);
+              if (cS7[0] === 0 && cS7[1] === 0) {
+                e.d = 'M' + ar + ',' + ay + 'H' + XR7 + 'V' + yS7 + 'H' + XL7 + 'V' + by + 'H' + bl + (e.kind !== 'cont' ? 'M' + px7 + ',' + (by - 24) + 'L' + px7 + ',' + (e.kind === 'sv' ? by + 10 : by) : '');
+                sRegV.push({ x: XR7, y1: ay, y2: yS7 });
+                sRegTopH.push({ y: ay, x1: ar, x2: XR7 });
+                sAdopted = true;
+              }
+            }
+          }
+        }
+        if (!sAdopted && bestDD) e.d = bestDD;
         continue;
       }
       if (e.kind !== 'mod' && e.kind !== 'dash') continue;
@@ -395,6 +459,7 @@
         var sxD = a.x + a.w / 2, txD = b.x + b.w / 2, syD = ay + 6, tyD = by - 24;
         var vxSet = [b.x - 6, b.x + b.w + 6, a.x + a.w + 6, a.x - 6];
         for (var vd = 0; vd < boxes.length; vd++) { vxSet.push(boxes[vd].l - 3); vxSet.push(boxes[vd].r + 3); }
+        vxSet.sort(function (p, q) { return Math.abs(p - sxD) - Math.abs(q - sxD); });
         var seenD = {};
         for (var kd = 0; kd < vxSet.length; kd++) {
           var vx = Math.round(vxSet[kd]);
@@ -420,9 +485,12 @@
       var others = boxes, othersB = blocks;
       var bestC2 = preC, bestD = preD;
       var yMid = isMod ? (by > ay ? by - 30 : by + 30) : ty;
-      var cand = [sx, tx, a.x + 4, b.x - PADX - 6];
+      var cand = [sx, tx, a.x + 4, b.x - PADX - 6, tx - 14, tx - 24];
       for (var ci = 0; ci < others.length; ci++) { cand.push(others[ci].l - 3); cand.push(others[ci].r + 3); }
+      /* 候補は始点に近い順に試す（同上：遠い前側チャネルへの迂回を避ける）。 */
+      cand.sort(function (p, q) { return Math.abs(p - sx) - Math.abs(q - sx); });
       var lo = Math.min(a.x, b.x) - 260, hi = Math.max(a.x + a.w, b.x + b.w) + 80;
+      var bestX = null;
       var seen = {};
       for (var k = 0; k < cand.length; k++) {
         var X = Math.round(cand[k]);
@@ -432,7 +500,109 @@
         segs.push([X, sy, X, yMid]);
         segs.push([X, yMid, tx, ty]);
         var c2 = _count2(segs, others, othersB);
-        if (_better2(c2, bestC2)) { bestC2 = c2; bestD = 'M' + sx + ',' + sy + (X !== sx ? 'H' + X : '') + 'V' + yMid + 'L' + tx + ',' + ty; if (c2[0] === 0 && c2[1] === 0) break; }
+        var dStr2 = 'M' + sx + ',' + sy + (X !== sx ? 'H' + X : '') + 'V' + yMid + 'L' + tx + ',' + ty;
+        /* mod の帰還の形の選び方:
+           - 急な \ 帰還（チャネルが接続先の左 60 以内で、左上から右下へ
+             入る斜め）は、連なる語の流れ（右寄りに下りる）に沿うため、
+             交差が悪化しない限りそのまま使う。
+           - それ以外（浅い斜めは「もう1本の横線」に見える）では、
+             チャネルを接続先のベースラインまで降ろして下線の高さで
+             横に入るエルボー形を、交差が悪化しない場合に優先する。 */
+        if (isMod && X <= tx) {
+          var steepBs = X < tx && (tx - X) <= 60;
+          var segsE = [];
+          if (X !== sx) segsE.push([sx, sy, X, sy]);
+          segsE.push([X, sy, X, ty]);
+          if (X !== tx) segsE.push([X, ty, tx, ty]);
+          var cE = _count2(segsE, others, othersB);
+          if (steepBs ? _better2(cE, c2) : !_better2(c2, cE)) { c2 = cE; dStr2 = 'M' + sx + ',' + sy + (X !== sx ? 'H' + X : '') + 'V' + ty + (X !== tx ? 'H' + tx : ''); }
+        }
+        if (_better2(c2, bestC2)) { bestC2 = c2; bestD = dStr2; bestX = X; if (c2[0] === 0 && c2[1] === 0) break; }
+      }
+      /* 反転S経路（実験）: 左チャネルが始点より左へ逆行する場合に限り、
+         「右へ出て、右側を降り、接続先の少し上で左へ寄せ、最後に右へ入る」
+         S字の反転形を、語に触れずに引ける場合に優先する。
+         兄弟同士で右チャネルと天井の横線が重ならないよう、採用済みの
+         S経路のレーンを文単位で登録し、衝突する候補は避ける。 */
+      if ((isMod || e.kind === 'dash') && by > ay + 120 && ((bestX !== null && bestX < sx - 4 && bestC2[0] === 0 && bestC2[1] === 0) || bestC2[0] > 0 || bestC2[1] > 0)) {
+        var XL = tx - 14, yS = isMod ? by - 26 : ty;
+        /* 幹の共有（mod のみ）: 同じ見出し語に採用済みのSがあれば、その
+           右側の縦線（幹）を共有し、自分の帰還高さで枝分かれする経路を
+           先に試す。天井レーンの取り合いで兄弟が次々に落ちるのを防ぐ。
+           帰還横線が他のSの帰還と重なる場合は高さを 6/12 上げて試す。 */
+        var branchDone = false;
+        if (isMod && sTrunks.has(a)) {
+          var trunks = sTrunks.get(a);
+          for (var ti = 0; ti < trunks.length && !branchDone; ti++) {
+            var T = trunks[ti];
+            for (var ysh = 0; ysh < 3 && !branchDone; ysh++) {
+              var ySb = yS - ysh * 6;
+              var retConfB = false;
+              for (var rr = 0; rr < sRegRetH.length; rr++) { var ur = sRegRetH[rr]; if (Math.abs(ySb - ur.y) < 12 && Math.min(T.XR, ur.x2) - Math.max(XL, ur.x1) >= 40) { retConfB = true; break; } }
+              if (retConfB) continue;
+              var segsB = [];
+              if (T.topY > sy) segsB.push([sx, sy, sx, T.topY]);
+              segsB.push([sx, T.topY, T.XR, T.topY]);
+              segsB.push([T.XR, T.topY, T.XR, ySb]);
+              segsB.push([T.XR, ySb, XL, ySb]);
+              segsB.push([XL, ySb, XL, ty]);
+              segsB.push([XL, ty, tx, ty]);
+              var cB = _count2(segsB, others, othersB);
+              if (cB[0] === 0 && cB[1] === 0) {
+                bestD = 'M' + sx + ',' + sy + (T.topY > sy ? 'V' + T.topY : '') + 'H' + T.XR + 'V' + ySb + 'H' + XL + 'V' + ty + 'H' + tx;
+                bestC2 = cB; bestX = T.XR;
+                if (ySb > T.reg.y2) T.reg.y2 = ySb;
+                sRegRetH.push({ y: ySb, x1: XL, x2: T.XR });
+                branchDone = true;
+              }
+            }
+          }
+        }
+        if (!branchDone) {
+        var xrSet = {}, xrList = [];
+        for (var xi = 0; xi < others.length; xi++) { var xv2 = Math.round(others[xi].r + 18); if (xv2 >= sx + 40 && !xrSet[xv2]) { xrSet[xv2] = 1; xrList.push(xv2); } }
+        xrList.sort(function (p, q) { return p - q; });
+        var adoptedS = false;
+        for (var xri = 0; xri < xrList.length && !adoptedS; xri++) {
+          for (var sh = 0; sh < 3 && !adoptedS; sh++) {
+            var XR = xrList[xri] + sh * 12;
+            if (XR <= XL + 30) continue;
+            var vConf = false;
+            for (var rv = 0; rv < sRegV.length; rv++) { var u = sRegV[rv]; if (Math.abs(XR - u.x) < 12 && Math.min(yS, u.y2) - Math.max(sy, u.y1) >= 40) { vConf = true; break; } }
+            if (vConf) continue;
+            for (var of = 0; of < 3 && !adoptedS; of++) {
+              var off = of * 12, topY = sy + off;
+              var hConf = false;
+              for (var rh = 0; rh < sRegTopH.length; rh++) { var uh = sRegTopH[rh]; if (Math.abs(topY - uh.y) < 12 && Math.min(XR, uh.x2) - Math.max(sx, uh.x1) >= 40) { hConf = true; break; } }
+              if (hConf) continue;
+              var segsS = [];
+              if (off > 0) segsS.push([sx, sy, sx, topY]);
+              segsS.push([sx, topY, XR, topY]);
+              segsS.push([XR, topY, XR, yS]);
+              if (isMod) { segsS.push([XR, yS, XL, yS]); segsS.push([XL, yS, XL, ty]); segsS.push([XL, ty, tx, ty]); }
+              else segsS.push([XR, yS, tx, ty]);
+              var retConfS = false;
+              if (isMod) { for (var rs = 0; rs < sRegRetH.length; rs++) { var us = sRegRetH[rs]; if (Math.abs(yS - us.y) < 12 && Math.min(XR, us.x2) - Math.max(XL, us.x1) >= 40) { retConfS = true; break; } } }
+              var cS = retConfS ? [9, 9] : _count2(segsS, others, othersB);
+              if (cS[0] === 0 && cS[1] === 0 && (isMod || XR > tx + 10)) {
+                bestD = isMod
+                  ? 'M' + sx + ',' + sy + (off > 0 ? 'V' + topY : '') + 'H' + XR + 'V' + yS + 'H' + XL + 'V' + ty + 'H' + tx
+                  : 'M' + sx + ',' + sy + (off > 0 ? 'V' + topY : '') + 'H' + XR + 'V' + ty + 'H' + tx;
+                bestC2 = cS; bestX = XR;
+                var regObj = { x: XR, y1: topY, y2: yS };
+                sRegV.push(regObj);
+                sRegTopH.push({ y: topY, x1: sx, x2: XR });
+                if (isMod) {
+                  sRegRetH.push({ y: yS, x1: XL, x2: XR });
+                  if (!sTrunks.has(a)) sTrunks.set(a, []);
+                  sTrunks.get(a).push({ XR: XR, topY: topY, reg: regObj });
+                }
+                adoptedS = true;
+              }
+            }
+          }
+        }
+        }
       }
       if (bestD) e.d = bestD;
       /* 単一チャネルで解消できない mod は、行間の水平回廊でチャネルを
@@ -553,6 +723,97 @@
           }
         }
       }
+    }
+    _separateCoincident(sent);
+  }
+
+  /* ── 線同士の分離（レーンずらし） ─────────────────────────────
+   * _routeLongEdges は各辺を「語との交差」だけで独立に評価するため、
+   * 同じ親を持つ mod 辺どうしが同じ始点・同じチャネル X を選び、
+   * 長い水平/垂直区間が完全に重なって1本に見えることがある
+   * （例: コロサイ1:14-16、贖い・像・すべての から出る辺）。
+   * 文の全辺の確定経路を見比べ、単一チャネル形の mod 辺に限り、
+   * (a) 始点直後の小さな段差（ジョグ）で水平レーンを下へずらす、
+   * (b) チャネル X をずらす、の組合せで重なりを解消する。
+   * 変換は語との交差 [字形,ブロック] が元の経路より悪化しない
+   * （辞書順で同等以下）場合だけ採用する。語の配置は変えない。 */
+  function _parseSingleChannel(segs) {
+    if (segs.length < 2 || segs.length > 3) return null;
+    var sx = segs[0][0], sy = segs[0][1], X, hasH = false, vi;
+    if (segs[0][1] === segs[0][3] && segs[0][0] !== segs[0][2]) { hasH = true; X = segs[0][2]; vi = 1; }
+    else if (segs[0][0] === segs[0][2] && segs[0][1] !== segs[0][3]) { X = sx; vi = 0; }
+    else return null;
+    var v = segs[vi];
+    if (!v || v[0] !== X || v[2] !== X || v[1] !== sy) return null;
+    var yEnd = v[3];
+    var last = segs[vi + 1];
+    if (!last) return { sx: sx, sy: sy, X: X, hasH: hasH, elbow: true, tx: X, ty: yEnd, yMid: yEnd };
+    if (last[0] !== X || last[1] !== yEnd) return null;
+    if (last[1] === last[3] && last[0] !== last[2]) return { sx: sx, sy: sy, X: X, hasH: hasH, elbow: true, tx: last[2], ty: last[3], yMid: yEnd };
+    if (last[0] !== last[2] && last[1] !== last[3]) return { sx: sx, sy: sy, X: X, hasH: hasH, elbow: false, tx: last[2], ty: last[3], yMid: yEnd };
+    return null;
+  }
+  function _buildSingleChannel(p, off, dx) {
+    var Xn = p.X + dx, segs = [], d = 'M' + p.sx + ',' + p.sy, startY = p.sy;
+    if (off > 0) { segs.push([p.sx, p.sy, p.sx, p.sy + off]); d += 'V' + (p.sy + off); startY = p.sy + off; }
+    if (Xn !== p.sx) { segs.push([p.sx, startY, Xn, startY]); d += 'H' + Xn; }
+    var yEnd = p.elbow ? p.ty : p.yMid;
+    segs.push([Xn, startY, Xn, yEnd]); d += 'V' + yEnd;
+    if (p.elbow) { if (Xn !== p.tx) { segs.push([Xn, p.ty, p.tx, p.ty]); d += 'H' + p.tx; } }
+    else { segs.push([Xn, yEnd, p.tx, p.ty]); d += 'L' + p.tx + ',' + p.ty; }
+    return { segs: segs, d: d };
+  }
+  function _separateCoincident(sent) {
+    var boxes = sent.words.map(_inkBox);
+    var blocks = sent.words.map(_blockBox);
+    /* 全辺の確定経路を先に登録する（処理順に依存せず、後続の辺のレーンへ
+       割り込む変換を防ぐ）。登録には辺の番号を持たせ、自己との重なりは除く。 */
+    var regH = [], regV = [];
+    function longH(segs, ei) { var out = []; for (var i = 0; i < segs.length; i++) { var s = segs[i]; if (s[1] === s[3] && Math.abs(s[2] - s[0]) >= 60) out.push({ y: s[1], x1: Math.min(s[0], s[2]), x2: Math.max(s[0], s[2]), ei: ei }); } return out; }
+    function longV(segs, ei) { var out = []; for (var i = 0; i < segs.length; i++) { var s = segs[i]; if (s[0] === s[2] && Math.abs(s[3] - s[1]) >= 60) out.push({ x: s[0], y1: Math.min(s[1], s[3]), y2: Math.max(s[1], s[3]), ei: ei }); } return out; }
+    /* 並走ペナルティ: 別の辺の長い区間と MINSEP 未満の距離で 40 以上並走すると
+       「束」に見える。完全に重なる場合だけでなく、5〜7 単位ずれた並走も対象にする
+       （ずらし量が小さいと目には1本の太い線に読めるため）。 */
+    var MINSEP = 12;
+    function penalty(segs, selfEi) {
+      var pen = 0;
+      longH(segs, -1).forEach(function (h) { regH.forEach(function (r) { if (r.ei !== selfEi) { var d = Math.abs(h.y - r.y); if (d < MINSEP) { var ov = Math.min(h.x2, r.x2) - Math.max(h.x1, r.x1); if (ov >= 40) pen += ov * (MINSEP - d); } } }); });
+      longV(segs, -1).forEach(function (v) { regV.forEach(function (r) { if (r.ei !== selfEi) { var d = Math.abs(v.x - r.x); if (d < MINSEP) { var ov = Math.min(v.y2, r.y2) - Math.max(v.y1, r.y1); if (ov >= 40) pen += ov * (MINSEP - d); } } }); });
+      return pen;
+    }
+    function register(segs, ei) { longH(segs, ei).forEach(function (h) { regH.push(h); }); longV(segs, ei).forEach(function (v) { regV.push(v); }); }
+    function unregister(ei) { regH = regH.filter(function (r) { return r.ei !== ei; }); regV = regV.filter(function (r) { return r.ei !== ei; }); }
+    sent.edges.forEach(function (e, ei) { register(_parsePath(edgePath(e)), ei); });
+    /* ずらし候補: 最小でも MINSEP を確保できる量から試す（6 単位刻みは
+       「重なりは消えるが束が残る」ため使わない）。 */
+    var steps = [12, 18, 24, 30], cands = [];
+    steps.forEach(function (o) { cands.push([o, 0]); });
+    steps.forEach(function (o) { cands.push([0, o]); cands.push([0, -o]); });
+    steps.forEach(function (o) { steps.forEach(function (dx) { cands.push([o, dx]); cands.push([o, -dx]); }); });
+    cands.sort(function (p, q) { var mp = Math.max(Math.abs(p[0]), Math.abs(p[1])), mq = Math.max(Math.abs(q[0]), Math.abs(q[1])); if (mp !== mq) return mp - mq; return (Math.abs(p[0]) + Math.abs(p[1])) - (Math.abs(q[0]) + Math.abs(q[1])); });
+    for (var sweep = 0; sweep < 2; sweep++) {
+      var changed = false;
+      for (var ei = 0; ei < sent.edges.length; ei++) {
+        var e = sent.edges[ei];
+        if (e.kind !== 'mod' || !e.d) continue;
+        var segs = _parsePath(e.d);
+        var pen0 = penalty(segs, ei);
+        if (!pen0) continue;
+        var parsed = _parseSingleChannel(segs);
+        if (!parsed) continue;
+        var origC = _count2(segs, boxes, blocks);
+        var bestD = null, bestPen = pen0;
+        for (var ci = 0; ci < cands.length; ci++) {
+          var built = _buildSingleChannel(parsed, cands[ci][0], cands[ci][1]);
+          var nc = _count2(built.segs, boxes, blocks);
+          if (_better2(origC, nc)) continue; /* 交差が悪化する変換は採用しない */
+          var pn = penalty(built.segs, ei);
+          if (pn === 0) { bestD = built; bestPen = 0; break; }
+          if (pn < bestPen) { bestPen = pn; bestD = built; }
+        }
+        if (bestD) { e.d = bestD.d; unregister(ei); register(bestD.segs, ei); changed = true; }
+      }
+      if (!changed) break;
     }
   }
 
