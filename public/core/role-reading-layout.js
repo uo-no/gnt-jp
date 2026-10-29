@@ -360,6 +360,7 @@
   function _better2(c, best) { return c[0] < best[0] || (c[0] === best[0] && c[1] < best[1]); }
 
   function _routeLongEdges(sent) {
+    var sRegV = [], sRegTopH = []; /* 反転S経路同士のレーン登録（文単位） */
     var boxes = sent.words.map(_inkBox);
     var blocks = sent.words.map(_blockBox);
     for (var ei = 0; ei < sent.edges.length; ei++) {
@@ -455,6 +456,7 @@
       /* 候補は始点に近い順に試す（同上：遠い前側チャネルへの迂回を避ける）。 */
       cand.sort(function (p, q) { return Math.abs(p - sx) - Math.abs(q - sx); });
       var lo = Math.min(a.x, b.x) - 260, hi = Math.max(a.x + a.w, b.x + b.w) + 80;
+      var bestX = null;
       var seen = {};
       for (var k = 0; k < cand.length; k++) {
         var X = Math.round(cand[k]);
@@ -481,7 +483,49 @@
           var cE = _count2(segsE, others, othersB);
           if (steepBs ? _better2(cE, c2) : !_better2(c2, cE)) { c2 = cE; dStr2 = 'M' + sx + ',' + sy + (X !== sx ? 'H' + X : '') + 'V' + ty + (X !== tx ? 'H' + tx : ''); }
         }
-        if (_better2(c2, bestC2)) { bestC2 = c2; bestD = dStr2; if (c2[0] === 0 && c2[1] === 0) break; }
+        if (_better2(c2, bestC2)) { bestC2 = c2; bestD = dStr2; bestX = X; if (c2[0] === 0 && c2[1] === 0) break; }
+      }
+      /* 反転S経路（実験）: 左チャネルが始点より左へ逆行する場合に限り、
+         「右へ出て、右側を降り、接続先の少し上で左へ寄せ、最後に右へ入る」
+         S字の反転形を、語に触れずに引ける場合に優先する。
+         兄弟同士で右チャネルと天井の横線が重ならないよう、採用済みの
+         S経路のレーンを文単位で登録し、衝突する候補は避ける。 */
+      if (isMod && by > ay + 120 && ((bestX !== null && bestX < sx - 4 && bestC2[0] === 0 && bestC2[1] === 0) || bestC2[0] > 0 || bestC2[1] > 0)) {
+        var XL = tx - 14, yS = by - 26;
+        var xrSet = {}, xrList = [];
+        for (var xi = 0; xi < others.length; xi++) { var xv2 = Math.round(others[xi].r + 18); if (xv2 >= sx + 40 && !xrSet[xv2]) { xrSet[xv2] = 1; xrList.push(xv2); } }
+        xrList.sort(function (p, q) { return p - q; });
+        var adoptedS = false;
+        for (var xri = 0; xri < xrList.length && !adoptedS; xri++) {
+          for (var sh = 0; sh < 3 && !adoptedS; sh++) {
+            var XR = xrList[xri] + sh * 12;
+            if (XR <= XL + 30) continue;
+            var vConf = false;
+            for (var rv = 0; rv < sRegV.length; rv++) { var u = sRegV[rv]; if (Math.abs(XR - u.x) < 12 && Math.min(yS, u.y2) - Math.max(sy, u.y1) >= 40) { vConf = true; break; } }
+            if (vConf) continue;
+            for (var of = 0; of < 3 && !adoptedS; of++) {
+              var off = of * 12, topY = sy + off;
+              var hConf = false;
+              for (var rh = 0; rh < sRegTopH.length; rh++) { var uh = sRegTopH[rh]; if (Math.abs(topY - uh.y) < 12 && Math.min(XR, uh.x2) - Math.max(sx, uh.x1) >= 40) { hConf = true; break; } }
+              if (hConf) continue;
+              var segsS = [];
+              if (off > 0) segsS.push([sx, sy, sx, topY]);
+              segsS.push([sx, topY, XR, topY]);
+              segsS.push([XR, topY, XR, yS]);
+              segsS.push([XR, yS, XL, yS]);
+              segsS.push([XL, yS, XL, ty]);
+              segsS.push([XL, ty, tx, ty]);
+              var cS = _count2(segsS, others, othersB);
+              if (cS[0] === 0 && cS[1] === 0) {
+                bestD = 'M' + sx + ',' + sy + (off > 0 ? 'V' + topY : '') + 'H' + XR + 'V' + yS + 'H' + XL + 'V' + ty + 'H' + tx;
+                bestC2 = cS; bestX = XR;
+                sRegV.push({ x: XR, y1: topY, y2: yS });
+                sRegTopH.push({ y: topY, x1: sx, x2: XR });
+                adoptedS = true;
+              }
+            }
+          }
+        }
       }
       if (bestD) e.d = bestD;
       /* 単一チャネルで解消できない mod は、行間の水平回廊でチャネルを
