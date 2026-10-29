@@ -650,34 +650,49 @@
     var regH = [], regV = [];
     function longH(segs, ei) { var out = []; for (var i = 0; i < segs.length; i++) { var s = segs[i]; if (s[1] === s[3] && Math.abs(s[2] - s[0]) >= 60) out.push({ y: s[1], x1: Math.min(s[0], s[2]), x2: Math.max(s[0], s[2]), ei: ei }); } return out; }
     function longV(segs, ei) { var out = []; for (var i = 0; i < segs.length; i++) { var s = segs[i]; if (s[0] === s[2] && Math.abs(s[3] - s[1]) >= 60) out.push({ x: s[0], y1: Math.min(s[1], s[3]), y2: Math.max(s[1], s[3]), ei: ei }); } return out; }
-    function conflicts(segs, selfEi) {
-      var bad = false;
-      longH(segs, -1).forEach(function (h) { regH.forEach(function (r) { if (r.ei !== selfEi && Math.abs(h.y - r.y) <= 1 && Math.min(h.x2, r.x2) - Math.max(h.x1, r.x1) >= 40) bad = true; }); });
-      longV(segs, -1).forEach(function (v) { regV.forEach(function (r) { if (r.ei !== selfEi && Math.abs(v.x - r.x) <= 1 && Math.min(v.y2, r.y2) - Math.max(v.y1, r.y1) >= 40) bad = true; }); });
-      return bad;
+    /* 並走ペナルティ: 別の辺の長い区間と MINSEP 未満の距離で 40 以上並走すると
+       「束」に見える。完全に重なる場合だけでなく、5〜7 単位ずれた並走も対象にする
+       （ずらし量が小さいと目には1本の太い線に読めるため）。 */
+    var MINSEP = 12;
+    function penalty(segs, selfEi) {
+      var pen = 0;
+      longH(segs, -1).forEach(function (h) { regH.forEach(function (r) { if (r.ei !== selfEi) { var d = Math.abs(h.y - r.y); if (d < MINSEP) { var ov = Math.min(h.x2, r.x2) - Math.max(h.x1, r.x1); if (ov >= 40) pen += ov * (MINSEP - d); } } }); });
+      longV(segs, -1).forEach(function (v) { regV.forEach(function (r) { if (r.ei !== selfEi) { var d = Math.abs(v.x - r.x); if (d < MINSEP) { var ov = Math.min(v.y2, r.y2) - Math.max(v.y1, r.y1); if (ov >= 40) pen += ov * (MINSEP - d); } } }); });
+      return pen;
     }
     function register(segs, ei) { longH(segs, ei).forEach(function (h) { regH.push(h); }); longV(segs, ei).forEach(function (v) { regV.push(v); }); }
     function unregister(ei) { regH = regH.filter(function (r) { return r.ei !== ei; }); regV = regV.filter(function (r) { return r.ei !== ei; }); }
-    var allSegs = sent.edges.map(function (e) { return _parsePath(edgePath(e)); });
-    allSegs.forEach(function (segs, ei) { register(segs, ei); });
-    for (var ei = 0; ei < sent.edges.length; ei++) {
-      var e = sent.edges[ei];
-      if (e.kind !== 'mod' || !e.d) continue;
-      var segs = allSegs[ei];
-      if (!conflicts(segs, ei)) continue;
-      var parsed = _parseSingleChannel(segs);
-      if (!parsed) continue;
-      var origC = _count2(segs, boxes, blocks);
-      var cands = [[6, 0], [12, 0], [18, 0], [24, 0], [30, 0], [0, -6], [0, 6], [0, -12], [0, 12], [0, -18], [0, 18], [6, -6], [6, 6], [12, -6], [12, 6], [18, -6], [18, 6], [24, -6], [24, 6], [30, -6], [30, 6], [6, -18], [6, 18], [12, -18], [12, 18]];
-      for (var ci = 0; ci < cands.length; ci++) {
-        var built = _buildSingleChannel(parsed, cands[ci][0], cands[ci][1]);
-        var nc = _count2(built.segs, boxes, blocks);
-        if (_better2(origC, nc)) continue; /* 交差が悪化する変換は採用しない */
-        if (conflicts(built.segs, ei)) continue;
-        e.d = built.d;
-        unregister(ei); register(built.segs, ei);
-        break;
+    sent.edges.forEach(function (e, ei) { register(_parsePath(edgePath(e)), ei); });
+    /* ずらし候補: 最小でも MINSEP を確保できる量から試す（6 単位刻みは
+       「重なりは消えるが束が残る」ため使わない）。 */
+    var steps = [12, 18, 24, 30], cands = [];
+    steps.forEach(function (o) { cands.push([o, 0]); });
+    steps.forEach(function (o) { cands.push([0, o]); cands.push([0, -o]); });
+    steps.forEach(function (o) { steps.forEach(function (dx) { cands.push([o, dx]); cands.push([o, -dx]); }); });
+    cands.sort(function (p, q) { var mp = Math.max(Math.abs(p[0]), Math.abs(p[1])), mq = Math.max(Math.abs(q[0]), Math.abs(q[1])); if (mp !== mq) return mp - mq; return (Math.abs(p[0]) + Math.abs(p[1])) - (Math.abs(q[0]) + Math.abs(q[1])); });
+    for (var sweep = 0; sweep < 2; sweep++) {
+      var changed = false;
+      for (var ei = 0; ei < sent.edges.length; ei++) {
+        var e = sent.edges[ei];
+        if (e.kind !== 'mod' || !e.d) continue;
+        var segs = _parsePath(e.d);
+        var pen0 = penalty(segs, ei);
+        if (!pen0) continue;
+        var parsed = _parseSingleChannel(segs);
+        if (!parsed) continue;
+        var origC = _count2(segs, boxes, blocks);
+        var bestD = null, bestPen = pen0;
+        for (var ci = 0; ci < cands.length; ci++) {
+          var built = _buildSingleChannel(parsed, cands[ci][0], cands[ci][1]);
+          var nc = _count2(built.segs, boxes, blocks);
+          if (_better2(origC, nc)) continue; /* 交差が悪化する変換は採用しない */
+          var pn = penalty(built.segs, ei);
+          if (pn === 0) { bestD = built; bestPen = 0; break; }
+          if (pn < bestPen) { bestPen = pn; bestD = built; }
+        }
+        if (bestD) { e.d = bestD.d; unregister(ei); register(bestD.segs, ei); changed = true; }
       }
+      if (!changed) break;
     }
   }
 
