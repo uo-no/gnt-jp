@@ -5568,6 +5568,8 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 /* 語の役割で読む（role-reading）: エディタと同じ線・文字で描く */
 .role-reading-view .role-svg { display: block; }
 .role-reading-view .role-svg text { font: 22px "GFS Didot","Palatino Linotype",Georgia,serif; fill: var(--text-main); }
+/* 節番号: 先頭行の先頭の語の左に、他のモードの .v-num と同じ見た目で置く */
+.role-reading-view .role-svg text.vnum { font-size: 17px; fill: var(--text-sub); font-weight: 400; letter-spacing: 0.02em; }
 .role-reading-view .role-svg .ul { stroke: var(--text-main); stroke-width: 1.8; }
 .role-reading-view .role-svg .e { stroke: var(--text-sub); stroke-width: 1.8; fill: none; }
 /* 第3層の局所表示: 中心語の強調と、内容があるときだけの余白 */
@@ -14987,23 +14989,35 @@ async function _renderRoleReadingView(app, srData, elData) {
         const secEl = document.createElement('section');
         secEl.className = 'sd-sentence';
         secEl.setAttribute('data-ref', s.ref || '');
-        const refEl = document.createElement('div');
-        refEl.className = 'sd-sentence-ref';
-        refEl.textContent = (s.ref || '').replace(/^\S+\s+\d+:/, '');
-        secEl.appendChild(refEl);
+        const refText = (s.ref || '').replace(/^\S+\s+\d+:/, '');
         if (laid && laid.words.length) {
-            let minX = Infinity, maxX = -Infinity;
-            for (const w of laid.words) { minX = Math.min(minX, w.x); maxX = Math.max(maxX, w.x + w.w); }
-            minX -= 18; maxX += 18;
+            let minX = Infinity, maxX = -Infinity, minY = Infinity;
+            for (const w of laid.words) { minX = Math.min(minX, w.x); maxX = Math.max(maxX, w.x + w.w); minY = Math.min(minY, w.y); }
+            /* 節番号は他のモードと同様に、図の先頭行の先頭の語の左に置く
+               （従来は番号だけの行が図の上に1行あり、その分空白に見えた）。
+               SVG内のテキストとして先頭行のベースラインに揃える。 */
+            let anchorX = Infinity;
+            for (const w of laid.words) { if (w.y === minY) anchorX = Math.min(anchorX, w.x); }
+            const vbLeft = Math.min(minX - 18, anchorX - 52);
+            const vbRight = maxX + 18;
             const svg = document.createElementNS(NS, 'svg');
-            svg.setAttribute('viewBox', `${minX} ${laid.y0 - 36} ${maxX - minX} ${laid.h + 66}`);
+            svg.setAttribute('viewBox', `${vbLeft} ${laid.y0 - 36} ${vbRight - vbLeft} ${laid.h + 66}`);
             svg.setAttribute('class', 'role-svg');
             /* 文字サイズは他のモードに合わせ、全ての文で固定倍率にする
                （倍率は描画前に textScale として算出済み）。 */
-            const extentW = maxX - minX;
+            const extentW = vbRight - vbLeft;
             const scale = textScale;
             svg.style.width = Math.round(extentW * scale) + 'px';
             svg.style.height = Math.round((laid.h + 66) * scale) + 'px';
+            if (refText) {
+                const vn = document.createElementNS(NS, 'text');
+                vn.setAttribute('class', 'vnum');
+                vn.setAttribute('x', String(anchorX - 16));
+                vn.setAttribute('y', String(minY));
+                vn.setAttribute('text-anchor', 'end');
+                vn.textContent = refText;
+                svg.appendChild(vn);
+            }
             for (const e of laid.edges) {
                 const p = document.createElementNS(NS, 'path');
                 p.setAttribute('d', RoleReadingLayout.edgePath(e));
@@ -15041,6 +15055,12 @@ async function _renderRoleReadingView(app, srData, elData) {
                 svg.appendChild(g);
             });
             secEl.appendChild(svg);
+        } else if (refText) {
+            /* 図が無い文は従来どおり番号だけの行で示す */
+            const refEl = document.createElement('div');
+            refEl.className = 'sd-sentence-ref';
+            refEl.textContent = refText;
+            secEl.appendChild(refEl);
         }
         wrap.appendChild(secEl);
     };
