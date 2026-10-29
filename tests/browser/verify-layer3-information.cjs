@@ -76,7 +76,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
 
   const dictionarySelector = mobile
     ? '#mvv-abbott-slot .rn-dict-full-text'
-    : '#reading-notes-area .rn-dict-full-text';
+    : '#reading-notes-area [data-study-section="lexical"] .rn-dict-full-text';
   await page.waitForFunction(selector => {
     const el = document.querySelector(selector);
     return !!el && (el.textContent || '').trim().length > 20;
@@ -115,8 +115,8 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
       ? document.querySelector('#mobile-inspector-area')
       : document.querySelector('#reading-notes-area');
     const morphology = mobile
-      ? scope?.querySelector('.mvv-l3-section[data-study-section="morphology"]')
-      : scope?.querySelector('#rn-level2-details');
+      ? scope?.querySelector('details[data-study-section="morphology"]')
+      : scope?.querySelector('details[data-study-section="morphology"]');
     const candidates = scope?.querySelector('[data-study-section="candidates"] .rn-mc-details, [data-study-section="candidates"] .rn-mc-list, .rn-mc-details');
     const dictionary = mobile
       ? scope?.querySelector('[data-study-section=\"lexical\"] .rn-dict-full-text, #mvv-abbott-slot .rn-dict-full-text')
@@ -171,7 +171,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
     assert.ok(state.morphCandidatesPresent, `${mobile ? 'Mobile' : 'Desktop'}: expected alternative morphology candidates for ${target} (JHN ${chapter}:${verse})`);
   }
   assert.equal(state.dictionaryVisible, true,
-    `${mobile ? 'Mobile' : 'Desktop'}: dictionary text should be visible when the single Layer 3 entry is open for ${target}`);
+    `${mobile ? 'Mobile' : 'Desktop'}: dictionary text should be visible when the lexical entry is open for ${target}`);
   assert.ok(state.dictionaryTextLength > 20,
     `${mobile ? 'Mobile' : 'Desktop'}: Abbott-Smith dictionary text must remain in the DOM for ${target}`);
   assert.equal(state.lexicalGroupOpen, false,
@@ -193,7 +193,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
     return !!el && !el.closest('details:not([open])') && el.getBoundingClientRect().height > 0;
   }, dictionarySelector);
   assert.equal(dictionaryVisibleWhenExpanded, true,
-    `${mobile ? 'Mobile' : 'Desktop'}: dictionary text must be readable inside the single Layer 3 entry for ${target}`);
+    `${mobile ? 'Mobile' : 'Desktop'}: dictionary text must be readable inside the lexical entry for ${target}`);
   await lexicalEntry.locator(':scope > summary').click();
   assert.equal(await lexicalEntry.evaluate(el => el.open), false,
     `${mobile ? 'Mobile' : 'Desktop'}: lexical entry should close on second activation for ${target}`);
