@@ -394,7 +394,7 @@
       }
       if (e.kind === 'sv' || e.kind === 'vo' || e.kind === 'vp' || e.kind === 'cont') {
         var ar = a.x + a.w + 4, bl = b.x - 4;
-        var bestC = defC, bestDD = null;
+        var bestC = defC, bestDD = null, winX = null;
         var candS = [ar, bl];
         for (var cs = 0; cs < boxes.length; cs++) { candS.push(boxes[cs].l - 3); candS.push(boxes[cs].r + 3); }
         /* 候補は始点に近い順に試す（文の語順のままだと文頭の語の左端など
@@ -411,9 +411,41 @@
           if (X !== bl) segs.push([X, by, bl, by]);
           if (e.kind !== 'cont') segs.push([px, by - 24, px, e.kind === 'sv' ? by + 10 : by]);
           var cc = _count2(segs, boxes, blocks);
-          if (_better2(cc, bestC)) { bestC = cc; bestDD = 'M' + ar + ',' + ay + (X !== ar ? 'H' + X : '') + 'V' + by + (X !== bl ? 'H' + bl : '') + (e.kind !== 'cont' ? 'M' + px + ',' + (by - 24) + 'L' + px + ',' + (e.kind === 'sv' ? by + 10 : by) : ''); if (cc[0] === 0 && cc[1] === 0) break; }
+          if (_better2(cc, bestC)) { bestC = cc; winX = X; bestDD = 'M' + ar + ',' + ay + (X !== ar ? 'H' + X : '') + 'V' + by + (X !== bl ? 'H' + bl : '') + (e.kind !== 'cont' ? 'M' + px + ',' + (by - 24) + 'L' + px + ',' + (e.kind === 'sv' ? by + 10 : by) : ''); if (cc[0] === 0 && cc[1] === 0) break; }
         }
-        if (bestDD) e.d = bestDD;
+        /* 反転S（sv/vo/vp/cont）: 左チャネルが始点より左へ逆行する場合、
+           mod と同条件で「右へ出て右側を降り、接続先の少し上で左へ寄せ、
+           最後に右へ入る」形を優先する。目盛りは帰還の横線の中央に吊るす。 */
+        var sAdopted = false;
+        if (by > ay + 120 && ((winX !== null && winX < ar - 4 && bestC[0] === 0 && bestC[1] === 0) || bestC[0] > 0 || bestC[1] > 0)) {
+          var XL7 = bl - 10, yS7 = by - 26;
+          var xrSet7 = {}, xrList7 = [];
+          for (var xi7 = 0; xi7 < boxes.length; xi7++) { var xv7 = Math.round(boxes[xi7].r + 18); if (xv7 >= ar + 40 && !xrSet7[xv7]) { xrSet7[xv7] = 1; xrList7.push(xv7); } }
+          xrList7.sort(function (p, q) { return p - q; });
+          for (var xr7 = 0; xr7 < xrList7.length && !sAdopted; xr7++) {
+            for (var sh7 = 0; sh7 < 3 && !sAdopted; sh7++) {
+              var XR7 = xrList7[xr7] + sh7 * 12;
+              if (XR7 <= XL7 + 30) continue;
+              var vConf7 = false;
+              for (var rv7 = 0; rv7 < sRegV.length; rv7++) { var u7 = sRegV[rv7]; if (Math.abs(XR7 - u7.x) < 12 && Math.min(yS7, u7.y2) - Math.max(ay, u7.y1) >= 40) { vConf7 = true; break; } }
+              if (vConf7) continue;
+              var hConf7 = false;
+              for (var rh7 = 0; rh7 < sRegTopH.length; rh7++) { var uh7 = sRegTopH[rh7]; if (Math.abs(ay - uh7.y) < 12 && Math.min(XR7, uh7.x2) - Math.max(ar, uh7.x1) >= 40) { hConf7 = true; break; } }
+              if (hConf7) continue;
+              var px7 = Math.round((XR7 + XL7) / 2);
+              var segs7 = [[ar, ay, XR7, ay], [XR7, ay, XR7, yS7], [XR7, yS7, XL7, yS7], [XL7, yS7, XL7, by], [XL7, by, bl, by]];
+              if (e.kind !== 'cont') segs7.push([px7, by - 24, px7, e.kind === 'sv' ? by + 10 : by]);
+              var cS7 = _count2(segs7, boxes, blocks);
+              if (cS7[0] === 0 && cS7[1] === 0) {
+                e.d = 'M' + ar + ',' + ay + 'H' + XR7 + 'V' + yS7 + 'H' + XL7 + 'V' + by + 'H' + bl + (e.kind !== 'cont' ? 'M' + px7 + ',' + (by - 24) + 'L' + px7 + ',' + (e.kind === 'sv' ? by + 10 : by) : '');
+                sRegV.push({ x: XR7, y1: ay, y2: yS7 });
+                sRegTopH.push({ y: ay, x1: ar, x2: XR7 });
+                sAdopted = true;
+              }
+            }
+          }
+        }
+        if (!sAdopted && bestDD) e.d = bestDD;
         continue;
       }
       if (e.kind !== 'mod' && e.kind !== 'dash') continue;
@@ -490,8 +522,8 @@
          S字の反転形を、語に触れずに引ける場合に優先する。
          兄弟同士で右チャネルと天井の横線が重ならないよう、採用済みの
          S経路のレーンを文単位で登録し、衝突する候補は避ける。 */
-      if (isMod && by > ay + 120 && ((bestX !== null && bestX < sx - 4 && bestC2[0] === 0 && bestC2[1] === 0) || bestC2[0] > 0 || bestC2[1] > 0)) {
-        var XL = tx - 14, yS = by - 26;
+      if ((isMod || e.kind === 'dash') && by > ay + 120 && ((bestX !== null && bestX < sx - 4 && bestC2[0] === 0 && bestC2[1] === 0) || bestC2[0] > 0 || bestC2[1] > 0)) {
+        var XL = tx - 14, yS = isMod ? by - 26 : ty;
         var xrSet = {}, xrList = [];
         for (var xi = 0; xi < others.length; xi++) { var xv2 = Math.round(others[xi].r + 18); if (xv2 >= sx + 40 && !xrSet[xv2]) { xrSet[xv2] = 1; xrList.push(xv2); } }
         xrList.sort(function (p, q) { return p - q; });
@@ -512,12 +544,13 @@
               if (off > 0) segsS.push([sx, sy, sx, topY]);
               segsS.push([sx, topY, XR, topY]);
               segsS.push([XR, topY, XR, yS]);
-              segsS.push([XR, yS, XL, yS]);
-              segsS.push([XL, yS, XL, ty]);
-              segsS.push([XL, ty, tx, ty]);
+              if (isMod) { segsS.push([XR, yS, XL, yS]); segsS.push([XL, yS, XL, ty]); segsS.push([XL, ty, tx, ty]); }
+              else segsS.push([XR, yS, tx, ty]);
               var cS = _count2(segsS, others, othersB);
-              if (cS[0] === 0 && cS[1] === 0) {
-                bestD = 'M' + sx + ',' + sy + (off > 0 ? 'V' + topY : '') + 'H' + XR + 'V' + yS + 'H' + XL + 'V' + ty + 'H' + tx;
+              if (cS[0] === 0 && cS[1] === 0 && (isMod || XR > tx + 10)) {
+                bestD = isMod
+                  ? 'M' + sx + ',' + sy + (off > 0 ? 'V' + topY : '') + 'H' + XR + 'V' + yS + 'H' + XL + 'V' + ty + 'H' + tx
+                  : 'M' + sx + ',' + sy + (off > 0 ? 'V' + topY : '') + 'H' + XR + 'V' + ty + 'H' + tx;
                 bestC2 = cS; bestX = XR;
                 sRegV.push({ x: XR, y1: topY, y2: yS });
                 sRegTopH.push({ y: topY, x1: sx, x2: XR });
