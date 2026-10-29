@@ -361,6 +361,8 @@
 
   function _routeLongEdges(sent) {
     var sRegV = [], sRegTopH = []; /* 反転S経路同士のレーン登録（文単位） */
+    var sRegRetH = []; /* 反転Sの帰還横線レーン */
+    var sTrunks = new Map(); /* 見出し語 -> 採用済みSの幹 [{XR, topY, reg}] */
     var boxes = sent.words.map(_inkBox);
     var blocks = sent.words.map(_blockBox);
     for (var ei = 0; ei < sent.edges.length; ei++) {
@@ -524,6 +526,39 @@
          S経路のレーンを文単位で登録し、衝突する候補は避ける。 */
       if ((isMod || e.kind === 'dash') && by > ay + 120 && ((bestX !== null && bestX < sx - 4 && bestC2[0] === 0 && bestC2[1] === 0) || bestC2[0] > 0 || bestC2[1] > 0)) {
         var XL = tx - 14, yS = isMod ? by - 26 : ty;
+        /* 幹の共有（mod のみ）: 同じ見出し語に採用済みのSがあれば、その
+           右側の縦線（幹）を共有し、自分の帰還高さで枝分かれする経路を
+           先に試す。天井レーンの取り合いで兄弟が次々に落ちるのを防ぐ。
+           帰還横線が他のSの帰還と重なる場合は高さを 6/12 上げて試す。 */
+        var branchDone = false;
+        if (isMod && sTrunks.has(a)) {
+          var trunks = sTrunks.get(a);
+          for (var ti = 0; ti < trunks.length && !branchDone; ti++) {
+            var T = trunks[ti];
+            for (var ysh = 0; ysh < 3 && !branchDone; ysh++) {
+              var ySb = yS - ysh * 6;
+              var retConfB = false;
+              for (var rr = 0; rr < sRegRetH.length; rr++) { var ur = sRegRetH[rr]; if (Math.abs(ySb - ur.y) < 12 && Math.min(T.XR, ur.x2) - Math.max(XL, ur.x1) >= 40) { retConfB = true; break; } }
+              if (retConfB) continue;
+              var segsB = [];
+              if (T.topY > sy) segsB.push([sx, sy, sx, T.topY]);
+              segsB.push([sx, T.topY, T.XR, T.topY]);
+              segsB.push([T.XR, T.topY, T.XR, ySb]);
+              segsB.push([T.XR, ySb, XL, ySb]);
+              segsB.push([XL, ySb, XL, ty]);
+              segsB.push([XL, ty, tx, ty]);
+              var cB = _count2(segsB, others, othersB);
+              if (cB[0] === 0 && cB[1] === 0) {
+                bestD = 'M' + sx + ',' + sy + (T.topY > sy ? 'V' + T.topY : '') + 'H' + T.XR + 'V' + ySb + 'H' + XL + 'V' + ty + 'H' + tx;
+                bestC2 = cB; bestX = T.XR;
+                if (ySb > T.reg.y2) T.reg.y2 = ySb;
+                sRegRetH.push({ y: ySb, x1: XL, x2: T.XR });
+                branchDone = true;
+              }
+            }
+          }
+        }
+        if (!branchDone) {
         var xrSet = {}, xrList = [];
         for (var xi = 0; xi < others.length; xi++) { var xv2 = Math.round(others[xi].r + 18); if (xv2 >= sx + 40 && !xrSet[xv2]) { xrSet[xv2] = 1; xrList.push(xv2); } }
         xrList.sort(function (p, q) { return p - q; });
@@ -546,18 +581,27 @@
               segsS.push([XR, topY, XR, yS]);
               if (isMod) { segsS.push([XR, yS, XL, yS]); segsS.push([XL, yS, XL, ty]); segsS.push([XL, ty, tx, ty]); }
               else segsS.push([XR, yS, tx, ty]);
-              var cS = _count2(segsS, others, othersB);
+              var retConfS = false;
+              if (isMod) { for (var rs = 0; rs < sRegRetH.length; rs++) { var us = sRegRetH[rs]; if (Math.abs(yS - us.y) < 12 && Math.min(XR, us.x2) - Math.max(XL, us.x1) >= 40) { retConfS = true; break; } } }
+              var cS = retConfS ? [9, 9] : _count2(segsS, others, othersB);
               if (cS[0] === 0 && cS[1] === 0 && (isMod || XR > tx + 10)) {
                 bestD = isMod
                   ? 'M' + sx + ',' + sy + (off > 0 ? 'V' + topY : '') + 'H' + XR + 'V' + yS + 'H' + XL + 'V' + ty + 'H' + tx
                   : 'M' + sx + ',' + sy + (off > 0 ? 'V' + topY : '') + 'H' + XR + 'V' + ty + 'H' + tx;
                 bestC2 = cS; bestX = XR;
-                sRegV.push({ x: XR, y1: topY, y2: yS });
+                var regObj = { x: XR, y1: topY, y2: yS };
+                sRegV.push(regObj);
                 sRegTopH.push({ y: topY, x1: sx, x2: XR });
+                if (isMod) {
+                  sRegRetH.push({ y: yS, x1: XL, x2: XR });
+                  if (!sTrunks.has(a)) sTrunks.set(a, []);
+                  sTrunks.get(a).push({ XR: XR, topY: topY, reg: regObj });
+                }
                 adoptedS = true;
               }
             }
           }
+        }
         }
       }
       if (bestD) e.d = bestD;
