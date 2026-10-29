@@ -92,6 +92,11 @@
     return { head: first, tail: tail || first, lead: fl || first, w: W, h: Math.max(cy - y - 34, ROW) };
   }
 
+  /* mods の第3引数 x は「アンカー」＝見出し語そのものの x。呼び出し側は
+     句やスロットの起点ではなく head.x を渡す。修飾グループを句の起点から
+     ぶら下げると、見出し語が句の右寄りにある場合にグループ全体が見出し語
+     より左へ流れ、線が重なる。見出し語からぶら下げれば、連なる語は
+     1段ごとに右へ流れ、線は \ 方向にそろう。 */
   function mods(head, list, x, y0) {
     var myWE = spWrapEff; var cy = y0, nom = y0, W = 0;
     for (var ki = 0; ki < list.length; ki++) {
@@ -127,16 +132,16 @@
       if (prev) { var bN = r.lead || r.head; var src = (vTail && SLOT[role] !== 2 && Math.abs((bN.y || 0) - (pt.y || 0)) > 200) ? vTail : pt; edges.push({ a: src, b: bN, kind: role === 'p' ? 'vp' : SLOT[role] === 2 ? 'sv' : 'vo' }); }
       if (SLOT[role] === 2 && extra.length && !vseen) {
         vseen = true;
-        if (myWE !== null) { var _r2 = spWrapW - curX; spWrapEff = _r2 > SP_MIN_WE ? _r2 : SP_MIN_WE; }
-        var m = mods(r.head, extra, curX, y + curRY + r.h); spWrapEff = myWE; r.w = Math.max(r.w, m.w); r.h += m.h; rowH = Math.max(rowH, r.h);
+        if (myWE !== null) { var _r2 = spWrapW - r.head.x; spWrapEff = _r2 > SP_MIN_WE ? _r2 : SP_MIN_WE; }
+        var m = mods(r.head, extra, r.head.x, y + curRY + r.h); spWrapEff = myWE; r.w = Math.max(r.w, (r.head.x - curX) + m.w); r.h += m.h; rowH = Math.max(rowH, r.h);
       }
       cx = curX + r.w + GAPH; maxW = Math.max(maxW, curX - x + r.w);
       last = { r: r, x: curX, ry: curRY }; prev = r.head; pt = r.tail || r.head; if (SLOT[role] === 2) vTail = pt; H = Math.max(H, curRY + r.h);
     }
     if (extra.length && !vseen && last) {
-      if (myWE !== null) { var _r3 = spWrapW - last.x; spWrapEff = _r3 > SP_MIN_WE ? _r3 : SP_MIN_WE; }
-      var m2 = mods(prev, extra, last.x, y + last.ry + last.r.h); spWrapEff = myWE;
-      if (spWrapW === null) cx = last.x + Math.max(last.r.w, m2.w) + GAPH; else maxW = Math.max(maxW, last.x - x + Math.max(last.r.w, m2.w));
+      if (myWE !== null) { var _r3 = spWrapW - prev.x; spWrapEff = _r3 > SP_MIN_WE ? _r3 : SP_MIN_WE; }
+      var m2 = mods(prev, extra, prev.x, y + last.ry + last.r.h); spWrapEff = myWE;
+      if (spWrapW === null) cx = last.x + Math.max(last.r.w, (prev.x - last.x) + m2.w) + GAPH; else maxW = Math.max(maxW, last.x - x + Math.max(last.r.w, (prev.x - last.x) + m2.w));
       H = Math.max(H, last.ry + last.r.h + m2.h);
     }
     return { head: first, tail: pt, lead: fl || first, w: spWrapW !== null ? maxW : Math.max(cx - x - GAPH, 0), h: H };
@@ -261,18 +266,18 @@
         if (b2UL && firstDr5) b2Pairs.push({ det: firstDr5.head, noun: hr5.head, el: null });
         return { head: hr5.head, lead: EW.get(rest[0]) || hr5.head, tail: hr5.tail || hr5.head, w: cx5 - x + hr5.w, h: hr5.h, usedPre: true };
       }
-      var hr = place(ks[hi], x, y), m = mods(hr.head, rest, x, y + hr.h);
-      return { head: hr.head, lead: hr.lead || hr.head, tail: hr.tail || hr.head, w: Math.max(hr.w, m.w), h: hr.h + m.h, usedPre: true };
+      var hr = place(ks[hi], x, y), m = mods(hr.head, rest, hr.head.x, y + hr.h);
+      return { head: hr.head, lead: hr.lead || hr.head, tail: hr.tail || hr.head, w: Math.max(hr.w, (hr.head.x - x) + m.w), h: hr.h + m.h, usedPre: true };
     }
     var hr6, m6;
     if (isWg) {
       hr6 = place(ks[hi], x, y, pre.concat(hoist ? short : []));
-      if (hr6.usedPre) { m6 = mods(hr6.head, hoist ? long : rest, x, y + hr6.h); }
-      else { m6 = mods(hr6.head, pre.concat(hoist ? short.concat(long) : rest), x, y + hr6.h); }
+      if (hr6.usedPre) { m6 = mods(hr6.head, hoist ? long : rest, hr6.head.x, y + hr6.h); }
+      else { m6 = mods(hr6.head, pre.concat(hoist ? short.concat(long) : rest), hr6.head.x, y + hr6.h); }
     } else {
-      hr6 = place(ks[hi], x, y); m6 = mods(hr6.head, pre.concat(rest), x, y + hr6.h);
+      hr6 = place(ks[hi], x, y); m6 = mods(hr6.head, pre.concat(rest), hr6.head.x, y + hr6.h);
     }
-    return { head: hr6.head, lead: hr6.lead || hr6.head, tail: hr6.tail || hr6.head, w: Math.max(hr6.w, m6.w), h: hr6.h + m6.h, usedPre: true };
+    return { head: hr6.head, lead: hr6.lead || hr6.head, tail: hr6.tail || hr6.head, w: Math.max(hr6.w, (hr6.head.x - x) + m6.w), h: hr6.h + m6.h, usedPre: true };
   }
 
   function resolve() {
