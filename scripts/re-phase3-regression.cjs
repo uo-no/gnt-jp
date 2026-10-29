@@ -56,8 +56,11 @@ const PHASE3A_BASELINE = {
     totalTokens: 137741,
     // M-15 反映移行(2026-07-22): 固定点2,537反映で主語代名詞(私たち/彼ら/これ 等)が は/が を得た。
     // 3015→3084（は 2170→2202 / が 845→882）。pre-reflection historical=3015（削除しない）。
-    particle:    3084,
-    byParticle: { 'は': 2202, 'が': 882 },
+    // JAS 1:12-15 口語訳パイロット適用(2026-10-29): bible_data 16件変更により は+1/が+1。
+    // 悪化ケース 0（doubleParticle/brokenWaGa/morphMismatch すべて 0 を audit 確認済み）。
+    // 3084→3086（は 2202→2203 / が 882→883）。
+    particle:    3086,
+    byParticle: { 'は': 2203, 'が': 883 },
     zeroFlags: ['doubleParticle', 'brokenWaGa', 'morphMismatch'],
 };
 
