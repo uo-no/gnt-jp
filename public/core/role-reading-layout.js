@@ -374,8 +374,12 @@
         var sxN = a.x + Math.min(14, a.w);
         var exN = b.x - PADX - 2, eyN = by > ay ? by - 24 : by + 22;
         /* 横に長い浅い斜めにならないよう、エントリー点が始点から
-           140 以内のときだけ使う（折り返し幅ではチャネル迂回に任せる）。 */
-        if (Math.abs(exN - sxN) > 140) exN = null;
+           140 以内のときだけ使う（折り返し幅ではチャネル迂回に任せる）。
+           また、エントリーの斜めが / 方向（右上から左下へ入る形）になる
+           場合は使わない。連なる語への線は \ 方向（左上から右下）で
+           入るのが原則で、/ で入ると同列の線と重なって見えるため、
+           その場合は左側チャネル＋ \ 帰還（チャネル探索）に任せる。 */
+        if (Math.abs(exN - sxN) > 140 || exN < sxN - 6) exN = null;
         if (exN !== null) {
           var segsN = [[sxN, ay, exN, eyN], [exN, eyN, exN, by]];
           var cN = _count2(segsN, boxes, blocks);
@@ -441,7 +445,7 @@
       var others = boxes, othersB = blocks;
       var bestC2 = preC, bestD = preD;
       var yMid = isMod ? (by > ay ? by - 30 : by + 30) : ty;
-      var cand = [sx, tx, a.x + 4, b.x - PADX - 6];
+      var cand = [sx, tx, a.x + 4, b.x - PADX - 6, tx - 14, tx - 24];
       for (var ci = 0; ci < others.length; ci++) { cand.push(others[ci].l - 3); cand.push(others[ci].r + 3); }
       /* 候補は始点に近い順に試す（同上：遠い前側チャネルへの迂回を避ける）。 */
       cand.sort(function (p, q) { return Math.abs(p - sx) - Math.abs(q - sx); });
@@ -456,17 +460,21 @@
         segs.push([X, yMid, tx, ty]);
         var c2 = _count2(segs, others, othersB);
         var dStr2 = 'M' + sx + ',' + sy + (X !== sx ? 'H' + X : '') + 'V' + yMid + 'L' + tx + ',' + ty;
-        /* mod の帰還は、斜め（(X,yMid)→(tx,ty)、横幅の割に浅く「もう1本の
-           横線」に見える）より、チャネルを接続先のベースラインまで降ろして
-           下線の高さで横に入るエルボー形の方がたどりやすい。チャネルが
-           接続先の左にある場合に限り、交差が悪化しないエルボーを優先する。 */
+        /* mod の帰還の形の選び方:
+           - 急な \ 帰還（チャネルが接続先の左 60 以内で、左上から右下へ
+             入る斜め）は、連なる語の流れ（右寄りに下りる）に沿うため、
+             交差が悪化しない限りそのまま使う。
+           - それ以外（浅い斜めは「もう1本の横線」に見える）では、
+             チャネルを接続先のベースラインまで降ろして下線の高さで
+             横に入るエルボー形を、交差が悪化しない場合に優先する。 */
         if (isMod && X <= tx) {
+          var steepBs = X < tx && (tx - X) <= 60;
           var segsE = [];
           if (X !== sx) segsE.push([sx, sy, X, sy]);
           segsE.push([X, sy, X, ty]);
           if (X !== tx) segsE.push([X, ty, tx, ty]);
           var cE = _count2(segsE, others, othersB);
-          if (!_better2(c2, cE)) { c2 = cE; dStr2 = 'M' + sx + ',' + sy + (X !== sx ? 'H' + X : '') + 'V' + ty + (X !== tx ? 'H' + tx : ''); }
+          if (steepBs ? _better2(cE, c2) : !_better2(c2, cE)) { c2 = cE; dStr2 = 'M' + sx + ',' + sy + (X !== sx ? 'H' + X : '') + 'V' + ty + (X !== tx ? 'H' + tx : ''); }
         }
         if (_better2(c2, bestC2)) { bestC2 = c2; bestD = dStr2; if (c2[0] === 0 && c2[1] === 0) break; }
       }
