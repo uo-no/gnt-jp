@@ -1270,15 +1270,19 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
         check('behavioral(3-6): _isAutoloadBlockedMode("translation") === false',
             blocked('translation') === false);
 
-        /* discourse / structural-diagram / hierarchical / relation はブロック（true） */
-        check('behavioral(3-6): _isAutoloadBlockedMode("discourse") === true',
-            blocked('discourse') === true);
-        check('behavioral(3-6): _isAutoloadBlockedMode("structural-diagram") === true',
-            blocked('structural-diagram') === true);
-        check('behavioral(3-6): _isAutoloadBlockedMode("hierarchical") === true',
-            blocked('hierarchical') === true);
-        check('behavioral(3-6): _isAutoloadBlockedMode("relation") === true',
-            blocked('relation') === true);
+        /* 旧モードIDはブロック条件にせず、現行の role-reading のみブロックする */
+        check('behavioral(3-6): _isAutoloadBlockedMode("role-reading") === true',
+            blocked('role-reading') === true);
+        check('behavioral(3-6): _isAutoloadBlockedMode("da-reading") === false',
+            blocked('da-reading') === false);
+        check('behavioral(3-6): 旧モード "discourse" はブロック対象外',
+            blocked('discourse') === false);
+        check('behavioral(3-6): 旧モード "structural-diagram" はブロック対象外',
+            blocked('structural-diagram') === false);
+        check('behavioral(3-6): 旧モード "hierarchical" はブロック対象外',
+            blocked('hierarchical') === false);
+        check('behavioral(3-6): 旧モード "relation" はブロック対象外',
+            blocked('relation') === false);
     }
 }
 
@@ -1295,8 +1299,12 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
             grm('wordOrder') === true);
         check('invariant(3-6): _isGreekReadingMode("translation") === false',
             grm('translation') === false);
-        check('invariant(3-6): _isGreekReadingMode("discourse") === true',
-            grm('discourse') === true);
+        check('invariant(3-6): _isGreekReadingMode("da-reading") === true',
+            grm('da-reading') === true);
+        check('invariant(3-6): _isGreekReadingMode("role-reading") === true',
+            grm('role-reading') === true);
+        check('invariant(3-6): 旧モード "discourse" は Greek reading 対象外',
+            grm('discourse') === false);
     }
 }
 
@@ -1415,14 +1423,18 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
     const blockedModeSrc = extractFunctionSource(html, 'function _isAutoloadBlockedMode(kind) {');
     if (blockedModeSrc) {
         const blocked = new Function('kind', blockedModeSrc + '\nreturn _isAutoloadBlockedMode(kind);');
-        check('invariant(3-6): ST（hierarchical）は autoload 対象外のまま',
-            blocked('hierarchical') === true);
-        check('invariant(3-6): CR（structural-diagram）は autoload 対象外のまま',
-            blocked('structural-diagram') === true);
-        check('invariant(3-6): RL（relation）は autoload 対象外のまま',
-            blocked('relation') === true);
-        check('invariant(3-6): discourse は autoload 対象外のまま',
-            blocked('discourse') === true);
+        check('invariant(3-6): role-reading は autoload 対象外',
+            blocked('role-reading') === true);
+        check('invariant(3-6): da-reading は autoload 対象',
+            blocked('da-reading') === false);
+        check('invariant(3-6): 旧モード hierarchical は autoload 対象外条件に含まれない',
+            blocked('hierarchical') === false);
+        check('invariant(3-6): 旧モード structural-diagram は autoload 対象外条件に含まれない',
+            blocked('structural-diagram') === false);
+        check('invariant(3-6): 旧モード relation は autoload 対象外条件に含まれない',
+            blocked('relation') === false);
+        check('invariant(3-6): 旧モード discourse は autoload 対象外条件に含まれない',
+            blocked('discourse') === false);
     }
 }
 

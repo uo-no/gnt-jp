@@ -80,6 +80,8 @@ const sandbox = {
     buildDepthGrammarClasses: () => [],
     _buildReadingContext: () => null,
     URLSearchParams,
+    /* 抽出した本番コードに含まれる非対象の可用性取得を隔離する。 */
+    fetch: () => Promise.resolve({ ok: false, json: () => Promise.resolve({}) }),
     console,
 };
 vm.createContext(sandbox);
