@@ -59,7 +59,7 @@ const m = html.match(/\/\* __PHRASE_READING_BEGIN__[\s\S]*?__PHRASE_READING_END_
 if (!m) { console.error('__PHRASE_READING__ 区間が見つかりません'); process.exit(1); }
 const sandbox = {
     _escH: s => String(s),               // 監査では素の比較（エスケープ無効化）
-    window: { App: {} },                 // 新経路は評価時未使用（関数定義のみ）
+    window: { App: {}, addEventListener: () => {} }, // addEventListener: highlight portal 追加後に必要
     console,
 };
 vm.createContext(sandbox);
