@@ -2806,8 +2806,13 @@ const _CONJUNCTION_LEMMAS = new Set([
 
 class ConjunctionScorer extends CandidateScorer {
     canHandle(ctx) {
-        if (ctx.posCode !== 'C') return false;
-        return _CONJUNCTION_LEMMAS.has(ctx.target?.lemma ?? '');
+        if (!_CONJUNCTION_LEMMAS.has(ctx.target?.lemma ?? '')) return false;
+        // 対象レンマの実セグメントは CONJ のほか COND（εἰ・ἐάν）・
+        // ADV（ὅπως・ὅτε・καθώς 等）にも散る。posCode では COND→P、
+        // ADV→D に潰れて届かなかったため、セグメントで受ける。
+        const seg = String(ctx.target?.morph ?? '').split('-')[0];
+        if (['CONJ', 'COND', 'ADV'].includes(seg)) return true;
+        return ctx.posCode === 'C'; // 形態を持たない入力への後方互換
     }
 
     score(ctx, registry) {
@@ -2834,7 +2839,23 @@ class ConjunctionScorer extends CandidateScorer {
 
 class PrepositionScorer extends CandidateScorer {
     canHandle(ctx) {
-        return ctx.posCode === 'P';
+        // 前置詞そのものだけを対象にする。posCode 'P' は人称代名詞
+        // （P-…）と条件接続詞（COND）も含むため、形態セグメントで
+        // PREP に限定する。
+        const seg = String(ctx.target?.morph ?? '').split('-')[0];
+        if (seg === 'PREP') return true;
+        // 非固有前置詞（ἕως・ἄχρι・χωρίς 等）は ADV コードで現れる。
+        // 属格を支配する前置詞用法に限るため、直後トークンの格が
+        // 属格の場合だけ受ける。
+        if (seg === 'ADV') {
+            const next = (ctx.tokens ?? [])[(ctx.targetIdx ?? 0) + 1];
+            if (!next) return false;
+            const nm = typeof decodeMorph === 'function' ? decodeMorph(next) : null;
+            if (nm && nm.case) return nm.case === 'genitive';
+            const nseg = String(next.morph ?? '').split('-')[1] ?? '';
+            return nseg.startsWith('G');
+        }
+        return false;
     }
 
     score(ctx, registry) {
@@ -2866,8 +2887,14 @@ const _CLAUSE_ANCHOR_LEMMAS = new Set([
 
 class ClauseScorer extends CandidateScorer {
     canHandle(ctx) {
-        if (!['C', 'R'].includes(ctx.posCode)) return false;
-        return _CLAUSE_ANCHOR_LEMMAS.has(ctx.target?.lemma ?? '');
+        if (!_CLAUSE_ANCHOR_LEMMAS.has(ctx.target?.lemma ?? '')) return false;
+        // アンカー語の実セグメントは CONJ（ὅτι・ἵνα・ὥστε・ὅταν）・
+        // COND（εἰ・ἐάν）・ADV（ὅτε・ὅπως・καθώς）・R（ὅς）に散る。
+        // posCode では COND→P、ADV→D に潰れて届かなかったため、
+        // セグメントで受ける。
+        const seg = String(ctx.target?.morph ?? '').split('-')[0];
+        if (['CONJ', 'COND', 'ADV', 'R'].includes(seg)) return true;
+        return ['C', 'R'].includes(ctx.posCode); // 形態を持たない入力への後方互換
     }
 
     score(ctx, registry) {
@@ -2942,12 +2969,22 @@ class NominativeScorer extends CandidateScorer {
 // =============================================================
 //
 // Wallace §Pronouns (pp.315–354)。
-// ἕκαστος・ἐμός・限定位置 αὐτός はデータ上 adj タグのため R と A の
-// 両方を対象とする（型側のレンマ条件で厳密にゲートされる）。
+// 代名詞の形態コードは P/D/R/I/X/F/C/S に散り、posCode では
+// 前置詞・副詞等と同居して判別できないため、振り分けは形態コード
+// 第1セグメントで行う（型側のレンマ条件で厳密にゲートされる）。
+// ἕκαστος 等の形容詞タグ分は posCode 'A' で受ける。
 
 class PronounScorer extends CandidateScorer {
     canHandle(ctx) {
-        return ctx.posCode === 'R' || ctx.posCode === 'A';
+        // 振り分けは posCode ではなく形態コード第1セグメントで行う。
+        // posCode は P（前置詞・条件接続詞・人称代名詞）や D（指示代名詞・
+        // 副詞・小辞）のように複数区分を同居させるため、代名詞の実コードを
+        // 取りこぼす。実データの代名詞セグメント:
+        // P 人称 / D 指示 / R 関係 / I 疑問 / X 不定 / F 再帰 / C 相互 / S 所有。
+        const seg = String(ctx.target?.morph ?? '').split('-')[0];
+        if (['P', 'D', 'R', 'I', 'X', 'F', 'C', 'S'].includes(seg)) return true;
+        // 形容詞タグの ἕκαστος・限定位置 αὐτός 等（従来どおり）
+        return ctx.posCode === 'A';
     }
 
     score(ctx, registry) {
