@@ -68,7 +68,7 @@ assert.deepEqual(projection.words[0].alternatives[0].failedSignals, ['independen
 const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
 assert.match(html, /formatEvidence\(\{/);
 assert.match(html, /'verb', 'infinitive', 'discourse', 'nominative'/);
-assert.match(html, /文の中で考えられる役割/);
+assert.match(html, /分析候補・統語情報/);
 
 console.log('PASS: evidence formatter requires the necessary matched signals');
 console.log('PASS: the imperative-infinitive note includes a caution and a contextual criterion');

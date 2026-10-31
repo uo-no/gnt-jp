@@ -7965,10 +7965,8 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         candidateIds.has('nominal_syntax.nested_np') &&
         candidateIds.has('nominal_syntax.modified_np')) {
         comparisonHTML = `<div class="rn-syntax-comparison">
-            <div class="rn-syntax-comparison-title">候補の違い</div>
-            <p><strong>入れ子名詞句</strong>は、名詞句の内部にもう一つの名詞句が組み込まれる構造です。たとえば冠詞・名詞・冠詞・属格名詞という Apollonius 型が該当します。</p>
-            <p><strong>修飾名詞句</strong>は、中心となる名詞に形容詞・属格・分詞・前置詞句などの修飾語が付く構造です。</p>
-            <p class="rn-syntax-comparison-difference"><strong>違い：</strong>名詞句の内部に別の名詞句が組み込まれているか、中心語に修飾語が付いているか、という構造上の違いです。</p>
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong>名詞句の内部に別の名詞句が組み込まれているか（入れ子。冠詞・名詞・冠詞・属格名詞という Apollonius 型など）、中心語に修飾語が付いているだけか、という構造上の違いです。</p>
             <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
                 <div class="rn-syntax-evidence-body">
                     <p>この二つは名詞句の構造を説明する候補です。どちらが適切かは、対象語だけでなく、周囲の冠詞・名詞・修飾語の並びとまとまりを確認して判断します。候補の表示順位やスコアだけで構造が確定するわけではありません。</p>
@@ -7980,7 +7978,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         candidateIds.has('genitive.possessive') &&
         candidateIds.has('genitive.objective')) {
         comparisonHTML = `<div class="rn-syntax-comparison">
-            <div class="rn-syntax-comparison-title">候補の違い</div>
+            <div class="rn-syntax-comparison-title">読み分け</div>
             <p><strong>主語的属格：</strong>属格が動作を行う側を表します。動作名詞を動詞に置き換えると、属格が主語に当たります。</p>
             <p><strong>所有属格：</strong>属格が中心語との所有・所属・帰属の関係を表します。「〜の」と訳せることがあります。</p>
             <p><strong>目的語的属格：</strong>属格が動作の向かう対象を表します。動作名詞を動詞に置き換えると、属格が目的語に当たります。</p>
@@ -7991,30 +7989,27 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
                 </div>
             </div>
         </div>`;
-    }
-    /*
-     * 全トークン共通のフォールバック：
-     * 個別に人手レビュー済みの比較がない場合も、レジストリの日本語定義を
-     * 用いて複数候補を見比べられるようにする。特定の節・単語には限定しない。
-     */
-    if (!comparisonHTML && unique.length > 1) {
-        const comparisonItems = unique.map(c => {
-            const label = _escH(c.label_ja);
-            const detail = typeof c.description_ja === 'string' && c.description_ja.trim()
-                ? c.description_ja.trim()
-                : (typeof c.hint_ja === 'string' ? c.hint_ja.trim() : '');
-            return `<div class="rn-syntax-comparison-item"><strong>${label}</strong>${detail ? `<p>${_escH(detail)}</p>` : '<p>この候補の説明はまだ登録されていません。</p>'}</div>`;
-        }).join('');
-        comparisonHTML = `<div class="rn-syntax-comparison rn-syntax-comparison-generic">
-            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">候補の違い</div>
+    } else if (!comparisonHTML &&
+        candidateIds.has('nominal_syntax.modified_np') &&
+        candidateIds.has('nominal_syntax.multiple_modifier_np')) {
+        comparisonHTML = `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong>中心となる名詞に付く修飾語の数です。修飾語が複数付いていれば「複数修飾名詞句」、1つだけなら「修飾名詞句」の範囲に入ります（複数修飾は修飾名詞句の一種です）。</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
                 <div class="rn-syntax-evidence-body">
-                    <p>以下は、今回の解析で残った候補を、それぞれの文法上の意味から説明したものです。本文と前後の文脈に照らして比べてください。表示順位やスコアだけで解釈が確定するわけではありません。</p>
-                    ${comparisonItems}
+                    <p>この語の周りで、形容詞・属格・分詞・前置詞句などの修飾語がいくつ付いているかを確認してください。候補の表示順位やスコアだけで決まるものではありません。</p>
                 </div>
             </div>
         </div>`;
     }
-    return `<span class="rn-dict-label ui-label">文の中で考えられる役割</span><div class="rn-syntax-candidates">${tiedNotice}${primaryHTML}${otherHTML}${comparisonHTML}</div>`;
+    /*
+     * 汎用の候補比較は出さない。候補の定義は上の候補一覧で一度だけ示し、
+     * ここで並べ直すと重複になる。人手で読み分けを書いた組み合わせだけを
+     * 上で追加し、それ以外は何も足さない（静寂優先）。
+     * 見出しは呼び出し側のグループ見出し「分析候補・統語情報」に一本化し、
+     * このブロック内には小見出しを付けない。
+     */
+    return `<div class="rn-syntax-candidates">${tiedNotice}${primaryHTML}${otherHTML}${comparisonHTML}</div>`;
 }
 
 async function _renderReadingNotes(p) {
