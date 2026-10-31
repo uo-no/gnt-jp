@@ -5027,21 +5027,35 @@ CheckEvaluator.register('right_dislocation',
         const m = ctx.morph ?? {};
         if (!m.case) return false;
         // 有冠詞句（直前方向に一致する冠詞・副詞透過）
-        let hasArt = false;
+        let artIdx = -1;
         for (let k = rel - 1; k >= 0 && k >= rel - 3; k--) {
             const pos = _resolveEntryPos(clause[k]);
             if (pos === 'D' || pos === 'A' || pos === 'X') continue;   // ποτε(ptcl) 等を透過
             if (pos === 'T') {
                 const am = typeof decodeMorph === 'function' ? decodeMorph(clause[k]) : {};
-                hasArt = am.case === m.case;
+                if (am.case === m.case) artIdx = k;
             }
             break;
         }
-        if (!hasArt) return false;
+        if (artIdx < 0) return false;
+        // 節の中核構成素である名詞句を除外する（再指定は節の外側に付く）:
+        // (1) 冠詞句が前置詞に支配されている（前置詞句の内部）
+        if (artIdx >= 1 && String(clause[artIdx - 1].morph || '').split('-')[0] === 'PREP') return false;
+        // (2) 属格で、直前の名詞・形容詞を修飾する位置にある（修飾属格）
+        if (m.case === 'genitive' && artIdx >= 1) {
+            const prevPos = _resolveEntryPos(clause[artIdx - 1]);
+            if (prevPos === 'N' || prevPos === 'A') return false;
+        }
+        // (3) 主格で、節内に εἰμί がある（コプラ文の主語・述語名詞句）
+        if (m.case === 'nominative' && clause.some(t => (t.lemma ?? '') === 'εἰμί')) return false;
         // 先行する一致代名詞（動詞より前方も含む節内）
+        // 代名詞の判定は形態コード第1セグメントで行う（_resolveEntryPos の
+        // 'R' は関係代名詞のみで、人称代名詞（P-…）を拾えないため）。
+        // 照応の担い手は人称・指示・関係代名詞に限る（不定代名詞 τις 等は除く）。
         return clause.some((t, k) => {
             if (k >= rel - 3) return false;
-            if (_resolveEntryPos(t) !== 'R') return false;
+            const seg = String(t.morph || '').split('-')[0];
+            if (!['P', 'R', 'D'].includes(seg)) return false;
             const mm = typeof decodeMorph === 'function' ? decodeMorph(t) : {};
             return mm.case === m.case && mm.number === m.number;
         });
