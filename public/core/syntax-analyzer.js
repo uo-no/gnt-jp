@@ -2197,6 +2197,7 @@ class CandidateNormalizer {
                     description_ja:  raw.typeDef?.description_ja   ?? '',
                     hint_ja:         raw.typeDef?.hint_ja          ?? '',
                     status:          raw.typeDef?.status           ?? 'stub',
+                    display_exempt:  raw.typeDef?.display_exempt   ?? false,
                     signals_matched: raw.signalsMatched            ?? [],
                     signals_failed:  raw.signalsFailed             ?? [],
                     raw_score:       raw.rawScore,
@@ -4586,6 +4587,10 @@ if (typeof module !== 'undefined' && module.exports) {
     const _original_evaluateType = CandidateScorer.prototype._evaluateType;
 
     CandidateScorer.prototype._evaluateType = function _evaluateType_patched(typeDef, ctx) {
+        // 監査で「置換（replaced）」となったタイプは候補生成の対象外
+        // （本体 _evaluateType と同じ規則。パッチ側にも必要 — これが無いと
+        // infinitive.articular 等が候補に残り続ける）。
+        if (typeDef.status === 'replaced') return null;
         const det = typeDef.detection ?? {};
 
         // required_case / required_mood / required_pos チェック（既存と同じ）
