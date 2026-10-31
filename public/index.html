@@ -8386,6 +8386,17 @@ async function _renderReadingNotes(p) {
     if (p.number) morphRows.push({ k:'数',   v: JPN_FULL.number[p.number] || p.number, core:false });
     if (p.gender) morphRows.push({ k:'性',   v: JPN_FULL.gender[p.gender] || p.gender, core:false });
 
+    /* 構造軸（冠詞付き不定詞）: 機能候補とは別の「形の事実」として、
+       原文から確認できる情報に1行置く。検出は syntax-analyzer の共通
+       ヘルパー（desktop / mobile 共用、確度なし）。 */
+    if (p.mood === 'infinitive' && Array.isArray(_wlvWordCache)) {
+        const _structFn = window.App?.syntax?.articularInfinitiveStructure;
+        const _structIdx = _wlvWordCache.findIndex(t => t.ref === ref);
+        const _struct = (typeof _structFn === 'function' && _structIdx >= 0)
+            ? _structFn(_wlvWordCache, _structIdx) : null;
+        if (_struct) morphRows.push({ k: '構造', v: _struct.label_ja, core: false });
+    }
+
     const morphGridHTML = morphRows.length
         ? `<div class="rn-morph-grid">${morphRows.map(r =>
             `<span class="rn-morph-key">${r.k}</span><span class="rn-morph-val${r.core?' core':''}">${r.v}</span>`
@@ -16351,9 +16362,23 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
         translationNode.remove();
     }
 
+    /* 構造軸（冠詞付き不定詞）: desktop と同じ共通ヘルパーで検出し、
+       「原文から確認できる情報」に形の事実として渡す。 */
+    let _mvvStructureText = '';
+    if (_mvvRm.mood === 'infinitive') {
+        const _mvvStructFn = window.App?.syntax?.articularInfinitiveStructure;
+        const _mvvScope = _wlvActiveScopeWords || _wlvWordCache;
+        if (typeof _mvvStructFn === 'function' && Array.isArray(_mvvScope)) {
+            const _mvvStructIdx = _mvvScope.findIndex(t => t.ref === _mvvRef);
+            const _mvvStruct = _mvvStructIdx >= 0 ? _mvvStructFn(_mvvScope, _mvvStructIdx) : null;
+            if (_mvvStruct) _mvvStructureText = _mvvStruct.label_ja;
+        }
+    }
+
     area.innerHTML = _renderMobileWordDetail({
         greek:        _mvvGreek,
         lemma:        _mvvLemma,
+        structureText: _mvvStructureText,
         rawMorph:     d.rawMorph || rawMorph || '',
         /* 表示用日本語（Presentation Policy 適用済みを優先） */
         gloss:        _mvvJword,
@@ -16752,6 +16777,7 @@ function _renderMobileWordDetail(d) {
               ${(d.lemma ? `<div>見出し語: <span class="mvv-l3-lemma">${_escH(d.lemma)}</span></div>` : '')}
               ${(d.strong ? `<div class="mvv-l3-strong" style="margin-top:var(--space-xs);">Strong: ${_escH(String(d.strong))}</div>` : '')}
               ${(morphTags ? `<div style="margin-top:var(--space-md);">${morphTags}</div>` : '')}
+              ${(d.structureText ? `<div style="margin-top:var(--space-xs);">構造: ${_escH(d.structureText)}</div>` : '')}
             </div>` : ''}
             <div class="rn-l3-group" data-study-group="analysis" style="${morphCandidatesHTML ? '' : 'display:none;'}">
               ${(morphCandidatesHTML ? `<div class="rn-l3-group-label">分析候補・統語情報</div>${morphCandidatesHTML}` : '')}

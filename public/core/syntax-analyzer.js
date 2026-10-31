@@ -1728,6 +1728,52 @@ function _articularInfArticleIdx(ctx) {
     return -1;
 }
 
+/**
+ * 冠詞付き不定詞の構造（構造軸 articular）を返す。不定詞でなければ null、
+ * 冠詞がなければ null。検出規則は articular_infinitive_prep_in /
+ * articular_infinitive_bare_genitive と同じ後方走査を使う（判定の二重実装を
+ * 避けるため、冠詞位置の特定は _articularInfArticleIdx に一本化する）。
+ *
+ * 構造は機能（目的・時間など）とは別の軸の「形の事実」であり、確度は持たない。
+ * @returns {null | {form:'bare'|'prep', articleWord:string, articleCase:string|null,
+ *                   prepWord:string|null, prepLemma:string|null, label_ja:string}}
+ */
+function articularInfinitiveStructure(tokens, targetIdx) {
+    if (!Array.isArray(tokens) || targetIdx == null || targetIdx < 0) return null;
+    const target = tokens[targetIdx];
+    if (!target) return null;
+    if (typeof decodeMorph === 'function') {
+        const tm = decodeMorph(target) || {};
+        if (tm.mood && tm.mood !== 'infinitive') return null;
+    }
+    const ctx = { tokens, targetIdx };
+    const ai = _articularInfArticleIdx(ctx);
+    if (ai < 0) return null;
+    const art = tokens[ai];
+    const am = typeof decodeMorph === 'function' ? (decodeMorph(art) || {}) : {};
+    const artWord = (typeof cleanText === 'function' ? cleanText(art) : (art?.word ?? '')) || '';
+    // 冠詞の直前（後置小辞を飛ばした先）に前置詞があれば prep 形
+    const POSTPOSITIVE = ['δέ', 'γάρ', 'οὖν', 'τε', 'μέν'];
+    let k = ai - 1;
+    while (k > 0 && POSTPOSITIVE.includes(tokens[k]?.lemma ?? '')) k--;
+    const prepTok = k >= 0 ? tokens[k] : null;
+    // 前置詞の判定は形態コード PREP / class で行う（_resolveEntryPos の 'P' は
+    // 代名詞の形態コード 'P-…' と衝突するため、ここでは使わない）。
+    const hasPrep = !!prepTok && (prepTok.morph === 'PREP' || prepTok.class === 'prep');
+    const prepWord = hasPrep
+        ? ((typeof cleanText === 'function' ? cleanText(prepTok) : (prepTok?.word ?? '')) || '')
+        : null;
+    const pattern = hasPrep ? `${prepWord} ${artWord}` : artWord;
+    return {
+        form: hasPrep ? 'prep' : 'bare',
+        articleWord: artWord,
+        articleCase: am.case ?? null,
+        prepWord,
+        prepLemma: hasPrep ? (prepTok.lemma ?? null) : null,
+        label_ja: `冠詞付き不定詞（${pattern}＋不定詞）`,
+    };
+}
+
 // [前置詞][(後置小辞)*][冠詞][(μή/対格主語)*][不定詞] パターン
 // （διὰ τό / ἐν τῷ / μετὰ δὲ τό 等 — μετὰ **δὲ** τὸ ἐγερθῆναι の
 //   後置小辞介在にも対応する）
@@ -2244,6 +2290,10 @@ class CandidateScorer {
      * null: required_case/required_mood/required_pos 不一致で対象外。
      */
     _evaluateType(typeDef, ctx) {
+        // 監査で「置換（replaced）」となったタイプは候補生成の対象外。
+        // レジストリには台帳対応づけのため残すが、候補としては立てない
+        // （例: infinitive.articular は構造軸へ移行）。
+        if (typeDef.status === 'replaced') return null;
         const det = typeDef.detection ?? {};
         // 型固有の語彙リストを判定できるよう、各評価に対象 TypeDef を明示する。
         const typeCtx = Object.assign(Object.create(ctx), { _typeDef: typeDef });
@@ -3850,11 +3900,24 @@ class SyntaxAnalyzer {
         // 6. ContextSummary 構築
         const context = this._buildContextSummary(ctx);
 
+        // 7. 構造軸（機能候補とは別の「形の事実」）。レジストリに軸の定義が
+        // あるカテゴリだけが対象（現在は infinitive.articular のみ）。
+        // 確度は持たず、候補の絞り込みにも使わない。
+        let structural = [];
+        if (ctx.morph?.mood === 'infinitive') {
+            const axes = this.registry.getCategory('infinitive')?.structural_axes ?? [];
+            if (axes.some(a => a.id === 'articular')) {
+                const st = articularInfinitiveStructure(tokens, targetIdx);
+                if (st) structural = [{ axis: 'articular', ...st }];
+            }
+        }
+
         return {
             targetWord:  ctx.word,
             targetLemma: target.lemma ?? '',
             morph:       ctx.morph,
             candidates,
+            structural,
             wordOrder,
             context,
             version: this.version,
@@ -3893,6 +3956,7 @@ class SyntaxAnalyzer {
             targetLemma: ctx.target?.lemma ?? '',
             morph:       ctx.morph,
             candidates:  [],
+            structural:  [],
             wordOrder:   null,
             context:     this._buildContextSummary(ctx),
             version:     this.version,
@@ -3927,6 +3991,10 @@ if (typeof window !== 'undefined') {
        読み取り専用で参照するための追加公開（判定ロジックへの変更なし） */
     window.App.syntax.ContextBuilder = ContextBuilder;
 
+    /* 構造軸の検出（パネルの「原文から確認できる情報」表示用に公開。
+       pipeline を介さず形態的事実だけを返す軽量ヘルパー） */
+    window.App.syntax.articularInfinitiveStructure = articularInfinitiveStructure;
+
     /* 互換エイリアス（既存の window.SyntaxAnalyzer 参照を壊さない） */
     window.SyntaxAnalyzer = window.App.syntax.Analyzer;
 }
@@ -3935,7 +4003,7 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         SyntaxAnalyzer, RegistryLoader, CheckEvaluator, CandidateNormalizer,
-        ContextBuilder,
+        ContextBuilder, articularInfinitiveStructure,
     };
 }
 
