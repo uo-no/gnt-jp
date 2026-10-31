@@ -91,8 +91,8 @@ async function openTarget(browser, mobile) {
     `${mobile ? 'Mobile' : 'Desktop'}: subjref should be described as an action reference, not a grammatical subject`);
   assert.ok(!targetText.includes('この語の主語は「神」です'),
     `${mobile ? 'Mobile' : 'Desktop'}: old categorical subject wording must not remain`);
-  assert.ok(targetText.includes('文の中で考えられる役割'),
-    `${mobile ? 'Mobile' : 'Desktop'}: syntax label section should signal a possible role`);
+  assert.ok(targetText.includes('分析候補・統語情報'),
+    `${mobile ? 'Mobile' : 'Desktop'}: syntax label section should be present under its group heading`);
   assert.equal(consoleErrors.length, 0,
     `${mobile ? 'Mobile' : 'Desktop'}: page errors: ${consoleErrors.join('; ')}`);
 
