@@ -4823,6 +4823,75 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 }
 .rn-etym-empty { color: var(--text-sub); font-style: italic; }
 
+/* 辞書本文の聖書参照ポップアップ（語源ポップアップと同構造・同作法） */
+#rn-ref-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.38);
+    z-index: 900; display: none; align-items: center; justify-content: center;
+    padding: 20px;
+}
+#rn-ref-backdrop.open { display: flex; }
+#rn-ref-modal {
+    background: var(--bg-panel); border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+    max-width: 480px; width: 100%; max-height: 70vh;
+    display: flex; flex-direction: column; overflow: hidden;
+}
+#rn-ref-modal-head {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 16px 20px 12px; border-bottom: 1px solid var(--border-soft);
+    flex-shrink: 0;
+}
+#rn-ref-modal-label { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+#rn-ref-modal-title {
+    font-size: var(--text-title); font-weight: 700; color: var(--text-main);
+}
+#rn-ref-modal-sub {
+    font-size: var(--text-caption); color: var(--text-sub);
+}
+#rn-ref-modal-close {
+    width: 28px; height: 28px; border-radius: 50%; border: none; flex-shrink: 0;
+    background: var(--bg-sub); cursor: pointer; font-size: 1rem;
+    color: var(--text-sub); display: flex; align-items: center; justify-content: center;
+    transition: background 0.12s;
+}
+#rn-ref-modal-close:hover { background: var(--border-soft); }
+#rn-ref-modal-body {
+    padding: 16px 20px; overflow-y: auto; flex: 1;
+    font-size: 0.82rem; line-height: 1.75; color: var(--text-main);
+    font-family: var(--font-prose);
+}
+.rn-ref-verse {
+    font-family: var(--font-greek); font-size: var(--text-body);
+    line-height: 1.65; margin-bottom: var(--space-md);
+}
+.rn-ref-hl {
+    font-weight: 700; color: var(--highlight);
+    background: var(--accent-light); border-radius: 3px; padding: 0 2px;
+}
+.rn-ref-word-label {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em;
+    color: var(--text-sub); opacity: var(--opacity-secondary);
+    margin-bottom: 6px; font-family: var(--font-ui);
+}
+.rn-ref-word-rows { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--space-md); }
+.rn-ref-word-row { display: flex; gap: 10px; }
+.rn-ref-word-row dt {
+    flex-shrink: 0; width: 5em; color: var(--text-sub);
+    font-size: var(--text-caption); line-height: 1.75;
+}
+.rn-ref-gr { font-family: var(--font-greek); }
+.rn-ref-word-row dd { margin: 0; }
+.rn-ref-note { color: var(--text-sub); margin-bottom: var(--space-md); }
+.rn-ref-actions {
+    display: flex; gap: 10px; align-items: center;
+    padding-top: var(--space-sm); border-top: 1px solid var(--border-soft);
+}
+.rn-ref-open-btn {
+    display: inline-block; padding: 7px 16px; border-radius: 8px;
+    background: var(--accent); color: #fff; text-decoration: none;
+    font-size: var(--text-label); font-weight: 600;
+}
+
 .mvv-l3-strong {
     font-size: var(--text-caption);
     color: var(--text-hint);
@@ -6321,6 +6390,81 @@ async function _openEtymPopup(lexemeId) {
         ? `<div class="rn-etym-as-label">Abbott-Smith</div>${_escH(desc).replace(/\n/g, '<br>')}`
         : '<span class="rn-etym-empty">Abbott-Smithデータなし</span>';
     bd.classList.add('open');
+}
+
+/* 辞書本文の聖書参照ポップアップ。
+   参照リンク（.rn-inline-bible-ref）のクリックを本文遷移の前に受け止め、
+   その箇所の本文と、調べている語がそこでどう使われているかをその場で出す。
+   本文へ進む導線はポップアップ内の「本文で見る」に残す。 */
+const _REF_FORM_JA = {
+    pos:    { noun: '名詞', adj: '形容詞', verb: '動詞', prep: '前置詞', conj: '接続詞', det: '限定詞', pron: '代名詞', adv: '副詞', ptcl: '添語', num: '数詞', intj: '間投詞' },
+    case:   { nominative: '主格', genitive: '属格', dative: '与格', accusative: '対格', vocative: '呼格' },
+    number: { singular: '単数', plural: '複数' },
+    gender: { masculine: '男性', feminine: '女性', neuter: '中性' },
+    tense:  { present: '現在', imperfect: '未完了過去', future: '未来', aorist: 'アオリスト', perfect: '完了', pluperfect: '過去完了' },
+    voice:  { active: '能動', middle: '中動', passive: '受動' },
+    mood:   { indicative: '直説法', subjunctive: '接続法', optative: '希求法', imperative: '命令法', infinitive: '不定詞', participle: '分詞' },
+    person: { '1': '1人称', '2': '2人称', '3': '3人称' },
+};
+function _refFormJa(tok) {
+    const m = _REF_FORM_JA, parts = [];
+    if (tok.tense)  parts.push(m.tense[tok.tense] || tok.tense);
+    if (tok.voice)  parts.push(m.voice[tok.voice] || tok.voice);
+    if (tok.mood)   parts.push(m.mood[tok.mood] || tok.mood);
+    if (tok.person) parts.push(m.person[tok.person] || tok.person);
+    if (tok.case)   parts.push(m.case[tok.case] || tok.case);
+    if (tok.gender) parts.push(m.gender[tok.gender] || tok.gender);
+    if (tok.number) parts.push(m.number[tok.number] || tok.number);
+    return parts.join('・');
+}
+async function _openRefPopup(book, ch, verse, href) {
+    const bd = document.getElementById('rn-ref-backdrop');
+    if (!bd) { if (href) location.href = href; return; }
+    const titleEl = document.getElementById('rn-ref-modal-title');
+    const bodyEl  = document.getElementById('rn-ref-modal-body');
+    if (titleEl) titleEl.textContent = ((typeof BOOK_SHORT !== 'undefined' && BOOK_SHORT[book]) || book) + ch + '章' + verse + '節';
+    const actionsHtml = `<div class="rn-ref-actions"><a class="rn-ref-open-btn" href="${_escH(href || ('/' + book + '/' + ch + '/' + verse))}">本文で見る</a></div>`;
+    if (bodyEl) bodyEl.innerHTML = '<span class="rn-etym-empty">読み込み中…</span>';
+    bd.classList.add('open');
+
+    const data = (typeof _loadBdChapter === 'function') ? await _loadBdChapter(book, ch) : null;
+    if (!bd.classList.contains('open')) return; /* 読み込み中に閉じられた */
+    if (!Array.isArray(data)) {
+        if (bodyEl) bodyEl.innerHTML = `<div class="rn-ref-note">この箇所の本文データを取得できませんでした。「本文で見る」から開いてください。</div>` + actionsHtml;
+        return;
+    }
+    const toks = data.filter(t => String(t.chapter) === String(ch) && String(t.verse) === String(verse));
+    if (!toks.length) {
+        if (bodyEl) bodyEl.innerHTML = `<div class="rn-ref-note">この箇所の本文データを取得できませんでした。「本文で見る」から開いてください。</div>` + actionsHtml;
+        return;
+    }
+    const curId = (typeof AppState !== 'undefined' && AppState.inspect && AppState.inspect.data)
+        ? (AppState.inspect.data.lemmaId || _resolveLemmaId(AppState.inspect.data.strong))
+        : null;
+    const hits = curId ? toks.filter(t => t.lemmaId === curId) : [];
+    const hitSet = new Set(hits);
+    const verseHtml = toks.map(t => {
+        const txt = _escH(t.text || '') + _escH(t.after || '');
+        return hitSet.has(t) ? `<span class="rn-ref-hl">${txt}</span>` : txt;
+    }).join(' ');
+    let wordHtml = '';
+    if (curId && hits.length) {
+        const t = hits[0];
+        const entry = (typeof _lexiconData !== 'undefined' && _lexiconData) ? _lexiconData[curId] : null;
+        const headword = t.lemma || (entry && entry.headword) || '';
+        const glossJa  = (entry && entry.gloss_ja) || '';
+        const formJa   = _refFormJa(t);
+        const rows = [];
+        if (headword) rows.push(`<div class="rn-ref-word-row"><dt>見出し語</dt><dd><span class="rn-ref-gr">${_escH(headword)}</span>${glossJa ? '（' + _escH(glossJa) + '）' : ''}</dd></div>`);
+        if (t.class)  rows.push(`<div class="rn-ref-word-row"><dt>品詞</dt><dd>${_escH((t.class === 'noun' && t.type === 'proper') ? '固有名詞' : (_REF_FORM_JA.pos[t.class] || t.class))}</dd></div>`);
+        rows.push(`<div class="rn-ref-word-row"><dt>形</dt><dd><span class="rn-ref-gr">${_escH(t.text || '')}</span>${formJa ? '（' + _escH(formJa) + '）' : ''}</dd></div>`);
+        if (t.japanese) rows.push(`<div class="rn-ref-word-row"><dt>意味</dt><dd>${_escH(t.japanese)}</dd></div>`);
+        wordHtml = `<div class="rn-ref-word-label">この箇所での単語の説明</div><dl class="rn-ref-word-rows">${rows.join('')}</dl>`
+            + (hits.length > 1 ? `<div class="rn-ref-note">この節には他に${hits.length - 1}回、同じ語が出てきます（強調表示）。</div>` : '');
+    } else if (curId) {
+        wordHtml = `<div class="rn-ref-note">この箇所では見出し語そのものは使われていません。</div>`;
+    }
+    if (bodyEl) bodyEl.innerHTML = `<div class="rn-ref-verse">${verseHtml}</div>` + wordHtml + actionsHtml;
 }
 
 function _resolveLemmaId(strong) {
@@ -17709,10 +17853,22 @@ function _mobileSwipeBack() {
             _openEtymPopup(part.dataset.lexemeId);
         });
 
+        /* 辞書本文の聖書参照タップ → 本文へ直行せず参照ポップアップを挟む（イベントデリゲーション） */
+        document.addEventListener('click', function(e) {
+            const a = e.target.closest && e.target.closest('.rn-inline-bible-ref');
+            if (!a) return;
+            const href = a.getAttribute('href') || '';
+            const m = href.match(/^\/([A-Z0-9]+)\/(\d+)\/(\d+)/);
+            if (!m) return;
+            e.preventDefault();
+            _openRefPopup(m[1], Number(m[2]), Number(m[3]), href);
+        });
+
         /* ESC キーで語源ポップアップを閉じる */
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 document.getElementById('rn-etym-backdrop')?.classList.remove('open');
+                document.getElementById('rn-ref-backdrop')?.classList.remove('open');
             }
         });
     });
@@ -18835,6 +18991,20 @@ function _hlSetFilter(color) {
             <button id="rn-etym-modal-close" onclick="document.getElementById('rn-etym-backdrop').classList.remove('open')">×</button>
         </div>
         <div id="rn-etym-modal-body"></div>
+    </div>
+</div>
+
+<!-- 辞書本文の聖書参照ポップアップ（本文へ進む前に1ステップ挟む） -->
+<div id="rn-ref-backdrop" onclick="this.classList.remove('open')">
+    <div id="rn-ref-modal" onclick="event.stopPropagation()">
+        <div id="rn-ref-modal-head">
+            <div id="rn-ref-modal-label">
+                <span id="rn-ref-modal-title"></span>
+                <span id="rn-ref-modal-sub">辞書で引かれている箇所</span>
+            </div>
+            <button id="rn-ref-modal-close" onclick="document.getElementById('rn-ref-backdrop').classList.remove('open')">×</button>
+        </div>
+        <div id="rn-ref-modal-body"></div>
     </div>
 </div>
 
