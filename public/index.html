@@ -1841,6 +1841,59 @@ border-bottom: 1px dotted rgba(0,0,0,0.15);
     line-height: 1.65;
     opacity: 0.85;
 }
+.rn-syntax-context-toggle {
+    margin-top: 2px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent, #2f6f4f);
+    font-size: var(--text-caption);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.rn-syntax-context-body {
+    margin-top: var(--space-xs);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: var(--space-xs) var(--space-sm);
+    background: var(--bg);
+}
+.rn-syntax-context-body[hidden] { display: none; }
+.rn-syntax-ctx-verse { margin: 2px 0; line-height: 1.7; }
+.rn-syntax-ctx-verse + .rn-syntax-ctx-verse { border-top: 1px dashed var(--border-soft); padding-top: 4px; }
+.rn-syntax-ctx-ref {
+    color: var(--text-sub);
+    font-size: var(--text-caption);
+    font-weight: 600;
+    margin-right: 6px;
+    white-space: nowrap;
+}
+.rn-syntax-ctx-text { font-family: var(--font-greek, inherit); }
+.rn-syntax-ctx-target { font-weight: 700; color: var(--accent, #2f6f4f); }
+.rn-syntax-ctx-hint {
+    margin-top: var(--space-xs);
+    color: var(--text-sub);
+    font-size: var(--text-caption);
+    line-height: 1.65;
+}
+.rn-syntax-ctx-hint-label { font-weight: 600; }
+.rn-syntax-ctx-jump {
+    margin-top: var(--space-xs);
+    padding: 2px 10px;
+    border: 1px solid var(--border-soft);
+    border-radius: 999px;
+    background: var(--bg-panel);
+    color: var(--text-main);
+    font-size: var(--text-caption);
+    cursor: pointer;
+}
+.rn-ctx-flash { animation: rnCtxFlash 1.8s ease-out; }
+@keyframes rnCtxFlash {
+    0%, 60% { background-color: rgba(47, 111, 79, 0.18); }
+    100% { background-color: transparent; }
+}
 .rn-syntax-alternatives {
     margin-top: var(--space-sm);
     border-top: 1px solid var(--border-soft);
@@ -8030,6 +8083,67 @@ function closeAnalysis() {
  * 候補がない場合・エンジン未初期化の場合は '' を返す（静寂）。
  * _wallacePipeline を再利用するため registry の二重 fetch は発生しない。
  */
+/* 文脈導線（第4段階トラックb）: 章データの取得は章ごとにキャッシュする */
+const _syntaxCtxChapterCache = new Map();
+async function _fetchSyntaxChapterTokens(book, chapter) {
+    const key = `${book}/${chapter}`;
+    if (_syntaxCtxChapterCache.has(key)) return _syntaxCtxChapterCache.get(key);
+    let tokens = null;
+    try {
+        const testament = (typeof SB_BOOKS !== 'undefined' && SB_BOOKS.lxx && SB_BOOKS.lxx.some(b => b.key === book)) ? 'lxx' : 'nt';
+        const res = await fetch(new URL(`bible_data/${testament}/${book}/${chapter}.json`, document.baseURI).href);
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) tokens = data;
+        }
+    } catch (_) { tokens = null; }
+    _syntaxCtxChapterCache.set(key, tokens);
+    return tokens;
+}
+function _toggleSyntaxContext(btn) {
+    const body = btn && btn.parentElement ? btn.parentElement.querySelector('.rn-syntax-context-body') : null;
+    if (!body) return;
+    const open = body.hasAttribute('hidden');
+    if (open) { body.removeAttribute('hidden'); btn.textContent = '文脈を閉じる'; }
+    else { body.setAttribute('hidden', ''); btn.textContent = '文脈で確かめる'; }
+}
+function _jumpToSyntaxVerse(book, chapter, verse) {
+    let target = null;
+    try {
+        target = (typeof _findVerseInChapter === 'function' && _findVerseInChapter(book, String(chapter), String(verse)))
+            || (typeof _findVisibleVerseBlock === 'function' && _findVisibleVerseBlock(verse));
+    } catch (_) { target = null; }
+    if (!target) return;
+    try { target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
+    target.classList.add('rn-ctx-flash');
+    setTimeout(() => { try { target.classList.remove('rn-ctx-flash'); } catch (_) {} }, 1900);
+}
+/* 前後の節と当節（対象語を強調）を並べた文脈ブロック。当節が作れない場合は '' */
+function _syntaxContextBlockHTML(chapterTokens, targetRef, hintJa) {
+    if (!Array.isArray(chapterTokens) || !chapterTokens.length) return '';
+    const target = chapterTokens.find(t => t.ref === targetRef);
+    if (!target) return '';
+    const book = target.book, chapter = target.chapter, verseNum = parseInt(target.verse, 10);
+    if (!book || !chapter || !verseNum) return '';
+    const verseLine = v => {
+        const toks = chapterTokens.filter(t => parseInt(t.verse, 10) === v);
+        if (!toks.length) return '';
+        const text = toks.map(t => {
+            const s = _escH(String(t.text || '')) + _escH(String(t.after || ''));
+            return t.ref === targetRef ? `<span class="rn-syntax-ctx-target">${s}</span>` : s;
+        }).join(' ');
+        return `<div class="rn-syntax-ctx-verse"><span class="rn-syntax-ctx-ref">${_escH(book)} ${chapter}:${v}</span><span class="rn-syntax-ctx-text" lang="el">${text}</span></div>`;
+    };
+    const lines = [verseLine(verseNum - 1), verseLine(verseNum), verseLine(verseNum + 1)].filter(Boolean).join('');
+    if (!lines) return '';
+    const hint = typeof hintJa === 'string' && hintJa.trim()
+        ? `<div class="rn-syntax-ctx-hint"><span class="rn-syntax-ctx-hint-label">見分ける手がかり：</span>${_escH(hintJa.trim())}</div>`
+        : '';
+    return `<button type="button" class="rn-syntax-context-toggle" onclick="_toggleSyntaxContext(this)">文脈で確かめる</button>`
+        + `<div class="rn-syntax-context-body" hidden>${lines}${hint}`
+        + `<button type="button" class="rn-syntax-ctx-jump" onclick="_jumpToSyntaxVerse('${_escH(book)}', '${_escH(chapter)}', ${verseNum})">本文で見る</button></div>`;
+}
+
 async function _buildSyntaxLabelHTML(words, targetRef) {
     if (!words || !words.length || !targetRef) return '';
     const targetIdx = words.findIndex(t => t.ref === targetRef);
@@ -8090,6 +8204,22 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         (candidateIds.has('clause.substantival_hoti') || rawIds.has('clause.causal_hoti'))) {
         comparisonCoveredIds.add('clause.causal_hoti');
     }
+    /* 文脈導線（第4段階トラックb）: 注記対象の表示候補がある場合だけ章データを
+       取得し、前後の節と見分ける手がかりを添える。用意できない場合は注記のみ。 */
+    const ctxBlockById = new Map();
+    {
+        const needy = unique.filter(c => AUDIT_UNRESOLVED_IDS.has(c.id) && !comparisonCoveredIds.has(c.id));
+        const m = /^([A-Za-z0-9]+)\s+(\d+):(\d+)/.exec(refText);
+        if (needy.length && m) {
+            const chapterTokens = await _fetchSyntaxChapterTokens(m[1], m[2]);
+            if (chapterTokens) {
+                for (const c of needy) {
+                    const block = _syntaxContextBlockHTML(chapterTokens, targetRef, c.hint_ja);
+                    if (block) ctxBlockById.set(c.id, block);
+                }
+            }
+        }
+    }
     /* 最高候補と次点の差が小さい場合は、近い候補を同列に表示 */
     const topHasLead = unique.length > 1 && (unique[0].confidence - unique[1].confidence) >= 0.05;
     const primaryCount = topHasLead ? 1 : unique.filter(c => unique[0].confidence - c.confidence < 0.05).length;
@@ -8107,7 +8237,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
             ? '<span class="rn-syntax-best-label">第一候補</span>'
             : '';
         const contextNote = AUDIT_UNRESOLVED_IDS.has(c.id) && !comparisonCoveredIds.has(c.id)
-            ? '<div class="rn-syntax-context-note">文脈で判断が分かれる用法です。</div>'
+            ? '<div class="rn-syntax-context-note">文脈で判断が分かれる用法です。</div>' + (ctxBlockById.get(c.id) || '')
             : '';
         return `<div class="rn-syntax-item${primary && topHasLead ? ' rn-syntax-item-primary' : ''}"><div class="rn-syntax-item-heading"><span class="rn-syntax-term">${label}</span>${badge}</div>${description}${contextNote}</div>`;
     };
