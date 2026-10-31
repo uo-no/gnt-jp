@@ -8144,6 +8144,38 @@ function _syntaxContextBlockHTML(chapterTokens, targetRef, hintJa) {
         + `<button type="button" class="rn-syntax-ctx-jump" onclick="_jumpToSyntaxVerse('${_escH(book)}', '${_escH(chapter)}', ${verseNum})">本文で見る</button></div>`;
 }
 
+/* 識別不能ペアの読み分け（第4段階・単位B / 仕分け G5）: 必須条件が完全同一で
+   検出では区別できないペアが揃って発火したときだけ、2つの読みの違いと
+   文脈での見分け方を示す。人手で読み分けを書いた組み合わせに限る。 */
+function _syntaxPairBlockHTML(rawIdSet) {
+    const PAIRS = [
+        {
+            a: 'verb.imperative_constative', b: 'verb.imperative_ingressive',
+            body: '<p><strong>総括的命令</strong>は行為全体を行うよう命じ、<strong>起動的命令</strong>は行為を始めるよう命じます。アオリスト命令法の形はどちらも同じで、区別は形には現れません。</p>',
+            fact: 'この語はアオリスト・命令法として解析されています。',
+            judge: '行為が一回で完結する事柄か、これから始めて続く事柄かは、前後の文脈と行為の性質から判断します。',
+        },
+        {
+            a: 'verb.present_customary', b: 'verb.present_iterative',
+            body: '<p><strong>習慣的現在</strong>は、その人の通常のあり方や規則的な習慣を述べ、<strong>反復的現在</strong>は、個別の行為の繰り返しを述べます。現在形の形はどちらも同じです。</p>',
+            fact: 'この語は現在・直説法として解析されています。',
+            judge: '繰り返しが規則的・恒常的か、その都度のものかは、時間を示す副詞や場面の文脈で判断します。',
+        },
+        {
+            a: 'verb.imperfect_customary', b: 'verb.imperfect_iterative',
+            body: '<p><strong>習慣的未完了</strong>は、過去における通常のあり方や規則的な習慣を述べ、<strong>反復的未完了</strong>は、過去の個別の行為の繰り返しを述べます。未完了形の形はどちらも同じです。</p>',
+            fact: 'この語は未完了（インパーフェクト）・直説法として解析されています。',
+            judge: '過去の繰り返しが規則的だったか、その都度のものだったかは、時間を示す副詞や場面の文脈で判断します。',
+        },
+    ];
+    for (const p of PAIRS) {
+        if (rawIdSet.has(p.a) && rawIdSet.has(p.b)) {
+            return `<div class="rn-syntax-comparison"><div class="rn-syntax-comparison-title">読み分け</div>${p.body}<div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div><div class="rn-syntax-evidence-body"><p><strong>本文で確認できること：</strong>${p.fact}</p><p><strong>ここから言えること：</strong>${p.judge}</p></div></div></div>`;
+        }
+    }
+    return '';
+}
+
 async function _buildSyntaxLabelHTML(words, targetRef) {
     if (!words || !words.length || !targetRef) return '';
     const targetIdx = words.findIndex(t => t.ref === targetRef);
@@ -8166,15 +8198,6 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         seen.add(c.label_ja);
         return true;
     });
-    if (!unique.length) return '';
-    /* しきい値未満の候補 id は、表示はしないが読み分けの発火判定にだけ使う
-       （例：手段不定詞は確度が低く候補一覧に出ないが、時の不定詞と
-       同じ形で競合するため、読み分けの対象には含める）。 */
-    const rawIds = new Set((output.candidates || []).map(c => c.id));
-    const candidateIds = new Set(unique.map(c => c.id));
-    const targetLemma = String(words[targetIdx]?.lemma || '').normalize('NFC');
-    const refText = String(targetRef || '');
-    const hasLemma = lemma => words.some(t => String(t.lemma || '').normalize('NFC') === lemma);
     /* 監査（一次監査台帳）で unresolved とされたタイプ。表示候補に出たとき、
        文脈で判断が分かれる用法であることを小さく添える。根拠のない断定を避ける
        ための注記で、スコアの説明ではない。読み分けブロックが付く組み合わせでは
@@ -8196,6 +8219,39 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         'verb.gnomic_present', 'verb.imperative_ingressive', 'verb.imperfect_iterative',
         'verb.perfect_dramatic',
     ]);
+    if (!unique.length) {
+        /* 表示候補が無い場合の静かな導線（第4段階・単位B）。
+           (1) 識別不能ペア（G5）が揃っていれば、その読み分けを出す。
+           (2) 最上位の未満候補が監査未解決なら、注記と文脈導線を出す（G4）。
+           どちらにも当たらなければ従来どおり何も出さない。 */
+        const rawIdSet = new Set((output.candidates || []).map(c => c.id));
+        const pairFallback = _syntaxPairBlockHTML(rawIdSet);
+        if (pairFallback) return `<div class="rn-syntax-candidates">${pairFallback}</div>`;
+        const topRaw = (output.candidates || [])
+            .filter(c => c.status !== 'stub' && c.label_ja)
+            .sort((x, y) => y.confidence - x.confidence)[0];
+        if (topRaw && AUDIT_UNRESOLVED_IDS.has(topRaw.id)) {
+            const m = /^([A-Za-z0-9]+)\s+(\d+):(\d+)/.exec(String(targetRef || ''));
+            let ctxBlock = '';
+            if (m) {
+                const chapterTokens = await _fetchSyntaxChapterTokens(m[1], m[2]);
+                if (chapterTokens) ctxBlock = _syntaxContextBlockHTML(chapterTokens, targetRef, topRaw.hint_ja);
+            }
+            const note = (topRaw.id === 'infinitive.means' && rawIdSet.has('infinitive.time'))
+                ? 'ἐν τῷ＋不定詞は、「時」か「手段」かを文脈で判断する用法です。'
+                : `文脈で判断が分かれる用法です（候補：${_escH(topRaw.label_ja)}）。`;
+            return `<div class="rn-syntax-candidates"><div class="rn-syntax-item"><div class="rn-syntax-context-note">${note}</div>${ctxBlock}</div></div>`;
+        }
+        return '';
+    }
+    /* しきい値未満の候補 id は、表示はしないが読み分けの発火判定にだけ使う
+       （例：手段不定詞は確度が低く候補一覧に出ないが、時の不定詞と
+       同じ形で競合するため、読み分けの対象には含める）。 */
+    const rawIds = new Set((output.candidates || []).map(c => c.id));
+    const candidateIds = new Set(unique.map(c => c.id));
+    const targetLemma = String(words[targetIdx]?.lemma || '').normalize('NFC');
+    const refText = String(targetRef || '');
+    const hasLemma = lemma => words.some(t => String(t.lemma || '').normalize('NFC') === lemma);
     const comparisonCoveredIds = new Set();
     if (candidateIds.has('infinitive.time') && rawIds.has('infinitive.means')) {
         comparisonCoveredIds.add('infinitive.means');
@@ -8386,6 +8442,9 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
      * 見出しは呼び出し側のグループ見出し「分析候補・統語情報」に一本化し、
      * このブロック内には小見出しを付けない。
      */
+    /* 識別不能ペアの読み分け（単位B / G5）: 候補が表示される場合も、ペアが
+       揃っていれば読み分けを末尾に足す（既存の読み分けとは独立に付く）。 */
+    comparisonHTML += _syntaxPairBlockHTML(rawIds);
     return `<div class="rn-syntax-candidates">${tiedNotice}${primaryHTML}${otherHTML}${comparisonHTML}</div>`;
 }
 
