@@ -1834,6 +1834,13 @@ border-bottom: 1px dotted rgba(0,0,0,0.15);
     font-size: var(--text-caption);
     line-height: 1.65;
 }
+.rn-syntax-context-note {
+    margin-top: 2px;
+    color: var(--text-sub);
+    font-size: var(--text-caption);
+    line-height: 1.65;
+    opacity: 0.85;
+}
 .rn-syntax-alternatives {
     margin-top: var(--space-sm);
     border-top: 1px solid var(--border-soft);
@@ -8046,6 +8053,43 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         return true;
     });
     if (!unique.length) return '';
+    /* しきい値未満の候補 id は、表示はしないが読み分けの発火判定にだけ使う
+       （例：手段不定詞は確度が低く候補一覧に出ないが、時の不定詞と
+       同じ形で競合するため、読み分けの対象には含める）。 */
+    const rawIds = new Set((output.candidates || []).map(c => c.id));
+    const candidateIds = new Set(unique.map(c => c.id));
+    const targetLemma = String(words[targetIdx]?.lemma || '').normalize('NFC');
+    const refText = String(targetRef || '');
+    const hasLemma = lemma => words.some(t => String(t.lemma || '').normalize('NFC') === lemma);
+    /* 監査（一次監査台帳）で unresolved とされたタイプ。表示候補に出たとき、
+       文脈で判断が分かれる用法であることを小さく添える。根拠のない断定を避ける
+       ための注記で、スコアの説明ではない。読み分けブロックが付く組み合わせでは
+       そちらが説明を担うため、対象 id は注記を出さない。 */
+    const AUDIT_UNRESOLVED_IDS = new Set([
+        'accusative.adverbial', 'adjective.restrictive',
+        'article.abstract', 'article.generic', 'article.monadic', 'article.par_excellence',
+        'clause.causal_hoti',
+        'dative.ethical', 'dative.interest_advantage', 'dative.interest_disadvantage',
+        'discourse.topic_fronting',
+        'genitive.attributed', 'genitive.content', 'genitive.descriptive',
+        'genitive.material', 'genitive.means', 'genitive.place',
+        'infinitive.means',
+        'nominative.nominative_absolute', 'nominative.pendens', 'nominative.vocative_nominative',
+        'participle.adverbial_causal', 'participle.adverbial_means',
+        'participle.adverbial_temporal', 'participle.redundant',
+        'particle.rhetorical_particle', 'preposition.adverbial_pp',
+        'verb.aorist_gnomic', 'verb.dramatic_aorist', 'verb.future_gnomic',
+        'verb.gnomic_present', 'verb.imperative_ingressive', 'verb.imperfect_iterative',
+        'verb.perfect_dramatic',
+    ]);
+    const comparisonCoveredIds = new Set();
+    if (candidateIds.has('infinitive.time') && rawIds.has('infinitive.means')) {
+        comparisonCoveredIds.add('infinitive.means');
+    }
+    if (targetLemma === 'ὅτι' &&
+        (candidateIds.has('clause.substantival_hoti') || rawIds.has('clause.causal_hoti'))) {
+        comparisonCoveredIds.add('clause.causal_hoti');
+    }
     /* 最高候補と次点の差が小さい場合は、近い候補を同列に表示 */
     const topHasLead = unique.length > 1 && (unique[0].confidence - unique[1].confidence) >= 0.05;
     const primaryCount = topHasLead ? 1 : unique.filter(c => unique[0].confidence - c.confidence < 0.05).length;
@@ -8062,7 +8106,10 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         const badge = primary && topHasLead
             ? '<span class="rn-syntax-best-label">第一候補</span>'
             : '';
-        return `<div class="rn-syntax-item${primary && topHasLead ? ' rn-syntax-item-primary' : ''}"><div class="rn-syntax-item-heading"><span class="rn-syntax-term">${label}</span>${badge}</div>${description}</div>`;
+        const contextNote = AUDIT_UNRESOLVED_IDS.has(c.id) && !comparisonCoveredIds.has(c.id)
+            ? '<div class="rn-syntax-context-note">文脈で判断が分かれる用法です。</div>'
+            : '';
+        return `<div class="rn-syntax-item${primary && topHasLead ? ' rn-syntax-item-primary' : ''}"><div class="rn-syntax-item-heading"><span class="rn-syntax-term">${label}</span>${badge}</div>${description}${contextNote}</div>`;
     };
     const primaryHTML = primaryCandidates.map(c => renderCandidate(c, true)).join('');
     const tiedNotice = !topHasLead && primaryCandidates.length > 1
@@ -8077,10 +8124,6 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
      * confidence の大小や共通シグナルを、解釈の決め手として扱わない。
      * 対象外・候補不足では何も追加しない（静寂優先）。
      */
-    const candidateIds = new Set(unique.map(c => c.id));
-    const targetLemma = String(words[targetIdx]?.lemma || '').normalize('NFC');
-    const refText = String(targetRef || '');
-    const hasLemma = lemma => words.some(t => String(t.lemma || '').normalize('NFC') === lemma);
     let comparisonHTML = '';
     if (
         targetLemma === 'οἶκος' &&
@@ -8156,6 +8199,52 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
             <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
                 <div class="rn-syntax-evidence-body">
                     <p>この語の周りで、形容詞・属格・分詞・前置詞句などの修飾語がいくつ付いているかを確認してください。候補の表示順位やスコアだけで決まるものではありません。</p>
+                </div>
+            </div>
+        </div>`;
+    } else if (!comparisonHTML &&
+        candidateIds.has('infinitive.time') &&
+        rawIds.has('infinitive.means')) {
+        /* ἐν τῷ＋不定詞：時と手段は同じ形で競合する（一次監査・不定詞）。
+           手段不定詞は確度が低く候補一覧には出ないため、表示される
+           時の不定詞を起点に、しきい値未満の手段候補で発火させる。 */
+        comparisonHTML = `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong><span lang="el">ἐν τῷ</span>＋不定詞が、主節の出来事と同時の「時」を表すか、「〜することによって」という「手段」を表すか、という意味関係の違いです。</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
+                <div class="rn-syntax-evidence-body">
+                    <p><strong>本文で確認できること：</strong>前置詞 <span lang="el">ἐν</span> と冠詞 <span lang="el">τῷ</span> に不定詞が続く形は、時と手段とでまったく同じです。</p>
+                    <p><strong>ここから言えること：</strong>形式だけでは決まらず、主節の動詞の意味と文の流れを合わせて判断します。手段の読みは頻度が低く、時の読みが既定に近い読みです。</p>
+                </div>
+            </div>
+        </div>`;
+    } else if (!comparisonHTML &&
+        targetLemma === 'ὅτι' &&
+        (candidateIds.has('clause.substantival_hoti') || rawIds.has('clause.causal_hoti'))) {
+        /* ὅτι 節：内容と理由は形が同じで、理由側には形式の標識がない
+           （一次監査・節。理由節は残余条件の定義で unresolved）。
+           理由節は確度が低く候補一覧に出ないことがあるため、
+           内容節の表示またはしきい値未満の理由節候補で発火させる。 */
+        comparisonHTML = `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong><span lang="el">ὅτι</span> 節が、発話・思考・認識の「内容（〜ということ）」を表すか、主節の出来事の「理由（〜だから）」を表すか、という節の役割の違いです。</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
+                <div class="rn-syntax-evidence-body">
+                    <p><strong>本文で確認できること：</strong><span lang="el">ὅτι</span> の前に「言う・思う・知る」など発話や認識を表す動詞があるかどうかが、内容節の手がかりになります。</p>
+                    <p><strong>ここから言えること：</strong>理由の読みには決まった形式の標識がなく、主節との意味のつながりで判断します。形が同じため、文脈によっては両方の読みが成り立つことがあります。</p>
+                </div>
+            </div>
+        </div>`;
+    } else if (!comparisonHTML &&
+        candidateIds.has('clause.purpose_hina')) {
+        /* ἵνα 節：目的だけでなく願望・要求の内容も表す（一次監査・節。
+           機能候補の併記が実態に合うとされた）。単独候補への注記として出す。 */
+        comparisonHTML = `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong><span lang="el">ἵνα</span> 節は「〜するために」という目的だけでなく、「〜するように」という願望・命令・要求の内容を表すこともあります。</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
+                <div class="rn-syntax-evidence-body">
+                    <p><strong>ここから言えること：</strong><span lang="el">ἵνα</span> と接続法という形だけでは目的か内容かは決まらず、節を導く動詞の意味と文脈を合わせて判断します。</p>
                 </div>
             </div>
         </div>`;
