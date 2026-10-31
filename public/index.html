@@ -4663,6 +4663,19 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 .rn-dict-full-section .rn-dict-full-table tr:last-child td {
     border-bottom: 0;
 }
+/* 丸数字の項目は1項目ずつ区切り、折り返しは番号の次にそろえる（ぶら下げ字下げ）。 */
+.rn-dict-full-section .rn-dict-intro {
+    display: block;
+}
+.rn-dict-full-section .rn-dict-item {
+    display: block;
+    margin-top: 0.5em;
+    padding-left: 1.2em;
+    text-indent: -1.2em;
+}
+.rn-dict-full-section .rn-dict-item-first {
+    margin-top: 0;
+}
 
 /* Narrow screens: prioritize dictionary text over the item-label column. */
 @media (max-width: 600px) {
@@ -10706,6 +10719,24 @@ function _localizeAbbottAbbreviations(text, locale) {
     return result;
 }
 
+/* 辞書セル内の丸数字（①②…）項目を、項目ごとに区切って描画する。
+ * 辞書の文章そのものは変えず、表示上のまとまりだけを作る。
+ * 丸数字の項目が2つ未満のセルは従来どおり一続きで描画する。 */
+function _renderAbbottCellHTML(value) {
+    const source = String(value == null ? '' : value);
+    const parts = source.split(/(?=[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳])/);
+    const numbered = parts.filter(p => /^[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]/.test(p.trim()));
+    if (numbered.length < 2) return _renderDictionaryLinkedText(source);
+    const segments = parts.map(p => p.trim()).filter(Boolean);
+    return segments.map((trimmed, i) => {
+        const html = _renderDictionaryLinkedText(trimmed);
+        if (/^[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]/.test(trimmed)) {
+            return `<span class="rn-dict-item${i === 0 ? ' rn-dict-item-first' : ''}">${html}</span>`;
+        }
+        return `<span class="rn-dict-intro">${html}</span>`;
+    }).join('');
+}
+
 function _renderAbbottFullText(text) {
     const source = _localizeAbbottAbbreviations(String(text == null ? '' : text));
     const re = /【([^】]+)】([^【]*)/g;
@@ -10726,7 +10757,7 @@ function _renderAbbottFullText(text) {
           (row.label
             ? '<th scope="row">' + _escH(row.label) + '</th>'
             : '<th scope="row" class="rn-dict-full-unlabeled"></th>') +
-          '<td>' + _renderDictionaryLinkedText(row.value) + '</td>' +
+          '<td>' + _renderAbbottCellHTML(row.value) + '</td>' +
         '</tr>'
     ).join('') + '</tbody></table>';
 }
