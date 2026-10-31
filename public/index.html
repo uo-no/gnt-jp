@@ -15160,18 +15160,11 @@ async function _buildLocalRelationFrame(ref) {
     }
     if (!sentence) return null;
     const scale = _roleTextScale();
-    /* 折り返しは読書モード本体と同一（表示カラム幅 ÷ 倍率、SPは342） */
-    let wrapW;
-    if (window.innerWidth <= 900) {
-        wrapW = 342;
-    } else {
-        const col = document.getElementById('bible-text-area');
-        const availPx = ((col && col.clientWidth > 0) ? col.clientWidth : 680) - 8;
-        wrapW = Math.round(availPx / scale);
-        if (wrapW < 500) wrapW = 500;
-        if (wrapW > 1600) wrapW = 1600;
-    }
-    const result = RoleReadingLayoutL3.layoutChapter([sentence.root], { spWrapW: wrapW });
+    /* 枠はパンして見るので、幅に合わせて無理に折り返さない。
+       折り返しなし（右へ流れていく）レイアウトにする
+       （ユーザー方針 2026-10-31: 無理に折り返さなくて良い、
+       右に逃していって見やすく）。 */
+    const result = RoleReadingLayoutL3.layoutChapter([sentence.root], { spWrapW: null });
     const laid = result && result.sentences && result.sentences[0];
     if (!laid || !laid.words.length) return null;
     const words = laid.words, edges = laid.edges;
