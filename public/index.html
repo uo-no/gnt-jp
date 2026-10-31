@@ -15182,6 +15182,19 @@ async function _buildLocalRelationFrame(ref) {
         if (w.id === centerId) center = w;
     }
     if (!center) return null;
+    /* 線の経路が語より外へはみ出す場合（左端チャネルの分散など）も
+       表示範囲に含め、はみ出した線が枠端で切れないようにする。 */
+    for (const e of edges) {
+        const toks = RoleReadingLayoutL3.edgePath(e).match(/[MLVH]|-?\d+(?:\.\d+)?/g) || [];
+        let pcmd = null;
+        for (let ti = 0; ti < toks.length; ti++) {
+            const tk = toks[ti];
+            if (/^[MLVH]$/.test(tk)) { pcmd = tk; continue; }
+            const v = parseFloat(tk);
+            if (pcmd === 'H') { minX = Math.min(minX, v); maxX = Math.max(maxX, v); }
+            else if (pcmd === 'M' || pcmd === 'L') { minX = Math.min(minX, v); maxX = Math.max(maxX, v); ti++; if (pcmd === 'M') pcmd = 'L'; }
+        }
+    }
     minX -= 18; maxX += 18;
     const top = minY - 40, widthU = maxX - minX, heightU = (maxY - minY) + 70;
     const NS = 'http://www.w3.org/2000/svg';

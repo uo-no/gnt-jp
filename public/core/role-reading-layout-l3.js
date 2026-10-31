@@ -6,6 +6,10 @@
  * 読書モード「語の役割で読む」は現行の role-reading-layout.js を使う。
  * 元ファイル: role-reading-layout.js @ 45cb725e (PR #462 マージ前)。
  * グローバル名を RoleReadingLayoutL3 に変えた以外の変更はない。
+ * ただし 2026-10-31 のフィードバック（左に寄りすぎて線が判別
+ * しづらい）を受け、左端で重なる長い縦線だけを左へ逃がして
+ * 間隔を空ける _spreadLeftChannels を末尾に足してある
+ * （語の配置は元のまま）。
  */
 /* role-reading-layout.js
  * 「語の役割で読む」レイアウト・エンジン。
@@ -563,6 +567,88 @@
         }
       }
     }
+    _spreadLeftChannels(sent);
+  }
+
+  /* 左端チャネルの分散（局所図向け）: 最も左の語より左側に長い縦線を
+     持つ辺が複数あると、縦線同士が数単位の間隔で重なり・連なり、
+     枠の左端で判別できなくなる。長い順に優先し、近接する縦線は
+     左へ12単位ずつ逃がして最低12の間隔を空ける。対象は実効経路
+     （e.d があればそれ、なければ edgePath の既定形）。左側は語の
+     ない余白だが、念のため元の経路より字形・ブロック交差が悪化
+     しない場合だけ採用する。 */
+  function _shiftChannelX(d, X0, X1) {
+    var subs = d.split('M').filter(function (x) { return x.length; });
+    if (!subs.length) return null;
+    var segs = _parsePath('M' + subs[0]);
+    var touched = false;
+    var nsegs = segs.map(function (sg) {
+      var a = sg[0] === X0 ? X1 : sg[0], c = sg[2] === X0 ? X1 : sg[2];
+      if (a !== sg[0] || c !== sg[2]) touched = true;
+      return [a, sg[1], c, sg[3]];
+    });
+    if (!touched) return null;
+    /* 縦線で終わる形（帰還の横線なし）は、元の到達点までの横線を補う */
+    var last = segs[segs.length - 1];
+    var nlast = nsegs[nsegs.length - 1];
+    if (last && last[0] === last[2] && nlast[2] !== last[2]) {
+      nsegs.push([nlast[2], nlast[3], last[2], last[3]]);
+    }
+    var out = 'M' + nsegs[0][0] + ',' + nsegs[0][1];
+    for (var i = 0; i < nsegs.length; i++) out += 'L' + nsegs[i][2] + ',' + nsegs[i][3];
+    /* 目盛り（sv/vo/vp の別サブパス）は帰還の横線の中央へ付け直す */
+    if (subs.length > 1) {
+      var ret = null;
+      for (var j = nsegs.length - 1; j >= 0; j--) { var sg2 = nsegs[j]; if (sg2[1] === sg2[3] && sg2[0] !== sg2[2]) { ret = sg2; break; } }
+      var tsegs = _parsePath('M' + subs[1]);
+      if (ret && tsegs.length === 1) {
+        var px = Math.round((ret[0] + ret[2]) / 2);
+        out += 'M' + px + ',' + tsegs[0][1] + 'L' + px + ',' + tsegs[0][3];
+      } else {
+        out += 'M' + subs.slice(1).join('M');
+      }
+    }
+    return out;
+  }
+  function _spreadLeftChannels(sent) {
+    var boxes = sent.words.map(_inkBox);
+    var blocks = sent.words.map(_blockBox);
+    var minWX = Infinity;
+    sent.words.forEach(function (w) { if (w.x < minWX) minWX = w.x; });
+    var items = [];
+    sent.edges.forEach(function (e) {
+      var effD = e.d || edgePath(e);
+      var segs = _parsePath(effD);
+      for (var i = 0; i < segs.length; i++) {
+        var sg = segs[i];
+        if (sg[0] === sg[2] && Math.abs(sg[3] - sg[1]) >= 60 && sg[0] <= minWX + 6) {
+          items.push({ e: e, d: effD, X: sg[0], y1: Math.min(sg[1], sg[3]), y2: Math.max(sg[1], sg[3]), span: Math.abs(sg[3] - sg[1]) });
+          break;
+        }
+      }
+    });
+    items.sort(function (p, q) { return q.span - p.span; });
+    var placed = [];
+    items.forEach(function (it) {
+      var X = it.X, guard = 0;
+      var conflicts = function (x) {
+        return placed.some(function (p) {
+          if (Math.abs(p.X - x) >= 12) return false;
+          var gap = Math.max(it.y1, p.y1) - Math.min(it.y2, p.y2);
+          return gap < 30;
+        });
+      };
+      while (conflicts(X) && guard++ < 6) X -= 12;
+      if (X !== it.X) {
+        var nd = _shiftChannelX(it.d, it.X, X);
+        if (nd) {
+          var cN = _count2(_parsePath(nd), boxes, blocks);
+          var cO = _count2(_parsePath(it.d), boxes, blocks);
+          if (cN[0] <= cO[0] && cN[1] <= cO[1]) { it.e.d = nd; it.d = nd; it.X = X; }
+        }
+      }
+      placed.push(it);
+    });
   }
 
   /* エディタの draw() の pd() を移植（線の経路生成）。 */
