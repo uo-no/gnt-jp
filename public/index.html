@@ -9,13 +9,6 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
-    <!-- Early, self-contained splash styles: no external CSS dependency. -->
-    <style id="app-splash-style">
-        #app-splash { position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center; background: #fff; opacity: 1; visibility: visible; transition: opacity 180ms ease, visibility 180ms ease; pointer-events: auto; }
-        #app-splash img { display: block; width: 72px; height: 72px; object-fit: contain; }
-        #app-splash.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-        @media (prefers-reduced-motion: reduce) { #app-splash { transition: none; } }
-    </style>
     <!-- OGP / Twitter Card -->
     <meta property="og:type"         content="website">
     <meta property="og:url"          content="https://bible-text.pages.dev/">
@@ -5585,7 +5578,7 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 #rn-relation-slot:not(:empty), #mvv-relation-slot:not(:empty) { margin: var(--space-md) 0 var(--space-xs); }
 /* 局所表示の枠: 文全体の図を上下左右に動かして見る（地図アプリ式） */
 .local-rel-wrap { position: relative; }
-.local-rel-frame { height: 240px; overflow: auto; border: 1px solid var(--line, #d8d8d8); border-radius: 8px; cursor: grab; overscroll-behavior: contain; user-select: none; -webkit-user-select: none; background: var(--bg); scrollbar-width: none; }
+.local-rel-frame { touch-action: none; height: 240px; overflow: auto; border: 1px solid var(--line, #d8d8d8); border-radius: 8px; cursor: grab; overscroll-behavior: contain; user-select: none; -webkit-user-select: none; background: var(--bg); scrollbar-width: none; }
 .local-rel-frame::-webkit-scrollbar { display: none; }
 .local-rel-frame.dragging { cursor: grabbing; }
 .local-rel-frame svg.role-svg { max-width: none; }
@@ -5834,9 +5827,6 @@ body.chapter-navigation-loading #main-reading-area::after {
 
 </head>
 <body>
-<div id="app-splash" role="status" aria-label="読み込み中">
-    <img src="/favicon.svg" alt="">
-</div>
 
 <!-- URL共有コピー通知（DOM最上位） -->
 <div id="share-toast" class="share-toast"></div>
@@ -6193,6 +6183,7 @@ body.chapter-navigation-loading #main-reading-area::after {
 <script src="../core/neighborhood-view.js"></script>
 <script src="../core/rk-reading-adapter.js"></script>
 <script src="../core/role-reading-layout.js"></script>
+<script src="../core/role-reading-layout-l3.js"></script>
 <script src="../core/role-reading-adapter.js"></script>
 <script src="../core/discourse-reading-renderer.js"></script>
 <script>
@@ -15144,7 +15135,7 @@ async function _loadBdChapter(book, chapter) {
 async function _buildLocalRelationFrame(ref) {
     const parsed = _flowTreeParseRef(ref);
     if (!parsed) return null;
-    if (!window.RoleReadingAdapter || !window.RoleReadingLayout) return null;
+    if (!window.RoleReadingAdapter || !window.RoleReadingLayoutL3) return null;
     if (window._rkAvailPromise) { try { await window._rkAvailPromise; } catch (_) { /* ゲート側で判定 */ } }
     /* パネル内の枠は幅に合わせる必要がない（パンして見る）ため、読書モード本体の
        デバイス別ゲートは適用しない。章の役割データが公開済みかだけを見る。 */
@@ -15169,18 +15160,11 @@ async function _buildLocalRelationFrame(ref) {
     }
     if (!sentence) return null;
     const scale = _roleTextScale();
-    /* 折り返しは読書モード本体と同一（表示カラム幅 ÷ 倍率、SPは342） */
-    let wrapW;
-    if (window.innerWidth <= 900) {
-        wrapW = 342;
-    } else {
-        const col = document.getElementById('bible-text-area');
-        const availPx = ((col && col.clientWidth > 0) ? col.clientWidth : 680) - 8;
-        wrapW = Math.round(availPx / scale);
-        if (wrapW < 500) wrapW = 500;
-        if (wrapW > 1600) wrapW = 1600;
-    }
-    const result = RoleReadingLayout.layoutChapter([sentence.root], { spWrapW: wrapW });
+    /* 枠はパンして見るので、幅に合わせて無理に折り返さない。
+       折り返しなし（右へ流れていく）レイアウトにする
+       （ユーザー方針 2026-10-31: 無理に折り返さなくて良い、
+       右に逃していって見やすく）。 */
+    const result = RoleReadingLayoutL3.layoutChapter([sentence.root], { spWrapW: null });
     const laid = result && result.sentences && result.sentences[0];
     if (!laid || !laid.words.length) return null;
     const words = laid.words, edges = laid.edges;
@@ -15191,6 +15175,19 @@ async function _buildLocalRelationFrame(ref) {
         if (w.id === centerId) center = w;
     }
     if (!center) return null;
+    /* 線の経路が語より外へはみ出す場合（左端チャネルの分散など）も
+       表示範囲に含め、はみ出した線が枠端で切れないようにする。 */
+    for (const e of edges) {
+        const toks = RoleReadingLayoutL3.edgePath(e).match(/[MLVH]|-?\d+(?:\.\d+)?/g) || [];
+        let pcmd = null;
+        for (let ti = 0; ti < toks.length; ti++) {
+            const tk = toks[ti];
+            if (/^[MLVH]$/.test(tk)) { pcmd = tk; continue; }
+            const v = parseFloat(tk);
+            if (pcmd === 'H') { minX = Math.min(minX, v); maxX = Math.max(maxX, v); }
+            else if (pcmd === 'M' || pcmd === 'L') { minX = Math.min(minX, v); maxX = Math.max(maxX, v); ti++; if (pcmd === 'M') pcmd = 'L'; }
+        }
+    }
     minX -= 18; maxX += 18;
     const top = minY - 40, widthU = maxX - minX, heightU = (maxY - minY) + 70;
     const NS = 'http://www.w3.org/2000/svg';
@@ -15201,7 +15198,7 @@ async function _buildLocalRelationFrame(ref) {
     svg.style.height = Math.round(heightU * scale) + 'px';
     for (const e of edges) {
         const p = document.createElementNS(NS, 'path');
-        p.setAttribute('d', RoleReadingLayout.edgePath(e));
+        p.setAttribute('d', RoleReadingLayoutL3.edgePath(e));
         p.setAttribute('class', 'e ' + e.kind);
         svg.appendChild(p);
     }
@@ -15209,8 +15206,8 @@ async function _buildLocalRelationFrame(ref) {
         const g = document.createElementNS(NS, 'g');
         g.setAttribute('class', 'wn' + (w.id === centerId ? ' focus' : ''));
         const ul = document.createElementNS(NS, 'line');
-        ul.setAttribute('x1', String(w.x - RoleReadingLayout.PADX));
-        ul.setAttribute('x2', String(w.x + w.w + RoleReadingLayout.PADX + (w.ew || 0)));
+        ul.setAttribute('x1', String(w.x - RoleReadingLayoutL3.PADX));
+        ul.setAttribute('x2', String(w.x + w.w + RoleReadingLayoutL3.PADX + (w.ew || 0)));
         ul.setAttribute('y1', String(w.y + 4));
         ul.setAttribute('y2', String(w.y + 4));
         ul.setAttribute('class', 'ul');
@@ -15267,12 +15264,19 @@ function _setLocalRelZoom(frame, z) {
     _centerLocalRelationFrame(frame);
 }
 
-/* 地図アプリ式のドラッグスクロール（マウスのみ。タッチはネイティブスクロール） */
+/* 地図アプリ式のドラッグ移動: 枠の余白部分を押さえたまま動かすと
+   上下左右に移動する（PC は左ボタンを押したまま、モバイルは指で
+   押さえたまま）。語や線の上からは開始しない（余白が対象）。
+   タッチでも同じ仕組みで動くよう Pointer Events に統一し、
+   .local-rel-frame の touch-action: none でブラウザのスクロール
+   奪取を防ぐ。移動自体はスクロール位置の変更として行う。 */
 function _attachPanScroll(frame) {
     let down = false, sx = 0, sy = 0, sl = 0, st = 0;
     frame.addEventListener('pointerdown', e => {
-        if (e.pointerType !== 'mouse') return;
-        e.preventDefault();   /* ドラッグ中の文字選択を防ぐ */
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        /* 余白部分だけを対象にする: フレーム自身か、SVG の地の部分 */
+        if (e.target !== frame && e.target !== frame._svgEl) return;
+        e.preventDefault();   /* ドラッグ中の文字選択・画像ドラッグを防ぐ */
         down = true; sx = e.clientX; sy = e.clientY; sl = frame.scrollLeft; st = frame.scrollTop;
         try { frame.setPointerCapture(e.pointerId); } catch (_) { /* 任意 */ }
         frame.classList.add('dragging');
@@ -17665,17 +17669,7 @@ function _mobileSwipeBack() {
     document.addEventListener('DOMContentLoaded', function () {
         if (window.App.onboarding) window.App.onboarding.init();
         _syncOnboardingActiveFlag();
-function _hideAppSplash() {
-    const splash = document.getElementById('app-splash');
-    if (splash) splash.classList.add('is-hidden');
-}
-
-        /* Splash is removed when the first chapter has rendered; a timeout prevents a stuck overlay. */
-        const splashFallbackTimer = window.setTimeout(_hideAppSplash, 12000);
-        init().finally(function () {
-            window.clearTimeout(splashFallbackTimer);
-            _hideAppSplash();
-        });
+        init();
         _ensureSemanticData().catch(function(){});
 
         /* 語源要素タップ → Abbott-Smith ポップアップ（イベントデリゲーション） */
