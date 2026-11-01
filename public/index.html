@@ -15924,12 +15924,14 @@ function _attachLocalRelGestures(frame) {
 }
 
 /* 拡大表示（シート式オーバーレイ）: 同じ枠要素をシートへ移して開き、閉じると
-   元のスロットへ戻す。開く直前の倍率と「見ていた中心」を開閉どちらでも引き継ぐ */
+   元のスロットへ戻す。開く側は直前の倍率と「見ていた中心」を引き継ぎ、
+   戻す側は開く直前の枠の状態（倍率・中心・スクロール）をそのまま復元する */
 function _openLocalRelOverlay(wrap) {
     if (!wrap || wrap._inOverlay || document.querySelector('.local-rel-overlay')) return;
     const frame = wrap._frameEl;
     if (!frame) return;
     const view = { zoom: frame._zoom || 1, centerU: _localRelViewportCenterU(frame) };
+    const homeView = { zoom: view.zoom, centerU: view.centerU, sl: frame.scrollLeft, st: frame.scrollTop };
     const home = { parent: wrap.parentNode, next: wrap.nextSibling };
     const srcEl = frame.getBoundingClientRect();
     const sourceRect = { left: srcEl.left, top: srcEl.top, width: srcEl.width, height: srcEl.height, right: srcEl.right, bottom: srcEl.bottom };
@@ -15985,7 +15987,6 @@ function _openLocalRelOverlay(wrap) {
     }
     if (!reduced) { bar.style.opacity = '0'; bar.style.transform = 'translateY(10px)'; }
     let closing = false;
-    let backView = null;
     const snapToFinal = () => {
         sheet.style.transition = 'none'; sheet.style.transform = ''; sheet.style.borderRadius = ''; sheet.style.transformOrigin = ''; sheet.style.boxShadow = '';
         bar.style.transition = 'none'; bar.style.opacity = ''; bar.style.transform = '';
@@ -16009,14 +16010,17 @@ function _openLocalRelOverlay(wrap) {
             if (home.next && home.next.parentNode === home.parent) home.parent.insertBefore(wrap, home.next);
             else home.parent.appendChild(wrap);
         }
+        /* 枠の状態は開く直前のまま復元する。拡大側の倍率・スクロールを持ち帰って
+           後から適用すると、戻った後に図が再配置されて「読み込み直し・広がり」に
+           見えるため、オーバーレイを外す前に同期で戻し、最初の描画から元の姿にする */
+        _applyLocalRelZoom(frame, homeView.zoom, homeView.centerU);
+        frame.scrollLeft = homeView.sl; frame.scrollTop = homeView.st;
         overlay.remove();
         wrap._inOverlay = false; frame._expanded = false; frame._pinchActive = false;
         document.body.style.overflow = prevOverflow;
-        if (backView) requestAnimationFrame(() => _applyLocalRelZoom(frame, backView.zoom, backView.centerU));
     };
     const close = () => {
         if (closing) return; closing = true;
-        backView = { zoom: frame._zoom || 1, centerU: _localRelViewportCenterU(frame) };
         document.removeEventListener('keydown', onKey, true);
         overlay.classList.remove('open');
         if (reduced) { finish(); return; }
