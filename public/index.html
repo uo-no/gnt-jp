@@ -5743,11 +5743,12 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 .local-rel-btn:active { background: var(--bg-panel); }
 /* 局所図の拡大表示: 元の画面を薄く落とした上に浮く角丸シート（色は現行トークンのまま）。
    シートの下に ◎ ／ ＋− ／ × の操作列を、シートと同じ幅で浮かせる */
-.local-rel-overlay { position: fixed; inset: 0; z-index: 1200; display: flex; flex-direction: column; align-items: center; padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); background: rgba(26, 30, 26, .48); opacity: 0; transition: opacity .22s ease; }
-.local-rel-overlay.open { opacity: 1; }
-.local-rel-sheet { width: 100%; max-width: 1080px; flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg-panel); border-radius: 32px; box-shadow: 0 18px 50px rgba(0, 0, 0, .35); overflow: hidden; transform: translateY(16px); transition: transform .22s ease; }
-.local-rel-overlay.open .local-rel-sheet { transform: none; }
-@media (prefers-reduced-motion: reduce) { .local-rel-overlay, .local-rel-sheet { transition: none; } .local-rel-sheet { transform: none; } }
+.local-rel-overlay { position: fixed; inset: 0; z-index: 1200; display: flex; flex-direction: column; align-items: center; padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); }
+.local-rel-backdrop { position: absolute; inset: 0; background: rgba(26, 30, 26, .48); opacity: 0; transition: opacity .2s ease; }
+.local-rel-overlay.open .local-rel-backdrop { opacity: 1; }
+.local-rel-sheet { position: relative; z-index: 1; width: 100%; max-width: 1080px; flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg-panel); border-radius: 32px; box-shadow: 0 18px 50px rgba(0, 0, 0, .35); overflow: hidden; will-change: transform; }
+.local-rel-bar { position: relative; z-index: 1; }
+@media (prefers-reduced-motion: reduce) { .local-rel-backdrop, .local-rel-sheet, .local-rel-bar { transition: none !important; } }
 .local-rel-sheet-head { padding: 10px 20px 6px; display: flex; flex-direction: column; gap: 9px; touch-action: none; cursor: grab; }
 .local-rel-sheet-head:active { cursor: grabbing; }
 .local-rel-handle { align-self: center; width: 40px; height: 5px; border-radius: 999px; background: rgba(0, 0, 0, .18); flex: none; }
@@ -15923,13 +15924,18 @@ function _attachLocalRelGestures(frame) {
 }
 
 /* 拡大表示（シート式オーバーレイ）: 同じ枠要素をシートへ移して開き、閉じると
-   元のスロットへ戻す。開く直前の倍率と「見ていた中心」を開閉どちらでも引き継ぐ */
+   元のスロットへ戻す。開く側は直前の倍率と「見ていた中心」を引き継ぎ、
+   戻す側は開く直前の枠の状態（倍率・中心・スクロール）をそのまま復元する */
 function _openLocalRelOverlay(wrap) {
     if (!wrap || wrap._inOverlay || document.querySelector('.local-rel-overlay')) return;
     const frame = wrap._frameEl;
     if (!frame) return;
     const view = { zoom: frame._zoom || 1, centerU: _localRelViewportCenterU(frame) };
+    const homeView = { zoom: view.zoom, centerU: view.centerU, sl: frame.scrollLeft, st: frame.scrollTop };
     const home = { parent: wrap.parentNode, next: wrap.nextSibling };
+    const srcEl = frame.getBoundingClientRect();
+    const sourceRect = { left: srcEl.left, top: srcEl.top, width: srcEl.width, height: srcEl.height, right: srcEl.right, bottom: srcEl.bottom };
+    const reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     const IA = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"';
     const overlay = document.createElement('div');
     overlay.className = 'local-rel-overlay';
@@ -15937,6 +15943,7 @@ function _openLocalRelOverlay(wrap) {
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', '文の関係（拡大表示）');
     overlay.innerHTML =
+        '<div class="local-rel-backdrop"></div>' +
         '<div class="local-rel-sheet">' +
             '<div class="local-rel-sheet-head"><div class="local-rel-handle"></div>' +
                 '<div class="local-rel-sheet-title"><span class="local-rel-pill">文の関係</span><span class="local-rel-ref"></span></div></div>' +
@@ -15958,26 +15965,74 @@ function _openLocalRelOverlay(wrap) {
     frame._zoomLabelEls = [overlay.querySelector('.local-rel-zoom-label')];
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    _applyLocalRelZoom(frame, view.zoom, view.centerU);   /* 図の位置決めはアニメーション開始前に済ませる（開始直後のレイアウト落ち防止） */
+    const sheet = overlay.querySelector('.local-rel-sheet');
+    const bar = overlay.querySelector('.local-rel-bar');
+    /* 遷移（案B: 枠の位置から広がるコンテナ変換）: シートをインライン枠の
+       位置・大きさに重ねた状態から、変形（移動＋拡縮）だけで定位置へ広げる。
+       元の位置が取れない場合は下からせり上がる動きにフォールバックする */
+    const dst = sheet.getBoundingClientRect();
+    const flipOk = !reduced && sourceRect.width > 10 && sourceRect.height > 10 && dst.width > 10 && dst.height > 10 &&
+        sourceRect.bottom > 0 && sourceRect.top < window.innerHeight && sourceRect.right > 0 && sourceRect.left < window.innerWidth;
+    overlay._hasFlip = flipOk;
+    overlay._sourceRect = sourceRect;
+    if (flipOk) {
+        const sx = sourceRect.width / dst.width, sy = sourceRect.height / dst.height;
+        sheet.style.transformOrigin = '0 0';
+        sheet.style.transform = 'translate(' + (sourceRect.left - dst.left) + 'px, ' + (sourceRect.top - dst.top) + 'px) scale(' + sx + ', ' + sy + ')';
+        sheet.style.boxShadow = 'none';   /* 大きな影はアニメーション中の再描画が重いので、静止後に戻す。角丸は遷移させない（毎フレーム再クリップになるため） */
+    } else if (!reduced) {
+        sheet.style.transform = 'translateY(48px) scale(0.98)';
+        sheet.style.boxShadow = 'none';
+    }
+    if (!reduced) { bar.style.opacity = '0'; bar.style.transform = 'translateY(10px)'; }
     let closing = false;
+    const snapToFinal = () => {
+        sheet.style.transition = 'none'; sheet.style.transform = ''; sheet.style.borderRadius = ''; sheet.style.transformOrigin = ''; sheet.style.boxShadow = '';
+        bar.style.transition = 'none'; bar.style.opacity = ''; bar.style.transform = '';
+    };
+    const onResize = () => { if (!closing) snapToFinal(); };
+    window.addEventListener('resize', onResize);
+    const startAnim = () => {
+        overlay.classList.add('open');
+        if (reduced) return;
+        sheet.style.transition = 'transform .32s cubic-bezier(0.22, 1, 0.36, 1)';
+        sheet.style.transform = '';
+        bar.style.transition = 'opacity .26s ease .04s, transform .26s cubic-bezier(0.22, 1, 0.36, 1) .04s';
+        bar.style.opacity = '1'; bar.style.transform = '';
+        setTimeout(() => { sheet.style.transition = ''; sheet.style.transformOrigin = ''; sheet.style.boxShadow = ''; bar.style.transition = ''; }, 340);
+    };
+    requestAnimationFrame(() => requestAnimationFrame(startAnim));
     const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
+    const finish = () => {
+        window.removeEventListener('resize', onResize);
+        if (home.parent) {
+            if (home.next && home.next.parentNode === home.parent) home.parent.insertBefore(wrap, home.next);
+            else home.parent.appendChild(wrap);
+        }
+        /* 枠の状態は開く直前のまま復元する。拡大側の倍率・スクロールを持ち帰って
+           後から適用すると、戻った後に図が再配置されて「読み込み直し・広がり」に
+           見えるため、オーバーレイを外す前に同期で戻し、最初の描画から元の姿にする */
+        _applyLocalRelZoom(frame, homeView.zoom, homeView.centerU);
+        frame.scrollLeft = homeView.sl; frame.scrollTop = homeView.st;
+        overlay.remove();
+        wrap._inOverlay = false; frame._expanded = false; frame._pinchActive = false;
+        document.body.style.overflow = prevOverflow;
+    };
     const close = () => {
         if (closing) return; closing = true;
-        const back = { zoom: frame._zoom || 1, centerU: _localRelViewportCenterU(frame) };
         document.removeEventListener('keydown', onKey, true);
         overlay.classList.remove('open');
-        setTimeout(() => {
-            if (home.parent) {
-                if (home.next && home.next.parentNode === home.parent) home.parent.insertBefore(wrap, home.next);
-                else home.parent.appendChild(wrap);
-            }
-            overlay.remove();
-            wrap._inOverlay = false; frame._expanded = false; frame._pinchActive = false;
-            document.body.style.overflow = prevOverflow;
-            requestAnimationFrame(() => _applyLocalRelZoom(frame, back.zoom, back.centerU));
-        }, 230);
+        if (reduced) { finish(); return; }
+        bar.style.transition = 'opacity .15s ease'; bar.style.opacity = '0';
+        /* 閉じる動き：元の枠へ縮めて戻すと、縦横比の違いで図が縦に潰れて
+           見えるため、縮小はせず短いフェードでパッと消す（開く動きはFLIPのまま） */
+        sheet.style.transition = 'opacity .16s ease';
+        requestAnimationFrame(() => { sheet.style.opacity = '0'; });
+        setTimeout(finish, 175);
     };
     document.addEventListener('keydown', onKey, true);
-    overlay.addEventListener('pointerdown', e => { if (e.target === overlay) close(); });
+    overlay.addEventListener('pointerdown', e => { if (e.target === overlay || e.target.classList.contains('local-rel-backdrop')) close(); });
     overlay.addEventListener('click', e => {
         const btn = e.target.closest('[data-oact]');
         if (!btn) return;
@@ -15995,10 +16050,6 @@ function _openLocalRelOverlay(wrap) {
     head.addEventListener('pointermove', e => { if (hy !== null && e.clientY - hy > 72) { hy = null; close(); } });
     head.addEventListener('pointerup', () => { hy = null; });
     head.addEventListener('pointercancel', () => { hy = null; });
-    requestAnimationFrame(() => {
-        overlay.classList.add('open');
-        _applyLocalRelZoom(frame, view.zoom, view.centerU);
-    });
 }
 
 /* 局所図スロットへの注入は Desktop / Mobile で同一処理のため共通化した。
