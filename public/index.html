@@ -16021,29 +16021,11 @@ function _openLocalRelOverlay(wrap) {
         overlay.classList.remove('open');
         if (reduced) { finish(); return; }
         bar.style.transition = 'opacity .15s ease'; bar.style.opacity = '0';
-        if (overlay._hasFlip) {
-            /* 戻り先はシートの箱ではなく「図（フレーム）」の元の位置に合わせる。
-               シートには上部に取っ手とラベルがある分、箱ごと戻すと図の着地点が
-               ずれて最後に飛んで見えるため、フレームの矩形同士で変換を解く */
-            const sheetR = sheet.getBoundingClientRect();
-            const frameR = frame.getBoundingClientRect();
-            const s = overlay._sourceRect;
-            const sx = s.width / frameR.width, sy = s.height / frameR.height;
-            const tx = s.left - sheetR.left - (frameR.left - sheetR.left) * sx;
-            const ty = s.top - sheetR.top - (frameR.top - sheetR.top) * sy;
-            sheet.style.transformOrigin = '0 0';
-            sheet.style.boxShadow = 'none';
-            sheet.style.transition = 'transform .3s cubic-bezier(0.32, 0.72, 0, 1), opacity .12s ease .18s';
-            requestAnimationFrame(() => {
-                sheet.style.transform = 'translate(' + tx + 'px, ' + ty + 'px) scale(' + sx + ', ' + sy + ')';
-                sheet.style.opacity = '0';
-            });
-            setTimeout(finish, 310);
-        } else {
-            sheet.style.transition = 'transform .24s ease, opacity .24s ease';
-            requestAnimationFrame(() => { sheet.style.transform = 'translateY(40px)'; sheet.style.opacity = '0'; });
-            setTimeout(finish, 250);
-        }
+        /* 閉じる動き：元の枠へ縮めて戻すと、縦横比の違いで図が縦に潰れて
+           見えるため、縮小はせず短いフェードでパッと消す（開く動きはFLIPのまま） */
+        sheet.style.transition = 'opacity .16s ease';
+        requestAnimationFrame(() => { sheet.style.opacity = '0'; });
+        setTimeout(finish, 175);
     };
     document.addEventListener('keydown', onKey, true);
     overlay.addEventListener('pointerdown', e => { if (e.target === overlay || e.target.classList.contains('local-rel-backdrop')) close(); });
