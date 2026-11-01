@@ -16022,16 +16022,23 @@ function _openLocalRelOverlay(wrap) {
         if (reduced) { finish(); return; }
         bar.style.transition = 'opacity .15s ease'; bar.style.opacity = '0';
         if (overlay._hasFlip) {
-            const cur = sheet.getBoundingClientRect();
+            /* 戻り先はシートの箱ではなく「図（フレーム）」の元の位置に合わせる。
+               シートには上部に取っ手とラベルがある分、箱ごと戻すと図の着地点が
+               ずれて最後に飛んで見えるため、フレームの矩形同士で変換を解く */
+            const sheetR = sheet.getBoundingClientRect();
+            const frameR = frame.getBoundingClientRect();
             const s = overlay._sourceRect;
-            const sx = s.width / cur.width, sy = s.height / cur.height;
+            const sx = s.width / frameR.width, sy = s.height / frameR.height;
+            const tx = s.left - sheetR.left - (frameR.left - sheetR.left) * sx;
+            const ty = s.top - sheetR.top - (frameR.top - sheetR.top) * sy;
             sheet.style.transformOrigin = '0 0';
             sheet.style.boxShadow = 'none';
-            sheet.style.transition = 'transform .28s cubic-bezier(0.5, 0, 0.75, 0)';
+            sheet.style.transition = 'transform .3s cubic-bezier(0.32, 0.72, 0, 1), opacity .12s ease .18s';
             requestAnimationFrame(() => {
-                sheet.style.transform = 'translate(' + (s.left - cur.left) + 'px, ' + (s.top - cur.top) + 'px) scale(' + sx + ', ' + sy + ')';
+                sheet.style.transform = 'translate(' + tx + 'px, ' + ty + 'px) scale(' + sx + ', ' + sy + ')';
+                sheet.style.opacity = '0';
             });
-            setTimeout(finish, 295);
+            setTimeout(finish, 310);
         } else {
             sheet.style.transition = 'transform .24s ease, opacity .24s ease';
             requestAnimationFrame(() => { sheet.style.transform = 'translateY(40px)'; sheet.style.opacity = '0'; });
