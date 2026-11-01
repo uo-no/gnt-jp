@@ -5725,11 +5725,46 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 .local-rel-frame::-webkit-scrollbar { display: none; }
 .local-rel-frame.dragging { cursor: grabbing; }
 .local-rel-frame svg.role-svg { max-width: none; }
+/* 局所図の線・文字のスタイルは枠自身にも持たせる。拡大表示で枠を
+   .role-reading-view の外（body直下のオーバーレイ）へ移しても、
+   .e の fill: none 等が外れて線が黒く塗りつぶされる事故を防ぐため。
+   値は .role-reading-view 側の定義と同一（インライン表示は不変） */
+.local-rel-frame .role-svg { display: block; }
+.local-rel-frame .role-svg text { font: 22px "GFS Didot","Palatino Linotype",Georgia,serif; fill: var(--text-main); }
+.local-rel-frame .role-svg .ul { stroke: var(--text-main); stroke-width: 1.8; }
+.local-rel-frame .role-svg .e { stroke: var(--text-sub); stroke-width: 1.8; fill: none; }
+.local-rel-frame .wn.focus text { fill: var(--accent); font-weight: 700; }
+.local-rel-frame .wn.focus .ul { stroke: var(--accent); stroke-width: 2.6; }
+.local-rel-frame .role-svg .wn:hover text { fill: var(--accent); }
 /* 地図アプリ式コントロール（拡大・縮小・選択語へ戻る）: 枠の右下に固定 */
 .local-rel-controls { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 8px; z-index: 2; }
 .local-rel-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line, #d8d8d8); background: var(--bg, #fff); color: var(--text-main); box-shadow: 0 1px 4px rgba(0, 0, 0, .18); cursor: pointer; display: grid; place-items: center; padding: 0; }
 .local-rel-btn svg { width: 18px; height: 18px; }
 .local-rel-btn:active { background: var(--bg-panel); }
+/* 局所図の拡大表示: 元の画面を薄く落とした上に浮く角丸シート（色は現行トークンのまま）。
+   シートの下に ◎ ／ ＋− ／ × の操作列を、シートと同じ幅で浮かせる */
+.local-rel-overlay { position: fixed; inset: 0; z-index: 1200; display: flex; flex-direction: column; align-items: center; padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); background: rgba(26, 30, 26, .48); opacity: 0; transition: opacity .22s ease; }
+.local-rel-overlay.open { opacity: 1; }
+.local-rel-sheet { width: 100%; max-width: 1080px; flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg-panel); border-radius: 32px; box-shadow: 0 18px 50px rgba(0, 0, 0, .35); overflow: hidden; transform: translateY(16px); transition: transform .22s ease; }
+.local-rel-overlay.open .local-rel-sheet { transform: none; }
+@media (prefers-reduced-motion: reduce) { .local-rel-overlay, .local-rel-sheet { transition: none; } .local-rel-sheet { transform: none; } }
+.local-rel-sheet-head { padding: 10px 20px 6px; display: flex; flex-direction: column; gap: 9px; touch-action: none; cursor: grab; }
+.local-rel-sheet-head:active { cursor: grabbing; }
+.local-rel-handle { align-self: center; width: 40px; height: 5px; border-radius: 999px; background: rgba(0, 0, 0, .18); flex: none; }
+.local-rel-sheet-title { display: flex; align-items: center; gap: 10px; }
+.local-rel-pill { background: var(--bg); border-radius: 999px; padding: 5px 14px; font-size: 13px; font-weight: 600; color: var(--text-main); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.local-rel-ref { font-size: 13px; color: var(--text-sub); }
+.local-rel-sheet-body { flex: 1; min-height: 0; padding: 4px 14px 14px; display: flex; }
+.local-rel-sheet-body .local-rel-wrap { flex: 1; min-width: 0; display: flex; }
+.local-rel-sheet-body .local-rel-frame { flex: 1; height: auto; border-radius: 20px; }
+.local-rel-sheet-body .local-rel-controls { display: none; }
+.local-rel-bar { width: 100%; max-width: 1080px; margin-top: 12px; display: flex; align-items: center; gap: 12px; }
+.local-rel-bar-btn { width: 56px; height: 56px; flex: none; border-radius: 50%; border: 1px solid var(--line, #d8d8d8); background: var(--bg, #fff); color: var(--text-main); box-shadow: 0 2px 8px rgba(0, 0, 0, .25); cursor: pointer; display: grid; place-items: center; padding: 0; }
+.local-rel-bar-btn svg { width: 22px; height: 22px; }
+.local-rel-bar-btn:active { background: var(--bg-panel); }
+.local-rel-bar-zoom { flex: 1; height: 56px; border-radius: 999px; border: 1px solid var(--line, #d8d8d8); background: var(--bg, #fff); box-shadow: 0 2px 8px rgba(0, 0, 0, .25); display: flex; align-items: center; justify-content: space-between; padding: 0 10px; }
+.local-rel-bar-zoom .local-rel-bar-btn { width: 44px; height: 44px; border: none; box-shadow: none; }
+.local-rel-zoom-label { min-width: 56px; text-align: center; font: inherit; font-size: 14px; color: var(--text-main); font-variant-numeric: tabular-nums; cursor: pointer; background: none; border: none; padding: 6px 0; }
 .role-reading-view .role-svg .wn:hover text { fill: var(--accent); }
 
 
@@ -15694,10 +15729,12 @@ async function _buildLocalRelationFrame(ref) {
     frame._heightU = heightU;
     frame._centerU = { x: center.x + center.w / 2 - minX, y: center.y - top };
     _attachPanScroll(frame);
+    _attachLocalRelGestures(frame);
     /* コントロール（拡大・縮小・選択語へ戻る）: 枠の右下に固定（地図アプリ式） */
     const controls = document.createElement('div');
     controls.className = 'local-rel-controls';
     controls.innerHTML =
+        '<button type="button" class="local-rel-btn" data-act="expand" aria-label="大きく表示" title="大きく表示"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg></button>' +
         '<button type="button" class="local-rel-btn" data-act="zin" aria-label="拡大" title="拡大"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>' +
         '<button type="button" class="local-rel-btn" data-act="zout" aria-label="縮小" title="縮小"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>' +
         '<button type="button" class="local-rel-btn" data-act="recenter" aria-label="選択中の語へ戻る" title="選択中の語へ戻る"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5.5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/></svg></button>';
@@ -15708,24 +15745,45 @@ async function _buildLocalRelationFrame(ref) {
         if (act === 'zin') _setLocalRelZoom(frame, frame._zoom * 1.3);
         else if (act === 'zout') _setLocalRelZoom(frame, frame._zoom / 1.3);
         else if (act === 'recenter') _centerLocalRelationFrame(frame);
+        else if (act === 'expand') _openLocalRelOverlay(frame.parentElement);
     });
     const wrap = document.createElement('div');
     wrap.className = 'local-rel-wrap';
     wrap.appendChild(frame);
     wrap.appendChild(controls);
     wrap._frameEl = frame;
+    const _rm = /^(\S+)\s+(\d+):(\d+)/.exec(ref || '');
+    wrap._refLabel = _rm ? ((typeof BOOK_NAME !== 'undefined' && BOOK_NAME[_rm[1]]) || (typeof BOOK_SHORT !== 'undefined' && BOOK_SHORT[_rm[1]]) || _rm[1]) + ' ' + _rm[2] + ':' + _rm[3] : '';
     return wrap;
+}
+
+/* 倍率の適用: anchorU（レイアウト座標）を anchorOff（枠内px位置）に保つ。
+   anchorOff 省略時は枠の中央に置く */
+function _applyLocalRelZoom(frame, z, anchorU, anchorOff) {
+    if (!frame || !frame._svgEl) return;
+    if (z < 0.1) z = 0.1;
+    if (z > 3) z = 3;
+    frame._zoom = z;
+    frame._svgEl.style.width = Math.round(frame._widthU * frame._baseScale * z) + 'px';
+    frame._svgEl.style.height = Math.round(frame._heightU * frame._baseScale * z) + 'px';
+    if (anchorU) {
+        const k = frame._baseScale * z;
+        const ox = anchorOff ? anchorOff.x : frame.clientWidth / 2;
+        const oy = anchorOff ? anchorOff.y : frame.clientHeight / 2;
+        frame.scrollLeft = Math.max(0, Math.round(anchorU.x * k - ox));
+        frame.scrollTop = Math.max(0, Math.round(anchorU.y * k - oy));
+    }
+    if (frame._zoomLabelEls) {
+        const label = Math.round(z * 100) + '%';
+        for (const el of frame._zoomLabelEls) { if (el && el.isConnected) el.textContent = label; }
+    }
 }
 
 /* ズーム変更: 図の表示倍率だけを変え、選択語が中央に来る位置へ寄せ直す */
 function _setLocalRelZoom(frame, z) {
     if (!frame || !frame._svgEl) return;
-    if (z < 0.5) z = 0.5;
-    if (z > 3) z = 3;
-    frame._zoom = z;
-    frame._svgEl.style.width = Math.round(frame._widthU * frame._baseScale * z) + 'px';
-    frame._svgEl.style.height = Math.round(frame._heightU * frame._baseScale * z) + 'px';
-    _centerLocalRelationFrame(frame);
+    frame._fitActive = false;
+    _applyLocalRelZoom(frame, z, frame._centerU);
 }
 
 /* 地図アプリ式のドラッグ移動: 枠の余白部分を押さえたまま動かすと
@@ -15738,6 +15796,7 @@ function _attachPanScroll(frame) {
     let down = false, sx = 0, sy = 0, sl = 0, st = 0;
     frame.addEventListener('pointerdown', e => {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
+        if (frame._pinchActive) return;   /* ピンチ中はパンしない */
         /* 余白部分だけを対象にする: フレーム自身か、SVG の地の部分 */
         if (e.target !== frame && e.target !== frame._svgEl) return;
         e.preventDefault();   /* ドラッグ中の文字選択・画像ドラッグを防ぐ */
@@ -15747,6 +15806,7 @@ function _attachPanScroll(frame) {
     });
     frame.addEventListener('pointermove', e => {
         if (!down) return;
+        if (frame._pinchActive) { down = false; frame.classList.remove('dragging'); return; }
         frame.scrollLeft = sl - (e.clientX - sx);
         frame.scrollTop = st - (e.clientY - sy);
     });
@@ -15755,11 +15815,190 @@ function _attachPanScroll(frame) {
     frame.addEventListener('pointercancel', end);
 }
 
+function _scrollLocalRelTo(frame, u) {
+    if (!frame || !u) return;
+    const k = frame._baseScale * (frame._zoom || 1);
+    frame.scrollLeft = Math.max(0, Math.round(u.x * k - frame.clientWidth / 2));
+    frame.scrollTop = Math.max(0, Math.round(u.y * k - frame.clientHeight / 2));
+}
+
 function _centerLocalRelationFrame(frame) {
     if (!frame || !frame._centerU) return;
+    _scrollLocalRelTo(frame, frame._centerU);
+}
+
+/* いま枠の中央に見えている点（レイアウト座標） */
+function _localRelViewportCenterU(frame) {
     const k = frame._baseScale * (frame._zoom || 1);
-    frame.scrollLeft = Math.max(0, Math.round(frame._centerU.x * k - frame.clientWidth / 2));
-    frame.scrollTop = Math.max(0, Math.round(frame._centerU.y * k - frame.clientHeight / 2));
+    return { x: (frame.scrollLeft + frame.clientWidth / 2) / k, y: (frame.scrollTop + frame.clientHeight / 2) / k };
+}
+
+/* 図全体を枠に収める（拡大表示での全体把握用） */
+function _fitLocalRelationFrame(frame) {
+    if (!frame || !frame._widthU || !frame.clientWidth) return;
+    const z = Math.min(frame.clientWidth / (frame._widthU * frame._baseScale), frame.clientHeight / (frame._heightU * frame._baseScale));
+    _applyLocalRelZoom(frame, z, { x: frame._widthU / 2, y: frame._heightU / 2 });
+    frame._fitActive = true;
+}
+
+function _toggleLocalRelFit(frame) {
+    if (!frame) return;
+    if (frame._fitActive) {
+        frame._fitActive = false;
+        const prev = frame._preFitView;
+        _applyLocalRelZoom(frame, prev ? prev.zoom : 1, prev ? prev.centerU : frame._centerU);
+    } else {
+        frame._preFitView = { zoom: frame._zoom || 1, centerU: _localRelViewportCenterU(frame) };
+        _fitLocalRelationFrame(frame);
+    }
+}
+
+/* 拡大表示の中だけのジェスチャ: ピンチ／ホイールで指・カーソル位置を中心に拡縮し、
+   ダブルタップ／ダブルクリックで全体表示を切り替える。
+   インライン表示では _expanded が立たないので従来の動きのまま */
+function _attachLocalRelGestures(frame) {
+    frame.addEventListener('wheel', e => {
+        if (!frame._expanded) return;
+        e.preventDefault();
+        frame._fitActive = false;
+        const rect = frame.getBoundingClientRect();
+        const off = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const k = frame._baseScale * (frame._zoom || 1);
+        const u = { x: (frame.scrollLeft + off.x) / k, y: (frame.scrollTop + off.y) / k };
+        const f = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+        _applyLocalRelZoom(frame, (frame._zoom || 1) * f, u, off);
+    }, { passive: false });
+    frame.addEventListener('dblclick', e => {
+        if (!frame._expanded) return;
+        e.preventDefault();
+        _toggleLocalRelFit(frame);
+    });
+    /* ダブルタップ（タッチ／ペン）: 短く・ほとんど動かないタップ2回 */
+    let lastTap = 0, tapX = 0, tapY = 0, downAt = 0, downX = 0, downY = 0;
+    frame.addEventListener('pointerdown', e => { downAt = Date.now(); downX = e.clientX; downY = e.clientY; });
+    frame.addEventListener('pointerup', e => {
+        if (!frame._expanded || e.pointerType === 'mouse') return;
+        if (frame._pinchActive || (frame._lastPinchEnd && Date.now() - frame._lastPinchEnd < 400)) { lastTap = 0; return; }
+        const quick = Date.now() - downAt < 300 && Math.hypot(e.clientX - downX, e.clientY - downY) < 10;
+        if (!quick) { lastTap = 0; return; }
+        const now = Date.now();
+        if (now - lastTap < 350 && Math.hypot(e.clientX - tapX, e.clientY - tapY) < 40) { lastTap = 0; _toggleLocalRelFit(frame); }
+        else { lastTap = now; tapX = e.clientX; tapY = e.clientY; }
+    });
+    /* ピンチ: 2点間の距離で拡縮する。パン側は _pinchActive の間止まる */
+    const pts = new Map();
+    let pinching = false, startDist = 0, startZoom = 1, startU = null;
+    const midOff = () => {
+        const ab = [...pts.values()];
+        const rect = frame.getBoundingClientRect();
+        return { x: (ab[0].x + ab[1].x) / 2 - rect.left, y: (ab[0].y + ab[1].y) / 2 - rect.top };
+    };
+    frame.addEventListener('pointerdown', e => {
+        if (!frame._expanded) return;
+        pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pts.size === 2) {
+            const ab = [...pts.values()];
+            startDist = Math.hypot(ab[0].x - ab[1].x, ab[0].y - ab[1].y) || 1;
+            startZoom = frame._zoom || 1;
+            const off = midOff();
+            const k = frame._baseScale * startZoom;
+            startU = { x: (frame.scrollLeft + off.x) / k, y: (frame.scrollTop + off.y) / k };
+            pinching = true; frame._pinchActive = true; frame._fitActive = false;
+        }
+    });
+    frame.addEventListener('pointermove', e => {
+        if (!pinching || !pts.has(e.pointerId)) return;
+        pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pts.size !== 2) return;
+        const ab = [...pts.values()];
+        const dist = Math.hypot(ab[0].x - ab[1].x, ab[0].y - ab[1].y) || 1;
+        _applyLocalRelZoom(frame, startZoom * dist / startDist, startU, midOff());
+    });
+    const endPinch = e => {
+        pts.delete(e.pointerId);
+        if (pts.size < 2 && pinching) { pinching = false; frame._pinchActive = false; frame._lastPinchEnd = Date.now(); }
+    };
+    frame.addEventListener('pointerup', endPinch);
+    frame.addEventListener('pointercancel', endPinch);
+}
+
+/* 拡大表示（シート式オーバーレイ）: 同じ枠要素をシートへ移して開き、閉じると
+   元のスロットへ戻す。開く直前の倍率と「見ていた中心」を開閉どちらでも引き継ぐ */
+function _openLocalRelOverlay(wrap) {
+    if (!wrap || wrap._inOverlay || document.querySelector('.local-rel-overlay')) return;
+    const frame = wrap._frameEl;
+    if (!frame) return;
+    const view = { zoom: frame._zoom || 1, centerU: _localRelViewportCenterU(frame) };
+    const home = { parent: wrap.parentNode, next: wrap.nextSibling };
+    const IA = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"';
+    const overlay = document.createElement('div');
+    overlay.className = 'local-rel-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', '文の関係（拡大表示）');
+    overlay.innerHTML =
+        '<div class="local-rel-sheet">' +
+            '<div class="local-rel-sheet-head"><div class="local-rel-handle"></div>' +
+                '<div class="local-rel-sheet-title"><span class="local-rel-pill">文の関係</span><span class="local-rel-ref"></span></div></div>' +
+            '<div class="local-rel-sheet-body"></div>' +
+        '</div>' +
+        '<div class="local-rel-bar">' +
+            '<button type="button" class="local-rel-bar-btn" data-oact="recenter" aria-label="選択中の語へ戻る" title="選択中の語へ戻る"><svg ' + IA + '><circle cx="12" cy="12" r="5.5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/></svg></button>' +
+            '<div class="local-rel-bar-zoom">' +
+                '<button type="button" class="local-rel-bar-btn" data-oact="zin" aria-label="拡大" title="拡大"><svg ' + IA + '><path d="M12 5v14M5 12h14"/></svg></button>' +
+                '<button type="button" class="local-rel-zoom-label" data-oact="zreset" aria-label="等倍に戻す" title="等倍に戻す">100%</button>' +
+                '<button type="button" class="local-rel-bar-btn" data-oact="zout" aria-label="縮小" title="縮小"><svg ' + IA + '><path d="M5 12h14"/></svg></button>' +
+            '</div>' +
+            '<button type="button" class="local-rel-bar-btn" data-oact="close" aria-label="閉じる" title="閉じる"><svg ' + IA + '><path d="M6 6l12 12M18 6L6 18"/></svg></button>' +
+        '</div>';
+    overlay.querySelector('.local-rel-ref').textContent = wrap._refLabel || '';
+    overlay.querySelector('.local-rel-sheet-body').appendChild(wrap);
+    document.body.appendChild(overlay);
+    wrap._inOverlay = true; frame._expanded = true; frame._fitActive = false;
+    frame._zoomLabelEls = [overlay.querySelector('.local-rel-zoom-label')];
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    let closing = false;
+    const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
+    const close = () => {
+        if (closing) return; closing = true;
+        const back = { zoom: frame._zoom || 1, centerU: _localRelViewportCenterU(frame) };
+        document.removeEventListener('keydown', onKey, true);
+        overlay.classList.remove('open');
+        setTimeout(() => {
+            if (home.parent) {
+                if (home.next && home.next.parentNode === home.parent) home.parent.insertBefore(wrap, home.next);
+                else home.parent.appendChild(wrap);
+            }
+            overlay.remove();
+            wrap._inOverlay = false; frame._expanded = false; frame._pinchActive = false;
+            document.body.style.overflow = prevOverflow;
+            requestAnimationFrame(() => _applyLocalRelZoom(frame, back.zoom, back.centerU));
+        }, 230);
+    };
+    document.addEventListener('keydown', onKey, true);
+    overlay.addEventListener('pointerdown', e => { if (e.target === overlay) close(); });
+    overlay.addEventListener('click', e => {
+        const btn = e.target.closest('[data-oact]');
+        if (!btn) return;
+        const act = btn.getAttribute('data-oact');
+        if (act === 'close') close();
+        else if (act === 'recenter') { frame._fitActive = false; _scrollLocalRelTo(frame, frame._centerU); }
+        else if (act === 'zin') { frame._fitActive = false; _applyLocalRelZoom(frame, (frame._zoom || 1) * 1.3, _localRelViewportCenterU(frame)); }
+        else if (act === 'zout') { frame._fitActive = false; _applyLocalRelZoom(frame, (frame._zoom || 1) / 1.3, _localRelViewportCenterU(frame)); }
+        else if (act === 'zreset') { frame._fitActive = false; _applyLocalRelZoom(frame, 1, _localRelViewportCenterU(frame)); }
+    });
+    /* ハンドルを含む上部帯だけ、下ドラッグで閉じられる（図のパンとは領域が別） */
+    const head = overlay.querySelector('.local-rel-sheet-head');
+    let hy = null;
+    head.addEventListener('pointerdown', e => { hy = e.clientY; });
+    head.addEventListener('pointermove', e => { if (hy !== null && e.clientY - hy > 72) { hy = null; close(); } });
+    head.addEventListener('pointerup', () => { hy = null; });
+    head.addEventListener('pointercancel', () => { hy = null; });
+    requestAnimationFrame(() => {
+        overlay.classList.add('open');
+        _applyLocalRelZoom(frame, view.zoom, view.centerU);
+    });
 }
 
 /* 局所図スロットへの注入は Desktop / Mobile で同一処理のため共通化した。
