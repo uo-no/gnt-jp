@@ -195,3 +195,4 @@ QA: morph 43,936→44,251(+315)・改善約2,678件・悪化0・chip⇔panel100%
 | 日付 | 内容 |
 |---|---|
 | 2026-07-20 | 初版・凍結(v1 実装範囲・責務境界・Registry 方式・7 lemma・対象外・QA・追加 Gate・移行条件) |
+| 2026-11-01 | _VERB_RULES 五段漢字語幹例外追加（去る: さ行五段）。変更分類: BUG/CORRECTNESS。FROZEN §29 手順に従い実施。影響: V-2AAP 8件 undefined→去った・悪化 0・morph 44187→44280（+93: Phase 4k bible_data 変更の波及 +85 + 去る修正 +8）。re-phase1 ALL PASS / re-stageB ALL PASS。Freeze Audit 更新済み。 |

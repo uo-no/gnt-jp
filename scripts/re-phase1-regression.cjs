@@ -72,7 +72,12 @@ const PHASE1_BASELINE = {
     // resolve=null）。表示・意味回帰なしを確認済み（display-equivalence 0・対象strong/lemmaはsemantic
     // データ非出現）。engine code 非改変の Data adoption 由来の意図的更新（FROZEN 破壊ではない）。
     // 設計・監査記録: docs/development/reading-japanese-plural-pronoun-number-adoption.md §2.1。
-    morph:       44187,
+    // 2026-11-01 Phase 4k G863 + morph fix: 44187→44280（+93）。悪化ケース 0。
+    // ① Phase 4k: G863 ἀφίημι 96件 token.japanese 変更（赦す→許す/残す/去る 等）により
+    //   morph 解決可能トークン増加（赦す は lexicon パス・新訳語は morph パス）。
+    // ② _VERB_RULES 去る 五段漢字語幹例外追加: V-2AAP 8件 undefined→去った。
+    //   part-pres/part-aor/part-perf/imp に各1ルール追加（既存設計に準拠）。
+    morph:       44280,
     // 悪化ケース検出フラグはすべて 0 であること（tildeGloss / longGloss は
     // 精査済みの許容範囲なので基準に含めない）
     zeroFlags: ['doubleParticle', 'weirdPassive', 'brokenImperative'],
