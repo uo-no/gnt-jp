@@ -3912,6 +3912,73 @@ details[open] .study-summary::before {
     background: var(--accent-light);
     border-color: var(--accent-mid);
 }
+/* 入口導線 v2 施策B: 押した瞬間の応答（「触れるもの」だと体に教える）。
+   hover の無いタッチ環境では、これが唯一の即時フィードバックになる。 */
+.wlv-chip:active {
+    background: var(--accent-mid);
+}
+.verse-pair-left, .verse-pair-right, .gf-verse-block {
+    transition: background var(--transition-fast);
+}
+.verse-pair-left:active, .verse-pair-right:active, .gf-verse-block:active {
+    background: var(--highlight-light);
+}
+
+/* 入口導線 v2 施策A: ピーク層（本文の語タップで、その場に出る軽いカード）。
+   画面遷移の前に「原形・この箇所での意味・語義・出現回数」だけを見せ、
+   深くは「詳しく見る」から従来の第3層へ進む。 */
+.word-peek {
+    position: fixed;
+    z-index: 1100;
+    width: min(320px, calc(100vw - 24px));
+    background: var(--bg, #fff);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-m, 12px);
+    box-shadow: 0 10px 32px rgba(26, 30, 26, .18);
+    padding: var(--space-md);
+    animation: wordPeekIn .16s ease-out;
+}
+@keyframes wordPeekIn {
+    from { opacity: 0; transform: scale(.96) translateY(4px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.word-peek-close {
+    position: absolute;
+    top: 6px; right: 6px;
+    width: 30px; height: 30px;
+    border: 0; background: transparent;
+    color: var(--text-sub); font-size: 16px; line-height: 1;
+    cursor: pointer; opacity: .7;
+}
+.word-peek-close:hover { opacity: 1; }
+.word-peek-head { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: wrap; padding-right: 26px; }
+.word-peek-greek { font-family: "GFS Didot", "Palatino Linotype", Georgia, serif; font-size: 20px; font-weight: 700; color: var(--text-main); }
+.word-peek-lemma { font-size: var(--text-caption); color: var(--text-sub); }
+.word-peek-meaning { margin-top: var(--space-xs); font-size: var(--text-body); font-weight: 600; color: var(--text-main); }
+.word-peek-glosses { margin-top: 2px; font-size: var(--text-caption); color: var(--text-sub); line-height: 1.5; }
+.word-peek-count { margin-top: var(--space-xs); font-size: var(--text-caption); color: var(--text-sub); }
+.word-peek-more {
+    margin-top: var(--space-sm);
+    display: flex; align-items: center; gap: var(--space-xs);
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    border: 0; border-radius: var(--radius-s);
+    background: var(--highlight-light);
+    color: var(--highlight);
+    font-size: var(--text-body); font-weight: 600;
+    cursor: pointer;
+}
+.word-peek-more:active { background: var(--accent-light); }
+@media (max-width: 900px) {
+    /* モバイルは画面下部のカード（本文の読み位置を奪わない） */
+    .word-peek {
+        left: var(--space-md) !important;
+        right: var(--space-md);
+        top: auto !important;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-md));
+        width: auto;
+    }
+}
 
 .wlv-chip-ja {
     font-size: var(--text-body-lg);
@@ -16671,6 +16738,170 @@ function _resolveSubjrefEvidenceText(subjrefEvidence) {
     }
 }
 
+/* ================================================================
+   入口導線 v2 施策A: ピーク層
+   本文の語タップで、その場に軽いカードを出す（画面は遷移しない）。
+   原形・この箇所での意味・語義（最大3件）・出現回数だけを見せ、
+   「詳しく見る」で従来の第3層遷移を実行する。出現回数は lexicon-lite の
+   count（非同期ロード。届くまでは行を出さず、届いたら差し込む）。
+   ================================================================ */
+let _peekEl = null;
+let _peekOpenFor = null;
+let _peekProceed = null;
+let _peekLemmaId = null;
+let _peekLiteData = null;
+let _peekLitePromise = null;
+
+function _peekCount(lemmaId) {
+    try {
+        const lite = (typeof _lexiconData !== 'undefined' && _lexiconData) || _peekLiteData;
+        const e = (lite && lemmaId) ? lite[lemmaId] : null;
+        return (e && typeof e.count === 'number') ? e.count : null;
+    } catch (_) { return null; }
+}
+
+function _peekEnsureLite() {
+    if (_peekLitePromise) return;
+    _peekLitePromise = fetch('../assets/data/lexicon/lexicon-lite.json')
+        .then(r => (r && r.ok) ? r.json() : null)
+        .then(d => {
+            _peekLiteData = (d && typeof d === 'object') ? d : null;
+            /* カードが開いたままなら、回数の行を差し込む */
+            if (_peekEl && _peekLemmaId) {
+                const c = _peekCount(_peekLemmaId);
+                const line = _peekEl.querySelector('.word-peek-count');
+                if (line && c != null) {
+                    line.textContent = '新約で ' + c + ' 回出てくる語';
+                    line.hidden = false;
+                }
+            }
+        })
+        .catch(() => { _peekLitePromise = null; });
+}
+
+function _peekOnDocPointerDown(e) {
+    if (!_peekEl || !e.target || !e.target.closest) return;
+    if (e.target.closest('#word-peek')) return;
+    const chipHit = e.target.closest('.wlv-chip');
+    /* 本文の chip は、そのクリック処理（切替・トグル）に委ねる。
+       パネル等の chip は対象外なので、カードを閉じる側に倒れる。 */
+    if (chipHit && !chipHit.closest('#study-panel, #mobile-inspector-area, #mobile-verse-view, #word-list-view')) return;
+    _closeWordPeek();
+}
+function _peekOnKeyDown(e) { if (e.key === 'Escape') _closeWordPeek(); }
+function _peekOnScrollOrResize() { _closeWordPeek(); }
+
+function _closeWordPeek() {
+    if (_peekEl) { _peekEl.remove(); _peekEl = null; }
+    _peekOpenFor = null;
+    _peekProceed = null;
+    _peekLemmaId = null;
+    document.removeEventListener('pointerdown', _peekOnDocPointerDown, true);
+    document.removeEventListener('keydown', _peekOnKeyDown, true);
+    window.removeEventListener('scroll', _peekOnScrollOrResize, true);
+    window.removeEventListener('resize', _peekOnScrollOrResize);
+}
+
+function _openWordPeek(chipEl, chip, tokenId, proceed) {
+    _closeWordPeek();
+    let data = {};
+    try { data = (AppState && AppState.inspect && AppState.inspect.data) || {}; } catch (_) {}
+
+    const el = document.createElement('div');
+    el.className = 'word-peek';
+    el.id = 'word-peek';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-label', '語の概要');
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'word-peek-close';
+    closeBtn.type = 'button';
+    closeBtn.setAttribute('aria-label', '閉じる');
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', () => _closeWordPeek());
+    el.appendChild(closeBtn);
+
+    const head = document.createElement('div');
+    head.className = 'word-peek-head';
+    const g = document.createElement('span');
+    g.className = 'word-peek-greek';
+    g.textContent = chip.greek || '';
+    head.appendChild(g);
+    const lem = document.createElement('span');
+    lem.className = 'word-peek-lemma';
+    lem.textContent = '原形：' + (chip.lemma || '');
+    head.appendChild(lem);
+    el.appendChild(head);
+
+    const meaningText = data.jaWordDisplay || data.jaWord || '';
+    if (meaningText) {
+        const m = document.createElement('div');
+        m.className = 'word-peek-meaning';
+        m.textContent = meaningText;
+        el.appendChild(m);
+    }
+
+    let glossArr = null;
+    try { glossArr = chip.lemmaId ? window.App?.readingLexicon?.lookup(chip.lemmaId)?.glosses : null; } catch (_) {}
+    if (Array.isArray(glossArr) && glossArr.length) {
+        const gl = document.createElement('div');
+        gl.className = 'word-peek-glosses';
+        gl.textContent = glossArr.slice(0, 3).join('・');
+        el.appendChild(gl);
+    }
+
+    const countLine = document.createElement('div');
+    countLine.className = 'word-peek-count';
+    countLine.hidden = true;
+    el.appendChild(countLine);
+
+    const more = document.createElement('button');
+    more.className = 'word-peek-more';
+    more.type = 'button';
+    more.textContent = '詳しく見る';
+    const chev = document.createElement('span');
+    chev.setAttribute('aria-hidden', 'true');
+    chev.textContent = '›';
+    more.appendChild(chev);
+    more.addEventListener('click', () => {
+        const p = _peekProceed;
+        _closeWordPeek();
+        if (p) p();
+    });
+    el.appendChild(more);
+
+    document.body.appendChild(el);
+    _peekEl = el;
+    _peekOpenFor = tokenId;
+    _peekProceed = proceed;
+    _peekLemmaId = chip.lemmaId || null;
+
+    /* 回数：辞書データが既にあれば即表示、無ければロードして差し込む */
+    const c0 = _peekCount(_peekLemmaId);
+    if (c0 != null) {
+        countLine.textContent = '新約で ' + c0 + ' 回出てくる語';
+        countLine.hidden = false;
+    } else {
+        _peekEnsureLite();
+    }
+
+    /* 位置（PC：語の近くに浮かせる。モバイルは CSS が画面下部に固定する） */
+    if (window.innerWidth > 900 && chipEl && chipEl.getBoundingClientRect) {
+        const r = chipEl.getBoundingClientRect();
+        const w = el.offsetWidth, h = el.offsetHeight;
+        let left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), Math.max(8, window.innerWidth - w - 8));
+        let top = r.bottom + 8;
+        if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
+        el.style.left = left + 'px';
+        el.style.top = top + 'px';
+    }
+
+    document.addEventListener('pointerdown', _peekOnDocPointerDown, true);
+    document.addEventListener('keydown', _peekOnKeyDown, true);
+    window.addEventListener('scroll', _peekOnScrollOrResize, true);
+    window.addEventListener('resize', _peekOnScrollOrResize);
+}
+
 function _wlvChipClick(chipEl, tokenId) {
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
         const step = window.App.onboarding?.getState()?.onboardingStep;
@@ -16776,7 +17007,14 @@ function _wlvChipClick(chipEl, tokenId) {
     }
 
     if (verseBlock) {
-        /* 本文を読んでいる最中の chip タップ：Level3 詳細へ。 */
+        /* 入口導線 v2 施策A: 本文の chip タップでは、画面を遷移させる前に
+           ピーク層（その場の軽いカード）を挟む。「詳しく見る」で従来の
+           Level3 遷移（_proceedToDetail に退避した既存処理）をそのまま実行する。
+           ピークを挟まない場合:
+             - 既存ツアー実行中（ツアーは語タップで進む設計のため、横取りしない）
+             - 原形が無いなど、カードに出す材料が無い場合
+           同じ語の再タップは、カードを閉じる（パネル内ドロワーと同じ作法）。 */
+        const _proceedToDetail = () => {
         if (_isActualMobile()) {
             /* E-1D: Mobile では FLOW 本文 chip も MobileVerseView 経路へ統一（Bottom Sheet を出さない）。
                当該節の MVV を開いて（Level2 器・メモ・タイトル・履歴を準備）から Level3 詳細を表示する。
@@ -16831,6 +17069,13 @@ function _wlvChipClick(chipEl, tokenId) {
         openInspectorDetail(chip.greek, chip.rawMorph, chip.ref, chip.lemma);
         window.App.onboarding?.onWordClicked(chipEl);
         _syncOnboardingActiveFlag();
+        };
+        const _tourActive = !!(window.App && window.App.onboarding
+            && typeof window.App.onboarding.isActive === 'function'
+            && window.App.onboarding.isActive());
+        if (_tourActive || !chip.lemma) { _proceedToDetail(); return; }
+        if (_peekOpenFor === tokenId) { _closeWordPeek(); return; }
+        _openWordPeek(chipEl, chip, tokenId, _proceedToDetail);
         return;
     }
 
