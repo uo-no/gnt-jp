@@ -2674,6 +2674,23 @@ animation: ac-blink 1.2s ease-in-out infinite;
     z-index: 8990;
 }
 #hl-color-picker-overlay.hl-open { display: block; }
+#hl-picker-word {
+    border-bottom: 1px solid var(--border-soft);
+    padding-bottom: 10px;
+}
+.hl-picker-meaning {
+    font-size: 16px; font-weight: 700; color: var(--text-main);
+    line-height: 1.45;
+}
+.hl-picker-nametag {
+    margin-top: 2px;
+    display: flex; gap: var(--space-sm); flex-wrap: wrap;
+    font-size: var(--text-caption); color: var(--text-sub);
+}
+#hl-picker-greek {
+    font-family: "GFS Didot", "Palatino Linotype", Georgia, serif;
+    font-size: 14px; font-weight: 600;
+}
 #hl-color-picker {
     display: none;
     position: fixed;
@@ -3960,16 +3977,37 @@ details[open] .study-summary::before {
 .word-peek-lemma { font-size: var(--text-caption); color: var(--text-sub); }
 .word-peek-glosses { margin-top: 2px; font-size: var(--text-caption); color: var(--text-sub); line-height: 1.5; }
 .word-peek-count { margin-top: var(--space-xs); font-size: var(--text-caption); color: var(--text-sub); }
-.word-peek-more {
+.word-peek-actions {
     margin-top: var(--space-sm);
-    display: flex; align-items: center; gap: var(--space-xs);
-    width: 100%;
+    display: flex; gap: var(--space-sm);
+}
+.word-peek-more {
+    display: flex; align-items: center; justify-content: center; gap: var(--space-xs);
+    flex: 1;
     padding: var(--space-sm) var(--space-md);
     border: 0; border-radius: var(--radius-s);
     background: var(--highlight-light);
     color: var(--highlight);
     font-size: var(--text-body); font-weight: 600;
     cursor: pointer;
+}
+.word-peek-hl {
+    display: flex; align-items: center; justify-content: center;
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-soft); border-radius: var(--radius-s);
+    background: transparent;
+    color: var(--text-main);
+    font-size: var(--text-body); font-weight: 600;
+    cursor: pointer;
+}
+.word-peek-hl::before {
+    content: '';
+    width: 0.72em; height: 0.72em; border-radius: 50%;
+    background: #fccc00;
+    border: 1px solid rgba(0, 0, 0, 0.18);
+    margin-right: var(--space-xs);
+    flex: none;
 }
 .word-peek-more:active { background: var(--accent-light); }
 /* 入口導線 v2 施策C: 初回ガイド（軽量版）。最初の語チップがそっと鼓動し、
@@ -16797,6 +16835,7 @@ function _resolveSubjrefEvidenceText(subjrefEvidence) {
 let _peekEl = null;
 let _peekOpenedOnce = false;
 let _peekOpenFor = null;
+let _peekChipEl = null;
 let _peekProceed = null;
 let _peekLemmaId = null;
 let _peekLiteData = null;
@@ -16844,6 +16883,7 @@ function _peekOnScrollOrResize() { _closeWordPeek(); }
 function _closeWordPeek() {
     if (_peekEl) { _peekEl.remove(); _peekEl = null; }
     _peekOpenFor = null;
+    _peekChipEl = null;
     _peekProceed = null;
     _peekLemmaId = null;
     document.removeEventListener('pointerdown', _peekOnDocPointerDown, true);
@@ -16907,6 +16947,9 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     countLine.hidden = true;
     el.appendChild(countLine);
 
+    const actions = document.createElement('div');
+    actions.className = 'word-peek-actions';
+
     const more = document.createElement('button');
     more.className = 'word-peek-more';
     more.type = 'button';
@@ -16920,11 +16963,36 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
         _closeWordPeek();
         if (p) p();
     });
-    el.appendChild(more);
+    actions.appendChild(more);
+
+    /* ピーク→ハイライト接続：この語を対象に既存の色ピッカーを開く。
+       ピッカー側の「範囲指定」から複数選択へも、そのまま入れる。 */
+    const hlBtn = document.createElement('button');
+    hlBtn.className = 'word-peek-hl';
+    hlBtn.type = 'button';
+    hlBtn.textContent = 'ハイライト';
+    hlBtn.addEventListener('click', () => {
+        const chipNow = _peekChipEl;
+        _closeWordPeek();
+        if (!chipNow || typeof _hlRefFromEl !== 'function' || typeof _hlOpenPicker !== 'function') return;
+        const r = _hlRefFromEl(chipNow);
+        if (!r) return;
+        const existing = (typeof _hlFindExisting === 'function')
+            ? _hlFindExisting(r.book, r.chapter, r.verse, r.tokenStart, r.tokenStart) : null;
+        const entry = Object.assign({}, existing || {
+            book: r.book, chapter: r.chapter, verse: r.verse,
+            tokenStart: r.tokenStart, tokenEnd: r.tokenStart,
+            color: 'yellow', createdAt: Date.now()
+        }, { _isExisting: !!existing });
+        _hlOpenPicker(entry, chipNow);
+    });
+    actions.appendChild(hlBtn);
+    el.appendChild(actions);
 
     document.body.appendChild(el);
     _peekEl = el;
     _peekOpenFor = tokenId;
+    _peekChipEl = chipEl;
     _peekProceed = proceed;
     _peekLemmaId = chip.lemmaId || null;
 
@@ -19673,6 +19741,38 @@ function _hlPositionPicker(picker, anchorEl) {
     picker.style.bottom = 'auto';
     picker.style.transform = 'none';
 }
+/* ピッカーが1語だけを対象にするとき、その語の「この箇所での意味＋名札」を
+   引く。対象チップを本文から探し、フロー用チップデータ（ピークと同じ源）から
+   組む。引けない場合は null（ヘッダーを出さない）。 */
+function _hlPickerWordInfo(entry, anchorEl) {
+    const entries = entry._isBatch ? entry.entries : [entry];
+    if (!entries || entries.length !== 1) return null;
+    const e = entries[0];
+    if (!e || e.tokenStart == null) return null;
+    if (e.tokenEnd != null && Number(e.tokenEnd) !== Number(e.tokenStart)) return null;
+    const keyOf = r => [String(r.book), Number(r.chapter), Number(r.verse), Number(r.tokenStart)].join(':');
+    const key = keyOf(e);
+    const matches = el => {
+        if (!el || !el.classList || !el.classList.contains('wlv-chip')) return false;
+        const r = _hlRefFromEl(el);
+        return !!r && keyOf(r) === key;
+    };
+    let el = matches(anchorEl) ? anchorEl : null;
+    if (!el) {
+        el = Array.from(document.querySelectorAll('#bible-text-area .wlv-chip, #parallel-text-area .wlv-chip')).find(matches) || null;
+    }
+    if (!el) return null;
+    const block = el.closest('.gf-verse-block, .verse-block');
+    const list = block && (block._flowChips || block._flowWords);
+    const chip = list && list.find(item => String(item.tokenId) === String(el.dataset.tokenId));
+    const glossEl = el.querySelector('.wlv-chip-ja');
+    const meaning = (chip && (chip.jaWordDisplay || chip.gloss || chip.jaWord)) || (glossEl ? glossEl.textContent.trim() : '') || '';
+    const greek = (chip && chip.greek) || el.title || '';
+    const lemma = (chip && chip.lemma) || '';
+    if (!meaning && !greek) return null;
+    return { meaning, greek, lemma };
+}
+
 function _hlOpenPicker(entry, anchorEl) {
     const picker = document.getElementById('hl-color-picker');
     const overlay = document.getElementById('hl-color-picker-overlay');
@@ -19693,6 +19793,21 @@ function _hlOpenPicker(entry, anchorEl) {
     if (del) del.style.display = pickerEntries.some(item => item._isExisting) ? '' : 'none';
     const actions = picker.querySelector('.hl-picker-actions');
     if (actions) actions.style.display = !entry._isBatch && entry.tokenStart != null ? 'flex' : 'none';
+    /* 1語対象のときだけ、意味＋名札のヘッダーを出す（ドラッグ派にも意味を見せる） */
+    const wordBox = document.getElementById('hl-picker-word');
+    if (wordBox) {
+        const winfo = _hlPickerWordInfo(entry, anchorEl);
+        if (winfo) {
+            document.getElementById('hl-picker-meaning').textContent = winfo.meaning || '';
+            document.getElementById('hl-picker-greek').textContent = winfo.greek || '';
+            const lemEl = document.getElementById('hl-picker-lemma');
+            lemEl.textContent = winfo.lemma ? '原形：' + winfo.lemma : '';
+            lemEl.style.display = winfo.lemma ? '' : 'none';
+            wordBox.style.display = '';
+        } else {
+            wordBox.style.display = 'none';
+        }
+    }
     overlay.classList.add('hl-open');
     picker.classList.add('hl-open');
     _hlPositionPicker(picker, anchorEl);
@@ -20218,6 +20333,10 @@ function _hlSetFilter(color) {
 <!-- Highlight V1: color picker popup -->
 <div id="hl-color-picker-overlay" onclick="_hlPickerDismiss()"></div>
 <div id="hl-color-picker" role="dialog" aria-label="ハイライトの色">
+    <div id="hl-picker-word" style="display:none">
+        <div class="hl-picker-meaning" id="hl-picker-meaning"></div>
+        <div class="hl-picker-nametag"><span id="hl-picker-greek"></span><span id="hl-picker-lemma"></span></div>
+    </div>
     <div class="hl-picker-actions">
         <button class="hl-picker-action" onclick="_hlEnterMultiSelectMode()">範囲指定</button>
     </div>
