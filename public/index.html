@@ -2657,6 +2657,14 @@ animation: ac-blink 1.2s ease-in-out infinite;
 
 /* Word/phrase chip highlight */
 .wlv-chip.hl-word-yellow { background: rgba(252,204,0,0.28) !important; border-radius: 3px; }
+/* 口語訳アラインメント: 対応づいた訳文区間（タップ可能な語句） */
+.ja-seg { cursor: pointer; border-radius: 3px; }
+.ja-seg:active { background: var(--accent-mid); }
+.ja-seg.hl-word-yellow { background: rgba(252,204,0,0.28); }
+.ja-seg.hl-word-blue   { background: rgba(0,76,151,0.25); }
+.ja-seg.hl-word-green  { background: rgba(21,114,44,0.25); }
+.ja-seg.hl-word-red    { background: rgba(235,97,0,0.25); }
+.ja-seg.hl-multi-selected { outline: 2px solid var(--accent); outline-offset: 2px; background: rgba(21,114,44,.13); }
 .wlv-chip.hl-word-blue   { background: rgba(0,76,151,0.25) !important; border-radius: 3px; }
 .wlv-chip.hl-word-green  { background: rgba(21,114,44,0.25) !important; border-radius: 3px; }
 .wlv-chip.hl-word-red    { background: rgba(235,97,0,0.25) !important; border-radius: 3px; }
@@ -11937,6 +11945,12 @@ async function init() {
             }
         }
 
+        /* 口語訳アラインメント（パイロット）: 対応表とトークン索引を render() の前に先読みする。
+           対応表が無い翻訳・書・章では null のまま（従来表示）。 */
+        if (!_isGreekReadingMode(_colA.kind)) await _loadJaAlignForRender(_transA, book, ch);
+        if (_transMode === 'compare' && !_isGreekReadingMode(_colB.kind)) await _loadJaAlignForRender(_transB, book, ch);
+        if (elData && elData.length) _jaSegIndexTokens(book, ch, elData);
+
         /* DA-1: discourse は flow-tree（clause/sentence 構造）を先読みして render() へ渡す。 */
         _dcvChapterTreeForRender = (_colA.kind === 'discourse')
             ? await _loadFlowTreeChapter(book, ch) : null;
@@ -15440,12 +15454,20 @@ function buildRepresentation(columnMode, verse, analysis, translationText) {
     try {
         if (!columnMode) return null;
         if (columnMode.kind === 'translation') {
-            return {
+            const rep = {
                 kind: 'translation',
                 verseRef: verse ? verse.verseRef : null,
                 translationId: columnMode.translationId,
                 text: (translationText != null ? translationText : ''),
             };
+            /* 口語訳アラインメント（パイロット）: 対応表がある節だけ segments を付ける。
+               無い節・書・翻訳は従来どおり text のみ（表示不変）。 */
+            const _vr = rep.verseRef;
+            if (_vr && typeof _jaAlignSegmentsFor === 'function') {
+                const _segs = _jaAlignSegmentsFor(columnMode.translationId, _vr.book, _vr.chapter, _vr.verse);
+                if (_segs) rep.segments = _segs;
+            }
+            return rep;
         }
         if (columnMode.kind === 'wordOrder') {
             const tokens  = verse ? verse.tokens : [];
@@ -15640,9 +15662,79 @@ const TranslationRenderer = {
     render(representation) {
         const vNum = (representation && representation.verseRef) ? representation.verseRef.verse : '';
         const text = (representation && representation.text != null) ? representation.text : '';
+        const segs = (representation && Array.isArray(representation.segments)) ? representation.segments : null;
+        const vr = (representation && representation.verseRef) ? representation.verseRef : null;
+        if (segs && vr) {
+            /* 対応づいた区間だけをタップ可能な span にする。対応なし区間は素のテキスト
+               （＝従来表示と同一の見た目）。全区間の連結は訳文原文と一致する（データ側で検証済み）。 */
+            const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const inner = segs.map(seg => {
+                const t = esc(seg.t != null ? seg.t : '');
+                if (Array.isArray(seg.tokens) && seg.tokens.length) {
+                    return `<span class="ja-seg" data-ja-book="${vr.book}" data-ja-ch="${vr.chapter}" data-ja-v="${vr.verse}" data-ja-tokens="${seg.tokens.join(',')}" onclick="_jaSegClick(this,event)">${t}</span>`;
+                }
+                return t;
+            }).join('');
+            return `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${inner}</div></div>`;
+        }
         return `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
     },
 };
+
+/* ══════════════════════════════════════════
+   口語訳アラインメント（パイロット）— 対応表ストアとトークン索引
+   対応表: assets/data/alignment/{翻訳ID}/{書}.json（章はファイル内の chapter で照合）。
+   章ロード時に render() の前へ先読みする（_dcvChapterTreeForRender と同じ方式）。
+   対応表が無い場合はすべて null/空に倒れ、翻訳表示は従来どおりになる。
+   ══════════════════════════════════════════ */
+const _jaAlignCache = new Map();
+async function _loadJaAlignForRender(transId, book, ch) {
+    if (!transId || !book || ch == null) return null;
+    if (typeof TRANSLATION_REGISTRY !== 'undefined'
+        && !TRANSLATION_REGISTRY.some(t => t.id === transId)) return null;
+    const key = transId + ':' + book + ':' + ch;
+    if (_jaAlignCache.has(key)) return _jaAlignCache.get(key);
+    let data = null;
+    try {
+        const res = await fetch(`../assets/data/alignment/${transId}/${book}.json`);
+        if (res.ok) {
+            const d = await res.json();
+            if (d && d.book === book && Number(d.chapter) === Number(ch) && d.translation === transId) data = d;
+        }
+    } catch (_) { data = null; }
+    _jaAlignCache.set(key, data);
+    return data;
+}
+function _jaAlignSegmentsFor(transId, book, ch, verse) {
+    const d = _jaAlignCache.get(transId + ':' + book + ':' + ch);
+    const v = (d && d.verses) ? d.verses[String(verse)] : null;
+    return (v && Array.isArray(v.segments)) ? v.segments : null;
+}
+
+/* 章の生トークン（elData）を節・トークン番号で引けるようにした索引。
+   セグメントのタップ時に、ピーク表示と詳細遷移へ必要なトークンを解決するために使う。 */
+const _jaSegTokenIndex = new Map();
+function _jaSegIndexTokens(book, ch, tokens) {
+    const byVerse = new Map(), wordsByVerse = new Map();
+    (tokens || []).forEach(w => {
+        const v = Number(w.verse), ti = Number(w.tokenIndex);
+        if (!Number.isFinite(v) || !Number.isFinite(ti)) return;
+        if (!byVerse.has(v)) { byVerse.set(v, new Map()); wordsByVerse.set(v, []); }
+        byVerse.get(v).set(ti, w);
+        wordsByVerse.get(v).push(w);
+    });
+    wordsByVerse.forEach(arr => arr.sort((a, b) => Number(a.tokenIndex) - Number(b.tokenIndex)));
+    _jaSegTokenIndex.set(book + ':' + ch, { byVerse, wordsByVerse });
+}
+function _jaSegToken(book, ch, v, ti) {
+    const e = _jaSegTokenIndex.get(book + ':' + ch);
+    const m = e ? e.byVerse.get(Number(v)) : null;
+    return m ? m.get(Number(ti)) : undefined;
+}
+function _jaSegVerseWords(book, ch, v) {
+    const e = _jaSegTokenIndex.get(book + ':' + ch);
+    return (e && e.wordsByVerse.get(Number(v))) || [];
+}
 
 /* render() が discourse 描画時に読む flow-tree（章単位）。renderCurrentPage()/init() が
    render() 呼び出し前に await 済みで格納する（既存の翻訳fetchと同じ同期タイミング）。 */
@@ -16871,7 +16963,7 @@ function _peekEnsureLite() {
 function _peekOnDocPointerDown(e) {
     if (!_peekEl || !e.target || !e.target.closest) return;
     if (e.target.closest('#word-peek')) return;
-    const chipHit = e.target.closest('.wlv-chip');
+    const chipHit = e.target.closest('.wlv-chip, .ja-seg');
     /* 本文の chip は、そのクリック処理（切替・トグル）に委ねる。
        パネル等の chip は対象外なので、カードを閉じる側に倒れる。 */
     if (chipHit && !chipHit.closest('#study-panel, #mobile-inspector-area, #mobile-verse-view, #word-list-view')) return;
@@ -16880,10 +16972,12 @@ function _peekOnDocPointerDown(e) {
 function _peekOnKeyDown(e) { if (e.key === 'Escape') _closeWordPeek(); }
 function _peekOnScrollOrResize() { _closeWordPeek(); }
 
+let _peekSegEl = null;
 function _closeWordPeek() {
     if (_peekEl) { _peekEl.remove(); _peekEl = null; }
     _peekOpenFor = null;
     _peekChipEl = null;
+    _peekSegEl = null;
     _peekProceed = null;
     _peekLemmaId = null;
     document.removeEventListener('pointerdown', _peekOnDocPointerDown, true);
@@ -17020,6 +17114,303 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     document.addEventListener('keydown', _peekOnKeyDown, true);
     window.addEventListener('scroll', _peekOnScrollOrResize, true);
     window.addEventListener('resize', _peekOnScrollOrResize);
+}
+
+/* ══════════════════════════════════════════
+   口語訳アラインメント（パイロット）— セグメントのタップ／ピーク／詳細遷移
+   本文チップのピーク（_openWordPeek）と同じ作法で、口語訳の区間からも
+   軽いカードを挟む。詳細遷移は _wlvChipClick の proceed と同じ入口
+   （openInspectorDetail / openMobileVerseView）を使い、チップ化は
+   _wordToFlowChip で共通化する。
+   ══════════════════════════════════════════ */
+function _jaSegKey(segEl) {
+    return 'seg:' + segEl.dataset.jaBook + ':' + segEl.dataset.jaCh + ':' + segEl.dataset.jaV + ':' + (segEl.dataset.jaTokens || '');
+}
+function _jaSegTokenIdxList(segEl) {
+    return (segEl.dataset.jaTokens || '').split(',').map(Number).filter(n => Number.isFinite(n) && n >= 1);
+}
+
+function _jaSegClick(segEl, ev) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    if (!segEl || !segEl.dataset) return;
+    const tis = _jaSegTokenIdxList(segEl);
+    if (!tis.length) return;
+    if (typeof _hlState !== 'undefined' && _hlState.multiSelectActive) {
+        _jaSegMultiSelectTap(segEl, tis);
+        return;
+    }
+    /* 既存ツアー実行中はチップと同じくピークを挟まず、詳細へ直接進む */
+    const _tourActive = !!(window.App && window.App.onboarding
+        && typeof window.App.onboarding.isActive === 'function'
+        && window.App.onboarding.isActive());
+    if (_tourActive) { _jaSegProceed(segEl, tis[0]); return; }
+    if (_peekOpenFor === _jaSegKey(segEl)) { _closeWordPeek(); return; }
+    _openSegPeek(segEl, tis);
+}
+
+/* 複数選択モード中のセグメントタップ：区間の全トークンをまとめて選択へ出し入れする */
+function _jaSegMultiSelectTap(segEl, tis) {
+    const book = segEl.dataset.jaBook, chapter = Number(segEl.dataset.jaCh), verse = Number(segEl.dataset.jaV);
+    tis.forEach(tokenStart => {
+        const key = [String(book), chapter, verse, tokenStart].join(':');
+        const idx = _hlState.multiSelectEntries.findIndex(item => [String(item.book), Number(item.chapter), Number(item.verse), Number(item.tokenStart)].join(':') === key);
+        if (idx >= 0) { _hlState.multiSelectEntries.splice(idx, 1); }
+        else {
+            const existing = _hlFindExisting(book, chapter, verse, tokenStart, tokenStart);
+            _hlState.multiSelectEntries.push(Object.assign({}, existing || { book: String(book), chapter, verse, tokenStart, tokenEnd: tokenStart, color: 'yellow', createdAt: Date.now() }, { _isExisting: !!existing }));
+        }
+    });
+    const anySelected = tis.some(t => _hlState.multiSelectEntries.some(item => String(item.book) === String(book) && Number(item.chapter) === chapter && Number(item.verse) === verse && Number(item.tokenStart) === t));
+    segEl.classList.toggle('hl-multi-selected', anySelected);
+    _hlShowSelectionBar('multi', _hlState.multiSelectEntries.length);
+}
+
+/* トークン集合 → ハイライトエントリ。連続範囲は1エントリ、飛び飛びは語ごとの
+   エントリにする（既存の範囲保存モデルにそのまま乗せるためのパイロット方針）。 */
+function _hlEntriesForTokens(book, chapter, verse, tis) {
+    const sorted = [...new Set((tis || []).map(Number))].filter(n => Number.isFinite(n) && n >= 1).sort((a, b) => a - b);
+    if (!sorted.length) return [];
+    const mk = (st, en) => {
+        const ex = (typeof _hlFindExisting === 'function') ? _hlFindExisting(book, chapter, verse, st, en) : null;
+        return Object.assign({}, ex || { book: String(book), chapter, verse, tokenStart: st, tokenEnd: en, color: 'yellow', createdAt: Date.now() }, { _isExisting: !!ex });
+    };
+    const contiguous = sorted.every((n, i) => i === 0 || n === sorted[i - 1] + 1);
+    if (contiguous) return [mk(sorted[0], sorted[sorted.length - 1])];
+    return sorted.map(n => mk(n, n));
+}
+
+function _openSegPeek(segEl, tis) {
+    _peekOpenedOnce = true;
+    _closeWordPeek();
+    const book = segEl.dataset.jaBook, ch = Number(segEl.dataset.jaCh), v = Number(segEl.dataset.jaV);
+    const toks = tis.map(ti => _jaSegToken(book, ch, v, ti)).filter(Boolean);
+    if (!toks.length) return;
+
+    const el = document.createElement('div');
+    el.className = 'word-peek';
+    el.id = 'word-peek';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-label', '語の概要');
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'word-peek-close';
+    closeBtn.type = 'button';
+    closeBtn.setAttribute('aria-label', '閉じる');
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', () => _closeWordPeek());
+    el.appendChild(closeBtn);
+
+    let lemmaIdForCount = null;
+    if (toks.length === 1) {
+        /* 単一トークンの区間：チップのピークと同じ階層（意味→名札→語義→回数） */
+        const w = toks[0];
+        const words = _jaSegVerseWords(book, ch, v);
+        const idx = words.indexOf(w);
+        let meaning = '';
+        try {
+            const resolved = window.App?.readingEngine?.resolve(w, _buildReadingContext(words, idx));
+            meaning = (resolved && resolved.japanese) || w.japanese || '';
+            if (meaning && window.App?.PresentationPolicy) {
+                meaning = window.App.PresentationPolicy.formatDisplay(meaning, resolved && resolved.source, words, idx);
+            }
+        } catch (_) { meaning = w.japanese || ''; }
+        if (meaning) {
+            const m = document.createElement('div');
+            m.className = 'word-peek-meaning';
+            m.textContent = meaning;
+            el.appendChild(m);
+        }
+        const head = document.createElement('div');
+        head.className = 'word-peek-head';
+        const g = document.createElement('span');
+        g.className = 'word-peek-greek';
+        g.textContent = w.text || '';
+        head.appendChild(g);
+        const lem = document.createElement('span');
+        lem.className = 'word-peek-lemma';
+        lem.textContent = '原形：' + (w.lemma || '');
+        head.appendChild(lem);
+        el.appendChild(head);
+
+        let glossArr = null;
+        try { glossArr = w.lemmaId ? window.App?.readingLexicon?.lookup(w.lemmaId)?.glosses : null; } catch (_) {}
+        if (Array.isArray(glossArr) && glossArr.length) {
+            const gl = document.createElement('div');
+            gl.className = 'word-peek-glosses';
+            gl.textContent = glossArr.slice(0, 3).join('・');
+            el.appendChild(gl);
+        }
+        lemmaIdForCount = w.lemmaId || null;
+    } else {
+        /* 複数トークンの区間：見出しは区間の訳文そのもの（この箇所での意味）、
+           名札として内訳の各語を並べる。出現回数は合算に意味がないため出さない。 */
+        const m = document.createElement('div');
+        m.className = 'word-peek-meaning';
+        m.textContent = segEl.textContent || '';
+        el.appendChild(m);
+        toks.forEach(w => {
+            const head = document.createElement('div');
+            head.className = 'word-peek-head';
+            const g = document.createElement('span');
+            g.className = 'word-peek-greek';
+            g.textContent = w.text || '';
+            head.appendChild(g);
+            const lem = document.createElement('span');
+            lem.className = 'word-peek-lemma';
+            lem.textContent = '原形：' + (w.lemma || '') + (w.japanese ? '（' + w.japanese + '）' : '');
+            head.appendChild(lem);
+            el.appendChild(head);
+        });
+    }
+
+    const countLine = document.createElement('div');
+    countLine.className = 'word-peek-count';
+    countLine.hidden = true;
+    el.appendChild(countLine);
+
+    const actions = document.createElement('div');
+    actions.className = 'word-peek-actions';
+
+    const more = document.createElement('button');
+    more.className = 'word-peek-more';
+    more.type = 'button';
+    more.textContent = '詳しく見る';
+    const chev = document.createElement('span');
+    chev.setAttribute('aria-hidden', 'true');
+    chev.textContent = '›';
+    more.appendChild(chev);
+    more.addEventListener('click', () => {
+        const p = _peekProceed;
+        _closeWordPeek();
+        if (p) p();
+    });
+    actions.appendChild(more);
+
+    const hlBtn = document.createElement('button');
+    hlBtn.className = 'word-peek-hl';
+    hlBtn.type = 'button';
+    hlBtn.textContent = 'ハイライト';
+    hlBtn.addEventListener('click', () => {
+        const segNow = _peekSegEl;
+        _closeWordPeek();
+        if (!segNow || typeof _hlOpenPicker !== 'function') return;
+        const entries = _hlEntriesForTokens(segNow.dataset.jaBook, Number(segNow.dataset.jaCh), Number(segNow.dataset.jaV), _jaSegTokenIdxList(segNow));
+        if (!entries.length) return;
+        if (entries.length === 1) _hlOpenPicker(entries[0], segNow);
+        else _hlOpenPicker({ _isBatch: true, entries });
+    });
+    actions.appendChild(hlBtn);
+    el.appendChild(actions);
+
+    document.body.appendChild(el);
+    _peekEl = el;
+    _peekOpenFor = _jaSegKey(segEl);
+    _peekChipEl = null;
+    _peekSegEl = segEl;
+    _peekProceed = () => _jaSegProceed(segEl, tis[0]);
+    _peekLemmaId = lemmaIdForCount;
+
+    const c0 = _peekCount(_peekLemmaId);
+    if (c0 != null) {
+        countLine.textContent = '新約で ' + c0 + ' 回出てくる語';
+        countLine.hidden = false;
+    } else if (_peekLemmaId) {
+        _peekEnsureLite();
+    }
+
+    if (window.innerWidth > 900 && segEl && segEl.getBoundingClientRect) {
+        const r = segEl.getBoundingClientRect();
+        const pw = el.offsetWidth, ph = el.offsetHeight;
+        let left = Math.min(Math.max(8, r.left + r.width / 2 - pw / 2), Math.max(8, window.innerWidth - pw - 8));
+        let top = r.bottom + 8;
+        if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 8);
+        el.style.left = left + 'px';
+        el.style.top = top + 'px';
+    }
+
+    document.addEventListener('pointerdown', _peekOnDocPointerDown, true);
+    document.addEventListener('keydown', _peekOnKeyDown, true);
+    window.addEventListener('scroll', _peekOnScrollOrResize, true);
+    window.addEventListener('resize', _peekOnScrollOrResize);
+}
+
+/* セグメントから StudyPanel 詳細へ。_wlvChipClick の proceed と同じ状態遷移を、
+   対象トークン（区間の最初の語）に対して行う。 */
+function _jaSegProceed(segEl, ti) {
+    const book = segEl.dataset.jaBook, ch = Number(segEl.dataset.jaCh);
+    const words = _jaSegVerseWords(book, ch, Number(segEl.dataset.jaV));
+    const idx = words.findIndex(w => Number(w.tokenIndex) === Number(ti));
+    if (idx < 0) return;
+    const w = words[idx];
+    let analysis = null;
+    try { analysis = getAnalysis({ tokens: words }); } catch (_) { analysis = null; }
+    const chip = _wordToFlowChip(w, idx, book, ch, analysis ? analysis[idx] : undefined, words);
+    if (!chip) return;
+
+    const _reCtx = _buildReadingContext(words, idx);
+    const _reResolved = window.App?.readingEngine?.resolve(w, _reCtx);
+    const _resolvedJa = _reResolved?.japanese;
+    const _resolvedJaDisplay = (_resolvedJa && window.App?.PresentationPolicy)
+        ? window.App.PresentationPolicy.formatDisplay(_resolvedJa, _reResolved.source, words, idx)
+        : _resolvedJa;
+
+    AppState.inspect.data = {
+        greek:    chip.greek,
+        strong:   chip.strong,
+        jpMorph:  chip.morphText,
+        rawMorph: chip.rawMorph,
+        lemma:    chip.lemma,
+        jaWord:   _resolvedJa || chip.jaWord,
+        jaWordDisplay: _resolvedJaDisplay || _resolvedJa || chip.jaWord,
+        desc:     (typeof abbottSmithDict !== 'undefined' && abbottSmithDict && chip.strong)
+            ? (abbottSmithDict[chip.strong.slice(1)]?.description || '') : '',
+        ref:      chip.ref,
+        bookKey:  chip.bookKey || '',
+        ch:       chip.ch != null ? chip.ch : null,
+        verse:    chip.verse != null ? chip.verse : null,
+        language: chip.language || 'grc',
+        corpusId: chip.corpusId || '',
+        lemmaId:  chip.lemmaId != null ? chip.lemmaId : null,
+        referentEvidence: createReferentEvidence(w),
+        subjrefEvidence: createSubjrefEvidence(w),
+    };
+    _wlvActiveTokenId = chip.tokenId;
+    _wlvActiveScopeWords = words;
+
+    if (window.App.storage && chip.strong) {
+        window.App.storage.addRecentWord({
+            lemma: chip.lemma,
+            strong: chip.strong,
+            bookKey: chip.bookKey || '',
+            chapter: chip.ch != null ? Number(chip.ch) : null,
+            verse: chip.verse != null ? Number(chip.verse) : null,
+        });
+    }
+
+    if (_isActualMobile()) {
+        const _keep = {
+            jaWordDisplay: AppState.inspect.data.jaWordDisplay,
+            jaWord: AppState.inspect.data.jaWord,
+            strong: AppState.inspect.data.strong,
+            lemmaId: AppState.inspect.data.lemmaId,
+            referentEvidence: AppState.inspect.data.referentEvidence,
+            subjrefEvidence: AppState.inspect.data.subjrefEvidence,
+        };
+        AppState.toBrowsing(chip.verse ?? null, words, null, chip.ch != null ? Number(chip.ch) : null);
+        AppState.inspect.data = _keep;
+        notifyAppStateChange();
+        openMobileVerseView(chip.verse ?? null, words, null, chip.ch != null ? Number(chip.ch) : null);
+        openInspectorDetail(chip.greek, chip.rawMorph, chip.ref, chip.lemma);
+        window.App.onboarding?.onWordClicked(segEl);
+        _syncOnboardingActiveFlag();
+        return;
+    }
+    AppState.selectedVerse = { vNum: chip.verse ?? null, elWords: words, ch: chip.ch != null ? Number(chip.ch) : null };
+    AppState.studyOrigin = { surface: _transA, entryPoint: 'wlv' };
+    _setStudyTarget(chip.ref, chip.verseId);
+    openInspectorDetail(chip.greek, chip.rawMorph, chip.ref, chip.lemma);
+    window.App.onboarding?.onWordClicked(segEl);
+    _syncOnboardingActiveFlag();
 }
 
 /* ================================================================
@@ -18386,6 +18777,12 @@ async function renderCurrentPage() {
                 if (elRes.ok) elData = await elRes.json();
             } catch(e) {}
         }
+
+        /* 口語訳アラインメント（パイロット）: 対応表とトークン索引を render() の前に先読みする。
+           対応表が無い翻訳・書・章では null のまま（従来表示）。 */
+        if (!_isGreekReadingMode(_colA.kind)) await _loadJaAlignForRender(_transA, book, ch);
+        if (_transMode === 'compare' && !_isGreekReadingMode(_colB.kind)) await _loadJaAlignForRender(_transB, book, ch);
+        if (elData && elData.length) _jaSegIndexTokens(book, ch, elData);
 
         /* DA-1: discourse は passage単位の clause 接続を描くため、flow-tree（clause/sentence
            構造の一次データ）を render() の前に先読みする。既存 _loadFlowTreeChapter() を再利用し、
@@ -19942,14 +20339,14 @@ function _hlFinishMultiSelection() {
     if (!_hlState.multiSelectActive) return;
     const entries = _hlState.multiSelectEntries.slice();
     _hlState.multiSelectActive = false; _hlState.multiSelectEntries = []; _hlHideSelectionBar();
-    if (!entries.length) { document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected')); return; }
+    if (!entries.length) { document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected, .ja-seg.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected')); return; }
     _hlOpenPicker({ _isBatch: true, entries });
 }
 function _hlCancelSelection() {
     _hlState.multiSelectActive = false;
     _hlState.multiSelectEntries = [];
     _hlHideSelectionBar();
-    document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+    document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected, .ja-seg.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
 }
 
 /* ── ハイライト検索ヘルパー ── */
@@ -19995,7 +20392,7 @@ function _applyHighlights() {
     document.querySelectorAll('.verse-block').forEach(block => {
         HL_COLORS.forEach(c => block.classList.remove('hl-verse-' + c));
     });
-    document.querySelectorAll('.wlv-chip, .dg-token').forEach(token => {
+    document.querySelectorAll('.wlv-chip, .dg-token, .ja-seg').forEach(token => {
         HL_COLORS.forEach(c => token.classList.remove('hl-word-' + c));
     });
     /* 保存済みハイライトが0件でも、構造モードの古い表示クラスを消す必要があるため早期returnしない。 */
@@ -20086,6 +20483,17 @@ function _applyHighlights() {
             if (tidx >= h.tokenStart && tidx <= h.tokenEnd) {
                 HL_COLORS.forEach(c => span.classList.remove(`hl-word-${c}`));
                 span.classList.add(`hl-word-${h.color}`);
+            }
+        });
+
+        /* ── D. 語・句ハイライト：口語訳セグメント ──
+           区間は最小単位として、そのトークン集合が保存範囲と少しでも重なれば塗る。 */
+        scope.querySelectorAll(`.verse-block[data-vnum="${h.verse}"] .ja-seg`).forEach(seg => {
+            if (seg.dataset.jaBook !== h.book || Number(seg.dataset.jaCh) !== Number(h.chapter)) return;
+            const tis = (seg.dataset.jaTokens || '').split(',').map(Number);
+            if (tis.some(ti => ti >= h.tokenStart && ti <= h.tokenEnd)) {
+                HL_COLORS.forEach(c => seg.classList.remove('hl-word-' + c));
+                seg.classList.add('hl-word-' + h.color);
             }
         });
     });
@@ -20395,12 +20803,24 @@ function _hlResolveTextSelection() {
 
     const selected = Array.from(document.querySelectorAll(
         '#bible-text-area .wlv-chip, #parallel-text-area .wlv-chip, ' +
-        '#bible-text-area .dg-token[data-dg-ref], #parallel-text-area .dg-token[data-dg-ref]'
+        '#bible-text-area .dg-token[data-dg-ref], #parallel-text-area .dg-token[data-dg-ref], ' +
+        '#bible-text-area .ja-seg, #parallel-text-area .ja-seg'
     )).filter(el => {
         try { return range.intersectsNode(el); } catch (_) { return false; }
     });
     const entries = [], seen = new Set();
     selected.forEach(el => {
+        if (el.classList.contains('ja-seg')) {
+            /* 口語訳セグメント：連続範囲は1エントリ、飛び飛びは語ごとに分ける */
+            _hlEntriesForTokens(el.dataset.jaBook, Number(el.dataset.jaCh), Number(el.dataset.jaV),
+                _jaSegTokenIdxList(el)).forEach(en => {
+                const key = [en.book, en.chapter, en.verse, en.tokenStart, en.tokenEnd].join(':');
+                if (seen.has(key)) return;
+                seen.add(key);
+                entries.push(en);
+            });
+            return;
+        }
         const r = _hlRefFromEl(el);
         if (!r) return;
         const { book, chapter, verse, tokenStart } = r;
