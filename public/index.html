@@ -3969,6 +3969,30 @@ details[open] .study-summary::before {
     cursor: pointer;
 }
 .word-peek-more:active { background: var(--accent-light); }
+/* 入口導線 v2 施策C: 初回ガイド（軽量版）。最初の語チップがそっと鼓動し、
+   一言だけ添える。説明文で教えるのではなく、押してもらうことで教える。 */
+.wlv-chip.fg-guide-pulse {
+    animation: fgGuidePulse 1.5s ease-in-out 4;
+}
+@keyframes fgGuidePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+    50% { box-shadow: 0 0 0 6px var(--accent-light); }
+}
+.fg-guide-hint {
+    position: fixed;
+    z-index: 1050;
+    background: var(--highlight);
+    color: #fff;
+    font-size: var(--text-caption);
+    font-weight: 600;
+    padding: var(--space-xs) var(--space-md);
+    border-radius: 999px;
+    box-shadow: 0 4px 16px rgba(26, 30, 26, .25);
+    white-space: nowrap;
+    pointer-events: none;
+    animation: wordPeekIn .2s ease-out;
+}
+
 @media (max-width: 900px) {
     /* モバイルは画面下部のカード（本文の読み位置を奪わない） */
     .word-peek {
@@ -16746,6 +16770,7 @@ function _resolveSubjrefEvidenceText(subjrefEvidence) {
    count（非同期ロード。届くまでは行を出さず、届いたら差し込む）。
    ================================================================ */
 let _peekEl = null;
+let _peekOpenedOnce = false;
 let _peekOpenFor = null;
 let _peekProceed = null;
 let _peekLemmaId = null;
@@ -16803,6 +16828,7 @@ function _closeWordPeek() {
 }
 
 function _openWordPeek(chipEl, chip, tokenId, proceed) {
+    _peekOpenedOnce = true;
     _closeWordPeek();
     let data = {};
     try { data = (AppState && AppState.inspect && AppState.inspect.data) || {}; } catch (_) {}
@@ -16900,6 +16926,112 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     document.addEventListener('keydown', _peekOnKeyDown, true);
     window.addEventListener('scroll', _peekOnScrollOrResize, true);
     window.addEventListener('resize', _peekOnScrollOrResize);
+}
+
+/* ================================================================
+   入口導線 v2 施策C: 初回ガイド（軽量版）
+   初めての「素の着地」でのみ、本文の最初の語チップをそっと光らせて
+   一言だけ添える。その語が押されればピークが開く（＝体験で覚える）。
+   それ以外の操作でも静かに終わり、二度と出ない（一度きり）。
+   - 共有リンク着地（節・モード指定つき URL）では出さない
+   - 既存ツアー実行中は重ねない
+   - 口語訳など本文に語チップが無い画面では出さない（資格は保持され、
+     同じ訪問で語順などに切り替われば、その時点で出す）
+   ================================================================ */
+const _FG_GUIDE_KEY = 'fg_guide_seen';
+let _fgGuideChip = null;
+let _fgGuideHint = null;
+let _fgGuideTimer = null;
+
+function _fgGuideSeen() {
+    try { return !!localStorage.getItem(_FG_GUIDE_KEY); } catch (_) { return true; }
+}
+function _fgGuideMarkSeen() {
+    try { localStorage.setItem(_FG_GUIDE_KEY, '1'); } catch (_) {}
+}
+
+function _fgGuideEnd() {
+    if (_fgGuideChip) { _fgGuideChip.classList.remove('fg-guide-pulse'); _fgGuideChip = null; }
+    if (_fgGuideHint) { _fgGuideHint.remove(); _fgGuideHint = null; }
+    if (_fgGuideTimer) { clearTimeout(_fgGuideTimer); _fgGuideTimer = null; }
+    document.removeEventListener('pointerdown', _fgGuideOnPointerDown, true);
+    window.removeEventListener('scroll', _fgGuideEnd, true);
+    window.removeEventListener('resize', _fgGuideEnd);
+}
+
+function _fgGuideOnPointerDown() {
+    /* 対象チップのタップでも、それ以外の操作でも、ガイドはここで終わる。
+       対象チップのクリック自体は通常どおり伝播し、ピークが開く。 */
+    _fgGuideEnd();
+}
+
+function _fgGuideStart(chip) {
+    _fgGuideMarkSeen();
+    _fgGuideChip = chip;
+    chip.classList.add('fg-guide-pulse');
+    const hint = document.createElement('div');
+    hint.className = 'fg-guide-hint';
+    hint.id = 'fg-guide-hint';
+    hint.textContent = '気になる語を押してみてください';
+    document.body.appendChild(hint);
+    _fgGuideHint = hint;
+    const r = chip.getBoundingClientRect();
+    const w = hint.offsetWidth, h = hint.offsetHeight;
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), Math.max(8, window.innerWidth - w - 8));
+    let top = r.bottom + 10;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 10);
+    hint.style.left = left + 'px';
+    hint.style.top = top + 'px';
+    document.addEventListener('pointerdown', _fgGuideOnPointerDown, true);
+    window.addEventListener('scroll', _fgGuideEnd, true);
+    window.addEventListener('resize', _fgGuideEnd);
+    _fgGuideTimer = setTimeout(_fgGuideEnd, 20000);
+}
+
+function _fgGuideMaybeStart() {
+    if (_fgGuideSeen()) return;
+    /* 素の着地のみ：パスが「/」「/書名/章」「/書名/章/モード」まで。
+       節番号を含む URL（/書名/章/節…）は共有リンク着地とみなして出さない。
+       モードは表示の好みであって課題ではないため、節とは区別する。 */
+    const p = (location.pathname || '/').replace(/\/+$/, '');
+    if (p !== '' && !/^\/[A-Za-z0-9]+\/\d+(\/[A-Za-z][A-Za-z0-9_]*)?$/.test(p)) return;
+    /* 既存ツアー実行中は重ねない（ツアーが案内を担う。一度きりに数える） */
+    let tourActive = false;
+    try {
+        tourActive = !!(window.App && window.App.onboarding
+            && typeof window.App.onboarding.isActive === 'function'
+            && window.App.onboarding.isActive());
+    } catch (_) {}
+    if (tourActive) { _fgGuideMarkSeen(); return; }
+    const area = document.getElementById('bible-text-area');
+    if (!area) return;
+    let finished = false;
+    let observer = null;
+    const finish = () => {
+        finished = true;
+        if (observer) observer.disconnect();
+    };
+    const tryStart = () => {
+        if (finished || _fgGuideSeen()) { finish(); return; }
+        /* 既にピークを開いた人には不要（体験済み。一度きりに数える） */
+        if (_peekOpenedOnce) { _fgGuideMarkSeen(); finish(); return; }
+        const chip = area.querySelector('.verse-block .wlv-chip');
+        if (!chip) return;
+        const r = chip.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > window.innerHeight) return;
+        finish();
+        _fgGuideStart(chip);
+    };
+    observer = new MutationObserver(tryStart);
+    observer.observe(area, { childList: true, subtree: true });
+    setTimeout(finish, 30000);
+    tryStart();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _fgGuideMaybeStart);
+} else {
+    _fgGuideMaybeStart();
 }
 
 function _wlvChipClick(chipEl, tokenId) {
