@@ -3951,10 +3951,13 @@ details[open] .study-summary::before {
     cursor: pointer; opacity: .7;
 }
 .word-peek-close:hover { opacity: 1; }
-.word-peek-head { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: wrap; padding-right: 26px; }
-.word-peek-greek { font-family: "GFS Didot", "Palatino Linotype", Georgia, serif; font-size: 20px; font-weight: 700; color: var(--text-main); }
+/* 階層（2026-11-04 見直し）：主役は「この箇所での意味」。ギリシャ語の
+   形＋原形は、読めない人には情報ではなく「どの語のカードか」を示す
+   名札なので、小さく意味の下に置く。 */
+.word-peek-meaning { font-size: 18px; font-weight: 700; color: var(--text-main); padding-right: 26px; line-height: 1.4; }
+.word-peek-head { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: wrap; margin-top: 2px; }
+.word-peek-greek { font-family: "GFS Didot", "Palatino Linotype", Georgia, serif; font-size: 14px; font-weight: 600; color: var(--text-sub); }
 .word-peek-lemma { font-size: var(--text-caption); color: var(--text-sub); }
-.word-peek-meaning { margin-top: var(--space-xs); font-size: var(--text-body); font-weight: 600; color: var(--text-main); }
 .word-peek-glosses { margin-top: 2px; font-size: var(--text-caption); color: var(--text-sub); line-height: 1.5; }
 .word-peek-count { margin-top: var(--space-xs); font-size: var(--text-caption); color: var(--text-sub); }
 .word-peek-more {
@@ -4049,13 +4052,34 @@ details[open] .study-summary::before {
     to   { opacity: var(--opacity-primary); transform: translateY(0); }
 }
 
+/* 階層（ピーク層と統一）：主役は「この箇所での意味」。ギリシャ語の
+   形＋原形は名札として小さく下に置く（ドロワーには原形が無かったので追加）。 */
+.wlv-detail-meaning {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.4;
+    margin-bottom: 2px;
+    padding-right: 26px;
+}
+.wlv-detail-meaning:empty { display: none; }
+.wlv-detail-nametag {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-xs);
+}
 .wlv-detail-greek {
     font-family: var(--font-greek);
-    font-size: var(--text-title);
-    color: var(--text-main);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-sub);
     line-height: 1.2;
-    margin-bottom: var(--space-xs);
-    opacity: var(--opacity-primary);
+}
+.wlv-detail-lemma {
+    font-size: var(--text-caption);
+    color: var(--text-sub);
 }
 .wlv-detail-glosses {
     font-size: var(--text-caption);
@@ -15428,7 +15452,8 @@ const WordOrderRenderer = {
         const drawerHTML = `
         <div class="wlv-detail-drawer" id="wlv-detail-drawer">
             <button class="wlv-dd-close-btn" onclick="_wlvDrawerClose()" aria-label="語句詳細を閉じる">×</button>
-            <div class="wlv-detail-greek" id="wlv-dd-greek">-</div>
+            <div class="wlv-detail-meaning" id="wlv-dd-meaning"></div>
+            <div class="wlv-detail-nametag"><span class="wlv-detail-greek" id="wlv-dd-greek">-</span><span class="wlv-detail-lemma" id="wlv-dd-lemma"></span></div>
             <div class="wlv-detail-glosses" id="wlv-dd-glosses"></div>
             <div class="wlv-detail-resonance" id="wlv-dd-resonance"></div>
             <div class="wlv-detail-actions">
@@ -16821,6 +16846,15 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     closeBtn.addEventListener('click', () => _closeWordPeek());
     el.appendChild(closeBtn);
 
+    /* 階層：主役（この箇所での意味）を先に、名札（形＋原形）をその下に */
+    const meaningText = data.jaWordDisplay || data.jaWord || '';
+    if (meaningText) {
+        const m = document.createElement('div');
+        m.className = 'word-peek-meaning';
+        m.textContent = meaningText;
+        el.appendChild(m);
+    }
+
     const head = document.createElement('div');
     head.className = 'word-peek-head';
     const g = document.createElement('span');
@@ -16832,14 +16866,6 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     lem.textContent = '原形：' + (chip.lemma || '');
     head.appendChild(lem);
     el.appendChild(head);
-
-    const meaningText = data.jaWordDisplay || data.jaWord || '';
-    if (meaningText) {
-        const m = document.createElement('div');
-        m.className = 'word-peek-meaning';
-        m.textContent = meaningText;
-        el.appendChild(m);
-    }
 
     let glossArr = null;
     try { glossArr = chip.lemmaId ? window.App?.readingLexicon?.lookup(chip.lemmaId)?.glosses : null; } catch (_) {}
@@ -17091,6 +17117,13 @@ function _wlvChipClick(chipEl, tokenId) {
         const ddGreek = document.getElementById('wlv-dd-greek');
         const ddReso  = document.getElementById('wlv-dd-resonance');
         if (ddGreek) ddGreek.textContent = chip.greek || '-';
+        /* 階層（ピーク層と統一）：主役＝この箇所での意味、名札に原形も添える */
+        const ddMeaning = document.getElementById('wlv-dd-meaning');
+        if (ddMeaning) {
+            ddMeaning.textContent = (AppState.inspect.data && (AppState.inspect.data.jaWordDisplay || AppState.inspect.data.jaWord)) || '';
+        }
+        const ddLemma = document.getElementById('wlv-dd-lemma');
+        if (ddLemma) ddLemma.textContent = chip.lemma ? '原形：' + chip.lemma : '';
         /* 語義（readingLexicon.lookup().glosses）：chip 切り替え時に前の語義が残らないよう毎回更新 */
         const ddGlosses = document.getElementById('wlv-dd-glosses');
         if (ddGlosses) {
