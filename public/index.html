@@ -9041,7 +9041,7 @@ async function _renderReadingNotes(p) {
 
     const morphGridHTML = morphRows.length
         ? `<div class="rn-morph-grid">${morphRows.map(r =>
-            `<span class="rn-morph-key">${r.k}</span><span class="rn-morph-val${r.core?' core':''}">${r.v}</span>`
+            `<span class="rn-morph-key">${r.k}</span><span class="rn-morph-val${r.core?' core':''}">${_escH(r.v)}</span>`
           ).join('')}</div>`
         : '';
 
@@ -9062,7 +9062,7 @@ async function _renderReadingNotes(p) {
                 if (c.person) parts.push(_personText(c.person));
                 if (c.number) parts.push(JPN_FULL.number[c.number] || c.number);
             }
-            return `<li class="rn-mc-item"><div class="rn-mc-chips">${parts.map(part => `<span class="rn-mc-chip">${part}</span>`).join('')}</div></li>`;
+            return `<li class="rn-mc-item"><div class="rn-mc-chips">${parts.map(part => `<span class="rn-mc-chip">${_escH(part)}</span>`).join('')}</div></li>`;
         }).join('');
         morphCandidatesHTML = `<div class="rn-mc-details"><div class="rn-mc-label">${_T('panel.otherForms', '他に成立する形態')}</div><ul class="rn-mc-list">${candItems}</ul></div>`;
     }
@@ -9475,7 +9475,7 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
         const chips = siblings.map((s, i) => {
             const hidden = useLimit && !s.isCurrent && i >= CHIP_SHOW;
             return `
-            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}${hidden ? ' rn-chip-hidden' : ''}" data-lemma-id="${s.id}" data-headword="${s.headword.replace(/"/g,'&quot;')}" data-cluster-id="${code}" title="${_escH(s.gloss || '')}">
+            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}${hidden ? ' rn-chip-hidden' : ''}" data-lemma-id="${s.id}" data-headword="${_escH(s.headword)}" data-cluster-id="${code}" title="${_escH(s.gloss || '')}">
                 <span class="rn-sibling-gr">${_escH(s.headword)}</span>
                 ${s.gloss ? `<span class="rn-sibling-ja">${_escH(s.gloss)}</span>` : ''}
 
@@ -9576,15 +9576,15 @@ function _buildConcordanceHTML(resolvedId, word) {
         const end     = Math.min(getTokens().length - 1, gi + 3);
         const snippet = getTokens().slice(start, end + 1).map((t, li) => {
             const isAnchor = start + li === gi;
-            const txt = (t.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+            const txt = _escH(t.text || '');
             return isAnchor ? `<span class="rn-concord-hl">${txt}</span>` : txt;
         }).join(' ');
         const refLabel = _rnFmtRef(tok);
-        const href     = tok.bookKey && tok.ch
-            ? `index.html?book=${tok.bookKey}&ch=${tok.ch}`
+        const href     = tok.bookKey && tok.ch != null
+            ? `index.html?book=${encodeURIComponent(tok.bookKey)}&ch=${Number(tok.ch)}`
             : '#';
         return `<div class="rn-concord-row" onclick="window.open('${href}','_blank')">
-            <div class="rn-concord-ref">${refLabel}</div>
+            <div class="rn-concord-ref">${_escH(refLabel)}</div>
             <div class="rn-concord-text">${snippet}</div>
         </div>`;
     }).join('');
@@ -9840,7 +9840,7 @@ function _renderMorphTab(area, p) {
         ? `<div class="ac-morph-grid">
             ${rows.map(r => `
                 <span class="ac-morph-key">${r.k}</span>
-                <span class="ac-morph-val${r.core ? ' core' : ''}">${r.v}</span>
+                <span class="ac-morph-val${r.core ? ' core' : ''}">${_escH(r.v)}</span>
             `).join('')}
            </div>`
         : `<p class="ac-no-data">${_T('panel.noMorphData', '形態論データがありません')}</p>`;
@@ -9854,9 +9854,9 @@ function _renderMorphTab(area, p) {
     area.innerHTML = `
         <span class="ac-section-label">${_T('panel.morphology', '形態論')}</span>
         <div class="ac-entry">
-            <div class="ac-entry-greek">${p.word || '-'}</div>
-            <div class="ac-entry-ja">${jaWord}</div>
-            ${strong ? `<span class="ac-entry-strong">${strong}</span>` : ''}
+            <div class="ac-entry-greek">${_escH(p.word || '-')}</div>
+            <div class="ac-entry-ja">${_escH(jaWord)}</div>
+            ${strong ? `<span class="ac-entry-strong">${_escH(strong)}</span>` : ''}
             ${morphGridHTML}
             ${ref ? `<span class="ac-cite-ref">${icon('pin')} ${_escH(ref)}</span>` : ''}
         </div>
@@ -9874,9 +9874,9 @@ function _renderSyntaxTab(area, p) {
     area.innerHTML = `
         <span class="ac-section-label">${_T('panel.syntax', '統語論')}</span>
         <div class="ac-entry">
-            <div class="ac-entry-greek">${p.word || '-'}</div>
+            <div class="ac-entry-greek">${_escH(p.word || '-')}</div>
             ${features.length ? `<div style="margin-top: var(--space-xs);">${features.map(f =>
-                `<span class="morph-tag-pill core" style="margin-right: var(--space-xs);">${f}</span>`).join('')}</div>` : ''}
+                `<span class="morph-tag-pill core" style="margin-right: var(--space-xs);">${_escH(f)}</span>`).join('')}</div>` : ''}
             ${ref ? `<span class="ac-cite-ref ac-cite-ref--block">${icon('pin')} ${_escH(ref)}</span>` : ''}
         </div>
     `;
@@ -9906,9 +9906,9 @@ function _renderSemanticsTab(area, p) {
     area.innerHTML = `
         <span class="ac-section-label">${_T('panel.semantics', '意味論')}</span>
         <div class="ac-entry">
-            <div class="ac-entry-greek">${p.word || '-'}</div>
-            <div class="ac-entry-ja">${jaWord}</div>
-            ${strong ? `<span class="ac-entry-strong">${strong}（Abbott-Smith）</span>` : ''}
+            <div class="ac-entry-greek">${_escH(p.word || '-')}</div>
+            <div class="ac-entry-ja">${_escH(jaWord)}</div>
+            ${strong ? `<span class="ac-entry-strong">${_escH(strong)}（Abbott-Smith）</span>` : ''}
         </div>
         ${abbottHtml}
         <div style="margin-top: var(--space-md);">
@@ -10047,9 +10047,9 @@ function _renderFlowTab(area, p) {
 
     area.innerHTML = `
         <div class="flow-word-head">
-            <span class="flow-greek greek-headword">${word}</span>${jaWord ? `<span class="flow-ja">　${jaWord}</span>` : ''}
+            <span class="flow-greek greek-headword">${_escH(word)}</span>${jaWord ? `<span class="flow-ja">　${_escH(jaWord)}</span>` : ''}
         </div>
-        ${ref ? `<div class="flow-ref">${ref}</div>` : ''}
+        ${ref ? `<div class="flow-ref">${_escH(ref)}</div>` : ''}
         <div class="flow-hints reading-block" id="flow-hints-local">
             ${localHTML}
         </div>
@@ -10081,9 +10081,9 @@ function _renderMeaningTab(area, p) {
 
     area.innerHTML = `
         <div class="flow-word-head">
-            <span class="flow-greek greek-headword">${word}</span><span class="flow-ja">　${jaWord}</span>
+            <span class="flow-greek greek-headword">${_escH(word)}</span><span class="flow-ja">　${_escH(jaWord)}</span>
         </div>
-        ${ref ? `<div class="flow-ref">${ref}</div>` : ''}
+        ${ref ? `<div class="flow-ref">${_escH(ref)}</div>` : ''}
         <div class="flow-hints reading-block">
             ${signalHTML}
         </div>
@@ -11004,7 +11004,7 @@ function sbRenderBooks() {
         const div = document.createElement('div');
         div.className = 'sb-row' + (b.key === sbBookKey ? ' active' : '');
         const hasGreek = GREEK_BOOKS.has(b.key);
-        div.innerHTML = `<span>${_bookFullName(b.key)}</span><span class="sb-row-arrow">›</span>`;
+        div.innerHTML = `<span>${_escH(_bookFullName(b.key))}</span><span class="sb-row-arrow">›</span>`;
         if (!hasGreek) {
             div.title = _T('ui.jaOnly', '日本語訳のみ');
             div.querySelector('span').style.color = 'var(--text-sub)';
@@ -11091,7 +11091,7 @@ function _sbRenderModes() {
     ];
     list.innerHTML = items.filter(it => it.id !== 'ROLE_READING' || _roleReadingAvailable()).map(item => {
         const active = (_transA === item.id && _transMode === 'single') ? ' active' : '';
-        return `<div class="sb-row${active}" onclick="_sbSelectMode('${item.id}')"><span class="sb-mode-text"><span class="menu-text">${item.label}</span>${_modeDescVisible() ? `<span class="sb-mode-desc">${_modeDesc(item.id)}</span>` : ''}</span></div>`;
+        return `<div class="sb-row${active}" onclick="_sbSelectMode('${item.id}')"><span class="sb-mode-text"><span class="menu-text">${_escH(item.label)}</span>${_modeDescVisible() ? `<span class="sb-mode-desc">${_escH(_modeDesc(item.id))}</span>` : ''}</span></div>`;
     }).join('');
     list.innerHTML +=
         '<div class="sb-external-compare" style="border-top:1px solid var(--border-soft);margin-top:var(--space-sm);padding:var(--space-xs) 0 0;">' +
@@ -11110,7 +11110,7 @@ function _sbRenderModesL0() {
     ];
     list.innerHTML = items.filter(it => it.id !== 'ROLE_READING' || _roleReadingAvailable()).map(item => {
         const active = (_transA === item.id && _transMode === 'single') ? ' active' : '';
-        return `<div class="sb-row${active}" onclick="_sbSelectMode('${item.id}')"><span class="sb-mode-text"><span class="menu-text">${item.label}</span>${_modeDescVisible() ? `<span class="sb-mode-desc">${_modeDesc(item.id)}</span>` : ''}</span></div>`;
+        return `<div class="sb-row${active}" onclick="_sbSelectMode('${item.id}')"><span class="sb-mode-text"><span class="menu-text">${_escH(item.label)}</span>${_modeDescVisible() ? `<span class="sb-mode-desc">${_escH(_modeDesc(item.id))}</span>` : ''}</span></div>`;
     }).join('');
     list.innerHTML +=
         '<div class="sb-external-compare" style="border-top:1px solid var(--border-soft);margin-top:var(--space-sm);padding:var(--space-xs) 0 0;">' +
@@ -11144,7 +11144,7 @@ function _sbRenderNtBooksL0() {
         const div = document.createElement('div');
         div.className = 'sb-row' + (b.key === sbBookKey ? ' active' : '');
         const hasGreek = GREEK_BOOKS.has(b.key);
-        div.innerHTML = `<span>${_bookFullName(b.key)}</span><span class="sb-row-arrow">›</span>`;
+        div.innerHTML = `<span>${_escH(_bookFullName(b.key))}</span><span class="sb-row-arrow">›</span>`;
         if (!hasGreek) {
             div.title = _T('ui.jaOnly', '日本語訳のみ');
             div.querySelector('span').style.color = 'var(--text-sub)';
@@ -11462,12 +11462,6 @@ async function showChangelog() {
    ★ HTML安全性: entry系データと同様、ここを通る title/sub/meta は信頼できない値として
    _escH() で必ずエスケープする（生のテンプレートリテラル結合は禁止）。
    href が無い（構造化フィールドが欠けている＝旧データ等）場合はクリック不可カードにする。 */
-function _escH(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
 /* 辞書本文の聖書参照・ギリシャ語から、本文／既存検索ツールへ移動できるようにする。 */
 function _renderDictionaryLinkedText(value) {
     const source = String(value == null ? '' : value);
@@ -15479,7 +15473,7 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
     //   verseId = persistent identity（Lowfat xml:id 由来、cross-build 安定）。
     //   本フェーズでは Representation への保持のみを行う。Consumer側（Renderer/
     //   Interaction）はまだこれらを参照しない（Phase 2 以降）。
-    const tokenId  = w.tokenId  != null ? w.tokenId  : null;
+    const tokenId  = isFinite(Number(w.tokenId)) ? String(Number(w.tokenId)) : '';
     const verseId  = w.verseId  != null ? w.verseId  : null;
     return { greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong, dpGrammarClasses, bookKey, ch, verse, language, corpusId, lemmaId, tokenId, verseId };
 }
@@ -15816,8 +15810,9 @@ const WordOrderRenderer = {
                 : '';
             /* テキスト項目（greek / gloss）はデータ由来のため、HTMLとして流さず
                エスケープしてから埋める（Phase 1b のグロス・サイドカー流入に備えた
-               関門台帳 L1 の解消）。tokenId・クラス名は内部識別子のため対象外。 */
-            return `${sep}<span class="wlv-chip ${c.roleClass}" data-token-id="${c.tokenId}"${anchorAttr} onclick="${_clickPrefix}_wlvChipClick(this,'${c.tokenId}')" title="${_escH(c.greek)}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${_escH(c.gloss)}</span></span></span>`;
+               関門台帳 L1 の解消）。tokenId は DA 経路と同方針で正規化する／クラス名はコード生成の固定値。 */
+            const tid = isFinite(Number(c.tokenId)) ? String(Number(c.tokenId)) : '';
+            return `${sep}<span class="wlv-chip ${c.roleClass}" data-token-id="${tid}"${anchorAttr} onclick="${_clickPrefix}_wlvChipClick(this,'${tid}')" title="${_escH(c.greek)}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${_escH(c.gloss)}</span></span></span>`;
         }).join('');
     },
 
@@ -18656,7 +18651,7 @@ function _renderMobileWordDetail(d) {
                 if (c.person) parts.push(_personText(c.person));
                 if (c.number) parts.push(JPN_FULL_MC.number[c.number] || c.number);
             }
-            return `<li class="rn-mc-item"><div class="rn-mc-chips">${parts.map(part => `<span class="rn-mc-chip">${part}</span>`).join('')}</div></li>`;
+            return `<li class="rn-mc-item"><div class="rn-mc-chips">${parts.map(part => `<span class="rn-mc-chip">${_escH(part)}</span>`).join('')}</div></li>`;
         }).join('');
         morphCandidatesHTML = `<div data-study-section="candidates"><div class="rn-mc-details"><div class="rn-mc-label">${_T('panel.otherForms', '他に成立する形態')}</div><ul class="rn-mc-list">${candItems}</ul></div></div>`;
     }
@@ -20207,8 +20202,8 @@ function _mbpRenderLayer(layer) {
             const isCur = (b.key === curKey) ? ' style="font-weight:700;"' : '';
             html +=
                 '<div class="mbp-row" onclick="_mbpSelectBook(\'' + b.key + '\',\'' +
-                _escMbp(_bookFullName(b.key)) + '\',' + b.ch + ')"' + isCur + '>' +
-                '<span>' + _escMbp(_bookFullName(b.key)) + '</span>' +
+                _escH(_bookFullName(b.key)) + '\',' + b.ch + ')"' + isCur + '>' +
+                '<span>' + _escH(_bookFullName(b.key)) + '</span>' +
                 '<span class="mbp-row-chevron">›</span></div>';
         }
         content.innerHTML = html;
@@ -20227,8 +20222,6 @@ function _mbpRenderLayer(layer) {
     }
 }
 
-/* 文字列を innerHTML に安全に埋める（書名に < > が無い前提だが念のため） */
-function _escMbp(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function _mbpSelectTestament(section) {
     _mbpSection = section;

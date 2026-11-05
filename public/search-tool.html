@@ -3241,7 +3241,7 @@ function _renderConceptInsight(concept) {
            <div class="layer-chips ci-chips">${chips}</div></div>` : '';
     const _REL_FOLD = 8;
     const _mkRelChip = c =>
-        `<span class="layer-chip lemma" onclick="_ciConceptClick('${_escH(c.label)}')">${_escH(c.label)}</span>`;
+        `<span class="layer-chip lemma" data-concept-label="${_escH(c.label)}">${_escH(c.label)}</span>`;
     const relHtml = rel.length <= _REL_FOLD
         ? rel.map(_mkRelChip).join('')
         : rel.slice(0, _REL_FOLD).map(_mkRelChip).join('')
@@ -3250,7 +3250,7 @@ function _renderConceptInsight(concept) {
     const patHtml = pats.map(p =>
         `<span class="layer-chip prox" onclick="runPatternSearch(${p.i})">${_escH(p.label)}</span>`).join('');
     const synHtml = syns.map(s =>
-        `<span class="layer-chip morph" onclick="_ciSyntaxClick('${_escH(s.id)}')">${_escH(s.label)}</span>`).join('');
+        `<span class="layer-chip morph" data-syntax-id="${_escH(s.id)}">${_escH(s.label)}</span>`).join('');
 
     /* 関連するギリシャ語（Phase 6-2）: 「日本語概念 → ギリシャ語語彙 → 語義 →
        文法/用例」の読書導線。件数は既存 resolveTerm を呼ぶだけ（表示専用 —
@@ -3280,7 +3280,7 @@ function _renderConceptInsight(concept) {
             if (rows.length) {
                 lexHtml = `<div class="ci-section"><div class="ci-section-title">関連するギリシャ語</div>
                     <div class="ci-lex">${rows.map(r =>
-                        `<span class="ci-lex-row" onclick="_ciLexiconClick('${_escH(r.lemma)}')" title="Abbott-Smith 辞書を開く">
+                        `<span class="ci-lex-row" data-lemma="${_escH(r.lemma)}" title="Abbott-Smith 辞書を開く">
                             <span class="ci-lex-greek">${_escH(r.lemma)}</span
                             ><span class="ci-lex-gloss">${_escH(r.gloss)}</span
                             ><span class="ci-lex-count">${r.n}回</span>
@@ -3310,6 +3310,17 @@ function _renderConceptInsight(concept) {
         <div class="ci-outer-body">${body}</div>
     </details>`;
     el.style.display = '';
+    if (!el._ciListenerAdded) {
+        el.addEventListener('click', e => {
+            const c = e.target.closest('[data-concept-label]');
+            if (c) { _ciConceptClick(c.dataset.conceptLabel); return; }
+            const s = e.target.closest('[data-syntax-id]');
+            if (s) { _ciSyntaxClick(s.dataset.syntaxId); return; }
+            const l = e.target.closest('[data-lemma]');
+            if (l) { _ciLexiconClick(l.dataset.lemma); }
+        });
+        el._ciListenerAdded = true;
+    }
 }
 
 /* 語彙行クリック → 既存 Abbott-Smith モーダルを開く。
@@ -3690,8 +3701,15 @@ function _renderFilterBar() {
     if (!bar) return;
     if (_sqState.filters.length === 0) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
     bar.innerHTML = _sqState.filters.map(f =>
-        `<span class="sqs-pill">${_escH(f.pattern || f.label)}<button class="sqs-pill-x" onclick="_sqsRemoveFilter('${_escH(f.id)}')" aria-label="条件を外す" title="この条件を外す">×</button></span>`
+        `<span class="sqs-pill">${_escH(f.pattern || f.label)}<button class="sqs-pill-x" data-filter-id="${_escH(f.id)}" aria-label="条件を外す" title="この条件を外す">×</button></span>`
     ).join('');
+    if (!bar._sqsListenerAdded) {
+        bar.addEventListener('click', e => {
+            const btn = e.target.closest('.sqs-pill-x[data-filter-id]');
+            if (btn) _sqsRemoveFilter(btn.dataset.filterId);
+        });
+        bar._sqsListenerAdded = true;
+    }
     bar.style.display = 'flex';
 }
 
@@ -3780,11 +3798,6 @@ function _addHistory(query,layers){
     if(_history.length > _HISTORY_MAX) _history.pop();
     _saveHistory();
     _renderHistory();
-}
-
-/* 表示専用のHTMLエスケープ。_renderHistory()のquery展開のみに使用する。 */
-function _escH(s){
-    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 const _BADGE_JP_HIST = {lemma:'語根', phrase:'フレーズ', prox:'近接', morph:'品詞'};
@@ -4371,8 +4384,8 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
     // 「本文で見る」ボタン（verse付きURL）
     const openHref=bookKey&&ch
         ?(verse!==''
-            ?`index.html?book=${bookKey}&ch=${ch}&verse=${verse}`
-            :`index.html?book=${bookKey}&ch=${ch}`)
+            ?`index.html?book=${encodeURIComponent(bookKey)}&ch=${Number(ch)}&verse=${Number(verse)}`
+            :`index.html?book=${encodeURIComponent(bookKey)}&ch=${Number(ch)}`)
         :'';
 
     // Hit-type badges — Japanese short labels matching menu names
@@ -4407,28 +4420,29 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         const isW2=gi===w2Gi;
         const hitTypes=_allMergedResults.has(gi)?_allMergedResults.get(gi).hitTypes:new Set();
 
+        const txt=_escH(t.text||'');
         if(isAnchor){
             // Multi-layer: show all applicable classes
             const isLemma=hitTypes.has('lemma');
             const isPh=hitTypes.has('phrase');
             const isPrx=hitTypes.has('prox');
-            if(isLemma&&isPh)return`<span class="hl-multi">${t.text}</span>`;
-            if(isLemma)return`<span class="hl-lemma">${t.text}</span>`;
-            if(isPrx)return`<span class="hl-prox-w1">${t.text}</span>`;
-            if(isPh)return`<span class="hl-phrase">${t.text}</span>`;
-            return`<span class="hl-lemma">${t.text}</span>`;
+            if(isLemma&&isPh)return`<span class="hl-multi">${txt}</span>`;
+            if(isLemma)return`<span class="hl-lemma">${txt}</span>`;
+            if(isPrx)return`<span class="hl-prox-w1">${txt}</span>`;
+            if(isPh)return`<span class="hl-phrase">${txt}</span>`;
+            return`<span class="hl-lemma">${txt}</span>`;
         }
-        if(isW2)return`<span class="hl-prox-w2">${t.text}</span>`;
-        if(isPhrase)return`<span class="hl-phrase">${t.text}</span>`;
-        return t.text;
+        if(isW2)return`<span class="hl-prox-w2">${txt}</span>`;
+        if(isPhrase)return`<span class="hl-phrase">${txt}</span>`;
+        return txt;
     }).join(' ');
 
     // Proximity distance visualizer
     let proxVizHtml='';
     if(entry.hitTypes.has('prox')&&w2Gi>=0){
         const dist=Math.abs(w2Gi-anchorGi);
-        const anchorText=tok.text||_escH(words[0]);
-        const targetText=ALL_TOKENS[w2Gi]?.text||_escH(word2);
+        const anchorText=_escH(tok.text||words[0]||'');
+        const targetText=_escH(ALL_TOKENS[w2Gi]?.text||word2||'');
         proxVizHtml=`<div class="prox-dist-row">
             <span class="prox-anchor">${anchorText}</span>
             <div class="prox-dist-line"><span class="prox-dist-label">距離 ${dist}</span></div>
@@ -4518,11 +4532,11 @@ function _renderCooccurrence(coocMap,containerId,limit=10){
         item.innerHTML=`
             <div class="rank-top">
                 <div class="rank-word-wrap">
-                    <span class="rank-word">${word}</span>
-                    ${jpGloss?`<span class="rank-gloss">${jpGloss}</span>`:''}
+                    <span class="rank-word">${_escH(word)}</span>
+                    ${jpGloss?`<span class="rank-gloss">${_escH(jpGloss)}</span>`:''}
                 </div>
                 <span class="rank-score">${rawCount}回</span>
-                <button class="add-btn" data-word="${word}" title="この語を検索欄に追加して近接検索を絞り込む">+ 絞り込む</button>
+                <button class="add-btn" data-word="${_escH(word)}" title="この語を検索欄に追加して近接検索を絞り込む">+ 絞り込む</button>
             </div>
             <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${pct}%"></div></div>`;
         item.addEventListener('click',()=>{
@@ -4570,8 +4584,8 @@ function _renderLemmaGroups(groups,query,word2,words){
         const bar=document.createElement('div');bar.className='lg-bar';
         bar.innerHTML=`
             <span class="lg-toggle">${icon('chevronRight')}</span>
-            <span class="lg-form">${primaryLabel}</span>
-            ${secondaryLabel?`<span class="lg-greek">${secondaryLabel}</span>`:''}
+            <span class="lg-form">${_escH(primaryLabel)}</span>
+            ${secondaryLabel?`<span class="lg-greek">${_escH(secondaryLabel)}</span>`:''}
             <span class="lg-count">${group.hits.length}件</span>`;
         const panel=document.createElement('div');panel.className='lg-panel';
         // cooc chips
@@ -4683,7 +4697,7 @@ function _renderBookDist(entries){
             const row=document.createElement('div');row.className='dist-bar-row';
             row.title=`${bookName}：${count}件`;
             row.innerHTML=`
-                <span class="dist-bar-name">${shortName}</span>
+                <span class="dist-bar-name">${_escH(shortName)}</span>
                 <div class="dist-bar-track"><div class="dist-bar-fill" style="width:${pct}%"></div></div>
                 <span class="dist-bar-count">${count}</span>`;
             row.addEventListener('click',()=>{
@@ -5299,7 +5313,6 @@ let _synVerseCache = new Map(), _synRegistryData = null;
 function _synBuildRefLabel(bookKey, ch, verse) { return `${SYN_BOOK_JP[bookKey]||bookKey} ${ch}章${verse}節`; }
 function _synConfClass(c) { return c>=0.75?'high':c>=0.55?'medium':'low'; }
 function _synCleanText(e) { return (e.word||e.normalized||e.text||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim(); }
-function _synEsc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function _synResolveBooks() {
     const b = new Set();
     SYN_BOOK_GROUPS.forEach(g => { if (_synEnabledGroups.has(g.key)) g.books.forEach(k => b.add(k)); });
@@ -5378,7 +5391,7 @@ function _synRenderByBook(container, page) {
             const cnt = page.filter(x => x.bookKey === curBook).length;
             const h = document.createElement('div');
             h.className = 'book-heading';
-            h.innerHTML = `<span class="book-heading-name">${SYN_BOOK_JP[curBook]||curBook}</span><span class="book-heading-count">${cnt}</span>`;
+            h.innerHTML = `<span class="book-heading-name">${_escH(SYN_BOOK_JP[curBook]||curBook)}</span><span class="book-heading-count">${cnt}</span>`;
             container.appendChild(h);
         }
         container.appendChild(_synBuildCard(hit));
@@ -5408,14 +5421,14 @@ function _synBuildCard(hit) {
     const ctxId = `syn-ctx-${hit.bookKey}-${hit.chapter}-${hit.verse}-${hit.globalIdx}`;
     card.innerHTML = `
         <div class="app-card-head" onclick="_synToggleCard(this.parentElement)">
-            <span class="app-card-ref">${ref}</span>
-            <span class="app-card-word">${_synEsc(hit.word)}</span>
+            <span class="app-card-ref">${_escH(ref)}</span>
+            <span class="app-card-word">${_escH(hit.word)}</span>
             <span class="app-card-meta"><span class="result-conf ${cls}">${pct}%</span></span>
             <span class="app-card-arrow">›</span>
         </div>
         <div class="app-card-body">
-            <div class="result-lemma">レンマ: <span style="font-family:'Gentium Plus',serif;">${_synEsc(hit.lemma)}</span></div>
-            <div class="ctx-loading" id="${ctxId}">展開中…</div>
+            <div class="result-lemma">レンマ: <span style="font-family:'Gentium Plus',serif;">${_escH(hit.lemma)}</span></div>
+            <div class="ctx-loading" id="${_escH(ctxId)}">展開中…</div>
         </div>`;
     return card;
 }
@@ -5443,7 +5456,7 @@ async function _synLoadContext(card) {
         html = `<div class="context-snippet">${vt.map(t => {
             const w = _synCleanText(t);
             const isHit = String(t.globalIdx) === String(globalIdx);
-            return `<span class="snippet-token${isHit?' hit':''}">${_synEsc(w)}</span>`;
+            return `<span class="snippet-token${isHit?' hit':''}">${_escH(w)}</span>`;
         }).join('')}</div>`;
     } else {
         html = `<div class="result-ja result-ja-empty">（節データ未取得）</div>`;
@@ -5452,11 +5465,19 @@ async function _synLoadContext(card) {
 }
 
 function _synRenderBookChips() {
-    document.getElementById('syn-book-chips').innerHTML = SYN_BOOK_GROUPS.map(g =>
-        `<div class="filter-chip-toggle on" data-group="${g.key}" onclick="_synToggleGroup('${g.key}')">
-            <div class="filter-chip-dot">${icon('check')}</div>${g.label}
+    const container = document.getElementById('syn-book-chips');
+    container.innerHTML = SYN_BOOK_GROUPS.map(g =>
+        `<div class="filter-chip-toggle on" data-group="${_escH(g.key)}">
+            <div class="filter-chip-dot">${icon('check')}</div>${_escH(g.label)}
         </div>`
     ).join('');
+    if (!container._synListenerAdded) {
+        container.addEventListener('click', e => {
+            const chip = e.target.closest('[data-group]');
+            if (chip) _synToggleGroup(chip.dataset.group);
+        });
+        container._synListenerAdded = true;
+    }
 }
 
 async function _synLoadRegistry() {
@@ -5490,7 +5511,7 @@ async function _synInit(syntaxId) {
     if (_synAllHits.length === 0) {
         document.getElementById('syn-results-list').innerHTML =
             `<div class="empty"><div class="empty-icon">ζητεῖτε</div>結果が見つかりません<br>
-            <small style="color:var(--text-hint);">syntax-index/${_synEsc(syntaxId)}.json が見つかりません</small></div>`;
+            <small style="color:var(--text-hint);">syntax-index/${_escH(syntaxId)}.json が見つかりません</small></div>`;
         document.getElementById('syn-status').textContent = '0 件';
         return;
     }
