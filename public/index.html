@@ -6273,13 +6273,13 @@ body.chapter-navigation-loading #main-reading-area::after {
              onclick="_sbToggleNtAccordion()"
              aria-expanded="false"
              title="新約聖書の書物を選ぶ">
-            <span class="menu-text">新約聖書</span><span class="sb-bible-label-arrow" id="sb-nt-acc-arrow">⌄</span>
+            <span class="menu-text" data-i18n="ui.newTestament">新約聖書</span><span class="sb-bible-label-arrow" id="sb-nt-acc-arrow">⌄</span>
         </div>
         <div id="sb-nt-accordion" style="display:none"></div>
         <div class="section-label menu-text" style="padding: var(--space-sm) var(--space-sm) var(--space-xs);">読書モード</div>
         <div id="sb-mode-list-l0"></div>
         <div class="sb-row" id="sb-ot-row" onclick="sbGoTo(1,'ot')" style="display:none">
-            <span class="menu-text">旧約聖書</span>
+            <span class="menu-text" data-i18n="ui.oldTestament">旧約聖書</span>
             <span class="sb-row-arrow menu-text">›</span>
         </div>
         <div id="sb-nt-row" style="display:none"></div>
@@ -6308,9 +6308,9 @@ body.chapter-navigation-loading #main-reading-area::after {
         </button>
         <!-- ナビヘッダー: 旧約聖書 ／ 新約聖書 -->
         <div class="sb-nav-header">
-            <button class="sb-nav-item" id="sb-nav-ot" onclick="sbGoTo(1,'ot')" style="display:none">旧約聖書</button>
+            <button class="sb-nav-item" id="sb-nav-ot" data-i18n="ui.oldTestament" onclick="sbGoTo(1,'ot')" style="display:none">旧約聖書</button>
             <span class="sb-nav-sep" style="display:none">／</span>
-            <button class="sb-nav-item" id="sb-nav-nt" onclick="sbGoTo(1,'nt')">新約聖書</button>
+            <button class="sb-nav-item" id="sb-nav-nt" data-i18n="ui.newTestament" onclick="sbGoTo(1,'nt')">新約聖書</button>
         </div>
         <div id="sb-book-list"></div>
     </div>
@@ -6323,9 +6323,9 @@ body.chapter-navigation-loading #main-reading-area::after {
         </button>
         <!-- ナビヘッダー: 旧約聖書 ／ 新約聖書 › 書物名 -->
         <div class="sb-nav-header">
-            <button class="sb-nav-item" id="sb-nav-ot-l2" onclick="sbGoTo(1,'ot')" style="display:none">旧約聖書</button>
+            <button class="sb-nav-item" id="sb-nav-ot-l2" data-i18n="ui.oldTestament" onclick="sbGoTo(1,'ot')" style="display:none">旧約聖書</button>
             <span class="sb-nav-sep" style="display:none">／</span>
-            <button class="sb-nav-item" id="sb-nav-nt-l2" onclick="sbGoTo(1,'nt')">新約聖書</button>
+            <button class="sb-nav-item" id="sb-nav-nt-l2" data-i18n="ui.newTestament" onclick="sbGoTo(1,'nt')">新約聖書</button>
             <span class="sb-nav-sep sb-nav-sep-book">›</span>
             <span class="sb-nav-book" id="sb-l2-title"></span>
         </div>
@@ -6770,7 +6770,7 @@ async function _openRefPopup(book, ch, verse, href) {
     if (!bd) { if (href) location.href = href; return; }
     const titleEl = document.getElementById('rn-ref-modal-title');
     const bodyEl  = document.getElementById('rn-ref-modal-body');
-    if (titleEl) titleEl.textContent = ((typeof BOOK_SHORT !== 'undefined' && BOOK_SHORT[book]) || book) + ch + '章' + verse + '節';
+    if (titleEl) titleEl.textContent = _refTitle(book, ch, verse);
     const actionsHtml = `<div class="rn-ref-actions"><a class="rn-ref-open-btn" href="${_escH(href || ('/' + book + '/' + ch + '/' + verse))}">本文で見る</a></div>`;
     if (bodyEl) bodyEl.innerHTML = '<span class="rn-etym-empty">読み込み中…</span>';
     bd.classList.add('open');
@@ -7659,7 +7659,7 @@ const SIDEBAR_VIEW_NAV_IDS = {
    → book.name（既存のBOOK_SHORTに無い場合のみ、フルタイトルそのまま）。 */
 function _bookShortTitle(book) {
     if (!book) return '';
-    return book.shortTitle || BOOK_SHORT[book.key] || book.name;
+    return book.shortTitle || _T('bookshort.' + book.key, BOOK_SHORT[book.key] || book.name);
 }
 
 /* タブ表示用の安全な最終フォールバック（rule③のtruncate相当）。
@@ -8193,7 +8193,7 @@ function _openWordListInternal(vNum, words, book, ch) {
         const _avBook = book || AppState.location.book;
         const _avCh = ch != null ? ch : AppState.location.chapter;
         activeVEl.textContent = vNum
-            ? ((_avBook && _avCh != null) ? `${_bookShortTitle(_avBook)} ${_avCh}:${vNum}` : `${vNum}節`)
+            ? ((_avBook && _avCh != null) ? `${_bookShortTitle(_avBook)} ${_avCh}:${vNum}` : ((window.I18N && window.I18N.lang !== 'ja') ? `Verse ${vNum}` : `${vNum}節`))
             : '';
     }
     _currentAnalysisParams = null;
@@ -9004,16 +9004,16 @@ async function _renderReadingNotes(p) {
         subjrefEvidenceHTML ? `<div data-study-section="subjref">${subjrefEvidenceHTML}</div>` : ''
     ].filter(Boolean).join('');
     const wordReadingMemoHTML = wordReadingMemoBody
-        ? `<details class="rn-word-reading-note" open><summary>この語の読書メモ</summary>${wordReadingMemoBody}</details>`
+        ? `<details class="rn-word-reading-note" open><summary>${_T('panel.wordReadingNote', 'この語の読書メモ')}</summary>${wordReadingMemoBody}</details>`
         : '';
 
     const syntaxLabelHTML = await _buildSyntaxLabelHTML(_wlvWordCache, ref);
 
     const analysisGroupHTML = (morphCandidatesHTML || syntaxLabelHTML)
-        ? `<div class="rn-l3-group" data-study-group="analysis"><div class="rn-l3-group-label">分析候補・統語情報</div>${(morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML}</div>` : '')}${(syntaxLabelHTML ? `<div class="rn-syntax-labels" data-study-section="syntax">${syntaxLabelHTML}</div>` : '')}</div>`
+        ? `<div class="rn-l3-group" data-study-group="analysis"><div class="rn-l3-group-label">${_T('panel.analysisInfo', '分析候補・統語情報')}</div>${(morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML}</div>` : '')}${(syntaxLabelHTML ? `<div class="rn-syntax-labels" data-study-section="syntax">${syntaxLabelHTML}</div>` : '')}</div>`
         : '';
     const lexicalGroupHTML = (etymologyHTML || abbottFullHTML)
-        ? `<div class="rn-l3-group" data-study-group="lexical"><div class="rn-l3-group-label">語義・語彙資料</div><div class="rn-l3-group-content">${(etymologyHTML ? `<div data-study-section="etymology">${etymologyHTML}</div>` : '')}${(abbottFullHTML ? `<div data-study-section="abbott">${abbottFullHTML}</div>` : '')}</div></div>`
+        ? `<div class="rn-l3-group" data-study-group="lexical"><div class="rn-l3-group-label">${_T('panel.lexicalMaterials', '語義・語彙資料')}</div><div class="rn-l3-group-content">${(etymologyHTML ? `<div data-study-section="etymology">${etymologyHTML}</div>` : '')}${(abbottFullHTML ? `<div data-study-section="abbott">${abbottFullHTML}</div>` : '')}</div></div>`
         : '';
 
     /* ═══════════════════════════════════════════════════════
@@ -9035,15 +9035,15 @@ async function _renderReadingNotes(p) {
         <!-- LEVEL 3: 詳細資料は2つの入口（形と関係／辞書的意味）から任意に開く -->
         ${(morphGridHTML || analysisGroupHTML) ? `
         <details class="rn-level-section rn-l3-entry" data-study-section="morphology" open>
-            <summary class="rn-l3-entry-summary">形と関係を見る</summary>
+            <summary class="rn-l3-entry-summary">${_T('panel.formAndRelations', '形と関係を見る')}</summary>
             <div class="rn-level-body">
-                ${(morphGridHTML ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">原文から確認できる情報</div>${morphGridHTML}</div>` : '')}
+                ${(morphGridHTML ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">${_T('panel.factsFromText', '原文から確認できる情報')}</div>${morphGridHTML}</div>` : '')}
                 ${analysisGroupHTML}
             </div>
         </details>` : ''}
         ${lexicalGroupHTML ? `
         <details class="rn-level-section rn-l3-entry" data-study-section="lexical">
-            <summary class="rn-l3-entry-summary">辞書的意味を見る</summary>
+            <summary class="rn-l3-entry-summary">${_T('panel.lexicalMeaning', '辞書的意味を見る')}</summary>
             <div class="rn-level-body">
                 ${lexicalGroupHTML}
             </div>
@@ -10778,16 +10778,25 @@ const BOOK_NAME = (() => {
     [...SB_BOOKS.nt, ...SB_BOOKS.ot].forEach(b => { m[b.key] = b.name; });
     return m;
 })();
+/* Phase 1a i18n: book names resolve through the UI dictionary
+   (book.<KEY> / bookshort.<KEY>); the Japanese maps stay the fallback,
+   so Japanese display is unchanged. */
+function _bookFullName(key) { return _T('book.' + key, BOOK_NAME[key] || BOOK_SHORT[key] || key); }
+function _bookShortName(key) { return _T('bookshort.' + key, BOOK_SHORT[key] || BOOK_NAME[key] || key); }
+function _refTitle(key, ch, verse) {
+    if (window.I18N && window.I18N.lang !== 'ja') return _bookShortName(key) + ' ' + ch + ':' + verse;
+    return (BOOK_SHORT[key] || key) + ch + '章' + verse + '節';
+}
 function _bookChapterLabel(loc) {
     if (!loc.book || loc.chapter === null) return '本文';
-    const short = BOOK_SHORT[loc.book.key] || loc.book.name;
-    return short + loc.chapter + '章';
+    const short = _T('bookshort.' + loc.book.key, BOOK_SHORT[loc.book.key] || loc.book.name);
+    return (window.I18N && window.I18N.lang !== 'ja') ? short + ' ' + loc.chapter : short + loc.chapter + '章';
 }
 function _rnFmtRef(tok) {
     const r = tok.ref || '';
     const m = r.match(/^([A-Z0-9]+)\s+(\d+):(\d+)/);
-    if (m) return (BOOK_SHORT[m[1]] || m[1]) + m[2] + '章' + m[3] + '節';
-    const bk = BOOK_SHORT[tok.bookKey || ''] || tok.bookKey || '';
+    if (m) return _refTitle(m[1], m[2], m[3]);
+    const bk = tok.bookKey ? _bookShortName(tok.bookKey) : '';
     const ch = tok.ch != null ? tok.ch : '';
     const v  = tok.verse != null ? tok.verse : '';
     return bk + (ch !== '' ? ch + '章' : '') + (v !== '' ? v + '節' : '');
@@ -10822,7 +10831,7 @@ function sbGoTo(layer, section) {
     /* Layer 2: 章グリッドを描画 */
     if (layer === 2) {
         _sbSyncNavHeaders();
-        document.getElementById('sb-l2-title').textContent = sbBookName;
+        document.getElementById('sb-l2-title').textContent = _bookFullName(sbBookKey);
         sbRenderChapters();
     }
 
@@ -10852,9 +10861,9 @@ function sbRenderBooks() {
         const div = document.createElement('div');
         div.className = 'sb-row' + (b.key === sbBookKey ? ' active' : '');
         const hasGreek = GREEK_BOOKS.has(b.key);
-        div.innerHTML = `<span>${b.name}</span><span class="sb-row-arrow">›</span>`;
+        div.innerHTML = `<span>${_bookFullName(b.key)}</span><span class="sb-row-arrow">›</span>`;
         if (!hasGreek) {
-            div.title = '日本語訳のみ';
+            div.title = _T('ui.jaOnly', '日本語訳のみ');
             div.querySelector('span').style.color = 'var(--text-sub)';
         }
         div.onclick = () => {
@@ -10868,7 +10877,7 @@ function sbRenderBooks() {
     if (sbSection === 'nt') {
         const otNote = document.createElement('div');
         otNote.className = 'sb-ot-note';
-        otNote.textContent = '旧約聖書は準備中です';
+        otNote.textContent = _T('ui.otInPreparation', '旧約聖書は準備中です');
         list.appendChild(otNote);
     }
 }
@@ -10992,9 +11001,9 @@ function _sbRenderNtBooksL0() {
         const div = document.createElement('div');
         div.className = 'sb-row' + (b.key === sbBookKey ? ' active' : '');
         const hasGreek = GREEK_BOOKS.has(b.key);
-        div.innerHTML = `<span>${b.name}</span><span class="sb-row-arrow">›</span>`;
+        div.innerHTML = `<span>${_bookFullName(b.key)}</span><span class="sb-row-arrow">›</span>`;
         if (!hasGreek) {
-            div.title = '日本語訳のみ';
+            div.title = _T('ui.jaOnly', '日本語訳のみ');
             div.querySelector('span').style.color = 'var(--text-sub)';
         }
         div.onclick = () => {
@@ -11009,7 +11018,7 @@ function _sbRenderNtBooksL0() {
     /* 入口導線 Phase 1: 旧約が無いことを探し回らせないための一行 */
     const otNote = document.createElement('div');
     otNote.className = 'sb-ot-note';
-    otNote.textContent = '旧約聖書は準備中です';
+    otNote.textContent = _T('ui.otInPreparation', '旧約聖書は準備中です');
     container.appendChild(otNote);
 }
 
@@ -11693,7 +11702,7 @@ async function showRecentVerses() {
     const hasLatestLoc = latest.bookKey && latest.chapter != null && latest.verse != null;
     let continueHtml = '';
     if (hasLatestLoc) {
-        const bookName = BOOK_NAME[latest.bookKey] || BOOK_SHORT[latest.bookKey] || latest.bookKey;
+        const bookName = _bookFullName(latest.bookKey);
         const href = `index.html?book=${encodeURIComponent(latest.bookKey)}&ch=${encodeURIComponent(latest.chapter)}&verse=${encodeURIComponent(latest.verse)}`;
         let verseText = '';
         try {
@@ -11728,7 +11737,7 @@ async function showRecentVerses() {
         });
         const groupsHtml = groupOrder.map(label => {
             const items = groups[label].map(v => {
-                const bookName = BOOK_NAME[v.bookKey] || BOOK_SHORT[v.bookKey] || v.bookKey;
+                const bookName = _bookFullName(v.bookKey);
                 const title = `${bookName} ${v.chapter}:${v.verse}`;
                 const href = `index.html?book=${encodeURIComponent(v.bookKey)}&ch=${encodeURIComponent(v.chapter)}&verse=${encodeURIComponent(v.verse)}`;
                 return _listItemCard({ title, href });
@@ -11777,7 +11786,7 @@ function showRecentWords() {
                 ? `index.html?book=${encodeURIComponent(w.bookKey)}&ch=${encodeURIComponent(w.chapter)}&verse=${encodeURIComponent(w.verse)}&panel=study`
                 : '';
             const sub = hasLoc
-                ? `${BOOK_SHORT[w.bookKey] || w.bookKey}${Number(w.chapter)}章${Number(w.verse)}節`
+                ? `${_refTitle(w.bookKey, Number(w.chapter), Number(w.verse))}`
                 : '節不明';
             return _listItemCard({ title: w.lemma || '', sub, meta: _listMetaDate(w.timestamp), href });
         }).join('')
@@ -13270,7 +13279,7 @@ async function _renderMobileVerseArea(vNum, words) {
     if (!area) return;
 
     const book = AppState.location.book;
-    const bookName = book ? (book.name || book.key || '') : '';
+    const bookName = book ? _bookFullName(book.key) : '';
     /* Phase 3-6-I A: _syncMobileVerseTitle と同じchapter sourceを使い、title/ref の不一致を解消する。 */
     const ch = _mvvChapter != null ? _mvvChapter : AppState.location.chapter;
     const ref = (bookName && ch != null && vNum != null) ? `${bookName} ${ch}:${vNum}` : '';
@@ -13401,7 +13410,7 @@ function _syncMobileVerseTitle() {
         title = (AppState.inspect.data && AppState.inspect.data.greek) || '';
     } else {
         const book = _mvvBook || AppState.location.book;
-        const bookName = book ? (book.name || book.key || '') : '';
+        const bookName = book ? _bookFullName(book.key) : '';
         const ch = _mvvChapter != null ? _mvvChapter : AppState.location.chapter;
         if (bookName && ch != null && _mvvVNum != null) title = `${bookName} ${ch}:${_mvvVNum}`;
     }
@@ -14771,7 +14780,7 @@ async function _buildWallacePassageNoteHTML(words) {
 
     return `
         <section class="wlv-reading-passage-note">
-            <span class="wlv-pn-label">この節の読書メモ</span>
+            <span class="wlv-pn-label">${_T('panel.passageReadingNote', 'この節の読書メモ')}</span>
             <div class="wlv-pn-prose">
                 ${paras.map(t => `<p>${t}</p>`).join('')}
             </div>
@@ -14797,7 +14806,7 @@ async function _fillWallacePassageNote(words, container) {
             /* 第一層の節読書メモは、本文描画の非同期完了が遅れても開いた状態で表示する。
                第三層の語レベル読書メモは別スロット（#mvv-reading-slot）で表示する。
                入口導線 Phase 1 以降、モバイルのスロットは Inspector 末尾にある。 */
-            slot.outerHTML = `<details class="mvv-passage-note" open><summary>この節の読書メモ</summary>${html}</details>`;
+            slot.outerHTML = `<details class="mvv-passage-note" open><summary>${_T('panel.passageReadingNote', 'この節の読書メモ')}</summary>${html}</details>`;
         } else {
             slot.outerHTML = html;
         }
@@ -14965,10 +14974,10 @@ async function _fillApparatusSection(bookKey, ch, vNum, area) {
         /* 入口導線 Phase 1: PC版も既定は折りたたみ（見出しと件数は見える）。
            従来の「読書メモと同じ階層で常時表示」という判断は、初見の最初の
            表示に符号とギリシャ語を持ってこないため、承認済み設計で上書きする。 */
-        slot.outerHTML = `<details class="wlv-reading-passage-note study-panel-apparatus-note"><summary><span class="wlv-pn-label">本文の異読 <span class="mvv-app-count">${entries.length}件</span></span></summary>${html}</details>`;
+        slot.outerHTML = `<details class="wlv-reading-passage-note study-panel-apparatus-note"><summary><span class="wlv-pn-label">${_T('panel.textualVariants', '本文の異読')} <span class="mvv-app-count">${(window.I18N && window.I18N.lang !== 'ja') ? entries.length : entries.length + '件'}</span></span></summary>${html}</details>`;
     } else {
         /* モバイル版の既存 UI はそのまま維持する。 */
-        slot.outerHTML = `<details class="mvv-passage-note mvv-apparatus-note"><summary>本文の異読 <span class="mvv-app-count">${entries.length}件</span></summary>${html}</details>`;
+        slot.outerHTML = `<details class="mvv-passage-note mvv-apparatus-note"><summary>${_T('panel.textualVariants', '本文の異読')} <span class="mvv-app-count">${(window.I18N && window.I18N.lang !== 'ja') ? entries.length : entries.length + '件'}</span></summary>${html}</details>`;
     }
 }
 
@@ -16235,7 +16244,7 @@ async function _buildLocalRelationFrame(ref) {
     wrap.appendChild(controls);
     wrap._frameEl = frame;
     const _rm = /^(\S+)\s+(\d+):(\d+)/.exec(ref || '');
-    wrap._refLabel = _rm ? ((typeof BOOK_NAME !== 'undefined' && BOOK_NAME[_rm[1]]) || (typeof BOOK_SHORT !== 'undefined' && BOOK_SHORT[_rm[1]]) || _rm[1]) + ' ' + _rm[2] + ':' + _rm[3] : '';
+    wrap._refLabel = _rm ? _bookFullName(_rm[1]) + ' ' + _rm[2] + ':' + _rm[3] : '';
     return wrap;
 }
 
@@ -16553,9 +16562,9 @@ async function _fillRelationSlot(slotId, ref) {
         const head = document.createElement('div');
         head.className = 'local-rel-head';
         head.innerHTML =
-            '<div class="local-rel-title">文の中での関係</div>' +
+            '<div class="local-rel-title">' + _T('panel.relationsInSentence', '文の中での関係') + '</div>' +
             '<div class="local-rel-caption">選んだ語が、文のほかの語とどう関わっているか</div>' +
-            '<details class="local-rel-legend"><summary>記号の見方</summary>' +
+            '<details class="local-rel-legend"><summary>' + _T('panel.symbolGuide', '記号の見方') + '</summary>' +
             '<ul>' +
             '<li>選んだ語は、緑色で太く表示されます</li>' +
             '<li>線は、語と語がどう関わっているかを表します</li>' +
@@ -17101,7 +17110,7 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     const more = document.createElement('button');
     more.className = 'word-peek-more';
     more.type = 'button';
-    more.textContent = '詳しく見る';
+    more.textContent = _T('panel.seeDetails', '詳しく見る');
     const chev = document.createElement('span');
     chev.setAttribute('aria-hidden', 'true');
     chev.textContent = '›';
@@ -17335,7 +17344,7 @@ function _openSegPeek(segEl, tis) {
     const more = document.createElement('button');
     more.className = 'word-peek-more';
     more.type = 'button';
-    more.textContent = '詳しく見る';
+    more.textContent = _T('panel.seeDetails', '詳しく見る');
     const chev = document.createElement('span');
     chev.setAttribute('aria-hidden', 'true');
     chev.textContent = '›';
@@ -18146,7 +18155,7 @@ async function _fillMvvReadingSlot(words, idx) {
     /* HTMLタグだけ・空白だけの結果ではトグルを作らない。表示テキストがある場合のみ表示する。 */
     if (richHTML && _stripHTMLToText(richHTML)) {
         /* 第三層では第一層の節メモとは別に、この語に対応する読書メモを開いた状態で表示する。 */
-        slot.innerHTML = `<button type="button" class="rn-word-reading-note-heading" aria-expanded="true">この語の読書メモ</button><div class="rn-word-reading-note-body">${richHTML}</div>`;
+        slot.innerHTML = `<button type="button" class="rn-word-reading-note-heading" aria-expanded="true">${_T('panel.wordReadingNote', 'この語の読書メモ')}</button><div class="rn-word-reading-note-body">${richHTML}</div>`;
         slot.style.display = 'block';
         const memoHeading = slot.querySelector('.rn-word-reading-note-heading');
         const memoBody = slot.querySelector('.rn-word-reading-note-body');
@@ -18387,25 +18396,25 @@ function _renderMobileWordDetail(d) {
 
         ${hasStudyDetails ? `
         <details class="mvv-l3-section rn-l3-entry" data-study-section="morphology" open>
-          <summary class="mvv-l3-summary">形と関係を見る</summary>
+          <summary class="mvv-l3-summary">${_T('panel.formAndRelations', '形と関係を見る')}</summary>
           <div class="mvv-l3-slot">
-            ${(d.lemma || d.strong || morphTags) ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">原文から確認できる情報</div>
+            ${(d.lemma || d.strong || morphTags) ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">${_T('panel.factsFromText', '原文から確認できる情報')}</div>
               ${(d.lemma ? `<div>見出し語: <span class="mvv-l3-lemma">${_escH(d.lemma)}</span></div>` : '')}
               ${(d.strong ? `<div class="mvv-l3-strong" style="margin-top:var(--space-xs);">Strong: ${_escH(String(d.strong))}</div>` : '')}
               ${(morphTags ? `<div style="margin-top:var(--space-md);">${morphTags}</div>` : '')}
               ${(d.structureText ? `<div style="margin-top:var(--space-xs);">構造: ${_escH(d.structureText)}</div>` : '')}
             </div>` : ''}
             <div class="rn-l3-group" data-study-group="analysis" style="${morphCandidatesHTML ? '' : 'display:none;'}">
-              ${(morphCandidatesHTML ? `<div class="rn-l3-group-label">分析候補・統語情報</div>${morphCandidatesHTML}` : '')}
+              ${(morphCandidatesHTML ? `<div class="rn-l3-group-label">${_T('panel.analysisInfo', '分析候補・統語情報')}</div>${morphCandidatesHTML}` : '')}
               <div id="mvv-syntax-slot" class="rn-syntax-labels" data-study-section="syntax" style="display:none;"></div>
             </div>
           </div>
         </details>
         <details class="mvv-l3-section rn-l3-entry" data-study-section="lexical" id="mvv-lexical-details" style="display:none;">
-          <summary class="mvv-l3-summary">辞書的意味を見る</summary>
+          <summary class="mvv-l3-summary">${_T('panel.lexicalMeaning', '辞書的意味を見る')}</summary>
           <div class="mvv-l3-slot">
             <div class="rn-l3-group" data-study-group="lexical" id="mvv-lexical-group" style="display:none;">
-              <div class="rn-l3-group-label" id="mvv-lexical-heading" style="display:none;">語義・語彙資料</div>
+              <div class="rn-l3-group-label" id="mvv-lexical-heading" style="display:none;">${_T('panel.lexicalMaterials', '語義・語彙資料')}</div>
               <div class="rn-l3-group-content">
                 <div id="mvv-etymology-slot"></div>
                 <div id="mvv-abbott-slot"></div>
@@ -19890,15 +19899,15 @@ function _mbpRenderLayer(layer) {
 
     if (layer === 1) {
         /* Layer 1: NT / OT 選択 */
-        titleEl.textContent = '書物を選ぶ';
+        titleEl.textContent = _T('picker.bookTitle', '書物を選ぶ');
         content.innerHTML =
             '<div class="mbp-section-label">Testament</div>' +
             '<div class="mbp-row" onclick="_mbpSelectTestament(\'nt\')">' +
-                '<span>新約聖書</span><span class="mbp-row-chevron">›</span></div>' +
-            '<div class="mbp-ot-note">旧約聖書は準備中です</div>';
+                '<span>' + _T('ui.newTestament', '新約聖書') + '</span><span class="mbp-row-chevron">›</span></div>' +
+            '<div class="mbp-ot-note">' + _T('ui.otInPreparation', '旧約聖書は準備中です') + '</div>';
     } else if (layer === 2) {
         /* Layer 2: Book 一覧 */
-        const testLabel = _mbpSection === 'nt' ? '新約聖書' : '旧約聖書（LXX）';
+        const testLabel = _mbpSection === 'nt' ? _T('ui.newTestament', '新約聖書') : _T('ui.oldTestamentLxx', '旧約聖書（LXX）');
         titleEl.textContent = testLabel;
         const books = (SB_BOOKS[_mbpSection] || []);
         const curKey = AppState.location.book ? AppState.location.book.key : '';
@@ -19907,8 +19916,8 @@ function _mbpRenderLayer(layer) {
             const isCur = (b.key === curKey) ? ' style="font-weight:700;"' : '';
             html +=
                 '<div class="mbp-row" onclick="_mbpSelectBook(\'' + b.key + '\',\'' +
-                _escMbp(b.name) + '\',' + b.ch + ')"' + isCur + '>' +
-                '<span>' + _escMbp(b.name) + '</span>' +
+                _escMbp(_bookFullName(b.key)) + '\',' + b.ch + ')"' + isCur + '>' +
+                '<span>' + _escMbp(_bookFullName(b.key)) + '</span>' +
                 '<span class="mbp-row-chevron">›</span></div>';
         }
         content.innerHTML = html;
@@ -20781,7 +20790,7 @@ async function _hlRenderHighlightList(app) {
     let rowsHtml = '';
     if (filtered.length) {
         rowsHtml = filtered.map(h => {
-            const bookName = BOOK_NAME[h.book] || BOOK_SHORT[h.book] || h.book;
+            const bookName = _bookFullName(h.book);
             const titleText = `${bookName} ${h.chapter}:${h.verse}`;
             const rangeLabel = h.tokenStart == null ? '節全体' :
                                (h.tokenStart === h.tokenEnd ? `語${h.tokenStart}` : `語${h.tokenStart}–${h.tokenEnd}`);
@@ -20802,7 +20811,7 @@ async function _hlRenderHighlightList(app) {
     let bkSection = '';
     if (bookmarks.length && _hlListFilter === 'all') {
         const bkRows = bookmarks.map(b => {
-            const bk = BOOK_SHORT[b.bookKey] || b.bookKey;
+            const bk = _bookShortName(b.bookKey);
             const title = (b.bookKey && b.chapter != null && b.verse != null)
                 ? `${bk}${b.chapter}章${b.verse}節`
                 : (b.ref || '');
