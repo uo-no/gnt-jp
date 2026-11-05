@@ -2700,6 +2700,7 @@ animation: ac-blink 1.2s ease-in-out infinite;
 .hl-picker-meaning {
     font-size: 16px; font-weight: 700; color: var(--text-main);
     line-height: 1.45;
+    padding-right: 26px; /* 右上の×ボタンと重ならない */
 }
 .hl-picker-nametag {
     margin-top: 2px;
@@ -2724,6 +2725,9 @@ animation: ac-blink 1.2s ease-in-out infinite;
     min-width: 200px;
 }
 #hl-color-picker.hl-open { display: flex; animation: bottomCardIn .22s ease-out; }
+/* 色と「範囲指定」は上下に積まず、1行に横並びにする（色＝主役を左、
+   範囲指定＝モード切替を右端）。範囲指定が隠れる状態では色だけが左に残る。 */
+.hl-picker-main { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .hl-picker-row { display: flex; gap: 8px; align-items: center; }
 .hl-picker-swatch {
     width: 28px; height: 28px;
@@ -4041,7 +4045,9 @@ details[open] .study-summary::before {
 .word-peek-hl::before {
     content: '';
     width: 0.72em; height: 0.72em; border-radius: 50%;
-    background: #fccc00;
+    /* 既存ハイライトがある語ではその色を出す（--peek-hl-dot をピーク側で設定）。
+       無い場合はデフォルト色（黄）の予告として従来どおり。 */
+    background: var(--peek-hl-dot, #fccc00);
     border: 1px solid rgba(0, 0, 0, 0.18);
     margin-right: var(--space-xs);
     flex: none;
@@ -17094,6 +17100,13 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     hlBtn.className = 'word-peek-hl';
     hlBtn.type = 'button';
     hlBtn.textContent = 'ハイライト';
+    /* 既にハイライト済みの語では、ドットをその色で出す */
+    try {
+        const r0 = (typeof _hlRefFromEl === 'function') ? _hlRefFromEl(chipEl) : null;
+        const ex0 = r0 && (typeof _hlFindExisting === 'function')
+            ? _hlFindExisting(r0.book, r0.chapter, r0.verse, r0.tokenStart, r0.tokenStart) : null;
+        if (ex0 && HL_COLOR_HEX[ex0.color]) hlBtn.style.setProperty('--peek-hl-dot', HL_COLOR_HEX[ex0.color]);
+    } catch (_) {}
     hlBtn.addEventListener('click', () => {
         const chipNow = _peekChipEl;
         _closeWordPeek();
@@ -17319,6 +17332,13 @@ function _openSegPeek(segEl, tis) {
     hlBtn.className = 'word-peek-hl';
     hlBtn.type = 'button';
     hlBtn.textContent = 'ハイライト';
+    /* 既にハイライト済みの区間では、ドットをその色で出す */
+    try {
+        const exEntries = _hlEntriesForTokens(book, ch, v, tis).filter(en => en._isExisting);
+        if (exEntries.length && HL_COLOR_HEX[exEntries[0].color]) {
+            hlBtn.style.setProperty('--peek-hl-dot', HL_COLOR_HEX[exEntries[0].color]);
+        }
+    } catch (_) {}
     hlBtn.addEventListener('click', () => {
         const segNow = _peekSegEl;
         _closeWordPeek();
@@ -20007,6 +20027,7 @@ function _mmpSelectMode(id) {
 /* ── 定数 ── */
 const HL_COLORS = ['yellow', 'blue', 'green', 'red'];
 const HL_COLOR_NAMES = { yellow: '黄', blue: '青', green: '緑', red: '赤' };
+const HL_COLOR_HEX = { yellow: '#fccc00', blue: '#004c97', green: '#15722c', red: '#eb6100' };
 
 /* ── 操作状態（色選択・複数語選択）── */
 const _hlState = {
@@ -20183,7 +20204,10 @@ function _hlPickerWordInfo(entry, anchorEl) {
     if (!entries || entries.length !== 1) return null;
     const e = entries[0];
     if (!e || e.tokenStart == null) return null;
-    if (e.tokenEnd != null && Number(e.tokenEnd) !== Number(e.tokenStart)) return null;
+    const isRange = e.tokenEnd != null && Number(e.tokenEnd) !== Number(e.tokenStart);
+    /* 範囲エントリはチップ1語の情報にはならない（従来どおり）。ただし範囲が
+       口語訳セグメント全体と一致する場合は、セグメントとして解決する。 */
+    if (isRange) return _hlPickerSegInfo(e);
     const keyOf = r => [String(r.book), Number(r.chapter), Number(r.verse), Number(r.tokenStart)].join(':');
     const key = keyOf(e);
     const matches = el => {
@@ -20195,7 +20219,7 @@ function _hlPickerWordInfo(entry, anchorEl) {
     if (!el) {
         el = Array.from(document.querySelectorAll('#bible-text-area .wlv-chip, #parallel-text-area .wlv-chip')).find(matches) || null;
     }
-    if (!el) return null;
+    if (!el) return _hlPickerSegInfo(e);
     const block = el.closest('.gf-verse-block, .verse-block');
     const list = block && (block._flowChips || block._flowWords);
     const chip = list && list.find(item => String(item.tokenId) === String(el.dataset.tokenId));
@@ -20205,6 +20229,54 @@ function _hlPickerWordInfo(entry, anchorEl) {
     const lemma = (chip && chip.lemma) || '';
     if (!meaning && !greek) return null;
     return { meaning, greek, lemma };
+}
+
+/* 口語訳セグメント対象のピッカーヘッダー情報。チップが存在しないモードでは
+   _hlPickerWordInfo が引けないため、.ja-seg から解決する（PR #496 の
+   「1語対象では意味＋名札を出す」を口語訳にも届かせる）。
+   - 単一トークンのセグメント：セグメントピーク（単一トークン時）と同源から
+     「この箇所での意味」＋形・原形を引く。
+   - 複数トークンのセグメント全体が対象の範囲エントリ：セグメントはタップ
+     対象として1つの句なので、見出しは区間の訳文そのもの（セグメントピークの
+     複数トークン時と同じ）、名札に内訳の形・原形を並べる。
+   それ以外（セグメントに一致しない範囲など）は null（ヘッダーを出さない）。 */
+function _hlPickerSegInfo(e) {
+    if (!e || e.tokenStart == null || typeof _jaSegTokenIdxList !== 'function') return null;
+    const isRange = e.tokenEnd != null && Number(e.tokenEnd) !== Number(e.tokenStart);
+    const seg = Array.from(document.querySelectorAll(
+        '#bible-text-area .ja-seg, #parallel-text-area .ja-seg'
+    )).find(s => {
+        if (String(s.dataset.jaBook) !== String(e.book)) return false;
+        if (Number(s.dataset.jaCh) !== Number(e.chapter) || Number(s.dataset.jaV) !== Number(e.verse)) return false;
+        const tis = _jaSegTokenIdxList(s);
+        if (!tis.length) return false;
+        if (isRange) return tis.length > 1 && tis[0] === Number(e.tokenStart) && tis[tis.length - 1] === Number(e.tokenEnd);
+        return tis.length === 1 && tis[0] === Number(e.tokenStart);
+    });
+    if (!seg) return null;
+    const tis = _jaSegTokenIdxList(seg);
+    const toks = tis.map(ti => _jaSegToken(e.book, Number(e.chapter), Number(e.verse), ti)).filter(Boolean);
+    if (!toks.length) return null;
+    if (toks.length > 1) {
+        return {
+            meaning: (seg.textContent || '').trim(),
+            greek: toks.map(w => w.text || '').filter(Boolean).join(' '),
+            lemma: toks.map(w => w.lemma || '').filter(Boolean).join(' ')
+        };
+    }
+    const w = toks[0];
+    const words = _jaSegVerseWords(e.book, Number(e.chapter), Number(e.verse));
+    const idx = words.indexOf(w);
+    let meaning = '';
+    try {
+        const resolved = window.App?.readingEngine?.resolve(w, _buildReadingContext(words, idx));
+        meaning = (resolved && resolved.japanese) || w.japanese || '';
+        if (meaning && window.App?.PresentationPolicy) {
+            meaning = window.App.PresentationPolicy.formatDisplay(meaning, resolved && resolved.source, words, idx);
+        }
+    } catch (_) { meaning = w.japanese || ''; }
+    if (!meaning && !w.text) return null;
+    return { meaning, greek: w.text || '', lemma: w.lemma || '' };
 }
 
 function _hlOpenPicker(entry, anchorEl) {
@@ -20778,19 +20850,22 @@ function _hlSetFilter(color) {
 <!-- Highlight V1: color picker popup -->
 <div id="hl-color-picker-overlay" onclick="_hlPickerDismiss()"></div>
 <div id="hl-color-picker" role="dialog" aria-label="ハイライトの色">
+    <button type="button" class="word-peek-close" onclick="_hlPickerDismiss()" aria-label="閉じる">×</button>
     <div id="hl-picker-word" style="display:none">
         <div class="hl-picker-meaning" id="hl-picker-meaning"></div>
         <div class="hl-picker-nametag"><span id="hl-picker-greek"></span><span id="hl-picker-lemma"></span></div>
     </div>
-    <div class="hl-picker-actions">
-        <button class="hl-picker-action" onclick="_hlEnterMultiSelectMode()">範囲指定</button>
-    </div>
-    <div class="hl-picker-row">
-        <button class="hl-picker-swatch" data-color="yellow" onclick="_hlColorSelected('yellow')" title="黄"></button>
-        <button class="hl-picker-swatch" data-color="blue"   onclick="_hlColorSelected('blue')"   title="青"></button>
-        <button class="hl-picker-swatch" data-color="green"  onclick="_hlColorSelected('green')"  title="緑"></button>
-        <button class="hl-picker-swatch" data-color="red"    onclick="_hlColorSelected('red')"    title="赤"></button>
-        <button class="hl-picker-delete" onclick="_hlColorSelected(null)" title="ハイライトを削除" aria-label="ハイライトを削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="hl-picker-main">
+        <div class="hl-picker-row">
+            <button class="hl-picker-swatch" data-color="yellow" onclick="_hlColorSelected('yellow')" title="黄"></button>
+            <button class="hl-picker-swatch" data-color="blue"   onclick="_hlColorSelected('blue')"   title="青"></button>
+            <button class="hl-picker-swatch" data-color="green"  onclick="_hlColorSelected('green')"  title="緑"></button>
+            <button class="hl-picker-swatch" data-color="red"    onclick="_hlColorSelected('red')"    title="赤"></button>
+            <button class="hl-picker-delete" onclick="_hlColorSelected(null)" title="ハイライトを削除" aria-label="ハイライトを削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+        <div class="hl-picker-actions">
+            <button class="hl-picker-action" onclick="_hlEnterMultiSelectMode()">範囲指定</button>
+        </div>
     </div>
 </div>
 <div id="hl-touch-pill" role="group" aria-label="ハイライト操作">
