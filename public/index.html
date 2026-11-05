@@ -6253,6 +6253,7 @@ body.chapter-navigation-loading #main-reading-area::after {
     letter-spacing: 0.04em;
     pointer-events: auto;
 }
+html[lang=en] body.chapter-navigation-loading::after { content: 'Loading'; }
 </style>
 
 </head>
@@ -6302,7 +6303,7 @@ body.chapter-navigation-loading #main-reading-area::after {
         </div>
         <div class="section-label menu-text" style="padding: var(--space-md) var(--space-sm) var(--space-xs);">履歴</div>
         <div class="sb-row" id="nav-recent-verses" onclick="showRecentVerses()">
-            <span class="menu-text">最近読んだ箇所</span>
+            <span class="menu-text" data-i18n="view.recentVerses">最近読んだ箇所</span>
         </div>
         <div class="sb-row" id="nav-recent-words" onclick="showRecentWords()">
             <span class="menu-text">最近見た単語</span>
@@ -6470,7 +6471,7 @@ body.chapter-navigation-loading #main-reading-area::after {
                 <!-- Phase G-1: アクションメニュー（既存関数を呼ぶだけ）。初期非表示。 -->
                 <div id="mobile-verse-action-menu" role="menu" aria-label="節の操作">
                     <button class="mvv-action-item" role="menuitem" onclick="_mvvMenuAction('highlight')" data-i18n="ui.highlight">ハイライト</button>
-                    <button class="mvv-action-item" data-icon="link" role="menuitem" onclick="_mvvMenuAction('share')">共有</button>
+                    <button class="mvv-action-item" data-icon="link" role="menuitem" onclick="_mvvMenuAction('share')" data-i18n="ui.share">共有</button>
                 </div>
             </div>
             <div id="mobile-verse-area">placeholder</div>
@@ -6831,19 +6832,19 @@ async function _openRefPopup(book, ch, verse, href) {
     const titleEl = document.getElementById('rn-ref-modal-title');
     const bodyEl  = document.getElementById('rn-ref-modal-body');
     if (titleEl) titleEl.textContent = _refTitle(book, ch, verse);
-    const actionsHtml = `<div class="rn-ref-actions"><a class="rn-ref-open-btn" href="${_escH(href || ('/' + book + '/' + ch + '/' + verse))}">本文で見る</a></div>`;
-    if (bodyEl) bodyEl.innerHTML = '<span class="rn-etym-empty">読み込み中…</span>';
+    const actionsHtml = `<div class="rn-ref-actions"><a class="rn-ref-open-btn" href="${_escH(href || ('/' + book + '/' + ch + '/' + verse))}">${_T('ref.seeInText', '本文で見る')}</a></div>`;
+    if (bodyEl) bodyEl.innerHTML = '<span class="rn-etym-empty">' + _T('ui.loading', '読み込み中…') + '</span>';
     bd.classList.add('open');
 
     const data = (typeof _loadBdChapter === 'function') ? await _loadBdChapter(book, ch) : null;
     if (!bd.classList.contains('open')) return; /* 読み込み中に閉じられた */
     if (!Array.isArray(data)) {
-        if (bodyEl) bodyEl.innerHTML = `<div class="rn-ref-note">この箇所の本文データを取得できませんでした。「本文で見る」から開いてください。</div>` + actionsHtml;
+        if (bodyEl) bodyEl.innerHTML = `<div class="rn-ref-note">${_T('ref.fetchFailed', 'この箇所の本文データを取得できませんでした。「本文で見る」から開いてください。')}</div>` + actionsHtml;
         return;
     }
     const toks = data.filter(t => String(t.chapter) === String(ch) && String(t.verse) === String(verse));
     if (!toks.length) {
-        if (bodyEl) bodyEl.innerHTML = `<div class="rn-ref-note">この箇所の本文データを取得できませんでした。「本文で見る」から開いてください。</div>` + actionsHtml;
+        if (bodyEl) bodyEl.innerHTML = `<div class="rn-ref-note">${_T('ref.fetchFailed', 'この箇所の本文データを取得できませんでした。「本文で見る」から開いてください。')}</div>` + actionsHtml;
         return;
     }
     const curId = (typeof AppState !== 'undefined' && AppState.inspect && AppState.inspect.data)
@@ -6863,15 +6864,17 @@ async function _openRefPopup(book, ch, verse, href) {
         const glossJa  = (entry && entry.gloss_ja) || '';
         const formJa   = _refFormJa(t);
         const rows = [];
-        if (headword) rows.push(`<div class="rn-ref-word-row"><dt>見出し語</dt><dd><span class="rn-ref-gr">${_escH(headword)}</span>${glossJa ? '（' + _escH(glossJa) + '）' : ''}</dd></div>`);
+        if (headword) rows.push(`<div class="rn-ref-word-row"><dt>${_T('ref.lemma', '見出し語')}</dt><dd><span class="rn-ref-gr">${_escH(headword)}</span>${glossJa ? '（' + _escH(glossJa) + '）' : ''}</dd></div>`);
         if (t.class)  rows.push(`<div class="rn-ref-word-row"><dt>${_T('morph.pos', '品詞')}</dt><dd>${_escH((t.class === 'noun' && t.type === 'proper') ? _T('morph.properNoun', '固有名詞') : (_refForm().pos[t.class] || t.class))}</dd></div>`);
-        rows.push(`<div class="rn-ref-word-row"><dt>形</dt><dd><span class="rn-ref-gr">${_escH(t.text || '')}</span>${formJa ? '（' + _escH(formJa) + '）' : ''}</dd></div>`);
+        rows.push(`<div class="rn-ref-word-row"><dt>${_T('ref.form', '形')}</dt><dd><span class="rn-ref-gr">${_escH(t.text || '')}</span>${formJa ? '（' + _escH(formJa) + '）' : ''}</dd></div>`);
         const _meanGloss = _glossSidecarFor(t) || t.japanese;
-        if (_meanGloss) rows.push(`<div class="rn-ref-word-row"><dt>意味</dt><dd>${_escH(_meanGloss)}</dd></div>`);
-        wordHtml = `<div class="rn-ref-word-label">この箇所での単語の説明</div><dl class="rn-ref-word-rows">${rows.join('')}</dl>`
-            + (hits.length > 1 ? `<div class="rn-ref-note">この節には他に${hits.length - 1}回、同じ語が出てきます（強調表示）。</div>` : '');
+        if (_meanGloss) rows.push(`<div class="rn-ref-word-row"><dt>${_T('ref.meaning', '意味')}</dt><dd>${_escH(_meanGloss)}</dd></div>`);
+        wordHtml = `<div class="rn-ref-word-label">${_T('ref.wordInContext', 'この箇所での単語の説明')}</div><dl class="rn-ref-word-rows">${rows.join('')}</dl>`
+            + (hits.length > 1 ? ((window.I18N && I18N.lang === 'en')
+                ? `<div class="rn-ref-note">This verse contains the same word ${hits.length - 1} more time(s) (highlighted).</div>`
+                : `<div class="rn-ref-note">この節には他に${hits.length - 1}回、同じ語が出てきます（強調表示）。</div>`) : '');
     } else if (curId) {
-        wordHtml = `<div class="rn-ref-note">この箇所では見出し語そのものは使われていません。</div>`;
+        wordHtml = `<div class="rn-ref-note">${_T('ref.lemmaNotUsed', 'この箇所では見出し語そのものは使われていません。')}</div>`;
     }
     if (bodyEl) bodyEl.innerHTML = `<div class="rn-ref-verse">${verseHtml}</div>` + wordHtml + actionsHtml;
 }
@@ -7611,11 +7614,11 @@ function renderGlobalBreadcrumb() {
 
     const loc = AppState.location;
     if (!loc.testament) {
-        el.innerHTML = '<span class="gbc-item current">聖書</span>';
+        el.innerHTML = `<span class="gbc-item current">${_T('ui.bible', '聖書')}</span>`;
         return;
     }
 
-    const testamentLabel = loc.testament === 'nt' ? '新約聖書' : '旧約聖書';
+    const testamentLabel = loc.testament === 'nt' ? _T('ui.newTestament', '新約聖書') : _T('ui.oldTestament', '旧約聖書');
     const items = [];
 
     /* 聖書全体（testament）- クリックで書物一覧へ */
@@ -7635,17 +7638,17 @@ function renderGlobalBreadcrumb() {
         items.push(
             `<span class="gbc-item current gbc-chapter-nav">` +
             `<button class="gbc-ch-arrow" onclick="event.stopPropagation();_gbcPrevChapter()" aria-label="前の章"${_ch <= 1 ? ' disabled' : ''}>◀</button>` +
-            `<button class="gbc-ch-label" onclick="_gbcGoChapter()">${_ch}章</button>` +
+            `<button class="gbc-ch-label" onclick="_gbcGoChapter()">${(window.I18N && I18N.lang === 'en') ? String(_ch) : _ch + '章'}</button>` +
             `<button class="gbc-ch-arrow" onclick="event.stopPropagation();_gbcNextChapter()" aria-label="次の章"${_ch >= _maxCh ? ' disabled' : ''}>▶</button>` +
             `</span>`
         );
 
         /* 読み方：5項目のみ。BUN / DISCOURSE / 翻訳IDは表示しない */
         const _GBC_MODE_LABELS = {
-            'JA1955':      '口語訳',
-            'WORD_ORDER':  '語順で読む',
-            'DA_READING': '文の構造で読む',
-            'ROLE_READING': '語の役割で読む',
+            'JA1955':       _T('mode.JA1955', '口語訳'),
+            'WORD_ORDER':   _T('mode.WORD_ORDER', '語順で読む'),
+            'DA_READING':   _T('mode.DA_READING', '文の構造で読む'),
+            'ROLE_READING': _T('mode.ROLE_READING', '語の役割で読む'),
         };
         const _modeLabel = _GBC_MODE_LABELS[_transA];
         if (_modeLabel) {
@@ -7672,7 +7675,7 @@ function _gbcGoBook() {
         const inNt = SB_BOOKS.nt.some(b => b.key === loc.book.key);
         sbSection  = inNt ? 'nt' : 'ot';
         sbBookKey  = loc.book.key;
-        sbBookName = loc.book.name;
+        sbBookName = _bookFullName(loc.book.key);
         sbMaxCh    = loc.book.ch;
     }
     if (!_isSidebarOpen()) _openSidebar();
@@ -8760,7 +8763,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
     };
     const primaryHTML = primaryCandidates.map(c => renderCandidate(c, true)).join('');
     const tiedNotice = !topHasLead && primaryCandidates.length > 1
-        ? '<div class="rn-syntax-tied-notice">今回の解析では、一つの候補に絞れていません。</div>'
+        ? `<div class="rn-syntax-tied-notice">${_T('panel.tiedNotice', '今回の解析では、一つの候補に絞れていません。')}</div>`
         : '';
     const otherHTML = otherCandidates.length
         ? `<div class="rn-syntax-alternatives"><div class="rn-syntax-alternatives-label">ほかの候補（${otherCandidates.length}件）</div><div class="rn-syntax-alternatives-list">${otherCandidates.map(c => renderCandidate(c, false)).join('')}</div></div>`
@@ -8979,7 +8982,13 @@ async function _renderReadingNotes(p) {
           jaWord への安全網のみ・実トークンでは発火しない）。 */
     const displayLabel    = (window.App?.readingLexicon?.getDisplayLabel(resolvedId)) || jaWord || '';
     /* ③ 語義説明は abbottSmith（下の語義セクション）が担う。gloss_ja は見出しに使わない */
-    const abbottSmithText = lexEntry?.abbottSmith || '';
+    const _enUiAbbott = window.I18N && I18N.lang === 'en';
+    const _abbottDigits = resolvedId ? resolvedId.replace(/^grc:G/i, '') : '';
+    const abbottSmithText = _enUiAbbott
+        ? (typeof abbottSmithDict !== 'undefined' && abbottSmithDict && _abbottDigits
+            ? (abbottSmithDict[_abbottDigits]?.descriptionEn || '')
+            : '')
+        : (lexEntry?.abbottSmith || '');
     const contexts        = lexEntry?.contexts || {};
     const synopticRefs    = contexts.synoptic_refs || [];
     const paulineRefs     = contexts.pauline_refs  || [];
@@ -9036,7 +9045,7 @@ async function _renderReadingNotes(p) {
         const _structIdx = _wlvWordCache.findIndex(t => t.ref === ref);
         const _struct = (typeof _structFn === 'function' && _structIdx >= 0)
             ? _structFn(_wlvWordCache, _structIdx) : null;
-        if (_struct) morphRows.push({ k: '構造', v: _struct.label_ja, core: false });
+        if (_struct) morphRows.push({ k: _T('panel.structureLabel', '構造'), v: (window.I18N && I18N.lang === 'en') ? (_struct.label_en || _struct.label_ja) : _struct.label_ja, core: false });
     }
 
     const morphGridHTML = morphRows.length
@@ -9106,9 +9115,18 @@ async function _renderReadingNotes(p) {
     /* ── Abbott-Smith full text (Level 2) ── */
     const abbottFullHTML = abbottSmithText
         ? `<div class="rn-dict-full-section">
-               <div class="rn-dict-full-text">${_renderAbbottFullText(abbottSmithText)}</div>
+               <div class="rn-dict-full-text">${_enUiAbbott ? _renderDictionaryLinkedText(abbottSmithText) : _renderAbbottFullText(abbottSmithText)}</div>
            </div>`
         : '';
+
+    if (_enUiAbbott && !abbottSmithText && _abbottDigits) {
+        loadDict().then(() => {
+            const freshText = abbottSmithDict?.[_abbottDigits]?.descriptionEn || '';
+            if (!freshText) return;
+            const slot = document.querySelector('[data-study-section="abbott"] .rn-dict-full-text');
+            if (slot) slot.innerHTML = _renderDictionaryLinkedText(freshText);
+        });
+    }
 
     /* 辞書的な説明は下の辞書全文のみを表示する。 */
     const glossesHTML = '';
@@ -10642,16 +10660,7 @@ function getMorphCandidates(rawMorph, surface) {
 
 function buildMorphTagsHTML(rawMorph) {
     const m = parseMorphForSearch(rawMorph);
-    const JPN = {
-        pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
-        tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了' },
-        voice:  { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動' },
-        mood:   { indicative:'直説法', subjunctive:'接続法', optative:'希求法',
-                  imperative:'命令法', infinitive:'不定詞', participle:'分詞' },
-        gender: { masculine:'男性', feminine:'女性', neuter:'中性' },
-        number: { singular:'単数', plural:'複数' },
-        case:   { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' },
-    };
+    const JPN = _morphFull();
 
     const tags = [];
     const addTag = (value, label, core = false) => {
@@ -10672,7 +10681,7 @@ function buildMorphTagsHTML(rawMorph) {
         addTag(m.mood, JPN.mood[m.mood] || m.mood, true);
         addTag(m.voice, JPN.voice[m.voice] || m.voice);
         addTag(m.tense, JPN.tense[m.tense] || m.tense, true);
-        addTag(m.person, m.person ? m.person + '人称' : '');
+        addTag(m.person, m.person ? _personText(m.person) : '');
         addTag(m.number, JPN.number[m.number] || m.number);
     } else if (['N','A','R','P','T','D'].includes(m.pos)) {
         /* 名詞・名詞系：品詞 → 性 → 数 → 格 */
@@ -10684,7 +10693,7 @@ function buildMorphTagsHTML(rawMorph) {
         addTag(m.mood, JPN.mood[m.mood] || m.mood, true);
         addTag(m.voice, JPN.voice[m.voice] || m.voice);
         addTag(m.tense, JPN.tense[m.tense] || m.tense, true);
-        addTag(m.person, m.person ? m.person + '人称' : '');
+        addTag(m.person, m.person ? _personText(m.person) : '');
         addTag(m.number, JPN.number[m.number] || m.number);
         addTag(m.gender, JPN.gender[m.gender] || m.gender);
         addTag(m.case, JPN.case[m.case] || m.case);
@@ -11775,25 +11784,28 @@ function _listMetaDate(ts) {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const dStart     = new Date(d.getFullYear(),   d.getMonth(),   d.getDate());
     const diffDays   = Math.round((todayStart - dStart) / 86400000);
-    if (diffDays === 0) return '今日';
-    if (diffDays === 1) return '昨日';
-    if (diffDays >= 2 && diffDays <= 6) return diffDays + '日前';
-    if (diffDays === 7) return '1週間前';
+    const isEn = window.I18N && I18N.lang === 'en';
+    if (diffDays === 0) return isEn ? _T('ui.today', '今日') : '今日';
+    if (diffDays === 1) return isEn ? _T('ui.yesterday', '昨日') : '昨日';
+    if (diffDays >= 2 && diffDays <= 6) return isEn ? diffDays + _T('ui.daysAgoSuffix', '日前') : diffDays + '日前';
+    if (diffDays === 7) return isEn ? _T('ui.oneWeekAgo', '1週間前') : '1週間前';
+    if (isEn) return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const DAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
     return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日（' + DAY_JA[d.getDay()] + '）';
 }
 
 /* 最近読んだ履歴のグルーピング用：今日 / 昨日 / それ以前 の3値のみ返す */
 function _listMetaDateGroup(ts) {
-    if (!ts) return 'それ以前';
+    const isEn = window.I18N && I18N.lang === 'en';
+    if (!ts) return isEn ? _T('ui.earlier', 'それ以前') : 'それ以前';
     const d = new Date(ts);
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const dStart     = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const diffDays   = Math.round((todayStart - dStart) / 86400000);
-    if (diffDays === 0) return '今日';
-    if (diffDays === 1) return '昨日';
-    return 'それ以前';
+    if (diffDays === 0) return isEn ? _T('ui.today', '今日') : '今日';
+    if (diffDays === 1) return isEn ? _T('ui.yesterday', '昨日') : '昨日';
+    return isEn ? _T('ui.earlier', 'それ以前') : 'それ以前';
 }
 
 /* opts.actions はボタンHTML（呼び出し側が組み立てた定数テンプレート文字列）を想定し、
@@ -11832,9 +11844,9 @@ async function showRecentVerses() {
     if (!recentVerses.length) {
         app.innerHTML = `
             <div class="static-page list-page">
-                <p class="list-item-empty">最近読んだ箇所はまだありません。</p>
+                <p class="list-item-empty">${_T('ui.noRecentVerses', '最近読んだ箇所はまだありません。')}</p>
                 <div class="back-wrap">
-                    <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+                    <button class="back-btn" onclick="renderCurrentPage()">${_T('ui.backToText', '本文に戻る')}</button>
                 </div>
             </div>`;
         return;
@@ -11849,20 +11861,21 @@ async function showRecentVerses() {
         const href = `index.html?book=${encodeURIComponent(latest.bookKey)}&ch=${encodeURIComponent(latest.chapter)}&verse=${encodeURIComponent(latest.verse)}`;
         let verseText = '';
         try {
-            const chData = await _fetchTranslation('JA1955', latest.bookKey, String(latest.chapter));
+            const _previewTrans = (window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955';
+            const chData = await _fetchTranslation(_previewTrans, latest.bookKey, String(latest.chapter));
             verseText = chData?.verses?.[String(latest.verse)] || '';
         } catch(e) {}
         if (AppState.ui.view !== 'recentVerses') return;
         const previewHtml = verseText
             ? `<div class="rv-continue-preview">${_escH(verseText)}</div>`
-            : `<div class="rv-continue-fallback">今日、ここまで読みました。</div>`;
+            : `<div class="rv-continue-fallback">${_T('ui.youWereReadingHere', '今日、ここまで読みました。')}</div>`;
         continueHtml = `
             <section class="rv-continue-section">
-                <div class="rv-section-label">続きを読む</div>
+                <div class="rv-section-label">${_T('ui.continueReading', '続きを読む')}</div>
                 <div class="rv-continue-card" role="link" tabindex="0" onclick="location.href='${href}'" onkeydown="if(event.target===this&&event.key==='Enter'){event.preventDefault();location.href='${href}'}">
                     <div class="rv-continue-loc">${_escH(bookName)} ${_escH(String(latest.chapter))}:${_escH(String(latest.verse))}</div>
                     ${previewHtml}
-                    <div class="rv-continue-action">読む →</div>
+                    <div class="rv-continue-action">${_T('ui.readArrow', '読む →')}</div>
                 </div>
             </section>`;
     }
@@ -11889,7 +11902,7 @@ async function showRecentVerses() {
         }).join('');
         historyHtml = `
             <section class="rv-history-section">
-                <div class="rv-section-label">最近読んだ箇所</div>
+                <div class="rv-section-label">${_T('ui.recentlyRead', '最近読んだ箇所')}</div>
                 ${groupsHtml}
             </section>`;
     }
@@ -11899,7 +11912,7 @@ async function showRecentVerses() {
             ${continueHtml}
             ${historyHtml}
             <div class="back-wrap">
-                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+                <button class="back-btn" onclick="renderCurrentPage()">${_T('ui.backToText', '本文に戻る')}</button>
             </div>
         </div>`;
 }
@@ -11930,10 +11943,10 @@ function showRecentWords() {
                 : '';
             const sub = hasLoc
                 ? `${_refTitle(w.bookKey, Number(w.chapter), Number(w.verse))}`
-                : '節不明';
+                : _T('ui.locationUnknown', '節不明');
             return _listItemCard({ title: w.lemma || '', sub, meta: _listMetaDate(w.timestamp), href });
         }).join('')
-        : `<p class="list-item-empty">最近見た単語はまだありません。</p>`;
+        : `<p class="list-item-empty">${_T('ui.noRecentWords', '最近見た単語はまだありません。')}</p>`;
 
     const html = `
         <div class="static-page list-page">
@@ -18552,7 +18565,7 @@ async function _fillMvvSyntaxSlot(words, targetRef) {
         if (group && !group.querySelector('.rn-l3-group-label')) {
             const label = document.createElement('div');
             label.className = 'rn-l3-group-label';
-            label.textContent = '分析候補・統語情報';
+            label.textContent = _T('panel.analysisInfo', '分析候補・統語情報');
             group.insertBefore(label, group.firstChild);
         }
         slot.innerHTML = html;
@@ -18578,10 +18591,19 @@ async function _fillMvvLevel2Slot(resolvedId) {
         if (myGen !== _mvvLevel2Gen) return;
 
         const lexEntry   = resolvedId ? _lexiconData?.[resolvedId] : null;
-        const abbottSmithText = lexEntry?.abbottSmith || '';
         const contexts   = lexEntry?.contexts || {};
         const synopticRefs = contexts.synoptic_refs || [];
         const paulineRefs  = contexts.pauline_refs  || [];
+
+        const _enUiAbbottMvv = window.I18N && I18N.lang === 'en';
+        const _abbottDigitsMvv = resolvedId ? resolvedId.replace(/^grc:G/i, '') : '';
+        let abbottSmithText = '';
+        if (_enUiAbbottMvv && _abbottDigitsMvv) {
+            await loadDict();
+            abbottSmithText = abbottSmithDict?.[_abbottDigitsMvv]?.descriptionEn || '';
+        } else {
+            abbottSmithText = lexEntry?.abbottSmith || '';
+        }
 
         /* 使用傾向は検索ツールで確認するため、第三層では重複表示しない。 */
 
@@ -18594,7 +18616,7 @@ async function _fillMvvLevel2Slot(resolvedId) {
         /* Abbott-Smith full text */
         const abbottFullHTML = abbottSmithText
             ? `<div class="rn-dict-full-section" data-study-section="abbott">
-                   <div class="rn-dict-full-text">${_renderAbbottFullText(abbottSmithText)}</div>
+                   <div class="rn-dict-full-text">${_enUiAbbottMvv ? _renderDictionaryLinkedText(abbottSmithText) : _renderAbbottFullText(abbottSmithText)}</div>
                </div>`
             : '';
 
@@ -18688,10 +18710,10 @@ function _renderMobileWordDetail(d) {
           <summary class="mvv-l3-summary">${_T('panel.formAndRelations', '形と関係を見る')}</summary>
           <div class="mvv-l3-slot">
             ${(d.lemma || d.strong || morphTags) ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">${_T('panel.factsFromText', '原文から確認できる情報')}</div>
-              ${(d.lemma ? `<div>見出し語: <span class="mvv-l3-lemma">${_escH(d.lemma)}</span></div>` : '')}
+              ${(d.lemma ? `<div>${_T('panel.lemmaPrefix', '見出し語: ')}<span class="mvv-l3-lemma">${_escH(d.lemma)}</span></div>` : '')}
               ${(d.strong ? `<div class="mvv-l3-strong" style="margin-top:var(--space-xs);">Strong: ${_escH(String(d.strong))}</div>` : '')}
               ${(morphTags ? `<div style="margin-top:var(--space-md);">${morphTags}</div>` : '')}
-              ${(d.structureText ? `<div style="margin-top:var(--space-xs);">構造: ${_escH(d.structureText)}</div>` : '')}
+              ${(d.structureText ? `<div style="margin-top:var(--space-xs);">${_T('panel.structureLabel', '構造')}: ${_escH(d.structureText)}</div>` : '')}
             </div>` : ''}
             <div class="rn-l3-group" data-study-group="analysis" style="${morphCandidatesHTML ? '' : 'display:none;'}">
               ${(morphCandidatesHTML ? `<div class="rn-l3-group-label">${_T('panel.analysisInfo', '分析候補・統語情報')}</div>${morphCandidatesHTML}` : '')}
@@ -19243,7 +19265,7 @@ function showMameKnowledge() {
             <h3>なぜ他の動詞には印がないの？</h3>
             <p>接続法・分詞・不定詞などは、主動詞の意味を補う従属的な役割が多い。すべてに印をつけると視覚的なノイズになるため、あえて省いている。</p>
             <div class="back-wrap">
-                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+                <button class="back-btn" onclick="renderCurrentPage()">${_T('ui.backToText', '本文に戻る')}</button>
             </div>
         </section>
     </div>
@@ -19281,7 +19303,7 @@ function showMameKnowledge() {
             <h3>⑥　実体化（名詞化）の機能</h3>
             <p>冠詞＋不定詞＝「〜すること」、冠詞＋分詞＝「〜する者」。</p>
             <div class="back-wrap">
-                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+                <button class="back-btn" onclick="renderCurrentPage()">${_T('ui.backToText', '本文に戻る')}</button>
             </div>
         </section>
     </div>
@@ -19302,7 +19324,7 @@ function showMameKnowledge() {
             <h3>⑤　呼格</h3>
             <p>コアイメージは「呼びかけ」。主格が代用される場合は、より強調されたニュアンスを持つ。</p>
             <div class="back-wrap">
-                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+                <button class="back-btn" onclick="renderCurrentPage()">${_T('ui.backToText', '本文に戻る')}</button>
             </div>
         </section>
     </div>
@@ -19331,7 +19353,7 @@ function showMameKnowledge() {
             <h3>⑤　読む手順</h3>
             <p>前の動詞を確認 → 前置詞の有無を確認 → 「〜すること」と代入 → 目的か理由かを検討 → 不定詞の主語（対格）を探す</p>
             <div class="back-wrap">
-                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+                <button class="back-btn" onclick="renderCurrentPage()">${_T('ui.backToText', '本文に戻る')}</button>
             </div>
         </div>
     </div>
@@ -20133,7 +20155,7 @@ function _openMobileBookPicker() {
     if (loc && loc.book) {
         _mbpSection   = loc.testament || 'nt';
         _mbpBookKey   = loc.book.key;
-        _mbpBookName  = loc.book.name || loc.book.key;
+        _mbpBookName  = _bookFullName(loc.book.key);
         _mbpBookMaxCh = loc.book.ch || 0;
         _mbpLayer = 3; /* 現在 chapter 選択画面から開始 */
     } else {
@@ -20345,7 +20367,9 @@ function _mmpSelectMode(id) {
 
 /* ── 定数 ── */
 const HL_COLORS = ['yellow', 'blue', 'green', 'red'];
-const HL_COLOR_NAMES = { yellow: '黄', blue: '青', green: '緑', red: '赤' };
+function _hlColorNames() {
+    return { yellow: _T('hl.yellow', '黄'), blue: _T('hl.blue', '青'), green: _T('hl.green', '緑'), red: _T('hl.red', '赤') };
+}
 const HL_COLOR_HEX = { yellow: '#fccc00', blue: '#004c97', green: '#15722c', red: '#eb6100' };
 
 /* ── 操作状態（色選択・複数語選択）── */
@@ -21056,20 +21080,21 @@ async function _hlRenderHighlightList(app) {
     const totalHL = highlights.length;
     const dotColors = { yellow: '#fccc00', blue: '#004c97', green: '#15722c', red: '#eb6100' };
     let tabsHtml = `<div class="hl-filter-tabs">`;
-    tabsHtml += `<button class="hl-filter-tab${_hlListFilter === 'all' ? ' hl-tab-active' : ''}" onclick="_hlSetFilter('all')">すべて</button>`;
+    tabsHtml += `<button class="hl-filter-tab${_hlListFilter === 'all' ? ' hl-tab-active' : ''}" onclick="_hlSetFilter('all')">${_T('ui.allHighlights', 'すべて')}</button>`;
     HL_COLORS.forEach(c => {
         if (counts[c] > 0) {
             const active = _hlListFilter === c ? ' hl-tab-active' : '';
-            tabsHtml += `<button class="hl-filter-tab${active}" onclick="_hlSetFilter('${c}')"><span class="hl-tab-dot" style="background:${dotColors[c]}"></span>${HL_COLOR_NAMES[c]}</button>`;
+            tabsHtml += `<button class="hl-filter-tab${active}" onclick="_hlSetFilter('${c}')"><span class="hl-tab-dot" style="background:${dotColors[c]}"></span>${_hlColorNames()[c]}</button>`;
         }
     });
     tabsHtml += `</div>`;
 
     /* 章ごとに本文をfetch（同じ章は1回のみ） */
+    const _hlTrans = (window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955';
     const chFetches = {};
     filtered.forEach(h => {
         const key = `${h.book}:${h.chapter}`;
-        if (!chFetches[key]) chFetches[key] = _fetchTranslation('JA1955', h.book, String(h.chapter));
+        if (!chFetches[key]) chFetches[key] = _fetchTranslation(_hlTrans, h.book, String(h.chapter));
     });
     const chData = {};
     await Promise.all(Object.entries(chFetches).map(async ([key, p]) => {
@@ -21083,8 +21108,11 @@ async function _hlRenderHighlightList(app) {
         rowsHtml = filtered.map(h => {
             const bookName = _bookFullName(h.book);
             const titleText = `${bookName} ${h.chapter}:${h.verse}`;
-            const rangeLabel = h.tokenStart == null ? '節全体' :
-                               (h.tokenStart === h.tokenEnd ? `語${h.tokenStart}` : `語${h.tokenStart}–${h.tokenEnd}`);
+            const isEnHL = window.I18N && I18N.lang === 'en';
+            const rangeLabel = h.tokenStart == null ? _T('ui.wholeVerse', '節全体') :
+                (h.tokenStart === h.tokenEnd
+                    ? (isEnHL ? `Word ${h.tokenStart}` : `語${h.tokenStart}`)
+                    : (isEnHL ? `Words ${h.tokenStart}–${h.tokenEnd}` : `語${h.tokenStart}–${h.tokenEnd}`));
             const href = `index.html?book=${encodeURIComponent(h.book)}&ch=${encodeURIComponent(h.chapter)}&verse=${encodeURIComponent(h.verse)}${h.tokenStart != null ? '&hltoken=' + Number(h.tokenStart) : ''}`;
             const verseText = chData[`${h.book}:${h.chapter}`]?.verses?.[String(h.verse)] || '';
             const previewHtml = verseText ? `<div class="list-item-preview">${_escH(verseText)}</div>` : '';
@@ -21093,9 +21121,9 @@ async function _hlRenderHighlightList(app) {
             return `<div class="list-item-card" role="link" tabindex="0" onclick="location.href='${href}'" onkeydown="if(event.target===this&&event.key==='Enter'){event.preventDefault();location.href='${href}'}"><div class="list-item-main"><div class="list-item-title">${titleHtml}</div>${previewHtml}${subHtml}</div></div>`;
         }).join('');
     } else if (_hlListFilter === 'all' && !totalHL) {
-        rowsHtml = `<p class="list-item-empty">ハイライトはまだありません。読んでいて残しておきたい箇所を選んで色をつけることができます。</p>`;
+        rowsHtml = `<p class="list-item-empty">${_T('ui.noHighlightsYet', 'ハイライトはまだありません。読んでいて残しておきたい箇所を選んで色をつけることができます。')}</p>`;
     } else {
-        rowsHtml = `<p class="list-item-empty">この色のハイライトはありません。</p>`;
+        rowsHtml = `<p class="list-item-empty">${_T('ui.noHighlightsInColor', 'この色のハイライトはありません。')}</p>`;
     }
 
     /* ブックマーク（旧データ）を別セクションで表示 */
@@ -21104,14 +21132,14 @@ async function _hlRenderHighlightList(app) {
         const bkRows = bookmarks.map(b => {
             const bk = _bookShortName(b.bookKey);
             const title = (b.bookKey && b.chapter != null && b.verse != null)
-                ? `${bk}${b.chapter}章${b.verse}節`
+                ? ((window.I18N && I18N.lang === 'en') ? `${bk} ${b.chapter}:${b.verse}` : `${bk}${b.chapter}章${b.verse}節`)
                 : (b.ref || '');
             const href = (b.bookKey && b.chapter != null && b.verse != null)
                 ? `index.html?book=${encodeURIComponent(b.bookKey)}&ch=${encodeURIComponent(b.chapter)}&verse=${encodeURIComponent(b.verse)}&panel=study`
                 : '';
             return _listItemCard({ title: '★ ' + title, meta: _listMetaDate(b.createdAt), href });
         }).join('');
-        bkSection = `<section><h3 style="font-size:var(--text-caption);color:var(--text-hint);font-weight:500;margin:var(--space-lg) 0 var(--space-sm);">移行前のブックマーク</h3>${bkRows}</section>`;
+        bkSection = `<section><h3 style="font-size:var(--text-caption);color:var(--text-hint);font-weight:500;margin:var(--space-lg) 0 var(--space-sm);">${_T('ui.legacyBookmarks', '移行前のブックマーク')}</h3>${bkRows}</section>`;
     }
 
     app.innerHTML = `
@@ -21122,7 +21150,7 @@ async function _hlRenderHighlightList(app) {
             </section>
             ${bkSection}
             <div class="back-wrap">
-                <button class="back-btn" onclick="renderCurrentPage()">本文に戻る</button>
+                <button class="back-btn" onclick="renderCurrentPage()">${_T('ui.backToText', '本文に戻る')}</button>
             </div>
         </div>`;
 }
@@ -21158,7 +21186,7 @@ function _hlSetFilter(color) {
         <div id="rn-ref-modal-head">
             <div id="rn-ref-modal-label">
                 <span id="rn-ref-modal-title"></span>
-                <span id="rn-ref-modal-sub">辞書で引かれている箇所</span>
+                <span id="rn-ref-modal-sub" data-i18n="ref.citedPassage">辞書で引かれている箇所</span>
             </div>
             <button id="rn-ref-modal-close" onclick="document.getElementById('rn-ref-backdrop').classList.remove('open')">×</button>
         </div>
