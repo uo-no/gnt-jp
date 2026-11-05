@@ -20,13 +20,15 @@
 // =============================================================
 
 // NT (MACULA) の短縮形を正規化する。LXX の長形式はそのまま CLASS_TO_POS へ。
+// 'pron' は意図的に除外: NT の class='pron' は entryPosCode で '' を返させ、
+// _resolveEntryPos の morph フォールバック（'R'/'P'/'D'）に委ねる。
+// LXX の class='pronoun' は写像なしで CLASS_TO_POS に直接到達する。
 const _SHORT_CLASS = {
     adj:  'adjective',
     det:  'article',        // NT determiner = article
     prep: 'preposition',
     conj: 'conjunction',
     adv:  'adverb',
-    pron: 'pronoun',
     ptcl: 'particle',
     num:  'numeral',
     intj: 'interjection',
@@ -36,22 +38,20 @@ function normalizeClass(c) {
     return _SHORT_CLASS[c] || c;
 }
 
-// 12 項目（現行各表の欠落を補った完全版）。
-// 値は syntax-registry.json の pos_codes を基準とし、X は syntax-analyzer.js の
-// _resolveEntryPos と一致させる（PRT / INJ / PART のフォールバックコード）。
+// 12 項目（旧 syntax-search.html / morph-search.html の原表と完全一致）。
 const CLASS_TO_POS = {
-    verb:              'V',
-    noun:              'N',
-    adjective:         'A',
-    article:           'T',
-    preposition:       'P',
-    conjunction:       'C',
-    adverb:            'D',
-    particle:          'X',
-    pronoun:           'D',   // 人称・指示代名詞の総称。'P'（前置詞）との衝突を回避。
-    'relative pronoun': 'R',
-    numeral:           '',    // 数詞は pos 相当なし
-    interjection:      'X',   // 感嘆詞は particle に近い
+    verb:                  'V',
+    noun:                  'N',
+    adjective:             'A',
+    article:               'T',
+    preposition:           'P',
+    conjunction:           'C',
+    adverb:                'D',
+    particle:              'X',
+    pronoun:               'P',
+    'relative pronoun':    'R',
+    'personal pronoun':    'P',
+    'demonstrative pronoun': 'D',
 };
 
 // =============================================================
