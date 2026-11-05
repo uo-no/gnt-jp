@@ -8985,10 +8985,9 @@ async function _renderReadingNotes(p) {
     /* ③ 語義説明は abbottSmith（下の語義セクション）が担う。gloss_ja は見出しに使わない */
     const _enUiAbbott = window.I18N && I18N.lang === 'en';
     const _abbottDigits = resolvedId ? resolvedId.replace(/^grc:G/i, '') : '';
+    if (_enUiAbbott && _abbottDigits && !abbottSmithDict) await loadDict();
     const abbottSmithText = _enUiAbbott
-        ? (typeof abbottSmithDict !== 'undefined' && abbottSmithDict && _abbottDigits
-            ? (abbottSmithDict[_abbottDigits]?.descriptionEn || '')
-            : '')
+        ? (abbottSmithDict?.[_abbottDigits]?.descriptionEn || '')
         : (lexEntry?.abbottSmith || '');
     const contexts        = lexEntry?.contexts || {};
     const synopticRefs    = contexts.synoptic_refs || [];
@@ -9119,15 +9118,6 @@ async function _renderReadingNotes(p) {
                <div class="rn-dict-full-text">${_enUiAbbott ? _renderDictionaryLinkedText(abbottSmithText) : _renderAbbottFullText(abbottSmithText)}</div>
            </div>`
         : '';
-
-    if (_enUiAbbott && !abbottSmithText && _abbottDigits) {
-        loadDict().then(() => {
-            const freshText = abbottSmithDict?.[_abbottDigits]?.descriptionEn || '';
-            if (!freshText) return;
-            const slot = document.querySelector('[data-study-section="abbott"] .rn-dict-full-text');
-            if (slot) slot.innerHTML = _renderDictionaryLinkedText(freshText);
-        });
-    }
 
     /* 辞書的な説明は下の辞書全文のみを表示する。 */
     const glossesHTML = '';
