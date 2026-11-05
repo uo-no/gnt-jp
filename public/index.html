@@ -2674,6 +2674,17 @@ animation: ac-blink 1.2s ease-in-out infinite;
    調べる／翻訳）はアプリ側のカラーピッカーと重なって煩いだけなので、本文エリア
    では出さない。テキスト選択と青いハンドル（範囲調整）はそのまま使える。 */
 #bible-text-area, #parallel-text-area { -webkit-touch-callout: none; }
+/* ── 下部カードの共通様式（ピーク／色ピッカー／操作バー／選択バー） ──
+   画面下部に出る面は、ピークを基準に同じ様式へそろえる：背景 --bg-paper、
+   枠 1px --border-soft、角丸 --radius-m、影 --shadow-card（Design System の
+   shadow-panel と同値のアプリトークン）。モバイル（≤900px）では左右
+   --space-md インセットの全幅、下端 calc(safe-area + --space-md)。
+   出現は Design System の Motion 規範（Popover／Sheet はフェード
+   200–260ms ease-out、装飾モーションなし）に従い、共通のフェードで統一する。 */
+@keyframes bottomCardIn { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+    .word-peek, #hl-color-picker.hl-open, #hl-touch-pill.hl-show, #hl-selection-bar.hl-open { animation: none !important; }
+}
 /* Color picker popup */
 #hl-color-picker-overlay {
     display: none;
@@ -2706,13 +2717,13 @@ animation: ac-blink 1.2s ease-in-out infinite;
     background: var(--bg-paper);
     border: 1px solid var(--border-soft);
     border-radius: var(--radius-m);
-    box-shadow: 0 6px 24px rgba(0,0,0,0.14);
-    padding: 14px 16px;
+    box-shadow: var(--shadow-card);
+    padding: var(--space-md);
     flex-direction: column;
     gap: 10px;
     min-width: 200px;
 }
-#hl-color-picker.hl-open { display: flex; }
+#hl-color-picker.hl-open { display: flex; animation: bottomCardIn .22s ease-out; }
 .hl-picker-row { display: flex; gap: 8px; align-items: center; }
 .hl-picker-swatch {
     width: 28px; height: 28px;
@@ -2748,48 +2759,66 @@ animation: ac-blink 1.2s ease-in-out infinite;
 }
 .hl-picker-delete svg { width: 13px; height: 13px; display: block; }
 .hl-picker-delete:hover { transform: scale(1.18); border-color: var(--text-sub); }
-/* タッチ選択中に画面下部中央へ出す操作ピル（ハイライト／範囲指定）。
+/* タッチ選択中に画面下部へ出す操作バー（ハイライト／範囲指定）。
+   以前は黒いピル型だったが、下部カードの共通様式（ピーク基準）に統一し、
+   ボタンもピークの2ボタン（主＝--highlight-light 塗り、副＝枠線、角 --radius-s）
+   と同系統にした（Design System は pill 半径を Segmented Control に限定）。
    ピッカーのオーバーレイ（z-index 8990）より下に置き、開いたら隠れる。 */
 #hl-touch-pill {
     display: none;
     position: fixed;
     left: 50%;
-    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
     transform: translateX(-50%);
     z-index: 8989;
-    align-items: center;
-    padding: 5px;
-    border-radius: 999px;
-    background: var(--accent-dark, #333);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    align-items: stretch;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-m);
+    background: var(--bg-paper);
+    box-shadow: var(--shadow-card);
     -webkit-tap-highlight-color: transparent;
 }
-#hl-touch-pill.hl-show { display: inline-flex; }
+#hl-touch-pill.hl-show { display: flex; animation: bottomCardIn .22s ease-out; }
 .hl-pill-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
-    padding: 8px 14px;
-    border: none;
-    border-radius: 999px;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-s);
     background: transparent;
-    color: #fff;
+    color: var(--text-main);
     font: inherit;
     font-size: var(--text-body);
+    font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
 }
-.hl-pill-btn + .hl-pill-btn { border-left: 1px solid rgba(255, 255, 255, 0.35); border-radius: 0 999px 999px 0; }
+/* 主ボタン（ハイライト）はピークの「詳しく見る」と同じ塗り様式 */
+#hl-pill-btn-color { background: var(--highlight-light); color: var(--highlight); border-color: transparent; }
 .hl-pill-btn svg { width: 1.05em; height: 1.05em; display: block; }
+@media (max-width: 900px) {
+    /* モバイルではピークと同じ全幅インセット（FAB は幾何学的に背後へ隠れる） */
+    #hl-touch-pill { left: var(--space-md); right: var(--space-md); transform: none; }
+    .hl-pill-btn { flex: 1; }
+}
 .hl-picker-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.hl-picker-action { border: 1px solid var(--border-soft); border-radius: 999px; background: transparent; color: var(--text-main); padding: 7px 10px; font: inherit; font-size: var(--text-caption); cursor: pointer; white-space: nowrap; }
+.hl-picker-action { border: 1px solid var(--border-soft); border-radius: var(--radius-s); background: transparent; color: var(--text-main); padding: var(--space-sm) var(--space-md); font: inherit; font-size: var(--text-caption); cursor: pointer; white-space: nowrap; }
 .hl-picker-action:hover { border-color: var(--accent-mid); }
-/* 選択バーはピッカーと同じカード様式（背景・角丸・影・余白）にそろえる。 */
-#hl-selection-bar { display: none; position: fixed; z-index: 8992; left: 50%; bottom: max(16px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); align-items: center; gap: 10px; max-width: calc(100vw - 24px); padding: 12px 14px; border: 1px solid var(--border-soft); border-radius: var(--radius-m); background: var(--bg-paper); box-shadow: 0 6px 24px rgba(0,0,0,.14); color: var(--text-main); font-size: var(--text-caption); }
-#hl-selection-bar.hl-open { display: flex; }
+/* 選択バーも下部カードの共通様式（背景・角丸・影・余白）にそろえる。 */
+#hl-selection-bar { display: none; position: fixed; z-index: 8992; left: 50%; bottom: max(16px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); align-items: center; gap: 10px; max-width: calc(100vw - 24px); padding: var(--space-sm); border: 1px solid var(--border-soft); border-radius: var(--radius-m); background: var(--bg-paper); box-shadow: var(--shadow-card); color: var(--text-main); font-size: var(--text-caption); }
+#hl-selection-bar.hl-open { display: flex; animation: bottomCardIn .22s ease-out; }
 #hl-selection-count { white-space: nowrap; }
-.hl-selection-bar-btn { border: 1px solid var(--border-soft); border-radius: 999px; background: transparent; color: var(--text-main); padding: 7px 10px; font: inherit; cursor: pointer; white-space: nowrap; }
+.hl-selection-bar-btn { border: 1px solid var(--border-soft); border-radius: var(--radius-s); background: transparent; color: var(--text-main); padding: var(--space-sm) var(--space-md); font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .hl-selection-bar-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+@media (max-width: 900px) {
+    /* モバイルではピークと同じ全幅インセット＋下端にそろえる */
+    #hl-selection-bar { left: var(--space-md); right: var(--space-md); bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px)); transform: none; max-width: none; }
+    #hl-selection-count { flex: 1; }
+}
 .wlv-chip.hl-multi-selected { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; background: rgba(21,114,44,.13); }
 
 /* Highlight list page: color filter tabs */
@@ -3958,10 +3987,10 @@ details[open] .study-summary::before {
     width: min(320px, calc(100vw - 24px));
     background: var(--bg, #fff);
     border: 1px solid var(--border-soft);
-    border-radius: var(--radius-m, 12px);
-    box-shadow: 0 10px 32px rgba(26, 30, 26, .18);
+    border-radius: var(--radius-m);
+    box-shadow: var(--shadow-card);
     padding: var(--space-md);
-    animation: wordPeekIn .16s ease-out;
+    animation: bottomCardIn .22s ease-out;
 }
 @keyframes wordPeekIn {
     from { opacity: 0; transform: scale(.96) translateY(4px); }
@@ -20099,11 +20128,19 @@ function _hlPositionPicker(picker, anchorEl) {
     let chosen = null;
     if (vw <= 900) {
         /* スマホ幅（アプリのモバイル表示ブレークポイント）では、ピッカーの位置を
-           選択範囲に追従させず、画面の下部・中央に固定する（ボトムシート形式）。
+           選択範囲に追従させず、ピークと同じ下部カードとして固定する：
+           左右 --space-md インセットの全幅、下端 calc(safe-area + --space-md)。
            選択位置によって表示場所が変わらないため、操作の予測がしやすい。
            StudyPanel が開いている場合もピッカーはモーダルとして前面に出るので、
            パネルとの重なり回避は行わない。 */
-        chosen = { x: clamp((vw - pw) / 2, pad, vw - pw - pad), y: clamp(vh - ph - pad, pad, vh - ph - pad) };
+        picker.style.position = 'fixed';
+        picker.style.left = 'var(--space-md)';
+        picker.style.right = 'var(--space-md)';
+        picker.style.width = 'auto';
+        picker.style.top = 'auto';
+        picker.style.bottom = 'calc(env(safe-area-inset-bottom, 0px) + var(--space-md))';
+        picker.style.transform = 'none';
+        return;
     } else {
         const candidates = [];
         if (anchorRect) {
