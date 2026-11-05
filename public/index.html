@@ -6746,10 +6746,17 @@ function _buildEtymPartsHTML(parts) {
 async function _openEtymPopup(lexemeId) {
     const entry = _lexiconData?.[lexemeId];
     const form  = entry?.headword || '';
-    const gloss = entry?.gloss_ja || '';
+    const enUi  = !!(window.I18N && I18N.lang === 'en');
+    const gloss = enUi ? (entry?.gloss || '') : (entry?.gloss_ja || '');
     let   desc  = entry?.abbottSmith || '';
-    if (!desc && lexemeId) {
-        const digits = lexemeId.replace(/^grc:G/i, '');
+    const digits = lexemeId ? lexemeId.replace(/^grc:G/i, '') : '';
+    if (enUi) {
+        /* 英語UI: 本文は Abbott-Smith 原文（description_en） */
+        if (digits) {
+            if (!abbottSmithDict) await loadDict();
+            desc = abbottSmithDict?.[digits]?.descriptionEn || desc;
+        }
+    } else if (!desc && lexemeId) {
         if (!abbottSmithDict) await loadDict();
         desc = abbottSmithDict?.[digits]?.description || '';
     }
@@ -6760,7 +6767,7 @@ async function _openEtymPopup(lexemeId) {
     const bodyEl = document.getElementById('rn-etym-modal-body');
     bodyEl.innerHTML = desc
         ? `<div class="rn-etym-as-label">Abbott-Smith</div>${_escH(desc).replace(/\n/g, '<br>')}`
-        : '<span class="rn-etym-empty">Abbott-Smithデータなし</span>';
+        : '<span class="rn-etym-empty">' + _T('panel.noAbbottData', 'Abbott-Smithデータなし') + '</span>';
     bd.classList.add('open');
 }
 
@@ -6779,7 +6786,7 @@ const _REF_FORM_JA = {
     person: { '1': '1人称', '2': '2人称', '3': '3人称' },
 };
 function _refFormJa(tok) {
-    const m = _REF_FORM_JA, parts = [];
+    const m = _refForm(), parts = [];
     if (tok.tense)  parts.push(m.tense[tok.tense] || tok.tense);
     if (tok.voice)  parts.push(m.voice[tok.voice] || tok.voice);
     if (tok.mood)   parts.push(m.mood[tok.mood] || tok.mood);
@@ -6787,7 +6794,49 @@ function _refFormJa(tok) {
     if (tok.case)   parts.push(m.case[tok.case] || tok.case);
     if (tok.gender) parts.push(m.gender[tok.gender] || tok.gender);
     if (tok.number) parts.push(m.number[tok.number] || tok.number);
-    return parts.join('・');
+    return parts.join((window.I18N && I18N.lang === 'en') ? ' ' : '・');
+}
+const _REF_FORM_EN = {
+    pos:    { noun: 'Noun', adj: 'Adjective', verb: 'Verb', prep: 'Preposition', conj: 'Conjunction', det: 'Determiner', pron: 'Pronoun', adv: 'Adverb', ptcl: 'Particle', num: 'Numeral', intj: 'Interjection' },
+    case:   { nominative: 'Nominative', genitive: 'Genitive', dative: 'Dative', accusative: 'Accusative', vocative: 'Vocative' },
+    number: { singular: 'Singular', plural: 'Plural' },
+    gender: { masculine: 'Masculine', feminine: 'Feminine', neuter: 'Neuter' },
+    tense:  { present: 'Present', imperfect: 'Imperfect', future: 'Future', aorist: 'Aorist', perfect: 'Perfect', pluperfect: 'Pluperfect' },
+    voice:  { active: 'Active', middle: 'Middle', passive: 'Passive' },
+    mood:   { indicative: 'Indicative', subjunctive: 'Subjunctive', optative: 'Optative', imperative: 'Imperative', infinitive: 'Infinitive', participle: 'Participle' },
+    person: { '1': '1st person', '2': '2nd person', '3': '3rd person' },
+};
+function _refForm() {
+    return (window.I18N && I18N.lang === 'en') ? _REF_FORM_EN : _REF_FORM_JA;
+}
+/* 形態ラベル表（name キー）。従来は同内容が複数箇所に複製されていたものを集約。
+   JA は従来定義と同値（person のみ追加、既存消費側は読まない）。 */
+const MORPH_FULL_JA = {
+    pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
+    tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'大完了' },
+    voice:  { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' },
+    mood:   { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' },
+    gender: { masculine:'男性', feminine:'女性', neuter:'中性' },
+    number: { singular:'単数', plural:'複数' },
+    case:   { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' },
+    person: { '1':'1人称', '2':'2人称', '3':'3人称' },
+};
+const MORPH_FULL_EN = {
+    pos:    { V:'Verb', N:'Noun', A:'Adjective', R:'Relative pronoun', P:'Personal pronoun', T:'Article', D:'Demonstrative pronoun', ADV:'Adverb', PREP:'Preposition', CONJ:'Conjunction', PRT:'Particle' },
+    tense:  { present:'Present', imperfect:'Imperfect', future:'Future', aorist:'Aorist', perfect:'Perfect', pluperfect:'Pluperfect' },
+    voice:  { active:'Active', middle:'Middle', passive:'Passive', 'middle deponent':'Middle deponent', 'middle or passive':'Middle/Passive' },
+    mood:   { indicative:'Indicative', subjunctive:'Subjunctive', optative:'Optative', imperative:'Imperative', infinitive:'Infinitive', participle:'Participle' },
+    gender: { masculine:'Masculine', feminine:'Feminine', neuter:'Neuter' },
+    number: { singular:'Singular', plural:'Plural' },
+    case:   { nominative:'Nominative', genitive:'Genitive', dative:'Dative', accusative:'Accusative', vocative:'Vocative' },
+    person: { '1':'1st person', '2':'2nd person', '3':'3rd person' },
+};
+function _morphFull() {
+    return (window.I18N && I18N.lang === 'en') ? MORPH_FULL_EN : MORPH_FULL_JA;
+}
+function _personText(c) {
+    return _morphFull().person[c]
+        || ((window.I18N && I18N.lang === 'en') ? c + ' person' : c + '人称');
 }
 async function _openRefPopup(book, ch, verse, href) {
     const bd = document.getElementById('rn-ref-backdrop');
@@ -6828,7 +6877,7 @@ async function _openRefPopup(book, ch, verse, href) {
         const formJa   = _refFormJa(t);
         const rows = [];
         if (headword) rows.push(`<div class="rn-ref-word-row"><dt>見出し語</dt><dd><span class="rn-ref-gr">${_escH(headword)}</span>${glossJa ? '（' + _escH(glossJa) + '）' : ''}</dd></div>`);
-        if (t.class)  rows.push(`<div class="rn-ref-word-row"><dt>品詞</dt><dd>${_escH((t.class === 'noun' && t.type === 'proper') ? '固有名詞' : (_REF_FORM_JA.pos[t.class] || t.class))}</dd></div>`);
+        if (t.class)  rows.push(`<div class="rn-ref-word-row"><dt>${_T('morph.pos', '品詞')}</dt><dd>${_escH((t.class === 'noun' && t.type === 'proper') ? _T('morph.properNoun', '固有名詞') : (_refForm().pos[t.class] || t.class))}</dd></div>`);
         rows.push(`<div class="rn-ref-word-row"><dt>形</dt><dd><span class="rn-ref-gr">${_escH(t.text || '')}</span>${formJa ? '（' + _escH(formJa) + '）' : ''}</dd></div>`);
         const _meanGloss = _glossSidecarFor(t) || t.japanese;
         if (_meanGloss) rows.push(`<div class="rn-ref-word-row"><dt>意味</dt><dd>${_escH(_meanGloss)}</dd></div>`);
@@ -8311,6 +8360,16 @@ const JPN_MAP = {
     person: { '1': '1人称', '2': '2人称', '3': '3人称' }
 };
 
+/* Abbott-Smith 本文を UI 言語で返す（英語UIでは description_en 原文、
+   供給不能なら日本語版に落とす）。 */
+function _abbottDesc(digits) {
+    const e = (typeof abbottSmithDict !== 'undefined' && abbottSmithDict && digits)
+        ? abbottSmithDict[digits] : null;
+    if (!e) return '';
+    if (window.I18N && I18N.lang === 'en' && e.descriptionEn) return e.descriptionEn;
+    return e.description || '';
+}
+
 function loadDict() {
     if (abbottSmithDict) return Promise.resolve(abbottSmithDict);
     if (abbottSmithDictPromise) return abbottSmithDictPromise;
@@ -8324,7 +8383,10 @@ function loadDict() {
             textAbbott.split(/\r?\n/).forEach(row => {
                 const cols = row.split('\t');
                 const strong = String(cols[0]).trim();
-                if (strong) parsed[strong] = { description: cols[4]?.trim() || "" };
+                if (strong) parsed[strong] = {
+                    description: cols[4]?.trim() || "",
+                    descriptionEn: (cols[2]?.trim() || "").replace(/^\d+\s+/, "").replace(/^†\s*/, ""),
+                };
             });
             abbottSmithDict = parsed;
             return abbottSmithDict;
@@ -8969,23 +9031,15 @@ async function _renderReadingNotes(p) {
     console.info('[StudyPanel→search] concordURL:', concordURL);
 
     /* ── Morph grid (Level 2) ── */
-    const JPN_FULL = {
-        pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
-        tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'大完了' },
-        voice:  { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' },
-        mood:   { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' },
-        gender: { masculine:'男性', feminine:'女性', neuter:'中性' },
-        number: { singular:'単数', plural:'複数' },
-        case:   { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' },
-    };
+    const JPN_FULL = _morphFull();
     const morphRows = [];
-    if (p.pos)    morphRows.push({ k:'品詞', v: JPN_FULL.pos[p.pos]       || p.pos,    core:true  });
-    if (p.tense)  morphRows.push({ k:'時制', v: JPN_FULL.tense[p.tense]   || p.tense,  core:true  });
-    if (p.mood)   morphRows.push({ k:'法',   v: JPN_FULL.mood[p.mood]     || p.mood,   core:true  });
-    if (p.voice)  morphRows.push({ k:'態',   v: JPN_FULL.voice[p.voice]   || p.voice,  core:false });
-    if (p.case)   morphRows.push({ k:'格',   v: JPN_FULL.case[p.case]     || p.case,   core:false });
-    if (p.number) morphRows.push({ k:'数',   v: JPN_FULL.number[p.number] || p.number, core:false });
-    if (p.gender) morphRows.push({ k:'性',   v: JPN_FULL.gender[p.gender] || p.gender, core:false });
+    if (p.pos)    morphRows.push({ k:_T('morph.pos', '品詞'), v: JPN_FULL.pos[p.pos]       || p.pos,    core:true  });
+    if (p.tense)  morphRows.push({ k:_T('morph.tense', '時制'), v: JPN_FULL.tense[p.tense]   || p.tense,  core:true  });
+    if (p.mood)   morphRows.push({ k:_T('morph.mood', '法'),   v: JPN_FULL.mood[p.mood]     || p.mood,   core:true  });
+    if (p.voice)  morphRows.push({ k:_T('morph.voice', '態'),   v: JPN_FULL.voice[p.voice]   || p.voice,  core:false });
+    if (p.case)   morphRows.push({ k:_T('morph.case', '格'),   v: JPN_FULL.case[p.case]     || p.case,   core:false });
+    if (p.number) morphRows.push({ k:_T('morph.number', '数'),   v: JPN_FULL.number[p.number] || p.number, core:false });
+    if (p.gender) morphRows.push({ k:_T('morph.gender', '性'),   v: JPN_FULL.gender[p.gender] || p.gender, core:false });
 
     /* 構造軸（冠詞付き不定詞）: 機能候補とは別の「形の事実」として、
        原文から確認できる情報に1行置く。検出は syntax-analyzer の共通
@@ -9005,11 +9059,11 @@ async function _renderReadingNotes(p) {
         : '';
 
     /* ── Morphological candidates (Type-A homographs) ── */
-    const PERSON_JP = { '1':'1人称', '2':'2人称', '3':'3人称' };
+    const PERSON_JP = _morphFull().person;
     let morphCandidatesHTML = '';
     if (Array.isArray(p._morphCandidates) && p._morphCandidates.length > 0) {
         const candItems = p._morphCandidates.map(c => {
-            const parts = ['動詞'];
+            const parts = [_morphFull().pos.V];
             if (c.mood) parts.push(JPN_FULL.mood[c.mood] || c.mood);
             if (c.voice) parts.push(JPN_FULL.voice[c.voice] || c.voice);
             if (c.tense) parts.push(JPN_FULL.tense[c.tense] || c.tense);
@@ -9018,12 +9072,12 @@ async function _renderReadingNotes(p) {
                 if (c.number) parts.push(JPN_FULL.number[c.number] || c.number);
                 if (c.case) parts.push(JPN_FULL.case[c.case] || c.case);
             } else {
-                if (c.person) parts.push(PERSON_JP[c.person] || `${c.person}人称`);
+                if (c.person) parts.push(_personText(c.person));
                 if (c.number) parts.push(JPN_FULL.number[c.number] || c.number);
             }
             return `<li class="rn-mc-item"><div class="rn-mc-chips">${parts.map(part => `<span class="rn-mc-chip">${part}</span>`).join('')}</div></li>`;
         }).join('');
-        morphCandidatesHTML = `<div class="rn-mc-details"><div class="rn-mc-label">他に成立する形態</div><ul class="rn-mc-list">${candItems}</ul></div>`;
+        morphCandidatesHTML = `<div class="rn-mc-details"><div class="rn-mc-label">${_T('panel.otherForms', '他に成立する形態')}</div><ul class="rn-mc-list">${candItems}</ul></div>`;
     }
 
     /* ── Etymology / composition (Level 2) — 単純語は非表示 ── */
@@ -9784,25 +9838,16 @@ function switchAnalysisTab(tab) {
    ══════════════════════════════════════════ */
 
 function _renderMorphTab(area, p) {
-    const JPN_FULL = {
-        pos:    { V:'動詞', N:'名詞', A:'形容詞', R:'関係代名詞', P:'人称代名詞', T:'冠詞', D:'指示代名詞', ADV:'副詞', PREP:'前置詞', CONJ:'接続詞', PRT:'添語' },
-        tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'大完了' },
-        voice:  { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' },
-        mood:   { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' },
-        gender: { masculine:'男性', feminine:'女性', neuter:'中性' },
-        number: { singular:'単数', plural:'複数' },
-        case:   { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' },
-        person: { '1':'1人称', '2':'2人称', '3':'3人称' },
-    };
+    const JPN_FULL = _morphFull();
 
     const rows = [];
-    if (p.pos)    rows.push({ k:'品詞',  v: JPN_FULL.pos[p.pos]    || p.pos,    core: true });
-    if (p.tense)  rows.push({ k:'時制',  v: JPN_FULL.tense[p.tense]|| p.tense,  core: true });
-    if (p.mood)   rows.push({ k:'法',    v: JPN_FULL.mood[p.mood]  || p.mood,   core: true });
-    if (p.voice)  rows.push({ k:'態',    v: JPN_FULL.voice[p.voice]|| p.voice,  core: false });
-    if (p.case)   rows.push({ k:'格',    v: JPN_FULL.case[p.case]  || p.case,   core: false });
-    if (p.number) rows.push({ k:'数',    v: JPN_FULL.number[p.number]||p.number,core: false });
-    if (p.gender) rows.push({ k:'性',    v: JPN_FULL.gender[p.gender]||p.gender,core: false });
+    if (p.pos)    rows.push({ k:_T('morph.pos', '品詞'),  v: JPN_FULL.pos[p.pos]    || p.pos,    core: true });
+    if (p.tense)  rows.push({ k:_T('morph.tense', '時制'),  v: JPN_FULL.tense[p.tense]|| p.tense,  core: true });
+    if (p.mood)   rows.push({ k:_T('morph.mood', '法'),    v: JPN_FULL.mood[p.mood]  || p.mood,   core: true });
+    if (p.voice)  rows.push({ k:_T('morph.voice', '態'),    v: JPN_FULL.voice[p.voice]|| p.voice,  core: false });
+    if (p.case)   rows.push({ k:_T('morph.case', '格'),    v: JPN_FULL.case[p.case]  || p.case,   core: false });
+    if (p.number) rows.push({ k:_T('morph.number', '数'),    v: JPN_FULL.number[p.number]||p.number,core: false });
+    if (p.gender) rows.push({ k:_T('morph.gender', '性'),    v: JPN_FULL.gender[p.gender]||p.gender,core: false });
 
     const morphGridHTML = rows.length
         ? `<div class="ac-morph-grid">
@@ -9811,7 +9856,7 @@ function _renderMorphTab(area, p) {
                 <span class="ac-morph-val${r.core ? ' core' : ''}">${r.v}</span>
             `).join('')}
            </div>`
-        : `<p class="ac-no-data">形態論データがありません</p>`;
+        : `<p class="ac-no-data">${_T('panel.noMorphData', '形態論データがありません')}</p>`;
 
     const jaWord = (_inspectData && _inspectData.jaWord) || '-';
     const desc   = (_inspectData && _inspectData.desc)   || '';
@@ -9820,7 +9865,7 @@ function _renderMorphTab(area, p) {
     const lemma  = p.lemma || '';
 
     area.innerHTML = `
-        <span class="ac-section-label">形態論</span>
+        <span class="ac-section-label">${_T('panel.morphology', '形態論')}</span>
         <div class="ac-entry">
             <div class="ac-entry-greek">${p.word || '-'}</div>
             <div class="ac-entry-ja">${jaWord}</div>
@@ -9833,17 +9878,14 @@ function _renderMorphTab(area, p) {
 }
 
 function _renderSyntaxTab(area, p) {
-    const JPN_MOOD = { indicative:'直説法', subjunctive:'接続法', optative:'希求法',
-        imperative:'命令法', infinitive:'不定詞', participle:'分詞' };
-    const JPN_TENSE = { present:'現在', imperfect:'未完了', future:'未来',
-        aorist:'アオリスト', perfect:'完了', pluperfect:'大完了' };
+    const _mf = _morphFull();
 
     const features = [];
-    if (p.mood)  features.push(JPN_MOOD[p.mood]   || p.mood);
-    if (p.tense) features.push(JPN_TENSE[p.tense] || p.tense);
+    if (p.mood)  features.push(_mf.mood[p.mood]   || p.mood);
+    if (p.tense) features.push(_mf.tense[p.tense] || p.tense);
 
     area.innerHTML = `
-        <span class="ac-section-label">統語論</span>
+        <span class="ac-section-label">${_T('panel.syntax', '統語論')}</span>
         <div class="ac-entry">
             <div class="ac-entry-greek">${p.word || '-'}</div>
             ${features.length ? `<div style="margin-top: var(--space-xs);">${features.map(f =>
@@ -9867,15 +9909,15 @@ function _renderSemanticsTab(area, p) {
     const strong = (_inspectData && _inspectData.strong) || '';
     const strongDigits = String(strong).replace(/[^0-9]/g, '');
     const desc = (_inspectData && _inspectData.desc)
-        || (abbottSmithDict && abbottSmithDict[strongDigits]?.description)
+        || _abbottDesc(strongDigits)
         || '';
 
     const abbottHtml = desc
         ? `<div class="ac-abbottsmith">${_escH(desc).replace(/\n/g,'<br>')}</div>`
-        : `<p class="ac-no-data">辞書データが見つかりません</p>`;
+        : `<p class="ac-no-data">${_T('panel.noDictData', '辞書データが見つかりません')}</p>`;
 
     area.innerHTML = `
-        <span class="ac-section-label">意味論</span>
+        <span class="ac-section-label">${_T('panel.semantics', '意味論')}</span>
         <div class="ac-entry">
             <div class="ac-entry-greek">${p.word || '-'}</div>
             <div class="ac-entry-ja">${jaWord}</div>
@@ -15953,6 +15995,34 @@ function _enShortGloss(lemmaId) {
     } catch (_) { return null; }
 }
 
+/* 英語の語義リスト（Abbott-Smith 原文から生成した gloss-en-senses.json）。
+   日本語UIの語義行が最大3件出すのに合わせ、英語でも最大3件を返す。
+   データ未到着・該当なしの語は lite の代表グロス（_enShortGloss）に落とす。 */
+let _enSensesData = null;
+let _enSensesPromise = null;
+function _ensureEnSenses() {
+    if (_enSensesData || _enSensesPromise) return;
+    _enSensesPromise = fetch('../assets/data/lexicon/gloss-en-senses.json')
+        .then(r => (r && r.ok) ? r.json() : null)
+        .then(d => {
+            _enSensesData = (d && typeof d === 'object') ? d : null;
+            if (_enSensesData && _peekEl && _peekLemmaId) {
+                const gl = _peekEl.querySelector('.word-peek-glosses');
+                const en = _enSenseText(_peekLemmaId);
+                if (gl && en && (!gl.textContent || gl.textContent === _enShortGloss(_peekLemmaId))) { gl.textContent = en; gl.hidden = false; }
+            }
+        })
+        .catch(() => { _enSensesPromise = null; });
+}
+function _enSenseText(lemmaId) {
+    try {
+        const digits = String(lemmaId || '').replace(/[^0-9]/g, '');
+        const arr = (_enSensesData && digits) ? _enSensesData[digits] : null;
+        if (Array.isArray(arr) && arr.length) return arr.slice(0, 3).join(', ');
+    } catch (_) {}
+    return _enShortGloss(lemmaId);
+}
+
 /* 章の生トークン（elData）を節・トークン番号で引けるようにした索引。
    セグメントのタップ時に、ピーク表示と詳細遷移へ必要なトークンを解決するために使う。 */
 const _jaSegTokenIndex = new Map();
@@ -17205,7 +17275,7 @@ function _peekEnsureLite() {
                 /* 英語UI: 辞書グロスの行も、lite 到着後に差し込む */
                 if (window.I18N && I18N.lang === 'en') {
                     const gl = _peekEl.querySelector('.word-peek-glosses');
-                    const en = _enShortGloss(_peekLemmaId);
+                    const en = _enSenseText(_peekLemmaId);
                     if (gl && en && !gl.textContent) { gl.textContent = en; gl.hidden = false; }
                 }
             }
@@ -17285,8 +17355,9 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
            lite 未到着なら空で作り、_peekEnsureLite が到着後に差し込む。 */
         const gl = document.createElement('div');
         gl.className = 'word-peek-glosses';
-        const en = _enShortGloss(chip.lemmaId);
+        const en = _enSenseText(chip.lemmaId);
         if (en) gl.textContent = en; else { gl.hidden = true; _peekEnsureLite(); }
+        _ensureEnSenses();
         el.appendChild(gl);
     } else {
         let glossArr = null;
@@ -17509,8 +17580,9 @@ function _openSegPeek(segEl, tis) {
             /* 英語UI: 辞書の短い英語グロス（無ければ bible_data の gloss） */
             const gl = document.createElement('div');
             gl.className = 'word-peek-glosses';
-            const en = _enShortGloss(w.lemmaId) || ((typeof w.gloss === 'string' && w.gloss) ? w.gloss : null);
+            const en = _enSenseText(w.lemmaId) || ((typeof w.gloss === 'string' && w.gloss) ? w.gloss : null);
             if (en) gl.textContent = en; else { gl.hidden = true; _peekEnsureLite(); }
+            _ensureEnSenses();
             el.appendChild(gl);
         } else {
             let glossArr = null;
@@ -17658,8 +17730,7 @@ function _jaSegProceed(segEl, ti) {
         lemma:    chip.lemma,
         jaWord:   _enGlossInspect || _resolvedJa || chip.jaWord,
         jaWordDisplay: _enGlossInspect || _resolvedJaDisplay || _resolvedJa || chip.jaWord,
-        desc:     (typeof abbottSmithDict !== 'undefined' && abbottSmithDict && chip.strong)
-            ? (abbottSmithDict[chip.strong.slice(1)]?.description || '') : '',
+        desc:     chip.strong ? _abbottDesc(chip.strong.slice(1)) : '',
         ref:      chip.ref,
         bookKey:  chip.bookKey || '',
         ch:       chip.ch != null ? chip.ch : null,
@@ -17897,7 +17968,7 @@ function _wlvChipClick(chipEl, tokenId) {
         jaWord:   _enGlossInspect2 || _resolvedJa || chip.jaWord,
         /* Stage C P1: 表示用整形値（生の jaWord とは別に保持 — SSOT は不変） */
         jaWordDisplay: _enGlossInspect2 || _resolvedJaDisplay || _resolvedJa || chip.jaWord,
-        desc:     (abbottSmithDict && abbottSmithDict[chip.strong.slice(1)]?.description) || '',
+        desc:     chip.strong ? _abbottDesc(chip.strong.slice(1)) : '',
         ref:      chip.ref,      // 表示専用（ラベル・URL クエリ文字列のみ）
         bookKey:  chip.bookKey  || '',
         ch:       chip.ch       != null ? chip.ch    : null,
@@ -18018,7 +18089,8 @@ function _wlvChipClick(chipEl, tokenId) {
         if (ddGlosses) {
             if (window.I18N && I18N.lang === 'en') {
                 /* 英語UI: 語義行は辞書の短い英語グロス */
-                ddGlosses.textContent = _enShortGloss(chip.lemmaId) || '';
+                ddGlosses.textContent = _enSenseText(chip.lemmaId) || '';
+                _ensureEnSenses();
             } else {
                 const _ddGlossArr = chip.lemmaId
                     ? window.App?.readingLexicon?.lookup(chip.lemmaId)?.glosses
@@ -18580,19 +18652,12 @@ function _renderMobileWordDetail(d) {
     const morphTags = d.rawMorph ? buildMorphTagsHTML(d.rawMorph) : '';
 
     /* Morphological candidates — Desktop _renderReadingNotes と同じ生成ロジック */
-    const JPN_FULL_MC = {
-        tense:  { present:'現在', imperfect:'未完了', future:'未来', aorist:'アオリスト', perfect:'完了', pluperfect:'大完了' },
-        voice:  { active:'能動', middle:'中動', passive:'受動', 'middle deponent':'中動自動', 'middle or passive':'中動/受動' },
-        mood:   { indicative:'直説法', subjunctive:'接続法', optative:'希求法', imperative:'命令法', infinitive:'不定詞', participle:'分詞' },
-        gender: { masculine:'男性', feminine:'女性', neuter:'中性' },
-        number: { singular:'単数', plural:'複数' },
-        case:   { nominative:'主格', genitive:'属格', dative:'与格', accusative:'対格', vocative:'呼格' },
-    };
-    const PERSON_JP_MC = { '1':'1人称', '2':'2人称', '3':'3人称' };
+    const JPN_FULL_MC = _morphFull();
+    const PERSON_JP_MC = _morphFull().person;
     let morphCandidatesHTML = '';
     if (Array.isArray(d.morphCandidates) && d.morphCandidates.length > 0) {
         const candItems = d.morphCandidates.map(c => {
-            const parts = ['動詞'];
+            const parts = [_morphFull().pos.V];
             if (c.mood) parts.push(JPN_FULL_MC.mood[c.mood] || c.mood);
             if (c.voice) parts.push(JPN_FULL_MC.voice[c.voice] || c.voice);
             if (c.tense) parts.push(JPN_FULL_MC.tense[c.tense] || c.tense);
@@ -18601,12 +18666,12 @@ function _renderMobileWordDetail(d) {
                 if (c.number) parts.push(JPN_FULL_MC.number[c.number] || c.number);
                 if (c.case) parts.push(JPN_FULL_MC.case[c.case] || c.case);
             } else {
-                if (c.person) parts.push(PERSON_JP_MC[c.person] || `${c.person}人称`);
+                if (c.person) parts.push(_personText(c.person));
                 if (c.number) parts.push(JPN_FULL_MC.number[c.number] || c.number);
             }
             return `<li class="rn-mc-item"><div class="rn-mc-chips">${parts.map(part => `<span class="rn-mc-chip">${part}</span>`).join('')}</div></li>`;
         }).join('');
-        morphCandidatesHTML = `<div data-study-section="candidates"><div class="rn-mc-details"><div class="rn-mc-label">他に成立する形態</div><ul class="rn-mc-list">${candItems}</ul></div></div>`;
+        morphCandidatesHTML = `<div data-study-section="candidates"><div class="rn-mc-details"><div class="rn-mc-label">${_T('panel.otherForms', '他に成立する形態')}</div><ul class="rn-mc-list">${candItems}</ul></div></div>`;
     }
 
     const hasStudyDetails = !!(d.lemma || d.strong || morphTags || morphCandidatesHTML);
