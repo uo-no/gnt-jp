@@ -35,6 +35,41 @@
 (function () {
     'use strict';
 
+    /* ── ガイド文字列 ── */
+    var _OB_EN = {
+        step1Title: "There are connections in the text that are hard to see in translation.",
+        step2Title: "Here too, a \"because\" was hidden in the original.",
+        gar_title: "γάρ (gár) gives a reason — it means \"for\" or \"because.\"",
+        flowTitle: "In Flow mode, you can follow how the words connect.",
+        joh_welcome: "Let's read John 3:16 in the flow of the original language.",
+        joh_another: "Here, another word is highlighted.",
+        joh_houtos: "\"Thus\" (οὕτως) continues forward into the sentence.",
+        joh_compare: "You can also see how translations differ.",
+        joh_flow2: "Let's follow the flow in the original word order.",
+        joh_complete: "The connections you see today will deepen each time you read.",
+        second_body: "Last time you tapped a word. Today, let's see the flow of the word order.",
+        flowBtn: "See Flow →",
+        laterBtn: "Later",
+        greek_q: "Have you studied Greek before?",
+        how_q: "How do you read?",
+        tapWord: "Tap any word that interests you.",
+        tapVerseMobile: "← Tap a verse in the text.",
+        tapVerseDesktop: "↖ Tap a verse to see its words.",
+        tapVerseHint: "Tap a verse to open the word list.",
+        disclaimer: "This is one way to read.",
+        saveLater: "Save for later ＋",
+        saved: "Saved ✓",
+        gotIt: "Did you get a feel for reading in the original language?",
+        nextVerse: "Next verse →",
+        exploreFreely: "Explore freely",
+        otherChapters: "You can read other chapters the same way."
+    };
+
+    /* EN 用ヘルパー */
+    function _obT(key, ja) {
+        return (window.I18N && I18N.lang === 'en' && _OB_EN[key]) ? _OB_EN[key] : ja;
+    }
+
     /* ══════════════════════════════════════════════════
        CSS 注入
        ══════════════════════════════════════════════════ */
@@ -1124,7 +1159,7 @@
             setTimeout(function() {
                 var garEl = document.querySelector('[data-ob-gar-anchor="true"]');
                 _renderOnboardingCard({
-                    title: '翻訳では見えにくい "文のつながり" があります',
+                    title: _obT('step1Title', '翻訳では見えにくい "文のつながり" があります'),
                     body:  '光っている語を押してみてください',
                     anchorEl: garEl,
                 });
@@ -1135,7 +1170,7 @@
     // STEP3: γάρ押下後 → 演出→「続きも見てみる」ボタン
     function _renderGar16ClickedStep() {
             _renderOnboardingCard({
-            title: '日本語訳聖書では見えにくかったつながりがあります',
+            title: _obT('step1Title', '日本語訳聖書では見えにくかったつながりがあります'),
             body:  '原文では、小さな語で文が続いています。次の節でも見てみましょう。',
             actions: `
                 <button id="ob-continue-btn" class="ob-btn">
@@ -1165,7 +1200,7 @@
             setTimeout(function() {
                 var garEl = document.querySelector('[data-ob-gar-anchor="true"]');
                 _renderOnboardingCard({
-                    title: 'ここでも「なぜなら」が隠れていました',
+                    title: _obT('step2Title', 'ここでも「なぜなら」が隠れていました'),
                     body:  '文が、理由を重ねながら続いています。原文では、その流れが見えやすくなります。',
                     actions: `
                         <button id="ob-flow-btn" class="ob-btn">
@@ -1336,7 +1371,7 @@
                 setTimeout(function() {
                     _pulseGarInFlow();
                     _renderOnboardingCard({
-                        title: 'γάρ（なぜなら）は理由を示す語です',
+                        title: _obT('gar_title', 'γάρ（なぜなら）は理由を示す語です'),
                         body:  '光っている語をもう一度押してみてください',
                         anchorEl: firstChip,
                     });
@@ -1456,7 +1491,7 @@
     // Rev.5: STEP7 — カード文言更新
     function _showFlowCompletionCard() {
         _renderOnboardingCard({
-            title: 'Flowでは単語同士のつながりを追えます',
+            title: _obT('flowTitle', 'Flowでは単語同士のつながりを追えます'),
             body:  'ヨハネ3:16でも、同じように読めます',
             actions: `
                 <button id="ob-read-btn" class="ob-btn ob-btn--primary">
@@ -1732,7 +1767,7 @@
         _saveState();
 
         _renderOnboardingCard({
-            title: 'ヨハネ3:16を、原語の流れで読んでみましょう',
+            title: _obT('joh_welcome', 'ヨハネ3:16を、原語の流れで読んでみましょう'),
             body:  '知っている節が、また違って見えます',
             actions: `
                 <button id="ob-jhn-open-btn" class="ob-btn">
@@ -1772,7 +1807,7 @@
                 if (houtosEl) _scrollAnchorToViewport(houtosEl, 0.30);
                 setTimeout(function() {
                     _renderOnboardingCard({
-                        title: 'ここでも別の語が光っています',
+                        title: _obT('joh_another', 'ここでも別の語が光っています'),
                         body:  '押してみてください',
                         anchorEl: houtosEl || null,
                     });
@@ -1784,7 +1819,7 @@
     // JOH-3: οὕτως押下後 → onboarding prose + compare CTA
     function _renderJohn316WordClickedStep() {
         _renderOnboardingCard({
-            title: '「このように」が、後ろへ続いています',
+            title: _obT('joh_houtos', '「このように」が、後ろへ続いています'),
             body:  '愛されたことの内容が、その後に続けて記されています。',
             actions: `
                 <button id="ob-jhn-compare-btn" class="ob-btn">
@@ -1820,7 +1855,7 @@
             setTimeout(function() { _scrollAndHighlightVerse16(); }, 400);
             setTimeout(function() {
                 _renderOnboardingCard({
-                    title: '訳ごとの違いも見えてきます',
+                    title: _obT('joh_compare', '訳ごとの違いも見えてきます'),
                     body:  '原語を見ると、どこを重視して訳しているか追いやすくなります',
                     actions: `
                         <button id="ob-jhn-flow-btn" class="ob-btn">
@@ -1867,7 +1902,7 @@
             // Flow描画完了を待ってからカードを出す
             setTimeout(function() {
                 _renderOnboardingCard({
-                    title: '原語の語順で、流れを見てみましょう',
+                    title: _obT('joh_flow2', '原語の語順で、流れを見てみましょう'),
                     body:  '語が、どのようにつながっているか追ってみてください。',
                     actions: `
                         <button id="ob-jhn-final-btn" class="ob-btn">
@@ -1892,7 +1927,7 @@
         _clearMobileCompareOverride();
 
         _renderOnboardingCard({
-            title: '今日見えたつながりが、これからも読むたびに増えていきます',
+            title: _obT('joh_complete', '今日見えたつながりが、これからも読むたびに増えていきます'),
             body:  '',
             actions: `
                 <button id="ob-final-close-btn" class="ob-btn">
@@ -2167,7 +2202,7 @@ var _focusReposition = null;
             'letter-spacing: 0.01em',
             'margin-bottom: 16px',
         ].join(';');
-        body.textContent = '前回は語を押しました。今日は、語順の流れを見てみましょう。';
+        body.textContent = _obT('second_body', '前回は語を押しました。今日は、語順の流れを見てみましょう。');
         el.appendChild(body);
 
         /* VR-5-H-10-C: 旧 gf-tab-flow タブ click 依存を廃し、現行 Flow API
@@ -2190,7 +2225,7 @@ var _focusReposition = null;
             'touch-action: manipulation',
             'margin-bottom: 8px',
         ].join(';');
-        flowBtn.textContent = 'Flowを見る　→';
+        flowBtn.textContent = _obT('flowBtn', 'Flowを見る　→');
         flowBtn.addEventListener('click', function() {
             el.style.opacity = '0';
             setTimeout(function() {
@@ -2214,7 +2249,7 @@ var _focusReposition = null;
             'line-height: 36px',
             'touch-action: manipulation',
         ].join(';');
-        dismiss.textContent = 'あとで見る';
+        dismiss.textContent = _obT('laterBtn', 'あとで見る');
         dismiss.addEventListener('click', function() {
             el.style.opacity = '0';
             setTimeout(function() { el.remove(); }, 400);
@@ -2251,7 +2286,7 @@ var _focusReposition = null;
     function _renderLevelCard() {
 
         _renderOnboardingCard({
-            title: 'ギリシャ語を学んだことがありますか？',
+            title: _obT('greek_q', 'ギリシャ語を学んだことがありますか？'),
 
             body: '読む深さを調整します',
 
@@ -2265,7 +2300,7 @@ var _focusReposition = null;
                 </button>
 
                 <button id="ob-level-skip" class="ob-text-btn">
-                    あとで見る
+                    ${_obT('laterBtn', 'あとで見る')}
                 </button>
             `
         });
@@ -2311,7 +2346,7 @@ var _focusReposition = null;
     function _renderPurposeCard() {
 
         _renderOnboardingCard({
-            title: 'どのように読みますか？',
+            title: _obT('how_q', 'どのように読みますか？'),
 
             body: 'よく使う方向へ調整します',
 
@@ -2753,7 +2788,7 @@ var _focusReposition = null;
             'opacity: 0',
             'transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.4,0,0.2,1)',
         ].join(';');
-        el.textContent = '気になる語をどれでも押してみてください';
+        el.textContent = _obT('tapWord', '気になる語をどれでも押してみてください');
         document.body.appendChild(el);
         requestAnimationFrame(function() { requestAnimationFrame(function() {
             el.style.opacity = '1';
@@ -2797,7 +2832,9 @@ var _focusReposition = null;
         // Rev.2: 超短文化。モバイルは「本文に戻る」1行のみ。
         const msg = document.createElement('div');
         msg.style.cssText = 'font-size:0.80rem;line-height:1.6;';
-        msg.textContent = isMobileView ? '← 本文の節を押してみましょう' : '↖ 節を押すと、語の一覧が現れます';
+        msg.textContent = isMobileView
+            ? _obT('tapVerseMobile', '← 本文の節を押してみましょう')
+            : _obT('tapVerseDesktop', '↖ 節を押すと、語の一覧が現れます');
 
         el.appendChild(msg);
         wrap.insertBefore(el, wrap.firstChild);
@@ -2844,7 +2881,7 @@ var _focusReposition = null;
             'opacity: 0',
             'transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.4,0,0.2,1)',
         ].join(';');
-        hint.textContent = '節を押すと、原語の語形一覧が開きます';
+        hint.textContent = _obT('tapVerseHint', '節を押すと、原語の語形一覧が開きます');
         document.body.appendChild(hint);
 
         requestAnimationFrame(function() { requestAnimationFrame(function() {
@@ -2978,7 +3015,7 @@ const _DEFAULT_INSIGHT_EXPERIENCED = '翻訳では平らに見える箇所に、
             'letter-spacing: 0.02em',
             'margin-top: 4px',
         ].join(';');
-        disclaimer.textContent = 'これは一つの読み方です';
+        disclaimer.textContent = _obT('disclaimer', 'これは一つの読み方です');
         el.appendChild(disclaimer);
 
         // Rev.3: 「後で読む」軽量保存ボタン（中級者の蓄積感を作る）
@@ -3004,7 +3041,7 @@ const _DEFAULT_INSIGHT_EXPERIENCED = '翻訳では平らに見える箇所に、
             'touch-action: manipulation',
             'min-height: 28px',
         ].join(';');
-        saveBtn.textContent = '後で読む　＋';
+        saveBtn.textContent = _obT('saveLater', '後で読む　＋');
         saveBtn.addEventListener('click', function() {
             try {
                 var saved = JSON.parse(localStorage.getItem('app_saved_insights') || '[]');
@@ -3014,7 +3051,7 @@ const _DEFAULT_INSIGHT_EXPERIENCED = '翻訳では平らに見える箇所に、
                 if (saved.length > 30) { saved = saved.slice(0, 30); }
                 localStorage.setItem('app_saved_insights', JSON.stringify(saved));
             } catch (_) {}
-            saveBtn.textContent = '保存しました　✓';
+            saveBtn.textContent = _obT('saved', '保存しました　✓');
             saveBtn.style.color = 'rgba(90,110,130,0.88)';
             saveBtn.disabled = true;
         });
@@ -3072,7 +3109,7 @@ const _DEFAULT_INSIGHT_EXPERIENCED = '翻訳では平らに見える箇所に、
             'line-height: 1.65',
             'text-align: center',
         ].join(';');
-        message.textContent = '原語で読む感覚、少し掴めましたか';
+        message.textContent = _obT('gotIt', '原語で読む感覚、少し掴めましたか');
 
         const btn = document.createElement('button');
         btn.style.cssText = [
@@ -3092,7 +3129,7 @@ const _DEFAULT_INSIGHT_EXPERIENCED = '翻訳では平らに見える箇所に、
             'touch-action: manipulation',
             'width: 100%',
         ].join(';');
-        btn.textContent = '次の節へ進む　→';
+        btn.textContent = _obT('nextVerse', '次の節へ進む　→');
 
         const dismiss = document.createElement('div');
         dismiss.style.cssText = [
@@ -3104,7 +3141,7 @@ const _DEFAULT_INSIGHT_EXPERIENCED = '翻訳では平らに見える箇所に、
             'min-height: 32px',
             'line-height: 32px',
         ].join(';');
-        dismiss.textContent = 'あとで自由に探す';
+        dismiss.textContent = _obT('exploreFreely', 'あとで自由に探す');
 
         // Rev.1: フォールバック3段階で「押したら必ず何か起きる」を保証
         btn.addEventListener('click', function() {
@@ -3170,7 +3207,7 @@ const _DEFAULT_INSIGHT_EXPERIENCED = '翻訳では平らに見える箇所に、
             'opacity: 0',
             'transition: opacity 0.5s ease',
         ].join(';');
-        el.textContent = '他の章でも、同じように読めます';
+        el.textContent = _obT('otherChapters', '他の章でも、同じように読めます');
         document.body.appendChild(el);
 
         requestAnimationFrame(function() { requestAnimationFrame(function() {
