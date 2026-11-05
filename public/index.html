@@ -15716,10 +15716,12 @@ const TranslationRenderer = {
         const text = (representation && representation.text != null) ? representation.text : '';
         const segs = (representation && Array.isArray(representation.segments)) ? representation.segments : null;
         const vr = (representation && representation.verseRef) ? representation.verseRef : null;
+        /* 訳文は常にテキストとして扱う（HTMLとして流さない）。セグメント経路・
+           フォールバック経路のどちらでも esc を通す。 */
+        const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         if (segs && vr) {
             /* 対応づいた区間だけをタップ可能な span にする。対応なし区間は素のテキスト
                （＝従来表示と同一の見た目）。全区間の連結は訳文原文と一致する（データ側で検証済み）。 */
-            const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const inner = segs.map(seg => {
                 const t = esc(seg.t != null ? seg.t : '');
                 if (Array.isArray(seg.tokens) && seg.tokens.length) {
@@ -15729,7 +15731,7 @@ const TranslationRenderer = {
             }).join('');
             return `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${inner}</div></div>`;
         }
-        return `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${text}</div></div>`;
+        return `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text">${esc(text)}</div></div>`;
     },
 };
 
