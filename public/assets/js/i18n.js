@@ -105,6 +105,14 @@
         if (desc) {
             var md = document.querySelector('meta[name="description"]');
             if (md) md.setAttribute('content', desc);
+            var ogDesc = document.querySelector('meta[property="og:description"]');
+            if (ogDesc) ogDesc.setAttribute('content', desc);
+            var twDesc = document.querySelector('meta[name="twitter:description"]');
+            if (twDesc) twDesc.setAttribute('content', desc);
+        }
+        if (state.lang === 'en') {
+            var titleStr = t('meta.title');
+            if (titleStr) document.title = titleStr;
         }
     }
 

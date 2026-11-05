@@ -6253,7 +6253,7 @@ body.chapter-navigation-loading #main-reading-area::after {
     letter-spacing: 0.04em;
     pointer-events: auto;
 }
-html[lang=en] body.chapter-navigation-loading::after { content: 'Loading'; }
+html[lang="en"] body.chapter-navigation-loading #main-reading-area::after { content: 'Loading'; }
 </style>
 
 </head>
@@ -6339,7 +6339,7 @@ html[lang=en] body.chapter-navigation-loading::after { content: 'Loading'; }
             <span class="sb-nav-sep sb-nav-sep-book">›</span>
             <span class="sb-nav-book" id="sb-l2-title"></span>
         </div>
-        <div class="section-label" style="padding: var(--space-xs) var(--space-md) var(--space-xs);">章を選ぶ</div>
+        <div class="section-label" data-i18n="ui.chooseChapter" style="padding: var(--space-xs) var(--space-md) var(--space-xs);">章を選ぶ</div>
         <div class="sb-ch-grid menu-text" id="sb-ch-grid"></div>
     </div>
 
@@ -6399,7 +6399,7 @@ html[lang=en] body.chapter-navigation-loading::after { content: 'Loading'; }
         <div id="main-reading-area" class="single-mode">
             <div id="mobile-verse-nav" style="display:none;">
                 <button class="mvn-btn" id="mvn-prev" onclick="_mobileVerseNav(-1)">‹</button>
-                <span class="mvn-label"><strong id="mvn-verse-num">1</strong> 節</span>
+                <span class="mvn-label"><strong id="mvn-verse-num">1</strong><span data-i18n="ui.verseSuffix"> 節</span></span>
                 <button class="mvn-btn" id="mvn-next" onclick="_mobileVerseNav(1)">›</button>
             </div>
             <div id="bible-text-area">
@@ -6862,9 +6862,10 @@ async function _openRefPopup(book, ch, verse, href) {
         const entry = (typeof _lexiconData !== 'undefined' && _lexiconData) ? _lexiconData[curId] : null;
         const headword = t.lemma || (entry && entry.headword) || '';
         const glossJa  = (entry && entry.gloss_ja) || '';
+        const glossEn  = (entry && entry.gloss) || '';
         const formJa   = _refFormJa(t);
         const rows = [];
-        if (headword) rows.push(`<div class="rn-ref-word-row"><dt>${_T('ref.lemma', '見出し語')}</dt><dd><span class="rn-ref-gr">${_escH(headword)}</span>${glossJa ? '（' + _escH(glossJa) + '）' : ''}</dd></div>`);
+        if (headword) rows.push(`<div class="rn-ref-word-row"><dt>${_T('ref.lemma', '見出し語')}</dt><dd><span class="rn-ref-gr">${_escH(headword)}</span>${(window.I18N && I18N.lang === 'en') ? (glossEn ? ' (' + _escH(glossEn) + ')' : '') : (glossJa ? '（' + _escH(glossJa) + '）' : '')}</dd></div>`);
         if (t.class)  rows.push(`<div class="rn-ref-word-row"><dt>${_T('morph.pos', '品詞')}</dt><dd>${_escH((t.class === 'noun' && t.type === 'proper') ? _T('morph.properNoun', '固有名詞') : (_refForm().pos[t.class] || t.class))}</dd></div>`);
         rows.push(`<div class="rn-ref-word-row"><dt>${_T('ref.form', '形')}</dt><dd><span class="rn-ref-gr">${_escH(t.text || '')}</span>${formJa ? '（' + _escH(formJa) + '）' : ''}</dd></div>`);
         const _meanGloss = _glossSidecarFor(t) || t.japanese;
@@ -8285,7 +8286,7 @@ function _openWordListInternal(vNum, words, book, ch) {
         listEl.innerHTML = `<p style="color:var(--text-sub);font-size: var(--text-caption);text-align:center;padding: var(--space-xl) var(--space-md);">この節では語形表示はまだ利用できません</p>`;
         sidePanel.appendChild(listEl);
         /* モバイルナビバー・戻るボタン・スクロール調整 */
-        _mobileOpenPanel('語形一覧', wasOpen);
+        _mobileOpenPanel(_T('ui.wordList', '語形一覧'), wasOpen);
         updatePanelBackButton();
         _adjustReadingAreaForPanel(wasOpen);
         return;
@@ -8333,8 +8334,8 @@ function _openWordListInternal(vNum, words, book, ch) {
     _ensureStudyPanelReadingSections(listEl, words, _noteBookKey, _noteChapter, vNum);
 
     /* モバイルナビバー・戻るボタン・スクロール調整 */
-    const chapterLabel = vNum ? vNum + '節' : '';
-    _mobileOpenPanel(chapterLabel || '語形一覧', wasOpen);
+    const chapterLabel = vNum ? ((window.I18N && I18N.lang === 'en') ? String(vNum) : (vNum + '節')) : '';
+    _mobileOpenPanel(chapterLabel || _T('ui.wordList', '語形一覧'), wasOpen);
     updatePanelBackButton();
     _adjustReadingAreaForPanel(wasOpen);
 }
@@ -8766,7 +8767,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         ? `<div class="rn-syntax-tied-notice">${_T('panel.tiedNotice', '今回の解析では、一つの候補に絞れていません。')}</div>`
         : '';
     const otherHTML = otherCandidates.length
-        ? `<div class="rn-syntax-alternatives"><div class="rn-syntax-alternatives-label">ほかの候補（${otherCandidates.length}件）</div><div class="rn-syntax-alternatives-list">${otherCandidates.map(c => renderCandidate(c, false)).join('')}</div></div>`
+        ? `<div class="rn-syntax-alternatives"><div class="rn-syntax-alternatives-label">${_T('panel.otherCandidates', 'ほかの候補（N件）').replace('{n}', otherCandidates.length)}</div><div class="rn-syntax-alternatives-list">${otherCandidates.map(c => renderCandidate(c, false)).join('')}</div></div>`
         : '';
 
     /*
@@ -9507,7 +9508,7 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
             ? siblings.filter((s, i) => !s.isCurrent && i >= CHIP_SHOW).length
             : 0;
         const moreBtn = hiddenCount > 0
-            ? `<button class="rn-chip-more">データ由来照合語をすべて表示</button>`
+            ? `<button class="rn-chip-more">${_T('panel.showAllMatches', 'データ由来照合語をすべて表示')}</button>`
             : '';
 
         const domainTitle  = _getDomainLabel(code);
@@ -9608,13 +9609,13 @@ function _buildConcordanceHTML(resolvedId, word) {
     }).join('');
 
     const moreNote = byVerse.size > SHOW
-        ? `<div class="rn-concord-more">他 ${byVerse.size - SHOW} 節…</div>`
+        ? `<div class="rn-concord-more">${(window.I18N && I18N.lang === 'en') ? _T('panel.moreVerses', '他 {n} 節…').replace('{n}', byVerse.size - SHOW) : `他 ${byVerse.size - SHOW} 節…`}</div>`
         : '';
 
     return `
     <div class="rn-concord-section">
         <button class="rn-layer-toggle" data-target="rn-concord-body">
-            <span>用例一覧（${byVerse.size}節）</span>
+            <span>${(window.I18N && I18N.lang === 'en') ? _T('panel.concordance', '用例一覧（{n}節）').replace('{n}', byVerse.size) : `用例一覧（${byVerse.size}節）`}</span>
             <span class="rn-layer-toggle-icon icon">${icon('chevronRight')}</span>
         </button>
         <div class="rn-layer-body" id="rn-concord-body">
@@ -10315,7 +10316,7 @@ function _rtRunMorphSearch() {
 
     if (conditions.length === 0) {
         document.getElementById('rt-m-results').innerHTML =
-            `<div class="rt-no-result">条件を1つ以上選んでください。</div>`;
+            `<div class="rt-no-result">${_T('ui.selectCondition', '条件を1つ以上選んでください。')}</div>`;
         return;
     }
 
@@ -10374,7 +10375,7 @@ function _rtRunSyntaxSearch() {
 
     if (conditions.length === 0) {
         document.getElementById('rt-s-results').innerHTML =
-            `<div class="rt-no-result">条件を1つ以上選んでください。</div>`;
+            `<div class="rt-no-result">${_T('ui.selectCondition', '条件を1つ以上選んでください。')}</div>`;
         return;
     }
 
@@ -16812,14 +16813,14 @@ async function _fillRelationSlot(slotId, ref) {
         head.className = 'local-rel-head';
         head.innerHTML =
             '<div class="local-rel-title">' + _T('panel.relationsInSentence', '文の中での関係') + '</div>' +
-            '<div class="local-rel-caption">選んだ語が、文のほかの語とどう関わっているか</div>' +
+            '<div class="local-rel-caption">' + _T('panel.localRelCaption', '選んだ語が、文のほかの語とどう関わっているか') + '</div>' +
             '<details class="local-rel-legend"><summary>' + _T('panel.symbolGuide', '記号の見方') + '</summary>' +
             '<ul>' +
-            '<li>選んだ語は、緑色で太く表示されます</li>' +
-            '<li>線は、語と語がどう関わっているかを表します</li>' +
-            '<li>語のそばの小さな言葉（例：［冠詞］）は、その語の役割を表します</li>' +
-            '<li>枠はドラッグで動かせます。右下のボタンで、拡大・縮小と「選択中の語へ戻る」ができます</li>' +
-            '<li>動詞の線の種類（実線・点線など）の意味は、「まめ知識」の「動詞の読み方」にあります</li>' +
+            '<li>' + _T('panel.localRelLegend1', '選んだ語は、緑色で太く表示されます') + '</li>' +
+            '<li>' + _T('panel.localRelLegend2', '線は、語と語がどう関わっているかを表します') + '</li>' +
+            '<li>' + _T('panel.localRelLegend3', '語のそばの小さな言葉（例：［冠詞］）は、その語の役割を表します') + '</li>' +
+            '<li>' + _T('panel.localRelLegend4', '枠はドラッグで動かせます。右下のボタンで、拡大・縮小と「選択中の語へ戻る」ができます') + '</li>' +
+            '<li>' + _T('panel.localRelLegend5', '動詞の線の種類（実線・点線など）の意味は、「まめ知識」の「動詞の読み方」にあります') + '</li>' +
             '</ul></details>';
         slot.appendChild(head);
         slot.appendChild(frame);
@@ -18763,9 +18764,9 @@ function _buildGreekTabHTML(words) {
             <span style="font-size: var(--text-caption);color:var(--text-sub);opacity: var(--opacity-secondary);flex-shrink:0;">${posJpn}</span>
         </div>`;
     }).join('');
-    return `<div style="font-size: var(--text-caption);font-weight:600;letter-spacing:0.06em;color:var(--text-sub);opacity: var(--opacity-secondary);margin-bottom: var(--space-sm);">原語一覧</div>
+    return `<div style="font-size: var(--text-caption);font-weight:600;letter-spacing:0.06em;color:var(--text-sub);opacity: var(--opacity-secondary);margin-bottom: var(--space-sm);">${_T('ui.originalText', '原語一覧')}</div>
     ${rows}
-    <p style="font-size: var(--text-caption);color:var(--text-sub);opacity: var(--opacity-secondary);margin-top: var(--space-sm);">語をクリックすると詳細が開きます（通常タブ）</p>`;
+    <p style="font-size: var(--text-caption);color:var(--text-sub);opacity: var(--opacity-secondary);margin-top: var(--space-sm);">${_T('ui.clickWordForDetails', '語をクリックすると詳細が開きます（通常タブ）')}</p>`;
 }
 
 /**
