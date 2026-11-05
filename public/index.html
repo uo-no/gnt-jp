@@ -2664,7 +2664,7 @@ animation: ac-blink 1.2s ease-in-out infinite;
 .ja-seg.hl-word-blue   { background: rgba(0,76,151,0.25); }
 .ja-seg.hl-word-green  { background: rgba(21,114,44,0.25); }
 .ja-seg.hl-word-red    { background: rgba(235,97,0,0.25); }
-.ja-seg.hl-multi-selected { outline: 2px solid var(--accent); outline-offset: 2px; background: rgba(21,114,44,.13); }
+.ja-seg.hl-multi-selected, .ja-seg.hl-touch-selected { outline: 2px solid var(--accent); outline-offset: 2px; background: rgba(21,114,44,.13); }
 .wlv-chip.hl-word-blue   { background: rgba(0,76,151,0.25) !important; border-radius: 3px; }
 .wlv-chip.hl-word-green  { background: rgba(21,114,44,0.25) !important; border-radius: 3px; }
 .wlv-chip.hl-word-red    { background: rgba(235,97,0,0.25) !important; border-radius: 3px; }
@@ -20987,23 +20987,74 @@ let _hlTouchSelTimer = null;
    選択やメニューが解除され、読み直すと空になって無反応に見える）。 */
 let _hlTouchEntries = [];
 let _hlLastTouchInPill = false;
+/* 口語訳セグメント選択のアプリ側表示ロック。ネイティブ選択を解除しても
+   「選択中」の見た目とピルを保つための状態（_hlLockTouchSegs 参照）。 */
+let _hlTouchSegLock = false;
+let _hlTouchSegEls = [];
+let _hlTouchSegDocHook = false;
 function _hlTouchPillEl() { return document.getElementById('hl-touch-pill'); }
 function _hlHideTouchPill() { const p = _hlTouchPillEl(); if (p) p.classList.remove('hl-show'); }
+/* 口語訳では選択はセグメント単位でしか解釈されないのに、ネイティブ選択の
+   青ハンドルは文字単位で調整できるように見え、実際の対象と食い違う。
+   セグメントだけの選択が確定したら、ネイティブ選択を解除して対象セグメントに
+   アプリ側の選択表示（.hl-touch-selected）を付け、選択表現を一本化する。
+   ギリシャ語モード（チップ／トークン）ではハンドルでの範囲調整が要るため、
+   対象がセグメントのみの場合に限る。 */
+function _hlLockTouchSegs(els) {
+    _hlUnlockTouchSegs();
+    _hlTouchSegLock = true;
+    _hlTouchSegEls = els.slice();
+    _hlTouchSegEls.forEach(el => el.classList.add('hl-touch-selected'));
+    _hlClearNativeSelection();
+    if (!_hlTouchSegDocHook) {
+        _hlTouchSegDocHook = true;
+        document.addEventListener('pointerdown', function (event) {
+            if (!_hlTouchSegLock) return;
+            const t = event.target;
+            if (t && t.closest && (t.closest('#hl-touch-pill') || t.closest('.ja-seg.hl-touch-selected'))) return;
+            /* 選択範囲の外へのタップで選択を終える（ピークの外タップと同じ作法） */
+            _hlUnlockTouchSegs();
+            _hlTouchEntries = [];
+            _hlHideTouchPill();
+        }, true);
+    }
+}
+function _hlUnlockTouchSegs() {
+    if (_hlTouchSegEls.length) _hlTouchSegEls.forEach(el => el.classList.remove('hl-touch-selected'));
+    document.querySelectorAll('.ja-seg.hl-touch-selected').forEach(el => el.classList.remove('hl-touch-selected'));
+    _hlTouchSegLock = false;
+    _hlTouchSegEls = [];
+}
 function _hlTryTouchTextSelection() {
     const pill = _hlTouchPillEl();
     if (!pill) return;
-    if (_hlState.pickerPending || _hlState.multiSelectActive) { _hlTouchEntries = []; _hlHideTouchPill(); return; }
+    if (_hlState.pickerPending || _hlState.multiSelectActive) { _hlUnlockTouchSegs(); _hlTouchEntries = []; _hlHideTouchPill(); return; }
     const selection = window.getSelection();
     if (!selection || !selection.rangeCount || selection.isCollapsed) {
+        /* ロック中は、ネイティブ選択が解除済みでも選択表示とピルを保つ。 */
+        if (_hlTouchSegLock && _hlTouchEntries.length) { pill.classList.add('hl-show'); return; }
         /* ピルへのタップで選択が解除されただけなら、ピルと種データを残す。 */
         if (_hlTouchEntries.length && _hlLastTouchInPill) { pill.classList.add('hl-show'); return; }
         _hlTouchEntries = []; _hlHideTouchPill(); return;
     }
     const anchorEl = selection.anchorNode && selection.anchorNode.parentElement;
-    if (!anchorEl || !anchorEl.closest || !anchorEl.closest('#bible-text-area, #parallel-text-area')) { _hlTouchEntries = []; _hlHideTouchPill(); return; }
+    if (!anchorEl || !anchorEl.closest || !anchorEl.closest('#bible-text-area, #parallel-text-area')) { _hlUnlockTouchSegs(); _hlTouchEntries = []; _hlHideTouchPill(); return; }
     const entries = _hlResolveTextSelection();
-    if (!entries.length) { _hlTouchEntries = []; _hlHideTouchPill(); return; }
+    if (!entries.length) { _hlUnlockTouchSegs(); _hlTouchEntries = []; _hlHideTouchPill(); return; }
     _hlTouchEntries = entries;
+    /* 対象が口語訳セグメントだけなら、アプリ側の選択表示に置き換える。 */
+    let range = null;
+    try { range = selection.getRangeAt(0); } catch (_) {}
+    const hitEls = range ? Array.from(document.querySelectorAll(
+        '#bible-text-area .wlv-chip, #parallel-text-area .wlv-chip, ' +
+        '#bible-text-area .dg-token[data-dg-ref], #parallel-text-area .dg-token[data-dg-ref], ' +
+        '#bible-text-area .ja-seg, #parallel-text-area .ja-seg'
+    )).filter(el => { try { return range.intersectsNode(el); } catch (_) { return false; } }) : [];
+    if (hitEls.length && hitEls.every(el => el.classList.contains('ja-seg'))) {
+        _hlLockTouchSegs(hitEls);
+    } else {
+        _hlUnlockTouchSegs();
+    }
     pill.classList.add('hl-show');
 }
 function _hlScheduleTouchTextSelection(delay) {
@@ -21012,6 +21063,7 @@ function _hlScheduleTouchTextSelection(delay) {
 }
 function _hlTouchPillTap() {
     _hlHideTouchPill();
+    _hlUnlockTouchSegs();
     const entries = _hlTouchEntries;
     _hlTouchEntries = [];
     if (entries.length) {
@@ -21034,6 +21086,7 @@ function _hlEnterTouchRangeMode() {
     if (!entries.length) return;
     _hlTouchEntries = [];
     _hlHideTouchPill();
+    _hlUnlockTouchSegs();
     _hlClearNativeSelection();
     _hlState.multiSelectActive = true;
     _hlState.multiSelectEntries = entries.slice();
@@ -21044,6 +21097,17 @@ function _hlEnterTouchRangeMode() {
     ).forEach(el => {
         const r = _hlRefFromEl(el);
         if (r && keys.has([r.book, r.chapter, r.verse, r.tokenStart].join(':'))) el.classList.add('hl-multi-selected');
+    });
+    /* 口語訳セグメントも種の選択表示を付ける（従来はチップだけだった）。
+       区間のトークンのどれかが種に含まれれば、区間単位で選択表示にする
+       （タップ時の _jaSegMultiSelectTap と同じく区間をまとめて扱う作法）。 */
+    document.querySelectorAll(
+        '#bible-text-area .ja-seg, #parallel-text-area .ja-seg'
+    ).forEach(seg => {
+        const hit = _jaSegTokenIdxList(seg).some(t => keys.has(
+            [String(seg.dataset.jaBook), Number(seg.dataset.jaCh), Number(seg.dataset.jaV), t].join(':')
+        ));
+        if (hit) seg.classList.add('hl-multi-selected');
     });
     _hlShowSelectionBar('multi', _hlState.multiSelectEntries.length);
 }
