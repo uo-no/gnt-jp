@@ -41,16 +41,27 @@
     }
 
     function makeChips(words, book, chapter) {
-        return words.map((word, i) =>
-            _wordToFlowChip(
+        return words.map((word, i) => {
+            const chip = _wordToFlowChip(
                 word,
                 i,
                 book,
                 chapter,
                 null,
                 words
-            )
-        );
+            );
+            /* _wlvChipsHTML は tokenId を data-token-id と onclick の JS 文字列へ
+               無エスケープで展開する（greek / gloss は #566 でエスケープ済み）。
+               bible_data の tokenId の正規形は数値文字列のため、ここで数値文字列へ
+               正規化し、それ以外の値をシンクへ到達させない。:70（文頭接続詞行）と
+               :130（フロー行）の両シンクは makeChips 経由で共通に対処する
+               （R-a 監査 2026-11-05 のペア対応）。 */
+            if (chip && chip.tokenId != null) {
+                const n = Number(chip.tokenId);
+                chip.tokenId = Number.isFinite(n) ? String(n) : '';
+            }
+            return chip;
+        });
     }
 
     function renderConnectorRow(sentenceEl, containerEl, leadingConjs) {
