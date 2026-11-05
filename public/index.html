@@ -9399,9 +9399,9 @@ function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
         const chips = siblings.map((s, i) => {
             const hidden = useLimit && !s.isCurrent && i >= CHIP_SHOW;
             return `
-            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}${hidden ? ' rn-chip-hidden' : ''}" data-lemma-id="${s.id}" data-headword="${s.headword.replace(/"/g,'&quot;')}" data-cluster-id="${code}" title="${s.gloss}">
-                <span class="rn-sibling-gr">${s.headword}</span>
-                ${s.gloss ? `<span class="rn-sibling-ja">${s.gloss}</span>` : ''}
+            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}${hidden ? ' rn-chip-hidden' : ''}" data-lemma-id="${s.id}" data-headword="${s.headword.replace(/"/g,'&quot;')}" data-cluster-id="${code}" title="${_escH(s.gloss || '')}">
+                <span class="rn-sibling-gr">${_escH(s.headword)}</span>
+                ${s.gloss ? `<span class="rn-sibling-ja">${_escH(s.gloss)}</span>` : ''}
 
                 ${s.isCurrent
                     ? `<span class="rn-sibling-badge">基準語</span>`
@@ -15665,10 +15665,10 @@ const WordOrderRenderer = {
                 : '';
             return `${sepBefore}<span class="wlv-chip ${c.roleClass}"
             data-token-id="${c.tokenId}"
-            data-greek="${c.greek}"${anchorAttr}
+            data-greek="${_escH(c.greek)}"${anchorAttr}
             onclick="_wlvChipClick(this,'${c.tokenId}')"
-            title="${c.greek}">
-            <span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span>
+            title="${_escH(c.greek)}">
+            <span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${_escH(c.gloss)}</span></span>
         </span>`;
         }).join('');
 
@@ -15741,9 +15741,12 @@ const WordOrderRenderer = {
         return list.map((c, i) => {
             const sep = c.phraseBreakBefore ? `<span class="wlv-phrase-sep"></span>` : '';
             const anchorAttr = (_anchor && i === 0)
-                ? ' data-onboarding-anchor="true" data-greek="' + c.greek + '"'
+                ? ' data-onboarding-anchor="true" data-greek="' + _escH(c.greek) + '"'
                 : '';
-            return `${sep}<span class="wlv-chip ${c.roleClass}" data-token-id="${c.tokenId}"${anchorAttr} onclick="${_clickPrefix}_wlvChipClick(this,'${c.tokenId}')" title="${c.greek}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${c.gloss}</span></span></span>`;
+            /* テキスト項目（greek / gloss）はデータ由来のため、HTMLとして流さず
+               エスケープしてから埋める（Phase 1b のグロス・サイドカー流入に備えた
+               関門台帳 L1 の解消）。tokenId・クラス名は内部識別子のため対象外。 */
+            return `${sep}<span class="wlv-chip ${c.roleClass}" data-token-id="${c.tokenId}"${anchorAttr} onclick="${_clickPrefix}_wlvChipClick(this,'${c.tokenId}')" title="${_escH(c.greek)}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${_escH(c.gloss)}</span></span></span>`;
         }).join('');
     },
 
