@@ -6840,6 +6840,7 @@ function normalizeStrong(value) {
    ══════════════════════════════════════════ */
 const TRANSLATIONS = {
     'JA1955': { label: '口語訳（1955）',     code: 'JA1955' },
+    'WEB':    { label: 'World English Bible（英語訳）', code: 'WEB' },
     'BUN':    { label: '文語訳',             code: 'BUN'    },
 /*  'KAI17':  { label: '新改訳2017',         code: 'KAI17'  },
     'KYO':    { label: '聖書協会共同訳',     code: 'KYO'    },*/
@@ -6864,6 +6865,11 @@ const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t
 const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
     .filter(([id]) => id !== 'WORD_ORDER' && id !== 'DISCOURSE' && id !== 'STRUCTURAL' && id !== 'STRUCTURE' && id !== 'CLAUSE_ROLE' && id !== 'BUN' && id !== 'RELATION' && id !== 'RK_READING' && id !== 'RK_READING_V' && id !== 'DA_READING' && id !== 'ROLE_READING')
     .map(([id, t]) => ({ id, label: t.label, code: t.code }));
+/* D1（Phase 1b）: 基準訳は UI 言語に従う。英語 UI では WEB を翻訳一覧の先頭に置く。 */
+if (window.I18N && window.I18N.lang === 'en') {
+    const wi = TRANSLATION_REGISTRY.findIndex(t => t.id === 'WEB');
+    if (wi > 0) TRANSLATION_REGISTRY.unshift(TRANSLATION_REGISTRY.splice(wi, 1)[0]);
+}
 
 /**
  * VR-4-E: DisplayMode Registry（docs/development/verse-representation-design.md §C-1）。
@@ -6884,7 +6890,9 @@ const DISPLAY_MODE_REGISTRY = [
 
 /* アクティブ翻訳（A = メイン / B = 比較列）。_transA / _transB が唯一のSSOT（Phase TR-5）。 */
 let _transMode   = 'single';
-let _transA      = 'JA1955';
+/* D1（Phase 1b）: 既定の基準訳は UI 言語に従う（英語 UI では WEB）。
+   URL で明示された場合は init() の適用が優先する。 */
+let _transA      = (window.I18N && window.I18N.lang === 'en') ? 'WEB' : 'JA1955';
 let _transB      = 'BUN';
 
 /* Legacy Mode ID → 新 Mode ID の正規化マップ（URL deep link 互換）。
@@ -7102,7 +7110,7 @@ const Router = {
     /* パス表示コード → 内部ID（旧URLエイリアスは normalizeModeId が担う） */
     _DISPLAY_CODE: {
         'WO': 'WORD_ORDER', 'ST': 'STRUCTURE',  'CR': 'CLAUSE_ROLE',
-        'RL': 'RELATION',   'DC': 'DISCOURSE',  'BUN': 'BUN', 'JA1955': 'JA1955',
+        'RL': 'RELATION',   'DC': 'DISCOURSE',  'BUN': 'BUN', 'JA1955': 'JA1955', 'WEB': 'WEB',
         'RK': 'RK_READING', 'RKV': 'RK_READING_V', 'RKP': 'RK_READING_P',  /* Phase L.2 / M */
         'DA': 'DA_READING',
         'WR': 'ROLE_READING',
