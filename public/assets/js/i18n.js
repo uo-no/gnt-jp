@@ -19,11 +19,32 @@
     var STORAGE_KEY = 'app_lang';
     var SUPPORTED = ['ja', 'en'];
 
+    /* Path-prefix language links (user decision, 2026-11-05):
+       /ja/... and /en/... choose the UI language and remember it,
+       so a link can be sent in a specific language, e.g.
+       bible-text.pages.dev/en/ROM/1/WO. The prefix is stripped via
+       replaceState before the app router reads the path, so the
+       router only ever sees its usual /BOOK/CH/... paths. A prefix
+       link wins over the stored preference. */
+    var pathLang = null;
+    try {
+        var pm = window.location.pathname.match(/^\/(ja|en)(?=\/|$)/);
+        if (pm) {
+            pathLang = pm[1];
+            var rest = window.location.pathname.slice(pm[0].length) || '/';
+            window.history.replaceState(null, '', rest + window.location.search + window.location.hash);
+        }
+    } catch (_) { /* keep the path as-is; routing falls back to defaults */ }
+
     var lang = 'ja';
     try {
         var saved = localStorage.getItem(STORAGE_KEY);
         if (SUPPORTED.indexOf(saved) >= 0) lang = saved;
     } catch (_) { /* localStorage unavailable: stay with Japanese */ }
+    if (pathLang) {
+        lang = pathLang;
+        try { localStorage.setItem(STORAGE_KEY, pathLang); } catch (_) {}
+    }
 
     var state = { lang: lang, dict: null };
 
