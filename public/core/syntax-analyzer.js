@@ -2195,6 +2195,7 @@ class CandidateNormalizer {
                     label_en:        raw.typeDef?.label_en        ?? '',
                     wallace_ref:     raw.typeDef?.wallace_ref      ?? '',
                     description_ja:  raw.typeDef?.description_ja   ?? '',
+                    description_en:  raw.typeDef?.description_en   ?? '',
                     hint_ja:         raw.typeDef?.hint_ja          ?? '',
                     status:          raw.typeDef?.status           ?? 'stub',
                     display_exempt:  raw.typeDef?.display_exempt   ?? false,
