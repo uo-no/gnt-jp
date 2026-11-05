@@ -51,12 +51,12 @@ function buildInfoCard({ title, iconName, body }) {
     const card = document.createElement('div');
     card.className = 'info-card';
 
-    const iconHtml = `<span class="info-card-icon material-symbols-outlined">${escHtml(iconName)}</span>`;
+    const iconHtml = `<span class="info-card-icon material-symbols-outlined">${_escH(iconName)}</span>`;
 
     card.innerHTML = `
         <div class="info-card-head" onclick="this.parentElement.classList.toggle('open')">
             ${iconHtml}
-            <span class="info-card-title">${escHtml(title)}</span>
+            <span class="info-card-title">${_escH(title)}</span>
             <span class="info-card-arrow">${icon('chevronDown')}</span>
         </div>
         <div class="info-card-body"></div>`;
@@ -71,10 +71,8 @@ function buildInfoCard({ title, iconName, body }) {
     return card;
 }
 
-function escHtml(s) {
-    return String(s ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+function _escH(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
