@@ -1948,6 +1948,7 @@ body {
 <script src="../assets/js/book-master.js"></script>
 <script src="../assets/js/shared-ui.js"></script>
 <script src="../assets/data/daily-verses.js"></script>
+<script src="../assets/js/morph-decoder.js"></script>
 <script>
 /* ============================================================
    書物マスター: books.json が唯一の出典（book-master.js 経由）。
@@ -5165,46 +5166,6 @@ init();
    applyBookMaster() が BookMaster.load() 完了後に実値で埋める。 */
 const SYN_PAGE_SIZE = 50;
 
-/* ── SyntaxAnalyzer が参照するグローバル関数（syntax-search.html と同一） ── */
-const _SYN_TENSE_CODE  = { P:'present',I:'imperfect',F:'future',A:'aorist',X:'perfect',Z:'pluperfect' };
-const _SYN_VOICE_CODE  = { A:'active',M:'middle',P:'passive',D:'middle deponent',E:'middle or passive',N:'middle or passive' };
-const _SYN_MOOD_CODE   = { I:'indicative',S:'subjunctive',O:'optative',M:'imperative',N:'infinitive',P:'participle' };
-const _SYN_CASE_CODE   = { N:'nominative',G:'genitive',D:'dative',A:'accusative',V:'vocative' };
-const _SYN_NUMBER_CODE = { S:'singular',P:'plural' };
-const _SYN_GENDER_CODE = { M:'masculine',F:'feminine',N:'neuter' };
-const _SYN_CLASS_TO_POS = {
-    verb:'V',noun:'N',adjective:'A',article:'T',
-    preposition:'P',conjunction:'C',adverb:'D',
-    particle:'X',pronoun:'P','relative pronoun':'R',
-};
-function entryPosCode(e) {
-    if (e.pos) return String(e.pos).replace(/-$/,'').toUpperCase();
-    if (e.class) return _SYN_CLASS_TO_POS[String(e.class).toLowerCase()] || '';
-    return '';
-}
-function decodeMorph(e) {
-    const n = v => (!v||v==='-')?'':v;
-    if (e.tense||e.mood||e.voice) return {
-        pos:entryPosCode(e), tense:n(e.tense), voice:n(e.voice), mood:n(e.mood),
-        case:n(e.case), number:n(e.number), gender:n(e.gender), person:n(e.person),
-    };
-    if (e.morph&&typeof e.morph==='object'){const m=e.morph;return{
-        pos:n(e.pos||'').replace(/-$/,''),tense:n(m.tense),voice:n(m.voice),mood:n(m.mood),
-        case:n(m.case),number:n(m.number),gender:n(m.gender),person:n(m.person),
-    };}
-    const raw=typeof e.morph==='string'?e.morph:'';
-    const parts=raw.split('-');
-    const pos=n(e.pos||parts[0]||'').replace(/-$/,'');
-    if(pos.toUpperCase()==='V'&&parts[1]){
-        const seg=parts[1],off=/^[0-9]/.test(seg)?1:0;
-        return{pos,tense:_SYN_TENSE_CODE[seg[off]]||'',voice:_SYN_VOICE_CODE[seg[off+1]]||'',
-            mood:_SYN_MOOD_CODE[seg[off+2]]||'',person:seg[off+3]||'',
-            number:_SYN_NUMBER_CODE[seg[off+4]]||'',gender:'',case:''};}
-    if(parts[1]){const seg=parts[1],hp=['1','2','3'].includes(seg[0]),b=hp?seg.slice(1):seg;
-        return{pos,tense:'',voice:'',mood:'',person:hp?seg[0]:'',
-            case:_SYN_CASE_CODE[b[0]]||'',number:_SYN_NUMBER_CODE[b[1]]||'',gender:_SYN_GENDER_CODE[b[2]]||''};}
-    return{pos,tense:'',voice:'',mood:'',case:'',number:'',gender:'',person:''};
-}
 function cleanText(e) {
     return (e.word||e.normalized||e.text||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim();
 }
