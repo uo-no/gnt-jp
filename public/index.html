@@ -6809,7 +6809,8 @@ async function _openRefPopup(book, ch, verse, href) {
         if (headword) rows.push(`<div class="rn-ref-word-row"><dt>見出し語</dt><dd><span class="rn-ref-gr">${_escH(headword)}</span>${glossJa ? '（' + _escH(glossJa) + '）' : ''}</dd></div>`);
         if (t.class)  rows.push(`<div class="rn-ref-word-row"><dt>品詞</dt><dd>${_escH((t.class === 'noun' && t.type === 'proper') ? '固有名詞' : (_REF_FORM_JA.pos[t.class] || t.class))}</dd></div>`);
         rows.push(`<div class="rn-ref-word-row"><dt>形</dt><dd><span class="rn-ref-gr">${_escH(t.text || '')}</span>${formJa ? '（' + _escH(formJa) + '）' : ''}</dd></div>`);
-        if (t.japanese) rows.push(`<div class="rn-ref-word-row"><dt>意味</dt><dd>${_escH(t.japanese)}</dd></div>`);
+        const _meanGloss = _glossSidecarFor(t) || t.japanese;
+        if (_meanGloss) rows.push(`<div class="rn-ref-word-row"><dt>意味</dt><dd>${_escH(_meanGloss)}</dd></div>`);
         wordHtml = `<div class="rn-ref-word-label">この箇所での単語の説明</div><dl class="rn-ref-word-rows">${rows.join('')}</dl>`
             + (hits.length > 1 ? `<div class="rn-ref-note">この節には他に${hits.length - 1}回、同じ語が出てきます（強調表示）。</div>` : '');
     } else if (curId) {
@@ -12105,6 +12106,8 @@ async function init() {
            対応表が無い翻訳・書・章では null のまま（従来表示）。 */
         if (!_isGreekReadingMode(_colA.kind)) await _loadJaAlignForRender(_transA, book, ch);
         if (_transMode === 'compare' && !_isGreekReadingMode(_colB.kind)) await _loadJaAlignForRender(_transB, book, ch);
+        /* Phase 1b Step 3: 英語UIでは WEB グロスも先読みする（日本語UIでは no-op）。 */
+        await _loadGlossForRender(book, ch);
         if (elData && elData.length) _jaSegIndexTokens(book, ch, elData);
 
         /* DA-1: discourse は flow-tree（clause/sentence 構造）を先読みして render() へ渡す。 */
@@ -15273,16 +15276,21 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
     /* ── グロス自然化（Tier 2 = 旧経路のみ。Tier 0/1 では適用しない） ── */
     let gloss = jaWord;
 
+    /* Phase 1b Step 3: 英語UIでは WEB グロス（サイドカー → bible_data.english）を
+       優先する。適用時は日本語向けの整形・自然化をスキップする。 */
+    const _enGloss = _glossSidecarFor(w);
+    if (_enGloss) gloss = _enGloss;
+
     /* Stage C P1: 表示整形（Presentation Policy — 表示のみ。jaWord は生のまま。
        docs/presentation-policy.md。_words 省略時・Policy 未ロード時は整形なし） */
-    if (_engineJa !== undefined && _engineJa !== null &&
+    if (!_enGloss && _engineJa !== undefined && _engineJa !== null &&
         _words && window.App?.PresentationPolicy) {
         gloss = window.App.PresentationPolicy.formatDisplay(
             gloss, _resolved.source, _words, i);
     }
 
     /* 動詞の法・時制に応じた接尾調整 */
-    if (_engineJa === undefined && pos === 'V' && parts[1]) {
+    if (!_enGloss && _engineJa === undefined && pos === 'V' && parts[1]) {
         const off       = /^[0-9]/.test(parts[1]) ? 1 : 0;
         const tenseCode = parts[1][off]     || '';
         const voiceCode = parts[1][off + 1] || '';
@@ -15863,6 +15871,50 @@ function _jaAlignSegmentsFor(transId, book, ch, verse) {
     const d = _jaAlignCache.get(transId + ':' + book + ':' + ch);
     const v = (d && d.verses) ? d.verses[String(verse)] : null;
     return (v && Array.isArray(v.segments)) ? v.segments : null;
+}
+
+/* ══════════════════════════════════════════
+   Phase 1b Step 3: 翻訳グロスのサイドカー（多言語管理 B案）
+   assets/data/gloss/{翻訳ID}/{書}/{章}.json
+     = { translation, book, chapter, glosses: { "<token ref>": "<グロス>" } }
+   グロスは対応表から機械生成したもの（D3）。英語UIのときだけ UI 言語に
+   対応する翻訳（en → WEB）のグロスを章ロード時に先読みし、チップ／
+   ピーク／パネルの「この箇所での意味」に使う。日本語UIでは読み込まず、
+   従来の日本語経路がそのまま動く。
+   フォールバック: サイドカー → bible_data.english → 従来経路（japanese）。
+   ══════════════════════════════════════════ */
+const _glossSidecarCache = new Map();
+function _glossTransIdForUi() {
+    return (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en') ? 'WEB' : null;
+}
+async function _loadGlossForRender(book, ch) {
+    const transId = _glossTransIdForUi();
+    if (!transId || !book || ch == null) return null;
+    const key = transId + ':' + book + ':' + ch;
+    if (_glossSidecarCache.has(key)) return _glossSidecarCache.get(key);
+    let data = null;
+    try {
+        const res = await fetch(`../assets/data/gloss/${transId}/${book}/${ch}.json`);
+        if (res.ok) {
+            const d = await res.json();
+            if (d && d.book === book && Number(d.chapter) === Number(ch) && d.translation === transId && d.glosses) data = d;
+        }
+    } catch (_) { data = null; }
+    _glossSidecarCache.set(key, data);
+    return data;
+}
+/* トークンの表示グロス（英語UIのみ）。該当が無ければ null を返し、
+   呼び出し側は従来経路（japanese）に倒す。 */
+function _glossSidecarFor(w) {
+    const transId = _glossTransIdForUi();
+    if (!transId || !w || !w.ref) return null;
+    const book = w.book || w.bookKey;
+    const ch = (w.chapter != null) ? w.chapter : w.ch;
+    if (!book || ch == null) return null;
+    const d = _glossSidecarCache.get(transId + ':' + book + ':' + ch);
+    const g = (d && d.glosses) ? d.glosses[w.ref] : null;
+    if (typeof g === 'string' && g) return g;
+    return (typeof w.english === 'string' && w.english) ? w.english : null;
 }
 
 /* 章の生トークン（elData）を節・トークン番号で引けるようにした索引。
@@ -17375,6 +17427,9 @@ function _openSegPeek(segEl, tis) {
                 meaning = window.App.PresentationPolicy.formatDisplay(meaning, resolved && resolved.source, words, idx);
             }
         } catch (_) { meaning = w.japanese || ''; }
+        /* Phase 1b Step 3: 英語UIでは WEB グロスを「この箇所での意味」にする。 */
+        const _enSegMeaning = _glossSidecarFor(w);
+        if (_enSegMeaning) meaning = _enSegMeaning;
         if (meaning) {
             const m = document.createElement('div');
             m.className = 'word-peek-meaning';
@@ -17418,7 +17473,8 @@ function _openSegPeek(segEl, tis) {
             head.appendChild(g);
             const lem = document.createElement('span');
             lem.className = 'word-peek-lemma';
-            lem.textContent = '原形：' + (w.lemma || '') + (w.japanese ? '（' + w.japanese + '）' : '');
+            const _wTag = _glossSidecarFor(w) || w.japanese;
+            lem.textContent = '原形：' + (w.lemma || '') + (_wTag ? '（' + _wTag + '）' : '');
             head.appendChild(lem);
             el.appendChild(head);
         });
@@ -17521,6 +17577,9 @@ function _jaSegProceed(segEl, ti) {
     const _resolvedJaDisplay = (_resolvedJa && window.App?.PresentationPolicy)
         ? window.App.PresentationPolicy.formatDisplay(_resolvedJa, _reResolved.source, words, idx)
         : _resolvedJa;
+    /* Phase 1b Step 3: 英語UIでは「この箇所での意味」を WEB グロスにする
+       （ピーク／ドロワー／パネルは inspect.data の jaWord 系を読む）。 */
+    const _enGlossInspect = _glossSidecarFor(w);
 
     AppState.inspect.data = {
         greek:    chip.greek,
@@ -17528,8 +17587,8 @@ function _jaSegProceed(segEl, ti) {
         jpMorph:  chip.morphText,
         rawMorph: chip.rawMorph,
         lemma:    chip.lemma,
-        jaWord:   _resolvedJa || chip.jaWord,
-        jaWordDisplay: _resolvedJaDisplay || _resolvedJa || chip.jaWord,
+        jaWord:   _enGlossInspect || _resolvedJa || chip.jaWord,
+        jaWordDisplay: _enGlossInspect || _resolvedJaDisplay || _resolvedJa || chip.jaWord,
         desc:     (typeof abbottSmithDict !== 'undefined' && abbottSmithDict && chip.strong)
             ? (abbottSmithDict[chip.strong.slice(1)]?.description || '') : '',
         ref:      chip.ref,
@@ -17755,6 +17814,8 @@ function _wlvChipClick(chipEl, tokenId) {
         ? window.App.PresentationPolicy.formatDisplay(
             _resolvedJa, _reResolved.source, _reWords, _reIdx)
         : _resolvedJa;
+    /* Phase 1b Step 3: 英語UIでは「この箇所での意味」を WEB グロスにする。 */
+    const _enGlossInspect2 = _rawToken ? _glossSidecarFor(_rawToken) : null;
 
     /* AppState の inspect を更新
        ★ SSOT: ref は表示専用として保持。ロジックには bookKey / ch / verse を使う。 */
@@ -17764,9 +17825,9 @@ function _wlvChipClick(chipEl, tokenId) {
         jpMorph:  chip.morphText,
         rawMorph: chip.rawMorph,
         lemma:    chip.lemma,
-        jaWord:   _resolvedJa || chip.jaWord,
+        jaWord:   _enGlossInspect2 || _resolvedJa || chip.jaWord,
         /* Stage C P1: 表示用整形値（生の jaWord とは別に保持 — SSOT は不変） */
-        jaWordDisplay: _resolvedJaDisplay || _resolvedJa || chip.jaWord,
+        jaWordDisplay: _enGlossInspect2 || _resolvedJaDisplay || _resolvedJa || chip.jaWord,
         desc:     (abbottSmithDict && abbottSmithDict[chip.strong.slice(1)]?.description) || '',
         ref:      chip.ref,      // 表示専用（ラベル・URL クエリ文字列のみ）
         bookKey:  chip.bookKey  || '',
@@ -18961,6 +19022,8 @@ async function renderCurrentPage() {
            対応表が無い翻訳・書・章では null のまま（従来表示）。 */
         if (!_isGreekReadingMode(_colA.kind)) await _loadJaAlignForRender(_transA, book, ch);
         if (_transMode === 'compare' && !_isGreekReadingMode(_colB.kind)) await _loadJaAlignForRender(_transB, book, ch);
+        /* Phase 1b Step 3: 英語UIでは WEB グロスも先読みする（日本語UIでは no-op）。 */
+        await _loadGlossForRender(book, ch);
         if (elData && elData.length) _jaSegIndexTokens(book, ch, elData);
 
         /* DA-1: discourse は passage単位の clause 接続を描くため、flow-tree（clause/sentence
