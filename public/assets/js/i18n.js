@@ -13,6 +13,9 @@
      templates under the keys page.howto / page.appinfo.
    Language choice persists in localStorage 'app_lang' and switching
    reloads the page, so every surface re-renders in the new language.
+   On a first visit (nothing stored) the language is detected from
+   the browser and then persisted the same way — see the detection
+   block below. A /ja/ or /en/ path prefix overrides both.
    ══════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
@@ -37,10 +40,35 @@
     } catch (_) { /* keep the path as-is; routing falls back to defaults */ }
 
     var lang = 'ja';
+    var hasSaved = false;
     try {
         var saved = localStorage.getItem(STORAGE_KEY);
-        if (SUPPORTED.indexOf(saved) >= 0) lang = saved;
-    } catch (_) { /* localStorage unavailable: stay with Japanese */ }
+        if (SUPPORTED.indexOf(saved) >= 0) { lang = saved; hasSaved = true; }
+    } catch (_) { /* localStorage unavailable: detection still applies for the session */ }
+    if (!hasSaved && !pathLang) {
+        /* First visit (user decision, 2026-11-05): detect the UI language
+           from the browser instead of always landing on Japanese. Walk
+           navigator.languages in the visitor's own priority order and
+           take the first language we support; if none matches, fall back
+           to English (the Showcase audience is non-Japanese). The result
+           is persisted, so detection happens exactly once — afterwards
+           the stored preference rules, and the header/FAB toggle remains
+           the way to change it. Priority overall:
+           path prefix > stored preference > detection > Japanese.
+           When a new language ships (e.g. 'es' joins SUPPORTED), browser
+           matching picks it up with no change here. */
+        var detected = 'en';
+        try {
+            var navLangs = (navigator.languages && navigator.languages.length)
+                ? navigator.languages : [navigator.language || ''];
+            for (var ni = 0; ni < navLangs.length; ni++) {
+                var primary = String(navLangs[ni] || '').toLowerCase().split('-')[0];
+                if (SUPPORTED.indexOf(primary) >= 0) { detected = primary; break; }
+            }
+        } catch (_) { /* no navigator info: keep English as the first-visit default */ }
+        lang = detected;
+        try { localStorage.setItem(STORAGE_KEY, detected); } catch (_) {}
+    }
     if (pathLang) {
         lang = pathLang;
         try { localStorage.setItem(STORAGE_KEY, pathLang); } catch (_) {}
