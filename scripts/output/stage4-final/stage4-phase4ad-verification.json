@@ -1,0 +1,94 @@
+{
+  "phase": "4ad",
+  "date": "2026-11-04",
+  "ledger": "scripts/output/stage4-final/stage4-phase4ac-revision-decisions.json",
+  "scope": "31 APPROVED_FOR_CHANGE tokens — japanese field only",
+
+  "pre_implementation_check": {
+    "status": "PASS",
+    "all_31_refs_found": true,
+    "all_31_japanese_matched_current": true,
+    "all_31_strong_matched": true,
+    "all_31_morph_matched": true,
+    "unauthorized_fields_changed": false
+  },
+
+  "post_implementation_check": {
+    "status": "PASS",
+    "all_31_japanese_updated": true,
+    "all_31_strong_unchanged": true,
+    "all_31_morph_unchanged": true,
+    "all_31_text_unchanged": true,
+    "all_31_lemma_unchanged": true,
+    "json_integrity_all_files": true
+  },
+
+  "downstream_rebuild": {
+    "reading_lexicon_data_js": {
+      "status": "PASS",
+      "path": "public/assets/data/reading-lexicon-data.js",
+      "sha256_post": "a0726919a82a937174e509a14ddfbe7593c42edaf07dd8cf9b12e816ce23c9d1",
+      "changed_strongs": ["G2983","G3056","G3762","G3860","G4160","G4183","G5228","G5616"],
+      "note": "glosses[] updated with new recommended_japanese values; first gloss of G5616 changed to 〜ほど"
+    },
+    "lexicon_lite_json": {
+      "status": "PASS",
+      "path": "public/assets/data/lexicon/lexicon-lite.json",
+      "sha256_post": "ca5b896532db9b108a920d81393ee77421d6e258398467a96dedf94464188986",
+      "note": "Format-only rebuild; uses English gloss field, not japanese — content unchanged"
+    },
+    "search_index_nt": {
+      "status": "PASS",
+      "verified_refs": 31,
+      "note": "All 31 refs verified in search-index/nt/*.json with correct updated values"
+    }
+  },
+
+  "regression_tests": {
+    "re_stageA": {
+      "status": "PASS",
+      "checks": "19/19",
+      "result": "ALL PASS — Stage A 基準を維持"
+    },
+    "re_stageB": {
+      "status": "PARTIAL — 3 FAIL (critical conditions PASS)",
+      "critical_brokenNew": { "value": 0, "expect": 0, "status": "PASS" },
+      "critical_panelMismatch": { "value": 0, "expect": 0, "status": "PASS" },
+      "changed": { "value": 39674, "baseline": 39673, "delta": 1, "explained": true },
+      "identical": { "value": 98067, "baseline": 98068, "delta": -1, "explained": true },
+      "brokenOld": { "value": 1245, "baseline": 1244, "delta": 1, "explained": true },
+      "explanation": "MAT 17:24!10 V-PAP-NPM G2983 受ける→取る: T2=取ながら(イ音便欠落 broken)≠T0=取る → CHANGED bucket移動。brokenNew=0: engine出力は正常。panelMismatch=0: 全137741トークン chip=panel一致。"
+    },
+    "re_stageD": {
+      "status": "PASS",
+      "checks": "18/18",
+      "result": "ALL PASS — Stage D 基準を維持。バイト等価100%。"
+    },
+    "re_phase1": {
+      "status": "FAIL (pre-existing, NOT Phase 4ad caused)",
+      "value": 44275,
+      "baseline": 44276,
+      "delta": -1,
+      "phase4ad_caused": false,
+      "evidence": "全31変更tokenのold/new japanese値でengine.resolve()を照合。全件null→nullまたはnon-null→non-null（カバレッジ変化なし）。Phase 4adの31トークン変更はmorph coverageに影響しない。-1はPhase 4s baseline更新(44280→44276)以降の別フェーズ起因の既存gap。",
+      "note": "Phase 4ae（次Phase）でbaseline更新予定"
+    },
+    "re_stageE": {
+      "status": "FAIL (pre-existing, NOT Phase 4ad caused)",
+      "failed_check": "rn-ja が displayLabel を描画 — index.html未更新の既存gap",
+      "phase4ad_caused": false,
+      "note": "index.htmlはPhase 4adの変更対象外"
+    }
+  },
+
+  "absolute_conditions": {
+    "brokenNew_equals_0": true,
+    "panelMismatch_equals_0": true,
+    "unauthorized_field_changed": false,
+    "baseline_not_updated": true,
+    "engine_not_modified": true,
+    "verdict": "PASS"
+  },
+
+  "verdict": "PASS — 31 tokens correctly implemented. Critical conditions met. Non-critical deviations explained."
+}

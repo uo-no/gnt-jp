@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>RK Reading Mode — Phase B Test</title>
+<link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital@0;1&family=Noto+Sans+JP:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f4f8;--panel:#fff;--ink:#181b2b;--sub:#5b6178;--line:#d5d9e5;--core:#3730a3;--mod:#0f766e;--adv:#a16207;--link:#a21caf}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 'Noto Sans JP',sans-serif;padding:20px}
+h2{font-size:1rem;margin:24px 0 6px;border-bottom:2px solid var(--line);padding-bottom:4px}
+.dia{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:72vh;margin-bottom:8px}
+svg{display:block}
+.wn{cursor:pointer}.wn rect{fill:transparent;stroke:transparent;stroke-width:1.5}
+.wn.sel rect{fill:color-mix(in srgb,var(--c) 25%,transparent);stroke:var(--c)}
+.err{color:#c00;font-size:.85rem;min-height:1.2em;padding:4px}
+.ok{color:#0a6000;font-size:.85rem}
+.meta{font-size:.8rem;color:var(--sub);margin-bottom:4px}
+</style>
+</head>
+<body>
+
+<h1 style="font-size:1.1rem">RK Reading Mode — Phase B Test</h1>
+<p style="font-size:.85rem;color:#5b6178">Japanese-first Reed-Kellogg diagrams. Renderer: rk-reading-renderer.js + Adapter: rk-reading-adapter.js</p>
+
+<div id="results"></div>
+
+<script src="http://localhost:7235/core/rk-reading-renderer.js"></script>
+<script src="http://localhost:7235/core/rk-reading-adapter.js"></script>
+<script>
+// ── MANUAL data for JHN 1:1 (from Reference HTML, unchanged) ──────────
+const JHN_1_1_MANUAL = [
+  ['Ἐν','〜において','前置詞(+与格)',3,'prep'],
+  ['ἀρχῇ','初め','名詞 与単女',1,'pobj'],
+  ['ἦν','あった','動詞 未完了直説能動3単',0,'verb'],
+  ['ὁ','その','冠詞 主単男',5,'det'],
+  ['λόγος','ことば','名詞 主単男',3,'subj'],
+  ['καὶ','そして','接続詞',9,'conj'],
+  ['ὁ','その','冠詞 主単男',8,'det'],
+  ['λόγος','ことば','名詞 主単男',9,'subj'],
+  ['ἦν','あった','動詞 未完了直説能動3単',3,'cverb'],
+  ['πρὸς','〜と共に','前置詞(+対格)',9,'prep'],
+  ['τὸν','その','冠詞 対単男',12,'det'],
+  ['θεόν','神','名詞 対単男',10,'pobj'],
+  ['καὶ','そして','接続詞',15,'conj'],
+  ['θεὸς','神','名詞 主単男',15,'pred'],
+  ['ἦν','あった','動詞 未完了直説能動3単',9,'cverb'],
+  ['ὁ','その','冠詞 主単男',17,'det'],
+  ['λόγος','ことば','名詞 主単男',15,'subj']
+];
+
+// ── Render a single test case ─────────────────────────────────────────
+function renderTest(id, title, rows) {
+  const container = document.getElementById('results');
+  const section = document.createElement('div');
+  const h = document.createElement('h2');
+  h.textContent = title;
+  section.appendChild(h);
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.textContent = `${rows.length} tokens`;
+  section.appendChild(meta);
+
+  const dia = document.createElement('div');
+  dia.className = 'dia';
+
+  const err = document.createElement('div');
+  err.className = 'err';
+
+  try {
+    const words = RKReadingRenderer.loadWords(rows);
+    const svg = RKReadingRenderer.renderSVG(words);
+    const missing = RKReadingRenderer.unrenderedWords(svg);
+    if (missing.length) {
+      err.textContent = '描画されなかった語: ' + missing.join(' ');
+    } else {
+      err.className = 'ok';
+      err.textContent = '✓ 全語描画済み';
+    }
+    dia.appendChild(svg);
+  } catch (e) {
+    err.textContent = 'ERROR: ' + e;
+    dia.textContent = '(描画失敗)';
+  }
+
+  section.appendChild(dia);
+  section.appendChild(err);
+  container.appendChild(section);
+}
+
+// ── Test 1: JHN 1:1 with MANUAL data ─────────────────────────────────
+renderTest('jhn11', 'JHN 1:1 — MANUAL データ (Reference互換)', JHN_1_1_MANUAL);
+
+// ── Test 2-5: JHN 1:2-5 via Adapter ──────────────────────────────────
+Promise.all([
+  fetch('http://localhost:7235/assets/data/sr/JHN/1.json').then(r => r.json()),
+  fetch('http://localhost:7235/bible_data/nt/JHN/1.json').then(r => r.json()),
+]).then(([srData, bdData]) => {
+  const bdMap = RKReadingAdapter.buildTokenMap(bdData);
+
+  const targetRefs = ['JHN 1:2', 'JHN 1:3', 'JHN 1:4', 'JHN 1:5'];
+  for (const ref of targetRefs) {
+    const sent = srData.sentences.find(s => s.ref === ref);
+    if (!sent) {
+      const section = document.createElement('div');
+      section.innerHTML = `<h2>${ref}</h2><div class="err">SR センテンスが見つかりません</div>`;
+      document.getElementById('results').appendChild(section);
+      continue;
+    }
+    try {
+      const rows = RKReadingAdapter.adaptSentence(sent, bdMap);
+      console.log(ref, 'rows:', rows);
+      renderTest(ref.replace(' ','_').replace(':','-'), ref + ' — Adapter', rows);
+    } catch (e) {
+      const section = document.createElement('div');
+      section.innerHTML = `<h2>${ref}</h2><div class="err">Adapter ERROR: ${e}</div>`;
+      document.getElementById('results').appendChild(section);
+    }
+  }
+}).catch(e => {
+  document.getElementById('results').insertAdjacentHTML('beforeend',
+    `<div class="err">データ読み込み失敗: ${e}</div>`);
+});
+</script>
+</body>
+</html>

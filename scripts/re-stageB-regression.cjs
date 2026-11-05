@@ -65,9 +65,32 @@ const STAGEB_BASELINE = {
     // 2026-11-01 Phase 4k morph fix: 去る V-2AAP 8件が 去った で解決（undefined 解消）。
     // changed 39684→39692（+8）/ identical 98057→98049（−8）/ brokenOld 1257→1265（+8）。
     // 破損形（新）0・panelMismatch 0 維持。8件の変化はすべて意図的改善（悪化なし）。
-    changed:        39692,   // Phase 4k morph fix: 去る V-2AAP 8件 +8
-    identical:      98049,
-    brokenOld:       1265,   // 旧経路の破損形（参考記録）
+    // 2026-11-02 Phase 4m bible_data 132件適用（G756:84/G680:34/G2919:8/G567:6）。
+    // changed 39692→39679（−13）/ identical 98049→98062（+13）/ brokenOld 1265→1253（−12）。
+    // 破損形（新）0・panelMismatch 0 維持。132件はすべて審査済み APPROVED_FOR_CHANGE。
+    // 2026-11-03 Phase 4q G1210→G1163/G1189 Strong/lemma修正 95件。
+    // changed 39679→39674（−5）/ identical 98062→98067（+5）/ brokenOld 1253→1245（−8）。
+    // 破損形（新）0・panelMismatch 0 維持。
+    // −5 changed: Phase 4q前に changed だった dei/deom 5件が Phase 4q後に identical に遷移。
+    //    V-PAP「〜しなければならない」(Tier2 fallback = Tier0/1 fallback) / V-PNP「願いながら」(両経路一致)。
+    // −8 brokenOld: Tier2経路の旧japanese値（"縛る"）が isBrokenForm を誘発していた8件が解消。
+    //    brokenOld は「旧経路呼び出し時の活用形破損数」の参考記録。Phase 4q後の新表示に破損なし。
+    // 根拠: Phase 4q実装報告 / Phase 4t 回帰サンプル監査 PASS / Phase 4u ブラウザ監査 PASS。
+    // 2026-11-04 Phase 4y G1573（〜くじける×6）・G4823（〜助言する×2/〜相談する×2）10件実装。
+    // changed 39674→39673（−1）/ identical 98067→98068（+1）/ brokenOld 1245→1244（−1）。
+    // −1 changed: 10件のうち1件が engine解決と一致し identical に移行（改善）。
+    // −1 brokenOld: JHN 18:14!5 V-AAP-NSM の旧japanese「〜である」→「〜助言した」（破損「〜であた」解消）。
+    // 根拠: Phase 4y実装報告 / Phase 4z baseline 更新。
+    // 2026-11-04 Phase 4ad 31件実装（Phase 4ac APPROVED_FOR_CHANGE 全件）。
+    // changed 39673→39674（+1）/ identical 98068→98067（−1）/ brokenOld 1244→1245（+1）。
+    // 変化は MAT 17:24!10 V-PAP-NPM G2983 受ける→取る の1 token に起因。
+    // OLD 受ける（1段動詞）: T2="受けながら" = T0="受けながら" → IDENTICAL。
+    // NEW 取る（五段ラ行）: T2="取ながら"（イ音便欠落・brokenOld+1）≠ T0="取る"（engine null→base） → CHANGED。
+    // brokenNew=0: T0（実表示）は "取る"（正常）。panelMismatch=0: 全137,741 token一致。
+    // 根拠: Phase 4ae baseline照合報告。
+    changed:        39674,   // Phase 4ad MAT 17:24!10 受ける→取る: 39673→39674
+    identical:      98067,
+    brokenOld:       1245,   // 旧経路の破損形（参考記録）: 1244→1245（T2パス限定、T0=取る正常）
     brokenNew:          0,   // 新経路の破損形は常に 0
     panelMismatch:      0,   // chip ⇔ StudyPanel 不一致は常に 0（SSOT）
     presented:       4258,   // Stage C P1: 括弧化された PP head（M-15 反映で +14）

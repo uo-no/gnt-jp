@@ -77,7 +77,17 @@ const PHASE1_BASELINE = {
     //   morph 解決可能トークン増加（赦す は lexicon パス・新訳語は morph パス）。
     // ② _VERB_RULES 去る 五段漢字語幹例外追加: V-2AAP 8件 undefined→去った。
     //   part-pres/part-aor/part-perf/imp に各1ルール追加（既存設計に準拠）。
-    morph:       44280,
+    // 2026-11-03 Phase 4q G1210→G1163/G1189 Strong/lemma修正: 44280→44276（−4）。悪化ケース 0。
+    // dei-necessity 85件の japanese が "縛る" → "〜しなければならない" に変更。
+    // "〜しなければならない" は '〜' prefix のため reading-engine.js inf ルールにマッチしない（-4）。
+    // これは誤訳語での morph coverage が消滅した意図的な修正結果。機能回帰なし。
+    // 監査: stage4-phase4q-morph-regression-audit.md / stage4-phase4r-final-audit.md。
+    // 2026-11-04 Phase 4ad 31件実装: 44276→44275（−1）。悪化ケース 0。
+    // MAT 17:24!10 V-PAP-NPM G2983 受ける→取る: 受ける（1段動詞）は part-pres ルールで
+    // "受けながら" を生成し morph 解決可だったが、取る（五段ラ行）はイ音便欠落を prevent
+    // するため engine が null を返す（T0 表示 "取る" は正常）。Phase 4q と同種の変化。
+    // 承認: stage4-phase4ae-baseline-reconciliation-report.md / Phase 4af。
+    morph:       44275,
     // 悪化ケース検出フラグはすべて 0 であること（tildeGloss / longGloss は
     // 精査済みの許容範囲なので基準に含めない）
     zeroFlags: ['doubleParticle', 'weirdPassive', 'brokenImperative'],

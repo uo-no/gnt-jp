@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>RK Reading Mode — Phase C Test</title>
+<link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital@0;1&family=Noto+Sans+JP:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f4f8;--panel:#fff;--ink:#181b2b;--sub:#5b6178;--line:#d5d9e5;--core:#3730a3;--mod:#0f766e;--adv:#a16207;--link:#a21caf}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 'Noto Sans JP',sans-serif;padding:16px}
+h2{font-size:.95rem;margin:20px 0 4px;border-bottom:2px solid var(--line);padding-bottom:3px}
+.dia{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:60vh;margin-bottom:4px}
+svg{display:block}
+.wn{cursor:pointer}.wn rect{fill:transparent;stroke:transparent;stroke-width:1.5}
+.wn.sel rect{fill:color-mix(in srgb,var(--c) 25%,transparent);stroke:var(--c)}
+.err{color:#c00;font-size:.8rem;min-height:1.2em;padding:2px 4px}
+.ok{color:#0a6000;font-size:.8rem;padding:2px 4px}
+.vl{color:#6600aa;font-size:.8rem;padding:2px 4px}
+.meta{font-size:.75rem;color:var(--sub);margin-bottom:2px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<h1 style="font-size:1.1rem">RK Reading Mode — Phase C Test</h1>
+<p style="font-size:.8rem;color:#5b6178">12 representative NT verses — Adapter structural accuracy verification</p>
+<div id="status" style="font-size:.85rem;font-weight:600;margin-bottom:12px"></div>
+<div id="results" class="grid"></div>
+
+<script src="http://localhost:7235/core/rk-reading-renderer.js"></script>
+<script src="http://localhost:7235/core/rk-reading-adapter.js"></script>
+<script>
+const TEST_CASES = [
+  // JHN
+  { book:'JHN', ch:1, ref:'JHN 1:6',  desc:'group root, ADJ_MOD + relative clause' },
+  { book:'JHN', ch:1, ref:'JHN 1:10', desc:'COORDINATION x3' },
+  { book:'JHN', ch:1, ref:'JHN 1:14', desc:'CONJOINED + nested coord + ADJ_MOD/APPOSITION' },
+  // MRK
+  { book:'MRK', ch:1, ref:'MRK 1:1',  desc:'phrase.np root, no verb' },
+  { book:'MRK', ch:1, ref:'MRK 1:11', desc:'CONJOINED_CLAUSE + APPOSITION' },
+  { book:'MRK', ch:2, ref:'MRK 2:1',  desc:'CONJOINED_CLAUSE + CONTENT_CLAUSE' },
+  // ROM
+  { book:'ROM', ch:1, ref:'ROM 1:1',  desc:'81 tokens, APPOSITION/NOMINALIZED_CLAUSE' },
+  { book:'ROM', ch:1, ref:'ROM 1:16', desc:'CONJOINED + SUBORDINATE_CLAUSE + NP_COMPLEX' },
+  { book:'ROM', ch:5, ref:'ROM 5:1',  desc:'ADVERBIAL + DEMO_MOD + CLAUSE_AS_NP' },
+  // EPH
+  { book:'EPH', ch:1, ref:'EPH 1:1',  desc:'verbless letter address' },
+  { book:'EPH', ch:1, ref:'EPH 1:3',  desc:'verbless doxology, 66 tokens' },
+  { book:'EPH', ch:2, ref:'EPH 2:1',  desc:'subject ellipsis' },
+];
+
+// Load all data files needed
+const needed = {};
+for (const tc of TEST_CASES) {
+  const srKey = `sr/${tc.book}/${tc.ch}`;
+  const bdKey = `bd/${tc.book}/${tc.ch}`;
+  needed[srKey] = `http://localhost:7235/assets/data/sr/${tc.book}/${tc.ch}.json`;
+  needed[bdKey] = `http://localhost:7235/bible_data/nt/${tc.book}/${tc.ch}.json`;
+}
+
+function renderTest(tc, srData, bdMap) {
+  const section = document.createElement('div');
+  const h = document.createElement('h2');
+  h.textContent = `${tc.ref}`;
+  section.appendChild(h);
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.textContent = tc.desc;
+  section.appendChild(meta);
+
+  const dia = document.createElement('div');
+  dia.className = 'dia';
+  dia.id = `dia-${tc.ref.replace(/[ :]/g,'-')}`;
+
+  const err = document.createElement('div');
+
+  try {
+    const sent = srData.sentences.find(s => s.ref === tc.ref);
+    if (!sent) throw new Error(`SR sentence not found: ${tc.ref}`);
+
+    const rows = RKReadingAdapter.adaptSentence(sent, bdMap);
+    const hasVerb = rows.some(r => ['verb','cverb'].includes(r[4]));
+    const hasEmbeddedVerb = rows.some(r => ['relcl','advcl','clause'].includes(r[4]));
+    const words = RKReadingRenderer.loadWords(rows);
+    const svg = RKReadingRenderer.renderSVG(words);
+    const missing = RKReadingRenderer.unrenderedWords(svg);
+
+    const rolesCount = {};
+    rows.forEach(r => rolesCount[r[4]] = (rolesCount[r[4]]||0)+1);
+    const advCount = rolesCount['adv'] || 0;
+
+    if (missing.length > 0) {
+      err.className = 'err';
+      err.textContent = `✗ 未描画 (${missing.length}語): ${missing.slice(0,8).join(' ')}`;
+    } else if (!hasVerb && !hasEmbeddedVerb) {
+      err.className = 'err';
+      err.textContent = `✗ 動詞なし (tokens=${rows.length})`;
+    } else if (!hasVerb && hasEmbeddedVerb) {
+      err.className = 'vl';
+      err.textContent = `✓ VERBLESS (${rows.length}tok, adv=${advCount}) — ${tc.desc.includes('verbless') ? '既知: 動詞省略節' : '埋込み動詞のみ'}`;
+    } else {
+      err.className = 'ok';
+      err.textContent = `✓ ${rows.length}tok, adv=${advCount}, roles=${JSON.stringify(rolesCount)}`;
+    }
+    dia.appendChild(svg);
+  } catch (e) {
+    err.className = 'err';
+    err.textContent = `ERROR: ${e.message}`;
+    dia.textContent = '(描画失敗)';
+  }
+
+  section.appendChild(dia);
+  section.appendChild(err);
+  return section;
+}
+
+// Load all data, then render
+Promise.all(
+  Object.entries(needed).map(([key, url]) =>
+    fetch(url).then(r => r.json()).then(data => [key, data])
+  )
+).then(entries => {
+  const cache = Object.fromEntries(entries);
+  const results = document.getElementById('results');
+  let pass=0, verbless=0, fail=0;
+
+  for (const tc of TEST_CASES) {
+    const srData = cache[`sr/${tc.book}/${tc.ch}`];
+    const bdData = cache[`bd/${tc.book}/${tc.ch}`];
+    const bdMap  = RKReadingAdapter.buildTokenMap(bdData);
+    const section = renderTest(tc, srData, bdMap);
+    results.appendChild(section);
+
+    const errEl = section.querySelector('.ok,.err,.vl');
+    if (errEl && errEl.classList.contains('ok')) pass++;
+    else if (errEl && errEl.classList.contains('vl')) verbless++;
+    else fail++;
+  }
+
+  const statusEl = document.getElementById('status');
+  statusEl.textContent = `結果: ${pass} PASS + ${verbless} VERBLESS + ${fail} FAIL / ${TEST_CASES.length}`;
+  statusEl.style.color = fail === 0 ? '#0a6000' : '#c00';
+}).catch(e => {
+  document.getElementById('status').textContent = `データ読み込み失敗: ${e}`;
+});
+</script>
+</body>
+</html>

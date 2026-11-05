@@ -1,0 +1,359 @@
+{
+  "meta": {
+    "phase": "4p",
+    "generatedAt": "2026-11-03",
+    "purpose": "辞書・意味領域インデックス・検索インデックスの変更前後仕様",
+    "keyFinding_071004_071005": "Phase 4o では 071004/071005 からの G1210 削除のみを計画していたが、4 件の dei-necessity トークン（1CO 8:2!9 / 1TH 4:1!18 / 2TI 2:24!5 / MAT 26:54!8）が domain=071004/071005 を持ち、移行後は lemmaId=grc:G1163 になる。G1163 は 071004/071005 lemmas[] に現在不在のため、削除に加えて追加が必要。"
+  },
+  "lexiconLite": {
+    "file": "public/assets/data/lexicon/lexicon-lite.json",
+    "updateMethod": "手動（ビルドスクリプトなし）",
+    "countDefinition": "bible_data 全体での token.strong 一致件数（NT+LXX）",
+    "countVerified": "bible_data 実カウントで確認: G1163=16 G1210=138 G1189=12",
+    "changes": [
+      {
+        "key": "grc:G1163",
+        "field": "count",
+        "before": 16,
+        "after": 101,
+        "delta": "+85"
+      },
+      {
+        "key": "grc:G1210",
+        "field": "count",
+        "before": 138,
+        "after": 43,
+        "delta": "-95"
+      },
+      {
+        "key": "grc:G1189",
+        "field": "count",
+        "before": 12,
+        "after": 22,
+        "delta": "+10"
+      },
+      {
+        "key": "grc:G1210",
+        "field": "gloss",
+        "before": "It behooves",
+        "after": "to bind, to tie",
+        "note": "現在の gloss は δεῖ の字義（誤）。δέω の正しい字義に修正。"
+      },
+      {
+        "key": "grc:G1189",
+        "field": "gloss_ja",
+        "before": "必要とする",
+        "after": "願う、お願いする",
+        "note": "現在は δέομαι の字義として不正確（必要とする は δεῖ/G1163 に近い）。"
+      }
+    ]
+  },
+  "readingLexiconData": {
+    "file": "public/assets/data/reading-lexicon-data.js",
+    "updateMethod": "node scripts/build-reading-lexicon.cjs（全体再生成）",
+    "scope": "bible_data NT+LXX 全体 → lemmaId ごとに japanese 集計",
+    "expectedAfterRebuild": {
+      "grc:G1163": {
+        "glosses_expected": [
+          "〜しなければならない"
+        ],
+        "note": "85件追加後も最頻出は変わらず"
+      },
+      "grc:G1189": {
+        "glosses_expected_lead": "願う",
+        "note": "10件追加後も先頭は変わらず"
+      },
+      "grc:G1210": {
+        "glosses_expected_lead": "縛る",
+        "note": "dei/deom 95件除去後は deo-bind 43件のみ — 縛る系統が維持される"
+      }
+    },
+    "deponentFlags": "変更なし（G1163/G1189/G1210 いずれも deponent=false）"
+  },
+  "searchIndex": {
+    "file": "public/search-index/nt/*.json",
+    "updateMethod": "node scripts/build-search-index.js（NT全巻一括再生成）",
+    "note": "スクリプトは全巻を一度に生成する。19書のみの部分再生成オプションなし。",
+    "affectedBooksMinimum": [
+      "1CO",
+      "1PE",
+      "1TH",
+      "1TI",
+      "2CO",
+      "2PE",
+      "2TH",
+      "2TI",
+      "ACT",
+      "COL",
+      "EPH",
+      "HEB",
+      "JHN",
+      "LUK",
+      "MAT",
+      "MRK",
+      "REV",
+      "ROM",
+      "TIT"
+    ],
+    "fieldsUpdatedPerToken": [
+      "strong",
+      "lemmaId",
+      "lemma",
+      "japanese"
+    ],
+    "rebuildTrigger": "bible_data の strong/lemmaId/lemma/japanese 変更後"
+  },
+  "domainsClusterIndex": {
+    "file": "public/assets/data/index/domains-cluster-index.json",
+    "updateMethod": "手動（ビルドスクリプトなし）",
+    "changes": [
+      {
+        "domainCode": "33012",
+        "reason": "deom-hold 10件が G1210→G1189 へ移行。移行後 G1210 の 33012 トークンはゼロ（deo-bind 43件の domain 分布: 18002/23009/37002/37003/37008 のみ）。G1189 はすでに lemmas[] に存在。",
+        "action_g1210": "REMOVE",
+        "action_g1163": "N/A",
+        "action_g1189": "ALREADY_PRESENT — no add",
+        "before_lemmas_subset": [
+          "grc:G1189",
+          "grc:G1210"
+        ],
+        "after_lemmas_subset": [
+          "grc:G1189"
+        ],
+        "occurrences_change": "UNCHANGED (tokens remain in same domain)",
+        "lemmaCount_before": 20,
+        "lemmaCount_after": 19
+      },
+      {
+        "domainCode": "71004",
+        "reason": "dei-necessity 85件のうち 30件が domain=71004 を持つ。G1210→G1163 移行後 G1210 の 71004 トークンはゼロ。G1163 はすでに lemmas[] に存在。",
+        "action_g1210": "REMOVE",
+        "action_g1163": "ALREADY_PRESENT — no add",
+        "action_g1189": "N/A",
+        "before_lemmas_subset": [
+          "grc:G1163",
+          "grc:G1210"
+        ],
+        "after_lemmas_subset": [
+          "grc:G1163"
+        ],
+        "occurrences_change": "UNCHANGED",
+        "lemmaCount_before": 12,
+        "lemmaCount_after": 11
+      },
+      {
+        "domainCode": "71005",
+        "reason": "dei-necessity 85件のうち 51件が domain=71005 を持つ。移行後 G1210 の 71005 トークンはゼロ。G1163 はすでに lemmas[] に存在。",
+        "action_g1210": "REMOVE",
+        "action_g1163": "ALREADY_PRESENT — no add",
+        "action_g1189": "N/A",
+        "before_lemmas_subset": [
+          "grc:G1163",
+          "grc:G1210"
+        ],
+        "after_lemmas_subset": [
+          "grc:G1163"
+        ],
+        "occurrences_change": "UNCHANGED",
+        "lemmaCount_before": 8,
+        "lemmaCount_after": 7
+      },
+      {
+        "domainCode": "071004",
+        "reason": "dei-necessity 85件のうち 4件が domain=071004 を持つ（1CO 8:2!9 / 1TH 4:1!18 / 2TI 2:24!5 / MAT 26:54!8）。移行後それらは G1163 になるが、G1163 は 071004 lemmas[] に現在不在。G1210 除去に加えて G1163 の追加が必要。",
+        "action_g1210": "REMOVE",
+        "action_g1163": "ADD — currently absent from 071004 lemmas[]",
+        "action_g1189": "N/A",
+        "keyFinding": "G1163 は 071004 に不在。Phase 4o では削除のみと記述していたが誤り。追加も必要。",
+        "before_lemmas_subset": [
+          "grc:G1210"
+        ],
+        "after_lemmas_subset": [
+          "grc:G1163"
+        ],
+        "occurrences_change": "UNCHANGED",
+        "lemmaCount_before": 5,
+        "lemmaCount_after": 5
+      },
+      {
+        "domainCode": "071005",
+        "reason": "dei-necessity 85件のうち 4件が domain=071005 を持つ（071004 と同一4件）。移行後それらは G1163 になるが、G1163 は 071005 lemmas[] に現在不在。",
+        "action_g1210": "REMOVE",
+        "action_g1163": "ADD — currently absent from 071005 lemmas[]",
+        "action_g1189": "N/A",
+        "keyFinding": "G1163 は 071005 に不在。追加も必要。",
+        "before_lemmas_subset": [
+          "grc:G1210"
+        ],
+        "after_lemmas_subset": [
+          "grc:G1163"
+        ],
+        "occurrences_change": "UNCHANGED",
+        "lemmaCount_before": 3,
+        "lemmaCount_after": 3
+      }
+    ],
+    "noChange": [
+      {
+        "domainCode": "18002",
+        "action": "NO CHANGE",
+        "reason": "deo-bind 43件が G1210 として残留。G1163/G1189 は無関係。"
+      },
+      {
+        "domainCode": "23009",
+        "action": "NO CHANGE",
+        "reason": "deo-bind 43件が G1210 として残留。G1163/G1189 は無関係。"
+      },
+      {
+        "domainCode": "37002",
+        "action": "NO CHANGE",
+        "reason": "deo-bind 43件が G1210 として残留。G1163/G1189 は無関係。"
+      },
+      {
+        "domainCode": "37003",
+        "action": "NO CHANGE",
+        "reason": "deo-bind 43件が G1210 として残留。G1163/G1189 は無関係。"
+      },
+      {
+        "domainCode": "37008",
+        "action": "NO CHANGE",
+        "reason": "deo-bind 43件が G1210 として残留。G1163/G1189 は無関係。"
+      }
+    ]
+  },
+  "domainsLnIndex": {
+    "file": "public/assets/data/index/domains-ln-index.json",
+    "updateMethod": "手動（ビルドスクリプトなし）",
+    "changes": [
+      {
+        "ln": "33.17",
+        "reason": "deom-hold 10件（ln=33.17）が G1210→G1189 へ移行。移行後 G1210 の 33.17 トークンはゼロ（deo-bind 43件の ln 分布に 33.17 は含まれない）。G1189 はすでに lemmas[] に存在。",
+        "action_g1210": "REMOVE",
+        "action_g1163": "N/A",
+        "action_g1189": "ALREADY_PRESENT",
+        "before_lemmas_subset": [
+          "grc:G1189",
+          "grc:G1210"
+        ],
+        "after_lemmas_subset": [
+          "grc:G1189"
+        ],
+        "occurrences_change": "UNCHANGED"
+      },
+      {
+        "ln": "71.21",
+        "reason": "dei-necessity 85件のうち 34件が ln=71.21 を持つ。移行後 G1210 の 71.21 トークンはゼロ。G1163 はすでに lemmas[] に存在。",
+        "action_g1210": "REMOVE",
+        "action_g1163": "ALREADY_PRESENT",
+        "action_g1189": "N/A",
+        "before_lemmas_subset": [
+          "grc:G1163",
+          "grc:G1210"
+        ],
+        "after_lemmas_subset": [
+          "grc:G1163"
+        ],
+        "occurrences_change": "UNCHANGED"
+      },
+      {
+        "ln": "71.34",
+        "reason": "dei-necessity 85件のうち 55件が ln=71.34 を持つ。移行後 G1210 の 71.34 トークンはゼロ。G1163 はすでに lemmas[] に存在。",
+        "action_g1210": "REMOVE",
+        "action_g1163": "ALREADY_PRESENT",
+        "action_g1189": "N/A",
+        "before_lemmas_subset": [
+          "grc:G1163",
+          "grc:G1210"
+        ],
+        "after_lemmas_subset": [
+          "grc:G1163"
+        ],
+        "occurrences_change": "UNCHANGED"
+      }
+    ],
+    "noChange": [
+      {
+        "ln": "18.13",
+        "action": "NO CHANGE",
+        "reason": "deo-bind 43件が G1210 として残留。"
+      },
+      {
+        "ln": "23.157",
+        "action": "NO CHANGE",
+        "reason": "deo-bind 43件が G1210 として残留。"
+      },
+      {
+        "ln": "37.33",
+        "action": "NO CHANGE",
+        "reason": "deo-bind 43件が G1210 として残留。"
+      },
+      {
+        "ln": "37.45",
+        "action": "NO CHANGE",
+        "reason": "deo-bind 43件が G1210 として残留。"
+      },
+      {
+        "ln": "37.46",
+        "action": "NO CHANGE",
+        "reason": "deo-bind 43件が G1210 として残留。"
+      },
+      {
+        "ln": "37.114",
+        "action": "NO CHANGE",
+        "reason": "deo-bind 43件が G1210 として残留。"
+      }
+    ]
+  },
+  "noChangeFiles": [
+    {
+      "file": "public/assets/data/reading-ln-gloss-data.js",
+      "reason": "G1163(71.21/71.34→〜しなければならない) と G1189(33.17→願う) のマッピングはすでに正しい値で存在。G1210 エントリは残存するが移行後は対象 ln の G1210 トークンがゼロになるため参照されない（reading-engine.js は lemmaId でルックアップ）。"
+    },
+    {
+      "file": "public/core/reading-engine.js",
+      "reason": "G1210/G1163/G1189 固有ロジックなし。lemmaId ルックアップは dynamic — 移行後は自動的に G1163/G1189 の辞書を参照。"
+    }
+  ],
+  "generationOrder": [
+    {
+      "step": 1,
+      "action": "bible_data 95件変更（strong/lemma/lemmaId/japanese）",
+      "dependency": "なし（first step）"
+    },
+    {
+      "step": 2,
+      "action": "node scripts/build-reading-lexicon.cjs",
+      "dependency": "bible_data 変更後"
+    },
+    {
+      "step": 3,
+      "action": "node scripts/build-search-index.js",
+      "dependency": "bible_data 変更後"
+    },
+    {
+      "step": 4,
+      "action": "lexicon-lite.json 手動更新",
+      "dependency": "bible_data 変更後（独立）"
+    },
+    {
+      "step": 5,
+      "action": "domains-cluster-index.json 手動更新",
+      "dependency": "bible_data 変更後（独立）"
+    },
+    {
+      "step": 6,
+      "action": "domains-ln-index.json 手動更新",
+      "dependency": "bible_data 変更後（独立）"
+    },
+    {
+      "step": 7,
+      "action": "回帰テスト全スイート実行",
+      "dependency": "Step 1-6 完了後"
+    },
+    {
+      "step": 8,
+      "action": "re-stageB baseline 更新（brokenNew=0 確認後のみ）",
+      "dependency": "Step 7 後"
+    }
+  ]
+}

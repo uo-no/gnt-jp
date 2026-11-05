@@ -1,0 +1,308 @@
+{
+  "meta": {
+    "phase": "4o",
+    "generatedAt": "2026-11-02",
+    "purpose": "G1210/G1163/G1189 参照箇所の全一覧（bible_dataトークンレコード除く）",
+    "method": "grep + 手動確認"
+  },
+  "files": [
+    {
+      "file": "public/assets/data/reading-lexicon-data.js",
+      "buildScript": "scripts/build-reading-lexicon.cjs",
+      "usage": "lemmaIdキー辞書。reading-engine.js Phase 4 lexicon lookup で参照",
+      "references": [
+        {
+          "lemmaId": "grc:G1163",
+          "currentGlosses": [
+            "〜しなければならない"
+          ],
+          "modificationType": "REBUILD",
+          "reason": "bible_data japanese変更後に再ビルドで自動更新"
+        },
+        {
+          "lemmaId": "grc:G1189",
+          "currentGlosses": [
+            "願う",
+            "必要とする",
+            "お願いする",
+            "神に祈る"
+          ],
+          "modificationType": "REBUILD",
+          "reason": "bible_data japanese変更後に再ビルドで自動更新"
+        },
+        {
+          "lemmaId": "grc:G1210",
+          "currentGlosses": [
+            "縛る",
+            "結ぶ",
+            "物を縛る",
+            "人を縛る",
+            "結婚の縛り"
+          ],
+          "modificationType": "REBUILD",
+          "reason": "dei-necessity/deom-holdトークンがG1163/G1189に移ることで日本語集計変化"
+        }
+      ],
+      "modificationRequired": "YES_REBUILD",
+      "modificationMethod": "npm run build:lexicon (または node scripts/build-reading-lexicon.cjs)",
+      "modificationTiming": "bible_data 95件変更後",
+      "riskIfNotUpdated": "読書エンジン Phase 4 で lemmaId=grc:G1163/grc:G1189 のトークンに対して辞書ヒットしない (G1163/G1189が存在するので問題なし); G1210の日本語集計が旧値のままになる",
+      "statusConfirmed": "CONFIRMED — ファイル内容確認済み"
+    },
+    {
+      "file": "public/assets/data/reading-ln-gloss-data.js",
+      "buildScript": "scripts/build-reading-ln-gloss.cjs",
+      "usage": "lemmaId → ln_domain → gloss マッピング。reading-engine.js Phase 4 lnGloss lookupで参照",
+      "references": [
+        {
+          "lemmaId": "grc:G1163",
+          "lnMappings": {
+            "71.21": "〜しなければならない",
+            "71.34": "〜しなければならない"
+          },
+          "modificationType": "NONE"
+        },
+        {
+          "lemmaId": "grc:G1189",
+          "lnMappings": {
+            "33.17": "願う"
+          },
+          "modificationType": "NONE"
+        },
+        {
+          "lemmaId": "grc:G1210",
+          "lnMappings": {
+            "18.13": "縛る",
+            "23.157": "縛る",
+            "33.17": "縛る",
+            "37.114": "縛る",
+            "37.33": "縛る",
+            "37.45": "縛る",
+            "37.46": "縛る",
+            "71.21": "縛る",
+            "71.34": "縛る"
+          },
+          "modificationType": "NONE",
+          "note": "G1210 dei-necessity/deom-holdトークンが移行後はG1163/G1189でlookupされ正しく解決される。G1210の71.21/71.34/33.17エントリは残存するがdeo-bind 43件では参照されない(それらのln=18.13等)"
+        }
+      ],
+      "modificationRequired": "NO",
+      "reason": "G1163(71.21/71.34)・G1189(33.17)のマッピングはすでに正しい値で存在する",
+      "statusConfirmed": "CONFIRMED"
+    },
+    {
+      "file": "public/assets/data/lexicon/lexicon-lite.json",
+      "buildScript": null,
+      "usage": "StudyPanel词语辞書表示、count フィールドで出現頻度表示",
+      "references": [
+        {
+          "strong": "G1163",
+          "headword": "δεῖ",
+          "currentCount": 16,
+          "proposedCount": 101,
+          "gloss_ja": "〜しなければならない、〜すべきだ（非人称動詞)",
+          "modificationType": "MANUAL_UPDATE",
+          "fieldsToChange": [
+            "count"
+          ]
+        },
+        {
+          "strong": "G1210",
+          "headword": "δέω",
+          "currentCount": 138,
+          "proposedCount": 43,
+          "gloss": "It behooves (SUSPICIOUS)",
+          "gloss_ja": "縛る、結ぶ",
+          "modificationType": "MANUAL_UPDATE",
+          "fieldsToChange": [
+            "count"
+          ],
+          "note": "gloss=\"It behooves\" は δέω の字義と不一致（δεῖ の字義）。count修正と合わせて要修正。別Phaseで対応可。"
+        },
+        {
+          "strong": "G1189",
+          "headword": "δέομαι",
+          "currentCount": 12,
+          "proposedCount": 22,
+          "gloss_ja": "必要とする (INCORRECT)",
+          "modificationType": "MANUAL_UPDATE",
+          "fieldsToChange": [
+            "count"
+          ],
+          "note": "gloss_ja=\"必要とする\"は不正確（正: 願う/お願いする）。count修正と合わせて要修正。別Phaseで対応可。"
+        }
+      ],
+      "modificationRequired": "YES_MANUAL",
+      "modificationMethod": "手動更新（ビルドスクリプトなし）",
+      "modificationTiming": "bible_data 95件変更後",
+      "riskIfNotUpdated": "UI表示の頻度カウントが不正確になる（機能は壊れない）",
+      "statusConfirmed": "CONFIRMED"
+    },
+    {
+      "file": "public/assets/data/index/domains-cluster-index.json",
+      "buildScript": null,
+      "usage": "index.html _clusterIndexData。学習パネルのセマンティックドメイン検索で lemmas[] 配列を参照",
+      "references": [
+        {
+          "domainCode": "33012",
+          "currentLemmas_includes": "grc:G1210",
+          "action": "REMOVE grc:G1210",
+          "reason": "deom-hold 10件移行後、G1210の33012ドメイントークンはゼロ。deo-bind 43件のln=33.17トークンは存在しない（deo-bind ln分布: 18.13/23.157/37.xxx のみ）",
+          "modificationType": "MANUAL_UPDATE"
+        },
+        {
+          "domainCode": "71004",
+          "currentLemmas_includes": "grc:G1210",
+          "action": "REMOVE grc:G1210",
+          "reason": "dei-necessity 85件移行後、G1210の71004ドメイントークンはゼロ。deo-bind 43件のln=71.xxx トークンは存在しない",
+          "modificationType": "MANUAL_UPDATE"
+        },
+        {
+          "domainCode": "71005",
+          "currentLemmas_includes": "grc:G1210",
+          "action": "REMOVE grc:G1210",
+          "reason": "同上",
+          "modificationType": "MANUAL_UPDATE"
+        },
+        {
+          "domainCode": "071004",
+          "currentLemmas_includes": "grc:G1210",
+          "action": "REMOVE grc:G1210",
+          "reason": "71004のゼロパディング別エントリ",
+          "modificationType": "MANUAL_UPDATE"
+        },
+        {
+          "domainCode": "071005",
+          "currentLemmas_includes": "grc:G1210",
+          "action": "REMOVE grc:G1210",
+          "reason": "71005のゼロパディング別エントリ",
+          "modificationType": "MANUAL_UPDATE"
+        }
+      ],
+      "modificationRequired": "YES_MANUAL",
+      "modificationMethod": "手動更新（ビルドスクリプトなし）",
+      "modificationTiming": "bible_data 95件変更後",
+      "riskIfNotUpdated": "学習パネルでドメイン71004/71005/33012を検索した際、G1210(δέω)が誤ってリスト表示される",
+      "statusConfirmed": "CONFIRMED — deo-bindのln分布を実データで確認済み"
+    },
+    {
+      "file": "public/assets/data/index/domains-ln-index.json",
+      "buildScript": null,
+      "usage": "index.html _lnIndexData。ln番号からlemmas[]への逆引きインデックス",
+      "references": [
+        {
+          "ln": "33.17",
+          "currentLemmas_includes": "grc:G1210",
+          "action": "REMOVE grc:G1210",
+          "reason": "deom-hold 10件移行後、G1210の33.17トークンはゼロ",
+          "modificationType": "MANUAL_UPDATE"
+        },
+        {
+          "ln": "71.21",
+          "currentLemmas_includes": "grc:G1210",
+          "action": "REMOVE grc:G1210",
+          "reason": "dei-necessity 85件移行後、G1210の71.21トークンはゼロ",
+          "modificationType": "MANUAL_UPDATE"
+        },
+        {
+          "ln": "71.34",
+          "currentLemmas_includes": "grc:G1210",
+          "action": "REMOVE grc:G1210",
+          "reason": "dei-necessity 85件移行後、G1210の71.34トークンはゼロ",
+          "modificationType": "MANUAL_UPDATE"
+        }
+      ],
+      "modificationRequired": "YES_MANUAL",
+      "modificationMethod": "手動更新（ビルドスクリプトなし）",
+      "modificationTiming": "bible_data 95件変更後",
+      "riskIfNotUpdated": "ln番号からの逆引きでG1210が誤ってヒットする",
+      "statusConfirmed": "CONFIRMED — deo-bindのln分布を実データで確認済み"
+    },
+    {
+      "file": "public/search-index/nt/*.json",
+      "buildScript": "scripts/build-search-index.js",
+      "usage": "morph-search.html / search-tool.html の Strong/lemmaId 検索バックエンド",
+      "references": [
+        {
+          "note": "per-bookインデックス。各tokenレコードにstrong/lemmaId/lemma/japanese/gloss フィールドを保持",
+          "modificationType": "REBUILD"
+        }
+      ],
+      "affectedBooks": [
+        "1CO",
+        "1PE",
+        "1TH",
+        "1TI",
+        "2CO",
+        "2PE",
+        "2TH",
+        "2TI",
+        "ACT",
+        "COL",
+        "EPH",
+        "HEB",
+        "JHN",
+        "LUK",
+        "MAT",
+        "MRK",
+        "REV",
+        "ROM",
+        "TIT"
+      ],
+      "modificationRequired": "YES_REBUILD",
+      "modificationMethod": "node scripts/build-search-index.js（全巻再生成）",
+      "modificationTiming": "bible_data 95件変更後",
+      "riskIfNotUpdated": "検索でG1210として登録されたままになり、G1163/G1189での検索にヒットしない",
+      "statusConfirmed": "CONFIRMED — MAT.json のトークンレコード構造を確認済み（strong/lemmaId/lemma フィールドを保持）"
+    },
+    {
+      "file": "public/core/reading-engine.js",
+      "buildScript": null,
+      "usage": "Reading Engine。token.lemmaId でlexicon/lnGloss lookup",
+      "references": [
+        {
+          "note": "G1210/G1163/G1189 固有のロジックなし。_MORPH_STEM_RULES / _RELATIVE_STRONGS / getSemanticInfo() いずれも対象Strongを含まない",
+          "modificationType": "NONE"
+        }
+      ],
+      "modificationRequired": "NO",
+      "reason": "lemmaId変更後は自動的にG1163/G1189のlexicon/lnGlossを参照するようになる。エンジン変更不要。",
+      "statusConfirmed": "CONFIRMED — reading-engine.js 全体精査済み"
+    },
+    {
+      "file": "scripts/re-stageB-regression.cjs",
+      "buildScript": null,
+      "usage": "回帰ベースライン。bible_data.japanese + lemmaId変化でchip出力が変わるためベースライン更新が必要",
+      "references": [
+        {
+          "field": "STAGEB_BASELINE.changed",
+          "currentValue": 39679,
+          "note": "lemmaId変更→lnGloss/lexicon出力変化→chip出力変化。95件のjapanesも縛る→〜しなければならない/願うに変化"
+        },
+        {
+          "field": "STAGEB_BASELINE.identical",
+          "currentValue": 98062
+        },
+        {
+          "field": "STAGEB_BASELINE.brokenOld",
+          "currentValue": 1253
+        },
+        {
+          "field": "STAGEB_BASELINE.brokenNew",
+          "currentValue": 0,
+          "note": "維持が必須"
+        },
+        {
+          "field": "STAGEB_BASELINE.panelMismatch",
+          "currentValue": 0,
+          "note": "維持が必須"
+        }
+      ],
+      "modificationRequired": "YES_AFTER_VERIFICATION",
+      "modificationMethod": "FROZEN §29 Protocol: 実施後にre-stageB実行→差分確認→意図的改善を確認→値を更新",
+      "modificationTiming": "bible_data 95件変更後・re-stageB実行後",
+      "riskIfNotUpdated": "回帰テストが FAIL になる（意図的な変更によるものだが、更新前は検出不可）",
+      "statusConfirmed": "CONFIRMED"
+    }
+  ]
+}
