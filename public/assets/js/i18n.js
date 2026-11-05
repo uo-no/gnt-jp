@@ -86,10 +86,21 @@
         ready = fetch(new URL('../assets/i18n/' + lang + '.json', document.baseURI))
             .then(function (res) { return res.ok ? res.json() : null; })
             .then(function (dict) {
-                if (dict) state.dict = dict;
+                if (dict && Object.keys(dict).length > 0) {
+                    state.dict = dict;
+                } else {
+                    /* Dictionary unavailable or empty: every string
+                       falls back to Japanese, so the effective language
+                       IS Japanese. Keep html lang, the language buttons
+                       and I18N.lang honest instead of claiming 'en'.
+                       The stored preference is left untouched, so a
+                       later load with a working dictionary still opens
+                       in the chosen language. */
+                    state.lang = 'ja';
+                }
                 applyAll();
             })
-            .catch(function () { /* dictionary failed: Japanese UI stays */ });
+            .catch(function () { state.lang = 'ja'; applyAll(); });
     }
 
     document.addEventListener('DOMContentLoaded', function () {
