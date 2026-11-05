@@ -6298,7 +6298,7 @@ body.chapter-navigation-loading #main-reading-area::after {
             <span class="sb-row-arrow menu-text">↗</span>
         </div>
         <div class="sb-row" id="nav-bookmarks" onclick="showHighlights()">
-            <span class="menu-text">ハイライト</span>
+            <span class="menu-text" data-i18n="more.highlights">ハイライト</span>
         </div>
         <div class="section-label menu-text" style="padding: var(--space-md) var(--space-sm) var(--space-xs);">履歴</div>
         <div class="sb-row" id="nav-recent-verses" onclick="showRecentVerses()">
@@ -6469,7 +6469,7 @@ body.chapter-navigation-loading #main-reading-area::after {
                 </button>
                 <!-- Phase G-1: アクションメニュー（既存関数を呼ぶだけ）。初期非表示。 -->
                 <div id="mobile-verse-action-menu" role="menu" aria-label="節の操作">
-                    <button class="mvv-action-item" role="menuitem" onclick="_mvvMenuAction('highlight')">ハイライト</button>
+                    <button class="mvv-action-item" role="menuitem" onclick="_mvvMenuAction('highlight')" data-i18n="ui.highlight">ハイライト</button>
                     <button class="mvv-action-item" data-icon="link" role="menuitem" onclick="_mvvMenuAction('share')">共有</button>
                 </div>
             </div>
@@ -6497,7 +6497,7 @@ body.chapter-navigation-loading #main-reading-area::after {
                         <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
                         <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
                     </svg>
-                    <span>書物を選ぶ</span>
+                    <span data-i18n="fab.chooseBook">書物を選ぶ</span>
                 </button>
                 <button class="fab-menu-item" onclick="_fabTapMode()" role="menuitem" aria-label="読み方を選ぶ">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -6508,7 +6508,7 @@ body.chapter-navigation-loading #main-reading-area::after {
                         <line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/>
                         <line x1="17" y1="16" x2="23" y2="16"/>
                     </svg>
-                    <span>読み方を選ぶ</span>
+                    <span data-i18n="fab.chooseMode">読み方を選ぶ</span>
                 </button>
                 <button class="fab-menu-item" onclick="_fabTapSearch()" role="menuitem" aria-label="検索する">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -6516,7 +6516,7 @@ body.chapter-navigation-loading #main-reading-area::after {
                         <circle cx="11" cy="11" r="8"/>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                     </svg>
-                    <span>検索する</span>
+                    <span data-i18n="fab.search">検索する</span>
                 </button>
             </div>
             <button id="mobile-fab-btn" onclick="_fabToggle()" aria-label="メニュー" aria-expanded="false">
@@ -7705,8 +7705,12 @@ function _truncateTabLabel(s, max = 20) {
 
 function _bibleHeaderLabel() {
     const loc = AppState.location;
-    if (!loc.testament) return '聖書';
-    if (!loc.book) return loc.testament === 'nt' ? '新約聖書' : '旧約聖書';
+    if (!loc.testament) return _T('ui.bible', '聖書');
+    if (!loc.book) return loc.testament === 'nt' ? _T('ui.newTestament', '新約聖書') : _T('ui.oldTestament', '旧約聖書');
+    if (window.I18N && window.I18N.lang !== 'ja') {
+        const enName = _bookShortName(loc.book.key || loc.book);
+        return loc.chapter != null ? `${enName} ${loc.chapter}` : enName;
+    }
     const shortName = _bookShortTitle(loc.book);
     return loc.chapter != null ? `${shortName} ${loc.chapter}章` : shortName;
 }
@@ -15938,6 +15942,17 @@ function _glossSidecarFor(w) {
     return (typeof w.english === 'string' && w.english) ? w.english : null;
 }
 
+/* 英語UIでの辞書の短いグロス（lexicon-lite の gloss フィールド、lemma 単位）。
+   語義行の日本語（readingLexicon の glosses）の置き換え用。供給不能は null
+   （英語UIで日本語の語義は出さない）。 */
+function _enShortGloss(lemmaId) {
+    try {
+        const lite = (typeof _lexiconData !== 'undefined' && _lexiconData) || _peekLiteData;
+        const e = (lite && lemmaId) ? lite[lemmaId] : null;
+        return (e && typeof e.gloss === 'string' && e.gloss) ? e.gloss : null;
+    } catch (_) { return null; }
+}
+
 /* 章の生トークン（elData）を節・トークン番号で引けるようにした索引。
    セグメントのタップ時に、ピーク表示と詳細遷移へ必要なトークンを解決するために使う。 */
 const _jaSegTokenIndex = new Map();
@@ -17160,6 +17175,11 @@ let _peekLemmaId = null;
 let _peekLiteData = null;
 let _peekLitePromise = null;
 
+function _ntCountText(c) {
+    const t = _T('panel.appearsInNt', null);
+    return t ? t.replace('{n}', c) : '新約で ' + c + ' 回出てくる語';
+}
+
 function _peekCount(lemmaId) {
     try {
         const lite = (typeof _lexiconData !== 'undefined' && _lexiconData) || _peekLiteData;
@@ -17179,8 +17199,14 @@ function _peekEnsureLite() {
                 const c = _peekCount(_peekLemmaId);
                 const line = _peekEl.querySelector('.word-peek-count');
                 if (line && c != null) {
-                    line.textContent = '新約で ' + c + ' 回出てくる語';
+                    line.textContent = _ntCountText(c);
                     line.hidden = false;
+                }
+                /* 英語UI: 辞書グロスの行も、lite 到着後に差し込む */
+                if (window.I18N && I18N.lang === 'en') {
+                    const gl = _peekEl.querySelector('.word-peek-glosses');
+                    const en = _enShortGloss(_peekLemmaId);
+                    if (gl && en && !gl.textContent) { gl.textContent = en; gl.hidden = false; }
                 }
             }
         })
@@ -17250,17 +17276,27 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     head.appendChild(g);
     const lem = document.createElement('span');
     lem.className = 'word-peek-lemma';
-    lem.textContent = '原形：' + (chip.lemma || '');
+    lem.textContent = _T('panel.lemmaPrefix', '原形：') + (chip.lemma || '');
     head.appendChild(lem);
     el.appendChild(head);
 
-    let glossArr = null;
-    try { glossArr = chip.lemmaId ? window.App?.readingLexicon?.lookup(chip.lemmaId)?.glosses : null; } catch (_) {}
-    if (Array.isArray(glossArr) && glossArr.length) {
+    if (window.I18N && I18N.lang === 'en') {
+        /* 英語UI: 語義行は日本語の語義ではなく辞書の短い英語グロス。
+           lite 未到着なら空で作り、_peekEnsureLite が到着後に差し込む。 */
         const gl = document.createElement('div');
         gl.className = 'word-peek-glosses';
-        gl.textContent = glossArr.slice(0, 3).join('・');
+        const en = _enShortGloss(chip.lemmaId);
+        if (en) gl.textContent = en; else { gl.hidden = true; _peekEnsureLite(); }
         el.appendChild(gl);
+    } else {
+        let glossArr = null;
+        try { glossArr = chip.lemmaId ? window.App?.readingLexicon?.lookup(chip.lemmaId)?.glosses : null; } catch (_) {}
+        if (Array.isArray(glossArr) && glossArr.length) {
+            const gl = document.createElement('div');
+            gl.className = 'word-peek-glosses';
+            gl.textContent = glossArr.slice(0, 3).join('・');
+            el.appendChild(gl);
+        }
     }
 
     const countLine = document.createElement('div');
@@ -17291,7 +17327,7 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     const hlBtn = document.createElement('button');
     hlBtn.className = 'word-peek-hl';
     hlBtn.type = 'button';
-    hlBtn.textContent = 'ハイライト';
+    hlBtn.textContent = _T('ui.highlight', 'ハイライト');
     /* 既にハイライト済みの語では、ドットをその色で出す */
     try {
         const r0 = (typeof _hlRefFromEl === 'function') ? _hlRefFromEl(chipEl) : null;
@@ -17327,7 +17363,7 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     /* 回数：辞書データが既にあれば即表示、無ければロードして差し込む */
     const c0 = _peekCount(_peekLemmaId);
     if (c0 != null) {
-        countLine.textContent = '新約で ' + c0 + ' 回出てくる語';
+        countLine.textContent = _ntCountText(c0);
         countLine.hidden = false;
     } else {
         _peekEnsureLite();
@@ -17465,17 +17501,26 @@ function _openSegPeek(segEl, tis) {
         head.appendChild(g);
         const lem = document.createElement('span');
         lem.className = 'word-peek-lemma';
-        lem.textContent = '原形：' + (w.lemma || '');
+        lem.textContent = _T('panel.lemmaPrefix', '原形：') + (w.lemma || '');
         head.appendChild(lem);
         el.appendChild(head);
 
-        let glossArr = null;
-        try { glossArr = w.lemmaId ? window.App?.readingLexicon?.lookup(w.lemmaId)?.glosses : null; } catch (_) {}
-        if (Array.isArray(glossArr) && glossArr.length) {
+        if (window.I18N && I18N.lang === 'en') {
+            /* 英語UI: 辞書の短い英語グロス（無ければ bible_data の gloss） */
             const gl = document.createElement('div');
             gl.className = 'word-peek-glosses';
-            gl.textContent = glossArr.slice(0, 3).join('・');
+            const en = _enShortGloss(w.lemmaId) || ((typeof w.gloss === 'string' && w.gloss) ? w.gloss : null);
+            if (en) gl.textContent = en; else { gl.hidden = true; _peekEnsureLite(); }
             el.appendChild(gl);
+        } else {
+            let glossArr = null;
+            try { glossArr = w.lemmaId ? window.App?.readingLexicon?.lookup(w.lemmaId)?.glosses : null; } catch (_) {}
+            if (Array.isArray(glossArr) && glossArr.length) {
+                const gl = document.createElement('div');
+                gl.className = 'word-peek-glosses';
+                gl.textContent = glossArr.slice(0, 3).join('・');
+                el.appendChild(gl);
+            }
         }
         lemmaIdForCount = w.lemmaId || null;
     } else {
@@ -17495,7 +17540,10 @@ function _openSegPeek(segEl, tis) {
             const lem = document.createElement('span');
             lem.className = 'word-peek-lemma';
             const _wTag = _glossSidecarFor(w) || w.japanese;
-            lem.textContent = '原形：' + (w.lemma || '') + (_wTag ? '（' + _wTag + '）' : '');
+            const _tagSuffix = _wTag
+                ? ((window.I18N && I18N.lang === 'en') ? ' (' + _wTag + ')' : '（' + _wTag + '）')
+                : '';
+            lem.textContent = _T('panel.lemmaPrefix', '原形：') + (w.lemma || '') + _tagSuffix;
             head.appendChild(lem);
             el.appendChild(head);
         });
@@ -17527,7 +17575,7 @@ function _openSegPeek(segEl, tis) {
     const hlBtn = document.createElement('button');
     hlBtn.className = 'word-peek-hl';
     hlBtn.type = 'button';
-    hlBtn.textContent = 'ハイライト';
+    hlBtn.textContent = _T('ui.highlight', 'ハイライト');
     /* 既にハイライト済みの区間では、ドットをその色で出す */
     try {
         const exEntries = _hlEntriesForTokens(book, ch, v, tis).filter(en => en._isExisting);
@@ -17557,7 +17605,7 @@ function _openSegPeek(segEl, tis) {
 
     const c0 = _peekCount(_peekLemmaId);
     if (c0 != null) {
-        countLine.textContent = '新約で ' + c0 + ' 回出てくる語';
+        countLine.textContent = _ntCountText(c0);
         countLine.hidden = false;
     } else if (_peekLemmaId) {
         _peekEnsureLite();
@@ -17964,15 +18012,20 @@ function _wlvChipClick(chipEl, tokenId) {
             ddMeaning.textContent = (AppState.inspect.data && (AppState.inspect.data.jaWordDisplay || AppState.inspect.data.jaWord)) || '';
         }
         const ddLemma = document.getElementById('wlv-dd-lemma');
-        if (ddLemma) ddLemma.textContent = chip.lemma ? '原形：' + chip.lemma : '';
+        if (ddLemma) ddLemma.textContent = chip.lemma ? _T('panel.lemmaPrefix', '原形：') + chip.lemma : '';
         /* 語義（readingLexicon.lookup().glosses）：chip 切り替え時に前の語義が残らないよう毎回更新 */
         const ddGlosses = document.getElementById('wlv-dd-glosses');
         if (ddGlosses) {
-            const _ddGlossArr = chip.lemmaId
-                ? window.App?.readingLexicon?.lookup(chip.lemmaId)?.glosses
-                : null;
-            ddGlosses.textContent = (Array.isArray(_ddGlossArr) && _ddGlossArr.length)
-                ? _ddGlossArr.slice(0, 3).join('・') : '';
+            if (window.I18N && I18N.lang === 'en') {
+                /* 英語UI: 語義行は辞書の短い英語グロス */
+                ddGlosses.textContent = _enShortGloss(chip.lemmaId) || '';
+            } else {
+                const _ddGlossArr = chip.lemmaId
+                    ? window.App?.readingLexicon?.lookup(chip.lemmaId)?.glosses
+                    : null;
+                ddGlosses.textContent = (Array.isArray(_ddGlossArr) && _ddGlossArr.length)
+                    ? _ddGlossArr.slice(0, 3).join('・') : '';
+            }
         }
         /* Phase ESM-18: ドロワーはLayer 1（Greek/Gloss/詳しく見る導線のみ）に限定する。
            resonance文（Wallace Reading Notesと同一生成経路）はLayer 2（StudyPanel）の
@@ -20521,7 +20574,7 @@ function _hlOpenPicker(entry, anchorEl) {
             document.getElementById('hl-picker-meaning').textContent = winfo.meaning || '';
             document.getElementById('hl-picker-greek').textContent = winfo.greek || '';
             const lemEl = document.getElementById('hl-picker-lemma');
-            lemEl.textContent = winfo.lemma ? '原形：' + winfo.lemma : '';
+            lemEl.textContent = winfo.lemma ? _T('panel.lemmaPrefix', '原形：') + winfo.lemma : '';
             lemEl.style.display = winfo.lemma ? '' : 'none';
             wordBox.style.display = '';
         } else {
@@ -21078,13 +21131,13 @@ function _hlSetFilter(color) {
             <button class="hl-picker-delete" onclick="_hlColorSelected(null)" title="ハイライトを削除" aria-label="ハイライトを削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div class="hl-picker-actions">
-            <button class="hl-picker-action" onclick="_hlEnterMultiSelectMode()">範囲指定</button>
+            <button class="hl-picker-action" onclick="_hlEnterMultiSelectMode()" data-i18n="ui.selectRange">範囲指定</button>
         </div>
     </div>
 </div>
 <div id="hl-touch-pill" role="group" aria-label="ハイライト操作">
     <button type="button" class="hl-pill-btn" id="hl-pill-btn-color" onclick="_hlTouchPillTap()"><span data-icon="highlighter"></span>ハイライト</button>
-    <button type="button" class="hl-pill-btn" id="hl-pill-btn-range" onclick="_hlEnterTouchRangeMode()">範囲指定</button>
+    <button type="button" class="hl-pill-btn" id="hl-pill-btn-range" onclick="_hlEnterTouchRangeMode()" data-i18n="ui.selectRange">範囲指定</button>
 </div>
 <div id="hl-selection-bar" role="status" aria-live="polite">
     <span id="hl-selection-count"></span>
