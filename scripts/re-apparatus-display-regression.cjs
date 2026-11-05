@@ -28,7 +28,8 @@
 const fs   = require('fs');
 const path = require('path');
 
-const HTML_PATH = path.join(__dirname, '..', 'public', 'index.html');
+const HTML_PATH    = path.join(__dirname, '..', 'public', 'index.html');
+const CH_LOADERS   = path.join(__dirname, '..', 'public', 'app', 'loaders', 'chapter-loaders.js');
 
 let failed = 0;
 const results = [];
@@ -39,6 +40,7 @@ function check(name, cond, detail) {
 
 check('HTML_EXISTS', fs.existsSync(HTML_PATH), HTML_PATH);
 const html = fs.readFileSync(HTML_PATH, 'utf8');
+const chLoaders = fs.existsSync(CH_LOADERS) ? fs.readFileSync(CH_LOADERS, 'utf8') : '';
 
 // ── _buildApparatusHTML の純粋関数再現（ソース実装と同一ロジック）────────────
 function _escH(s) {
@@ -398,8 +400,9 @@ check('FILL_CALLS_ALL_LOADER',
     '_fillApparatusSection does not call _loadApparatusJaAllData');
 
 // 14. 旧 _loadApparatusJaData() 関数が残っている（後方互換）
+// R-d2以降は chapter-loaders.js に移動
 check('OLD_LOADER_PRESERVED',
-    html.includes('async function _loadApparatusJaData()'),
+    html.includes('async function _loadApparatusJaData()') || chLoaders.includes('async function _loadApparatusJaData()'),
     '_loadApparatusJaData function missing');
 
 // 15. デスクトップパスに wlv-apparatus-slot が追加されていない
@@ -432,15 +435,15 @@ check('SOURCE_STARTSWITH_WORDORDER',
     html.includes("startsWith('語順: ')"),
     "startsWith('語順: ') not found in _buildApparatusHTML source");
 
-// 19. _loadApparatusRdgJaData 関数が index.html に存在する
+// 19. _loadApparatusRdgJaData 関数が存在する（R-d2以降は chapter-loaders.js に移動）
 check('SOURCE_LOAD_RDG_JA_FUNCTION',
-    html.includes('async function _loadApparatusRdgJaData()'),
-    '_loadApparatusRdgJaData function not found in index.html');
+    html.includes('async function _loadApparatusRdgJaData()') || chLoaders.includes('async function _loadApparatusRdgJaData()'),
+    '_loadApparatusRdgJaData function not found');
 
-// 20. _apparatusRdgJaData 状態変数が index.html に存在する
+// 20. _apparatusRdgJaData 状態変数が存在する（R-d2以降は chapter-loaders.js に移動）
 check('SOURCE_RDG_JA_STATE_VAR',
-    html.includes('_apparatusRdgJaData'),
-    '_apparatusRdgJaData state var not found in index.html');
+    html.includes('_apparatusRdgJaData') || chLoaders.includes('_apparatusRdgJaData'),
+    '_apparatusRdgJaData state var not found');
 
 // 21. _buildApparatusHTML に rdgJaEntries パラメータが存在する
 check('SOURCE_RDGJA_PARAM',
