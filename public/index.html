@@ -875,7 +875,9 @@ pointer-events: auto;
         color: inherit;
     }
     #mobile-inspector-area .rn-word-reading-note-body .rn-referent-evidence,
-    #mobile-inspector-area .rn-word-reading-note-body .rn-subjref-evidence {
+    #mobile-inspector-area .rn-word-reading-note-body .rn-subjref-evidence,
+    #mobile-inspector-area .rn-word-reading-note-body .rn-translation-evidence,
+    #mobile-inspector-area .rn-word-reading-note-body .rn-repetition-evidence {
         margin: 0;
         padding: 0;
         border: 0;
@@ -8375,6 +8377,70 @@ function closeAnalysis() {
     closeStudyPanel();
 }
 
+/* ── 訳し分け・繰り返し Evidence（この語の読書メモ末尾の小さい行）
+   訳の同定データは assets/data/rendering-variants/JA1955.json（JA1955 対応表から
+   構築。少数派の訳の箇所・拮抗する訳し分けの箇所・語族の章内対比だけを収録）。
+   データが無い／読めない場合は静寂（行を出さない）。 */
+let _renderingVariantsPromise = null;
+function _loadRenderingVariants() {
+    if (!_renderingVariantsPromise) {
+        _renderingVariantsPromise = fetch(new URL('assets/data/rendering-variants/JA1955.json', document.baseURI).href)
+            .then(r => (r.ok ? r.json() : null))
+            .catch(() => null);
+    }
+    return _renderingVariantsPromise;
+}
+
+/* 開いた語（ref）の訳し分けを示す文を返す。対象でなければ null。 */
+async function _translationEvidenceText(ref) {
+    try {
+        if (!ref) return null;
+        const data = await _loadRenderingVariants();
+        if (!data) return null;
+        const fam = data.family;
+        if (fam && fam.refs && fam.refs[ref]) {
+            const mine = fam.refs[ref];
+            const chKey = ref.substring(0, ref.indexOf(':'));
+            const others = new Set();
+            for (const r in fam.refs) {
+                if (r.substring(0, r.indexOf(':')) === chKey && fam.refs[r] !== mine) others.add(fam.refs[r]);
+            }
+            if (others.size === 1) {
+                return `この語は、同じ章では「${[...others][0]}」とも訳されています。ここでは「${mine}」になっています。`;
+            }
+            return null;
+        }
+        const bal = data.balanced && data.balanced[ref];
+        if (bal) {
+            return `この語は、ほかの箇所では「${bal.o}」とも訳されています。ここでは「${bal.r}」になっています。`;
+        }
+        const min = data.minority && data.minority[ref];
+        if (min) {
+            const grp = (data.groups || []).find(g => g.id === min.g);
+            if (grp) {
+                return `この語は、口語訳ではふだん「${grp.majority}」と訳されています。ここでは「${min.r}」になっています。`;
+            }
+        }
+        return null;
+    } catch (_) { return null; }
+}
+
+/* 開いた語が同じ節で繰り返されるときの文を返す。対象でなければ null。
+   閾値：NT出現200回超の語は3回以上、それ以外は2回以上。 */
+function _repetitionEvidenceText(words, idx) {
+    try {
+        if (!Array.isArray(words) || idx == null || idx < 0 || !words[idx]) return null;
+        const lemmaId = words[idx].lemmaId;
+        if (!lemmaId) return null;
+        let n = 0;
+        for (const t of words) { if (t.lemmaId === lemmaId) n++; }
+        if (n < 2) return null;
+        const ntCount = (_lexiconData && _lexiconData[lemmaId]) ? (_lexiconData[lemmaId].count || 0) : 0;
+        if (n < (ntCount > 200 ? 3 : 2)) return null;
+        return `この語は、この節でくりかえし出てきます（${n}回）。`;
+    } catch (_) { return null; }
+}
+
 /* ══════════════════════════════════════════
    _renderReadingNotes
    4階層構造: 聖書読者 → 学習者 → 研究者
@@ -8995,13 +9061,26 @@ async function _renderReadingNotes(p) {
         ? `<div class="rn-subjref-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">${_escH(_subjEvidenceText)}</div>`
         : '';
 
+    /* 訳し分け・繰り返し Evidence を読書メモ末尾へ統合（Referent/Subjref と同じ様式）。
+       表示するのは対象の場合のみ（静寂設計）。 */
+    const _trText = await _translationEvidenceText(ref);
+    const translationEvidenceHTML = _trText
+        ? `<div class="rn-translation-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">${_escH(_trText)}</div>`
+        : '';
+    const _repText = _repetitionEvidenceText(_wlvWordCache, Array.isArray(_wlvWordCache) ? _wlvWordCache.findIndex(t => t.ref === ref) : -1);
+    const repetitionEvidenceHTML = _repText
+        ? `<div class="rn-repetition-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">${_escH(_repText)}</div>`
+        : '';
+
     /* 語の読書メモは節メモと同じ開閉 UI。初期状態は開いて既存の可視性を保つ。 */
     const wordReadingMemoBody = [
         proseHTML ? `<div data-study-section="reading">${proseHTML}</div>` : '',
         phraseReadingHTML ? `<div data-study-section="phrase">${phraseReadingHTML}</div>` : '',
         observationHTML ? `<div data-study-section="observation">${observationHTML}</div>` : '',
         referentEvidenceHTML ? `<div data-study-section="referent">${referentEvidenceHTML}</div>` : '',
-        subjrefEvidenceHTML ? `<div data-study-section="subjref">${subjrefEvidenceHTML}</div>` : ''
+        subjrefEvidenceHTML ? `<div data-study-section="subjref">${subjrefEvidenceHTML}</div>` : '',
+        translationEvidenceHTML ? `<div data-study-section="translation">${translationEvidenceHTML}</div>` : '',
+        repetitionEvidenceHTML ? `<div data-study-section="repetition">${repetitionEvidenceHTML}</div>` : ''
     ].filter(Boolean).join('');
     const wordReadingMemoHTML = wordReadingMemoBody
         ? `<details class="rn-word-reading-note" open><summary>この語の読書メモ</summary>${wordReadingMemoBody}</details>`
@@ -18116,6 +18195,7 @@ async function _fillMvvReadingSlot(words, idx) {
             (await _buildObservationHTML(words, idx, [wordProseText, phraseReadingHTML])) || ''
         );
     } catch (_) { observationHTML = ''; }
+    const _trText = await _translationEvidenceText(words && words[idx] ? words[idx].ref : null);
     if (myGen !== _mvvReadingGen) return;   /* 既に別の語へ移動済み → 破棄 */
 
     /* Desktop と同じ HTML 構造で組み立てる（data-study-section も同じ値）。 */
@@ -18135,12 +18215,22 @@ async function _fillMvvReadingSlot(words, idx) {
         ? `<div class="rn-subjref-evidence" data-study-section="subjref">${_escH(_subjEvidenceText)}</div>`
         : '';
 
+    const translationEvidenceHTML = _trText
+        ? `<div class="rn-translation-evidence" data-study-section="translation">${_escH(_trText)}</div>`
+        : '';
+    const _repText = _repetitionEvidenceText(words, idx);
+    const repetitionEvidenceHTML = _repText
+        ? `<div class="rn-repetition-evidence" data-study-section="repetition">${_escH(_repText)}</div>`
+        : '';
+
     const richHTML = [
         proseHTML,
         phraseReadingHTML ? `<div data-study-section="phrase">${phraseReadingHTML}</div>` : '',
         observationHTML   ? `<div data-study-section="observation">${observationHTML}</div>` : '',
         referentEvidenceHTML,
         subjrefEvidenceHTML,
+        translationEvidenceHTML,
+        repetitionEvidenceHTML,
     ].filter(Boolean).join('');
 
     /* HTMLタグだけ・空白だけの結果ではトグルを作らない。表示テキストがある場合のみ表示する。 */
