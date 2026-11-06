@@ -1181,6 +1181,80 @@ const _WALLACE_TEXT = {
     ARTICLE_COLWELL:          'ここでは、ことばの順序によって、どちらが文の主役かが示されています。',
 };
 
+// 英語UI 用の対応テーブル。JA の _WALLACE_TEXT と 1:1 で対応する 48 エントリ。
+// 方針: 日本語原文と同等の情報量・読書中心の平易な英語。文法用語は最小限。
+// combine() の前置詞: 'Here, ' （JA の 'ここでは、' 相当）。
+const _WALLACE_TEXT_EN = {
+    DISCOURSE_EXPLANATION:
+        'Here, an explanation is given for why what came before holds true.',
+
+    CONTENT:
+        'Here, the specific content of what was said is made clear.',
+
+    COMPLEMENT:
+        'Here, the full content of what was said is stated.',
+
+    PURPOSE:
+        'Here, the intended purpose is shown.',
+
+    EXPLANATORY_PURPOSE:
+        'Here, the purpose is spelled out further.',
+
+    RESULT:
+        'Here, the outcome or result is stated.',
+
+    CONDITION:
+        'Here, a condition is laid out as a premise.',
+
+    CONTRAST_EXPLANATION:
+        'Here, a contrast with what came before is shown, and the direction shifts.',
+
+    UNCLASSIFIED:
+        'Here, the situation or background is added.',
+
+    TRUE_NARRATIVE: 'Here, background events or circumstances are filled in.',
+    REASON:         'Here, the reason behind what was said is given.',
+    SIMILE:         'Here, a comparison is used to explain.',
+    TEMPORAL:       'Here, the timing or sequence of events is shown.',
+    APPROX_CAUSE:   'Here, a general reason is implied.',
+    RELATIVE:       'Here, what follows describes something in more detail.',
+
+    GENITIVE_POSSESSIVE:   'Here, who something belongs to is shown.',
+    GENITIVE_DESCRIPTIVE:  'Here, a quality or kind is described.',
+    GENITIVE_PARTITIVE:    'Here, a part is taken from a larger whole.',
+    GENITIVE_ATTRIBUTIVE:  'Here, a characteristic quality is expressed.',
+    GENITIVE_EPEXEGETICAL: 'Here, the meaning of the preceding word is restated.',
+    GENITIVE_RELATIONSHIP: 'Here, a family tie or personal relationship is stated.',
+    GENITIVE_MATERIAL:     'Here, the material something is made of is shown.',
+    GENITIVE_CONTENT:      'Here, what something contains is shown.',
+    GENITIVE_ATTRIBUTED:   'Here, the word order is reversed so that a quality stands out.',
+    GENITIVE_PREDICATE:    'Here, something is identified as belonging to something else.',
+    GENITIVE_SUBJECTIVE:   'Here, the doer of the action is shown.',
+    GENITIVE_OBJECTIVE:    'Here, the receiver of the action is shown.',
+    GENITIVE_PLENARY:      'Here, the word can be read as either the doer or the receiver — both readings remain open.',
+    GENITIVE_COMPARISON:   'Here, something is compared, and the standard is shown.',
+    GENITIVE_SEPARATION:   'Here, a movement away from something is shown.',
+    GENITIVE_TIME:         'Here, the time when something happens is shown.',
+    GENITIVE_PLACE:        'Here, the place where something happens is shown.',
+    GENITIVE_AGENCY:       'Here, who carries out the action is shown.',
+    GENITIVE_MEANS:        'Here, how something is done is shown.',
+    GENITIVE_SOURCE:       'Here, the source or origin is shown.',
+    GENITIVE_ABSOLUTE:     'Here, a background event is added alongside the main action.',
+    GENITIVE_DIRECT_OBJECT: 'Here, the receiver of the action is shown through this form.',
+
+    ARTICLE_MONADIC:          'Here, the word points to something unique — the only one of its kind.',
+    ARTICLE_GENERIC:          'Here, the word refers not to a specific person or thing, but to the category as a whole.',
+    ARTICLE_PREVIOUS_REF:     'Here, something already mentioned is being referred to again.',
+    ARTICLE_PAR_EXCELLENCE:   'Here, the word points to the best-known or most representative example.',
+    ARTICLE_SIMPLE_ID:        'Here, the word identifies which specific thing is meant.',
+    ARTICLE_WELL_KNOWN:       'Here, the word points to something everyone would recognize.',
+    ARTICLE_ABSTRACT:         'Here, an idea or concept itself — not a thing — is what is meant.',
+    ARTICLE_DEICTIC:          'Here, the word points directly to something present.',
+    ARTICLE_KATAPHORIC:       'Here, the word points ahead — what it refers to is explained just after.',
+    ARTICLE_GRANVILLE_SHARP:  'Here, two titles are linked, and both refer to the same person.',
+    ARTICLE_COLWELL:          'Here, the word order shows which term carries the main weight of the statement.',
+};
+
 // discourse.type が UNCLASSIFIED になる clause.type を _WALLACE_TEXT の
 // 対応キーへ橋渡しする（上の「CONDITION の到達経路」注記を参照）
 const _CLAUSE_TYPE_TO_GLOSS_KEY = {
@@ -1298,6 +1372,10 @@ const _CONNECTOR_TYPE_BY_KEY = {
 const _WALLACE_TEXT_TO_KEY = new Map(
     Object.entries(_WALLACE_TEXT).map(([key, text]) => [text, key])
 );
+// 英語UI 用逆引き（combine() の EN パスで connector type を参照するために使用）
+const _WALLACE_TEXT_EN_TO_KEY = new Map(
+    Object.entries(_WALLACE_TEXT_EN).map(([key, text]) => [text, key])
+);
 
 class ReadingFormatter {
     constructor() {}
@@ -1327,8 +1405,9 @@ class ReadingFormatter {
         const confidence    = source?.discourse?.confidence ?? 0;
         const clauseType    = source?.type ?? source?.label ?? null;
 
-        const key  = this._resolveGlossKey(discourseType, clauseType);
-        const text = assertReadingTextSafe(_WALLACE_TEXT[key]);
+        const key   = this._resolveGlossKey(discourseType, clauseType);
+        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+        const text  = assertReadingTextSafe((_isEn ? _WALLACE_TEXT_EN : _WALLACE_TEXT)[key]);
 
         return {
             title:          text,
@@ -1407,6 +1486,23 @@ class ReadingFormatter {
         if (list.length === 0) return null;
         if (list.length === 1) return assertReadingTextSafe(list[0]);
 
+        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+
+        if (_isEn) {
+            // EN: strip 'Here, ' prefix and '.' suffix, join with English connectives.
+            const CONNECTOR_TEXT_EN = { A: ', and ', B: ', but ', C: ', and also ' };
+            const bodies = list.map(s => s.replace(/^Here, /, '').replace(/\.$/, ''));
+            let combined = 'Here, ' + bodies[0];
+            for (let i = 1; i < bodies.length; i++) {
+                const key  = _WALLACE_TEXT_EN_TO_KEY.get(list[i]);
+                const type = _CONNECTOR_TYPE_BY_KEY[key] || 'A';
+                combined += CONNECTOR_TEXT_EN[type] + bodies[i];
+            }
+            combined += '.';
+            return assertReadingTextSafe(combined);
+        }
+
+        // JA パス（変更なし）
         const bodies = list.map(s => s.replace(/^ここでは、/, '').replace(/。$/, ''));
         const continuatives = bodies.slice(0, -1).map(b => b.replace(/されています$/, 'され'));
         const last = bodies[bodies.length - 1];
