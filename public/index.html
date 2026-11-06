@@ -12789,6 +12789,22 @@ const _VERSE_NOTE_TEXT = {
     nominative_pendens:
         'ここでは、まず主題が示され、あとからそれを受け直して話が続きます。',
 };
+const _VERSE_NOTE_TEXT_EN = {
+    negative_emphasis:
+        'Here, two negatives (οὐ μή) are placed together to make a strong affirmation: this will absolutely not happen.',
+    conditional_counterfactual:
+        'Here, the condition is presented as something that did not actually happen — a "what if it had been otherwise" kind of statement.',
+    conditional_assumed_true:
+        'Here, the "if" condition is treated as something true, and the sentence proceeds on that assumption.',
+    men_de_contrast:
+        'Here, two things are set side by side in contrast (μέν…δέ).',
+    emphasis_word_order:
+        'Here, the word order brings a particular word into focus.',
+    parenthesis:
+        'Here, a brief explanatory note is inserted into the middle of the main thought.',
+    nominative_pendens:
+        'Here, the topic is introduced first, then picked up again as the sentence continues.',
+};
 
 /* 現象の scope を原子スコープの配列に正規化する。
    文字列（'verse'等）・配列（['verse','word']）の両形式を受け、
@@ -12807,8 +12823,9 @@ function _policyScopes(ph) {
    出現順・重複なしで返す。規則の値はすべて policy から読む。 */
 function _collectVerseNoteSentences(proj, policy) {
     if (!proj || !Array.isArray(proj.words) || !policy) return [];
-    const rule    = policy.rules?.passage_note || {};
-    const minConf = policy.rules?.min_confidence ?? 0.40;
+    const rule      = policy.rules?.passage_note || {};
+    const minConf   = policy.rules?.min_confidence ?? 0.40;
+    const textTable = (window.I18N && I18N.lang === 'en') ? _VERSE_NOTE_TEXT_EN : _VERSE_NOTE_TEXT;
     const lines = [];
     for (const w of proj.words) {
         if (!w || !w.categories) continue;
@@ -12820,7 +12837,7 @@ function _collectVerseNoteSentences(proj, policy) {
             const scopes = _policyScopes(ph);
             if (!(rule.scopes || []).some(s => scopes.includes(s))) continue;
             if (!(rule.priorities || []).includes(ph.priority)) continue;
-            const line = _VERSE_NOTE_TEXT[ph.phenomenon];
+            const line = textTable[ph.phenomenon];
             if (line && !lines.includes(line)) lines.push(line);
         }
     }
