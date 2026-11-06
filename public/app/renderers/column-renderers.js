@@ -53,7 +53,7 @@ function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGr
         if (col.colMode.kind === 'wordOrder') {
             const words = elByVerse[vNum] || [];
             if (words.length === 0) {
-                columnBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="color:var(--text-sub);font-size: var(--text-caption);opacity: var(--opacity-secondary);">原語データなし</div></div>`;
+                columnBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="color:var(--text-sub);font-size: var(--text-caption);opacity: var(--opacity-secondary);">${_T('col.noGreekDataShort', '原語データなし')}</div></div>`;
             } else {
                 /* Phase VR-4A: 本文左列の語順フロー表示を Verse Representation Architecture
                    経由にする。WordOrderRenderer は chips[] のみを入力とするため、
@@ -454,7 +454,7 @@ function _buildFlowJpData(elData) {
 function _buildGfVerseBlock(vNum, words, bookKey, ch) {
     if (!words || words.length === 0) {
         return {
-            html: `<p style="font-size: var(--text-caption);color:var(--text-sub);opacity: var(--opacity-secondary);padding: var(--space-sm) 0;">この節の原語データがありません</p>`,
+            html: `<p style="font-size: var(--text-caption);color:var(--text-sub);opacity: var(--opacity-secondary);padding: var(--space-sm) 0;">${_T('col.noGreekData', 'この節の原語データがありません')}</p>`,
             chips: null, words: null, analysis: null,
         };
     }
