@@ -47,9 +47,21 @@ const _PP_TRANS_JP = {
     'μετά':(c) => c === 'genitive' ? 'とともに' : 'の後で',
     'κατά':()  => 'に従って',
 };
+const _PP_TRANS_EN = {
+    'ἐν':  ()  => 'in',
+    'εἰς': ()  => 'into',
+    'ἐκ':  ()  => 'out of',
+    'ἀπό': ()  => 'from',
+    'διά': (c) => c === 'genitive' ? 'through' : 'because of',
+    'μετά':(c) => c === 'genitive' ? 'with' : 'after',
+    'κατά':()  => 'according to',
+};
 
 function _buildPhraseContext(p, end, words) {
-    const jaOf   = w => _escH((w && (w.japanese || w.text)) || '');
+    const _isEn  = window.I18N && I18N.lang === 'en';
+    const jaOf   = _isEn
+        ? (w => _escH((w && (w.english || w.text)) || ''))
+        : (w => _escH((w && (w.japanese || w.text)) || ''));
     const tokens = words.slice(p.start, end + 1);
 
     let prep      = null;
@@ -87,8 +99,9 @@ function _buildPhraseContext(p, end, words) {
 }
 
 function _renderDefault(ctx) {
+    const _isEn = window.I18N && I18N.lang === 'en';
     return ctx.tokens
-        .map(w => _escH((w && (w.japanese || w.text)) || ''))
+        .map(w => _escH((w && (_isEn ? (w.english || w.text) : (w.japanese || w.text))) || ''))
         .filter(Boolean).join('');
 }
 
@@ -98,6 +111,15 @@ function _renderPP(ctx) {
     const suffixFn = ctx.prep ? _PP_TRANS_JP[ctx.prep.lemma] : null;
     const suffix   = suffixFn ? suffixFn(ctx.case) : (ctx.prep ? ctx.prep.ja : '');
     return modJa + headJa + suffix;
+}
+
+function _renderPP_EN(ctx) {
+    const prefixFn = ctx.prep ? _PP_TRANS_EN[ctx.prep.lemma] : null;
+    const prefix   = prefixFn ? prefixFn(ctx.case) : (ctx.prep ? ctx.prep.ja : '');
+    const modEn    = ctx.modifiers.map(m => m.ja).filter(Boolean).join(' ');
+    const headEn   = ctx.head ? ctx.head.ja : '';
+    const body     = [modEn, headEn].filter(Boolean).join(' ');
+    return prefix ? prefix + (body ? ' ' + body : '') : body;
 }
 
 function _renderNP(ctx) {
@@ -117,10 +139,16 @@ const _PHRASE_RENDERERS = {
     NP:   _renderNP,
     PtcP: _renderParticipial,
 };
+const _PHRASE_RENDERERS_EN = {
+    PP:   _renderPP_EN,
+    NP:   _renderNP,
+    PtcP: _renderParticipial,
+};
 
 function renderPhraseJP(p, end, words) {
     const ctx    = _buildPhraseContext(p, end, words);
-    const render = _PHRASE_RENDERERS[ctx.type] || _renderDefault;
+    const _isEn  = window.I18N && I18N.lang === 'en';
+    const render = (_isEn ? _PHRASE_RENDERERS_EN : _PHRASE_RENDERERS)[ctx.type] || _renderDefault;
     return render(ctx);
 }
 
@@ -129,6 +157,13 @@ function _phraseReadingSentence(kind, quoted) {
         case 'PP':   return `「${quoted}」は、ひとつづきのまとまりです。`;
         case 'PtcP': return `「${quoted}」は、ここまでをまとめて読むと意味がつながります。`;
         default:     return `「${quoted}」は、ここまでで一つの内容です。`;
+    }
+}
+function _phraseReadingSentenceEN(kind, quoted) {
+    switch (kind) {
+        case 'PP':   return `"${quoted}" forms a single prepositional phrase.`;
+        case 'PtcP': return `Reading "${quoted}" as a unit lets the meaning flow.`;
+        default:     return `"${quoted}" forms a single unit of meaning.`;
     }
 }
 
@@ -165,6 +200,32 @@ const _PHRASE_INTENT_TEXT = {
     single_action: ['このまとまりは、全体で一つの動きを表しています。',
                     '分けずにひとまとめで読むと意味が入りやすくなります。'],
 };
+const _PHRASE_INTENT_TEXT_EN = {
+    background:     ['This phrase sets up the background before the main thought.',
+                     'Reading this first helps the flow of what follows make sense.'],
+    reason:         ['This phrase gives the reason for what was said.',
+                     'Connecting it with what came before helps the meaning come through.'],
+    purpose:        ['This phrase shows what the action is aimed at.',
+                     'Keeping the goal in view as you read helps the flow connect.'],
+    result:         ['This phrase shows what comes of what was said.',
+                     'Reading it as the outcome of what came before makes the connection visible.'],
+    condition:      ['This phrase states an "if" condition.',
+                     'Holding that condition in mind as you read helps the flow make sense.'],
+    concession:     ['This phrase signals that what follows goes against expectation.',
+                     'Reading with an "and yet" in mind helps the direction become clear.'],
+    comparison:     ['This phrase introduces a point of comparison.',
+                     'Reading with the comparison in mind helps the meaning stand out.'],
+    contrast:       ['This phrase sets up a contrast with what came before.',
+                     'Placing the two side by side makes the direction clear.'],
+    explanation:    ['This phrase describes the content or nature of a key word.',
+                     'Noticing which word it qualifies makes the passage easier to follow.'],
+    identification: ['This phrase identifies who or what is meant.',
+                     'Holding the same person or thing in mind as you read shows the connection.'],
+    progression:    ['This phrase signals that the narrative is moving forward.',
+                     'Reading it as a turning point helps you follow the flow.'],
+    single_action:  ['This phrase expresses a single movement taken as a whole.',
+                     'Reading it together without breaking it apart helps the meaning land.'],
+};
 
 /* 意味層の選択（1句1現象の原則・docs/phrase-reading.md Phase E）:
    対象語の categories から「phrase scope × phrase_reading の priority ×
@@ -177,13 +238,14 @@ function _phraseIntentLines(proj, idx) {
     const policy = _wallacePipeline?.policy;
     const rule   = policy?.rules?.phrase_reading;
     if (!policy || !rule) return [];
-    const minConf = policy.rules?.min_confidence ?? 0.40;
-    const prios   = rule.priorities || [];
+    const minConf    = policy.rules?.min_confidence ?? 0.40;
+    const prios      = rule.priorities || [];
+    const textTable  = (window.I18N && I18N.lang === 'en') ? _PHRASE_INTENT_TEXT_EN : _PHRASE_INTENT_TEXT;
     let best = null;
     for (const c of Object.values(w.categories)) {
         if (!c || c.confidence < minConf) continue;
         const ph = policy.byId[c.id];
-        if (!ph || !ph.intent || !_PHRASE_INTENT_TEXT[ph.intent]) continue;
+        if (!ph || !ph.intent || !textTable[ph.intent]) continue;
         if (!_policyScopes(ph).includes('phrase')) continue;
         const rank = prios.indexOf(ph.priority);
         if (rank < 0) continue;
@@ -192,7 +254,7 @@ function _phraseIntentLines(proj, idx) {
             best = { rank, confidence: c.confidence, intent: ph.intent };
         }
     }
-    return best ? _PHRASE_INTENT_TEXT[best.intent].slice(0, 2) : [];
+    return best ? textTable[best.intent].slice(0, 2) : [];
 }
 
 /* ── v1.2 対象語引用型（docs/phrase-reading.md Phase H → v1.2）──────────
@@ -201,7 +263,8 @@ function _phraseIntentLines(proj, idx) {
    副詞的分詞句（属格絶対・迂言法・目的/結果不定詞・理由/条件/譲歩分詞）が
    これで表示に入る。文言は文テーブル（正典）から変えず、1文目の
    「このまとまりは、」を「「◯◯」のまとまりは、」に置き換えるだけ。 */
-const _PHRASE_INTENT_LEAD = 'このまとまりは、';
+const _PHRASE_INTENT_LEAD    = 'このまとまりは、';
+const _PHRASE_INTENT_LEAD_EN = 'This phrase ';
 function _phraseIntentStandaloneHTML(words, idx, proj) {
     try {
         const intentLines = _phraseIntentLines(proj, idx);
@@ -209,8 +272,12 @@ function _phraseIntentStandaloneHTML(words, idx, proj) {
         /* Stage A: 対象語引用も Engine 出力ベース（単語の擬似句として整形） */
         const quoted = _renderQuoteViaEngine({ type: '', start: idx, end: idx }, idx, words);
         if (!quoted) return null;
-        const first = intentLines[0].startsWith(_PHRASE_INTENT_LEAD)
-            ? `「${quoted}」のまとまりは、` + intentLines[0].slice(_PHRASE_INTENT_LEAD.length)
+        const _isEn = window.I18N && I18N.lang === 'en';
+        const LEAD  = _isEn ? _PHRASE_INTENT_LEAD_EN : _PHRASE_INTENT_LEAD;
+        const first = intentLines[0].startsWith(LEAD)
+            ? (_isEn
+                ? `"${quoted}" ` + intentLines[0].slice(LEAD.length)
+                : `「${quoted}」のまとまりは、` + intentLines[0].slice(LEAD.length))
             : intentLines[0];
         const shown = [first, ...intentLines.slice(1)];
         return `<div class="rn-prose reading-block">${
@@ -753,6 +820,7 @@ async function _buildFlowTreeNeighborhoodViewHTML(ref, verseId) {
 async function _buildPhraseReadingHTML(words, idx) {
     const proj = await _getReadingSupportProjection(words);
     if (!proj) return null;
+    const _isEn = window.I18N && I18N.lang === 'en';
 
     /* 対象語を含む 2 語以上・上限以内の まとまり（NP / PP / PtcP のみ。
        『〜の』の連なりは単独では出さず、下の関係文にのみ使う） */
@@ -780,7 +848,7 @@ async function _buildPhraseReadingHTML(words, idx) {
         /* Stage A: Engine 出力ベースの引用（旧 renderPhraseJP は残置・fallback） */
         const quoted = _renderQuoteViaEngine(p, trimmedEnd, words);
         if (!quoted) continue;
-        lines.push(_phraseReadingSentence(p.type, quoted));
+        lines.push(_isEn ? _phraseReadingSentenceEN(p.type, quoted) : _phraseReadingSentence(p.type, quoted));
 
         /* 『〜の』の関係文: まとまり の中心となる語の後に『〜の』の連なりが
            続く場合のみ、「どれがどれを説明しているか」を一文で示す */
@@ -795,8 +863,12 @@ async function _buildPhraseReadingHTML(words, idx) {
                 headIdx >= 0 && g.start > headIdx && g.end <= trimmedEnd);
             if (inner && headIdx >= 0) {
                 const genQ = quoteOf(inner.start, inner.end);
-                const headW = _escH(words[headIdx]?.japanese || words[headIdx]?.text || '');
-                if (genQ && headW) lines.push(`「${genQ}」が「${headW}」を説明しています。`);
+                const headW = _isEn
+                    ? _escH(words[headIdx]?.english || words[headIdx]?.text || '')
+                    : _escH(words[headIdx]?.japanese || words[headIdx]?.text || '');
+                if (genQ && headW) lines.push(_isEn
+                    ? `"${genQ}" describes "${headW}".`
+                    : `「${genQ}」が「${headW}」を説明しています。`);
             }
         }
         if (lines.length >= 2) break;
