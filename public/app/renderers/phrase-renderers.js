@@ -408,8 +408,11 @@ function _flowTreeJaForRef(ref) {
     }
     return '';
 }
-/* SF-11/SF-16: role の生値→日本語（SF-10 §4）。生の s/o/v… は UI に出さない。 */
+/* SF-11/SF-16: role の生値→表示ラベル（SF-10 §4）。生の s/o/v… は UI に出さない。
+   _SF_ROLE_JA は表示ラベルの JA テーブルと同時に「有効 role 判定」の基準テーブルを兼ねる
+   （644行: filter で truthiness 判定。JA/EN どちらも同じ 9 キーを持つ）。 */
 const _SF_ROLE_JA = { s: '主語', o: '目的語', o2: '第二目的語', io: '間接目的語', v: '動詞', vc: '繋ぎの動詞', p: '補語', adv: '副詞的', aux: '助動詞' };
+const _SF_ROLE_EN = { s: 'subject', o: 'object', o2: 'second object', io: 'indirect object', v: 'verb', vc: 'linking verb', p: 'complement', adv: 'adverbial', aux: 'auxiliary' };
 /* SF-16: Structure Flow 横軸の「表示配置優先順位」（文法的正解語順ではなく UI layout rank）。
  * 原文順は Word Order Flow が担うため、Structure Flow は関係を読みやすい順で並べる。
  * role を持たない語は 8（末尾・元の相対順を維持）。role の推測付与はしない。 */
@@ -445,7 +448,7 @@ function _sfRelationModel(nodesById, ref) {
             cur = cur.parentId != null ? nodesById[cur.parentId] : null;
         }
     }
-    const bandRoleJa = (parent.role && _SF_ROLE_JA[parent.role]) ? _SF_ROLE_JA[parent.role] : null;
+    const bandRole = (parent.role && _SF_ROLE_JA[parent.role]) ? parent.role : null;
 
     // node-id → それを含む band chip の index（文外/写像不能は -1）
     const idxForNode = (id) => {
@@ -502,7 +505,7 @@ function _sfRelationModel(nodesById, ref) {
     const rows = sibs.map(s => (s && s.role && _SF_TOP[s.role]) ? 't' : 'b');
     const useTwoRow = rows.indexOf('t') !== -1 && rows.indexOf('b') !== -1;
 
-    return { focus, parent, sibs, upper, bandRoleJa, focusIdx, frameEdges, referentEdges, referentLabels, rows, useTwoRow };
+    return { focus, parent, sibs, upper, bandRole, focusIdx, frameEdges, referentEdges, referentLabels, rows, useTwoRow };
 }
 /* Relation Flow レンダラ（SF-19 縦型）。第1層＝主語＋主動詞（横並び・固定）、
  * その下に「動詞→各項」を縦に1つずつ並べる（CSS の trunk＋横枝）。frame は accent の枝、
@@ -547,22 +550,28 @@ function _sfSubjectHTML(n) {
     return `<span class="sf-chip sf-ctx sf-subj-struct">${segHTML}</span>`;
 }
 function _sfRenderRelationFlow(m) {
-    const roleJaOf = (n) => (n && n.role && _SF_ROLE_JA[n.role]) ? _SF_ROLE_JA[n.role] : '';
+    const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+    const _roleTable = _isEn ? _SF_ROLE_EN : _SF_ROLE_JA;
+    const roleLabel = (n) => (n && n.role && _roleTable[n.role]) ? _roleTable[n.role] : '';
+    const _placeholder = _isEn ? '(this element)' : '（この構成語）';
     const chip = (n, isF) => {
         // SF-32: 3 token 以上の relation のみ per-token chip 化（2 token 以下は「境目なし連結」問題が
         // 実質なく、chip 化は幅増→枝圧迫の副作用のみのため従来 flat を維持＝C7/通常ケース不変）。
         const per = (Array.isArray(n.tokens) && n.tokens.length >= 3) ? _sfTokenChipsHTML(n.tokens) : '';
-        const inner = per || _escH(_ft11LabelOf(n.tokens) || '（この構成語）');
+        const inner = per || _escH(_ft11LabelOf(n.tokens) || _placeholder);
         return `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${inner}</span>`;
     };
-    const cap = m.bandRoleJa
-        ? `所属するまとまり<span class="sf-caprole"> · ${_escH(m.bandRoleJa)}</span>`
-        : '所属するまとまり';
+    const bandLabel = m.bandRole ? _roleTable[m.bandRole] : null;
+    const _capBase = _isEn ? 'the containing group' : '所属するまとまり';
+    const cap = bandLabel
+        ? `${_capBase}<span class="sf-caprole"> · ${_escH(bandLabel)}</span>`
+        : _capBase;
     const refNote = m.referentLabels
-        ? `<div class="sf-ref-note sf-show"><span class="sf-note-h">共参照</span>${m.referentLabels.map(_escH).join('、')}</div>`
+        ? `<div class="sf-ref-note sf-show"><span class="sf-note-h">${_isEn ? 'co-reference' : '共参照'}</span>${m.referentLabels.map(_escH).join(_isEn ? ', ' : '、')}</div>`
         : '';
+    const _upperLabel = _isEn ? 'enclosing clause' : '上位';
     const upperHtml = m.upper
-        ? `<div class="sf-rel-link"></div><div class="sf-rel-band"><span class="sf-cap">上位</span>${chip(m.upper, false)}</div>`
+        ? `<div class="sf-rel-link"></div><div class="sf-rel-band"><span class="sf-cap">${_upperLabel}</span>${chip(m.upper, false)}</div>`
         : '';
 
     const TOP = { s: 1, v: 1, vc: 1 };
@@ -571,7 +580,7 @@ function _sfRenderRelationFlow(m) {
     // フォールバック（主動詞なし＝role無し band 等）: SF-16 単段（役割整列のみ）。
     if (verbIdx < 0) {
         const col = (n) => {
-            const isF = n.id === m.focus.id; const rj = roleJaOf(n);
+            const isF = n.id === m.focus.id; const rj = roleLabel(n);
             return `<span class="sf-col"><span class="sf-role-cap${isF && rj ? ' is-focus' : ''}">${_escH(rj)}</span>${chip(n, isF)}</span>`;
         };
         const cols = m.sibs.length ? m.sibs.map(col).join('') : col(m.focus);
@@ -580,7 +589,7 @@ function _sfRenderRelationFlow(m) {
 
     // 第1層 col（role を chip の上に）。
     const l1col = (n) => {
-        const isF = n.id === m.focus.id; const rj = roleJaOf(n);
+        const isF = n.id === m.focus.id; const rj = roleLabel(n);
         return `<span class="sf-col"><span class="sf-role-cap${isF && rj ? ' is-focus' : ''}">${_escH(rj)}</span>${chip(n, isF)}</span>`;
     };
     const subjIdx = m.sibs.findIndex(s => s.role === 's');
@@ -591,7 +600,7 @@ function _sfRenderRelationFlow(m) {
         const sn = m.sibs[subjIdx];
         const struct = _sfSubjectHTML(sn);
         if (!struct) return l1col(sn);
-        const isF = sn.id === m.focus.id; const rj = roleJaOf(sn);
+        const isF = sn.id === m.focus.id; const rj = roleLabel(sn);
         return `<span class="sf-col"><span class="sf-role-cap${isF && rj ? ' is-focus' : ''}">${_escH(rj)}</span>${struct}</span>`;
     })();
 
@@ -636,14 +645,14 @@ function _sfRenderRelationFlow(m) {
         return out || _escH(full);
     };
     const branchChip = (n, isF) =>
-        `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_sfContent(n.tokens, '（この構成語）')}</span>`;
+        `<span class="sf-chip ${isF ? 'is-focus' : 'sf-ctx'}">${_sfContent(n.tokens, _placeholder)}</span>`;
     const branchHtml = branchIdxs.map(bi => {
-        const n = m.sibs[bi]; const isF = n.id === m.focus.id; const rj = roleJaOf(n);
+        const n = m.sibs[bi]; const isF = n.id === m.focus.id; const rj = roleLabel(n);
         const frameCls = hasFrameTo(bi) ? ' sf-frame' : '';
         // nested: 項の直接の子のうち role を持つもの（1階層・包含・別チャネル）。存在データのみ。
         const kids = Array.isArray(n.children) ? n.children.filter(c => c && c.role && _SF_ROLE_JA[c.role]) : [];
         const nested = kids.length
-            ? `<div class="sf-nested">${kids.map(c => `<div class="sf-nested-item"><span class="sf-branch-role">${_escH(_SF_ROLE_JA[c.role])}</span>${_sfContent(c.tokens, '')}</div>`).join('')}</div>`
+            ? `<div class="sf-nested">${kids.map(c => `<div class="sf-nested-item"><span class="sf-branch-role">${_escH(_roleTable[c.role] || '')}</span>${_sfContent(c.tokens, '')}</div>`).join('')}</div>`
             : '';
         return `<div class="sf-branch${frameCls}"><span class="sf-branch-role">${_escH(rj)}</span>${branchChip(n, isF)}${nested}</div>`;
     }).join('');
@@ -776,12 +785,13 @@ function _flowTreeNodesById(root) {
 async function _buildFlowTreeNeighborhoodViewHTML(ref, verseId) {
     try {
         if (!ref) return '';
+        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
         let representation;
         let noteSuffix = '';
         if (ref.indexOf('MAT 1:1!') === 0) {
             // baseline: 既存 inline prototype をそのまま使用（fetch 依存なし・出力不変）
             representation = _ft11BuildFlowTree();
-            noteSuffix = '・Prototype／Matthew 1:1 のみ';
+            noteSuffix = _isEn ? ' · Prototype / Matthew 1:1 only' : '・Prototype／Matthew 1:1 のみ';
         } else {
             const p = _flowTreeParseRef(ref);
             if (!p) return '';
@@ -803,11 +813,13 @@ async function _buildFlowTreeNeighborhoodViewHTML(ref, verseId) {
         const relModel = _sfRelationModel(representation.nodesById, verseId || ref);
         if (!relModel) return '';
         const listHTML = _sfRenderRelationFlow(relModel);
-        const originNote = nv.usedFallback ? '所属節なし → 文全体を基準に表示' : 'この語を中心に、前後・所属・上位のまとまりを表示';
+        const originNote = _isEn
+            ? (nv.usedFallback ? 'No parent clause found — showing from the sentence root' : 'Showing the groups around this word')
+            : (nv.usedFallback ? '所属節なし → 文全体を基準に表示' : 'この語を中心に、前後・所属・上位のまとまりを表示');
 
         return `
         <details class="rn-level-section" id="rn-flowtree-neighborhood">
-            <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>文の組み立てを見る</summary>
+            <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>${_isEn ? 'See how this sentence is built' : '文の組み立てを見る'}</summary>
             <div class="rn-level-body">
                 <div class="sf-flow">${listHTML}</div>
             </div>
