@@ -3431,8 +3431,9 @@ section('§7ac  Reading Note Integration');
 section('§7ad  Phrase Reading Integration');
 
 {
+    const phraseRendSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'renderers', 'phrase-renderers.js'), 'utf8');
     const uiSrc = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
-    const m = uiSrc.match(/__PHRASE_READING_BEGIN__([\s\S]*?)__PHRASE_READING_END__/);
+    const m = (phraseRendSrc + '\n' + uiSrc).match(/__PHRASE_READING_BEGIN__([\s\S]*?)__PHRASE_READING_END__/);
     check('25B-2: Phrase Reading ブロックが存在する', Boolean(m));
     const wholeBlock = m ? m[1] : '';
     // Flow Tree prototype code is nested between the outer markers; exclude it from Phrase Reading policy checks.

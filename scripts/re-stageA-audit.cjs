@@ -53,9 +53,12 @@ function requireCjs(filePath) {
     return mod.exports;
 }
 
-// ── 旧実装の抽出（index.html __PHRASE_READING__ 区間） ───────────────
+// ── 旧実装の抽出（phrase-renderers.js __PHRASE_READING__ 区間） ───────────────
+// __PHRASE_READING_BEGIN__/__PHRASE_READING_END__ は phrase-renderers.js へ移動。
+const PHRASE_REND = path.join(PUBLIC, 'app', 'renderers', 'phrase-renderers.js');
+const phraseRend = fs.readFileSync(PHRASE_REND, 'utf8');
 const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
-const m = html.match(/\/\* __PHRASE_READING_BEGIN__[\s\S]*?__PHRASE_READING_END__ \*\//);
+const m = (phraseRend + '\n' + html).match(/\/\* __PHRASE_READING_BEGIN__[\s\S]*?__PHRASE_READING_END__ \*\//);
 if (!m) { console.error('__PHRASE_READING__ 区間が見つかりません'); process.exit(1); }
 const sandbox = {
     _escH: s => String(s),               // 監査では素の比較（エスケープ無効化）

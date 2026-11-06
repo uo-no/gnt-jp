@@ -60,8 +60,11 @@ const CB = requireCjs(path.join(PUBLIC, 'core', 'syntax-analyzer.js')).ContextBu
 const { ReadingContext } = requireCjs(path.join(PUBLIC, 'core', 'reading-context.js'));
 
 // 比較基準は実ソースの _buildReadingContext（__READING_CTX__ 抽出・再実装しない）
+// __READING_CTX_BEGIN__/__READING_CTX_END__ は word-renderers.js へ移動。
+const WORD_REND = path.join(PUBLIC, 'app', 'renderers', 'word-renderers.js');
+const wordRend = fs.readFileSync(WORD_REND, 'utf8');
 const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
-const mk = html.match(/\/\* __READING_CTX_BEGIN__[\s\S]*?__READING_CTX_END__ \*\//);
+const mk = (wordRend + '\n' + html).match(/\/\* __READING_CTX_BEGIN__[\s\S]*?__READING_CTX_END__ \*\//);
 if (!mk) { console.error('__READING_CTX__ 区間が見つかりません'); process.exit(1); }
 function makeBRC(withRC) {
     const rc = new ReadingContext(); rc.setContextBuilder(CB);
