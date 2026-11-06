@@ -54,8 +54,14 @@ function requireCjs(filePath) {
 }
 
 // ── Flow chip 実物ソースの抽出 ───────────────────────────────────────
+// __FLOW_CHIP_BEGIN__ は word-renderers.js へ移動。_glossSidecarFor / _naturalize / _buildMorphText /
+// __FLOW_CHIP_END__ は index.html に残置。両者を結合して元の FLOW_CHIP 区間を再構成する。
+const WORD_REND = path.join(PUBLIC, 'app', 'renderers', 'word-renderers.js');
+const wordRend = fs.readFileSync(WORD_REND, 'utf8');
 const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
-const m = html.match(/\/\* __FLOW_CHIP_BEGIN__[\s\S]*?__FLOW_CHIP_END__ \*\//);
+const tailInHtml = html.match(/function _jaAlignSegmentsFor[\s\S]*?\/\* __FLOW_CHIP_END__ \*\//)?.[0] || '';
+const combined = wordRend + '\n' + tailInHtml;
+const m = combined.match(/\/\* __FLOW_CHIP_BEGIN__[\s\S]*?__FLOW_CHIP_END__ \*\//);
 if (!m) { console.error('__FLOW_CHIP__ 区間が見つかりません'); process.exit(1); }
 const sandbox = {
     window: { App: {}, location: { search: '' } },   // PresentationPolicy は抽出後に注入（下記）

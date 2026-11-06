@@ -53,9 +53,11 @@ function requireCjs(fp) {
 const CB = requireCjs(path.join(PUBLIC, 'core', 'syntax-analyzer.js')).ContextBuilder;
 const { ReadingContext } = requireCjs(path.join(PUBLIC, 'core', 'reading-context.js'));
 
-// index.html の __READING_CTX__ 区間から実物 _buildReadingContext を抽出
+// __READING_CTX_BEGIN__/__READING_CTX_END__ は word-renderers.js へ移動。
+const WORD_REND = path.join(PUBLIC, 'app', 'renderers', 'word-renderers.js');
+const wordRend = fs.readFileSync(WORD_REND, 'utf8');
 const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
-const m = html.match(/\/\* __READING_CTX_BEGIN__[\s\S]*?__READING_CTX_END__ \*\//);
+const m = (wordRend + '\n' + html).match(/\/\* __READING_CTX_BEGIN__[\s\S]*?__READING_CTX_END__ \*\//);
 if (!m) { console.error('__READING_CTX__ 区間が見つかりません'); process.exit(1); }
 
 // build 呼び出し計数ラッパ

@@ -48,6 +48,8 @@ const { spawnSync } = require('child_process');
 const PUBLIC = path.join(__dirname, '..', 'public');
 const INDEX = path.join(PUBLIC, 'index.html');
 const html = fs.readFileSync(INDEX, 'utf8');
+const wordRendSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'renderers', 'word-renderers.js'), 'utf8');
+const colRendSrc  = fs.readFileSync(path.join(PUBLIC, 'app', 'renderers', 'column-renderers.js'), 'utf8');
 
 let failed = 0;
 const results = [];
@@ -391,7 +393,7 @@ check('invariant: _rightMode の実コード参照なし（代入）', !/_rightM
 check('invariant: _rightMode の実コード参照なし（比較）', !/_rightMode\s*===/.test(html));
 // VR-5-H-4 projection
 check('invariant: _buildColumnBlock が dataset.colMode を投影',
-    /columnBlock\.dataset\.colMode\s*=\s*col\.colMode\.kind\s*;/.test(html));
+    /columnBlock\.dataset\.colMode\s*=\s*col\.colMode\.kind\s*;/.test(html + '\n' + colRendSrc));
 // VR-5-H-4 探索キーの一般化
 check('invariant: Flow 探索が [data-col-mode="wordOrder"]',
     /querySelectorAll\(\s*'\[data-col-mode="wordOrder"\]'\s*\)/.test(html));
@@ -400,12 +402,12 @@ check('invariant: .gf-mode > .gf-verse-block（子結合子維持）', /\.gf-mod
 check('invariant: :not(.gf-mode) > .gf-verse-block（子結合子維持）', /:not\(\.gf-mode\)\s*>\s*\.gf-verse-block/.test(html));
 // render の flow 起動が _colB.kind 駆動・_rightMode 非依存
 check('invariant: render flow 起動が _colB.kind === \'wordOrder\' 駆動',
-    /if\s*\(\s*_colB\.kind\s*===\s*'wordOrder'\s*\)\s*\{\s*_setFlowInjection\('flow'\)/.test(html.replace(/\s+/g, ' ')));
+    /if\s*\(\s*_colB\.kind\s*===\s*'wordOrder'\s*\)\s*\{\s*_setFlowInjection\('flow'\)/.test((html + '\n' + colRendSrc).replace(/\s+/g, ' ')));
 // VR-5-H-12-D: renderBodyColumn の anchor policy は呼び出し元へ移設済み
 check('invariant: _buildColumnBlock が renderBodyColumn へ showOnboardingAnchor を渡す',
-    /renderBodyColumn\(_vrRep,\s*\{\s*showOnboardingAnchor:/.test(html));
+    /renderBodyColumn\(_vrRep,\s*\{\s*showOnboardingAnchor:/.test(html + '\n' + colRendSrc));
 check('invariant: anchor policy(JHN3:16)は呼び出し元にある',
-    /_bodyVr\.book === 'JHN'\s*&&\s*_bodyVr\.chapter === 3\s*&&\s*String\(_bodyVr\.verse\) === '16'/.test(html));
+    /_bodyVr\.book === 'JHN'\s*&&\s*_bodyVr\.chapter === 3\s*&&\s*String\(_bodyVr\.verse\) === '16'/.test(html + '\n' + colRendSrc));
 // single-mode 右列非表示 CSS（Case3 の非表示契約）
 check('invariant: single-mode で右列非表示 CSS が存在',
     /#main-reading-area\.single-mode\s+\.verse-pair-right/.test(html));
@@ -454,7 +456,7 @@ check('invariant(2A-4): Observer options に threshold: 0 あり',
     /\{\s*root:\s*container\s*,\s*threshold:\s*0\s*\}/.test(html));
 check('invariant(2A-4): render() が _setupChapterObserver を呼ぶ',
     /* _chapterBlock) { _setupChapterObserver() } という形で存在する */
-    /_chapterBlock\s*\)\s*\{\s*_setupChapterObserver\s*\(\s*\)/.test(html));
+    /_chapterBlock\s*\)\s*\{\s*_setupChapterObserver\s*\(\s*\)/.test(html + '\n' + colRendSrc));
 check('invariant(2A-4): _loadAndAppendChapter が _observeChapterBlock(_lacCb) を呼ぶ',
     /_observeChapterBlock\s*\(\s*_lacCb\s*\)/.test(html));
 
@@ -844,7 +846,7 @@ check('invariant(2A-5): _stopAutoload が _alCancelGen をインクリメント�
 check('invariant(2A-5): _doAutoload が _alCancelGen と比較する',
     /_alCancelGen\s*!==\s*_myGen/.test(html));
 check('invariant(2A-5): render() が _setupAutoload を呼ぶ',
-    /_setupChapterObserver\(\);\s*_setupAutoload\(\)/.test(html));
+    /_setupChapterObserver\(\);\s*_setupAutoload\(\)/.test(html + '\n' + colRendSrc));
 check('invariant(2A-5): 最終章ガード: chNum >= bookObj.ch で _stopAutoload',
     /chNum\s*>=\s*bookObj\.ch.*_stopAutoload/.test(html.replace(/\n/g, ' ')));
 check('invariant(2A-5): sentinel CSS が存在',
@@ -922,10 +924,10 @@ check('invariant(2A-5): _alObserver は _chapterObserver とは別変数',
 {
     /* C-1: _appendedChapterCache 宣言が存在する */
     check('2B-2(C-1): _appendedChapterCache 宣言が index.html に存在する',
-        /let\s+_appendedChapterCache\s*=\s*new\s+Map\s*\(\s*\)/.test(html));
+        /let\s+_appendedChapterCache\s*=\s*new\s+Map\s*\(\s*\)/.test(html + '\n' + colRendSrc));
 
     /* C-2: render() 内で _appendedChapterCache.clear() が app.innerHTML = '' より前に呼ばれる */
-    const renderSrc = extractFunctionSource(html, 'function render(');
+    const renderSrc = extractFunctionSource(html, 'function render(') || extractFunctionSource(colRendSrc, 'function render(');
     check('extract(2B-2): render() ソース抽出に成功', !!renderSrc);
     if (renderSrc) {
         const clearPos    = renderSrc.indexOf('_appendedChapterCache.clear()');
@@ -1056,7 +1058,7 @@ check('invariant(3-3): toBrowsing() が selectedVerse に ch フィールドを�
     /this\.selectedVerse\s*=\s*\{[^}]*ch\s*:/.test(html));
 
 check('invariant(3-3): toBrowsing() の ch は null-safe（ch != null ? ch : null）',
-    /ch\s*!=\s*null\s*\?\s*ch\s*:\s*null/.test(html));
+    /ch\s*!=\s*null\s*\?\s*ch\s*:\s*null/.test(html + '\n' + colRendSrc + '\n' + wordRendSrc));
 
 check('invariant(3-3): getShareState() が selectedVerse?.ch を chapter に使う',
     /chapter\s*:\s*AppState\.selectedVerse\?\.ch\s*\?\?/.test(html));
@@ -1254,9 +1256,9 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
 {
     /* source invariant: 関数が存在する */
     check('invariant(3-6): _isAutoloadBlockedMode 関数が index.html に存在する',
-        /function\s+_isAutoloadBlockedMode\s*\(/.test(html));
+        /function\s+_isAutoloadBlockedMode\s*\(/.test(html + '\n' + wordRendSrc));
 
-    const blockedModeSrc = extractFunctionSource(html, 'function _isAutoloadBlockedMode(kind) {');
+    const blockedModeSrc = extractFunctionSource(html, 'function _isAutoloadBlockedMode(kind) {') || extractFunctionSource(wordRendSrc, 'function _isAutoloadBlockedMode(kind) {');
     check('extract(3-6): _isAutoloadBlockedMode ソース抽出に成功', !!blockedModeSrc);
 
     if (blockedModeSrc) {
@@ -1288,7 +1290,7 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
 
 /* ── A-2: _isGreekReadingMode 本体が変更されていない（wordOrder を含む） ── */
 {
-    const grmSrc = extractFunctionSource(html, 'function _isGreekReadingMode(kind) {');
+    const grmSrc = extractFunctionSource(html, 'function _isGreekReadingMode(kind) {') || extractFunctionSource(wordRendSrc, 'function _isGreekReadingMode(kind) {');
     check('extract(3-6): _isGreekReadingMode ソース抽出に成功', !!grmSrc);
 
     if (grmSrc) {
@@ -1360,7 +1362,7 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
 /* ── B-2: _elTokenVerse + _buildFlowJpData 動作 ── */
 {
     const elvSrc  = extractFunctionSource(html, 'function _elTokenVerse(w) {');
-    const bfjdSrc = extractFunctionSource(html, 'function _buildFlowJpData(elData) {');
+    const bfjdSrc = extractFunctionSource(html, 'function _buildFlowJpData(elData) {') || extractFunctionSource(colRendSrc, 'function _buildFlowJpData(elData) {');
     check('extract(3-6): _elTokenVerse ソース抽出に成功', !!elvSrc);
     check('extract(3-6): _buildFlowJpData ソース抽出に成功', !!bfjdSrc);
 
@@ -1469,7 +1471,7 @@ check('invariant(3-6): 最終章ガード（chNum >= bookObj.ch → _stopAutoloa
 
 /* ── C-5: WO verse-block の v-num 要素確認（WordOrderRenderer 出力） ── */
 check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力する',
-    /renderBodyColumn[\s\S]{0,500}v-num/.test(html));
+    /renderBodyColumn[\s\S]{0,500}v-num/.test(html + '\n' + wordRendSrc));
 
 /* ═══════════════════════════════════════════════════════════════════════
  * Phase 3-6-G: Mobile WO Chip URL State Fix
@@ -1621,7 +1623,7 @@ check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力�
 
 /* ── I-C-5: _selectVerseBlocks の containerEl || document パターンが維持されている ── */
 {
-    const svbSrc = extractFunctionSource(html, 'function _selectVerseBlocks(vNum, activeBlock, containerEl) {');
+    const svbSrc = extractFunctionSource(html, 'function _selectVerseBlocks(vNum, activeBlock, containerEl) {') || extractFunctionSource(colRendSrc, 'function _selectVerseBlocks(vNum, activeBlock, containerEl) {');
     check('invariant(3-6-I-C-5): _selectVerseBlocks の containerEl || document フォールバックが維持されている',
         svbSrc ? /containerEl\s*\|\|\s*document/.test(svbSrc) : false);
 }
@@ -1763,11 +1765,14 @@ check('invariant(3-7-C-1): compare-chapter-block 生成ロジックが存在す�
 /* ── C3-2: data-book / data-chapter が compare-chapter-block に設定される ── */
 {
     const ccbSrc = (() => {
-        const startIdx = html.indexOf('const _compareChapterBlock = ');
-        if (startIdx < 0) return null;
-        const endIdx = html.indexOf('})() : null;', startIdx);
-        if (endIdx < 0) return null;
-        return html.slice(startIdx, endIdx + '})() : null;'.length);
+        for (const src of [html, colRendSrc]) {
+            const startIdx = src.indexOf('const _compareChapterBlock = ');
+            if (startIdx < 0) continue;
+            const endIdx = src.indexOf('})() : null;', startIdx);
+            if (endIdx < 0) continue;
+            return src.slice(startIdx, endIdx + '})() : null;'.length);
+        }
+        return null;
     })();
     check('extract(3-7-C): _compareChapterBlock IIFE ソース抽出に成功', !!ccbSrc);
     check('invariant(3-7-C-2a): _compareChapterBlock に data-book が設定される',
@@ -1780,11 +1785,11 @@ check('invariant(3-7-C-1): compare-chapter-block 生成ロジックが存在す�
 
 /* ── C3-3: verse-pair が compare-chapter-block 内に入る ── */
 check('invariant(3-7-C-3): verse-pair が (_compareChapterBlock || mainArea) へ追加される',
-    /\(_compareChapterBlock\s*\|\|\s*mainArea\)\.appendChild\(pairEl\)/.test(html));
+    /\(_compareChapterBlock\s*\|\|\s*mainArea\)\.appendChild\(pairEl\)/.test(html + '\n' + colRendSrc));
 
 /* ── C3-4: Mobile compare の既存 DOM パスが維持されている ── */
 check('invariant(3-7-C-4a): mobile-verse-group が app.appendChild へ渡される（既存パス維持）',
-    /app\.appendChild\(verseGroup\)/.test(html));
+    /app\.appendChild\(verseGroup\)/.test(html + '\n' + colRendSrc));
 check('invariant(3-7-C-4b): _compareChapterBlock は window.innerWidth > 768 条件付き（mobile では null）',
     /window\.innerWidth\s*>\s*768/.test(html));
 
@@ -1821,8 +1826,11 @@ check('invariant(3-7-C-4b): _compareChapterBlock は window.innerWidth > 768 条
 
 /* ── D7/D8: render() gate ── */
 {
-    const gateIdx = html.indexOf('if (_chapterBlock) { _setupChapterObserver(); _setupAutoload(); }');
-    const gateSrc = gateIdx >= 0 ? html.slice(gateIdx, gateIdx + 200) : '';
+    const _gateStr = 'if (_chapterBlock) { _setupChapterObserver(); _setupAutoload(); }';
+    const _gateHtmlIdx = html.indexOf(_gateStr);
+    const _gateColIdx  = colRendSrc.indexOf(_gateStr);
+    const gateIdx = _gateHtmlIdx >= 0 ? _gateHtmlIdx : _gateColIdx;
+    const gateSrc = gateIdx >= 0 ? (_gateHtmlIdx >= 0 ? html : colRendSrc).slice(gateIdx, gateIdx + 200) : '';
 
     check('invariant(3-7-D-7): render() gate に _compareChapterBlock 分岐が存在する',
         /else if \(_compareChapterBlock\)/.test(gateSrc));
@@ -1894,7 +1902,7 @@ check('invariant(3-7-C-4b): _compareChapterBlock は window.innerWidth > 768 条
     const doAutoloadSrc = extractFunctionSource(html, 'async function _doAutoload(');
 
     /* F1: .mobile-verse-group に data-book / data-chapter が設定される */
-    const renderSrc = extractFunctionSource(html, 'function render(');
+    const renderSrc = extractFunctionSource(html, 'function render(') || extractFunctionSource(colRendSrc, 'function render(');
     check('invariant(3-7-F-1): .mobile-verse-group に data-book / data-chapter が設定される',
         renderSrc
             ? /mobile-verse-group/.test(renderSrc) &&
