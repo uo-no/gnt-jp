@@ -686,7 +686,6 @@ async function _fillRelationSlot(slotId, ref) {
             '<li>' + _T('panel.localRelLegend2', '線は、語と語がどう関わっているかを表します') + '</li>' +
             '<li>' + _T('panel.localRelLegend3', '語のそばの小さな言葉（例：［冠詞］）は、その語の役割を表します') + '</li>' +
             '<li>' + _T('panel.localRelLegend4', '枠はドラッグで動かせます。右下のボタンで、拡大・縮小と「選択中の語へ戻る」ができます') + '</li>' +
-            '<li>' + _T('panel.localRelLegend5', '動詞の線の種類（実線・点線など）の意味は、「まめ知識」の「動詞の読み方」にあります') + '</li>' +
             '</ul></details>';
         slot.appendChild(head);
         slot.appendChild(frame);
