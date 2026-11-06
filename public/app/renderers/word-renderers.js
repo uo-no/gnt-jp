@@ -235,7 +235,10 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
     //   Interaction）はまだこれらを参照しない（Phase 2 以降）。
     const tokenId  = isFinite(Number(w.tokenId)) ? String(Number(w.tokenId)) : '';
     const verseId  = w.verseId  != null ? w.verseId  : null;
-    return { greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong, dpGrammarClasses, bookKey, ch, verse, language, corpusId, lemmaId, tokenId, verseId };
+    // EN UI: true when gloss came from sidecar file (segment text), not w.english fallback.
+    // Used by buildRepresentation() to dedup repeated segment text in consecutive chips.
+    const glossFromSidecar = !!_enGloss && typeof _glossSidecarIsFromFile === 'function' && _glossSidecarIsFromFile(w);
+    return { greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong, dpGrammarClasses, bookKey, ch, verse, language, corpusId, lemmaId, tokenId, verseId, glossFromSidecar };
 }
 
 /**
@@ -444,6 +447,23 @@ function buildRepresentation(columnMode, verse, analysis, translationText) {
                結果をそのまま使う）。 */
             const chips = tokens.map((w, i) => _wordToFlowChip(w, i, bookKey, ch,
                 analysis ? analysis[i] : undefined, tokens));
+            /* EN UI: when consecutive chips share the same sidecar-file gloss (segment text),
+               show the gloss only on the first chip; subsequent chips show the Greek text.
+               Only applies to sidecar file glosses (glossFromSidecar=true), not w.english fallback.
+               JA UI: glossFromSidecar is always false → loop is a no-op. */
+            let _prevSidecarGloss = null;
+            for (const chip of chips) {
+                if (chip.glossFromSidecar) {
+                    if (chip.gloss === _prevSidecarGloss) {
+                        chip.gloss = chip.greek;
+                        chip.glossFromSidecar = false;
+                    } else {
+                        _prevSidecarGloss = chip.gloss;
+                    }
+                } else {
+                    _prevSidecarGloss = null;
+                }
+            }
             return {
                 kind: 'wordOrder',
                 verseRef: verse ? verse.verseRef : null,
@@ -500,7 +520,7 @@ const WordOrderRenderer = {
         /* ── 詳細ドロワー：prosecontinuity design ── */
         const drawerHTML = `
         <div class="wlv-detail-drawer" id="wlv-detail-drawer">
-            <button class="wlv-dd-close-btn" onclick="_wlvDrawerClose()" aria-label="語句詳細を閉じる">×</button>
+            <button class="wlv-dd-close-btn" onclick="_wlvDrawerClose()" aria-label="${_escH(_T('wlv.closeDetail', '語句詳細を閉じる'))}">×</button>
             <div class="wlv-detail-meaning" id="wlv-dd-meaning"></div>
             <div class="wlv-detail-nametag"><span class="wlv-detail-greek" id="wlv-dd-greek">-</span><span class="wlv-detail-lemma" id="wlv-dd-lemma"></span></div>
             <div class="wlv-detail-glosses" id="wlv-dd-glosses"></div>
@@ -508,12 +528,12 @@ const WordOrderRenderer = {
             <div class="wlv-detail-actions">
                 <button class="wlv-detail-study-btn" id="wlv-dd-study-btn" onclick="_wlvStudyBtnClick()">
                     <span class="wlv-action-icon material-symbols-outlined" aria-hidden="true">search</span>
-                    <span class="wlv-action-label">語の意味や用法を調べる</span>
+                    <span class="wlv-action-label">${_escH(_T('wlv.studyWord', '語の意味や用法を調べる'))}</span>
                     <span class="wlv-action-chev material-symbols-outlined" aria-hidden="true">chevron_right</span>
                 </button>
                 <a class="wlv-detail-study-btn" href="search-tool.html?tool=search&layers=lemma%2Cmorph" onclick="return _wlvConcordanceClick(event)">
                     <span class="wlv-action-icon material-symbols-outlined" aria-hidden="true">list</span>
-                    <span class="wlv-action-label">ほかの箇所での使われ方を見る</span>
+                    <span class="wlv-action-label">${_escH(_T('wlv.viewConcordance', 'ほかの箇所での使われ方を見る'))}</span>
                     <span class="wlv-action-chev material-symbols-outlined" aria-hidden="true">chevron_right</span>
                 </a>
             </div>
@@ -529,19 +549,19 @@ const WordOrderRenderer = {
            representation と options のみを参照する（window.App.onboarding を直接読まない）。
            legend 表示可否は options.showOnboardingLegend（呼び出し元が解決済みの真偽値）。 */
         const legendHTML = (options && options.showOnboardingLegend) ? `<div class="dp-legend">
-        <span class="dp-legend-item"><span class="dp-sample dp-mood-imperative">語</span><span class="dp-legend-label">命令法</span></span>
-        <span class="dp-legend-item"><span class="dp-sample dp-mood-indicative">語</span><span class="dp-legend-label">直説法</span></span>
-        <span class="dp-legend-item"><span class="dp-sample dp-tense-present">語</span><span class="dp-legend-label">現在</span></span>
-        <span class="dp-legend-item"><span class="dp-sample dp-tense-aorist">語</span><span class="dp-legend-label">アオリスト</span></span>
-        <span class="dp-legend-item"><span class="dp-sample dp-tense-perfect">語</span><span class="dp-legend-label">完了</span></span>
-        <span class="dp-legend-item"><span class="dp-sample dp-voice-middle">語</span><span class="dp-legend-label">中動/受動</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-mood-imperative">語</span><span class="dp-legend-label">${_escH(_T('morph.mood.imperative', '命令法'))}</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-mood-indicative">語</span><span class="dp-legend-label">${_escH(_T('morph.mood.indicative', '直説法'))}</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-tense-present">語</span><span class="dp-legend-label">${_escH(_T('morph.tense.present', '現在'))}</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-tense-aorist">語</span><span class="dp-legend-label">${_escH(_T('morph.tense.aorist', 'アオリスト'))}</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-tense-perfect">語</span><span class="dp-legend-label">${_escH(_T('morph.tense.perfect', '完了'))}</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-voice-middle">語</span><span class="dp-legend-label">${_escH(_T('morph.voice.middlePassive', '中動/受動'))}</span></span>
     </div>` : '';
 
         return `
         ${passageNoteHTML}
         <div class="wlv-flow-section-compact">
-            <span class="wlv-flow-label-compact">原語の順序</span>
-            <span class="wlv-flow-caption">気になる語をタップすると、その語の意味と働きが見られます</span>
+            <span class="wlv-flow-label-compact">${_escH(_T('wlv.originalOrder', '原語の順序'))}</span>
+            <span class="wlv-flow-caption">${_escH(_T('wlv.tapHint', '気になる語をタップすると、その語の意味と働きが見られます'))}</span>
             <div class="wlv-flow-stream" id="wlv-flow-stream">
                 ${chipsHTML}
             </div>
