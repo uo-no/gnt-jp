@@ -23,6 +23,97 @@
    ContextBuilder の実行はこのキャッシュ生成時の 1 回のみで、
    チップ・ドロワー・原語タブはすべてこれを再利用する（再実行禁止）。 */
 let _verseResolveCache = null;   // { words, resolved }
+
+/* 経路6: Flow chip signal labels — JA / EN pair tables
+   キーは形態素コード／ギリシア語テキスト（内部ID）。label は表示専用。 */
+const _VERB_MOOD_SIG_JA = {
+    M: { label: '強く勧めている',   cls: 'sig-exhort' },
+    P: { label: '背景を描いている', cls: 'sig-logic'  },
+    N: { label: '目的を示している', cls: 'sig-logic'  },
+    S: { label: '願いを込めている', cls: 'sig-logic'  },
+};
+const _VERB_MOOD_SIG_EN = {
+    M: { label: 'urging action',       cls: 'sig-exhort' },
+    P: { label: 'painting the scene',  cls: 'sig-logic'  },
+    N: { label: 'pointing to purpose', cls: 'sig-logic'  },
+    S: { label: 'expressing a wish',   cls: 'sig-logic'  },
+};
+const _VERB_VOI_SIG_JA = {
+    P: { label: '受けとめる側に立っている',     cls: 'sig-word' },
+    M: { label: '深く関わりながら動いている', cls: 'sig-word' },
+    D: { label: '深く関わりながら動いている', cls: 'sig-word' },
+};
+const _VERB_VOI_SIG_EN = {
+    P: { label: 'placed on the receiving side', cls: 'sig-word' },
+    M: { label: 'acting with full involvement', cls: 'sig-word' },
+    D: { label: 'acting with full involvement', cls: 'sig-word' },
+};
+const _NOUN_CASE_SIG_JA = {
+    N: { label: '中心にいる',       cls: 'sig-logic' },
+    G: { label: '結びついている',   cls: 'sig-logic' },
+    D: { label: '関わりを受けている', cls: 'sig-logic' },
+    A: { label: '動作の向かう先',   cls: 'sig-logic' },
+    V: { label: '呼びかけられている', cls: 'sig-logic' },
+};
+const _NOUN_CASE_SIG_EN = {
+    N: { label: 'at the center',              cls: 'sig-logic' },
+    G: { label: 'in connection',              cls: 'sig-logic' },
+    D: { label: 'receiving the connection',   cls: 'sig-logic' },
+    A: { label: 'the goal of the action',     cls: 'sig-logic' },
+    V: { label: 'being addressed',            cls: 'sig-logic' },
+};
+const _NOUN_NUM_SIG_JA = { P: { label: '複数で語られている', cls: 'sig-logic' } };
+const _NOUN_NUM_SIG_EN = { P: { label: 'spoken of as plural', cls: 'sig-logic' } };
+const _ADJ_CASE_SIG_JA = {
+    N: { label: '特徴を示している',         cls: 'sig-logic' },
+    G: { label: '性質を結びつけている',     cls: 'sig-logic' },
+    D: { label: '関わる対象を彩っている',   cls: 'sig-logic' },
+    A: { label: '対象の様子を語っている',   cls: 'sig-logic' },
+};
+const _ADJ_CASE_SIG_EN = {
+    N: { label: 'describing a quality',       cls: 'sig-logic' },
+    G: { label: 'linking a characteristic',   cls: 'sig-logic' },
+    D: { label: 'coloring what it relates to', cls: 'sig-logic' },
+    A: { label: 'speaking to the one it describes', cls: 'sig-logic' },
+};
+const _CONJ_SIG_JA = {
+    'γάρ':  { label: 'なぜなら、と理由へ進む',          cls: 'sig-logic'    },
+    'ἀλλά': { label: 'しかし、と流れが変わる',          cls: 'sig-turn'     },
+    'οὖν':  { label: 'だから、と結論へ向かう',          cls: 'sig-logic'    },
+    'δέ':   { label: '話が次の段階へ進む',             cls: 'sig-turn'     },
+    'καί':  { label: 'さらに、と積み重なる',            cls: 'sig-emphasis' },
+    'ἵνα':  { label: '〜のために、と目的が示される',    cls: 'sig-logic'    },
+    'ὅτι':  { label: '〜ということ、と内容が続く',      cls: 'sig-logic'    },
+    'εἰ':   { label: 'もし〜なら、と仮定の話に入る',    cls: 'sig-logic'    },
+    'ὥστε': { label: 'その結果として、と帰結が来る',    cls: 'sig-logic'    },
+};
+const _CONJ_SIG_EN = {
+    'γάρ':  { label: 'because — a reason follows',           cls: 'sig-logic'    },
+    'ἀλλά': { label: 'but — the direction shifts',           cls: 'sig-turn'     },
+    'οὖν':  { label: 'therefore — moving toward a conclusion', cls: 'sig-logic'  },
+    'δέ':   { label: 'and / now — the story moves on',       cls: 'sig-turn'     },
+    'καί':  { label: 'and — adding to what came before',     cls: 'sig-emphasis' },
+    'ἵνα':  { label: 'so that — a purpose is introduced',    cls: 'sig-logic'    },
+    'ὅτι':  { label: 'that — the content continues',         cls: 'sig-logic'    },
+    'εἰ':   { label: 'if — entering a conditional thought',   cls: 'sig-logic'    },
+    'ὥστε': { label: 'so that — a result follows',           cls: 'sig-logic'    },
+};
+const _CONJ_SIG_FB_JA = { label: '前後をつないでいる',                    cls: 'sig-logic' };
+const _CONJ_SIG_FB_EN = { label: 'connecting what comes before and after', cls: 'sig-logic' };
+const _PREP_SIG_JA = { label: '関係の方向を示している',                cls: 'sig-logic' };
+const _PREP_SIG_EN = { label: 'showing the direction of the connection', cls: 'sig-logic' };
+const _PRON_CASE_SIG_JA = {
+    N: { label: '誰の話かを示している',       cls: 'sig-logic' },
+    G: { label: '誰に関わるかを示している',   cls: 'sig-logic' },
+    D: { label: '関わりを受けている人を指す', cls: 'sig-logic' },
+    A: { label: '動作の向かう人を指す',       cls: 'sig-logic' },
+};
+const _PRON_CASE_SIG_EN = {
+    N: { label: 'pointing to who is in view',           cls: 'sig-logic' },
+    G: { label: 'pointing to whose concern',            cls: 'sig-logic' },
+    D: { label: 'pointing to who receives the connection', cls: 'sig-logic' },
+    A: { label: 'pointing to whom the action reaches',  cls: 'sig-logic' },
+};
 function _getVerseResolved(words) {
     try {
         if (!window.App?.readingEngine || !Array.isArray(words) || words.length === 0) return null;
@@ -128,7 +219,8 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
 
     /* roleClass：chip dot の色付けと signal 生成 */
     const dpGrammarClasses = buildDepthGrammarClasses(rawMorph).join(' ');
-    
+    const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+
     let roleClass = 'role-other';
     const signals = [];
 
@@ -139,81 +231,54 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
         const tenCode  = (parts[1] || '')[off]     || '';
         const voiCode  = (parts[1] || '')[off + 1] || '';
 
-        /* 法（Mood）シグナル - 読書感覚の言葉で */
-        if (moodCode === 'M') signals.push({ label: '強く勧めている', cls: 'sig-exhort' });
-        else if (moodCode === 'P') signals.push({ label: '背景を描いている', cls: 'sig-logic' });
-        else if (moodCode === 'N') signals.push({ label: '目的を示している', cls: 'sig-logic' });
-        else if (moodCode === 'S') signals.push({ label: '願いを込めている', cls: 'sig-logic' });
+        /* 法（Mood）シグナル */
+        const _moodSig = (_isEn ? _VERB_MOOD_SIG_EN : _VERB_MOOD_SIG_JA)[moodCode];
+        if (_moodSig) signals.push(_moodSig);
 
-        /* 時制シグナル - 読書感覚の言葉で */
-        if (tenCode === 'X') signals.push({ label: '今も続いている', cls: 'sig-promise' });
-        else if (tenCode === 'A' && moodCode === 'I') signals.push({ label: '一つの出来事として語っている', cls: 'sig-declare' });
-        else if (tenCode === 'F' && moodCode === 'I') signals.push({ label: '確かに起きると語っている', cls: 'sig-promise' });
+        /* 時制シグナル（複合条件のため if/else を保持） */
+        if (tenCode === 'X')
+            signals.push(_isEn ? { label: 'still in effect',           cls: 'sig-promise' }
+                                : { label: '今も続いている',              cls: 'sig-promise' });
+        else if (tenCode === 'A' && moodCode === 'I')
+            signals.push(_isEn ? { label: 'stated as a completed event', cls: 'sig-declare' }
+                                : { label: '一つの出来事として語っている',  cls: 'sig-declare' });
+        else if (tenCode === 'F' && moodCode === 'I')
+            signals.push(_isEn ? { label: 'declared as certain',        cls: 'sig-promise' }
+                                : { label: '確かに起きると語っている',     cls: 'sig-promise' });
 
         /* 態シグナル */
-        if (voiCode === 'P') signals.push({ label: '受けとめる側に立っている', cls: 'sig-word' });
-        else if (voiCode === 'M' || voiCode === 'D') signals.push({ label: '深く関わりながら動いている', cls: 'sig-word' });
+        const _voiSig = (_isEn ? _VERB_VOI_SIG_EN : _VERB_VOI_SIG_JA)[voiCode];
+        if (_voiSig) signals.push(_voiSig);
     }
     else if (pos === 'N')    {
         roleClass = 'role-noun';
         const caseParts = parts[1] || '';
         const base = ['1','2','3'].includes(caseParts[0]) ? caseParts.slice(1) : caseParts;
-        const CASE_SIG = {
-            N: { label: '中心にいる', cls: 'sig-logic' },
-            G: { label: '結びついている', cls: 'sig-logic' },
-            D: { label: '関わりを受けている', cls: 'sig-logic' },
-            A: { label: '動作の向かう先', cls: 'sig-logic' },
-            V: { label: '呼びかけられている', cls: 'sig-logic' }
-        };
-        const cs = CASE_SIG[base[0]];
+        const cs = (_isEn ? _NOUN_CASE_SIG_EN : _NOUN_CASE_SIG_JA)[base[0]];
         if (cs) signals.push(cs);
-        const NUM_SIG = { P: { label: '複数で語られている', cls: 'sig-logic' } };
-        const ns = NUM_SIG[base[1]];
+        const ns = (_isEn ? _NOUN_NUM_SIG_EN : _NOUN_NUM_SIG_JA)[base[1]];
         if (ns) signals.push(ns);
     }
     else if (pos === 'A')    {
         roleClass = 'role-adj';
         const caseParts = parts[1] || '';
         const base = ['1','2','3'].includes(caseParts[0]) ? caseParts.slice(1) : caseParts;
-        const CASE_SIG = {
-            N: { label: '特徴を示している', cls: 'sig-logic' },
-            G: { label: '性質を結びつけている', cls: 'sig-logic' },
-            D: { label: '関わる対象を彩っている', cls: 'sig-logic' },
-            A: { label: '対象の様子を語っている', cls: 'sig-logic' }
-        };
-        const cs = CASE_SIG[base[0]];
+        const cs = (_isEn ? _ADJ_CASE_SIG_EN : _ADJ_CASE_SIG_JA)[base[0]];
         if (cs) signals.push(cs);
     }
     else if (pos === 'CONJ') {
         roleClass = 'role-conj';
-        const CONJ_SIG = {
-            'γάρ':  { label: 'なぜなら、と理由へ進む', cls: 'sig-logic' },
-            'ἀλλά': { label: 'しかし、と流れが変わる', cls: 'sig-turn' },
-            'οὖν':  { label: 'だから、と結論へ向かう', cls: 'sig-logic' },
-            'δέ':   { label: '話が次の段階へ進む', cls: 'sig-turn' },
-            'καί':  { label: 'さらに、と積み重なる', cls: 'sig-emphasis' },
-            'ἵνα':  { label: '〜のために、と目的が示される', cls: 'sig-logic' },
-            'ὅτι':  { label: '〜ということ、と内容が続く', cls: 'sig-logic' },
-            'εἰ':   { label: 'もし〜なら、と仮定の話に入る', cls: 'sig-logic' },
-            'ὥστε': { label: 'その結果として、と帰結が来る', cls: 'sig-logic' },
-        };
-        const cs = CONJ_SIG[w.text];
-        if (cs) signals.push(cs);
-        else signals.push({ label: '前後をつないでいる', cls: 'sig-logic' });
+        const _conjSig = (_isEn ? _CONJ_SIG_EN : _CONJ_SIG_JA)[w.text];
+        if (_conjSig) signals.push(_conjSig);
+        else signals.push(_isEn ? _CONJ_SIG_FB_EN : _CONJ_SIG_FB_JA);
     }
-    else if (pos === 'PREP') { roleClass = 'role-prep'; signals.push({ label: '関係の方向を示している', cls: 'sig-logic' }); }
+    else if (pos === 'PREP') { roleClass = 'role-prep'; signals.push(_isEn ? _PREP_SIG_EN : _PREP_SIG_JA); }
     else if (pos === 'T')    { roleClass = 'role-art'; /* 冠詞はsignalなし。静かに */ }
     else if (['P','R','D'].includes(pos)) {
         roleClass = 'role-pron';
         const caseParts = parts[1] || '';
         const base = ['1','2','3'].includes(caseParts[0]) ? caseParts.slice(1) : caseParts;
-        const CASE_SIG = {
-            N: { label: '誰の話かを示している', cls: 'sig-logic' },
-            G: { label: '誰に関わるかを示している', cls: 'sig-logic' },
-            D: { label: '関わりを受けている人を指す', cls: 'sig-logic' },
-            A: { label: '動作の向かう人を指す', cls: 'sig-logic' }
-        };
-        const cs = CASE_SIG[base[0]];
+        const cs = (_isEn ? _PRON_CASE_SIG_EN : _PRON_CASE_SIG_JA)[base[0]];
         if (cs) signals.push(cs);
     }
 
