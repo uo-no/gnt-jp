@@ -13422,16 +13422,28 @@ function _naturalize(gloss, kind) {
  * Study タブでは別途詳細が表示される。
  */
 function _buildMorphText(rawMorph, pos, parts) {
+    const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
     if (pos === 'V' && parts[1]) {
         const off  = /^[0-9]/.test(parts[1]) ? 1 : 0;
         const moodCode  = parts[1][off + 2] || '';
         const tenCode   = parts[1][off]     || '';
         const voiCode   = parts[1][off + 1] || '';
 
-        const ptcNote = tenCode === 'A' ? '先行する副詞的動作（先行状況）'
-                      : tenCode === 'P' ? '副詞的・形容詞的に同時の状況を描き添えている'
-                      : '副詞的・実体的に状況を補っている';
-        const MOOD_NOTE = {
+        const ptcNote = _isEn
+            ? (tenCode === 'A' ? 'an action preceding the main verb'
+              : tenCode === 'P' ? 'describing a situation alongside the main verb'
+              : 'adding circumstance to the scene')
+            : (tenCode === 'A' ? '先行する副詞的動作（先行状況）'
+              : tenCode === 'P' ? '副詞的・形容詞的に同時の状況を描き添えている'
+              : '副詞的・実体的に状況を補っている');
+        const MOOD_NOTE = _isEn ? {
+            'M': 'a call to action',
+            'P': ptcNote,
+            'N': 'adding purpose or content',
+            'S': 'carrying a wish or purpose',
+            'I': 'stated as fact',
+            'O': 'expressed as a wish',
+        } : {
             'M': '行動への呼びかけ',
             'P': ptcNote,
             'N': '目的や内容を補っている',
@@ -13439,14 +13451,24 @@ function _buildMorphText(rawMorph, pos, parts) {
             'I': '事実として語っている',
             'O': '望みを込めた表現',
         };
-        const TEN_NOTE = {
+        const TEN_NOTE = _isEn ? {
+            'X': 'a state from the past still in effect',
+            'A': 'as a single event',
+            'F': 'as something certain to happen',
+            'P': 'now, continuously',
+            'I': 'an ongoing state',
+        } : {
             'X': '過去から今も続く状態',
             'A': 'ある出来事として',
             'F': '確かに起きること',
             'P': '今・継続して',
             'I': '続いていた状態',
         };
-        const VOI_NOTE = {
+        const VOI_NOTE = _isEn ? {
+            'P': 'on the receiving side',
+            'M': 'with full involvement',
+            'D': 'with full involvement',
+        } : {
             'P': '受けとめる側に',
             'M': '深く関わりながら',
             'D': '深く関わりながら',
@@ -13456,26 +13478,28 @@ function _buildMorphText(rawMorph, pos, parts) {
         if (MOOD_NOTE[moodCode]) notes.push(MOOD_NOTE[moodCode]);
         if (TEN_NOTE[tenCode] && moodCode !== 'N' && moodCode !== 'P') notes.push(TEN_NOTE[tenCode]);
         if (VOI_NOTE[voiCode]) notes.push(VOI_NOTE[voiCode]);
-        return notes.join('・') || '動詞';
+        return notes.join(_isEn ? ', ' : '・') || (_isEn ? 'verb' : '動詞');
     } else if (['N','A'].includes(pos) && parts[1]) {
         const base = ['1','2','3'].includes(parts[1][0]) ? parts[1].slice(1) : parts[1];
-        const CASE_NOTE = {
+        const CASE_NOTE = _isEn ? {
+            'N': 'at the center of the sentence', 'G': 'connected with "of"',
+            'D': 'receiving the connection', 'A': 'the goal of the action', 'V': 'address'
+        } : {
             'N': '文の中心にいる', 'G': '〜の、と結びつく',
             'D': '関わりを受ける', 'A': '動作の向かう先', 'V': '呼びかけ'
         };
-        const NUM_NOTE = { 'S': '単数', 'P': '複数' };
         const notes = [];
         if (CASE_NOTE[base[0]]) notes.push(CASE_NOTE[base[0]]);
-        if (NUM_NOTE[base[1]] === '複数') notes.push('複数で語られている');
-        return notes.join('・') || (pos === 'N' ? '名詞' : '形容詞');
+        if (base[1] === 'P') notes.push(_isEn ? 'spoken of as plural' : '複数で語られている');
+        return notes.join(_isEn ? ', ' : '・') || (_isEn ? (pos === 'N' ? 'noun' : 'adjective') : (pos === 'N' ? '名詞' : '形容詞'));
     } else if (pos === 'CONJ') {
-        return '前後をつなぐことば';
+        return _isEn ? 'connecting word' : '前後をつなぐことば';
     } else if (pos === 'PREP') {
-        return '関係の方向を示す';
+        return _isEn ? 'showing the direction of the connection' : '関係の方向を示す';
     } else if (pos === 'T') {
-        return '指し示すことば（冠詞）';
+        return _isEn ? 'pointing word (article)' : '指し示すことば（冠詞）';
     } else if (['P','R','D'].includes(pos)) {
-        return '誰かを指し示している';
+        return _isEn ? 'pointing to someone' : '誰かを指し示している';
     }
     return '';
 }
