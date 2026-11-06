@@ -1425,14 +1425,19 @@ class ReadingFormatter {
     formatEvidence(item) {
         const id = item?.id ?? '';
         const signals = new Set(Array.isArray(item?.signals) ? item.signals : []);
+        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
         let text = null;
 
         if (id === 'nominative.pendens') {
             if (!signals.has('initial') || !signals.has('resume')) return null;
-            text = 'この語は文の初め近くに置かれ、後の代名詞が受け直しています。主題を先に示す構造かどうか、代名詞が何を受けているかを本文で確かめられます。';
+            text = _isEn
+                ? 'This word appears near the beginning of the sentence, and a pronoun later takes it up again. You can check in the text whether this is a structure where the topic is set out first, and what the pronoun is picking up.'
+                : 'この語は文の初め近くに置かれ、後の代名詞が受け直しています。主題を先に示す構造かどうか、代名詞が何を受けているかを本文で確かめられます。';
         } else if (id === 'infinitive.imperatival') {
             if (!signals.has('no_finite_verb') || !signals.has('anarthrous_inf')) return null;
-            text = 'この読み方の手がかりは、文の中心となる動詞が見当たらず、冠詞も付いていないことです。ただし、この二点だけで命令とは決まりません。目的や補足を表す働きではないか、前後の文とのつながりも確かめてください。';
+            text = _isEn
+                ? 'The clue to this reading is that there is no main verb in the sentence, and the word appears without an article. However, these two points alone do not confirm an imperatival use. Check whether it might serve as purpose or supplemental, and consider how it connects with the surrounding sentences.'
+                : 'この読み方の手がかりは、文の中心となる動詞が見当たらず、冠詞も付いていないことです。ただし、この二点だけで命令とは決まりません。目的や補足を表す働きではないか、前後の文とのつながりも確かめてください。';
         }
 
         if (!text) return null;

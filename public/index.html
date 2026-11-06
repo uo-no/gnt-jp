@@ -12596,6 +12596,30 @@ const _OBSERVATION_SENTENCES = {
     'particle.particle_an':               q => `この「${q}」が、実際にはそうならなかった、という響きを添えます。`,
     'particle.rhetorical_particle':       q => `この「${q}」が、断じて、と強く退けます。`,
 };
+const _OBSERVATION_SENTENCES_EN = {
+    'clause.purpose_hina':                q => `From "${q}", the purpose begins — the "so that" direction of what follows.`,
+    'conjunction.subordinating_purpose':  q => `From "${q}", the purpose begins — the "so that" direction of what follows.`,
+    'clause.substantival_hoti':           q => `From "${q}", the content of what was said unfolds.`,
+    'conjunction.subordinating_content':  q => `From "${q}", the content of what was said unfolds.`,
+    'clause.causal_hoti':                 q => `From "${q}", the reason behind it is given.`,
+    'clause.result_hoste':                q => `From "${q}", the outcome is stated.`,
+    'conjunction.subordinating_result':   q => `From "${q}", the outcome is stated.`,
+    'clause.conditional_third_class':     q => `From "${q}", an "if" condition is introduced.`,
+    'conjunction.subordinating_conditional': q => `From "${q}", an "if" condition is introduced.`,
+    'clause.temporal_hotan':              q => `From "${q}", the timing of events is laid out.`,
+    'clause.temporal_hote':               q => `From "${q}", the timing of events is laid out.`,
+    'conjunction.subordinating_temporal': q => `From "${q}", the timing of events is laid out.`,
+    'clause.comparative_kathos':          q => `From "${q}", a comparison begins — something is being likened to something else.`,
+    'conjunction.subordinating_comparative': q => `From "${q}", a comparison begins — something is being likened to something else.`,
+    'conjunction.coordinating_explanatory': q => `"${q}" begins to explain the reason for what came before.`,
+    'particle.explanatory_gar':           q => `"${q}" begins to explain the reason for what came before.`,
+    'conjunction.coordinating_inferential': q => `"${q}" picks up what came before and draws it toward a conclusion.`,
+    'particle.inferential_oun':           q => `"${q}" picks up what came before and draws it toward a conclusion.`,
+    'conjunction.coordinating_adversative': q => `With "${q}", the direction of the thought shifts.`,
+    'conjunction.coordinating_transition': q => `With "${q}", the narrative moves forward.`,
+    'particle.particle_an':               q => `"${q}" adds a note of contingency — a sense that things could have gone otherwise.`,
+    'particle.rhetorical_particle':       q => `"${q}" signals a strong denial — the expected answer is "no."`,
+};
 
 /* multiple スコープ現象の単語役割文（Phase 1: negative_emphasis のみ）。
    節文（_VERSE_NOTE_TEXT）の再利用ではなく「その単語が現象の中で何を
@@ -12640,6 +12664,35 @@ const _WORD_ROLE_TEXT = {
     conditional_assumed_true: () =>
         'この『もし』は疑いではなく、事実を前提にしています。',
 };
+const _WORD_ROLE_TEXT_EN = {
+    negative_emphasis: (token) => {
+        const lm = (token && token.lemma) || '';
+        if (['οὐ', 'οὐκ', 'οὐχ'].includes(lm)) {
+            return 'This word normally means "not," but here it pairs with another negative (μή) that follows, together forming the strongest possible denial: "absolutely not."';
+        }
+        if (lm === 'μή') {
+            return 'Together with the negative that precedes it (οὐ), this word strengthens the denial into "absolutely not" — stronger than either negative alone.';
+        }
+        return 'This word is negated by a double negative (οὐ μή), which is the strongest form of denial available: "will absolutely not."';
+    },
+    men_de_contrast: (token) => {
+        const lm = (token && token.lemma) || '';
+        if (lm === 'μέν') return 'This word opens the first half of a contrast — the "on the one hand" side. It looks ahead to its pair (δέ) that completes the other half.';
+        if (lm === 'δέ')  return 'This word takes up the second half of a contrast — the "on the other hand" side. It answers the first half introduced by μέν earlier.';
+        return 'This word is part of a contrast (μέν…δέ) that sets two things side by side — "on the one hand…on the other hand."';
+    },
+    parenthesis: (token) => {
+        const lm = (token && token.lemma) || '';
+        if (lm === 'εἰμί') return 'This word signals a restatement — "that is to say" — and introduces an explanation inserted into the flow.';
+        if (['λέγω', 'φημί', 'οἶμαι'].includes(lm)) {
+            return 'This word signals that the speaker is briefly stepping outside the main thread to add something.';
+        }
+        return 'From this word, an explanatory note is inserted into the middle of the main thought.';
+    },
+    nominative_pendens:        () => 'This word is the topic of the sentence.',
+    conditional_counterfactual:() => 'This "if" introduces a condition that did not actually come true — a "what if it had been otherwise" kind of statement.',
+    conditional_assumed_true:  () => 'This "if" does not express doubt — it treats the condition as though it were true.',
+};
 
 async function _buildObservationHTML(words, idx, existingTexts) {
     const proj = await _getReadingSupportProjection(words);
@@ -12663,6 +12716,9 @@ async function _buildObservationHTML(words, idx, existingTexts) {
         return (_obRule.scopes || []).some(s => scopes.includes(s)) &&
                (_obRule.priorities || []).includes(ph.priority);
     };
+    const _isEnOb    = window.I18N && I18N.lang === 'en';
+    const _obRoleTable = _isEnOb ? _WORD_ROLE_TEXT_EN : _WORD_ROLE_TEXT;
+    const _obSentTable = _isEnOb ? _OBSERVATION_SENTENCES_EN : _OBSERVATION_SENTENCES;
     let make = null;
     let evidenceLine = null;
     for (const cat of ['clause', 'particle', 'conjunction', 'verb', 'infinitive', 'discourse', 'nominative']) {
@@ -12681,12 +12737,12 @@ async function _buildObservationHTML(words, idx, existingTexts) {
         }
 
         const ph = _obPolicy?.byId?.[c.id];
-        if (ph && _WORD_ROLE_TEXT[ph.phenomenon]) {
-            make = () => _WORD_ROLE_TEXT[ph.phenomenon](words[idx]);
+        if (ph && _obRoleTable[ph.phenomenon]) {
+            make = () => _obRoleTable[ph.phenomenon](words[idx]);
             break;
         }
-        if (_OBSERVATION_SENTENCES[c.id]) {
-            make = _OBSERVATION_SENTENCES[c.id];
+        if (_obSentTable[c.id]) {
+            make = _obSentTable[c.id];
             break;
         }
     }
@@ -12738,9 +12794,10 @@ const _OBSERVATION_BRACKET_QUOTES = [
 ];
 function _naturalizeObservationText(html) {
     if (!html) return html;
+    const replacement = (window.I18N && I18N.lang === 'en') ? 'this word' : '語';
     let out = html;
     for (const q of _OBSERVATION_BRACKET_QUOTES) {
-        out = out.split(q).join('語');
+        out = out.split(q).join(replacement);
     }
     return out;
 }
