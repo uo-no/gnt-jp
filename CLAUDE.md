@@ -67,10 +67,9 @@
 
 ## 2.1 画面構成
 
-* `index.html` — 聖書本文の閲覧（メイン画面）
-* `morph-search.html` — 形態論検索
-* `syntax-search.html` — 統語論検索
-* `search-tool.html` — 統合検索
+* `index.html` — 聖書本文の閲覧（メイン画面。ロジックは `app/` 配下に分離済みで、本体は HTML/CSS の殻）
+* `search-tool.html` — 統合検索（見出し語・フレーズ・近接・形態素・統語。旧 `morph-search.html` / `syntax-search.html` は本画面へ統合のうえ 2026-11-05 に廃止済み）
+* `bookmarklet.html` — 外部サイトから開くための独立ページ
 
 検索ツールは読書体験の従属物である。
 
@@ -192,6 +191,21 @@ presentation-policy.js / phrase-renderer.js
 UI
 ```
 
+UI 側（`public/app/` と `public/assets/js/`）:
+
+```text
+index.html（殻：HTML/CSS、インライン JS なし）
+  ↓ 外部スクリプトとして読み込む
+app/state/     状態・ルーター・書誌データ
+app/loaders/   章・データの読み込み
+app/renderers/ 句・語・役割・列の描画
+app/ui/        StudyPanel・peek・モバイル画面・ハイライト等
+app/boot.js    起動
+assets/js/     morph-decoder.js（形態デコードの正準）・shared-ui.js（_escH の正準）・
+               i18n.js＋assets/i18n/（多言語辞書）・app-storage.js 等の共通部品
+core/          上記の解析エンジン群（DOM 非依存）
+```
+
 ---
 
 # 7. Core Modules
@@ -208,7 +222,13 @@ UI
 | `core/reading-projection.js`       | StudyPanel用射影          | HTML・説明文を持たない |
 | `core/presentation-policy.js`      | 表示整形                   | 意味判断しない       |
 | `core/phrase-renderer.js`          | 生成済み日本語の表示             | 意味判断しない       |
-| `index.html`                       | UI本体                   | 判断ロジックを持たない   |
+| `index.html`                       | 画面の殻（HTML/CSS）          | ロジックを持たない（`app/` に分離済み） |
+| `app/state/`・`app/loaders/`        | 状態・ルーティング・データ読み込み     | DOM 描画を持たない      |
+| `app/renderers/`                   | 句・語・役割・列の描画            | 解析判断を持たない      |
+| `app/ui/`・`app/boot.js`            | StudyPanel・peek・モバイル画面・起動 | 解析ロジックを持たない   |
+| `assets/js/morph-decoder.js`       | 形態デコードの単一正準実装（R-b）     | 他所に複製しない       |
+| `assets/js/shared-ui.js`           | UI 共通部品・`_escH` の正準       | ページ固有表示を持たない   |
+| `assets/js/i18n.js`・`assets/i18n/`  | 多言語辞書と UI 言語の解決           | 言語固有の分岐を各所に散らさない |
 | `assets/js/app-storage.js`         | ユーザーデータ永続化             | ソフトデリート       |
 | `css/tokens.css`                   | デザイントークン               | トークンのSSOT     |
 
@@ -218,8 +238,9 @@ UI
 
 * データとコードを分離する。
 * runtimeデータは `public/assets/data/`。
-* 設計文書は `public/docs/`。
-* 本文データは `bible_data/` / `translations/` / `morph-index/`。
+* 設計文書は `docs/`（現行仕様・設計・履歴）。`public/docs/` はアプリから公開する仕様（reading-japanese-specification.md 等）のみ。
+* 本文データは `public/bible_data/`（nt / lxx）/ `public/translations/`（JA1955 口語訳・BUN 文語訳・WEB・RVR1909）/ `public/morph-index/`（word/ のみ残存。lemma/ は引退済み。word/ は apparatus 生成系の入力）。
+* 言語ごとのグロスは bible_data に足さず、翻訳ごとのサイドカー（`public/assets/data/gloss/`）で持つ（方式 B）。`bible_data.japanese` は内蔵のまま。
 * `assets/data/` を直接編集しない。
 * 生成可能なデータは `scripts/` 経由で生成する。
 * 一次情報と生成物を区別する。
@@ -884,6 +905,7 @@ AIは、
 # 33. Directory Responsibility
 
 * UIにビジネスロジックを書かない。
+* 画面ロジックは `public/app/`（state / loaders / renderers / ui）に置き、`index.html` にインラインで書かない。
 * `core/` はDOM / window非依存。
 * `assets/data/` は直接編集しない。
 * `scripts/` は本番UIから参照しない。
@@ -897,17 +919,12 @@ AIは、
 
 既存構造と設計文書のパスが一致しない場合、勝手に再編しない。
 
-現在知られている構造不整合：
+構造不整合の記録：
 
-* `docs/README.md` / `architecture-rules.md` は `pages/index.html` 前提
-* 実体は `public/index.html`
-* `pages/` は未実在
-* 文書の一部は `docs/xxx.md`
-* 実体は `public/docs/xxx.md`
+* （解消済み 2026-11-07、文書・構成の整理フェーズ1）`docs/README.md` / `architecture-rules.md` が `pages/index.html` 前提だった問題。実体は当初から `public/index.html` で、`pages/` は実在しない。両文書は現行パスに合わせて修正した。
+* 設計文書の置き場は `docs/` が正で、`public/docs/` は公開仕様のみ（§8）。
 
-この問題は、Pre-Releaseのファイル再編に関係する。
-
-パス再編を伴う作業では、現在の実構造を勝手に別構造へ移行しない。
+パス再編を伴う作業では、現在の実構造を勝手に別構造へ移行しない。再編は棚卸しと参照確認を行い、明示的に承認された場合にのみ行う。
 
 ---
 
@@ -915,19 +932,19 @@ AIは、
 
 本リポは `gnt-jp`。
 
-3リポジトリの責務：
+3リポジトリ構想と現在の実態（2026-11-07 確認）:
 
 ### gnt-jp
 
-聖書アプリ本体。
+聖書アプリ本体。**現在、実在する唯一のリポジトリ。**
 
-### gnt-editorial
+### gnt-editorial（構想・未設立）
 
 SNS・編集・発信。
 
-### knowledge-library
+### knowledge-library（構想・未設立）
 
-研究・背景・判断履歴。
+研究・背景・判断履歴。設立されるまでの間、この責務の文書は gnt-jp の `docs/archive/` と `docs/development/` に置く（分類は docs/development/INDEX.md）。
 
 リポジトリ間にファイル参照依存を作らない。
 
@@ -1096,10 +1113,10 @@ Future Convenience
 
 現在フェーズ：
 
-**Pre-Release**
+**本番公開中・正式リリース前**（bible-text.pages.dev で公開。データ出典・ライセンス整理が完了するまでは Pre-Release の扱いを併記する）
 
-基本読書・検索・URL共有は動作。
+基本読書・検索・URL共有は動作。多言語化は JA / EN が本番稼働中、ES（RVR1909）が展開中。
 
 データ出典・ライセンス整理・ファイル構成整理等を進めている。
 
-現在のPre-Release状態を理由に、未定義の新機能を勝手に追加しない。
+正式リリース前であることを理由に、未定義の新機能を勝手に追加しない。

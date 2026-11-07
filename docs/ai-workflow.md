@@ -13,7 +13,7 @@
    曖昧・広範な依頼（「直して」「対応して」「全部やって」）は、まず product-growth が **Value Brief へ変換**してから G1 を開始する（非構造の依頼を直接実装しない）。
 2. **各ゲートは「通す/差し戻す」の二択。** 差し戻しは失敗ではなく設計の一部（Unresolved by Design と同じ思想）。
 3. **判断の最上位は常に CLAUDE.md §1 First Principle。** どのエージェントも原則を緩める権限を持たない。
-4. **既存の「設計 → 実装 → 監査 → 凍結」（CLAUDE.md §9）に重ねる。** 本フローはそれを置き換えず、各段に「誰が何を見るか」を割り当てる。
+4. **既存の「設計 → 実装 → 監査 → 凍結」（CLAUDE.md §13 Development State Machine）に重ねる。** 本フローはそれを置き換えず、各段に「誰が何を見るか」を割り当てる。
 
 ```
 [提案] → G1 価値ゲート → G2 忠実性ゲート → G3 技術ゲート
@@ -38,7 +38,7 @@
 |---|---|---|---|
 | **product-growth** | それは読む人の何を良くするか？ | 利用者価値・優先順位・伝え方（§1/§2） | 忠実性 → biblical-editor / 技術 → dev-architect |
 | **biblical-editor** | それは原語構造に忠実か？ | L-0 境界・Reading Japanese の声（§1 非矛盾/§3） | 価値 → product-growth / 技術 → dev-architect |
-| **dev-architect** | それは安全に作れるか？ | アーキテクチャ・FROZEN・regression（§4/§9/§10） | 内容 → biblical-editor / 価値 → product-growth |
+| **dev-architect** | それは安全に作れるか？ | アーキテクチャ・FROZEN・regression（CLAUDE.md §10/§13/§33） | 内容 → biblical-editor / 価値 → product-growth |
 
 **境界の鉄則:** どのエージェントも自分の権限外の理由で他の判断を上書きしない。
 たとえば dev-architect は「実装が楽だから」で語義文面を変えない。product-growth は「価値が高いから」で L-0 を緩めない。
@@ -61,7 +61,7 @@
 | 曖昧・広範（「直して」「改善して」「全部対応して」「いい感じにして」） | product-growth（Value Brief 化） | 直接実装しない。G1 起点で G2→G3 へ |
 
 > **ルーティングは「起点/主担当」の判定であって、ゲートの省略ではない。** 実装を伴う依頼は、
-> どの型でも必ず G1→G2→G3 を通す（早走り禁止・CLAUDE.md §9）。
+> どの型でも必ず G1→G2→G3 を通す（早走り禁止・CLAUDE.md §13）。
 
 ---
 
@@ -94,7 +94,7 @@
 ### G3. 技術ゲート — dev-architect（「安全に作れるか」）
 
 - **入力:** Value Brief + Fidelity Note。
-- **判定:** §4/§9/§10 に照らす。
+- **判定:** CLAUDE.md §10（FROZEN）/§13（State Machine）/§19（Impact Analysis）に照らす。
   - 触れる層は？ FROZEN層（reading-engine Phase1–7 / reading-context Stage D / presentation-policy / phrase-renderer / morph-rule-engine-v1）に触れるか。
   - ディレクトリ責務・旧パス禁止・SSOT（ResolveContext / roadmap.json / tokens.css）を侵さないか。
   - 影響範囲は何トークン・どの表示・どの層へ波及するか。
@@ -118,7 +118,7 @@ Change Plan に対し、実装着手前に確定する：
 
 - **QA 設計:** どの回帰（`npm run test:re-*`）・どの監査（例 `node scripts/concept-audit.cjs`）・どの基準値で検証するか。
 - **regression 防止:** FROZEN層・コアに触れるなら、対応する回帰テストへのケース追加を**着手条件**とする（テスト無しの着手を認めない）。
-- **rollback 準備:** 「機械適用 + 三重 rollback（diff / git / 台帳）」の経路を確認（§9）。
+- **rollback 準備:** 「機械適用 + 三重 rollback（diff / git / 台帳）」の経路を確認（CLAUDE.md §36 Data Safety）。
 - **before スナップショット:** 変更前の基準値（トークン数・一致率・表示差分）を記録。
 
 ### 3.2 実装
@@ -204,7 +204,7 @@ Validation Criteria 形式。各項目に**合格条件と実測**を並べ、**
 ## 5. 例外とエスカレーション
 
 - **3 エージェントの判断が衝突したら** → CLAUDE.md §1 First Principle が裁定基準。「読み（原著者の意図理解）に最も忠実な選択」を採る。それでも決まらなければ、**保留（Unresolved by Design）**にして人間の判断を仰ぐ。決め打ちで埋めない。
-- **未解決の構成不整合**（`pages/` vs `public/` のパス問題・CLAUDE.md §9/§10 記載）に触れる作業は、dev-architect が着手前に**人間へ確認**する。
+- **構成不整合**（旧 `pages/` 前提のパス問題は 2026-11-07 の文書整理で解消済み。CLAUDE.md §34 参照）に触れる作業は、dev-architect が着手前に**人間へ確認**する。
 - **憲法（CLAUDE.md）自体の改定が必要と判断された場合** → 本フロー内で勝手に変えない。人間の承認を得て CLAUDE.md を更新し、その後に本書・各エージェント定義を追随させる。
 
 ---
