@@ -500,16 +500,17 @@ function buildRepresentation(columnMode, verse, analysis, translationText) {
                 const _segs = _jaAlignSegmentsFor(columnMode.translationId, _vr.book, _vr.chapter, _vr.verse);
                 if (_segs) rep.segments = _segs;
             }
-            /* 試作（初見10秒対策・案4）: 口語訳（JA1955）のセグメントにも、語順で読む
-               と同じ動詞の視覚文法（dp 装飾）を出す。判定は既存 SSOT
+            /* 初見10秒対策・案4（本採用 2026-11-07）: 翻訳のセグメントにも、語順で
+               読むと同じ動詞の視覚文法（dp 装飾）を出す。判定は既存 SSOT
                buildDepthGrammarClasses() のみを使い、新しい装飾は作らない。
                セグメント内の動詞トークン（seg.tokens → _jaSegToken で解決）のうち、
                最初に dp-(mood|tense|voice) クラスを持つもののクラス一式を、その
                セグメントの表示テキストへ付ける（EN サイドカーの donation と同じ
                「セグメントの見えるテキストが動詞装飾を持つ」考え方）。
                動詞のないセグメント・装飾クラスのない動詞は従来どおり無装飾。
-               試作スコープは JA1955 のみ（WEB/RVR1909 の表示は不変）。 */
-            if (rep.segments && columnMode.translationId === 'JA1955'
+               対象はアラインメント・セグメントを持つ全翻訳（JA1955 / WEB /
+               RVR1909）。セグメントのない翻訳・節は従来どおり text のみ。 */
+            if (rep.segments
                 && typeof _jaSegToken === 'function'
                 && typeof buildDepthGrammarClasses === 'function') {
                 rep.segments = rep.segments.map(seg => {
@@ -809,7 +810,9 @@ const TranslationRenderer = {
                     let body = t;
                     if (dp) {
                         const raw = seg.t != null ? String(seg.t) : '';
-                        const m = raw.match(/^([「『（〔【〈《“‘(\s]*)([\s\S]*?)([、。，．！？：；」』）〕】〉》”’)\s―—…]*)$/);
+                        /* 句読点セットは日本語（、。！？括弧類）に加え、英・西語の
+                           約物（,.!?;:"'«»¿¡）も対象にする。全翻訳共通の扱い。 */
+                        const m = raw.match(/^([「『（〔【〈《“‘(\[{¿¡«\s]*)([\s\S]*?)([、。，．！？：；」』）〕】〉》”’)\]}.,!?;:"'»\s―—…]*)$/);
                         body = (m && m[2])
                             ? esc(m[1]) + `<span class="${dp}">${esc(m[2])}</span>` + esc(m[3])
                             : `<span class="${dp}">${t}</span>`;
