@@ -10,32 +10,49 @@
 <link rel="stylesheet" href="../css/layout.css">
 <link rel="stylesheet" href="../css/components.css">
 <style>
-/* このページ専用のスタイル。app本体（index.html）には依存しない独立ページ。 */
+/* このページ専用のスタイル。app本体（index.html）には依存しない独立ページ。
+   色・余白・角丸・影は tokens.css のトークンのみを使い、共有の
+   セクション見出し（.section-title / .app-section-title）と
+   チップ／ボタンの形に揃える。 */
+
+/* ── 導入文（ページ名はナビのパンくずが担うため、見出しは重ねない） ── */
 .bm-intro {
-    color: var(--text-main);
+    color: var(--text-sub);
     font-size: var(--text-body-lg, var(--text-body));
-    line-height: 1.7;
-    margin: 0 0 var(--space-lg);
+    line-height: 1.8;
+    margin: 0 0 var(--space-xl);
 }
+
+/* ── セクション（共有 .section-title と同じ見え方） ── */
 .bm-section { margin-bottom: 40px; }
 .bm-section h2 {
-    font-size: var(--text-body);
+    font-size: var(--text-caption);
     font-weight: 600;
-    color: var(--text-main);
+    color: var(--text-sub);
     margin: 0 0 var(--space-md);
-    padding-bottom: var(--space-xs);
+    padding-bottom: var(--space-sm);
     border-bottom: 1px solid var(--border-soft);
-    letter-spacing: 0.02em;
+    letter-spacing: var(--tracking-section, 0.14em);
 }
-.bm-section p { color: var(--text-sub); margin: var(--space-sm) 0; }
+.bm-section p { color: var(--text-sub); margin: var(--space-sm) 0; line-height: 1.8; }
 
-/* 使い方: 番号つき手順。ドラッグ操作とクリック操作を視覚的に分ける。 */
-.bm-steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-lg); }
-.bm-step { display: flex; align-items: flex-start; gap: var(--space-md); }
+/* ── 使い方: 2ステップを縦の線でつなぎ、流れとして見せる ── */
+.bm-steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-xl); }
+.bm-step { display: flex; align-items: flex-start; gap: var(--space-md); position: relative; }
+.bm-step:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    left: 13px;
+    top: 32px;
+    height: calc(100% - 32px + var(--space-xl));
+    width: 2px;
+    background: var(--accent-mid, var(--border-soft));
+    border-radius: var(--radius-pill);
+}
 .bm-step-num {
     flex-shrink: 0;
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background: var(--highlight);
     color: #fff;
@@ -44,26 +61,160 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    z-index: 1;
 }
-.bm-step-body { flex: 1; min-width: 0; padding-top: 2px; }
-.bm-step-title { color: var(--text-main); font-weight: 600; margin: 0; }
-.bm-step-note { color: var(--text-sub); font-size: var(--text-caption); margin: var(--space-xs) 0 0; }
+.bm-step-body { flex: 1; min-width: 0; padding-top: 3px; }
+.bm-step-title { color: var(--text-main); font-weight: 600; margin: 0; line-height: 1.6; }
+.bm-step-note { color: var(--text-sub); font-size: var(--text-caption); margin: var(--space-xs) 0 0; line-height: 1.7; }
 
-.bm-link-wrap { text-align: center; margin: var(--space-lg) 0; }
-.bm-step-link-wrap { margin: var(--space-sm) 0 0; }
-.bm-link {
-    display: inline-block;
-    background: var(--highlight);
-    color: white;
-    padding: var(--space-sm) var(--space-lg);
+/* ── ステップ1: ドラッグ先（ブックマークバー）と
+      ドラッグ元（ボタン）を上下に置き、操作をそのまま図にする ── */
+.bm-drag-stage {
+    margin-top: var(--space-md);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-m);
+    padding: var(--space-md);
+}
+.bm-bar-mock {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    background: var(--bg);
+    border: 1px dashed var(--border-strong, var(--border-soft));
     border-radius: var(--radius-s);
-    font-weight: bold;
+    padding: var(--space-sm) var(--space-md);
+    color: var(--text-hint);
+    font-size: var(--text-caption);
+}
+.bm-bar-dots { display: inline-flex; gap: 5px; flex-shrink: 0; }
+.bm-bar-dots i {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--border-soft); display: block;
+}
+.bm-bar-label { font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; }
+.bm-bar-slot {
+    flex: 1;
+    min-width: 24px;
+    height: 22px;
+    border: 1.5px dashed var(--accent-mid, var(--border-soft));
+    border-radius: var(--radius-s);
+    background: var(--accent-light);
+}
+.bm-drag-arrow {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-sm) 0;
+    color: var(--highlight);
+    animation: bmDragHint 2.4s var(--ease-out, ease) infinite;
+}
+@keyframes bmDragHint {
+    0%, 100% { transform: translateY(2px); opacity: 0.55; }
+    50% { transform: translateY(-2px); opacity: 1; }
+}
+
+/* ドラッグ対象ボタン: つかめる見た目（グリップ＋影＋grabカーソル）にする */
+.bm-link-wrap { text-align: center; }
+.bm-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    min-height: 48px;
+    background: var(--highlight);
+    color: #fff;
+    padding: var(--space-sm) var(--space-lg);
+    border: 1px solid var(--highlight);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-card);
+    font-weight: 700;
     font-size: var(--text-body);
     text-decoration: none;
     cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
-.bm-sites { list-style: none; padding: 0; margin: 0 0 var(--space-sm); color: var(--text-sub); }
-.bm-sites li { padding: 2px 0; }
+.bm-link:hover { transform: translateY(-1px); }
+.bm-link:active { cursor: grabbing; transform: translateY(0); }
+.bm-link:focus-visible {
+    outline: 2px solid var(--focus-ring, var(--text-main));
+    outline-offset: 3px;
+}
+.bm-link svg { flex-shrink: 0; display: block; }
+.bm-link .bm-grip { opacity: 0.75; }
+
+/* ── ステップ2: 保存後にバーへ入った姿を小さく再現する ── */
+.bm-saved-bar {
+    margin-top: var(--space-md);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-s);
+    padding: var(--space-sm) var(--space-md);
+}
+.bm-saved-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    background: var(--bg);
+    border: 1px solid var(--accent-mid, var(--border-soft));
+    color: var(--highlight);
+    border-radius: var(--radius-pill);
+    padding: var(--space-xs) var(--space-md);
+    font-size: var(--text-caption);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* ── 対応サイト: 共有チップの形で一覧する ── */
+.bm-sites {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-wrap: wrap; gap: var(--space-sm);
+}
+.bm-sites li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-pill);
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--text-body);
+    font-weight: 500;
+    color: var(--text-main);
+    line-height: 1.4;
+}
+.bm-sites li svg { flex-shrink: 0; display: block; }
+.bm-sites .bm-site-note { color: var(--text-hint); font-size: var(--text-caption); font-weight: 400; }
+
+/* ── 未対応の注記: 共有の note パターン（左線＋淡い面） ── */
+.bm-note {
+    background: var(--accent-light);
+    border-left: 3px solid var(--highlight);
+    border-radius: 0 var(--radius-s) var(--radius-s) 0;
+    padding: var(--space-md);
+}
+.bm-note p { margin: 0; color: var(--text-main); }
+.bm-quote { font-weight: 600; }
+
+/* ── モバイル: ボタンは横幅いっぱいの大きな対象にし、詰め込みを避ける ── */
+@media (max-width: 520px) {
+    .bm-steps { gap: var(--space-lg); }
+    .bm-step:not(:last-child)::before { height: calc(100% - 32px + var(--space-lg)); }
+    .bm-step { gap: var(--space-sm); }
+    .bm-drag-stage { padding: var(--space-sm); }
+    .bm-link { width: 100%; }
+    .bm-saved-bar { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bm-drag-arrow { animation: none; }
+    .bm-link { transition: none; }
+}
 </style>
 </head>
 <body>
@@ -77,7 +228,7 @@
         </div>
     </div>
 
-    <p class="bm-intro">外部サイトで読んでいる箇所を、このアプリの語順フローで確認できます。</p>
+    <p class="bm-intro">外部サイトで読んでいる箇所を、このアプリの「語順で読む」で確認できます。</p>
 
     <div class="bm-section">
         <h2>使い方</h2>
@@ -87,9 +238,19 @@
                 <div class="bm-step-body">
                     <p class="bm-step-title">下のボタンをブックマークバーへドラッグする</p>
                     <p class="bm-step-note">クリックではなく、ドラッグして追加してください。</p>
-                    <div class="bm-link-wrap bm-step-link-wrap" style="text-align:left;">
-                        <a id="bm-bookmarklet-link" class="bm-link" href="#" role="button"
-                           title="ブックマークバーへドラッグしてください" onclick="return false;">語順フローで確認</a>
+                    <div class="bm-drag-stage">
+                        <div class="bm-bar-mock" aria-hidden="true">
+                            <span class="bm-bar-dots"><i></i><i></i><i></i></span>
+                            <span class="bm-bar-label">ブックマークバー</span>
+                            <span class="bm-bar-slot"></span>
+                        </div>
+                        <div class="bm-drag-arrow" aria-hidden="true">
+                            <svg width="18" height="22" viewBox="0 0 18 22" fill="none" aria-hidden="true"><path d="M9 21V3M3.5 8.5L9 3l5.5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </div>
+                        <div class="bm-link-wrap">
+                            <a id="bm-bookmarklet-link" class="bm-link" href="#" role="button"
+                               title="ブックマークバーへドラッグしてください" onclick="return false;"><svg class="bm-grip" width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="2.5" r="1.6"/><circle cx="7.5" cy="2.5" r="1.6"/><circle cx="2.5" cy="8" r="1.6"/><circle cx="7.5" cy="8" r="1.6"/><circle cx="2.5" cy="13.5" r="1.6"/><circle cx="7.5" cy="13.5" r="1.6"/></svg><svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.5 3.5h11V21L12 16.8 6.5 21V3.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>語順で読む</a>
+                        </div>
                     </div>
                 </div>
             </li>
@@ -97,7 +258,10 @@
                 <span class="bm-step-num">2</span>
                 <div class="bm-step-body">
                     <p class="bm-step-title">聖書サイトを読んでいるときにクリックする</p>
-                    <p class="bm-step-note">同じ箇所が、このアプリの語順フローで開きます。</p>
+                    <p class="bm-step-note">同じ箇所が、このアプリの「語順で読む」で開きます。</p>
+                    <div class="bm-saved-bar" aria-hidden="true">
+                        <span class="bm-saved-chip"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.5 3.5h11V21L12 16.8 6.5 21V3.5Z" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></svg>語順で読む</span>
+                    </div>
                 </div>
             </li>
         </ol>
@@ -106,24 +270,26 @@
     <div class="bm-section">
         <h2>対応しているサイト</h2>
         <ul class="bm-sites">
-            <li>PRS.app</li>
-            <li>Bible.com</li>
-            <li>BibleGateway</li>
+            <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12.5 9.5 18 20 6.5" stroke="var(--highlight)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>PRS.app</li>
+            <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12.5 9.5 18 20 6.5" stroke="var(--highlight)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>Bible.com</li>
+            <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12.5 9.5 18 20 6.5" stroke="var(--highlight)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>BibleGateway</li>
         </ul>
     </div>
 
     <div class="bm-section">
         <h2>比較表示で読む</h2>
-        <p>聖書アプリ内の「比較表示」からも、外部の翻訳を開きながら語順フローで確認できます。</p>
+        <p>聖書アプリ内の「比較表示」からも、外部の翻訳を開きながら「語順で読む」で確認できます。</p>
         <ul class="bm-sites">
-            <li>PRS.app（新改訳2017）</li>
-            <li>Bible.com（新共同訳）</li>
+            <li>PRS.app<span class="bm-site-note">（新改訳2017）</span></li>
+            <li>Bible.com<span class="bm-site-note">（新共同訳）</span></li>
         </ul>
     </div>
 
     <div class="bm-section">
         <h2>対応していないサイトの場合</h2>
-        <p>「この聖書サービスには現在対応していません。」と表示されます。対応サイトは順次追加予定です。</p>
+        <div class="bm-note">
+            <p><span class="bm-quote">「この聖書サービスには現在対応していません。」</span>と表示されます。対応サイトは順次追加予定です。</p>
+        </div>
     </div>
 
 </div>
