@@ -123,7 +123,7 @@ function _mobileOpenPanel(titleText, wasAlreadyOpen) {
     if (_isMobile()) {
         document.getElementById('app').classList.add('mobile-study-open');
         const navTitle = document.getElementById('mobile-nav-title');
-        if (navTitle) navTitle.textContent = titleText || '語を読む';
+        if (navTitle) navTitle.textContent = titleText || _T('panel.readWord', '語を読む');
     }
     /* 768px以下：CSS の top/bottom が環境によって効かない場合に備え
        window.innerHeight で高さを確定する（dvh/auto の非依存フォールバック） */
@@ -289,7 +289,13 @@ function _openWordListInternal(vNum, words, book, ch) {
     _ensureStudyPanelReadingSections(listEl, words, _noteBookKey, _noteChapter, vNum);
 
     /* モバイルナビバー・戻るボタン・スクロール調整 */
-    const chapterLabel = vNum ? ((window.I18N && I18N.lang === 'en') ? String(vNum) : (vNum + '節')) : '';
+    const _clBook = book || AppState.location.book;
+    const _clCh = ch != null ? ch : AppState.location.chapter;
+    const chapterLabel = vNum
+        ? ((window.I18N && I18N.lang === 'en')
+            ? ((_clBook && _clCh != null) ? `${_bookShortName(_clBook.key || _clBook)} ${_clCh}:${vNum}` : `Verse ${vNum}`)
+            : (vNum + '節'))
+        : '';
     _mobileOpenPanel(chapterLabel || _T('ui.wordList', '語形一覧'), wasOpen);
     updatePanelBackButton();
     _adjustReadingAreaForPanel(wasOpen);
@@ -2201,7 +2207,7 @@ const activeVEl = document.getElementById('active-v');
     })();
     /* ─────────────────────────────────────────────────────── */
 
-    _mobileOpenPanel(greek || '語を読む', wasOpen);
+    _mobileOpenPanel(greek || _T('panel.readWord', '語を読む'), wasOpen);
     updatePanelBackButton();
     _adjustReadingAreaForPanel(wasOpen);
 
