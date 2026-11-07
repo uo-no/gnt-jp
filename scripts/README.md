@@ -144,3 +144,6 @@ archive への移動時点で既に実行不能だった（旧配置のパス参
 **build-morph-index.js・pack-morph-index.js**  
 消費側（morph-search.html）が PR #578 で引退済みのため凍結。
 生成物 `public/morph-index/` の引退は別 PR で扱う。
+
+**JA1955 Stage 1–4 監査・適用スクリプト群（2026-11-07 追加）**  
+`archive/` 直下の `apply-*` / `audit-*` / `phase4*` / `stage4-*` / `build-ja1955-ledger.cjs` / `dryrun-ja1955-apply.cjs` / `run-morph-index.cjs` 等69件と、`archive/output/` 配下の報告書（.md）・台帳（ja1955-full-audit／stage4-final／stage4-prep の各レポート＋ja1955-nt-ledger.json）は、bible_data の japanese を口語訳（JA1955）へ対応付ける監査（Stage 1–4）の証跡。成果は PR #471／#472／#624／#626 で本採用済み。元は backup/local-wip-2026-11-05 ブランチにのみ存在したものを、サイズの大きい中間データ（プール・スナップショット zip・72MB の nt-audit.json 等）を除いて移入した。除いた中間データは同 backup ブランチに残置。
