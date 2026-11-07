@@ -61,6 +61,7 @@ node scripts/concept-audit.cjs                        # コンセプト監査（
 node scripts/corpus-metrics.cjs    # npm run metrics でも可
 node scripts/wallace-coverage.cjs  # npm run coverage でも可
 node scripts/path-audit.js         # npm run audit でも可
+node scripts/check-search-tool-styles.cjs              # R-f RF-2: search-tool computed-style プローブ（jsdom 要）
 ```
 
 ### 2-C. 現役ジェネレータ（`build:*`）
