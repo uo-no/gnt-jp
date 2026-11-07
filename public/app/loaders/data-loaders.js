@@ -75,14 +75,17 @@ function loadDict() {
 
     return abbottSmithDictPromise;
 }
-let _renderingVariantsPromise = null;
+const _renderingVariantsPromises = {};
 function _loadRenderingVariants() {
-    if (!_renderingVariantsPromise) {
-        _renderingVariantsPromise = fetch(new URL('assets/data/rendering-variants/JA1955.json', document.baseURI).href)
+    /* 訳し分けデータは UI 言語の基底訳のものを使う（JA→JA1955、EN→WEB）。
+       ファイルが無い言語では null（静寂）。 */
+    const transId = (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955';
+    if (!_renderingVariantsPromises[transId]) {
+        _renderingVariantsPromises[transId] = fetch(new URL('assets/data/rendering-variants/' + transId + '.json', document.baseURI).href)
             .then(r => (r.ok ? r.json() : null))
             .catch(() => null);
     }
-    return _renderingVariantsPromise;
+    return _renderingVariantsPromises[transId];
 }
 /* 文脈導線（第4段階トラックb）: 章データの取得は章ごとにキャッシュする */
 const _syntaxCtxChapterCache = new Map();
