@@ -39,7 +39,7 @@ npm run test:browser-layer3         # ブラウザ層 L3 (Playwright)
 npm run test:browser-selector-contract
 ```
 
-CI はこれらを全て実行する。
+CI（VR-5 回帰ゲート等）はこのうち主要なものを実行する。
 
 ### 2-B. 安全網（直接実行できる追加スクリプト）
 
