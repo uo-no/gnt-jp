@@ -47,12 +47,12 @@ function _segDedupeLabel(tok, gloss, state) {
 async function _renderRoleReadingView(app, srData, elData) {
     const wrap = document.createElement('div');
     wrap.className = 'sd-view role-reading-view';
-    wrap.setAttribute('aria-label', '語の役割で読む');
+    wrap.setAttribute('aria-label', _T('mode.ROLE_READING', '語の役割で読む'));
 
     if (!srData || !Array.isArray(srData.sentences) || srData.sentences.length === 0) {
         const emptyEl = document.createElement('div');
         emptyEl.className = 'sd-empty';
-        emptyEl.textContent = 'この章の構文データがありません。';
+        emptyEl.textContent = _T('rr.noData', 'この章の構文データがありません。');
         wrap.appendChild(emptyEl);
         app.innerHTML = '';
         app.appendChild(wrap);
@@ -61,7 +61,7 @@ async function _renderRoleReadingView(app, srData, elData) {
     if (!window.RoleReadingAdapter || !window.RoleReadingLayout) {
         const errEl = document.createElement('div');
         errEl.className = 'sd-empty';
-        errEl.textContent = '語の役割で読むレンダラーが読み込まれていません。';
+        errEl.textContent = _T('rr.rendererMissing', '語の役割で読むレンダラーが読み込まれていません。');
         wrap.appendChild(errEl);
         app.innerHTML = '';
         app.appendChild(wrap);
@@ -78,7 +78,7 @@ async function _renderRoleReadingView(app, srData, elData) {
     if (!_roleReadingAvailableFor(book, _locCh)) {
         const naEl = document.createElement('div');
         naEl.className = 'sd-empty';
-        naEl.textContent = '「語の役割で読む」はこの章ではまだ利用できません（座標の確定が済んだ章から順に公開します）。';
+        naEl.textContent = _T('rr.notAvailable', '「語の役割で読む」はこの章ではまだ利用できません（座標の確定が済んだ章から順に公開します）。');
         wrap.appendChild(naEl);
         return;
     }
@@ -134,7 +134,7 @@ async function _renderRoleReadingView(app, srData, elData) {
     } catch (e) {
         const errEl = document.createElement('div');
         errEl.className = 'sd-empty';
-        errEl.textContent = 'レイアウトエラー: ' + String(e);
+        errEl.textContent = _T('rr.layoutError', 'レイアウトエラー: ') + String(e);
         wrap.appendChild(errEl);
         return;
     }
