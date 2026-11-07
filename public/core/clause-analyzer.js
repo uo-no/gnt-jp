@@ -1451,7 +1451,10 @@ class ReadingFormatter {
     formatSubjrefEvidence(targetLabel) {
         const label = String(targetLabel ?? '').trim();
         if (!label) return null;
-        return assertReadingTextSafe(`この語が表す動作を行う側として「${label}」が参照されています。`);
+        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+        return assertReadingTextSafe(_isEn
+            ? `"${label}" is referred to as the one who performs the action expressed by this word.`
+            : `この語が表す動作を行う側として「${label}」が参照されています。`);
     }
 
     // -----------------------------------------------------------------

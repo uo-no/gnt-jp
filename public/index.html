@@ -7898,6 +7898,7 @@ function closeAnalysis() {
 async function _translationEvidenceText(ref) {
     try {
         if (!ref) return null;
+        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
         const data = await _loadRenderingVariants();
         if (!data) return null;
         const fam = data.family;
@@ -7909,19 +7910,25 @@ async function _translationEvidenceText(ref) {
                 if (r.substring(0, r.indexOf(':')) === chKey && fam.refs[r] !== mine) others.add(fam.refs[r]);
             }
             if (others.size === 1) {
-                return `この語は、同じ章では「${[...others][0]}」とも訳されています。ここでは「${mine}」になっています。`;
+                return _isEn
+                    ? `This word is also rendered as "${[...others][0]}" elsewhere in this chapter. Here it is rendered as "${mine}".`
+                    : `この語は、同じ章では「${[...others][0]}」とも訳されています。ここでは「${mine}」になっています。`;
             }
             return null;
         }
         const bal = data.balanced && data.balanced[ref];
         if (bal) {
-            return `この語は、ほかの箇所では「${bal.o}」とも訳されています。ここでは「${bal.r}」になっています。`;
+            return _isEn
+                ? `This word is also rendered as "${bal.o}" in other passages. Here it is rendered as "${bal.r}".`
+                : `この語は、ほかの箇所では「${bal.o}」とも訳されています。ここでは「${bal.r}」になっています。`;
         }
         const min = data.minority && data.minority[ref];
         if (min) {
             const grp = (data.groups || []).find(g => g.id === min.g);
             if (grp) {
-                return `この語は、口語訳ではふだん「${grp.majority}」と訳されています。ここでは「${min.r}」になっています。`;
+                return _isEn
+                    ? `In the World English Bible, this word is usually rendered as "${grp.majority}". Here it is rendered as "${min.r}".`
+                    : `この語は、口語訳ではふだん「${grp.majority}」と訳されています。ここでは「${min.r}」になっています。`;
             }
         }
         return null;
@@ -7940,7 +7947,9 @@ function _repetitionEvidenceText(words, idx) {
         if (n < 2) return null;
         const ntCount = (_lexiconData && _lexiconData[lemmaId]) ? (_lexiconData[lemmaId].count || 0) : 0;
         if (n < (ntCount > 200 ? 3 : 2)) return null;
-        return `この語は、この節でくりかえし出てきます（${n}回）。`;
+        return (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en')
+            ? `This word appears repeatedly in this verse (${n} times).`
+            : `この語は、この節でくりかえし出てきます（${n}回）。`;
     } catch (_) { return null; }
 }
 
@@ -8495,19 +8504,19 @@ async function _renderReadingNotes(p) {
         const labels = [];
         if (typeof classifyMiddleVoice === 'function') {
             const mvc = classifyMiddleVoice(lemma, voice);
-            if (mvc) labels.push('中動態として読むこともできます');
+            if (mvc) labels.push(_T('exp.middleVoice', '中動態として読むこともできます'));
         }
         if (typeof detectDivinePassive === 'function' && typeof decodeMorph === 'function') {
             const tokenForDP  = { word, lemma, morph: p._rawMorph };
             const verseTokens = [];
             const dp = detectDivinePassive(tokenForDP, verseTokens, decodeMorph);
-            if (dp && dp.isDivinePassive) labels.push('行為者が暗示されています');
+            if (dp && dp.isDivinePassive) labels.push(_T('exp.impliedAgent', '行為者が暗示されています'));
         }
         if (['indicative','subjunctive','imperative'].includes(mood) && pos === 'V') {
             const hasExplicitSubject = (AppState.inspect.data?.rawMorph || '').includes('1S')
                 || (AppState.inspect.data?.rawMorph || '').includes('2S');
             if (!hasExplicitSubject && ['1st','2nd'].some(pp => (p._rawMorph || '').includes(pp))) {
-                labels.push('主語が省略されています');
+                labels.push(_T('exp.subjectOmitted', '主語が省略されています'));
             }
         }
         if (labels.length > 0) {
@@ -8534,7 +8543,7 @@ async function _renderReadingNotes(p) {
        createReferentEvidence()/_resolveReferentEvidenceText() をそのまま利用する。 */
     const _reText = _resolveReferentEvidenceText(AppState.inspect.data?.referentEvidence);
     const referentEvidenceHTML = _reText
-        ? `<div class="rn-referent-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">この語は「${_escH(_reText)}」を指しています。</div>`
+        ? `<div class="rn-referent-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">${(window.I18N && I18N.lang === 'en') ? `This word refers to "${_escH(_reText)}".` : `この語は「${_escH(_reText)}」を指しています。`}</div>`
         : '';
 
     /* Phase ESM-39: Subjref Evidence を Referent Evidence の直後へ統合
@@ -13691,10 +13700,36 @@ function _resolveTokenJaById(targetTokenId) {
  * @param {{targetTokenId:string}|null} referentEvidence
  * @returns {string|null}
  */
+function _resolveTokenLabelById(targetTokenId) {
+    /* EN UI では参照先トークンの表示ラベルも英語（サイドカー優先）にする。 */
+    try {
+        if (typeof window === 'undefined' || !(window.I18N && I18N.lang === 'en')) {
+            return _resolveTokenJaById(targetTokenId);
+        }
+        if (!targetTokenId) return null;
+        for (const cache of [_cachedElByVerse, ..._appendedChapterCache.values()]) {
+            for (const vNum in cache) {
+                const words = cache[vNum];
+                if (!Array.isArray(words)) continue;
+                for (const w of words) {
+                    if (w && w.verseId === targetTokenId) {
+                        const label = (typeof _glossSidecarFor === 'function' ? _glossSidecarFor(w) : null)
+                            || (w.japanese != null ? String(w.japanese).trim() : '');
+                        return label || null;
+                    }
+                }
+            }
+        }
+        return null;
+    } catch (_) {
+        return _resolveTokenJaById(targetTokenId);
+    }
+}
+
 function _resolveReferentEvidenceText(referentEvidence) {
     try {
         if (!referentEvidence || !referentEvidence.targetTokenId) return null;
-        return _resolveTokenJaById(referentEvidence.targetTokenId);
+        return _resolveTokenLabelById(referentEvidence.targetTokenId);
     } catch (_) {
         return null;
     }
@@ -13746,7 +13781,7 @@ function createSubjrefEvidence(rawToken) {
 function _resolveSubjrefEvidenceText(subjrefEvidence) {
     try {
         if (!subjrefEvidence || !subjrefEvidence.targetTokenId) return null;
-        return _resolveTokenJaById(subjrefEvidence.targetTokenId);
+        return _resolveTokenLabelById(subjrefEvidence.targetTokenId);
     } catch (_) {
         return null;
     }
@@ -14764,11 +14799,11 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
         const _labels = [];
         if (typeof classifyMiddleVoice === 'function') {
             const mvc = classifyMiddleVoice(_mvvLemma, _mvvRm.voice);
-            if (mvc) _labels.push('中動態として読むこともできます');
+            if (mvc) _labels.push(_T('exp.middleVoice', '中動態として読むこともできます'));
         }
         if (typeof detectDivinePassive === 'function' && typeof decodeMorph === 'function') {
             const dp = detectDivinePassive({ word: _mvvGreek, lemma: _mvvLemma, morph: d.rawMorph || rawMorph }, [], decodeMorph);
-            if (dp && dp.isDivinePassive) _labels.push('行為者が暗示されています');
+            if (dp && dp.isDivinePassive) _labels.push(_T('exp.impliedAgent', '行為者が暗示されています'));
         }
         if (_labels.length > 0) {
             _mvvExpLabelHTML = `<div class="rn-exp-labels" data-study-section="explabel">${
@@ -14932,7 +14967,7 @@ async function _fillMvvReadingSlot(words, idx) {
 
     const _reText = _resolveReferentEvidenceText(AppState.inspect.data?.referentEvidence);
     const referentEvidenceHTML = _reText
-        ? `<div class="rn-referent-evidence" data-study-section="referent">この語は「${_escH(_reText)}」を指しています。</div>`
+        ? `<div class="rn-referent-evidence" data-study-section="referent">${(window.I18N && I18N.lang === 'en') ? `This word refers to "${_escH(_reText)}".` : `この語は「${_escH(_reText)}」を指しています。`}</div>`
         : '';
     const _subjText = _resolveSubjrefEvidenceText(AppState.inspect.data?.subjrefEvidence);
     const _subjEvidenceText = _subjText
