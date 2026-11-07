@@ -8000,40 +8000,52 @@ function _syntaxContextBlockHTML(chapterTokens, targetRef, hintJa) {
     const lines = [verseLine(verseNum - 1), verseLine(verseNum), verseLine(verseNum + 1)].filter(Boolean).join('');
     if (!lines) return '';
     const hint = typeof hintJa === 'string' && hintJa.trim()
-        ? `<div class="rn-syntax-ctx-hint"><span class="rn-syntax-ctx-hint-label">見分ける手がかり：</span>${_escH(hintJa.trim())}</div>`
+        ? `<div class="rn-syntax-ctx-hint"><span class="rn-syntax-ctx-hint-label">${_T('ctx.hintLabel', '見分ける手がかり：')}</span>${_escH(hintJa.trim())}</div>`
         : '';
-    return `<button type="button" class="rn-syntax-context-toggle" onclick="_toggleSyntaxContext(this)">文脈で確かめる</button>`
+    return `<button type="button" class="rn-syntax-context-toggle" onclick="_toggleSyntaxContext(this)">${_T('ctx.checkContext', '文脈で確かめる')}</button>`
         + `<div class="rn-syntax-context-body" hidden>${lines}${hint}`
-        + `<button type="button" class="rn-syntax-ctx-jump" onclick="_jumpToSyntaxVerse('${_escH(book)}', '${_escH(chapter)}', ${verseNum})">本文で見る</button></div>`;
+        + `<button type="button" class="rn-syntax-ctx-jump" onclick="_jumpToSyntaxVerse('${_escH(book)}', '${_escH(chapter)}', ${verseNum})">${_T('ctx.seeInText', '本文で見る')}</button></div>`;
 }
 
 /* 識別不能ペアの読み分け（第4段階・単位B / 仕分け G5）: 必須条件が完全同一で
    検出では区別できないペアが揃って発火したときだけ、2つの読みの違いと
    文脈での見分け方を示す。人手で読み分けを書いた組み合わせに限る。 */
 function _syntaxPairBlockHTML(rawIdSet) {
+    const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
     const PAIRS = [
         {
             a: 'verb.imperative_constative', b: 'verb.imperative_ingressive',
             body: '<p><strong>総括的命令</strong>は行為全体を行うよう命じ、<strong>起動的命令</strong>は行為を始めるよう命じます。アオリスト命令法の形はどちらも同じで、区別は形には現れません。</p>',
+            body_en: '<p>The <strong>constative imperative</strong> commands an action to be carried out as a whole, while the <strong>ingressive imperative</strong> commands an action to be begun. Both use the same aorist imperative form; the distinction does not appear in the form.</p>',
             fact: 'この語はアオリスト・命令法として解析されています。',
+            fact_en: 'This word is analyzed as an aorist imperative.',
             judge: '行為が一回で完結する事柄か、これから始めて続く事柄かは、前後の文脈と行為の性質から判断します。',
+            judge_en: 'Whether the act is something completed in a single action, or something to begin and continue, is judged from the surrounding context and the nature of the act.',
         },
         {
             a: 'verb.present_customary', b: 'verb.present_iterative',
             body: '<p><strong>習慣的現在</strong>は、その人の通常のあり方や規則的な習慣を述べ、<strong>反復的現在</strong>は、個別の行為の繰り返しを述べます。現在形の形はどちらも同じです。</p>',
+            body_en: '<p>The <strong>customary present</strong> states a person\'s usual way of being or a regular habit, while the <strong>iterative present</strong> states the repetition of individual acts. Both use the same present form.</p>',
             fact: 'この語は現在・直説法として解析されています。',
+            fact_en: 'This word is analyzed as a present indicative.',
             judge: '繰り返しが規則的・恒常的か、その都度のものかは、時間を示す副詞や場面の文脈で判断します。',
+            judge_en: 'Whether the repetition is regular and constant, or a matter of each occasion, is judged from adverbs of time and the context of the scene.',
         },
         {
             a: 'verb.imperfect_customary', b: 'verb.imperfect_iterative',
             body: '<p><strong>習慣的未完了</strong>は、過去における通常のあり方や規則的な習慣を述べ、<strong>反復的未完了</strong>は、過去の個別の行為の繰り返しを述べます。未完了形の形はどちらも同じです。</p>',
+            body_en: '<p>The <strong>customary imperfect</strong> states a usual state of affairs or a regular habit in the past, while the <strong>iterative imperfect</strong> states the repetition of individual acts in the past. Both use the same imperfect form.</p>',
             fact: 'この語は未完了（インパーフェクト）・直説法として解析されています。',
+            fact_en: 'This word is analyzed as an imperfect indicative.',
             judge: '過去の繰り返しが規則的だったか、その都度のものだったかは、時間を示す副詞や場面の文脈で判断します。',
+            judge_en: 'Whether the past repetition was regular or a matter of each occasion is judged from adverbs of time and the context of the scene.',
         },
     ];
     for (const p of PAIRS) {
         if (rawIdSet.has(p.a) && rawIdSet.has(p.b)) {
-            return `<div class="rn-syntax-comparison"><div class="rn-syntax-comparison-title">読み分け</div>${p.body}<div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div><div class="rn-syntax-evidence-body"><p><strong>本文で確認できること：</strong>${p.fact}</p><p><strong>ここから言えること：</strong>${p.judge}</p></div></div></div>`;
+            return _isEn
+                ? `<div class="rn-syntax-comparison"><div class="rn-syntax-comparison-title">Telling the readings apart</div>${p.body_en}<div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body"><p><strong>What can be confirmed from the text: </strong>${p.fact_en}</p><p><strong>What can be said from this: </strong>${p.judge_en}</p></div></div></div>`
+                : `<div class="rn-syntax-comparison"><div class="rn-syntax-comparison-title">読み分け</div>${p.body}<div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div><div class="rn-syntax-evidence-body"><p><strong>本文で確認できること：</strong>${p.fact}</p><p><strong>ここから言えること：</strong>${p.judge}</p></div></div></div>`;
         }
     }
     return '';
@@ -8100,9 +8112,14 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
                 const chapterTokens = await _fetchSyntaxChapterTokens(m[1], m[2]);
                 if (chapterTokens) ctxBlock = _syntaxContextBlockHTML(chapterTokens, targetRef, topRaw.hint_ja);
             }
+            const _isEnNote = window.I18N && I18N.lang === 'en';
             const note = (topRaw.id === 'infinitive.means' && rawIdSet.has('infinitive.time'))
-                ? 'ἐν τῷ＋不定詞は、「時」か「手段」かを文脈で判断する用法です。'
-                : `文脈で判断が分かれる用法です（候補：${_escH((window.I18N && I18N.lang === 'en') ? (topRaw.label_en || topRaw.label_ja) : topRaw.label_ja)}）。`;
+                ? (_isEnNote
+                    ? 'The ἐν τῷ + infinitive construction is one whose reading — "time" or "means" — is decided by context.'
+                    : 'ἐν τῷ＋不定詞は、「時」か「手段」かを文脈で判断する用法です。')
+                : (_isEnNote
+                    ? `This usage is decided by context (candidate: ${_escH(topRaw.label_en || topRaw.label_ja)}).`
+                    : `文脈で判断が分かれる用法です（候補：${_escH(topRaw.label_ja)}）。`);
             return `<div class="rn-syntax-candidates"><div class="rn-syntax-item"><div class="rn-syntax-context-note">${note}</div>${ctxBlock}</div></div>`;
         }
         return '';
@@ -8160,10 +8177,10 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
             ? `<div class="rn-syntax-description">${_escH(explanation)}</div>`
             : '';
         const badge = primary && topHasLead
-            ? '<span class="rn-syntax-best-label">第一候補</span>'
+            ? `<span class="rn-syntax-best-label">${_T('panel.topCandidate', '第一候補')}</span>`
             : '';
         const contextNote = AUDIT_UNRESOLVED_IDS.has(c.id) && !comparisonCoveredIds.has(c.id)
-            ? '<div class="rn-syntax-context-note">文脈で判断が分かれる用法です。</div>' + (ctxBlockById.get(c.id) || '')
+            ? `<div class="rn-syntax-context-note">${_T('panel.contextDecided', '文脈で判断が分かれる用法です。')}</div>` + (ctxBlockById.get(c.id) || '')
             : '';
         return `<div class="rn-syntax-item${primary && topHasLead ? ' rn-syntax-item-primary' : ''}"><div class="rn-syntax-item-heading"><span class="rn-syntax-term">${label}</span>${badge}</div>${description}${contextNote}</div>`;
     };
@@ -8181,6 +8198,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
      * 対象外・候補不足では何も追加しない（静寂優先）。
      */
     let comparisonHTML = '';
+    const _isEnCmp = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
     if (
         targetLemma === 'οἶκος' &&
         /(?:JHN|John)[\s._:-]*2[\s._:-]*17(?:[\s._:!-]|$)/i.test(refText) &&
@@ -8188,7 +8206,17 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         candidateIds.has('genitive.objective') &&
         candidateIds.has('genitive.subjective')
     ) {
-        comparisonHTML = `<div class="rn-syntax-comparison">
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p>If it is an <strong>objective genitive</strong>, the sense is "zeal for the house" — the house is what the zeal is directed toward. If it is a <strong>subjective genitive</strong>, the sense is "the zeal the house shows" — the house is the side that shows the zeal.</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p><strong>What can be confirmed from the text: </strong>The genitive phrase <span lang="el">τοῦ οἴκου σου</span> follows <span lang="el">ζῆλος</span>, which expresses zeal.</p>
+                    <p><strong>What can be said from this: </strong>What is at issue is the relation between a noun expressing an action or a feeling and the genitive phrase. But the clue that there is such a noun is common to both candidates, so it alone cannot decide whether the house is the side the zeal is directed toward, or the side that shows the zeal.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">読み分け</div>
             <p><strong>目的語的属格</strong>なら「家に対する熱意」で、「家」は熱意の向かう対象です。<strong>主語的属格</strong>なら「家が示す熱意」で、「家」は熱意を示す側です。</p>
             <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
@@ -8205,7 +8233,17 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         candidateIds.has('genitive.subjective') &&
         candidateIds.has('genitive.objective')
     ) {
-        comparisonHTML = `<div class="rn-syntax-comparison">
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p>With a <strong>subjective genitive</strong>, it is "the love with which Christ loves us"; with an <strong>objective genitive</strong>, it is "love directed toward Christ." The difference is whether Christ is the one who loves, or the one to whom love is directed.</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p><strong>What can be confirmed from the text: </strong><span lang="el">τοῦ Χριστοῦ</span> is a genitive following <span lang="el">τῆς ἀγάπης</span>.</p>
+                    <p><strong>What can be said from this: </strong>The grammatical form alone does not settle whether Christ is the subject who loves or the object of love. The surrounding context and the sense of the expression "the love of Christ" as a whole must be weighed together. The analysis scores do not express probabilities.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">読み分け</div>
             <p><strong>主語的属格</strong>なら「キリストが私たちを愛する愛」、<strong>目的語的属格</strong>なら「キリストに向けられた愛」です。違いは、キリストが愛する側なのか、愛を向けられる側なのかにあります。</p>
             <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
@@ -8221,7 +8259,16 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
     if (!comparisonHTML &&
         candidateIds.has('nominal_syntax.nested_np') &&
         candidateIds.has('nominal_syntax.modified_np')) {
-        comparisonHTML = `<div class="rn-syntax-comparison">
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>a structural difference — whether another noun phrase is embedded inside the noun phrase (a nested structure, such as the Apollonius pattern of article–noun–article–genitive noun), or a modifier is simply attached to the head noun.</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p>These two are candidates that explain the structure of the noun phrase. Which is appropriate is judged by looking not only at the word in question, but at the arrangement and grouping of the surrounding articles, nouns, and modifiers. The structure is not settled by the order or the score of the candidates alone.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">読み分け</div>
             <p class="rn-syntax-comparison-difference"><strong>違い：</strong>名詞句の内部に別の名詞句が組み込まれているか（入れ子。冠詞・名詞・冠詞・属格名詞という Apollonius 型など）、中心語に修飾語が付いているだけか、という構造上の違いです。</p>
             <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
@@ -8234,7 +8281,19 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         candidateIds.has('genitive.subjective') &&
         candidateIds.has('genitive.possessive') &&
         candidateIds.has('genitive.objective')) {
-        comparisonHTML = `<div class="rn-syntax-comparison">
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p><strong>Subjective genitive:</strong> the genitive expresses the side that performs the action. If the action noun is replaced by a verb, the genitive corresponds to its subject.</p>
+            <p><strong>Possessive genitive:</strong> the genitive expresses a relation of possession, belonging, or attribution to the head noun. It can sometimes be translated with "of."</p>
+            <p><strong>Objective genitive:</strong> the genitive expresses what the action is directed toward. If the action noun is replaced by a verb, the genitive corresponds to its object.</p>
+            <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>a difference in meaning — whether the genitive expresses "the side that acts," "a relation of possession or belonging," or "what receives the action."</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p>The genitive form alone cannot distinguish the three usages. The meaning of the head noun, its relation to the genitive, and the context are weighed together. The candidate scores do not express probabilities.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">読み分け</div>
             <p><strong>主語的属格：</strong>属格が動作を行う側を表します。動作名詞を動詞に置き換えると、属格が主語に当たります。</p>
             <p><strong>所有属格：</strong>属格が中心語との所有・所属・帰属の関係を表します。「〜の」と訳せることがあります。</p>
@@ -8249,7 +8308,16 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
     } else if (!comparisonHTML &&
         candidateIds.has('nominal_syntax.modified_np') &&
         candidateIds.has('nominal_syntax.multiple_modifier_np')) {
-        comparisonHTML = `<div class="rn-syntax-comparison">
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>the number of modifiers attached to the head noun. If there are several modifiers, it falls under a "multiple-modifier noun phrase"; if there is only one, under a "modified noun phrase" (a multiple-modifier phrase is a kind of modified noun phrase).</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p>Check how many modifiers — adjectives, genitives, participles, prepositional phrases, and the like — are attached around this word. It is not decided by the order or the score of the candidates alone.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">読み分け</div>
             <p class="rn-syntax-comparison-difference"><strong>違い：</strong>中心となる名詞に付く修飾語の数です。修飾語が複数付いていれば「複数修飾名詞句」、1つだけなら「修飾名詞句」の範囲に入ります（複数修飾は修飾名詞句の一種です）。</p>
             <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
@@ -8264,7 +8332,17 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         /* ἐν τῷ＋不定詞：時と手段は同じ形で競合する（一次監査・不定詞）。
            手段不定詞は確度が低く候補一覧には出ないため、表示される
            時の不定詞を起点に、しきい値未満の手段候補で発火させる。 */
-        comparisonHTML = `<div class="rn-syntax-comparison">
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>a difference in the relation of meaning — whether <span lang="el">ἐν τῷ</span> + infinitive expresses the "time," simultaneous with the event of the main clause, or the "means," "by doing …".</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p><strong>What can be confirmed from the text: </strong>The form — the preposition <span lang="el">ἐν</span> and the article <span lang="el">τῷ</span> followed by an infinitive — is exactly the same for time and for means.</p>
+                    <p><strong>What can be said from this: </strong>The form alone cannot decide it; the meaning of the main verb and the flow of the sentence are weighed together. The means reading is infrequent, and the time reading is close to the default reading.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">読み分け</div>
             <p class="rn-syntax-comparison-difference"><strong>違い：</strong><span lang="el">ἐν τῷ</span>＋不定詞が、主節の出来事と同時の「時」を表すか、「〜することによって」という「手段」を表すか、という意味関係の違いです。</p>
             <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
@@ -8281,7 +8359,17 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
            （一次監査・節。理由節は残余条件の定義で unresolved）。
            理由節は確度が低く候補一覧に出ないことがあるため、
            内容節の表示またはしきい値未満の理由節候補で発火させる。 */
-        comparisonHTML = `<div class="rn-syntax-comparison">
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>a difference in the role of the clause — whether the <span lang="el">ὅτι</span> clause expresses the "content" of an utterance, a thought, or a recognition ("that …"), or the "reason" for the event of the main clause ("because …").</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p><strong>What can be confirmed from the text: </strong>A clue for the content reading is whether a verb expressing saying, thinking, knowing, or the like stands before <span lang="el">ὅτι</span>.</p>
+                    <p><strong>What can be said from this: </strong>The reason reading has no fixed formal marker and is judged by the connection of meaning with the main clause. Because the form is the same, both readings can hold, depending on the context.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">読み分け</div>
             <p class="rn-syntax-comparison-difference"><strong>違い：</strong><span lang="el">ὅτι</span> 節が、発話・思考・認識の「内容（〜ということ）」を表すか、主節の出来事の「理由（〜だから）」を表すか、という節の役割の違いです。</p>
             <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
@@ -8295,7 +8383,16 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         candidateIds.has('clause.purpose_hina')) {
         /* ἵνα 節：目的だけでなく願望・要求の内容も表す（一次監査・節。
            機能候補の併記が実態に合うとされた）。単独候補への注記として出す。 */
-        comparisonHTML = `<div class="rn-syntax-comparison">
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>an <span lang="el">ἵνα</span> clause can express not only purpose, "in order to …", but also the content of a wish, a command, or a request, "that … should …".</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p><strong>What can be said from this: </strong>The form — <span lang="el">ἵνα</span> with the subjunctive — alone does not decide between purpose and content; the meaning of the verb that introduces the clause and the context are weighed together.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">読み分け</div>
             <p class="rn-syntax-comparison-difference"><strong>違い：</strong><span lang="el">ἵνα</span> 節は「〜するために」という目的だけでなく、「〜するように」という願望・命令・要求の内容を表すこともあります。</p>
             <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
