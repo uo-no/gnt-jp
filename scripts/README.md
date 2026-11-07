@@ -56,6 +56,7 @@ node scripts/search-cooc-test.cjs                     # 共起検索テスト
 node scripts/search-term-test.cjs                     # 単語検索テスト
 node scripts/re-apparatus-display-regression.cjs
 node scripts/re-apparatus-ja-all-regression.cjs
+node scripts/check-tokens.cjs                        # R-f RF-1: 同名トークンの値ドリフト検査（runtime ⇔ design-system）
 node scripts/audit-ja1955-verse-integrity.cjs
 node scripts/concept-audit.cjs                        # コンセプト監査（output/ へ書き込む）
 node scripts/corpus-metrics.cjs    # npm run metrics でも可

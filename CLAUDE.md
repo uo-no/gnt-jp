@@ -889,6 +889,7 @@ AIは、
 * `scripts/` は本番UIから参照しない。
 * runtime dataのfetch pathを不用意に変更しない。
 * `css/tokens.css` 以外にデザイントークン値を定義しない。
+  例外: (1) 検索画面固有トークン `--s-*`（`public/search-tool.html` 内で定義。design-system/project/runtime-token-mapping.md で「検索画面固有」として整理済み）、(2) 設計側の記録である `design-system/project/tokens.json` とその生成物（アプリは読み込まない。runtime の正本はあくまで `css/tokens.css`）。同名トークンの値ドリフトは `scripts/check-tokens.cjs` で検査する。
 
 ---
 
