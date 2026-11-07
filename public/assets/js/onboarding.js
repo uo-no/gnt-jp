@@ -168,7 +168,11 @@
 .ob-pulse {
     animation: ob-pulse-gentle 2.2s ease-in-out 0.2s infinite;
     animation-fill-mode: both;
-    cursor: pointer !important;
+    /* RF-3: !important を除去。パルス対象（.wlv-chip / .word-card / .ja-seg 等）は
+       自身のルールでも cursor:pointer で、それ以外（.verse-block 等）には競合する
+       cursor ルールが無く、本スタイルシートは head の最後に注入され同詳細度の
+       競合にも勝つため、計算値は変わらない。 */
+    cursor: pointer;
     text-decoration-line: underline;
     text-decoration-color: rgba(90,110,130,0.80);
     text-decoration-thickness: 2px;
@@ -1284,6 +1288,11 @@
     function _renderGar17ClickedStep() {}
 
     // モバイルで compare-mode の右列を強制表示（JOH onboarding 用。ROM Flow では使用しない）
+    // RF-3 残置：この上書き CSS の !important 2件は意図的に残す。競合相手は
+    // index.html の @media (max-width: 900px) 側 compare-mode ルール
+    // （grid-template-columns と右列の display:none）で、そちらも !important を
+    // 持つため、同詳細度・後勝ち（本スタイルは実行時に head へ追加される）で
+    // 成立している。外す場合は index 側と対で外すこと（RF-4 / RF-5 の範囲）。
     function _forceShowCompareOnMobile() {
         if (document.getElementById('ob-mobile-compare-override')) return;
         var style = document.createElement('style');
