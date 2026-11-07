@@ -512,15 +512,21 @@ function buildRepresentation(columnMode, verse, analysis, translationText) {
                結果をそのまま使う）。 */
             const chips = tokens.map((w, i) => _wordToFlowChip(w, i, bookKey, ch,
                 analysis ? analysis[i] : undefined, tokens));
-            /* EN UI: when consecutive chips share the same sidecar-file gloss (segment text),
-               show the gloss only on the first chip; subsequent chips show the Greek text.
-               Only applies to sidecar file glosses (glossFromSidecar=true), not w.english fallback.
+            /* Sidecar segment glosses: when consecutive chips share the same sidecar-file
+               gloss (one alignment segment's text replicated onto every token), show the
+               gloss only on the first chip; continuation chips render an empty gloss
+               (class wlv-chip-cont collapses their width) so the row reads as continuous
+               translation text, like the per-token Japanese glosses. The chip element and
+               its click handling stay intact, so the drawer still opens the exact token
+               with the segment meaning. Only applies to sidecar file glosses
+               (glossFromSidecar=true), not w.english fallback.
                JA UI: glossFromSidecar is always false → loop is a no-op. */
             let _prevSidecarGloss = null;
             for (const chip of chips) {
                 if (chip.glossFromSidecar) {
                     if (chip.gloss === _prevSidecarGloss) {
-                        chip.gloss = chip.greek;
+                        chip.gloss = '';
+                        chip.segmentContinuation = true;
                         chip.glossFromSidecar = false;
                     } else {
                         _prevSidecarGloss = chip.gloss;
@@ -573,7 +579,7 @@ const WordOrderRenderer = {
             const anchorAttr = (i === 0 && _showOnboardingAnchor)
                 ? ' data-onboarding-anchor="true"'
                 : '';
-            return `${sepBefore}<span class="wlv-chip ${c.roleClass}"
+            return `${sepBefore}<span class="wlv-chip ${c.roleClass}${c.segmentContinuation ? ' wlv-chip-cont' : ''}"
             data-token-id="${c.tokenId}"
             data-greek="${_escH(c.greek)}"${anchorAttr}
             onclick="_wlvChipClick(this,'${c.tokenId}')"
@@ -657,7 +663,7 @@ const WordOrderRenderer = {
                エスケープしてから埋める（Phase 1b のグロス・サイドカー流入に備えた
                関門台帳 L1 の解消）。tokenId は DA 経路と同方針で正規化する／クラス名はコード生成の固定値。 */
             const tid = isFinite(Number(c.tokenId)) ? String(Number(c.tokenId)) : '';
-            return `${sep}<span class="wlv-chip ${c.roleClass}" data-token-id="${tid}"${anchorAttr} onclick="${_clickPrefix}_wlvChipClick(this,'${tid}')" title="${_escH(c.greek)}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${_escH(c.gloss)}</span></span></span>`;
+            return `${sep}<span class="wlv-chip ${c.roleClass}${c.segmentContinuation ? ' wlv-chip-cont' : ''}" data-token-id="${tid}"${anchorAttr} onclick="${_clickPrefix}_wlvChipClick(this,'${tid}')" title="${_escH(c.greek)}"><span class="wlv-chip-ja"><span class="${c.dpGrammarClasses}">${_escH(c.gloss)}</span></span></span>`;
         }).join('');
     },
 

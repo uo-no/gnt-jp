@@ -9,6 +9,28 @@ let _sdChapterDataForRender = null;
    SR JSON → RoleReadingAdapter（シム木）→ RoleReadingLayout（作業スペースの
    エディタ配置コアの移植）→ 文ごとの SVG。座標は作業スペース側が正で、
    ここでは再現のみを行う。語クリックで StudyPanel を開く（RK ビューと同じ連携）。 */
+/* Sidecar segment texts are replicated onto every token of a segment.
+   In the sentence diagrams, show the segment text only on the segment's
+   first token and the Greek text on continuation tokens (same verse,
+   consecutive tokenIndex, identical sidecar label), so a phrase is not
+   repeated on every node. `state` is carried by the caller across tokens
+   in chapter order. Language-agnostic: keyed on the sidecar-file source,
+   not on a specific UI language. */
+function _segLabelState() { return { verse: null, tokenIndex: null, label: null }; }
+function _segDedupeLabel(tok, gloss, state) {
+    const fromFile = !!gloss && typeof _glossSidecarIsFromFile === 'function' && _glossSidecarIsFromFile(tok);
+    if (!fromFile) { state.verse = null; state.tokenIndex = null; state.label = null; return gloss; }
+    const ti = Number(tok.tokenIndex);
+    const isCont = state.label !== null && tok.verse === state.verse
+        && ti === state.tokenIndex + 1 && gloss === state.label;
+    if (isCont) {
+        state.tokenIndex = ti;
+        return tok.text || gloss;
+    }
+    state.verse = tok.verse; state.tokenIndex = ti; state.label = gloss;
+    return gloss;
+}
+
 async function _renderRoleReadingView(app, srData, elData) {
     const wrap = document.createElement('div');
     wrap.className = 'sd-view role-reading-view';
@@ -70,10 +92,12 @@ async function _renderRoleReadingView(app, srData, elData) {
         let _rkLabelMap = jaByRef;
         if (window.I18N && I18N.lang === 'en') {
             const enByRef = new Map();
+            const _segState = _segLabelState();
             for (const [r, tok] of _rkRefToBd) {
                 if (tok && tok.ref) {
                     const gloss = _glossSidecarFor(tok);
-                    enByRef.set(r, gloss || tok.japanese || '');
+                    const label = _segDedupeLabel(tok, gloss, _segState);
+                    enByRef.set(r, label || tok.japanese || '');
                 }
             }
             _rkLabelMap = enByRef;
@@ -248,10 +272,12 @@ async function _buildLocalRelationFrame(ref) {
     let _lrfLabelMap = jaByRef;
     if (window.I18N && I18N.lang === 'en' && Array.isArray(bd)) {
         const enByRef = new Map();
+        const _segState = _segLabelState();
         for (const tok of bd) {
             if (tok && tok.ref) {
                 const gloss = _glossSidecarFor(tok);
-                enByRef.set(tok.ref, gloss || tok.japanese || '');
+                const label = _segDedupeLabel(tok, gloss, _segState);
+                enByRef.set(tok.ref, label || tok.japanese || '');
             }
         }
         _lrfLabelMap = enByRef;
