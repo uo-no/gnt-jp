@@ -41,6 +41,8 @@ function check(name, cond, detail) {
 check('HTML_EXISTS', fs.existsSync(HTML_PATH), HTML_PATH);
 const html = fs.readFileSync(HTML_PATH, 'utf8');
 const chLoaders = fs.existsSync(CH_LOADERS) ? fs.readFileSync(CH_LOADERS, 'utf8') : '';
+const WORD_DETAIL_PATH = path.join(__dirname, '..', 'public', 'app', 'ui', 'word-detail.js');
+const wordDetail = fs.existsSync(WORD_DETAIL_PATH) ? fs.readFileSync(WORD_DETAIL_PATH, 'utf8') : '';
 
 // ── _buildApparatusHTML の純粋関数再現（ソース実装と同一ロジック）────────────
 function _escH(s) {
@@ -396,7 +398,7 @@ check('CSS_WORD_ANALYSIS_EXCLUSION',
 
 // 13. _fillApparatusSection が _loadApparatusJaAllData を呼んでいる
 check('FILL_CALLS_ALL_LOADER',
-    html.includes('_loadApparatusJaAllData()'),
+    html.includes('_loadApparatusJaAllData()') || wordDetail.includes('_loadApparatusJaAllData()'),
     '_fillApparatusSection does not call _loadApparatusJaAllData');
 
 // 14. 旧 _loadApparatusJaData() 関数が残っている（後方互換）
@@ -421,18 +423,18 @@ check('GEN_COUNTER_PRESENT',
 
 // 17. _buildApparatusHTML の新コメントが isConfirmed / isAuto を参照している
 check('BUILD_HTML_COMMENT_UPDATED',
-    html.includes("status='確認済み'") && html.includes("status='自動生成'"),
+    (html.includes("status='確認済み'") || wordDetail.includes("status='確認済み'")) && (html.includes("status='自動生成'") || wordDetail.includes("status='自動生成'")),
     'updated comment not found in _buildApparatusHTML');
 
 // 18. 語順重複抑制ロジック（showJaText / jaSpan / startsWith）が index.html に存在する
 check('SOURCE_SHOWJATEXT_PRESENT',
-    html.includes('showJaText'),
+    html.includes('showJaText') || wordDetail.includes('showJaText'),
     'showJaText not found in _buildApparatusHTML source');
 check('SOURCE_JASPAN_PRESENT',
-    html.includes('jaSpan'),
+    html.includes('jaSpan') || wordDetail.includes('jaSpan'),
     'jaSpan not found in _buildApparatusHTML source');
 check('SOURCE_STARTSWITH_WORDORDER',
-    html.includes("startsWith('語順: ')"),
+    html.includes("startsWith('語順: ')") || wordDetail.includes("startsWith('語順: ')"),
     "startsWith('語順: ') not found in _buildApparatusHTML source");
 
 // 19. _loadApparatusRdgJaData 関数が存在する（R-d2以降は chapter-loaders.js に移動）
@@ -447,7 +449,7 @@ check('SOURCE_RDG_JA_STATE_VAR',
 
 // 21. _buildApparatusHTML に rdgJaEntries パラメータが存在する
 check('SOURCE_RDGJA_PARAM',
-    html.includes('function _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries)'),
+    html.includes('function _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries)') || wordDetail.includes('function _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries)'),
     'rdgJaEntries param not found in _buildApparatusHTML');
 
 // 22. CSS: .mvv-app-rdg-gr が index.html に定義されている

@@ -65,7 +65,9 @@ assert.deepEqual(projection.words[0].categories.infinitive.failedSignals, []);
 assert.deepEqual(projection.words[0].alternatives[0].signals, ['purpose_context']);
 assert.deepEqual(projection.words[0].alternatives[0].failedSignals, ['independent_clause']);
 
-const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8')
+  + '\n' + fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'study-panel.js'), 'utf8')
+  + '\n' + fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'mobile-word-detail.js'), 'utf8');
 assert.match(html, /formatEvidence\(\{/);
 assert.match(html, /'verb', 'infinitive', 'discourse', 'nominative'/);
 assert.match(html, /分析候補・統語情報/);
