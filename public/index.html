@@ -2334,8 +2334,10 @@ opacity: var(--opacity-secondary);
 }
 
 /* 後方互換：分析タブバーは完全非表示 */
-.analysis-tabs { display: none !important; }
-#analysis-frame-wrap { display: none !important; }
+/* RF-3: .analysis-tabs は要素が現行コードのどこからも生成されないことを確認し、
+   ルールごと削除した。#analysis-frame-wrap は静的マークアップに残る互換要素で、
+   display を設定する競合ルールが無いため !important のみ除去（計算値は不変）。 */
+#analysis-frame-wrap { display: none; }
 
 /* 旧 iframe：非表示にして DOM に残す（外部参照の互換のため） */
 #analysis-iframe {
@@ -2677,7 +2679,12 @@ animation: ac-blink 1.2s ease-in-out infinite;
 
 /* Word/phrase chip highlight */
 .wlv-chip.wlv-chip-cont { padding-left: 0; padding-right: 0; }
-.wlv-chip.hl-word-yellow { background: rgba(252,204,0,0.28) !important; border-radius: 3px; }
+/* RF-3: !important を外し、詳細度で勝たせる。競合相手は .wlv-chip:hover /
+   .active / :active（各 0,2,0 で本ルールより後方に定義）と、比較ポリッシュ側
+   @media の #mobile-verse-area 等 .wlv-chip.active（1,2,0）。全チップが #app
+   配下にあることを確認のうえ (1,3,0) とした（クラス名の繰り返しは詳細度調整
+   のための記法で、マッチ対象は変わらない）。 */
+#app .wlv-chip.hl-word-yellow.hl-word-yellow { background: rgba(252,204,0,0.28); border-radius: 3px; }
 /* 口語訳アラインメント: 対応づいた訳文区間（タップ可能な語句） */
 .ja-seg { cursor: pointer; border-radius: 3px; }
 .ja-seg:active { background: var(--accent-mid); }
@@ -2686,9 +2693,10 @@ animation: ac-blink 1.2s ease-in-out infinite;
 .ja-seg.hl-word-green  { background: rgba(21,114,44,0.25); }
 .ja-seg.hl-word-red    { background: rgba(235,97,0,0.25); }
 .ja-seg.hl-multi-selected, .ja-seg.hl-touch-selected { outline: 2px solid var(--accent); outline-offset: 2px; background: rgba(21,114,44,.13); }
-.wlv-chip.hl-word-blue   { background: rgba(0,76,151,0.25) !important; border-radius: 3px; }
-.wlv-chip.hl-word-green  { background: rgba(21,114,44,0.25) !important; border-radius: 3px; }
-.wlv-chip.hl-word-red    { background: rgba(235,97,0,0.25) !important; border-radius: 3px; }
+/* RF-3: 詳細度調整の理由は hl-word-yellow 側のコメント参照 */
+#app .wlv-chip.hl-word-blue.hl-word-blue     { background: rgba(0,76,151,0.25); border-radius: 3px; }
+#app .wlv-chip.hl-word-green.hl-word-green   { background: rgba(21,114,44,0.25); border-radius: 3px; }
+#app .wlv-chip.hl-word-red.hl-word-red       { background: rgba(235,97,0,0.25); border-radius: 3px; }
 
 /* Range selection mode: start chip indicator */
 /* 長押しでハイライトする際、iOS標準の選択メニュー（コピー／選択部分を検索／
@@ -5929,11 +5937,16 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 }
 
 /* MobileVerseView open → FAB 非表示 */
-#app.mobile-mvv-open #mobile-fab         { display: none !important; }
+/* RF-3: #mobile-fab 側は詳細度 (1,2,0) が base / @media (max-width: 900px) の
+   (1,0,0) に勝つため !important を除去（計算値は不変）。
+   #mobile-fab-overlay 側は残置：表示は JS のインライン style
+   （mobile-nav.js の _fabOpen / _fabClose）で駆動されており、インラインの
+   display:block が残った状態でも状態クラス中は確実に隠すには !important が要る。 */
+#app.mobile-mvv-open #mobile-fab         { display: none; }
 #app.mobile-mvv-open #mobile-fab-overlay { display: none !important; }
 
 /* Picker open → FAB 非表示（picker sheet が FAB と重ならない保証） */
-#app.mobile-picker-open #mobile-fab         { display: none !important; }
+#app.mobile-picker-open #mobile-fab         { display: none; }
 #app.mobile-picker-open #mobile-fab-overlay { display: none !important; }
 
 /* Study Panel open → overlay も非表示 */
@@ -6235,8 +6248,10 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 
 <style id="chapter-navigation-loading-guard">
 /* 章の取得・再描画中は、古い節や描画途中の本文へのタップを防ぐ */
+/* RF-3: #main-reading-area 自体に pointer-events を設定する競合ルールは
+   他に無いため !important を除去（計算値は不変） */
 body.chapter-navigation-loading #main-reading-area {
-    pointer-events: none !important;
+    pointer-events: none;
     position: relative;
 }
 body.chapter-navigation-loading #main-reading-area::after {
