@@ -8122,7 +8122,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
             let ctxBlock = '';
             if (m) {
                 const chapterTokens = await _fetchSyntaxChapterTokens(m[1], m[2]);
-                if (chapterTokens) ctxBlock = _syntaxContextBlockHTML(chapterTokens, targetRef, topRaw.hint_ja);
+                if (chapterTokens) ctxBlock = _syntaxContextBlockHTML(chapterTokens, targetRef, (window.I18N && I18N.lang === 'en' ? (topRaw.hint_en || topRaw.hint_ja) : topRaw.hint_ja));
             }
             const _isEnNote = window.I18N && I18N.lang === 'en';
             const note = (topRaw.id === 'infinitive.means' && rawIdSet.has('infinitive.time'))
@@ -8162,7 +8162,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
             const chapterTokens = await _fetchSyntaxChapterTokens(m[1], m[2]);
             if (chapterTokens) {
                 for (const c of needy) {
-                    const block = _syntaxContextBlockHTML(chapterTokens, targetRef, c.hint_ja);
+                    const block = _syntaxContextBlockHTML(chapterTokens, targetRef, (window.I18N && I18N.lang === 'en' ? (c.hint_en || c.hint_ja) : c.hint_ja));
                     if (block) ctxBlockById.set(c.id, block);
                 }
             }
@@ -8181,7 +8181,9 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
                 ? c.description_en.trim()
                 : (typeof c.description_ja === 'string' && c.description_ja.trim()
                     ? c.description_ja.trim()
-                    : (typeof c.hint_ja === 'string' ? c.hint_ja.trim() : '')))
+                    : (typeof c.hint_en === 'string' && c.hint_en.trim()
+                        ? c.hint_en.trim()
+                        : (typeof c.hint_ja === 'string' ? c.hint_ja.trim() : ''))))
             : (typeof c.description_ja === 'string' && c.description_ja.trim()
                 ? c.description_ja.trim()
                 : (typeof c.hint_ja === 'string' ? c.hint_ja.trim() : ''));
