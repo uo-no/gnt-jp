@@ -797,11 +797,23 @@ const TranslationRenderer = {
                 if (Array.isArray(seg.tokens) && seg.tokens.length) {
                     /* 試作（案4）: 動詞セグメントは語順チップと同じ構造で、内側 span に
                        dp クラスを載せる（クラスは buildDepthGrammarClasses 由来の
-                       固定文字列のみ許可）。クリック／ハイライトは外側 .ja-seg が担い従来どおり。 */
+                       固定文字列のみ許可）。クリック／ハイライトは外側 .ja-seg が担い従来どおり。
+                       句読点は装飾の外: セグメント文字列の先頭・末尾にある句読点
+                       （、。！？括弧類・ダッシュ・空白）は dp span の外に出す
+                       （語順チップのグロスには句読点が含まれないため。タップ範囲・
+                       ハイライト範囲・本文テキストは不変で、装飾の掛かる範囲だけが
+                       狭まる）。核が空になる場合は全体を装飾する（従来動作）。 */
                     const dp = (typeof seg.dpClasses === 'string'
                         && /^dp-word( dp-(mood|tense|voice)-[a-z]+)*$/.test(seg.dpClasses))
                         ? seg.dpClasses : '';
-                    const body = dp ? `<span class="${dp}">${t}</span>` : t;
+                    let body = t;
+                    if (dp) {
+                        const raw = seg.t != null ? String(seg.t) : '';
+                        const m = raw.match(/^([「『（〔【〈《“‘(\s]*)([\s\S]*?)([、。，．！？：；」』）〕】〉》”’)\s―—…]*)$/);
+                        body = (m && m[2])
+                            ? esc(m[1]) + `<span class="${dp}">${esc(m[2])}</span>` + esc(m[3])
+                            : `<span class="${dp}">${t}</span>`;
+                    }
                     return `<span class="ja-seg" data-ja-book="${vr.book}" data-ja-ch="${vr.chapter}" data-ja-v="${vr.verse}" data-ja-tokens="${seg.tokens.join(',')}" onclick="_jaSegClick(this,event)">${body}</span>`;
                 }
                 return t;
