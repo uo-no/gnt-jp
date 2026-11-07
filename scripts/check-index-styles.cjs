@@ -63,13 +63,16 @@
 // onboarding override, the inspector heading reset, the @600 typography
 // rules and the prefers-reduced-motion rules. Expected values were
 // measured on the pre-RF-5 tree (main a3e2ab24) with this same probe
-// method and must be reproduced exactly. Of the 22 structural
-// declarations, 20 were resolved; the only RF-5 residuals are the
-// word-peek @media-900 left/top pair, kept !important because
-// peek-guide.js sets inline left/top on the persistent peek element at
-// >900px and never clears them, so a lingering inline value must not
-// win when the peek reopens at <=900px (same rationale as the RF-4
-// overlay residuals); phase 5 asserts that behavior directly. Note:
+// method and must be reproduced exactly. All 22 structural
+// declarations were resolved. The word-peek @media-900 left/top pair
+// first looked like a residual on the assumption that the peek element
+// persists with its inline styles, but peek-guide.js creates the
+// element fresh on every open and removes it on close, and it sets
+// inline left/top only when opening at >900px — a width where this
+// media block does not apply. At <=900px no inline value and no other
+// left/top rule competes, so the pair needs no !important either;
+// phase 5 asserts the stylesheet values in the <=900 bands and that
+// the inline values set at >900px (bandC) still win there. Note:
 // jsdom evaluates a grouped selector list by its maximum specificity,
 // so the @media-900 display:none for #parallel-text-area and for the
 // right-column trio are separate rules in index.html (equivalent in
@@ -731,19 +734,29 @@ bandChecks('rf4 >=901px', bandC, {
     check('RF-5 inspector heading box-shadow', h, 'box-shadow', 'none');
   }
 
-  // ---- Phase 5 (RF-5): word-peek @900 left/top are KEPT !important
-  // (residual). peek-guide.js sets inline left/top on the persistent peek
-  // element at >900px and never clears them; at <=900px the stylesheet
-  // must still win over a lingering inline value (same rationale as the
-  // RF-4 overlay residuals). These checks pin that behavior.
+  // ---- Phase 5 (RF-5): word-peek @900 left/top carry no !important.
+  // peek-guide.js creates the peek element fresh on every open and
+  // removes it on close (_closeWordPeek), and it sets inline left/top
+  // only when opening at >900px — where the @media-900 block does not
+  // apply. So at <=900px the element never carries a competing inline
+  // value, and no other stylesheet rule sets left/top on .word-peek:
+  // the plain declarations below are the computed values as-is. The
+  // bandC checks pin the other side: with the inline values the JS
+  // sets at >900px, those inline values still win (media block off).
   {
     const d = makeDom(bandA, '<div class="word-peek" id="peek5"></div>');
     const p = d.window.document.getElementById('peek5');
-    check('RF-5 peek left (stylesheet)', p, 'left', 'var(--space-md)');
-    check('RF-5 peek top (stylesheet)', p, 'top', 'auto');
-    p.style.left = '333px'; p.style.top = '222px';
-    check('RF-5 peek left beats lingering inline (residual)', p, 'left', 'var(--space-md)');
-    check('RF-5 peek top beats lingering inline (residual)', p, 'top', 'auto');
+    check('RF-5 peek left (stylesheet, <=900)', p, 'left', 'var(--space-md)');
+    check('RF-5 peek top (stylesheet, <=900)', p, 'top', 'auto');
+    const dB = makeDom(bandB, '<div class="word-peek" id="peek5b"></div>');
+    const pB = dB.window.document.getElementById('peek5b');
+    check('RF-5 peek left (stylesheet, 769-900)', pB, 'left', 'var(--space-md)');
+    check('RF-5 peek top (stylesheet, 769-900)', pB, 'top', 'auto');
+    const dC = makeDom(bandC, '<div class="word-peek" id="peek5c"></div>');
+    const pC = dC.window.document.getElementById('peek5c');
+    pC.style.left = '333px'; pC.style.top = '222px';
+    check('RF-5 peek left (inline set at >900 wins)', pC, 'left', '333px');
+    check('RF-5 peek top (inline set at >900 wins)', pC, 'top', '222px');
   }
 
   // ---- Phase 5 (RF-5): prefers-reduced-motion ----
