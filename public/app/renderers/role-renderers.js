@@ -380,10 +380,10 @@ async function _buildLocalRelationFrame(ref) {
     const controls = document.createElement('div');
     controls.className = 'local-rel-controls';
     controls.innerHTML =
-        '<button type="button" class="local-rel-btn" data-act="expand" aria-label="大きく表示" title="大きく表示"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg></button>' +
-        '<button type="button" class="local-rel-btn" data-act="zin" aria-label="拡大" title="拡大"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>' +
-        '<button type="button" class="local-rel-btn" data-act="zout" aria-label="縮小" title="縮小"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>' +
-        '<button type="button" class="local-rel-btn" data-act="recenter" aria-label="選択中の語へ戻る" title="選択中の語へ戻る"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5.5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/></svg></button>';
+        '<button type="button" class="local-rel-btn" data-act="expand" aria-label="' + _T('panel.expandView', '大きく表示') + '" title="' + _T('panel.expandView', '大きく表示') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg></button>' +
+        '<button type="button" class="local-rel-btn" data-act="zin" aria-label="' + _T('panel.zoomIn', '拡大') + '" title="' + _T('panel.zoomIn', '拡大') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>' +
+        '<button type="button" class="local-rel-btn" data-act="zout" aria-label="' + _T('panel.zoomOut', '縮小') + '" title="' + _T('panel.zoomOut', '縮小') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>' +
+        '<button type="button" class="local-rel-btn" data-act="recenter" aria-label="' + _T('panel.recenterWord', '選択中の語へ戻る') + '" title="' + _T('panel.recenterWord', '選択中の語へ戻る') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5.5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/></svg></button>';
     controls.addEventListener('click', e => {
         const btn = e.target.closest('[data-act]');
         if (!btn) return;
@@ -586,22 +586,22 @@ function _openLocalRelOverlay(wrap) {
     overlay.className = 'local-rel-overlay';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-label', '文の関係（拡大表示）');
+    overlay.setAttribute('aria-label', _T('panel.relationsExpanded', '文の関係（拡大表示）'));
     overlay.innerHTML =
         '<div class="local-rel-backdrop"></div>' +
         '<div class="local-rel-sheet">' +
             '<div class="local-rel-sheet-head"><div class="local-rel-handle"></div>' +
-                '<div class="local-rel-sheet-title"><span class="local-rel-pill">文の関係</span><span class="local-rel-ref"></span></div></div>' +
+                '<div class="local-rel-sheet-title"><span class="local-rel-pill">' + _T('panel.relationsPill', '文の関係') + '</span><span class="local-rel-ref"></span></div></div>' +
             '<div class="local-rel-sheet-body"></div>' +
         '</div>' +
         '<div class="local-rel-bar">' +
-            '<button type="button" class="local-rel-bar-btn" data-oact="recenter" aria-label="選択中の語へ戻る" title="選択中の語へ戻る"><svg ' + IA + '><circle cx="12" cy="12" r="5.5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/></svg></button>' +
+            '<button type="button" class="local-rel-bar-btn" data-oact="recenter" aria-label="' + _T('panel.recenterWord', '選択中の語へ戻る') + '" title="' + _T('panel.recenterWord', '選択中の語へ戻る') + '"><svg ' + IA + '><circle cx="12" cy="12" r="5.5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/></svg></button>' +
             '<div class="local-rel-bar-zoom">' +
-                '<button type="button" class="local-rel-bar-btn" data-oact="zin" aria-label="拡大" title="拡大"><svg ' + IA + '><path d="M12 5v14M5 12h14"/></svg></button>' +
-                '<button type="button" class="local-rel-zoom-label" data-oact="zreset" aria-label="等倍に戻す" title="等倍に戻す">100%</button>' +
-                '<button type="button" class="local-rel-bar-btn" data-oact="zout" aria-label="縮小" title="縮小"><svg ' + IA + '><path d="M5 12h14"/></svg></button>' +
+                '<button type="button" class="local-rel-bar-btn" data-oact="zin" aria-label="' + _T('panel.zoomIn', '拡大') + '" title="' + _T('panel.zoomIn', '拡大') + '"><svg ' + IA + '><path d="M12 5v14M5 12h14"/></svg></button>' +
+                '<button type="button" class="local-rel-zoom-label" data-oact="zreset" aria-label="' + _T('panel.zoomReset', '等倍に戻す') + '" title="' + _T('panel.zoomReset', '等倍に戻す') + '">100%</button>' +
+                '<button type="button" class="local-rel-bar-btn" data-oact="zout" aria-label="' + _T('panel.zoomOut', '縮小') + '" title="' + _T('panel.zoomOut', '縮小') + '"><svg ' + IA + '><path d="M5 12h14"/></svg></button>' +
             '</div>' +
-            '<button type="button" class="local-rel-bar-btn" data-oact="close" aria-label="閉じる" title="閉じる"><svg ' + IA + '><path d="M6 6l12 12M18 6L6 18"/></svg></button>' +
+            '<button type="button" class="local-rel-bar-btn" data-oact="close" aria-label="' + _T('panel.closeView', '閉じる') + '" title="' + _T('panel.closeView', '閉じる') + '"><svg ' + IA + '><path d="M6 6l12 12M18 6L6 18"/></svg></button>' +
         '</div>';
     overlay.querySelector('.local-rel-ref').textContent = wrap._refLabel || '';
     overlay.querySelector('.local-rel-sheet-body').appendChild(wrap);
