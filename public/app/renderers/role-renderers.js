@@ -19,10 +19,20 @@ let _sdChapterDataForRender = null;
    Language-agnostic: keyed on the sidecar-file source, not on a
    specific UI language. Callers must distinguish '' (hide) from null
    (no gloss — fall back). */
-function _segLabelState() { return { verse: null, tokenIndex: null, label: null }; }
+function _segLabelState() { return { verse: null, tokenIndex: null, label: null, shownKeys: new Set() }; }
 function _segDedupeLabel(tok, gloss, state) {
     const fromFile = !!gloss && typeof _glossSidecarIsFromFile === 'function' && _glossSidecarIsFromFile(tok);
     if (!fromFile) { state.verse = null; state.tokenIndex = null; state.label = null; return gloss; }
+    /* Segment identity from the alignment when available: a segment's
+       tokens are not always consecutive (postpositives can sit inside
+       another segment's span), so adjacency alone re-displays the text. */
+    const _segKey = (typeof _alignSegmentKeyFor === 'function') ? _alignSegmentKeyFor(tok) : null;
+    if (_segKey) {
+        if (state.shownKeys.has(_segKey)) return '';
+        state.shownKeys.add(_segKey);
+        state.verse = tok.verse; state.tokenIndex = Number(tok.tokenIndex); state.label = gloss;
+        return gloss;
+    }
     const ti = Number(tok.tokenIndex);
     const isCont = state.label !== null && tok.verse === state.verse
         && ti === state.tokenIndex + 1 && gloss === state.label;
