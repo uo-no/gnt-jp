@@ -164,8 +164,11 @@ transition: opacity var(--transition-fast);
 opacity: 1;
 pointer-events: auto;
 }
-.sidebar-top { padding: var(--space-lg) var(--space-md) var(--space-md); display: flex; align-items: center; gap: var(--space-sm); }
+.sidebar-top { padding: var(--space-lg) var(--space-md) var(--space-md); display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .sidebar-logo { font-weight: 700; font-size: var(--text-body); white-space: nowrap; letter-spacing: -0.01em; color: var(--text-main); }
+.sidebar-tagline { font-size: var(--text-caption); white-space: nowrap; color: var(--text-sub); }
+/* タグラインはPCメニュー専用（スマホは初回ロード画面に出す） */
+@media (max-width: 900px) { .sidebar-tagline { display: none; } }
 
 /* ── Panel Geometry SSOT（デスクトップ既定値） ──
    パネル高さの数値定義は、この規則と ≤900px メディア内の上書きだけ。
@@ -6352,6 +6355,42 @@ body.chapter-navigation-loading #main-reading-area::after {
     pointer-events: auto;
 }
 html[lang="en"] body.chapter-navigation-loading #main-reading-area::after { content: 'Loading'; }
+/* 初回ロード画面（スマホのみ）: ヘッダーを含む全画面を覆い、
+   ファビコンのロゴ＋タグラインを出す。表示時間は初回読み込み
+   そのものと同一（人工的な遅延は加えない）。
+   app-first-load は boot.js の init() が付け、本文の表示直前に外れる。 */
+@media (max-width: 900px) {
+    body.app-first-load::before {
+        content: '1タップで、翻訳の向こう側へ。';
+        position: fixed;
+        inset: 0;
+        z-index: 9000;
+        background: #ffffff;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 42vh;
+        font-size: 19px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: #2c4f34;
+    }
+    html[lang="en"] body.app-first-load::before {
+        content: 'One tap, BEYOND TRANSLATION.';
+    }
+    body.app-first-load::after {
+        content: '';
+        position: fixed;
+        left: 50%;
+        top: 27vh;
+        transform: translateX(-50%);
+        width: 76px;
+        height: 76px;
+        background: url('/favicon.svg') center / contain no-repeat;
+        z-index: 9001;
+        pointer-events: none;
+    }
+}
 </style>
 
 </head>
@@ -6371,6 +6410,7 @@ html[lang="en"] body.chapter-navigation-loading #main-reading-area::after { cont
     <nav id="nav-sidebar" class="nav-sidebar">
         <div class="sidebar-top">
             <span class="menu-text sidebar-logo">Bible Green</span>
+            <span class="menu-text sidebar-tagline" data-i18n="ui.tagline">1タップで、翻訳の向こう側へ。</span>
         </div>
         <div class="sidebar-menu">
 
