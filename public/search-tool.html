@@ -268,7 +268,7 @@ body {
    Keep the DOM nodes so _watchIndexProgress can finish its existing
    idempotent index setup, but never show status text on desktop or mobile. */
 .idx-status {
-    display: none !important;
+    display: none;
     align-items: flex-start;
     gap: 4px;
     padding-top: 6px;
@@ -283,15 +283,14 @@ body {
 }
 .idx-status.done { opacity: 0; max-height: 0; pointer-events: none; }
 
-/* search-panel, container: 旧サイドバー構造（廃止 — 新レイアウトは .s-header/.s-search-block/.s-results）*/
-.search-panel { display: none !important; }
+/* container: 旧サイドバー構造（廃止 — 新レイアウトは .s-header/.s-search-block/.s-results）。
+   .search-panel は要素自体が現存しないため、RF-2 でルールごと削除した。 */
 .container { display: contents; }
 .main-layout { display: contents; }
 
-/* FAB / overlay / mn-back-bar: 廃止 */
-.mobile-search-toggle { display: none !important; }
-.mobile-overlay { display: none !important; }
-#mn-back-bar { display: none !important; }
+/* FAB / overlay: 廃止（#mn-back-bar は要素自体が現存しないため、RF-2 でルールごと削除） */
+.mobile-search-toggle { display: none; }
+.mobile-overlay { display: none; }
 
 /* ── Mobile (≤700px) ── */
 @media (max-width: 700px) {
@@ -316,7 +315,7 @@ body {
    Search input block
    ============================================================ */
 .search-input-wrap {
-    position: relative !important;
+    position: relative;
     width: 100%;
     min-width: 0;
     margin-bottom: 14px;
@@ -347,12 +346,12 @@ body {
     box-shadow: 0 0 0 3px var(--highlight-light);
 }
 .search-icon-btn {
-    position: absolute !important;
-    right: 12px !important;
+    position: absolute;
+    right: 12px;
     /* Anchor to the fixed-height input, not the wrapper that grows
        when suggestion/filter panels appear below the input. */
-    top: 30px !important;
-    transform: translateY(-50%) !important;
+    top: 30px;
+    transform: translateY(-50%);
     z-index: 2;
     background: none; border: none; cursor: pointer;
     color: var(--text-sub); padding: 4px; line-height: 1;
@@ -462,7 +461,7 @@ body {
 }
 
 /* ── Search simplification: phrase search is automatic for multiword queries ── */
-#layer-phrase, #phrase-sub { display: none !important; }
+#layer-phrase, #phrase-sub { display: none; }
 
 /* ── Proximity distance sub-control ── */
 .search-filters {
@@ -492,7 +491,7 @@ body {
 .morph-panel-toggle[aria-expanded="true"] .morph-panel-chevron { transform: rotate(180deg); }
 .search-filters .morph-sub { display: none; margin-top: 3px; padding: 2px 1px 0; background: transparent; border: 0; border-radius: 0; }
 .search-filters .morph-sub.is-open { display: block; }
-.search-filters.multi-word .morph-sub { display: none !important; }
+.search-filters.multi-word .morph-sub { display: none; }
 .search-filters .morph-section-label { color: var(--text-main); opacity: 0.88; letter-spacing: 0; text-transform: none; font-size: 0.77rem; }
 .morph-section { margin: 0; border-bottom: 1px solid rgba(90,83,71,0.085); }
 .morph-section:last-of-type { border-bottom: 0; }
@@ -506,8 +505,11 @@ body {
 .morph-section.is-open .morph-chevron { transform: rotate(180deg); }
 .morph-section .morph-chips { padding: 3px 0 13px; gap: 6px; }
 .morph-section:not(.is-open) .morph-chips { display: none; }
-/* Keep accordion sections collapsed even when later chip-layout rules set display:flex/grid. */
-.morph-section:not(.is-open) .morph-chips { display: none !important; }
+/* Keep accordion sections collapsed even when later chip-layout rules set display:flex/grid.
+   RF-2: !important を外し、@media (max-width: 700px) のチップグループ grid ルール
+   （.search-filters .morph-section .morph-chips.morph-chip-group、詳細度 0,4,0）より
+   詳細度が高くなるよう、チップグループについてはスコープ付きセレクタで上書きする。 */
+.search-filters .morph-section:not(.is-open) .morph-chips.morph-chip-group { display: none; }
 .morph-section.is-open .morph-chips { display: flex; }
 .search-filters .morph-chip {
     display: inline-flex;
@@ -562,8 +564,11 @@ body {
     }
     .search-filters .morph-chip-group .morph-chip-label { font-size: 0.68rem; }
     .search-filters .morph-chip-group .morph-chip-help { font-size: 0.58rem; }
-    /* モバイルでは文法フィルターを右下のフローティングボタンから開く */
-    .search-filters .morph-panel-toggle { display: none !important; }
+    /* モバイルでは文法フィルターを右下のフローティングボタンから開く。
+       RF-2: !important を外すため、単独表示ルール（.single-word の display:flex）と
+       同じ詳細度にして定義順で勝たせる（対象は .single-word 時のみ。それ以外は
+       ベースルール側が display:none）。 */
+    .search-filters.single-word .morph-panel-toggle { display: none; }
     #morph-filter-fab {
         display: none;
         position: fixed;
@@ -610,7 +615,7 @@ body {
     }
     body.morph-filter-open #morph-filter-backdrop { display: block; }
     .search-filters #morph-sub {
-        display: none !important;
+        display: none;
         position: fixed;
         left: 0;
         right: 0;
@@ -626,7 +631,7 @@ body {
         background: var(--s-bg);
         box-shadow: var(--s-shadow-modal);
     }
-    body.morph-filter-open .search-filters #morph-sub { display: block !important; }
+    body.morph-filter-open .search-filters #morph-sub { display: block; }
     .morph-sheet-head {
         display: flex;
         align-items: center;
@@ -772,7 +777,7 @@ body {
 
 /* ── Search history ── */
 /* 履歴の表示先は検索欄直下の suggest-dropdown に一本化。旧表示領域だけを隠し、履歴データは保持する。 */
-#history-block, #history-recent-section { display: none !important; }
+#history-block, #history-recent-section { display: none; }
 .history-block { margin-top: 10px; }
 .history-list { display: flex; flex-direction: column; gap: 2px; }
 .history-item {
