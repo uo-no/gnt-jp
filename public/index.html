@@ -6662,6 +6662,9 @@ function cleanText(e) {
    優先順位: gloss_ja（日本語）→ headword（正規表記）→ lexemeId（最終保証）
    UI はこの関数のみを経由し、直接の条件分岐・フォールバック記述は禁止。 */
 function resolveDisplay(entry, lexemeId) {
+    if (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en') {
+        return (entry && entry.gloss) || (entry && entry.headword) || lexemeId;
+    }
     return (entry && entry.gloss_ja) || (entry && entry.headword) || lexemeId;
 }
 
@@ -8590,7 +8593,7 @@ async function _renderReadingNotes(p) {
     /* ── Etymology / composition (Level 2) — 単純語は非表示 ── */
     const compositionParts = getWordComposition(resolvedId || AppState.inspect.data?.lemmaId || null);
     const etymologyHTML = compositionParts
-        ? `<div class="rn-etymology">語源&emsp;<span class="rn-etymology-parts">${_buildEtymPartsHTML(compositionParts)}</span></div>`
+        ? `<div class="rn-etymology">${_T('panel.etymology', '語源')}&emsp;<span class="rn-etymology-parts">${_buildEtymPartsHTML(compositionParts)}</span></div>`
         : '';
 
     /* 使用傾向は検索ツールで確認するため、第三層では重複表示しない。 */
@@ -15241,7 +15244,7 @@ async function _fillMvvLevel2Slot(resolvedId) {
         /* Etymology（Desktop _renderReadingNotes と同じ経路） */
         const compositionParts = getWordComposition(resolvedId);
         const etymologyHTML = compositionParts
-            ? `<div class="rn-etymology" data-study-section="etymology">語源&emsp;<span class="rn-etymology-parts">${_buildEtymPartsHTML(compositionParts)}</span></div>`
+            ? `<div class="rn-etymology" data-study-section="etymology">${_T('panel.etymology', '語源')}&emsp;<span class="rn-etymology-parts">${_buildEtymPartsHTML(compositionParts)}</span></div>`
             : '';
 
         /* Abbott-Smith full text */
