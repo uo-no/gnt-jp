@@ -6355,40 +6355,60 @@ body.chapter-navigation-loading #main-reading-area::after {
     pointer-events: auto;
 }
 html[lang="en"] body.chapter-navigation-loading #main-reading-area::after { content: 'Loading'; }
-/* 初回ロード画面（スマホのみ）: ヘッダーを含む全画面を覆い、
-   ファビコンのロゴ＋タグラインを出す。表示時間は初回読み込み
-   そのものと同一（人工的な遅延は加えない）。
-   app-first-load は boot.js の init() が付け、本文の表示直前に外れる。 */
+/* 初回ロード画面（スマホのみ）: ヘッダーを含む全画面を覆うスプラッシュ。
+   デザインはクリーム／ゴールド＋ティールグリーンの波グラデーションを
+   CSS グラデーションとインライン SVG（data URI）で再現し、画像アセットは
+   読み込まない。ロゴはファビコンの線画に緑→金のグラデーションを付けた
+   同一形状の SVG。app-first-load は boot.js の init() が付け、
+   _finishFirstLoadSplash() が最低表示（約1秒）＋フェードを経て外す。
+   読み込み自体は並行して進み、遅れることはない。 */
 @media (max-width: 900px) {
     body.app-first-load::before {
-        content: '1タップで、翻訳の向こう側へ。';
+        content: '1タップで、\A翻訳の向こう側へ。';
         position: fixed;
         inset: 0;
         z-index: 9000;
-        background: #ffffff;
+        background-color: #f8f2e2;
+        background-image:
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 54' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='t' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%2357a58e'/%3E%3Cstop offset='1' stop-color='%232c6e5b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0,26 C22,14 44,32 68,24 C84,19 94,21 100,17 L100,54 L0,54 Z' fill='%23f2e3bd' fill-opacity='.8'/%3E%3Cpath d='M0,33 C26,22 52,40 100,27 L100,54 L0,54 Z' fill='%23e9d193' fill-opacity='.75'/%3E%3Cpath d='M0,41 C26,31 55,47 100,36 L100,54 L0,54 Z' fill='url(%23t)' fill-opacity='.92'/%3E%3Cpath d='M0,47 C30,39 62,52 100,44 L100,54 L0,54 Z' fill='%231f5a49' fill-opacity='.5'/%3E%3C/svg%3E"),
+            radial-gradient(ellipse 80% 46% at 76% 30%, rgba(246, 214, 150, .55), rgba(246, 214, 150, 0) 62%),
+            linear-gradient(158deg, #fdfaf2 0%, #f7efdc 36%, #eef3ea 64%, #e2efe8 100%);
+        background-size: 100% 54%, 100% 100%, 100% 100%;
+        background-position: center bottom, center, center;
+        background-repeat: no-repeat;
         display: flex;
         align-items: flex-start;
         justify-content: center;
-        padding-top: 42vh;
-        font-size: 19px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        color: #2c4f34;
+        text-align: center;
+        white-space: pre-line;
+        padding-top: 45vh;
+        font-family: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", "YuMincho", "Noto Serif JP", serif;
+        font-size: 21px;
+        line-height: 2.0;
+        letter-spacing: 0.06em;
+        color: #17573f;
+        transition: opacity .38s ease;
     }
     html[lang="en"] body.app-first-load::before {
-        content: 'One tap, BEYOND TRANSLATION.';
+        content: 'One tap,\A BEYOND TRANSLATION.';
+        letter-spacing: 0.04em;
     }
     body.app-first-load::after {
         content: '';
         position: fixed;
         left: 50%;
-        top: 27vh;
+        top: 26vh;
         transform: translateX(-50%);
-        width: 76px;
-        height: 76px;
-        background: url('/favicon.svg') center / contain no-repeat;
+        width: 88px;
+        height: 88px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 1280'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%231d5c46'/%3E%3Cstop offset='.72' stop-color='%232e7d5f'/%3E%3Cstop offset='1' stop-color='%23d9a83f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='none' stroke='url(%23g)' stroke-width='50' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m154,690l96,-310c104,-51 204,-73 273,-41c48,22 87,54 117,91l0,309c-73,-59-133,-87-202,-99c-99,-17-193,30-284,50z'/%3E%3Cpath d='m1126,690l-96,-310c-104,-51-204,-73-273,-41c-48,22-87,54-117,91l0,309c73,-59 133,-87 202,-99c99,-17 193,30 284,50z'/%3E%3Cpath d='m205,772c130,-51 233,-50 324,5c45,27 75,55 111,67c36,-12 66,-40 111,-67c91,-55 194,-56 324,-5'/%3E%3Cpath d='m282,842c100,-34 183,-28 258,19c41,26 70,55 100,67c30,-12 59,-41 100,-67c75,-47 158,-53 258,-19'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
         z-index: 9001;
         pointer-events: none;
+        transition: opacity .38s ease;
+    }
+    body.app-first-load-done::before,
+    body.app-first-load-done::after {
+        opacity: 0;
     }
 }
 </style>

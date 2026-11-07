@@ -162,7 +162,9 @@ async function renderCurrentPage() {
         /* 古いリクエストの完了では、新しい章のローディング表示を解除しない */
         if (renderToken === _renderCurrentPageToken) {
             document.body.classList.remove('chapter-navigation-loading');
-            document.body.classList.remove('app-first-load');
+            /* 初回スプラッシュがまだ出ていれば最低表示つきで終える */
+            if (typeof _finishFirstLoadSplash === 'function') _finishFirstLoadSplash();
+            else document.body.classList.remove('app-first-load');
         }
     }
 }
