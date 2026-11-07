@@ -28,7 +28,36 @@ function _phraseResolveWord(words, idx) {
 
 /* Stage A: 引用生成の新経路。PhraseRenderer 未ロード時は旧 renderPhraseJP へ
    fallback（旧実装は比較・切戻し用に残置 — 削除しない）。戻り値は HTML エスケープ済み。 */
+/* EN UI の引用は Engine（日本語整形）を通さず、サイドカーのセグメント文
+   から組み立てる。セグメント文は区間の全トークンへ複製されているため、
+   連続する同一文は1回だけ取る。サイドカー未取得の語は _glossSidecarFor
+   のフォールバック（w.english）を使う。日本語が混ざることはない。 */
+function _renderQuoteFromSidecar(p, endIdx, words) {
+    try {
+        const start = p.start | 0;
+        const end = Math.min(endIdx | 0, words.length - 1);
+        if (end < start) return '';
+        const parts = [];
+        let prev = null;
+        for (let i = start; i <= end; i++) {
+            const w = words[i];
+            if (!w) continue;
+            const g = (typeof _glossSidecarFor === 'function') ? _glossSidecarFor(w) : null;
+            const text = (g || '').trim();
+            if (!text) continue;
+            if (text === prev) continue;
+            parts.push(text);
+            prev = text;
+        }
+        return parts.join(' ');
+    } catch (_) { return ''; }
+}
+
 function _renderQuoteViaEngine(p, endIdx, words) {
+    if (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en') {
+        const q = _renderQuoteFromSidecar(p, endIdx, words);
+        return q ? _escH(q) : '';
+    }
     const PR = window.App?.PhraseRenderer;
     if (!PR) return renderPhraseJP(p, endIdx, words);
     const q = PR.renderQuote(p, endIdx, words, i => _phraseResolveWord(words, i));
