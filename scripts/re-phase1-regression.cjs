@@ -72,7 +72,20 @@ const PHASE1_BASELINE = {
     // resolve=null）。表示・意味回帰なしを確認済み（display-equivalence 0・対象strong/lemmaはsemantic
     // データ非出現）。engine code 非改変の Data adoption 由来の意図的更新（FROZEN 破壊ではない）。
     // 設計・監査記録: docs/development/reading-japanese-plural-pronoun-number-adoption.md §2.1。
-    morph:       44187,
+    // 2026-11-07 PR #624（Stage 1–4 japanese 監査の本採用）＋ 去る morph fix:
+    // 44187 → 44256（+69）。全量再計測による内訳（分類台帳つき）:
+    //   データのみ（fix 前 engine）: −32（喪失34／獲得2）。
+    //     喪失: G3708 見る→知る/見抜く/思う/見破る 19件（完了分詞。旧出力「見てきた」は
+    //       誤義で、新グロスは五段ラ行の prevent 仕様により T0 表示＝知る等が正常）、
+    //       G863 赦す→去る 8件（下記 fix で回復）、G1163 〜しなければならない 3件
+    //       （「〜」prefix は inf ルール不適合＝意図的）、G1189 願う 3件、G2983 取る 1件。
+    //     獲得: G1189 願う 分詞 2件。
+    //   去る fix（_VERB_RULES 五段漢字語幹例外4ルール）: +101／喪失0／既存出力の変更0。
+    //     G5217 去る 命令形40件・G565 去る 過去分詞等30件・G863 去る 8件・
+    //     〜去る複合（過ぎ去る/連れ去る/取り去る/立ち去る/消し去る）23件が新規解決。
+    //   悪化ケース（zeroFlags）は全て 0 を維持。backup ブランチ内のローカル計測
+    //   （44275 等）は WIP 環境での値のため採用せず、本計測を正とする。
+    morph:       44256,
     // 悪化ケース検出フラグはすべて 0 であること（tildeGloss / longGloss は
     // 精査済みの許容範囲なので基準に含めない）
     zeroFlags: ['doubleParticle', 'weirdPassive', 'brokenImperative'],

@@ -62,9 +62,15 @@ const STAGEB_BASELINE = {
     // 目視レビューし、破損形・異常なし（格助詞付与等の正常な改善のみ）を確認済み。
     // Token Identity Migration（VR-2）とは無関係（bible_data/reading-engine/
     // syntax-analyzer/lexicon いずれも本セッション中は無変更。既存commitに起因）。
-    changed:        39684,   // VR-2-G baseline refresh（既存ドリフト反映、-207）
-    identical:      98057,
-    brokenOld:       1257,   // 旧経路の破損形（参考記録）
+    // 2026-11-07 PR #624（Stage 1–4 japanese 本採用）＋ 去る morph fix の合算:
+    // changed 39684→39671（−13）/ identical 98057→98070（+13）/ brokenOld 1257→1245（−12）。
+    // 全量再計測の内訳: データのみで changed −15・identical +15・brokenOld −12
+    // （誤グロス「縛る」由来の旧経路破損が解消）、fix で changed +2・identical −2
+    // （T0 が 去った 等を生成し T2 と差分化した正常分）。brokenNew 0・
+    // panelMismatch 0 を維持。
+    changed:        39671,   // 2026-11-07 baseline refresh（PR #624 + 去る fix、-13）
+    identical:      98070,
+    brokenOld:       1245,   // 旧経路の破損形（参考記録）
     brokenNew:          0,   // 新経路の破損形は常に 0
     panelMismatch:      0,   // chip ⇔ StudyPanel 不一致は常に 0（SSOT）
     presented:       4258,   // Stage C P1: 括弧化された PP head（M-15 反映で +14）
