@@ -41,6 +41,22 @@
 // (.hl-multi-selected) in phase 1. Preview smoke checks remain the
 // final word for real viewports.
 //
+// RF-4 (phase 4) extends the same simulation to the three width bands
+// of the breakpoint display switching: <=768px, 769-900px and >=901px.
+// The 900/901 pair rules are mostly removed by source order / equal
+// specificity; the >=901 picker / more-menu hides pair the plain and
+// open-state selectors so they tie the base .mbp-open / .mmp-open /
+// .open rules (1,1,0) and win by later position; the >=769
+// #study-verse-nav hide is scoped to #app (2,0,0) to beat .is-visible
+// (1,1,0) in the 769-900px overlap. Deliberate RF-4 residuals, asserted
+// as-is below: the two >=901 overlay hides (JS inline display:block can
+// linger across a resize; only !important guarantees hidden — same
+// reason as the RF-3 base residuals), the <=900 #open-panel-btn hide
+// (closeStudyPanel sets inline display:block regardless of width) and
+// the <=900 #mvv-reading-slot display:contents (the slot's display is
+// JS-inline-driven block/none; contents must always win so the slot
+// stays layout-transparent).
+//
 // Usage: node scripts/check-index-styles.cjs [path-to-index.html] [path-to-onboarding.js]
 // jsdom must be resolvable (NODE_PATH or the bible-app harness install).
 
@@ -268,8 +284,187 @@ for (const appClass of ['mobile-mvv-open', 'mobile-picker-open', 'mobile-study-o
   check('[pulse] bare .ob-pulse cursor', d.getElementById('pulse-bare'), 'cursor', 'pointer');
 }
 
+// ── Phase 4 (RF-4): width-band simulation for breakpoint display switching ──
+// jsdom never applies @media, so a band is simulated by unwrapping the
+// in-band queries in place (relative order preserved) and removing the
+// out-of-band max-width blocks; leftover out-of-band min-width blocks
+// stay wrapped and inert.
+function removeMedia(css, query) {
+  let out = css;
+  for (;;) {
+    const at = out.indexOf(query);
+    if (at === -1) break;
+    const open = out.indexOf('{', at);
+    let depth = 0;
+    let i = open;
+    for (; i < out.length; i++) {
+      if (out[i] === '{') depth++;
+      else if (out[i] === '}') { depth--; if (depth === 0) break; }
+    }
+    out = out.slice(0, at) + '\n' + out.slice(i + 1);
+  }
+  return out;
+}
+const bandA = unwrapMedia(unwrapMedia(unwrapMedia(stripComments(baseCss),
+  '@media (max-width: 900px)'), '@media (max-width: 768px)'), '@media (max-width: 600px)');
+const bandB = unwrapMedia(unwrapMedia(stripComments(baseCss),
+  '@media (max-width: 900px)'), '@media (min-width: 769px)');
+const bandC = unwrapMedia(unwrapMedia(
+  removeMedia(removeMedia(removeMedia(stripComments(baseCss),
+    '@media (max-width: 900px)'), '@media (max-width: 768px)'), '@media (max-width: 600px)'),
+  '@media (min-width: 901px)'), '@media (min-width: 769px)');
+
+function rf4Fixture(appClass) {
+  return `
+  <header class="app-header">
+    <button id="mobile-menu-btn"></button>
+    <div id="global-breadcrumb"></div>
+    <button id="mobile-location-btn"></button>
+    <button id="open-panel-btn"></button>
+    <button id="research-open-btn"></button>
+    <div id="header-lang-toggle"></div>
+    <button id="mobile-more-btn"></button>
+  </header>
+  <div id="app" class="${appClass}">
+    <div id="mobile-nav-bar"><button id="mobile-panel-back"></button></div>
+    <div id="main-reading-area"><div id="parallel-text-area"></div></div>
+    <div id="study-verse-nav"></div>
+    <div id="mobile-inspector-area"><div id="mvv-reading-slot"></div></div>
+    <div id="mobile-fab-overlay"></div>
+    <div id="mobile-fab"></div>
+  </div>
+  <div id="mobile-book-picker"></div>
+  <div id="mobile-mode-picker"></div>
+  <div id="mobile-more-overlay"></div>
+  <div id="mobile-more-menu"></div>`;
+}
+function bandChecks(bandLabel, css, spec) {
+  const dom = makeDom(css, rf4Fixture(spec.appClass || ''));
+  const d = dom.window.document;
+  const byId = id => d.getElementById(id);
+  for (const [label, id, expected] of spec.plain) {
+    check(`[${bandLabel}] ${label}`, byId(id), 'display', expected);
+  }
+  for (const [label, id, cls, expected] of spec.withClass || []) {
+    const el = byId(id);
+    el.classList.add(cls);
+    check(`[${bandLabel}] ${label}`, el, 'display', expected);
+    el.classList.remove(cls);
+  }
+  for (const [label, id, inline, expected] of spec.withInline || []) {
+    const el = byId(id);
+    el.style.display = inline;
+    check(`[${bandLabel}] ${label}`, el, 'display', expected);
+    el.style.display = '';
+  }
+  return dom;
+}
+// Band A: <=768px (all max-width blocks active, min-width blocks inert)
+bandChecks('rf4 <=768px', bandA, {
+  plain: [
+    ['#mobile-nav-bar display', 'mobile-nav-bar', 'flex'],
+    ['#mobile-panel-back display', 'mobile-panel-back', 'flex'],
+    ['#mobile-menu-btn display', 'mobile-menu-btn', 'none'],
+    ['#header-lang-toggle display', 'header-lang-toggle', 'none'],
+    ['#global-breadcrumb display', 'global-breadcrumb', 'none'],
+    ['#research-open-btn display', 'research-open-btn', 'none'],
+    ['#open-panel-btn display', 'open-panel-btn', 'none'],
+    ['#mobile-location-btn display', 'mobile-location-btn', 'flex'],
+    ['#mobile-more-btn display', 'mobile-more-btn', 'flex'],
+    ['#mobile-fab display', 'mobile-fab', 'flex'],
+    ['#mobile-fab-overlay display', 'mobile-fab-overlay', 'none'],
+    ['#study-verse-nav display', 'study-verse-nav', 'none'],
+    ['#mvv-reading-slot display', 'mvv-reading-slot', 'contents'],
+    ['#mobile-book-picker display', 'mobile-book-picker', 'none'],
+    ['#mobile-mode-picker display', 'mobile-mode-picker', 'none'],
+    ['#mobile-more-overlay display', 'mobile-more-overlay', 'none'],
+    ['#mobile-more-menu display', 'mobile-more-menu', 'none'],
+  ],
+  withClass: [
+    ['#study-verse-nav.is-visible display', 'study-verse-nav', 'is-visible', 'flex'],
+    ['#mobile-book-picker.mbp-open display', 'mobile-book-picker', 'mbp-open', 'flex'],
+    ['#mobile-mode-picker.mmp-open display', 'mobile-mode-picker', 'mmp-open', 'flex'],
+    ['#mobile-more-menu.open display', 'mobile-more-menu', 'open', 'block'],
+  ],
+  withInline: [
+    ['#open-panel-btn display (inline block, residual !important)', 'open-panel-btn', 'block', 'none'],
+    ['#mobile-fab-overlay display (inline block, no state class)', 'mobile-fab-overlay', 'block', 'block'],
+    ['#mobile-more-overlay display (inline block)', 'mobile-more-overlay', 'block', 'block'],
+    ['#mvv-reading-slot display (inline block, residual !important)', 'mvv-reading-slot', 'block', 'contents'],
+    ['#mvv-reading-slot display (inline none, residual !important)', 'mvv-reading-slot', 'none', 'contents'],
+  ],
+});
+bandChecks('rf4 <=768px study-open', bandA, {
+  appClass: 'mobile-study-open',
+  plain: [['#mobile-fab display (study panel open)', 'mobile-fab', 'none']],
+});
+// Band B: 769-900px (max-width:900 and the nested min-width:769 active)
+bandChecks('rf4 769-900px', bandB, {
+  plain: [
+    ['#mobile-nav-bar display', 'mobile-nav-bar', 'flex'],
+    ['#mobile-panel-back display', 'mobile-panel-back', 'flex'],
+    ['#mobile-menu-btn display', 'mobile-menu-btn', 'none'],
+    ['#header-lang-toggle display', 'header-lang-toggle', 'none'],
+    ['#global-breadcrumb display', 'global-breadcrumb', 'none'],
+    ['#research-open-btn display', 'research-open-btn', 'none'],
+    ['#open-panel-btn display', 'open-panel-btn', 'none'],
+    ['#mobile-location-btn display', 'mobile-location-btn', 'flex'],
+    ['#mobile-more-btn display', 'mobile-more-btn', 'flex'],
+    ['#mobile-fab display', 'mobile-fab', 'flex'],
+    ['#study-verse-nav display', 'study-verse-nav', 'none'],
+    ['#mvv-reading-slot display', 'mvv-reading-slot', 'contents'],
+    ['#mobile-book-picker display', 'mobile-book-picker', 'none'],
+    ['#mobile-more-menu display', 'mobile-more-menu', 'none'],
+  ],
+  withClass: [
+    ['#study-verse-nav.is-visible display (>=769 hide wins)', 'study-verse-nav', 'is-visible', 'none'],
+    ['#mobile-book-picker.mbp-open display', 'mobile-book-picker', 'mbp-open', 'flex'],
+    ['#mobile-mode-picker.mmp-open display', 'mobile-mode-picker', 'mmp-open', 'flex'],
+    ['#mobile-more-menu.open display', 'mobile-more-menu', 'open', 'block'],
+  ],
+  withInline: [
+    ['#open-panel-btn display (inline block, residual !important)', 'open-panel-btn', 'block', 'none'],
+    ['#mvv-reading-slot display (inline block, residual !important)', 'mvv-reading-slot', 'block', 'contents'],
+  ],
+});
+bandChecks('rf4 769-900px study-open', bandB, {
+  appClass: 'mobile-study-open',
+  plain: [['#mobile-fab display (study panel open)', 'mobile-fab', 'none']],
+});
+// Band C: >=901px (max-width blocks removed, min-width blocks active)
+bandChecks('rf4 >=901px', bandC, {
+  plain: [
+    ['#mobile-nav-bar display', 'mobile-nav-bar', 'none'],
+    ['#mobile-panel-back display', 'mobile-panel-back', 'none'],
+    ['#mobile-menu-btn display', 'mobile-menu-btn', 'flex'],
+    ['#header-lang-toggle display', 'header-lang-toggle', 'flex'],
+    ['#global-breadcrumb display', 'global-breadcrumb', 'flex'],
+    ['#research-open-btn display', 'research-open-btn', 'inline-flex'],
+    ['#mobile-location-btn display', 'mobile-location-btn', 'none'],
+    ['#mobile-fab display', 'mobile-fab', 'none'],
+    ['#mobile-fab-overlay display', 'mobile-fab-overlay', 'none'],
+    ['#study-verse-nav display', 'study-verse-nav', 'none'],
+    ['#mobile-book-picker display', 'mobile-book-picker', 'none'],
+    ['#mobile-mode-picker display', 'mobile-mode-picker', 'none'],
+    ['#mobile-more-btn display', 'mobile-more-btn', 'none'],
+    ['#mobile-more-overlay display', 'mobile-more-overlay', 'none'],
+    ['#mobile-more-menu display', 'mobile-more-menu', 'none'],
+  ],
+  withClass: [
+    ['#study-verse-nav.is-visible display', 'study-verse-nav', 'is-visible', 'none'],
+    ['#mobile-book-picker.mbp-open display (paired selector wins)', 'mobile-book-picker', 'mbp-open', 'none'],
+    ['#mobile-mode-picker.mmp-open display (paired selector wins)', 'mobile-mode-picker', 'mmp-open', 'none'],
+    ['#mobile-more-menu.open display (paired selector wins)', 'mobile-more-menu', 'open', 'none'],
+  ],
+  withInline: [
+    ['#open-panel-btn display (inline none, as in markup)', 'open-panel-btn', 'none', 'none'],
+    ['#mobile-fab-overlay display (inline block, residual !important)', 'mobile-fab-overlay', 'block', 'none'],
+    ['#mobile-more-overlay display (inline block, residual !important)', 'mobile-more-overlay', 'block', 'none'],
+  ],
+});
+
 if (failures > 0) {
   console.error(`check-index-styles: FAIL — ${failures}/${total} computed-style checks failed (index: ${path.relative(ROOT, indexPath)}, onboarding: ${path.relative(ROOT, onboardingPath)})`);
   process.exit(1);
 }
-console.log(`check-index-styles: PASS — ${total}/${total} computed-style checks (phases 1-3; phase 2 simulates a <=600px viewport by unwrapping max-width media blocks; see header).`);
+console.log(`check-index-styles: PASS — ${total}/${total} computed-style checks (phases 1-4; phase 2 simulates a <=600px viewport and phase 4 the <=768 / 769-900 / >=901px bands by unwrapping/removing media blocks; see header).`);
