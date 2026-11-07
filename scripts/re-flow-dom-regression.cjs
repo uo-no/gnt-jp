@@ -53,6 +53,12 @@ const colRendSrc  = fs.readFileSync(path.join(PUBLIC, 'app', 'renderers', 'colum
 const studyPanelSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'study-panel.js'), 'utf8');
 const peekGuideSrc  = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'peek-guide.js'), 'utf8');
 const panelPagesSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'panel-pages.js'), 'utf8');
+const appShellSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'app-shell.js'), 'utf8');
+const chapterScrollSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'chapter-scroll.js'), 'utf8');
+const mobileVerseViewSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'mobile-verse-view.js'), 'utf8');
+const readingSupportSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'reading-support.js'), 'utf8');
+const mobileNavSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'mobile-nav.js'), 'utf8');
+const bootSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'boot.js'), 'utf8');
 
 let failed = 0;
 const results = [];
@@ -150,7 +156,7 @@ function extractFunctionSource(source, header) {
     return null;
 }
 
-const setFlowInjectionSrc = extractFunctionSource(html, 'function _setFlowInjection(mode) {');
+const setFlowInjectionSrc = extractFunctionSource(html, 'function _setFlowInjection(mode) {') || extractFunctionSource(mobileNavSrc, 'function _setFlowInjection(mode) {');
 check('extract: _setFlowInjection ソース抽出に成功', !!setFlowInjectionSrc);
 
 /* スタブ化する外部依存（Flow injection の周辺。DOM 契約の検証に無関係な副作用のみ） */
@@ -399,7 +405,7 @@ check('invariant: _buildColumnBlock が dataset.colMode を投影',
     /columnBlock\.dataset\.colMode\s*=\s*col\.colMode\.kind\s*;/.test(html + '\n' + colRendSrc));
 // VR-5-H-4 探索キーの一般化
 check('invariant: Flow 探索が [data-col-mode="wordOrder"]',
-    /querySelectorAll\(\s*'\[data-col-mode="wordOrder"\]'\s*\)/.test(html));
+    /querySelectorAll\(\s*'\[data-col-mode="wordOrder"\]'\s*\)/.test(html + '\n' + mobileNavSrc));
 // VR-5-H-4 の > 結合子維持
 check('invariant: .gf-mode > .gf-verse-block（子結合子維持）', /\.gf-mode\s*>\s*\.gf-verse-block/.test(html));
 check('invariant: :not(.gf-mode) > .gf-verse-block（子結合子維持）', /:not\(\.gf-mode\)\s*>\s*\.gf-verse-block/.test(html));
@@ -416,7 +422,7 @@ check('invariant: single-mode で右列非表示 CSS が存在',
     /#main-reading-area\.single-mode\s+\.verse-pair-right/.test(html));
 // activateFlowCompare が明示 flow 起動（Case5 経路）
 check('invariant: activateFlowCompare が _setFlowInjection(\'flow\') を明示呼び',
-    /activateFlowCompare[\s\S]{0,400}_setFlowInjection\('flow'\)/.test(html));
+    /activateFlowCompare[\s\S]{0,400}_setFlowInjection\('flow'\)/.test(html + '\n' + bootSrc));
 
 /* ─────────────────────────────────────────────────────────────
    構文ゲート: インライン <script> を node --check（H-6 のブレース破壊を検知できる層）
@@ -442,30 +448,30 @@ check('invariant: activateFlowCompare が _setFlowInjection(\'flow\') を明示�
 
 /* Invariant: Phase 2A-4 関数・変数の存在 */
 check('invariant(2A-4): _setupChapterObserver 定義あり',
-    /function _setupChapterObserver\s*\(\s*\)/.test(html));
+    /function _setupChapterObserver\s*\(\s*\)/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-4): _observeChapterBlock 定義あり',
-    /function _observeChapterBlock\s*\(/.test(html));
+    /function _observeChapterBlock\s*\(/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-4): _recalcFocusChapter 定義あり',
-    /function _recalcFocusChapter\s*\(\s*\)/.test(html));
+    /function _recalcFocusChapter\s*\(\s*\)/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-4): _chapterObserver 変数宣言あり',
-    /let _chapterObserver\s*=/.test(html));
+    /let _chapterObserver\s*=/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-4): _chapterObserverVisible = new Map() あり',
-    /_chapterObserverVisible\s*=\s*new Map\(\)/.test(html));
+    /_chapterObserverVisible\s*=\s*new Map\(\)/.test(html + '\n' + chapterScrollSrc));
 
 /* Invariant: Observer 設計契約（options オブジェクトを直接確認） */
 check('invariant(2A-4): Observer options に root: container あり',
-    /\{\s*root:\s*container\s*,\s*threshold:\s*0\s*\}/.test(html));
+    /\{\s*root:\s*container\s*,\s*threshold:\s*0\s*\}/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-4): Observer options に threshold: 0 あり',
-    /\{\s*root:\s*container\s*,\s*threshold:\s*0\s*\}/.test(html));
+    /\{\s*root:\s*container\s*,\s*threshold:\s*0\s*\}/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-4): render() が _setupChapterObserver を呼ぶ',
     /* _chapterBlock) { _setupChapterObserver() } という形で存在する */
     /_chapterBlock\s*\)\s*\{\s*_setupChapterObserver\s*\(\s*\)/.test(html + '\n' + colRendSrc));
 check('invariant(2A-4): _loadAndAppendChapter が _observeChapterBlock(_lacCb) を呼ぶ',
-    /_observeChapterBlock\s*\(\s*_lacCb\s*\)/.test(html));
+    /_observeChapterBlock\s*\(\s*_lacCb\s*\)/.test(html + '\n' + chapterScrollSrc));
 
 /* Invariant: _navigateVerse scope fix */
 check('invariant(2A-4): _navigateVerse が closest(".chapter-block") を使う',
-    /closest\s*\(\s*'\.chapter-block'\s*\)/.test(html));
+    /closest\s*\(\s*'\.chapter-block'\s*\)/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-4): _navigateVerse が _navChBlock||document でスコープする',
     /\(_navChBlock\s*\|\|\s*document\)\.querySelectorAll/.test(html + '\n' + panelPagesSrc));
 check('invariant(2A-4): _navigateVerse の章末遷移が _navChBlock.dataset.chapter を読む',
@@ -829,39 +835,39 @@ check('invariant(2A-4): _navigateVerse の章末遷移が _navChBlock.dataset.ch
 
 /* Invariant: Phase 2A-5 関数・変数の存在 */
 check('invariant(2A-5): _setupAutoload 定義あり',
-    /function _setupAutoload\s*\(\s*\)/.test(html));
+    /function _setupAutoload\s*\(\s*\)/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-5): _placeSentinel 定義あり',
-    /function _placeSentinel\s*\(\s*\)/.test(html));
+    /function _placeSentinel\s*\(\s*\)/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-5): _doAutoload 定義あり',
-    /async function _doAutoload\s*\(/.test(html));
+    /async function _doAutoload\s*\(/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-5): _stopAutoload 定義あり',
-    /function _stopAutoload\s*\(\s*\)/.test(html));
+    /function _stopAutoload\s*\(\s*\)/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-5): _alObserver 変数宣言あり',
-    /let _alObserver\s*=/.test(html));
+    /let _alObserver\s*=/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-5): _alCancelGen 変数宣言あり',
-    /let _alCancelGen\s*=/.test(html));
+    /let _alCancelGen\s*=/.test(html + '\n' + chapterScrollSrc));
 
 /* Invariant: Autoload 設計契約 */
 check('invariant(2A-5): Autoload rootMargin に 300px bottom あり',
-    /rootMargin:\s*'0px 0px 300px 0px'/.test(html));
+    /rootMargin:\s*'0px 0px 300px 0px'/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-5): _stopAutoload が _alCancelGen をインクリメントする',
-    /_alCancelGen\+\+/.test(html));
+    /_alCancelGen\+\+/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-5): _doAutoload が _alCancelGen と比較する',
-    /_alCancelGen\s*!==\s*_myGen/.test(html));
+    /_alCancelGen\s*!==\s*_myGen/.test(html + '\n' + chapterScrollSrc));
 check('invariant(2A-5): render() が _setupAutoload を呼ぶ',
     /_setupChapterObserver\(\);\s*_setupAutoload\(\)/.test(html + '\n' + colRendSrc));
 check('invariant(2A-5): 最終章ガード: chNum >= bookObj.ch で _stopAutoload',
-    /chNum\s*>=\s*bookObj\.ch.*_stopAutoload/.test(html.replace(/\n/g, ' ')));
+    /chNum\s*>=\s*bookObj\.ch.*_stopAutoload/.test((html + '\n' + chapterScrollSrc).replace(/\n/g, ' ')));
 check('invariant(2A-5): sentinel CSS が存在',
     /\.chapter-load-sentinel\s*\{/.test(html));
 
 /* Invariant: Focus Observer との共存 */
 check('invariant(2A-5): _alObserver は _chapterObserver とは別変数',
-    /let _alObserver/.test(html) && /let _chapterObserver/.test(html));
+    /let _alObserver/.test(html + '\n' + chapterScrollSrc) && /let _chapterObserver/.test(html + '\n' + chapterScrollSrc));
 
 /* Behavioral: _doAutoload 同時リクエスト防止 */
 {
-    const doAutoloadSrc = extractFunctionSource(html, 'async function _doAutoload(bookObj, nextCh) {');
+    const doAutoloadSrc = extractFunctionSource(html, 'async function _doAutoload(bookObj, nextCh) {') || extractFunctionSource(chapterScrollSrc, 'async function _doAutoload(bookObj, nextCh) {');
     check('extract(2A-5): _doAutoload ソース抽出に成功', !!doAutoloadSrc);
 
     if (doAutoloadSrc) {
@@ -911,7 +917,7 @@ check('invariant(2A-5): _alObserver は _chapterObserver とは別変数',
 
 /* Behavioral: _placeSentinel 最終章ガード */
 {
-    const placeSentinelSrc = extractFunctionSource(html, 'function _placeSentinel() {');
+    const placeSentinelSrc = extractFunctionSource(html, 'function _placeSentinel() {') || extractFunctionSource(chapterScrollSrc, 'function _placeSentinel() {');
     check('extract(2A-5): _placeSentinel ソース抽出に成功', !!placeSentinelSrc);
     if (placeSentinelSrc) {
         check('behavioral(2A-5): _placeSentinel に chNum >= bookObj.ch ガードあり',
@@ -941,7 +947,7 @@ check('invariant(2A-5): _alObserver は _chapterObserver とは別変数',
     }
 
     /* C-3: _loadAndAppendChapter() 内で _appendedChapterCache.set(...) が app.appendChild より後に呼ばれる */
-    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(') || extractFunctionSource(chapterScrollSrc, 'async function _loadAndAppendChapter(');
     check('extract(2B-2): _loadAndAppendChapter() ソース抽出に成功', !!lacSrc);
     if (lacSrc) {
         const appendPos = lacSrc.indexOf('app.appendChild(_lacCb)');
@@ -952,7 +958,7 @@ check('invariant(2A-5): _alObserver は _chapterObserver とは別変数',
     }
 
     /* C-4: _resolveTokenJaById() が存在し、両キャッシュを検索するロジックを含む */
-    const resolveTokenSrc = extractFunctionSource(html, 'function _resolveTokenJaById(');
+    const resolveTokenSrc = extractFunctionSource(html, 'function _resolveTokenJaById(') || extractFunctionSource(readingSupportSrc, 'function _resolveTokenJaById(');
     check('extract(2B-2): _resolveTokenJaById() ソース抽出に成功', !!resolveTokenSrc);
     if (resolveTokenSrc) {
         check('2B-2(C-4): _resolveTokenJaById は _cachedElByVerse を検索する',
@@ -966,7 +972,7 @@ check('invariant(2A-5): _alObserver は _chapterObserver とは別変数',
     }
 
     /* C-5: _resolveReferentEvidenceText が _resolveTokenJaById を呼ぶ（インライン検索ループを持たない） */
-    const refEvidSrc = extractFunctionSource(html, 'function _resolveReferentEvidenceText(');
+    const refEvidSrc = extractFunctionSource(html, 'function _resolveReferentEvidenceText(') || extractFunctionSource(readingSupportSrc, 'function _resolveReferentEvidenceText(');
     check('extract(2B-2): _resolveReferentEvidenceText() ソース抽出に成功', !!refEvidSrc);
     if (refEvidSrc) {
         check('2B-2(C-5): _resolveReferentEvidenceText は _resolveTokenJaById を呼ぶ',
@@ -976,7 +982,7 @@ check('invariant(2A-5): _alObserver は _chapterObserver とは別変数',
     }
 
     /* C-6: _resolveSubjrefEvidenceText が _resolveTokenJaById を呼ぶ */
-    const subjEvidSrc = extractFunctionSource(html, 'function _resolveSubjrefEvidenceText(');
+    const subjEvidSrc = extractFunctionSource(html, 'function _resolveSubjrefEvidenceText(') || extractFunctionSource(readingSupportSrc, 'function _resolveSubjrefEvidenceText(');
     check('extract(2B-2): _resolveSubjrefEvidenceText() ソース抽出に成功', !!subjEvidSrc);
     if (subjEvidSrc) {
         check('2B-2(C-6): _resolveSubjrefEvidenceText は _resolveTokenJaById を呼ぶ',
@@ -1064,19 +1070,19 @@ check('invariant(3-3): toBrowsing() の ch は null-safe（ch != null ? ch : nul
     /ch\s*!=\s*null\s*\?\s*ch\s*:\s*null/.test(html + '\n' + colRendSrc + '\n' + wordRendSrc));
 
 check('invariant(3-3): getShareState() が selectedVerse?.ch を chapter に使う',
-    /chapter\s*:\s*AppState\.selectedVerse\?\.ch\s*\?\?/.test(html));
+    /chapter\s*:\s*AppState\.selectedVerse\?\.ch\s*\?\?/.test(html + '\n' + appShellSrc));
 
 check('invariant(3-3): getShareState() が location.chapter へフォールバックする',
-    /AppState\.selectedVerse\?\.ch\s*\?\?\s*AppState\.location\?\.chapter/.test(html));
+    /AppState\.selectedVerse\?\.ch\s*\?\?\s*AppState\.location\?\.chapter/.test(html + '\n' + appShellSrc));
 
 check('invariant(3-3): _findVerseInChapter() が定義されている',
     /function _findVerseInChapter\s*\(/.test(html + '\n' + studyPanelSrc));
 
 check('invariant(3-3): _findVerseInChapter() が chapter-block を data-book+data-chapter で検索する',
-    /\.chapter-block\[data-book=.*\]\[data-chapter=/.test(html));
+    /\.chapter-block\[data-book=.*\]\[data-chapter=/.test(html + '\n' + studyPanelSrc));
 
 check('invariant(3-3): applyShareState() が _findVerseInChapter() を呼ぶ',
-    /_findVerseInChapter\s*\(/.test(html));
+    /_findVerseInChapter\s*\(/.test(html + '\n' + mobileVerseViewSrc));
 
 check('invariant(3-3): applyShareState() が _findVisibleVerseBlock へフォールバックする（book/chapter なし呼び出し保護）',
     /_findVerseInChapter\s*\([^)]+\)\s*\|\|\s*_findVisibleVerseBlock\s*\(/.test(html));
@@ -1086,7 +1092,7 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
 
 /* ── Behavioral: getShareState() ── */
 {
-    const gssSrc = extractFunctionSource(html, 'function getShareState() {');
+    const gssSrc = extractFunctionSource(html, 'function getShareState() {') || extractFunctionSource(appShellSrc, 'function getShareState() {');
     check('extract(3-3): getShareState() ソース抽出に成功', !!gssSrc);
 
     if (gssSrc) {
@@ -1315,9 +1321,9 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
 
 /* ── A-3: 3箇所のガードが _isAutoloadBlockedMode を使用している ── */
 {
-    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
-    const doaSrc = extractFunctionSource(html, 'async function _doAutoload(bookObj, nextCh) {');
-    const saSrc  = extractFunctionSource(html, 'function _setupAutoload() {');
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(') || extractFunctionSource(chapterScrollSrc, 'async function _loadAndAppendChapter(');
+    const doaSrc = extractFunctionSource(html, 'async function _doAutoload(bookObj, nextCh) {') || extractFunctionSource(chapterScrollSrc, 'async function _doAutoload(bookObj, nextCh) {');
+    const saSrc  = extractFunctionSource(html, 'function _setupAutoload() {') || extractFunctionSource(chapterScrollSrc, 'function _setupAutoload() {');
 
     check('extract(3-6): _loadAndAppendChapter ソース抽出に成功', !!lacSrc);
     check('extract(3-6): _doAutoload ソース抽出に成功', !!doaSrc);
@@ -1341,7 +1347,7 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
 
 /* ── B-1: WO jpData 経路 — 翻訳fetchをスキップして _buildFlowJpData を使う ── */
 {
-    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(') || extractFunctionSource(chapterScrollSrc, 'async function _loadAndAppendChapter(');
 
     if (lacSrc) {
         /* WO は翻訳 JSON を fetch しない: null 分岐が存在する */
@@ -1445,8 +1451,8 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
 
 /* ── C-2: compare mode は引き続き autoload ブロック ── */
 {
-    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
-    const saSrc  = extractFunctionSource(html, 'function _setupAutoload() {');
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(') || extractFunctionSource(chapterScrollSrc, 'async function _loadAndAppendChapter(');
+    const saSrc  = extractFunctionSource(html, 'function _setupAutoload() {') || extractFunctionSource(chapterScrollSrc, 'function _setupAutoload() {');
     if (lacSrc) {
         check('invariant(3-6): _loadAndAppendChapter に compare ガードあり',
             /_transMode\s*===\s*'compare'/.test(lacSrc));
@@ -1461,11 +1467,11 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
 
 /* ── C-3: 単一章書・最終章の停止条件が維持されている ── */
 check('invariant(3-6): 最終章ガード（chNum >= bookObj.ch → _stopAutoload）維持',
-    /chNum\s*>=\s*bookObj\.ch[\s\S]{0,20}_stopAutoload/.test(html.replace(/\n/g, ' ')));
+    /chNum\s*>=\s*bookObj\.ch[\s\S]{0,20}_stopAutoload/.test((html + '\n' + chapterScrollSrc).replace(/\n/g, ' ')));
 
 /* ── C-4: JA1955 追加章 onclick が wordOrder 以外のみ設定される条件が維持 ── */
 {
-    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(') || extractFunctionSource(chapterScrollSrc, 'async function _loadAndAppendChapter(');
     if (lacSrc) {
         check('invariant(3-6): JA1955 onclick ガード _lacColAMode.kind !== \'wordOrder\' が維持されている',
             /_lacColAMode\.kind\s*!==\s*'wordOrder'/.test(lacSrc));
@@ -1518,7 +1524,7 @@ check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力�
 
 /* ── G-2: getShareState が selectedVerse.ch を chapter へ使用する ── */
 {
-    const gsSrc = extractFunctionSource(html, 'function getShareState() {');
+    const gsSrc = extractFunctionSource(html, 'function getShareState() {') || extractFunctionSource(appShellSrc, 'function getShareState() {');
     check('invariant(3-6-G-6): getShareState が selectedVerse.ch をchapterへ使用する',
         gsSrc ? /selectedVerse\?\.ch\s*\?\?/.test(gsSrc) : false);
 }
@@ -1544,7 +1550,7 @@ check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力�
 
 /* ── G-5: JA1955 連続章の toBrowsing 呼び出しが変更されていない ── */
 {
-    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(') || extractFunctionSource(chapterScrollSrc, 'async function _loadAndAppendChapter(');
     /* _loadAndAppendChapter の JA1955 パスは AppState.toBrowsing(vNum, ..., bookObj, chNum) で呼ぶ。
        mobile chip click パスとは独立しており、変更されていないことを確認。 */
     check('invariant(3-6-G-11): JA1955 _loadAndAppendChapter の toBrowsing 呼び出しが維持されている',
@@ -1569,7 +1575,7 @@ check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力�
 
 /* ── I-A-1: _renderMobileVerseArea が _mvvChapter を使う ── */
 {
-    const rvaSrc = extractFunctionSource(html, 'async function _renderMobileVerseArea(vNum, words) {');
+    const rvaSrc = extractFunctionSource(html, 'async function _renderMobileVerseArea(vNum, words) {') || extractFunctionSource(mobileVerseViewSrc, 'async function _renderMobileVerseArea(vNum, words) {');
     check('extract(3-6-I): _renderMobileVerseArea ソース抽出に成功', !!rvaSrc);
     check('behavioral(3-6-I-A-1): _renderMobileVerseArea のchが _mvvChapter を優先する',
         rvaSrc ? /const ch\s*=\s*_mvvChapter\s*!=\s*null\s*\?\s*_mvvChapter\s*:\s*AppState\.location\.chapter/.test(rvaSrc) : false);
@@ -1580,14 +1586,14 @@ check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力�
 
 /* ── I-A-3: _syncMobileVerseTitle が _mvvChapter を使う（Phase 3-6-G 維持確認） ── */
 {
-    const svtSrc = extractFunctionSource(html, 'function _syncMobileVerseTitle() {');
+    const svtSrc = extractFunctionSource(html, 'function _syncMobileVerseTitle() {') || extractFunctionSource(mobileVerseViewSrc, 'function _syncMobileVerseTitle() {');
     check('invariant(3-6-I-A-3): _syncMobileVerseTitle の ch が _mvvChapter を優先する（Phase 3-6-G維持）',
         svtSrc ? /const ch\s*=\s*_mvvChapter\s*!=\s*null\s*\?\s*_mvvChapter\s*:\s*AppState\.location\.chapter/.test(svtSrc) : false);
 }
 
 /* ── I-A-4: _mobileInspectorRender の _vrCh が _mvvChapter を使う ── */
 {
-    const mirSrc = extractFunctionSource(html, 'function _mobileInspectorRender(vNum, words) {');
+    const mirSrc = extractFunctionSource(html, 'function _mobileInspectorRender(vNum, words) {') || extractFunctionSource(mobileVerseViewSrc, 'function _mobileInspectorRender(vNum, words) {');
     check('extract(3-6-I): _mobileInspectorRender ソース抽出に成功', !!mirSrc);
     check('behavioral(3-6-I-A-4): _mobileInspectorRender の _vrCh が _mvvChapter を優先する',
         mirSrc ? /const _vrCh\s*=\s*_mvvChapter\s*!=\s*null\s*\?\s*_mvvChapter/.test(mirSrc) : false);
@@ -1597,7 +1603,7 @@ check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力�
 
 /* ── I-A'-1: _mvvGetVerseText DOM path が _findVerseInChapter を使う ── */
 {
-    const mvtSrc = extractFunctionSource(html, 'async function _mvvGetVerseText(vNum) {');
+    const mvtSrc = extractFunctionSource(html, 'async function _mvvGetVerseText(vNum) {') || extractFunctionSource(mobileVerseViewSrc, 'async function _mvvGetVerseText(vNum) {');
     check('extract(3-6-I): _mvvGetVerseText ソース抽出に成功', !!mvtSrc);
     check('behavioral(3-6-I-A\'-1): _mvvGetVerseText DOM path が _findVerseInChapter を使う',
         mvtSrc ? /_findVerseInChapter\(/.test(mvtSrc) : false);
@@ -1612,7 +1618,7 @@ check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力�
 
 /* ── I-C-1: F-2 closure修正 — block.closest('.chapter-block') を使う ── */
 {
-    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    const lacSrc = extractFunctionSource(html, 'async function _loadAndAppendChapter(') || extractFunctionSource(chapterScrollSrc, 'async function _loadAndAppendChapter(');
     check('extract(3-6-I): _loadAndAppendChapter ソース抽出に成功', !!lacSrc);
     check('behavioral(3-6-I-C-1): onclick が _lacCb でなく block.closest を使う',
         lacSrc ? /block\.closest\('\.chapter-block'\)/.test(lacSrc) : false);
@@ -1633,7 +1639,7 @@ check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力�
 
 /* ── I-invariant-1: Memo canonical identity 確認（Phase 3-6-J 実装後の状態） ── */
 {
-    const cvrSrc = extractFunctionSource(html, 'function _currentVerseRef() {');
+    const cvrSrc = extractFunctionSource(html, 'function _currentVerseRef() {') || extractFunctionSource(appShellSrc, 'function _currentVerseRef() {');
     /* Phase 3-6-J: selectedVerse?.ch を優先、location.chapter はfallback として維持される */
     check('invariant(3-6-I-memo-1): _currentVerseRef が selectedVerse?.ch を優先する（Phase 3-6-J 実装済み）',
         cvrSrc ? /selectedVerse\?\.ch/.test(cvrSrc) : false);
@@ -1656,7 +1662,7 @@ check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力�
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── J-1: _currentVerseRef ソース確認 ── */
-const cvrSrc3J = extractFunctionSource(html, 'function _currentVerseRef() {');
+const cvrSrc3J = extractFunctionSource(html, 'function _currentVerseRef() {') || extractFunctionSource(appShellSrc, 'function _currentVerseRef() {');
 {
     check('extract(3-6-J): _currentVerseRef ソース抽出に成功', !!cvrSrc3J);
     check('behavioral(3-6-J-1): _currentVerseRef が selectedVerse?.ch を優先する',
@@ -1749,10 +1755,10 @@ check('N/A(3-6-J-22): 旧 storage.addBookmark({...}) 呼び出しが存在しな
 
 /* ── J-8: Phase 3-6-I MVV修正が維持されていることを確認 ── */
 {
-    const rvaSrc3J = extractFunctionSource(html, 'async function _renderMobileVerseArea(vNum, words) {');
+    const rvaSrc3J = extractFunctionSource(html, 'async function _renderMobileVerseArea(vNum, words) {') || extractFunctionSource(mobileVerseViewSrc, 'async function _renderMobileVerseArea(vNum, words) {');
     check('invariant(3-6-J-23): Phase 3-6-I A修正（_renderMobileVerseArea _mvvChapter優先）が維持される',
         rvaSrc3J ? /const ch\s*=\s*_mvvChapter\s*!=\s*null\s*\?\s*_mvvChapter\s*:\s*AppState\.location\.chapter/.test(rvaSrc3J) : false);
-    const lacSrc3J = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    const lacSrc3J = extractFunctionSource(html, 'async function _loadAndAppendChapter(') || extractFunctionSource(chapterScrollSrc, 'async function _loadAndAppendChapter(');
     check('invariant(3-6-J-24): Phase 3-6-I C修正（block.closest）が維持される',
         lacSrc3J ? /block\.closest\('\.chapter-block'\)/.test(lacSrc3J) : false);
 }
@@ -1763,7 +1769,7 @@ check('N/A(3-6-J-22): 旧 storage.addBookmark({...}) 呼び出しが存在しな
 
 /* ── C3-1: compare-chapter-block 生成ロジックが存在する ── */
 check('invariant(3-7-C-1): compare-chapter-block 生成ロジックが存在する',
-    /compare-chapter-block/.test(html));
+    /compare-chapter-block/.test(html + '\n' + chapterScrollSrc));
 
 /* ── C3-2: data-book / data-chapter が compare-chapter-block に設定される ── */
 {
@@ -1798,15 +1804,15 @@ check('invariant(3-7-C-4b): _compareChapterBlock は window.innerWidth > 768 条
 
 /* ── C3-5: _loadAndAppendChapter の compare guard が維持される（autoload はまだ未解除）── */
 {
-    const lacSrc5 = extractFunctionSource(html, 'async function _loadAndAppendChapter(');
+    const lacSrc5 = extractFunctionSource(html, 'async function _loadAndAppendChapter(') || extractFunctionSource(chapterScrollSrc, 'async function _loadAndAppendChapter(');
     check('invariant(3-7-C-5): _loadAndAppendChapter に compare guard が残っている',
         lacSrc5 ? /_isAutoloadBlockedMode\(_lacColAKind\)\s*\|\|\s*_transMode\s*===\s*'compare'/.test(lacSrc5) : false);
 }
 
 /* ── Phase 3-7-D: Desktop Compare ChapterFocusObserver ── */
 {
-    const setupObsSrc = extractFunctionSource(html, 'function _setupChapterObserver() {');
-    const rfcSrc      = extractFunctionSource(html, 'function _recalcFocusChapter() {');
+    const setupObsSrc = extractFunctionSource(html, 'function _setupChapterObserver() {') || extractFunctionSource(chapterScrollSrc, 'function _setupChapterObserver() {');
+    const rfcSrc      = extractFunctionSource(html, 'function _recalcFocusChapter() {') || extractFunctionSource(chapterScrollSrc, 'function _recalcFocusChapter() {');
 
     check('invariant(3-7-D-1): _setupChapterObserver に compare モード分岐が存在する',
         setupObsSrc ? /_transMode\s*===\s*'compare'/.test(setupObsSrc) : false);
@@ -1847,10 +1853,10 @@ check('invariant(3-7-C-4b): _compareChapterBlock は window.innerWidth > 768 条
 
 /* ── Phase 3-7-E: Desktop Compare Continuous Chapter Autoload ── */
 {
-    const lacCompareSrc  = extractFunctionSource(html, 'async function _loadAndAppendChapterCompare(');
-    const doAutoloadSrc  = extractFunctionSource(html, 'async function _doAutoload(');
-    const setupAutoSrc   = extractFunctionSource(html, 'function _setupAutoload() {');
-    const placeSentSrc   = extractFunctionSource(html, 'function _placeSentinel() {');
+    const lacCompareSrc  = extractFunctionSource(html, 'async function _loadAndAppendChapterCompare(') || extractFunctionSource(chapterScrollSrc, 'async function _loadAndAppendChapterCompare(');
+    const doAutoloadSrc  = extractFunctionSource(html, 'async function _doAutoload(') || extractFunctionSource(chapterScrollSrc, 'async function _doAutoload(');
+    const setupAutoSrc   = extractFunctionSource(html, 'function _setupAutoload() {') || extractFunctionSource(chapterScrollSrc, 'function _setupAutoload() {');
+    const placeSentSrc   = extractFunctionSource(html, 'function _placeSentinel() {') || extractFunctionSource(chapterScrollSrc, 'function _placeSentinel() {');
 
     /* E1: 既存 autoload guard が compare 専用 loader へ委譲 */
     check('invariant(3-7-E-1): _doAutoload が compare mode では _loadAndAppendChapterCompare を呼ぶ',
@@ -1901,8 +1907,8 @@ check('invariant(3-7-C-4b): _compareChapterBlock は window.innerWidth > 768 条
 {
     const mcsSetupSrc  = extractFunctionSource(html, 'function _mobileCompareSetup() {') || extractFunctionSource(panelPagesSrc, 'function _mobileCompareSetup() {');
     const mcsApplySrc  = extractFunctionSource(html, 'function _mobileVerseApply() {') || extractFunctionSource(panelPagesSrc, 'function _mobileVerseApply() {');
-    const lacCompareSrc = extractFunctionSource(html, 'async function _loadAndAppendChapterCompare(');
-    const doAutoloadSrc = extractFunctionSource(html, 'async function _doAutoload(');
+    const lacCompareSrc = extractFunctionSource(html, 'async function _loadAndAppendChapterCompare(') || extractFunctionSource(chapterScrollSrc, 'async function _loadAndAppendChapterCompare(');
+    const doAutoloadSrc = extractFunctionSource(html, 'async function _doAutoload(') || extractFunctionSource(chapterScrollSrc, 'async function _doAutoload(');
 
     /* F1: .mobile-verse-group に data-book / data-chapter が設定される */
     const renderSrc = extractFunctionSource(html, 'function render(') || extractFunctionSource(colRendSrc, 'function render(');
