@@ -1,4 +1,26 @@
+/* 初回ロード画面（スプラッシュ）の最低表示つき終了処理。
+   読み込み自体は並行して進み、オーバーレイの解除だけを
+   表示開始から約1秒までは待つ（過ぎていれば待たない）。
+   終了時はフェードアウト用の done を付けてから外す。 */
+let _splashStartedAt = 0;
+function _finishFirstLoadSplash() {
+    if (!document.body.classList.contains('app-first-load')) return;
+    const MIN_MS = 1000;
+    const wait = Math.max(0, MIN_MS - (performance.now() - _splashStartedAt));
+    setTimeout(() => {
+        document.body.classList.add('app-first-load-done');
+        setTimeout(() => {
+            document.body.classList.remove('app-first-load');
+            document.body.classList.remove('app-first-load-done');
+        }, 420);
+    }, wait);
+}
+
 async function init() {
+    /* 初回ロード画面（スマホ）用マーカー: 本文の表示直前に
+       _finishFirstLoadSplash() が最低表示を経て外す */
+    _splashStartedAt = performance.now();
+    document.body.classList.add('app-first-load');
     /* URL Import: ?import= があれば book/ch/verse へ変換し、通常のURL形式へ
        書き換えてから以降の初期化（Router.parse 以降）へ引き継ぐ。 */
     _applyUrlImportIfPresent();
@@ -121,6 +143,8 @@ async function init() {
         _applyHighlights(); /* BUG-1: 初回ロード時、Storage準備済みで再適用 */
         requestAnimationFrame(() => requestAnimationFrame(() => {
             document.getElementById('bible-text-area').style.opacity = '1';
+            /* 本文が見えるタイミングで初回ロード画面を終える（最低表示つき） */
+            _finishFirstLoadSplash();
             /* 辞書取得・TSV解析による本文表示の遅延を避け、初回描画後に開始する。 */
             loadDict();
         }));
@@ -150,6 +174,7 @@ async function init() {
         console.error(err);
         const errArea = document.getElementById('bible-text-area');
         errArea.innerHTML = `<p style="color:red">データが見つかりません（${_escH(book)} ${_escH(ch)}章）</p>`;
+        _finishFirstLoadSplash();
         requestAnimationFrame(() => requestAnimationFrame(() => { errArea.style.opacity = '1'; }));
     }
 }
