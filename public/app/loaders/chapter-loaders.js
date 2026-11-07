@@ -140,6 +140,14 @@ async function _loadGlossForRender(book, ch) {
     _glossSidecarCache.set(key, data);
     return data;
 }
+/* UI 言語の翻訳のアラインメント（セグメント構造）も先読みする。
+   セグメント単位の重複排除（飛び越し配置のセグメント判定）に使う。
+   日本語UIでは no-op。 */
+async function _loadAlignForRender(book, ch) {
+    const transId = _glossTransIdForUi();
+    if (!transId || !book || ch == null) return null;
+    return _loadJaAlignForRender(transId, book, ch);
+}
 /* 英語の語義リスト（Abbott-Smith 原文から生成した gloss-en-senses.json）。
    日本語UIの語義行が最大3件出すのに合わせ、英語でも最大3件を返す。
    データ未到着・該当なしの語は lite の代表グロス（_enShortGloss）に落とす。 */

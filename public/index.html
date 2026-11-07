@@ -11542,6 +11542,7 @@ async function init() {
         if (_transMode === 'compare' && !_isGreekReadingMode(_colB.kind)) await _loadJaAlignForRender(_transB, book, ch);
         /* Phase 1b Step 3: 英語UIでは WEB グロスも先読みする（日本語UIでは no-op）。 */
         await _loadGlossForRender(book, ch);
+        await _loadAlignForRender(book, ch);
         if (elData && elData.length) _jaSegIndexTokens(book, ch, elData);
 
         /* DA-1: discourse は flow-tree（clause/sentence 構造）を先読みして render() へ渡す。 */
@@ -13360,6 +13361,34 @@ function _glossSidecarIsFromFile(w) {
     if (!book || ch == null) return false;
     const d = _glossSidecarCache.get(transId + ':' + book + ':' + ch);
     return !!(d && d.glosses && typeof d.glosses[w.ref] === 'string' && d.glosses[w.ref]);
+}
+
+/* トークンが属するアラインメント・セグメントのキー（同一セグメントの
+   トークンは、間に別セグメントのトークンが挟まっていても同じキーになる）。
+   アラインメント未読込・該当なしは null（呼び出し側は隣接判定に倒す）。 */
+const _alignSegKeyCache = new Map();
+function _alignSegmentKeyFor(w) {
+    const transId = _glossTransIdForUi();
+    if (!transId || !w) return null;
+    const book = w.book || w.bookKey;
+    const ch = (w.chapter != null) ? w.chapter : w.ch;
+    const ti = Number(w.tokenIndex);
+    if (!book || ch == null || w.verse == null || !Number.isFinite(ti)) return null;
+    const ck = transId + ':' + book + ':' + ch;
+    let m = _alignSegKeyCache.get(ck);
+    if (!m) {
+        const d = _jaAlignCache.get(ck);
+        if (!d || !d.verses) return null;
+        m = new Map();
+        for (const [v, vdata] of Object.entries(d.verses)) {
+            const segs = (vdata && Array.isArray(vdata.segments)) ? vdata.segments : [];
+            segs.forEach((seg, si) => {
+                (seg.tokens || []).forEach(t => m.set(v + ':' + Number(t), ck + ':' + v + ':' + si));
+            });
+        }
+        _alignSegKeyCache.set(ck, m);
+    }
+    return m.get(String(w.verse) + ':' + ti) || null;
 }
 
 /* 英語UIでの辞書の短いグロス（lexicon-lite の gloss フィールド、lemma 単位）。
@@ -15808,6 +15837,7 @@ async function renderCurrentPage() {
         if (_transMode === 'compare' && !_isGreekReadingMode(_colB.kind)) await _loadJaAlignForRender(_transB, book, ch);
         /* Phase 1b Step 3: 英語UIでは WEB グロスも先読みする（日本語UIでは no-op）。 */
         await _loadGlossForRender(book, ch);
+        await _loadAlignForRender(book, ch);
         if (elData && elData.length) _jaSegIndexTokens(book, ch, elData);
 
         /* DA-1: discourse は passage単位の clause 接続を描くため、flow-tree（clause/sentence

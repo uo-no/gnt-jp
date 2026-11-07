@@ -521,20 +521,57 @@ function buildRepresentation(columnMode, verse, analysis, translationText) {
                with the segment meaning. Only applies to sidecar file glosses
                (glossFromSidecar=true), not w.english fallback.
                JA UI: glossFromSidecar is always false → loop is a no-op. */
+            /* Segment identity comes from the alignment when available: a
+               segment's tokens are not always consecutive (a postpositive
+               such as γάρ can sit inside another segment's span — ROM 1:9),
+               so adjacency alone re-displays the segment text after the gap.
+               Without alignment data, fall back to the adjacency rule.
+               Verb decorations (dp classes: mood background, tense underline,
+               voice asterisk) belong to the segment's visible text: the first
+               verb chip of a segment donates its dp classes to the display
+               chip, and continuation chips keep no decorations (an empty
+               span would otherwise show a bare asterisk). */
             let _prevSidecarGloss = null;
-            for (const chip of chips) {
-                if (chip.glossFromSidecar) {
-                    if (chip.gloss === _prevSidecarGloss) {
-                        chip.gloss = '';
-                        chip.segmentContinuation = true;
-                        chip.glossFromSidecar = false;
-                    } else {
-                        _prevSidecarGloss = chip.gloss;
-                    }
-                } else {
-                    _prevSidecarGloss = null;
+            const _segShownKeys = new Set();
+            /* Groups are tracked per segment (keyed by the alignment segment
+               when available), because segments interleave: another segment's
+               chip can sit between a segment's head and its verb. */
+            const _segGroups = new Map();
+            let _adjGroup = null;
+            const _applyDonation = (g) => {
+                if (g && g.donor && g.head !== g.donor
+                    && !/dp-(mood|tense|voice)-/.test(g.head.dpGrammarClasses)) {
+                    g.head.dpGrammarClasses = g.donor.dpGrammarClasses;
                 }
-            }
+            };
+            chips.forEach((chip, ci) => {
+                if (!chip.glossFromSidecar) { _prevSidecarGloss = null; _adjGroup = null; return; }
+                const _dpSnapshot = chip.dpGrammarClasses;
+                const _isVerbDp = /dp-(mood|tense|voice)-/.test(_dpSnapshot);
+                const _segKey = (typeof _alignSegmentKeyFor === 'function')
+                    ? _alignSegmentKeyFor(tokens[ci]) : null;
+                const _isCont = _segKey
+                    ? _segShownKeys.has(_segKey)
+                    : (chip.gloss === _prevSidecarGloss);
+                if (_isCont) {
+                    chip.gloss = '';
+                    chip.segmentContinuation = true;
+                    chip.glossFromSidecar = false;
+                    chip.dpGrammarClasses = 'dp-word';
+                    const g = _segKey ? _segGroups.get(_segKey) : _adjGroup;
+                    if (g && !g.donor && _isVerbDp) g.donor = { dpGrammarClasses: _dpSnapshot };
+                } else {
+                    if (_segKey) {
+                        _segShownKeys.add(_segKey);
+                        _segGroups.set(_segKey, { head: chip, donor: _isVerbDp ? chip : null });
+                    } else {
+                        _adjGroup = { head: chip, donor: _isVerbDp ? chip : null };
+                    }
+                    _prevSidecarGloss = chip.gloss;
+                }
+            });
+            _segGroups.forEach(_applyDonation);
+            _applyDonation(_adjGroup);
             return {
                 kind: 'wordOrder',
                 verseRef: verse ? verse.verseRef : null,
