@@ -243,7 +243,9 @@ pointer-events: auto;
     #study-verse-nav button:focus-visible {
         opacity: 1; outline: 2px solid var(--focus-ring); outline-offset: -3px;
     }
-    @media (min-width: 769px) { #study-verse-nav { display: none !important; } }
+    /* RF-4: .is-visible の display:flex (1,1,0) に勝つため #app を付けて
+       詳細度 (2,0,0) とし、!important を除去（769–900px の計算値は不変）。 */
+    @media (min-width: 769px) { #app #study-verse-nav { display: none; } }
 
     /* compare-mode を強制シングル表示に（769px〜900px：縦積み未満の中間サイズ） */
     #main-reading-area.compare-mode {
@@ -258,8 +260,10 @@ pointer-events: auto;
         display: none !important;
     }
 
+    /* RF-4: ≤900px ではこの宣言のみが有効（≥901px 側は別ブロックで
+       詳細度・定義順により成立）なため !important を除去。 */
     #mobile-nav-bar {
-        display: flex !important;
+        display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 0;
@@ -272,7 +276,7 @@ pointer-events: auto;
     }
 
     #mobile-panel-back {
-        display: flex !important;
+        display: flex;
         align-items: center;
         padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-sm);
         font-size: var(--text-body-lg);
@@ -492,8 +496,8 @@ pointer-events: auto;
 
 @media (min-width: 901px) {
     #mobile-menu-btn { display: flex; }
-    #mobile-nav-bar  { display: none !important; }
-    #mobile-panel-back { display: none !important; }
+    #mobile-nav-bar  { display: none; }
+    #mobile-panel-back { display: none; }
     #bottom-depth-panel {
         border: 1px solid var(--border-soft);
         border-bottom: none;
@@ -820,6 +824,10 @@ pointer-events: auto;
     /* 語の読書メモは節メモと共通の開閉 UI を使う。 */
     #mobile-inspector-area #mvv-reading-slot {
         /* display:contents にして見出しの sticky の基準をメモ単体ではなく語詳細全体にする。 */
+        /* RF-4 残置：スロットの display は JS（_fillMvvReadingSlot）が
+           インライン style で block / none に切り替える。contents を常に
+           優先させるには !important が要る（外すとインライン側が勝ち、
+           内容があるときに block 化してレイアウトが変わる）。 */
         display: contents !important;
     }
     #mobile-inspector-area .rn-word-reading-note-heading {
@@ -5899,10 +5907,15 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 /* ── MN: ≤900px アクティブ ── */
 @media (max-width: 900px) {
     /* Desktop breadcrumb / hamburger を隠す */
-    #mobile-menu-btn     { display: none !important; }
-    #header-lang-toggle  { display: none !important; }
-    #global-breadcrumb   { display: none !important; }
-    #research-open-btn   { display: none !important; }
+    /* RF-4: 前4件は競合が base の同詳細度 (1,0,0) ルールのみで、
+       このブロックが後方定義のため勝つ ― !important を除去。
+       #open-panel-btn は残置：JS（closeStudyPanel）が幅に依らず
+       インライン display:block を設定する経路があり、≤900px で
+       確実に隠すには !important が要る。 */
+    #mobile-menu-btn     { display: none; }
+    #header-lang-toggle  { display: none; }
+    #global-breadcrumb   { display: none; }
+    #research-open-btn   { display: none; }
     #open-panel-btn      { display: none !important; }
 
     /* Mobile header compact（base rule padding: 18px 40px を上書き） */
@@ -5926,7 +5939,9 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
     }
 
     /* Study Panel open → FAB 非表示（R-7 対策） */
-    #app.mobile-study-open #mobile-fab { display: none !important; }
+    /* RF-4: 詳細度 (2,1,0) が ≤900px の #mobile-fab { display:flex }
+       (1,0,0) に勝つため !important を除去（RF-3 の base 側と同理）。 */
+    #app.mobile-study-open #mobile-fab { display: none; }
 
     /* ≤768px: full-screen Study Panel でも同様 */
 }
@@ -5953,15 +5968,26 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
 #app.mobile-study-open #mobile-fab-overlay { display: none !important; }
 
 /* ── MN: ≥901px: 新規要素を完全非表示 ── */
+/* RF-4: picker / more-menu は base の開状態ルール（.mbp-open /
+   .mmp-open / .open、詳細度 (1,1,0)）と同詳細度で定義順に勝つよう
+   開状態セレクタを併記し、!important を除去。その他は競合が base の
+   同詳細度ルール（後方定義のこちらが勝つ）か幅外のルールのみ。
+   overlay 2件は残置：表示が JS のインライン style（_fabOpen /
+   _moreMenuOpen の display:block）で駆動されており、開いたまま
+   ≥901px にリサイズされた場合に確実に隠すには !important が要る
+   （RF-3 の #mobile-fab-overlay base 残置と同じ理由）。 */
 @media (min-width: 901px) {
-    #mobile-location-btn  { display: none !important; }
-    #mobile-fab           { display: none !important; }
+    #mobile-location-btn  { display: none; }
+    #mobile-fab           { display: none; }
     #mobile-fab-overlay   { display: none !important; }
-    #mobile-book-picker   { display: none !important; }
-    #mobile-mode-picker   { display: none !important; }
-    #mobile-more-btn      { display: none !important; }
+    #mobile-book-picker,
+    #mobile-book-picker.mbp-open { display: none; }
+    #mobile-mode-picker,
+    #mobile-mode-picker.mmp-open { display: none; }
+    #mobile-more-btn      { display: none; }
     #mobile-more-overlay  { display: none !important; }
-    #mobile-more-menu     { display: none !important; }
+    #mobile-more-menu,
+    #mobile-more-menu.open { display: none; }
 }
 
 /* ── Phase J: RK Reading Mode ── */
