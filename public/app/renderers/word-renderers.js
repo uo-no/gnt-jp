@@ -500,6 +500,31 @@ function buildRepresentation(columnMode, verse, analysis, translationText) {
                 const _segs = _jaAlignSegmentsFor(columnMode.translationId, _vr.book, _vr.chapter, _vr.verse);
                 if (_segs) rep.segments = _segs;
             }
+            /* 試作（初見10秒対策・案4）: 口語訳（JA1955）のセグメントにも、語順で読む
+               と同じ動詞の視覚文法（dp 装飾）を出す。判定は既存 SSOT
+               buildDepthGrammarClasses() のみを使い、新しい装飾は作らない。
+               セグメント内の動詞トークン（seg.tokens → _jaSegToken で解決）のうち、
+               最初に dp-(mood|tense|voice) クラスを持つもののクラス一式を、その
+               セグメントの表示テキストへ付ける（EN サイドカーの donation と同じ
+               「セグメントの見えるテキストが動詞装飾を持つ」考え方）。
+               動詞のないセグメント・装飾クラスのない動詞は従来どおり無装飾。
+               試作スコープは JA1955 のみ（WEB/RVR1909 の表示は不変）。 */
+            if (rep.segments && columnMode.translationId === 'JA1955'
+                && typeof _jaSegToken === 'function'
+                && typeof buildDepthGrammarClasses === 'function') {
+                rep.segments = rep.segments.map(seg => {
+                    if (!Array.isArray(seg.tokens) || !seg.tokens.length) return seg;
+                    for (const ti of seg.tokens) {
+                        const tok = _jaSegToken(_vr.book, _vr.chapter, _vr.verse, ti);
+                        if (!tok || !tok.morph) continue;
+                        const cls = buildDepthGrammarClasses(tok.morph);
+                        if (cls.some(c => /^dp-(mood|tense|voice)-/.test(c))) {
+                            return Object.assign({}, seg, { dpClasses: cls.join(' ') });
+                        }
+                    }
+                    return seg;
+                });
+            }
             return rep;
         }
         if (columnMode.kind === 'wordOrder') {
@@ -770,7 +795,14 @@ const TranslationRenderer = {
             const inner = segs.map(seg => {
                 const t = esc(seg.t != null ? seg.t : '');
                 if (Array.isArray(seg.tokens) && seg.tokens.length) {
-                    return `<span class="ja-seg" data-ja-book="${vr.book}" data-ja-ch="${vr.chapter}" data-ja-v="${vr.verse}" data-ja-tokens="${seg.tokens.join(',')}" onclick="_jaSegClick(this,event)">${t}</span>`;
+                    /* 試作（案4）: 動詞セグメントは語順チップと同じ構造で、内側 span に
+                       dp クラスを載せる（クラスは buildDepthGrammarClasses 由来の
+                       固定文字列のみ許可）。クリック／ハイライトは外側 .ja-seg が担い従来どおり。 */
+                    const dp = (typeof seg.dpClasses === 'string'
+                        && /^dp-word( dp-(mood|tense|voice)-[a-z]+)*$/.test(seg.dpClasses))
+                        ? seg.dpClasses : '';
+                    const body = dp ? `<span class="${dp}">${t}</span>` : t;
+                    return `<span class="ja-seg" data-ja-book="${vr.book}" data-ja-ch="${vr.chapter}" data-ja-v="${vr.verse}" data-ja-tokens="${seg.tokens.join(',')}" onclick="_jaSegClick(this,event)">${body}</span>`;
                 }
                 return t;
             }).join('');
