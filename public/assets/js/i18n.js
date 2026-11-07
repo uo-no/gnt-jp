@@ -99,8 +99,21 @@
         }
     }
 
+    var _origMeta = null;
+    function _captureOrigMeta() {
+        if (_origMeta) return;
+        var og = document.querySelector('meta[property="og:title"]');
+        var tw = document.querySelector('meta[name="twitter:title"]');
+        _origMeta = {
+            docTitle: document.title,
+            ogTitle: og ? og.getAttribute('content') : null,
+            twTitle: tw ? tw.getAttribute('content') : null
+        };
+    }
+
     function applyMeta() {
         document.documentElement.lang = state.lang === 'ja' ? 'ja' : state.lang;
+        _captureOrigMeta();
         var desc = t('meta.description');
         if (desc) {
             var md = document.querySelector('meta[name="description"]');
@@ -112,7 +125,19 @@
         }
         if (state.lang === 'en') {
             var titleStr = t('meta.title');
-            if (titleStr) document.title = titleStr;
+            if (titleStr) {
+                document.title = titleStr;
+                var ogT = document.querySelector('meta[property="og:title"]');
+                if (ogT) ogT.setAttribute('content', titleStr);
+                var twT = document.querySelector('meta[name="twitter:title"]');
+                if (twT) twT.setAttribute('content', titleStr);
+            }
+        } else if (_origMeta) {
+            if (_origMeta.docTitle) document.title = _origMeta.docTitle;
+            var ogT2 = document.querySelector('meta[property="og:title"]');
+            if (ogT2 && _origMeta.ogTitle != null) ogT2.setAttribute('content', _origMeta.ogTitle);
+            var twT2 = document.querySelector('meta[name="twitter:title"]');
+            if (twT2 && _origMeta.twTitle != null) twT2.setAttribute('content', _origMeta.twTitle);
         }
     }
 
