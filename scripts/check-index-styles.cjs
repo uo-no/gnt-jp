@@ -24,11 +24,12 @@
 //    hidden under a state class even if an inline display:block lingers.
 //    The probe asserts exactly that behavior (inline block + state class
 //    => computed none).
-//  - onboarding's _forceShowCompareOnMobile override keeps its two
-//    !important declarations: its competitors are index's @media
-//    (max-width: 900px) compare-mode rules, which still carry !important
-//    (RF-4/RF-5 scope). The override text is mirrored below as a fixture
-//    constant; if that function changes, update the mirror.
+//  - onboarding's _forceShowCompareOnMobile override: RESOLVED in RF-5
+//    as a pair with the index side. Both sides dropped !important and
+//    raised specificity with the same #app scoping; the override still
+//    wins by being appended to <head> at runtime (later position). The
+//    override text is extracted below from the onboarding file under
+//    test, so the probe always exercises the pairing that file implies.
 //
 // Limitation (by design, see phase-rf-design.md §9): jsdom does not
 // evaluate @media rules by viewport, and does not apply :hover/:active
@@ -56,6 +57,26 @@
 // the <=900 #mvv-reading-slot display:contents (the slot's display is
 // JS-inline-driven block/none; contents must always win so the slot
 // stays layout-transparent).
+//
+// RF-5 (phase 5) covers the structural group: the compare-mode grid /
+// display rules in the @media 900px and @media 768px blocks, the paired
+// onboarding override, the inspector heading reset, the @600 typography
+// rules and the prefers-reduced-motion rules. Expected values were
+// measured on the pre-RF-5 tree (main a3e2ab24) with this same probe
+// method and must be reproduced exactly. All 22 structural
+// declarations were resolved. The word-peek @media-900 left/top pair
+// first looked like a residual on the assumption that the peek element
+// persists with its inline styles, but peek-guide.js creates the
+// element fresh on every open and removes it on close, and it sets
+// inline left/top only when opening at >900px — a width where this
+// media block does not apply. At <=900px no inline value and no other
+// left/top rule competes, so the pair needs no !important either;
+// phase 5 asserts the stylesheet values in the <=900 bands and that
+// the inline values set at >900px (bandC) still win there. Note:
+// jsdom evaluates a grouped selector list by its maximum specificity,
+// so the @media-900 display:none for #parallel-text-area and for the
+// right-column trio are separate rules in index.html (equivalent in
+// real browsers, where specificity is per-selector).
 //
 // Usage: node scripts/check-index-styles.cjs [path-to-index.html] [path-to-onboarding.js]
 // jsdom must be resolvable (NODE_PATH or the bible-app harness install).
@@ -104,20 +125,20 @@ const obCssEnd = obSrc.indexOf('`;', obCssStart);
 const obCss = obSrc.slice(obCssStart + 'const _css = `'.length, obCssEnd);
 if (!obCss.includes('.ob-pulse')) { console.error('check-index-styles: onboarding _css extraction looks wrong (no .ob-pulse)'); process.exit(2); }
 
-// Mirror of the style text injected by onboarding's
-// _forceShowCompareOnMobile() (#ob-mobile-compare-override, appended to
-// <head> at runtime, i.e. after every page stylesheet).
-const COMPARE_OVERRIDE_CSS = [
-  '#main-reading-area.compare-mode {',
-  '    grid-template-columns: 1fr 1fr !important;',
-  '}',
-  '#main-reading-area.compare-mode #parallel-text-area,',
-  '#main-reading-area.compare-mode .verse-pair-right,',
-  '#main-reading-area.compare-mode .verse-grid-spacer-right,',
-  '#main-reading-area.compare-mode .verse-grid-footer-right {',
-  '    display: block !important;',
-  '}',
-].join('\n');
+// The style text injected by onboarding's _forceShowCompareOnMobile()
+// (#ob-mobile-compare-override, appended to <head> at runtime, i.e.
+// after every page stylesheet), extracted from the onboarding file
+// under test so the probe exercises the pairing that file implies
+// (RF-5: was a hard-coded mirror before).
+const obFnStart = obSrc.indexOf('function _forceShowCompareOnMobile()');
+if (obFnStart === -1) { console.error('check-index-styles: _forceShowCompareOnMobile not found in onboarding'); process.exit(2); }
+const obArrStart = obSrc.indexOf('style.textContent = [', obFnStart);
+const obArrEnd = obSrc.indexOf('].join', obArrStart);
+if (obArrStart === -1 || obArrEnd === -1) { console.error('check-index-styles: compare override text not found in onboarding'); process.exit(2); }
+const obArrText = obSrc.slice(obArrStart + 'style.textContent = ['.length, obArrEnd);
+const COMPARE_OVERRIDE_CSS = [...obArrText.matchAll(/'((?:[^'\\]|\\.)*)'/g)]
+  .map(m => m[1].replace(/\\(.)/g, '$1')).join('\n');
+if (!COMPARE_OVERRIDE_CSS.includes('compare-mode')) { console.error('check-index-styles: compare override extraction looks wrong'); process.exit(2); }
 
 let failures = 0;
 let total = 0;
@@ -313,6 +334,13 @@ const bandC = unwrapMedia(unwrapMedia(
   removeMedia(removeMedia(removeMedia(stripComments(baseCss),
     '@media (max-width: 900px)'), '@media (max-width: 768px)'), '@media (max-width: 600px)'),
   '@media (min-width: 901px)'), '@media (min-width: 769px)');
+// RF-5: reduced-motion band (the RM media blocks unwrapped in place).
+// The <=900px simulations reuse bandA (the @media 900/768/600 blocks are
+// all unwrapped there, which is exactly the <=900 cascade for the
+// inspector-heading and word-peek rules, neither of which is affected
+// by the 768/600-only rules).
+const bandRMcss = unwrapMedia(stripComments(baseCss),
+  '@media (prefers-reduced-motion: reduce)');
 
 function rf4Fixture(appClass) {
   return `
@@ -463,8 +491,327 @@ bandChecks('rf4 >=901px', bandC, {
   ],
 });
 
+  // ---- Phase 5 (RF-5): compare-mode matrix across width bands ----
+  // Expected values were measured on the pre-RF-5 tree (main a3e2ab24)
+  // with the RF-3/RF-4 probe method; RF-5 must reproduce them exactly
+  // after removing the compare-mode !important declarations
+  // (specificity raises on the index side and the paired onboarding
+  // override, whose selectors were raised the same way).
+  const CMP_FIXTURE = '<div id="app">' +
+    '<div id="bottom-depth-panel"><div id="panel-resize-handle"></div></div>' +
+    '<div id="main-reading-area">' +
+    '<div id="parallel-text-area"></div>' +
+    '<div class="verse-block verse-pair-right" id="vpr"></div>' +
+    '<div class="verse-grid-spacer-right" id="vgsr"></div>' +
+    '<div class="verse-grid-footer-right" id="vgfr"></div>' +
+    '<div class="verse-block" id="vb-plain"></div>' +
+    '<div class="verse-block" id="vb-hidden" data-hidden-verse="true"></div>' +
+    '</div></div>';
+  { const d = makeDom(bandA, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = 'compare-mode';
+    check('RF-5 A(<=768) cls=compare-mode #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'flex');
+    check('RF-5 A(<=768) cls=compare-mode #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', 'none');
+    check('RF-5 A(<=768) cls=compare-mode #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'column');
+    check('RF-5 A(<=768) cls=compare-mode #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'none');
+    check('RF-5 A(<=768) cls=compare-mode #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'none');
+    check('RF-5 A(<=768) cls=compare-mode #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'none');
+  }
+  { const d = makeDom(bandA + '\n' + COMPARE_OVERRIDE_CSS, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = 'compare-mode';
+    check('RF-5 A(<=768) cls=compare-mode +override #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'flex');
+    check('RF-5 A(<=768) cls=compare-mode +override #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 1fr');
+    check('RF-5 A(<=768) cls=compare-mode +override #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'column');
+    check('RF-5 A(<=768) cls=compare-mode +override #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode +override #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode +override #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode +override #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode +override #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'none');
+    check('RF-5 A(<=768) cls=compare-mode +override #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode +override #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'none');
+  }
+  { const d = makeDom(bandA, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = 'compare-mode panel-open';
+    check('RF-5 A(<=768) cls=compare-mode panel-open #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'flex');
+    check('RF-5 A(<=768) cls=compare-mode panel-open #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', 'none');
+    check('RF-5 A(<=768) cls=compare-mode panel-open #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'column');
+    check('RF-5 A(<=768) cls=compare-mode panel-open #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'none');
+    check('RF-5 A(<=768) cls=compare-mode panel-open #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode panel-open #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode panel-open #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode panel-open #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'none');
+    check('RF-5 A(<=768) cls=compare-mode panel-open #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode panel-open #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'none');
+  }
+  { const d = makeDom(bandA + '\n' + COMPARE_OVERRIDE_CSS, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = 'compare-mode panel-open';
+    check('RF-5 A(<=768) cls=compare-mode panel-open +override #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'flex');
+    check('RF-5 A(<=768) cls=compare-mode panel-open +override #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 1fr');
+    check('RF-5 A(<=768) cls=compare-mode panel-open +override #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'column');
+    check('RF-5 A(<=768) cls=compare-mode panel-open +override #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode panel-open +override #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode panel-open +override #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode panel-open +override #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode panel-open +override #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'none');
+    check('RF-5 A(<=768) cls=compare-mode panel-open +override #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 A(<=768) cls=compare-mode panel-open +override #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'none');
+  }
+  { const d = makeDom(bandA, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = '';
+    check('RF-5 A(<=768) cls=none #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'grid');
+    check('RF-5 A(<=768) cls=none #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 42%');
+    check('RF-5 A(<=768) cls=none #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'row');
+    check('RF-5 A(<=768) cls=none #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 A(<=768) cls=none #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=none #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=none #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=none #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 A(<=768) cls=none #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 A(<=768) cls=none #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'none');
+  }
+  { const d = makeDom(bandA + '\n' + COMPARE_OVERRIDE_CSS, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = '';
+    check('RF-5 A(<=768) cls=none +override #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'grid');
+    check('RF-5 A(<=768) cls=none +override #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 42%');
+    check('RF-5 A(<=768) cls=none +override #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'row');
+    check('RF-5 A(<=768) cls=none +override #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 A(<=768) cls=none +override #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=none +override #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=none +override #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 A(<=768) cls=none +override #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 A(<=768) cls=none +override #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 A(<=768) cls=none +override #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'none');
+  }
+  { const d = makeDom(bandB, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = 'compare-mode';
+    check('RF-5 B(769-900) cls=compare-mode #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'flex');
+    check('RF-5 B(769-900) cls=compare-mode #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr');
+    check('RF-5 B(769-900) cls=compare-mode #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'column');
+    check('RF-5 B(769-900) cls=compare-mode #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'none');
+    check('RF-5 B(769-900) cls=compare-mode #vpr display', d.window.document.getElementById('vpr'), 'display', 'none');
+    check('RF-5 B(769-900) cls=compare-mode #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'none');
+    check('RF-5 B(769-900) cls=compare-mode #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'none');
+    check('RF-5 B(769-900) cls=compare-mode #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'flex');
+  }
+  { const d = makeDom(bandB + '\n' + COMPARE_OVERRIDE_CSS, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = 'compare-mode';
+    check('RF-5 B(769-900) cls=compare-mode +override #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'flex');
+    check('RF-5 B(769-900) cls=compare-mode +override #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 1fr');
+    check('RF-5 B(769-900) cls=compare-mode +override #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'column');
+    check('RF-5 B(769-900) cls=compare-mode +override #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode +override #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode +override #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode +override #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode +override #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode +override #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode +override #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'flex');
+  }
+  { const d = makeDom(bandB, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = 'compare-mode panel-open';
+    check('RF-5 B(769-900) cls=compare-mode panel-open #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'flex');
+    check('RF-5 B(769-900) cls=compare-mode panel-open #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr');
+    check('RF-5 B(769-900) cls=compare-mode panel-open #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'column');
+    check('RF-5 B(769-900) cls=compare-mode panel-open #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'none');
+    check('RF-5 B(769-900) cls=compare-mode panel-open #vpr display', d.window.document.getElementById('vpr'), 'display', 'none');
+    check('RF-5 B(769-900) cls=compare-mode panel-open #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'none');
+    check('RF-5 B(769-900) cls=compare-mode panel-open #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'none');
+    check('RF-5 B(769-900) cls=compare-mode panel-open #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode panel-open #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode panel-open #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'flex');
+  }
+  { const d = makeDom(bandB + '\n' + COMPARE_OVERRIDE_CSS, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = 'compare-mode panel-open';
+    check('RF-5 B(769-900) cls=compare-mode panel-open +override #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'flex');
+    check('RF-5 B(769-900) cls=compare-mode panel-open +override #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 1fr');
+    check('RF-5 B(769-900) cls=compare-mode panel-open +override #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'column');
+    check('RF-5 B(769-900) cls=compare-mode panel-open +override #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode panel-open +override #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode panel-open +override #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode panel-open +override #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode panel-open +override #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode panel-open +override #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 B(769-900) cls=compare-mode panel-open +override #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'flex');
+  }
+  { const d = makeDom(bandB, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = '';
+    check('RF-5 B(769-900) cls=none #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'grid');
+    check('RF-5 B(769-900) cls=none #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 42%');
+    check('RF-5 B(769-900) cls=none #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'row');
+    check('RF-5 B(769-900) cls=none #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 B(769-900) cls=none #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 B(769-900) cls=none #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 B(769-900) cls=none #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 B(769-900) cls=none #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 B(769-900) cls=none #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 B(769-900) cls=none #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'flex');
+  }
+  { const d = makeDom(bandB + '\n' + COMPARE_OVERRIDE_CSS, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = '';
+    check('RF-5 B(769-900) cls=none +override #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'grid');
+    check('RF-5 B(769-900) cls=none +override #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 42%');
+    check('RF-5 B(769-900) cls=none +override #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'row');
+    check('RF-5 B(769-900) cls=none +override #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 B(769-900) cls=none +override #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 B(769-900) cls=none +override #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 B(769-900) cls=none +override #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 B(769-900) cls=none +override #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 B(769-900) cls=none +override #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 B(769-900) cls=none +override #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'flex');
+  }
+  { const d = makeDom(bandC, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = 'compare-mode';
+    check('RF-5 C(>=901) cls=compare-mode #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'grid');
+    check('RF-5 C(>=901) cls=compare-mode #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 1fr');
+    check('RF-5 C(>=901) cls=compare-mode #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'row');
+    check('RF-5 C(>=901) cls=compare-mode #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'flex');
+  }
+  { const d = makeDom(bandC + '\n' + COMPARE_OVERRIDE_CSS, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = 'compare-mode';
+    check('RF-5 C(>=901) cls=compare-mode +override #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'grid');
+    check('RF-5 C(>=901) cls=compare-mode +override #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 1fr');
+    check('RF-5 C(>=901) cls=compare-mode +override #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'row');
+    check('RF-5 C(>=901) cls=compare-mode +override #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode +override #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode +override #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode +override #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode +override #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode +override #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode +override #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'flex');
+  }
+  { const d = makeDom(bandC, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = 'compare-mode panel-open';
+    check('RF-5 C(>=901) cls=compare-mode panel-open #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'grid');
+    check('RF-5 C(>=901) cls=compare-mode panel-open #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 0');
+    check('RF-5 C(>=901) cls=compare-mode panel-open #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'row');
+    check('RF-5 C(>=901) cls=compare-mode panel-open #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode panel-open #vpr display', d.window.document.getElementById('vpr'), 'display', 'none');
+    check('RF-5 C(>=901) cls=compare-mode panel-open #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'none');
+    check('RF-5 C(>=901) cls=compare-mode panel-open #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'none');
+    check('RF-5 C(>=901) cls=compare-mode panel-open #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode panel-open #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode panel-open #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'flex');
+  }
+  { const d = makeDom(bandC + '\n' + COMPARE_OVERRIDE_CSS, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = 'compare-mode panel-open';
+    check('RF-5 C(>=901) cls=compare-mode panel-open +override #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'grid');
+    check('RF-5 C(>=901) cls=compare-mode panel-open +override #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 1fr');
+    check('RF-5 C(>=901) cls=compare-mode panel-open +override #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'row');
+    check('RF-5 C(>=901) cls=compare-mode panel-open +override #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode panel-open +override #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode panel-open +override #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode panel-open +override #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode panel-open +override #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode panel-open +override #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 C(>=901) cls=compare-mode panel-open +override #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'flex');
+  }
+  { const d = makeDom(bandC, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = '';
+    check('RF-5 C(>=901) cls=none #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'grid');
+    check('RF-5 C(>=901) cls=none #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 42%');
+    check('RF-5 C(>=901) cls=none #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'row');
+    check('RF-5 C(>=901) cls=none #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 C(>=901) cls=none #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=none #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=none #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=none #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 C(>=901) cls=none #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 C(>=901) cls=none #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'flex');
+  }
+  { const d = makeDom(bandC + '\n' + COMPARE_OVERRIDE_CSS, CMP_FIXTURE); d.window.document.getElementById('main-reading-area').className = '';
+    check('RF-5 C(>=901) cls=none +override #main-reading-area display', d.window.document.getElementById('main-reading-area'), 'display', 'grid');
+    check('RF-5 C(>=901) cls=none +override #main-reading-area grid-template-columns', d.window.document.getElementById('main-reading-area'), 'grid-template-columns', '1fr 42%');
+    check('RF-5 C(>=901) cls=none +override #main-reading-area flex-direction', d.window.document.getElementById('main-reading-area'), 'flex-direction', 'row');
+    check('RF-5 C(>=901) cls=none +override #parallel-text-area display', d.window.document.getElementById('parallel-text-area'), 'display', 'block');
+    check('RF-5 C(>=901) cls=none +override #vpr display', d.window.document.getElementById('vpr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=none +override #vgsr display', d.window.document.getElementById('vgsr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=none +override #vgfr display', d.window.document.getElementById('vgfr'), 'display', 'block');
+    check('RF-5 C(>=901) cls=none +override #vb-hidden display', d.window.document.getElementById('vb-hidden'), 'display', 'block');
+    check('RF-5 C(>=901) cls=none +override #vb-plain display', d.window.document.getElementById('vb-plain'), 'display', 'block');
+    check('RF-5 C(>=901) cls=none +override #panel-resize-handle display', d.window.document.getElementById('panel-resize-handle'), 'display', 'flex');
+  }
+
+  // ---- Phase 5 (RF-5): inspector heading reset (plain removal) ----
+  {
+    const d = makeDom(bandA,
+      '<div id="mobile-inspector-area"><div class="rn-word-reading-note-heading" id="h5"></div></div>');
+    const h = d.window.document.getElementById('h5');
+    check('RF-5 inspector heading border-top-width', h, 'border-top-width', '0px');
+    check('RF-5 inspector heading border-bottom-width', h, 'border-bottom-width', '0px');
+    check('RF-5 inspector heading box-shadow', h, 'box-shadow', 'none');
+  }
+
+  // ---- Phase 5 (RF-5): word-peek @900 left/top carry no !important.
+  // peek-guide.js creates the peek element fresh on every open and
+  // removes it on close (_closeWordPeek), and it sets inline left/top
+  // only when opening at >900px — where the @media-900 block does not
+  // apply. So at <=900px the element never carries a competing inline
+  // value, and no other stylesheet rule sets left/top on .word-peek:
+  // the plain declarations below are the computed values as-is. The
+  // bandC checks pin the other side: with the inline values the JS
+  // sets at >900px, those inline values still win (media block off).
+  {
+    const d = makeDom(bandA, '<div class="word-peek" id="peek5"></div>');
+    const p = d.window.document.getElementById('peek5');
+    check('RF-5 peek left (stylesheet, <=900)', p, 'left', 'var(--space-md)');
+    check('RF-5 peek top (stylesheet, <=900)', p, 'top', 'auto');
+    const dB = makeDom(bandB, '<div class="word-peek" id="peek5b"></div>');
+    const pB = dB.window.document.getElementById('peek5b');
+    check('RF-5 peek left (stylesheet, 769-900)', pB, 'left', 'var(--space-md)');
+    check('RF-5 peek top (stylesheet, 769-900)', pB, 'top', 'auto');
+    const dC = makeDom(bandC, '<div class="word-peek" id="peek5c"></div>');
+    const pC = dC.window.document.getElementById('peek5c');
+    pC.style.left = '333px'; pC.style.top = '222px';
+    check('RF-5 peek left (inline set at >900 wins)', pC, 'left', '333px');
+    check('RF-5 peek top (inline set at >900 wins)', pC, 'top', '222px');
+  }
+
+  // ---- Phase 5 (RF-5): prefers-reduced-motion ----
+  // jsdom does not expand the animation/transition shorthands into
+  // longhands, so the shorthand property itself is asserted. The
+  // unwrapped band is the reduced-motion simulation; the base band is
+  // the contrast proving the fixture really carries animations.
+  {
+    const FIX = '<div class="word-peek" id="rmp"></div>' +
+      '<div id="hl-color-picker" class="hl-open"></div>' +
+      '<div id="hl-touch-pill" class="hl-show"></div>' +
+      '<div id="hl-selection-bar" class="hl-open"></div>' +
+      '<div class="local-rel-backdrop" id="lrbd"></div>' +
+      '<div class="local-rel-sheet" id="lrsh"></div>' +
+      '<div class="local-rel-bar" id="lrbar"></div>';
+    const dOn = makeDom(bandRMcss, FIX);
+    const g = id => dOn.window.document.getElementById(id);
+    check('RF-5 RM word-peek animation', g('rmp'), 'animation', 'none');
+    check('RF-5 RM hl-color-picker animation', g('hl-color-picker'), 'animation', 'none');
+    check('RF-5 RM hl-touch-pill animation', g('hl-touch-pill'), 'animation', 'none');
+    check('RF-5 RM hl-selection-bar animation', g('hl-selection-bar'), 'animation', 'none');
+    check('RF-5 RM local-rel-backdrop transition', g('lrbd'), 'transition', 'none');
+    check('RF-5 RM local-rel-sheet transition', g('lrsh'), 'transition', 'none');
+    check('RF-5 RM local-rel-bar transition', g('lrbar'), 'transition', 'none');
+    const dOff = makeDom(baseCss, FIX);
+    const g2 = id => dOff.window.document.getElementById(id);
+    check('RF-5 RM contrast: word-peek animation without RM', g2('rmp'), 'animation', 'bottomCardIn .22s ease-out');
+    check('RF-5 RM contrast: hl-color-picker animation without RM', g2('hl-color-picker'), 'animation', 'bottomCardIn .22s ease-out');
+    check('RF-5 RM contrast: local-rel-backdrop transition without RM', g2('lrbd'), 'transition', 'opacity .2s ease');
+  }
+
+  // ---- Phase 5 (RF-5): @600 typography in the polish <style> block ----
+  // Fixture mirrors the real chip markup (word-renderers.js):
+  // .wlv-flow-stream > .wlv-chip > .wlv-chip-ja > span.
+  {
+    const FIX =
+      '<div id="mobile-inspector-area"><div class="wlv-flow-stream" id="ts1">' +
+      '<span class="wlv-chip" id="tc1"><span class="wlv-chip-ja" id="tj1"><span id="ti1">x</span></span></span></div></div>' +
+      '<div id="mobile-verse-area"><div class="wlv-flow-stream" id="ts2">' +
+      '<span class="wlv-chip" id="tc2"><span class="wlv-chip-ja" id="tj2"><span id="ti2">x</span></span></span></div></div>';
+    const d = makeDom(mobileCss, FIX);
+    const g = id => d.window.document.getElementById(id);
+    for (const id of ['ts1', 'tc1', 'ti1', 'ts2', 'tc2', 'ti2']) {
+      check('RF-5 typo #' + id + ' font-family', g(id), 'font-family', 'var(--font-prose)');
+      check('RF-5 typo #' + id + ' font-weight', g(id), 'font-weight', '400');
+    }
+    for (const id of ['tj1', 'tj2']) {
+      check('RF-5 typo #' + id + ' font-size', g(id), 'font-size', 'var(--text-body-lg)');
+      check('RF-5 typo #' + id + ' letter-spacing', g(id), 'letter-spacing', '0.16px');
+    }
+  }
+
+
 if (failures > 0) {
   console.error(`check-index-styles: FAIL — ${failures}/${total} computed-style checks failed (index: ${path.relative(ROOT, indexPath)}, onboarding: ${path.relative(ROOT, onboardingPath)})`);
   process.exit(1);
 }
-console.log(`check-index-styles: PASS — ${total}/${total} computed-style checks (phases 1-4; phase 2 simulates a <=600px viewport and phase 4 the <=768 / 769-900 / >=901px bands by unwrapping/removing media blocks; see header).`);
+console.log(`check-index-styles: PASS — ${total}/${total} computed-style checks (phases 1-5; phase 2 simulates a <=600px viewport, phase 4 the <=768 / 769-900 / >=901px bands and phase 5 the compare-mode matrix, the reduced-motion band and the @600 typography by unwrapping/removing media blocks; see header).`);

@@ -63,7 +63,7 @@ node scripts/corpus-metrics.cjs    # npm run metrics でも可
 node scripts/wallace-coverage.cjs  # npm run coverage でも可
 node scripts/path-audit.js         # npm run audit でも可
 node scripts/check-search-tool-styles.cjs              # R-f RF-2: search-tool computed-style プローブ（jsdom 要）
-node scripts/check-index-styles.cjs                    # R-f RF-3/RF-4: index ベース層＋幅ブレークポイント出し分け＋ onboarding 注入CSS の computed-style プローブ（jsdom 要）
+node scripts/check-index-styles.cjs                    # R-f RF-3/RF-4/RF-5: index ベース層＋幅ブレークポイント出し分け＋比較モード行列＋ onboarding 注入CSS の computed-style プローブ（jsdom 要）
 ```
 
 ### 2-C. 現役ジェネレータ（`build:*`）
