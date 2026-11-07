@@ -219,7 +219,7 @@ UI
 * データとコードを分離する。
 * runtimeデータは `public/assets/data/`。
 * 設計文書は `public/docs/`。
-* 本文データは `bible_data/` / `translations/` / `morph-index/`。
+* 本文データは `bible_data/` / `translations/`。
 * `assets/data/` を直接編集しない。
 * 生成可能なデータは `scripts/` 経由で生成する。
 * 一次情報と生成物を区別する。

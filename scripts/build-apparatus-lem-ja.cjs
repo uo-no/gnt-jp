@@ -2,14 +2,16 @@
 /**
  * build-apparatus-lem-ja.cjs
  *
- * apparatus.json の各エントリに対して、tokenRefs を使って morph-index から
+ * apparatus.json の各エントリに対して、tokenRefs を使って bible_data から
  * 日本語語句を取得し、apparatus-lem-ja.json を生成する。
  *
  * 出力形式: { "entries": { "ROM-0001": "キリスト・イエス", ... } }
  *
  * 入力:
  *   - public/assets/data/apparatus.json (tokenRefs)
- *   - public/morph-index/word/*.json    (ref → japanese)
+ *   - public/bible_data/nt/<book>/<ch>.json (ref → japanese)
+ *     （旧入力 public/morph-index/word/ は bible_data の派生スナップショット。
+ *       廃止に伴い源泉の bible_data へ付け替え済み）
  *
  * 出力:
  *   - public/assets/data/apparatus-lem-ja.json
@@ -23,26 +25,27 @@ const fs   = require('fs');
 const path = require('path');
 
 const APPARATUS_PATH = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus.json');
-const MORPH_DIR      = path.join(__dirname, '..', 'public', 'morph-index', 'word');
+const BOOKS_PATH     = path.join(__dirname, '..', 'public', 'books.json');
+const BIBLE_DATA_DIR = path.join(__dirname, '..', 'public', 'bible_data', 'nt');
 const OUT_PATH       = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-lem-ja.json');
 
-// morph-index/word/*.json を全走査して ref → japanese のマップを構築
-console.log('Building ref → japanese map from morph-index/word/ ...');
+// bible_data/nt/ を books.json の NT 全書・全章走査して ref → japanese のマップを構築
+console.log('Building ref → japanese map from bible_data/nt/ ...');
 const refMap = {};
-const files = fs.readdirSync(MORPH_DIR).filter(f => f.endsWith('.json'));
+const ntBooks = JSON.parse(fs.readFileSync(BOOKS_PATH, 'utf8')).NT;
 let fileCount = 0;
-for (const file of files) {
-    const data = JSON.parse(fs.readFileSync(path.join(MORPH_DIR, file), 'utf8'));
-    for (const entries of Object.values(data)) {
-        for (const e of entries) {
+for (const book of ntBooks) {
+    for (let ch = 1; ch <= book.chapters; ch++) {
+        const data = JSON.parse(fs.readFileSync(path.join(BIBLE_DATA_DIR, book.key, `${ch}.json`), 'utf8'));
+        for (const e of data) {
             // NT トークンのみ（ref が "BOOK CH:V!N" 形式）
             if (e.ref && e.japanese && e.japanese.trim()) {
                 refMap[e.ref] = e.japanese.trim();
             }
         }
+        fileCount++;
+        if (fileCount % 50 === 0) process.stdout.write(`  ${fileCount} files\r`);
     }
-    fileCount++;
-    if (fileCount % 50 === 0) process.stdout.write(`  ${fileCount}/${files.length} files\r`);
 }
 console.log(`\nBuilt ref map: ${Object.keys(refMap).length} entries from ${fileCount} files`);
 
@@ -74,8 +77,8 @@ console.log(`Covered: ${covered}, Partial: ${partial}, Missing: ${missing}`);
 
 const output = {
     _meta: {
-        description: 'apparatus エントリの日本語語句（morph-index から自動生成）',
-        source: 'public/morph-index/word/ の japanese フィールド',
+        description: 'apparatus エントリの日本語語句（bible_data から自動生成）',
+        source: 'public/bible_data/nt/ の japanese フィールド',
         generatedAt: new Date().toISOString().slice(0, 10),
         entryCount: Object.keys(result).length,
         totalEntries: entries.length,
