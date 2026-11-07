@@ -2260,3 +2260,500 @@ function reopenStudyPanel() {
     _setStudyTarget(p.ref, p.verseId);
     openStudyPanel(p.word, p._rawMorph, p.ref, p.lemma);
 }
+function _wlvSwitchTab(name) {
+    /* no-op: タブは廃止されました */
+}
+
+
+
+/* clauseResults キャッシュ（直近に解析した verse の words 参照をキーにする）。
+   節レイヤー（passage note）と単語レイヤー（resonance）が同じ解析結果を
+   共有するための唯一の場所 — 「レイヤーごとの別ロジック」を作らない。 */
+let _wallaceClauseCache = null; // { words, clauseResults }
+
+/**
+ * words（節の生トークン配列）に対する ClauseAnalyzer の解析結果を返す。
+ * 同じ words 参照に対しては再解析せずキャッシュを返す（節レイヤー・
+ * 単語レイヤーの両方から呼ばれるため）。
+ * @returns {Promise<Array|null>}
+ */
+async function _getWallaceClauseAnalysis(words) {
+    if (!words || words.length === 0) return null;
+    if (_wallaceClauseCache && _wallaceClauseCache.words === words) {
+        return _wallaceClauseCache.clauseResults;
+    }
+    const pipeline = await _ensureWallacePipeline();
+    if (!pipeline) return null;
+    const { sa, pa, ca } = pipeline;
+    try {
+        const all = sa.analyzeAll(words);
+        const syntaxResults = all.results.map(r => r.output);
+        const phraseResults = pa.analyze({ tokens: words, syntaxResults });
+        const clauseResults = ca.analyze({ tokens: words, syntaxResults, phraseResults });
+
+        /* Phase 24: Reading Support Projection を並列生成（additive・読み取り専用）。
+           失敗しても projection = null になるだけで、既存の表示・戻り値は一切変わらない。 */
+        let projection = null;
+        try {
+            const RSP = window.App?.syntax?.ReadingSupportProjection;
+            const CB  = window.App?.syntax?.ContextBuilder;
+            if (RSP) {
+                projection = RSP.build({
+                    tokens: words, syntaxResults, clauseResults,
+                    contextBuilder: CB, registry: sa.registry,
+                });
+            }
+        } catch (_) { projection = null; }
+
+        _wallaceClauseCache = { words, clauseResults, projection };
+        return clauseResults;
+    } catch (e) {
+        console.warn('[Wallace] analysis failed:', e);
+        return null;
+    }
+}
+
+
+/* __OBSERVATION_BEGIN__
+   Phase 25B-3: Observation（本文のどこを見ると読みやすくなるかの指さし）
+   目的は Q2「なぜこのように読めるのか」への入口を一文で示すことのみ。
+   ReadingSupportProjection の words[idx].categories だけを読み、
+   流れをつくる語（理由・結論・転換・目的・条件・対 など）を本文の引用で指す。
+   一文だけ。内部の判定情報は言い回しの選択にのみ使い、画面には出さない。
+   静寂条件: Projection null / 候補なし / 弱い判定 / 指させる語でない /
+   既存の文と同内容 → null（既存表示のみ・フォールバック禁止）。 */
+
+/* 言い回しの選択表（キーは内部専用・画面に出さない） */
+const _OBSERVATION_SENTENCES = {
+    'clause.purpose_hina':                q => `この「${q}」から、『〜するために』という目的が始まります。`,
+    'conjunction.subordinating_purpose':  q => `この「${q}」から、『〜するために』という目的が始まります。`,
+    'clause.substantival_hoti':           q => `この「${q}」から、その中身が語られます。`,
+    'conjunction.subordinating_content':  q => `この「${q}」から、その中身が語られます。`,
+    'clause.causal_hoti':                 q => `この「${q}」から、その理由が語られます。`,
+    'clause.result_hoste':                q => `この「${q}」から、その結果が語られます。`,
+    'conjunction.subordinating_result':   q => `この「${q}」から、その結果が語られます。`,
+    /* clause.conditional_first_class / second_class は Phase 2 で multiple 化し
+       _WORD_ROLE_TEXT（conditional_assumed_true / conditional_counterfactual）へ移動。 */
+    'clause.conditional_third_class':     q => `この「${q}」から、『もし〜なら』の話に入ります。`,
+    'conjunction.subordinating_conditional': q => `この「${q}」から、『もし〜なら』の話に入ります。`,
+    'clause.temporal_hotan':              q => `この「${q}」から、いつのことかが語られます。`,
+    'clause.temporal_hote':               q => `この「${q}」から、いつのことかが語られます。`,
+    'conjunction.subordinating_temporal': q => `この「${q}」から、いつのことかが語られます。`,
+    'clause.comparative_kathos':          q => `この「${q}」から、『〜のように』というたとえが始まります。`,
+    'conjunction.subordinating_comparative': q => `この「${q}」から、『〜のように』というたとえが始まります。`,
+    'conjunction.coordinating_explanatory': q => `この「${q}」が、前の内容の理由を語り始めます。`,
+    'particle.explanatory_gar':           q => `この「${q}」が、前の内容の理由を語り始めます。`,
+    'conjunction.coordinating_inferential': q => `この「${q}」が、前の内容を受けて、だから、と話を進めます。`,
+    'particle.inferential_oun':           q => `この「${q}」が、前の内容を受けて、だから、と話を進めます。`,
+    'conjunction.coordinating_adversative': q => `この「${q}」で、話の向きが変わります。`,
+    'conjunction.coordinating_transition': q => `この「${q}」で、話が次へ進みます。`,
+    /* particle.correlative_men / correlative_de は Phase 2 で men_de_contrast に
+       統合（reading-policy.json）。役割文は _WORD_ROLE_TEXT が担当。 */
+    /* particle.emphatic_negative / particle.double_negative は節レベル現象
+       negative_emphasis へ移動（reading-policy.json / _VERSE_NOTE_TEXT）。
+       単語を選択しなくても Passage Note に表示される。 */
+    'particle.particle_an':               q => `この「${q}」が、実際にはそうならなかった、という響きを添えます。`,
+    'particle.rhetorical_particle':       q => `この「${q}」が、断じて、と強く退けます。`,
+};
+const _OBSERVATION_SENTENCES_EN = {
+    'clause.purpose_hina':                q => `From "${q}", the purpose begins — the "so that" direction of what follows.`,
+    'conjunction.subordinating_purpose':  q => `From "${q}", the purpose begins — the "so that" direction of what follows.`,
+    'clause.substantival_hoti':           q => `From "${q}", the content of what was said unfolds.`,
+    'conjunction.subordinating_content':  q => `From "${q}", the content of what was said unfolds.`,
+    'clause.causal_hoti':                 q => `From "${q}", the reason behind it is given.`,
+    'clause.result_hoste':                q => `From "${q}", the outcome is stated.`,
+    'conjunction.subordinating_result':   q => `From "${q}", the outcome is stated.`,
+    'clause.conditional_third_class':     q => `From "${q}", an "if" condition is introduced.`,
+    'conjunction.subordinating_conditional': q => `From "${q}", an "if" condition is introduced.`,
+    'clause.temporal_hotan':              q => `From "${q}", the timing of events is laid out.`,
+    'clause.temporal_hote':               q => `From "${q}", the timing of events is laid out.`,
+    'conjunction.subordinating_temporal': q => `From "${q}", the timing of events is laid out.`,
+    'clause.comparative_kathos':          q => `From "${q}", a comparison begins — something is being likened to something else.`,
+    'conjunction.subordinating_comparative': q => `From "${q}", a comparison begins — something is being likened to something else.`,
+    'conjunction.coordinating_explanatory': q => `"${q}" begins to explain the reason for what came before.`,
+    'particle.explanatory_gar':           q => `"${q}" begins to explain the reason for what came before.`,
+    'conjunction.coordinating_inferential': q => `"${q}" picks up what came before and draws it toward a conclusion.`,
+    'particle.inferential_oun':           q => `"${q}" picks up what came before and draws it toward a conclusion.`,
+    'conjunction.coordinating_adversative': q => `With "${q}", the direction of the thought shifts.`,
+    'conjunction.coordinating_transition': q => `With "${q}", the narrative moves forward.`,
+    'particle.particle_an':               q => `"${q}" adds a note of contingency — a sense that things could have gone otherwise.`,
+    'particle.rhetorical_particle':       q => `"${q}" signals a strong denial — the expected answer is "no."`,
+};
+
+/* multiple スコープ現象の単語役割文（Phase 1: negative_emphasis のみ）。
+   節文（_VERSE_NOTE_TEXT）の再利用ではなく「その単語が現象の中で何を
+   しているか」を語る（役割の分担: 節=意味、語=役割）。
+   表示可否は Reading Policy（正規化スコープに word を含む現象）が決める。
+   現象を増やすときは reading-policy.json の scope を配列にし、
+   ここに「現象名 → (token) => 一文」を1件足すだけでよい。 */
+const _WORD_ROLE_TEXT = {
+    /* 原語表記の原則（reading-policy.md §12）: 日本語を入口とし、
+       クリックした語と対になる「まだ選択されていない語」を本文から
+       探させる時だけ、括弧内にギリシャ語を添える（指さし）。
+       ギリシャ語を文の主語・目的語にしない。 */
+    negative_emphasis: (token) => {
+        const lm = (token && token.lemma) || '';
+        if (['οὐ', 'οὐκ', 'οὐχ'].includes(lm)) {
+            return 'ふだんは「〜ない」を表すことばですが、ここではあとに来るもう一つの打ち消し（μή）と重なり、『決して〜ない』という強い言い方を作っています。';
+        }
+        if (lm === 'μή') {
+            return 'すぐ前の打ち消し（οὐ）と重なることで、単独のときより強い『決して〜ない』という意味になります。';
+        }
+        return '二重の打ち消し（οὐ μή）を受けることばで、『決して〜しない』という最も強い言い方で否定されています。';
+    },
+    men_de_contrast: (token) => {
+        const lm = (token && token.lemma) || '';
+        if (lm === 'μέν') return '『一方では』と対比の前半を開くことばです。あとに来る『他方では』の合図（δέ）と対になります。';
+        if (lm === 'δέ')  return '『他方では』と対比の後半を受けることばです。前にある『一方では』の合図（μέν）と対になります。';
+        return '『一方では…他方では』という対（μέν…δέ）の一部として、二つのことを対比して示しています。';
+    },
+    parenthesis: (token) => {
+        const lm = (token && token.lemma) || '';
+        if (lm === 'εἰμί') return '『つまり』と言いかえる合図で、ここから補足の説明がはさまれます。';
+        if (['λέγω', 'φημί', 'οἶμαι'].includes(lm)) {
+            return '語り手が本筋をいったん止めて、ひとこと差しはさむ合図です。';
+        }
+        return 'この語から、話の途中に説明がはさまれます。';
+    },
+    /* v1.0監査: 語文は「その単語の役割」だけを言う（節文の言い換え禁止） */
+    nominative_pendens: () =>
+        'この語が、この文の主題です。',
+    conditional_counterfactual: () =>
+        'この『もし』は、実際にはそうならなかったことを仮定する入口です。',
+    conditional_assumed_true: () =>
+        'この『もし』は疑いではなく、事実を前提にしています。',
+};
+const _WORD_ROLE_TEXT_EN = {
+    negative_emphasis: (token) => {
+        const lm = (token && token.lemma) || '';
+        if (['οὐ', 'οὐκ', 'οὐχ'].includes(lm)) {
+            return 'This word normally means "not," but here it pairs with another negative (μή) that follows, together forming the strongest possible denial: "absolutely not."';
+        }
+        if (lm === 'μή') {
+            return 'Together with the negative that precedes it (οὐ), this word strengthens the denial into "absolutely not" — stronger than either negative alone.';
+        }
+        return 'This word is negated by a double negative (οὐ μή), which is the strongest form of denial available: "will absolutely not."';
+    },
+    men_de_contrast: (token) => {
+        const lm = (token && token.lemma) || '';
+        if (lm === 'μέν') return 'This word opens the first half of a contrast — the "on the one hand" side. It looks ahead to its pair (δέ) that completes the other half.';
+        if (lm === 'δέ')  return 'This word takes up the second half of a contrast — the "on the other hand" side. It answers the first half introduced by μέν earlier.';
+        return 'This word is part of a contrast (μέν…δέ) that sets two things side by side — "on the one hand…on the other hand."';
+    },
+    parenthesis: (token) => {
+        const lm = (token && token.lemma) || '';
+        if (lm === 'εἰμί') return 'This word signals a restatement — "that is to say" — and introduces an explanation inserted into the flow.';
+        if (['λέγω', 'φημί', 'οἶμαι'].includes(lm)) {
+            return 'This word signals that the speaker is briefly stepping outside the main thread to add something.';
+        }
+        return 'From this word, an explanatory note is inserted into the middle of the main thought.';
+    },
+    nominative_pendens:        () => 'This word is the topic of the sentence.',
+    conditional_counterfactual:() => 'This "if" introduces a condition that did not actually come true — a "what if it had been otherwise" kind of statement.',
+    conditional_assumed_true:  () => 'This "if" does not express doubt — it treats the condition as though it were true.',
+};
+
+async function _buildObservationHTML(words, idx, existingTexts) {
+    const proj = await _getReadingSupportProjection(words);
+    const w = proj && proj.words ? proj.words[idx] : null;
+    if (!w || !w.categories) return null;
+
+    /* 指させる語か: 節 → 打ち消し・対 → 接続 → 動詞 → 談話 → 主格の順で判定を探す。
+       （discourse は挿入句、nominative は懸垂主格の役割文のためにのみ走査 —
+       これらのカテゴリで文を持つのは _WORD_ROLE_TEXT の現象だけ）
+       表示可否は Reading Policy（正規化スコープに word を含む × priority ≥ normal ×
+       confidence ≥ min_confidence）が決める。verse 専用スコープの現象は
+       Passage Note が担当するためここでは出さない（二重表示の禁止）。
+       multiple（verse+word）の現象は _WORD_ROLE_TEXT の役割文を優先する。 */
+    const _obPolicy  = _wallacePipeline?.policy;
+    const _obRule    = _obPolicy?.rules?.observation || {};
+    const _obMinConf = _obPolicy?.rules?.min_confidence ?? 0.40;
+    const _obAllowed = (id) => {
+        const ph = _obPolicy?.byId?.[id];
+        if (!ph) return true;   // ポリシー未定義IDは従来どおり（保守的に許可）
+        const scopes = _policyScopes(ph);
+        return (_obRule.scopes || []).some(s => scopes.includes(s)) &&
+               (_obRule.priorities || []).includes(ph.priority);
+    };
+    const _isEnOb    = window.I18N && I18N.lang === 'en';
+    const _obRoleTable = _isEnOb ? _WORD_ROLE_TEXT_EN : _WORD_ROLE_TEXT;
+    const _obSentTable = _isEnOb ? _OBSERVATION_SENTENCES_EN : _OBSERVATION_SENTENCES;
+    let make = null;
+    let evidenceLine = null;
+    for (const cat of ['clause', 'particle', 'conjunction', 'verb', 'infinitive', 'discourse', 'nominative']) {
+        const c = w.categories[cat];
+        if (!c || c.confidence < _obMinConf || !_obAllowed(c.id)) continue;
+
+        /* matched signals は ReadingFormatter に渡し、実際の根拠と判断基準を
+           一文に変換する。ID・信頼度・生シグナルは画面へ出さない。 */
+        const evidence = _wallacePipeline?.rf?.formatEvidence({
+            id: c.id,
+            signals: c.signals || [],
+        });
+        if (evidence) {
+            evidenceLine = evidence;
+            break;
+        }
+
+        const ph = _obPolicy?.byId?.[c.id];
+        if (ph && _obRoleTable[ph.phenomenon]) {
+            make = () => _obRoleTable[ph.phenomenon](words[idx]);
+            break;
+        }
+        if (_obSentTable[c.id]) {
+            make = _obSentTable[c.id];
+            break;
+        }
+    }
+    if (!make && !evidenceLine) return null;
+
+    let line = evidenceLine;
+    if (!line) {
+        /* Stage A: Observation の対象語引用も Engine 出力ベース */
+        const quoted = _renderQuoteViaEngine({ type: '', start: idx, end: idx }, idx, words);
+        if (!quoted) return null;
+        line = make(quoted);
+    }
+
+    /* 重複禁止: 既に出ている文（この節の読書メモ・かたまり）と同内容なら沈黙 */
+    if ((existingTexts || []).some(t => t && String(t).includes(line))) return null;
+    /* 言い換え禁止（Phase 26 編集）: 節の読書メモが同じことを別の言い方で
+       述べている場合も沈黙する（役割の重複を避ける） */
+    const rnText = String((existingTexts || [])[0] ?? '');
+    const OVERLAP = [
+        [/なぜ成立|理由/, /理由/],
+        [/対比|転換/, /向きが変わ|次へ進み/],
+        [/内容が具体的/, /中身/],
+        [/目的として何が/, /目的が始まり/],
+    ];
+    if (rnText && OVERLAP.some(([rn, ob]) => rn.test(rnText) && ob.test(line))) return null;
+
+    return `<div class="rn-prose reading-block"><p class="rn-prose-text reading-prose">${line}</p></div>`;
+}
+/* __OBSERVATION_END__ */
+
+/* ══════════════════════════════════════════════════════════════════
+   Phase ESM-44-B: Observation 表示整形（案C・表示層のみ）
+   設計正典: docs/specs/LAYER_ARCHITECTURE.md §4「Observation」
+
+   _buildObservationHTML() / _OBSERVATION_SENTENCES / _WORD_ROLE_TEXT は
+   一切変更しない。ここでは、その戻り値（既に生成済みのHTML文字列）に対し、
+   bible_data.japanese 由来の既知の角括弧引用（「［○○語句］」の7パターンのみ）を
+   汎用自己参照「語」へ機械的に置換するだけの後処理を行う。
+   新しい意味生成・翻訳・推論は行わない（対象語自体は既にヘッダー表示済みのため
+   情報欠落は生じない。_WORD_ROLE_TEXT の nominative_pendens が同種の
+   汎用自己参照「この語」を既に用いている前例を踏襲する）。
+   対象7パターン以外の文字列には一切触れない（単純な完全一致の置換のみ）。
+   Desktop/Mobile共通で同じ結果になるよう、呼び出し元（_buildObservationHTML()の
+   戻り値を受け取る側）で一律に適用する設計とする。
+   ══════════════════════════════════════════════════════════════════ */
+const _OBSERVATION_BRACKET_QUOTES = [
+    '「［転換語句］」', '「［内容語句］」', '「［理由語句］」',
+    '「［目的語句］」', '「［対比語句］」', '「［結論語句］」', '「［条件語句］」',
+];
+function _naturalizeObservationText(html) {
+    if (!html) return html;
+    const replacement = (window.I18N && I18N.lang === 'en') ? 'this word' : '語';
+    let out = html;
+    for (const q of _OBSERVATION_BRACKET_QUOTES) {
+        out = out.split(q).join(replacement);
+    }
+    return out;
+}
+
+/**
+ * Phase 24: words に対する Reading Support Projection を返す（読み取り専用）。
+ * StudyPanel 側は必要な時だけこれを読む（Phase 25 以降の消費者向け API）。
+ * Projection が無い場合は null — 呼び出し側は現状表示のままでよい。
+ * @returns {Promise<Object|null>}
+ */
+async function _getReadingSupportProjection(words) {
+    if (!words || words.length === 0) return null;
+    await _getWallaceClauseAnalysis(words);
+    return (_wallaceClauseCache && _wallaceClauseCache.words === words)
+        ? (_wallaceClauseCache.projection ?? null)
+        : null;
+}
+
+/* __VERSE_NOTE_BEGIN__
+   節レベル読書メモ（Passage Note の Projection 走査）— Reading Policy 駆動
+
+   どの id をどこに表示するか（scope / priority / 現象グループ / verse_source）は
+   assets/data/reading-policy.json（唯一の機械可読定義源）が決める。
+   本テーブルは「現象 → 一文」の文言のみを持つ（IDは一切書かない）。
+   検出は従来どおり SyntaxAnalyzer / ReadingSupportProjection（変更しない）。
+
+   現象を追加する手順:
+     1. reading-policy.json に phenomenon（scope/priority/ids）を1件追加
+     2. verse スコープなら本テーブルに「現象名 → 一文」を1行追加
+   コード側のロジック変更は不要。 */
+const _VERSE_NOTE_TEXT = {
+    /* 原語表記の原則（reading-policy.md §12）: 節文は語が未選択の場面なので、
+       本文から探させたい語にだけ 日本語（ギリシャ語）の指さしを添える。 */
+    negative_emphasis:
+        'ここでは打ち消しのことば（οὐ μή）を二つ重ねて、『決して〜ない』と強く断言しています。',
+    conditional_counterfactual:
+        'ここでは、実際にはそうならなかった『もし〜だったなら』という仮定で語られています。',
+    conditional_assumed_true:
+        'ここでは、『もし〜なら』の条件が、事実として受け止められて話が進みます。',
+    men_de_contrast:
+        'ここでは、二つのことが対（μέν…δέ）に置かれて語られています。',
+    emphasis_word_order:
+        'ここでは、ことばの順序によって、あることばが際立たされています。',
+    parenthesis:
+        'ここでは、話の途中に説明の一言がはさまれています。',
+    nominative_pendens:
+        'ここでは、まず主題が示され、あとからそれを受け直して話が続きます。',
+};
+const _VERSE_NOTE_TEXT_EN = {
+    negative_emphasis:
+        'Here, two negatives (οὐ μή) are placed together to make a strong affirmation: this will absolutely not happen.',
+    conditional_counterfactual:
+        'Here, the condition is presented as something that did not actually happen — a "what if it had been otherwise" kind of statement.',
+    conditional_assumed_true:
+        'Here, the "if" condition is treated as something true, and the sentence proceeds on that assumption.',
+    men_de_contrast:
+        'Here, two things are set side by side in contrast (μέν…δέ).',
+    emphasis_word_order:
+        'Here, the word order brings a particular word into focus.',
+    parenthesis:
+        'Here, a brief explanatory note is inserted into the middle of the main thought.',
+    nominative_pendens:
+        'Here, the topic is introduced first, then picked up again as the sentence continues.',
+};
+
+/* 現象の scope を原子スコープの配列に正規化する。
+   文字列（'verse'等）・配列（['verse','word']）の両形式を受け、
+   'multiple' は ['verse','word'] の別名として展開する（reading-policy.json
+   の scope_note と対応）。 */
+function _policyScopes(ph) {
+    const s = ph?.scope;
+    if (Array.isArray(s)) return s;
+    if (s === 'multiple') return ['verse', 'word'];
+    return s ? [s] : [];
+}
+
+/* Projection の全語 × 全カテゴリを走査し、Reading Policy の passage_note 規則
+   （正規化スコープが verse を含む × priority ∈ {critical, high} × verse_source =
+   'projection' × confidence ≥ min_confidence）を満たす現象の文を
+   出現順・重複なしで返す。規則の値はすべて policy から読む。 */
+function _collectVerseNoteSentences(proj, policy) {
+    if (!proj || !Array.isArray(proj.words) || !policy) return [];
+    const rule      = policy.rules?.passage_note || {};
+    const minConf   = policy.rules?.min_confidence ?? 0.40;
+    const textTable = (window.I18N && I18N.lang === 'en') ? _VERSE_NOTE_TEXT_EN : _VERSE_NOTE_TEXT;
+    const lines = [];
+    for (const w of proj.words) {
+        if (!w || !w.categories) continue;
+        for (const c of Object.values(w.categories)) {
+            if (!c || c.confidence < minConf) continue;
+            const ph = policy.byId[c.id];
+            if (!ph) continue;
+            if (ph.verse_source !== 'projection') continue;
+            const scopes = _policyScopes(ph);
+            if (!(rule.scopes || []).some(s => scopes.includes(s))) continue;
+            if (!(rule.priorities || []).includes(ph.priority)) continue;
+            const line = textTable[ph.phenomenon];
+            if (line && !lines.includes(line)) lines.push(line);
+        }
+    }
+    return lines;
+}
+/* __VERSE_NOTE_END__ */
+
+/**
+ * words（節の生トークン配列）から ReadingFormatter による読書メモHTMLを
+ * 組み立てる。文章は一切自前で生成しない — ReadingFormatter.format()の
+ * title/summary と _VERSE_NOTE_TEXT の固定文のみを使う。
+ *
+ * 情報源は2系統（検出と表示の分離）:
+ *   1) ClauseAnalyzer の discourse 分類 → ReadingFormatter.format/combine
+ *   2) ReadingSupportProjection の節全体走査 → _collectVerseNoteSentences
+ * 節が1つも検出されなくても、節レベル現象（οὐ μή 等）があれば表示する。
+ * @returns {Promise<string|null>} 表示すべき内容が無ければ null
+ */
+async function _buildWallacePassageNoteHTML(words) {
+    if (!words || words.length === 0) return null;
+
+    const clauseResults = await _getWallaceClauseAnalysis(words);
+
+    const pipeline = await _ensureWallacePipeline();
+    if (!pipeline) return null;
+    const { ca, rf } = pipeline;
+
+    const seen = new Set();
+    const sentences = [];
+    for (const clause of (clauseResults || [])) {
+        const discourse = ca.classifyDiscourseRelation(words, clause);
+        /* UNCLASSIFIED は discourse 関係が判定されなかった節（= 言うべきことがない）
+           を意味するため、汎用フォールバック文を出さずスキップする。 */
+        if (!discourse?.type || discourse.type === 'UNCLASSIFIED') continue;
+        const formatted  = rf.format({ discourse, type: clause.type });
+        const sentence   = formatted && formatted.summary;
+        if (sentence && !seen.has(sentence)) {
+            seen.add(sentence);
+            sentences.push(sentence);
+        }
+    }
+
+    /* 複数節が検出された場合、節ごとに「ここでは、」を繰り返さず
+       ReadingFormatter.combine() で1つの自然文に統合する
+       （単一節の場合は combine() がそのまま元の文を返す）。 */
+    const combined = sentences.length > 0 ? rf.combine(sentences) : null;
+
+    /* 節レベル現象は combine() の「ここでは、」統合形式に合わないため、
+       別段落として discourse 文の後に併記する。対象の選別は Reading Policy。 */
+    const proj = await _getReadingSupportProjection(words);
+    const verseLines = _collectVerseNoteSentences(proj, pipeline.policy);
+
+    const paras = [];
+    if (combined) paras.push(combined);
+    for (const line of verseLines) {
+        if (!paras.includes(line)) paras.push(line);
+    }
+    if (paras.length === 0) return null;
+
+    return `
+        <section class="wlv-reading-passage-note">
+            <span class="wlv-pn-label">${_T('panel.passageReadingNote', 'この節の読書メモ')}</span>
+            <div class="wlv-pn-prose">
+                ${paras.map(t => `<p>${t}</p>`).join('')}
+            </div>
+        </section>`;
+}
+
+/**
+ * #wlv-passage-note-slot を ReadingFormatter の結果で非同期に埋める。
+ * 表示すべき内容が無ければ何も注入しない（説明文で埋めない＝静寂優先）。
+ * ユーザーが別の節へ素早く移動した場合に古い結果を誤注入しないよう、
+ * 世代カウンタで自分が最新の呼び出しかを確認してから反映する。
+ */
+async function _fillWallacePassageNote(words, container) {
+    if (!container) return;
+    const myGen = (container._wallacePassageNoteGen || 0) + 1;
+    container._wallacePassageNoteGen = myGen;
+    const html = await _buildWallacePassageNoteHTML(words);
+    if (myGen !== container._wallacePassageNoteGen) return; // 同じコンテナで既に別の節へ移動済み
+    if (!html) return;                                   // 静寂優先：空スロットのまま
+    const slot = container && container.querySelector('#wlv-passage-note-slot');
+    if (slot) {
+        if (container.id === 'mobile-verse-area' || container.id === 'mobile-inspector-area') {
+            /* 第一層の節読書メモは、本文描画の非同期完了が遅れても開いた状態で表示する。
+               第三層の語レベル読書メモは別スロット（#mvv-reading-slot）で表示する。
+               入口導線 Phase 1 以降、モバイルのスロットは Inspector 末尾にある。 */
+            slot.outerHTML = `<details class="mvv-passage-note" open><summary>${_T('panel.passageReadingNote', 'この節の読書メモ')}</summary>${html}</details>`;
+        } else {
+            slot.outerHTML = html;
+        }
+    }
+    /* 語ドロワーと同一文なら非表示。モバイルの節メモは別領域なので対象外。 */
+    if (!container || (container.id !== 'mobile-verse-area' && container.id !== 'mobile-inspector-area')) {
+        const ddReso = document.getElementById('wlv-dd-resonance');
+        _syncWlvPassageNoteVisibility((ddReso?.textContent || '').trim());
+    }
+}
+
+
+
+
+

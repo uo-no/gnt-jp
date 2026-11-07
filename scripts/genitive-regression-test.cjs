@@ -3479,7 +3479,8 @@ section('§7ad  Phrase Reading Integration');
 section('§7ae  Observation Integration');
 
 {
-    const uiSrc = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
+    const uiSrc = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8')
+      + '\n' + fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'study-panel.js'), 'utf8');
     const m = uiSrc.match(/__OBSERVATION_BEGIN__([\s\S]*?)__OBSERVATION_END__/);
     check('25B-3: Observation ブロックが存在する', Boolean(m));
     const slice = m ? m[1] : '';
