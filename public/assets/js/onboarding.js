@@ -1288,24 +1288,24 @@
     function _renderGar17ClickedStep() {}
 
     // モバイルで compare-mode の右列を強制表示（JOH onboarding 用。ROM Flow では使用しない）
-    // RF-3 残置：この上書き CSS の !important 2件は意図的に残す。競合相手は
-    // index.html の @media (max-width: 900px) 側 compare-mode ルール
-    // （grid-template-columns と右列の display:none）で、そちらも !important を
-    // 持つため、同詳細度・後勝ち（本スタイルは実行時に head へ追加される）で
-    // 成立している。外す場合は index 側と対で外すこと（RF-4 / RF-5 の範囲）。
+    // RF-5 で index 側と対で解消済み：index.html の compare-mode ルール
+    // （@media 900px の grid / 右列 display:none 群と @media 768px の
+    // display 群）から !important を外し #app で詳細度を上げたのに合わせ、
+    // この上書き側も同じ #app 付きセレクタに揃えた。詳細度は同点のまま、
+    // 本スタイルが実行時に head 末尾へ追加される後勝ちで従来どおり勝つ。
     function _forceShowCompareOnMobile() {
         if (document.getElementById('ob-mobile-compare-override')) return;
         var style = document.createElement('style');
         style.id = 'ob-mobile-compare-override';
         style.textContent = [
-            '#main-reading-area.compare-mode {',
-            '    grid-template-columns: 1fr 1fr !important;',
+            '#app #main-reading-area.compare-mode {',
+            '    grid-template-columns: 1fr 1fr;',
             '}',
-            '#main-reading-area.compare-mode #parallel-text-area,',
-            '#main-reading-area.compare-mode .verse-pair-right,',
-            '#main-reading-area.compare-mode .verse-grid-spacer-right,',
-            '#main-reading-area.compare-mode .verse-grid-footer-right {',
-            '    display: block !important;',
+            '#app #main-reading-area.compare-mode #parallel-text-area,',
+            '#app #main-reading-area.compare-mode .verse-pair-right,',
+            '#app #main-reading-area.compare-mode .verse-grid-spacer-right,',
+            '#app #main-reading-area.compare-mode .verse-grid-footer-right {',
+            '    display: block;',
             '}',
         ].join('\n');
         document.head.appendChild(style);
