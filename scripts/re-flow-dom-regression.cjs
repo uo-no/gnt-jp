@@ -50,6 +50,9 @@ const INDEX = path.join(PUBLIC, 'index.html');
 const html = fs.readFileSync(INDEX, 'utf8');
 const wordRendSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'renderers', 'word-renderers.js'), 'utf8');
 const colRendSrc  = fs.readFileSync(path.join(PUBLIC, 'app', 'renderers', 'column-renderers.js'), 'utf8');
+const studyPanelSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'study-panel.js'), 'utf8');
+const peekGuideSrc  = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'peek-guide.js'), 'utf8');
+const panelPagesSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'panel-pages.js'), 'utf8');
 
 let failed = 0;
 const results = [];
@@ -464,13 +467,13 @@ check('invariant(2A-4): _loadAndAppendChapter が _observeChapterBlock(_lacCb) �
 check('invariant(2A-4): _navigateVerse が closest(".chapter-block") を使う',
     /closest\s*\(\s*'\.chapter-block'\s*\)/.test(html));
 check('invariant(2A-4): _navigateVerse が _navChBlock||document でスコープする',
-    /\(_navChBlock\s*\|\|\s*document\)\.querySelectorAll/.test(html));
+    /\(_navChBlock\s*\|\|\s*document\)\.querySelectorAll/.test(html + '\n' + panelPagesSrc));
 check('invariant(2A-4): _navigateVerse の章末遷移が _navChBlock.dataset.chapter を読む',
-    /_navChBlock\s*\?\s*parseInt\s*\(\s*_navChBlock\.dataset\.chapter/.test(html));
+    /_navChBlock\s*\?\s*parseInt\s*\(\s*_navChBlock\.dataset\.chapter/.test(html + '\n' + panelPagesSrc));
 
 /* Invariant: Phase 2C-2 DOM-reuse navigation */
 {
-    const nvSrc2C = extractFunctionSource(html, 'function _navigateVerse(delta) {');
+    const nvSrc2C = extractFunctionSource(html, 'function _navigateVerse(delta) {') || extractFunctionSource(panelPagesSrc, 'function _navigateVerse(delta) {');
     check('extract(2C-2): _navigateVerse ソース再抽出に成功', !!nvSrc2C);
     if (nvSrc2C) {
         check('invariant(2C-2): 隣章 DOM 存在チェックを持つ (.chapter-block[data-book=)',
@@ -492,7 +495,7 @@ check('invariant(2A-4): _navigateVerse の章末遷移が _navChBlock.dataset.ch
 
 /* Behavioral: _navigateVerse 多章スコープ修正 */
 {
-    const navigateVerseSrc = extractFunctionSource(html, 'function _navigateVerse(delta) {');
+    const navigateVerseSrc = extractFunctionSource(html, 'function _navigateVerse(delta) {') || extractFunctionSource(panelPagesSrc, 'function _navigateVerse(delta) {');
     check('extract(2A-4): _navigateVerse ソース抽出に成功', !!navigateVerseSrc);
 
     if (navigateVerseSrc) {
@@ -582,7 +585,7 @@ check('invariant(2A-4): _navigateVerse の章末遷移が _navChBlock.dataset.ch
    Phase 2C-2: Cross-chapter DOM-reuse Navigation
    ───────────────────────────────────────────────────────────── */
 {
-    const navigateVerseSrc2C = extractFunctionSource(html, 'function _navigateVerse(delta) {');
+    const navigateVerseSrc2C = extractFunctionSource(html, 'function _navigateVerse(delta) {') || extractFunctionSource(panelPagesSrc, 'function _navigateVerse(delta) {');
 
     if (navigateVerseSrc2C) {
         if (!El.prototype.closest) {
@@ -1067,7 +1070,7 @@ check('invariant(3-3): getShareState() が location.chapter へフォールバ�
     /AppState\.selectedVerse\?\.ch\s*\?\?\s*AppState\.location\?\.chapter/.test(html));
 
 check('invariant(3-3): _findVerseInChapter() が定義されている',
-    /function _findVerseInChapter\s*\(/.test(html));
+    /function _findVerseInChapter\s*\(/.test(html + '\n' + studyPanelSrc));
 
 check('invariant(3-3): _findVerseInChapter() が chapter-block を data-book+data-chapter で検索する',
     /\.chapter-block\[data-book=.*\]\[data-chapter=/.test(html));
@@ -1162,7 +1165,7 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
      3. b.querySelector('.v-num').textContent.trim() で照合
    この3ステップをモックで検証する。 */
 {
-    const fvicSrc = extractFunctionSource(html, 'function _findVerseInChapter(');
+    const fvicSrc = extractFunctionSource(html, 'function _findVerseInChapter(') || extractFunctionSource(studyPanelSrc, 'function _findVerseInChapter(');
     check('extract(3-3): _findVerseInChapter() ソース抽出に成功', !!fvicSrc);
 
     if (fvicSrc) {
@@ -1361,7 +1364,7 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
 
 /* ── B-2: _elTokenVerse + _buildFlowJpData 動作 ── */
 {
-    const elvSrc  = extractFunctionSource(html, 'function _elTokenVerse(w) {');
+    const elvSrc  = extractFunctionSource(html, 'function _elTokenVerse(w) {') || extractFunctionSource(panelPagesSrc, 'function _elTokenVerse(w) {');
     const bfjdSrc = extractFunctionSource(html, 'function _buildFlowJpData(elData) {') || extractFunctionSource(colRendSrc, 'function _buildFlowJpData(elData) {');
     check('extract(3-6): _elTokenVerse ソース抽出に成功', !!elvSrc);
     check('extract(3-6): _buildFlowJpData ソース抽出に成功', !!bfjdSrc);
@@ -1480,7 +1483,7 @@ check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力�
 
 /* ── G-1: mobile path が toBrowsing に chip.ch を渡す ── */
 {
-    const wlvSrc = extractFunctionSource(html, 'function _wlvChipClick(chipEl, tokenId) {');
+    const wlvSrc = extractFunctionSource(html, 'function _wlvChipClick(chipEl, tokenId) {') || extractFunctionSource(peekGuideSrc, 'function _wlvChipClick(chipEl, tokenId) {');
     check('extract(3-6-G): _wlvChipClick ソース抽出に成功', !!wlvSrc);
 
     /* mobile toBrowsing に ch が渡っているか */
@@ -1552,7 +1555,7 @@ check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力�
 /* （autoload blockedMode ガードは別経路 → C-1 で確認済み。ここでは _wlvChipClick 内部に
     ST/CR/RL 依存のコードが追加されていないことを確認） */
 {
-    const wlvSrc2 = extractFunctionSource(html, 'function _wlvChipClick(chipEl, tokenId) {');
+    const wlvSrc2 = extractFunctionSource(html, 'function _wlvChipClick(chipEl, tokenId) {') || extractFunctionSource(peekGuideSrc, 'function _wlvChipClick(chipEl, tokenId) {');
     check('invariant(3-6-G-12): _wlvChipClick 内に ST/CR/RL の新規ガードが追加されていない',
         wlvSrc2
             ? !/(hierarchical|structural-diagram|relation|discourse)[\s\S]{0,50}_wlvChipClick/.test(wlvSrc2)
@@ -1640,7 +1643,7 @@ check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力�
 
 /* ── I-invariant-2: Phase 3-6-G F-1 維持確認 ── */
 {
-    const wlvSrcI = extractFunctionSource(html, 'function _wlvChipClick(chipEl, tokenId) {');
+    const wlvSrcI = extractFunctionSource(html, 'function _wlvChipClick(chipEl, tokenId) {') || extractFunctionSource(peekGuideSrc, 'function _wlvChipClick(chipEl, tokenId) {');
     check('invariant(3-6-I-G-F1): _wlvChipClick mobile path の toBrowsing に chip.ch が渡される（F-1維持）',
         wlvSrcI ? /AppState\.toBrowsing\(_mvVNum,\s*_mvWords,\s*null,\s*chip\.ch\s*!=\s*null\s*\?\s*Number\(chip\.ch\)\s*:\s*null\)/.test(wlvSrcI) : false);
     check('invariant(3-6-I-G-F2): _wlvChipClick mobile path に notifyAppStateChange() が存在する（F-1維持）',
@@ -1791,7 +1794,7 @@ check('invariant(3-7-C-3): verse-pair が (_compareChapterBlock || mainArea) へ
 check('invariant(3-7-C-4a): mobile-verse-group が app.appendChild へ渡される（既存パス維持）',
     /app\.appendChild\(verseGroup\)/.test(html + '\n' + colRendSrc));
 check('invariant(3-7-C-4b): _compareChapterBlock は window.innerWidth > 768 条件付き（mobile では null）',
-    /window\.innerWidth\s*>\s*768/.test(html));
+    /window\.innerWidth\s*>\s*768/.test(html + '\n' + panelPagesSrc));
 
 /* ── C3-5: _loadAndAppendChapter の compare guard が維持される（autoload はまだ未解除）── */
 {
@@ -1896,8 +1899,8 @@ check('invariant(3-7-C-4b): _compareChapterBlock は window.innerWidth > 768 条
 
 /* ── Phase 3-7-F: Mobile Compare Chapter Identity ── */
 {
-    const mcsSetupSrc  = extractFunctionSource(html, 'function _mobileCompareSetup() {');
-    const mcsApplySrc  = extractFunctionSource(html, 'function _mobileVerseApply() {');
+    const mcsSetupSrc  = extractFunctionSource(html, 'function _mobileCompareSetup() {') || extractFunctionSource(panelPagesSrc, 'function _mobileCompareSetup() {');
+    const mcsApplySrc  = extractFunctionSource(html, 'function _mobileVerseApply() {') || extractFunctionSource(panelPagesSrc, 'function _mobileVerseApply() {');
     const lacCompareSrc = extractFunctionSource(html, 'async function _loadAndAppendChapterCompare(');
     const doAutoloadSrc = extractFunctionSource(html, 'async function _doAutoload(');
 
@@ -1948,7 +1951,7 @@ check('invariant(3-7-C-4b): _compareChapterBlock は window.innerWidth > 768 条
         doAutoloadSrc ? /_loadAndAppendChapterCompare/.test(doAutoloadSrc) : false);
 
     /* F8: mobile compare の表示・選択が維持される（teardown が _mobileVerseList をクリアする） */
-    const teardownSrc = extractFunctionSource(html, 'function _mobileCompareTeardown() {');
+    const teardownSrc = extractFunctionSource(html, 'function _mobileCompareTeardown() {') || extractFunctionSource(panelPagesSrc, 'function _mobileCompareTeardown() {');
     check('invariant(3-7-F-8): _mobileCompareTeardown が _mobileVerseList をクリアする',
         teardownSrc ? /_mobileVerseList\s*=\s*\[\]/.test(teardownSrc) : false);
 }

@@ -92,7 +92,8 @@ console.log(`Part 1: ${pass} passed, ${fail} failed`);
 console.log('');
 console.log('── Part 2: index.html rn-ja 構造照合 ──');
 
-const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8')
+    + '\n' + fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'study-panel.js'), 'utf8');
 check('displayLabel = getDisplayLabel(...) が定義されている',
     /const displayLabel\s*=\s*.*getDisplayLabel\(/.test(html), true);
 check('rn-ja が displayLabel を描画',

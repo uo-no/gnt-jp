@@ -1,0 +1,2262 @@
+/* Study Panel（Bottom Sheet）の現在のコンテンツ種別。ドラッグ時の拡張上限を決めるためだけに使う。
+   'verse' = 節全体の研究モード（_openWordListInternal）→ 拡張上限 --panel-expanded-h
+   'word'  = 単語詳細（openStudyPanel）                  → 拡張上限 --panel-word-max-h */
+let _panelContentMode = 'verse';
+
+/* ── Panel Geometry SSOT ──
+   高さの数値定義は CSS（#bottom-depth-panel のカスタムプロパティ）が唯一の真実。
+   JS は本関数で getComputedStyle から読むだけで、vh/px の値を直接書かない。
+   ドラッグ・高さ復元の clamp（min/max）はすべてここを通す。 */
+function _panelGeomLimits(panel) {
+    const cs = getComputedStyle(panel);
+    const px = (v) => {
+        v = String(v).trim();
+        if (v.endsWith('vh')) return window.innerHeight * parseFloat(v) / 100;
+        return parseFloat(v) || 0;
+    };
+    const maxProp = _panelContentMode === 'word'
+        ? '--panel-word-max-h' : '--panel-expanded-h';
+    return {
+        minH: px(cs.getPropertyValue('--panel-drag-min-h')),
+        maxH: px(cs.getPropertyValue(maxProp)),
+    };
+}
+
+/* Level 2（節Panel）→ Level 3（単語詳細）へ進む直前の #word-list-view のスクロール位置。
+   #word-list-view は Level 3 に入ると破棄されるため、panelGoBack() で Level 2 に
+   戻った際にここへ保存しておいた値を読み戻すことでスクロール位置を復元する。
+   null は「復元すべき位置が無い」を意味する（新しい節を開いた場合等）。 */
+let _versePanelScrollTop = null;
+
+/* StudyPanel UI状態の一元管理オブジェクト。
+   UIロジック（open/close/drag）はこのオブジェクトを通じて状態を読み書きし、
+   DOM状態・AppState・スクロール位置と混在させない。
+   scrollTop: close直前に保存し、次のopen後に2段rAFで復元する。
+   isDragging: pointer capture 中のみ true。pointerup/cancel で必ず false に戻す。 */
+const StudyPanelState = {
+    isOpen:    false,
+    height:    0,   /* ユーザーが調整したパネル高さ（px）。0 = 未調整（CSS既定）。SSOT */
+    scrollTop: 0,
+    isDragging: false,
+};
+
+/* StudyPanelState.height（SSOT）を open 時にパネルへ適用する。
+   - 0（未調整）なら inline height を消して CSS 既定に任せる
+   - ≤768px は全画面モード（CSS top/bottom 管理）のため height を書かない
+   - 適用時のみ現在の帯域の min/max へ clamp する（state の値は上書きしない —
+     Level 3 の上限 80vh で縮んでも、Level 2 へ戻れば元の高さに復元される） */
+function _applyPanelHeightFromState(panel) {
+    if (!panel) return;
+    if (window.innerWidth <= 768) { panel.style.height = ''; return; }
+    const h = StudyPanelState.height;
+    if (!h) { panel.style.height = ''; return; }
+    const isMobile = _isMobile();
+    const { minH, maxH } = _panelGeomLimits(panel);   /* Geometry SSOT（CSS）から取得 */
+    const nh = Math.min(maxH, Math.max(minH, h));
+    if (isMobile) panel.style.setProperty('height', nh + 'px', 'important');
+    else panel.style.height = nh + 'px';
+}
+
+/* 本文（左カラム）の節要素を節番号から特定する。
+   注意：左カラムの .verse-block には data-vnum 属性が付与されない（data-vnumがあるのは
+   並列訳の右カラム .verse-pair-right のみで、しかも単一表示モードでは display:none）。
+   そのため節番号は描画済みの .v-num のテキストで照合する（ref文字列の解析は行わない）。 */
+function _findVisibleVerseBlock(vNum) {
+    if (vNum == null) return null;
+    const target = String(vNum);
+    const blocks = document.querySelectorAll('#bible-text-area .verse-block:not(.verse-pair-right)');
+    for (const b of blocks) {
+        const numEl = b.querySelector('.v-num');
+        if (numEl && numEl.textContent.trim() === target) return b;
+    }
+    return null;
+}
+
+/* applyShareState 用: 章スコープ内で節ブロックを検索する。
+   複数章がDOMにある場合でも bookKey/chapterStr で一致する chapter-block 内のみを対象とする。
+   chapter-block が存在しない場合は null（呼び出し元で _findVisibleVerseBlock にフォールバック）。 */
+function _findVerseInChapter(bookKey, chapterStr, vNumStr) {
+    if (!bookKey || chapterStr == null) return null;
+    const cb = document.querySelector(
+        `.chapter-block[data-book="${bookKey}"][data-chapter="${chapterStr}"]`
+    );
+    if (!cb) return null;
+    const target = String(vNumStr);
+    for (const b of cb.querySelectorAll('.verse-block:not(.verse-pair-right)')) {
+        const numEl = b.querySelector('.v-num');
+        if (numEl && numEl.textContent.trim() === target) return b;
+    }
+    return null;
+}
+
+/**
+ * StudyPanel を開いた直後に呼ぶ。
+ * 選択節の底辺が読書エリアの底辺より下にある場合のみ、差分だけ scrollBy する（最小限）。
+ * scrollIntoView 禁止 / 固定px禁止 / wasOpen=true（Level間遷移）では何もしない。
+ * ※ モバイルでの読書エリア収縮（padding でなく flex-basis の高さ計算）は CSS 側が担う。
+ */
+function _adjustReadingAreaForPanel(wasOpen) {
+    if (wasOpen) return;
+    /* 全画面モードではパネルが画面全体を覆うため位置調整不要 */
+    if (window.innerWidth <= 768) return;
+
+    const mainArea = document.getElementById('main-reading-area');
+    if (!mainArea) return;
+
+    /* 選択節が読書エリアの可視底辺を超えている場合のみ最小限スクロール。
+       モバイル・デスクトップ共に containerRect.bottom = 読書エリアの実効下端（パネル補正不要）。 */
+    const vNum    = AppState.selectedVerse?.vNum ?? AppState.inspect.data?.verse;
+    const verseEl = _findVisibleVerseBlock(vNum);
+    if (!verseEl) return;
+
+    const containerRect   = mainArea.getBoundingClientRect();
+    const verseBottom     = verseEl.getBoundingClientRect().bottom;
+
+    if (verseBottom > containerRect.bottom) {
+        const MARGIN = 16;
+        mainArea.scrollBy({ top: verseBottom - containerRect.bottom + MARGIN, behavior: 'smooth' });
+    }
+}
+
+/* Study Panel を開くとき、モバイルではBottom Sheetのスライドイン遷移を起動 */
+function _mobileOpenPanel(titleText, wasAlreadyOpen) {
+    if (_isMobile()) {
+        document.getElementById('app').classList.add('mobile-study-open');
+        const navTitle = document.getElementById('mobile-nav-title');
+        if (navTitle) navTitle.textContent = titleText || _T('panel.readWord', '語を読む');
+    }
+    /* 768px以下：CSS の top/bottom が環境によって効かない場合に備え
+       window.innerHeight で高さを確定する（dvh/auto の非依存フォールバック） */
+    if (window.innerWidth <= 768) {
+        const panel = document.getElementById('bottom-depth-panel');
+        if (panel) panel.style.height = window.innerHeight + 'px';
+    }
+}
+
+/* StudyPanel の対応表: 現在の読み方 → 別の読み方（重複表示しない）。
+   本文にすでに表示されているモードをStudyPanelで繰り返さない。 */
+function _studyPanelCompanionMode(transA) {
+    const map = {
+        'JA1955':     'WORD_ORDER',
+        'WORD_ORDER': 'JA1955',
+        'DA_READING': 'WORD_ORDER',
+    };
+    return map[transA] || 'WORD_ORDER';
+}
+
+/* WORD_ORDER → JA1955: 同期描画後に口語訳テキストを非同期注入する。
+   _openWordListInternal / _mobileInspectorRender の描画完了後に fire-and-forget で呼ぶ。 */
+async function _fillStudyPanelTranslation(transId, vNum, bookKey, ch, container, words) {
+    const data = await _fetchTranslation(transId, bookKey, String(ch));
+    if (!data || !data.verses) return;
+    const text = data.verses[String(vNum)];
+    if (text == null) return;
+    if (!container.isConnected) return;   // パネルが閉じられていたら中止
+    if (_mobileVerseInspectorMode === 'detail') return;  // Level3（単語詳細）表示中は注入しない
+    const rep = buildRepresentation(
+        { kind: 'translation', translationId: transId },
+        { verseRef: { book: bookKey, chapter: ch, verse: vNum }, tokens: [] },
+        null,
+        text
+    );
+    container.innerHTML = renderColumn(rep);
+    _wlvChipCache = [];
+    /* 口語訳で描画を置き換えても、PC版の読書メモ・本文批評欄を再配置する。 */
+    _ensureStudyPanelReadingSections(container, words, bookKey, ch, vNum);
+}
+
+/* PC版 StudyPanel の節読書メモ・本文批評欄を、描画後に必ず確保する。
+   mobile inspector の表示経路には介入しない。 */
+function _ensureStudyPanelReadingSections(container, words, bookKey, ch, vNum) {
+    if (!container) return;
+    /* 入口導線 Phase 1: 読書メモ・異読は語リストより後ろ（末尾）に置く。
+       初見の最初の表示に異読（符号とギリシャ語）を持ってこないための並び替え。
+       appendChild は既存ノードの移動になるため、Renderer が先頭に含めた
+       スロットもここで末尾へ移る。 */
+    let passageSlot = container.querySelector('#wlv-passage-note-slot');
+    if (!passageSlot) {
+        container.insertAdjacentHTML('beforeend', '<div id="wlv-passage-note-slot"></div>');
+        passageSlot = container.querySelector('#wlv-passage-note-slot');
+    } else {
+        container.appendChild(passageSlot);
+    }
+    let apparatusSlot = container.querySelector('#wlv-apparatus-slot');
+    if (!apparatusSlot) {
+        container.insertAdjacentHTML('beforeend', '<div id="wlv-apparatus-slot"></div>');
+    } else {
+        container.appendChild(apparatusSlot);
+    }
+    _fillWallacePassageNote(words || [], container);
+    if (bookKey && ch != null && vNum != null) {
+        _fillApparatusSection(bookKey, ch, vNum, container);
+    }
+}
+
+/* 内部: 語形一覧を開く（depth stackは変えない） */
+function _openWordListInternal(vNum, words, book, ch) {
+    closeMobileSidebar();
+    _wlvWordCache = words || [];
+    const sidePanel    = document.getElementById('bottom-depth-panel');
+    const wasOpen = sidePanel.classList.contains('open');
+    /* 読書位置の保存: 閉→開の遷移時のみ。close 時の AppState.restoreScroll() は
+       ここで保存した位置へ戻す。保存しないと初期値 0（＝最上部）や古い位置が
+       復元されてしまう。Level間遷移（wasOpen=true）では保存しない —
+       「パネルを開く前の位置」を上書きしないため。 */
+    if (!wasOpen) AppState.saveScroll();
+    _panelContentMode = 'verse';
+    /* 高さの SSOT: ユーザーが調整した高さ（StudyPanelState.height）を尊重する。
+       未調整なら CSS 既定。従来の style.height='' 一律リセットは廃止 */
+    _applyPanelHeightFromState(sidePanel);
+    sidePanel.classList.add('open');
+    _syncStudyVerseNav();
+    _syncReadingPanelPadding();
+    document.getElementById('open-panel-btn').style.display = 'none';
+
+    const notesWrap = document.getElementById('reading-notes-wrap');
+    if (notesWrap) notesWrap.style.display = 'none';
+    /* notesArea は display:none で隠すのみ。innerHTML = '' 禁止（DOMを維持する） */
+
+    const rcb = document.getElementById('rcb-container');
+    if (rcb) rcb.classList.remove('visible');
+    const activeVEl = document.getElementById('active-v');
+    if (activeVEl) {
+        /* 入口導線 Phase 1: パネル見出しに箇所名を併記する（従来は「n節」だけ）。
+           書・章が特定できない経路では従来表示にフォールバックする。 */
+        const _avBook = book || AppState.location.book;
+        const _avCh = ch != null ? ch : AppState.location.chapter;
+        activeVEl.textContent = vNum
+            ? ((_avBook && _avCh != null) ? `${_bookShortTitle(_avBook)} ${_avCh}:${vNum}` : ((window.I18N && window.I18N.lang !== 'ja') ? `Verse ${vNum}` : `${vNum}節`))
+            : '';
+    }
+    _currentAnalysisParams = null;
+
+    const existing = document.getElementById('word-list-view');
+    if (existing) existing.remove();
+
+    const listEl = document.createElement('div');
+    listEl.id = 'word-list-view';
+    listEl.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;';
+
+    if (!words.length) {
+        listEl.innerHTML = `<p style="color:var(--text-sub);font-size: var(--text-caption);text-align:center;padding: var(--space-xl) var(--space-md);">${_T('ui.noWordForms', 'この節では語形表示はまだ利用できません')}</p>`;
+        sidePanel.appendChild(listEl);
+        /* モバイルナビバー・戻るボタン・スクロール調整 */
+        _mobileOpenPanel(_T('ui.wordList', '語形一覧'), wasOpen);
+        updatePanelBackButton();
+        _adjustReadingAreaForPanel(wasOpen);
+        return;
+    }
+
+    /* Phase VR-3A/VR-3B: Flowタブの描画経路を Verse Representation Architecture 経由にする。
+       renderColumn() は WordOrderRenderer（chips[] のみを入力とする）へ委譲するため、
+       出力は _buildFlowTabHTML() 時代と完全一致（docs/development/verse-representation-design.md）。
+       book / ch は描画時コンテキスト（明示引数）を優先し、省略時は AppState.location にフォールバック。 */
+    {
+        const _bk        = book || AppState.location.book;
+        const _vrBookKey = _bk ? _bk.key : '';
+        const _vrCh      = ch != null ? ch : (AppState.location.chapter != null ? AppState.location.chapter : null);
+        const _vrVerse   = buildVerse(_vrBookKey, _vrCh, vNum, words);
+        const _spMode    = _studyPanelCompanionMode(_transA);
+        if (_spMode === 'DA_READING' && _sdChapterDataForRender) {
+            /* RK_READING → DA_READING: 既存 renderDAReadingView を節単位で再利用 */
+            renderDAReadingView(listEl, _sdChapterDataForRender, words);
+            _wlvChipCache = [];
+        } else {
+            const _vrRep = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, getAnalysis(_vrVerse));
+            /* VR-4-C Step 5: 「本文がFLOW表示中か」の判定はここ（呼び出し元）で解決し、
+               WordOrderRenderer へは解決済みの真偽値のみを渡す（旧実装の "修正B" 判定を移設）。 */
+            const _showOnboardingAnchor = _toColumnMode(_transA).kind !== 'wordOrder'
+                && !!(window.App.onboarding && !window.App.onboarding.getState().onboardingComplete);
+            /* VR-5-H-12: legend 表示可否も呼び出し元で解決し、Renderer へは真偽値のみ渡す
+               （render() 内の window.App.onboarding 直参照を撤去。旧: onboardingComplete で凡例表示）。 */
+            const _showOnboardingLegend = !!(window.App.onboarding?.getState()?.onboardingComplete);
+            listEl.innerHTML = renderColumn(_vrRep, { showOnboardingAnchor: _showOnboardingAnchor, showOnboardingLegend: _showOnboardingLegend });
+            /* Phase VR-4B-3: 表示に使った chips[] をクリック時まで保持する（Interaction Lifecycle是正）。
+               StudyPanel は常に1節分のみ表示するシングルトンのため、_wlvWordCache と対のグローバル
+               キャッシュで足りる（複数節同時表示する Greek Flow View / 本文左列とは異なる方式）。 */
+            _wlvChipCache = (_vrRep && _vrRep.chips) ? _vrRep.chips : [];
+            if (_spMode === 'JA1955') {
+                /* WORD_ORDER → JA1955: 語順を即時表示後、口語訳テキストで非同期上書き */
+                _fillStudyPanelTranslation('JA1955', vNum, _vrBookKey, _vrCh, listEl, words);
+            }
+        }
+    }
+    sidePanel.appendChild(listEl);
+    /* PC版の節読書メモと本文批評欄を、通常表示・口語訳表示の両方で維持する。 */
+    const _noteBook = book || AppState.location.book;
+    const _noteBookKey = _noteBook ? _noteBook.key : '';
+    const _noteChapter = ch != null ? ch : (AppState.location.chapter != null ? AppState.location.chapter : null);
+    _ensureStudyPanelReadingSections(listEl, words, _noteBookKey, _noteChapter, vNum);
+
+    /* モバイルナビバー・戻るボタン・スクロール調整 */
+    const _clBook = book || AppState.location.book;
+    const _clCh = ch != null ? ch : AppState.location.chapter;
+    const chapterLabel = vNum
+        ? ((window.I18N && I18N.lang === 'en')
+            ? ((_clBook && _clCh != null) ? `${_bookShortName(_clBook.key || _clBook)} ${_clCh}:${vNum}` : `Verse ${vNum}`)
+            : (vNum + '節'))
+        : '';
+    _mobileOpenPanel(chapterLabel || _T('ui.wordList', '語形一覧'), wasOpen);
+    updatePanelBackButton();
+    _adjustReadingAreaForPanel(wasOpen);
+}
+
+const JPN_MAP = {
+    pos: { 'V': '動詞', 'N': '名詞', 'A': '形容詞', 'R': '関係代名詞', 'P': '人称代名詞', 'D': '指示代名詞', 'T': '冠詞', 'ADV': '副詞', 'PREP': '前置詞', 'CONJ': '接続詞', 'PRT': '添語' },
+    tense: { 'P': '現在', 'I': '未完了', 'F': '未来', 'A': 'アオリスト', 'X': '完了' },
+    voice: { 'A': '能動', 'M': '中動', 'P': '受動', 'D': '能動的受動' },
+    mood: { 'I': '直説', 'S': '接続', 'O': '希求', 'M': '命令', 'N': '不定', 'P': '分詞' },
+    case: { 'N': '主格', 'G': '属格', 'D': '与格', 'A': '対格', 'V': '呼格' },
+    gender: { 'M': '男性', 'F': '女性', 'N': '中性' },
+    number: { 'S': '単数', 'P': '複数' },
+    person: { '1': '1人称', '2': '2人称', '3': '3人称' }
+};
+
+/* Abbott-Smith 本文を UI 言語で返す（英語UIでは description_en 原文、
+   供給不能なら日本語版に落とす）。 */
+function _abbottDesc(digits) {
+    const e = (typeof abbottSmithDict !== 'undefined' && abbottSmithDict && digits)
+        ? abbottSmithDict[digits] : null;
+    if (!e) return '';
+    if (window.I18N && I18N.lang === 'en' && e.descriptionEn) return e.descriptionEn;
+    return e.description || '';
+}
+
+
+/* ══════════════════════════════════════════
+   Inspect Popover 制御
+   ══════════════════════════════════════════ */
+
+/*
+ * _inspectData は後方互換エイリアス。
+ * 実態は AppState.inspect.data。
+ * _renderMorphTab / _renderSemanticsTab が直接参照しているため
+ * Proxy でリダイレクトする。
+ */
+const _inspectDataProxy = {
+    get greek()    { return AppState.inspect.data?.greek    || ''; },
+    get strong()   { return AppState.inspect.data?.strong   || ''; },
+    get jpMorph()  { return AppState.inspect.data?.jpMorph  || ''; },
+    get rawMorph() { return AppState.inspect.data?.rawMorph || ''; },
+    get lemma()    { return AppState.inspect.data?.lemma    || ''; },
+    get jaWord()   { return AppState.inspect.data?.jaWord   || ''; },
+    get desc()     { return AppState.inspect.data?.desc     || ''; },
+    get ref()      { return AppState.inspect.data?.ref      || ''; },
+    get language() { return AppState.inspect.data?.language || ''; },
+    get corpusId() { return AppState.inspect.data?.corpusId || ''; },
+    get lemmaId()  { return AppState.inspect.data?.lemmaId  ?? null; },
+};
+/* 後方互換: _inspectData を参照している既存コードが動くよう変数として公開 */
+let _inspectData = _inspectDataProxy;
+
+/* ══════════════════════════════════════════
+   Study Panel 制御
+   ══════════════════════════════════════════ */
+
+/*
+ * _currentAnalysisParams は後方互換エイリアス。
+ * 実態は AppState.study.params。
+ * switchAnalysisTab / _renderMorphTab 等が直接参照しているため
+ * get/set プロパティとして公開する。
+ *
+ * 注意: 代入は AppState.study.params への書き込みと等価。
+ */
+Object.defineProperty(window, '_currentAnalysisParams', {
+    get()  { return AppState.study.params; },
+    set(v) { AppState.study.params = v; },
+    configurable: true,
+});
+
+/*
+ * openStudyPanel / closeStudyPanel / reopenStudyPanel は
+ * openWordListInStudyPanel の直後（このファイル末尾付近）に
+ * 一箇所だけ定義されています。
+ * AppState 更新・scroll 保存/復元を含む正規実装です。
+ */
+
+/**
+ * 従来の toggleSidePanel を置き換え。
+ * 外部から呼ばれる可能性があるため互換として残す。
+ */
+function toggleSidePanel() {
+    const sidePanel = document.getElementById('bottom-depth-panel');
+    const isHidden  = window.getComputedStyle(sidePanel).display === 'none';
+    if (isHidden) {
+        if (AppState.canReopen()) reopenStudyPanel();
+    } else {
+        closeStudyPanel();
+    }
+}
+
+/**
+ * 従来の closeAnalysis 互換（message handler等から呼ばれる）。
+ */
+function closeAnalysis() {
+    closeStudyPanel();
+}
+
+/* ── 訳し分け・繰り返し Evidence（この語の読書メモ末尾の小さい行）
+   訳の同定データは assets/data/rendering-variants/JA1955.json（JA1955 対応表から
+   構築。少数派の訳の箇所・拮抗する訳し分けの箇所・語族の章内対比だけを収録）。
+   データが無い／読めない場合は静寂（行を出さない）。 */
+
+/* 開いた語（ref）の訳し分けを示す文を返す。対象でなければ null。 */
+async function _translationEvidenceText(ref) {
+    try {
+        if (!ref) return null;
+        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+        const data = await _loadRenderingVariants();
+        if (!data) return null;
+        const fam = data.family;
+        if (fam && fam.refs && fam.refs[ref]) {
+            const mine = fam.refs[ref];
+            const chKey = ref.substring(0, ref.indexOf(':'));
+            const others = new Set();
+            for (const r in fam.refs) {
+                if (r.substring(0, r.indexOf(':')) === chKey && fam.refs[r] !== mine) others.add(fam.refs[r]);
+            }
+            if (others.size === 1) {
+                return _isEn
+                    ? `This word is also rendered as "${[...others][0]}" elsewhere in this chapter. Here it is rendered as "${mine}".`
+                    : `この語は、同じ章では「${[...others][0]}」とも訳されています。ここでは「${mine}」になっています。`;
+            }
+            return null;
+        }
+        const bal = data.balanced && data.balanced[ref];
+        if (bal) {
+            return _isEn
+                ? `This word is also rendered as "${bal.o}" in other passages. Here it is rendered as "${bal.r}".`
+                : `この語は、ほかの箇所では「${bal.o}」とも訳されています。ここでは「${bal.r}」になっています。`;
+        }
+        const min = data.minority && data.minority[ref];
+        if (min) {
+            const grp = (data.groups || []).find(g => g.id === min.g);
+            if (grp) {
+                return _isEn
+                    ? `In the World English Bible, this word is usually rendered as "${grp.majority}". Here it is rendered as "${min.r}".`
+                    : `この語は、口語訳ではふだん「${grp.majority}」と訳されています。ここでは「${min.r}」になっています。`;
+            }
+        }
+        return null;
+    } catch (_) { return null; }
+}
+
+/* 開いた語が同じ節で繰り返されるときの文を返す。対象でなければ null。
+   閾値：NT出現200回超の語は3回以上、それ以外は2回以上。 */
+function _repetitionEvidenceText(words, idx) {
+    try {
+        if (!Array.isArray(words) || idx == null || idx < 0 || !words[idx]) return null;
+        const lemmaId = words[idx].lemmaId;
+        if (!lemmaId) return null;
+        let n = 0;
+        for (const t of words) { if (t.lemmaId === lemmaId) n++; }
+        if (n < 2) return null;
+        const ntCount = (_lexiconData && _lexiconData[lemmaId]) ? (_lexiconData[lemmaId].count || 0) : 0;
+        if (n < (ntCount > 200 ? 3 : 2)) return null;
+        return (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en')
+            ? `This word appears repeatedly in this verse (${n} times).`
+            : `この語は、この節でくりかえし出てきます（${n}回）。`;
+    } catch (_) { return null; }
+}
+
+/* ══════════════════════════════════════════
+   _renderReadingNotes
+   4階層構造: 聖書読者 → 学習者 → 研究者
+
+   reading_prose（語レベル読書メモ）は ReadingFormatter 統一版（2026-06-30）。
+   旧 Wallace準拠 reading_prose（WALLACE_*_MAP / WALLACE_*_TEMPLATES /
+   wallaceGrammarAdapter / generateWallaceReadingProse）と registry-based
+   fallback（_ensureRnAnalyzer / _rnGetType / _getRegistryProse）は完全に削除した。
+   自然文生成は ReadingFormatter（clause-analyzer.js）のみが行う。
+   本関数は _buildWordResonanceText() 経由で ReadingFormatter.format() の
+   結果を受け取り、そのまま描画するだけ（新規の文章生成は行わない）。
+   ══════════════════════════════════════════ */
+
+/**
+ * 統語論ラベル HTML を返す（SyntaxAnalyzer の candidates から生成）。
+ * confidence >= 0.60 かつ status !== 'stub' の候補のみ表示。
+ * 候補がない場合・エンジン未初期化の場合は '' を返す（静寂）。
+ * _wallacePipeline を再利用するため registry の二重 fetch は発生しない。
+ */
+function _toggleSyntaxContext(btn) {
+    const body = btn && btn.parentElement ? btn.parentElement.querySelector('.rn-syntax-context-body') : null;
+    if (!body) return;
+    const open = body.hasAttribute('hidden');
+    if (open) { body.removeAttribute('hidden'); btn.textContent = '文脈を閉じる'; }
+    else { body.setAttribute('hidden', ''); btn.textContent = '文脈で確かめる'; }
+}
+function _jumpToSyntaxVerse(book, chapter, verse) {
+    let target = null;
+    try {
+        target = (typeof _findVerseInChapter === 'function' && _findVerseInChapter(book, String(chapter), String(verse)))
+            || (typeof _findVisibleVerseBlock === 'function' && _findVisibleVerseBlock(verse));
+    } catch (_) { target = null; }
+    if (!target) return;
+    try { target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
+    target.classList.add('rn-ctx-flash');
+    setTimeout(() => { try { target.classList.remove('rn-ctx-flash'); } catch (_) {} }, 1900);
+}
+/* 前後の節と当節（対象語を強調）を並べた文脈ブロック。当節が作れない場合は '' */
+function _syntaxContextBlockHTML(chapterTokens, targetRef, hintJa) {
+    if (!Array.isArray(chapterTokens) || !chapterTokens.length) return '';
+    const target = chapterTokens.find(t => t.ref === targetRef);
+    if (!target) return '';
+    const book = target.book, chapter = target.chapter, verseNum = parseInt(target.verse, 10);
+    if (!book || !chapter || !verseNum) return '';
+    const verseLine = v => {
+        const toks = chapterTokens.filter(t => parseInt(t.verse, 10) === v);
+        if (!toks.length) return '';
+        const text = toks.map(t => {
+            const s = _escH(String(t.text || '')) + _escH(String(t.after || ''));
+            return t.ref === targetRef ? `<span class="rn-syntax-ctx-target">${s}</span>` : s;
+        }).join(' ');
+        return `<div class="rn-syntax-ctx-verse"><span class="rn-syntax-ctx-ref">${_escH(book)} ${chapter}:${v}</span><span class="rn-syntax-ctx-text" lang="el">${text}</span></div>`;
+    };
+    const lines = [verseLine(verseNum - 1), verseLine(verseNum), verseLine(verseNum + 1)].filter(Boolean).join('');
+    if (!lines) return '';
+    const hint = typeof hintJa === 'string' && hintJa.trim()
+        ? `<div class="rn-syntax-ctx-hint"><span class="rn-syntax-ctx-hint-label">${_T('ctx.hintLabel', '見分ける手がかり：')}</span>${_escH(hintJa.trim())}</div>`
+        : '';
+    return `<button type="button" class="rn-syntax-context-toggle" onclick="_toggleSyntaxContext(this)">${_T('ctx.checkContext', '文脈で確かめる')}</button>`
+        + `<div class="rn-syntax-context-body" hidden>${lines}${hint}`
+        + `<button type="button" class="rn-syntax-ctx-jump" onclick="_jumpToSyntaxVerse('${_escH(book)}', '${_escH(chapter)}', ${verseNum})">${_T('ctx.seeInText', '本文で見る')}</button></div>`;
+}
+
+/* 識別不能ペアの読み分け（第4段階・単位B / 仕分け G5）: 必須条件が完全同一で
+   検出では区別できないペアが揃って発火したときだけ、2つの読みの違いと
+   文脈での見分け方を示す。人手で読み分けを書いた組み合わせに限る。 */
+function _syntaxPairBlockHTML(rawIdSet) {
+    const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+    const PAIRS = [
+        {
+            a: 'verb.imperative_constative', b: 'verb.imperative_ingressive',
+            body: '<p><strong>総括的命令</strong>は行為全体を行うよう命じ、<strong>起動的命令</strong>は行為を始めるよう命じます。アオリスト命令法の形はどちらも同じで、区別は形には現れません。</p>',
+            body_en: '<p>The <strong>constative imperative</strong> commands an action to be carried out as a whole, while the <strong>ingressive imperative</strong> commands an action to be begun. Both use the same aorist imperative form; the distinction does not appear in the form.</p>',
+            fact: 'この語はアオリスト・命令法として解析されています。',
+            fact_en: 'This word is analyzed as an aorist imperative.',
+            judge: '行為が一回で完結する事柄か、これから始めて続く事柄かは、前後の文脈と行為の性質から判断します。',
+            judge_en: 'Whether the act is something completed in a single action, or something to begin and continue, is judged from the surrounding context and the nature of the act.',
+        },
+        {
+            a: 'verb.present_customary', b: 'verb.present_iterative',
+            body: '<p><strong>習慣的現在</strong>は、その人の通常のあり方や規則的な習慣を述べ、<strong>反復的現在</strong>は、個別の行為の繰り返しを述べます。現在形の形はどちらも同じです。</p>',
+            body_en: '<p>The <strong>customary present</strong> states a person\'s usual way of being or a regular habit, while the <strong>iterative present</strong> states the repetition of individual acts. Both use the same present form.</p>',
+            fact: 'この語は現在・直説法として解析されています。',
+            fact_en: 'This word is analyzed as a present indicative.',
+            judge: '繰り返しが規則的・恒常的か、その都度のものかは、時間を示す副詞や場面の文脈で判断します。',
+            judge_en: 'Whether the repetition is regular and constant, or a matter of each occasion, is judged from adverbs of time and the context of the scene.',
+        },
+        {
+            a: 'verb.imperfect_customary', b: 'verb.imperfect_iterative',
+            body: '<p><strong>習慣的未完了</strong>は、過去における通常のあり方や規則的な習慣を述べ、<strong>反復的未完了</strong>は、過去の個別の行為の繰り返しを述べます。未完了形の形はどちらも同じです。</p>',
+            body_en: '<p>The <strong>customary imperfect</strong> states a usual state of affairs or a regular habit in the past, while the <strong>iterative imperfect</strong> states the repetition of individual acts in the past. Both use the same imperfect form.</p>',
+            fact: 'この語は未完了（インパーフェクト）・直説法として解析されています。',
+            fact_en: 'This word is analyzed as an imperfect indicative.',
+            judge: '過去の繰り返しが規則的だったか、その都度のものだったかは、時間を示す副詞や場面の文脈で判断します。',
+            judge_en: 'Whether the past repetition was regular or a matter of each occasion is judged from adverbs of time and the context of the scene.',
+        },
+    ];
+    for (const p of PAIRS) {
+        if (rawIdSet.has(p.a) && rawIdSet.has(p.b)) {
+            return _isEn
+                ? `<div class="rn-syntax-comparison"><div class="rn-syntax-comparison-title">Telling the readings apart</div>${p.body_en}<div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body"><p><strong>What can be confirmed from the text: </strong>${p.fact_en}</p><p><strong>What can be said from this: </strong>${p.judge_en}</p></div></div></div>`
+                : `<div class="rn-syntax-comparison"><div class="rn-syntax-comparison-title">読み分け</div>${p.body}<div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div><div class="rn-syntax-evidence-body"><p><strong>本文で確認できること：</strong>${p.fact}</p><p><strong>ここから言えること：</strong>${p.judge}</p></div></div></div>`;
+        }
+    }
+    return '';
+}
+
+async function _buildSyntaxLabelHTML(words, targetRef) {
+    if (!words || !words.length || !targetRef) return '';
+    const targetIdx = words.findIndex(t => t.ref === targetRef);
+    if (targetIdx === -1) return '';
+    const pipeline = await _ensureWallacePipeline();
+    if (!pipeline) return '';
+    let output;
+    try {
+        output = pipeline.sa.analyze({ target: words[targetIdx], tokens: words, targetIdx });
+    } catch (_) { return ''; }
+    if (!output || !Array.isArray(output.candidates) || !output.candidates.length) return '';
+    /* 0.60 以上かつ非 stub の候補を、スコア順に並べて重複排除 */
+    const CONF_MEDIUM = 0.60;
+    const candidates = output.candidates
+        .filter(c => c.confidence >= CONF_MEDIUM && c.status !== 'stub' && !c.display_exempt && c.label_ja)
+        .sort((a, b) => b.confidence - a.confidence);
+    const seen = new Set();
+    const unique = candidates.filter(c => {
+        if (seen.has(c.label_ja)) return false;
+        seen.add(c.label_ja);
+        return true;
+    });
+    /* 監査（一次監査台帳）で unresolved とされたタイプ。表示候補に出たとき、
+       文脈で判断が分かれる用法であることを小さく添える。根拠のない断定を避ける
+       ための注記で、スコアの説明ではない。読み分けブロックが付く組み合わせでは
+       そちらが説明を担うため、対象 id は注記を出さない。 */
+    const AUDIT_UNRESOLVED_IDS = new Set([
+        'accusative.adverbial', 'adjective.restrictive',
+        'article.abstract', 'article.generic', 'article.monadic', 'article.par_excellence',
+        'clause.causal_hoti',
+        'dative.ethical', 'dative.interest_advantage', 'dative.interest_disadvantage',
+        'discourse.topic_fronting',
+        'genitive.attributed', 'genitive.content', 'genitive.descriptive',
+        'genitive.material', 'genitive.means', 'genitive.place',
+        'infinitive.means',
+        'nominative.nominative_absolute', 'nominative.pendens', 'nominative.vocative_nominative',
+        'participle.adverbial_causal', 'participle.adverbial_means',
+        'participle.adverbial_temporal', 'participle.redundant',
+        'particle.rhetorical_particle', 'preposition.adverbial_pp',
+        'verb.aorist_gnomic', 'verb.dramatic_aorist', 'verb.future_gnomic',
+        'verb.gnomic_present', 'verb.imperative_ingressive', 'verb.imperfect_iterative',
+        'verb.perfect_dramatic',
+    ]);
+    if (!unique.length) {
+        /* 表示候補が無い場合の静かな導線（第4段階・単位B）。
+           (1) 識別不能ペア（G5）が揃っていれば、その読み分けを出す。
+           (2) 最上位の未満候補が監査未解決なら、注記と文脈導線を出す（G4）。
+           どちらにも当たらなければ従来どおり何も出さない。 */
+        const rawIdSet = new Set((output.candidates || []).map(c => c.id));
+        const pairFallback = _syntaxPairBlockHTML(rawIdSet);
+        if (pairFallback) return `<div class="rn-syntax-candidates">${pairFallback}</div>`;
+        const topRaw = (output.candidates || [])
+            .filter(c => c.status !== 'stub' && c.label_ja)
+            .sort((x, y) => y.confidence - x.confidence)[0];
+        if (topRaw && AUDIT_UNRESOLVED_IDS.has(topRaw.id)) {
+            const m = /^([A-Za-z0-9]+)\s+(\d+):(\d+)/.exec(String(targetRef || ''));
+            let ctxBlock = '';
+            if (m) {
+                const chapterTokens = await _fetchSyntaxChapterTokens(m[1], m[2]);
+                if (chapterTokens) ctxBlock = _syntaxContextBlockHTML(chapterTokens, targetRef, (window.I18N && I18N.lang === 'en' ? (topRaw.hint_en || topRaw.hint_ja) : topRaw.hint_ja));
+            }
+            const _isEnNote = window.I18N && I18N.lang === 'en';
+            const note = (topRaw.id === 'infinitive.means' && rawIdSet.has('infinitive.time'))
+                ? (_isEnNote
+                    ? 'The ἐν τῷ + infinitive construction is one whose reading — "time" or "means" — is decided by context.'
+                    : 'ἐν τῷ＋不定詞は、「時」か「手段」かを文脈で判断する用法です。')
+                : (_isEnNote
+                    ? `This usage is decided by context (candidate: ${_escH(topRaw.label_en || topRaw.label_ja)}).`
+                    : `文脈で判断が分かれる用法です（候補：${_escH(topRaw.label_ja)}）。`);
+            return `<div class="rn-syntax-candidates"><div class="rn-syntax-item"><div class="rn-syntax-context-note">${note}</div>${ctxBlock}</div></div>`;
+        }
+        return '';
+    }
+    /* しきい値未満の候補 id は、表示はしないが読み分けの発火判定にだけ使う
+       （例：手段不定詞は確度が低く候補一覧に出ないが、時の不定詞と
+       同じ形で競合するため、読み分けの対象には含める）。 */
+    const rawIds = new Set((output.candidates || []).map(c => c.id));
+    const candidateIds = new Set(unique.map(c => c.id));
+    const targetLemma = String(words[targetIdx]?.lemma || '').normalize('NFC');
+    const refText = String(targetRef || '');
+    const hasLemma = lemma => words.some(t => String(t.lemma || '').normalize('NFC') === lemma);
+    const comparisonCoveredIds = new Set();
+    if (candidateIds.has('infinitive.time') && rawIds.has('infinitive.means')) {
+        comparisonCoveredIds.add('infinitive.means');
+    }
+    if (targetLemma === 'ὅτι' &&
+        (candidateIds.has('clause.substantival_hoti') || rawIds.has('clause.causal_hoti'))) {
+        comparisonCoveredIds.add('clause.causal_hoti');
+    }
+    /* 文脈導線（第4段階トラックb）: 注記対象の表示候補がある場合だけ章データを
+       取得し、前後の節と見分ける手がかりを添える。用意できない場合は注記のみ。 */
+    const ctxBlockById = new Map();
+    {
+        const needy = unique.filter(c => AUDIT_UNRESOLVED_IDS.has(c.id) && !comparisonCoveredIds.has(c.id));
+        const m = /^([A-Za-z0-9]+)\s+(\d+):(\d+)/.exec(refText);
+        if (needy.length && m) {
+            const chapterTokens = await _fetchSyntaxChapterTokens(m[1], m[2]);
+            if (chapterTokens) {
+                for (const c of needy) {
+                    const block = _syntaxContextBlockHTML(chapterTokens, targetRef, (window.I18N && I18N.lang === 'en' ? (c.hint_en || c.hint_ja) : c.hint_ja));
+                    if (block) ctxBlockById.set(c.id, block);
+                }
+            }
+        }
+    }
+    /* 最高候補と次点の差が小さい場合は、近い候補を同列に表示 */
+    const topHasLead = unique.length > 1 && (unique[0].confidence - unique[1].confidence) >= 0.05;
+    const primaryCount = topHasLead ? 1 : unique.filter(c => unique[0].confidence - c.confidence < 0.05).length;
+    const primaryCandidates = unique.slice(0, primaryCount);
+    const otherCandidates = unique.slice(primaryCount);
+    const renderCandidate = (c, primary) => {
+        const label = _escH((window.I18N && I18N.lang === 'en') ? (c.label_en || c.label_ja) : c.label_ja);
+        const _isEnUI = window.I18N && I18N.lang === 'en';
+        const explanation = _isEnUI
+            ? (typeof c.description_en === 'string' && c.description_en.trim()
+                ? c.description_en.trim()
+                : (typeof c.description_ja === 'string' && c.description_ja.trim()
+                    ? c.description_ja.trim()
+                    : (typeof c.hint_en === 'string' && c.hint_en.trim()
+                        ? c.hint_en.trim()
+                        : (typeof c.hint_ja === 'string' ? c.hint_ja.trim() : ''))))
+            : (typeof c.description_ja === 'string' && c.description_ja.trim()
+                ? c.description_ja.trim()
+                : (typeof c.hint_ja === 'string' ? c.hint_ja.trim() : ''));
+        const description = explanation
+            ? `<div class="rn-syntax-description">${_escH(explanation)}</div>`
+            : '';
+        const badge = primary && topHasLead
+            ? `<span class="rn-syntax-best-label">${_T('panel.topCandidate', '第一候補')}</span>`
+            : '';
+        const contextNote = AUDIT_UNRESOLVED_IDS.has(c.id) && !comparisonCoveredIds.has(c.id)
+            ? `<div class="rn-syntax-context-note">${_T('panel.contextDecided', '文脈で判断が分かれる用法です。')}</div>` + (ctxBlockById.get(c.id) || '')
+            : '';
+        return `<div class="rn-syntax-item${primary && topHasLead ? ' rn-syntax-item-primary' : ''}"><div class="rn-syntax-item-heading"><span class="rn-syntax-term">${label}</span>${badge}</div>${description}${contextNote}</div>`;
+    };
+    const primaryHTML = primaryCandidates.map(c => renderCandidate(c, true)).join('');
+    const tiedNotice = !topHasLead && primaryCandidates.length > 1
+        ? `<div class="rn-syntax-tied-notice">${_T('panel.tiedNotice', '今回の解析では、一つの候補に絞れていません。')}</div>`
+        : '';
+    const otherHTML = otherCandidates.length
+        ? `<div class="rn-syntax-alternatives"><div class="rn-syntax-alternatives-label">${_T('panel.otherCandidates', 'ほかの候補（{n}件）').replace('{n}', otherCandidates.length)}</div><div class="rn-syntax-alternatives-list">${otherCandidates.map(c => renderCandidate(c, false)).join('')}</div></div>`
+        : '';
+
+    /*
+     * 候補比較は、意味の対立と適用箇所を人手レビューしたケースに限定する。
+     * confidence の大小や共通シグナルを、解釈の決め手として扱わない。
+     * 対象外・候補不足では何も追加しない（静寂優先）。
+     */
+    let comparisonHTML = '';
+    const _isEnCmp = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+    if (
+        targetLemma === 'οἶκος' &&
+        /(?:JHN|John)[\s._:-]*2[\s._:-]*17(?:[\s._:!-]|$)/i.test(refText) &&
+        hasLemma('ζῆλος') &&
+        candidateIds.has('genitive.objective') &&
+        candidateIds.has('genitive.subjective')
+    ) {
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p>If it is an <strong>objective genitive</strong>, the sense is "zeal for the house" — the house is what the zeal is directed toward. If it is a <strong>subjective genitive</strong>, the sense is "the zeal the house shows" — the house is the side that shows the zeal.</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p><strong>What can be confirmed from the text: </strong>The genitive phrase <span lang="el">τοῦ οἴκου σου</span> follows <span lang="el">ζῆλος</span>, which expresses zeal.</p>
+                    <p><strong>What can be said from this: </strong>What is at issue is the relation between a noun expressing an action or a feeling and the genitive phrase. But the clue that there is such a noun is common to both candidates, so it alone cannot decide whether the house is the side the zeal is directed toward, or the side that shows the zeal.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p><strong>目的語的属格</strong>なら「家に対する熱意」で、「家」は熱意の向かう対象です。<strong>主語的属格</strong>なら「家が示す熱意」で、「家」は熱意を示す側です。</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
+                <div class="rn-syntax-evidence-body">
+                    <p><strong>本文で確認できること：</strong>「熱意」を表す <span lang="el">ζῆλος</span> に、<span lang="el">τοῦ οἴκου σου</span> という属格句が続いています。</p>
+                    <p><strong>ここから言えること：</strong>動作・感情を表す名詞と属格句の関係が問題になります。ただし、動作名詞があるという手がかりは両候補に共通するため、それだけでは「熱意を向ける側」か「熱意を示す側」かを決められません。</p>
+                </div>
+            </div>
+        </div>`;
+    } else if (
+        targetLemma === 'Χριστός' &&
+        /(?:ROM|Romans)[\s._:-]*8[\s._:-]*35(?:[\s._:!-]|$)/i.test(refText) &&
+        hasLemma('ἀγάπη') &&
+        candidateIds.has('genitive.subjective') &&
+        candidateIds.has('genitive.objective')
+    ) {
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p>With a <strong>subjective genitive</strong>, it is "the love with which Christ loves us"; with an <strong>objective genitive</strong>, it is "love directed toward Christ." The difference is whether Christ is the one who loves, or the one to whom love is directed.</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p><strong>What can be confirmed from the text: </strong><span lang="el">τοῦ Χριστοῦ</span> is a genitive following <span lang="el">τῆς ἀγάπης</span>.</p>
+                    <p><strong>What can be said from this: </strong>The grammatical form alone does not settle whether Christ is the subject who loves or the object of love. The surrounding context and the sense of the expression "the love of Christ" as a whole must be weighed together. The analysis scores do not express probabilities.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p><strong>主語的属格</strong>なら「キリストが私たちを愛する愛」、<strong>目的語的属格</strong>なら「キリストに向けられた愛」です。違いは、キリストが愛する側なのか、愛を向けられる側なのかにあります。</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
+                <div class="rn-syntax-evidence-body">
+                    <p><strong>本文で確認できること：</strong><span lang="el">τοῦ Χριστοῦ</span> は <span lang="el">τῆς ἀγάπης</span> に続く属格です。</p>
+                    <p><strong>ここから言えること：</strong>文法上の形だけでは、キリストが愛する主体か、愛の対象かは確定しません。前後の文脈と「キリストの愛」という表現全体の意味を合わせて判断する必要があります。解析スコアは確率を表すものではありません。</p>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    /* 一般的な候補比較：人手レビュー済みの型の組み合わせだけを比較する。 */
+    if (!comparisonHTML &&
+        candidateIds.has('nominal_syntax.nested_np') &&
+        candidateIds.has('nominal_syntax.modified_np')) {
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>a structural difference — whether another noun phrase is embedded inside the noun phrase (a nested structure, such as the Apollonius pattern of article–noun–article–genitive noun), or a modifier is simply attached to the head noun.</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p>These two are candidates that explain the structure of the noun phrase. Which is appropriate is judged by looking not only at the word in question, but at the arrangement and grouping of the surrounding articles, nouns, and modifiers. The structure is not settled by the order or the score of the candidates alone.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong>名詞句の内部に別の名詞句が組み込まれているか（入れ子。冠詞・名詞・冠詞・属格名詞という Apollonius 型など）、中心語に修飾語が付いているだけか、という構造上の違いです。</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
+                <div class="rn-syntax-evidence-body">
+                    <p>この二つは名詞句の構造を説明する候補です。どちらが適切かは、対象語だけでなく、周囲の冠詞・名詞・修飾語の並びとまとまりを確認して判断します。候補の表示順位やスコアだけで構造が確定するわけではありません。</p>
+                </div>
+            </div>
+        </div>`;
+    } else if (!comparisonHTML &&
+        candidateIds.has('genitive.subjective') &&
+        candidateIds.has('genitive.possessive') &&
+        candidateIds.has('genitive.objective')) {
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p><strong>Subjective genitive:</strong> the genitive expresses the side that performs the action. If the action noun is replaced by a verb, the genitive corresponds to its subject.</p>
+            <p><strong>Possessive genitive:</strong> the genitive expresses a relation of possession, belonging, or attribution to the head noun. It can sometimes be translated with "of."</p>
+            <p><strong>Objective genitive:</strong> the genitive expresses what the action is directed toward. If the action noun is replaced by a verb, the genitive corresponds to its object.</p>
+            <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>a difference in meaning — whether the genitive expresses "the side that acts," "a relation of possession or belonging," or "what receives the action."</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p>The genitive form alone cannot distinguish the three usages. The meaning of the head noun, its relation to the genitive, and the context are weighed together. The candidate scores do not express probabilities.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p><strong>主語的属格：</strong>属格が動作を行う側を表します。動作名詞を動詞に置き換えると、属格が主語に当たります。</p>
+            <p><strong>所有属格：</strong>属格が中心語との所有・所属・帰属の関係を表します。「〜の」と訳せることがあります。</p>
+            <p><strong>目的語的属格：</strong>属格が動作の向かう対象を表します。動作名詞を動詞に置き換えると、属格が目的語に当たります。</p>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong>属格が「動作をする側」「所有・帰属の関係」「動作を受ける対象」のどれを表すか、という意味上の違いです。</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
+                <div class="rn-syntax-evidence-body">
+                    <p>属格という形だけで三つの用法を区別できるわけではありません。中心となる名詞の意味、属格との関係、文脈を合わせて判断します。候補のスコアは確率を表すものではありません。</p>
+                </div>
+            </div>
+        </div>`;
+    } else if (!comparisonHTML &&
+        candidateIds.has('nominal_syntax.modified_np') &&
+        candidateIds.has('nominal_syntax.multiple_modifier_np')) {
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>the number of modifiers attached to the head noun. If there are several modifiers, it falls under a "multiple-modifier noun phrase"; if there is only one, under a "modified noun phrase" (a multiple-modifier phrase is a kind of modified noun phrase).</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p>Check how many modifiers — adjectives, genitives, participles, prepositional phrases, and the like — are attached around this word. It is not decided by the order or the score of the candidates alone.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong>中心となる名詞に付く修飾語の数です。修飾語が複数付いていれば「複数修飾名詞句」、1つだけなら「修飾名詞句」の範囲に入ります（複数修飾は修飾名詞句の一種です）。</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
+                <div class="rn-syntax-evidence-body">
+                    <p>この語の周りで、形容詞・属格・分詞・前置詞句などの修飾語がいくつ付いているかを確認してください。候補の表示順位やスコアだけで決まるものではありません。</p>
+                </div>
+            </div>
+        </div>`;
+    } else if (!comparisonHTML &&
+        candidateIds.has('infinitive.time') &&
+        rawIds.has('infinitive.means')) {
+        /* ἐν τῷ＋不定詞：時と手段は同じ形で競合する（一次監査・不定詞）。
+           手段不定詞は確度が低く候補一覧には出ないため、表示される
+           時の不定詞を起点に、しきい値未満の手段候補で発火させる。 */
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>a difference in the relation of meaning — whether <span lang="el">ἐν τῷ</span> + infinitive expresses the "time," simultaneous with the event of the main clause, or the "means," "by doing …".</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p><strong>What can be confirmed from the text: </strong>The form — the preposition <span lang="el">ἐν</span> and the article <span lang="el">τῷ</span> followed by an infinitive — is exactly the same for time and for means.</p>
+                    <p><strong>What can be said from this: </strong>The form alone cannot decide it; the meaning of the main verb and the flow of the sentence are weighed together. The means reading is infrequent, and the time reading is close to the default reading.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong><span lang="el">ἐν τῷ</span>＋不定詞が、主節の出来事と同時の「時」を表すか、「〜することによって」という「手段」を表すか、という意味関係の違いです。</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
+                <div class="rn-syntax-evidence-body">
+                    <p><strong>本文で確認できること：</strong>前置詞 <span lang="el">ἐν</span> と冠詞 <span lang="el">τῷ</span> に不定詞が続く形は、時と手段とでまったく同じです。</p>
+                    <p><strong>ここから言えること：</strong>形式だけでは決まらず、主節の動詞の意味と文の流れを合わせて判断します。手段の読みは頻度が低く、時の読みが既定に近い読みです。</p>
+                </div>
+            </div>
+        </div>`;
+    } else if (!comparisonHTML &&
+        targetLemma === 'ὅτι' &&
+        (candidateIds.has('clause.substantival_hoti') || rawIds.has('clause.causal_hoti'))) {
+        /* ὅτι 節：内容と理由は形が同じで、理由側には形式の標識がない
+           （一次監査・節。理由節は残余条件の定義で unresolved）。
+           理由節は確度が低く候補一覧に出ないことがあるため、
+           内容節の表示またはしきい値未満の理由節候補で発火させる。 */
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>a difference in the role of the clause — whether the <span lang="el">ὅτι</span> clause expresses the "content" of an utterance, a thought, or a recognition ("that …"), or the "reason" for the event of the main clause ("because …").</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p><strong>What can be confirmed from the text: </strong>A clue for the content reading is whether a verb expressing saying, thinking, knowing, or the like stands before <span lang="el">ὅτι</span>.</p>
+                    <p><strong>What can be said from this: </strong>The reason reading has no fixed formal marker and is judged by the connection of meaning with the main clause. Because the form is the same, both readings can hold, depending on the context.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong><span lang="el">ὅτι</span> 節が、発話・思考・認識の「内容（〜ということ）」を表すか、主節の出来事の「理由（〜だから）」を表すか、という節の役割の違いです。</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
+                <div class="rn-syntax-evidence-body">
+                    <p><strong>本文で確認できること：</strong><span lang="el">ὅτι</span> の前に「言う・思う・知る」など発話や認識を表す動詞があるかどうかが、内容節の手がかりになります。</p>
+                    <p><strong>ここから言えること：</strong>理由の読みには決まった形式の標識がなく、主節との意味のつながりで判断します。形が同じため、文脈によっては両方の読みが成り立つことがあります。</p>
+                </div>
+            </div>
+        </div>`;
+    } else if (!comparisonHTML &&
+        candidateIds.has('clause.purpose_hina')) {
+        /* ἵνα 節：目的だけでなく願望・要求の内容も表す（一次監査・節。
+           機能候補の併記が実態に合うとされた）。単独候補への注記として出す。 */
+        comparisonHTML = _isEnCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Telling the readings apart</div>
+            <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>an <span lang="el">ἵνα</span> clause can express not only purpose, "in order to …", but also the content of a wish, a command, or a request, "that … should …".</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body">
+                    <p><strong>What can be said from this: </strong>The form — <span lang="el">ἵνα</span> with the subjunctive — alone does not decide between purpose and content; the meaning of the verb that introduces the clause and the context are weighed together.</p>
+                </div>
+            </div>
+        </div>`
+        : `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">読み分け</div>
+            <p class="rn-syntax-comparison-difference"><strong>違い：</strong><span lang="el">ἵνα</span> 節は「〜するために」という目的だけでなく、「〜するように」という願望・命令・要求の内容を表すこともあります。</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div>
+                <div class="rn-syntax-evidence-body">
+                    <p><strong>ここから言えること：</strong><span lang="el">ἵνα</span> と接続法という形だけでは目的か内容かは決まらず、節を導く動詞の意味と文脈を合わせて判断します。</p>
+                </div>
+            </div>
+        </div>`;
+    }
+    /*
+     * 汎用の候補比較は出さない。候補の定義は上の候補一覧で一度だけ示し、
+     * ここで並べ直すと重複になる。人手で読み分けを書いた組み合わせだけを
+     * 上で追加し、それ以外は何も足さない（静寂優先）。
+     * 見出しは呼び出し側のグループ見出し「分析候補・統語情報」に一本化し、
+     * このブロック内には小見出しを付けない。
+     */
+    /* 識別不能ペアの読み分け（単位B / G5）: 候補が表示される場合も、ペアが
+       揃っていれば読み分けを末尾に足す（既存の読み分けとは独立に付く）。 */
+    comparisonHTML += _syntaxPairBlockHTML(rawIds);
+    return `<div class="rn-syntax-candidates">${tiedNotice}${primaryHTML}${otherHTML}${comparisonHTML}</div>`;
+}
+
+async function _renderReadingNotes(p) {
+    const area = document.getElementById('reading-notes-area');
+    if (!area) return;
+    area.scrollTop = 0;
+
+    const word   = p.word   || '-';
+    const pos    = p.pos    || '';
+    const mood   = p.mood   || '';
+    const tense  = p.tense  || '';
+    const voice  = p.voice  || '';
+    const ref    = p.ref    || '';
+    const lemma  = p.lemma  || '';
+    const jaWord = (AppState.inspect.data?.jaWord) || '';
+    const strong = normalizeStrong(AppState.inspect.data?.strong);
+    const w      = jaWord ? `「${jaWord}」` : 'この語';
+
+    /* ═══════════════════════════════════════════════════════
+       Reading prose — ReadingFormatter 統一版
+       本関数は文章生成を一切行わない。words配列中の対象語idxを
+       _buildWordResonanceText()（wlv-detail-resonance/wlv-pn-proseと同じ
+       関数）へ渡し、ReadingFormatter.format()の戻り値をそのまま描画する。
+       表示すべき内容が無ければ null のまま → 固定文字列で埋めない（静寂優先）。
+       ═══════════════════════════════════════════════════════ */
+    let wordProseText = null;
+    let phraseReadingHTML = '';
+    let observationHTML = '';
+    if (ref && Array.isArray(_wlvWordCache)) {
+        const targetIdx = _wlvWordCache.findIndex(t => t.ref === ref);
+        if (targetIdx !== -1) {
+            wordProseText = await _buildWordResonanceText(_wlvWordCache, targetIdx);
+            /* Phase 25B-2: Phrase Reading（かたまりの読書メモ）。
+               失敗・該当なしは '' = 既存表示のみ（Failure Mode 現状維持）。 */
+            try {
+                phraseReadingHTML =
+                    (await _buildPhraseReadingHTML(_wlvWordCache, targetIdx)) || '';
+            } catch (_) { phraseReadingHTML = ''; }
+            /* Phase 25B-3: Observation（どこを見ると読みやすいかの一文）。
+               失敗・該当なしは '' = 既存表示のみ。
+               Phase ESM-44-B: 生成結果はそのまま _naturalizeObservationText() へ通す
+               （表示層のみの角括弧引用置換、生成ロジックは無変更）。 */
+            try {
+                observationHTML = _naturalizeObservationText((await _buildObservationHTML(
+                    _wlvWordCache, targetIdx, [wordProseText, phraseReadingHTML])) || '');
+            } catch (_) { observationHTML = ''; }
+        }
+    }
+    const proseHTML = wordProseText
+        ? `<div class="rn-prose reading-block"><p class="rn-prose-text reading-prose">${wordProseText}</p></div>`
+        : '';
+
+    /* FLOW-TREE-11-A: NeighborhoodView（境界確認 Prototype, Matthew 1:1 のみ）。
+       既存の SyntaxAnalyzer/PhraseAnalyzer/ClauseAnalyzer/ReadingFormatter の
+       いずれも呼び出さない、完全に独立した経路。対象外の ref では '' が返り、
+       既存表示に一切影響しない（Failure Mode, _buildFlowTreeNeighborhoodViewHTML 内で吸収済み）。 */
+    const neighborhoodViewHTML = await _buildFlowTreeNeighborhoodViewHTML(ref, AppState.studyTarget?.verseId);
+
+    /* ═══════════════════════════════════════════════════════
+       Lexicon data (async)
+       ═══════════════════════════════════════════════════════ */
+    await _ensureSemanticData();
+    const resolvedId  = (AppState.inspect.data?.lemmaId) || _resolveLemmaId(strong);
+    const lexEntry    = resolvedId ? _lexiconData?.[resolvedId] : null;
+
+    /* Stage E: 3 層分離（docs/display-label.md）
+       ② 語義見出し(Display Label) = ReadingLexicon.getDisplayLabel（lemma 単位・
+          文脈非依存・短い代表訳）。gloss_ja(③説明) も jaWord(①読む日本語) も見出しの
+          SSOT にしない。getDisplayLabel は NT 全トークン 100% 供給（未供給は
+          jaWord への安全網のみ・実トークンでは発火しない）。 */
+    const displayLabel    = (window.App?.readingLexicon?.getDisplayLabel(resolvedId)) || jaWord || '';
+    /* ③ 語義説明は abbottSmith（下の語義セクション）が担う。gloss_ja は見出しに使わない */
+    const _enUiAbbott = window.I18N && I18N.lang === 'en';
+    const _abbottDigits = resolvedId ? resolvedId.replace(/^grc:G/i, '') : '';
+    if (_enUiAbbott && _abbottDigits && !abbottSmithDict) await loadDict();
+    const abbottSmithText = _enUiAbbott
+        ? (abbottSmithDict?.[_abbottDigits]?.descriptionEn || '')
+        : (lexEntry?.abbottSmith || '');
+    const contexts        = lexEntry?.contexts || {};
+    const synopticRefs    = contexts.synoptic_refs || [];
+    const paulineRefs     = contexts.pauline_refs  || [];
+
+    const qsConcord = new URLSearchParams();
+    if (p.word)   qsConcord.set('word',   p.word);
+    if (lemma)    qsConcord.set('lemma',  lemma);
+    if (ref)      qsConcord.set('ref',    ref);
+    if (p.pos)    qsConcord.set('pos',    p.pos);
+    if (p.tense)  qsConcord.set('tense',  p.tense);
+    if (p.mood)   qsConcord.set('mood',   p.mood);
+    if (p.voice)  qsConcord.set('voice',  p.voice);
+    /* 動詞形（分詞含む）では格・数・性を送らない。名詞的品詞のみ */
+    if (p.pos !== 'V') {
+        if (p.gender) qsConcord.set('gender', p.gender);
+        if (p.number) qsConcord.set('number', p.number);
+        if (p.case)   qsConcord.set('case',   p.case);
+    }
+    qsConcord.set('layers', 'lemma,morph');
+    qsConcord.set('tool',   'search');
+    const concordURL = `search-tool.html?${qsConcord.toString()}`;
+
+    /* [DIAG] StudyPanel → search-tool 遷移ログ */
+    console.info('[StudyPanel→search] 元トークン rawMorph:', p._rawMorph);
+    console.info('[StudyPanel→search] parseMorphForSearch 入力:', p._rawMorph);
+    console.info('[StudyPanel→search] parseMorphForSearch 出力 (openStudyPanel 済):', {
+        pos: p.pos, tense: p.tense, mood: p.mood, voice: p.voice,
+        case: p.case, number: p.number, gender: p.gender,
+    });
+    console.info('[StudyPanel→search] concordURL パラメータ:', {
+        word: p.word || '', lemma: lemma || '',
+        pos: p.pos || '', tense: p.tense || '', mood: p.mood || '', voice: p.voice || '',
+        number: p.number || '', case: p.case || '', gender: p.gender || '',
+        person: '(URLには付与しない)', layers: 'lemma,morph',
+    });
+    console.info('[StudyPanel→search] concordURL:', concordURL);
+
+    /* ── Morph grid (Level 2) ── */
+    const JPN_FULL = _morphFull();
+    const morphRows = [];
+    if (p.pos)    morphRows.push({ k:_T('morph.pos', '品詞'), v: JPN_FULL.pos[p.pos]       || p.pos,    core:true  });
+    if (p.tense)  morphRows.push({ k:_T('morph.tense', '時制'), v: JPN_FULL.tense[p.tense]   || p.tense,  core:true  });
+    if (p.mood)   morphRows.push({ k:_T('morph.mood', '法'),   v: JPN_FULL.mood[p.mood]     || p.mood,   core:true  });
+    if (p.voice)  morphRows.push({ k:_T('morph.voice', '態'),   v: JPN_FULL.voice[p.voice]   || p.voice,  core:false });
+    if (p.case)   morphRows.push({ k:_T('morph.case', '格'),   v: JPN_FULL.case[p.case]     || p.case,   core:false });
+    if (p.number) morphRows.push({ k:_T('morph.number', '数'),   v: JPN_FULL.number[p.number] || p.number, core:false });
+    if (p.gender) morphRows.push({ k:_T('morph.gender', '性'),   v: JPN_FULL.gender[p.gender] || p.gender, core:false });
+
+    /* 構造軸（冠詞付き不定詞）: 機能候補とは別の「形の事実」として、
+       原文から確認できる情報に1行置く。検出は syntax-analyzer の共通
+       ヘルパー（desktop / mobile 共用、確度なし）。 */
+    if (p.mood === 'infinitive' && Array.isArray(_wlvWordCache)) {
+        const _structFn = window.App?.syntax?.articularInfinitiveStructure;
+        const _structIdx = _wlvWordCache.findIndex(t => t.ref === ref);
+        const _struct = (typeof _structFn === 'function' && _structIdx >= 0)
+            ? _structFn(_wlvWordCache, _structIdx) : null;
+        if (_struct) morphRows.push({ k: _T('panel.structureLabel', '構造'), v: (window.I18N && I18N.lang === 'en') ? (_struct.label_en || _struct.label_ja) : _struct.label_ja, core: false });
+    }
+
+    const morphGridHTML = morphRows.length
+        ? `<div class="rn-morph-grid">${morphRows.map(r =>
+            `<span class="rn-morph-key">${r.k}</span><span class="rn-morph-val${r.core?' core':''}">${_escH(r.v)}</span>`
+          ).join('')}</div>`
+        : '';
+
+    /* ── Morphological candidates (Type-A homographs) ── */
+    const PERSON_JP = _morphFull().person;
+    let morphCandidatesHTML = '';
+    if (Array.isArray(p._morphCandidates) && p._morphCandidates.length > 0) {
+        const candItems = p._morphCandidates.map(c => {
+            const parts = [_morphFull().pos.V];
+            if (c.mood) parts.push(JPN_FULL.mood[c.mood] || c.mood);
+            if (c.voice) parts.push(JPN_FULL.voice[c.voice] || c.voice);
+            if (c.tense) parts.push(JPN_FULL.tense[c.tense] || c.tense);
+            if (c.mood === 'participle') {
+                if (c.gender) parts.push(JPN_FULL.gender[c.gender] || c.gender);
+                if (c.number) parts.push(JPN_FULL.number[c.number] || c.number);
+                if (c.case) parts.push(JPN_FULL.case[c.case] || c.case);
+            } else {
+                if (c.person) parts.push(_personText(c.person));
+                if (c.number) parts.push(JPN_FULL.number[c.number] || c.number);
+            }
+            return `<li class="rn-mc-item"><div class="rn-mc-chips">${parts.map(part => `<span class="rn-mc-chip">${_escH(part)}</span>`).join('')}</div></li>`;
+        }).join('');
+        morphCandidatesHTML = `<div class="rn-mc-details"><div class="rn-mc-label">${_T('panel.otherForms', '他に成立する形態')}</div><ul class="rn-mc-list">${candItems}</ul></div>`;
+    }
+
+    /* ── Etymology / composition (Level 2) — 単純語は非表示 ── */
+    const compositionParts = getWordComposition(resolvedId || AppState.inspect.data?.lemmaId || null);
+    const etymologyHTML = compositionParts
+        ? `<div class="rn-etymology">${_T('panel.etymology', '語源')}&emsp;<span class="rn-etymology-parts">${_buildEtymPartsHTML(compositionParts)}</span></div>`
+        : '';
+
+    /* 使用傾向は検索ツールで確認するため、第三層では重複表示しない。 */
+
+    /* ── Experienced reader labels ── */
+    let expLabelHTML = '';
+    if (window.App.onboarding?.getState()?.experiencedReader && pos === 'V') {
+        const labels = [];
+        if (typeof classifyMiddleVoice === 'function') {
+            const mvc = classifyMiddleVoice(lemma, voice);
+            if (mvc) labels.push(_T('exp.middleVoice', '中動態として読むこともできます'));
+        }
+        if (typeof detectDivinePassive === 'function' && typeof decodeMorph === 'function') {
+            const tokenForDP  = { word, lemma, morph: p._rawMorph };
+            const verseTokens = [];
+            const dp = detectDivinePassive(tokenForDP, verseTokens, decodeMorph);
+            if (dp && dp.isDivinePassive) labels.push(_T('exp.impliedAgent', '行為者が暗示されています'));
+        }
+        if (['indicative','subjunctive','imperative'].includes(mood) && pos === 'V') {
+            const hasExplicitSubject = (AppState.inspect.data?.rawMorph || '').includes('1S')
+                || (AppState.inspect.data?.rawMorph || '').includes('2S');
+            if (!hasExplicitSubject && ['1st','2nd'].some(pp => (p._rawMorph || '').includes(pp))) {
+                labels.push(_T('exp.subjectOmitted', '主語が省略されています'));
+            }
+        }
+        if (labels.length > 0) {
+            expLabelHTML = `<div class="rn-exp-labels">${
+                labels.map(l => `<span class="rn-exp-label">${l}</span>`).join('')
+            }</div>`;
+        }
+    }
+
+    /* ── Abbott-Smith full text (Level 2) ── */
+    const abbottFullHTML = abbottSmithText
+        ? `<div class="rn-dict-full-section">
+               <div class="rn-dict-full-text">${_enUiAbbott ? _renderDictionaryLinkedText(abbottSmithText) : _renderAbbottFullText(abbottSmithText)}</div>
+           </div>`
+        : '';
+
+    /* 辞書的な説明は下の辞書全文のみを表示する。 */
+    const glossesHTML = '';
+
+    /* Phase ESM-9: Referent Evidence を Reading Notes 本文末尾へ統合
+       （ESM-8のStudyPanelヘッダー表示#rcb-container配下は廃止）。
+       表示するのは referentEvidence が存在する場合のみ（静寂設計・ESM-7仕様維持）。
+       文言・生成源は変更しない：bible_data.referent の transcription のみ、
+       createReferentEvidence()/_resolveReferentEvidenceText() をそのまま利用する。 */
+    const _reText = _resolveReferentEvidenceText(AppState.inspect.data?.referentEvidence);
+    const referentEvidenceHTML = _reText
+        ? `<div class="rn-referent-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">${(window.I18N && I18N.lang === 'en') ? `This word refers to "${_escH(_reText)}".` : `この語は「${_escH(_reText)}」を指しています。`}</div>`
+        : '';
+
+    /* Phase ESM-39: Subjref Evidence を Referent Evidence の直後へ統合
+       （docs/specs/LAYER_ARCHITECTURE.md §4「Subjref」ESM-38-A/B確定仕様）。
+       表示するのは subjrefEvidence が存在する場合のみ（静寂設計）。
+       参照先の取得は bible_data.subjref の transcription のみ。
+       表示文は ReadingFormatter.formatSubjrefEvidence() で参照関係として表現し、
+       文法上の主語だと断定しない。 */
+    const _subjText = _resolveSubjrefEvidenceText(AppState.inspect.data?.subjrefEvidence);
+    const _subjEvidenceText = _subjText
+        ? _wallacePipeline?.rf?.formatSubjrefEvidence(_subjText)
+        : null;
+    const subjrefEvidenceHTML = _subjEvidenceText
+        ? `<div class="rn-subjref-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">${_escH(_subjEvidenceText)}</div>`
+        : '';
+
+    /* 訳し分け・繰り返し Evidence を読書メモ末尾へ統合（Referent/Subjref と同じ様式）。
+       表示するのは対象の場合のみ（静寂設計）。 */
+    const _trText = await _translationEvidenceText(ref);
+    const translationEvidenceHTML = _trText
+        ? `<div class="rn-translation-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">${_escH(_trText)}</div>`
+        : '';
+    const _repText = _repetitionEvidenceText(_wlvWordCache, Array.isArray(_wlvWordCache) ? _wlvWordCache.findIndex(t => t.ref === ref) : -1);
+    const repetitionEvidenceHTML = _repText
+        ? `<div class="rn-repetition-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">${_escH(_repText)}</div>`
+        : '';
+
+    /* 語の読書メモは節メモと同じ開閉 UI。初期状態は開いて既存の可視性を保つ。 */
+    const wordReadingMemoBody = [
+        proseHTML ? `<div data-study-section="reading">${proseHTML}</div>` : '',
+        phraseReadingHTML ? `<div data-study-section="phrase">${phraseReadingHTML}</div>` : '',
+        observationHTML ? `<div data-study-section="observation">${observationHTML}</div>` : '',
+        referentEvidenceHTML ? `<div data-study-section="referent">${referentEvidenceHTML}</div>` : '',
+        subjrefEvidenceHTML ? `<div data-study-section="subjref">${subjrefEvidenceHTML}</div>` : '',
+        translationEvidenceHTML ? `<div data-study-section="translation">${translationEvidenceHTML}</div>` : '',
+        repetitionEvidenceHTML ? `<div data-study-section="repetition">${repetitionEvidenceHTML}</div>` : ''
+    ].filter(Boolean).join('');
+    const wordReadingMemoHTML = wordReadingMemoBody
+        ? `<details class="rn-word-reading-note" open><summary>${_T('panel.wordReadingNote', 'この語の読書メモ')}</summary>${wordReadingMemoBody}</details>`
+        : '';
+
+    const syntaxLabelHTML = await _buildSyntaxLabelHTML(_wlvWordCache, ref);
+
+    const analysisGroupHTML = (morphCandidatesHTML || syntaxLabelHTML)
+        ? `<div class="rn-l3-group" data-study-group="analysis"><div class="rn-l3-group-label">${_T('panel.analysisInfo', '分析候補・統語情報')}</div>${(morphCandidatesHTML ? `<div data-study-section="candidates">${morphCandidatesHTML}</div>` : '')}${(syntaxLabelHTML ? `<div class="rn-syntax-labels" data-study-section="syntax">${syntaxLabelHTML}</div>` : '')}</div>`
+        : '';
+    const lexicalGroupHTML = (etymologyHTML || abbottFullHTML)
+        ? `<div class="rn-l3-group" data-study-group="lexical"><div class="rn-l3-group-label">${_T('panel.lexicalMaterials', '語義・語彙資料')}</div><div class="rn-l3-group-content">${(etymologyHTML ? `<div data-study-section="etymology">${etymologyHTML}</div>` : '')}${(abbottFullHTML ? `<div data-study-section="abbott">${abbottFullHTML}</div>` : '')}</div></div>`
+        : '';
+
+    /* ═══════════════════════════════════════════════════════
+       HTML 出力 — 4階層構造
+       ═══════════════════════════════════════════════════════ */
+    area.innerHTML = `
+        <!-- ギリシャ語見出し・日本語代表語義は画面ヘッダーに表示済み。重複する空領域は生成しない。 -->
+        ${glossesHTML}
+
+        ${wordReadingMemoHTML}
+
+        ${expLabelHTML ? `<div data-study-section="explabel">${expLabelHTML}</div>` : ''}
+
+        <div data-study-section="structure">${neighborhoodViewHTML}</div>
+
+        <!-- 語の役割の局所表示（選択語の文全体をパン可能な枠に表示）: _fillRnRelationSlot が非同期注入 -->
+        <div id="rn-relation-slot" class="role-reading-view"></div>
+
+        <!-- LEVEL 3: 詳細資料は2つの入口（形と関係／辞書的意味）から任意に開く -->
+        ${(morphGridHTML || analysisGroupHTML) ? `
+        <details class="rn-level-section rn-l3-entry" data-study-section="morphology" open>
+            <summary class="rn-l3-entry-summary">${_T('panel.formAndRelations', '形と関係を見る')}</summary>
+            <div class="rn-level-body">
+                ${(morphGridHTML ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">${_T('panel.factsFromText', '原文から確認できる情報')}</div>${morphGridHTML}</div>` : '')}
+                ${analysisGroupHTML}
+            </div>
+        </details>` : ''}
+        ${lexicalGroupHTML ? `
+        <details class="rn-level-section rn-l3-entry" data-study-section="lexical">
+            <summary class="rn-l3-entry-summary">${_T('panel.lexicalMeaning', '辞書的意味を見る')}</summary>
+            <div class="rn-level-body">
+                ${lexicalGroupHTML}
+            </div>
+        </details>` : ''}
+
+${LN_RELATED_WORDS_ENABLED ? `
+        <!-- TEMPORARILY DISABLED: LN 由来の関連語表示。再開条件は docs/DATA_LICENSE.md を参照。 -->
+        <details class="rn-level-section" data-study-section="semantic">
+            <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>関連する語を調べる</summary>
+            <div class="rn-level-body">
+                <div id="rn-semantic-layers"></div>
+            </div>
+        </details>` : ''}
+
+    `;
+
+    /* LN 由来の関連語表示は一時停止中。フラグ有効時のみ注入する。 */
+    if (LN_RELATED_WORDS_ENABLED) {
+        _injectStudyPanelContent(
+            document.getElementById('rn-semantic-layers'),
+            strong, resolvedId, word
+        );
+    }
+
+    /* 語の役割の局所表示を非同期注入（世代管理は filler 側）。 */
+    _fillRnRelationSlot(ref);
+
+    /* SF-14: Structure Flow の frame/referent 弧をレイアウト後に描画（無ければ無処理）。 */
+    _sfScheduleEnhance();
+}
+
+/* ══════════════════════════════════════════
+   Semantic layer injection
+   LN Layer / Cluster Layer / Concordance
+   ══════════════════════════════════════════ */
+
+/**
+ * SSOT (Single Source of Truth):
+ * index.html is the only authoritative source for data ACCESS.
+ *
+ * - getTokens()     : sole getter for the token array (ALL_TOKENS)
+ * - getLemmaIndex() : sole getter for the lemma index (window.lemmaIndex)
+ *
+ * search.html role  : DATA INGESTION ONLY
+ *   - Builds ALL_TOKENS via _indexChapter()
+ *   - Builds window.lemmaIndex / window.morphIndex
+ *   - Does NOT define getTokens() or getLemmaIndex()
+ *   - Does NOT call these getters
+ *
+ * All Layers (LN / Cluster / Graph / Concordance) access data
+ * exclusively through the two getters defined below.
+ */
+
+/* ──────────────────────────────────────────────────────────────
+   Data accessors — defined here, used everywhere (index.html only)
+   ────────────────────────────────────────────────────────────── */
+
+/** Returns the full token array built by search.html. */
+function getTokens() {
+    return typeof ALL_TOKENS !== 'undefined' ? ALL_TOKENS : [];
+}
+/** Returns the current lemmaIndex built by search.html, or null. */
+function getLemmaIndex() { return window.lemmaIndex || null; }
+
+/* ──────────────────────────────────────────
+   Shared lemmaIndex lookup helper
+   Single access point for lemmaIndex.
+   Used by Basic Concordance and Graph views.
+   Graph / Fusion MUST go through this;
+   they must never bypass Basic source rules.
+   ────────────────────────────────────────── */
+
+/**
+ * _giListFromLemmaIndex(id)
+ *
+ * Returns the globalIdx array for a lemmaId by looking up its headword
+ * via getLemmaIndex() (with NFD-normalised fallback).
+ * This is the ONLY authorised access point for lemmaIndex lookups.
+ * All concordance lookups — Basic and derived — must use this function.
+ *
+ * @param {string} id – lemmaId
+ * @returns {number[]} array of globalIdx values (empty array if not found)
+ */
+function _giListFromLemmaIndex(id) {
+    const idx = getLemmaIndex();
+    if (!idx) return [];
+    const entry  = _lexiconData[id];
+    const hw     = entry?.headword || '';
+    if (!hw) return [];
+    const direct = idx.get(hw);
+    if (direct && direct.length) return direct;
+    const norm = hw.normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g, '').replace(/ς/g, 'σ').toLowerCase().trim();
+    return idx.get(norm) || [];
+}
+
+/**
+ * _jaGlossFromLemmaId(id)
+ * Returns a Japanese gloss for a lemma by looking up the first token occurrence.
+ * Falls back to the English gloss from lexicon if no Japanese is found.
+ */
+function _jaGlossFromLemmaId(id) {
+    const giList = _giListFromLemmaIndex(id);
+    for (const gi of giList.slice(0, 5)) {
+        const ja = getTokens()[gi]?.japanese;
+        if (ja && ja !== '-' && ja !== '—') return ja;
+    }
+    return '';
+}
+
+/* ══════════════════════════════════════════════════════════════
+   StudyPanel injection — orchestrator  [STABLE / DO NOT EXTEND]
+
+   Fixed layer order (UI structure must not change):
+     ① Identity          — word chip / gloss / ref
+     ② Cluster Layer     — co-occurrence cluster display (auxiliary)
+     ③ Basic Concordance — FACT LAYER (canonical / lemmaIndex only)
+     ④ Semantic Graph    — graph view (auxiliary, derived from Basic)
+     ⑤ Further View      — Morphology / Syntax / Abbott-Smith
+
+   Data flow (enforced):
+     window.lemmaIndex  →  _giListFromLemmaIndex()  →  Basic Concordance only
+     domainCodes        →  _buildClusterLayerHTML() →  Cluster Layer only
+
+   Invariants:
+     • Basic Concordance result is identical for a given lemmaId regardless
+       of whether Graph or Cluster data are present.
+     • All lemmaIndex access goes through _giListFromLemmaIndex().
+   ══════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════════════
+   Semantic Domain / Cluster / Raw Code — 設計境界
+   詳細: docs/semantic-domain.md
+
+   ■ Raw Domain Code   clusterIndex のキー。ゼロ埋め有無で別エントリが存在する。
+                       clusterIndex アクセスは必ず生コードで行うこと。
+   ■ Normalized Code   ラベル辞書（semantic-domain-labels.json）用のキー。
+                       clusterIndex のキーとして使用してはいけない。
+   ■ Semantic Domain   Louw-Nida 意味領域。ユーザー向け表示分類。
+   ■ Cluster           Semantic Domain 内の語群。1ドメインに複数存在しうる。
+   ══════════════════════════════════════════════════════════════════ */
+
+/**
+ * UI ラベル取得専用。clusterIndex のアクセスには使用禁止。
+ *
+ * Raw Domain Code → Normalized Domain Code へ変換する。
+ * 正規化後のコードは semantic-domain-labels.json のキーとして使用する。
+ * domains-cluster-index.json (_clusterIndexData) のキーとして使ってはいけない。
+ *
+ * 変換規則: メジャードメイン部分（末尾3桁を除く全桁）の先頭ゼロを除去。
+ * Examples: '033029' → '33029', '008002' → '8002', '064' → '64', '49' → '49'
+ *
+ * 根拠: ゼロ埋め有無で cluster は別エントリ（内容が異なる）。
+ *       '013001'(19語) と '13001'(71語) は異なるクラスター。正規化して
+ *       clusterIndex を引くと誤ったクラスターを参照する。docs/semantic-domain.md 参照。
+ */
+function _normalizeDomainCode(code) {
+    const s = String(code).replace(/^0+/, '') || '0';
+    if (s.length >= 4) {
+        return String(parseInt(s.slice(0, -3), 10)) + s.slice(-3);
+    }
+    return s;
+}
+
+/**
+ * Raw Code を受け取り、表示用ラベルのみ返す。
+ *
+ * clusterIndex へのアクセスは行わない。ラベル辞書 (_semanticDomainLabels) のみ参照。
+ * 同じ Semantic Domain に属する複数の Raw Code（'013001' / '13001' 等）は
+ * 正規化後に同一ラベルを返す — これは意図した動作（意味カテゴリーは同一のため）。
+ *
+ * Lookup order:
+ *   1. subdomains[normalized]   specific subdomain label
+ *   2. majorDomains[majorNum]   major domain fallback
+ *   3. '分類 <code>'            final fallback — never returns empty
+ */
+function _getDomainLabel(code) {
+    if (!_semanticDomainLabels) return `分類 ${code}`;
+    const normalized = _normalizeDomainCode(code);
+
+    const sub = _semanticDomainLabels.subdomains?.[normalized];
+    if (sub?.title) return sub.title;
+
+    let majorNum;
+    if (normalized.length >= 4) {
+        majorNum = String(parseInt(normalized.slice(0, -3), 10));
+    } else {
+        majorNum = normalized;
+    }
+    const major = _semanticDomainLabels.majorDomains?.[majorNum];
+    if (major?.title) return major.title;
+
+    return `分類 ${code}`;
+}
+
+/**
+ * Semantic Domain オブジェクトを返す公開 API。
+ *
+ * Raw Domain Code を受け取り、ラベル辞書から解決した意味領域情報を返す。
+ * 検索・フィルター・意味領域ブラウザ・関連語表示など、将来の機能で共通利用できる。
+ *
+ * clusterIndex へのアクセスは行わない。ラベル辞書 (_semanticDomainLabels) のみ参照。
+ * 呼び出し前に _ensureSemanticData() が完了している必要がある。
+ *
+ * @param  {string} code  Raw Domain Code（例: '33029', '013001', '016'）
+ * @returns {{
+ *   rawCode:        string,   // 入力された生コードそのまま
+ *   normalizedCode: string,   // 正規化コード（ラベル辞書キー）
+ *   majorCode:      string,   // メジャードメイン番号（例: '33'）
+ *   title:          string,   // 日本語タイトル（サブ or メジャー or フォールバック）
+ *   titleEn:        string,   // 英語タイトル（存在する場合のみ）
+ *   description:    string,   // 説明文（存在する場合のみ）
+ * }}
+ */
+function _getSemanticDomain(code) {
+    const rawCode        = String(code);
+    const normalizedCode = _normalizeDomainCode(rawCode);
+    const majorCode      = normalizedCode.length >= 4
+        ? String(parseInt(normalizedCode.slice(0, -3), 10))
+        : normalizedCode;
+
+    if (!_semanticDomainLabels) {
+        return { rawCode, normalizedCode, majorCode, title: `分類 ${rawCode}`, titleEn: '', description: '' };
+    }
+
+    const sub   = _semanticDomainLabels.subdomains?.[normalizedCode]  || {};
+    const major = _semanticDomainLabels.majorDomains?.[majorCode]     || {};
+
+    const title       = sub.title       || major.title       || `分類 ${rawCode}`;
+    const titleEn     = sub.titleEn     || major.titleEn     || '';
+    const description = sub.description || major.description || '';
+
+    return { rawCode, normalizedCode, majorCode, title, titleEn, description };
+}
+
+/**
+ * Cluster を描画する関数。Semantic Domain そのものを描画しているわけではない。
+ *
+ * 1つの Semantic Domain に複数の Cluster が存在するため、domainCodes に複数コードが
+ * 含まれる場合は同じ「意味グループ」見出しのセクションが複数並ぶ。これは仕様であり
+ * バグではない（例: κλητός の '33029' と '33030' は同一ドメイン内の別クラスター）。
+ *
+ * clusterIndex アクセスは生コード (code) そのままで行う。正規化コードで引いてはいけない。
+ * domainCodes は lexicon-lite の domains[] フィールドから取得した Raw Domain Code の配列。
+ */
+function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
+    const sections = [];
+
+    for (const code of domainCodes.slice(0, 2)) {
+        const entry = _clusterIndexData[code];
+        if (!entry || !entry.lemmas) continue;
+
+        const siblings = entry.lemmas
+            .map(id => {
+                const e = _lexiconData[id];
+                if (!e) return null;
+                return {
+                    id,
+                    headword: e.headword || '',
+                    gloss: e.gloss_ja || _jaGlossFromLemmaId(id) || '',
+                    count: e.count || 0,
+                    isCurrent: id === currentLemmaId,
+                };
+            })
+            .filter(Boolean)
+            // 比較しやすさを優先し、意味グループ内は新約聖書での出現頻度順に表示する。
+            .sort((a, b) => b.count - a.count);
+
+        // UX方針: 初期表示は最小限にし、必要な場合のみ全件を表示する。
+        const CHIP_SHOW = 5;
+        const CHIP_MIN_OVER = 3;
+        const useLimit = siblings.length > CHIP_SHOW + CHIP_MIN_OVER - 1;
+
+        const chips = siblings.map((s, i) => {
+            const hidden = useLimit && !s.isCurrent && i >= CHIP_SHOW;
+            return `
+            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}${hidden ? ' rn-chip-hidden' : ''}" data-lemma-id="${_escH(s.id)}" data-headword="${_escH(s.headword)}" data-cluster-id="${code}" title="${_escH(s.gloss || '')}">
+                <span class="rn-sibling-gr">${_escH(s.headword)}</span>
+                ${s.gloss ? `<span class="rn-sibling-ja">${_escH(s.gloss)}</span>` : ''}
+
+                ${s.isCurrent
+                    ? `<span class="rn-sibling-badge">基準語</span>`
+                    : `<span class="rn-sibling-action">用例を探す →</span>`}
+            </span>`;
+        }).join('');
+
+        const hiddenCount = useLimit
+            ? siblings.filter((s, i) => !s.isCurrent && i >= CHIP_SHOW).length
+            : 0;
+        const moreBtn = hiddenCount > 0
+            ? `<button class="rn-chip-more">${_T('panel.showAllMatches', 'データ由来照合語をすべて表示')}</button>`
+            : '';
+
+        const domainTitle  = _getDomainLabel(code);
+        sections.push(`
+            <div class="rn-ln-domain-label">
+                <span class="rn-ln-domain-category">意味グループ</span>
+                <span class="rn-ln-domain-title">${_escH(domainTitle)}</span>
+            </div>
+            <div class="rn-sibling-chips">${chips}</div>
+            ${moreBtn}
+        `);
+    }
+
+    if (!sections.length) return '';
+
+    return `
+    <div class="rn-cluster-section">
+        <button class="rn-layer-toggle" data-target="rn-cluster-body">
+            <span>関連語のグループ</span>
+            <span class="rn-layer-toggle-icon icon">${icon('chevronRight')}</span>
+        </button>
+        <div class="rn-layer-body" id="rn-cluster-body">
+            ${sections.join('')}
+        </div>
+    </div>`;
+}
+
+
+/**
+ * TODO: _buildConcordanceHTML は未接続（_injectStudyPanelContent から呼ばれていない）。
+ * 「さらに学ぶ」セクションへの用例一覧注入を将来実装する場合に使用する。
+ * 実装するまでは削除せず保持する。接続する際は _injectStudyPanelContent を修正すること。
+ *
+ * Basic Concordance builder — canonical source of truth (fact layer).
+ *
+ * This is the ONLY authoritative concordance. It is strictly lemmaId-based,
+ * driven by window.lemmaIndex, and preserves natural occurrence order.
+ * No scoring or reranking is applied.
+ *
+ * @param {string} resolvedId  – lemmaId of the focused word (canonical source)
+ * @param {string} word        – surface form (for Basic fallback lookup only)
+ */
+function _buildConcordanceHTML(resolvedId, word) {
+    /*
+     * Basic Concordance — canonical fact layer.
+     * Builds HTML for actual verse occurrences of resolvedId.
+     * Source: window.lemmaIndex via _giListFromLemmaIndex().
+     * No scoring. No reordering. No fusion input.
+     */
+    if (!getLemmaIndex()) return '';
+
+    const byVerse   = new Map();   // verseKey → { gi, tok }
+    const VERSE_CAP = 60;
+
+    /* Primary lookup: resolvedId via shared lemmaIndex helper */
+    if (resolvedId) {
+        for (const gi of _giListFromLemmaIndex(resolvedId)) {
+            if (byVerse.size >= VERSE_CAP) break;
+            const tok = getTokens()[gi];
+            if (!tok) continue;
+            const vk = `${tok.bookKey}:${tok.ch}:${tok.verse}`;
+            if (!byVerse.has(vk)) byVerse.set(vk, { gi, tok });
+        }
+    }
+
+    /* Fallback: surface form lookup — lemmaIndex only, no fusion */
+    if (!byVerse.size) {
+        const fallbackList = (word ? getLemmaIndex().get(word) : null) || [];
+        for (const gi of fallbackList) {
+            if (byVerse.size >= VERSE_CAP) break;
+            const tok = getTokens()[gi];
+            if (!tok) continue;
+            const vk = `${tok.bookKey}:${tok.ch}:${tok.verse}`;
+            if (!byVerse.has(vk)) byVerse.set(vk, { gi, tok });
+        }
+    }
+
+    if (!byVerse.size) return '';
+
+    const SHOW    = 30;
+    const allRows = [...byVerse.values()];
+    const rows    = allRows.slice(0, SHOW).map(({ gi, tok }) => {
+        const start   = Math.max(0, gi - 3);
+        const end     = Math.min(getTokens().length - 1, gi + 3);
+        const snippet = getTokens().slice(start, end + 1).map((t, li) => {
+            const isAnchor = start + li === gi;
+            const txt = _escH(t.text || '');
+            return isAnchor ? `<span class="rn-concord-hl">${txt}</span>` : txt;
+        }).join(' ');
+        const refLabel = _rnFmtRef(tok);
+        const href     = tok.bookKey && tok.ch != null
+            ? `index.html?book=${encodeURIComponent(tok.bookKey)}&ch=${Number(tok.ch)}`
+            : '#';
+        return `<div class="rn-concord-row" onclick="window.open('${href}','_blank')">
+            <div class="rn-concord-ref">${_escH(refLabel)}</div>
+            <div class="rn-concord-text">${snippet}</div>
+        </div>`;
+    }).join('');
+
+    const moreNote = byVerse.size > SHOW
+        ? `<div class="rn-concord-more">${(window.I18N && I18N.lang === 'en') ? _T('panel.moreVerses', '他 {n} 節…').replace('{n}', byVerse.size - SHOW) : `他 ${byVerse.size - SHOW} 節…`}</div>`
+        : '';
+
+    return `
+    <div class="rn-concord-section">
+        <button class="rn-layer-toggle" data-target="rn-concord-body">
+            <span>${(window.I18N && I18N.lang === 'en') ? _T('panel.concordance', '用例一覧（{n}節）').replace('{n}', byVerse.size) : `用例一覧（${byVerse.size}節）`}</span>
+            <span class="rn-layer-toggle-icon icon">${icon('chevronRight')}</span>
+        </button>
+        <div class="rn-layer-body" id="rn-concord-body">
+            <div class="rn-concord-list">
+                ${rows}
+                ${moreNote}
+            </div>
+        </div>
+    </div>`;
+}
+
+/* ══════════════════════════════════════════
+   Semantic Graph View — 未接続（TODO）
+   buildSemanticGraph は定義済みだが _injectStudyPanelContent から呼ばれていない。
+   グラフ表示 UI を実装する際に接続すること。
+   削除禁止: 将来の意味グラフ機能のために保持する。
+   ══════════════════════════════════════════ */
+
+/**
+ * buildSemanticGraph(lemmaId)
+ *
+ * Structure assembler — builds a weighted node list centered on lemmaId.
+ * Signal collection rules:
+ *   LN membership      → lnSignal     (semantic category signal)
+ *   Cluster membership → clusterSignal (relational proximity signal)
+ *   Co-verse occurrence → coocHits    (contextual signal)
+ *
+ * Weight for each node is delegated entirely to scoreEngine.evaluate().
+ * This function does NOT perform scoring; it only collects signals and
+ * assembles the resulting structure.
+ *
+ * Returns { centerId, centerEntry, nodes } where nodes is sorted by
+ * weight descending and capped at 20.
+ */
+function buildSemanticGraph(lemmaId) {
+    const centerEntry = _lexiconData[lemmaId] || null;
+    if (!centerEntry) return { centerId: lemmaId, centerEntry: null, nodes: [] };
+
+    const lnCodes     = centerEntry.ln      || [];
+    const domainCodes = centerEntry.domains || [];
+
+    /* Step 1: Collect signals per candidate lemmaId — no scoring here */
+    const candidateMap = new Map(); // lemmaId → { lnHit, clusterHit, coocHits[] }
+
+    function _register(id, asLn, asCluster) {
+        if (id === lemmaId) return;
+        if (!candidateMap.has(id)) {
+            candidateMap.set(id, { lnHit: false, clusterHit: false, coocHits: [] });
+        }
+        const c = candidateMap.get(id);
+        if (asLn)      c.lnHit      = true;
+        if (asCluster) c.clusterHit = true;
+    }
+
+    /* LN neighbors — semantic category signal */
+    for (const ln of lnCodes.slice(0, 3)) {
+        for (const id of (_lnIndexData[ln]?.lemmas || [])) _register(id, true, false);
+    }
+
+    /* Cluster neighbors — relational proximity signal */
+    for (const code of domainCodes.slice(0, 3)) {
+        for (const id of (_clusterIndexData[code]?.lemmas || [])) _register(id, false, true);
+    }
+
+    /* Co-verse occurrence — contextual signal (sample first 200 verses of center word) */
+    /* Uses shared _giListFromLemmaIndex — same Basic source lookup rules */
+    if (getLemmaIndex()) {
+        const giList = _giListFromLemmaIndex(lemmaId);
+        const SAMPLE_VERSES = 200;
+        const WINDOW        = 5;
+        let sampled = 0;
+        for (const gi of giList) {
+            if (sampled++ >= SAMPLE_VERSES) break;
+            const start = Math.max(0, gi - WINDOW);
+            const end   = Math.min(getTokens().length - 1, gi + WINDOW);
+            for (let j = start; j <= end; j++) {
+                if (j === gi) continue;
+                const t = getTokens()[j];
+                if (!t || !t.lemmaId || t.lemmaId === lemmaId) continue;
+                if (!candidateMap.has(t.lemmaId)) {
+                    candidateMap.set(t.lemmaId, { lnHit: false, clusterHit: false, coocHits: [] });
+                }
+                candidateMap.get(t.lemmaId).coocHits.push(t.text || '');
+            }
+        }
+    }
+
+    /* Step 2: Delegate scoring to scoreEngine — structure assembler does not score */
+    const nodes = [];
+    for (const [id, signals] of candidateMap) {
+        const freq = _lexiconData[id]?.count || 0;
+        const result = scoreEngine.evaluate({
+            semantics: {
+                baseScore:     Math.round(Math.log(freq + 1) * 10),
+                lnSignal:      signals.lnHit,
+                clusterSignal: signals.clusterHit,
+                coocHits:      signals.coocHits,
+            }
+        });
+        nodes.push({
+            lemmaId: id,
+            weight:  result.score,
+            headword: _lexiconData[id]?.headword || id,
+            gloss:    _jaGlossFromLemmaId(id),
+        });
+    }
+
+    /* Step 3: Sort and cap — assembler responsibility */
+    nodes.sort((a, b) => b.weight - a.weight);
+    nodes.splice(20);
+
+    return { centerId: lemmaId, centerEntry, nodes };
+}
+
+/* _rnToggleDeep: 廃止（Layer 1/2 統合のため）互換のためno-op残す */
+function _rnToggleDeep() {}
+
+/* LN 由来の関連語 UI はライセンス・精度確認が終わるまで一時停止する。
+   元データと依存ロジックは保持し、再開時はこのフラグと表示箇所を見直す。 */
+const LN_RELATED_WORDS_ENABLED = false;
+
+/* ══════════════════════════════════════════
+   _injectStudyPanelContent
+   Level 3（さらに学ぶ）のセマンティックレイヤーを非同期注入。
+   _renderReadingNotes から呼ばれる。
+   ══════════════════════════════════════════ */
+async function _injectStudyPanelContent(semContainer, strong, lemmaId, word) {
+    if (!semContainer || !LN_RELATED_WORDS_ENABLED) return;
+    await _ensureSemanticData();
+
+    const resolvedId  = lemmaId || _resolveLemmaId(strong);
+    const lexEntry    = resolvedId ? _lexiconData[resolvedId] : null;
+    const domainCodes = lexEntry?.domains || [];
+
+    /*
+     * Cluster Layer — 設計注意点
+     *
+     * 1つの Semantic Domain（意味領域）に複数の Cluster が存在するため、
+     * domainCodes に含まれる複数の Raw Code が同一ドメインを指すことがある。
+     * _buildClusterLayerHTML は先頭2コードをそれぞれ別セクションとして描画するため、
+     * 「意味グループ」の見出しが同じタイトルで2行並ぶケースは仕様（バグではない）。
+     *
+     * 例: κλητός の domainCodes = ['33029', '33030']
+     *   → 両方とも Semantic Domain 33（コミュニケーション）内の別 Cluster。
+     *   → UI には「召す・呼び出す（261回）」と「招く・呼び寄せる（312回）」が並ぶ。
+     *
+     * 詳細: docs/semantic-domain.md
+     */
+    if (domainCodes.length > 0) {
+        const clHTML = _buildClusterLayerHTML(domainCodes, resolvedId, word);
+        if (clHTML) semContainer.insertAdjacentHTML('beforeend', clHTML);
+    }
+
+    /* アコーディオン構造の決定：item数に応じて分岐 */
+    const toggleSections = semContainer.querySelectorAll('.rn-cluster-section, .rn-concord-section');
+
+    if (toggleSections.length === 1) {
+        /* 単一項目：トグルを除去してフラット展開 */
+        const toggle = toggleSections[0].querySelector('.rn-layer-toggle');
+        const body   = toggleSections[0].querySelector('.rn-layer-body');
+        if (toggle) toggle.remove();
+        if (body)   body.classList.add('visible');
+        toggleSections[0].classList.add('rn-flat');
+
+    } else if (toggleSections.length > 1) {
+        /* 複数項目：従来通りトグルを配線 */
+        semContainer.querySelectorAll('.rn-layer-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const bodyId = btn.dataset.target;
+                const body   = document.getElementById(bodyId);
+                if (!body) return;
+                const isOpen = body.classList.contains('visible');
+                body.classList.toggle('visible', !isOpen);
+                btn.classList.toggle('open', !isOpen);
+                const icon = btn.querySelector('.rn-layer-toggle-icon');
+                if (icon) icon.style.transform = '';
+            });
+        });
+    }
+
+    /* Cluster chip → 共起検索へ遷移 */
+    const clusterSection = semContainer.querySelector('.rn-cluster-section');
+    if (clusterSection) {
+        clusterSection.addEventListener('click', (e) => {
+            const chip = e.target.closest('.rn-sibling-chip');
+            if (!chip || chip.classList.contains('current')) return;
+            e.stopPropagation();
+            const hw = chip.dataset.headword || '';
+            if (!hw) return;
+            const p = new URLSearchParams();
+            p.set('lemma', hw);
+            const refLemmaId = AppState.inspect.data?.lemmaId;
+            if (refLemmaId) p.set('ref_lemma', refLemmaId);
+            const cmpLemmaId = chip.dataset.lemmaId;
+            if (cmpLemmaId) p.set('cmp_lemma', cmpLemmaId);
+            const clusterId = chip.dataset.clusterId;
+            if (clusterId) p.set('cluster', clusterId);
+            p.set('layers', 'lemma');
+            const _stw = window.open(`search-tool.html?${p.toString()}`, '_blank');
+            if (_stw) _searchToolWindows.add(_stw);
+        });
+
+        /* 「データ由来照合語をすべて表示」ボタン
+           TODO: 現在は一括展開としている。
+           将来的に段階的表示や別UIへの変更を検討する。 */
+        clusterSection.querySelectorAll('.rn-chip-more').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const chipsEl = btn.previousElementSibling;
+                if (chipsEl) chipsEl.querySelectorAll('.rn-chip-hidden').forEach(c => c.classList.remove('rn-chip-hidden'));
+                btn.remove();
+            });
+        });
+    }
+}
+
+
+/* switchAnalysisTab: 後方互換のため残す（内部ではno-op）*/
+function switchAnalysisTab(tab) {
+    /* タブは廃止されました。読書メモモードで動作します。 */
+    if (_currentAnalysisParams) _renderReadingNotes(_currentAnalysisParams);
+}
+
+
+/* ══════════════════════════════════════════
+   インライン分析タブ描画ヘルパー
+   ══════════════════════════════════════════ */
+
+function _renderMorphTab(area, p) {
+    const JPN_FULL = _morphFull();
+
+    const rows = [];
+    if (p.pos)    rows.push({ k:_T('morph.pos', '品詞'),  v: JPN_FULL.pos[p.pos]    || p.pos,    core: true });
+    if (p.tense)  rows.push({ k:_T('morph.tense', '時制'),  v: JPN_FULL.tense[p.tense]|| p.tense,  core: true });
+    if (p.mood)   rows.push({ k:_T('morph.mood', '法'),    v: JPN_FULL.mood[p.mood]  || p.mood,   core: true });
+    if (p.voice)  rows.push({ k:_T('morph.voice', '態'),    v: JPN_FULL.voice[p.voice]|| p.voice,  core: false });
+    if (p.case)   rows.push({ k:_T('morph.case', '格'),    v: JPN_FULL.case[p.case]  || p.case,   core: false });
+    if (p.number) rows.push({ k:_T('morph.number', '数'),    v: JPN_FULL.number[p.number]||p.number,core: false });
+    if (p.gender) rows.push({ k:_T('morph.gender', '性'),    v: JPN_FULL.gender[p.gender]||p.gender,core: false });
+
+    const morphGridHTML = rows.length
+        ? `<div class="ac-morph-grid">
+            ${rows.map(r => `
+                <span class="ac-morph-key">${r.k}</span>
+                <span class="ac-morph-val${r.core ? ' core' : ''}">${_escH(r.v)}</span>
+            `).join('')}
+           </div>`
+        : `<p class="ac-no-data">${_T('panel.noMorphData', '形態論データがありません')}</p>`;
+
+    const jaWord = (_inspectData && _inspectData.jaWord) || '-';
+    const desc   = (_inspectData && _inspectData.desc)   || '';
+    const strong = (_inspectData && _inspectData.strong)  || '';
+    const ref    = p.ref || '';
+    const lemma  = p.lemma || '';
+
+    area.innerHTML = `
+        <span class="ac-section-label">${_T('panel.morphology', '形態論')}</span>
+        <div class="ac-entry">
+            <div class="ac-entry-greek">${_escH(p.word || '-')}</div>
+            <div class="ac-entry-ja">${_escH(jaWord)}</div>
+            ${strong ? `<span class="ac-entry-strong">${_escH(strong)}</span>` : ''}
+            ${morphGridHTML}
+            ${ref ? `<span class="ac-cite-ref">${icon('pin')} ${_escH(ref)}</span>` : ''}
+        </div>
+        ${desc ? `<div class="ac-abbottsmith">${_escH(desc).replace(/\n/g,'<br>')}</div>` : ''}
+    `;
+}
+
+function _renderSyntaxTab(area, p) {
+    const _mf = _morphFull();
+
+    const features = [];
+    if (p.mood)  features.push(_mf.mood[p.mood]   || p.mood);
+    if (p.tense) features.push(_mf.tense[p.tense] || p.tense);
+
+    area.innerHTML = `
+        <span class="ac-section-label">${_T('panel.syntax', '統語論')}</span>
+        <div class="ac-entry">
+            <div class="ac-entry-greek">${_escH(p.word || '-')}</div>
+            ${features.length ? `<div style="margin-top: var(--space-xs);">${features.map(f =>
+                `<span class="morph-tag-pill core" style="margin-right: var(--space-xs);">${_escH(f)}</span>`).join('')}</div>` : ''}
+            ${ref ? `<span class="ac-cite-ref ac-cite-ref--block">${icon('pin')} ${_escH(ref)}</span>` : ''}
+        </div>
+    `;
+}
+
+function _renderSemanticsTab(area, p) {
+    const qs = new URLSearchParams();
+    const ref   = p.ref   || '';
+    const lemma = p.lemma || '';
+    if (ref)    qs.set('ref',   ref);
+    if (p.word) qs.set('word',  p.word);
+    if (lemma)  qs.set('lemma', lemma);
+    if (p.pos)  qs.set('pos',   p.pos);
+    const semanticsURL = `semantic-search.html?${qs.toString()}`;
+
+    const jaWord = (_inspectData && _inspectData.jaWord) || '-';
+    const strong = (_inspectData && _inspectData.strong) || '';
+    const strongDigits = String(strong).replace(/[^0-9]/g, '');
+    const desc = (_inspectData && _inspectData.desc)
+        || _abbottDesc(strongDigits)
+        || '';
+
+    const abbottHtml = desc
+        ? `<div class="ac-abbottsmith">${_escH(desc).replace(/\n/g,'<br>')}</div>`
+        : `<p class="ac-no-data">${_T('panel.noDictData', '辞書データが見つかりません')}</p>`;
+
+    area.innerHTML = `
+        <span class="ac-section-label">${_T('panel.semantics', '意味論')}</span>
+        <div class="ac-entry">
+            <div class="ac-entry-greek">${_escH(p.word || '-')}</div>
+            <div class="ac-entry-ja">${_escH(jaWord)}</div>
+            ${strong ? `<span class="ac-entry-strong">${_escH(strong)}（Abbott-Smith）</span>` : ''}
+        </div>
+        ${abbottHtml}
+        <div style="margin-top: var(--space-md);">
+            <a href="${semanticsURL}" class="morph-search-btn">語の意味を詳しく調べる →</a>
+        </div>
+    `;
+
+    /* 辞書読み込みとタブ表示が競合した場合、同じ語が引き続き選択されていれば再描画する。 */
+    if (!desc && strong && !abbottSmithDict) {
+        loadDict().then(dict => {
+            if (!dict || !area.isConnected) return;
+            const currentStrong = String((_inspectData && _inspectData.strong) || '');
+            if (currentStrong === String(strong)) _renderSemanticsTab(area, p);
+        });
+    }
+}
+
+/* ══════════════════════════════════════════
+   Flow / Meaning / Study タブ描画
+   （読解支援を主役にした新タブ体系）
+   ══════════════════════════════════════════ */
+
+/**
+ * Flow タブ：「この語・この節が何をしているか」を読解補助として表示。
+ * AIによるニュアンス補助（Anthropic API）。
+ * データなし時はローカルルールベースフォールバックを表示。
+ */
+function _renderFlowTab(area, p) {
+    const word   = p.word   || '-';
+    const pos    = p.pos    || '';
+    const mood   = p.mood   || '';
+    const tense  = p.tense  || '';
+    const voice  = p.voice  || '';
+    const jaWord = (_inspectData && _inspectData.jaWord) || '';
+    const ref    = p.ref    || '';
+
+    /* ══════════════════════════════════════════
+       ローカルフォールバック：9種 Flow signal
+       「著者の流れ・強調・意図」を静かに補助する。
+       チェックリスト化禁止。自然な文章として表示。
+       ══════════════════════════════════════════ */
+    const signals = [];
+    // signal: { kind: CSS class suffix, kindLabel: 極小ラベル, text: 自然文 }
+
+    /* ── #1 鍵となるフレーズ・単語（繰り返し・転換・強調） ── */
+    if (pos === 'CONJ') {
+        const CONJ_SIGNAL = {
+            'γάρ':  { cls: 'sig-logic',    text: 'ここで理由が始まります。直前の主張の根拠として読むと、議論の構造が見えてきます。' },
+            'ἀλλά': { cls: 'sig-turn',     text: '「しかし」による転換。ここで流れが変わります。' },
+            'οὖν':  { cls: 'sig-logic',    text: 'ここで論理が結論へ進みます。前節の集約として読む箇所です。' },
+            'δέ':   { cls: 'sig-turn',     text: '話が次の段階に進んでいます。微妙な展開・対比のサインです。' },
+            'καί':  { cls: 'sig-emphasis', text: '内容が積み重なっています。強調の「そして」として機能する場合もあります。' },
+            'ἵνα':  { cls: 'sig-logic',    text: '目的節。この語以降に「なぜそうするのか」という著者の意図が示されます。' },
+            'ὅτι':  { cls: 'sig-logic',    text: '内容・理由節。以降が主張の根拠か内容補足になります。' },
+            'εἰ':   { cls: 'sig-logic',    text: '条件節。仮定の前提の上で議論が展開されています。' },
+            'ὥστε': { cls: 'sig-logic',    text: 'ここに議論の帰結があります。「その結果として」という流れです。' },
+        };
+        const s = CONJ_SIGNAL[word];
+        if (s) signals.push({ cls: s.cls, kindLabel: '流れ', text: s.text });
+        else   signals.push({ cls: 'sig-logic', kindLabel: '流れ', text: '接続詞。前後をつなぎ、議論の流れを形作っています。' });
+    }
+
+    /* ── #6 論理的展開（最重要：Flow の中心機能） ── */
+    /* 動詞の法：命令・約束・宣言・論理を区別して表示 */
+    if (pos === 'V') {
+        /* #2 命令・勧め */
+        if (mood === 'imperative') {
+            signals.push({ cls: 'sig-exhort', kindLabel: '呼びかけ', text: 'ここは説明ではなく、行動への呼びかけです。' });
+        }
+        /* 接続法：目的・願望 */
+        if (mood === 'subjunctive') {
+            signals.push({ cls: 'sig-logic', kindLabel: '願い', text: '目的・条件・願望を表しています。断定ではなく「〜するために」「〜であれば」という含みです。' });
+        }
+        /* 不定詞：補足・目的 */
+        if (mood === 'infinitive') {
+            signals.push({ cls: 'sig-logic', kindLabel: '補足', text: '動作の目的か内容を補足する役割です。' });
+        }
+        /* 分詞：修飾・同時進行 */
+        if (mood === 'participle') {
+            signals.push({ cls: 'sig-logic', kindLabel: '背景', text: '主動詞の状況・背景を描写しています。' });
+        }
+
+        /* 時制による流れへの影響 */
+        if (tense === 'aorist' && mood === 'indicative') {
+            signals.push({ cls: 'sig-declare', kindLabel: '出来事', text: '「その出来事が起きた」という完結した事実の提示です。命令でも約束でもなく、宣言的な重みがあります。' });
+        }
+        if (tense === 'present' && mood === 'indicative') {
+            signals.push({ cls: 'sig-logic', kindLabel: '継続', text: '継続・習慣・普遍的な事実として述べています。' });
+        }
+        if (tense === 'perfect') {
+            signals.push({ cls: 'sig-promise', kindLabel: '今も続く', text: '過去の出来事の結果が今も有効です。単なる過去の話ではなく、現在の状態を含む表現です。' });
+        }
+        if (tense === 'future' && mood === 'indicative') {
+            signals.push({ cls: 'sig-promise', kindLabel: '約束', text: 'これは命令というより、確かな約束・確約として機能していることがあります。' });
+        }
+
+        /* #7 語の選択：態のニュアンス */
+        if (voice === 'passive') {
+            signals.push({ cls: 'sig-word', kindLabel: '受けとめる', text: '主語は動作を受ける側に置かれています。神学的文脈では「神による行為」を暗示することがあります。' });
+        }
+        if (voice === 'middle' || voice === 'middle deponent') {
+            signals.push({ cls: 'sig-word', kindLabel: '深く関わる', text: '主語が動作に深く関与しています。単なる能動でも受動でもない、自身が関わる動作です。' });
+        }
+    }
+
+    /* ── 名詞系の格：論理的役割を「流れ」として表示 ── */
+    if (['N','A','R','P','T','D'].includes(pos)) {
+        const CASE_SIGNAL = {
+            nominative: { cls: 'sig-logic',   text: 'この語が文の中心にいます。主語または述語として機能しています。' },
+            genitive:   { cls: 'sig-logic',   text: '「〜の」という関係を示します。所有・由来・特徴などのニュアンスがあります。' },
+            dative:     { cls: 'sig-logic',   text: '動作の間接的な受け手・場所・手段を示します。' },
+            accusative: { cls: 'sig-logic',   text: '動作の直接の対象です。' },
+        };
+        const caseSig = CASE_SIGNAL[p.case];
+        if (caseSig) signals.push({ cls: caseSig.cls, kindLabel: '役割', text: caseSig.text });
+    }
+
+    /* ── #5 比喩表現：特定語の比喩的使用に注意を促す ── */
+    const METAPHOR_WORDS = {
+        'περιπατέω': '「歩む」は、ここでは文字通りの歩行ではなく、生き方・行動様式の比喩として使われています。',
+        'περιπατεῖν': '「歩む」は、生き方の比喩として使われています。',
+        'φωτί':      '「光」は比喩的な表現として機能していることが多く、知識・啓示・義などを指すことがあります。',
+        'σκότος':    '「闇」は比喩的に罪・無知・神との断絶を示すことがあります。',
+        'σταυρός':   '十字架は当時の読者にとって処刑の道具であると同時に、贖いの象徴として受け取られた語です。',
+    };
+    if (METAPHOR_WORDS[word]) {
+        signals.push({ cls: 'sig-metaphor', kindLabel: '比喩', text: METAPHOR_WORDS[word] });
+    }
+
+    if (signals.length === 0) {
+        signals.push({ cls: 'sig-default', kindLabel: '補足', text: 'この語の文脈的な役割は「含み」タブでさらに確認できます。' });
+    }
+
+    /* signals を prose として統合（列挙しない） */
+    const localHTML = `<div class="flow-signal-text reading-prose">${signals.map(s => s.text).join('　')}</div>`;
+
+    area.innerHTML = `
+        <div class="flow-word-head">
+            <span class="flow-greek greek-headword">${_escH(word)}</span>${jaWord ? `<span class="flow-ja">　${_escH(jaWord)}</span>` : ''}
+        </div>
+        ${ref ? `<div class="flow-ref">${_escH(ref)}</div>` : ''}
+        <div class="flow-hints reading-block" id="flow-hints-local">
+            ${localHTML}
+        </div>
+    `;
+}
+
+/* ══════════════════════════════════════════
+   openStudyPanel - 正規実装（唯一の定義）
+   責務:
+     - word-list-view を消去してiframe/インライン分析に切り替える
+     - AppState.saveScroll() で scroll 位置を保存
+     - AppState.toStudy() で状態を Study モードへ遷移
+     - study.tab を引き継いで前回開いていたタブを復元
+   ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   openStudyPanel - 読書メモ版
+   タブを廃止し、単一スクロールの読書メモパネルに表示する。
+   ══════════════════════════════════════════ */
+function openStudyPanel(greek, rawMorph, ref, lemma, options = {}) {
+    closeMobileSidebar();
+    /* 高さの一律リセットは廃止 — StudyPanelState.height（SSOT）を
+       下の _applyPanelHeightFromState() が適用する */
+    const listEl = document.getElementById('word-list-view');
+    /* 節Panel（Level 2）から来た場合のみ、破棄する直前のスクロール位置を保存しておく
+       （panelGoBack() で Level 2 に戻った時に復元する。スクロール保持のための唯一の保存箇所）。 */
+    _versePanelScrollTop = (_panelContentMode === 'verse' && listEl) ? listEl.scrollTop : null;
+    if (listEl) listEl.remove();
+
+    const m = parseMorphForSearch(rawMorph);
+    const params = {
+        ref,
+        verseId:   AppState.studyTarget?.verseId || '',
+        word:      greek,
+        lemma:     lemma || '',
+        pos:       m.pos    || '',
+        _rawMorph: rawMorph,
+        tense:     m.tense  || '',
+        mood:      m.mood   || '',
+        voice:     m.voice  || '',
+        gender:    m.gender || '',
+        number:    m.number || '',
+        case:      m.case   || '',
+    };
+    params._morphCandidates = getMorphCandidates(rawMorph, greek).alternatives;
+
+    /* 読書位置の保存: 閉→開の遷移時のみ。節Panel（Level 2）から単語詳細へ
+       進む時に保存すると「パネルを開く前の位置」が open 中の位置で
+       上書きされ、close 時に開く前へ戻れなくなる。 */
+    if (!document.getElementById('bottom-depth-panel').classList.contains('open')) {
+        AppState.saveScroll();
+    }
+    AppState.toStudy(params, 'notes');
+
+    /* depth stack に追加（重複しないよう、top が同じなら追加しない） */
+    const stack = AppState.depth.stack;
+    const topEntry = stack[stack.length - 1];
+    const isAlreadyDeep = topEntry && topEntry.type === 'deep-reading' && topEntry.strong === String(AppState.inspect.data?.strong || '');
+    if (!options.skipDepthPush && !isAlreadyDeep) {
+        pushDepth({
+            type:   'deep-reading',
+            label:  '深く読む',
+            strong: String(AppState.inspect.data?.strong || ''),
+        });
+    }
+
+    const sidePanel    = document.getElementById('bottom-depth-panel');
+    const wasOpen = sidePanel.classList.contains('open');
+    _panelContentMode = 'word';
+    /* 高さの SSOT: Level 2⇄3 遷移でもユーザー調整高さを維持する
+       （word モードの上限 80vh へは適用時のみ clamp。state は保持） */
+    _applyPanelHeightFromState(sidePanel);
+    sidePanel.classList.add('open');
+    _syncStudyVerseNav();
+    _syncReadingPanelPadding();
+const activeVEl = document.getElementById('active-v');
+    if (activeVEl && greek) activeVEl.textContent = greek;
+
+    document.getElementById('open-panel-btn').style.display = 'none';
+
+    /* 読書メモエリアを表示 */
+    const notesWrap = document.getElementById('reading-notes-wrap');
+    if (notesWrap) notesWrap.style.display = 'flex';
+
+    _renderReadingNotes(params);
+
+    /* スクロール位置の復元（close直前に StudyPanelState.scrollTop へ保存した位置を再適用）。
+       _renderReadingNotes は async で DOM を置換するため、2段 rAF で確実に render 後に適用する。
+       1段目：レイアウト計算開始を待つ。2段目：paint サイクル後に scrollTop を確定する。 */
+    {
+        const _savedScroll = StudyPanelState.scrollTop;
+        StudyPanelState.scrollTop = 0;
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const nw = document.getElementById('reading-notes-wrap');
+                if (nw) nw.scrollTop = _savedScroll;
+            });
+        });
+    }
+
+    /* ── オンボーディング：アンカー語（ἠγάπησεν）初回タップ時に発見テキストを先頭注入 ── */
+    (function _injectObDiscovery() {
+        const obState = window.App.onboarding?.getState();
+        if (!obState || obState.onboardingComplete) return;
+        if (obState.wordClicked) return; /* 2語目以降は出さない */
+        if (greek !== 'ἠγάπησεν') return;
+
+        const area = document.getElementById('reading-notes-area');
+        if (!area) return;
+
+        const disc = document.createElement('div');
+        disc.id = 'ob-discovery-banner';
+        disc.style.cssText = [
+            'margin:0 0 18px 0',
+            'padding:13px 16px',
+            'background:var(--accent-light)',
+            'border-left:3px solid rgba(44,79,52,0.55)',
+            'border-radius:0 var(--radius-s) var(--radius-s) 0',
+            'font-family:\'Noto Serif JP\',Georgia,serif',
+            'font-size:var(--text-caption)',
+            'line-height:1.8',
+            'color:rgba(29,29,31,0.82)',
+            'letter-spacing:0.01em',
+        ].join(';');
+        disc.textContent = 'この語は文の先頭に置かれています。ギリシャ語では動詞が最初に来るとき、その行為が強調される読み方があります。日本語訳では見えにくい語順の意図が、原語には残っています。';
+
+        area.insertBefore(disc, area.firstChild);
+    })();
+    /* ─────────────────────────────────────────────────────── */
+
+    _mobileOpenPanel(greek || _T('panel.readWord', '語を読む'), wasOpen);
+    updatePanelBackButton();
+    _adjustReadingAreaForPanel(wasOpen);
+
+    /* onboarding hook */
+    if (window.App.onboarding) {
+        window.App.onboarding.onStudyPanelOpened(window.innerWidth <= 900, AppState.selectedVerse?.vNum);
+    }
+    _syncOnboardingActiveFlag();
+
+    notifyAppStateChange();
+}
+
+/* SP-3: StudyTarget v0 setter — 「何を調べているか」を記録する最小helper。
+   ref = "JHN 3:1!1" 形式。falsy なら null（guard）。
+   inspect.data / studyOrigin は変更しない。 */
+function _setStudyTarget(ref, verseId) {
+    AppState.studyTarget = ref ? { type: 'TOKEN', ref, verseId: verseId || '' } : null;
+}
+
+/* ══════════════════════════════════════════
+   closeStudyPanel - 正規実装（唯一の定義）
+   責務:
+     - side-panel を非表示、並列訳を復帰
+     - AppState.toReading() で状態を Reading モードへ遷移
+       （study.params / study.tab はあえて保持する → 再開ボタンのため）
+     - AppState.restoreScroll() で scroll 位置を復元
+     - 「分析に戻る」ボタンを study.params の有無で制御
+   ══════════════════════════════════════════ */
+function closeStudyPanel() {
+    AppState.clearDepth();
+    AppState.studyOrigin = { surface: null, entryPoint: null };
+    AppState.studyTarget = null;
+    renderDepthHistory();
+    _closeStudyPanelInternal();
+    _syncStudyVerseNav();
+    notifyAppStateChange();
+}
+
+/* ══════════════════════════════════════════
+   reopenStudyPanel - 正規実装（唯一の定義）
+   責務:
+     - ヘッダー「分析に戻る」ボタンから呼ばれる
+     - AppState.saveScroll() で現在の scroll 位置を保存してから展開
+     - AppState.study.tab を引き継いで前回タブを復元
+   ══════════════════════════════════════════ */
+function reopenStudyPanel() {
+    if (!AppState.canReopen()) return;
+    const p = AppState.study.params;
+    AppState.saveScroll();
+    _setStudyTarget(p.ref, p.verseId);
+    openStudyPanel(p.word, p._rawMorph, p.ref, p.lemma);
+}

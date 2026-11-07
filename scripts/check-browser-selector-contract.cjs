@@ -9,7 +9,12 @@ const path = require('node:path');
 const ROOT = process.cwd();
 const appPath = path.join(ROOT, 'public/index.html');
 const browserTestDir = path.join(ROOT, 'tests/browser');
-const app = fs.readFileSync(appPath, 'utf8');
+// R-d4: StudyPanel markup templates moved to public/app/ui/*.js — include them in the searched source.
+const uiDir = path.join(ROOT, 'public/app/ui');
+const uiSources = fs.existsSync(uiDir)
+  ? fs.readdirSync(uiDir).filter(name => name.endsWith('.js')).sort().map(name => fs.readFileSync(path.join(uiDir, name), 'utf8'))
+  : [];
+const app = [fs.readFileSync(appPath, 'utf8'), ...uiSources].join('\n');
 
 const requiredMarkup = [
   { label: 'morphology section data attribute', pattern: /data-study-section="morphology"/ },
