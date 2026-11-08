@@ -158,7 +158,7 @@ function _moreMenuToggle() { _moreMenuIsOpen ? _moreMenuClose() : _moreMenuOpen(
    MN: Mobile Book Picker
    ══════════════════════════════════════════════════════════════ */
 
-let _mbpLayer          = 1;    /* 1:Testament / 2:Book / 3:Chapter */
+let _mbpLayer          = 2;    /* 2:Book / 3:Chapter（1:Testament は緑版では経由しない。旧約版用に描画コードは残置） */
 let _mbpSection        = 'nt'; /* 'nt' | 'ot' */
 let _mbpBookKey        = '';
 let _mbpBookName       = '';
@@ -192,7 +192,7 @@ function _openMobileBookPicker() {
         _mbpBookMaxCh = loc.book.ch || 0;
         _mbpLayer = 3; /* 現在 chapter 選択画面から開始 */
     } else {
-        _mbpLayer = 1;
+        _mbpLayer = 2; /* 書物未選択時は Testament を挟まず書物一覧から */
     }
     _mbpRenderLayer(_mbpLayer);
 
@@ -213,7 +213,7 @@ function _closeMobileBookPickerDOM() {
     picker.classList.remove('mbp-open');
     picker.setAttribute('aria-hidden', 'true');
     document.getElementById('app')?.classList.remove('mobile-picker-open');
-    _mbpLayer = 1;
+    _mbpLayer = 2;
 }
 
 /* UI ボタン（×・overlay）からの close。履歴エントリも戻す（MVV パターンと同様）。 */
@@ -228,7 +228,7 @@ function _closeMobileBookPicker() {
 
 /* ‹ 戻るボタン: layer を 1 段戻る */
 function _mbpBack() {
-    if (_mbpLayer <= 1) { _closeMobileBookPicker(); return; }
+    if (_mbpLayer <= 2) { _closeMobileBookPicker(); return; }
     _mbpLayer--;
     _mbpRenderLayer(_mbpLayer);
 }
@@ -241,7 +241,7 @@ function _mbpRenderLayer(layer) {
     const backBtn  = document.getElementById('mobile-book-picker-back');
     if (!content || !titleEl || !backBtn) return;
 
-    backBtn.style.display = (layer > 1) ? '' : 'none';
+    backBtn.style.display = (layer > 2) ? '' : 'none';
 
     if (layer === 1) {
         /* Layer 1: NT / OT 選択 */
@@ -251,9 +251,10 @@ function _mbpRenderLayer(layer) {
             '<div class="mbp-row" onclick="_mbpSelectTestament(\'nt\')">' +
                 '<span>' + _T('ui.newTestament', '新約聖書') + '</span><span class="mbp-row-chevron">›</span></div>';
     } else if (layer === 2) {
-        /* Layer 2: Book 一覧 */
+        /* Layer 2: Book 一覧（ピッカーの起点。タイトルは「書物を選ぶ」、
+           一覧の見出しとして testLabel を残す） */
         const testLabel = _mbpSection === 'nt' ? _T('ui.newTestament', '新約聖書') : _T('ui.oldTestamentLxx', '旧約聖書（LXX）');
-        titleEl.textContent = testLabel;
+        titleEl.textContent = _T('picker.bookTitle', '書物を選ぶ');
         const books = (SB_BOOKS[_mbpSection] || []);
         const curKey = AppState.location.book ? AppState.location.book.key : '';
         let html = '<div class="mbp-section-label">' + testLabel + '</div>';
