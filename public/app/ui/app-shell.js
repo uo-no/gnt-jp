@@ -343,23 +343,24 @@ function renderGlobalBreadcrumb() {
         return;
     }
 
-    const testamentLabel = loc.testament === 'nt' ? _T('ui.newTestament', '新約聖書') : _T('ui.oldTestament', '旧約聖書');
     const items = [];
 
-    /* 聖書全体（testament）- クリックで書物一覧へ */
-    items.push(`<button class="gbc-item" onclick="_gbcGoTestament()">${testamentLabel}</button>`);
-
+    /* パンくずは「書名 › 章番号 › 読み方」の並び（2026-11-08 整理）。
+       新約聖書セグメントは廃止：緑版は新約のみで判別情報にならず、旧約は赤版（別アプリ）。
+       各要素は「押すとその要素の選択が開く」に統一する。 */
     if (loc.book) {
-        items.push(`<span class="gbc-sep">›</span>`);
-        /* 書物 - クリックで章一覧へ（BOOK_SHORT 経由の略称を使用） */
+        /* 書物 - クリックで書物選択へ（BOOK_SHORT 経由の略称を使用） */
         items.push(`<button class="gbc-item" onclick="_gbcGoBook()">${_bookShortTitle(loc.book)}</button>`);
+    } else {
+        /* 書物未選択時は「聖書」から書物選択へ（従来の新約聖書ボタンの受け皿） */
+        items.push(`<button class="gbc-item" onclick="_gbcGoBook()">${_T('ui.bible', '聖書')}</button>`);
     }
 
     if (loc.chapter !== null) {
         const _maxCh = loc.book ? loc.book.ch : 1;
         const _ch    = loc.chapter;
         items.push(`<span class="gbc-sep">›</span>`);
-        /* 章 - 左右矢印で前後章へ、中央クリックで現在章を再表示 */
+        /* 章 - 左右矢印で前後章へ、章番号クリックで章選択へ */
         items.push(
             `<span class="gbc-item current gbc-chapter-nav">` +
             `<button class="gbc-ch-arrow" onclick="event.stopPropagation();_gbcPrevChapter()" aria-label="${_T('nav.prevChapter', '前の章')}"${_ch <= 1 ? ' disabled' : ''}>◀</button>` +
@@ -385,26 +386,12 @@ function renderGlobalBreadcrumb() {
     el.innerHTML = items.join('');
 }
 
-function _gbcGoTestament() {
+/* 書名クリック → 書物選択（サイドバー Layer 1）。旧 _gbcGoTestament の行き先を引き継ぐ */
+function _gbcGoBook() {
     const loc = AppState.location;
     if (loc && loc.testament) sbSection = loc.testament;
     if (!_isSidebarOpen()) _openSidebar();
     sbGoTo(1, sbSection);
-    AppState.clearDepth();
-    renderDepthHistory();
-}
-
-function _gbcGoBook() {
-    const loc = AppState.location;
-    if (loc && loc.book) {
-        const inNt = SB_BOOKS.nt.some(b => b.key === loc.book.key);
-        sbSection  = inNt ? 'nt' : 'ot';
-        sbBookKey  = loc.book.key;
-        sbBookName = _bookFullName(loc.book.key);
-        sbMaxCh    = loc.book.ch;
-    }
-    if (!_isSidebarOpen()) _openSidebar();
-    sbGoTo(2);
     AppState.clearDepth();
     renderDepthHistory();
 }
@@ -575,11 +562,20 @@ function _navTo(book, ch) {
     });
 }
 
+/* 章番号クリック → 章選択（サイドバー Layer 2）。旧 _gbcGoBook の行き先を引き継ぐ */
 function _gbcGoChapter() {
-    /* 現在の章を再表示 */
-    if (AppState.location.book && AppState.location.chapter !== null) {
-        _navTo(AppState.location.book.key, AppState.location.chapter);
+    const loc = AppState.location;
+    if (loc && loc.book) {
+        const inNt = SB_BOOKS.nt.some(b => b.key === loc.book.key);
+        sbSection  = inNt ? 'nt' : 'ot';
+        sbBookKey  = loc.book.key;
+        sbBookName = _bookFullName(loc.book.key);
+        sbMaxCh    = loc.book.ch;
     }
+    if (!_isSidebarOpen()) _openSidebar();
+    sbGoTo(2);
+    AppState.clearDepth();
+    renderDepthHistory();
 }
 
 function _gbcPrevChapter() {
