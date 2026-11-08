@@ -276,8 +276,10 @@ function _openWordListInternal(vNum, words, book, ch) {
                キャッシュで足りる（複数節同時表示する Greek Flow View / 本文左列とは異なる方式）。 */
             _wlvChipCache = (_vrRep && _vrRep.chips) ? _vrRep.chips : [];
             if (_spMode === 'JA1955') {
-                /* WORD_ORDER → JA1955: 語順を即時表示後、口語訳テキストで非同期上書き */
-                _fillStudyPanelTranslation('JA1955', vNum, _vrBookKey, _vrCh, listEl, words);
+                /* WORD_ORDER → 基本訳: 語順を即時表示後、訳文テキストで非同期上書き。
+                   英語UIでは UI 言語の基本訳（WEB）を出す（D1）。 */
+                const _fillTransId = (window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955';
+                _fillStudyPanelTranslation(_fillTransId, vNum, _vrBookKey, _vrCh, listEl, words);
             }
         }
     }

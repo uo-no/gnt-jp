@@ -362,9 +362,9 @@ function renderGlobalBreadcrumb() {
         /* 章 - 左右矢印で前後章へ、中央クリックで現在章を再表示 */
         items.push(
             `<span class="gbc-item current gbc-chapter-nav">` +
-            `<button class="gbc-ch-arrow" onclick="event.stopPropagation();_gbcPrevChapter()" aria-label="前の章"${_ch <= 1 ? ' disabled' : ''}>◀</button>` +
+            `<button class="gbc-ch-arrow" onclick="event.stopPropagation();_gbcPrevChapter()" aria-label="${_T('nav.prevChapter', '前の章')}"${_ch <= 1 ? ' disabled' : ''}>◀</button>` +
             `<button class="gbc-ch-label" onclick="_gbcGoChapter()">${(window.I18N && I18N.lang === 'en') ? String(_ch) : _ch + '章'}</button>` +
-            `<button class="gbc-ch-arrow" onclick="event.stopPropagation();_gbcNextChapter()" aria-label="次の章"${_ch >= _maxCh ? ' disabled' : ''}>▶</button>` +
+            `<button class="gbc-ch-arrow" onclick="event.stopPropagation();_gbcNextChapter()" aria-label="${_T('nav.nextChapter', '次の章')}"${_ch >= _maxCh ? ' disabled' : ''}>▶</button>` +
             `</span>`
         );
 
