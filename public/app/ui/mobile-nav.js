@@ -249,8 +249,7 @@ function _mbpRenderLayer(layer) {
         content.innerHTML =
             '<div class="mbp-section-label">Testament</div>' +
             '<div class="mbp-row" onclick="_mbpSelectTestament(\'nt\')">' +
-                '<span>' + _T('ui.newTestament', '新約聖書') + '</span><span class="mbp-row-chevron">›</span></div>' +
-            '<div class="mbp-ot-note">' + _T('ui.otInPreparation', '旧約聖書は準備中です') + '</div>';
+                '<span>' + _T('ui.newTestament', '新約聖書') + '</span><span class="mbp-row-chevron">›</span></div>';
     } else if (layer === 2) {
         /* Layer 2: Book 一覧 */
         const testLabel = _mbpSection === 'nt' ? _T('ui.newTestament', '新約聖書') : _T('ui.oldTestamentLxx', '旧約聖書（LXX）');
