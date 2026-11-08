@@ -1252,6 +1252,8 @@ border-radius: var(--radius-s); cursor: pointer; transition: all var(--transitio
 }
 .app-header { padding: 18px 40px; border-bottom: 1px solid var(--border-soft); background: var(--bg-paper); flex-shrink: 0; position: sticky; top: 0; z-index: 20; }
 .header-content { display: flex; align-items: center; justify-content: space-between; }
+/* ヘッダー右クラスタ（条件付きボタン＋言語トグル）。右端に寄せて位置を固定する */
+.header-actions { display: flex; align-items: center; gap: var(--space-md); }
 #global-breadcrumb {
     display: flex;
     align-items: center;
@@ -5953,6 +5955,8 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
        インライン display:block を設定する経路があり、≤900px で
        確実に隠すには !important が要る。 */
     #mobile-menu-btn     { display: none; }
+    /* ヘッダー右クラスタのラッパはモバイルでは無効化し、子の従来配置をそのまま使う */
+    .header-actions      { display: contents; }
     #header-lang-toggle  { display: none; }
     #global-breadcrumb   { display: none; }
     #research-open-btn   { display: none; }
@@ -6504,20 +6508,26 @@ html[lang="en"] body.chapter-navigation-loading #main-reading-area::after { cont
                     <span class="mobile-location-chevron" aria-hidden="true">▾</span>
                 </button>
             </div>
-            <!-- open-panel-btn は Study閉じた後の再開ボタン。非表示スタート。 -->
-            <button id="open-panel-btn" onclick="reopenStudyPanel()" style="display:none;" title="前の語の読解に戻る">
-                <span class="material-symbols-outlined" style="font-size: var(--text-body-lg);vertical-align:middle;">info</span><span style="font-size: var(--text-caption);margin-left: var(--space-xs);font-family:inherit;color:var(--text-sub);">読解に戻る</span>
-            </button>
-            <!-- open-source-btn: URL Import経由のセッションでのみ表示する「元の聖書サイトを開く」導線。
-                 非表示スタート。表示可否は _syncUrlImportSourceButton() が sessionStorage を見て決める
-                 （#open-panel-btn と同じ「条件付き表示」方式）。 -->
-            <button id="open-source-btn" onclick="_openUrlImportSource()" style="display:none;" title="元の聖書サイトを開く">
-                <span style="font-family:inherit;color:var(--text-sub);">元の聖書サイトを開く</span>
-            </button>
-            <!-- 言語トグル: PC はヘッダー右端に常時表示（≤900px では CSS で隠し、FAB メニュー内に出す） -->
-            <div id="header-lang-toggle" role="group" aria-label="Language">
-                <button class="info-lang-btn header-lang-btn" data-lang-btn="ja" onclick="I18N.setLang('ja')">日本語</button>
-                <button class="info-lang-btn header-lang-btn" data-lang-btn="en" onclick="I18N.setLang('en')">English</button>
+            <!-- ヘッダー右クラスタ: 条件付きボタンと言語トグルを1グループにまとめ、
+                 右端アンカーで位置を固定する（従来は中間の flex 子として中央に浮いていた）。
+                 並び順は固定: 元の聖書サイトを開く → 読解に戻る → 言語トグル。
+                 ≤900px では display:contents でラッパを無効化し、モバイルの配置・規則を変えない。 -->
+            <div class="header-actions">
+                <!-- open-source-btn: URL Import経由のセッションでのみ表示する「元の聖書サイトを開く」導線。
+                     非表示スタート。表示可否は _syncUrlImportSourceButton() が sessionStorage を見て決める
+                     （#open-panel-btn と同じ「条件付き表示」方式）。 -->
+                <button id="open-source-btn" onclick="_openUrlImportSource()" style="display:none;" title="元の聖書サイトを開く">
+                    <span style="font-family:inherit;color:var(--text-sub);">元の聖書サイトを開く</span>
+                </button>
+                <!-- open-panel-btn は Study閉じた後の再開ボタン。非表示スタート。 -->
+                <button id="open-panel-btn" onclick="reopenStudyPanel()" style="display:none;" title="前の語の読解に戻る">
+                    <span class="material-symbols-outlined" style="font-size: var(--text-body-lg);vertical-align:middle;">info</span><span style="font-size: var(--text-caption);margin-left: var(--space-xs);font-family:inherit;color:var(--text-sub);">読解に戻る</span>
+                </button>
+                <!-- 言語トグル: PC はヘッダー右端に常時表示（≤900px では CSS で隠し、FAB メニュー内に出す） -->
+                <div id="header-lang-toggle" role="group" aria-label="Language">
+                    <button class="info-lang-btn header-lang-btn" data-lang-btn="ja" onclick="I18N.setLang('ja')">日本語</button>
+                    <button class="info-lang-btn header-lang-btn" data-lang-btn="en" onclick="I18N.setLang('en')">English</button>
+                </div>
             </div>
             <!-- MN: Mobile More Button（≤900px のみ表示） -->
             <button id="mobile-more-btn" onclick="_moreMenuToggle()" aria-label="その他のメニュー" aria-haspopup="true" aria-expanded="false">⋯</button>
