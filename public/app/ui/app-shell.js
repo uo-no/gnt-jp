@@ -369,9 +369,10 @@ function renderGlobalBreadcrumb() {
             `</span>`
         );
 
-        /* 読み方：5項目のみ。BUN / DISCOURSE / 翻訳IDは表示しない */
+        /* 読み方：5項目のみ（JA1955 / WEB / 構造系3種）。BUN / DISCOURSE / その他の翻訳IDは表示しない */
         const _GBC_MODE_LABELS = {
             'JA1955':       _T('mode.JA1955', '口語訳'),
+            'WEB':          _T('mode.WEB', 'World English Bible'),
             'WORD_ORDER':   _T('mode.WORD_ORDER', '語順で読む'),
             'DA_READING':   _T('mode.DA_READING', '文の構造で読む'),
             'ROLE_READING': _T('mode.ROLE_READING', '語の役割で読む'),
