@@ -249,8 +249,7 @@ function _mbpRenderLayer(layer) {
         content.innerHTML =
             '<div class="mbp-section-label">Testament</div>' +
             '<div class="mbp-row" onclick="_mbpSelectTestament(\'nt\')">' +
-                '<span>' + _T('ui.newTestament', '新約聖書') + '</span><span class="mbp-row-chevron">›</span></div>' +
-            '<div class="mbp-ot-note">' + _T('ui.otInPreparation', '旧約聖書は準備中です') + '</div>';
+                '<span>' + _T('ui.newTestament', '新約聖書') + '</span><span class="mbp-row-chevron">›</span></div>';
     } else if (layer === 2) {
         /* Layer 2: Book 一覧 */
         const testLabel = _mbpSection === 'nt' ? _T('ui.newTestament', '新約聖書') : _T('ui.oldTestamentLxx', '旧約聖書（LXX）');
@@ -312,7 +311,8 @@ function _mbpSelectChapter(ch) {
 let _mmpHistoryActive  = false;
 let _mmpIgnoreNextPop  = false;
 
-/* Mode リスト定義（SSOT: _sbRenderModes() の items 配列と完全一致） */
+/* Mode リスト定義（サイドバー側 _sbRenderModesL0() の items と対応。
+   先頭の基本訳はモバイル側では従来どおり JA1955 固定表記） */
 const MN_MODE_LIST = [
     { id: 'JA1955',      label: '本文（口語訳）',    i18n: 'mode.JA1955.picker' },
     { id: 'WORD_ORDER',  label: '語順で読む',         i18n: 'mode.WORD_ORDER' },

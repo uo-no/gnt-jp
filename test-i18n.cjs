@@ -64,9 +64,9 @@ async function boot(path, opts = {}) {
     check('EN: I18N lang is en', window.I18N && window.I18N.lang === 'en');
     check('EN html lang', document.documentElement.lang === 'en', document.documentElement.lang);
     const l0 = [...document.querySelectorAll('#sb-mode-list-l0 .menu-text')].map(e => e.textContent);
-    check('EN L0 mode labels', l0.includes('Read in Kougo') && l0.includes('Word Order') && l0.includes('Sentence Structure'), JSON.stringify(l0));
+    check('EN L0 mode labels', l0.includes('World English Bible') && l0.includes('Word Order') && l0.includes('Sentence Structure'), JSON.stringify(l0));
     const descs = [...document.querySelectorAll('#sb-mode-list-l0 .sb-mode-desc')].map(e => e.textContent);
-    check('EN L0 mode descriptions', descs.some(d => d.includes('familiar Japanese translation')), JSON.stringify(descs));
+    check('EN L0 mode descriptions', descs.some(d => d.includes('World English Bible')), JSON.stringify(descs));
     const info = [...document.querySelectorAll('#info-overlay-card [data-i18n]')].map(e => e.textContent);
     check('EN info card labels', info.includes('How to Use') && info.includes('Sources & Policies'), JSON.stringify(info));
     check('EN lang button active', document.querySelector('[data-lang-btn="en"]').classList.contains('active'));
