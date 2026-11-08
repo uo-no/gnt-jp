@@ -312,7 +312,8 @@ function _mbpSelectChapter(ch) {
 let _mmpHistoryActive  = false;
 let _mmpIgnoreNextPop  = false;
 
-/* Mode リスト定義（SSOT: _sbRenderModes() の items 配列と完全一致） */
+/* Mode リスト定義（サイドバー側 _sbRenderModesL0() の items と対応。
+   先頭の基本訳はモバイル側では従来どおり JA1955 固定表記） */
 const MN_MODE_LIST = [
     { id: 'JA1955',      label: '本文（口語訳）',    i18n: 'mode.JA1955.picker' },
     { id: 'WORD_ORDER',  label: '語順で読む',         i18n: 'mode.WORD_ORDER' },

@@ -175,7 +175,6 @@ window._rkAvailPromise = fetch('../assets/data/rk-availability.json')
     .then(d => {
         window._rkAvail = d || {};
         /* 取得完了後にモード一覧を再描画する（初期描画とのレース回避） */
-        if (typeof _sbRenderModes === 'function') _sbRenderModes();
         if (typeof _sbRenderModesL0 === 'function') _sbRenderModesL0();
         if (typeof _mmpRenderModes === 'function') _mmpRenderModes();
         return window._rkAvail;

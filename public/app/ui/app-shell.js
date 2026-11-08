@@ -896,12 +896,11 @@ function sbGoTo(layer, section) {
     document.querySelectorAll('.sb-layer').forEach(l => l.classList.remove('active'));
     document.getElementById('sb-layer' + layer).classList.add('active');
 
-    /* Layer 0: sb-nt-row / sb-ot-row のアクティブ表示 + インラインモードリスト・アコーディオン更新 */
+    /* Layer 0: sb-nt-row / sb-ot-row のアクティブ表示 + モードリスト更新 */
     if (layer === 0) {
         document.getElementById('sb-nt-row').classList.toggle('active', sbSection === 'nt');
         document.getElementById('sb-ot-row').classList.toggle('active', sbSection === 'ot');
         _sbRenderModesL0();
-        _sbSyncNtAccordion();
     }
 
     /* Layer 1: 書物一覧を描画 */
@@ -919,9 +918,6 @@ function sbGoTo(layer, section) {
         document.getElementById('sb-l2-title').textContent = _bookFullName(sbBookKey);
         sbRenderChapters();
     }
-
-    /* Layer 3: 読み方を描画 */
-    if (layer === 3) { _sbRenderModes(); }
 }
 
 /* Layer 1/2 のナビヘッダーのアクティブ状態を同期 */
@@ -959,12 +955,6 @@ function sbRenderBooks() {
         };
         list.appendChild(div);
     });
-    if (sbSection === 'nt') {
-        const otNote = document.createElement('div');
-        otNote.className = 'sb-ot-note';
-        otNote.textContent = _T('ui.otInPreparation', '旧約聖書は準備中です');
-        list.appendChild(otNote);
-    }
 }
 
 function sbRenderChapters() {
@@ -999,10 +989,11 @@ function sbInitState(bookKey, ch) {
     sbGoTo(0);
 }
 
-/* 読書モードの1行説明（入口導線 Phase 1）。サイドバー2箇所とモバイルピッカーで共有する。
+/* 読書モードの1行説明（入口導線 Phase 1）。サイドバー（Layer 0）とモバイルピッカーで共有する。
    文案は「読む言葉」で統一し、モードの使い分けが名前だけでも伝わるようにする。 */
 const MODE_DESCRIPTIONS = {
     'JA1955':      'いつもの日本語訳で、まず通して読む',
+    'WEB':         'World English Bible（英語訳）で、まず通して読む',
     'WORD_ORDER':  '原語の並びのまま、1語ずつ日本語で確かめる',
     'DA_READING':  '文の組み立てに沿って、並べ替えて読む',
     'ROLE_READING': '誰が・何を・どうしたか、語の役割で読む',
@@ -1022,30 +1013,22 @@ function _fgCountModeSwitch() {
 }
 function _modeDescVisible() { return _fgModeSwitchCount() < 3; }
 
-function _sbRenderModes() {
-    const list = document.getElementById('sb-mode-list');
-    if (!list) return;
-    const items = [
-        { id: 'JA1955',      label: _T('mode.JA1955', '口語訳')        },
-        { id: 'WORD_ORDER',  label: _T('mode.WORD_ORDER', '語順で読む')      },
-        { id: 'DA_READING',   label: _T('mode.DA_READING', '文の構造で読む')       },
-        { id: 'ROLE_READING', label: _T('mode.ROLE_READING', '語の役割で読む')   },
-    ];
-    list.innerHTML = items.filter(it => it.id !== 'ROLE_READING' || _roleReadingAvailable()).map(item => {
-        const active = (_transA === item.id && _transMode === 'single') ? ' active' : '';
-        return `<div class="sb-row${active}" onclick="_sbSelectMode('${item.id}')"><span class="sb-mode-text"><span class="menu-text">${_escH(item.label)}</span>${_modeDescVisible() ? `<span class="sb-mode-desc">${_escH(_modeDesc(item.id))}</span>` : ''}</span></div>`;
-    }).join('');
-    list.innerHTML +=
-        '<div class="sb-external-compare" style="border-top:1px solid var(--border-soft);margin-top:var(--space-sm);padding:var(--space-xs) 0 0;">' +
-        '<div id="sb-compare-external-list" class="sb-external-compare-list"></div></div>';
-    _renderExternalCompareMenu('sb-compare-external-list');
-}
-
+/* サイドバーのモード一覧は Layer 0 のここだけが描く（旧 Layer 3 は廃止）。
+   先頭項目は「基本訳スロット」: 固定の翻訳名ではなく UI 言語の基本訳
+   （JA=JA1955／EN=WEB。Phase 1b の基準訳の仕組みに従う）で、ラベルと
+   説明はその基本訳の既存キー（mode.<id> / modeDesc.<id>）から取る。
+   外部比較リンク（新改訳2017・新共同訳）は当面ここでは描画しない。
+   _renderExternalCompareMenu / COMPARE_TARGETS / _openCompareTarget は
+   保持してあり、復帰はこの関数での描画再開だけで済む。 */
 function _sbRenderModesL0() {
     const list = document.getElementById('sb-mode-list-l0');
     if (!list) return;
+    const baseId = (window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955';
+    const baseLabel = baseId === 'WEB'
+        ? _T('mode.WEB', 'World English Bible')
+        : _T('mode.JA1955.long', '口語訳で読む');
     const items = [
-        { id: 'JA1955',     label: _T('mode.JA1955.long', '口語訳で読む')  },
+        { id: baseId,       label: baseLabel },
         { id: 'WORD_ORDER', label: _T('mode.WORD_ORDER', '語順で読む')     },
         { id: 'DA_READING', label: _T('mode.DA_READING', '文の構造で読む') },
         { id: 'ROLE_READING', label: _T('mode.ROLE_READING', '語の役割で読む') },
@@ -1054,57 +1037,6 @@ function _sbRenderModesL0() {
         const active = (_transA === item.id && _transMode === 'single') ? ' active' : '';
         return `<div class="sb-row${active}" onclick="_sbSelectMode('${item.id}')"><span class="sb-mode-text"><span class="menu-text">${_escH(item.label)}</span>${_modeDescVisible() ? `<span class="sb-mode-desc">${_escH(_modeDesc(item.id))}</span>` : ''}</span></div>`;
     }).join('');
-    list.innerHTML +=
-        '<div class="sb-external-compare" style="border-top:1px solid var(--border-soft);margin-top:var(--space-sm);padding:var(--space-xs) 0 0;">' +
-        '<div id="sb-compare-external-list-l0" class="sb-external-compare-list"></div></div>';
-    _renderExternalCompareMenu('sb-compare-external-list-l0');
-}
-
-let _sbNtAccOpen = false;
-
-function _sbToggleNtAccordion() {
-    _sbNtAccOpen = !_sbNtAccOpen;
-    _sbSyncNtAccordion();
-}
-
-function _sbSyncNtAccordion() {
-    const header    = document.getElementById('sb-nt-acc-header');
-    const accordion = document.getElementById('sb-nt-accordion');
-    const arrow     = document.getElementById('sb-nt-acc-arrow');
-    if (!header || !accordion) return;
-    header.setAttribute('aria-expanded', _sbNtAccOpen ? 'true' : 'false');
-    accordion.style.display = _sbNtAccOpen ? '' : 'none';
-    if (arrow) arrow.style.transform = _sbNtAccOpen ? 'rotate(180deg)' : '';
-    if (_sbNtAccOpen) _sbRenderNtBooksL0();
-}
-
-function _sbRenderNtBooksL0() {
-    const container = document.getElementById('sb-nt-accordion');
-    if (!container) return;
-    container.innerHTML = '';
-    SB_BOOKS.nt.forEach(b => {
-        const div = document.createElement('div');
-        div.className = 'sb-row' + (b.key === sbBookKey ? ' active' : '');
-        const hasGreek = GREEK_BOOKS.has(b.key);
-        div.innerHTML = `<span>${_escH(_bookFullName(b.key))}</span><span class="sb-row-arrow">›</span>`;
-        if (!hasGreek) {
-            div.title = _T('ui.jaOnly', '日本語訳のみ');
-            div.querySelector('span').style.color = 'var(--text-sub)';
-        }
-        div.onclick = () => {
-            sbSection  = 'nt';
-            sbBookKey  = b.key;
-            sbBookName = b.name;
-            sbMaxCh    = b.ch;
-            sbGoTo(2);
-        };
-        container.appendChild(div);
-    });
-    /* 入口導線 Phase 1: 旧約が無いことを探し回らせないための一行 */
-    const otNote = document.createElement('div');
-    otNote.className = 'sb-ot-note';
-    otNote.textContent = _T('ui.otInPreparation', '旧約聖書は準備中です');
-    container.appendChild(otNote);
 }
 
 function _sbSelectMode(id) {
@@ -1154,7 +1086,7 @@ function showHowToUse() {
 
             <section>
                 <h3>3. 読み方を変える</h3>
-                <p>メニューの「読書モード」から読み方を変えられます。</p>
+                <p>メニューの「読み方」から切り替えられます。</p>
                 <div class="card">
                     <div class="aspect-row"><span class="aspect-label">口語訳で読む</span><span class="aspect-desc">いつもの日本語訳で、まず通して読む</span></div>
                     <div class="aspect-row"><span class="aspect-label">語順で読む</span><span class="aspect-desc">原語の並びのまま、1語ずつ日本語で確かめる</span></div>
