@@ -127,6 +127,8 @@ const _glossSidecarCache = new Map();
 async function _loadGlossForRender(book, ch) {
     const transId = _glossTransIdForUi();
     if (!transId || !book || ch == null) return null;
+    /* 英語UIのチップ・フォールバック（辞書グロス）用に lexicon を先読みする（投げっぱなし）。 */
+    if (typeof _ensureSemanticData === 'function') { try { _ensureSemanticData(); } catch (_) {} }
     const key = transId + ':' + book + ':' + ch;
     if (_glossSidecarCache.has(key)) return _glossSidecarCache.get(key);
     let data = null;

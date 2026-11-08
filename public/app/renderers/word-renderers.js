@@ -180,16 +180,26 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
     const _enGloss = _glossSidecarFor(w);
     if (_enGloss) gloss = _enGloss;
 
+    /* セグメント無所属などでサイドカー/英語フィールドが空の語は、英語UIでは
+       日本語フィールドではなく辞書（lexicon-lite）の英語グロスへ落とす。 */
+    let _lexGloss = null;
+    if (!_enGloss && typeof window !== 'undefined' && window.I18N && I18N.lang !== 'ja'
+        && typeof _enShortGloss === 'function') {
+        _lexGloss = _enShortGloss(w.lemmaId);
+        if (_lexGloss) gloss = _lexGloss;
+    }
+    const _enLike = !!_enGloss || !!_lexGloss;
+
     /* Stage C P1: 表示整形（Presentation Policy — 表示のみ。jaWord は生のまま。
        docs/presentation-policy.md。_words 省略時・Policy 未ロード時は整形なし） */
-    if (!_enGloss && _engineJa !== undefined && _engineJa !== null &&
+    if (!_enLike && _engineJa !== undefined && _engineJa !== null &&
         _words && window.App?.PresentationPolicy) {
         gloss = window.App.PresentationPolicy.formatDisplay(
             gloss, _resolved.source, _words, i);
     }
 
     /* 動詞の法・時制に応じた接尾調整 */
-    if (!_enGloss && _engineJa === undefined && pos === 'V' && parts[1]) {
+    if (!_enLike && _engineJa === undefined && pos === 'V' && parts[1]) {
         const off       = /^[0-9]/.test(parts[1]) ? 1 : 0;
         const tenseCode = parts[1][off]     || '';
         const voiceCode = parts[1][off + 1] || '';
