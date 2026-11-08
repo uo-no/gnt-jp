@@ -91,6 +91,18 @@
             if (el.dataset.ja == null) el.dataset.ja = el.textContent;
             el.textContent = t(el.getAttribute('data-i18n'), el.dataset.ja);
         }
+        var titled = root.querySelectorAll('[data-i18n-title]');
+        for (var k = 0; k < titled.length; k++) {
+            var tel = titled[k];
+            if (tel.dataset.jaTitle == null) tel.dataset.jaTitle = tel.getAttribute('title') || '';
+            tel.setAttribute('title', t(tel.getAttribute('data-i18n-title'), tel.dataset.jaTitle));
+        }
+        var labelled = root.querySelectorAll('[data-i18n-aria-label]');
+        for (var m = 0; m < labelled.length; m++) {
+            var lel = labelled[m];
+            if (lel.dataset.jaAriaLabel == null) lel.dataset.jaAriaLabel = lel.getAttribute('aria-label') || '';
+            lel.setAttribute('aria-label', t(lel.getAttribute('data-i18n-aria-label'), lel.dataset.jaAriaLabel));
+        }
         var btns = root.querySelectorAll('[data-lang-btn]');
         for (var j = 0; j < btns.length; j++) {
             var active = btns[j].getAttribute('data-lang-btn') === state.lang;
@@ -144,7 +156,7 @@
     function rerenderDynamic() {
         /* Mode lists may already be rendered; redraw them in the new
            language. Each renderer no-ops when its DOM is absent. */
-        ['_sbRenderModesL0', '_mmpRenderModes', '_syncMobileLocationLabel'].forEach(function (name) {
+        ['_sbRenderModesL0', '_mmpRenderModes', '_syncMobileLocationLabel', 'syncUIFromState'].forEach(function (name) {
             if (typeof window[name] === 'function') {
                 try { window[name](); } catch (_) { /* keep JA render */ }
             }

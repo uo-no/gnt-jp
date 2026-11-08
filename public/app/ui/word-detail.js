@@ -660,6 +660,17 @@ window.addEventListener('message', (e) => {
 
 /** apparatus-ja の tag 値 → 日本語話者向け表示ラベルのマッピング。
  *  データ側の tag 値は変更しない。表示層でのみ変換する。 */
+const _APPARATUS_TAG_LABELS_EN = {
+    '語順差':   'The word order differs',
+    '添加':     'One text includes words the other does not',
+    '省略':     'One text omits words found in the other',
+    '読み差':   'Different wording is used',
+    '形態差':   'The word form differs',
+    '表記差':   'The spelling differs',
+    '節構造差': 'The sentence is structured differently',
+    '語彙差':   'A different word is used',
+};
+
 const _APPARATUS_TAG_LABELS = {
     '語順差':   '語句の並び順が異なります',
     '添加':     '一方の本文には語句が加わっています',
@@ -687,7 +698,7 @@ function _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries) {
         const ja = jaEntries && jaEntries[e.id];
         const isConfirmed = ja && ja.status === '確認済み' && ja.tag && ja.ja;
         const isAuto      = ja && ja.status === '自動生成' && ja.tag && ja.ja;
-        const tagLabel = (tag) => _escH(_APPARATUS_TAG_LABELS[tag] || tag);
+        const tagLabel = (tag) => _escH(((window.I18N && I18N.lang === 'en') ? (_APPARATUS_TAG_LABELS_EN[tag] || tag) : (_APPARATUS_TAG_LABELS[tag] || tag)));
         const showJaText = (isConfirmed || isAuto) && ja.ja !== 'περὶ（WH Treg NIV）・ὑπὲρ（RP）' && !(e.readings.length >= 2 && ja.ja.startsWith('語順: '));
         const jaSpan = showJaText ? `<span class="mvv-app-ja">${_escH(ja.ja)}</span>` : '';
         const annoHtml = isConfirmed
@@ -703,7 +714,7 @@ function _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries) {
                 : '';
             const rdgJa = !r.isOmission && entryRdgJa && entryRdgJa[String(idx)];
             const textInner = r.isOmission
-                ? '（省略）'
+                ? _T('panel.omitted', '（省略）')
                 : rdgJa
                 ? `${_escH(rdgJa)}<span class="mvv-app-rdg-gr">（${_escH(r.text || '')}）</span>`
                 : _escH(r.text || '');
