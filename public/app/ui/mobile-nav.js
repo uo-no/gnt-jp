@@ -361,7 +361,7 @@ function _mmpRenderModes() {
     /* 先頭の基底訳スロットは UI 言語に従う（サイドバー _sbRenderModesL0 と同じ規則） */
     const baseId = (window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955';
     const baseItem = baseId === 'WEB'
-        ? { id: 'WEB', label: 'World English Bible', i18n: 'mode.WEB' }
+        ? { id: 'WEB', label: 'Text (World English Bible)', i18n: 'mode.WEB.picker' }
         : MN_MODE_LIST[0];
     const items = [baseItem, ...MN_MODE_LIST.slice(1)];
     let html = '';
