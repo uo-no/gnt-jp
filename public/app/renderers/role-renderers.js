@@ -110,7 +110,12 @@ async function _renderRoleReadingView(app, srData, elData) {
                 if (tok && tok.ref) {
                     const gloss = _glossSidecarFor(tok);
                     const label = _segDedupeLabel(tok, gloss, _segState);
-                    enByRef.set(r, label != null ? label : (tok.japanese || ''));
+                    let _lbl = label;
+                    if (_lbl == null) {
+                        const _lex = (typeof _enShortGloss === 'function') ? _enShortGloss(tok.lemmaId) : null;
+                        _lbl = _lex || tok.japanese || '';
+                    }
+                    enByRef.set(r, _lbl);
                 }
             }
             _rkLabelMap = enByRef;
@@ -290,7 +295,12 @@ async function _buildLocalRelationFrame(ref) {
             if (tok && tok.ref) {
                 const gloss = _glossSidecarFor(tok);
                 const label = _segDedupeLabel(tok, gloss, _segState);
-                enByRef.set(tok.ref, label != null ? label : (tok.japanese || ''));
+                let _lbl = label;
+                if (_lbl == null) {
+                    const _lex = (typeof _enShortGloss === 'function') ? _enShortGloss(tok.lemmaId) : null;
+                    _lbl = _lex || tok.japanese || '';
+                }
+                enByRef.set(tok.ref, _lbl);
             }
         }
         _lrfLabelMap = enByRef;

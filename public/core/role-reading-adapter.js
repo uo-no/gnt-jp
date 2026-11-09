@@ -40,10 +40,13 @@
       var id = ev.nodeId || '';
       /* 表示テキスト: bible_data の japanese（語順で読む／文の構造で読むと同じ語義）を
          優先し、無い語だけ原文を表示する。tokenMeta.text は原文のまま（パネル見出し用）。 */
-      var ja = (jaByRef && ev.ref) ? jaByRef.get(ev.ref) : null;
+      /* ラベルマップにエントリがあるのに '' の場合は「意図的な非表示」
+         (サイドカーのセグメント継続トークン)。無い語だけ原文に落とす。 */
+      var hasLabel = !!(jaByRef && ev.ref && jaByRef.has(ev.ref));
+      var ja = hasLabel ? jaByRef.get(ev.ref) : null;
       var shimW = {
         tag: 'w', attrs: {}, children: [], parent: parent,
-        text: ja || node.text || '', id: id
+        text: hasLabel ? (ja || '') : (node.text || ''), id: id
       };
       if (id) shimW.attrs['xml:id'] = id;
       var mc = morphClass(ev.morph_raw);
