@@ -683,9 +683,10 @@ const _APPARATUS_TAG_LABELS = {
 };
 
 /** apparatus entries を <div class="mvv-apparatus-entries"> に変換する。
- *  jaEntries は _loadApparatusJaAllData() の entries オブジェクト（省略可）。
- *  lemJaEntries は _loadApparatusLemJaData() の entries オブジェクト（省略可）。
- *  rdgJaEntries は _loadApparatusRdgJaData() の entries オブジェクト（省略可）。
+ *  jaEntries は UI 言語の注記 entries（JA: _loadApparatusJaAllData()、
+ *  EN: _loadApparatusEnAllData()。テキストフィールドは JA が ja、EN が en）。
+ *  lemJaEntries は同言語の lem entries（省略可）。
+ *  rdgJaEntries は同言語の rdg entries（省略可）。
  *  status='確認済み' → mvv-app-anno、status='自動生成' → mvv-app-anno mvv-app-anno--auto で表示。
  *  status='保留' および未知のステータスは表示しない（静寂優先）。 */
 function _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries) {
@@ -696,11 +697,14 @@ function _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries) {
             ? `<div class="mvv-app-lem">${_escH(lemJa)}<span class="mvv-app-lem-gr">（${_escH(e.lemText)}）</span></div>`
             : `<div class="mvv-app-lem">${_escH(e.lemText)}</div>`;
         const ja = jaEntries && jaEntries[e.id];
-        const isConfirmed = ja && ja.status === '確認済み' && ja.tag && ja.ja;
-        const isAuto      = ja && ja.status === '自動生成' && ja.tag && ja.ja;
+        // 注記テキストは言語でフィールドが異なる（JA: ja、EN: en）。渡された
+        // entries は呼び出し側が UI 言語で選んだものなので、ある方を使う。
+        const noteText = ja && (ja.ja || ja.en);
+        const isConfirmed = ja && ja.status === '確認済み' && ja.tag && noteText;
+        const isAuto      = ja && ja.status === '自動生成' && ja.tag && noteText;
         const tagLabel = (tag) => _escH(((window.I18N && I18N.lang === 'en') ? (_APPARATUS_TAG_LABELS_EN[tag] || tag) : (_APPARATUS_TAG_LABELS[tag] || tag)));
-        const showJaText = (isConfirmed || isAuto) && ja.ja !== 'περὶ（WH Treg NIV）・ὑπὲρ（RP）' && !(e.readings.length >= 2 && ja.ja.startsWith('語順: '));
-        const jaSpan = showJaText ? `<span class="mvv-app-ja">${_escH(ja.ja)}</span>` : '';
+        const showJaText = (isConfirmed || isAuto) && noteText !== 'περὶ（WH Treg NIV）・ὑπὲρ（RP）' && noteText !== 'for (περὶ) (WH Treg NIV) · for (ὑπὲρ) (RP)' && !(e.readings.length >= 2 && (noteText.startsWith('語順: ') || noteText.startsWith('Word order: ')));
+        const jaSpan = showJaText ? `<span class="mvv-app-ja">${_escH(noteText)}</span>` : '';
         const annoHtml = isConfirmed
             ? `<div class="mvv-app-anno"><span class="mvv-app-tag">${tagLabel(ja.tag)}</span>${jaSpan}</div>`
             : isAuto
@@ -735,7 +739,13 @@ async function _fillApparatusSection(bookKey, ch, vNum, area) {
     if (!area) return;
     const myGen = (area._apparatusNoteGen || 0) + 1;
     area._apparatusNoteGen = myGen;
-    const [data, jaData, lemJaData, rdgJaData] = await Promise.all([_loadApparatusData(), _loadApparatusJaAllData(), _loadApparatusLemJaData(), _loadApparatusRdgJaData()]);
+    const isEn = window.I18N && I18N.lang === 'en';
+    const [data, jaData, lemJaData, rdgJaData] = await Promise.all([
+        _loadApparatusData(),
+        isEn ? _loadApparatusEnAllData() : _loadApparatusJaAllData(),
+        isEn ? _loadApparatusLemEnData() : _loadApparatusLemJaData(),
+        isEn ? _loadApparatusRdgEnData() : _loadApparatusRdgJaData(),
+    ]);
     if (myGen !== area._apparatusNoteGen) return;
     if (!data) return;
     const verseKey = `${bookKey} ${ch}:${vNum}`;
