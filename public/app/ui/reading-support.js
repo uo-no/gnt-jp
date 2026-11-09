@@ -13,6 +13,9 @@ function _jaAlignSegmentsFor(transId, book, ch, verse) {
    ピーク／パネルの「この箇所での意味」に使う。日本語UIでは読み込まず、
    従来の日本語経路がそのまま動く。
    フォールバック: サイドカー → bible_data.english → 従来経路（japanese）。
+   2026-11-09 表示切り替え: トークン単位グロス（assets/data/gloss-token/）
+   が存在する翻訳・章ではローダがそちらを優先して読み込む（_src='token'）。
+   セグメント文が要る句の引用だけは対応表から組み立てる（phrase-renderers）。
    ══════════════════════════════════════════ */
 function _glossTransIdForUi() {
     return (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en') ? 'WEB' : null;
@@ -31,8 +34,11 @@ function _glossSidecarFor(w) {
     return (typeof w.english === 'string' && w.english) ? w.english : null;
 }
 
-/* サイドカー「ファイル」由来かどうかを判定する（w.english フォールバックと区別）。
-   セグメント文の重複排除（buildRepresentation wordOrder）でのみ使用。 */
+/* セグメント単位サイドカー（gloss/）由来かどうかを判定する（w.english
+   フォールバックと区別）。セグメント文の重複排除（関係図の _segDedupeLabel と
+   buildRepresentation wordOrder）でのみ使用。トークン単位グロス（gloss-token/）
+   由来の値は各トークンが固有のグロスを持つため重複排除の対象にせず、false を
+   返す（ローダが data._src に取得元を記録する）。 */
 function _glossSidecarIsFromFile(w) {
     const transId = _glossTransIdForUi();
     if (!transId || !w || !w.ref) return false;
@@ -40,7 +46,7 @@ function _glossSidecarIsFromFile(w) {
     const ch = (w.chapter != null) ? w.chapter : w.ch;
     if (!book || ch == null) return false;
     const d = _glossSidecarCache.get(transId + ':' + book + ':' + ch);
-    return !!(d && d.glosses && typeof d.glosses[w.ref] === 'string' && d.glosses[w.ref]);
+    return !!(d && d._src !== 'token' && d.glosses && typeof d.glosses[w.ref] === 'string' && d.glosses[w.ref]);
 }
 
 /* トークンが属するアラインメント・セグメントのキー（同一セグメントの
