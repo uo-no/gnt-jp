@@ -1022,8 +1022,8 @@ function _sbRenderModesL0() {
     if (!list) return;
     const baseId = (window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955';
     const baseLabel = baseId === 'WEB'
-        ? _T('mode.WEB', 'World English Bible')
-        : _T('mode.JA1955.long', '口語訳で読む');
+        ? _T('mode.WEB.picker', 'Text (World English Bible)')
+        : _T('mode.JA1955.picker', '本文（口語訳）');
     const items = [
         { id: baseId,       label: baseLabel },
         { id: 'WORD_ORDER', label: _T('mode.WORD_ORDER', '語順で読む')     },
