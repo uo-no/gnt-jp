@@ -239,7 +239,7 @@ core/          上記の解析エンジン群（DOM 非依存）
 * データとコードを分離する。
 * runtimeデータは `public/assets/data/`。
 * 設計文書は `docs/`（現行仕様・設計・履歴）。`public/docs/` はアプリから公開する仕様（reading-japanese-specification.md 等）のみ。
-* 本文データは `public/bible_data/`（nt / lxx）/ `public/translations/`（JA1955 口語訳・BUN 文語訳・WEB・RVR1909）/ `public/morph-index/`（word/ のみ残存。lemma/ は引退済み。word/ は apparatus 生成系の入力）。
+* 本文データは `public/bible_data/`（nt / lxx）/ `public/translations/`（JA1955 口語訳・BUN 文語訳・WEB・RVR1909）/ `public/morph-index/`（lemma/・word/ ともに引退済み。apparatus 生成系の入力は `public/bible_data/`）。
 * 言語ごとのグロスは bible_data に足さず、翻訳ごとのサイドカー（`public/assets/data/gloss/`）で持つ（方式 B）。`bible_data.japanese` は内蔵のまま。
 * `assets/data/` を直接編集しない。
 * 生成可能なデータは `scripts/` 経由で生成する。
