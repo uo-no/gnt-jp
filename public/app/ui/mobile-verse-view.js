@@ -222,12 +222,16 @@ function _syncMobileVerseViewBackLabel() {
  *  表示する翻訳 ID を決める」。ルール:
  *    JA1955 → JA1955
  *    BUN    → BUN
- *    FLOW   → JA1955（語順フローには訳文が無いので口語訳へフォールバック）
+ *    Greek 由来モード（語順・構造・役割・ギリシャ語本文）→ UI 言語の基準訳
+ *      （英語 UI では WEB、日本語 UI では口語訳。PC パネルの
+ *       _fillStudyPanelTranslation と同じ規則＝D1 の適用）
  * それ以外の翻訳が来た場合も _transA をそのまま返す（将来の翻訳追加に追随）。
  */
 function _mvvDisplayTrans() {
-    /* DA-1: discourse も FLOW と同様、訳文が無いので口語訳へフォールバックする。 */
-    return _isGreekReadingMode(_toColumnMode(_transA).kind) ? 'JA1955' : _transA;
+    /* DA-1: discourse も FLOW と同様、訳文が無いので基準訳へフォールバックする。 */
+    return _isGreekReadingMode(_toColumnMode(_transA).kind)
+        ? ((window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955')
+        : _transA;
 }
 
 /**
@@ -237,7 +241,7 @@ function _mvvDisplayTrans() {
  *   1) FLOW 以外（_transA が実際の訳文）: 現在表示中の DOM（左節ブロックの
  *      .jp-text）からそのまま読む。追加 fetch を避ける。
  *   2) FLOW（DOM に訳文が無い）または DOM 取得不可: 既存の翻訳データ取得経路
- *      _fetchTranslation() で _mvvDisplayTrans()（=JA1955）を読む。
+ *      _fetchTranslation() で _mvvDisplayTrans()（基準訳）を読む。
  */
 async function _mvvGetVerseText(vNum) {
     if (!_isGreekReadingMode(_toColumnMode(_transA).kind)) {   /* DA-1: discourse も FLOW と同様 DOM に訳文が無い */

@@ -12,6 +12,9 @@ const TRANSLATIONS = {
     /* 語の役割で読む: 作業スペースで確定した RK 座標レイアウトを読むモード。
        章×デバイスの公開可否は rk-availability.json で管理する。 */
     'ROLE_READING': { label: '語の役割で読む',   code: 'ROLE_READING' },
+    /* ギリシャ語で読む: bible_data の Greek token を連続した本文として読む。
+       翻訳ではないため TRANSLATION_REGISTRY（人手翻訳のみ）からは除外する。 */
+    'GREEK_TEXT': { label: 'ギリシャ語で読む',   code: 'GREEK_TEXT' },
     /* 旧モード（DISCOURSE / STRUCTURAL / STRUCTURE / CLAUSE_ROLE / RELATION /
        RK_READING / RK_READING_V）は 2026-10-28 のモード整理で登録を削除した。
        旧URLは _toColumnMode のフォールバックで「語順で読む」に着地する。
@@ -26,7 +29,7 @@ const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t
  * Bible Picker の「翻訳を選択」グループはここを正とする。
  */
 const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
-    .filter(([id]) => id !== 'WORD_ORDER' && id !== 'DISCOURSE' && id !== 'STRUCTURAL' && id !== 'STRUCTURE' && id !== 'CLAUSE_ROLE' && id !== 'BUN' && id !== 'RELATION' && id !== 'RK_READING' && id !== 'RK_READING_V' && id !== 'DA_READING' && id !== 'ROLE_READING')
+    .filter(([id]) => id !== 'WORD_ORDER' && id !== 'DISCOURSE' && id !== 'STRUCTURAL' && id !== 'STRUCTURE' && id !== 'CLAUSE_ROLE' && id !== 'BUN' && id !== 'RELATION' && id !== 'RK_READING' && id !== 'RK_READING_V' && id !== 'DA_READING' && id !== 'ROLE_READING' && id !== 'GREEK_TEXT')
     .map(([id, t]) => ({ id, label: t.label, code: t.code }));
 /* D1（Phase 1b）: 基準訳は UI 言語に従う。英語 UI では WEB を翻訳一覧の先頭に置く。 */
 if (window.I18N && window.I18N.lang === 'en') {
@@ -49,6 +52,7 @@ const DISPLAY_MODE_REGISTRY = [
     /* 語の役割で読む。旧モード（discourse / hierarchical / structural-diagram /
        rk-reading）のエントリは 2026-10-28 のモード整理で削除した。 */
     { kind: 'role-reading', label: TRANSLATIONS.ROLE_READING.label },
+    { kind: 'greek-text', label: TRANSLATIONS.GREEK_TEXT.label },
 ];
 
 /* アクティブ翻訳（A = メイン / B = 比較列）。_transA / _transB が唯一のSSOT（Phase TR-5）。 */

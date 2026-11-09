@@ -85,6 +85,32 @@ function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGr
                     notifyAppStateChange();
                 };
             }
+        } else if (col.colMode.kind === 'greek-text') {
+            /* ギリシャ語で読む: 表現は語順モードと同一（chips[]）、見える値だけを
+               GreekTextRenderer が greek + after（句読点）に替えて連続本文として流す。
+               block への chips/words 保持と onclick は語順分岐と同型（peek・
+               StudyPanel・ハイライトの契約をそのまま使う）。オンボーディングの
+               アンカーは付けない（入口導線は既定の読書路専用）。 */
+            const words = elByVerse[vNum] || [];
+            if (words.length === 0) {
+                columnBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="color:var(--text-sub);font-size: var(--text-caption);opacity: var(--opacity-secondary);">${_T('col.noGreekDataShort', '原語データなし')}</div></div>`;
+            } else {
+                const _gkBookKey  = book ? book.key : '';
+                const _gkCh       = ch != null ? ch : null;
+                const _gkVerse    = buildVerse(_gkBookKey, _gkCh, vNum, words);
+                const _gkAnalysis = getAnalysis(_gkVerse);
+                const _gkRep      = buildRepresentation({ kind: 'wordOrder' }, _gkVerse, _gkAnalysis);
+                columnBlock._flowResolved = _gkAnalysis;
+                columnBlock._flowChips = _gkRep.chips;
+                columnBlock._flowWords = words;
+                columnBlock.innerHTML = GreekTextRenderer.renderBodyColumn(_gkRep, words);
+                columnBlock.onclick = () => {
+                    _selectVerseBlocks(vNum, columnBlock, mainArea);
+                    AppState.toBrowsing(vNum, words, book, ch);
+                    openVerseInspector(vNum, words, book, ch);
+                    notifyAppStateChange();
+                };
+            }
         } else {
             /* Phase TR-1: 左列の翻訳表示を Verse Representation Architecture 経由にする。
                renderColumn() は TranslationRenderer（representation.text のみを入力とする）へ
@@ -281,7 +307,7 @@ app.innerHTML = '';
            一般化し、block/pBlock の直接参照を解消した（Step 2 の解消）。 */
         const block = _buildColumnBlock(0, colA, colB, vNum, text, elByVerse, hasGreek, useVersePair, _chapterBlock || _compareChapterBlock || mainArea, _renderBook, _renderCh);
 
-        if (hasGreek && _colA.kind !== 'wordOrder') {
+        if (hasGreek && _colA.kind !== 'wordOrder' && _colA.kind !== 'greek-text') {
             block.onclick = () => {
                 _selectVerseBlocks(vNum, block, _chapterBlock || _compareChapterBlock || mainArea);
                 AppState.toBrowsing(vNum, elByVerse[vNum] || [], _renderBook, _renderCh);

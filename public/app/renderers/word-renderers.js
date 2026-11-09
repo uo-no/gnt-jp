@@ -405,6 +405,7 @@ function _toColumnMode(transId) {
     if (transId === 'WORD_ORDER')  return { kind: 'wordOrder' };
     if (transId === 'DA_READING') return { kind: 'da-reading' };
     if (transId === 'ROLE_READING') return { kind: 'role-reading' };         /* 語の役割で読む */
+    if (transId === 'GREEK_TEXT')  return { kind: 'greek-text' };          /* ギリシャ語で読む */
     /* 2026-10-28 のモード整理で削除した旧モードの ID と、その legacy alias は、
        旧URLを壊さないよう「語順で読む」にフォールバックさせる。 */
     if (transId === 'DISCOURSE' || transId === 'STRUCTURAL' || transId === 'STRUCTURE'
@@ -425,7 +426,7 @@ function _toColumnMode(transId) {
  * @returns {boolean}
  */
 function _isGreekReadingMode(kind) {
-    return kind === 'wordOrder' || kind === 'da-reading' || kind === 'role-reading'; /* 旧モードの kind は 2026-10-28 の整理で削除 */
+    return kind === 'wordOrder' || kind === 'da-reading' || kind === 'role-reading' || kind === 'greek-text'; /* 旧モードの kind は 2026-10-28 の整理で削除 */
 }
 
 /**
@@ -777,6 +778,33 @@ const WordOrderRenderer = {
         <span class="v-num">${vNum}</span>
         <div style="flex:1;font-size: var(--text-body);line-height:2.4;display:flex;flex-wrap:wrap;gap: var(--space-xs) var(--space-xs);align-items:baseline;">${chipsHTML}</div>
     </div>`;
+    },
+};
+
+/**
+ * GreekTextRenderer — ギリシャ語本文（{ kind:'wordOrder' } Representation の chips[]）専用の Renderer。
+ *
+ * ★ 責務境界: 表現は語順モードと完全に同一（buildRepresentation({kind:'wordOrder'}) の
+ *   chips[]）。ここでは見える値を gloss ではなく greek に替えて、bible_data の
+ *   after（句読点）とともに連続した本文として流すだけ。句読点は語要素の外に
+ *   テキストとして置く（ハイライト・装飾が句読点に掛からない。訳文セグメントの
+ *   案4と同じ扱い）。語要素は .wlv-chip の契約（data-token-id + _wlvChipClick）を
+ *   そのまま使うため、peek / StudyPanel / ハイライトは無改造で効く。
+ *   chips と tokens は buildRepresentation の map により 1:1 同順。
+ * @param {Object} representation - wordOrder Representation
+ * @param {Object[]} words - 節の生トークン（after の取得専用）
+ */
+const GreekTextRenderer = {
+    renderBodyColumn(representation, words) {
+        const chips = (representation && Array.isArray(representation.chips)) ? representation.chips : [];
+        const vNum  = (representation && representation.verseRef) ? representation.verseRef.verse : '';
+        const tokens = Array.isArray(words) ? words : [];
+        const inner = chips.map((c, i) => {
+            const tid = isFinite(Number(c.tokenId)) ? String(Number(c.tokenId)) : '';
+            const punct = (tokens[i] && tokens[i].after) || '';
+            return `<span class="wlv-chip gk-word" data-token-id="${tid}" onclick="event.stopPropagation();_wlvChipClick(this,'${tid}')">${_escH(c.greek)}</span>${_escH(punct)}`;
+        }).join(' ');
+        return `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text gk-text">${inner}</div></div>`;
     },
 };
 

@@ -21,6 +21,7 @@ const ShareURLService = {
         'DA_READING': 'DA',
         'RK_READING_P': 'RKP',  /* Phase M */
         'ROLE_READING': 'WR',
+        'GREEK_TEXT':  'GR',
     },
 
     /* state → canonical path-format URL。
@@ -61,6 +62,7 @@ const Router = {
         'RK': 'RK_READING', 'RKV': 'RK_READING_V', 'RKP': 'RK_READING_P',  /* Phase L.2 / M */
         'DA': 'DA_READING',
         'WR': 'ROLE_READING',
+        'GR': 'GREEK_TEXT',
     },
 
     /* /{BOOK}/{CH}[/{VERSE}[/{TOKEN_INDEX}]][/{DISPLAY}] を解析して state を返す。
