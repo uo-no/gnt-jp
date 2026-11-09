@@ -39,11 +39,13 @@ function _peekOnKeyDown(e) { if (e.key === 'Escape') _closeWordPeek(); }
 function _peekOnScrollOrResize() { _closeWordPeek(); }
 
 let _peekSegEl = null;
+let _peekSegSelectedTi = null;
 function _closeWordPeek() {
     if (_peekEl) { _peekEl.remove(); _peekEl = null; }
     _peekOpenFor = null;
     _peekChipEl = null;
     _peekSegEl = null;
+    _peekSegSelectedTi = null;
     _peekProceed = null;
     _peekLemmaId = null;
     document.removeEventListener('pointerdown', _peekOnDocPointerDown, true);
@@ -263,6 +265,42 @@ function _hlEntriesForTokens(book, chapter, verse, tis) {
     return sorted.map(n => mk(n, n));
 }
 
+/* 複数トークンのセグメント peek で対象の語を切り替える。
+   「詳しく見る」（_peekProceed の差し替え）・「ハイライト」の対象・
+   出現回数は、すべて選択中の語に追従する。 */
+function _peekSegSelect(ti) {
+    if (!_peekEl || !_peekSegEl) return;
+    _peekSegSelectedTi = ti;
+    /* 「詳しく見る」の遷移先も選択に追従させる。ti をクロージャに閉じ込める
+       （_closeWordPeek が状態を破棄してから proceed が呼ばれるため、
+       実行時に _peekSegSelectedTi を読む形では先頭の語に戻ってしまう）。 */
+    const segForProceed = _peekSegEl;
+    _peekProceed = () => _jaSegProceed(segForProceed, ti);
+    _peekEl.querySelectorAll('.word-peek-head--sel').forEach(row => {
+        const on = Number(row.dataset.ti) === Number(ti);
+        row.classList.toggle('is-selected', on);
+        row.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    const segEl = _peekSegEl;
+    const book = segEl.dataset.jaBook, ch = Number(segEl.dataset.jaCh), v = Number(segEl.dataset.jaV);
+    const w = _jaSegToken(book, ch, v, ti);
+    _peekLemmaId = w ? (w.lemmaId || null) : null;
+    const line = _peekEl.querySelector('.word-peek-count');
+    if (line) {
+        const c = _peekCount(_peekLemmaId);
+        if (c != null) { line.textContent = _ntCountText(c); line.hidden = false; }
+        else { line.hidden = true; if (_peekLemmaId) _peekEnsureLite(); }
+    }
+    const hlBtn = _peekEl.querySelector('.word-peek-hl');
+    if (hlBtn) {
+        try {
+            const ex = (typeof _hlFindExisting === 'function') ? _hlFindExisting(book, ch, v, ti, ti) : null;
+            if (ex && HL_COLOR_HEX[ex.color]) hlBtn.style.setProperty('--peek-hl-dot', HL_COLOR_HEX[ex.color]);
+            else hlBtn.style.removeProperty('--peek-hl-dot');
+        } catch (_) {}
+    }
+}
+
 function _openSegPeek(segEl, tis) {
     _peekOpenedOnce = true;
     _closeWordPeek();
@@ -340,14 +378,27 @@ function _openSegPeek(segEl, tis) {
         lemmaIdForCount = w.lemmaId || null;
     } else {
         /* 複数トークンの区間：見出しは区間の訳文そのもの（この箇所での意味）、
-           名札として内訳の各語を並べる。出現回数は合算に意味がないため出さない。 */
+           名札として内訳の各語を並べる。各行はタップで対象の語として選べ、
+           「詳しく見る」・「ハイライト」・出現回数は選択中の語に連動する
+           （既定の選択は区間の最初の語）。出現回数は合算ではなく選択中の
+           語のものを出す。 */
         const m = document.createElement('div');
         m.className = 'word-peek-meaning';
         m.textContent = segEl.textContent || '';
         el.appendChild(m);
-        toks.forEach(w => {
+        toks.forEach((w, wi) => {
             const head = document.createElement('div');
-            head.className = 'word-peek-head';
+            head.className = 'word-peek-head word-peek-head--sel';
+            const ti = Number(w.tokenIndex);
+            head.dataset.ti = ti;
+            head.setAttribute('role', 'button');
+            head.setAttribute('tabindex', '0');
+            head.setAttribute('aria-pressed', wi === 0 ? 'true' : 'false');
+            if (wi === 0) head.classList.add('is-selected');
+            head.addEventListener('click', () => _peekSegSelect(ti));
+            head.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _peekSegSelect(ti); }
+            });
             const g = document.createElement('span');
             g.className = 'word-peek-greek';
             g.textContent = w.text || '';
@@ -362,6 +413,7 @@ function _openSegPeek(segEl, tis) {
             head.appendChild(lem);
             el.appendChild(head);
         });
+        lemmaIdForCount = toks[0].lemmaId || null;
     }
 
     const countLine = document.createElement('div');
@@ -391,21 +443,30 @@ function _openSegPeek(segEl, tis) {
     hlBtn.className = 'word-peek-hl';
     hlBtn.type = 'button';
     hlBtn.textContent = _T('ui.highlight', 'ハイライト');
-    /* 既にハイライト済みの区間では、ドットをその色で出す */
+    /* ハイライトの対象は選択中の語（単一トークン）。「詳しく見る」と対象を
+       揃える。句全体への適用はピッカーの「範囲指定」からの複数選択が担う。
+       既に対象の語（またはそれを含む範囲）がハイライト済みなら、ドットを
+       その色で出す（_hlFindExisting の作法は単一語ピークと同じ）。 */
+    const _hlTargetTi = () => (tis.length > 1 && _peekSegSelectedTi != null) ? _peekSegSelectedTi : tis[0];
     try {
-        const exEntries = _hlEntriesForTokens(book, ch, v, tis).filter(en => en._isExisting);
-        if (exEntries.length && HL_COLOR_HEX[exEntries[0].color]) {
-            hlBtn.style.setProperty('--peek-hl-dot', HL_COLOR_HEX[exEntries[0].color]);
+        const ex0 = (typeof _hlFindExisting === 'function') ? _hlFindExisting(book, ch, v, _hlTargetTi(), _hlTargetTi()) : null;
+        if (ex0 && HL_COLOR_HEX[ex0.color]) {
+            hlBtn.style.setProperty('--peek-hl-dot', HL_COLOR_HEX[ex0.color]);
         }
     } catch (_) {}
     hlBtn.addEventListener('click', () => {
         const segNow = _peekSegEl;
+        const tiNow = _hlTargetTi();
         _closeWordPeek();
         if (!segNow || typeof _hlOpenPicker !== 'function') return;
-        const entries = _hlEntriesForTokens(segNow.dataset.jaBook, Number(segNow.dataset.jaCh), Number(segNow.dataset.jaV), _jaSegTokenIdxList(segNow));
-        if (!entries.length) return;
-        if (entries.length === 1) _hlOpenPicker(entries[0], segNow);
-        else _hlOpenPicker({ _isBatch: true, entries });
+        const b2 = segNow.dataset.jaBook, c2 = Number(segNow.dataset.jaCh), v2 = Number(segNow.dataset.jaV);
+        const existing = (typeof _hlFindExisting === 'function') ? _hlFindExisting(b2, c2, v2, tiNow, tiNow) : null;
+        const entry = Object.assign({}, existing || {
+            book: b2, chapter: c2, verse: v2,
+            tokenStart: tiNow, tokenEnd: tiNow,
+            color: 'yellow', createdAt: Date.now()
+        }, { _isExisting: !!existing });
+        _hlOpenPicker(entry, segNow);
     });
     actions.appendChild(hlBtn);
     el.appendChild(actions);
@@ -415,6 +476,7 @@ function _openSegPeek(segEl, tis) {
     _peekOpenFor = _jaSegKey(segEl);
     _peekChipEl = null;
     _peekSegEl = segEl;
+    _peekSegSelectedTi = tis.length > 1 ? tis[0] : null;
     _peekProceed = () => _jaSegProceed(segEl, tis[0]);
     _peekLemmaId = lemmaIdForCount;
 
@@ -443,7 +505,8 @@ function _openSegPeek(segEl, tis) {
 }
 
 /* セグメントから StudyPanel 詳細へ。_wlvChipClick の proceed と同じ状態遷移を、
-   対象トークン（区間の最初の語）に対して行う。 */
+   対象トークン（単一トークンの区間ではその語、複数トークンの区間では
+   ピークで選択中の語）に対して行う。 */
 function _jaSegProceed(segEl, ti) {
     const book = segEl.dataset.jaBook, ch = Number(segEl.dataset.jaCh);
     const words = _jaSegVerseWords(book, ch, Number(segEl.dataset.jaV));

@@ -211,6 +211,8 @@ function _hlPickerWordInfo(entry, anchorEl) {
    「1語対象では意味＋名札を出す」を口語訳にも届かせる）。
    - 単一トークンのセグメント：セグメントピーク（単一トークン時）と同源から
      「この箇所での意味」＋形・原形を引く。
+   - 複数トークンのセグメント内にある単一トークンのエントリ（セグメント
+     ピークで語を選んで付けるハイライト）：その語について同源から引く。
    - 複数トークンのセグメント全体が対象の範囲エントリ：セグメントはタップ
      対象として1つの句なので、見出しは区間の訳文そのもの（セグメントピークの
      複数トークン時と同じ）、名札に内訳の形・原形を並べる。
@@ -226,20 +228,22 @@ function _hlPickerSegInfo(e) {
         const tis = _jaSegTokenIdxList(s);
         if (!tis.length) return false;
         if (isRange) return tis.length > 1 && tis[0] === Number(e.tokenStart) && tis[tis.length - 1] === Number(e.tokenEnd);
-        return tis.length === 1 && tis[0] === Number(e.tokenStart);
+        return tis.includes(Number(e.tokenStart));
     });
     if (!seg) return null;
     const tis = _jaSegTokenIdxList(seg);
     const toks = tis.map(ti => _jaSegToken(e.book, Number(e.chapter), Number(e.verse), ti)).filter(Boolean);
     if (!toks.length) return null;
-    if (toks.length > 1) {
+    if (isRange && toks.length > 1) {
         return {
             meaning: (seg.textContent || '').trim(),
             greek: toks.map(w => w.text || '').filter(Boolean).join(' '),
             lemma: toks.map(w => w.lemma || '').filter(Boolean).join(' ')
         };
     }
-    const w = toks[0];
+    /* 単一トークンのエントリ：対象は tokenStart の語そのもの（複数トークンの
+       セグメント内では先頭の語とは限らない）。 */
+    const w = _jaSegToken(e.book, Number(e.chapter), Number(e.verse), Number(e.tokenStart)) || toks[0];
     const words = _jaSegVerseWords(e.book, Number(e.chapter), Number(e.verse));
     const idx = words.indexOf(w);
     let meaning = '';
@@ -250,6 +254,9 @@ function _hlPickerSegInfo(e) {
             meaning = window.App.PresentationPolicy.formatDisplay(meaning, resolved && resolved.source, words, idx);
         }
     } catch (_) { meaning = w.japanese || ''; }
+    /* 英語UIでは WEB グロスを「この箇所での意味」にする（セグメントピークと同源）。 */
+    const _enPickerGloss = (typeof _glossSidecarFor === 'function') ? _glossSidecarFor(w) : null;
+    if (_enPickerGloss) meaning = _enPickerGloss;
     if (!meaning && !w.text) return null;
     return { meaning, greek: w.text || '', lemma: w.lemma || '' };
 }
