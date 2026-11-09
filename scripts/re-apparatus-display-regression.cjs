@@ -354,7 +354,7 @@ function _computeRdgLabel(rText, wordMap) {
 }
 
 // 22. 実データ: apparatus-rdg-ja.json のキーエントリを検証する
-//     Task 51 修正後: κατ᾽ が morph-index サブディレクトリから解決されるため MAT-0017 は含まれる
+//     Task 51 修正後: κατ᾽ が（旧 morph-index サブディレクトリ経由、現行は bible_data 直接走査で）解決されるため MAT-0017 は含まれる
 {
     const RDG_JA_PATH = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-rdg-ja.json');
     try {
@@ -366,9 +366,9 @@ function _computeRdgLabel(rText, wordMap) {
         const rom = rdgJaData.entries['ROM-0001'];
         check('RDGJA_ROM0001_R0', rom && rom['0'] === 'キリスト・イエス', `ROM-0001[0]: ${rom && rom['0']}`);
         check('RDGJA_ROM0001_R1', rom && rom['1'] === 'イエス・キリスト', `ROM-0001[1]: ${rom && rom['1']}`);
-        // MAT-0017: κατ᾽ が morph-index サブディレクトリ（03BA03B1）から日本語解決
+        // MAT-0017: κατ᾽ が bible_data から日本語解決（旧: morph-index サブディレクトリ 03BA03B1）
         const mat17 = rdgJaData.entries['MAT-0017'];
-        check('RDGJA_MAT0017_PRESENT', mat17 !== undefined, 'MAT-0017 should now be present (κατ᾽ resolved from subdir)');
+        check('RDGJA_MAT0017_PRESENT', mat17 !== undefined, 'MAT-0017 should now be present (κατ᾽ resolved from bible_data)');
         check('RDGJA_MAT0017_R0',
             mat17 && mat17['0'] === '輝く・〜に従って・夢',
             `MAT-0017[0]: ${mat17 && mat17['0']}`);
@@ -468,11 +468,13 @@ check('BUILD_NO_FILTER_BOOLEAN_ON_JAWORDS',
     !buildSrc.includes('jaWords.length === 0'),
     'old partial-label pattern jaWords.length === 0 found (should be removed)');
 
-// 24. build-apparatus-rdg-ja.cjs: morph-index サブディレクトリを再帰的に読み込む
-//     （Task 51: αυ・ει・εν・κα・τη・το 等の高頻度語が subdirs に分割格納されている）
-check('BUILD_RECURSIVE_READ',
-    buildSrc.includes('readMorphDir') && buildSrc.includes('isDirectory()'),
-    'recursive readMorphDir not found in build-apparatus-rdg-ja.cjs');
+// 24. build-apparatus-rdg-ja.cjs: bible_data/nt を全走査して読み込む
+//     （旧 morph-index/word/ 付け替え後: Task 51 の分割バケット問題は源泉の直接走査で解消。
+//       生成系の正本は main 版（PR-J #694）の readdirSync 全走査形式に統一済みのため、
+//       PR #698 の競合解決で本チェックも main 版ジェネレータの形式に合わせてある）
+check('BUILD_BIBLE_DATA_NT_READ',
+    buildSrc.includes('BIBLE_DATA_DIR') && buildSrc.includes('readdirSync(BIBLE_DATA_DIR)'),
+    'bible_data NT scan (readdirSync over BIBLE_DATA_DIR) not found in build-apparatus-rdg-ja.cjs');
 
 // 25. textJaMap は出典確認済みの語形だけを明示的に許可する（Task 53）
 check('BUILD_TEXTJAMAP_PRESENT',
