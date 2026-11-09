@@ -71,7 +71,7 @@ const PHASE1_BASELINE = {
     // engine morph 変換発火が不要化したため（stored が既に複数形→番号ルール不発火・主格は格助詞なしで
     // resolve=null）。表示・意味回帰なしを確認済み（display-equivalence 0・対象strong/lemmaはsemantic
     // データ非出現）。engine code 非改変の Data adoption 由来の意図的更新（FROZEN 破壊ではない）。
-    // 設計・監査記録: docs/development/reading-japanese-plural-pronoun-number-adoption.md §2.1。
+    // 監査記録: scripts/archive/output/reading-japanese-plural-pronoun-adoption-ledger.json（設計メモ docs/development/reading-japanese-plural-pronoun-number-adoption.md はリポジトリ未収録）
     // 2026-11-07 PR #624（Stage 1–4 japanese 監査の本採用）＋ 去る morph fix:
     // 44187 → 44256（+69）。全量再計測による内訳（分類台帳つき）:
     //   データのみ（fix 前 engine）: −32（喪失34／獲得2）。
