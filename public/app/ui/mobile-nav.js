@@ -358,8 +358,14 @@ function _closeMobileModePicker() {
 function _mmpRenderModes() {
     const content = document.getElementById('mobile-mode-picker-content');
     if (!content) return;
+    /* 先頭の基底訳スロットは UI 言語に従う（サイドバー _sbRenderModesL0 と同じ規則） */
+    const baseId = (window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955';
+    const baseItem = baseId === 'WEB'
+        ? { id: 'WEB', label: 'Text (World English Bible)', i18n: 'mode.WEB.picker' }
+        : MN_MODE_LIST[0];
+    const items = [baseItem, ...MN_MODE_LIST.slice(1)];
     let html = '';
-    for (const item of MN_MODE_LIST.filter(it => it.id !== 'ROLE_READING' || _roleReadingAvailable())) {
+    for (const item of items.filter(it => it.id !== 'ROLE_READING' || _roleReadingAvailable())) {
         const cur = (_transA === item.id && _transMode === 'single') ? ' current' : '';
         html +=
             '<div class="mmp-row' + cur + '" onclick="_mmpSelectMode(\'' + item.id + '\')">' +
