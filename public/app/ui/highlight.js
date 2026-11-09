@@ -346,7 +346,7 @@ function _hlVerseHighlight() {
        列モードは現在の _transA/_transB から導出する（_colA/_colB は render 系の
        ローカル変数で、この関数のスコープには存在しない）。 */
     const isWordReadingMode = [_toColumnMode(_transA), _toColumnMode(_transB)].some(col =>
-        col && (col.kind === 'wordOrder' || col.kind === 'da-reading')
+        col && (col.kind === 'wordOrder' || col.kind === 'da-reading' || col.kind === 'greek-text')
     ) || !!document.querySelector('.rk-reading-view');
     if (isWordReadingMode && wordPos) {
         _hlWordHighlight();

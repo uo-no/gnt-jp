@@ -318,6 +318,7 @@ const MN_MODE_LIST = [
     { id: 'WORD_ORDER',  label: '語順で読む',         i18n: 'mode.WORD_ORDER' },
     { id: 'DA_READING',   label: '文の構造で読む',          i18n: 'mode.DA_READING' },
     { id: 'ROLE_READING', label: '語の役割で読む',          i18n: 'mode.ROLE_READING' },
+    { id: 'GREEK_TEXT',  label: 'ギリシャ語で読む',          i18n: 'mode.GREEK_TEXT' },
 ];
 
 function _openMobileModePicker() {

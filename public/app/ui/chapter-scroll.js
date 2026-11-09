@@ -43,11 +43,11 @@ async function _loadAndAppendChapter(bookObj, chNum) {
 
     let _lacCb = null; /* 未挿入コンテナの参照 */
     try {
-        /* 翻訳データ取得: WOはGreekデータ由来のため翻訳JSONをfetchしない */
-        const _lacJpData = (_lacColAKind === 'wordOrder')
+        /* 翻訳データ取得: WO・ギリシャ語本文はGreekデータ由来のため翻訳JSONをfetchしない */
+        const _lacJpData = (_lacColAKind === 'wordOrder' || _lacColAKind === 'greek-text')
             ? null
             : await _fetchTranslation(_transA, _lacBookKey, _lacCh);
-        if (_lacColAKind !== 'wordOrder' && (!_lacJpData || !_lacJpData.verses)) return false;
+        if (_lacColAKind !== 'wordOrder' && _lacColAKind !== 'greek-text' && (!_lacJpData || !_lacJpData.verses)) return false;
 
         /* Greekデータ取得 */
         const _lacHasGreek = GREEK_BOOKS.has(_lacBookKey);
@@ -68,8 +68,8 @@ async function _loadAndAppendChapter(bookObj, chNum) {
         });
         const _lacHasGreekResolved = _lacHasGreek && _lacElData.length > 0;
 
-        /* WO: Greekデータからjpdata互換オブジェクトを生成する（verse番号一覧として使用） */
-        const _lacJpDataResolved = (_lacColAKind === 'wordOrder')
+        /* WO・ギリシャ語本文: Greekデータからjpdata互換オブジェクトを生成する（verse番号一覧として使用） */
+        const _lacJpDataResolved = (_lacColAKind === 'wordOrder' || _lacColAKind === 'greek-text')
             ? _buildFlowJpData(_lacElData)
             : _lacJpData;
         if (!_lacJpDataResolved || !_lacJpDataResolved.verses) return false;
@@ -101,7 +101,7 @@ async function _loadAndAppendChapter(bookObj, chNum) {
             );
             /* JA1955訳文列のonclickは_buildColumnBlockでは設定されないため、ここで設定する
                （render()と同じパターン）。 */
-            if (_lacHasGreekResolved && _lacColAMode.kind !== 'wordOrder') {
+            if (_lacHasGreekResolved && _lacColAMode.kind !== 'wordOrder' && _lacColAMode.kind !== 'greek-text') {
                 block.onclick = () => {
                     /* Phase 3-6-I C: _lacCb は DOM挿入後に null にリセットされるため、
                        click時点でのDOM参照を使う（closure値渡し問題の解消）。 */

@@ -140,6 +140,8 @@ function _studyPanelCompanionMode(transA) {
         'JA1955':     'WORD_ORDER',
         'WORD_ORDER': 'JA1955',
         'DA_READING': 'WORD_ORDER',
+        /* ギリシャ語本文で詰まった節は、語順モードと同じく基準訳で受ける */
+        'GREEK_TEXT': 'JA1955',
     };
     return map[transA] || 'WORD_ORDER';
 }

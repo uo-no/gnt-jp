@@ -376,6 +376,7 @@ function renderGlobalBreadcrumb() {
             'WORD_ORDER':   _T('mode.WORD_ORDER', '語順で読む'),
             'DA_READING':   _T('mode.DA_READING', '文の構造で読む'),
             'ROLE_READING': _T('mode.ROLE_READING', '語の役割で読む'),
+            'GREEK_TEXT':   _T('mode.GREEK_TEXT', 'ギリシャ語で読む'),
         };
         const _modeLabel = _GBC_MODE_LABELS[_transA];
         if (_modeLabel) {
@@ -994,6 +995,7 @@ const MODE_DESCRIPTIONS = {
     'WORD_ORDER':  '原語の並びのまま、1語ずつ日本語で確かめる',
     'DA_READING':  '文の組み立てに沿って、並べ替えて読む',
     'ROLE_READING': '誰が・何を・どうしたか、語の役割で読む',
+    'GREEK_TEXT':  'ギリシャ語の本文を、そのまま読む',
 };
 function _modeDesc(id) { return _T('modeDesc.' + id, null) || MODE_DESCRIPTIONS[id] || ''; }
 
@@ -1029,6 +1031,7 @@ function _sbRenderModesL0() {
         { id: 'WORD_ORDER', label: _T('mode.WORD_ORDER', '語順で読む')     },
         { id: 'DA_READING', label: _T('mode.DA_READING', '文の構造で読む') },
         { id: 'ROLE_READING', label: _T('mode.ROLE_READING', '語の役割で読む') },
+        { id: 'GREEK_TEXT', label: _T('mode.GREEK_TEXT', 'ギリシャ語で読む') },
     ];
     list.innerHTML = items.filter(it => it.id !== 'ROLE_READING' || _roleReadingAvailable()).map(item => {
         const active = (_transA === item.id && _transMode === 'single') ? ' active' : '';
