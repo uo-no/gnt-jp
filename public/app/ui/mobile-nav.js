@@ -251,13 +251,12 @@ function _mbpRenderLayer(layer) {
             '<div class="mbp-row" onclick="_mbpSelectTestament(\'nt\')">' +
                 '<span>' + _T('ui.newTestament', '新約聖書') + '</span><span class="mbp-row-chevron">›</span></div>';
     } else if (layer === 2) {
-        /* Layer 2: Book 一覧（ピッカーの起点。タイトルは「書物を選ぶ」、
-           一覧の見出しとして testLabel を残す） */
-        const testLabel = _mbpSection === 'nt' ? _T('ui.newTestament', '新約聖書') : _T('ui.oldTestamentLxx', '旧約聖書（LXX）');
+        /* Layer 2: Book 一覧（ピッカーの起点。タイトルは「書物を選ぶ」。
+           区分見出し（新約聖書）は出さない：判別に使えないラベルは引く） */
         titleEl.textContent = _T('picker.bookTitle', '書物を選ぶ');
         const books = (SB_BOOKS[_mbpSection] || []);
         const curKey = AppState.location.book ? AppState.location.book.key : '';
-        let html = '<div class="mbp-section-label">' + testLabel + '</div>';
+        let html = '';
         for (const b of books) {
             const isCur = (b.key === curKey) ? ' style="font-weight:700;"' : '';
             html +=
