@@ -9,9 +9,7 @@
  *
  * 入力:
  *   - public/assets/data/apparatus.json (tokenRefs)
- *   - public/bible_data/nt/<book>/<ch>.json (ref → japanese)
- *     （旧入力 public/morph-index/word/ は bible_data の派生スナップショット。
- *       廃止に伴い源泉の bible_data へ付け替え済み）
+ *   - public/bible_data/nt/**           (ref → japanese)
  *
  * 出力:
  *   - public/assets/data/apparatus-lem-ja.json
@@ -25,29 +23,29 @@ const fs   = require('fs');
 const path = require('path');
 
 const APPARATUS_PATH = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus.json');
-const BOOKS_PATH     = path.join(__dirname, '..', 'public', 'books.json');
 const BIBLE_DATA_DIR = path.join(__dirname, '..', 'public', 'bible_data', 'nt');
 const OUT_PATH       = path.join(__dirname, '..', 'public', 'assets', 'data', 'apparatus-lem-ja.json');
 
-// bible_data/nt/ を books.json の NT 全書・全章走査して ref → japanese のマップを構築
-console.log('Building ref → japanese map from bible_data/nt/ ...');
+// bible_data/nt/{書}/{章}.json を全走査して ref → japanese のマップを構築
+// （2026-11-09 付け替え: 旧入力 morph-index/word/ は bible_data の写しであり、
+//   word/ 廃止に伴い正本の bible_data から直接引く）
+console.log('Building ref → japanese map from bible_data ...');
 const refMap = {};
-const ntBooks = JSON.parse(fs.readFileSync(BOOKS_PATH, 'utf8')).NT;
 let fileCount = 0;
-for (const book of ntBooks) {
-    for (let ch = 1; ch <= book.chapters; ch++) {
-        const data = JSON.parse(fs.readFileSync(path.join(BIBLE_DATA_DIR, book.key, `${ch}.json`), 'utf8'));
+for (const book of fs.readdirSync(BIBLE_DATA_DIR)) {
+    const bookDir = path.join(BIBLE_DATA_DIR, book);
+    if (!fs.statSync(bookDir).isDirectory()) continue;
+    for (const file of fs.readdirSync(bookDir).filter(f => f.endsWith('.json'))) {
+        const data = JSON.parse(fs.readFileSync(path.join(bookDir, file), 'utf8'));
         for (const e of data) {
-            // NT トークンのみ（ref が "BOOK CH:V!N" 形式）
             if (e.ref && e.japanese && e.japanese.trim()) {
                 refMap[e.ref] = e.japanese.trim();
             }
         }
         fileCount++;
-        if (fileCount % 50 === 0) process.stdout.write(`  ${fileCount} files\r`);
     }
 }
-console.log(`\nBuilt ref map: ${Object.keys(refMap).length} entries from ${fileCount} files`);
+console.log(`Built ref map: ${Object.keys(refMap).length} entries from ${fileCount} files`);
 
 // apparatus.json を読み込んで各エントリのlemJaを計算
 const apparatus = JSON.parse(fs.readFileSync(APPARATUS_PATH, 'utf8'));
@@ -78,7 +76,7 @@ console.log(`Covered: ${covered}, Partial: ${partial}, Missing: ${missing}`);
 const output = {
     _meta: {
         description: 'apparatus エントリの日本語語句（bible_data から自動生成）',
-        source: 'public/bible_data/nt/ の japanese フィールド',
+        source: 'public/bible_data の japanese フィールド',
         generatedAt: new Date().toISOString().slice(0, 10),
         entryCount: Object.keys(result).length,
         totalEntries: entries.length,

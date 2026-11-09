@@ -468,11 +468,13 @@ check('BUILD_NO_FILTER_BOOLEAN_ON_JAWORDS',
     !buildSrc.includes('jaWords.length === 0'),
     'old partial-label pattern jaWords.length === 0 found (should be removed)');
 
-// 24. build-apparatus-rdg-ja.cjs: bible_data/nt を books.json の NT 全書・全章走査して読み込む
-//     （旧 morph-index/word/ 付け替え後: Task 51 の分割バケット問題は源泉の直接走査で解消）
+// 24. build-apparatus-rdg-ja.cjs: bible_data/nt を全走査して読み込む
+//     （旧 morph-index/word/ 付け替え後: Task 51 の分割バケット問題は源泉の直接走査で解消。
+//       生成系の正本は main 版（PR-J #694）の readdirSync 全走査形式に統一済みのため、
+//       PR #698 の競合解決で本チェックも main 版ジェネレータの形式に合わせてある）
 check('BUILD_BIBLE_DATA_NT_READ',
-    buildSrc.includes('readBibleDataNt') && buildSrc.includes('BIBLE_DATA_DIR') && buildSrc.includes('books.json'),
-    'bible_data NT scan (readBibleDataNt) not found in build-apparatus-rdg-ja.cjs');
+    buildSrc.includes('BIBLE_DATA_DIR') && buildSrc.includes('readdirSync(BIBLE_DATA_DIR)'),
+    'bible_data NT scan (readdirSync over BIBLE_DATA_DIR) not found in build-apparatus-rdg-ja.cjs');
 
 // 25. textJaMap は出典確認済みの語形だけを明示的に許可する（Task 53）
 check('BUILD_TEXTJAMAP_PRESENT',
