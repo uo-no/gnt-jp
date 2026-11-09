@@ -20,6 +20,27 @@ let _sdChapterDataForRender = null;
    specific UI language. Callers must distinguish '' (hide) from null
    (no gloss — fall back). */
 function _segLabelState() { return { verse: null, tokenIndex: null, label: null, shownKeys: new Set() }; }
+/* Empty-label words (sidecar continuation tokens) are structural
+   pass-throughs only: they keep their layout slot (centering, click
+   targets) but draw no platform line, and an edge into one is drawn
+   only when it leads on to a visible word. Returns the laid words
+   that must stay connected: visible words plus their ancestors. */
+function _segConnectedWords(words, edges) {
+    const wordSet = new Set(words);
+    const connected = new Set();
+    for (const w of words) if (w.text) connected.add(w);
+    let grew = true;
+    while (grew) {
+        grew = false;
+        for (const e of edges) {
+            if (e && e.b && connected.has(e.b) && e.a && wordSet.has(e.a) && !connected.has(e.a)) {
+                connected.add(e.a); grew = true;
+            }
+        }
+    }
+    return { wordSet, connected };
+}
+
 function _segDedupeLabel(tok, gloss, state) {
     const fromFile = !!gloss && typeof _glossSidecarIsFromFile === 'function' && _glossSidecarIsFromFile(tok);
     if (!fromFile) { state.verse = null; state.tokenIndex = null; state.label = null; return gloss; }
@@ -179,7 +200,9 @@ async function _renderRoleReadingView(app, srData, elData) {
                 vn.textContent = refText;
                 svg.appendChild(vn);
             }
+            const _conn = _segConnectedWords(laid.words, laid.edges);
             for (const e of laid.edges) {
+                if (e && e.b && _conn.wordSet.has(e.b) && !_conn.connected.has(e.b)) continue;
                 const p = document.createElementNS(NS, 'path');
                 p.setAttribute('d', RoleReadingLayout.edgePath(e));
                 p.setAttribute('class', 'e ' + e.kind);
@@ -189,13 +212,15 @@ async function _renderRoleReadingView(app, srData, elData) {
                 const g = document.createElementNS(NS, 'g');
                 g.setAttribute('class', 'wn');
                 g.setAttribute('data-i', String(wi));
-                const ul = document.createElementNS(NS, 'line');
-                ul.setAttribute('x1', String(w.x - RoleReadingLayout.PADX));
-                ul.setAttribute('x2', String(w.x + w.w + RoleReadingLayout.PADX + (w.ew || 0)));
-                ul.setAttribute('y1', String(w.y + 4));
-                ul.setAttribute('y2', String(w.y + 4));
-                ul.setAttribute('class', 'ul');
-                g.appendChild(ul);
+                if (w.text) {
+                    const ul = document.createElementNS(NS, 'line');
+                    ul.setAttribute('x1', String(w.x - RoleReadingLayout.PADX));
+                    ul.setAttribute('x2', String(w.x + w.w + RoleReadingLayout.PADX + (w.ew || 0)));
+                    ul.setAttribute('y1', String(w.y + 4));
+                    ul.setAttribute('y2', String(w.y + 4));
+                    ul.setAttribute('class', 'ul');
+                    g.appendChild(ul);
+                }
                 const t = document.createElementNS(NS, 'text');
                 t.setAttribute('x', String(w.x));
                 t.setAttribute('y', String(w.y));
@@ -322,7 +347,9 @@ async function _buildLocalRelationFrame(ref) {
     const result = RoleReadingLayoutL3S.layoutChapter([sentence.root], { spWrapW: null });
     const laid = result && result.sentences && result.sentences[0];
     if (!laid || !laid.words.length) return null;
-    const words = laid.words, edges = laid.edges;
+    const words = laid.words;
+    const _connF = _segConnectedWords(laid.words, laid.edges);
+    const edges = laid.edges.filter(e => !(e && e.b && _connF.wordSet.has(e.b) && !_connF.connected.has(e.b)));
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, center = null;
     for (const w of words) {
         minX = Math.min(minX, w.x); maxX = Math.max(maxX, w.x + w.w);
@@ -360,13 +387,15 @@ async function _buildLocalRelationFrame(ref) {
     for (const w of words) {
         const g = document.createElementNS(NS, 'g');
         g.setAttribute('class', 'wn' + (w.id === centerId ? ' focus' : ''));
-        const ul = document.createElementNS(NS, 'line');
-        ul.setAttribute('x1', String(w.x - RoleReadingLayoutL3S.PADX));
-        ul.setAttribute('x2', String(w.x + w.w + RoleReadingLayoutL3S.PADX + (w.ew || 0)));
-        ul.setAttribute('y1', String(w.y + 4));
-        ul.setAttribute('y2', String(w.y + 4));
-        ul.setAttribute('class', 'ul');
-        g.appendChild(ul);
+        if (w.text) {
+            const ul = document.createElementNS(NS, 'line');
+            ul.setAttribute('x1', String(w.x - RoleReadingLayoutL3S.PADX));
+            ul.setAttribute('x2', String(w.x + w.w + RoleReadingLayoutL3S.PADX + (w.ew || 0)));
+            ul.setAttribute('y1', String(w.y + 4));
+            ul.setAttribute('y2', String(w.y + 4));
+            ul.setAttribute('class', 'ul');
+            g.appendChild(ul);
+        }
         const t = document.createElementNS(NS, 'text');
         t.setAttribute('x', String(w.x));
         t.setAttribute('y', String(w.y));
