@@ -131,14 +131,21 @@ async function _loadGlossForRender(book, ch) {
     if (typeof _ensureSemanticData === 'function') { try { _ensureSemanticData(); } catch (_) {} }
     const key = transId + ':' + book + ':' + ch;
     if (_glossSidecarCache.has(key)) return _glossSidecarCache.get(key);
+    /* トークン単位グロス（gloss-token/）を優先し、無い翻訳・章では従来の
+       セグメント単位サイドカー（gloss/）に落とす。どちらの粒度で読めたかを
+       data._src ('token' | 'segment') に記録し、セグメント文の重複排除の
+       要否を _glossSidecarIsFromFile が判定する。 */
     let data = null;
-    try {
-        const res = await fetch(`../assets/data/gloss/${transId}/${book}/${ch}.json`);
-        if (res.ok) {
-            const d = await res.json();
-            if (d && d.book === book && Number(d.chapter) === Number(ch) && d.translation === transId && d.glosses) data = d;
-        }
-    } catch (_) { data = null; }
+    for (const [dir, src] of [['gloss-token', 'token'], ['gloss', 'segment']]) {
+        if (data) break;
+        try {
+            const res = await fetch(`../assets/data/${dir}/${transId}/${book}/${ch}.json`);
+            if (res.ok) {
+                const d = await res.json();
+                if (d && d.book === book && Number(d.chapter) === Number(ch) && d.translation === transId && d.glosses) { d._src = src; data = d; }
+            }
+        } catch (_) { /* 次の候補へ */ }
+    }
     _glossSidecarCache.set(key, data);
     return data;
 }

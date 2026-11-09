@@ -28,21 +28,46 @@ function _phraseResolveWord(words, idx) {
 
 /* Stage A: 引用生成の新経路。PhraseRenderer 未ロード時は旧 renderPhraseJP へ
    fallback（旧実装は比較・切戻し用に残置 — 削除しない）。戻り値は HTML エスケープ済み。 */
-/* EN UI の引用は Engine（日本語整形）を通さず、サイドカーのセグメント文
-   から組み立てる。セグメント文は区間の全トークンへ複製されているため、
-   連続する同一文は1回だけ取る。サイドカー未取得の語は _glossSidecarFor
-   のフォールバック（w.english）を使う。日本語が混ざることはない。 */
+/* EN UI の引用は Engine（日本語整形）を通さず、セグメント文から組み立てる。
+   セグメント文は区間の全トークンへ複製されているため、連続する同一文は
+   1回だけ取る。材料は読み込み済みのアラインメント（対応表）のセグメント文
+   を使う：サイドカーの値はトークン単位グロスへ切り替わったが、セグメント文
+   そのものは対応表が保持しており、値はサイドカー生成時のものと同一で
+   あることを全章で検証済み（差異は空白のみで、ここで trim される）。
+   セグメントに属さない語は従来どおり w.english に落とす。日本語が混ざる
+   ことはない。 */
 function _renderQuoteFromSidecar(p, endIdx, words) {
     try {
         const start = p.start | 0;
         const end = Math.min(endIdx | 0, words.length - 1);
         if (end < start) return '';
+        const transId = (typeof _glossTransIdForUi === 'function') ? _glossTransIdForUi() : null;
+        const segTextByRef = new Map(); /* "verse:tokenIndex" -> セグメント文 */
+        if (transId && typeof _jaAlignSegmentsFor === 'function') {
+            const seenVerses = new Set();
+            for (let i = start; i <= end; i++) {
+                const w = words[i];
+                if (!w || w.verse == null || seenVerses.has(w.verse)) continue;
+                seenVerses.add(w.verse);
+                const book = w.book || w.bookKey;
+                const ch = (w.chapter != null) ? w.chapter : w.ch;
+                const segs = _jaAlignSegmentsFor(transId, book, ch, w.verse);
+                if (!Array.isArray(segs)) continue;
+                for (const seg of segs) {
+                    if (!seg || !Array.isArray(seg.tokens)) continue;
+                    for (const t of seg.tokens) segTextByRef.set(w.verse + ':' + Number(t), seg.t);
+                }
+            }
+        }
         const parts = [];
         let prev = null;
         for (let i = start; i <= end; i++) {
             const w = words[i];
             if (!w) continue;
-            const g = (typeof _glossSidecarFor === 'function') ? _glossSidecarFor(w) : null;
+            let g = segTextByRef.get(w.verse + ':' + Number(w.tokenIndex));
+            if (typeof g !== 'string' || !g.trim()) {
+                g = (typeof w.english === 'string' && w.english) ? w.english : null;
+            }
             const text = (g || '').trim();
             if (!text) continue;
             if (text === prev) continue;
