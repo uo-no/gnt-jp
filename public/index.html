@@ -4021,6 +4021,12 @@ details[open] .study-summary::before {
    ══════════════════════════════════════════ */
 
 /* 外枠（flex列で flow-stream + drawer を縦積み） */
+/* スクロールバー位置を第3層（#reading-notes-wrap）と統一するため、
+   スクロールコンテナ自体はパネル全幅にし、中央カラム（640px）の
+   制約は直下の子要素側へ移す。第3層が「全幅の #reading-notes-wrap
+   ＋中央カラムの #reading-notes-area」という構造なのに対し、従来は
+   本コンテナ自体が max-width:640px の中央カラムだったため、バーが
+   パネル右端から (パネル幅-640px)/2 だけ内側に出ていた。 */
 #word-list-view {
     flex: 1;
     overflow-y: auto;
@@ -4028,11 +4034,22 @@ details[open] .study-summary::before {
     flex-direction: column;
     min-height: 0;
     width: 100%;
-    max-width: 640px;
-    margin: 0 auto;
     /* スクロールバー出現による横幅変化（chips再ラップ・カラムずれ）を防ぐ。
        both-edges で左右対称に予約し、中心軸を真中心に保つ */
     scrollbar-gutter: stable both-edges;
+}
+/* 中央カラムの制約（旧 #word-list-view の max-width / margin:0 auto）。
+   直下の子は flow セクション・読書メモ・異読欄・凡例・DA ビュー・
+   空表示の段落のみで、いずれもブロックレベルのため一律に適用できる。
+   width:100% を明示するのは flex 列の子要素（flex item）のため：
+   100% を 640px で頭打ちにし、余った幅を左右 auto マージンへ
+   配分して中央に置く（#reading-notes-area と同じ組み立て）。 */
+#word-list-view > * {
+    width: 100%;
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
 }
 
 /* ── 流れUI：ギリシャ語順日本語chip列 ── */
