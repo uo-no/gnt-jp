@@ -323,6 +323,34 @@ async function _renderMobileVerseArea(vNum, words) {
     const previous = inspector.querySelector('.mvv-inline-translation');
     if (previous) previous.remove();
     inspector.prepend(translation);
+    /* 訳文側にも保存ハイライトを出す（非同期でセグメント化＋塗布）。 */
+    _mvvPaintTranslationHighlights(translation, book ? book.key : '', ch, vNum, text);
+}
+
+/* モバイル節ビューの訳文側のハイライト: その節に保存ハイライトがある場合
+   のみ、訳文をアラインメントのセグメントで組み直して本文ビューと同じ
+   規則（セグメントのトークン集合が保存範囲と重なれば塗る）で塗る。
+   ハイライトが無い節・対応表が無い／本文と一致しない場合は、従来どおり
+   プレーンテキストのまま一切変更しない。 */
+async function _mvvPaintTranslationHighlights(translationEl, bookKey, ch, vNum, text) {
+    if (!translationEl || !bookKey || ch == null || vNum == null) return;
+    if (!window.App || !window.App.storage) return;
+    const has = window.App.storage.getHighlights().some(h => h && h.tokenStart != null
+        && String(h.book) === String(bookKey) && Number(h.chapter) === Number(ch) && Number(h.verse) === Number(vNum));
+    if (!has) return;
+    const data = await _loadJaAlignForRender(_mvvDisplayTrans(), bookKey, ch);
+    if (!data || !data.verses) return;
+    const vdata = data.verses[String(vNum)];
+    const segs = vdata && Array.isArray(vdata.segments) ? vdata.segments : null;
+    if (!segs || !segs.length) return;
+    if (segs.map(s => s.t).join('') !== text) return;
+    if (!translationEl.isConnected) return;
+    const body = translationEl.querySelector('.mvv-body');
+    if (!body) return;
+    body.innerHTML = segs.map(s =>
+        `<span class="ja-seg" data-ja-book="${_escH(bookKey)}" data-ja-ch="${ch}" data-ja-v="${vNum}" data-ja-tokens="${(s.tokens || []).join(',')}">${_escH(s.t)}</span>`
+    ).join('');
+    if (typeof _applySegHighlightsIn === 'function') _applySegHighlightsIn(translationEl, bookKey, ch, vNum);
 }
 
 /**
@@ -403,6 +431,13 @@ function _mobileInspectorRender(vNum, words) {
         }
     }
     if (translation) area.prepend(translation);
+    /* 再配置のたびに訳文側のハイライトを塗り直す（読書側の再適用で
+       クラスが消えている場合の復帰）。 */
+    if (translation && typeof _applySegHighlightsIn === 'function') {
+        const _bk = AppState.location.book ? AppState.location.book.key : '';
+        const _ch = _mvvChapter != null ? _mvvChapter : AppState.location.chapter;
+        _applySegHighlightsIn(translation, _bk, _ch, vNum);
+    }
     /* 節読書メモは訳文の上（#mobile-verse-area）に表示する。ここでは注入しない。 */
 }
 

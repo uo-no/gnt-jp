@@ -58,6 +58,33 @@ function _hlPaintChip(chip, color) {
     if (HL_COLORS.indexOf(color) !== -1) chip.classList.add('hl-word-' + color);
 }
 
+/* Segment surfaces outside the reading area (StudyPanel translation
+   companion, mobile verse translation): paint .ja-seg segments under
+   rootEl with the same rule as the reading base-text view — a segment
+   is painted when its token set overlaps a saved word highlight for
+   the verse (later highlights win). */
+function _applySegHighlightsIn(rootEl, book, ch, vNum) {
+    if (!rootEl || !window.App || !window.App.storage) return;
+    const highlights = window.App.storage.getHighlights().filter(function (h) {
+        return h && h.tokenStart != null
+            && String(h.book) === String(book)
+            && Number(h.chapter) === Number(ch)
+            && Number(h.verse) === Number(vNum);
+    });
+    if (!highlights.length) return;
+    rootEl.querySelectorAll('.ja-seg').forEach(function (seg) {
+        if (seg.dataset.jaBook !== String(book)) return;
+        if (Number(seg.dataset.jaCh) !== Number(ch)) return;
+        if (seg.dataset.jaV != null && Number(seg.dataset.jaV) !== Number(vNum)) return;
+        const tis = (seg.dataset.jaTokens || '').split(',').map(Number);
+        highlights.forEach(function (h) {
+            if (tis.some(function (ti) { return ti >= Number(h.tokenStart) && ti <= Number(h.tokenEnd); })) {
+                _hlPaintChip(seg, h.color);
+            }
+        });
+    });
+}
+
 /* StudyPanel verse flow: apply saved word highlights to the flow chips
    with the same per-token painting as the reading word-order view
    (including placeholder redirection). Called by study-panel.js right
