@@ -364,6 +364,50 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
     return { greek, gloss, roleClass, phraseBreakBefore, signals, morphText, jaWord, rawMorph, lemma, ref, strong, dpGrammarClasses, bookKey, ch, verse, language, corpusId, lemmaId, tokenId, verseId, glossFromSidecar };
 }
 
+/* Per-token sidecar glosses (EN/ES): a token whose gloss is a bracket
+   placeholder ([absorbido], [article], ...) has no visible word of its
+   own, so it must not wear verb decorations (dp mood/tense/voice) — the
+   decoration belongs to visible text, as in the base-text segment rule.
+   Strip the decoration from the placeholder chip and donate it inside
+   the same alignment segment: prefer a real-text verb chip missing a
+   mood class, else the first real-text chip without verb decorations.
+   Donation merges per class type (mood/tense/voice) so the recipient
+   keeps its own classes. If the segment has no real-text chip, the
+   decoration is dropped. JA is unaffected (no sidecar, no placeholders). */
+function _applyPlaceholderDpDonation(chips, tokens) {
+    if (!Array.isArray(chips) || !chips.length) return;
+    if (typeof _glossTransIdForUi !== 'function' || !_glossTransIdForUi()) return;
+    const isPlaceholder = g => /^\[[^\]]*\]$/.test(String(g || '').trim());
+    const verbDpOf = c => (String(c.dpGrammarClasses || '').match(/dp-(?:mood|tense|voice)-[a-z]+/g) || []);
+    const groups = new Map();
+    chips.forEach((chip, i) => {
+        const key = (typeof _alignSegmentKeyFor === 'function' && tokens && tokens[i])
+            ? _alignSegmentKeyFor(tokens[i]) : null;
+        const gk = key || ('_solo' + i);
+        if (!groups.has(gk)) groups.set(gk, []);
+        groups.get(gk).push(chip);
+    });
+    groups.forEach(g => {
+        let donation = null;
+        g.forEach(chip => {
+            const dp = verbDpOf(chip);
+            if (dp.length && isPlaceholder(chip.gloss)) {
+                if (!donation) donation = dp;
+                chip.dpGrammarClasses = 'dp-word';
+            }
+        });
+        if (!donation) return;
+        const real = g.filter(chip => chip.gloss && !isPlaceholder(chip.gloss));
+        let target = real.find(chip => String(chip.rawMorph || '').charAt(0) === 'V'
+            && !/dp-mood-/.test(chip.dpGrammarClasses || ''));
+        if (!target) target = real.find(chip => !verbDpOf(chip).length);
+        if (!target) return;
+        const have = verbDpOf(target).map(c => c.split('-')[1]);
+        const add = donation.filter(c => have.indexOf(c.split('-')[1]) < 0);
+        if (add.length) target.dpGrammarClasses = (String(target.dpGrammarClasses || 'dp-word') + ' ' + add.join(' ')).trim();
+    });
+}
+
 /**
  * ReadingEngine 用の ResolveContext を構築する（Phase 2 Syntax Layer）。
  * ContextBuilder.build()（同期・O(n)）の結果から純粋データのみを抽出する。
@@ -657,6 +701,10 @@ function buildRepresentation(columnMode, verse, analysis, translationText) {
             });
             _segGroups.forEach(_applyDonation);
             _applyDonation(_adjGroup);
+            /* Per-token glosses: bracket placeholders never wear verb
+               decorations (see _applyPlaceholderDpDonation). Runs for all
+               chips; the helper itself gates on a sidecar UI language. */
+            _applyPlaceholderDpDonation(chips, tokens);
             return {
                 kind: 'wordOrder',
                 verseRef: verse ? verse.verseRef : null,

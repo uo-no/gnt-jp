@@ -41,7 +41,7 @@
     }
 
     function makeChips(words, book, chapter) {
-        return words.map((word, i) => {
+        const chips = words.map((word, i) => {
             const chip = _wordToFlowChip(
                 word,
                 i,
@@ -62,6 +62,10 @@
             }
             return chip;
         });
+        /* Same rule as the word-order builder: bracket placeholder chips
+           never wear verb decorations; donate within the segment. */
+        if (typeof _applyPlaceholderDpDonation === 'function') _applyPlaceholderDpDonation(chips, words);
+        return chips;
     }
 
     function renderConnectorRow(sentenceEl, containerEl, leadingConjs) {
