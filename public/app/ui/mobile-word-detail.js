@@ -169,7 +169,7 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
         if (typeof _mvvStructFn === 'function' && Array.isArray(_mvvScope)) {
             const _mvvStructIdx = _mvvScope.findIndex(t => t.ref === _mvvRef);
             const _mvvStruct = _mvvStructIdx >= 0 ? _mvvStructFn(_mvvScope, _mvvStructIdx) : null;
-            if (_mvvStruct) _mvvStructureText = (window.I18N && I18N.lang === 'en') ? (_mvvStruct.label_en || _mvvStruct.label_ja) : _mvvStruct.label_ja;
+            if (_mvvStruct) _mvvStructureText = (window.I18N && I18N.lang === 'es') ? (_mvvStruct.label_es || '') : (window.I18N && I18N.lang === 'en') ? (_mvvStruct.label_en || _mvvStruct.label_ja) : _mvvStruct.label_ja;
         }
     }
 
@@ -308,7 +308,7 @@ async function _fillMvvReadingSlot(words, idx) {
 
     const _reText = _resolveReferentEvidenceText(AppState.inspect.data?.referentEvidence);
     const referentEvidenceHTML = _reText
-        ? `<div class="rn-referent-evidence" data-study-section="referent">${(window.I18N && I18N.lang === 'en') ? `This word refers to "${_escH(_reText)}".` : `この語は「${_escH(_reText)}」を指しています。`}</div>`
+        ? `<div class="rn-referent-evidence" data-study-section="referent">${(window.I18N && I18N.lang === 'es') ? `Esta palabra se refiere a "${_escH(_reText)}".` : (window.I18N && I18N.lang === 'en') ? `This word refers to "${_escH(_reText)}".` : `この語は「${_escH(_reText)}」を指しています。`}</div>`
         : '';
     const _subjText = _resolveSubjrefEvidenceText(AppState.inspect.data?.subjrefEvidence);
     const _subjEvidenceText = _subjText
@@ -470,7 +470,7 @@ async function _fillMvvLevel2Slot(resolvedId) {
         const synopticRefs = contexts.synoptic_refs || [];
         const paulineRefs  = contexts.pauline_refs  || [];
 
-        const _enUiAbbottMvv = window.I18N && I18N.lang === 'en';
+        const _enUiAbbottMvv = window.I18N && I18N.lang !== 'ja';
         const _abbottDigitsMvv = resolvedId ? resolvedId.replace(/^grc:G/i, '') : '';
         let abbottSmithText = '';
         if (_enUiAbbottMvv && _abbottDigitsMvv) {

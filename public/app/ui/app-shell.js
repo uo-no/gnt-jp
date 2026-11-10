@@ -13,6 +13,11 @@ function resolveDisplay(entry, lexemeId) {
     if (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en') {
         return (entry && entry.gloss) || (entry && entry.headword) || lexemeId;
     }
+    if (typeof window !== 'undefined' && window.I18N && I18N.lang === 'es') {
+        /* ES: 辞書語義（senses 第1語義）があればそれ、無ければ見出し語（ギリシャ語） */
+        const es = (typeof _esShortGloss === 'function') ? _esShortGloss(lexemeId) : null;
+        return es || (entry && entry.headword) || lexemeId;
+    }
     return (entry && entry.gloss_ja) || (entry && entry.headword) || lexemeId;
 }
 
@@ -64,7 +69,7 @@ function _refFormJa(tok) {
     if (tok.case)   parts.push(m.case[tok.case] || tok.case);
     if (tok.gender) parts.push(m.gender[tok.gender] || tok.gender);
     if (tok.number) parts.push(m.number[tok.number] || tok.number);
-    return parts.join((window.I18N && I18N.lang === 'en') ? ' ' : '・');
+    return parts.join((window.I18N && I18N.lang !== 'ja') ? ' ' : '・');
 }
 const _REF_FORM_EN = {
     pos:    { noun: 'Noun', adj: 'Adjective', verb: 'Verb', prep: 'Preposition', conj: 'Conjunction', det: 'Determiner', pron: 'Pronoun', adv: 'Adverb', ptcl: 'Particle', num: 'Numeral', intj: 'Interjection' },
@@ -76,8 +81,18 @@ const _REF_FORM_EN = {
     mood:   { indicative: 'Indicative', subjunctive: 'Subjunctive', optative: 'Optative', imperative: 'Imperative', infinitive: 'Infinitive', participle: 'Participle' },
     person: { '1': '1st person', '2': '2nd person', '3': '3rd person' },
 };
+const _REF_FORM_ES = {
+    pos:    { noun: 'Sustantivo', adj: 'Adjetivo', verb: 'Verbo', prep: 'Preposición', conj: 'Conjunción', det: 'Determinante', pron: 'Pronombre', adv: 'Adverbio', ptcl: 'Partícula', num: 'Numeral', intj: 'Interjección' },
+    case:   { nominative: 'Nominativo', genitive: 'Genitivo', dative: 'Dativo', accusative: 'Acusativo', vocative: 'Vocativo' },
+    number: { singular: 'Singular', plural: 'Plural' },
+    gender: { masculine: 'Masculino', feminine: 'Femenino', neuter: 'Neutro' },
+    tense:  { present: 'Presente', imperfect: 'Imperfecto', future: 'Futuro', aorist: 'Aoristo', perfect: 'Perfecto', pluperfect: 'Pluscuamperfecto' },
+    voice:  { active: 'Activa', middle: 'Media', passive: 'Pasiva' },
+    mood:   { indicative: 'Indicativo', subjunctive: 'Subjuntivo', optative: 'Optativo', imperative: 'Imperativo', infinitive: 'Infinitivo', participle: 'Participio' },
+    person: { '1': '1ª persona', '2': '2ª persona', '3': '3ª persona' },
+};
 function _refForm() {
-    return (window.I18N && I18N.lang === 'en') ? _REF_FORM_EN : _REF_FORM_JA;
+    return (window.I18N && I18N.lang === 'es') ? _REF_FORM_ES : (window.I18N && I18N.lang === 'en') ? _REF_FORM_EN : _REF_FORM_JA;
 }
 /* 形態ラベル表（name キー）。従来は同内容が複数箇所に複製されていたものを集約。
    JA は従来定義と同値（person のみ追加、既存消費側は読まない）。 */
@@ -101,12 +116,22 @@ const MORPH_FULL_EN = {
     case:   { nominative:'Nominative', genitive:'Genitive', dative:'Dative', accusative:'Accusative', vocative:'Vocative' },
     person: { '1':'1st person', '2':'2nd person', '3':'3rd person' },
 };
+const MORPH_FULL_ES = {
+    pos:    { V:'Verbo', N:'Sustantivo', A:'Adjetivo', R:'Pronombre relativo', P:'Pronombre personal', T:'Artículo', D:'Pronombre demostrativo', ADV:'Adverbio', PREP:'Preposición', CONJ:'Conjunción', PRT:'Partícula' },
+    tense:  { present:'Presente', imperfect:'Imperfecto', future:'Futuro', aorist:'Aoristo', perfect:'Perfecto', pluperfect:'Pluscuamperfecto' },
+    voice:  { active:'Activa', middle:'Media', passive:'Pasiva', 'middle deponent':'Media deponente', 'middle or passive':'Media/Pasiva' },
+    mood:   { indicative:'Indicativo', subjunctive:'Subjuntivo', optative:'Optativo', imperative:'Imperativo', infinitive:'Infinitivo', participle:'Participio' },
+    gender: { masculine:'Masculino', feminine:'Femenino', neuter:'Neutro' },
+    number: { singular:'Singular', plural:'Plural' },
+    case:   { nominative:'Nominativo', genitive:'Genitivo', dative:'Dativo', accusative:'Acusativo', vocative:'Vocativo' },
+    person: { '1':'1ª persona', '2':'2ª persona', '3':'3ª persona' },
+};
 function _morphFull() {
-    return (window.I18N && I18N.lang === 'en') ? MORPH_FULL_EN : MORPH_FULL_JA;
+    return (window.I18N && I18N.lang === 'es') ? MORPH_FULL_ES : (window.I18N && I18N.lang === 'en') ? MORPH_FULL_EN : MORPH_FULL_JA;
 }
 function _personText(c) {
     return _morphFull().person[c]
-        || ((window.I18N && I18N.lang === 'en') ? c + ' person' : c + '人称');
+        || ((window.I18N && I18N.lang === 'es') ? c + 'ª persona' : (window.I18N && I18N.lang === 'en') ? c + ' person' : c + '人称');
 }
 
 function _resolveLemmaId(strong) {
@@ -364,7 +389,7 @@ function renderGlobalBreadcrumb() {
         items.push(
             `<span class="gbc-item current gbc-chapter-nav">` +
             `<button class="gbc-ch-arrow" onclick="event.stopPropagation();_gbcPrevChapter()" aria-label="${_T('nav.prevChapter', '前の章')}"${_ch <= 1 ? ' disabled' : ''}>◀</button>` +
-            `<button class="gbc-ch-label" onclick="_gbcGoChapter()">${(window.I18N && I18N.lang === 'en') ? String(_ch) : _ch + '章'}</button>` +
+            `<button class="gbc-ch-label" onclick="_gbcGoChapter()">${(window.I18N && I18N.lang !== 'ja') ? String(_ch) : _ch + '章'}</button>` +
             `<button class="gbc-ch-arrow" onclick="event.stopPropagation();_gbcNextChapter()" aria-label="${_T('nav.nextChapter', '次の章')}"${_ch >= _maxCh ? ' disabled' : ''}>▶</button>` +
             `</span>`
         );
@@ -1446,7 +1471,9 @@ const _ABBOTT_GRAMMAR_TERMS = {
 
 /* 表示時の補助だけを行い、原文・保存データは変更しない。 */
 function _localizeAbbottAbbreviations(text, locale) {
-    const language = String(locale || document.documentElement.lang || 'ja').toLowerCase().split('-')[0];
+    const _rawLang = String(locale || document.documentElement.lang || 'ja').toLowerCase().split('-')[0];
+    /* Abbott-Smith 原文は英語のため、ES UI でも英語の略号展開を使う（EN と同じ扱い）。 */
+    const language = _rawLang === 'es' ? 'en' : _rawLang;
     const terms = _ABBOTT_GRAMMAR_TERMS[language] || _ABBOTT_GRAMMAR_TERMS.ja;
     let result = String(text == null ? '' : text);
 
@@ -1638,11 +1665,12 @@ function _listMetaDate(ts) {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const dStart     = new Date(d.getFullYear(),   d.getMonth(),   d.getDate());
     const diffDays   = Math.round((todayStart - dStart) / 86400000);
-    const isEn = window.I18N && I18N.lang === 'en';
+    const isEn = window.I18N && I18N.lang !== 'ja';
     if (diffDays === 0) return isEn ? _T('ui.today', '今日') : '今日';
     if (diffDays === 1) return isEn ? _T('ui.yesterday', '昨日') : '昨日';
     if (diffDays >= 2 && diffDays <= 6) return isEn ? diffDays + _T('ui.daysAgoSuffix', '日前') : diffDays + '日前';
     if (diffDays === 7) return isEn ? _T('ui.oneWeekAgo', '1週間前') : '1週間前';
+    if (window.I18N && I18N.lang === 'es') return d.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
     if (isEn) return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const DAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
     return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日（' + DAY_JA[d.getDay()] + '）';
@@ -1650,7 +1678,7 @@ function _listMetaDate(ts) {
 
 /* 最近読んだ履歴のグルーピング用：今日 / 昨日 / それ以前 の3値のみ返す */
 function _listMetaDateGroup(ts) {
-    const isEn = window.I18N && I18N.lang === 'en';
+    const isEn = window.I18N && I18N.lang !== 'ja';
     if (!ts) return isEn ? _T('ui.earlier', 'それ以前') : 'それ以前';
     const d = new Date(ts);
     const now = new Date();

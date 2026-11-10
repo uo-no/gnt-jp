@@ -729,7 +729,7 @@ async function _hlRenderHighlightList(app) {
     tabsHtml += `</div>`;
 
     /* 章ごとに本文をfetch（同じ章は1回のみ） */
-    const _hlTrans = (window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955';
+    const _hlTrans = (window.I18N && I18N.lang === 'en') ? 'WEB' : (window.I18N && I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
     const chFetches = {};
     filtered.forEach(h => {
         const key = `${h.book}:${h.chapter}`;
@@ -748,10 +748,11 @@ async function _hlRenderHighlightList(app) {
             const bookName = _bookFullName(h.book);
             const titleText = `${bookName} ${h.chapter}:${h.verse}`;
             const isEnHL = window.I18N && I18N.lang === 'en';
+            const isEsHL = window.I18N && I18N.lang === 'es';
             const rangeLabel = h.tokenStart == null ? _T('ui.wholeVerse', '節全体') :
                 (h.tokenStart === h.tokenEnd
-                    ? (isEnHL ? `Word ${h.tokenStart}` : `語${h.tokenStart}`)
-                    : (isEnHL ? `Words ${h.tokenStart}–${h.tokenEnd}` : `語${h.tokenStart}–${h.tokenEnd}`));
+                    ? (isEsHL ? `Palabra ${h.tokenStart}` : isEnHL ? `Word ${h.tokenStart}` : `語${h.tokenStart}`)
+                    : (isEsHL ? `Palabras ${h.tokenStart}–${h.tokenEnd}` : isEnHL ? `Words ${h.tokenStart}–${h.tokenEnd}` : `語${h.tokenStart}–${h.tokenEnd}`));
             const href = `index.html?book=${encodeURIComponent(h.book)}&ch=${encodeURIComponent(h.chapter)}&verse=${encodeURIComponent(h.verse)}${h.tokenStart != null ? '&hltoken=' + Number(h.tokenStart) : ''}`;
             const verseText = chData[`${h.book}:${h.chapter}`]?.verses?.[String(h.verse)] || '';
             const previewHtml = verseText ? `<div class="list-item-preview">${_escH(verseText)}</div>` : '';
@@ -771,7 +772,7 @@ async function _hlRenderHighlightList(app) {
         const bkRows = bookmarks.map(b => {
             const bk = _bookShortName(b.bookKey);
             const title = (b.bookKey && b.chapter != null && b.verse != null)
-                ? ((window.I18N && I18N.lang === 'en') ? `${bk} ${b.chapter}:${b.verse}` : `${bk}${b.chapter}章${b.verse}節`)
+                ? ((window.I18N && I18N.lang !== 'ja') ? `${bk} ${b.chapter}:${b.verse}` : `${bk}${b.chapter}章${b.verse}節`)
                 : (b.ref || '');
             const href = (b.bookKey && b.chapter != null && b.verse != null)
                 ? `index.html?book=${encodeURIComponent(b.bookKey)}&ch=${encodeURIComponent(b.chapter)}&verse=${encodeURIComponent(b.verse)}&panel=study`

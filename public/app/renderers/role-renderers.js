@@ -124,7 +124,7 @@ async function _renderRoleReadingView(app, srData, elData) {
         const jaByRef = new Map();
         for (const [r, tok] of _rkRefToBd) { if (tok && tok.japanese) jaByRef.set(r, tok.japanese); }
         let _rkLabelMap = jaByRef;
-        if (window.I18N && I18N.lang === 'en') {
+        if (window.I18N && I18N.lang !== 'ja') {
             const enByRef = new Map();
             const _segState = _segLabelState();
             for (const [r, tok] of _rkRefToBd) {
@@ -133,8 +133,8 @@ async function _renderRoleReadingView(app, srData, elData) {
                     const label = _segDedupeLabel(tok, gloss, _segState);
                     let _lbl = label;
                     if (_lbl == null) {
-                        const _lex = (typeof _enShortGloss === 'function') ? _enShortGloss(tok.lemmaId) : null;
-                        _lbl = _lex || tok.japanese || '';
+                        const _lex = (typeof _uiShortGloss === 'function') ? _uiShortGloss(tok.lemmaId) : null;
+                        _lbl = _lex || ((window.I18N && I18N.lang === 'es') ? (tok.text || '') : (tok.japanese || ''));
                     }
                     enByRef.set(r, _lbl);
                 }
@@ -313,7 +313,7 @@ async function _buildLocalRelationFrame(ref) {
         for (const tok of bd) { if (tok && tok.ref && tok.japanese) jaByRef.set(tok.ref, tok.japanese); }
     }
     let _lrfLabelMap = jaByRef;
-    if (window.I18N && I18N.lang === 'en' && Array.isArray(bd)) {
+    if (window.I18N && I18N.lang !== 'ja' && Array.isArray(bd)) {
         const enByRef = new Map();
         const _segState = _segLabelState();
         for (const tok of bd) {
@@ -322,8 +322,8 @@ async function _buildLocalRelationFrame(ref) {
                 const label = _segDedupeLabel(tok, gloss, _segState);
                 let _lbl = label;
                 if (_lbl == null) {
-                    const _lex = (typeof _enShortGloss === 'function') ? _enShortGloss(tok.lemmaId) : null;
-                    _lbl = _lex || tok.japanese || '';
+                    const _lex = (typeof _uiShortGloss === 'function') ? _uiShortGloss(tok.lemmaId) : null;
+                    _lbl = _lex || ((window.I18N && I18N.lang === 'es') ? (tok.text || '') : (tok.japanese || ''));
                 }
                 enByRef.set(tok.ref, _lbl);
             }
