@@ -405,9 +405,9 @@ function _openSegPeek(segEl, tis) {
             head.appendChild(g);
             const lem = document.createElement('span');
             lem.className = 'word-peek-lemma';
-            const _wTag = _glossSidecarFor(w) || w.japanese;
+            const _wTag = _glossSidecarFor(w) || ((window.I18N && I18N.lang === 'es') ? '' : w.japanese);
             const _tagSuffix = _wTag
-                ? ((window.I18N && I18N.lang === 'en') ? ' (' + _wTag + ')' : '（' + _wTag + '）')
+                ? ((window.I18N && I18N.lang !== 'ja') ? ' (' + _wTag + ')' : '（' + _wTag + '）')
                 : '';
             lem.textContent = _T('panel.lemmaPrefix', '原形：') + (w.lemma || '') + _tagSuffix;
             head.appendChild(lem);
@@ -630,7 +630,9 @@ function _fgGuideStart(chip) {
     const hint = document.createElement('div');
     hint.className = 'fg-guide-hint';
     hint.id = 'fg-guide-hint';
-    hint.textContent = (window.I18N && I18N.lang === 'en')
+    hint.textContent = (window.I18N && I18N.lang === 'es')
+        ? 'Toca cualquier palabra para explorarla.'
+        : (window.I18N && I18N.lang === 'en')
         ? 'Tap any word to explore it.'
         : '気になる語を押してみてください';
     document.body.appendChild(hint);

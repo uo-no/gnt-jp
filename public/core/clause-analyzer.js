@@ -1369,12 +1369,77 @@ const _CONNECTOR_TYPE_BY_KEY = {
 };
 
 // combine() が入力文字列から元の _WALLACE_TEXT キーを逆引きするための表
+
+// スペイン語UI 用の対応テーブル。JA の _WALLACE_TEXT と 1:1 で対応する。
+const _WALLACE_TEXT_ES = {
+    DISCOURSE_EXPLANATION:
+        'Aquí se da una explicación de por qué lo anterior se mantiene.',
+    CONTENT:
+        'Aquí se aclara el contenido concreto de lo dicho.',
+    COMPLEMENT:
+        'Aquí se declara el contenido completo de lo dicho.',
+    PURPOSE:
+        'Aquí se muestra el propósito buscado.',
+    EXPLANATORY_PURPOSE:
+        'Aquí el propósito se detalla más.',
+    RESULT:
+        'Aquí se declara el desenlace o resultado.',
+    CONDITION:
+        'Aquí se plantea una condición como premisa.',
+    CONTRAST_EXPLANATION:
+        'Aquí se muestra un contraste con lo anterior, y la dirección cambia.',
+    UNCLASSIFIED:
+        'Aquí se añade la situación o el trasfondo.',
+    TRUE_NARRATIVE: 'Aquí se completan acontecimientos o circunstancias de fondo.',
+    REASON:         'Aquí se da la razón de lo dicho.',
+    SIMILE:         'Aquí se usa una comparación para explicar.',
+    TEMPORAL:       'Aquí se muestra el momento o la secuencia de los acontecimientos.',
+    APPROX_CAUSE:   'Aquí se sugiere una razón general.',
+    RELATIVE:       'Aquí, lo que sigue describe algo con más detalle.',
+    GENITIVE_POSSESSIVE:   'Aquí se muestra a quién pertenece algo.',
+    GENITIVE_DESCRIPTIVE:  'Aquí se describe una cualidad o un tipo.',
+    GENITIVE_PARTITIVE:    'Aquí se toma una parte de un todo mayor.',
+    GENITIVE_ATTRIBUTIVE:  'Aquí se expresa una cualidad característica.',
+    GENITIVE_EPEXEGETICAL: 'Aquí se reformula el significado de la palabra anterior.',
+    GENITIVE_RELATIONSHIP: 'Aquí se declara un vínculo familiar o una relación personal.',
+    GENITIVE_MATERIAL:     'Aquí se muestra el material del que algo está hecho.',
+    GENITIVE_CONTENT:      'Aquí se muestra lo que algo contiene.',
+    GENITIVE_ATTRIBUTED:   'Aquí el orden de las palabras se invierte para que una cualidad destaque.',
+    GENITIVE_PREDICATE:    'Aquí algo se identifica como perteneciente a otra cosa.',
+    GENITIVE_SUBJECTIVE:   'Aquí se muestra quién realiza la acción.',
+    GENITIVE_OBJECTIVE:    'Aquí se muestra quién recibe la acción.',
+    GENITIVE_PLENARY:      'Aquí la palabra puede leerse como quien realiza o como quien recibe — ambas lecturas quedan abiertas.',
+    GENITIVE_COMPARISON:   'Aquí algo se compara, y se muestra el término de la comparación.',
+    GENITIVE_SEPARATION:   'Aquí se muestra un movimiento de alejamiento de algo.',
+    GENITIVE_TIME:         'Aquí se muestra el tiempo en que algo sucede.',
+    GENITIVE_PLACE:        'Aquí se muestra el lugar donde algo sucede.',
+    GENITIVE_AGENCY:       'Aquí se muestra quién lleva a cabo la acción.',
+    GENITIVE_MEANS:        'Aquí se muestra cómo se hace algo.',
+    GENITIVE_SOURCE:       'Aquí se muestra la fuente o el origen.',
+    GENITIVE_ABSOLUTE:     'Aquí se añade un acontecimiento de fondo junto a la acción principal.',
+    GENITIVE_DIRECT_OBJECT: 'Aquí se muestra, mediante esta forma, quién recibe la acción.',
+    ARTICLE_MONADIC:          'Aquí la palabra apunta a algo único — el único de su clase.',
+    ARTICLE_GENERIC:          'Aquí la palabra no se refiere a una persona o cosa en concreto, sino a la categoría en su conjunto.',
+    ARTICLE_PREVIOUS_REF:     'Aquí se vuelve a mencionar algo ya citado.',
+    ARTICLE_PAR_EXCELLENCE:   'Aquí la palabra apunta al ejemplo más conocido o más representativo.',
+    ARTICLE_SIMPLE_ID:        'Aquí la palabra identifica qué cosa concreta se quiere decir.',
+    ARTICLE_WELL_KNOWN:       'Aquí la palabra apunta a algo que todos reconocerían.',
+    ARTICLE_ABSTRACT:         'Aquí lo que se quiere decir es una idea o un concepto en sí — no una cosa.',
+    ARTICLE_DEICTIC:          'Aquí la palabra apunta directamente a algo presente.',
+    ARTICLE_KATAPHORIC:       'Aquí la palabra apunta hacia adelante — aquello a lo que se refiere se explica justo después.',
+    ARTICLE_GRANVILLE_SHARP:  'Aquí dos títulos están vinculados, y ambos se refieren a la misma persona.',
+    ARTICLE_COLWELL:          'Aquí el orden de las palabras muestra qué término lleva el peso principal de la declaración.',
+};
+
 const _WALLACE_TEXT_TO_KEY = new Map(
     Object.entries(_WALLACE_TEXT).map(([key, text]) => [text, key])
 );
 // 英語UI 用逆引き（combine() の EN パスで connector type を参照するために使用）
 const _WALLACE_TEXT_EN_TO_KEY = new Map(
     Object.entries(_WALLACE_TEXT_EN).map(([key, text]) => [text, key])
+);
+const _WALLACE_TEXT_ES_TO_KEY = new Map(
+    Object.entries(_WALLACE_TEXT_ES).map(([key, text]) => [text, key])
 );
 
 class ReadingFormatter {
@@ -1407,7 +1472,8 @@ class ReadingFormatter {
 
         const key   = this._resolveGlossKey(discourseType, clauseType);
         const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
-        const text  = assertReadingTextSafe((_isEn ? _WALLACE_TEXT_EN : _WALLACE_TEXT)[key]);
+        const _isEs = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
+        const text  = assertReadingTextSafe((_isEs ? _WALLACE_TEXT_ES : _isEn ? _WALLACE_TEXT_EN : _WALLACE_TEXT)[key]);
 
         return {
             title:          text,
@@ -1430,12 +1496,16 @@ class ReadingFormatter {
 
         if (id === 'nominative.pendens') {
             if (!signals.has('initial') || !signals.has('resume')) return null;
-            text = _isEn
+            text = (typeof window !== 'undefined' && window.I18N && I18N.lang === 'es')
+                ? 'Esta palabra aparece cerca del comienzo de la oración, y un pronombre la retoma más adelante. Puedes comprobar en el texto si se trata de una estructura en la que el tema se presenta primero, y qué está retomando el pronombre.'
+                : _isEn
                 ? 'This word appears near the beginning of the sentence, and a pronoun later takes it up again. You can check in the text whether this is a structure where the topic is set out first, and what the pronoun is picking up.'
                 : 'この語は文の初め近くに置かれ、後の代名詞が受け直しています。主題を先に示す構造かどうか、代名詞が何を受けているかを本文で確かめられます。';
         } else if (id === 'infinitive.imperatival') {
             if (!signals.has('no_finite_verb') || !signals.has('anarthrous_inf')) return null;
-            text = _isEn
+            text = (typeof window !== 'undefined' && window.I18N && I18N.lang === 'es')
+                ? 'La pista para esta lectura es que no hay un verbo principal en la oración, y la palabra aparece sin artículo. Sin embargo, estos dos puntos por sí solos no confirman un uso imperativo. Comprueba si podría servir como propósito o como complemento, y considera cómo se conecta con las oraciones que la rodean.'
+                : _isEn
                 ? 'The clue to this reading is that there is no main verb in the sentence, and the word appears without an article. However, these two points alone do not confirm an imperatival use. Check whether it might serve as purpose or supplemental, and consider how it connects with the surrounding sentences.'
                 : 'この読み方の手がかりは、文の中心となる動詞が見当たらず、冠詞も付いていないことです。ただし、この二点だけで命令とは決まりません。目的や補足を表す働きではないか、前後の文とのつながりも確かめてください。';
         }
@@ -1452,7 +1522,9 @@ class ReadingFormatter {
         const label = String(targetLabel ?? '').trim();
         if (!label) return null;
         const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
-        return assertReadingTextSafe(_isEn
+        return assertReadingTextSafe((typeof window !== 'undefined' && window.I18N && I18N.lang === 'es')
+            ? `"${label}" es referido como quien realiza la acción expresada por esta palabra.`
+            : _isEn
             ? `"${label}" is referred to as the one who performs the action expressed by this word.`
             : `この語が表す動作を行う側として「${label}」が参照されています。`);
     }
@@ -1495,6 +1567,21 @@ class ReadingFormatter {
         if (list.length === 1) return assertReadingTextSafe(list[0]);
 
         const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+
+        const _isEs = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
+        if (_isEs) {
+            // ES: strip 'Aquí ' prefix and '.' suffix, join with Spanish connectives.
+            const CONNECTOR_TEXT_ES = { A: ', y ', B: ', pero ', C: ', y también ' };
+            const bodies = list.map(s2 => s2.replace(/^Aquí /, '').replace(/\.$/, ''));
+            let combined = 'Aquí ' + bodies[0];
+            for (let i = 1; i < bodies.length; i++) {
+                const key  = _WALLACE_TEXT_ES_TO_KEY.get(list[i]);
+                const type = _CONNECTOR_TYPE_BY_KEY[key] || 'A';
+                combined += CONNECTOR_TEXT_ES[type] + bodies[i];
+            }
+            combined += '.';
+            return assertReadingTextSafe(combined);
+        }
 
         if (_isEn) {
             // EN: strip 'Here, ' prefix and '.' suffix, join with English connectives.
@@ -1546,9 +1633,10 @@ class ReadingFormatter {
 
     // 絶対原則「confidenceをUIに出さない」を優先し数値は出さない（注記(2)参照）
     _getConfidenceText(confidence) {
-        if (confidence >= 0.95) return '解析は安定しています。';
-        if (confidence >= 0.80) return '一般的な解釈です。';
-        return '複数の解釈が考えられます。';
+        const _es = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
+        if (confidence >= 0.95) return _es ? 'El análisis es estable.' : '解析は安定しています。';
+        if (confidence >= 0.80) return _es ? 'Es la interpretación general.' : '一般的な解釈です。';
+        return _es ? 'Son posibles varias interpretaciones.' : '複数の解釈が考えられます。';
     }
 }
 

@@ -79,7 +79,7 @@ function _renderQuoteFromSidecar(p, endIdx, words) {
 }
 
 function _renderQuoteViaEngine(p, endIdx, words) {
-    if (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en') {
+    if (typeof window !== 'undefined' && window.I18N && I18N.lang !== 'ja') {
         const q = _renderQuoteFromSidecar(p, endIdx, words);
         return q ? _escH(q) : '';
     }
@@ -101,6 +101,15 @@ const _PP_TRANS_JP = {
     'μετά':(c) => c === 'genitive' ? 'とともに' : 'の後で',
     'κατά':()  => 'に従って',
 };
+const _PP_TRANS_ES = {
+    'ἐν':  ()  => 'en',
+    'εἰς': ()  => 'a / hacia',
+    'ἐκ':  ()  => 'de / desde',
+    'ἀπό': ()  => 'desde',
+    'διά': (c) => c === 'genitive' ? 'a través de' : 'por causa de',
+    'μετά':(c) => c === 'genitive' ? 'con' : 'después de',
+    'κατά':()  => 'según',
+};
 const _PP_TRANS_EN = {
     'ἐν':  ()  => 'in',
     'εἰς': ()  => 'into',
@@ -113,7 +122,10 @@ const _PP_TRANS_EN = {
 
 function _buildPhraseContext(p, end, words) {
     const _isEn  = window.I18N && I18N.lang === 'en';
-    const jaOf   = _isEn
+    const _isEs  = window.I18N && I18N.lang === 'es';
+    const jaOf   = _isEs
+        ? (w => _escH((w && (typeof _glossSidecarOnlyFor === 'function' ? _glossSidecarOnlyFor(w) : null)) || (w && w.text) || ''))
+        : _isEn
         ? (w => _escH((w && (w.english || w.text)) || ''))
         : (w => _escH((w && (w.japanese || w.text)) || ''));
     const tokens = words.slice(p.start, end + 1);
@@ -154,6 +166,12 @@ function _buildPhraseContext(p, end, words) {
 
 function _renderDefault(ctx) {
     const _isEn = window.I18N && I18N.lang === 'en';
+    const _isEs = window.I18N && I18N.lang === 'es';
+    if (_isEs) {
+        return ctx.tokens
+            .map(w => _escH((w && (typeof _glossSidecarOnlyFor === 'function' ? _glossSidecarOnlyFor(w) : null)) || (w && w.text) || ''))
+            .filter(Boolean).join(' ');
+    }
     return ctx.tokens
         .map(w => _escH((w && (_isEn ? (w.english || w.text) : (w.japanese || w.text))) || ''))
         .filter(Boolean).join('');
@@ -173,6 +191,15 @@ function _renderPP_EN(ctx) {
     const modEn    = ctx.modifiers.map(m => m.ja).filter(Boolean).join(' ');
     const headEn   = ctx.head ? ctx.head.ja : '';
     const body     = [modEn, headEn].filter(Boolean).join(' ');
+    return prefix ? prefix + (body ? ' ' + body : '') : body;
+}
+
+function _renderPP_ES(ctx) {
+    const prefixFn = ctx.prep ? _PP_TRANS_ES[ctx.prep.lemma] : null;
+    const prefix   = prefixFn ? prefixFn(ctx.case) : (ctx.prep ? ctx.prep.ja : '');
+    const modEs    = ctx.modifiers.map(m => m.ja).filter(Boolean).join(' ');
+    const headEs   = ctx.head ? ctx.head.ja : '';
+    const body     = [modEs, headEs].filter(Boolean).join(' ');
     return prefix ? prefix + (body ? ' ' + body : '') : body;
 }
 
@@ -198,11 +225,22 @@ const _PHRASE_RENDERERS_EN = {
     NP:   _renderNP,
     PtcP: _renderParticipial,
 };
+function _renderNP_ES(ctx) {
+    const modEs  = ctx.modifiers.map(m => m.ja).filter(Boolean).join(' ');
+    const headEs = ctx.head ? ctx.head.ja : '';
+    return [modEs, headEs].filter(Boolean).join(' ');
+}
+const _PHRASE_RENDERERS_ES = {
+    PP:   _renderPP_ES,
+    NP:   _renderNP_ES,
+    PtcP: _renderNP_ES,
+};
 
 function renderPhraseJP(p, end, words) {
     const ctx    = _buildPhraseContext(p, end, words);
     const _isEn  = window.I18N && I18N.lang === 'en';
-    const render = (_isEn ? _PHRASE_RENDERERS_EN : _PHRASE_RENDERERS)[ctx.type] || _renderDefault;
+    const _isEs  = window.I18N && I18N.lang === 'es';
+    const render = ((_isEs ? _PHRASE_RENDERERS_ES : _isEn ? _PHRASE_RENDERERS_EN : _PHRASE_RENDERERS)[ctx.type]) || _renderDefault;
     return render(ctx);
 }
 
@@ -211,6 +249,13 @@ function _phraseReadingSentence(kind, quoted) {
         case 'PP':   return `「${quoted}」は、ひとつづきのまとまりです。`;
         case 'PtcP': return `「${quoted}」は、ここまでをまとめて読むと意味がつながります。`;
         default:     return `「${quoted}」は、ここまでで一つの内容です。`;
+    }
+}
+function _phraseReadingSentenceES(kind, quoted) {
+    switch (kind) {
+        case 'PP':   return `"${quoted}" forma una sola frase preposicional.`;
+        case 'PtcP': return `Leer "${quoted}" como una unidad hace que el significado fluya.`;
+        default:     return `"${quoted}" forma una sola unidad de significado.`;
     }
 }
 function _phraseReadingSentenceEN(kind, quoted) {
@@ -281,6 +326,33 @@ const _PHRASE_INTENT_TEXT_EN = {
                      'Reading it together without breaking it apart helps the meaning land.'],
 };
 
+const _PHRASE_INTENT_TEXT_ES = {
+    background:     ['Esta frase prepara el trasfondo antes del pensamiento principal.',
+                     'Leerla primero ayuda a que lo que sigue tenga sentido.'],
+    reason:         ['Esta frase da la razón de lo dicho.',
+                     'Conectarla con lo anterior ayuda a que el significado se haga claro.'],
+    purpose:        ['Esta frase muestra el fin al que apunta la acción.',
+                     'Tener presente la meta mientras lees ayuda a que el flujo conecte.'],
+    result:         ['Esta frase muestra lo que resulta de lo dicho.',
+                     'Leerla como la consecuencia de lo anterior hace visible la conexión.'],
+    condition:      ['Esta frase plantea una condición, un «si».',
+                     'Tener en mente esa condición mientras lees ayuda a seguir el flujo.'],
+    concession:     ['Esta frase anuncia que lo que sigue va contra lo esperado.',
+                     'Leer con un «y sin embargo» en mente ayuda a ver la dirección.'],
+    comparison:     ['Esta frase introduce un punto de comparación.',
+                     'Leer teniendo presente la comparación ayuda a destacar el significado.'],
+    contrast:       ['Esta frase plantea un contraste con lo anterior.',
+                     'Poner los dos lados uno junto al otro aclara la dirección.'],
+    explanation:    ['Esta frase describe el contenido o la naturaleza de una palabra clave.',
+                     'Notar a qué palabra califica hace más fácil seguir el pasaje.'],
+    identification: ['Esta frase identifica de quién o de qué se trata.',
+                     'Mantener en mente a la misma persona o cosa mientras lees muestra la conexión.'],
+    progression:    ['Esta frase anuncia que el relato avanza.',
+                     'Leerla como un punto de giro ayuda a seguir el flujo.'],
+    single_action:  ['Esta frase expresa un solo movimiento tomado como un todo.',
+                     'Leerla junta, sin partirla, ayuda a que el significado llegue.'],
+};
+
 /* 意味層の選択（1句1現象の原則・docs/phrase-reading.md Phase E）:
    対象語の categories から「phrase scope × phrase_reading の priority ×
    confidence ≥ min_confidence × intent 定義済み」の現象を探し、
@@ -294,7 +366,7 @@ function _phraseIntentLines(proj, idx) {
     if (!policy || !rule) return [];
     const minConf    = policy.rules?.min_confidence ?? 0.40;
     const prios      = rule.priorities || [];
-    const textTable  = (window.I18N && I18N.lang === 'en') ? _PHRASE_INTENT_TEXT_EN : _PHRASE_INTENT_TEXT;
+    const textTable  = (window.I18N && I18N.lang === 'es') ? _PHRASE_INTENT_TEXT_ES : (window.I18N && I18N.lang === 'en') ? _PHRASE_INTENT_TEXT_EN : _PHRASE_INTENT_TEXT;
     let best = null;
     for (const c of Object.values(w.categories)) {
         if (!c || c.confidence < minConf) continue;
@@ -319,6 +391,7 @@ function _phraseIntentLines(proj, idx) {
    「このまとまりは、」を「「◯◯」のまとまりは、」に置き換えるだけ。 */
 const _PHRASE_INTENT_LEAD    = 'このまとまりは、';
 const _PHRASE_INTENT_LEAD_EN = 'This phrase ';
+const _PHRASE_INTENT_LEAD_ES = 'Esta frase ';
 function _phraseIntentStandaloneHTML(words, idx, proj) {
     try {
         const intentLines = _phraseIntentLines(proj, idx);
@@ -327,9 +400,10 @@ function _phraseIntentStandaloneHTML(words, idx, proj) {
         const quoted = _renderQuoteViaEngine({ type: '', start: idx, end: idx }, idx, words);
         if (!quoted) return null;
         const _isEn = window.I18N && I18N.lang === 'en';
-        const LEAD  = _isEn ? _PHRASE_INTENT_LEAD_EN : _PHRASE_INTENT_LEAD;
+        const _isEs = window.I18N && I18N.lang === 'es';
+        const LEAD  = _isEs ? _PHRASE_INTENT_LEAD_ES : _isEn ? _PHRASE_INTENT_LEAD_EN : _PHRASE_INTENT_LEAD;
         const first = intentLines[0].startsWith(LEAD)
-            ? (_isEn
+            ? ((_isEn || _isEs)
                 ? `"${quoted}" ` + intentLines[0].slice(LEAD.length)
                 : `「${quoted}」のまとまりは、` + intentLines[0].slice(LEAD.length))
             : intentLines[0];
@@ -467,6 +541,7 @@ function _flowTreeJaForRef(ref) {
    （644行: filter で truthiness 判定。JA/EN どちらも同じ 9 キーを持つ）。 */
 const _SF_ROLE_JA = { s: '主語', o: '目的語', o2: '第二目的語', io: '間接目的語', v: '動詞', vc: '繋ぎの動詞', p: '補語', adv: '副詞的', aux: '助動詞' };
 const _SF_ROLE_EN = { s: 'subject', o: 'object', o2: 'second object', io: 'indirect object', v: 'verb', vc: 'linking verb', p: 'complement', adv: 'adverbial', aux: 'auxiliary' };
+const _SF_ROLE_ES = { s: 'sujeto', o: 'objeto', o2: 'segundo objeto', io: 'objeto indirecto', v: 'verbo', vc: 'verbo copulativo', p: 'complemento', adv: 'adverbial', aux: 'auxiliar' };
 /* SF-16: Structure Flow 横軸の「表示配置優先順位」（文法的正解語順ではなく UI layout rank）。
  * 原文順は Word Order Flow が担うため、Structure Flow は関係を読みやすい順で並べる。
  * role を持たない語は 8（末尾・元の相対順を維持）。role の推測付与はしない。 */
@@ -600,14 +675,14 @@ function _sfSubjectHTML(n) {
         }
     }
     if (segs.length < 2) return null; // 単一 segment＝従来 chip と同義（変化させない）
-    const segHTML = segs.map(s => `<span class="sf-subj-seg">${_sfTokenChipsHTML(s.refs) || _escH(_ft11LabelOf(s.refs) || '（この構成語）')}</span>`).join('');
+    const segHTML = segs.map(s => `<span class="sf-subj-seg">${_sfTokenChipsHTML(s.refs) || _escH(_ft11LabelOf(s.refs) || ((typeof window !== 'undefined' && window.I18N && I18N.lang === 'es') ? '(este elemento)' : (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en') ? '(this element)' : '（この構成語）'))}</span>`).join('');
     return `<span class="sf-chip sf-ctx sf-subj-struct">${segHTML}</span>`;
 }
 function _sfRenderRelationFlow(m) {
     const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
-    const _roleTable = _isEn ? _SF_ROLE_EN : _SF_ROLE_JA;
+    const _roleTable = (window.I18N && I18N.lang === 'es') ? _SF_ROLE_ES : _isEn ? _SF_ROLE_EN : _SF_ROLE_JA;
     const roleLabel = (n) => (n && n.role && _roleTable[n.role]) ? _roleTable[n.role] : '';
-    const _placeholder = _isEn ? '(this element)' : '（この構成語）';
+    const _placeholder = (window.I18N && I18N.lang === 'es') ? '(este elemento)' : _isEn ? '(this element)' : '（この構成語）';
     const chip = (n, isF) => {
         // SF-32: 3 token 以上の relation のみ per-token chip 化（2 token 以下は「境目なし連結」問題が
         // 実質なく、chip 化は幅増→枝圧迫の副作用のみのため従来 flat を維持＝C7/通常ケース不変）。
@@ -914,7 +989,7 @@ async function _buildPhraseReadingHTML(words, idx) {
         /* Stage A: Engine 出力ベースの引用（旧 renderPhraseJP は残置・fallback） */
         const quoted = _renderQuoteViaEngine(p, trimmedEnd, words);
         if (!quoted) continue;
-        lines.push(_isEn ? _phraseReadingSentenceEN(p.type, quoted) : _phraseReadingSentence(p.type, quoted));
+        lines.push((window.I18N && I18N.lang === 'es') ? _phraseReadingSentenceES(p.type, quoted) : _isEn ? _phraseReadingSentenceEN(p.type, quoted) : _phraseReadingSentence(p.type, quoted));
 
         /* 『〜の』の関係文: まとまり の中心となる語の後に『〜の』の連なりが
            続く場合のみ、「どれがどれを説明しているか」を一文で示す */

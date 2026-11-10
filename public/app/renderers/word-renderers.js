@@ -38,6 +38,12 @@ const _VERB_MOOD_SIG_EN = {
     N: { label: 'pointing to purpose', cls: 'sig-logic'  },
     S: { label: 'expressing a wish',   cls: 'sig-logic'  },
 };
+const _VERB_MOOD_SIG_ES = {
+    M: { label: 'impulsando a actuar',    cls: 'sig-exhort' },
+    P: { label: 'pintando la escena',     cls: 'sig-logic'  },
+    N: { label: 'apuntando al propósito', cls: 'sig-logic'  },
+    S: { label: 'expresando un deseo',    cls: 'sig-logic'  },
+};
 const _VERB_VOI_SIG_JA = {
     P: { label: '受けとめる側に立っている',     cls: 'sig-word' },
     M: { label: '深く関わりながら動いている', cls: 'sig-word' },
@@ -47,6 +53,11 @@ const _VERB_VOI_SIG_EN = {
     P: { label: 'placed on the receiving side', cls: 'sig-word' },
     M: { label: 'acting with full involvement', cls: 'sig-word' },
     D: { label: 'acting with full involvement', cls: 'sig-word' },
+};
+const _VERB_VOI_SIG_ES = {
+    P: { label: 'en el lado que recibe',          cls: 'sig-word' },
+    M: { label: 'actuando con plena implicación', cls: 'sig-word' },
+    D: { label: 'actuando con plena implicación', cls: 'sig-word' },
 };
 const _NOUN_CASE_SIG_JA = {
     N: { label: '中心にいる',       cls: 'sig-logic' },
@@ -62,8 +73,16 @@ const _NOUN_CASE_SIG_EN = {
     A: { label: 'the goal of the action',     cls: 'sig-logic' },
     V: { label: 'being addressed',            cls: 'sig-logic' },
 };
+const _NOUN_CASE_SIG_ES = {
+    N: { label: 'en el centro',             cls: 'sig-logic' },
+    G: { label: 'en conexión',              cls: 'sig-logic' },
+    D: { label: 'recibiendo la conexión',   cls: 'sig-logic' },
+    A: { label: 'la meta de la acción',     cls: 'sig-logic' },
+    V: { label: 'siendo invocado',          cls: 'sig-logic' },
+};
 const _NOUN_NUM_SIG_JA = { P: { label: '複数で語られている', cls: 'sig-logic' } };
 const _NOUN_NUM_SIG_EN = { P: { label: 'spoken of as plural', cls: 'sig-logic' } };
+const _NOUN_NUM_SIG_ES = { P: { label: 'mencionado en plural', cls: 'sig-logic' } };
 const _ADJ_CASE_SIG_JA = {
     N: { label: '特徴を示している',         cls: 'sig-logic' },
     G: { label: '性質を結びつけている',     cls: 'sig-logic' },
@@ -75,6 +94,12 @@ const _ADJ_CASE_SIG_EN = {
     G: { label: 'linking a characteristic',   cls: 'sig-logic' },
     D: { label: 'coloring what it relates to', cls: 'sig-logic' },
     A: { label: 'speaking to the one it describes', cls: 'sig-logic' },
+};
+const _ADJ_CASE_SIG_ES = {
+    N: { label: 'describiendo una cualidad',             cls: 'sig-logic' },
+    G: { label: 'vinculando una característica',         cls: 'sig-logic' },
+    D: { label: 'dando color a aquello a lo que se refiere', cls: 'sig-logic' },
+    A: { label: 'hablando de aquel a quien describe',    cls: 'sig-logic' },
 };
 const _CONJ_SIG_JA = {
     'γάρ':  { label: 'なぜなら、と理由へ進む',          cls: 'sig-logic'    },
@@ -98,10 +123,23 @@ const _CONJ_SIG_EN = {
     'εἰ':   { label: 'if — entering a conditional thought',   cls: 'sig-logic'    },
     'ὥστε': { label: 'so that — a result follows',           cls: 'sig-logic'    },
 };
+const _CONJ_SIG_ES = {
+    'γάρ':  { label: 'porque — sigue una razón',               cls: 'sig-logic'    },
+    'ἀλλά': { label: 'pero — la dirección cambia',             cls: 'sig-turn'     },
+    'οὖν':  { label: 'por tanto — avanzando a una conclusión', cls: 'sig-logic'   },
+    'δέ':   { label: 'y / ahora — el relato avanza',           cls: 'sig-turn'     },
+    'καί':  { label: 'y — añadiendo a lo anterior',            cls: 'sig-emphasis' },
+    'ἵνα':  { label: 'para que — se introduce un propósito',   cls: 'sig-logic'    },
+    'ὅτι':  { label: 'que — el contenido continúa',            cls: 'sig-logic'    },
+    'εἰ':   { label: 'si — entrando en un pensamiento condicional', cls: 'sig-logic' },
+    'ὥστε': { label: 'de modo que — sigue un resultado',       cls: 'sig-logic'    },
+};
 const _CONJ_SIG_FB_JA = { label: '前後をつないでいる',                    cls: 'sig-logic' };
 const _CONJ_SIG_FB_EN = { label: 'connecting what comes before and after', cls: 'sig-logic' };
+const _CONJ_SIG_FB_ES = { label: 'conectando lo anterior con lo que sigue', cls: 'sig-logic' };
 const _PREP_SIG_JA = { label: '関係の方向を示している',                cls: 'sig-logic' };
 const _PREP_SIG_EN = { label: 'showing the direction of the connection', cls: 'sig-logic' };
+const _PREP_SIG_ES = { label: 'mostrando la dirección de la conexión', cls: 'sig-logic' };
 const _PRON_CASE_SIG_JA = {
     N: { label: '誰の話かを示している',       cls: 'sig-logic' },
     G: { label: '誰に関わるかを示している',   cls: 'sig-logic' },
@@ -113,6 +151,12 @@ const _PRON_CASE_SIG_EN = {
     G: { label: 'pointing to whose concern',            cls: 'sig-logic' },
     D: { label: 'pointing to who receives the connection', cls: 'sig-logic' },
     A: { label: 'pointing to whom the action reaches',  cls: 'sig-logic' },
+};
+const _PRON_CASE_SIG_ES = {
+    N: { label: 'apuntando a quién está en vista',       cls: 'sig-logic' },
+    G: { label: 'apuntando a de quién se trata',         cls: 'sig-logic' },
+    D: { label: 'apuntando a quién recibe la conexión',  cls: 'sig-logic' },
+    A: { label: 'apuntando a quién alcanza la acción',   cls: 'sig-logic' },
 };
 function _getVerseResolved(words) {
     try {
@@ -184,8 +228,8 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
        日本語フィールドではなく辞書（lexicon-lite）の英語グロスへ落とす。 */
     let _lexGloss = null;
     if (!_enGloss && typeof window !== 'undefined' && window.I18N && I18N.lang !== 'ja'
-        && typeof _enShortGloss === 'function') {
-        _lexGloss = _enShortGloss(w.lemmaId);
+        && typeof _uiShortGloss === 'function') {
+        _lexGloss = _uiShortGloss(w.lemmaId);
         if (_lexGloss) gloss = _lexGloss;
     }
     const _enLike = !!_enGloss || !!_lexGloss;
@@ -230,6 +274,7 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
     /* roleClass：chip dot の色付けと signal 生成 */
     const dpGrammarClasses = buildDepthGrammarClasses(rawMorph).join(' ');
     const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+    const _isEs = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
 
     let roleClass = 'role-other';
     const signals = [];
@@ -242,53 +287,56 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
         const voiCode  = (parts[1] || '')[off + 1] || '';
 
         /* 法（Mood）シグナル */
-        const _moodSig = (_isEn ? _VERB_MOOD_SIG_EN : _VERB_MOOD_SIG_JA)[moodCode];
+        const _moodSig = (_isEn ? _VERB_MOOD_SIG_EN : _isEs ? _VERB_MOOD_SIG_ES : _VERB_MOOD_SIG_JA)[moodCode];
         if (_moodSig) signals.push(_moodSig);
 
         /* 時制シグナル（複合条件のため if/else を保持） */
         if (tenCode === 'X')
             signals.push(_isEn ? { label: 'still in effect',           cls: 'sig-promise' }
+                                : _isEs ? { label: 'todavía en efecto',  cls: 'sig-promise' }
                                 : { label: '今も続いている',              cls: 'sig-promise' });
         else if (tenCode === 'A' && moodCode === 'I')
             signals.push(_isEn ? { label: 'stated as a completed event', cls: 'sig-declare' }
+                                : _isEs ? { label: 'presentado como un acontecimiento concluido', cls: 'sig-declare' }
                                 : { label: '一つの出来事として語っている',  cls: 'sig-declare' });
         else if (tenCode === 'F' && moodCode === 'I')
             signals.push(_isEn ? { label: 'declared as certain',        cls: 'sig-promise' }
+                                : _isEs ? { label: 'declarado como seguro', cls: 'sig-promise' }
                                 : { label: '確かに起きると語っている',     cls: 'sig-promise' });
 
         /* 態シグナル */
-        const _voiSig = (_isEn ? _VERB_VOI_SIG_EN : _VERB_VOI_SIG_JA)[voiCode];
+        const _voiSig = (_isEn ? _VERB_VOI_SIG_EN : _isEs ? _VERB_VOI_SIG_ES : _VERB_VOI_SIG_JA)[voiCode];
         if (_voiSig) signals.push(_voiSig);
     }
     else if (pos === 'N')    {
         roleClass = 'role-noun';
         const caseParts = parts[1] || '';
         const base = ['1','2','3'].includes(caseParts[0]) ? caseParts.slice(1) : caseParts;
-        const cs = (_isEn ? _NOUN_CASE_SIG_EN : _NOUN_CASE_SIG_JA)[base[0]];
+        const cs = (_isEn ? _NOUN_CASE_SIG_EN : _isEs ? _NOUN_CASE_SIG_ES : _NOUN_CASE_SIG_JA)[base[0]];
         if (cs) signals.push(cs);
-        const ns = (_isEn ? _NOUN_NUM_SIG_EN : _NOUN_NUM_SIG_JA)[base[1]];
+        const ns = (_isEn ? _NOUN_NUM_SIG_EN : _isEs ? _NOUN_NUM_SIG_ES : _NOUN_NUM_SIG_JA)[base[1]];
         if (ns) signals.push(ns);
     }
     else if (pos === 'A')    {
         roleClass = 'role-adj';
         const caseParts = parts[1] || '';
         const base = ['1','2','3'].includes(caseParts[0]) ? caseParts.slice(1) : caseParts;
-        const cs = (_isEn ? _ADJ_CASE_SIG_EN : _ADJ_CASE_SIG_JA)[base[0]];
+        const cs = (_isEn ? _ADJ_CASE_SIG_EN : _isEs ? _ADJ_CASE_SIG_ES : _ADJ_CASE_SIG_JA)[base[0]];
         if (cs) signals.push(cs);
     }
     else if (pos === 'CONJ') {
         roleClass = 'role-conj';
-        const _conjSig = (_isEn ? _CONJ_SIG_EN : _CONJ_SIG_JA)[w.text];
+        const _conjSig = (_isEn ? _CONJ_SIG_EN : _isEs ? _CONJ_SIG_ES : _CONJ_SIG_JA)[w.text];
         if (_conjSig) signals.push(_conjSig);
-        else signals.push(_isEn ? _CONJ_SIG_FB_EN : _CONJ_SIG_FB_JA);
+        else signals.push(_isEn ? _CONJ_SIG_FB_EN : _isEs ? _CONJ_SIG_FB_ES : _CONJ_SIG_FB_JA);
     }
-    else if (pos === 'PREP') { roleClass = 'role-prep'; signals.push(_isEn ? _PREP_SIG_EN : _PREP_SIG_JA); }
+    else if (pos === 'PREP') { roleClass = 'role-prep'; signals.push(_isEn ? _PREP_SIG_EN : _isEs ? _PREP_SIG_ES : _PREP_SIG_JA); }
     else if (pos === 'T')    { roleClass = 'role-art'; /* 冠詞はsignalなし。静かに */ }
     else if (['P','R','D'].includes(pos)) {
         roleClass = 'role-pron';
         const caseParts = parts[1] || '';
         const base = ['1','2','3'].includes(caseParts[0]) ? caseParts.slice(1) : caseParts;
-        const cs = (_isEn ? _PRON_CASE_SIG_EN : _PRON_CASE_SIG_JA)[base[0]];
+        const cs = (_isEn ? _PRON_CASE_SIG_EN : _isEs ? _PRON_CASE_SIG_ES : _PRON_CASE_SIG_JA)[base[0]];
         if (cs) signals.push(cs);
     }
 

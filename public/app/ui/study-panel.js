@@ -280,7 +280,7 @@ function _openWordListInternal(vNum, words, book, ch) {
             if (_spMode === 'JA1955') {
                 /* WORD_ORDER → 基本訳: 語順を即時表示後、訳文テキストで非同期上書き。
                    英語UIでは UI 言語の基本訳（WEB）を出す（D1）。 */
-                const _fillTransId = (window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955';
+                const _fillTransId = (window.I18N && I18N.lang === 'en') ? 'WEB' : (window.I18N && I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
                 _fillStudyPanelTranslation(_fillTransId, vNum, _vrBookKey, _vrCh, listEl, words);
             }
         }
@@ -296,8 +296,8 @@ function _openWordListInternal(vNum, words, book, ch) {
     const _clBook = book || AppState.location.book;
     const _clCh = ch != null ? ch : AppState.location.chapter;
     const chapterLabel = vNum
-        ? ((window.I18N && I18N.lang === 'en')
-            ? ((_clBook && _clCh != null) ? `${_bookShortName(_clBook.key || _clBook)} ${_clCh}:${vNum}` : `Verse ${vNum}`)
+        ? ((window.I18N && I18N.lang !== 'ja')
+            ? ((_clBook && _clCh != null) ? `${_bookShortName(_clBook.key || _clBook)} ${_clCh}:${vNum}` : _T('ui.verseFallback', `Verse ${vNum}`))
             : (vNum + '節'))
         : '';
     _mobileOpenPanel(chapterLabel || _T('ui.wordList', '語形一覧'), wasOpen);
@@ -322,7 +322,7 @@ function _abbottDesc(digits) {
     const e = (typeof abbottSmithDict !== 'undefined' && abbottSmithDict && digits)
         ? abbottSmithDict[digits] : null;
     if (!e) return '';
-    if (window.I18N && I18N.lang === 'en' && e.descriptionEn) return e.descriptionEn;
+    if (window.I18N && I18N.lang !== 'ja' && e.descriptionEn) return e.descriptionEn;
     return e.description || '';
 }
 
@@ -409,6 +409,7 @@ async function _translationEvidenceText(ref) {
     try {
         if (!ref) return null;
         const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+        const _isEs = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
         const data = await _loadRenderingVariants();
         if (!data) return null;
         const fam = data.family;
@@ -420,7 +421,9 @@ async function _translationEvidenceText(ref) {
                 if (r.substring(0, r.indexOf(':')) === chKey && fam.refs[r] !== mine) others.add(fam.refs[r]);
             }
             if (others.size === 1) {
-                return _isEn
+                return _isEs
+                    ? `Esta palabra también se traduce como "${[...others][0]}" en otra parte de este capítulo. Aquí se traduce como "${mine}".`
+                    : _isEn
                     ? `This word is also rendered as "${[...others][0]}" elsewhere in this chapter. Here it is rendered as "${mine}".`
                     : `この語は、同じ章では「${[...others][0]}」とも訳されています。ここでは「${mine}」になっています。`;
             }
@@ -428,7 +431,9 @@ async function _translationEvidenceText(ref) {
         }
         const bal = data.balanced && data.balanced[ref];
         if (bal) {
-            return _isEn
+            return _isEs
+                ? `Esta palabra también se traduce como "${bal.o}" en otros pasajes. Aquí se traduce como "${bal.r}".`
+                : _isEn
                 ? `This word is also rendered as "${bal.o}" in other passages. Here it is rendered as "${bal.r}".`
                 : `この語は、ほかの箇所では「${bal.o}」とも訳されています。ここでは「${bal.r}」になっています。`;
         }
@@ -436,7 +441,9 @@ async function _translationEvidenceText(ref) {
         if (min) {
             const grp = (data.groups || []).find(g => g.id === min.g);
             if (grp) {
-                return _isEn
+                return _isEs
+                    ? `En la Reina-Valera 1909, esta palabra suele traducirse como "${grp.majority}". Aquí se traduce como "${min.r}".`
+                    : _isEn
                     ? `In the World English Bible, this word is usually rendered as "${grp.majority}". Here it is rendered as "${min.r}".`
                     : `この語は、口語訳ではふだん「${grp.majority}」と訳されています。ここでは「${min.r}」になっています。`;
             }
@@ -457,7 +464,9 @@ function _repetitionEvidenceText(words, idx) {
         if (n < 2) return null;
         const ntCount = (_lexiconData && _lexiconData[lemmaId]) ? (_lexiconData[lemmaId].count || 0) : 0;
         if (n < (ntCount > 200 ? 3 : 2)) return null;
-        return (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en')
+        return (typeof window !== 'undefined' && window.I18N && I18N.lang === 'es')
+            ? `Esta palabra aparece repetidamente en este versículo (${n} veces).`
+            : (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en')
             ? `This word appears repeatedly in this verse (${n} times).`
             : `この語は、この節でくりかえし出てきます（${n}回）。`;
     } catch (_) { return null; }
@@ -531,38 +540,50 @@ function _syntaxContextBlockHTML(chapterTokens, targetRef, hintJa) {
    文脈での見分け方を示す。人手で読み分けを書いた組み合わせに限る。 */
 function _syntaxPairBlockHTML(rawIdSet) {
     const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+    const _isEs = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
     const PAIRS = [
         {
             a: 'verb.imperative_constative', b: 'verb.imperative_ingressive',
             body: '<p><strong>総括的命令</strong>は行為全体を行うよう命じ、<strong>起動的命令</strong>は行為を始めるよう命じます。アオリスト命令法の形はどちらも同じで、区別は形には現れません。</p>',
             body_en: '<p>The <strong>constative imperative</strong> commands an action to be carried out as a whole, while the <strong>ingressive imperative</strong> commands an action to be begun. Both use the same aorist imperative form; the distinction does not appear in the form.</p>',
+            body_es: '<p>El <strong>imperativo constatativo</strong> ordena realizar una acción como un todo, mientras que el <strong>imperativo ingresivo</strong> ordena comenzar una acción. Ambos usan la misma forma de imperativo aoristo; la distinción no aparece en la forma.</p>',
             fact: 'この語はアオリスト・命令法として解析されています。',
             fact_en: 'This word is analyzed as an aorist imperative.',
+            fact_es: 'Esta palabra se analiza como un imperativo aoristo.',
             judge: '行為が一回で完結する事柄か、これから始めて続く事柄かは、前後の文脈と行為の性質から判断します。',
             judge_en: 'Whether the act is something completed in a single action, or something to begin and continue, is judged from the surrounding context and the nature of the act.',
+            judge_es: 'Si el acto es algo que se completa en una sola acción, o algo que se comienza y continúa, se juzga por el contexto que lo rodea y por la naturaleza del acto.',
         },
         {
             a: 'verb.present_customary', b: 'verb.present_iterative',
             body: '<p><strong>習慣的現在</strong>は、その人の通常のあり方や規則的な習慣を述べ、<strong>反復的現在</strong>は、個別の行為の繰り返しを述べます。現在形の形はどちらも同じです。</p>',
             body_en: '<p>The <strong>customary present</strong> states a person\'s usual way of being or a regular habit, while the <strong>iterative present</strong> states the repetition of individual acts. Both use the same present form.</p>',
+            body_es: '<p>El <strong>presente habitual</strong> expresa la manera usual de ser de una persona o un hábito regular, mientras que el <strong>presente iterativo</strong> expresa la repetición de actos individuales. Ambos usan la misma forma de presente.</p>',
             fact: 'この語は現在・直説法として解析されています。',
             fact_en: 'This word is analyzed as a present indicative.',
+            fact_es: 'Esta palabra se analiza como un presente de indicativo.',
             judge: '繰り返しが規則的・恒常的か、その都度のものかは、時間を示す副詞や場面の文脈で判断します。',
             judge_en: 'Whether the repetition is regular and constant, or a matter of each occasion, is judged from adverbs of time and the context of the scene.',
+            judge_es: 'Si la repetición es regular y constante, o algo de cada ocasión, se juzga por los adverbios de tiempo y el contexto de la escena.',
         },
         {
             a: 'verb.imperfect_customary', b: 'verb.imperfect_iterative',
             body: '<p><strong>習慣的未完了</strong>は、過去における通常のあり方や規則的な習慣を述べ、<strong>反復的未完了</strong>は、過去の個別の行為の繰り返しを述べます。未完了形の形はどちらも同じです。</p>',
             body_en: '<p>The <strong>customary imperfect</strong> states a usual state of affairs or a regular habit in the past, while the <strong>iterative imperfect</strong> states the repetition of individual acts in the past. Both use the same imperfect form.</p>',
+            body_es: '<p>El <strong>imperfecto habitual</strong> expresa un estado de cosas usual o un hábito regular en el pasado, mientras que el <strong>imperfecto iterativo</strong> expresa la repetición de actos individuales en el pasado. Ambos usan la misma forma de imperfecto.</p>',
             fact: 'この語は未完了（インパーフェクト）・直説法として解析されています。',
             fact_en: 'This word is analyzed as an imperfect indicative.',
+            fact_es: 'Esta palabra se analiza como un imperfecto de indicativo.',
             judge: '過去の繰り返しが規則的だったか、その都度のものだったかは、時間を示す副詞や場面の文脈で判断します。',
             judge_en: 'Whether the past repetition was regular or a matter of each occasion is judged from adverbs of time and the context of the scene.',
+            judge_es: 'Si la repetición pasada era regular o algo de cada ocasión, se juzga por los adverbios de tiempo y el contexto de la escena.',
         },
     ];
     for (const p of PAIRS) {
         if (rawIdSet.has(p.a) && rawIdSet.has(p.b)) {
-            return _isEn
+            return _isEs
+                ? `<div class="rn-syntax-comparison"><div class="rn-syntax-comparison-title">Cómo distinguir las lecturas</div>${p.body_es}<div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Base</div><div class="rn-syntax-evidence-body"><p><strong>Lo que puede confirmarse en el texto: </strong>${p.fact_es}</p><p><strong>Lo que puede decirse a partir de esto: </strong>${p.judge_es}</p></div></div></div>`
+                : _isEn
                 ? `<div class="rn-syntax-comparison"><div class="rn-syntax-comparison-title">Telling the readings apart</div>${p.body_en}<div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Basis</div><div class="rn-syntax-evidence-body"><p><strong>What can be confirmed from the text: </strong>${p.fact_en}</p><p><strong>What can be said from this: </strong>${p.judge_en}</p></div></div></div>`
                 : `<div class="rn-syntax-comparison"><div class="rn-syntax-comparison-title">読み分け</div>${p.body}<div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">根拠</div><div class="rn-syntax-evidence-body"><p><strong>本文で確認できること：</strong>${p.fact}</p><p><strong>ここから言えること：</strong>${p.judge}</p></div></div></div>`;
         }
@@ -629,14 +650,19 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
             let ctxBlock = '';
             if (m) {
                 const chapterTokens = await _fetchSyntaxChapterTokens(m[1], m[2]);
-                if (chapterTokens) ctxBlock = _syntaxContextBlockHTML(chapterTokens, targetRef, (window.I18N && I18N.lang === 'en' ? (topRaw.hint_en || topRaw.hint_ja) : topRaw.hint_ja));
+                if (chapterTokens) ctxBlock = _syntaxContextBlockHTML(chapterTokens, targetRef, (window.I18N && I18N.lang === 'es' ? (topRaw.hint_es || '') : window.I18N && I18N.lang === 'en' ? (topRaw.hint_en || topRaw.hint_ja) : topRaw.hint_ja));
             }
             const _isEnNote = window.I18N && I18N.lang === 'en';
+            const _isEsNote = window.I18N && I18N.lang === 'es';
             const note = (topRaw.id === 'infinitive.means' && rawIdSet.has('infinitive.time'))
-                ? (_isEnNote
+                ? (_isEsNote
+                    ? 'La construcción ἐν τῷ + infinitivo es una cuyo sentido — «tiempo» o «medio» — se decide por el contexto.'
+                    : _isEnNote
                     ? 'The ἐν τῷ + infinitive construction is one whose reading — "time" or "means" — is decided by context.'
                     : 'ἐν τῷ＋不定詞は、「時」か「手段」かを文脈で判断する用法です。')
-                : (_isEnNote
+                : (_isEsNote
+                    ? `Este uso se decide por el contexto (candidato: ${_escH(topRaw.label_es || '')}).`
+                    : _isEnNote
                     ? `This usage is decided by context (candidate: ${_escH(topRaw.label_en || topRaw.label_ja)}).`
                     : `文脈で判断が分かれる用法です（候補：${_escH(topRaw.label_ja)}）。`);
             return `<div class="rn-syntax-candidates"><div class="rn-syntax-item"><div class="rn-syntax-context-note">${note}</div>${ctxBlock}</div></div>`;
@@ -669,7 +695,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
             const chapterTokens = await _fetchSyntaxChapterTokens(m[1], m[2]);
             if (chapterTokens) {
                 for (const c of needy) {
-                    const block = _syntaxContextBlockHTML(chapterTokens, targetRef, (window.I18N && I18N.lang === 'en' ? (c.hint_en || c.hint_ja) : c.hint_ja));
+                    const block = _syntaxContextBlockHTML(chapterTokens, targetRef, (window.I18N && I18N.lang === 'es' ? (c.hint_es || '') : window.I18N && I18N.lang === 'en' ? (c.hint_en || c.hint_ja) : c.hint_ja));
                     if (block) ctxBlockById.set(c.id, block);
                 }
             }
@@ -681,9 +707,14 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
     const primaryCandidates = unique.slice(0, primaryCount);
     const otherCandidates = unique.slice(primaryCount);
     const renderCandidate = (c, primary) => {
-        const label = _escH((window.I18N && I18N.lang === 'en') ? (c.label_en || c.label_ja) : c.label_ja);
+        const label = _escH((window.I18N && I18N.lang === 'es') ? (c.label_es || '') : (window.I18N && I18N.lang === 'en') ? (c.label_en || c.label_ja) : c.label_ja);
         const _isEnUI = window.I18N && I18N.lang === 'en';
-        const explanation = _isEnUI
+        const _isEsUI = window.I18N && I18N.lang === 'es';
+        const explanation = _isEsUI
+            ? (typeof c.description_es === 'string' && c.description_es.trim()
+                ? c.description_es.trim()
+                : (typeof c.hint_es === 'string' ? c.hint_es.trim() : ''))
+            : _isEnUI
             ? (typeof c.description_en === 'string' && c.description_en.trim()
                 ? c.description_en.trim()
                 : (typeof c.description_ja === 'string' && c.description_ja.trim()
@@ -720,6 +751,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
      */
     let comparisonHTML = '';
     const _isEnCmp = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+    const _isEsCmp = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
     if (
         targetLemma === 'οἶκος' &&
         /(?:JHN|John)[\s._:-]*2[\s._:-]*17(?:[\s._:!-]|$)/i.test(refText) &&
@@ -727,7 +759,17 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         candidateIds.has('genitive.objective') &&
         candidateIds.has('genitive.subjective')
     ) {
-        comparisonHTML = _isEnCmp
+        comparisonHTML = _isEsCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Cómo distinguir las lecturas</div>
+            <p>Si es un <strong>genitivo objetivo</strong>, el sentido es «el celo por la casa»: la casa es aquello hacia lo que se dirige el celo. Si es un <strong>genitivo subjetivo</strong>, el sentido es «el celo que muestra la casa»: la casa es el lado que muestra el celo.</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Base</div><div class="rn-syntax-evidence-body">
+                    <p><strong>Lo que puede confirmarse en el texto: </strong>La frase en genitivo <span lang="el">τοῦ οἴκου σου</span> sigue a <span lang="el">ζῆλος</span>, que expresa celo.</p>
+                    <p><strong>Lo que puede decirse a partir de esto: </strong>Lo que está en cuestión es la relación entre un sustantivo que expresa una acción o un sentimiento y la frase en genitivo. Pero la pista de que existe tal sustantivo es común a ambos candidatos, así que por sí sola no puede decidir si la casa es el lado hacia el que se dirige el celo o el lado que muestra el celo.</p>
+                </div>
+            </div>
+        </div>`
+        : _isEnCmp
         ? `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">Telling the readings apart</div>
             <p>If it is an <strong>objective genitive</strong>, the sense is "zeal for the house" — the house is what the zeal is directed toward. If it is a <strong>subjective genitive</strong>, the sense is "the zeal the house shows" — the house is the side that shows the zeal.</p>
@@ -754,7 +796,17 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         candidateIds.has('genitive.subjective') &&
         candidateIds.has('genitive.objective')
     ) {
-        comparisonHTML = _isEnCmp
+        comparisonHTML = _isEsCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Cómo distinguir las lecturas</div>
+            <p>Con un <strong>genitivo subjetivo</strong>, es «el amor con el que Cristo nos ama»; con un <strong>genitivo objetivo</strong>, es «el amor dirigido hacia Cristo». La diferencia está en si Cristo es quien ama o aquel hacia quien se dirige el amor.</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Base</div><div class="rn-syntax-evidence-body">
+                    <p><strong>Lo que puede confirmarse en el texto: </strong><span lang="el">τοῦ Χριστοῦ</span> es un genitivo que sigue a <span lang="el">τῆς ἀγάπης</span>.</p>
+                    <p><strong>Lo que puede decirse a partir de esto: </strong>La forma gramatical por sí sola no resuelve si Cristo es el sujeto que ama o el objeto del amor. El contexto que lo rodea y el sentido de la expresión «el amor de Cristo» en su conjunto deben sopesarse juntos. Las puntuaciones del análisis no expresan probabilidades.</p>
+                </div>
+            </div>
+        </div>`
+        : _isEnCmp
         ? `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">Telling the readings apart</div>
             <p>With a <strong>subjective genitive</strong>, it is "the love with which Christ loves us"; with an <strong>objective genitive</strong>, it is "love directed toward Christ." The difference is whether Christ is the one who loves, or the one to whom love is directed.</p>
@@ -780,7 +832,16 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
     if (!comparisonHTML &&
         candidateIds.has('nominal_syntax.nested_np') &&
         candidateIds.has('nominal_syntax.modified_np')) {
-        comparisonHTML = _isEnCmp
+        comparisonHTML = _isEsCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Cómo distinguir las lecturas</div>
+            <p class="rn-syntax-comparison-difference"><strong>Diferencia: </strong>una diferencia estructural: si otra frase nominal está incrustada dentro de la frase nominal (una estructura anidada, como el patrón de Apolonio de artículo–sustantivo–artículo–sustantivo en genitivo), o si un modificador está simplemente unido al sustantivo principal.</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Base</div><div class="rn-syntax-evidence-body">
+                    <p>Estos dos son candidatos que explican la estructura de la frase nominal. Cuál es el apropiado se juzga observando no solo la palabra en cuestión, sino también la disposición y la agrupación de los artículos, sustantivos y modificadores que la rodean. La estructura no queda resuelta solo por el orden o la puntuación de los candidatos.</p>
+                </div>
+            </div>
+        </div>`
+        : _isEnCmp
         ? `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">Telling the readings apart</div>
             <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>a structural difference — whether another noun phrase is embedded inside the noun phrase (a nested structure, such as the Apollonius pattern of article–noun–article–genitive noun), or a modifier is simply attached to the head noun.</p>
@@ -802,7 +863,19 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         candidateIds.has('genitive.subjective') &&
         candidateIds.has('genitive.possessive') &&
         candidateIds.has('genitive.objective')) {
-        comparisonHTML = _isEnCmp
+        comparisonHTML = _isEsCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Cómo distinguir las lecturas</div>
+            <p><strong>Genitivo subjetivo:</strong> el genitivo expresa el lado que realiza la acción. Si el sustantivo de acción se sustituye por un verbo, el genitivo corresponde a su sujeto.</p>
+            <p><strong>Genitivo posesivo:</strong> el genitivo expresa una relación de posesión, pertenencia o atribución respecto al sustantivo principal. A veces puede traducirse con «de».</p>
+            <p><strong>Genitivo objetivo:</strong> el genitivo expresa aquello hacia lo que se dirige la acción. Si el sustantivo de acción se sustituye por un verbo, el genitivo corresponde a su objeto.</p>
+            <p class="rn-syntax-comparison-difference"><strong>Diferencia: </strong>una diferencia de significado: si el genitivo expresa «el lado que actúa», «una relación de posesión o pertenencia» o «lo que recibe la acción».</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Base</div><div class="rn-syntax-evidence-body">
+                    <p>La forma del genitivo por sí sola no puede distinguir los tres usos. El significado del sustantivo principal, su relación con el genitivo y el contexto se sopesan juntos. Las puntuaciones de los candidatos no expresan probabilidades.</p>
+                </div>
+            </div>
+        </div>`
+        : _isEnCmp
         ? `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">Telling the readings apart</div>
             <p><strong>Subjective genitive:</strong> the genitive expresses the side that performs the action. If the action noun is replaced by a verb, the genitive corresponds to its subject.</p>
@@ -829,7 +902,16 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
     } else if (!comparisonHTML &&
         candidateIds.has('nominal_syntax.modified_np') &&
         candidateIds.has('nominal_syntax.multiple_modifier_np')) {
-        comparisonHTML = _isEnCmp
+        comparisonHTML = _isEsCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Cómo distinguir las lecturas</div>
+            <p class="rn-syntax-comparison-difference"><strong>Diferencia: </strong>el número de modificadores unidos al sustantivo principal. Si hay varios modificadores, entra en la categoría de «frase nominal con múltiples modificadores»; si solo hay uno, en la de «frase nominal modificada» (una frase con múltiples modificadores es un tipo de frase nominal modificada).</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Base</div><div class="rn-syntax-evidence-body">
+                    <p>Comprueba cuántos modificadores —adjetivos, genitivos, participios, frases preposicionales y similares— están unidos alrededor de esta palabra. No se decide solo por el orden o la puntuación de los candidatos.</p>
+                </div>
+            </div>
+        </div>`
+        : _isEnCmp
         ? `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">Telling the readings apart</div>
             <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>the number of modifiers attached to the head noun. If there are several modifiers, it falls under a "multiple-modifier noun phrase"; if there is only one, under a "modified noun phrase" (a multiple-modifier phrase is a kind of modified noun phrase).</p>
@@ -853,7 +935,17 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         /* ἐν τῷ＋不定詞：時と手段は同じ形で競合する（一次監査・不定詞）。
            手段不定詞は確度が低く候補一覧には出ないため、表示される
            時の不定詞を起点に、しきい値未満の手段候補で発火させる。 */
-        comparisonHTML = _isEnCmp
+        comparisonHTML = _isEsCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Cómo distinguir las lecturas</div>
+            <p class="rn-syntax-comparison-difference"><strong>Diferencia: </strong>una diferencia en la relación de significado: si <span lang="el">ἐν τῷ</span> + infinitivo expresa el «tiempo», simultáneo al acontecimiento de la cláusula principal, o el «medio», «al hacer…».</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Base</div><div class="rn-syntax-evidence-body">
+                    <p><strong>Lo que puede confirmarse en el texto: </strong>La forma —la preposición <span lang="el">ἐν</span> y el artículo <span lang="el">τῷ</span> seguidos de un infinitivo— es exactamente la misma para el tiempo y para el medio.</p>
+                    <p><strong>Lo que puede decirse a partir de esto: </strong>La forma por sí sola no puede decidirlo; el significado del verbo principal y el flujo de la oración se sopesan juntos. La lectura de medio es poco frecuente, y la lectura de tiempo es cercana a la lectura por defecto.</p>
+                </div>
+            </div>
+        </div>`
+        : _isEnCmp
         ? `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">Telling the readings apart</div>
             <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>a difference in the relation of meaning — whether <span lang="el">ἐν τῷ</span> + infinitive expresses the "time," simultaneous with the event of the main clause, or the "means," "by doing …".</p>
@@ -880,7 +972,17 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
            （一次監査・節。理由節は残余条件の定義で unresolved）。
            理由節は確度が低く候補一覧に出ないことがあるため、
            内容節の表示またはしきい値未満の理由節候補で発火させる。 */
-        comparisonHTML = _isEnCmp
+        comparisonHTML = _isEsCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Cómo distinguir las lecturas</div>
+            <p class="rn-syntax-comparison-difference"><strong>Diferencia: </strong>una diferencia en el papel de la cláusula: si la cláusula con <span lang="el">ὅτι</span> expresa el «contenido» de una declaración, un pensamiento o un reconocimiento («que…»), o la «razón» del acontecimiento de la cláusula principal («porque…»).</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Base</div><div class="rn-syntax-evidence-body">
+                    <p><strong>Lo que puede confirmarse en el texto: </strong>Una pista para la lectura de contenido es si un verbo que expresa decir, pensar, saber o algo similar está antes de <span lang="el">ὅτι</span>.</p>
+                    <p><strong>Lo que puede decirse a partir de esto: </strong>La lectura de razón no tiene un marcador formal fijo y se juzga por la conexión de significado con la cláusula principal. Como la forma es la misma, ambas lecturas pueden ser válidas, según el contexto.</p>
+                </div>
+            </div>
+        </div>`
+        : _isEnCmp
         ? `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">Telling the readings apart</div>
             <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>a difference in the role of the clause — whether the <span lang="el">ὅτι</span> clause expresses the "content" of an utterance, a thought, or a recognition ("that …"), or the "reason" for the event of the main clause ("because …").</p>
@@ -904,7 +1006,16 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
         candidateIds.has('clause.purpose_hina')) {
         /* ἵνα 節：目的だけでなく願望・要求の内容も表す（一次監査・節。
            機能候補の併記が実態に合うとされた）。単独候補への注記として出す。 */
-        comparisonHTML = _isEnCmp
+        comparisonHTML = _isEsCmp
+        ? `<div class="rn-syntax-comparison">
+            <div class="rn-syntax-comparison-title">Cómo distinguir las lecturas</div>
+            <p class="rn-syntax-comparison-difference"><strong>Diferencia: </strong>una cláusula con <span lang="el">ἵνα</span> puede expresar no solo el propósito, «para que…», sino también el contenido de un deseo, una orden o una petición, «que…».</p>
+            <div class="rn-syntax-evidence"><div class="rn-syntax-evidence-label">Base</div><div class="rn-syntax-evidence-body">
+                    <p><strong>Lo que puede decirse a partir de esto: </strong>La forma —<span lang="el">ἵνα</span> con el subjuntivo— por sí sola no decide entre el propósito y el contenido; el significado del verbo que introduce la cláusula y el contexto se sopesan juntos.</p>
+                </div>
+            </div>
+        </div>`
+        : _isEnCmp
         ? `<div class="rn-syntax-comparison">
             <div class="rn-syntax-comparison-title">Telling the readings apart</div>
             <p class="rn-syntax-comparison-difference"><strong>Difference: </strong>an <span lang="el">ἵνα</span> clause can express not only purpose, "in order to …", but also the content of a wish, a command, or a request, "that … should …".</p>
@@ -1006,7 +1117,7 @@ async function _renderReadingNotes(p) {
           jaWord への安全網のみ・実トークンでは発火しない）。 */
     const displayLabel    = (window.App?.readingLexicon?.getDisplayLabel(resolvedId)) || jaWord || '';
     /* ③ 語義説明は abbottSmith（下の語義セクション）が担う。gloss_ja は見出しに使わない */
-    const _enUiAbbott = window.I18N && I18N.lang === 'en';
+    const _enUiAbbott = window.I18N && I18N.lang !== 'ja';
     const _abbottDigits = resolvedId ? resolvedId.replace(/^grc:G/i, '') : '';
     if (_enUiAbbott && _abbottDigits && !abbottSmithDict) await loadDict();
     const abbottSmithText = _enUiAbbott
@@ -1068,7 +1179,7 @@ async function _renderReadingNotes(p) {
         const _structIdx = _wlvWordCache.findIndex(t => t.ref === ref);
         const _struct = (typeof _structFn === 'function' && _structIdx >= 0)
             ? _structFn(_wlvWordCache, _structIdx) : null;
-        if (_struct) morphRows.push({ k: _T('panel.structureLabel', '構造'), v: (window.I18N && I18N.lang === 'en') ? (_struct.label_en || _struct.label_ja) : _struct.label_ja, core: false });
+        if (_struct) morphRows.push({ k: _T('panel.structureLabel', '構造'), v: (window.I18N && I18N.lang === 'es') ? (_struct.label_es || '') : (window.I18N && I18N.lang === 'en') ? (_struct.label_en || _struct.label_ja) : _struct.label_ja, core: false });
     }
 
     const morphGridHTML = morphRows.length
@@ -1152,7 +1263,7 @@ async function _renderReadingNotes(p) {
        createReferentEvidence()/_resolveReferentEvidenceText() をそのまま利用する。 */
     const _reText = _resolveReferentEvidenceText(AppState.inspect.data?.referentEvidence);
     const referentEvidenceHTML = _reText
-        ? `<div class="rn-referent-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">${(window.I18N && I18N.lang === 'en') ? `This word refers to "${_escH(_reText)}".` : `この語は「${_escH(_reText)}」を指しています。`}</div>`
+        ? `<div class="rn-referent-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">${(window.I18N && I18N.lang === 'es') ? `Esta palabra se refiere a "${_escH(_reText)}".` : (window.I18N && I18N.lang === 'en') ? `This word refers to "${_escH(_reText)}".` : `この語は「${_escH(_reText)}」を指しています。`}</div>`
         : '';
 
     /* Phase ESM-39: Subjref Evidence を Referent Evidence の直後へ統合
@@ -1622,13 +1733,13 @@ function _buildConcordanceHTML(resolvedId, word) {
     }).join('');
 
     const moreNote = byVerse.size > SHOW
-        ? `<div class="rn-concord-more">${(window.I18N && I18N.lang === 'en') ? _T('panel.moreVerses', '他 {n} 節…').replace('{n}', byVerse.size - SHOW) : `他 ${byVerse.size - SHOW} 節…`}</div>`
+        ? `<div class="rn-concord-more">${(window.I18N && I18N.lang !== 'ja') ? _T('panel.moreVerses', '他 {n} 節…').replace('{n}', byVerse.size - SHOW) : `他 ${byVerse.size - SHOW} 節…`}</div>`
         : '';
 
     return `
     <div class="rn-concord-section">
         <button class="rn-layer-toggle" data-target="rn-concord-body">
-            <span>${(window.I18N && I18N.lang === 'en') ? _T('panel.concordance', '用例一覧（{n}節）').replace('{n}', byVerse.size) : `用例一覧（${byVerse.size}節）`}</span>
+            <span>${(window.I18N && I18N.lang !== 'ja') ? _T('panel.concordance', '用例一覧（{n}節）').replace('{n}', byVerse.size) : `用例一覧（${byVerse.size}節）`}</span>
             <span class="rn-layer-toggle-icon icon">${icon('chevronRight')}</span>
         </button>
         <div class="rn-layer-body" id="rn-concord-body">
@@ -2382,7 +2493,31 @@ const _OBSERVATION_SENTENCES_EN = {
     'conjunction.coordinating_transition': q => `With "${q}", the narrative moves forward.`,
     'particle.particle_an':               q => `"${q}" adds a note of contingency — a sense that things could have gone otherwise.`,
     'particle.rhetorical_particle':       q => `"${q}" signals a strong denial — the expected answer is "no."`,
-};
+}
+const _OBSERVATION_SENTENCES_ES = {
+    'clause.purpose_hina':                q => `Desde «${q}», comienza el propósito — la dirección de «para que» de lo que sigue.`,
+    'conjunction.subordinating_purpose':  q => `Desde «${q}», comienza el propósito — la dirección de «para que» de lo que sigue.`,
+    'clause.substantival_hoti':           q => `Desde «${q}», se despliega el contenido de lo dicho.`,
+    'conjunction.subordinating_content':  q => `Desde «${q}», se despliega el contenido de lo dicho.`,
+    'clause.causal_hoti':                 q => `Desde «${q}», se da la razón de lo anterior.`,
+    'clause.result_hoste':                q => `Desde «${q}», se declara el resultado.`,
+    'conjunction.subordinating_result':   q => `Desde «${q}», se declara el resultado.`,
+    'clause.conditional_third_class':     q => `Desde «${q}», se introduce una condición, un «si».`,
+    'conjunction.subordinating_conditional': q => `Desde «${q}», se introduce una condición, un «si».`,
+    'clause.temporal_hotan':              q => `Desde «${q}», se presenta el momento de los acontecimientos.`,
+    'clause.temporal_hote':               q => `Desde «${q}», se presenta el momento de los acontecimientos.`,
+    'conjunction.subordinating_temporal': q => `Desde «${q}», se presenta el momento de los acontecimientos.`,
+    'clause.comparative_kathos':          q => `Desde «${q}», comienza una comparación — algo se está asemejando a otra cosa.`,
+    'conjunction.subordinating_comparative': q => `Desde «${q}», comienza una comparación — algo se está asemejando a otra cosa.`,
+    'conjunction.coordinating_explanatory': q => `«${q}» comienza a explicar la razón de lo anterior.`,
+    'particle.explanatory_gar':           q => `«${q}» comienza a explicar la razón de lo anterior.`,
+    'conjunction.coordinating_inferential': q => `«${q}» recoge lo anterior y lo lleva hacia una conclusión.`,
+    'particle.inferential_oun':           q => `«${q}» recoge lo anterior y lo lleva hacia una conclusión.`,
+    'conjunction.coordinating_adversative': q => `Con «${q}», la dirección del pensamiento cambia.`,
+    'conjunction.coordinating_transition': q => `Con «${q}», el relato avanza.`,
+    'particle.particle_an':               q => `«${q}» añade un matiz de contingencia — la sensación de que las cosas podrían haber sido de otro modo.`,
+    'particle.rhetorical_particle':       q => `«${q}» anuncia una negación fuerte — la respuesta esperada es «no».`,
+};;
 
 /* multiple スコープ現象の単語役割文（Phase 1: negative_emphasis のみ）。
    節文（_VERSE_NOTE_TEXT）の再利用ではなく「その単語が現象の中で何を
@@ -2455,7 +2590,36 @@ const _WORD_ROLE_TEXT_EN = {
     nominative_pendens:        () => 'This word is the topic of the sentence.',
     conditional_counterfactual:() => 'This "if" introduces a condition that did not actually come true — a "what if it had been otherwise" kind of statement.',
     conditional_assumed_true:  () => 'This "if" does not express doubt — it treats the condition as though it were true.',
-};
+}
+const _WORD_ROLE_TEXT_ES = {
+    negative_emphasis: (token) => {
+        const lm = (token && token.lemma) || '';
+        if (['οὐ', 'οὐκ', 'οὐχ'].includes(lm)) {
+            return 'Esta palabra normalmente significa «no», pero aquí se combina con otra negación (μή) que sigue, formando juntas la negación más fuerte posible: «de ningún modo».';
+        }
+        if (lm === 'μή') {
+            return 'Junto con la negación que la precede (οὐ), esta palabra refuerza la negación hasta convertirla en «de ningún modo» — más fuerte que cada negación por separado.';
+        }
+        return 'Esta palabra está negada por una doble negación (οὐ μή), que es la forma de negación más fuerte que existe: «de ningún modo sucederá».';
+    },
+    men_de_contrast: (token) => {
+        const lm = (token && token.lemma) || '';
+        if (lm === 'μέν') return 'Esta palabra abre la primera mitad de un contraste — el lado de «por una parte». Mira hacia su pareja (δέ), que completa la otra mitad.';
+        if (lm === 'δέ')  return 'Esta palabra recoge la segunda mitad de un contraste — el lado de «por otra parte». Responde a la primera mitad introducida antes por μέν.';
+        return 'Esta palabra forma parte de un contraste (μέν…δέ) que pone dos cosas lado a lado — «por una parte… por otra parte».';
+    },
+    parenthesis: (token) => {
+        const lm = (token && token.lemma) || '';
+        if (lm === 'εἰμί') return 'Esta palabra anuncia una reformulación — «es decir» — e introduce una explicación insertada en el flujo.';
+        if (['λέγω', 'φημί', 'οἶμαι'].includes(lm)) {
+            return 'Esta palabra anuncia que el hablante sale brevemente del hilo principal para añadir algo.';
+        }
+        return 'Desde esta palabra, se inserta una nota explicativa en medio del pensamiento principal.';
+    },
+    nominative_pendens:        () => 'Esta palabra es el tema de la oración.',
+    conditional_counterfactual:() => 'Este «si» introduce una condición que en realidad no se cumplió — una declaración del tipo «qué habría pasado si hubiera sido de otro modo».',
+    conditional_assumed_true:  () => 'Este «si» no expresa duda — trata la condición como si fuera verdadera.',
+};;
 
 async function _buildObservationHTML(words, idx, existingTexts) {
     const proj = await _getReadingSupportProjection(words);
@@ -2480,8 +2644,9 @@ async function _buildObservationHTML(words, idx, existingTexts) {
                (_obRule.priorities || []).includes(ph.priority);
     };
     const _isEnOb    = window.I18N && I18N.lang === 'en';
-    const _obRoleTable = _isEnOb ? _WORD_ROLE_TEXT_EN : _WORD_ROLE_TEXT;
-    const _obSentTable = _isEnOb ? _OBSERVATION_SENTENCES_EN : _OBSERVATION_SENTENCES;
+    const _isEsOb    = window.I18N && I18N.lang === 'es';
+    const _obRoleTable = _isEsOb ? _WORD_ROLE_TEXT_ES : _isEnOb ? _WORD_ROLE_TEXT_EN : _WORD_ROLE_TEXT;
+    const _obSentTable = _isEsOb ? _OBSERVATION_SENTENCES_ES : _isEnOb ? _OBSERVATION_SENTENCES_EN : _OBSERVATION_SENTENCES;
     let make = null;
     let evidenceLine = null;
     for (const cat of ['clause', 'particle', 'conjunction', 'verb', 'infinitive', 'discourse', 'nominative']) {
@@ -2557,7 +2722,7 @@ const _OBSERVATION_BRACKET_QUOTES = [
 ];
 function _naturalizeObservationText(html) {
     if (!html) return html;
-    const replacement = (window.I18N && I18N.lang === 'en') ? 'this word' : '語';
+    const replacement = (window.I18N && I18N.lang === 'es') ? 'esta palabra' : (window.I18N && I18N.lang === 'en') ? 'this word' : '語';
     let out = html;
     for (const q of _OBSERVATION_BRACKET_QUOTES) {
         out = out.split(q).join(replacement);
@@ -2624,7 +2789,23 @@ const _VERSE_NOTE_TEXT_EN = {
         'Here, a brief explanatory note is inserted into the middle of the main thought.',
     nominative_pendens:
         'Here, the topic is introduced first, then picked up again as the sentence continues.',
-};
+}
+const _VERSE_NOTE_TEXT_ES = {
+    negative_emphasis:
+        'Aquí, dos negaciones (οὐ μή) se colocan juntas para hacer una afirmación fuerte: esto de ningún modo sucederá.',
+    conditional_counterfactual:
+        'Aquí, la condición se presenta como algo que en realidad no sucedió — una declaración del tipo «qué habría pasado si hubiera sido de otro modo».',
+    conditional_assumed_true:
+        'Aquí, la condición del «si» se trata como algo verdadero, y la oración avanza sobre esa base.',
+    men_de_contrast:
+        'Aquí, dos cosas se ponen lado a lado en contraste (μέν…δέ).',
+    emphasis_word_order:
+        'Aquí, el orden de las palabras pone en foco una palabra en particular.',
+    parenthesis:
+        'Aquí, una breve nota explicativa se inserta en medio del pensamiento principal.',
+    nominative_pendens:
+        'Aquí, el tema se presenta primero y luego se retoma a medida que la oración continúa.',
+};;
 
 /* 現象の scope を原子スコープの配列に正規化する。
    文字列（'verse'等）・配列（['verse','word']）の両形式を受け、
@@ -2645,7 +2826,7 @@ function _collectVerseNoteSentences(proj, policy) {
     if (!proj || !Array.isArray(proj.words) || !policy) return [];
     const rule      = policy.rules?.passage_note || {};
     const minConf   = policy.rules?.min_confidence ?? 0.40;
-    const textTable = (window.I18N && I18N.lang === 'en') ? _VERSE_NOTE_TEXT_EN : _VERSE_NOTE_TEXT;
+    const textTable = (window.I18N && I18N.lang === 'es') ? _VERSE_NOTE_TEXT_ES : (window.I18N && I18N.lang === 'en') ? _VERSE_NOTE_TEXT_EN : _VERSE_NOTE_TEXT;
     const lines = [];
     for (const w of proj.words) {
         if (!w || !w.categories) continue;

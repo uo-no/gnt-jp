@@ -87,8 +87,8 @@ async function init() {
     /* 基底訳スロットは UI 言語に従う（D1）: 言語切替は同じ URL で再読込されるため、
        他言語の基底訳（JA1955/WEB）が URL に残っていると既定値を上書きしてしまう。
        スロットの値であれば現在の UI 言語の基底訳へ付け替える（比較相手 _transB は対象外）。 */
-    const _baseForLang = (window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955';
-    if ((_transA === 'JA1955' || _transA === 'WEB') && _transA !== _baseForLang) _transA = _baseForLang;
+    const _baseForLang = (window.I18N && I18N.lang === 'en') ? 'WEB' : (window.I18N && I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
+    if ((_transA === 'JA1955' || _transA === 'WEB' || _transA === 'RVR1909') && _transA !== _baseForLang) _transA = _baseForLang;
     /* Legacy ?view=hierarchical → STRUCTURE は 2026-10-28 の整理で削除済みのため WORD_ORDER に着地させる。 */
     if (!urlParams.transA && _hdgInitViewParam === 'hierarchical') _transA = 'WORD_ORDER';
     if (urlParams.mode) {

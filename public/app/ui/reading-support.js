@@ -25,7 +25,7 @@ function _glossTransIdForUi() {
 }
 /* トークンの表示グロス（英語UIのみ）。該当が無ければ null を返し、
    呼び出し側は従来経路（japanese）に倒す。 */
-function _glossSidecarFor(w) {
+function _glossSidecarOnlyFor(w) {
     const transId = _glossTransIdForUi();
     if (!transId || !w || !w.ref) return null;
     const book = w.book || w.bookKey;
@@ -33,8 +33,15 @@ function _glossSidecarFor(w) {
     if (!book || ch == null) return null;
     const d = _glossSidecarCache.get(transId + ':' + book + ':' + ch);
     const g = (d && d.glosses) ? d.glosses[w.ref] : null;
-    if (typeof g === 'string' && g) return g;
-    return (typeof w.english === 'string' && w.english) ? w.english : null;
+    return (typeof g === 'string' && g) ? g : null;
+}
+function _glossSidecarFor(w) {
+    const g = _glossSidecarOnlyFor(w);
+    if (g) return g;
+    /* bible_data.english へのフォールバックは英語UIのみ（ES では英語を出さない）。 */
+    if (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en'
+        && typeof w.english === 'string' && w.english) return w.english;
+    return null;
 }
 
 /* セグメント単位サイドカー（gloss/）由来かどうかを判定する（w.english
@@ -108,6 +115,25 @@ function _esSenseText(lemmaId) {
         const arr = (typeof _esSensesData !== 'undefined' && _esSensesData && digits) ? _esSensesData[digits] : null;
         if (Array.isArray(arr) && arr.length) return arr.slice(0, 3).join(', ');
     } catch (_) {}
+    return null;
+}
+
+/* スペイン語UIでの辞書の短いグロス（gloss-es-senses の第1語義、lemma 単位）。
+   英語版 _enShortGloss の ES 対応物。該当なしは null。 */
+function _esShortGloss(lemmaId) {
+    try {
+        const digits = String(lemmaId || '').replace(/[^0-9]/g, '');
+        const arr = (typeof _esSensesData !== 'undefined' && _esSensesData && digits) ? _esSensesData[digits] : null;
+        if (Array.isArray(arr) && arr.length) return arr[0];
+    } catch (_) {}
+    return null;
+}
+
+/* UI 言語に応じた辞書の短いグロス（en: lexicon-lite、es: senses 第1語義）。 */
+function _uiShortGloss(lemmaId) {
+    if (typeof window === 'undefined' || !window.I18N) return null;
+    if (I18N.lang === 'es') return _esShortGloss(lemmaId);
+    if (I18N.lang === 'en') return _enShortGloss(lemmaId);
     return null;
 }
 
@@ -279,20 +305,32 @@ function _naturalize(gloss, kind) {
  */
 function _buildMorphText(rawMorph, pos, parts) {
     const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+    const _isEs = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
     if (pos === 'V' && parts[1]) {
         const off  = /^[0-9]/.test(parts[1]) ? 1 : 0;
         const moodCode  = parts[1][off + 2] || '';
         const tenCode   = parts[1][off]     || '';
         const voiCode   = parts[1][off + 1] || '';
 
-        const ptcNote = _isEn
+        const ptcNote = _isEs
+            ? (tenCode === 'A' ? 'una acción que precede al verbo principal'
+              : tenCode === 'P' ? 'describiendo una situación junto al verbo principal'
+              : 'añadiendo circunstancia a la escena')
+            : _isEn
             ? (tenCode === 'A' ? 'an action preceding the main verb'
               : tenCode === 'P' ? 'describing a situation alongside the main verb'
               : 'adding circumstance to the scene')
             : (tenCode === 'A' ? '先行する副詞的動作（先行状況）'
               : tenCode === 'P' ? '副詞的・形容詞的に同時の状況を描き添えている'
               : '副詞的・実体的に状況を補っている');
-        const MOOD_NOTE = _isEn ? {
+        const MOOD_NOTE = _isEs ? {
+            'M': 'una llamada a actuar',
+            'P': ptcNote,
+            'N': 'añadiendo propósito o contenido',
+            'S': 'con un deseo o propósito',
+            'I': 'declarado como un hecho',
+            'O': 'expresado como un deseo',
+        } : _isEn ? {
             'M': 'a call to action',
             'P': ptcNote,
             'N': 'adding purpose or content',
@@ -307,7 +345,13 @@ function _buildMorphText(rawMorph, pos, parts) {
             'I': '事実として語っている',
             'O': '望みを込めた表現',
         };
-        const TEN_NOTE = _isEn ? {
+        const TEN_NOTE = _isEs ? {
+            'X': 'un estado del pasado que aún sigue en efecto',
+            'A': 'como un solo acontecimiento',
+            'F': 'como algo seguro que sucederá',
+            'P': 'ahora, continuamente',
+            'I': 'un estado en curso',
+        } : _isEn ? {
             'X': 'a state from the past still in effect',
             'A': 'as a single event',
             'F': 'as something certain to happen',
@@ -320,7 +364,11 @@ function _buildMorphText(rawMorph, pos, parts) {
             'P': '今・継続して',
             'I': '続いていた状態',
         };
-        const VOI_NOTE = _isEn ? {
+        const VOI_NOTE = _isEs ? {
+            'P': 'en el lado que recibe',
+            'M': 'con plena implicación',
+            'D': 'con plena implicación',
+        } : _isEn ? {
             'P': 'on the receiving side',
             'M': 'with full involvement',
             'D': 'with full involvement',
@@ -334,10 +382,13 @@ function _buildMorphText(rawMorph, pos, parts) {
         if (MOOD_NOTE[moodCode]) notes.push(MOOD_NOTE[moodCode]);
         if (TEN_NOTE[tenCode] && moodCode !== 'N' && moodCode !== 'P') notes.push(TEN_NOTE[tenCode]);
         if (VOI_NOTE[voiCode]) notes.push(VOI_NOTE[voiCode]);
-        return notes.join(_isEn ? ', ' : '・') || (_isEn ? 'verb' : '動詞');
+        return notes.join((_isEn || _isEs) ? ', ' : '・') || (_isEs ? 'verbo' : _isEn ? 'verb' : '動詞');
     } else if (['N','A'].includes(pos) && parts[1]) {
         const base = ['1','2','3'].includes(parts[1][0]) ? parts[1].slice(1) : parts[1];
-        const CASE_NOTE = _isEn ? {
+        const CASE_NOTE = _isEs ? {
+            'N': 'en el centro de la oración', 'G': 'conectado con «de»',
+            'D': 'recibiendo la conexión', 'A': 'la meta de la acción', 'V': 'invocación'
+        } : _isEn ? {
             'N': 'at the center of the sentence', 'G': 'connected with "of"',
             'D': 'receiving the connection', 'A': 'the goal of the action', 'V': 'address'
         } : {
@@ -346,16 +397,16 @@ function _buildMorphText(rawMorph, pos, parts) {
         };
         const notes = [];
         if (CASE_NOTE[base[0]]) notes.push(CASE_NOTE[base[0]]);
-        if (base[1] === 'P') notes.push(_isEn ? 'spoken of as plural' : '複数で語られている');
-        return notes.join(_isEn ? ', ' : '・') || (_isEn ? (pos === 'N' ? 'noun' : 'adjective') : (pos === 'N' ? '名詞' : '形容詞'));
+        if (base[1] === 'P') notes.push(_isEs ? 'mencionado en plural' : _isEn ? 'spoken of as plural' : '複数で語られている');
+        return notes.join((_isEn || _isEs) ? ', ' : '・') || (_isEs ? (pos === 'N' ? 'sustantivo' : 'adjetivo') : _isEn ? (pos === 'N' ? 'noun' : 'adjective') : (pos === 'N' ? '名詞' : '形容詞'));
     } else if (pos === 'CONJ') {
-        return _isEn ? 'connecting word' : '前後をつなぐことば';
+        return _isEs ? 'palabra de conexión' : _isEn ? 'connecting word' : '前後をつなぐことば';
     } else if (pos === 'PREP') {
-        return _isEn ? 'showing the direction of the connection' : '関係の方向を示す';
+        return _isEs ? 'mostrando la dirección de la conexión' : _isEn ? 'showing the direction of the connection' : '関係の方向を示す';
     } else if (pos === 'T') {
-        return _isEn ? 'pointing word (article)' : '指し示すことば（冠詞）';
+        return _isEs ? 'palabra que señala (artículo)' : _isEn ? 'pointing word (article)' : '指し示すことば（冠詞）';
     } else if (['P','R','D'].includes(pos)) {
-        return _isEn ? 'pointing to someone' : '誰かを指し示している';
+        return _isEs ? 'apuntando a alguien' : _isEn ? 'pointing to someone' : '誰かを指し示している';
     }
     return '';
 }
@@ -549,9 +600,10 @@ function _resolveTokenJaById(targetTokenId) {
 function _resolveTokenLabelById(targetTokenId) {
     /* EN UI では参照先トークンの表示ラベルも英語（サイドカー優先）にする。 */
     try {
-        if (typeof window === 'undefined' || !(window.I18N && I18N.lang === 'en')) {
+        if (typeof window === 'undefined' || !(window.I18N && I18N.lang !== 'ja')) {
             return _resolveTokenJaById(targetTokenId);
         }
+        const _esLabel = window.I18N && I18N.lang === 'es';
         if (!targetTokenId) return null;
         for (const cache of [_cachedElByVerse, ..._appendedChapterCache.values()]) {
             for (const vNum in cache) {
@@ -560,7 +612,7 @@ function _resolveTokenLabelById(targetTokenId) {
                 for (const w of words) {
                     if (w && w.verseId === targetTokenId) {
                         const label = (typeof _glossSidecarFor === 'function' ? _glossSidecarFor(w) : null)
-                            || (w.japanese != null ? String(w.japanese).trim() : '');
+                            || (_esLabel ? (w.text != null ? String(w.text).trim() : '') : (w.japanese != null ? String(w.japanese).trim() : ''));
                         return label || null;
                     }
                 }
