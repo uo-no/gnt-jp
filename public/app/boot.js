@@ -16,6 +16,46 @@ function _finishFirstLoadSplash() {
     }, wait);
 }
 
+/* DEV-1: 前回の読書位置へ戻る
+   素の訪問（URL に場所指定なし・オンボーディング非活動中）で
+   recentVerses を先頭から走査し、最初に検証を通ったエントリを返す。
+   発動しない場合はすべて null を返す。 */
+function _pickResumeTarget(urlParams) {
+    if (urlParams.book || urlParams.chapter || urlParams.verse || urlParams.panel || urlParams.word) return null;
+    if (window.__onboardingActive) return null;
+    let recent;
+    try {
+        recent = window.App && window.App.storage ? window.App.storage.getRecentVerses() : [];
+    } catch (_) { return null; }
+    if (!recent || !recent.length) return null;
+    const allBooks = [...SB_BOOKS.nt, ...SB_BOOKS.ot];
+    for (const entry of recent) {
+        if (!entry.bookKey) continue;
+        const ch    = Number(entry.chapter);
+        const verse = Number(entry.verse);
+        if (!Number.isFinite(ch) || ch < 1 || !Number.isFinite(verse) || verse < 1) continue;
+        const bookObj = allBooks.find(b => b.key === entry.bookKey);
+        if (!bookObj || ch > bookObj.ch) continue;
+        return { bookKey: entry.bookKey, chapter: ch, verse: verse, bookObj };
+    }
+    return null;
+}
+
+/* DEV-1: 復帰先の節をスクロール・選択表示し、AppState と URL を同期する。
+   語一覧パネル（openVerseInspector）は開かない。節が見つからない場合は静かに終える。 */
+function _applyResumeState(target) {
+    const { bookKey, chapter, verse, bookObj } = target;
+    const vNumStr = String(verse);
+    const verseEl = _findVerseInChapter(bookKey, String(chapter), vNumStr)
+        || _findVisibleVerseBlock(vNumStr);
+    if (!verseEl) return;
+    verseEl.scrollIntoView({ block: 'center' });
+    _selectVerseBlocks(vNumStr, verseEl);
+    const words = _cachedElByVerse[vNumStr] || [];
+    AppState.toBrowsing(vNumStr, words, bookObj, chapter);
+    notifyAppStateChange();
+}
+
 async function init() {
     /* 初回ロード画面（スマホ）用マーカー: 本文の表示直前に
        _finishFirstLoadSplash() が最低表示を経て外す */
@@ -39,8 +79,9 @@ async function init() {
     _syncOnboardingActiveFlag();
 
     const urlParams = Router.parse();
-    const book = urlParams.book || 'ROM';
-    const ch   = urlParams.chapter || '1';
+    const _resume = _pickResumeTarget(urlParams);
+    const book = _resume ? _resume.bookKey : (urlParams.book || 'ROM');
+    const ch   = _resume ? String(_resume.chapter) : (urlParams.chapter || '1');
 
     if (urlParams.transA) _transA = normalizeModeId(urlParams.transA);
     /* 基底訳スロットは UI 言語に従う（D1）: 言語切替は同じ URL で再読込されるため、
@@ -158,6 +199,9 @@ async function init() {
            verse/panel/word なしの状態に書き換えているため、ここで
            Router.parse() を再実行すると消えてしまう） */
         applyShareState(urlParams);
+        /* DEV-1: 素の訪問なら前回の読書位置へ復帰する（パネルは開かない）。
+           applyShareState は verse 無しで即 return しているため競合しない。 */
+        if (_resume) _applyResumeState(_resume);
 
             if (window.App.onboarding && !window.App.onboarding.getState().onboardingComplete) {
                 document.querySelectorAll('[data-onboarding-anchor="true"]').forEach(function(el) {
