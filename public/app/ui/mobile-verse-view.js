@@ -383,6 +383,7 @@ function _mobileInspectorRender(vNum, words) {
             /* RK_READING → DA_READING: 既存 renderDAReadingView を節単位で再利用 */
             renderDAReadingView(area, _sdChapterDataForRender, words);
             _wlvChipCache = [];
+            if (typeof _applyPanelFlowHighlights === 'function') _applyPanelFlowHighlights(area, words, _vrBookKey, _vrCh, vNum);
         } else {
             const _vrRep = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, getAnalysis(_vrVerse));
             /* VR-4-C Step 5: 「本文がFLOW表示中か」の判定はここ（呼び出し元）で解決し、
@@ -393,6 +394,7 @@ function _mobileInspectorRender(vNum, words) {
                （render() 内の window.App.onboarding 直参照を撤去。旧: onboardingComplete で凡例表示）。 */
             const _showOnboardingLegend = !!(window.App.onboarding?.getState()?.onboardingComplete);
             area.innerHTML = renderColumn(_vrRep, { showOnboardingAnchor: _showOnboardingAnchor, showOnboardingLegend: _showOnboardingLegend });
+            if (typeof _applyPanelFlowHighlights === 'function') _applyPanelFlowHighlights(area, words, _vrBookKey, _vrCh, vNum);
             /* Phase VR-4B-3: 表示に使った chips[] をクリック時まで保持する（Interaction Lifecycle是正）。
                Mobile Inspector も StudyPanel と同じくシングルトン表示のため同じキャッシュを共有する。 */
             _wlvChipCache = (_vrRep && _vrRep.chips) ? _vrRep.chips : [];

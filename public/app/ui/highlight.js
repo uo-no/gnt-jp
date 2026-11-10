@@ -23,6 +23,74 @@ function _hlTokenIdxFromRef(ref) {
     return isFinite(n) && n >= 1 ? n : null;
 }
 
+/* Bracket placeholder glosses (per-token sidecars, EN/ES): the token has
+   no visible word of its own, so a saved highlight must not paint its
+   chip — paint the segment partner carrying visible text instead (same
+   principle as the dp decoration donation): prefer a real-text verb
+   token in the same alignment segment, else the nearest real-text token
+   (following first). Returns the index into `words` to paint, the same
+   index when no redirection applies, or -1 when nothing may be painted.
+   JA and Greek-text chips are unaffected (no sidecar / real text). */
+function _hlPaintTargetIndex(words, idx) {
+    if (typeof _glossTransIdForUi !== 'function' || !_glossTransIdForUi()) return idx;
+    if (typeof _glossSidecarOnlyFor !== 'function' || typeof _alignSegmentKeyFor !== 'function') return idx;
+    const isPh = function (w) {
+        const g = _glossSidecarOnlyFor(w);
+        return !!g && /^\[[^\]]*\]$/.test(String(g).trim());
+    };
+    if (!words[idx] || !isPh(words[idx])) return idx;
+    const key = _alignSegmentKeyFor(words[idx]);
+    if (!key) return -1;
+    const seg = [];
+    words.forEach(function (w, i) {
+        if (w && _alignSegmentKeyFor(w) === key && !isPh(w)) seg.push(i);
+    });
+    if (!seg.length) return -1;
+    const verb = seg.find(function (i) { return String(words[i].morph || '').charAt(0) === 'V'; });
+    if (verb != null) return verb;
+    seg.sort(function (a, b) { return (Math.abs(a - idx) - Math.abs(b - idx)) || (b - a); });
+    return seg[0];
+}
+
+function _hlPaintChip(chip, color) {
+    if (!chip) return;
+    HL_COLORS.forEach(function (c) { chip.classList.remove('hl-word-' + c); });
+    if (HL_COLORS.indexOf(color) !== -1) chip.classList.add('hl-word-' + color);
+}
+
+/* StudyPanel verse flow: apply saved word highlights to the flow chips
+   with the same per-token painting as the reading word-order view
+   (including placeholder redirection). Called by study-panel.js right
+   after the flow is rendered. Verse-level highlights are not painted
+   here — the flow is a single-verse list, not a verse block. */
+function _applyPanelFlowHighlights(rootEl, words, book, ch, vNum) {
+    if (!rootEl || !Array.isArray(words) || !words.length) return;
+    if (!window.App || !window.App.storage) return;
+    const highlights = window.App.storage.getHighlights().filter(function (h) {
+        return h && h.tokenStart != null
+            && String(h.book) === String(book)
+            && Number(h.chapter) === Number(ch)
+            && Number(h.verse) === Number(vNum);
+    });
+    if (!highlights.length) return;
+    const chips = Array.from(rootEl.querySelectorAll('.wlv-chip[data-token-id]'));
+    if (!chips.length) return;
+    highlights.forEach(function (h) {
+        words.forEach(function (w, wi) {
+            if (!w) return;
+            const tidx = w.tokenIndex != null && w.tokenIndex !== ''
+                ? parseInt(w.tokenIndex, 10)
+                : _hlTokenIdxFromRef(w.ref);
+            if (tidx == null || tidx < Number(h.tokenStart) || tidx > Number(h.tokenEnd)) return;
+            const ti = _hlPaintTargetIndex(words, wi);
+            if (ti < 0) return;
+            const target = words[ti];
+            const chip = chips.find(function (c) { return String(c.dataset.tokenId) === String(target.tokenId); });
+            _hlPaintChip(chip, h.color);
+        });
+    });
+}
+
 /* AppState から現在の書物・章を返す。{book, chapter} または null */
 function _hlCurrentContext() {
     const loc = AppState.location;
@@ -540,19 +608,28 @@ function _applyHighlights() {
             const flowBlock = block._flowWords ? block : block.querySelector('.gf-verse-block');
             const words = flowBlock && Array.isArray(flowBlock._flowWords) ? flowBlock._flowWords : [];
             if (!words.length) return;
-            words.forEach(w => {
+            words.forEach((w, wi) => {
                 /* 生トークンには tokenIndex がない場合がある。表示用 ref の !N をフォールバックに使う。 */
                 const tidx = w.tokenIndex != null && w.tokenIndex !== ''
                     ? parseInt(w.tokenIndex, 10)
                     : _hlTokenIdxFromRef(w.ref);
-                if (tidx != null && tidx >= h.tokenStart && tidx <= h.tokenEnd) {
-                    const chip = flowBlock.querySelector(`.wlv-chip[data-token-id="${w.tokenId}"]`) ||
-                                 block.querySelector(`.wlv-chip[data-token-id="${w.tokenId}"]`);
-                    if (chip) {
-                        HL_COLORS.forEach(c => chip.classList.remove(`hl-word-${c}`));
-                        chip.classList.add(`hl-word-${h.color}`);
+                if (tidx == null || tidx < h.tokenStart || tidx > h.tokenEnd) return;
+                let chip = flowBlock.querySelector(`.wlv-chip[data-token-id="${w.tokenId}"]`) ||
+                             block.querySelector(`.wlv-chip[data-token-id="${w.tokenId}"]`);
+                if (!chip) return;
+                /* [ ] 仮印グロスのチップは塗らず、実語を持つ相方チップへ寄せる
+                   （ギリシャ語チップは実テキストなので対象外）。 */
+                if (!chip.classList.contains('gk-word')) {
+                    const ti = _hlPaintTargetIndex(words, wi);
+                    if (ti < 0) return;
+                    if (ti !== wi) {
+                        chip = flowBlock.querySelector(`.wlv-chip[data-token-id="${words[ti].tokenId}"]`) ||
+                               block.querySelector(`.wlv-chip[data-token-id="${words[ti].tokenId}"]`);
+                        if (!chip) return;
                     }
                 }
+                HL_COLORS.forEach(c => chip.classList.remove(`hl-word-${c}`));
+                chip.classList.add(`hl-word-${h.color}`);
             });
         });
 
@@ -650,7 +727,7 @@ function _applyDaReadingHighlights(highlights) {
         if (!chips.length) return;
 
         wordHighlights.forEach(function (h) {
-            words.forEach(function (word) {
+            words.forEach(function (word, wi) {
                 if (!word) return;
                 const book = word.book != null ? String(word.book) : (currentBook != null ? String(currentBook) : "");
                 const chapter = word.chapter != null ? Number(word.chapter) : Number(currentChapter);
@@ -664,8 +741,12 @@ function _applyDaReadingHighlights(highlights) {
                 if (book !== String(h.book) || chapter !== Number(h.chapter) || verse !== Number(h.verse) ||
                     !Number.isFinite(tokenIndex) || tokenIndex < Number(h.tokenStart) || tokenIndex > Number(h.tokenEnd)) return;
 
+                /* [ ] 仮印グロスのチップは塗らず、実語を持つ相方チップへ寄せる。 */
+                const ti = _hlPaintTargetIndex(words, wi);
+                if (ti < 0) return;
+                const paintWord = words[ti];
                 const chip = chips.find(function (candidate) {
-                    return String(candidate.dataset.tokenId) === String(word.tokenId);
+                    return String(candidate.dataset.tokenId) === String(paintWord.tokenId);
                 });
                 if (chip) {
                     /* 同じ語に複数の保存範囲が重なる場合も、色クラスは1色に統一する。
