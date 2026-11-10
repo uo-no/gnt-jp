@@ -16,6 +16,12 @@ let _apparatusLemEnData    = null;  // apparatus-lem-en.json キャッシュ（�
 let _apparatusLemEnLoadP   = null;  // 進行中 fetch Promise
 let _apparatusRdgEnData    = null;  // apparatus-rdg-en.json キャッシュ（失敗時は null のまま）
 let _apparatusRdgEnLoadP   = null;  // 進行中 fetch Promise
+let _apparatusEsAllData    = null;  // apparatus-es 4データセット統合キャッシュ（失敗時は null のまま）
+let _apparatusEsAllLoadP   = null;  // 進行中 fetch Promise
+let _apparatusLemEsData    = null;  // apparatus-lem-es.json キャッシュ（失敗時は null のまま）
+let _apparatusLemEsLoadP   = null;  // 進行中 fetch Promise
+let _apparatusRdgEsData    = null;  // apparatus-rdg-es.json キャッシュ（失敗時は null のまま）
+let _apparatusRdgEsLoadP   = null;  // 進行中 fetch Promise
 let _ft11Cache = null;
 /* ── VR-6-C: Flow Tree runtime asset loader（chapter 単位 JSON）──
    token ref → BOOK/chapter → public/assets/data/flow-tree/{BOOK}/{ch}.json を fetch し、
@@ -151,6 +157,51 @@ async function _loadApparatusRdgEnData() {
         .catch(() => null);
     return _apparatusRdgEnLoadP;
 }
+/** apparatus-es の4データセット（manual + Phase 1〜3）を並列 fetch してマージする。
+ *  _loadApparatusEnAllData のスペイン語版。優先順位・失敗時の扱いは EN 版と同じ。 */
+async function _loadApparatusEsAllData() {
+    if (_apparatusEsAllData) return _apparatusEsAllData;
+    if (_apparatusEsAllLoadP) return _apparatusEsAllLoadP;
+    const fetchJson = url => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
+    _apparatusEsAllLoadP = Promise.all([
+        fetchJson('../assets/data/apparatus-es.json'),
+        fetchJson('../assets/data/apparatus-es-auto.json'),
+        fetchJson('../assets/data/apparatus-es-phase2.json'),
+        fetchJson('../assets/data/apparatus-es-phase3.json'),
+    ]).then(([manual, p1, p2, p3]) => {
+        const merged = {};
+        for (const src of [p3, p2, p1, manual]) {
+            if (src && src.entries) Object.assign(merged, src.entries);
+        }
+        _apparatusEsAllData = { entries: merged };
+        return _apparatusEsAllData;
+    }).catch(() => null);
+    return _apparatusEsAllLoadP;
+}
+
+/** apparatus-lem-es.json を fetch して語句スペイン語マッピングを返す。
+ *  失敗時は null を返す（静寂優先）。 */
+async function _loadApparatusLemEsData() {
+    if (_apparatusLemEsData) return _apparatusLemEsData;
+    if (_apparatusLemEsLoadP) return _apparatusLemEsLoadP;
+    _apparatusLemEsLoadP = fetch('../assets/data/apparatus-lem-es.json')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { _apparatusLemEsData = d; return d; })
+        .catch(() => null);
+    return _apparatusLemEsLoadP;
+}
+
+/** apparatus-rdg-es.json を fetch して各読みのスペイン語マッピングを返す。
+ *  失敗時は null を返す（静寂優先）。 */
+async function _loadApparatusRdgEsData() {
+    if (_apparatusRdgEsData) return _apparatusRdgEsData;
+    if (_apparatusRdgEsLoadP) return _apparatusRdgEsLoadP;
+    _apparatusRdgEsLoadP = fetch('../assets/data/apparatus-rdg-es.json')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { _apparatusRdgEsData = d; return d; })
+        .catch(() => null);
+    return _apparatusRdgEsLoadP;
+}
 /* ══════════════════════════════════════════
    口語訳アラインメント（パイロット）— 対応表ストアとトークン索引
    対応表: assets/data/alignment/{翻訳ID}/{書}/{章}.json（章ごとのファイル。ファイル内の book/chapter/translation でも照合）。
@@ -227,6 +278,25 @@ function _ensureEnSenses() {
             }
         })
         .catch(() => { _enSensesPromise = null; });
+}
+/* スペイン語の語義リスト（gloss-es-senses.json、EN 版と同じ Abbott-Smith 系
+   語義のスペイン語訳）。英語版と同じく最大3件を返す。lite の代表グロスは
+   英語のため、フォールバックは置かず、該当なしは null（行を出さない）。 */
+let _esSensesData = null;
+let _esSensesPromise = null;
+function _ensureEsSenses() {
+    if (_esSensesData || _esSensesPromise) return;
+    _esSensesPromise = fetch('../assets/data/lexicon/gloss-es-senses.json')
+        .then(r => (r && r.ok) ? r.json() : null)
+        .then(d => {
+            _esSensesData = (d && typeof d === 'object') ? d : null;
+            if (_esSensesData && _peekEl && _peekLemmaId) {
+                const gl = _peekEl.querySelector('.word-peek-glosses');
+                const es = (typeof _esSenseText === 'function') ? _esSenseText(_peekLemmaId) : null;
+                if (gl && es && !gl.textContent) { gl.textContent = es; gl.hidden = false; }
+            }
+        })
+        .catch(() => { _esSensesPromise = null; });
 }
 /* 語の役割で読む: 章×デバイスの公開可否（rk-availability.json）と
    手動オフセット（rk-offsets/{BOOK}.json）の読み込み。 */

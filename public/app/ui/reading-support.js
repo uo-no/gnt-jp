@@ -18,7 +18,10 @@ function _jaAlignSegmentsFor(transId, book, ch, verse) {
    セグメント文が要る句の引用だけは対応表から組み立てる（phrase-renderers）。
    ══════════════════════════════════════════ */
 function _glossTransIdForUi() {
-    return (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en') ? 'WEB' : null;
+    if (typeof window === 'undefined' || !window.I18N) return null;
+    if (I18N.lang === 'en') return 'WEB';
+    if (I18N.lang === 'es') return 'RVR1909';
+    return null;
 }
 /* トークンの表示グロス（英語UIのみ）。該当が無ければ null を返し、
    呼び出し側は従来経路（japanese）に倒す。 */
@@ -95,6 +98,32 @@ function _enSenseText(lemmaId) {
         if (Array.isArray(arr) && arr.length) return arr.slice(0, 3).join(', ');
     } catch (_) {}
     return _enShortGloss(lemmaId);
+}
+
+/* スペイン語UIでの辞書語義（gloss-es-senses.json、lemma 単位・最大3件）。
+   該当なしは null（スペイン語UIで英語・日本語の語義は出さない）。 */
+function _esSenseText(lemmaId) {
+    try {
+        const digits = String(lemmaId || '').replace(/[^0-9]/g, '');
+        const arr = (typeof _esSensesData !== 'undefined' && _esSensesData && digits) ? _esSensesData[digits] : null;
+        if (Array.isArray(arr) && arr.length) return arr.slice(0, 3).join(', ');
+    } catch (_) {}
+    return null;
+}
+
+/* UI 言語に応じた辞書語義テキスト（ja では呼び出し側の従来経路を使うため null）。 */
+function _uiSenseText(lemmaId) {
+    if (typeof window === 'undefined' || !window.I18N) return null;
+    if (I18N.lang === 'es') return _esSenseText(lemmaId);
+    if (I18N.lang === 'en') return _enSenseText(lemmaId);
+    return null;
+}
+
+/* UI 言語の senses データの先読みを開始する。 */
+function _ensureUiSenses() {
+    if (typeof window === 'undefined' || !window.I18N) return;
+    if (I18N.lang === 'es') { if (typeof _ensureEsSenses === 'function') _ensureEsSenses(); }
+    else if (I18N.lang === 'en') { if (typeof _ensureEnSenses === 'function') _ensureEnSenses(); }
 }
 
 /* 章の生トークン（elData）を節・トークン番号で引けるようにした索引。
