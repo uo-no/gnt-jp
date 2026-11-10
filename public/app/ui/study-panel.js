@@ -263,6 +263,7 @@ function _openWordListInternal(vNum, words, book, ch) {
             /* RK_READING → DA_READING: 既存 renderDAReadingView を節単位で再利用 */
             renderDAReadingView(listEl, _sdChapterDataForRender, words);
             _wlvChipCache = [];
+            if (typeof _applyPanelFlowHighlights === 'function') _applyPanelFlowHighlights(listEl, words, _vrBookKey, _vrCh, vNum);
         } else {
             const _vrRep = buildRepresentation({ kind: 'wordOrder' }, _vrVerse, getAnalysis(_vrVerse));
             /* VR-4-C Step 5: 「本文がFLOW表示中か」の判定はここ（呼び出し元）で解決し、
@@ -273,6 +274,7 @@ function _openWordListInternal(vNum, words, book, ch) {
                （render() 内の window.App.onboarding 直参照を撤去。旧: onboardingComplete で凡例表示）。 */
             const _showOnboardingLegend = !!(window.App.onboarding?.getState()?.onboardingComplete);
             listEl.innerHTML = renderColumn(_vrRep, { showOnboardingAnchor: _showOnboardingAnchor, showOnboardingLegend: _showOnboardingLegend });
+            if (typeof _applyPanelFlowHighlights === 'function') _applyPanelFlowHighlights(listEl, words, _vrBookKey, _vrCh, vNum);
             /* Phase VR-4B-3: 表示に使った chips[] をクリック時まで保持する（Interaction Lifecycle是正）。
                StudyPanel は常に1節分のみ表示するシングルトンのため、_wlvWordCache と対のグローバル
                キャッシュで足りる（複数節同時表示する Greek Flow View / 本文左列とは異なる方式）。 */
