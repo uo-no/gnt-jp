@@ -163,6 +163,8 @@ async function _fillStudyPanelTranslation(transId, vNum, bookKey, ch, container,
     );
     container.innerHTML = renderColumn(rep);
     _wlvChipCache = [];
+    /* 訳文コンパニオン表示でも保存ハイライトを本文ビューと同じ規則で出す。 */
+    if (typeof _applySegHighlightsIn === 'function') _applySegHighlightsIn(container, bookKey, ch, vNum);
     /* 口語訳で描画を置き換えても、PC版の読書メモ・本文批評欄を再配置する。 */
     _ensureStudyPanelReadingSections(container, words, bookKey, ch, vNum);
 }
