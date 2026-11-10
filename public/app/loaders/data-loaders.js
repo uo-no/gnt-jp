@@ -213,9 +213,9 @@ function _peekEnsureLite() {
                     line.hidden = false;
                 }
                 /* 英語UI: 辞書グロスの行も、lite 到着後に差し込む */
-                if (window.I18N && I18N.lang === 'en') {
+                if (window.I18N && I18N.lang !== 'ja') {
                     const gl = _peekEl.querySelector('.word-peek-glosses');
-                    const en = _enSenseText(_peekLemmaId);
+                    const en = _uiSenseText(_peekLemmaId);
                     if (gl && en && !gl.textContent) { gl.textContent = en; gl.hidden = false; }
                 }
             }

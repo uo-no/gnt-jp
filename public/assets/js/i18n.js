@@ -20,7 +20,7 @@
 (function () {
     'use strict';
     var STORAGE_KEY = 'app_lang';
-    var SUPPORTED = ['ja', 'en'];
+    var SUPPORTED = ['ja', 'en', 'es'];
 
     /* Path-prefix language links (user decision, 2026-11-05):
        /ja/... and /en/... choose the UI language and remember it,
@@ -31,7 +31,7 @@
        link wins over the stored preference. */
     var pathLang = null;
     try {
-        var pm = window.location.pathname.match(/^\/(ja|en)(?=\/|$)/);
+        var pm = window.location.pathname.match(/^\/(ja|en|es)(?=\/|$)/);
         if (pm) {
             pathLang = pm[1];
             var rest = window.location.pathname.slice(pm[0].length) || '/';
@@ -135,7 +135,7 @@
             var twDesc = document.querySelector('meta[name="twitter:description"]');
             if (twDesc) twDesc.setAttribute('content', desc);
         }
-        if (state.lang === 'en') {
+        if (state.lang !== 'ja') {
             var titleStr = t('meta.title');
             if (titleStr) {
                 document.title = titleStr;

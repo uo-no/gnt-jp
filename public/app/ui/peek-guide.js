@@ -95,14 +95,14 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     head.appendChild(lem);
     el.appendChild(head);
 
-    if (window.I18N && I18N.lang === 'en') {
-        /* 英語UI: 語義行は日本語の語義ではなく辞書の短い英語グロス。
+    if (window.I18N && I18N.lang !== 'ja') {
+        /* 非日本語UI: 語義行は日本語の語義ではなく UI 言語の辞書グロス。
            lite 未到着なら空で作り、_peekEnsureLite が到着後に差し込む。 */
         const gl = document.createElement('div');
         gl.className = 'word-peek-glosses';
-        const en = _enSenseText(chip.lemmaId);
+        const en = _uiSenseText(chip.lemmaId);
         if (en) gl.textContent = en; else { gl.hidden = true; _peekEnsureLite(); }
-        _ensureEnSenses();
+        _ensureUiSenses();
         el.appendChild(gl);
     } else {
         let glossArr = null;
@@ -357,13 +357,13 @@ function _openSegPeek(segEl, tis) {
         head.appendChild(lem);
         el.appendChild(head);
 
-        if (window.I18N && I18N.lang === 'en') {
-            /* 英語UI: 辞書の短い英語グロス（無ければ bible_data の gloss） */
+        if (window.I18N && I18N.lang !== 'ja') {
+            /* 非日本語UI: 辞書グロス（ES は senses のみ、EN は bible_data の gloss にも落とす） */
             const gl = document.createElement('div');
             gl.className = 'word-peek-glosses';
-            const en = _enSenseText(w.lemmaId) || ((typeof w.gloss === 'string' && w.gloss) ? w.gloss : null);
+            const en = _uiSenseText(w.lemmaId) || ((I18N.lang === 'en' && typeof w.gloss === 'string' && w.gloss) ? w.gloss : null);
             if (en) gl.textContent = en; else { gl.hidden = true; _peekEnsureLite(); }
-            _ensureEnSenses();
+            _ensureUiSenses();
             el.appendChild(gl);
         } else {
             let glossArr = null;
@@ -895,10 +895,10 @@ function _wlvChipClick(chipEl, tokenId) {
         /* 語義（readingLexicon.lookup().glosses）：chip 切り替え時に前の語義が残らないよう毎回更新 */
         const ddGlosses = document.getElementById('wlv-dd-glosses');
         if (ddGlosses) {
-            if (window.I18N && I18N.lang === 'en') {
-                /* 英語UI: 語義行は辞書の短い英語グロス */
-                ddGlosses.textContent = _enSenseText(chip.lemmaId) || '';
-                _ensureEnSenses();
+            if (window.I18N && I18N.lang !== 'ja') {
+                /* 非日本語UI: 語義行は UI 言語の辞書グロス */
+                ddGlosses.textContent = _uiSenseText(chip.lemmaId) || '';
+                _ensureUiSenses();
             } else {
                 const _ddGlossArr = chip.lemmaId
                     ? window.App?.readingLexicon?.lookup(chip.lemmaId)?.glosses

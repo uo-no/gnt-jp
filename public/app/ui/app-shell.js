@@ -1022,9 +1022,11 @@ function _modeDescVisible() { return _fgModeSwitchCount() < 3; }
 function _sbRenderModesL0() {
     const list = document.getElementById('sb-mode-list-l0');
     if (!list) return;
-    const baseId = (window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955';
+    const baseId = (window.I18N && I18N.lang === 'en') ? 'WEB' : (window.I18N && I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
     const baseLabel = baseId === 'WEB'
         ? _T('mode.WEB.picker', 'Text (World English Bible)')
+        : baseId === 'RVR1909'
+        ? _T('mode.RVR1909.picker', 'Texto (Reina-Valera 1909)')
         : _T('mode.JA1955.picker', '本文（口語訳）');
     const items = [
         { id: baseId,       label: baseLabel },
@@ -1713,7 +1715,7 @@ async function showRecentVerses() {
         const href = `index.html?book=${encodeURIComponent(latest.bookKey)}&ch=${encodeURIComponent(latest.chapter)}&verse=${encodeURIComponent(latest.verse)}`;
         let verseText = '';
         try {
-            const _previewTrans = (window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955';
+            const _previewTrans = (window.I18N && I18N.lang === 'en') ? 'WEB' : (window.I18N && I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
             const chData = await _fetchTranslation(_previewTrans, latest.bookKey, String(latest.chapter));
             verseText = chData?.verses?.[String(latest.verse)] || '';
         } catch(e) {}

@@ -230,7 +230,7 @@ function _syncMobileVerseViewBackLabel() {
 function _mvvDisplayTrans() {
     /* DA-1: discourse も FLOW と同様、訳文が無いので基準訳へフォールバックする。 */
     return _isGreekReadingMode(_toColumnMode(_transA).kind)
-        ? ((window.I18N && I18N.lang === 'en') ? 'WEB' : 'JA1955')
+        ? ((window.I18N && I18N.lang === 'en') ? 'WEB' : (window.I18N && I18N.lang === 'es') ? 'RVR1909' : 'JA1955')
         : _transA;
 }
 

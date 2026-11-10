@@ -4,6 +4,7 @@
 const TRANSLATIONS = {
     'JA1955': { label: '口語訳（1955）',     code: 'JA1955' },
     'WEB':    { label: 'World English Bible（英語訳）', code: 'WEB' },
+    'RVR1909': { label: 'Reina-Valera 1909', code: 'RVR1909' },
     'BUN':    { label: '文語訳',             code: 'BUN'    },
 /*  'KAI17':  { label: '新改訳2017',         code: 'KAI17'  },
     'KYO':    { label: '聖書協会共同訳',     code: 'KYO'    },*/
@@ -36,6 +37,11 @@ if (window.I18N && window.I18N.lang === 'en') {
     const wi = TRANSLATION_REGISTRY.findIndex(t => t.id === 'WEB');
     if (wi > 0) TRANSLATION_REGISTRY.unshift(TRANSLATION_REGISTRY.splice(wi, 1)[0]);
 }
+/* ES: スペイン語 UI では RVR1909 を翻訳一覧の先頭に置く（D1 の適用）。 */
+if (window.I18N && window.I18N.lang === 'es') {
+    const ri = TRANSLATION_REGISTRY.findIndex(t => t.id === 'RVR1909');
+    if (ri > 0) TRANSLATION_REGISTRY.unshift(TRANSLATION_REGISTRY.splice(ri, 1)[0]);
+}
 
 /**
  * VR-4-E: DisplayMode Registry（docs/development/verse-representation-design.md §C-1）。
@@ -59,7 +65,7 @@ const DISPLAY_MODE_REGISTRY = [
 let _transMode   = 'single';
 /* D1（Phase 1b）: 既定の基準訳は UI 言語に従う（英語 UI では WEB）。
    URL で明示された場合は init() の適用が優先する。 */
-let _transA      = (window.I18N && window.I18N.lang === 'en') ? 'WEB' : 'JA1955';
+let _transA      = (window.I18N && window.I18N.lang === 'en') ? 'WEB' : (window.I18N && window.I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
 let _transB      = 'BUN';
 
 /* Legacy Mode ID → 新 Mode ID の正規化マップ（URL deep link 互換）。
