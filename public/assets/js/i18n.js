@@ -107,8 +107,18 @@
         for (var j = 0; j < btns.length; j++) {
             var active = btns[j].getAttribute('data-lang-btn') === state.lang;
             btns[j].classList.toggle('active', active);
-            btns[j].setAttribute('aria-pressed', active ? 'true' : 'false');
+            if (btns[j].classList.contains('lang-dd-opt')) {
+                /* ドロップダウンの選択肢：現在の言語だけ aria-current="true" */
+                if (active) btns[j].setAttribute('aria-current', 'true');
+                else btns[j].removeAttribute('aria-current');
+            } else {
+                btns[j].setAttribute('aria-pressed', active ? 'true' : 'false');
+            }
         }
+        /* ドロップダウンのボタンに現在の言語の自国語名を出す */
+        var NATIVE = { ja: '日本語', en: 'English', es: 'Español' };
+        var curs = root.querySelectorAll('[data-lang-cur]');
+        for (var c = 0; c < curs.length; c++) curs[c].textContent = NATIVE[state.lang] || state.lang;
     }
 
     var _origMeta = null;
