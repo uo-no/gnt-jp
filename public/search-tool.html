@@ -2169,7 +2169,6 @@ async function fetchChapter(bookKey, ch) {
         language: 'grc',
         corpusId,
         lemmaId:  w.lemmaId ?? w.lemma_id ?? null,
-        verseId:  w.verseId ?? null,   // IGSD 語義の割り当てキー（表示には使わない）
 
         // globalIdx は _indexChapter で付与される（ここでは未定義）
     }));
@@ -2260,7 +2259,6 @@ async function _buildFullIndex(corpora){
                 language: 'grc',
                 corpusId,
                 lemmaId:  w.lemmaId??w.lemma_id??null,
-                verseId:  w.verseId??null,   // IGSD 語義の割り当てキー（表示には使わない）
             }));
             const mapMs=performance.now()-tMap;
 
@@ -4694,6 +4692,22 @@ function _renderLgHitSlice(container,hits,query,word2,from,to,words){
 const _IGSD_BASE='../assets/data/igsd/';
 let _igsdIndexPromise=null;
 const _igsdLemmaCache=new Map();
+/* sense-map-gi.json: globalIdx → "<Strong>:<senseId>"。事前生成インデックス経由のトークンは
+   verseId を持たないため、globalIdx で語義を引く。初回のみ遅延 fetch、失敗時は再試行せず null。 */
+let _igsdGiPromise=null;
+function _igsdLoadGi(){
+    if(!_igsdGiPromise){
+        _igsdGiPromise=(async()=>{
+            try{
+                const res=await fetch(_IGSD_BASE+'sense-map-gi.json');
+                if(!res.ok)return null;
+                const m=await res.json();
+                return m&&typeof m==='object'?m:null;
+            }catch(_){return null;}
+        })();
+    }
+    return _igsdGiPromise;
+}
 function _igsdNorm(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();}
 function _igsdLoadIndex(){
     if(!_igsdIndexPromise){
@@ -4762,19 +4776,21 @@ async function _igsdOpenPage(entry,group,groups,query,word2,words){
         page.style.display='none';page.innerHTML='';
         lemmaGroups.style.display='block';distPanel.style.display=distWas;
     };
-    const data=await _igsdLoadLemma(entry.strong);
-    if(!data||!data.assignments){close();return;} // 取得失敗は静かに従来表示へ戻す
-    _igsdRenderPage(page,entry,data,group,query,word2,words,close);
+    const [data,giMap]=await Promise.all([_igsdLoadLemma(entry.strong),_igsdLoadGi()]);
+    if(!data||!giMap){close();return;} // 取得失敗は静かに従来表示へ戻す
+    _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close);
 }
-function _igsdRenderPage(page,entry,data,group,query,word2,words,close){
-    // 割り当て（verseId→senseId）で、検索ツールが既に保持している用例を語義別に振り分ける。
+function _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close){
+    // 割り当て（globalIdx→"Strong:senseId"）で、検索ツールが既に保持している用例を語義別に振り分ける。
+    // 値の Strong が開いている語と一致する場合だけ採用する。
     const bySense=new Map(entry.senses.map(s=>[String(s.id),[]]));
     let unassigned=0;
     const hits=[...group.hits].sort((a,b)=>a.anchorIdx-b.anchorIdx);
     for(const h of hits){
-        const tok=ALL_TOKENS[h.anchorIdx];
-        const sid=tok&&tok.verseId?data.assignments[tok.verseId]:undefined;
-        if(sid!==undefined&&bySense.has(String(sid)))bySense.get(String(sid)).push(h);
+        const v=giMap[String(h.anchorIdx)];
+        const sep=typeof v==='string'?v.indexOf(':'):-1;
+        const sid=sep>0&&v.slice(0,sep)===entry.strong?v.slice(sep+1):undefined;
+        if(sid!==undefined&&bySense.has(sid))bySense.get(sid).push(h);
         else unassigned++;
     }
     let filterBook=null;
