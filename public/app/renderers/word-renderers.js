@@ -790,12 +790,12 @@ const WordOrderRenderer = {
            representation と options のみを参照する（window.App.onboarding を直接読まない）。
            legend 表示可否は options.showOnboardingLegend（呼び出し元が解決済みの真偽値）。 */
         const legendHTML = (options && options.showOnboardingLegend) ? `<div class="dp-legend">
-        <span class="dp-legend-item"><span class="dp-sample dp-mood-imperative">語</span><span class="dp-legend-label">${_escH(_T('morph.mood.imperative', '命令法'))}</span></span>
-        <span class="dp-legend-item"><span class="dp-sample dp-mood-indicative">語</span><span class="dp-legend-label">${_escH(_T('morph.mood.indicative', '直説法'))}</span></span>
-        <span class="dp-legend-item"><span class="dp-sample dp-tense-present">語</span><span class="dp-legend-label">${_escH(_T('morph.tense.present', '現在'))}</span></span>
-        <span class="dp-legend-item"><span class="dp-sample dp-tense-aorist">語</span><span class="dp-legend-label">${_escH(_T('morph.tense.aorist', 'アオリスト'))}</span></span>
-        <span class="dp-legend-item"><span class="dp-sample dp-tense-perfect">語</span><span class="dp-legend-label">${_escH(_T('morph.tense.perfect', '完了'))}</span></span>
-        <span class="dp-legend-item"><span class="dp-sample dp-voice-middle">語</span><span class="dp-legend-label">${_escH(_T('morph.voice.middlePassive', '中動/受動'))}</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-mood-imperative">${_escH(_T('morph.legend.sample', '語'))}</span><span class="dp-legend-label">${_escH(_T('morph.mood.imperative', '命令法'))}</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-mood-indicative">${_escH(_T('morph.legend.sample', '語'))}</span><span class="dp-legend-label">${_escH(_T('morph.mood.indicative', '直説法'))}</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-tense-present">${_escH(_T('morph.legend.sample', '語'))}</span><span class="dp-legend-label">${_escH(_T('morph.tense.present', '現在'))}</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-tense-aorist">${_escH(_T('morph.legend.sample', '語'))}</span><span class="dp-legend-label">${_escH(_T('morph.tense.aorist', 'アオリスト'))}</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-tense-perfect">${_escH(_T('morph.legend.sample', '語'))}</span><span class="dp-legend-label">${_escH(_T('morph.tense.perfect', '完了'))}</span></span>
+        <span class="dp-legend-item"><span class="dp-sample dp-voice-middle">${_escH(_T('morph.legend.sample', '語'))}</span><span class="dp-legend-label">${_escH(_T('morph.voice.middlePassive', '中動/受動'))}</span></span>
     </div>` : '';
 
         return `
