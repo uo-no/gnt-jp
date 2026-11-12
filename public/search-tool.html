@@ -4060,10 +4060,10 @@ async function unifiedSearch(){
         let _firstRejectCount = 0;
         for(const[gi,entry]of merged){
             const tok=entry.tok;
-            const _match = tok && tok.morph && _morphMatchesPattern(tok.morph, morphFilter);
+            const _match = tok && tok.morph && _morphMatchesPattern(tok.morph, morphFilter, tok.corpusId);
             if(!_match){
                 _firstRejectCount++;
-                if(!_firstReject && tok && tok.morph) {
+                if(!_firstReject && tok && tok.morph && tok.corpusId!=='LXX') {
                     _firstReject = _morphRejectReason(tok.morph, morphFilter);
                 }
                 merged.delete(gi);
@@ -5213,8 +5213,38 @@ function _morphRejectReason(morphTag, pattern) {
     return null;
 }
 
-function _morphMatchesPattern(morphTag, pattern){
+/* QA-04: LXX の morph は 10桁の位置タグ（例 VBI-AAI3S- / N2--NSM--- / RA--NSM---）で、
+   NT の短縮タグ（V-PAI-3S）とは別体系。NT 用の split('-') で読むと法・時制・態が読めず
+   素通し（fail-open）していた。位置の意味（bible_data 全 LXX トークンで確認済み）:
+     0 品詞 / 1-3 活用・語幹などの分類（フィルタ対象外）
+     動詞(V): 4 時制・5 態・6 法・7 人称（分詞は格）・8 数・9 （分詞は性）
+     それ以外: 4 格・5 数・6 性
+   フィルタのチップが使う NT 側コード（時制 P/I/F/A/X/Y、態 A/M/P、法 I/S/O/M/N/P、格 N/G/D/A/V …）へ
+   読み替えて同じ判定にかける。読み替えは決定的な対応のみ（LXX の法 D＝命令法 → M）。
+   対応が無いもの（数詞 M・間投詞 I・疑問代名詞 RI）は品詞フィルタに一致しない（NT の I- と同様）。 */
+const _LXX_POS_TO_CHIP = {N:'N',V:'V',A:'A',RA:'T',RR:'R',RP:'P',RD:'D',RX:'X',C:'CONJ',P:'PREP',D:'ADV',X:'PRT'};
+function _lxxMorphMatchesPattern(tag, pattern){
+    const t = String(tag||'');
+    if(t.length!==10) return false;             /* 解読不能は一致扱いにしない（素通ししない） */
+    const lead = t[0];
+    const posCode = _LXX_POS_TO_CHIP[lead==='R' ? t.slice(0,2) : lead] || '';
+    if(pattern.pos && !pattern.pos.has(posCode)) return false;
+    if(lead==='V'){
+        const mood = t[6]==='D' ? 'M' : t[6];   /* LXX の D＝命令法 → NT コード M */
+        if(pattern.tense && !pattern.tense.has(t[4])) return false;
+        if(pattern.voice && !pattern.voice.has(t[5])) return false;
+        if(pattern.mood  && !pattern.mood.has(mood))  return false;
+        if(pattern.num   && !pattern.num.has(t[8]))   return false;
+    } else {
+        if(pattern.case && !pattern.case.has(t[4])) return false;
+        if(pattern.num  && !pattern.num.has(t[5]))  return false;
+        if(pattern.gen  && !pattern.gen.has(t[6]))  return false;
+    }
+    return true;
+}
+function _morphMatchesPattern(morphTag, pattern, corpusId){
     if(!morphTag||!pattern) return true;
+    if(corpusId==='LXX') return _lxxMorphMatchesPattern(morphTag, pattern);
     const parts = morphTag.split('-');
     const posCode = parts[0]; // e.g. "N","V","A","T","R","P","D"
 
