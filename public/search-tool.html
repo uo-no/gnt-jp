@@ -1238,6 +1238,11 @@ body {
 .igsd-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
 .igsd-lemma { font-family: var(--s-ff-greek); font-size: 1.4rem; font-weight: 700; color: var(--text-main); }
 .igsd-meta { font-size: var(--text-caption); color: var(--text-sub); }
+.igsd-dist-toggle {
+    background: none; border: none; cursor: pointer; font-family: inherit;
+    font-size: var(--text-caption); color: var(--text-sub); padding: 4px 0; margin-top: 4px;
+}
+.igsd-dist-toggle:hover { color: var(--highlight); }
 .igsd-sense { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
 .igsd-sense-h { font-size: var(--s-ts-sm); font-weight: 700; color: var(--text-main); }
 .igsd-sense-count { font-weight: 400; color: var(--text-sub); font-size: var(--text-caption); margin-left: 6px; }
@@ -4812,6 +4817,8 @@ function _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close){
     const sensesWrap=document.createElement('div');
     page.appendChild(sensesWrap);
 
+    let distExpanded=false; // 9書目以降の開閉状態（再描画しても保持するためクロージャ変数）
+    const DIST_FOLD=8;
     const renderDist=()=>{
         const counts=new Map();
         for(const h of hits){
@@ -4823,7 +4830,7 @@ function _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close){
         const sorted=[...counts.entries()].sort((a,b)=>b[1]-a[1]);
         const max=sorted[0][1];
         const list=document.createElement('div');list.className='dist-bar-list';
-        sorted.slice(0,8).forEach(([bk,n])=>{
+        (distExpanded?sorted:sorted.slice(0,DIST_FOLD)).forEach(([bk,n])=>{
             const nm=bookNameMap.get(bk)||bk;
             const row=document.createElement('div');row.className='dist-bar-row'+(filterBook===bk?' active':'');
             row.title=`${nm}：${n}件`;
@@ -4834,6 +4841,13 @@ function _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close){
             list.appendChild(row);
         });
         distWrap.appendChild(list);
+        if(sorted.length>DIST_FOLD){
+            const tgl=document.createElement('button');tgl.className='igsd-dist-toggle';
+            tgl.setAttribute('aria-expanded',distExpanded?'true':'false');
+            tgl.textContent=distExpanded?'閉じる':`他 ${sorted.length-DIST_FOLD} 書物を表示`;
+            tgl.addEventListener('click',()=>{distExpanded=!distExpanded;renderDist();});
+            distWrap.appendChild(tgl);
+        }
     };
 
     const renderSenses=()=>{
