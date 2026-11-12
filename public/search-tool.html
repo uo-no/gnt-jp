@@ -1227,8 +1227,13 @@ body {
     color: var(--text-sub); border: 1px solid var(--border-soft);
     background: var(--bg-paper); white-space: nowrap;
 }
-.lg-form.igsd-link { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
-.lg-form.igsd-link:hover { color: var(--highlight); }
+.lg-form.igsd-link, .lg-greek.igsd-link { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; cursor: pointer; }
+.lg-form.igsd-link:hover, .lg-greek.igsd-link:hover { color: var(--highlight); }
+/* ギリシャ語クエリ結果の語のページ入口（QA-05） */
+.igsd-entry { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; flex-wrap: wrap; }
+.igsd-entry-link { font-size: 0.8rem; color: var(--text-sub); background: none; border: none; padding: 0; cursor: pointer;
+    font-family: inherit; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+.igsd-entry-link:hover { color: var(--highlight); }
 .igsd-page { margin-bottom: 16px; }
 .igsd-back {
     background: none; border: none; cursor: pointer; font-family: inherit;
@@ -4241,6 +4246,8 @@ function _renderUnifiedResults(query,words,word2){
     }
 
     // Result body
+    if(_igsdCurrentClose)_igsdCurrentClose(); // 前の検索で開いた語のページを閉じる（QA-05）
+    const _igsdOldEntry=document.getElementById('igsd-entry');if(_igsdOldEntry)_igsdOldEntry.remove();
     document.getElementById('result-body').style.display='';
 
     // Co-occurrence panel: only when proximity was active
@@ -4286,6 +4293,7 @@ function _renderUnifiedResults(query,words,word2){
     }else{
         document.getElementById('lemma-groups').style.display='none';
         _renderHitCards(entries,words,word2);
+        _igsdDecorateGreekQuery(query,word2,words);
     }
 
     // Book distribution
@@ -4764,6 +4772,42 @@ function _igsdLoadLemma(strong){
     }
     return _igsdLemmaCache.get(strong);
 }
+/* ギリシャ語の単語クエリ（QA-05）: 日本語クエリ用の語グループ行が無いため、結果の上に入口を置く。
+   IGSD で final かつ lemma 一致の語だけ。条件を満たさなければ何も出さない（静寂）。
+   用例は検索条件（形態フィルタ等）に左右されないよう、lemma の全ヒット（searchByLemma）を使う。 */
+function _igsdDecorateGreekQuery(query,word2,words){
+    const old=document.getElementById('igsd-entry');
+    if(old)old.remove();
+    /* detectQueryType は ό 等（U+03CC 系）だけの語を 'text' と判定するため使わず、ギリシャ文字の有無で見る */
+    if(!_layers.lemma||words.length!==1||!/[\u0370-\u03FF\u1F00-\u1FFF]/.test(query))return;
+    const idxs=searchByLemma(query);
+    if(!idxs||idxs.length===0)return;
+    /* IGSD は新約の語義整理。Strong は NT トークンの値（'G1680'）を使う（LXX 側は '1680'・null 等で表記が揺れる）。 */
+    const first=idxs.map(gi=>ALL_TOKENS[gi]).find(t=>t&&t.corpusId!=='LXX'&&t.strong);
+    if(!first)return;
+    const nl=_igsdNorm(first.lemma);
+    for(const gi of idxs){
+        const t=ALL_TOKENS[gi];
+        if(!t||_igsdNorm(t.lemma)!==nl)return; // 複数の語にまたがる場合は出さない
+        if(t.corpusId!=='LXX'&&t.strong!==first.strong)return;
+    }
+    _igsdLoadIndex().then(idx=>{
+        if(!idx)return;
+        const e=idx.get(first.strong);
+        if(!e||_igsdNorm(e.lemma)!==nl)return;
+        if(_lastQuery!==query||document.getElementById('igsd-entry'))return; // 検索が入れ替わっていたら付けない
+        const group={lemma:first.lemma,strong:first.strong,hits:idxs.map(gi=>({anchorIdx:gi}))};
+        const bar=document.createElement('div');bar.id='igsd-entry';bar.className='igsd-entry';
+        const badge=document.createElement('span');
+        badge.className='igsd-badge';badge.textContent='語義で整理済み';
+        const link=document.createElement('button');link.type='button';link.className='igsd-entry-link';
+        link.textContent=`${e.lemma} の語のページを開く`;
+        link.addEventListener('click',()=>_igsdOpenPage(e,group,[group],query,word2,words,true));
+        bar.appendChild(badge);bar.appendChild(link);
+        const countEl=document.getElementById('hits-count');
+        countEl.parentNode.insertBefore(bar,countEl);
+    });
+}
 /* 語グループ行に「語義で整理済み」バッジを付け、語名クリックで語のページを開く */
 function _igsdDecorateBar(bar,group,groups,query,word2,words){
     if(!group.strong)return;
@@ -4784,22 +4828,31 @@ function _igsdDecorateBar(bar,group,groups,query,word2,words){
         });
     });
 }
-async function _igsdOpenPage(entry,group,groups,query,word2,words){
-    const lemmaGroups=document.getElementById('lemma-groups');
+/* 開いている語のページを閉じる関数。新しい検索結果の描画前に呼び、前の語のページが残らないようにする。 */
+let _igsdCurrentClose=null;
+async function _igsdOpenPage(entry,group,groups,query,word2,words,fromGreekQuery){
+    /* 日本語クエリ: 語グループ行から開く（隠す対象は語グループと分布）。
+       ギリシャ語クエリ（QA-05）: 入口バーから開く（隠す対象は件数・ヒット一覧・分布・構造探索・入口）。 */
+    const ids=fromGreekQuery
+        ?['igsd-entry','hits-count','hits-list','dist-panel','pattern-explore-section']
+        :['lemma-groups','dist-panel'];
+    const targets=ids.map(id=>document.getElementById(id)).filter(Boolean);
+    const anchor=fromGreekQuery?document.getElementById('hits-count'):document.getElementById('lemma-groups');
     let page=document.getElementById('igsd-page');
     if(!page){
         page=document.createElement('div');page.id='igsd-page';page.className='igsd-page';
-        lemmaGroups.parentNode.insertBefore(page,lemmaGroups);
     }
-    const distPanel=document.getElementById('dist-panel');
-    const distWas=distPanel.style.display;
-    lemmaGroups.style.display='none';distPanel.style.display='none';
+    anchor.parentNode.insertBefore(page,anchor);
+    const was=targets.map(el=>el.style.display);
+    targets.forEach(el=>{el.style.display='none';});
     page.style.display='block';
     page.innerHTML='<div class="igsd-empty">読み込み中…</div>';
     const close=()=>{
         page.style.display='none';page.innerHTML='';
-        lemmaGroups.style.display='block';distPanel.style.display=distWas;
+        targets.forEach((el,i)=>{el.style.display=was[i];});
+        if(_igsdCurrentClose===close)_igsdCurrentClose=null;
     };
+    _igsdCurrentClose=close;
     const [data,giMap]=await Promise.all([_igsdLoadLemma(entry.strong),_igsdLoadGi()]);
     if(!data||!giMap){close();return;} // 取得失敗は静かに従来表示へ戻す
     _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close);
