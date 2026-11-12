@@ -181,8 +181,17 @@ function notifyAppStateChange() {
 }
 
 /* 現在表示中のURLをそのままクリップボードへコピーする（URL生成ロジックは呼ばない）。 */
+/* 共有 URL は言語プレフィックス付き（/en/ROM/1 等）にする。受け手の UI 言語が共有者と同じになり、
+   LINE・SNS のクローラーも言語別のカード（OGP）を受け取る。プレフィックスは i18n.js が読み取って
+   履歴から取り除くため、表示中の URL（location.href）には含まれない。 */
+function _shareUrlWithLang() {
+    const lang = (window.I18N && window.I18N.lang) || '';
+    if (!/^(ja|en|es)$/.test(lang)) return location.href;
+    return location.origin + '/' + lang + location.pathname + location.search + location.hash;
+}
+
 async function copyShareUrl() {
-    const url = location.href;
+    const url = _shareUrlWithLang();
     try {
         await navigator.clipboard.writeText(url);
         _showShareToast();
