@@ -3,17 +3,22 @@
 /*
  * build-igsd-index.cjs — IGSD 索引ビルド
  *
- * public/assets/data/igsd/lemmas/*.json（1 lemma = 1ファイル、正本データ）を集約し、
- *   - index.json    : lemma ごとの要約（strong, lemma, status, senses[{id,label,count}], total）
- *   - sense-map.json: verseId -> "<Strong>:<senseId>" の全対応
+ * public/assets/data/igsd/lemmas/*.json（1 ファイル = 1 見出し語、正本データ）を集約し、
+ *   - index.json    : 見出し語ごとの要約（strong, strongs, lemma, status, senses[{id,label,count}], total）
+ *   - sense-map.json: verseId -> "<Strong>:<senseId>" の全対応（<Strong> は見出し語の strong）
  * を生成する。生成物の仕様は Phase 1 設計 §2 に従う。
+ *
+ * 見出し語と Strong 番号:
+ *   ファイル名は見出し語の代表 Strong（例 G3004.json）。1 ファイルが複数の Strong 番号を
+ *   束ねる場合は strongs 配列を持つ（例 λέγω: G3004・G2036・G2046）。strongs が無い
+ *   ファイルは strong 単独として扱う。index.json の strongs は常に配列で出力する。
  *
  * ビルド時検証:
  *   - assignments の verseId が bible_data に実在しない → エラー（終了コード非0、出力は書かない）
  *   - assignments の senseId がその lemma の senses に無い → エラー
  *   - 同じ verseId が複数の lemma に割り当てられている → エラー
- *   - status が final なのに bible_data 上の全トークン（strong 一致）を assignments が
- *     覆っていない → 警告し、index.json では draft に落とす
+ *   - status が final なのに bible_data 上の全トークン（strongs のいずれかと strong が一致）を
+ *     assignments が覆っていない → 警告し、index.json では draft に落とす
  *
  * 使い方:
  *   node scripts/build-igsd-index.cjs [--lemmas-dir DIR] [--bible-data-dir DIR] [--out-dir DIR]
@@ -75,6 +80,8 @@ function build(lemmasDir, bibleDataDir) {
   for (const f of lemmaFiles) {
     const d = JSON.parse(fs.readFileSync(f, "utf8"));
     const { strong, lemma } = d;
+    // strongs が無いファイルは strong 単独として扱う
+    const strongs = Array.isArray(d.strongs) && d.strongs.length > 0 ? d.strongs : [strong];
     const senseIds = new Set((d.senses || []).map((s) => s.id));
     const assignments = d.assignments || {};
     const counts = {};
@@ -98,7 +105,8 @@ function build(lemmasDir, bibleDataDir) {
 
     let status = d.status;
     if (status === "final") {
-      const all = byStrong.get(strong) || new Set();
+      const all = new Set();
+      for (const s of strongs) for (const v of byStrong.get(s) || []) all.add(v);
       const missing = [...all].filter((v) => !(v in assignments));
       if (missing.length > 0) {
         warnings.push(
@@ -110,6 +118,7 @@ function build(lemmasDir, bibleDataDir) {
 
     index.push({
       strong,
+      strongs,
       lemma,
       status,
       senses: (d.senses || []).map((s) => ({
@@ -173,6 +182,12 @@ function selftest() {
     check("正常系：G9001 total=3, count 集計 2/1", g1 && g1.total === 3 && g1.senses[0].count === 2 && g1.senses[1].count === 1);
     check("正常系：G9002 は final のまま", g2 && g2.status === "final" && g2.total === 2);
     check("正常系：sense-map の対応", r.senseMap["n99001001001"] === "G9001:1" && r.senseMap["n99001001005"] === "G9002:1");
+    // strongs を持つ見出し語（G9003 は G9003・G9004 の2つの Strong を束ねる）
+    const g3 = r.index.find((x) => x.strong === "G9003");
+    check("strongs：配列が index に出力される", g3 && JSON.stringify(g3.strongs) === JSON.stringify(["G9003", "G9004"]));
+    check("strongs：strongs の無い見出し語は strong 単独の配列になる", JSON.stringify(g1.strongs) === JSON.stringify(["G9001"]));
+    check("strongs：全 Strong のトークンを覆えば final のまま、total=3", g3 && g3.status === "final" && g3.total === 3);
+    check("strongs：2つ目の Strong のトークンも sense-map に入る（値は見出し語の strong）", r.senseMap["n99002001003"] === "G9003:2");
   }
   // 異常系：存在しない verseId
   {
@@ -207,12 +222,29 @@ function selftest() {
     const g2 = r.index.find((x) => x.strong === "G9002");
     check("警告系：未割り当てのある final は警告して draft に落とす", r.warnings.length === 1 && g2.status === "draft");
   }
+  // 警告系：strongs の2つ目の Strong のトークンが未割り当て
+  {
+    const dir = mutatedLemmas((d) => {
+      if (d.strong === "G9003") delete d.assignments["n99002001003"];
+    });
+    const r = build(dir, bibleDataDir);
+    const g3 = r.index.find((x) => x.strong === "G9003");
+    check("警告系：strongs の別 Strong のトークンが未割り当てなら final を draft に落とす", r.warnings.length === 1 && g3.status === "draft");
+  }
+  // 異常系：strongs を持つ見出し語でも senseId 検証は維持される
+  {
+    const dir = mutatedLemmas((d) => {
+      if (d.strong === "G9003") d.assignments["n99002001003"] = "9";
+    });
+    const r = build(dir, bibleDataDir);
+    check("異常系：strongs を持つ見出し語でも存在しない senseId はエラー", r.errors.some((e) => e.includes("G9003") && e.includes("senseId")));
+  }
   // 出力の書き込みと読み戻し（正常系のみ、tmp へ）
   {
     const outDir = path.join(tmp, "out");
     const code = run({ lemmasDir, bibleDataDir, outDir });
     const idx = JSON.parse(fs.readFileSync(path.join(outDir, "index.json"), "utf8"));
-    check("出力：index.json / sense-map.json を書ける", code === 0 && idx.length === 2);
+    check("出力：index.json / sense-map.json を書ける", code === 0 && idx.length === 3 && Array.isArray(idx[0].strongs));
   }
 
   fs.rmSync(tmp, { recursive: true, force: true });

@@ -1,18 +1,19 @@
 # scripts/build-igsd-index.cjs — IGSD 索引ビルド
 
-> 対象：`scripts/build-igsd-index.cjs`（PR #768 の `feat/igsd-build-index` 版に基づく）。
+> 対象：`scripts/build-igsd-index.cjs`（見出し語単位のデータ形式〈`strongs` 配列〉に対応した版）。
 > `scripts/README.md`（scripts 全体の運用ガイド）とは別の、このスクリプト専用の説明。
 
 ## 1. 何をするか
 
-IGSD の lemma 正本データ `public/assets/data/igsd/lemmas/*.json`（1 lemma = 1ファイル）を集約し、次の2ファイルを生成する。
+IGSD の lemma 正本データ `public/assets/data/igsd/lemmas/*.json`（1ファイル = 1見出し語）を集約し、次の2ファイルを生成する。
 
 | 出力 | 内容 |
 | --- | --- |
-| `public/assets/data/igsd/index.json` | lemma ごとの要約の配列。`{ strong, lemma, status, senses: [{id, label, count}], total }`。`count` は語義ごとの割り当て件数、`total` はその lemma の割り当て総数。`strong` 昇順。 |
-| `public/assets/data/igsd/sense-map.json` | 全 lemma 通算の対応表。`{ "<verseId>": "<Strong>:<senseId>" }` |
+| `public/assets/data/igsd/index.json` | 見出し語ごとの要約の配列。`{ strong, strongs, lemma, status, senses: [{id, label, count}], total }`。`strongs` はその見出し語が束ねる Strong 番号の配列（常に配列）。`count` は語義ごとの割り当て件数、`total` はその見出し語の割り当て総数。`strong` 昇順。 |
+| `public/assets/data/igsd/sense-map.json` | 全見出し語通算の対応表。`{ "<verseId>": "<Strong>:<senseId>" }`。`<Strong>` は、そのトークン自身の Strong ではなく、割り当て元の見出し語の `strong`（例：G2036 のトークンは `G3004:<senseId>`）。 |
 
 - 入力として読む lemma ファイルは、ファイル名が `G<数字>.json`（例 `G3056.json`）に一致するものだけ。
+- ファイルの形式：1ファイルが複数の Strong 番号を束ねる場合は `strongs` 配列を持つ（例：`G3004.json` は λέγω で `strongs` が G3004・G2036・G2046）。`strongs` が無いファイルは `strong` 単独として扱い、index の `strongs` は `[strong]` になる。
 - 同時に `public/bible_data/nt/**/*.json` の各トークンを読み、`verseId` の実在確認と、`strong` ごとの全トークン集合の取得に使う（読むだけで、bible_data は変更しない）。
 - 語義の選択・補完は行わない。lemma ファイルに書かれた割り当てを集計・検証するだけ。
 
@@ -49,8 +50,8 @@ node scripts/build-igsd-index.cjs \
 node scripts/build-igsd-index.cjs --selftest
 ```
 
-- フィクスチャは `tests/fixtures/igsd/`（`lemmas/` に lemma 2件、`bible_data/nt/` に対応する最小の bible_data）。
-- 正常系（集計・sense-map）、異常系（存在しない verseId／存在しない senseId／重複割り当て）、警告系（final の draft 降格）、出力の書き込みと読み戻しを確認する。全 10 項目が `PASS` なら、最終行は `SELFTEST: ALL PASS` で終了コード 0。1件でも失敗すれば終了コード 1。
+- フィクスチャは `tests/fixtures/igsd/`（`lemmas/` に見出し語 3件〈うち1件が `strongs` を持つ〉、`bible_data/nt/` に対応する最小の bible_data）。
+- 正常系（集計・sense-map）、`strongs`（配列の出力、`strongs` の無い見出し語の扱い、別 Strong のトークンの sense-map 反映）、異常系（存在しない verseId／存在しない senseId／重複割り当て）、警告系（final の draft 降格。`strongs` の別 Strong のトークン未割り当てを含む）、出力の書き込みと読み戻しを確認する。全 16 項目が `PASS` なら、最終行は `SELFTEST: ALL PASS` で終了コード 0。1件でも失敗すれば終了コード 1。
 - 異常系・警告系は、フィクスチャを一時ディレクトリにコピーして書き換えた上で検証する。出力も一時ディレクトリへ書き、終わったら削除する。リポジトリ内のファイルは変更されない。
 - `--selftest` は、見つかった時点で selftest を実行して終了する。他のオプションとの併用は想定しない。
 
@@ -66,7 +67,7 @@ node scripts/build-igsd-index.cjs --selftest
 
 ### 警告（処理は続行・終了コード 0）
 
-- `status` が `final` なのに、bible_data 上でその lemma の `strong` と一致する全トークンを `assignments` が覆っていない場合、警告を出し、**`index.json` 上でのみ** その lemma の `status` を `draft` に落とす。lemma ファイル自体は書き換えない。
+- `status` が `final` なのに、bible_data 上でその見出し語の `strongs`（無ければ `strong`）のいずれかと一致する全トークンを `assignments` が覆っていない場合、警告を出し、**`index.json` 上でのみ** その見出し語の `status` を `draft` に落とす。lemma ファイル自体は書き換えない。
 - 照合は `strong` の文字列一致（正規化なし）。
 
 ## 5. 補足
