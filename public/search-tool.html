@@ -2380,9 +2380,17 @@ function _logBuildPhaseTimings(timings){
 
     console.groupEnd();
 }
+/* QA-03: LXX（＋日本語索引）の構築完了を待つための Promise。
+   ディープリンク初期化（initFromUrl）は NT 完了直後に検索を走らせるため、LXX 未完了のまま
+   NT のみの件数を完成形として確定させてしまっていた。unifiedSearch({awaitLxx:true}) がこれを待つ。
+   失敗・タイムアウト時も解決する（無期限に待たない）。 */
+let _lxxDoneResolve=null;
+const _lxxDonePromise=new Promise(r=>{_lxxDoneResolve=r;});
+function _markLxxDone(){if(_lxxDoneResolve){_lxxDoneResolve();_lxxDoneResolve=null;}}
 async function _buildL3Background(){
     if(JP_PARTIAL_PREBUILT_CORPORA.has('NT')&&JP_PARTIAL_PREBUILT_CORPORA.has('LXX')){
         IDX.l3Ready=true;
+        _markLxxDone();
         console.info('[search-index] Japanese partial index prebuilt ready');
         if(_prebuiltLoadMetrics.startedAt&&!_prebuiltLoadMetrics.readyRecorded){
             _prebuiltLoadMetrics.readyRecorded=true;
@@ -2407,6 +2415,7 @@ async function _buildL3Background(){
         await new Promise(r=>setTimeout(r,0));
     }
     IDX.l3Ready=true;
+    _markLxxDone();
 }
 let _fullIndexPromise=null;
 
@@ -2578,6 +2587,7 @@ function _startPrebuiltLxxAndJapanese(metaVersion){
             _buildL3Background();
         }catch(err){
             console.error('[search-index] LXX index build failed',err);
+            _markLxxDone();
         }
     };
     /* Let the NT search become interactive before LXX JSON parsing competes for CPU.
@@ -3893,7 +3903,10 @@ let _proxCoocMap      = new Map();
 let _lastQuery        = '';
 let _activeLayerSet   = {};
 
-async function unifiedSearch(){
+async function unifiedSearch(opts){
+    /* opts.awaitLxx: ディープリンク初期化用。LXX の読み込み・索引化の完了まで待ってから検索を確定させる（QA-03）。
+       UI 操作による検索（引数なし／イベント）は従来どおり。 */
+    const _awaitLxx=!!(opts&&opts.awaitLxx===true);
     // 単語数に応じて検索条件を自動表示・適用する。
     const query=document.getElementById('unified-search-input').value.trim();
     _updateSearchControls();
@@ -3920,6 +3933,12 @@ async function unifiedSearch(){
         _showLoading();
     }
     await _ensureFullIndex();
+    if(_awaitLxx&&!IDX.l3Ready){
+        /* 暫定の NT のみ件数を完成形として見せない：読み込み中表示のまま LXX を待つ */
+        _showLoading('新約聖書と七十人訳の検索データを読み込み中です…');
+        await Promise.race([_lxxDonePromise,new Promise(r=>setTimeout(r,120000))]);
+        if(!IDX.l3Ready)console.warn('[search-index] LXX wait timed out; showing available results');
+    }
     if(!window.lemmaIndex){
         _buildAndExposeLemmaIndex();
         _buildAndExposeMorphIndex();
@@ -5860,7 +5879,7 @@ async function _synInit(syntaxId) {
         if (!isNaN(d)) setProxPreset(d);
     }
 
-    unifiedSearch();
+    unifiedSearch({awaitLxx:true});
 })();
 
 /* ============================================================
