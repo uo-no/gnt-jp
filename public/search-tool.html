@@ -1221,6 +1221,32 @@ body {
 }
 .lg-more-btn:hover { border-color: var(--highlight); color: var(--highlight); }
 
+/* ── IGSD 語のページ ── */
+.igsd-badge {
+    font-size: 0.6rem; padding: 1px 7px; border-radius: 8px;
+    color: var(--text-sub); border: 1px solid var(--border-soft);
+    background: var(--bg-paper); white-space: nowrap;
+}
+.lg-form.igsd-link { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+.lg-form.igsd-link:hover { color: var(--highlight); }
+.igsd-page { margin-bottom: 16px; }
+.igsd-back {
+    background: none; border: none; cursor: pointer; font-family: inherit;
+    font-size: var(--text-caption); color: var(--text-sub); padding: 4px 0; margin-bottom: 8px;
+}
+.igsd-back:hover { color: var(--highlight); }
+.igsd-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.igsd-lemma { font-family: var(--s-ff-greek); font-size: 1.4rem; font-weight: 700; color: var(--text-main); }
+.igsd-meta { font-size: var(--text-caption); color: var(--text-sub); }
+.igsd-sense { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+.igsd-sense-h { font-size: var(--s-ts-sm); font-weight: 700; color: var(--text-main); }
+.igsd-sense-count { font-weight: 400; color: var(--text-sub); font-size: var(--text-caption); margin-left: 6px; }
+.igsd-sense-def { font-size: var(--text-caption); color: var(--text-sub); margin: 4px 0 8px; line-height: 1.6; }
+.igsd-empty { font-size: 0.72rem; color: var(--text-sub); opacity: 0.6; }
+.igsd-idiom { font-size: var(--text-caption); color: var(--text-main); padding: 4px 0; line-height: 1.6; }
+.igsd-idiom-form { font-family: var(--s-ff-greek); font-weight: 700; margin-right: 8px; }
+.igsd-idiom-refs { color: var(--text-sub); margin-left: 8px; }
+
 /* ============================================================
    Hit card — リスト型（区切り線のみ、カードシャドウなし）
    ============================================================ */
@@ -4592,6 +4618,7 @@ function _renderLemmaGroups(groups,query,word2,words){
             <span class="lg-form">${_escH(primaryLabel)}</span>
             ${secondaryLabel?`<span class="lg-greek">${_escH(secondaryLabel)}</span>`:''}
             <span class="lg-count">${group.hits.length}件</span>`;
+        _igsdDecorateBar(bar,group,groups,query,word2,words);
         const panel=document.createElement('div');panel.className='lg-panel';
         // cooc chips
         const topCooc=[...group.coocMap.entries()].sort((a,b)=>b[1].weightedScore-a[1].weightedScore).slice(0,3);
@@ -4655,6 +4682,209 @@ function _renderLgHitSlice(container,hits,query,word2,from,to,words){
         const entry=_allMergedResults.get(gi)||{tok:ALL_TOKENS[gi]||{},hitTypes:new Set(['prox'])};
         container.appendChild(_buildUnifiedCard(gi,entry,words,word2));
     });
+}
+
+/* ============================================================
+   IGSD 語のページ（v1）
+   - index.json を初回のみ遅延取得。失敗時は再試行せず従来表示のまま（静寂）
+   - 語義の自動選択はしない。割り当て済み（assignments）の事実だけで並べる
+   ============================================================ */
+const _IGSD_BASE='../assets/data/igsd/';
+let _igsdIndexPromise=null;
+const _igsdLemmaCache=new Map();
+/* sense-map-gi.json: globalIdx → "<Strong>:<senseId>"。事前生成インデックス経由のトークンは
+   verseId を持たないため、globalIdx で語義を引く。初回のみ遅延 fetch、失敗時は再試行せず null。 */
+let _igsdGiPromise=null;
+function _igsdLoadGi(){
+    if(!_igsdGiPromise){
+        _igsdGiPromise=(async()=>{
+            try{
+                const res=await fetch(_IGSD_BASE+'sense-map-gi.json');
+                if(!res.ok)return null;
+                const m=await res.json();
+                return m&&typeof m==='object'?m:null;
+            }catch(_){return null;}
+        })();
+    }
+    return _igsdGiPromise;
+}
+function _igsdNorm(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();}
+function _igsdLoadIndex(){
+    if(!_igsdIndexPromise){
+        _igsdIndexPromise=(async()=>{
+            try{
+                const res=await fetch(_IGSD_BASE+'index.json');
+                if(!res.ok)return null;
+                const arr=await res.json();
+                if(!Array.isArray(arr))return null;
+                const m=new Map();
+                for(const e of arr){
+                    if(!e||e.status!=='final')continue;
+                    for(const st of new Set([e.strong,...(e.strongs||[])]))m.set(st,e);
+                }
+                return m;
+            }catch(_){return null;}
+        })();
+    }
+    return _igsdIndexPromise;
+}
+function _igsdLoadLemma(strong){
+    if(!_igsdLemmaCache.has(strong)){
+        _igsdLemmaCache.set(strong,(async()=>{
+            try{
+                const res=await fetch(`${_IGSD_BASE}lemmas/${encodeURIComponent(strong)}.json`);
+                if(!res.ok)return null;
+                return await res.json();
+            }catch(_){return null;}
+        })());
+    }
+    return _igsdLemmaCache.get(strong);
+}
+/* 語グループ行に「語義で整理済み」バッジを付け、語名クリックで語のページを開く */
+function _igsdDecorateBar(bar,group,groups,query,word2,words){
+    if(!group.strong)return;
+    _igsdLoadIndex().then(idx=>{
+        if(!idx)return;
+        const e=idx.get(group.strong);
+        if(!e||_igsdNorm(e.lemma)!==_igsdNorm(group.lemma))return;
+        const form=bar.querySelector('.lg-form');
+        const lemmaEl=bar.querySelector('.lg-greek')||form;
+        const badge=document.createElement('span');
+        badge.className='igsd-badge';badge.textContent='語義で整理済み';
+        bar.insertBefore(badge,bar.querySelector('.lg-count'));
+        lemmaEl.classList.add('igsd-link');
+        lemmaEl.title='語のページを開く';
+        lemmaEl.addEventListener('click',ev=>{
+            ev.stopPropagation(); // 既存の展開トグルは保つ（語名以外のクリック）
+            _igsdOpenPage(e,group,groups,query,word2,words);
+        });
+    });
+}
+async function _igsdOpenPage(entry,group,groups,query,word2,words){
+    const lemmaGroups=document.getElementById('lemma-groups');
+    let page=document.getElementById('igsd-page');
+    if(!page){
+        page=document.createElement('div');page.id='igsd-page';page.className='igsd-page';
+        lemmaGroups.parentNode.insertBefore(page,lemmaGroups);
+    }
+    const distPanel=document.getElementById('dist-panel');
+    const distWas=distPanel.style.display;
+    lemmaGroups.style.display='none';distPanel.style.display='none';
+    page.style.display='block';
+    page.innerHTML='<div class="igsd-empty">読み込み中…</div>';
+    const close=()=>{
+        page.style.display='none';page.innerHTML='';
+        lemmaGroups.style.display='block';distPanel.style.display=distWas;
+    };
+    const [data,giMap]=await Promise.all([_igsdLoadLemma(entry.strong),_igsdLoadGi()]);
+    if(!data||!giMap){close();return;} // 取得失敗は静かに従来表示へ戻す
+    _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close);
+}
+function _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close){
+    // 割り当て（globalIdx→"Strong:senseId"）で、検索ツールが既に保持している用例を語義別に振り分ける。
+    // 値の Strong が開いている語と一致する場合だけ採用する。
+    const bySense=new Map(entry.senses.map(s=>[String(s.id),[]]));
+    let unassigned=0;
+    const hits=[...group.hits].sort((a,b)=>a.anchorIdx-b.anchorIdx);
+    for(const h of hits){
+        const v=giMap[String(h.anchorIdx)];
+        const sep=typeof v==='string'?v.indexOf(':'):-1;
+        const sid=sep>0&&v.slice(0,sep)===entry.strong?v.slice(sep+1):undefined;
+        if(sid!==undefined&&bySense.has(sid))bySense.get(sid).push(h);
+        else unassigned++;
+    }
+    let filterBook=null;
+    const bookNameMap=new Map(FLAT_BOOKS.map(b=>[b.key,b.name]));
+
+    page.innerHTML='';
+    const back=document.createElement('button');back.className='igsd-back';
+    back.textContent='← 検索結果に戻る';back.addEventListener('click',close);
+    page.appendChild(back);
+
+    const head=document.createElement('div');head.className='igsd-head';
+    head.innerHTML=`<span class="igsd-lemma">${_escH(entry.lemma)}</span>
+        <span class="igsd-meta">${_escH(entry.strong)}</span>
+        <span class="igsd-meta">全${Number(entry.total).toLocaleString()}回</span>`;
+    page.appendChild(head);
+
+    const distWrap=document.createElement('div');distWrap.className='dist-panel';
+    page.appendChild(distWrap);
+    const sensesWrap=document.createElement('div');
+    page.appendChild(sensesWrap);
+
+    const renderDist=()=>{
+        const counts=new Map();
+        for(const h of hits){
+            const k=(ALL_TOKENS[h.anchorIdx]||{}).bookKey||'?';
+            counts.set(k,(counts.get(k)||0)+1);
+        }
+        distWrap.innerHTML='<div class="dist-title">出現分布（書物別）</div>';
+        if(counts.size<2){return;}
+        const sorted=[...counts.entries()].sort((a,b)=>b[1]-a[1]);
+        const max=sorted[0][1];
+        const list=document.createElement('div');list.className='dist-bar-list';
+        sorted.slice(0,8).forEach(([bk,n])=>{
+            const nm=bookNameMap.get(bk)||bk;
+            const row=document.createElement('div');row.className='dist-bar-row'+(filterBook===bk?' active':'');
+            row.title=`${nm}：${n}件`;
+            row.innerHTML=`<span class="dist-bar-name">${_escH(nm.length>10?nm.slice(0,10)+'…':nm)}</span>
+                <div class="dist-bar-track"><div class="dist-bar-fill" style="width:${Math.round(n/max*100)}%"></div></div>
+                <span class="dist-bar-count">${n}</span>`;
+            row.addEventListener('click',()=>{filterBook=filterBook===bk?null:bk;renderDist();renderSenses();});
+            list.appendChild(row);
+        });
+        distWrap.appendChild(list);
+    };
+
+    const renderSenses=()=>{
+        sensesWrap.innerHTML='';
+        const defs=new Map((data.senses||[]).map(s=>[String(s.id),s]));
+        entry.senses.forEach(s=>{
+            const all=bySense.get(String(s.id))||[];
+            const list=filterBook?all.filter(h=>(ALL_TOKENS[h.anchorIdx]||{}).bookKey===filterBook):all;
+            const sec=document.createElement('div');sec.className='igsd-sense';
+            const def=(defs.get(String(s.id))||{}).def||'';
+            sec.innerHTML=`<div class="igsd-sense-h">${_escH(s.label)}<span class="igsd-sense-count">${Number(s.count).toLocaleString()}件</span></div>
+                ${def?`<div class="igsd-sense-def">${_escH(def)}</div>`:''}`;
+            const wrap=document.createElement('div');sec.appendChild(wrap);
+            if(list.length===0){
+                wrap.innerHTML='<div class="igsd-empty">この条件で表示できる用例はありません</div>';
+            }else{
+                _renderLgHitSlice(wrap,list,query,word2,0,3,words);
+                if(list.length>3){
+                    let shown=3;
+                    const btn=document.createElement('button');btn.className='lg-more-btn';
+                    btn.textContent=`さらに表示（残り${list.length-shown}件）`;
+                    btn.addEventListener('click',()=>{
+                        _renderLgHitSlice(wrap,list,query,word2,shown,shown+3,words);
+                        shown=Math.min(shown+3,list.length);
+                        const rem=list.length-shown;
+                        if(rem<=0)btn.remove();else btn.textContent=`さらに表示（残り${rem}件）`;
+                    });
+                    sec.appendChild(btn);
+                }
+            }
+            sensesWrap.appendChild(sec);
+        });
+        if(unassigned>0){
+            const n=document.createElement('div');n.className='igsd-empty';n.style.marginTop='12px';
+            n.textContent=`語義の割り当てがない用例 ${unassigned} 件は表示していません。`;
+            sensesWrap.appendChild(n);
+        }
+        const idioms=Array.isArray(data.idioms)?data.idioms:[];
+        if(idioms.length>0){
+            const sec=document.createElement('div');sec.className='igsd-sense';
+            sec.innerHTML='<div class="igsd-sense-h">成句・慣用表現</div>';
+            idioms.forEach(i=>{
+                const d=document.createElement('div');d.className='igsd-idiom';
+                d.innerHTML=`<span class="igsd-idiom-form">${_escH(i.form||'')}</span>${_escH(i.gloss||'')}`
+                    +((i.refs&&i.refs.length)?`<span class="igsd-idiom-refs">${_escH(i.refs.join('、'))}</span>`:'');
+                sec.appendChild(d);
+            });
+            sensesWrap.appendChild(sec);
+        }
+    };
+    renderDist();renderSenses();
 }
 
 /* ── Book distribution (NT / LXX 2-section) ── */

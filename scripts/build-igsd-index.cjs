@@ -6,6 +6,10 @@
  * public/assets/data/igsd/lemmas/*.json（1 ファイル = 1 見出し語、正本データ）を集約し、
  *   - index.json    : 見出し語ごとの要約（strong, strongs, lemma, status, senses[{id,label,count}], total）
  *   - sense-map.json: verseId -> "<Strong>:<senseId>" の全対応（<Strong> は見出し語の strong）
+ *   - sense-map-gi.json: globalIdx（文字列キー）-> "<Strong>:<senseId>"。sense-map.json と同じ対応を、
+ *     検索ツール（事前生成インデックス経由でトークンに verseId が無い）が引けるよう globalIdx で
+ *     持ち直したもの。globalIdx は bible_data の各トークンの globalIdx（NT の書物・章・語順の通し番号。
+ *     scripts/build-search-index.js の globalIdx と同じ並び）から解決する
  * を生成する。生成物の仕様は Phase 1 設計 §2 に従う。
  *
  * 見出し語と Strong 番号:
@@ -59,6 +63,7 @@ function normLemma(s) {
 
 function loadBibleData(bibleDataDir) {
   const verseIds = new Set();
+  const gidxByVerse = new Map(); // verseId -> globalIdx（文字列）
   const byStrong = new Map(); // strong -> Array<{ verseId, lemma(正規化済み) }>
   for (const f of listJsonFiles(bibleDataDir)) {
     const toks = JSON.parse(fs.readFileSync(f, "utf8"));
@@ -66,20 +71,23 @@ function loadBibleData(bibleDataDir) {
     for (const t of toks) {
       if (!t || !t.verseId) continue;
       verseIds.add(t.verseId);
+      if (t.globalIdx !== undefined && t.globalIdx !== null && t.globalIdx !== "") {
+        gidxByVerse.set(t.verseId, String(t.globalIdx));
+      }
       if (t.strong) {
         if (!byStrong.has(t.strong)) byStrong.set(t.strong, []);
         byStrong.get(t.strong).push({ verseId: t.verseId, lemma: normLemma(t.lemma) });
       }
     }
   }
-  return { verseIds, byStrong };
+  return { verseIds, byStrong, gidxByVerse };
 }
 
 // 純粋な集約+検証（ファイル出力なし）。{ errors, warnings, index, senseMap } を返す。
 function build(lemmasDir, bibleDataDir) {
   const errors = [];
   const warnings = [];
-  const { verseIds, byStrong } = loadBibleData(bibleDataDir);
+  const { verseIds, byStrong, gidxByVerse } = loadBibleData(bibleDataDir);
 
   const lemmaFiles = listJsonFiles(lemmasDir).filter((f) =>
     /^G\d+\.json$/.test(path.basename(f))
@@ -87,6 +95,8 @@ function build(lemmasDir, bibleDataDir) {
   const seenVerse = new Map(); // verseId -> strong（重複検出）
   const index = [];
   const senseMap = {};
+  const senseMapGi = {};
+  const seenGidx = new Map(); // globalIdx -> verseId（重複検出）
 
   for (const f of lemmaFiles) {
     const d = JSON.parse(fs.readFileSync(f, "utf8"));
@@ -112,6 +122,15 @@ function build(lemmasDir, bibleDataDir) {
       seenVerse.set(verseId, strong);
       counts[senseId] = (counts[senseId] || 0) + 1;
       senseMap[verseId] = `${strong}:${senseId}`;
+      const gi = gidxByVerse.get(verseId);
+      if (gi === undefined) {
+        errors.push(`${strong}: bible_data のトークンに globalIdx が無い: ${verseId}`);
+      } else if (seenGidx.has(gi)) {
+        errors.push(`${strong}: globalIdx ${gi} が ${seenGidx.get(gi)} と ${verseId} で重複している`);
+      } else {
+        seenGidx.set(gi, verseId);
+        senseMapGi[gi] = `${strong}:${senseId}`;
+      }
     }
 
     let status = d.status;
@@ -145,11 +164,11 @@ function build(lemmasDir, bibleDataDir) {
   }
 
   index.sort((a, b) => a.strong.localeCompare(b.strong));
-  return { errors, warnings, index, senseMap };
+  return { errors, warnings, index, senseMap, senseMapGi };
 }
 
 function run(opts) {
-  const { errors, warnings, index, senseMap } = build(opts.lemmasDir, opts.bibleDataDir);
+  const { errors, warnings, index, senseMap, senseMapGi } = build(opts.lemmasDir, opts.bibleDataDir);
   for (const w of warnings) console.warn("WARN:", w);
   if (errors.length > 0) {
     for (const e of errors) console.error("ERROR:", e);
@@ -159,8 +178,9 @@ function run(opts) {
   fs.mkdirSync(opts.outDir, { recursive: true });
   fs.writeFileSync(path.join(opts.outDir, "index.json"), JSON.stringify(index, null, 2) + "\n");
   fs.writeFileSync(path.join(opts.outDir, "sense-map.json"), JSON.stringify(senseMap, null, 2) + "\n");
+  fs.writeFileSync(path.join(opts.outDir, "sense-map-gi.json"), JSON.stringify(senseMapGi, null, 2) + "\n");
   console.log(
-    `OK: ${index.length} lemmas, ${Object.keys(senseMap).length} assignments -> index.json, sense-map.json`
+    `OK: ${index.length} lemmas, ${Object.keys(senseMap).length} assignments -> index.json, sense-map.json, sense-map-gi.json`
   );
   return 0;
 }
@@ -204,6 +224,10 @@ function selftest() {
     check("lemma 一致：2つ目の Strong の範囲にある別 lemma のトークン（未割当）は被覆の対象にならない", g3 && g3.status === "final" && r.warnings.length === 0);
     check("lemma 一致：アクセント・大文字を無視して一致判定する", normLemma("Λόγος") === normLemma("λογος") && normLemma("ἐν") === normLemma("ΕΝ") && normLemma("γάρ") !== normLemma("δέ"));
     check("strongs：2つ目の Strong のトークンも sense-map に入る（値は見出し語の strong）", r.senseMap["n99002001003"] === "G9003:2");
+    // sense-map-gi：globalIdx 結合
+    check("gi：sense-map-gi の件数が sense-map と一致する", Object.keys(r.senseMapGi).length === Object.keys(r.senseMap).length);
+    check("gi：既知フィクスチャの対応が入る（globalIdx 0 -> G9001:1、4 -> G9002:1、7 -> G9003:2）", r.senseMapGi["0"] === "G9001:1" && r.senseMapGi["4"] === "G9002:1" && r.senseMapGi["7"] === "G9003:2");
+    check("gi：全エントリの値が sense-map と同じ集合", JSON.stringify(Object.values(r.senseMapGi).sort()) === JSON.stringify(Object.values(r.senseMap).sort()));
   }
   // 異常系：存在しない verseId
   {
@@ -260,7 +284,8 @@ function selftest() {
     const outDir = path.join(tmp, "out");
     const code = run({ lemmasDir, bibleDataDir, outDir });
     const idx = JSON.parse(fs.readFileSync(path.join(outDir, "index.json"), "utf8"));
-    check("出力：index.json / sense-map.json を書ける", code === 0 && idx.length === 3 && Array.isArray(idx[0].strongs));
+    const gi = JSON.parse(fs.readFileSync(path.join(outDir, "sense-map-gi.json"), "utf8"));
+    check("出力：index.json / sense-map.json / sense-map-gi.json を書ける", code === 0 && idx.length === 3 && Array.isArray(idx[0].strongs) && Object.keys(gi).length > 0);
   }
 
   fs.rmSync(tmp, { recursive: true, force: true });
