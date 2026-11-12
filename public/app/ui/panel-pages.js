@@ -131,7 +131,10 @@ async function renderCurrentPage() {
 
 
         /* VR-5-D: resolvedJpData 決定ロジックを _getVerseSource() へ抽出（VR-5-C 参照） */
-        const resolvedJpData = _getVerseSource(_colA, jpData, elData);
+        /* QA-02: 底本に無い節（翻訳にのみ存在）を読み方モードでも表示する */
+        const _missingTexts = await _fetchMissingVerseTexts(book, ch, _colA.kind, elData);
+        _missingVerseTextsForRender = _missingTexts;
+        const resolvedJpData = _getVerseSource(_colA, jpData, elData, _missingTexts);
         if (!resolvedJpData) throw new Error('Not found');
 
         /* VR-5-E-1: render() 入口を columns[] ベースへ移行（columns[i] = { colMode, jpData }） */

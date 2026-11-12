@@ -370,3 +370,26 @@ async function _fetchTranslation(transId, book, ch) {
 
     return null;
 }
+/*
+ * _fetchMissingVerseTexts — 品質監査 QA-02。
+ * ギリシャ語由来の読み方モード（語順／文の構造／ギリシャ語／語の役割）は節一覧を底本
+ * （bible_data）から作るため、翻訳にだけ存在する節（SBLGNT に無い節）が無言で欠落する。
+ * UI 言語の基準訳（ja=JA1955／en=WEB／es=RVR1909）の節集合から底本の節集合を引いた差を
+ * { 節番号: 訳文 } で返す。節リストはハードコードせず、データから導出する。
+ * 該当なし・取得失敗・非ギリシャ語モードでは null（従来表示のまま＝静寂）。
+ */
+async function _fetchMissingVerseTexts(book, ch, kind, elData) {
+    if (!_isGreekReadingMode(kind) || !elData || elData.length === 0) return null;
+    const lang = window.I18N && window.I18N.lang;
+    const tid  = lang === 'en' ? 'WEB' : (lang === 'es' ? 'RVR1909' : 'JA1955');
+    const tr   = await _fetchTranslation(tid, book, ch);
+    if (!tr || !tr.verses) return null;
+    const have = new Set();
+    elData.forEach(w => { const v = _elTokenVerse(w); if (v) have.add(String(v)); });
+    const out = {};
+    let n = 0;
+    Object.entries(tr.verses).forEach(([v, t]) => {
+        if (!have.has(String(v)) && t) { out[v] = t; n++; }
+    });
+    return n ? out : null;
+}

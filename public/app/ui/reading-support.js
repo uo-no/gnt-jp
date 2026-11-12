@@ -704,10 +704,10 @@ function _resolveSubjrefEvidenceText(subjrefEvidence) {
  * それ以外は jpData（翻訳データ）をそのまま返す。判定ロジックのみを担い、
  * fetch・エラーハンドリングは呼び出し元に残す（挙動差異を保持するため）。
  */
-function _getVerseSource(colA, jpData, elData) {
+function _getVerseSource(colA, jpData, elData, missing) {
     /* DA-1: discourse も wordOrder と同じく elData（Greek）由来の VerseSource を用いる
        （訳文JSONを持たない）。判定を _isGreekReadingMode() に集約。 */
-    return _isGreekReadingMode(colA.kind) ? _buildFlowJpData(elData) : jpData;
+    return _isGreekReadingMode(colA.kind) ? _buildFlowJpData(elData, missing) : jpData;
 }
 
 
