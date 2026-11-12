@@ -1230,6 +1230,11 @@ body {
 .lg-form.igsd-link, .lg-greek.igsd-link { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; cursor: pointer; }
 .lg-form.igsd-link:hover, .lg-greek.igsd-link:hover { color: var(--highlight); }
 /* ギリシャ語クエリ結果の語のページ入口（QA-05） */
+.igsd-badge-btn { cursor: pointer; font-family: inherit; }
+.igsd-badge-btn:hover { color: var(--highlight); border-color: var(--highlight); }
+.as-igsd-link { display: inline-block; margin-top: 14px; font-size: 0.85rem; color: var(--s-accent); background: none; border: none;
+    padding: 0; cursor: pointer; font-family: inherit; }
+.as-igsd-link:hover { text-decoration: underline; }
 .igsd-entry { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; flex-wrap: wrap; }
 .igsd-entry-link { font-size: 0.8rem; color: var(--text-sub); background: none; border: none; padding: 0; cursor: pointer;
     font-family: inherit; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
@@ -4247,6 +4252,7 @@ function _renderUnifiedResults(query,words,word2){
 
     // Result body
     if(_igsdCurrentClose)_igsdCurrentClose(); // 前の検索で開いた語のページを閉じる（QA-05）
+    _igsdGreekOpener=null;
     const _igsdOldEntry=document.getElementById('igsd-entry');if(_igsdOldEntry)_igsdOldEntry.remove();
     document.getElementById('result-body').style.display='';
 
@@ -4775,9 +4781,12 @@ function _igsdLoadLemma(strong){
 /* ギリシャ語の単語クエリ（QA-05）: 日本語クエリ用の語グループ行が無いため、結果の上に入口を置く。
    IGSD で final かつ lemma 一致の語だけ。条件を満たさなければ何も出さない（静寂）。
    用例は検索条件（形態フィルタ等）に左右されないよう、lemma の全ヒット（searchByLemma）を使う。 */
+const _IGSD_BADGE_TEXT='語義で整理済み — 語のページを見る ›';
+let _igsdGreekOpener=null;
 function _igsdDecorateGreekQuery(query,word2,words){
     const old=document.getElementById('igsd-entry');
     if(old)old.remove();
+    _igsdGreekOpener=null;
     /* detectQueryType は ό 等（U+03CC 系）だけの語を 'text' と判定するため使わず、ギリシャ文字の有無で見る */
     if(!_layers.lemma||words.length!==1||!/[\u0370-\u03FF\u1F00-\u1FFF]/.test(query))return;
     const idxs=searchByLemma(query);
@@ -4798,12 +4807,15 @@ function _igsdDecorateGreekQuery(query,word2,words){
         if(_lastQuery!==query||document.getElementById('igsd-entry'))return; // 検索が入れ替わっていたら付けない
         const group={lemma:first.lemma,strong:first.strong,hits:idxs.map(gi=>({anchorIdx:gi}))};
         const bar=document.createElement('div');bar.id='igsd-entry';bar.className='igsd-entry';
-        const badge=document.createElement('span');
-        badge.className='igsd-badge';badge.textContent='語義で整理済み';
+        const open=()=>_igsdOpenPage(e,group,[group],query,word2,words,true);
+        const badge=document.createElement('button');badge.type='button';
+        badge.className='igsd-badge igsd-badge-btn';badge.textContent=_IGSD_BADGE_TEXT;
+        badge.addEventListener('click',open);
         const link=document.createElement('button');link.type='button';link.className='igsd-entry-link';
         link.textContent=`${e.lemma} の語のページを開く`;
-        link.addEventListener('click',()=>_igsdOpenPage(e,group,[group],query,word2,words,true));
+        link.addEventListener('click',open);
         bar.appendChild(badge);bar.appendChild(link);
+        _igsdGreekOpener={query,open}; // 見出し（result-query-label）クリックでも同じ語のページを開く
         const countEl=document.getElementById('hits-count');
         countEl.parentNode.insertBefore(bar,countEl);
     });
@@ -4817,8 +4829,12 @@ function _igsdDecorateBar(bar,group,groups,query,word2,words){
         if(!e||_igsdNorm(e.lemma)!==_igsdNorm(group.lemma))return;
         const form=bar.querySelector('.lg-form');
         const lemmaEl=bar.querySelector('.lg-greek')||form;
-        const badge=document.createElement('span');
-        badge.className='igsd-badge';badge.textContent='語義で整理済み';
+        const badge=document.createElement('button');badge.type='button';
+        badge.className='igsd-badge igsd-badge-btn';badge.textContent=_IGSD_BADGE_TEXT;
+        badge.addEventListener('click',ev=>{
+            ev.stopPropagation(); // グループの折りたたみは行クリックのまま（バッジは語のページへ）
+            _igsdOpenPage(e,group,groups,query,word2,words);
+        });
         bar.insertBefore(badge,bar.querySelector('.lg-count'));
         lemmaEl.classList.add('igsd-link');
         lemmaEl.title='語のページを開く';
@@ -5993,7 +6009,11 @@ async function _loadAbbott() {
 
 // result-query-label クリックでモーダル表示
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('result-query-label').addEventListener('click', _asOpen);
+    /* 見出しは、IGSD final のギリシャ語単語クエリでは語のページを開く（開かない点線要素を作らない）。それ以外は従来どおり辞書モーダル。 */
+    document.getElementById('result-query-label').addEventListener('click', () => {
+        if (_igsdGreekOpener && _igsdGreekOpener.query === _lastQuery) _igsdGreekOpener.open();
+        else _asOpen();
+    });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') _asClose(); });
 });
 
@@ -6029,7 +6049,34 @@ function _asOpen() {
         } else {
             bodyEl.innerHTML = '<span class="as-empty">この語のAbbott-Smith辞書データが見つかりませんでした。</span>';
         }
+        const old = document.getElementById('as-igsd-link');
+        if (old) old.remove();
         document.getElementById('as-backdrop').classList.add('open');
+        if (strongKey) _asAddIgsdLink(bodyEl, 'G' + strongKey, entry && entry.lemma ? entry.lemma : query);
+    });
+}
+/* Abbott-Smith ポップアップ末尾に、IGSD final の語だけ「語のページを見る ›」を置く。対象外の語では何も出さない。 */
+function _asAddIgsdLink(bodyEl, strong, lemma) {
+    _igsdLoadIndex().then(idx => {
+        if (!idx) return;
+        const e = idx.get(strong);
+        if (!e || !_igsdNorm(lemma) || _igsdNorm(e.lemma) !== _igsdNorm(lemma)) return;
+        if (!document.getElementById('as-backdrop').classList.contains('open') || document.getElementById('as-igsd-link')) return;
+        const idxs = searchByLemma(e.lemma);
+        if (!idxs || idxs.length === 0) return;
+        const group = { lemma: e.lemma, strong: e.strong, hits: idxs.map(gi => ({ anchorIdx: gi })) };
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.id = 'as-igsd-link'; btn.className = 'as-igsd-link';
+        btn.textContent = '語のページを見る ›';
+        btn.addEventListener('click', () => {
+            _asClose();
+            if (_igsdCurrentClose) _igsdCurrentClose();
+            const q = _lastQuery;
+            const ja = document.getElementById('lemma-groups').style.display === 'block';
+            const words = q.trim().split(/\s+/);
+            _igsdOpenPage(e, group, [group], q, null, words, !ja);
+        });
+        bodyEl.parentNode.insertBefore(btn, bodyEl.nextSibling);
     });
 }
 
