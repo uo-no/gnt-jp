@@ -70,7 +70,7 @@ async function _loadAndAppendChapter(bookObj, chNum) {
 
         /* WO・ギリシャ語本文: Greekデータからjpdata互換オブジェクトを生成する（verse番号一覧として使用） */
         const _lacJpDataResolved = (_lacColAKind === 'wordOrder' || _lacColAKind === 'greek-text')
-            ? _buildFlowJpData(_lacElData)
+            ? _buildFlowJpData(_lacElData, await _fetchMissingVerseTexts(_lacBookKey, _lacCh, _lacColAKind, _lacElData))
             : _lacJpData;
         if (!_lacJpDataResolved || !_lacJpDataResolved.verses) return false;
 

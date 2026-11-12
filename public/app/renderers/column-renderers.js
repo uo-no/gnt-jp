@@ -52,7 +52,11 @@ function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGr
 
         if (col.colMode.kind === 'wordOrder') {
             const words = elByVerse[vNum] || [];
-            if (words.length === 0) {
+            if (words.length === 0 && col.jpData && col.jpData.missing && col.jpData.missing[vNum]) {
+                /* QA-02: 底本に無い節（翻訳にのみ存在）。訳文と注記を表示する（原語データは無いので onclick なし）。 */
+                columnBlock.classList.add('verse-missing');
+                columnBlock.innerHTML = _missingVerseHtml(vNum, col.jpData.missing[vNum]);
+            } else if (words.length === 0) {
                 columnBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="color:var(--text-sub);font-size: var(--text-caption);opacity: var(--opacity-secondary);">${_T('col.noGreekDataShort', '原語データなし')}</div></div>`;
             } else {
                 /* Phase VR-4A: 本文左列の語順フロー表示を Verse Representation Architecture
@@ -92,7 +96,11 @@ function _buildColumnBlock(colIndex, col, otherCol, vNum, text, elByVerse, hasGr
                StudyPanel・ハイライトの契約をそのまま使う）。オンボーディングの
                アンカーは付けない（入口導線は既定の読書路専用）。 */
             const words = elByVerse[vNum] || [];
-            if (words.length === 0) {
+            if (words.length === 0 && col.jpData && col.jpData.missing && col.jpData.missing[vNum]) {
+                /* QA-02: 底本に無い節（翻訳にのみ存在）。訳文と注記を表示する（原語データは無いので onclick なし）。 */
+                columnBlock.classList.add('verse-missing');
+                columnBlock.innerHTML = _missingVerseHtml(vNum, col.jpData.missing[vNum]);
+            } else if (words.length === 0) {
                 columnBlock.innerHTML = `<div class="jp-section"><span class="v-num">${vNum}</span><div class="jp-text" style="color:var(--text-sub);font-size: var(--text-caption);opacity: var(--opacity-secondary);">${_T('col.noGreekDataShort', '原語データなし')}</div></div>`;
             } else {
                 const _gkBookKey  = book ? book.key : '';
@@ -238,6 +246,11 @@ app.innerHTML = '';
                 notifyAppStateChange();
             };
         });
+        /* QA-02: 底本に無い節を節番号順の位置に差し込む */
+        _insertMissingVerseBlocks(app, '.da-sentence', el => {
+            const w = el._flowWords;
+            return (w && w.length) ? parseInt(w[0].verse, 10) : null;
+        }, _missingVerseTextsForRender);
         parallel.innerHTML = '';
         _cachedElByVerse = elByVerse;
         _proximityTokens = (elData || []).map(w => ({ text: w.text || '', lemma: w.lemma || w.text || '' }));
@@ -247,7 +260,17 @@ app.innerHTML = '';
     /* 語の役割で読む — 作業スペースで確定した RK レイアウトを SR JSON から再現する
        passage（章）単位の早期 return。既存 verse-loop には入らない。 */
     if (_colA.kind === 'role-reading') {
-        _renderRoleReadingView(app, _sdChapterDataForRender, elData);
+        const _rrMissing = _missingVerseTextsForRender;
+        Promise.resolve(_renderRoleReadingView(app, _sdChapterDataForRender, elData)).then(() => {
+            /* QA-02: 描画（非同期）の完了後に、底本に無い節を差し込む */
+            const _rrWrap = app.querySelector('.role-reading-view');
+            if (_rrWrap && _rrWrap.querySelector('.sd-sentence')) {
+                _insertMissingVerseBlocks(_rrWrap, '.sd-sentence', el => {
+                    const m = (el.getAttribute('data-ref') || '').match(/:(\d+)/);
+                    return m ? parseInt(m[1], 10) : null;
+                }, _rrMissing);
+            }
+        });
         if (useVersePair && _colB.kind === 'role-reading') {
             _renderRoleReadingView(parallel, _sdChapterDataForRender, elData);
         } else if (useVersePair) {
@@ -457,7 +480,7 @@ function renderColumn(representation, options) {
  * 削除しない（VR-4-B §C「Temporary」判定）。表示差分を発生させないことを最優先し、
  * 今回のVR-4-Cでは維持する。
  */
-function _buildFlowJpData(elData) {
+function _buildFlowJpData(elData, missing) {
     if (!elData || elData.length === 0) return null;
     const verses = {};
     elData.forEach(w => {
@@ -465,7 +488,42 @@ function _buildFlowJpData(elData) {
         if (v && !(v in verses)) verses[v] = '';
     });
     if (Object.keys(verses).length === 0) return null;
+    /* QA-02: 底本に無い節（翻訳にだけ存在）を、節番号順の位置に訳文つきで加える。 */
+    if (missing) {
+        Object.entries(missing).forEach(([v, t]) => { if (!(v in verses)) verses[v] = t; });
+        const ordered = {};
+        Object.keys(verses).sort((a, b) => (parseInt(a, 10) - parseInt(b, 10)) || (a < b ? -1 : a > b ? 1 : 0))
+            .forEach(k => { ordered[k] = verses[k]; });
+        return { verses: ordered, missing };
+    }
     return { verses };
+}
+
+/* QA-02: 底本（SBLGNT）に無い節の表示。節番号＋訳文＋「翻訳のみ表示」の注記。 */
+let _missingVerseTextsForRender = null;
+function _missingVerseHtml(vNum, text) {
+    const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `<div class="jp-section missing-verse"><span class="v-num">${esc(vNum)}</span><div class="jp-text"><div>${esc(text)}</div><div class="missing-verse-note">${esc(_T('col.missingVerseNote', 'この節はギリシャ語底本（SBLGNT）に含まれないため、翻訳のみ表示します。'))}</div></div></div>`;
+}
+function _buildMissingVerseBlock(vNum, text) {
+    const el = document.createElement('div');
+    el.className = 'verse-block verse-missing';
+    el.dataset.vnum = vNum;
+    el.innerHTML = _missingVerseHtml(vNum, text);
+    return el;
+}
+/* passage 単位で描く読み方（文の構造／語の役割）に、底本に無い節を節番号順の位置へ差し込む。
+   verseOf(el) は各要素の（先頭の）節番号を返す。 */
+function _insertMissingVerseBlocks(container, itemSelector, verseOf, missing) {
+    if (!container || !missing) return;
+    const items = Array.from(container.querySelectorAll(itemSelector));
+    Object.keys(missing).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)).forEach(v => {
+        const n = parseInt(v, 10);
+        const before = items.find(el => { const x = verseOf(el); return x != null && x > n; });
+        const blk = _buildMissingVerseBlock(v, missing[v]);
+        if (before && before.parentNode) before.parentNode.insertBefore(blk, before);
+        else (items.length ? items[items.length - 1].parentNode : container).appendChild(blk);
+    });
 }
 
 /* ── Greek Flow View: 1節分の右列HTML生成 ── */
