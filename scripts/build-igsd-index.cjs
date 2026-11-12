@@ -17,8 +17,11 @@
  *   - assignments の verseId が bible_data に実在しない → エラー（終了コード非0、出力は書かない）
  *   - assignments の senseId がその lemma の senses に無い → エラー
  *   - 同じ verseId が複数の lemma に割り当てられている → エラー
- *   - status が final なのに bible_data 上の全トークン（strongs のいずれかと strong が一致）を
- *     assignments が覆っていない → 警告し、index.json では draft に落とす
+ *   - status が final なのに、被覆すべきトークン（bible_data 上で strong が strongs のいずれかに
+ *     一致し、かつ lemma が見出し語ファイルの lemma と一致するもの）を assignments が覆っていない
+ *     → 警告し、index.json では draft に落とす。lemma の一致はアクセント・大文字を無視して判定する
+ *     （NFD 分解→結合文字の除去→小文字化）。Strong 番号が同じでも別の語（別 lemma）のトークンは
+ *     被覆の対象にしない
  *
  * 使い方:
  *   node scripts/build-igsd-index.cjs [--lemmas-dir DIR] [--bible-data-dir DIR] [--out-dir DIR]
@@ -46,9 +49,17 @@ function listJsonFiles(dir) {
   return out.sort();
 }
 
+// lemma の一致判定用：アクセント・大文字を無視する（NFD 分解→結合文字の除去→小文字化）
+function normLemma(s) {
+  return String(s == null ? "" : s)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 function loadBibleData(bibleDataDir) {
   const verseIds = new Set();
-  const byStrong = new Map(); // strong -> Set<verseId>
+  const byStrong = new Map(); // strong -> Array<{ verseId, lemma(正規化済み) }>
   for (const f of listJsonFiles(bibleDataDir)) {
     const toks = JSON.parse(fs.readFileSync(f, "utf8"));
     if (!Array.isArray(toks)) continue;
@@ -56,8 +67,8 @@ function loadBibleData(bibleDataDir) {
       if (!t || !t.verseId) continue;
       verseIds.add(t.verseId);
       if (t.strong) {
-        if (!byStrong.has(t.strong)) byStrong.set(t.strong, new Set());
-        byStrong.get(t.strong).add(t.verseId);
+        if (!byStrong.has(t.strong)) byStrong.set(t.strong, []);
+        byStrong.get(t.strong).push({ verseId: t.verseId, lemma: normLemma(t.lemma) });
       }
     }
   }
@@ -106,11 +117,14 @@ function build(lemmasDir, bibleDataDir) {
     let status = d.status;
     if (status === "final") {
       const all = new Set();
-      for (const s of strongs) for (const v of byStrong.get(s) || []) all.add(v);
+      const want = normLemma(lemma);
+      for (const s of strongs) {
+        for (const t of byStrong.get(s) || []) if (t.lemma === want) all.add(t.verseId);
+      }
       const missing = [...all].filter((v) => !(v in assignments));
       if (missing.length > 0) {
         warnings.push(
-          `${strong} (${lemma}): final だが未割り当てトークンが ${missing.length} 件あるため index では draft に落とす`
+          `${strong} (${lemma}): final だが被覆すべきトークンのうち未割り当てが ${missing.length} 件あるため index では draft に落とす`
         );
         status = "draft";
       }
@@ -187,6 +201,8 @@ function selftest() {
     check("strongs：配列が index に出力される", g3 && JSON.stringify(g3.strongs) === JSON.stringify(["G9003", "G9004"]));
     check("strongs：strongs の無い見出し語は strong 単独の配列になる", JSON.stringify(g1.strongs) === JSON.stringify(["G9001"]));
     check("strongs：全 Strong のトークンを覆えば final のまま、total=3", g3 && g3.status === "final" && g3.total === 3);
+    check("lemma 一致：2つ目の Strong の範囲にある別 lemma のトークン（未割当）は被覆の対象にならない", g3 && g3.status === "final" && r.warnings.length === 0);
+    check("lemma 一致：アクセント・大文字を無視して一致判定する", normLemma("Λόγος") === normLemma("λογος") && normLemma("ἐν") === normLemma("ΕΝ") && normLemma("γάρ") !== normLemma("δέ"));
     check("strongs：2つ目の Strong のトークンも sense-map に入る（値は見出し語の strong）", r.senseMap["n99002001003"] === "G9003:2");
   }
   // 異常系：存在しない verseId
@@ -229,7 +245,7 @@ function selftest() {
     });
     const r = build(dir, bibleDataDir);
     const g3 = r.index.find((x) => x.strong === "G9003");
-    check("警告系：strongs の別 Strong のトークンが未割り当てなら final を draft に落とす", r.warnings.length === 1 && g3.status === "draft");
+    check("警告系：strongs の別 Strong の（同じ lemma の）トークンが未割り当てなら final を draft に落とす", r.warnings.length === 1 && g3.status === "draft");
   }
   // 異常系：strongs を持つ見出し語でも senseId 検証は維持される
   {

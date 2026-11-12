@@ -51,7 +51,7 @@ node scripts/build-igsd-index.cjs --selftest
 ```
 
 - フィクスチャは `tests/fixtures/igsd/`（`lemmas/` に見出し語 3件〈うち1件が `strongs` を持つ〉、`bible_data/nt/` に対応する最小の bible_data）。
-- 正常系（集計・sense-map）、`strongs`（配列の出力、`strongs` の無い見出し語の扱い、別 Strong のトークンの sense-map 反映）、異常系（存在しない verseId／存在しない senseId／重複割り当て）、警告系（final の draft 降格。`strongs` の別 Strong のトークン未割り当てを含む）、出力の書き込みと読み戻しを確認する。全 16 項目が `PASS` なら、最終行は `SELFTEST: ALL PASS` で終了コード 0。1件でも失敗すれば終了コード 1。
+- 正常系（集計・sense-map）、`strongs`（配列の出力、`strongs` の無い見出し語の扱い、別 Strong のトークンの sense-map 反映）、異常系（存在しない verseId／存在しない senseId／重複割り当て）、警告系（final の draft 降格。`strongs` の別 Strong の同じ lemma のトークン未割り当てを含む）、lemma 一致（別 lemma のトークンが被覆の対象にならないこと、アクセント・大文字の無視）、出力の書き込みと読み戻しを確認する。全 18 項目が `PASS` なら、最終行は `SELFTEST: ALL PASS` で終了コード 0。1件でも失敗すれば終了コード 1。
 - 異常系・警告系は、フィクスチャを一時ディレクトリにコピーして書き換えた上で検証する。出力も一時ディレクトリへ書き、終わったら削除する。リポジトリ内のファイルは変更されない。
 - `--selftest` は、見つかった時点で selftest を実行して終了する。他のオプションとの併用は想定しない。
 
@@ -67,8 +67,8 @@ node scripts/build-igsd-index.cjs --selftest
 
 ### 警告（処理は続行・終了コード 0）
 
-- `status` が `final` なのに、bible_data 上でその見出し語の `strongs`（無ければ `strong`）のいずれかと一致する全トークンを `assignments` が覆っていない場合、警告を出し、**`index.json` 上でのみ** その見出し語の `status` を `draft` に落とす。lemma ファイル自体は書き換えない。
-- 照合は `strong` の文字列一致（正規化なし）。
+- `status` が `final` なのに、被覆すべきトークン（bible_data 上で `strong` が見出し語の `strongs`〈無ければ `strong`〉のいずれかに一致し、**かつ `lemma` が見出し語ファイルの `lemma` と一致する**もの）を `assignments` が覆っていない場合、警告を出し、**`index.json` 上でのみ** その見出し語の `status` を `draft` に落とす。lemma ファイル自体は書き換えない。
+- `strong` の照合は文字列一致（正規化なし）。`lemma` の一致判定は、アクセントと大文字を無視する（NFD 分解→結合文字の除去→小文字化）。Strong 番号が同じでも別の語（別 lemma）のトークンは被覆の対象にしない（例：`G1722.json` の `strongs` は G1722・G1519 だが、G1519 の εἰς のトークンは対象外で、G1519 に紛れた ἐν のトークンだけが対象になる）。
 
 ## 5. 補足
 
