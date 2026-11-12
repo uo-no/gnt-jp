@@ -398,6 +398,7 @@ function renderGlobalBreadcrumb() {
         const _GBC_MODE_LABELS = {
             'JA1955':       _T('mode.JA1955', '口語訳'),
             'WEB':          _T('mode.WEB', 'World English Bible'),
+            'RVR1909':      _T('mode.RVR1909', 'Reina-Valera 1909'),
             'WORD_ORDER':   _T('mode.WORD_ORDER', '語順で読む'),
             'DA_READING':   _T('mode.DA_READING', '文の構造で読む'),
             'ROLE_READING': _T('mode.ROLE_READING', '語の役割で読む'),
