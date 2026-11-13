@@ -1472,8 +1472,9 @@ body {
 }
 
 /* ── Discovery Lobby（試し検索チップ＋1行説明）── */
-/* ロビー表示中だけ、検索窓の直下に寄せる（エラー等の空状態は従来どおり中央） */
-.state-empty:has(#discovery-lobby:not([hidden])) { justify-content: flex-start; min-height: 0; }
+/* 既定（ロビー表示）は検索窓の直下に寄せる。エラー等の空状態だけ .is-centered で従来どおり中央（:has() に依存しない） */
+.state-empty { justify-content: flex-start; min-height: 0; }
+.state-empty.is-centered { justify-content: center; min-height: 60vh; }
 #discovery-lobby {
     display: flex; flex-direction: column;
     align-items: center;
@@ -3843,6 +3844,9 @@ function _exampleSearch(term) {
     const input = document.getElementById('unified-search-input');
     if (input) { input.value = term; input.dispatchEvent(new Event('input')); }
     unifiedSearch();
+    /* チップ・履歴からの検索ではサジェストを閉じる（input イベントで開いたまま残るのを防ぐ） */
+    const sd = document.getElementById('suggest-dropdown');
+    if (sd) sd.classList.remove('open');
 }
 function _syncLayerUI(name){
     const active=_layers[name];
@@ -5302,6 +5306,7 @@ function _returnToLobby() {
     document.getElementById('state-loading').style.display = 'none';
     const es = document.getElementById('state-empty');
     es.style.display = 'flex';
+    es.classList.remove('is-centered');
     /* [T6] 履歴がある場合は Lobby を表示しない */
     document.getElementById('discovery-lobby').hidden = _history.length > 0;
     _renderEmptyStateHistory();
@@ -5311,6 +5316,7 @@ function _showEmpty(title,desc){
     document.getElementById('result-body').style.display='none';
     const es=document.getElementById('state-empty');
     es.style.display='flex';
+    es.classList.add('is-centered');
     // Discovery Lobby を隠してエラーコンテンツを前面へ
     document.getElementById('discovery-lobby').hidden=true;
     const _et=es.querySelector('.empty-title');
