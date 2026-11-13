@@ -2174,6 +2174,29 @@ const POS_JP = {
 };
 let _indexPromise = null;
 
+/* 検索画面の i18n ヘルパー（#28）。
+   _tf: T() を通して文字列を引く。JA・辞書に無い言語（ES）は第2引数（日本語の現行文字列）をそのまま返す。
+        {name} 形式のプレースホルダを vars で置換する。
+   _tp: 単数形（n===1 で key+'.one' が辞書にあるとき）を選ぶ版。
+   _sLoc: 検索画面用の辞書（search.*）がある言語か。書名など main 側の辞書キー（book.*）を ES で
+          誤って使わないための門（ES は検索画面では日本語のまま）。 */
+function _tf(key,ja,vars){
+    let s=(window.T?T(key,ja):ja);
+    if(s==null)s=ja;
+    if(vars)for(const k in vars)s=s.split('{'+k+'}').join(String(vars[k]));
+    return s;
+}
+function _tp(key,ja,n,vars){
+    const v=Object.assign({n:n},vars||{});
+    if(n===1&&window.T){const one=T(key+'.one',null);if(one!=null)return _tf(key+'.one',one,v);}
+    return _tf(key,ja,v);
+}
+function _sLoc(){return !!(window.T&&T('search.meta.title',null)!=null);}
+function _bookNm(key,ja){return(_sLoc()&&key)?T('book.'+key,ja):ja;}
+/* 節参照: JA は「書名N章M節」、EN は「Book N:M」。書名は呼び出し側が _bookNm で解決済みのものを渡す。 */
+function _refLabel(name,ch,v,jaSep){return _tf('search.ref.verse',name+(jaSep||'')+ch+'章'+v+'節',{book:name,ch:ch,v:v});}
+function _posLabel(p){return _tf('search.morph.opt.pos.'+p,POS_JP[p]||p);}
+
 function normalizeGreek(str) {
     return (str||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
         .replace(/[⸀⸁⸂⸃⌈⌉.,;:·]/g,'').replace(/ς/g,'σ').toLowerCase().trim();
@@ -2451,7 +2474,7 @@ let _lxxRerunQuery=null;
 function _noteProvisionalCount(countEl,query){
     const sub=document.createElement('span');
     sub.className='result-count-sub';sub.id='result-count-provisional';
-    sub.textContent='七十人訳を読み込み中のため件数は暫定です';
+    sub.textContent=_tf('search.status.provisional','七十人訳を読み込み中のため件数は暫定です');
     countEl.appendChild(sub);
     if(_lxxRerunQuery===query)return;
     _lxxRerunQuery=query;
@@ -3350,7 +3373,7 @@ function _renderConceptInsight(concept) {
     const rel = (concept.related || []).map(id => _conceptById(id)).filter(Boolean);
     const pats = (concept.patterns || []).map(pid => {
         const i = SEARCH_PATTERNS.findIndex(p => p.id === pid);
-        return i >= 0 ? { i, label: SEARCH_PATTERNS[i].label } : null;
+        return i >= 0 ? { i, label: _patLabel(SEARCH_PATTERNS[i]) } : null;
     }).filter(Boolean);
     const syns = (concept.syntaxTypes || []).map(s =>
         typeof s === 'string' ? { id: s, label: s }
@@ -3366,7 +3389,7 @@ function _renderConceptInsight(concept) {
     const relHtml = rel.length <= _REL_FOLD
         ? rel.map(_mkRelChip).join('')
         : rel.slice(0, _REL_FOLD).map(_mkRelChip).join('')
-            + `<button class="ci-related-more-btn" onclick="this.style.display='none';this.nextElementSibling.style.display='contents'">さらに表示 (${rel.length - _REL_FOLD})</button>`
+            + `<button class="ci-related-more-btn" onclick="this.style.display='none';this.nextElementSibling.style.display='contents'">${_tf('search.ci.more','さらに表示 ({n})',{n:rel.length - _REL_FOLD})}</button>`
             + `<span style="display:none">${rel.slice(_REL_FOLD).map(_mkRelChip).join('')}</span>`;
     const patHtml = pats.map(p =>
         `<span class="layer-chip prox" onclick="runPatternSearch(${p.i})">${_escH(p.label)}</span>`).join('');
@@ -3399,12 +3422,12 @@ function _renderConceptInsight(concept) {
             }
             rows.sort((a, b) => b.n - a.n);
             if (rows.length) {
-                lexHtml = `<div class="ci-section"><div class="ci-section-title">関連するギリシャ語</div>
+                lexHtml = `<div class="ci-section"><div class="ci-section-title">${_tf('search.ci.relatedGreek','関連するギリシャ語')}</div>
                     <div class="ci-lex">${rows.map(r =>
-                        `<span class="ci-lex-row" data-lemma="${_escH(r.lemma)}" title="Abbott-Smith 辞書を開く">
+                        `<span class="ci-lex-row" data-lemma="${_escH(r.lemma)}" title="${_escH(_tf('search.ci.openDict','Abbott-Smith 辞書を開く'))}">
                             <span class="ci-lex-greek">${_escH(r.lemma)}</span
                             ><span class="ci-lex-gloss">${_escH(r.gloss)}</span
-                            ><span class="ci-lex-count">${r.n}回</span>
+                            ><span class="ci-lex-count">${_tf('search.count.times','{n}回',{n:r.n})}</span>
                         </span>`).join('')}</div></div>`;
             }
         }
@@ -3412,21 +3435,21 @@ function _renderConceptInsight(concept) {
 
     /* Advanced sections (patterns / syntax) go into a collapsible details block */
     const advancedSections = [
-        patHtml  ? `<div class="ci-section"><div class="ci-section-title">パターンで探す</div><div class="layer-chips ci-chips">${patHtml}</div></div>` : '',
-        synHtml  ? `<div class="ci-section"><div class="ci-section-title">構文で探す</div><div class="layer-chips ci-chips">${synHtml}</div></div>` : '',
+        patHtml  ? `<div class="ci-section"><div class="ci-section-title">${_tf('search.ci.patterns','パターンで探す')}</div><div class="layer-chips ci-chips">${patHtml}</div></div>` : '',
+        synHtml  ? `<div class="ci-section"><div class="ci-section-title">${_tf('search.ci.syntax','構文で探す')}</div><div class="layer-chips ci-chips">${synHtml}</div></div>` : '',
     ].join('');
     const advancedHtml = advancedSections
         ? `<details class="ci-advanced">
-               <summary class="ci-advanced-toggle">さらに詳しく</summary>
+               <summary class="ci-advanced-toggle">${_tf('search.ci.advanced','さらに詳しく')}</summary>
                <div class="ci-advanced-body">${advancedSections}</div>
            </details>` : '';
 
-    const body = lexHtml + sec('関連する概念', relHtml) + advancedHtml;
+    const body = lexHtml + sec(_tf('search.ci.relatedConcepts','関連する概念'), relHtml) + advancedHtml;
     if (!body) { el.style.display = 'none'; el.innerHTML = ''; return; }
     el.innerHTML = `<details class="ci-outer">
         <summary class="ci-summary">
-            <span class="ci-summary-label">「${_escH(concept.label)}」について</span>
-            <span class="ci-summary-hint">ことばを深める</span>
+            <span class="ci-summary-label">${_tf('search.ci.about','「{label}」について',{label:_escH(concept.label)})}</span>
+            <span class="ci-summary-hint">${_tf('search.ci.hint','ことばを深める')}</span>
         </summary>
         <div class="ci-outer-body">${body}</div>
     </details>`;
@@ -3466,6 +3489,11 @@ function _ciSyntaxClick(id) {
     _synInit(id);      /* 既存の Wallace 型検索を呼ぶだけ */
 }
 
+/* パターン表示文言: 辞書のある言語（EN）は JSON の *_en を使う。無ければ（JA・ES・欠落）従来どおり日本語。 */
+function _patLabel(p) { return (_sLoc() && p.label_en) || p.label; }
+function _patDesc(p) { return (_sLoc() && p.description_en) || p.description || ''; }
+function _patPattern(p) { return (_sLoc() && p.pattern_en) || p.pattern || ''; }
+
 async function _loadSearchPatterns() {
     try {
         const r = await fetch('../assets/data/search-patterns.json');
@@ -3483,8 +3511,8 @@ function _renderPatternChips() {
     const wrap = document.getElementById('pattern-chips');
     if (!sec || !wrap || SEARCH_PATTERNS.length === 0) return;
     wrap.innerHTML = SEARCH_PATTERNS.map((p, i) =>
-        `<span class="layer-chip prox" title="${_escH(p.description || '')}"
-            onclick="runPatternSearch(${i})">${_escH(p.label)}</span>`).join('');
+        `<span class="layer-chip prox" title="${_escH(_patDesc(p))}"
+            onclick="runPatternSearch(${i})">${_escH(_patLabel(p))}</span>`).join('');
     sec.style.display = '';
 }
 
@@ -3494,9 +3522,9 @@ function _renderPatternExplore() {
     if (!sec || !wrap || SEARCH_PATTERNS.length === 0) return;
     wrap.innerHTML = SEARCH_PATTERNS.map((p, i) =>
         `<button class="pe-card" onclick="runPatternSearch(${i})">
-            <div class="pe-label">${_escH(p.label)}</div>
-            <div class="pe-pattern">${_escH(p.pattern || '')}</div>
-            <div class="pe-desc">${_escH(p.description || '')}</div>
+            <div class="pe-label">${_escH(_patLabel(p))}</div>
+            <div class="pe-pattern">${_escH(_patPattern(p))}</div>
+            <div class="pe-desc">${_escH(_patDesc(p))}</div>
         </button>`).join('');
     sec.style.display = '';
 }
@@ -3506,7 +3534,7 @@ function _renderPatternExplore() {
 function runPatternSearch(i) {
     const p = SEARCH_PATTERNS[i];
     if (!p || !p.query || p.query.type !== 'cooccurrence') return;
-    _sqsAddFilter({ type: 'pattern', id: p.id, label: p.label, pattern: p.pattern, query: p.query });
+    _sqsAddFilter({ type: 'pattern', id: p.id, label: _patLabel(p), pattern: _patPattern(p), query: p.query });
 }
 
 function groupHitsByLemma(hits){
@@ -3591,7 +3619,7 @@ function _getSuggestions(query){
             .map(([lemma,{count,tok,posSet}])=>{
                 const jpVals=tok.japanese?(Array.isArray(tok.japanese)?tok.japanese:[tok.japanese]):(tok.gloss?[tok.gloss]:[]);
                 return{lemma,jp:jpVals.slice(0,2).join('・')||'',
-                    pos:[...posSet].map(p=>POS_JP[p]||p).join('・')||'',count};
+                    pos:[...posSet].map(p=>_posLabel(p)).join(_tf('search.sep','・'))||'',count};
             });
     }
     const lemmaMap=new Map();
@@ -3611,7 +3639,7 @@ function _getSuggestions(query){
         .map(([lemma,{count,tok,posSet}])=>{
             const jpVals=tok.japanese?(Array.isArray(tok.japanese)?tok.japanese:[tok.japanese]):(tok.gloss?[tok.gloss]:[]);
             return{lemma,jp:jpVals.slice(0,2).join('・')||'',
-                pos:[...posSet].map(p=>POS_JP[p]||p).join('・')||'',count};
+                pos:[...posSet].map(p=>_posLabel(p)).join(_tf('search.sep','・'))||'',count};
         });
 }
 function _showSuggest(suggestions){
@@ -3627,7 +3655,7 @@ function _showSuggest(suggestions){
                 <span class="suggest-gr">${_escH(s.lemma)}</span>
                 ${s.pos?`<span class="suggest-pos">${_escH(s.pos)}</span>`:''}
             </div>
-            <span class="suggest-count">${s.count}箇所</span>`;
+            <span class="suggest-count">${_tp('search.suggest.count','{n}箇所',s.count)}</span>`;
         item.addEventListener('mousedown',e=>{
             e.preventDefault();
             document.getElementById('unified-search-input').value=s.lemma;
@@ -3638,7 +3666,7 @@ function _showSuggest(suggestions){
     });
     const hint=document.createElement('div');
     hint.style.cssText='font-size:0.6rem;color:var(--ink-soft);padding:5px 14px;opacity:0.5;';
-    hint.textContent='クリックで選択';
+    hint.textContent=_tf('search.suggest.hint','クリックで選択');
     dd.appendChild(hint);
     dd.classList.add('open');
 }
@@ -3707,7 +3735,7 @@ function _watchIndexProgress(){
     const timer=setInterval(()=>{
         if(IDX.l3Ready){
             dot.textContent='✓';
-            label.textContent='準備完了';
+            label.textContent=_tf('search.status.ready','準備完了');
             /* lemmaIndex / morphIndex は IDX.ready 後に _buildAndExpose* で構築済みのはず。
                冪等化済みの関数を呼ぶことで、万一まだ未構築の場合は補完し、
                構築済みの場合は即スキップする（二重構築を防ぐ）。 */
@@ -3721,13 +3749,13 @@ function _watchIndexProgress(){
             clearInterval(timer);
         }else if(IDX.ready){
             dot.textContent='✓';
-            label.innerHTML='NT検索できます<br><span style="opacity:0.75">LXX・日本語を準備中…</span>';
+            label.innerHTML=_escH(_tf('search.status.ntReady','NT検索できます'))+'<br><span style="opacity:0.75">'+_escH(_tf('search.status.lxxPreparing','LXX・日本語を準備中…'))+'</span>';
         }else{
             dot.textContent='○';
             const total=FLAT_BOOKS.reduce((s,b)=>s+b.ch,0);
             const loaded=Object.keys(tokenCache).length;
             const pct=total?Math.min(Math.round((loaded/total)*100),99):0;
-            label.textContent=pct?`読み込み中… ${pct}%`:'準備中…';
+            label.textContent=pct?_tf('search.status.loadingPct','読み込み中… {pct}%',{pct:pct}):_tf('search.status.preparing','準備中…');
         }
     },800);
 }
@@ -3811,7 +3839,7 @@ function _updateSearchControls(){
         prox.setAttribute('aria-hidden',hasMultipleWords?'false':'true');
     }
     const title=document.getElementById('filter-suggestion-title');
-    if(title) title.textContent='複数の語を検索する条件';
+    if(title) title.textContent=_tf('search.filter.multiTitle','複数の語を検索する条件');
     if(!hasQuery) _closeMorphFilters();
     _syncMorphFilterFab();
 }
@@ -3822,7 +3850,7 @@ function _renderFilterBar() {
     if (!bar) return;
     if (_sqState.filters.length === 0) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
     bar.innerHTML = _sqState.filters.map(f =>
-        `<span class="sqs-pill">${_escH(f.pattern || f.label)}<button class="sqs-pill-x" data-filter-id="${_escH(f.id)}" aria-label="条件を外す" title="この条件を外す">×</button></span>`
+        `<span class="sqs-pill">${_escH(f.pattern || f.label)}<button class="sqs-pill-x" data-filter-id="${_escH(f.id)}" aria-label="${_escH(_tf('search.filter.removeAria','条件を外す'))}" title="${_escH(_tf('search.filter.removeTitle','この条件を外す'))}">×</button></span>`
     ).join('');
     if (!bar._sqsListenerAdded) {
         bar.addEventListener('click', e => {
@@ -3863,7 +3891,7 @@ function _sqsClearFilters() {
    ============================================================ */
 function onProxSlider(val){
     currentDist=parseInt(val);
-    document.getElementById('prox-val-label').textContent=`±${currentDist}語`;
+    document.getElementById('prox-val-label').textContent=_tp('search.prox.words','±{n}語',currentDist);
     const pct=((currentDist-1)/14)*100;
     document.getElementById('prox-slider').style.setProperty('--pct',pct+'%');
     document.querySelectorAll('.prox-preset').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.d)===currentDist));
@@ -3921,7 +3949,7 @@ function _addHistory(query,layers){
     _renderHistory();
 }
 
-const _BADGE_JP_HIST = {lemma:'語根', phrase:'フレーズ', prox:'近接', morph:'品詞'};
+const _badgeHist = l => _tf('search.badge.'+l, {lemma:'語根', phrase:'フレーズ', prox:'近接', morph:'品詞'}[l]||l);
 
 function _renderHistory(){
     const block = document.getElementById('history-block');
@@ -3934,7 +3962,7 @@ function _renderHistory(){
         item.className = 'history-item';
         const badges = ['lemma','phrase','prox','morph']
             .filter(l => layers[l])
-            .map(l => `<span class="h-badge ${l}">${_BADGE_JP_HIST[l]||l}</span>`).join('');
+            .map(l => `<span class="h-badge ${l}">${_badgeHist(l)}</span>`).join('');
         item.innerHTML = `
             <div class="history-badges">${badges}</div>
             <span class="h-query">${_escH(query)}</span>`;
@@ -3989,7 +4017,7 @@ async function unifiedSearch(opts){
 
     // Check at least one non-morph layer is active
     if(!_layers.lemma&&!_layers.prox&&query.split(/\s+/).filter(Boolean).length<2&&detectQueryType(query)!=='japanese'){
-        _showEmpty('レイヤーを選択してください','検索条件を選択してください');
+        _showEmpty(_tf('search.empty.layerTitle','レイヤーを選択してください'),_tf('search.empty.layerDesc','検索条件を選択してください'));
         return;
     }
 
@@ -4003,14 +4031,14 @@ async function unifiedSearch(opts){
        NT完了後は LXX バックグラウンド構築中でも NT 範囲で検索できる。
        IDX.l3Ready（全書物+日本語索引完了）後は NT+LXX を全文検索できる。 */
     if(!IDX.ready){
-        _showLoading('新約聖書の検索データを読み込み中です…');
+        _showLoading(_tf('search.status.loadingNt','新約聖書の検索データを読み込み中です…'));
     } else {
         _showLoading();
     }
     await _ensureFullIndex();
     if(_awaitLxx&&!IDX.l3Ready){
         /* 暫定の NT のみ件数を完成形として見せない：読み込み中表示のまま LXX を待つ */
-        _showLoading('新約聖書と七十人訳の検索データを読み込み中です…');
+        _showLoading(_tf('search.status.loadingNtLxx','新約聖書と七十人訳の検索データを読み込み中です…'));
         await Promise.race([_lxxDonePromise,new Promise(r=>setTimeout(r,120000))]);
         if(!IDX.l3Ready)console.warn('[search-index] LXX wait timed out; showing available results');
     }
@@ -4269,7 +4297,7 @@ async function copyShareUrl() {
 function _showShareToast() {
     const t = document.getElementById('share-toast');
     if (!t) return;
-    t.textContent = 'URLをコピーしました';
+    t.textContent = _tf('search.toast.copied','URLをコピーしました');
     t.classList.add('visible');
     clearTimeout(t._hideTimer);
     t._hideTimer = setTimeout(() => t.classList.remove('visible'), 2000);
@@ -4306,13 +4334,13 @@ function _renderUnifiedResults(query,words,word2){
     const _countEl=document.getElementById('result-count');
     if(lxxCount>0){
         const _parts=[];
-        if(ntCount>0) _parts.push(`新約聖書 ${ntCount.toLocaleString()}件`);
-        _parts.push(`旧約ギリシア語訳（LXX） ${lxxCount.toLocaleString()}件`);
+        if(ntCount>0) _parts.push(_tf('search.count.nt','新約聖書 {n}件',{n:ntCount.toLocaleString()}));
+        _parts.push(_tf('search.count.lxx','旧約ギリシア語訳（LXX） {n}件',{n:lxxCount.toLocaleString()}));
         _countEl.innerHTML=
-            `<span>${total.toLocaleString()} 件</span>`+
+            `<span>${_tp('search.count.hits','{n} 件',total,{n:total.toLocaleString()})}</span>`+
             `<span class="result-count-sub">${_parts.join(' ／ ')}</span>`;
     } else {
-        _countEl.textContent=`${total.toLocaleString()} 件`;
+        _countEl.textContent=_tp('search.count.hits','{n} 件',total,{n:total.toLocaleString()});
     }
     if(!IDX.l3Ready)_noteProvisionalCount(_countEl,query); // LXX 合流前の件数を完成形として見せない（#792 の方針に揃える）
 
@@ -4333,17 +4361,17 @@ function _renderUnifiedResults(query,words,word2){
         document.getElementById('hits-list').innerHTML=`
             <div class="zero-hits">
                 <div class="zero-hits-icon">∅</div>
-                <div class="zero-hits-msg">「${_escH(query)}」に該当する箇所がありませんでした</div>
+                <div class="zero-hits-msg">${_tf('search.empty.noMatch','「{q}」に該当する箇所がありませんでした',{q:_escH(query)})}</div>
                 <div class="zero-recovery">
-                    <div class="empty-section-label">試してみる</div>
-                    <div style="font-size:0.78rem;color:var(--text-sub);margin-top:4px;">次のテーマから検索できます。</div>
+                    <div class="empty-section-label">${_tf('search.empty.try','試してみる')}</div>
+                    <div style="font-size:0.78rem;color:var(--text-sub);margin-top:4px;">${_tf('search.empty.tryDesc','次のテーマから検索できます。')}</div>
                     <div class="empty-examples">
                         <span class="ex-chip" onclick="_exampleSearch('愛')">愛</span>
                         <span class="ex-chip" onclick="_exampleSearch('祈り')">祈り</span>
                         <span class="ex-chip" onclick="_exampleSearch('救い')">救い</span>
                         <span class="ex-chip" onclick="_exampleSearch('キリスト')">キリスト</span>
                     </div>
-                    <div class="zero-hint">例：「神」「恵み」「希望」などの言葉で検索できます<br>ギリシャ語や Strong 番号でも検索できます</div>
+                    <div class="zero-hint">${_tf('search.empty.hintExample','例：「神」「恵み」「希望」などの言葉で検索できます')}<br>${_tf('search.empty.hintGreek','ギリシャ語や Strong 番号でも検索できます')}</div>
                 </div>
             </div>`;
         document.getElementById('hits-count').textContent='';
@@ -4413,8 +4441,8 @@ function _renderHitCards(entries,words,word2){
     const byRef=byVerse; // 変数名を後続で統一して使用
 
     countEl.textContent=_filterWord
-        ?`「${_filterWord}」との共起：?件 / 全${byRef.size}件`
-        :`${byRef.size.toLocaleString()} 節`;
+        ?_tf('search.count.coocFilter','「{w}」との共起：?件 / 全{n}件',{w:_filterWord,n:byRef.size})
+        :_tp('search.count.verses','{n} 節',byRef.size,{n:byRef.size.toLocaleString()});
 
     const FOLD = 8; // 最初に表示する件数
     const total = byRef.size;
@@ -4431,7 +4459,7 @@ function _renderHitCards(entries,words,word2){
     status.style.cssText = 'text-align:center;padding:8px;font-size:0.75rem;color:var(--ink-soft);';
     const updateStatus = () => {
         const n = isOpenState ? FOLD + folded.length + tailShown : Math.min(FOLD, total);
-        status.textContent = n >= total ? `${total.toLocaleString()} 節すべて表示中` : `${n.toLocaleString()} / ${total.toLocaleString()} 節を表示中`;
+        status.textContent = n >= total ? _tp('search.status.allShown','{n} 節すべて表示中',total,{n:total.toLocaleString()}) : _tp('search.status.shownOf','{n} / {total} 節を表示中',total,{n:n.toLocaleString(),total:total.toLocaleString()});
     };
 
     let rendered = 0;
@@ -4450,7 +4478,7 @@ function _renderHitCards(entries,words,word2){
         btnIcon.className = 'material-symbols-outlined mat-icon';
         btnIcon.textContent = 'expand_more';
         const btnLabel = document.createElement('span');
-        btnLabel.textContent = `残り ${folded.length} 節を表示`;
+        btnLabel.textContent = _tp('search.btn.showRemaining','残り {n} 節を表示',folded.length);
         btn.appendChild(btnIcon); btn.appendChild(btnLabel);
 
         // 折りたたみコンテナ
@@ -4468,7 +4496,7 @@ function _renderHitCards(entries,words,word2){
             btn.classList.toggle('open', !isOpen);
             overflow.classList.toggle('closed', isOpen);
             btnIcon.textContent = isOpen ? 'expand_more' : 'expand_less';
-            btnLabel.textContent = isOpen ? `残り ${folded.length} 節を表示` : '折りたたむ';
+            btnLabel.textContent = isOpen ? _tp('search.btn.showRemaining','残り {n} 節を表示',folded.length) : _tf('search.btn.collapse','折りたたむ');
             isOpenState = !isOpen;
             updateStatus();
         };
@@ -4478,7 +4506,7 @@ function _renderHitCards(entries,words,word2){
             const tailWrap = document.createElement('div');
             const tailBtn = document.createElement('button');
             tailBtn.className = 'hits-toggle-btn';
-            const tailLabel = () => { tailBtn.textContent = `残り ${(tailEntries.length - tailShown).toLocaleString()} 節を表示`; };
+            const tailLabel = () => { { const _r = tailEntries.length - tailShown; tailBtn.textContent = _tp('search.btn.showRemaining','残り {n} 節を表示',_r,{n:_r.toLocaleString()}); } };
             tailLabel();
             tailBtn.onclick = () => {
                 const chunk = tailEntries.slice(tailShown, tailShown + SHOW);
@@ -4541,8 +4569,8 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
     const _jpRef=(()=>{
         const m=rawRef.match(/^([A-Z1-9]{2,6})\s+(\d+):(\d+)/);
         if(!m) return rawRef;
-        const short=BOOK_SHORT_SEARCH[m[1]]||_bookNameMap.get(m[1])||m[1];
-        return `${short}${m[2]}章${m[3]}節`;
+        const short=_bookNm(m[1],BOOK_SHORT_SEARCH[m[1]]||_bookNameMap.get(m[1])||m[1]);
+        return _refLabel(short,m[2],m[3]);
     })();
     // 「本文で見る」ボタン（verse付きURL）
     const openHref=bookKey&&ch
@@ -4553,7 +4581,7 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
 
     // Hit-type badges — Japanese short labels matching menu names
     const BADGE_JP={lemma:'語根',phrase:'フレーズ',prox:'近接',morph:'品詞'};
-    const badgesHtml=[...entry.hitTypes].map(t=>`<span class="ht-badge ${t}">${BADGE_JP[t]||t}</span>`).join('');
+    const badgesHtml=[...entry.hitTypes].map(t=>`<span class="ht-badge ${t}">${_tf('search.badge.'+t,BADGE_JP[t]||t)}</span>`).join('');
 
     // Build context window
     const CONTEXT_LEMMA=4,CONTEXT_PROX=entry.proxHit?Math.abs(entry.proxHit.end-entry.proxHit.start):5;
@@ -4608,14 +4636,14 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         const targetText=_escH(ALL_TOKENS[w2Gi]?.text||word2||'');
         proxVizHtml=`<div class="prox-dist-row">
             <span class="prox-anchor">${anchorText}</span>
-            <div class="prox-dist-line"><span class="prox-dist-label">距離 ${dist}</span></div>
+            <div class="prox-dist-line"><span class="prox-dist-label">${_tf('search.card.distance','距離 {n}',{n:dist})}</span></div>
             <span class="prox-target">${targetText}</span>
         </div>`;
     }
 
 
     const openBtnLgHtml = openHref
-        ? `<a class="hit-open-btn-lg" href="${openHref}" target="_blank" rel="noopener noreferrer">本文で読む</a>`
+        ? `<a class="hit-open-btn-lg" href="${openHref}" target="_blank" rel="noopener noreferrer">${_tf('search.card.read','本文で読む')}</a>`
         : '';
     const lxxBadgeHtml=corpusId==='LXX'?'<span class="corpus-badge">LXX</span>':'';
     card.innerHTML=`
@@ -4625,11 +4653,11 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         </div>
         ${proxVizHtml}
         <div class="hit-body">
-            <div class="hit-snippet" aria-label="ギリシャ語原文">${snippetHtml}</div>
-            <button class="hit-greek-toggle" aria-expanded="false">▸ ギリシャ語原文を見る</button>
+            <div class="hit-snippet" aria-label="${_escH(_tf('search.card.greekAria','ギリシャ語原文'))}">${snippetHtml}</div>
+            <button class="hit-greek-toggle" aria-expanded="false">▸ ${_tf('search.card.greekShow','ギリシャ語原文を見る')}</button>
             <div class="hit-trans-row">
                 <span class="hit-trans-text hit-trans-main"></span>
-                <span class="hit-trans-loading" style="font-size:var(--s-ts-xs);color:var(--s-text-hint);">読み込み中…</span>
+                <span class="hit-trans-loading" style="font-size:var(--s-ts-xs);color:var(--s-text-hint);">${_tf('search.status.loading','読み込み中…')}</span>
             </div>
         </div>
         <div class="hit-footer">
@@ -4645,7 +4673,7 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
     (async()=>{
         if(corpusId==='LXX'){
             // LXX に日本語訳ファイルなし — 404 を出さずにプレースホルダーを表示
-            transText.textContent='（翻訳テキストなし）';
+            transText.textContent=_tf('search.card.noTrans','（翻訳テキストなし）');
             transLoading.style.display='none';
             transText.classList.add('visible');
             return;
@@ -4656,10 +4684,10 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
             console.debug('[trans] fetch req',{ref:tok.ref,globalIdx:tok.globalIdx,greek:tok.text,cacheKey:_chKey,verseKey:_vKey});
             const text=await _fetchTransVerse(tok.bookKey, String(tok.ch), _vKey);
             console.debug('[trans] fetch res',{ref:tok.ref,verseKey:_vKey,found:!!text,preview:text?.slice(0,30)});
-            transText.textContent=text||'（訳が見つかりません）';
+            transText.textContent=text||_tf('search.card.transMissing','（訳が見つかりません）');
         }else{
             console.warn('[trans] 位置情報不足',{ref:tok.ref,bookKey:tok.bookKey,ch:tok.ch,verse:tok.verse});
-            transText.textContent='（位置情報が不足しています）';
+            transText.textContent=_tf('search.card.noPosition','（位置情報が不足しています）');
         }
         transLoading.style.display='none';
         transText.classList.add('visible');
@@ -4672,7 +4700,7 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         greekToggle.addEventListener('click', function(){
             const open = greekSnippet.classList.toggle('open');
             greekToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-            greekToggle.textContent = (open ? '▾ ' : '▸ ') + 'ギリシャ語原文を見る';
+            greekToggle.textContent = (open ? '▾ ' : '▸ ') + _tf('search.card.greekShow','ギリシャ語原文を見る');
         });
     }
 
@@ -4685,7 +4713,7 @@ function _renderCooccurrence(coocMap,containerId,limit=10){
     const maxScore=ranked[0]?.[1].weightedScore||1;
     const el=document.getElementById(containerId);
     el.innerHTML='';
-    if(ranked.length===0){el.innerHTML='<div style="font-size:0.75rem;color:var(--ink-soft);opacity:0.45;">共起語なし</div>';return;}
+    if(ranked.length===0){el.innerHTML='<div style="font-size:0.75rem;color:var(--ink-soft);opacity:0.45;">'+_escH(_tf('search.cooc.none','共起語なし'))+'</div>';return;}
     ranked.forEach(([word,{weightedScore,rawCount}],idx)=>{
         const pct=Math.round((weightedScore/maxScore)*100);
         const jpGloss=TEXT_TO_JP.get(word)||_lookupJpFromCache(word);
@@ -4698,8 +4726,8 @@ function _renderCooccurrence(coocMap,containerId,limit=10){
                     <span class="rank-word">${_escH(word)}</span>
                     ${jpGloss?`<span class="rank-gloss">${_escH(jpGloss)}</span>`:''}
                 </div>
-                <span class="rank-score">${rawCount}回</span>
-                <button class="add-btn" data-word="${_escH(word)}" title="この語を検索欄に追加して近接検索を絞り込む">+ 絞り込む</button>
+                <span class="rank-score">${_tf('search.count.times','{n}回',{n:rawCount})}</span>
+                <button class="add-btn" data-word="${_escH(word)}" title="${_escH(_tf('search.cooc.addTitle','この語を検索欄に追加して近接検索を絞り込む'))}">${_tf('search.cooc.add','+ 絞り込む')}</button>
             </div>
             <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${pct}%"></div></div>`;
         item.addEventListener('click',()=>{
@@ -4733,8 +4761,9 @@ function _renderLemmaGroups(groups,query,word2,words){
     const container=document.getElementById('lemma-groups');
     const list=document.getElementById('hits-list');
     container.innerHTML='';list.innerHTML='';
-    document.getElementById('hits-count').textContent=
-        `${groups.reduce((s,g)=>s+g.hits.length,0)}件（${groups.length}語形に分類）`;
+    { const _gn=groups.reduce((s,g)=>s+g.hits.length,0);
+      document.getElementById('hits-count').textContent=
+        _tp('search.group.summary','{n}件（{forms}）',_gn,{forms:_tp('search.group.forms','{n}語形に分類',groups.length)}); }
     groups.forEach((group,groupIdx)=>{
         let glossStr='';
         if(group.japanese){
@@ -4749,14 +4778,14 @@ function _renderLemmaGroups(groups,query,word2,words){
             <span class="lg-toggle">${icon('chevronRight')}</span>
             <span class="lg-form">${_escH(primaryLabel)}</span>
             ${secondaryLabel?`<span class="lg-greek">${_escH(secondaryLabel)}</span>`:''}
-            <span class="lg-count">${group.hits.length}件</span>`;
+            <span class="lg-count">${_tp('search.count.hits','{n}件',group.hits.length)}</span>`;
         _igsdDecorateBar(bar,group,groups,query,word2,words);
         const panel=document.createElement('div');panel.className='lg-panel';
         // cooc chips
         const topCooc=[...group.coocMap.entries()].sort((a,b)=>b[1].weightedScore-a[1].weightedScore).slice(0,3);
         const coocSec=document.createElement('div');
         coocSec.className='lg-cooc-sec';
-        coocSec.innerHTML='<div class="lg-cooc-title">よく一緒に出る語</div>';
+        coocSec.innerHTML='<div class="lg-cooc-title">'+_escH(_tf('search.cooc.title','よく一緒に出る語'))+'</div>';
         const chipWrap=document.createElement('div');chipWrap.className='lg-cooc-list';
         if(topCooc.length===0){chipWrap.innerHTML='<span style="font-size:0.75rem;color:var(--ink-soft);opacity:0.4;">—</span>';}
         else{
@@ -4777,20 +4806,20 @@ function _renderLemmaGroups(groups,query,word2,words){
         coocSec.appendChild(chipWrap);
         // sample hits（代表例を先、共起語を後に）
         const hitsSec=document.createElement('div');
-        hitsSec.innerHTML='<div class="lg-hits-title">代表例</div>';
+        hitsSec.innerHTML='<div class="lg-hits-title">'+_escH(_tf('search.group.examples','代表例'))+'</div>';
         const hitsWrap=document.createElement('div');
         hitsSec.appendChild(hitsWrap);panel.appendChild(hitsSec);
         _renderLgHitSlice(hitsWrap,group.hits,query,word2,0,3,words);
         if(group.hits.length>3){
             let shown=3;
             const moreBtn=document.createElement('button');moreBtn.className='lg-more-btn';
-            moreBtn.textContent=`さらに表示（残り${group.hits.length-shown}件）`;
+            moreBtn.textContent=_tp('search.btn.showMoreRemaining','さらに表示（残り{n}件）',group.hits.length-shown);
             moreBtn.addEventListener('click',()=>{
                 _renderLgHitSlice(hitsWrap,group.hits,query,word2,shown,shown+3,words);
                 shown=Math.min(shown+3,group.hits.length);
                 const rem=group.hits.length-shown;
                 if(rem<=0)moreBtn.remove();
-                else moreBtn.textContent=`さらに表示（残り${rem}件）`;
+                else moreBtn.textContent=_tp('search.btn.showMoreRemaining','さらに表示（残り{n}件）',rem);
             });
             panel.appendChild(moreBtn);
         }
@@ -5009,16 +5038,16 @@ function _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close){
             const k=tk.bookKey||'?';
             counts.set(k,(counts.get(k)||0)+1);
         }
-        distWrap.innerHTML='<div class="dist-title">出現分布（書物別）</div>';
+        distWrap.innerHTML='<div class="dist-title">'+_escH(_tf('search.dist.title','出現分布（書物別）'))+'</div>';
         if(counts.size<2){return;}
         const sorted=[...counts.entries()].sort((a,b)=>b[1]-a[1]);
         const max=sorted[0][1];
         const list=document.createElement('div');list.className='dist-bar-list';
         (distExpanded?sorted:sorted.slice(0,DIST_FOLD)).forEach(([bk,n])=>{
-            const nm=bookNameMap.get(bk)||bk;
+            const nm=_bookNm(bk,bookNameMap.get(bk)||bk);
             const row=document.createElement('div');row.className='dist-bar-row'+(filterBook===bk?' active':'');
-            row.title=`${nm}：${n}件`;
-            row.innerHTML=`<span class="dist-bar-name">${_escH(nm.length>10?nm.slice(0,10)+'…':nm)}</span>
+            row.title=_tp('search.dist.rowTitle','{name}：{n}件',n,{name:nm});
+            row.innerHTML=`<span class="dist-bar-name">${_escH(nm.length>_distNameMax()?nm.slice(0,_distNameMax())+'…':nm)}</span>
                 <div class="dist-bar-track"><div class="dist-bar-fill" style="width:${Math.round(n/max*100)}%"></div></div>
                 <span class="dist-bar-count">${n}</span>`;
             row.addEventListener('click',()=>{filterBook=filterBook===bk?null:bk;renderDist();renderSenses();});
@@ -5028,7 +5057,7 @@ function _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close){
         if(sorted.length>DIST_FOLD){
             const tgl=document.createElement('button');tgl.className='igsd-dist-toggle';
             tgl.setAttribute('aria-expanded',distExpanded?'true':'false');
-            tgl.textContent=distExpanded?'閉じる':`他 ${sorted.length-DIST_FOLD} 書物を表示`;
+            tgl.textContent=distExpanded?_tf('search.close','閉じる'):_tp('search.dist.showMore','他 {n} 書物を表示',sorted.length-DIST_FOLD);
             tgl.addEventListener('click',()=>{distExpanded=!distExpanded;renderDist();});
             distWrap.appendChild(tgl);
         }
@@ -5104,7 +5133,7 @@ function _renderBookDist(entries){
     panel.innerHTML='';panel.style.display='block';
 
     const panelTitle=document.createElement('div');panelTitle.className='dist-title';
-    panelTitle.textContent='出現分布（書物別）';panel.appendChild(panelTitle);
+    panelTitle.textContent=_tf('search.dist.title','出現分布（書物別）');panel.appendChild(panelTitle);
 
     // activeRow はセクションをまたいで共有（NT行選択中にLXX行を選ぶと自動解除）
     let activeRow=null;
@@ -5119,16 +5148,16 @@ function _renderBookDist(entries){
         const maxCount=shown[0]?shown[0][1]:1; // セクション内相対スケール
 
         const sh=document.createElement('div');sh.className='dist-section-title';
-        sh.textContent=`${sectionLabel}（${sectionTotal.toLocaleString()}件）`;
+        sh.textContent=_tp('search.dist.section','{label}（{n}件）',sectionTotal,{label:sectionLabel,n:sectionTotal.toLocaleString()});
         panel.appendChild(sh);
 
         const list=document.createElement('div');list.className='dist-bar-list';
         shown.forEach(([bookKey,count])=>{
             const pct=Math.round((count/maxCount)*100);
-            const bookName=bookNameMap.get(bookKey)||bookKey;
-            const shortName=bookName.length>10?bookName.slice(0,10)+'…':bookName;
+            const bookName=_bookNm(bookKey,bookNameMap.get(bookKey)||bookKey);
+            const shortName=bookName.length>_distNameMax()?bookName.slice(0,_distNameMax())+'…':bookName;
             const row=document.createElement('div');row.className='dist-bar-row';
-            row.title=`${bookName}：${count}件`;
+            row.title=_tp('search.dist.rowTitle','{name}：{n}件',count,{name:bookName});
             row.innerHTML=`
                 <span class="dist-bar-name">${_escH(shortName)}</span>
                 <div class="dist-bar-track"><div class="dist-bar-fill" style="width:${pct}%"></div></div>
@@ -5149,20 +5178,22 @@ function _renderBookDist(entries){
         });
         if(rest>0){
             const more=document.createElement('div');more.className='dist-overflow-note';
-            more.textContent=`他 ${rest} 書物`;list.appendChild(more);
+            more.textContent=_tp('search.dist.moreNote','他 {n} 書物',rest);list.appendChild(more);
         }
         panel.appendChild(list);
     };
 
-    _buildSection(ntMap,'新約聖書');
+    _buildSection(ntMap,_tf('search.dist.nt','新約聖書'));
     if(ntMap.size>0&&lxxMap.size>0){
         const hr=document.createElement('hr');hr.className='dist-section-divider';
         panel.appendChild(hr);
     }
-    _buildSection(lxxMap,'旧約ギリシア語訳（LXX）');
+    _buildSection(lxxMap,_tf('search.dist.lxx','旧約ギリシア語訳（LXX）'));
 }
 
 /* ── UI helpers ── */
+/* 分布バーの書名の切り詰め長。JA は従来どおり10字。EN の書名（例 1 Thessalonians）は長いので緩める。 */
+function _distNameMax(){return _sLoc()?18:10;}
 function _showLoading(msg){
     document.getElementById('state-empty').style.display='none';
     document.getElementById('result-header').classList.remove('visible');
@@ -5193,8 +5224,8 @@ function _showEmpty(title,desc){
     const _ed=es.querySelector('.empty-desc');
     const _eg=es.querySelector('.empty-glyph');
     if(_eg)_eg.style.display='';
-    if(_et){_et.style.display='';_et.textContent=title||'語を入力して検索する';}
-    if(_ed){_ed.style.display='';_ed.textContent=desc||'有効なレイヤーをONにして検索してください';}
+    if(_et){_et.style.display='';_et.textContent=title||_tf('search.empty.defaultTitle','語を入力して検索する');}
+    if(_ed){_ed.style.display='';_ed.textContent=desc||_tf('search.empty.defaultDesc','有効なレイヤーをONにして検索してください');}
 }
 
 /* ============================================================
@@ -5279,6 +5310,11 @@ const MORPH_MOOD = [
     {code:'N',jp:'不定詞',help:'「〜すること」などを表す'},
     {code:'P',jp:'分詞',help:'動詞と形容詞の性質をもつ'},
 ];
+
+/* 選択肢の日本語（jp / help）は上の定義が現行値。表示時に search.morph.opt.<slot>.<code> /
+   search.morph.help.<slot>.<code> で引く（JA・辞書の無い言語は従来の日本語のまま）。 */
+function _morphJp(slot,item){return _tf('search.morph.opt.'+slot+'.'+item.code,item.jp);}
+function _morphHelp(slot,item){return _tf('search.morph.help.'+slot+'.'+item.code,item.help||'');}
 
 /* State: selected values per slot */
 const _morphSel = {pos:new Set(),case:new Set(),num:new Set(),gen:new Set(),tense:new Set(),voice:new Set(),mood:new Set()};
@@ -5463,7 +5499,8 @@ function _renderMorphChips(containerId, items, slot){
     const el = document.getElementById(containerId);
     el.innerHTML='';
     el.classList.add('morph-chip-group', 'morph-chip-group-' + slot);
-    items.forEach(({code,jp,help})=>{
+    items.forEach((item)=>{
+        const code=item.code, jp=_escH(_morphJp(slot,item)), help=_escH(_morphHelp(slot,item));
         const chip = document.createElement('button');
         chip.type='button';
         chip.className='morph-chip'+(_morphSel[slot].has(code)?' selected':'');
@@ -5539,14 +5576,14 @@ function _updateMorphAccordionUI(){
         const btn=section.querySelector('.morph-section-toggle');
         if(btn) btn.setAttribute('aria-expanded',open?'true':'false');
         const summary=document.getElementById('morph-summary-'+slot);
-        if(summary) summary.textContent=[..._morphSel[slot]].map(code=>(labels[slot].find(item=>item.code===code)||{}).jp).filter(Boolean).join('、');
+        if(summary) summary.textContent=[..._morphSel[slot]].map(code=>(function(){const it=labels[slot].find(item=>item.code===code);return it?_morphJp(slot,it):undefined;})()).filter(Boolean).join(_tf('search.morph.sep','、'));
     });
     const total=[...Object.values(_morphSel)].reduce((s,set)=>s+set.size,0);
     const count=document.getElementById('morph-panel-count');
-    if(count) count.textContent=total?total+'条件選択中':'';
+    if(count) count.textContent=total?_tf('search.morph.selected','{n}条件選択中',{n:total}):'';
     _syncMorphFilterFab();
     const hint=document.getElementById('morph-hint-text');
-    if(hint) hint.textContent=total?'選択した条件を組み合わせて検索できます':'カテゴリを開いて条件を選択';
+    if(hint) hint.textContent=total?_tf('search.morph.hintSome','選択した条件を組み合わせて検索できます'):_tf('search.morph.hintNone','カテゴリを開いて条件を選択');
 }
 /* Show/hide sub-sections based on selected POS */
 function _updateMorphSubSections(){
@@ -5626,7 +5663,7 @@ function _closeMobilePanel(){ /* no-op: ドロワー廃止 */ }
             if(mini){
                 const inp = document.getElementById('unified-search-input');
                 const val = inp ? inp.value.trim() : '';
-                mini.textContent = val ? `「${val}」を検索中` : '検索する';
+                mini.textContent = val ? _tf('search.header.miniSearching','「{q}」を検索中',{q:val}) : _tf('search.header.miniIdle','検索する');
             }
             ticking = false;
         });
@@ -5712,7 +5749,7 @@ async function _synAnalyzeOnDemand(syntaxId) {
     try {
         analyzer = await _synEnsureAnalyzer();
     } catch (e) {
-        if (statusEl) statusEl.textContent = 'SyntaxAnalyzer の読み込みに失敗しました';
+        if (statusEl) statusEl.textContent = _tf('search.syn.loadFailed','SyntaxAnalyzer の読み込みに失敗しました');
         return [];
     }
 
@@ -5763,7 +5800,7 @@ async function _synAnalyzeOnDemand(syntaxId) {
             }
             done++;
         }
-        if (statusEl) statusEl.textContent = `解析中… ${done}/${tasks.length} 章 (${Math.round(done/tasks.length*100)}%)`;
+        if (statusEl) statusEl.textContent = _tf('search.syn.progress','解析中… {done}/{total} 章 ({pct}%)',{done:done,total:tasks.length,pct:Math.round(done/tasks.length*100)});
     }
     if (statusEl) statusEl.textContent = '';
     return hits;
@@ -5773,7 +5810,7 @@ let _synAllHits = [], _synFiltered = [], _synDisplayed = 0;
 let _synSortOrder = 'canonical', _synConfMin = 0.30, _synIncludeStub = false;
 let _synVerseCache = new Map(), _synRegistryData = null;
 
-function _synBuildRefLabel(bookKey, ch, verse) { return `${SYN_BOOK_JP[bookKey]||bookKey} ${ch}章${verse}節`; }
+function _synBuildRefLabel(bookKey, ch, verse) { return _refLabel(_bookNm(bookKey, SYN_BOOK_JP[bookKey]||bookKey), ch, verse, ' '); }
 function _synConfClass(c) { return c>=0.75?'high':c>=0.55?'medium':'low'; }
 function _synCleanText(e) { return (e.word||e.normalized||e.text||'').replace(/[.,:;·⸀⸁⸂⸃⌈⌉]/g,'').trim(); }
 function _synResolveBooks() {
@@ -5831,9 +5868,9 @@ function _synRenderResults(reset) {
     const more = document.getElementById('syn-load-more');
     if (reset) { list.innerHTML = ''; _synDisplayed = 0; }
     if (_synFiltered.length === 0) {
-        list.innerHTML = `<div class="empty"><div class="empty-icon">ζητεῖτε</div>結果が見つかりません<br>フィルタ条件を変更してください</div>`;
+        list.innerHTML = `<div class="empty"><div class="empty-icon">ζητεῖτε</div>${_tf('search.syn.noResults','結果が見つかりません')}<br>${_tf('search.syn.noResultsHint','フィルタ条件を変更してください')}</div>`;
         more.style.display = 'none';
-        status.textContent = '0 件';
+        status.textContent = _tp('search.count.hits','{n} 件',0);
         _synSetCount(0);
         return;
     }
@@ -5842,7 +5879,7 @@ function _synRenderResults(reset) {
     if (reset && _synSortOrder === 'canonical') _synRenderByBook(list, page);
     else page.forEach(h => list.appendChild(_synBuildCard(h)));
     _synDisplayed += page.length;
-    status.textContent = `${_synFiltered.length} 件中 ${_synDisplayed} 件表示`;
+    status.textContent = _tf('search.syn.shownOf','{total} 件中 {n} 件表示',{total:_synFiltered.length,n:_synDisplayed});
     more.style.display = hasMore ? 'flex' : 'none';
     _synSetCount(_synFiltered.length);
 }
@@ -5854,7 +5891,7 @@ function _synRenderByBook(container, page) {
             const cnt = page.filter(x => x.bookKey === curBook).length;
             const h = document.createElement('div');
             h.className = 'book-heading';
-            h.innerHTML = `<span class="book-heading-name">${_escH(SYN_BOOK_JP[curBook]||curBook)}</span><span class="book-heading-count">${cnt}</span>`;
+            h.innerHTML = `<span class="book-heading-name">${_escH(_bookNm(curBook, SYN_BOOK_JP[curBook]||curBook))}</span><span class="book-heading-count">${cnt}</span>`;
             container.appendChild(h);
         }
         container.appendChild(_synBuildCard(hit));
@@ -5866,11 +5903,11 @@ function _synLoadMore() {
     page.forEach(h => list.appendChild(_synBuildCard(h)));
     _synDisplayed += page.length;
     document.getElementById('syn-load-more').style.display = _synDisplayed < _synFiltered.length ? 'flex' : 'none';
-    document.getElementById('syn-status').textContent = `${_synFiltered.length} 件中 ${_synDisplayed} 件表示`;
+    document.getElementById('syn-status').textContent = _tf('search.syn.shownOf','{total} 件中 {n} 件表示',{total:_synFiltered.length,n:_synDisplayed});
 }
 function _synSetCount(n) {
     const el = document.getElementById('syn-count');
-    el.textContent = `${n} 件`; el.style.display = n > 0 ? 'inline-block' : 'none';
+    el.textContent = _tp('search.count.hits','{n} 件',n); el.style.display = n > 0 ? 'inline-block' : 'none';
 }
 
 function _synBuildCard(hit) {
@@ -5890,8 +5927,8 @@ function _synBuildCard(hit) {
             <span class="app-card-arrow">›</span>
         </div>
         <div class="app-card-body">
-            <div class="result-lemma">レンマ: <span style="font-family:'Gentium Plus',serif;">${_escH(hit.lemma)}</span></div>
-            <div class="ctx-loading" id="${_escH(ctxId)}">展開中…</div>
+            <div class="result-lemma">${_tf('search.syn.lemma','レンマ:')} <span style="font-family:'Gentium Plus',serif;">${_escH(hit.lemma)}</span></div>
+            <div class="ctx-loading" id="${_escH(ctxId)}">${_tf('search.syn.expanding','展開中…')}</div>
         </div>`;
     return card;
 }
@@ -5922,7 +5959,7 @@ async function _synLoadContext(card) {
             return `<span class="snippet-token${isHit?' hit':''}">${_escH(w)}</span>`;
         }).join('')}</div>`;
     } else {
-        html = `<div class="result-ja result-ja-empty">（節データ未取得）</div>`;
+        html = `<div class="result-ja result-ja-empty">${_tf('search.syn.noVerse','（節データ未取得）')}</div>`;
     }
     ctxEl.outerHTML = html;
 }
@@ -5931,7 +5968,7 @@ function _synRenderBookChips() {
     const container = document.getElementById('syn-book-chips');
     container.innerHTML = SYN_BOOK_GROUPS.map(g =>
         `<div class="filter-chip-toggle on" data-group="${_escH(g.key)}">
-            <div class="filter-chip-dot">${icon('check')}</div>${_escH(g.label)}
+            <div class="filter-chip-dot">${icon('check')}</div>${_escH(_tf('search.group.'+g.key,g.label))}
         </div>`
     ).join('');
     if (!container._synListenerAdded) {
@@ -5959,7 +5996,7 @@ async function _synInit(syntaxId) {
     document.getElementById('syntax-panel').style.display = 'block';
     await ensureBookMasterApplied(); // SYN_BOOK_GROUPS 等が埋まってからチップを描く
     _synRenderBookChips();
-    document.getElementById('syn-label').textContent = '読み込み中…';
+    document.getElementById('syn-label').textContent = _tf('search.status.loading','読み込み中…');
 
     // registry とインデックス取得を並列実行
     const [, hits] = await Promise.all([_synLoadRegistry(), _synCache.get(syntaxId)]);
@@ -5973,9 +6010,9 @@ async function _synInit(syntaxId) {
 
     if (_synAllHits.length === 0) {
         document.getElementById('syn-results-list').innerHTML =
-            `<div class="empty"><div class="empty-icon">ζητεῖτε</div>結果が見つかりません<br>
-            <small style="color:var(--text-hint);">syntax-index/${_escH(syntaxId)}.json が見つかりません</small></div>`;
-        document.getElementById('syn-status').textContent = '0 件';
+            `<div class="empty"><div class="empty-icon">ζητεῖτε</div>${_tf('search.syn.noResults','結果が見つかりません')}<br>
+            <small style="color:var(--text-hint);">${_tf('search.syn.indexMissing','{file} が見つかりません',{file:'syntax-index/'+_escH(syntaxId)+'.json'})}</small></div>`;
+        document.getElementById('syn-status').textContent = _tp('search.count.hits','{n} 件',0);
         return;
     }
     _synApplyFilters();
@@ -6191,15 +6228,17 @@ function _formatDailyRef(ref) {
 
     // FLAT_BOOKS の正式書名セット
     const byName = new Map(FLAT_BOOKS.map(b => [b.name, b]));
+    // 書名 → 表示（JA は正式書名、EN は book.<KEY> 経由の英語名）。節参照は _refLabel（JA「書名N章M節」／EN「Book N:M」）。
+    const fmt = (name, book) => _refLabel(book ? _bookNm(book.key, name) : name, ch, vs);
 
     // 1. 完全一致（マタイ、ヨハネ、使徒 等）
-    if (byName.has(abbr)) return `${abbr}${ch}章${vs}節`;
+    if (byName.has(abbr)) return fmt(abbr, byName.get(abbr));
 
     // 2. 「第一/第二/第三」→「Ⅰ/Ⅱ/Ⅲ」前置形に変換して FLAT_BOOKS を参照
     for (const [suf, pre] of [['第一', 'Ⅰ'], ['第二', 'Ⅱ'], ['第三', 'Ⅲ']]) {
         if (abbr.endsWith(suf)) {
             const candidate = pre + abbr.slice(0, -suf.length);
-            if (byName.has(candidate)) return `${candidate}${ch}章${vs}節`;
+            if (byName.has(candidate)) return fmt(candidate, byName.get(candidate));
         }
     }
 
@@ -6207,9 +6246,9 @@ function _formatDailyRef(ref) {
     //    各文字間に ー? を挿入した正規表現で FLAT_BOOKS を走査
     const re = new RegExp('^' + [...abbr].join('ー?') + '$');
     const found = FLAT_BOOKS.find(b => re.test(b.name));
-    if (found) return `${found.name}${ch}章${vs}節`;
+    if (found) return fmt(found.name, found);
 
-    return `${abbr}${ch}章${vs}節`;
+    return fmt(abbr, null);
 }
 
 /* ============================================================
@@ -6221,15 +6260,19 @@ function renderDiscoveryLobby() {
     const lobby = document.getElementById('discovery-lobby');
     if (!lobby) return;
 
-    // Verse card — idempotent（二重挿入防止）
-    if (lobby.querySelector('.discovery-verse-card')) return;
+    // Verse card — idempotent（二重挿入防止：再描画時は既存のカード・テーマを取り除いてから作り直す）
+    lobby.querySelectorAll('.discovery-verse-card,.discovery-verse-themes').forEach(n => n.remove());
 
     // 現在日付を日本語で表示（getDailyVerse() とは独立して取得）
     const _today = new Date();
     const _days = ['日', '月', '火', '水', '木', '金', '土'];
     const _dateEl = document.getElementById('discovery-date');
     if (_dateEl) {
-        _dateEl.textContent = `${_today.getFullYear()}年${_today.getMonth() + 1}月${_today.getDate()}日（${_days[_today.getDay()]}）`;
+        const _wd = _tf('search.lobby.weekdays', _days.join(',')).split(',');
+        const _mon = _tf('search.lobby.months', '').split(',');
+        _dateEl.textContent = _tf('search.lobby.date',
+            `${_today.getFullYear()}年${_today.getMonth() + 1}月${_today.getDate()}日（${_days[_today.getDay()]}）`,
+            { y: _today.getFullYear(), m: _today.getMonth() + 1, mon: _mon[_today.getMonth()] || '', d: _today.getDate(), wd: _wd[_today.getDay()] || '' });
     }
 
     const verse = getDailyVerse();
@@ -6256,7 +6299,7 @@ function renderDiscoveryLobby() {
 
     const label = document.createElement('p');
     label.className = 'discovery-verse-label';
-    label.textContent = 'この一節のことばから探す';
+    label.textContent = _tf('search.lobby.explore','この一節のことばから探す');
 
     const pills = document.createElement('div');
     pills.className = 'discovery-verse-pills';
@@ -6385,6 +6428,24 @@ function getDiscoveryThemes(date = new Date()) {
 
 // _DISCOVERY_THEMES 初期化後に呼び出す（TDZ 回避。init() より後に実行される）
 renderDiscoveryLobby();
+
+/* 辞書（assets/i18n/<lang>.json）は非同期に届く。init() が先に描いた動的 UI を、届いた時点で作り直す。
+   JA・辞書の無い言語（ES）では T() が日本語を返すので、再描画しても見た目は変わらない。 */
+if (window.I18N && I18N.ready) {
+    I18N.ready.then(() => {
+        try {
+            if (!_sLoc()) return;                         // 検索画面の辞書が無い言語は再描画不要（日本語のまま）
+            _initMorphChips();                            // 文法フィルタの選択肢・補足（選択状態 _morphSel は保たれる）
+            renderDiscoveryLobby();                       // 日付・「この一節のことばから探す」・聖句の参照表記
+            _renderHistory();
+            _renderEmptyStateHistory();
+            const _pec = document.getElementById('pattern-explore-chips');
+            if (_pec && _pec.children.length) _renderPatternExplore();   // 既に描かれているときだけ作り直す（新たに出さない）
+            if (typeof _updateSearchControls === 'function') _updateSearchControls();
+            onProxSlider(currentDist);
+        } catch (e) { console.warn('[search-i18n] re-render failed', e); }
+    });
+}
 
 /* MN: 聖書リーダーへ戻る
    同一 origin から遷移してきた場合は history.back()、
