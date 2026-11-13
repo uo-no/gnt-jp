@@ -1516,6 +1516,72 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
     body.is-lobby .s-search-block { padding-top: max(16px, calc(28vh - 72px)); }
 }
 
+/* ── PC（701px 以上）：文法フィルタの入口を検索窓の中へ（モバイルは FAB＋シートのまま） ──
+   .search-filters は display:contents にして #morph-sub を .search-input-wrap 基準の浮きカードにする。
+   ロビー（クエリ無し）では「絞り込みの提案」と近接スライダを出さない（:not(.has-query) で非表示）。 */
+.morph-box-btn { display: none; }
+@media (min-width: 701px) {
+    .unified-input { padding-right: 84px; }
+    body.is-lobby .unified-input { padding-right: 88px; }
+    .morph-box-btn {
+        position: absolute;
+        right: 44px; top: 30px; transform: translateY(-50%);
+        z-index: 2;
+        display: flex; align-items: center; justify-content: center;
+        width: 32px; height: 32px; padding: 0;
+        border: 0; border-radius: 50%;
+        background: transparent; color: var(--text-sub);
+        cursor: pointer; line-height: 1;
+        transition: color var(--transition-fast), background var(--transition-fast);
+        -webkit-tap-highlight-color: transparent;
+    }
+    body.is-lobby .morph-box-btn { top: 24px; right: 48px; }
+    .morph-box-btn svg { width: 18px; height: 18px; display: block; }
+    .morph-box-btn:hover { background: rgba(60,64,67,0.08); color: var(--text-main); }
+    .morph-box-btn[aria-expanded="true"],
+    .morph-box-btn.has-selection { color: var(--s-accent); }
+    .morph-box-btn[aria-expanded="true"] { background: var(--s-accent-soft); }
+    .morph-box-btn .morph-box-count {
+        position: absolute; top: -2px; right: -2px;
+        min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+        display: none; align-items: center; justify-content: center;
+        border-radius: 10px; background: var(--s-accent); color: #fff;
+        font: 700 10px/1 var(--s-ff-ui);
+    }
+    .morph-box-btn.has-selection .morph-box-count { display: flex; }
+
+    .search-filters, .search-filters.has-query { display: contents; }
+    .search-filters:not(.has-query) > :not(.morph-sub) { display: none; }
+    .search-filters.has-query > .filter-suggestion-title,
+    .search-filters.has-query > .prox-sub { margin-top: 12px; }
+    .search-filters .morph-panel-toggle,
+    .search-filters.single-word .morph-panel-toggle { display: none; }
+    .search-filters .morph-sub,
+    .search-filters.multi-word .morph-sub { display: none; }
+    .search-filters #morph-sub.is-open,
+    .search-filters.multi-word #morph-sub.is-open {
+        display: block;
+        position: absolute; left: 0; right: 0; top: 62px; z-index: 60;
+        box-sizing: border-box; margin: 0; padding: 6px 16px 14px;
+        max-height: min(70vh, 560px); overflow-y: auto; overscroll-behavior: contain;
+        background: #fff; border: 1px solid var(--s-border); border-radius: 16px;
+        box-shadow: 0 1px 6px rgba(32,33,36,0.28);
+    }
+    body.is-lobby .search-filters #morph-sub.is-open { top: 54px; }
+    .search-filters #morph-sub .morph-sheet-head {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        position: sticky; top: -6px; z-index: 1; padding: 8px 0 10px; margin-bottom: 4px;
+        background: #fff; border-bottom: 1px solid var(--s-divider);
+    }
+    .search-filters #morph-sub .morph-sheet-title { font-size: 0.86rem; font-weight: 700; color: var(--s-text-sub); }
+    .search-filters #morph-sub .morph-sheet-close {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; flex: 0 0 auto; padding: 0;
+        border: 1px solid var(--s-border); border-radius: 50%;
+        background: transparent; color: var(--s-text-sub); font-size: 1.05rem; cursor: pointer;
+    }
+}
+
 /* ── Hit card header / ref / badges ── */
 .hit-header {
     display: flex; align-items: center; gap: var(--s-sp-2);
@@ -1801,6 +1867,10 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
             autocomplete="off" spellcheck="false">
         <button class="search-icon-btn" onclick="unifiedSearch()" tabindex="-1" aria-label="検索" title="検索する" data-i18n-aria-label="search.btn.aria" data-i18n-title="search.btn.title">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </button>
+        <button class="morph-box-btn" id="morph-box-btn" type="button" aria-expanded="false" aria-controls="morph-sub" aria-label="文法で絞り込む" title="文法で絞り込む" data-i18n-aria-label="search.morph.toggle" data-i18n-title="search.morph.toggle" onclick="_toggleMorphFilters()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h8.5M17.5 8H20M4 16h2.5M11.5 16H20"/><circle cx="15" cy="8" r="2.5"/><circle cx="9" cy="16" r="2.5"/></svg>
+            <span class="morph-box-count" id="morph-box-count" aria-hidden="true"></span>
         </button>
         <div class="suggest-dropdown" id="suggest-dropdown"></div>
         <div class="search-filters" id="search-filters" aria-live="polite">
@@ -3891,7 +3961,7 @@ function _updateSearchControls(){
     }
     const title=document.getElementById('filter-suggestion-title');
     if(title) title.textContent=_tf('search.filter.multiTitle','複数の語を検索する条件');
-    if(!hasQuery) _closeMorphFilters();
+    if(!hasQuery && window.matchMedia('(max-width: 700px)').matches) _closeMorphFilters();
     _syncMorphFilterFab();
 }
 
@@ -5630,16 +5700,22 @@ function _renderMorphChips(containerId, items, slot){
             }
             _updateMorphSubSections();
             _updateMorphClearBtn();
+            _morphPcReflect();
         });
         el.appendChild(chip);
     });
 }
 
 let _morphOpenSection = null;
+function _setMorphBoxExpanded(open){
+    const box=document.getElementById('morph-box-btn');
+    if(box) box.setAttribute('aria-expanded',open?'true':'false');
+}
 function _closeMorphFilters(){
     const panel=document.getElementById('morph-sub'), toggle=document.getElementById('morph-panel-toggle');
     if(panel) panel.classList.remove('is-open');
     if(toggle) toggle.setAttribute('aria-expanded','false');
+    _setMorphBoxExpanded(false);
     _morphOpenSection=null; _updateMorphAccordionUI();
 }
 function _toggleMorphFilters(forceOpen){
@@ -5656,8 +5732,32 @@ function _toggleMorphFilters(forceOpen){
         return;
     }
     panel.classList.toggle('is-open',open); toggle.setAttribute('aria-expanded',open?'true':'false');
+    _setMorphBoxExpanded(open);
     if(!open) _morphOpenSection=null;
     _updateMorphAccordionUI();
+}
+/* PC：浮きカードの外側クリック・Esc で閉じる（モバイルのシートは従来どおり背景・× で閉じる） */
+document.addEventListener('mousedown',function(e){
+    if(window.matchMedia('(max-width: 700px)').matches) return;
+    const panel=document.getElementById('morph-sub');
+    if(!panel||!panel.classList.contains('is-open')) return;
+    if(e.target.closest&&(e.target.closest('#morph-sub')||e.target.closest('#morph-box-btn'))) return;
+    _toggleMorphFilters(false);
+});
+document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape'||window.matchMedia('(max-width: 700px)').matches) return;
+    const panel=document.getElementById('morph-sub');
+    if(panel&&panel.classList.contains('is-open')){ _toggleMorphFilters(false); const b=document.getElementById('morph-box-btn'); if(b) b.focus(); }
+});
+/* PC：検索済みなら条件変更を即反映（ロビー・未検索では何もしない。モバイルは従来どおり反映しない） */
+let _morphReflectTimer=null;
+function _morphPcReflect(){
+    if(window.matchMedia('(max-width: 700px)').matches) return;
+    clearTimeout(_morphReflectTimer);
+    _morphReflectTimer=setTimeout(function(){
+        const inp=document.getElementById('unified-search-input');
+        if(_lastQuery && inp && inp.value.trim()===_lastQuery && !document.body.classList.contains('is-lobby')) unifiedSearch();
+    },200);
 }
 function _syncMorphFilterFab(){
     const fab=document.getElementById('morph-filter-fab');
@@ -5668,6 +5768,13 @@ function _syncMorphFilterFab(){
     fab.classList.toggle('has-selection',total>0);
     const count=fab.querySelector('.morph-fab-count');
     if(count) count.textContent=total>9?'9+':String(total);
+    /* PC の窓内ボタンも同じ total・同じ上限表記で同期（二重管理しない） */
+    const box=document.getElementById('morph-box-btn');
+    if(box){
+        box.classList.toggle('has-selection',total>0);
+        const bc=document.getElementById('morph-box-count');
+        if(bc) bc.textContent=total>9?'9+':String(total);
+    }
 }
 function _closeMorphFilterSheet(){ _toggleMorphFilters(false); }
 function _toggleMorphSection(slot){
@@ -5717,11 +5824,15 @@ function _updateMorphClearBtn(){
 function _morphClearAll(){
     Object.values(_morphSel).forEach(s=>s.clear());
     ['pos','case','num','gen','tense','voice','mood'].forEach(slot=>{
-        document.querySelectorAll(`#morph-chips-${slot} .morph-chip`).forEach(c=>c.classList.remove('selected'));
+        document.querySelectorAll(`#morph-chips-${slot} .morph-chip`).forEach(c=>{
+            c.classList.remove('selected');
+            c.setAttribute('aria-pressed','false');
+        });
     });
     _morphOpenSection=null;
     _updateMorphSubSections();
     _updateMorphClearBtn();
+    _morphPcReflect();
 }
 
 function _initMorphChips(){
