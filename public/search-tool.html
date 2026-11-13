@@ -1471,46 +1471,10 @@ body {
     opacity: 0.6;
 }
 
-/* ── Discovery Lobby（試し検索チップ＋1行説明）── */
+/* ── Discovery Lobby（タイトル＋検索窓だけ）── */
 /* 既定（ロビー表示）は検索窓の直下に寄せる。エラー等の空状態だけ .is-centered で従来どおり中央（:has() に依存しない） */
 .state-empty { justify-content: flex-start; min-height: 0; }
 .state-empty.is-centered { justify-content: center; min-height: 60vh; }
-#discovery-lobby {
-    display: flex; flex-direction: column;
-    align-items: center;
-    width: 100%;
-    padding: var(--s-sp-6) 0 var(--s-sp-7);
-}
-.discovery-desc {
-    font-size: var(--s-ts-sm);
-    color: var(--s-text-sub);
-    text-align: center;
-    line-height: var(--s-lh-base);
-    margin: 0 0 var(--s-sp-4);
-}
-.discovery-chips {
-    display: flex; flex-wrap: wrap;
-    justify-content: center;
-    gap: 6px;
-}
-.discovery-chip {
-    padding: 4px 12px;
-    border: 1px solid var(--s-divider);
-    border-radius: 20px;
-    background: transparent;
-    font-family: var(--s-ff-ui);
-    font-size: var(--s-ts-xs);
-    color: var(--s-text-sub);
-    cursor: pointer;
-    transition: background var(--s-dur-fast) var(--s-ease);
-    user-select: none;
-}
-.discovery-chip:hover { background: var(--s-surface); }
-.discovery-chip:focus-visible {
-    background: var(--s-surface);
-    outline: 2px solid var(--focus-ring, var(--s-text));
-    outline-offset: 2px;
-}
 
 /* ── Hit card header / ref / badges ── */
 .hit-header {
@@ -1793,7 +1757,7 @@ body {
     <div class="search-input-wrap">
         <input class="unified-input" id="unified-search-input"
             type="text"
-            placeholder="愛・信じる・ἀγαπάω …"
+            placeholder="愛・ἀγαπάω・G26 …"
             autocomplete="off" spellcheck="false">
         <button class="search-icon-btn" onclick="unifiedSearch()" tabindex="-1" aria-label="検索" title="検索する" data-i18n-aria-label="search.btn.aria" data-i18n-title="search.btn.title">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -1887,10 +1851,7 @@ body {
     <!-- Empty state -->
     <div class="state-empty" id="state-empty">
         <!-- Discovery Lobby (UX-10-1D): 初期表示。_showEmpty() 呼び出し時は hidden になる -->
-        <div id="discovery-lobby">
-            <p class="discovery-desc" data-i18n="search.lobby.desc">ことばの使われ方を、新約と旧約ギリシャ語訳から横断して見られます</p>
-            <div class="discovery-chips" id="discovery-chips"></div>
-        </div>
+        <div id="discovery-lobby"></div>
         <!-- 以下は温存。Discovery Lobby 非表示時（エラー等）に _showEmpty() が復元する -->
         <div class="empty-glyph" style="display:none">λόγος</div>
         <div class="empty-title" style="display:none" data-i18n="search.empty.title">聖書を検索する</div>
@@ -6318,25 +6279,6 @@ function _asClose() {
 
 
 /* ============================================================
-   Discovery Lobby Renderer — 試し検索チップ3つ（ἀγαπάω／希望（EN は hope）／G26）
-   押すとその語で検索が実行される。表示は決定論的（日付・データに依存しない）。
-   ============================================================ */
-
-function renderDiscoveryLobby() {
-    const wrap = document.getElementById('discovery-chips');
-    if (!wrap) return;
-    wrap.innerHTML = '';
-    const words = ['ἀγαπάω', _enMode() ? 'hope' : '希望', 'G26'];
-    words.forEach(word => {
-        const chip = document.createElement('button');
-        chip.className = 'discovery-chip';
-        chip.textContent = word;
-        chip.addEventListener('click', () => _exampleSearch(word));
-        wrap.appendChild(chip);
-    });
-}
-
-/* ============================================================
    Discovery Theme Resolver (UX-10-1B)
    純粋関数・副作用なし・DOM操作なし・console出力なし
    同じ date を渡すと常に同じ 4件を返す（決定的アルゴリズム）
@@ -6443,9 +6385,6 @@ function getDiscoveryThemes(date = new Date()) {
     return picked;
 }
 
-// _DISCOVERY_THEMES 初期化後に呼び出す（TDZ 回避。init() より後に実行される）
-renderDiscoveryLobby();
-
 /* 辞書（assets/i18n/<lang>.json）は非同期に届く。init() が先に描いた動的 UI を、届いた時点で作り直す。
    JA・辞書の無い言語（ES）では T() が日本語を返すので、再描画しても見た目は変わらない。 */
 if (window.I18N && I18N.ready) {
@@ -6453,7 +6392,6 @@ if (window.I18N && I18N.ready) {
         try {
             if (!_sLoc()) return;                         // 検索画面の辞書が無い言語は再描画不要（日本語のまま）
             _initMorphChips();                            // 文法フィルタの選択肢・補足（選択状態 _morphSel は保たれる）
-            renderDiscoveryLobby();                       // 試し検索チップ（EN は hope）
             _renderHistory();
             _renderEmptyStateHistory();
             const _pec = document.getElementById('pattern-explore-chips');
