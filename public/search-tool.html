@@ -2798,6 +2798,11 @@ function searchGreek(tokens,word){
 function searchJapanese(tokens,word){
     if(_enMode())return _enGlossSet(word);
     if(_isLatinWord(word))return new Set(); /* 非 EN UI の英字語は単語検索（unifiedSearch）だけが英語グロスで引く。近接・フレーズ等は従来どおり（#31） */
+    return _searchJapaneseCore(tokens,word);
+}
+/* 日本語の語義照合の本体（UI 言語に依存しない）。searchJapanese の挙動は不変。
+   英語の別名で概念が発火したときも、日本語 UI と同じ展開結果にするためにここを直接呼ぶ（#33） */
+function _searchJapaneseCore(tokens,word){
     if(IDX.l3Ready){const s=JP_PARTIAL_INDEX.get(word);return s||new Set();}
     const s=new Set();
     tokens.forEach(t=>{
@@ -3329,7 +3334,9 @@ async function _loadSearchConcepts() {
             .map(c => ({
                 id:          c.id,
                 label:       c.label,
+                label_en:    typeof c.label_en === 'string' ? c.label_en : '',
                 aliases:     arr(c.aliases),
+                aliases_en:  arr(c.aliases_en).filter(a => typeof a === 'string').map(a => a.toLowerCase()),
                 terms:       c.terms,
                 patterns:    arr(c.patterns),
                 domains:     arr(c.domains),
@@ -3363,16 +3370,29 @@ function _renderConceptDiscoveryChips() {
     sec.style.display = '';
 }
 
-/* 検索語 → Term[]（Concept 未登録なら null）。検索は実行しない */
-function resolveConcept(query) {
+/* 発火判定の唯一の入口（resolveConcept / _findConceptByQuery 共通）。
+   日本語の label／aliases は従来どおり完全一致。allowEn のときだけ、英語の
+   label_en／aliases_en にも小文字化して完全一致で発火する（UI 言語によらない。
+   単語1語の検索のみ allowEn=true で呼ばれる）。戻り値: {concept, via:'ja'|'en'} または null */
+function _matchConcept(query, allowEn) {
     const q = String(query || '').trim();
     if (!q || SEARCH_CONCEPTS.length === 0) return null;
     for (const c of SEARCH_CONCEPTS) {
-        if (c.label === q || (Array.isArray(c.aliases) && c.aliases.includes(q))) {
-            return c.terms.slice();
+        if (c.label === q || (Array.isArray(c.aliases) && c.aliases.includes(q))) return { concept: c, via: 'ja' };
+    }
+    if (allowEn && _isLatinWord(q)) {
+        const ql = q.toLowerCase();
+        for (const c of SEARCH_CONCEPTS) {
+            if ((c.label_en && c.label_en.toLowerCase() === ql) || c.aliases_en.includes(ql)) return { concept: c, via: 'en' };
         }
     }
     return null;
+}
+
+/* 検索語 → Term[]（Concept 未登録なら null）。検索は実行しない */
+function resolveConcept(query, allowEn) {
+    const m = _matchConcept(query, allowEn);
+    return m ? m.concept.terms.slice() : null;
 }
 
 /* ============================================================
@@ -3387,12 +3407,19 @@ function resolveConcept(query) {
      関連する文法 → _synInit()（既存の Wallace 型検索）
    ============================================================ */
 let _activeInsightConcept = null;
+let _conceptViaEn = false;   /* 直近の検索が英語の別名（label_en／aliases_en）で概念発火したか。英語グロス検索の注記・併記の抑止に使う */
 
-function _findConceptByQuery(q) {
-    q = String(q || '').trim();
-    if (!q) return null;
-    return SEARCH_CONCEPTS.find(c =>
-        c.label === q || (Array.isArray(c.aliases) && c.aliases.includes(q))) || null;
+function _findConceptByQuery(q, allowEn) {
+    const m = _matchConcept(q, allowEn);
+    return m ? m.concept : null;
+}
+/* EN UI の概念名: label_en があれば英語、無ければ従来の label。JA／ES は常に label */
+function _cLabel(c) { return (_enMode() && c.label_en) || c.label; }
+/* 概念チップのクリックで検索ボックスへ入れる語。EN は発火できる1語（label_en が1語ならそれ、複数語なら aliases_en の先頭）。JA／ES は label のまま */
+function _cSearchWord(c) {
+    if (!_enMode()) return c.label;
+    if (c.label_en && !/\s/.test(c.label_en)) return c.label_en;
+    return (c.aliases_en && c.aliases_en[0]) || c.label;
 }
 function _conceptById(id) {
     return SEARCH_CONCEPTS.find(c => c.id === id) || null;
@@ -3410,7 +3437,7 @@ function _renderConceptInsight(concept) {
     }).filter(Boolean);
     const syns = (concept.syntaxTypes || []).map(s =>
         typeof s === 'string' ? { id: s, label: s }
-        : (s && s.id ? { id: s.id, label: s.label || s.id } : null)).filter(Boolean);
+        : (s && s.id ? { id: s.id, label: (_enMode() && s.label_en) || s.label || s.id } : null)).filter(Boolean);
 
     /* 空のセクションは見出しごと出さない（「関連する文法」空配列時の非表示を含む） */
     const sec = (title, chips) => chips
@@ -3418,7 +3445,7 @@ function _renderConceptInsight(concept) {
            <div class="layer-chips ci-chips">${chips}</div></div>` : '';
     const _REL_FOLD = 8;
     const _mkRelChip = c =>
-        `<span class="layer-chip lemma" data-concept-label="${_escH(c.label)}">${_escH(c.label)}</span>`;
+        `<span class="layer-chip lemma" data-concept-label="${_escH(_cSearchWord(c))}">${_escH(_cLabel(c))}</span>`;
     const relHtml = rel.length <= _REL_FOLD
         ? rel.map(_mkRelChip).join('')
         : rel.slice(0, _REL_FOLD).map(_mkRelChip).join('')
@@ -3481,7 +3508,7 @@ function _renderConceptInsight(concept) {
     if (!body) { el.style.display = 'none'; el.innerHTML = ''; return; }
     el.innerHTML = `<details class="ci-outer">
         <summary class="ci-summary">
-            <span class="ci-summary-label">${_tf('search.ci.about','「{label}」について',{label:_escH(concept.label)})}</span>
+            <span class="ci-summary-label">${_tf('search.ci.about','「{label}」について',{label:_escH(_cLabel(concept))})}</span>
             <span class="ci-summary-hint">${_tf('search.ci.hint','ことばを深める')}</span>
         </summary>
         <div class="ci-outer-body">${body}</div>
@@ -4118,9 +4145,12 @@ async function unifiedSearch(opts){
 
     /* Concept 展開（Phase 4-1）: 検索開始前に1回だけ判定する。
        登録語なら Term[]、未登録語なら null（＝以降は完全に従来どおり） */
-    const conceptTerms = resolveConcept(word1);
+    const _conceptEnOk = words.length===1;   /* 英語の別名は単語1語の検索でのみ発火（複数語は従来どおりフレーズ／近接） */
+    const conceptTerms = resolveConcept(word1,_conceptEnOk);
     /* Concept Insight（Phase 4-3・表示のみ）: 発火時だけカード用の概念を保持 */
-    _activeInsightConcept = conceptTerms ? _findConceptByQuery(word1) : null;
+    const _conceptMatch = conceptTerms ? _matchConcept(word1,_conceptEnOk) : null;
+    _activeInsightConcept = _conceptMatch ? _conceptMatch.concept : null;
+    _conceptViaEn = !!(_conceptMatch && _conceptMatch.via==='en');
 
     // --- Merged result map: globalIdx → {tok, hitTypes, proxHit?} ---
     const merged=new Map();
@@ -4136,7 +4166,11 @@ async function unifiedSearch(opts){
         tasks.push((async()=>{
             const qtype=detectQueryType(word1);
             let idxs;
-            if(qtype==='japanese'){
+            if(_conceptViaEn){
+                /* 英語の別名で概念が発火: 基底は概念の日本語 label を日本語経路で引く（UI 言語によらず日本語 UI の label 検索と同じ展開結果にする。#33） */
+                await _ensureFullIndex();
+                idxs=[..._searchJapaneseCore(ALL_TOKENS,_conceptMatch.concept.label)];
+            }else if(qtype==='japanese'){
                 await _ensureFullIndex();
                 const s=(!_enMode()&&_isLatinWord(word1))?_enGlossSet(word1):searchJapanese(ALL_TOKENS,word1); // 英字単語は UI 言語によらず英語グロスで引く（#31）
                 idxs=[...s];
@@ -4407,7 +4441,7 @@ function _renderUnifiedResults(query,words,word2){
         _countEl.textContent=_tp('search.count.hits','{n} 件',total,{n:total.toLocaleString()});
     }
     { const _old=document.getElementById('lxx-note');if(_old)_old.remove();
-      const _glossQ=_isLatinWord(query)&&words.length===1; /* 英語グロス検索は新約のみ（LXX にグロスなし）— 全 UI 言語で1行注記（#31） */
+      const _glossQ=_isLatinWord(query)&&words.length===1&&!_conceptViaEn; /* 英語グロス検索は新約のみ（LXX にグロスなし）— 全 UI 言語で1行注記（#31） */
       if(_glossQ||(_enMode()&&lxxCount>0)){ /* D2: LXX は英語グロス・訳文が無い旨を1箇所だけ注記 */
         const _n=document.createElement('div');_n.id='lxx-note';_n.className='result-count-sub';
         _n.style.cssText='flex-basis:100%;width:100%;margin-top:4px;';
@@ -4866,7 +4900,7 @@ function _renderLemmaGroups(groups,query,word2,words){
         const secondaryLabel=glossStr?group.lemma:'';
         /* #31: 日本語 UI の英単語検索では、ヒット理由として一致した英語グロスを併記（EN UI は見出し自体が英語グロスなので二重表示しない） */
         let matchedGlossHtml='';
-        if(!_enMode()&&_isLatinWord(query)){
+        if(!_enMode()&&_isLatinWord(query)&&!_conceptViaEn){
             const gc=new Map(),qw=query.toLowerCase();
             for(const h of group.hits){const tk=h.tokens[h.anchorIdx];if(tk&&tk.gloss&&_enGlossWords(tk).includes(qw))gc.set(tk.gloss,(gc.get(tk.gloss)||0)+1);}
             let best=null,bn=0;for(const[k,v]of gc)if(v>bn){best=k;bn=v;}
