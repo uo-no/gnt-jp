@@ -1222,6 +1222,23 @@ body {
     font-size: var(--text-body); color: var(--text);
     margin-bottom: var(--space-md); line-height: 1.5;
 }
+.hits-count:empty { display: none; }
+/* 結果画面の「よく一緒に出る語」（グループ外の独立セクション） */
+.lemma-cooc { margin: var(--space-md) 0; }
+.lemma-cooc .lg-cooc-title { margin-bottom: 6px; }
+/* 結果画面の出現分布（既定で閉じる） */
+.dist-toggle {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    background: none; border: none; padding: 0; margin: 0 0 8px;
+    cursor: pointer; font-family: inherit; text-align: left; color: var(--text-sub);
+}
+.dist-toggle .dist-title { margin-bottom: 0; }
+.dist-toggle-sum { font-size: var(--text-caption); opacity: 0.75; flex: 1; }
+.dist-toggle-chev { display: inline-flex; width: 14px; height: 14px; transition: transform .15s; opacity: 0.6; }
+.dist-toggle-chev svg { width: 14px; height: 14px; }
+.dist-toggle[aria-expanded="true"] .dist-toggle-chev { transform: rotate(90deg); }
+.dist-toggle:hover .dist-title, .dist-toggle:hover .dist-toggle-sum { opacity: 1; }
+.dist-body[hidden] { display: none; }
 
 /* ── Lemma groups (Japanese query) ── */
 .lemma-groups { margin-bottom: 16px; }
@@ -1287,9 +1304,6 @@ body {
     padding: 0; cursor: pointer; font-family: inherit; }
 .as-igsd-link:hover { text-decoration: underline; }
 .igsd-entry { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; flex-wrap: wrap; }
-.igsd-entry-link { font-size: 0.8rem; color: var(--text-sub); background: none; border: none; padding: 0; cursor: pointer;
-    font-family: inherit; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
-.igsd-entry-link:hover { color: var(--highlight); }
 .igsd-page { margin-bottom: 16px; }
 .igsd-back {
     background: none; border: none; cursor: pointer; font-family: inherit;
@@ -2000,6 +2014,7 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
             <div class="hits-col">
                 <div class="hits-count" id="hits-count"></div>
                 <div class="lemma-groups" id="lemma-groups" style="display:none;"></div>
+                <div class="lemma-cooc" id="lemma-cooc" style="display:none;"></div>
                 <div class="hits-list" id="hits-list"></div>
                 <div class="dist-panel" id="dist-panel" style="display:none;"></div>
                 <div id="pattern-explore-section" style="display:none;margin-top:var(--space-xl);padding-top:var(--space-lg);border-top:1px solid var(--border-soft);">
@@ -4515,6 +4530,7 @@ function _renderUnifiedResults(query,words,word2){
             </div>`;
         document.getElementById('hits-count').textContent='';
         document.getElementById('lemma-groups').style.display='none';
+        { const _lc=document.getElementById('lemma-cooc');if(_lc){_lc.innerHTML='';_lc.style.display='none';} }
         document.getElementById('dist-panel').style.display='none';
         return;
     }
@@ -4531,6 +4547,7 @@ function _renderUnifiedResults(query,words,word2){
         document.getElementById('lemma-groups').style.display='block';
     }else{
         document.getElementById('lemma-groups').style.display='none';
+        { const _lc=document.getElementById('lemma-cooc');if(_lc){_lc.innerHTML='';_lc.style.display='none';} }
         _renderHitCards(entries,words,word2);
         _igsdDecorateGreekQuery(query,word2,words);
     }
@@ -4920,9 +4937,17 @@ function _renderLemmaGroups(groups,query,word2,words){
     const container=document.getElementById('lemma-groups');
     const list=document.getElementById('hits-list');
     container.innerHTML='';list.innerHTML='';
-    { const _gn=groups.reduce((s,g)=>s+g.hits.length,0);
-      document.getElementById('hits-count').textContent=
-        _tp('search.group.summary','{n}件（{forms}）',_gn,{forms:_tp('search.group.forms','{n}語形に分類',groups.length)}); }
+    /* 合計は見出し直下の1か所だけ。「M語形に分類」は内訳行の末尾へ寄せる（合計の二重表示を作らない） */
+    { document.getElementById('hits-count').textContent='';
+      const _fm=_tp('search.group.forms','{n}語形に分類',groups.length);
+      const _cnt=document.getElementById('result-count');
+      let _sub=_cnt.querySelector('.result-count-sub:not(#result-count-provisional)');
+      if(_sub)_sub.appendChild(document.createTextNode((_enMode()?' · ':'・')+_fm));
+      else{
+        _sub=document.createElement('span');_sub.className='result-count-sub';_sub.textContent=_fm;
+        const _pv=document.getElementById('result-count-provisional');
+        if(_pv)_cnt.insertBefore(_sub,_pv);else _cnt.appendChild(_sub);
+      } }
     groups.forEach((group,groupIdx)=>{
         let glossStr='';
         if(group.japanese){
@@ -4949,29 +4974,6 @@ function _renderLemmaGroups(groups,query,word2,words){
             <span class="lg-count">${_tp('search.count.hits','{n}件',group.hits.length)}</span>`;
         _igsdDecorateBar(bar,group,groups,query,word2,words);
         const panel=document.createElement('div');panel.className='lg-panel';
-        // cooc chips
-        const topCooc=[...group.coocMap.entries()].sort((a,b)=>b[1].weightedScore-a[1].weightedScore).slice(0,3);
-        const coocSec=document.createElement('div');
-        coocSec.className='lg-cooc-sec';
-        coocSec.innerHTML='<div class="lg-cooc-title">'+_escH(_tf('search.cooc.title','よく一緒に出る語'))+'</div>';
-        const chipWrap=document.createElement('div');chipWrap.className='lg-cooc-list';
-        if(topCooc.length===0){chipWrap.innerHTML='<span style="font-size:0.75rem;color:var(--ink-soft);opacity:0.4;">—</span>';}
-        else{
-            topCooc.forEach(([word,{rawCount}])=>{
-                const chip=document.createElement('span');chip.className='lg-chip';
-                const jp=_glossForText(word);
-                chip.innerHTML=jp
-                    ?`<span class="lg-chip-jp">${_escH(jp)}</span><span class="lg-chip-gr">${_escH(word)}</span><span class="lg-chip-ct">${rawCount}</span>`
-                    :`<span class="lg-chip-gr">${_escH(word)}</span><span class="lg-chip-ct">${rawCount}</span>`;
-                chip.addEventListener('click',()=>{
-                    const inp=document.getElementById('unified-search-input');
-                    const cur=inp.value.trim().split(/\s+/)[0];
-                    inp.value=`${cur} ${word}`;
-                });
-                chipWrap.appendChild(chip);
-            });
-        }
-        coocSec.appendChild(chipWrap);
         // sample hits（代表例を先、共起語を後に）
         const hitsSec=document.createElement('div');
         hitsSec.innerHTML='<div class="lg-hits-title">'+_escH(_tf('search.group.examples','代表例'))+'</div>';
@@ -4991,7 +4993,6 @@ function _renderLemmaGroups(groups,query,word2,words){
             });
             panel.appendChild(moreBtn);
         }
-        panel.appendChild(coocSec);
         bar.addEventListener('click',()=>{
             const open=panel.classList.toggle('open');
             bar.classList.toggle('open',open);
@@ -5004,6 +5005,35 @@ function _renderLemmaGroups(groups,query,word2,words){
         row.appendChild(bar);row.appendChild(panel);
         container.appendChild(row);
     });
+    _renderLemmaCooc(groups[0]);
+}
+/* よく一緒に出る語: 語形グループ群の下・出現分布の上に独立セクションとして置く。
+   集計は従来どおり先頭グループ（最大ヒット数）の共起（上位3語）。共起が無い検索では出さない。 */
+function _renderLemmaCooc(group){
+    const sec=document.getElementById('lemma-cooc');
+    if(!sec)return;
+    sec.innerHTML='';sec.style.display='none';
+    if(!group||!group.coocMap)return;
+    const topCooc=[...group.coocMap.entries()].sort((a,b)=>b[1].weightedScore-a[1].weightedScore).slice(0,3);
+    if(topCooc.length===0)return;
+    const title=document.createElement('div');title.className='lg-cooc-title';
+    title.textContent=_tf('search.cooc.title','よく一緒に出る語');
+    const chipWrap=document.createElement('div');chipWrap.className='lg-cooc-list';
+    topCooc.forEach(([word,{rawCount}])=>{
+        const chip=document.createElement('span');chip.className='lg-chip';
+        const jp=_glossForText(word);
+        chip.innerHTML=jp
+            ?`<span class="lg-chip-jp">${_escH(jp)}</span><span class="lg-chip-gr">${_escH(word)}</span><span class="lg-chip-ct">${rawCount}</span>`
+            :`<span class="lg-chip-gr">${_escH(word)}</span><span class="lg-chip-ct">${rawCount}</span>`;
+        chip.addEventListener('click',()=>{
+            const inp=document.getElementById('unified-search-input');
+            const cur=inp.value.trim().split(/\s+/)[0];
+            inp.value=`${cur} ${word}`;
+        });
+        chipWrap.appendChild(chip);
+    });
+    sec.appendChild(title);sec.appendChild(chipWrap);
+    sec.style.display='';
 }
 function _renderLgHitSlice(container,hits,query,word2,from,to,words){
     hits.slice(from,to).forEach(h=>{
@@ -5102,10 +5132,7 @@ function _igsdDecorateGreekQuery(query,word2,words){
         const badge=document.createElement('button');badge.type='button';
         badge.className='igsd-badge igsd-badge-btn';badge.textContent=_igsdBadgeText();
         badge.addEventListener('click',open);
-        const link=document.createElement('button');link.type='button';link.className='igsd-entry-link';
-        link.textContent=_tf('search.word.openLink','{lemma} の語のページを開く',{lemma:e.lemma});
-        link.addEventListener('click',open);
-        bar.appendChild(badge);bar.appendChild(link);
+        bar.appendChild(badge);
         _igsdGreekOpener={query,open}; // 見出し（result-query-label）クリックでも同じ語のページを開く
         const countEl=document.getElementById('hits-count');
         countEl.parentNode.insertBefore(bar,countEl);
@@ -5142,7 +5169,7 @@ async function _igsdOpenPage(entry,group,groups,query,word2,words,fromGreekQuery
        ギリシャ語クエリ（QA-05）: 入口バーから開く（隠す対象は件数・ヒット一覧・分布・構造探索・入口）。 */
     const ids=fromGreekQuery
         ?['igsd-entry','hits-count','hits-list','dist-panel','pattern-explore-section']
-        :['lemma-groups','dist-panel'];
+        :['lemma-groups','lemma-cooc','dist-panel'];
     const targets=ids.map(id=>document.getElementById(id)).filter(Boolean);
     const anchor=fromGreekQuery?document.getElementById('hits-count'):document.getElementById('lemma-groups');
     let page=document.getElementById('igsd-page');
@@ -5300,8 +5327,25 @@ function _renderBookDist(entries){
     const MAX_BARS=8;
     panel.innerHTML='';panel.style.display='block';
 
-    const panelTitle=document.createElement('div');panelTitle.className='dist-title';
-    panelTitle.textContent=_tf('search.dist.title','出現分布（書物別）');panel.appendChild(panelTitle);
+    /* 結果画面の分布は既定で閉じ、見出し＋新約/LXX 合計の1行サマリ＋開閉だけ見せる。開くと従来のバー一覧。 */
+    const _ntTotal=[...ntMap.values()].reduce((a,b)=>a+b,0),_lxxTotal=[...lxxMap.values()].reduce((a,b)=>a+b,0);
+    const _sumParts=[];
+    if(_ntTotal>0)_sumParts.push(_tf('search.count.nt','新約聖書 {n}件',{n:_ntTotal.toLocaleString()}));
+    if(_lxxTotal>0)_sumParts.push(_tf('search.count.lxx','旧約ギリシア語訳（LXX） {n}件',{n:_lxxTotal.toLocaleString()}));
+    const toggle=document.createElement('button');toggle.type='button';toggle.className='dist-toggle';
+    toggle.setAttribute('aria-expanded','false');
+    const panelTitle=document.createElement('span');panelTitle.className='dist-title';
+    panelTitle.textContent=_tf('search.dist.title','出現分布（書物別）');
+    const sumEl=document.createElement('span');sumEl.className='dist-toggle-sum';
+    sumEl.textContent=_sumParts.join(_enMode()?' / ':' ／ ');
+    const chev=document.createElement('span');chev.className='dist-toggle-chev';chev.setAttribute('aria-hidden','true');chev.innerHTML=icon('chevronRight');
+    toggle.appendChild(panelTitle);toggle.appendChild(sumEl);toggle.appendChild(chev);
+    panel.appendChild(toggle);
+    const body=document.createElement('div');body.className='dist-body';body.hidden=true;
+    panel.appendChild(body);
+    toggle.addEventListener('click',()=>{
+        const open=body.hidden;body.hidden=!open;toggle.setAttribute('aria-expanded',open?'true':'false');
+    });
 
     // activeRow はセクションをまたいで共有（NT行選択中にLXX行を選ぶと自動解除）
     let activeRow=null;
@@ -5317,7 +5361,7 @@ function _renderBookDist(entries){
 
         const sh=document.createElement('div');sh.className='dist-section-title';
         sh.textContent=_tp('search.dist.section','{label}（{n}件）',sectionTotal,{label:sectionLabel,n:sectionTotal.toLocaleString()});
-        panel.appendChild(sh);
+        body.appendChild(sh);
 
         const list=document.createElement('div');list.className='dist-bar-list';
         shown.forEach(([bookKey,count])=>{
@@ -5348,13 +5392,13 @@ function _renderBookDist(entries){
             const more=document.createElement('div');more.className='dist-overflow-note';
             more.textContent=_tp('search.dist.moreNote','他 {n} 書物',rest);list.appendChild(more);
         }
-        panel.appendChild(list);
+        body.appendChild(list);
     };
 
     _buildSection(ntMap,_tf('search.dist.nt','新約聖書'));
     if(ntMap.size>0&&lxxMap.size>0){
         const hr=document.createElement('hr');hr.className='dist-section-divider';
-        panel.appendChild(hr);
+        body.appendChild(hr);
     }
     _buildSection(lxxMap,_tf('search.dist.lxx','旧約ギリシア語訳（LXX）'));
 }
