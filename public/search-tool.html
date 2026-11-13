@@ -2397,6 +2397,22 @@ function _logBuildPhaseTimings(timings){
 let _lxxDoneResolve=null;
 const _lxxDonePromise=new Promise(r=>{_lxxDoneResolve=r;});
 function _markLxxDone(){if(_lxxDoneResolve){_lxxDoneResolve();_lxxDoneResolve=null;}}
+/* LXX 合流前（IDX.l3Ready 前）に実行された UI 検索の件数は暫定。暫定と明示し、合流完了後に同じ検索を1回だけ再実行して確定させる。 */
+let _lxxRerunQuery=null;
+function _noteProvisionalCount(countEl,query){
+    const sub=document.createElement('span');
+    sub.className='result-count-sub';sub.id='result-count-provisional';
+    sub.textContent='七十人訳を読み込み中のため件数は暫定です';
+    countEl.appendChild(sub);
+    if(_lxxRerunQuery===query)return;
+    _lxxRerunQuery=query;
+    _lxxDonePromise.then(()=>{
+        if(_lxxRerunQuery!==query)return;
+        _lxxRerunQuery=null;
+        const inp=document.getElementById('unified-search-input');
+        if(IDX.l3Ready&&inp&&inp.value.trim()===query)unifiedSearch();
+    });
+}
 async function _buildL3Background(){
     if(JP_PARTIAL_PREBUILT_CORPORA.has('NT')&&JP_PARTIAL_PREBUILT_CORPORA.has('LXX')){
         IDX.l3Ready=true;
@@ -4249,6 +4265,7 @@ function _renderUnifiedResults(query,words,word2){
     } else {
         _countEl.textContent=`${total.toLocaleString()} 件`;
     }
+    if(!IDX.l3Ready)_noteProvisionalCount(_countEl,query); // LXX 合流前の件数を完成形として見せない（#792 の方針に揃える）
 
     // Result body
     if(_igsdCurrentClose)_igsdCurrentClose(); // 前の検索で開いた語のページを閉じる（QA-05）
@@ -4351,9 +4368,22 @@ function _renderHitCards(entries,words,word2){
         :`${byRef.size.toLocaleString()} 節`;
 
     const FOLD = 8; // 最初に表示する件数
-    const allEntries = [...byRef.values()].slice(0, SHOW);
+    const total = byRef.size;
+    const everyEntry = [...byRef.values()];
+    const allEntries = everyEntry.slice(0, SHOW);
+    const tailEntries = everyEntry.slice(SHOW); // SHOW 超の残り節は段階表示（行き止まりを作らない）
     const visible = allEntries.slice(0, FOLD);
     const folded  = allEntries.slice(FOLD);
+    let tailShown = 0;
+    let isOpenState = false;
+    /* 全件表示が済むまで、表示中の節数を明示する（途中状態を完了と見せない） */
+    const status = document.createElement('div');
+    status.className = 'hits-status';
+    status.style.cssText = 'text-align:center;padding:8px;font-size:0.75rem;color:var(--ink-soft);';
+    const updateStatus = () => {
+        const n = isOpenState ? FOLD + folded.length + tailShown : Math.min(FOLD, total);
+        status.textContent = n >= total ? `${total.toLocaleString()} 節すべて表示中` : `${n.toLocaleString()} / ${total.toLocaleString()} 節を表示中`;
+    };
 
     let rendered = 0;
     for (const { gi, entry } of visible) {
@@ -4390,18 +4420,33 @@ function _renderHitCards(entries,words,word2){
             overflow.classList.toggle('closed', isOpen);
             btnIcon.textContent = isOpen ? 'expand_more' : 'expand_less';
             btnLabel.textContent = isOpen ? `残り ${folded.length} 節を表示` : '折りたたむ';
+            isOpenState = !isOpen;
+            updateStatus();
         };
+
+        /* SHOW を超える残り節：オーバーフロー内に「残り N 節を表示」を置き、押すたびに SHOW 節ずつ追加する */
+        if (tailEntries.length > 0) {
+            const tailWrap = document.createElement('div');
+            const tailBtn = document.createElement('button');
+            tailBtn.className = 'hits-toggle-btn';
+            const tailLabel = () => { tailBtn.textContent = `残り ${(tailEntries.length - tailShown).toLocaleString()} 節を表示`; };
+            tailLabel();
+            tailBtn.onclick = () => {
+                const chunk = tailEntries.slice(tailShown, tailShown + SHOW);
+                for (const { gi, entry } of chunk) tailWrap.appendChild(_buildUnifiedCard(gi, entry, words, word2));
+                tailShown += chunk.length;
+                if (tailShown >= tailEntries.length) tailBtn.remove(); else tailLabel();
+                updateStatus();
+            };
+            overflow.appendChild(tailWrap);
+            overflow.appendChild(tailBtn);
+        }
 
         list.appendChild(btn);
         list.appendChild(overflow);
     }
 
-    if (byRef.size > SHOW) {
-        const more = document.createElement('div');
-        more.style.cssText = 'text-align:center;padding:12px;font-size:0.75rem;color:var(--ink-soft);opacity:0.5;';
-        more.textContent = `…他 ${byRef.size - SHOW} 節`;
-        list.appendChild(more);
-    }
+    if (total > FOLD) { updateStatus(); list.appendChild(status); }
 }
 
 /* ── The unified card builder ── */
