@@ -1066,6 +1066,9 @@ body {
     transition: border-color var(--s-dur-fast), color var(--s-dur-fast);
 }
 .result-query:hover { border-bottom-color: var(--s-accent); color: var(--s-accent); }
+/* 番号・ギリシャ語レンマ検索の見出し：語名＋意味＋番号（#45）。意味と番号は補助表示（語名より控えめ） */
+.result-query .rq-gloss { font-family: var(--s-ff-ui, inherit); font-size: 0.82em; font-weight: 400; color: var(--s-text-sub); margin-left: 0.25em; letter-spacing: 0; }
+.result-query .rq-strong { font-family: var(--s-ff-ui, inherit); font-size: 0.68em; font-weight: 600; color: var(--s-text-hint, var(--s-text-sub)); margin-left: 0.25em; letter-spacing: 0.04em; }
 
 /* ── Abbott-Smith Modal ── */
 #as-backdrop {
@@ -4598,6 +4601,7 @@ function _renderUnifiedResults(query,words,word2){
         document.getElementById('lemma-groups').style.display='none';
         { const _lc=document.getElementById('lemma-cooc');if(_lc){_lc.innerHTML='';_lc.style.display='none';} }
         _renderHitCards(entries,words,word2);
+        _decorateFlatHeading(query,words,qtype);
         _igsdDecorateGreekQuery(query,word2,words);
     }
 
@@ -5159,6 +5163,53 @@ function _igsdLoadLemma(strong){
     }
     return _igsdLemmaCache.get(strong);
 }
+/* 番号・ギリシャ語レンマ検索の見出し（#45）: 「語名 意味 番号」（例: ἀγαπάω 愛する G25）。
+   意味は辞書データの表記をそのまま出す（語義の選択・要約はしない）。JA/ES＝Abbott-Smith【語義】の第1区切り、EN＝gloss-en-senses の第1語義。
+   語が一意に決まらない・意味が引けない場合は、引けた部分だけ出す（何も引けなければ従来どおりクエリ文字列のまま＝静寂）。 */
+function _asJaMeaning(desc){
+    const m=/【語義】([^【]*)/.exec(desc||'');
+    if(!m)return '';
+    return m[1].replace(/（[^）]*）/g,'').split(/[；。：]/)[0].trim();
+}
+let _enSensesP=null;
+function _loadEnSenses(){
+    if(!_enSensesP)_enSensesP=fetch('../assets/data/lexicon/gloss-en-senses.json').then(r=>r.ok?r.json():null).catch(()=>null);
+    return _enSensesP;
+}
+async function _decorateFlatHeading(query,words,qtype){
+    if(words.length!==1)return;
+    const q=query.trim();
+    const isStrongQ=qtype==='strong';
+    /* detectQueryType は基本ギリシャ文字だけの語（προελπίζω 等）を 'text' と判定するため、ギリシャ文字の有無で見る（_igsdDecorateGreekQuery と同じ） */
+    if(!isStrongQ&&!/[\u0370-\u03FF\u1F00-\u1FFF]/.test(q))return;
+    const idxs=isStrongQ?[...searchStrong(ALL_TOKENS,q)]:searchByLemma(q);
+    if(!idxs||idxs.length===0)return;
+    const nt=idxs.map(gi=>ALL_TOKENS[gi]).filter(t=>t&&t.corpusId!=='LXX'&&t.strong);
+    if(nt.length===0)return;
+    const nl=_igsdNorm(nt[0].lemma);
+    if(nt.some(t=>_igsdNorm(t.lemma)!==nl||t.strong!==nt[0].strong))return; // 一意に決まらない（番号の衝突・複数レンマ）場合は出さない
+    const strong=nt[0].strong,num=String(parseInt(String(strong).replace(/\D/g,''),10));
+    let meaning='';
+    try{
+        if(_enMode()){
+            const d=await _loadEnSenses();
+            const a=d&&d[num];
+            if(Array.isArray(a)&&a.length)meaning=String(a[0]||'').trim();
+        }else{
+            await _loadAbbott();
+            const e=_abbottDict&&_abbottDict[num];
+            if(e&&_igsdNorm(e.lemma)===nl)meaning=_asJaMeaning(e.description);
+        }
+    }catch(_){}
+    if(_lastQuery!==query)return; // 検索が入れ替わっていたら付けない
+    const el=document.getElementById('result-query-label');
+    if(!el||el.textContent!==query)return;
+    el.textContent='';
+    const lm=document.createElement('span');lm.className='rq-lemma';lm.textContent=nt[0].lemma;el.appendChild(lm);
+    if(meaning){el.appendChild(document.createTextNode(' '));const g=document.createElement('span');g.className='rq-gloss';g.textContent=meaning;el.appendChild(g);}
+    el.appendChild(document.createTextNode(' '));
+    const sn=document.createElement('span');sn.className='rq-strong';sn.textContent=strong;el.appendChild(sn);
+}
 /* ギリシャ語の単語クエリ（QA-05）: 日本語クエリ用の語グループ行が無いため、結果の上に入口を置く。
    IGSD で final かつ lemma 一致の語だけ。条件を満たさなければ何も出さない（静寂）。
    用例は検索条件（形態フィルタ等）に左右されないよう、lemma の全ヒット（searchByLemma）を使う。 */
@@ -5168,9 +5219,11 @@ function _igsdDecorateGreekQuery(query,word2,words){
     const old=document.getElementById('igsd-entry');
     if(old)old.remove();
     _igsdGreekOpener=null;
-    /* detectQueryType は ό 等（U+03CC 系）だけの語を 'text' と判定するため使わず、ギリシャ文字の有無で見る */
-    if(!_layers.lemma||words.length!==1||!/[\u0370-\u03FF\u1F00-\u1FFF]/.test(query))return;
-    const idxs=searchByLemma(query);
+    /* detectQueryType は ό 等（U+03CC 系）だけの語を 'text' と判定するため使わず、ギリシャ文字の有無で見る。
+       Strong 番号クエリ（#45）も同じ入口を出す（番号→語の解決結果から語のページへ）。 */
+    const isStrongQ=/^[Gg]?\d+$/.test(query.trim());
+    if(!_layers.lemma||words.length!==1||(!isStrongQ&&!/[\u0370-\u03FF\u1F00-\u1FFF]/.test(query)))return;
+    const idxs=isStrongQ?[...searchStrong(ALL_TOKENS,query.trim())]:searchByLemma(query);
     if(!idxs||idxs.length===0)return;
     /* IGSD は新約の語義整理。Strong は NT トークンの値（'G1680'）を使う（LXX 側は '1680'・null 等で表記が揺れる）。 */
     const first=idxs.map(gi=>ALL_TOKENS[gi]).find(t=>t&&t.corpusId!=='LXX'&&t.strong);
@@ -5193,7 +5246,7 @@ function _igsdDecorateGreekQuery(query,word2,words){
         badge.className='igsd-badge igsd-badge-btn';badge.textContent=_igsdBadgeText();
         badge.addEventListener('click',open);
         bar.appendChild(badge);
-        _igsdGreekOpener={query,open}; // 見出し（result-query-label）クリックでも同じ語のページを開く
+        if(!isStrongQ)_igsdGreekOpener={query,open}; // 見出し（result-query-label）クリックでも同じ語のページを開く（番号検索の見出しは従来どおり辞書モーダル）
         const countEl=document.getElementById('hits-count');
         countEl.parentNode.insertBefore(bar,countEl);
     });
