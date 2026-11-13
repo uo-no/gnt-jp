@@ -772,7 +772,7 @@ const WordOrderRenderer = {
                     <span class="wlv-action-label">${_escH(_T('wlv.studyWord', '語の意味や用法を調べる'))}</span>
                     <span class="wlv-action-chev material-symbols-outlined" aria-hidden="true">chevron_right</span>
                 </button>
-                <a class="wlv-detail-study-btn" href="search-tool.html?tool=search&layers=lemma%2Cmorph" onclick="return _wlvConcordanceClick(event)">
+                <a class="wlv-detail-study-btn" href="/search?tool=search&layers=lemma%2Cmorph" onclick="return _wlvConcordanceClick(event)">
                     <span class="wlv-action-icon material-symbols-outlined" aria-hidden="true">list</span>
                     <span class="wlv-action-label">${_escH(_T('wlv.viewConcordance', 'ほかの箇所での使われ方を見る'))}</span>
                     <span class="wlv-action-chev material-symbols-outlined" aria-hidden="true">chevron_right</span>

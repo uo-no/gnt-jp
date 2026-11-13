@@ -124,7 +124,7 @@ function _fabToggle() { _fabIsOpen ? _fabClose() : _fabOpen(); }
 
 function _fabTapBible()  { _fabClose(); _openMobileBookPicker(); _mbpLayer = 2; _mbpRenderLayer(2); }
 function _fabTapMode()   { _fabClose(); _openMobileModePicker(); }
-function _fabTapSearch() { _fabClose(); window.location.href = '/search-tool.html'; }
+function _fabTapSearch() { _fabClose(); window.location.href = '/search'; }
 
 
 /* ── MN: Mobile More Menu（⋯） ─────────────────────────────────────────── */

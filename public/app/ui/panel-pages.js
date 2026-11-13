@@ -41,7 +41,7 @@ function goProximityPage() {
     }
 
     const qs = p.toString();
-    const url = qs ? `search-tool.html?${qs}` : 'search-tool.html';
+    const url = qs ? `/search?${qs}` : '/search';
     const _stw = window.open(url, '_blank');
     if (_stw) _searchToolWindows.add(_stw);
 }

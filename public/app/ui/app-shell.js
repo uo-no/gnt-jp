@@ -1440,7 +1440,7 @@ function _renderDictionaryLinkedText(value) {
             }
         } else if (g.greek) {
             const query = new URLSearchParams({ tool: 'search', word: g.greek, layers: 'lemma,morph' });
-            html += '<a class="rn-inline-word-search" href="search-tool.html?' + query.toString() + '" title="検索ツールで調べる">' + _escH(g.greek) + '</a>';
+            html += '<a class="rn-inline-word-search" href="/search?' + query.toString() + '" title="検索ツールで調べる">' + _escH(g.greek) + '</a>';
         }
         cursor = pattern.lastIndex;
     }

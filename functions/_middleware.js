@@ -10,7 +10,7 @@
  * - 文言は assets/i18n/<lang>.json の meta.title / meta.description を正本とする
  *   （実行時に applyMeta が使う文字列と同一。新しいコピーはここに持たない）。
  * - 辞書が取れない・必要キーが無い場合は next() へ落とし、従来の静的 HTML（日本語）を返す（静寂）。
- * - /en/search-tool（.html 付き可）は検索画面（/search-tool）を取得し、search.meta.title / search.meta.description
+ * - /en/search（正規）・/en/search-tool（.html 付き可・従来）は検索画面（/search-tool）を取得し、search.meta.title / search.meta.description
  *   で書き換える（#30）。/es/search-tool は従来どおり（本体 index を返す）。他の /en/* は変更なし。
  * - 呼び出しは public/_routes.json の include（/en, /es 配下）に限る。日本語・通常アセットは関与しない。
  */
@@ -28,8 +28,8 @@ export async function onRequest(context) {
     if (!m) return next();
     const lang = m[1];
     const cfg = LANGS[lang];
-    // /en/search-tool(.html) のみ検索画面。他は従来どおり本体 index。
-    const isSearch = lang === 'en' && /^\/en\/search-tool(\.html)?\/?$/.test(url.pathname);
+    // /en/search（正規）と /en/search-tool(.html)（従来）のみ検索画面。他は従来どおり本体 index。
+    const isSearch = lang === 'en' && /^\/en\/(search-tool(\.html)?|search)\/?$/.test(url.pathname);
     const pagePath = isSearch ? '/search-tool' : '/';
     const titleKey = isSearch ? 'search.meta.title' : 'meta.title';
     const descKey = isSearch ? 'search.meta.description' : 'meta.description';
