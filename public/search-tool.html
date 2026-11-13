@@ -4695,7 +4695,11 @@ function _renderHitCards(entries,words,word2){
         btnIcon.className = 'material-symbols-outlined mat-icon';
         btnIcon.textContent = 'expand_more';
         const btnLabel = document.createElement('span');
-        btnLabel.textContent = _tp('search.btn.showRemaining','残り {n} 節を表示',folded.length);
+        /* 続きがある（SHOW 超）ときは、このクリックで実際に増える節数を「さらに N 節」と出す。全部出るなら従来の「残り N 節」 */
+        const foldLabel = () => tailEntries.length > 0
+            ? _tp('search.btn.showNext','さらに {n} 節を表示',folded.length,{n:folded.length.toLocaleString()})
+            : _tp('search.btn.showRemaining','残り {n} 節を表示',folded.length);
+        btnLabel.textContent = foldLabel();
         btn.appendChild(btnIcon); btn.appendChild(btnLabel);
 
         // 折りたたみコンテナ
@@ -4713,17 +4717,17 @@ function _renderHitCards(entries,words,word2){
             btn.classList.toggle('open', !isOpen);
             overflow.classList.toggle('closed', isOpen);
             btnIcon.textContent = isOpen ? 'expand_more' : 'expand_less';
-            btnLabel.textContent = isOpen ? _tp('search.btn.showRemaining','残り {n} 節を表示',folded.length) : _tf('search.btn.collapse','折りたたむ');
+            btnLabel.textContent = isOpen ? foldLabel() : _tf('search.btn.collapse','折りたたむ');
             isOpenState = !isOpen;
             updateStatus();
         };
 
-        /* SHOW を超える残り節：オーバーフロー内に「残り N 節を表示」を置き、押すたびに SHOW 節ずつ追加する */
+        /* SHOW を超える残り節：オーバーフロー内に「さらに N 節を表示」（N＝そのクリックで実際に増える数）を置き、押すたびに SHOW 節ずつ追加する */
         if (tailEntries.length > 0) {
             const tailWrap = document.createElement('div');
             const tailBtn = document.createElement('button');
             tailBtn.className = 'hits-toggle-btn';
-            const tailLabel = () => { { const _r = tailEntries.length - tailShown; tailBtn.textContent = _tp('search.btn.showRemaining','残り {n} 節を表示',_r,{n:_r.toLocaleString()}); } };
+            const tailLabel = () => { const _c = Math.min(SHOW, tailEntries.length - tailShown); tailBtn.textContent = _tp('search.btn.showNext','さらに {n} 節を表示',_c,{n:_c.toLocaleString()}); };
             tailLabel();
             tailBtn.onclick = () => {
                 const chunk = tailEntries.slice(tailShown, tailShown + SHOW);
