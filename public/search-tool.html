@@ -1259,6 +1259,9 @@ body {
 .lg-toggle { font-size: 0.55rem; color: var(--text-sub); transition: transform 0.18s; display: inline-flex; align-items: center; }
 .lg-bar.open .lg-toggle { transform: rotate(90deg); }
 .lg-form { font-size: var(--s-ts-sm); font-weight: 700; color: var(--text-main); }
+/* 展開中の印（#50 / R2。共起の追随先のバーに付く .follow）: 左端にアクセント帯（inset なのでレイアウト寸法は不変）＋語名をアクセント色に。閉じれば元に戻る */
+.lg-bar.follow { box-shadow: inset 3px 0 0 var(--s-accent); }
+.lg-bar.follow .lg-form { color: var(--s-accent); }
 .lg-greek { font-family: var(--s-ff-greek); font-size: 0.88rem; color: var(--text-sub); }
 .lg-matched-gloss { font-size: 0.74rem; color: var(--text-sub); opacity: 0.85; white-space: nowrap; }
 .lg-count { font-size: var(--text-caption); color: var(--text-sub); margin-left: auto; }
@@ -5017,7 +5020,9 @@ function _renderLemmaGroups(groups,query,word2,words){
         const _pv=document.getElementById('result-count-provisional');
         if(_pv)_cnt.insertBefore(_sub,_pv);else _cnt.appendChild(_sub);
       } }
-    const _lgState=[];let _coocTarget=0;
+    const _lgState=[],_lgBars=[];let _coocTarget=0;
+    /* 展開中の印（#50）は追随先（共起の対象）のバーだけに付ける: open かつ追随先のとき .follow */
+    const _markFollow=()=>_lgBars.forEach((b,i)=>b&&b.classList.toggle('follow',b.classList.contains('open')&&i===_coocTarget));
     groups.forEach((group,groupIdx)=>{
         let glossStr='';
         if(group.japanese){
@@ -5063,7 +5068,7 @@ function _renderLemmaGroups(groups,query,word2,words){
             });
             panel.appendChild(moreBtn);
         }
-        _lgState[groupIdx]=panel;
+        _lgState[groupIdx]=panel;_lgBars[groupIdx]=bar;
         bar.addEventListener('click',()=>{
             const open=panel.classList.toggle('open');
             bar.classList.toggle('open',open);
@@ -5073,6 +5078,7 @@ function _renderLemmaGroups(groups,query,word2,words){
                 const o=_lgState.findIndex(p=>p&&p.classList.contains('open'));
                 _coocTarget=o>=0?o:0;
             }
+            _markFollow();
             _renderLemmaCooc(groups[_coocTarget]);
         });
         // 最大ヒット数グループ（groups[0]）を自動展開
@@ -5083,6 +5089,7 @@ function _renderLemmaGroups(groups,query,word2,words){
         row.appendChild(bar);row.appendChild(panel);
         container.appendChild(row);
     });
+    _markFollow();
     _renderLemmaCooc(groups[0]);
 }
 /* よく一緒に出る語: 語形グループ群の下・出現分布の上に独立セクションとして置く。
