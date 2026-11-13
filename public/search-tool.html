@@ -1531,6 +1531,53 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
     body.is-lobby .s-search-block { padding-top: max(16px, calc(28vh - 72px)); }
 }
 
+/* ── PC（701px 以上）の結果画面：Google 型ヘッダー（#44）──
+   左に小さい Greekn、その右隣に検索窓を同じ行で置く。ロビー（body.is-lobby）とモバイル（≤700px）は対象外。
+   .s-search-block を grid にし、見出しと検索窓だけを 1 行目に置く。それ以外の子（警告・モードバー・履歴など）は
+   従来どおり 720px 級の中央カラムのまま 2 行目以降に置く（結果コンテンツ列は動かさない）。
+   検索窓の内側（検索アイコン・文法フィルタのボタンとカード）は .search-input-wrap 基準のため、窓に追随する。 */
+@media (min-width: 701px) {
+    body:not(.is-lobby) .s-search-block {
+        max-width: none;
+        display: grid;
+        grid-template-columns: auto minmax(0, 670px) 1fr;
+        column-gap: 24px;
+        align-items: start;
+        padding: 20px 24px var(--s-sp-4);
+    }
+    body:not(.is-lobby) .s-search-block > * {
+        grid-column: 1 / -1;
+        justify-self: center;
+        width: 100%;
+        max-width: calc(var(--s-content-max) - 2 * var(--s-sp-5));
+        box-sizing: border-box;
+    }
+    body:not(.is-lobby) .s-search-block > .s-search-title {
+        grid-column: 1;
+        grid-row: 1;
+        justify-self: start;
+        width: auto;
+        max-width: none;
+        height: 54px;
+        display: flex;
+        align-items: center;
+        margin: 0;
+        font-family: Arial, Helvetica, 'Helvetica Neue', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 24px;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+        line-height: 1;
+        text-align: left;
+        white-space: nowrap;
+    }
+    body:not(.is-lobby) .s-search-block > .search-input-wrap {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: stretch;
+        max-width: none;
+    }
+}
+
 /* ── PC（701px 以上）：文法フィルタの入口を検索窓の中へ（モバイルは FAB＋シートのまま） ──
    .search-filters は display:contents にして #morph-sub を .search-input-wrap 基準の浮きカードにする。
    ロビー（クエリ無し）では「絞り込みの提案」と近接スライダを出さない（:not(.has-query) で非表示）。 */
@@ -1860,6 +1907,7 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
 </style>
 </head>
 <body>
+<script>/* PC のみ：初回描画をロビー寸法にそろえる（確定は下部の MutationObserver。結果画面直リンクでは直後に外れる） */if(window.matchMedia&&matchMedia('(min-width:701px)').matches)document.body.classList.add('is-lobby');</script>
 <div id="share-toast" class="share-toast"></div>
 
 <!-- ═══════════════════════════ Sticky Header ═══════════════════════════ -->
