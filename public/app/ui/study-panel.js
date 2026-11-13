@@ -1147,7 +1147,7 @@ async function _renderReadingNotes(p) {
     }
     qsConcord.set('layers', 'lemma,morph');
     qsConcord.set('tool',   'search');
-    const concordURL = `search-tool.html?${qsConcord.toString()}`;
+    const concordURL = `/search?${qsConcord.toString()}`;
 
     /* [DIAG] StudyPanel → search-tool 遷移ログ */
     console.info('[StudyPanel→search] 元トークン rawMorph:', p._rawMorph);
@@ -1942,7 +1942,7 @@ async function _injectStudyPanelContent(semContainer, strong, lemmaId, word) {
             const clusterId = chip.dataset.clusterId;
             if (clusterId) p.set('cluster', clusterId);
             p.set('layers', 'lemma');
-            const _stw = window.open(`search-tool.html?${p.toString()}`, '_blank');
+            const _stw = window.open(`/search?${p.toString()}`, '_blank');
             if (_stw) _searchToolWindows.add(_stw);
         });
 

@@ -21,7 +21,7 @@ function _wlvConcordanceClick(event) {
     }
     qs.set('layers', 'lemma,morph');
     qs.set('tool', 'search');
-    window.open('search-tool.html?' + qs.toString(), '_blank', 'noopener');
+    window.open('/search?' + qs.toString(), '_blank', 'noopener');
     return false;
 }
 
@@ -123,7 +123,7 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
     }
     _mvvConcordQs.set('layers', 'lemma,morph');
     _mvvConcordQs.set('tool',   'search');
-    const _mvvConcordURL = `search-tool.html?${_mvvConcordQs.toString()}`;
+    const _mvvConcordURL = `/search?${_mvvConcordQs.toString()}`;
 
     /* StudyPanel parity: Display Label（ReadingLexicon.getDisplayLabel から同期取得）。
        lemmaId は toBrowsing() 退避・復元により保持されている。 */
