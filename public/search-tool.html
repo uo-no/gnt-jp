@@ -1445,6 +1445,12 @@ body {
 }
 .zero-hits-icon { font-size: 2rem; opacity: 0.18; }
 .zero-hits-msg { font-size: 0.8rem; color: var(--text-sub); }
+/* 0件時のレンマ候補（#46） */
+.did-you-mean { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; font-size: 0.8rem; color: var(--text-sub); }
+.did-you-mean[hidden] { display: none; }
+.did-you-mean .dym-chip { cursor: pointer; padding: 4px 12px; border: 1px solid var(--border-soft); border-radius: 14px; background: var(--bg-paper); color: var(--text-main); font-family: var(--s-ff-greek); }
+.did-you-mean .dym-chip:hover { border-color: var(--s-accent); color: var(--s-accent); }
+.did-you-mean .dym-gloss { font-family: var(--s-ff-ui, inherit); font-size: 0.85em; color: var(--text-sub); margin-left: 0.3em; }
 .zero-recovery {
     margin-top: var(--space-xl);
     padding-top: var(--space-lg);
@@ -4568,6 +4574,7 @@ function _renderUnifiedResults(query,words,word2){
             <div class="zero-hits">
                 <div class="zero-hits-icon">∅</div>
                 <div class="zero-hits-msg">${_tf('search.empty.noMatch','「{q}」に該当する箇所がありませんでした',{q:_escH(query)})}</div>
+                <div class="did-you-mean" id="did-you-mean" hidden></div>
                 <div class="zero-recovery">
                     <div class="empty-section-label">${_tf('search.empty.try','試してみる')}</div>
                     <div style="font-size:0.78rem;color:var(--text-sub);margin-top:4px;">${_tf('search.empty.tryDesc','次のテーマから検索できます。')}</div>
@@ -4584,6 +4591,7 @@ function _renderUnifiedResults(query,words,word2){
         document.getElementById('lemma-groups').style.display='none';
         { const _lc=document.getElementById('lemma-cooc');if(_lc){_lc.innerHTML='';_lc.style.display='none';} }
         document.getElementById('dist-panel').style.display='none';
+        _renderDidYouMean(query,words);
         return;
     }
 
@@ -5163,6 +5171,60 @@ function _igsdLoadLemma(strong){
     }
     return _igsdLemmaCache.get(strong);
 }
+/* 0件のギリシャ語クエリに「もしかして：レンマ」を出す（#46）。読み込み済みの索引（SEARCH_INDEX.text／lemmaIndex）だけで引く。
+   1) 活用形の完全一致（アクセント無視）→ その形が属するレンマ（最大3） 2) 無ければレンマ・出現形への前方一致（アクセント無視、最大5・出現数の多い順）。
+   候補が無い・クエリ自体がレンマ・日本語/番号/複数語の検索では何も出さない（現行の空状態のまま）。 */
+function _didYouMeanCandidates(q){
+    const norm=normalizeGreek(q);
+    const lidx=window.lemmaIndex;
+    if(!norm||!lidx||lidx.has(norm))return [];
+    const lemmaOf=new Map(); // norm lemma -> {lemma, strong, n}
+    const addTok=gi=>{
+        const t=ALL_TOKENS[gi];if(!t||!t.lemma)return;
+        const k=normalizeGreek(t.lemma);
+        let e=lemmaOf.get(k);
+        if(!e){e={lemma:t.lemma,strong:null,n:0,nt:false};lemmaOf.set(k,e);}
+        if(t.corpusId!=='LXX'&&!e.nt){e.lemma=t.lemma;e.nt=true;}
+        if(t.corpusId!=='LXX'&&t.strong&&!e.strong)e.strong=t.strong;
+    };
+    const txt=SEARCH_INDEX.text;
+    const exact=new Set([...(txt.get(q)||[]),...(txt.get(norm)||[])]);
+    if(exact.size>0){
+        for(const gi of exact)addTok(gi);
+        for(const e of lemmaOf.values()){const a=lidx.get(normalizeGreek(e.lemma));e.n=a?a.length:0;}
+        return [...lemmaOf.values()].sort((a,b)=>b.n-a.n).slice(0,3);
+    }
+    for(const[k,arr]of lidx){ if(k.startsWith(norm)&&arr.length)addTok(arr[0]); }
+    for(const[k,arr]of txt){
+        if(!arr||!arr.length||!normalizeGreek(k).startsWith(norm))continue;
+        for(let i=0;i<arr.length&&i<20;i++)addTok(arr[i]);
+    }
+    for(const[k,e]of lemmaOf){const a=lidx.get(k);e.n=a?a.length:0;}
+    return [...lemmaOf.values()].filter(e=>e.n>0).sort((a,b)=>b.n-a.n).slice(0,5);
+}
+async function _renderDidYouMean(query,words){
+    const box=document.getElementById('did-you-mean');
+    if(!box||words.length!==1)return;
+    const q=query.trim();
+    if(/^[Gg]?\d+$/.test(q)||!/[\u0370-\u03FF\u1F00-\u1FFF]/.test(q))return;
+    let cands;
+    try{cands=_didYouMeanCandidates(q);}catch(_){return;}
+    if(!cands||cands.length===0)return;
+    const meanings=await Promise.all(cands.map(c=>_lemmaMeaning(c.strong,c.lemma)));
+    if(_lastQuery!==query||document.getElementById('did-you-mean')!==box)return; // 検索が入れ替わっていたら出さない
+    box.textContent='';
+    const lab=document.createElement('span');lab.textContent=_tf('search.empty.didYouMean','もしかして：');box.appendChild(lab);
+    cands.forEach((c,i)=>{
+        const chip=document.createElement('span');chip.className='dym-chip';chip.setAttribute('role','button');chip.tabIndex=0;
+        chip.appendChild(document.createTextNode(c.lemma));
+        if(meanings[i]){const g=document.createElement('span');g.className='dym-gloss';g.textContent='（'+meanings[i]+'）';chip.appendChild(g);}
+        const go=()=>_exampleSearch(c.lemma);
+        chip.addEventListener('click',go);
+        chip.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
+        box.appendChild(chip);
+    });
+    box.hidden=false;
+}
 /* 番号・ギリシャ語レンマ検索の見出し（#45）: 「語名 意味 番号」（例: ἀγαπάω 愛する G25）。
    意味は辞書データの表記をそのまま出す（語義の選択・要約はしない）。JA/ES＝Abbott-Smith【語義】の第1区切り、EN＝gloss-en-senses の第1語義。
    語が一意に決まらない・意味が引けない場合は、引けた部分だけ出す（何も引けなければ従来どおりクエリ文字列のまま＝静寂）。 */
@@ -5176,6 +5238,21 @@ function _loadEnSenses(){
     if(!_enSensesP)_enSensesP=fetch('../assets/data/lexicon/gloss-en-senses.json').then(r=>r.ok?r.json():null).catch(()=>null);
     return _enSensesP;
 }
+/* 辞書データの意味（語義の選択・要約はしない）。JA/ES＝Abbott-Smith【語義】の第1区切り（lemma 一致時のみ）、EN＝gloss-en-senses の第1語義。引けなければ ''。 */
+async function _lemmaMeaning(strong,lemma){
+    try{
+        const num=String(parseInt(String(strong||'').replace(/\D/g,''),10));
+        if(!strong||num==='NaN')return '';
+        if(_enMode()){
+            const d=await _loadEnSenses();
+            const a=d&&d[num];
+            return (Array.isArray(a)&&a.length)?String(a[0]||'').trim():'';
+        }
+        await _loadAbbott();
+        const e=_abbottDict&&_abbottDict[num];
+        return (e&&_igsdNorm(e.lemma)===_igsdNorm(lemma))?_asJaMeaning(e.description):'';
+    }catch(_){return '';}
+}
 async function _decorateFlatHeading(query,words,qtype){
     if(words.length!==1)return;
     const q=query.trim();
@@ -5188,19 +5265,8 @@ async function _decorateFlatHeading(query,words,qtype){
     if(nt.length===0)return;
     const nl=_igsdNorm(nt[0].lemma);
     if(nt.some(t=>_igsdNorm(t.lemma)!==nl||t.strong!==nt[0].strong))return; // 一意に決まらない（番号の衝突・複数レンマ）場合は出さない
-    const strong=nt[0].strong,num=String(parseInt(String(strong).replace(/\D/g,''),10));
-    let meaning='';
-    try{
-        if(_enMode()){
-            const d=await _loadEnSenses();
-            const a=d&&d[num];
-            if(Array.isArray(a)&&a.length)meaning=String(a[0]||'').trim();
-        }else{
-            await _loadAbbott();
-            const e=_abbottDict&&_abbottDict[num];
-            if(e&&_igsdNorm(e.lemma)===nl)meaning=_asJaMeaning(e.description);
-        }
-    }catch(_){}
+    const strong=nt[0].strong;
+    const meaning=await _lemmaMeaning(strong,nt[0].lemma);
     if(_lastQuery!==query)return; // 検索が入れ替わっていたら付けない
     const el=document.getElementById('result-query-label');
     if(!el||el.textContent!==query)return;
