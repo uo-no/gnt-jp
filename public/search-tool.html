@@ -1476,6 +1476,46 @@ body {
 .state-empty { justify-content: flex-start; min-height: 0; }
 .state-empty.is-centered { justify-content: center; min-height: 60vh; }
 
+/* ── ロビー専用（Google 検索風の寸法）──
+   body.is-lobby は #state-empty が表示中（かつエラー等の .is-centered でない）ときだけ付く（MutationObserver、:has() 非依存）。
+   検索後の結果画面・エラー空状態には一切影響しない。 */
+/* ロビーでは検索窓下の区切り線を出さない（結果画面では従来どおり） */
+body.is-lobby .s-search-divider { display: none; }
+/* 見出しの中心を画面高の約28%へ（block上端56px＋見出し高の半分≒40px を差し引く） */
+body.is-lobby .s-search-block { padding-top: max(var(--s-sp-7), calc(28vh - 96px)); }
+body.is-lobby .s-search-title {
+    font-family: Arial, Helvetica, 'Helvetica Neue', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 72px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    text-align: center;
+    margin-bottom: var(--s-sp-5);
+}
+body.is-lobby .search-input-wrap {
+    max-width: 584px;
+    margin-left: auto;
+    margin-right: auto;
+}
+body.is-lobby .unified-input {
+    height: 48px;
+    padding: 0 48px 0 22px;
+    font-size: 16px;
+    border: 1px solid #dfe1e5;
+    border-radius: 24px;
+}
+body.is-lobby .unified-input::placeholder { font-size: 16px; }
+body.is-lobby .unified-input:hover,
+body.is-lobby .unified-input:focus {
+    border-color: transparent;
+    box-shadow: 0 1px 6px rgba(32,33,36,0.28);
+}
+body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
+@media (max-width: 700px) {
+    body.is-lobby .s-search-title { font-size: 44px; text-align: center; }
+    body.is-lobby .s-search-block { padding-top: max(16px, calc(28vh - 72px)); }
+}
+
 /* ── Hit card header / ref / badges ── */
 .hit-header {
     display: flex; align-items: center; gap: var(--s-sp-2);
@@ -1751,7 +1791,7 @@ body {
 
 <!-- ═══════════════════════════ Search Block ═══════════════════════════ -->
 <div class="s-search-block" id="s-search-block">
-    <div class="s-search-title logo-home-btn" onclick="_returnToLobby()" title="検索のはじめに戻る" data-i18n-title="search.title.home" data-i18n="search.title">聖書原文検索</div>
+    <div class="s-search-title logo-home-btn" onclick="_returnToLobby()" title="検索のはじめに戻る" data-i18n-title="search.title.home" data-i18n="search.title">Greekn</div>
 
     <!-- Search input -->
     <div class="search-input-wrap">
@@ -5287,6 +5327,16 @@ function _showEmpty(title,desc){
     if(_et){_et.style.display='';_et.textContent=title||_tf('search.empty.defaultTitle','語を入力して検索する');}
     if(_ed){_ed.style.display='';_ed.textContent=desc||_tf('search.empty.defaultDesc','有効なレイヤーをONにして検索してください');}
 }
+
+/* ロビー状態の検出：#state-empty が表示中で、エラー等の中央寄せ（.is-centered）でないときだけ body.is-lobby。 */
+(function(){
+    const es = document.getElementById('state-empty');
+    if (!es) return;
+    const sync = () => document.body.classList.toggle('is-lobby',
+        es.style.display !== 'none' && !es.classList.contains('is-centered'));
+    sync();
+    new MutationObserver(sync).observe(es, { attributes: true, attributeFilter: ['style', 'class'] });
+})();
 
 /* ============================================================
    init
