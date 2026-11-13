@@ -1322,6 +1322,10 @@ body {
     font-size: var(--text-caption); color: var(--text-sub); padding: 4px 0; margin-top: 4px;
 }
 .igsd-dist-toggle:hover { color: var(--highlight); }
+.igsd-dict { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+.igsd-dict[hidden] { display: none; }
+.igsd-dict-h { cursor: pointer; font-size: var(--s-ts-sm); font-weight: 700; color: var(--text-main); }
+.igsd-dict-body { margin-top: 8px; font-size: var(--s-ts-base); line-height: var(--s-lh-prose); color: var(--s-text); white-space: pre-wrap; font-family: var(--s-ff-prose); }
 .igsd-sense { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
 .igsd-sense-h { font-size: var(--s-ts-sm); font-weight: 700; color: var(--text-main); }
 .igsd-sense-count { font-weight: 400; color: var(--text-sub); font-size: var(--text-caption); margin-left: 6px; }
@@ -5404,8 +5408,26 @@ function _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close){
     /* 語ページは語義層に専念: 見出し → 語義グループ群 → 出現分布（新約のみ）の順 */
     const sensesWrap=document.createElement('div');
     page.appendChild(sensesWrap);
+    /* 辞書情報（Abbott-Smith）：語義と分布の間の折りたたみ節。本文はモーダルと同じ entry をそのまま表示（編集・要約しない）。エントリが無ければ節を出さない */
+    const dictWrap=document.createElement('details');dictWrap.className='igsd-dict';dictWrap.hidden=true;
+    page.appendChild(dictWrap);
     const distWrap=document.createElement('div');distWrap.className='dist-panel';
     page.appendChild(distWrap);
+    (async()=>{
+        try{
+            await _loadAbbott();
+            const num=String(parseInt(String(entry.strong||'').replace(/\D/g,''),10));
+            const e=_abbottDict&&_abbottDict[num];
+            const body=e?(_enMode()?(e.descriptionEn||''):e.description):'';
+            if(!body||!dictWrap.isConnected)return;
+            const sum=document.createElement('summary');sum.className='igsd-dict-h';
+            sum.textContent=_tf('search.word.dict','辞書情報（Abbott-Smith）');
+            const b=document.createElement('div');b.className='igsd-dict-body';
+            b.innerHTML=_escH(body).replace(/\n/g,'<br>');
+            dictWrap.appendChild(sum);dictWrap.appendChild(b);
+            dictWrap.hidden=false;
+        }catch(_){}
+    })();
 
     let distExpanded=false; // 9書目以降の開閉状態（再描画しても保持するためクロージャ変数）
     const DIST_FOLD=8;
