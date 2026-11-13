@@ -5180,8 +5180,8 @@ async function _igsdOpenPage(entry,group,groups,query,word2,words,fromGreekQuery
     /* 日本語クエリ: 語グループ行から開く（隠す対象は語グループと分布）。
        ギリシャ語クエリ（QA-05）: 入口バーから開く（隠す対象は件数・ヒット一覧・分布・構造探索・入口）。 */
     const ids=fromGreekQuery
-        ?['igsd-entry','hits-count','hits-list','dist-panel','pattern-explore-section']
-        :['lemma-groups','lemma-cooc','dist-panel'];
+        ?['result-header','igsd-entry','hits-count','hits-list','dist-panel','pattern-explore-section']
+        :['result-header','lemma-groups','lemma-cooc','dist-panel'];
     const targets=ids.map(id=>document.getElementById(id)).filter(Boolean);
     const anchor=fromGreekQuery?document.getElementById('hits-count'):document.getElementById('lemma-groups');
     let page=document.getElementById('igsd-page');
@@ -5230,10 +5230,11 @@ function _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close){
         <span class="igsd-meta">${_tp('search.word.total','全{n}回',Number(entry.total),{n:Number(entry.total).toLocaleString()})}</span>`;
     page.appendChild(head);
 
-    const distWrap=document.createElement('div');distWrap.className='dist-panel';
-    page.appendChild(distWrap);
+    /* 語ページは語義層に専念: 見出し → 語義グループ群 → 出現分布（新約のみ）の順 */
     const sensesWrap=document.createElement('div');
     page.appendChild(sensesWrap);
+    const distWrap=document.createElement('div');distWrap.className='dist-panel';
+    page.appendChild(distWrap);
 
     let distExpanded=false; // 9書目以降の開閉状態（再描画しても保持するためクロージャ変数）
     const DIST_FOLD=8;
