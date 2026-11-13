@@ -1239,6 +1239,7 @@ body {
 .lg-bar.open .lg-toggle { transform: rotate(90deg); }
 .lg-form { font-size: var(--s-ts-sm); font-weight: 700; color: var(--text-main); }
 .lg-greek { font-family: var(--s-ff-greek); font-size: 0.88rem; color: var(--text-sub); }
+.lg-matched-gloss { font-size: 0.74rem; color: var(--text-sub); opacity: 0.85; white-space: nowrap; }
 .lg-count { font-size: var(--text-caption); color: var(--text-sub); margin-left: auto; }
 .lg-panel {
     display: none; padding: 10px 12px;
@@ -2202,6 +2203,8 @@ function _refLabel(name,ch,v,jaSep){return _tf('search.ref.verse',name+(jaSep||'
 /* EN 時（#29）: 英語グロスでの検索・表示。JA・ES では常に false で、従来の挙動は一切変わらない。
    英語の単語は 'japanese' 型クエリ（語義＝グロス照合）として既存の語グループ経路に載せる。 */
 function _enMode(){return !!(window.I18N&&I18N.lang==='en');}
+/* #31: 英字（ラテン文字）だけの単語は UI 言語にかかわらず英語グロス照合へ回す。日本語・ギリシャ語・Strong は対象外。 */
+function _isLatinWord(w){return /^[A-Za-z][A-Za-z'’]*$/.test(String(w==null?'':w));}
 function _enGlossWords(tok){const g=tok&&tok.gloss;return g?(String(g).toLowerCase().match(/[a-z]+(?:['’][a-z]+)?/g)||[]):[];}
 function _enGlossHas(tok,word){return _enGlossWords(tok).includes(String(word).toLowerCase());}
 let _enGlossIdx=null,_enGlossIdxN=-1;
@@ -2771,7 +2774,7 @@ function detectQueryType(query){
     if(/[ἀ-῾Α-Ω]/u.test(query))return'greek';
     if(/[ぁ-んァ-ヶ一-龠]/.test(query))return'japanese';
     if(/^[Gg]?\d+$/.test(query))return'strong';
-    if(_enMode()&&/^[A-Za-z][A-Za-z'’]*$/.test(query))return'japanese'; // EN: 英単語は語義（グロス）照合へ
+    if(_isLatinWord(query))return'japanese'; // 英単語は UI 言語によらず語義（英語グロス）照合へ（#31）
     return'text';
 }
 function searchGreek(tokens,word){
@@ -2794,6 +2797,7 @@ function searchGreek(tokens,word){
 }
 function searchJapanese(tokens,word){
     if(_enMode())return _enGlossSet(word);
+    if(_isLatinWord(word))return new Set(); /* 非 EN UI の英字語は単語検索（unifiedSearch）だけが英語グロスで引く。近接・フレーズ等は従来どおり（#31） */
     if(IDX.l3Ready){const s=JP_PARTIAL_INDEX.get(word);return s||new Set();}
     const s=new Set();
     tokens.forEach(t=>{
@@ -2946,6 +2950,7 @@ function matchToken(tok,word){
     const qtype=detectQueryType(word);
     if(qtype==='japanese'){
         if(_enMode())return _enGlossHas(tok,word);
+        if(_isLatinWord(word))return false; /* 従来（'text' 扱い＝ギリシャ語比較のみ）と同じ */
         const vals=tok.japanese?(Array.isArray(tok.japanese)?tok.japanese:[tok.japanese]):[];
         if(vals.some(v=>v&&v.includes(word)))return true;
         return!!(tok.gloss&&tok.gloss.includes(word));
@@ -3762,13 +3767,13 @@ function _initSuggest(){
         const val=inp.value.trim();
         if(!val){_renderHistoryInDropdown();return;}
         const qtype=detectQueryType(val);
-        if(qtype!=='japanese'){document.getElementById('suggest-dropdown').classList.remove('open');return;}
+        if(qtype!=='japanese'||(!_enMode()&&_isLatinWord(val))){document.getElementById('suggest-dropdown').classList.remove('open');return;} /* 英語サジェストは EN UI のみ（#31: 英字クエリの検索自体は全 UI 言語で可） */
         _showSuggest(_getSuggestions(val));
     });
     inp.addEventListener('focus',()=>{
         const val=inp.value.trim();
         if(!val){_renderHistoryInDropdown();}
-        else if(detectQueryType(val)==='japanese'){_showSuggest(_getSuggestions(val));}
+        else if(detectQueryType(val)==='japanese'&&(_enMode()||!_isLatinWord(val))){_showSuggest(_getSuggestions(val));}
     });
     inp.addEventListener('blur',()=>{
         setTimeout(()=>document.getElementById('suggest-dropdown').classList.remove('open'),150);
@@ -4133,7 +4138,7 @@ async function unifiedSearch(opts){
             let idxs;
             if(qtype==='japanese'){
                 await _ensureFullIndex();
-                const s=searchJapanese(ALL_TOKENS,word1);
+                const s=(!_enMode()&&_isLatinWord(word1))?_enGlossSet(word1):searchJapanese(ALL_TOKENS,word1); // 英字単語は UI 言語によらず英語グロスで引く（#31）
                 idxs=[...s];
             }else{
                 idxs=searchByLemma(word1);
@@ -4163,7 +4168,7 @@ async function unifiedSearch(opts){
     // 複数語入力のみ連続フレーズ検索を自動実行。単語検索にフレーズ種別を誤付与しない。
     if(words.length>=2){
         tasks.push((async()=>{
-            const isJp=detectQueryType(word1)==='japanese';
+            const isJp=detectQueryType(word1)==='japanese'&&(_enMode()||!_isLatinWord(word1)); // 英語フレーズ検索は EN UI のみ（現行どおり）
             const idxs=isJp?searchPhraseJapanese(words):searchPhrase(words);
             for(const gi of idxs){
                 const tok=ALL_TOKENS[gi];if(!tok)continue;
@@ -4394,15 +4399,16 @@ function _renderUnifiedResults(query,words,word2){
         _parts.push(_tf('search.count.lxx','旧約ギリシア語訳（LXX） {n}件',{n:lxxCount.toLocaleString()}));
         _countEl.innerHTML=
             `<span>${_tp('search.count.hits','{n} 件',total,{n:total.toLocaleString()})}</span>`+
-            `<span class="result-count-sub">${_parts.join(' ／ ')}</span>`;
+            `<span class="result-count-sub">${_parts.join(_enMode()?' / ':' ／ ')}</span>`;
     } else {
         _countEl.textContent=_tp('search.count.hits','{n} 件',total,{n:total.toLocaleString()});
     }
     { const _old=document.getElementById('lxx-note');if(_old)_old.remove();
-      if(_enMode()&&lxxCount>0){ /* D2: LXX は英語グロス・訳文が無い旨を1箇所だけ注記 */
+      const _glossQ=_isLatinWord(query)&&words.length===1; /* 英語グロス検索は新約のみ（LXX にグロスなし）— 全 UI 言語で1行注記（#31） */
+      if(_glossQ||(_enMode()&&lxxCount>0)){ /* D2: LXX は英語グロス・訳文が無い旨を1箇所だけ注記 */
         const _n=document.createElement('div');_n.id='lxx-note';_n.className='result-count-sub';
         _n.style.cssText='flex-basis:100%;width:100%;margin-top:4px;';
-        _n.textContent=_tf('search.lxxNote','');
+        _n.textContent=_glossQ?_tf('search.glossNtOnly','英語グロスでの検索は新約聖書のみが対象です（旧約ギリシア語訳（LXX）には英語グロスがありません）。'):_tf('search.lxxNote','');
         document.getElementById('result-header').appendChild(_n);
       } }
     if(!IDX.l3Ready)_noteProvisionalCount(_countEl,query); // LXX 合流前の件数を完成形として見せない（#792 の方針に揃える）
@@ -4855,12 +4861,21 @@ function _renderLemmaGroups(groups,query,word2,words){
         }else if(group.gloss)glossStr=String(group.gloss).slice(0,20);
         const primaryLabel=glossStr||group.lemma;
         const secondaryLabel=glossStr?group.lemma:'';
+        /* #31: 日本語 UI の英単語検索では、ヒット理由として一致した英語グロスを併記（EN UI は見出し自体が英語グロスなので二重表示しない） */
+        let matchedGlossHtml='';
+        if(!_enMode()&&_isLatinWord(query)){
+            const gc=new Map(),qw=query.toLowerCase();
+            for(const h of group.hits){const tk=h.tokens[h.anchorIdx];if(tk&&tk.gloss&&_enGlossWords(tk).includes(qw))gc.set(tk.gloss,(gc.get(tk.gloss)||0)+1);}
+            let best=null,bn=0;for(const[k,v]of gc)if(v>bn){best=k;bn=v;}
+            if(best)matchedGlossHtml=`<span class="lg-matched-gloss">${_escH(_tf('search.gloss.matched','英語グロス：{g}',{g:best}))}</span>`;
+        }
         const row=document.createElement('div');row.className='lg-row';
         const bar=document.createElement('div');bar.className='lg-bar';
         bar.innerHTML=`
             <span class="lg-toggle">${icon('chevronRight')}</span>
             <span class="lg-form">${_escH(primaryLabel)}</span>
             ${secondaryLabel?`<span class="lg-greek">${_escH(secondaryLabel)}</span>`:''}
+            ${matchedGlossHtml}
             <span class="lg-count">${_tp('search.count.hits','{n}件',group.hits.length)}</span>`;
         _igsdDecorateBar(bar,group,groups,query,word2,words);
         const panel=document.createElement('div');panel.className='lg-panel';
