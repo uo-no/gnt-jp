@@ -1226,6 +1226,7 @@ body {
 /* 結果画面の「よく一緒に出る語」（グループ外の独立セクション） */
 .lemma-cooc { margin: var(--space-md) 0; }
 .lemma-cooc .lg-cooc-title { margin-bottom: 6px; }
+.lg-cooc-lemma { text-transform: none; letter-spacing: 0; }
 /* 結果画面の出現分布（既定で閉じる） */
 .dist-toggle {
     display: flex; align-items: center; gap: 8px; width: 100%;
@@ -4948,6 +4949,7 @@ function _renderLemmaGroups(groups,query,word2,words){
         const _pv=document.getElementById('result-count-provisional');
         if(_pv)_cnt.insertBefore(_sub,_pv);else _cnt.appendChild(_sub);
       } }
+    const _lgState=[];let _coocTarget=0;
     groups.forEach((group,groupIdx)=>{
         let glossStr='';
         if(group.japanese){
@@ -4993,9 +4995,17 @@ function _renderLemmaGroups(groups,query,word2,words){
             });
             panel.appendChild(moreBtn);
         }
+        _lgState[groupIdx]=panel;
         bar.addEventListener('click',()=>{
             const open=panel.classList.toggle('open');
             bar.classList.toggle('open',open);
+            /* 共起は「展開中の語形グループ」に追随: 開いたらそのグループへ。追随対象を閉じたら、開いている別グループ→無ければ先頭 */
+            if(open)_coocTarget=groupIdx;
+            else if(_coocTarget===groupIdx){
+                const o=_lgState.findIndex(p=>p&&p.classList.contains('open'));
+                _coocTarget=o>=0?o:0;
+            }
+            _renderLemmaCooc(groups[_coocTarget]);
         });
         // 最大ヒット数グループ（groups[0]）を自動展開
         if(groupIdx===0){
@@ -5008,7 +5018,8 @@ function _renderLemmaGroups(groups,query,word2,words){
     _renderLemmaCooc(groups[0]);
 }
 /* よく一緒に出る語: 語形グループ群の下・出現分布の上に独立セクションとして置く。
-   集計は従来どおり先頭グループ（最大ヒット数）の共起（上位3語）。共起が無い検索では出さない。 */
+   集計はグループ別（上位3語）。対象は展開中の語形グループに追随し、見出しに対象レンマを添える。
+   対象グループの共起が空ならセクションを出さない。 */
 function _renderLemmaCooc(group){
     const sec=document.getElementById('lemma-cooc');
     if(!sec)return;
@@ -5018,6 +5029,7 @@ function _renderLemmaCooc(group){
     if(topCooc.length===0)return;
     const title=document.createElement('div');title.className='lg-cooc-title';
     title.textContent=_tf('search.cooc.title','よく一緒に出る語');
+    if(group.lemma){const lm=document.createElement('span');lm.className='lg-cooc-lemma';lm.textContent=' — '+group.lemma;title.appendChild(lm);}
     const chipWrap=document.createElement('div');chipWrap.className='lg-cooc-list';
     topCooc.forEach(([word,{rawCount}])=>{
         const chip=document.createElement('span');chip.className='lg-chip';
