@@ -18,6 +18,56 @@
 <meta name="twitter:title"       content="聖句・概念検索 | 聖書原語リーダー（β）">
 <meta name="twitter:description" content="聖句・神学概念をキーワードで横断検索。ギリシャ語原典から日本語訳まで一気通貫で探せる聖書研究ツール。牧師・神学生向けβ版。">
 <meta name="twitter:image"       content="https://bible-text.pages.dev/assets/ogp.png">
+<script>
+/* 検索ツール固有の静的メタ・プレースホルダの言語対応（英語化 第1段階-1）。
+   i18n.js の applyMeta は本体（アプリ全体）の meta.title / meta.description で
+   title・og・twitter を上書きするため、ready 後と DOMContentLoaded 後（i18n.js の
+   リスナーより後）に、検索ツール用キー search.meta.* で戻す。
+   JA は T() が fallback（現行の静的値）をそのまま返すため現行と完全同一。 */
+(function(){
+    var orig={
+        title:document.title,
+        ogTitle:(document.querySelector('meta[property="og:title"]')||{getAttribute:function(){return null;}}).getAttribute('content'),
+        twTitle:(document.querySelector('meta[name="twitter:title"]')||{getAttribute:function(){return null;}}).getAttribute('content'),
+        ogDesc:(document.querySelector('meta[property="og:description"]')||{getAttribute:function(){return null;}}).getAttribute('content'),
+        twDesc:(document.querySelector('meta[name="twitter:description"]')||{getAttribute:function(){return null;}}).getAttribute('content')
+    };
+    function setMeta(sel,v){var el=document.querySelector(sel);if(el&&v!=null)el.setAttribute('content',v);}
+    function applySearchMeta(){
+        if(!window.T)return;
+        var title=T('search.meta.title',orig.title);
+        document.title=title;
+        setMeta('meta[property="og:title"]',T('search.meta.title',orig.ogTitle));
+        setMeta('meta[name="twitter:title"]',T('search.meta.title',orig.twTitle));
+        var desc=T('search.meta.description',null); // 辞書にある言語だけ。JA（と未対応言語）は現行の静的メタのまま。
+        if(T('search.meta.title',null)==null){
+            /* 検索ツールがまだ対応していない言語（ES）: 表示は日本語のままなので lang も ja とし、
+               本体文言で上書きされた og/twitter の説明を現行の静的値へ戻す。 */
+            document.documentElement.lang='ja';
+            setMeta('meta[property="og:description"]',orig.ogDesc);
+            setMeta('meta[name="twitter:description"]',orig.twDesc);
+        }
+        if(desc){
+            var md=document.querySelector('meta[name="description"]');
+            if(!md){md=document.createElement('meta');md.setAttribute('name','description');document.head.appendChild(md);}
+            md.setAttribute('content',desc);
+            setMeta('meta[property="og:description"]',desc);
+            setMeta('meta[name="twitter:description"]',desc);
+        }
+        var inp=document.getElementById('unified-search-input');
+        if(inp){
+            if(inp.dataset.jaPlaceholder==null)inp.dataset.jaPlaceholder=inp.getAttribute('placeholder')||'';
+            inp.setAttribute('placeholder',T('search.input.placeholder',inp.dataset.jaPlaceholder));
+        }
+    }
+    /* i18n.js（body 末尾側で読み込み）の DOMContentLoaded／ready 後の applyAll が title・og を本体文言で上書きするため、
+       それらより後（次のタスク／ready 後）に検索ツール用の値へ戻す。 */
+    document.addEventListener('DOMContentLoaded',function(){
+        setTimeout(applySearchMeta,0);
+        if(window.I18N&&I18N.ready)I18N.ready.then(applySearchMeta);
+    });
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../css/tokens.css">
 <link rel="stylesheet" href="../css/layout.css">
@@ -1764,17 +1814,15 @@ body {
 
 <!-- ═══════════════════════════ Sticky Header ═══════════════════════════ -->
 <header class="s-header" id="s-header">
-    <button class="s-btn-back" onclick="_searchGoBack()" aria-label="聖書リーダーに戻る">
-        ‹ 聖書に戻る
-    </button>
+    <button class="s-btn-back" onclick="_searchGoBack()" aria-label="聖書リーダーに戻る" data-i18n-aria-label="search.header.backAria" data-i18n="search.header.back">‹ 聖書に戻る</button>
     <span class="s-header-spacer"></span>
-    <span class="s-mini-search" id="s-mini-search" onclick="document.getElementById('unified-search-input').focus()" title="検索欄へ"></span>
-    <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー"></button>
+    <span class="s-mini-search" id="s-mini-search" onclick="document.getElementById('unified-search-input').focus()" title="検索欄へ" data-i18n-title="search.header.miniSearch"></span>
+    <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー" data-i18n-title="search.header.copyUrl"></button>
 </header>
 
 <!-- ═══════════════════════════ Search Block ═══════════════════════════ -->
 <div class="s-search-block" id="s-search-block">
-    <div class="s-search-title logo-home-btn" onclick="_returnToLobby()" title="今日のみことばへ戻る">聖書原文検索</div>
+    <div class="s-search-title logo-home-btn" onclick="_returnToLobby()" title="今日のみことばへ戻る" data-i18n-title="search.title.home" data-i18n="search.title">聖書原文検索</div>
 
     <!-- Search input -->
     <div class="search-input-wrap">
@@ -1782,61 +1830,61 @@ body {
             type="text"
             placeholder="愛・信じる・ἀγαπάω …"
             autocomplete="off" spellcheck="false">
-        <button class="search-icon-btn" onclick="unifiedSearch()" tabindex="-1" aria-label="検索" title="検索する">
+        <button class="search-icon-btn" onclick="unifiedSearch()" tabindex="-1" aria-label="検索" title="検索する" data-i18n-aria-label="search.btn.aria" data-i18n-title="search.btn.title">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         </button>
         <div class="suggest-dropdown" id="suggest-dropdown"></div>
         <div class="search-filters" id="search-filters" aria-live="polite">
-            <div class="filter-suggestion-title" id="filter-suggestion-title">絞り込みの提案</div>
+            <div class="filter-suggestion-title" id="filter-suggestion-title" data-i18n="search.filter.suggestionTitle">絞り込みの提案</div>
             <div class="prox-sub" id="prox-sub" aria-hidden="true">
                 <div class="prox-sub-row">
-                    <span class="prox-sub-label">近接距離</span>
+                    <span class="prox-sub-label" data-i18n="search.prox.label">近接距離</span>
                     <span class="prox-sub-val" id="prox-val-label">±5語</span>
                 </div>
                 <input type="range" class="prox-slider" id="prox-slider"
                     min="1" max="15" value="5"
-                    oninput="onProxSlider(this.value)" aria-label="近接距離">
+                    oninput="onProxSlider(this.value)" aria-label="近接距離" data-i18n-aria-label="search.prox.label">
                 <div class="prox-presets">
-                    <button class="prox-preset" data-d="3" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;">狭い</span></button>
-                    <button class="prox-preset active" data-d="5" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;">標準</span></button>
-                    <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;">広い</span></button>
+                    <button class="prox-preset" data-d="3" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.narrow">狭い</span></button>
+                    <button class="prox-preset active" data-d="5" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.standard">標準</span></button>
+                    <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.wide">広い</span></button>
                 </div>
             </div>
             <button class="morph-panel-toggle" id="morph-panel-toggle" type="button" aria-expanded="false" aria-controls="morph-sub" onclick="_toggleMorphFilters()">
-                <span>文法で絞り込む</span><span class="morph-panel-count" id="morph-panel-count"></span><span class="morph-panel-chevron" aria-hidden="true">⌄</span>
+                <span data-i18n="search.morph.toggle">文法で絞り込む</span><span class="morph-panel-count" id="morph-panel-count"></span><span class="morph-panel-chevron" aria-hidden="true">⌄</span>
             </button>
             <div class="morph-sub" id="morph-sub">
-                <div class="morph-sheet-head"><span class="morph-sheet-title">文法で絞り込む</span><button class="morph-sheet-close" type="button" aria-label="閉じる" onclick="_closeMorphFilterSheet()">×</button></div>
+                <div class="morph-sheet-head"><span class="morph-sheet-title" data-i18n="search.morph.toggle">文法で絞り込む</span><button class="morph-sheet-close" type="button" aria-label="閉じる" data-i18n-aria-label="search.close" onclick="_closeMorphFilterSheet()">×</button></div>
                 <div class="morph-section" id="morph-sec-pos" data-slot="pos">
-                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-pos" onclick="_toggleMorphSection('pos')"><span class="morph-section-label">品詞</span><span class="morph-selected-summary" id="morph-summary-pos"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-pos" onclick="_toggleMorphSection('pos')"><span class="morph-section-label" data-i18n="search.morph.pos">品詞</span><span class="morph-selected-summary" id="morph-summary-pos"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
                     <div class="morph-chips" id="morph-chips-pos"></div>
                 </div>
                 <div class="morph-section" id="morph-sec-mood" data-slot="mood">
-                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-mood" onclick="_toggleMorphSection('mood')"><span class="morph-section-label">法</span><span class="morph-selected-summary" id="morph-summary-mood"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-mood" onclick="_toggleMorphSection('mood')"><span class="morph-section-label" data-i18n="search.morph.mood">法</span><span class="morph-selected-summary" id="morph-summary-mood"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
                     <div class="morph-chips" id="morph-chips-mood"></div>
                 </div>
                 <div class="morph-section" id="morph-sec-tense" data-slot="tense">
-                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-tense" onclick="_toggleMorphSection('tense')"><span class="morph-section-label">時制</span><span class="morph-selected-summary" id="morph-summary-tense"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-tense" onclick="_toggleMorphSection('tense')"><span class="morph-section-label" data-i18n="search.morph.tense">時制</span><span class="morph-selected-summary" id="morph-summary-tense"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
                     <div class="morph-chips" id="morph-chips-tense"></div>
                 </div>
                 <div class="morph-section" id="morph-sec-voice" data-slot="voice">
-                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-voice" onclick="_toggleMorphSection('voice')"><span class="morph-section-label">態</span><span class="morph-selected-summary" id="morph-summary-voice"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-voice" onclick="_toggleMorphSection('voice')"><span class="morph-section-label" data-i18n="search.morph.voice">態</span><span class="morph-selected-summary" id="morph-summary-voice"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
                     <div class="morph-chips" id="morph-chips-voice"></div>
                 </div>
                 <div class="morph-section" id="morph-sec-case" data-slot="case" style="display:none;">
-                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-case" onclick="_toggleMorphSection('case')"><span class="morph-section-label">格</span><span class="morph-selected-summary" id="morph-summary-case"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-case" onclick="_toggleMorphSection('case')"><span class="morph-section-label" data-i18n="search.morph.case">格</span><span class="morph-selected-summary" id="morph-summary-case"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
                     <div class="morph-chips" id="morph-chips-case"></div>
                 </div>
                 <div class="morph-section" id="morph-sec-num" data-slot="num" style="display:none;">
-                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-num" onclick="_toggleMorphSection('num')"><span class="morph-section-label">数</span><span class="morph-selected-summary" id="morph-summary-num"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-num" onclick="_toggleMorphSection('num')"><span class="morph-section-label" data-i18n="search.morph.number">数</span><span class="morph-selected-summary" id="morph-summary-num"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
                     <div class="morph-chips" id="morph-chips-num"></div>
                 </div>
                 <div class="morph-section" id="morph-sec-gen" data-slot="gen" style="display:none;">
-                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-gen" onclick="_toggleMorphSection('gen')"><span class="morph-section-label">性</span><span class="morph-selected-summary" id="morph-summary-gen"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
+                    <button class="morph-section-toggle" type="button" aria-expanded="false" aria-controls="morph-chips-gen" onclick="_toggleMorphSection('gen')"><span class="morph-section-label" data-i18n="search.morph.gender">性</span><span class="morph-selected-summary" id="morph-summary-gen"></span><span class="morph-chevron" aria-hidden="true">⌄</span></button>
                     <div class="morph-chips" id="morph-chips-gen"></div>
                 </div>
-                <button class="morph-clear-btn" id="morph-clear-btn" onclick="_morphClearAll()">選択をクリア</button>
-                <div class="morph-hint" id="morph-hint-text">品詞を選ぶとさらに絞り込めます</div>
+                <button class="morph-clear-btn" id="morph-clear-btn" onclick="_morphClearAll()" data-i18n="search.morph.clear">選択をクリア</button>
+                <div class="morph-hint" id="morph-hint-text" data-i18n="search.morph.hint">品詞を選ぶとさらに絞り込めます</div>
             </div>
         </div>
     </div>
@@ -1847,7 +1895,7 @@ body {
     <!-- Index status (入力欄の下: 準備中 → 完了後フェードアウト) -->
     <div class="idx-status" id="idx-pill">
         <span id="idx-dot">○</span>
-        <span id="idx-label">準備中…</span>
+        <span id="idx-label" data-i18n="search.status.preparing">準備中…</span>
     </div>
 
     <!-- Mode bar: lemma toggle + advanced toggle + SQS -->
@@ -1858,12 +1906,12 @@ body {
 
     <!-- History -->
     <div class="history-block" id="history-block" style="display:none;">
-        <div class="s-label" style="margin-bottom:6px;margin-top:8px;">履歴</div>
+        <div class="s-label" style="margin-bottom:6px;margin-top:8px;" data-i18n="search.history">履歴</div>
         <div class="history-list" id="history-list"></div>
     </div>
 </div>
 
-<button id="morph-filter-fab" type="button" aria-label="文法で絞り込む" onclick="_toggleMorphFilters(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/><circle cx="9" cy="6" r="2" fill="#54775b"/><circle cx="15" cy="12" r="2" fill="#54775b"/></svg><span class="morph-fab-count" aria-hidden="true">0</span></button>
+<button id="morph-filter-fab" type="button" aria-label="文法で絞り込む" data-i18n-aria-label="search.morph.toggle" onclick="_toggleMorphFilters(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/><circle cx="9" cy="6" r="2" fill="#54775b"/><circle cx="15" cy="12" r="2" fill="#54775b"/></svg><span class="morph-fab-count" aria-hidden="true">0</span></button>
 <div id="morph-filter-backdrop" onclick="_closeMorphFilterSheet()" aria-hidden="true"></div>
 
 <hr class="s-search-divider">
@@ -1875,15 +1923,15 @@ body {
     <div class="state-empty" id="state-empty">
         <!-- Discovery Lobby (UX-10-1D): 初期表示。_showEmpty() 呼び出し時は hidden になる -->
         <div id="discovery-lobby">
-            <h2 class="discovery-title">今日のみことば</h2>
+            <h2 class="discovery-title" data-i18n="search.lobby.title">今日のみことば</h2>
             <p class="discovery-date" id="discovery-date"></p>
         </div>
         <!-- 以下は温存。Discovery Lobby 非表示時（エラー等）に _showEmpty() が復元する -->
         <div class="empty-glyph" style="display:none">λόγος</div>
-        <div class="empty-title" style="display:none">聖書を検索する</div>
-        <div class="empty-desc" style="display:none">日本語・ギリシャ語・Strong番号で検索できます</div>
+        <div class="empty-title" style="display:none" data-i18n="search.empty.title">聖書を検索する</div>
+        <div class="empty-desc" style="display:none" data-i18n="search.empty.desc">日本語・ギリシャ語・Strong番号で検索できます</div>
         <div id="history-recent-section" style="display:none;margin-top:var(--space-lg);">
-            <div class="empty-section-label">最近の検索</div>
+            <div class="empty-section-label" data-i18n="search.empty.recent">最近の検索</div>
             <div class="empty-examples" id="history-recent-chips"></div>
         </div>
     </div>
@@ -1891,7 +1939,7 @@ body {
     <!-- Loading state -->
     <div class="state-loading" id="state-loading">
         <div class="spinner"></div>
-        <div class="loading-label" id="loading-label">検索中…</div>
+        <div class="loading-label" id="loading-label" data-i18n="search.status.searching">検索中…</div>
     </div>
 
     <!-- Result header -->
@@ -1909,7 +1957,7 @@ body {
         <div class="results-grid no-cooc" id="results-grid">
             <!-- Co-occurrence column (proximity only) -->
             <div class="cooc-col">
-                <div class="cooc-title">よく一緒に出る語</div>
+                <div class="cooc-title" data-i18n="search.cooc.title">よく一緒に出る語</div>
                 <div id="rank-list"></div>
             </div>
             <!-- Hits column -->
@@ -1919,7 +1967,7 @@ body {
                 <div class="hits-list" id="hits-list"></div>
                 <div class="dist-panel" id="dist-panel" style="display:none;"></div>
                 <div id="pattern-explore-section" style="display:none;margin-top:var(--space-xl);padding-top:var(--space-lg);border-top:1px solid var(--border-soft);">
-                    <div class="empty-section-label">ことばの構造を見る</div>
+                    <div class="empty-section-label" data-i18n="search.pattern.title">ことばの構造を見る</div>
                     <div class="layer-chips" id="pattern-explore-chips"></div>
                 </div>
             </div>
@@ -1928,29 +1976,29 @@ body {
 
     <!-- ═══════════════════════════ Syntax Pattern Panel ═══════════════════════════ -->
     <div id="syntax-panel">
-        <div class="syn-section-title">構文パターン検索</div>
+        <div class="syn-section-title" data-i18n="search.syn.title">構文パターン検索</div>
         <div class="syn-header">
-            <span class="syn-label" id="syn-label">読み込み中…</span>
+            <span class="syn-label" id="syn-label" data-i18n="search.status.loading">読み込み中…</span>
             <span class="syn-sublabel" id="syn-sublabel"></span>
             <span class="syn-count" id="syn-count"></span>
         </div>
         <details class="syn-filter" id="syn-filter-panel">
-            <summary>フィルター</summary>
+            <summary data-i18n="search.syn.filter">フィルター</summary>
             <div class="syn-filter-body">
                 <div class="syn-filter-row">
-                    <div class="syn-filter-label">書物グループ</div>
+                    <div class="syn-filter-label" data-i18n="search.syn.bookGroup">書物グループ</div>
                     <div class="book-chips" id="syn-book-chips"></div>
                 </div>
                 <div class="syn-filter-row">
-                    <div class="syn-filter-label">ソート</div>
+                    <div class="syn-filter-label" data-i18n="search.syn.sort">ソート</div>
                     <div class="sort-btns">
-                        <button class="sort-btn active" onclick="_synSetSort('canonical',this)">正典順</button>
-                        <button class="sort-btn" onclick="_synSetSort('confidence_desc',this)">確信度順</button>
-                        <button class="sort-btn" onclick="_synSetSort('book_frequency',this)">書物頻度順</button>
+                        <button class="sort-btn active" onclick="_synSetSort('canonical',this)" data-i18n="search.syn.sortCanonical">正典順</button>
+                        <button class="sort-btn" onclick="_synSetSort('confidence_desc',this)" data-i18n="search.syn.sortConfidence">確信度順</button>
+                        <button class="sort-btn" onclick="_synSetSort('book_frequency',this)" data-i18n="search.syn.sortFrequency">書物頻度順</button>
                     </div>
                 </div>
                 <div class="syn-filter-row">
-                    <div class="syn-filter-label">確信度しきい値</div>
+                    <div class="syn-filter-label" data-i18n="search.syn.threshold">確信度しきい値</div>
                     <div class="conf-row">
                         <input type="range" class="conf-slider" id="syn-conf-slider" min="0" max="90" value="30" oninput="_synOnConfSlider(this)">
                         <span class="conf-value" id="syn-conf-value-label">30%</span>
@@ -1959,14 +2007,14 @@ body {
                 <div class="syn-filter-row">
                     <label class="stub-toggle">
                         <input type="checkbox" id="syn-stub-toggle" onchange="_synApplyFilters()">
-                        参考値を含む
+                        <span data-i18n="search.syn.includeStub">参考値を含む</span>
                     </label>
                 </div>
             </div>
         </details>
         <div class="syn-status" id="syn-status"></div>
         <div id="syn-results-list"></div>
-        <button class="load-more-btn" id="syn-load-more" style="display:none;" onclick="_synLoadMore()">さらに表示</button>
+        <button class="load-more-btn" id="syn-load-more" style="display:none;" onclick="_synLoadMore()" data-i18n="search.showMore">さらに表示</button>
     </div><!-- /#syntax-panel -->
 
 </main>
@@ -1991,6 +2039,7 @@ body {
      ORIGINAL LOGIC BLOCK — All algorithms preserved verbatim.
      Only the UI dispatcher and rendering layer are new.
      ═══════════════════════════════════════════════════════════════ -->
+<script src="../assets/js/i18n.js"></script>
 <script src="../assets/js/book-master.js"></script>
 <script src="../assets/js/shared-ui.js"></script>
 <script src="../assets/data/daily-verses.js"></script>
