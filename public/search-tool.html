@@ -1053,11 +1053,15 @@ body {
 /* ── Result header ── */
 .result-header {
     display: none;
-    align-items: baseline; gap: 12px; flex-wrap: wrap;
+    /* 検索語・総件数・内訳を1つのグループに（#67）: 1行目＝検索語（左）／総件数（右）、2行目以降＝内訳・注記（左）。
+       #result-count は display:contents にして、総件数と内訳を直接 grid 項目として配置する（DOM・件数計算は無変更） */
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline; column-gap: 16px; row-gap: 4px;
     margin-bottom: var(--s-sp-5); padding-bottom: var(--s-sp-3);
     border-bottom: 1px solid var(--s-divider-strong);
 }
-.result-header.visible { display: flex; }
+.result-header.visible { display: grid; }
+.result-header > .result-count-sub { grid-column: 1 / -1; }
 .result-query {
     font-family: var(--s-ff-greek);
     font-size: var(--s-ts-lg); font-weight: 700; color: var(--s-text);
@@ -1112,17 +1116,18 @@ body {
 }
 #as-modal-body .as-empty { color: var(--s-text-sub); font-style: italic; }
 .result-count {
-    font-size: 0.78rem; font-weight: 700;
+    font-size: var(--s-ts-base); font-weight: 700;
     color: var(--text-main);
-    display: inline-flex; flex-direction: column; align-items: flex-end; gap: 1px;
+    display: contents;
 }
+.result-count > .result-count-sub { grid-column: 1 / -1; }
 .result-count-sub {
     font-size: var(--text-caption);
     font-weight: 400;
     opacity: 0.75;
 }
 /* 合計内訳行（新約 N件／LXX M件・K語形に分類）は一次情報なので本文色。注記類（.result-count-sub のみ）は従来のまま（#55） */
-.result-count-sub.result-count-break { color: var(--text-main); opacity: 1; }
+.result-count-sub.result-count-break { color: var(--text-sub); opacity: 1; text-wrap: balance; }
 .r-badge {
     font-size: 0.6rem; font-weight: 700; padding: 3px 8px;
     border-radius: 10px; letter-spacing: 0.06em; text-transform: uppercase;
