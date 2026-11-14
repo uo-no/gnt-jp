@@ -3459,6 +3459,8 @@ async function _loadSearchConcepts() {
                 label_en:    typeof c.label_en === 'string' ? c.label_en : '',
                 aliases:     arr(c.aliases),
                 aliases_en:  arr(c.aliases_en).filter(a => typeof a === 'string').map(a => a.toLowerCase()),
+                label_es:    typeof c.label_es === 'string' ? c.label_es : '',
+                aliases_es:  arr(c.aliases_es).filter(a => typeof a === 'string').map(a => a.toLowerCase()),
                 terms:       c.terms,
                 patterns:    arr(c.patterns),
                 domains:     arr(c.domains),
@@ -3496,6 +3498,9 @@ function _renderConceptDiscoveryChips() {
    日本語の label／aliases は従来どおり完全一致。allowEn のときだけ、英語の
    label_en／aliases_en にも小文字化して完全一致で発火する（UI 言語によらない。
    単語1語の検索のみ allowEn=true で呼ばれる）。戻り値: {concept, via:'ja'|'en'} または null */
+/* #59: スペイン語の語（アクセント付き）も Latin 文字として扱う。照合はアクセントと大文字小文字を無視（oración＝oracion）。 */
+function _isLatinLetters(w){return /^[\p{Script=Latin}][\p{Script=Latin}'’]*$/u.test(String(w==null?'':w));}
+function _noAccent(w){return String(w==null?'':w).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function _matchConcept(query, allowEn) {
     const q = String(query || '').trim();
     if (!q || SEARCH_CONCEPTS.length === 0) return null;
@@ -3506,6 +3511,13 @@ function _matchConcept(query, allowEn) {
         const ql = q.toLowerCase();
         for (const c of SEARCH_CONCEPTS) {
             if ((c.label_en && c.label_en.toLowerCase() === ql) || c.aliases_en.includes(ql)) return { concept: c, via: 'en' };
+        }
+    }
+    /* スペイン語（#59）: UI 言語によらず、label_es／aliases_es にも単語1語の完全一致（アクセント無視）で発火する。英語の照合が先（概念間の衝突は無いことを確認済み） */
+    if (allowEn && _isLatinLetters(q)) {
+        const qa = _noAccent(q);
+        for (const c of SEARCH_CONCEPTS) {
+            if ((c.label_es && _noAccent(c.label_es) === qa) || c.aliases_es.some(a => _noAccent(a) === qa)) return { concept: c, via: 'es' };
         }
     }
     return null;
@@ -3529,16 +3541,21 @@ function resolveConcept(query, allowEn) {
      関連する文法 → _synInit()（既存の Wallace 型検索）
    ============================================================ */
 let _activeInsightConcept = null;
-let _conceptViaEn = false;   /* 直近の検索が英語の別名（label_en／aliases_en）で概念発火したか。英語グロス検索の注記・併記の抑止に使う */
+let _conceptViaEn = false;   /* 直近の検索が英語・スペイン語の別名（label_en／aliases_en／label_es／aliases_es）で概念発火したか。英語グロス検索の注記・併記の抑止に使う */
 
 function _findConceptByQuery(q, allowEn) {
     const m = _matchConcept(q, allowEn);
     return m ? m.concept : null;
 }
-/* EN UI の概念名: label_en があれば英語、無ければ従来の label。JA／ES は常に label */
-function _cLabel(c) { return (_enMode() && c.label_en) || c.label; }
-/* 概念チップのクリックで検索ボックスへ入れる語。EN は発火できる1語（label_en が1語ならそれ、複数語なら aliases_en の先頭）。JA／ES は label のまま */
+/* UI 言語に応じた概念名: EN は label_en、ES は label_es（無ければ従来の label）。JA は常に label */
+function _esMode(){return !!(window.I18N&&I18N.lang==='es');}
+function _cLabel(c) { return (_enMode() && c.label_en) || (_esMode() && c.label_es) || c.label; }
+/* 概念チップのクリックで検索ボックスへ入れる語。EN は発火できる1語（label_en が1語ならそれ、複数語なら aliases_en の先頭）。JA は label のまま。ES は label_es が1語ならそれ、複数語なら aliases_es の先頭 */
 function _cSearchWord(c) {
+    if (_esMode()) {
+        if (c.label_es && !/\s/.test(c.label_es)) return c.label_es;
+        return (c.aliases_es && c.aliases_es[0]) || c.label;
+    }
     if (!_enMode()) return c.label;
     if (c.label_en && !/\s/.test(c.label_en)) return c.label_en;
     return (c.aliases_en && c.aliases_en[0]) || c.label;
@@ -3559,7 +3576,7 @@ function _renderConceptInsight(concept) {
     }).filter(Boolean);
     const syns = (concept.syntaxTypes || []).map(s =>
         typeof s === 'string' ? { id: s, label: s }
-        : (s && s.id ? { id: s.id, label: (_enMode() && s.label_en) || s.label || s.id } : null)).filter(Boolean);
+        : (s && s.id ? { id: s.id, label: (_enMode() && s.label_en) || (_esMode() && s.label_es) || s.label || s.id } : null)).filter(Boolean);
 
     /* 空のセクションは見出しごと出さない（「関連する文法」空配列時の非表示を含む） */
     const sec = (title, chips) => chips
@@ -4281,7 +4298,7 @@ async function unifiedSearch(opts){
     /* Concept Insight（Phase 4-3・表示のみ）: 発火時だけカード用の概念を保持 */
     const _conceptMatch = conceptTerms ? _matchConcept(word1,_conceptEnOk) : null;
     _activeInsightConcept = _conceptMatch ? _conceptMatch.concept : null;
-    _conceptViaEn = !!(_conceptMatch && _conceptMatch.via==='en');
+    _conceptViaEn = !!(_conceptMatch && _conceptMatch.via!=='ja');
 
     // --- Merged result map: globalIdx → {tok, hitTypes, proxHit?} ---
     const merged=new Map();
