@@ -1411,6 +1411,8 @@ body {
 .hit-snippet .hl-multi  { background: linear-gradient(120deg, var(--lemma-bg), var(--phrase-bg)); border-radius: 2px; padding: 0 1px; font-weight: 700; }
 
 /* Proximity distance line */
+.prox-legend { margin-top: 10px; font-size: 0.68rem; color: var(--ink-soft); line-height: 1.9; }
+.prox-legend .ht-badge { margin-right: 4px; }
 .prox-dist-row {
     display: flex; align-items: center; gap: 8px;
     margin-bottom: 6px; font-size: 0.7rem;
@@ -2074,6 +2076,7 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
             <div class="cooc-col">
                 <div class="cooc-title" data-i18n="search.cooc.title">よく一緒に出る語</div>
                 <div id="rank-list"></div>
+                <div class="prox-legend" id="prox-legend" style="display:none;"></div>
             </div>
             <!-- Hits column -->
             <div class="hits-col">
@@ -4580,6 +4583,27 @@ function _renderUnifiedResults(query,words,word2){
     const hasProx=_activeLayerSet.prox&&_proxCoocMap.size>0;
     grid.classList.toggle('no-cooc',!hasProx);
     if(hasProx)_renderCooccurrence(_proxCoocMap,'rank-list',10);
+    /* 近接検索の説明（#52）: 近接パネルの見出し・凡例・件/節の1行。通常検索には出さない */
+    { const _ct=document.querySelector('.cooc-title');
+      if(_ct)_ct.textContent=hasProx?_tf('search.cooc.titleProx','ヒットした節に出る他の語'):_tf('search.cooc.title','よく一緒に出る語');
+      const _oldSum=document.getElementById('prox-summary');if(_oldSum)_oldSum.remove();
+      const _lg=document.getElementById('prox-legend');
+      if(_lg){
+        if(hasProx){
+          _lg.innerHTML='<div><span class="ht-badge phrase">'+_escH(_tf('search.badge.phrase','フレーズ'))+'</span> '+_escH(_tf('search.prox.legendPhrase','2語が隣り合っている'))+'</div>'+
+            '<div><span class="ht-badge prox">'+_escH(_tf('search.badge.prox','近接'))+'</span> '+_escH(_tf('search.prox.legendProx','2語が設定距離（±{n}語）以内にある',{n:currentDist}))+'</div>';
+          _lg.style.display='';
+        } else { _lg.innerHTML='';_lg.style.display='none'; }
+      }
+      if(hasProx&&total>0){
+        const _vs=new Set();
+        for(const[,{tok}] of merged)_vs.add((tok.bookKey||'?')+':'+(tok.ch??'?')+':'+(tok.verse??'?'));
+        const _sm=document.createElement('div');_sm.id='prox-summary';_sm.className='result-count-sub';
+        _sm.style.cssText='flex-basis:100%;width:100%;margin-top:4px;';
+        _sm.textContent=_tp('search.prox.summary','{n} 件の一致が {m} 節にあります',total,{n:total.toLocaleString(),m:_vs.size.toLocaleString()});
+        document.getElementById('result-header').appendChild(_sm);
+      }
+    }
 
     // Hits
     if(total===0){
@@ -4865,10 +4889,15 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         const dist=Math.abs(w2Gi-anchorGi);
         const anchorText=_escH(tok.text||words[0]||'');
         const targetText=_escH(ALL_TOKENS[w2Gi]?.text||word2||'');
+        /* 節内の出現順に並べる（クエリ順ではない。表示する活用形は変えない）。クラス（色の濃淡）は語に付けたまま位置だけ入れ替える */
+        const _anchorHtml=`<span class="prox-anchor">${anchorText}</span>`;
+        const _targetHtml=`<span class="prox-target">${targetText}</span>`;
+        const _first=w2Gi<anchorGi?_targetHtml:_anchorHtml;
+        const _second=w2Gi<anchorGi?_anchorHtml:_targetHtml;
         proxVizHtml=`<div class="prox-dist-row">
-            <span class="prox-anchor">${anchorText}</span>
+            ${_first}
             <div class="prox-dist-line"><span class="prox-dist-label">${_tf('search.card.distance','距離 {n}',{n:dist})}</span></div>
-            <span class="prox-target">${targetText}</span>
+            ${_second}
         </div>`;
     }
 
