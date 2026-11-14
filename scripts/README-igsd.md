@@ -9,7 +9,7 @@ IGSD の lemma 正本データ `public/assets/data/igsd/lemmas/*.json`（1ファ
 
 | 出力 | 内容 |
 | --- | --- |
-| `public/assets/data/igsd/index.json` | 見出し語ごとの要約の配列。`{ strong, strongs, lemma, status, senses: [{id, label, label_en?, count}], total }`。`label_en`（語義ラベルの英訳）は原データの `senses[].label_en` がある語義にだけ、そのまま通す（無い語義には付けない。表示側が `label` にフォールバックする）。`strongs` はその見出し語が束ねる Strong 番号の配列（常に配列）。`count` は語義ごとの割り当て件数、`total` はその見出し語の割り当て総数。`strong` 昇順。 |
+| `public/assets/data/igsd/index.json` | 見出し語ごとの要約の配列。`{ strong, strongs, lemma, status, senses: [{id, label, label_en?, label_es?, count}], total }`。`label_en`（語義ラベルの英訳）・`label_es`（同スペイン語訳）は原データの `senses[].label_en`／`label_es` がある語義にだけ、そのまま通す（無い語義には付けない。表示側が `label` にフォールバックする）。`strongs` はその見出し語が束ねる Strong 番号の配列（常に配列）。`count` は語義ごとの割り当て件数、`total` はその見出し語の割り当て総数。`strong` 昇順。 |
 | `public/assets/data/igsd/sense-map.json` | 全見出し語通算の対応表。`{ "<verseId>": "<Strong>:<senseId>" }`。`<Strong>` は、そのトークン自身の Strong ではなく、割り当て元の見出し語の `strong`（例：G2036 のトークンは `G3004:<senseId>`）。 |
 | `public/assets/data/igsd/sense-map-gi.json` | `sense-map.json` と同じ対応を globalIdx で持ち直した表。`{ "<globalIdx>": "<Strong>:<senseId>" }`（キーは文字列）。globalIdx は bible_data の各トークンの `globalIdx`（NT の書物・章・語順の通し番号。`scripts/build-search-index.js` の globalIdx と同じ並び）。検索ツールは事前生成インデックス経由のトークンに verseId を持たないため、こちらで引く。 |
 
@@ -52,7 +52,7 @@ node scripts/build-igsd-index.cjs --selftest
 ```
 
 - フィクスチャは `tests/fixtures/igsd/`（`lemmas/` に見出し語 3件〈うち1件が `strongs` を持つ〉、`bible_data/nt/` に対応する最小の bible_data）。
-- 正常系（集計・sense-map）、`strongs`（配列の出力、`strongs` の無い見出し語の扱い、別 Strong のトークンの sense-map 反映）、異常系（存在しない verseId／存在しない senseId／重複割り当て）、警告系（final の draft 降格。`strongs` の別 Strong の同じ lemma のトークン未割り当てを含む）、lemma 一致（別 lemma のトークンが被覆の対象にならないこと、アクセント・大文字の無視）、label_en（原データの label_en を通す・無い語義には補わない）、sense-map-gi（件数が sense-map と一致、既知フィクスチャの対応）、出力の書き込みと読み戻しを確認する。全 23 項目が `PASS` なら、最終行は `SELFTEST: ALL PASS` で終了コード 0。1件でも失敗すれば終了コード 1。
+- 正常系（集計・sense-map）、`strongs`（配列の出力、`strongs` の無い見出し語の扱い、別 Strong のトークンの sense-map 反映）、異常系（存在しない verseId／存在しない senseId／重複割り当て）、警告系（final の draft 降格。`strongs` の別 Strong の同じ lemma のトークン未割り当てを含む）、lemma 一致（別 lemma のトークンが被覆の対象にならないこと、アクセント・大文字の無視）、label_en／label_es（原データの値を通す・無い語義には補わない）、sense-map-gi（件数が sense-map と一致、既知フィクスチャの対応）、出力の書き込みと読み戻しを確認する。全 25 項目が `PASS` なら、最終行は `SELFTEST: ALL PASS` で終了コード 0。1件でも失敗すれば終了コード 1。
 - 異常系・警告系は、フィクスチャを一時ディレクトリにコピーして書き換えた上で検証する。出力も一時ディレクトリへ書き、終わったら削除する。リポジトリ内のファイルは変更されない。
 - `--selftest` は、見つかった時点で selftest を実行して終了する。他のオプションとの併用は想定しない。
 
