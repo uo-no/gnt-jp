@@ -2046,11 +2046,11 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
                 </div>
                 <input type="range" class="prox-slider" id="prox-slider"
                     min="1" max="15" value="5"
-                    oninput="onProxSlider(this.value)" aria-label="近接距離" data-i18n-aria-label="search.prox.label">
+                    oninput="onProxSlider(this.value)" onchange="_proxRerun()" aria-label="近接距離" data-i18n-aria-label="search.prox.label">
                 <div class="prox-presets">
-                    <button class="prox-preset" data-d="3" onclick="setProxPreset(3)">±3<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.narrow">狭い</span></button>
-                    <button class="prox-preset active" data-d="5" onclick="setProxPreset(5)">±5<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.standard">標準</span></button>
-                    <button class="prox-preset" data-d="10" onclick="setProxPreset(10)">±10<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.wide">広い</span></button>
+                    <button class="prox-preset" data-d="3" onclick="setProxPreset(3);_proxRerun()">±3<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.narrow">狭い</span></button>
+                    <button class="prox-preset active" data-d="5" onclick="setProxPreset(5);_proxRerun()">±5<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.standard">標準</span></button>
+                    <button class="prox-preset" data-d="10" onclick="setProxPreset(10);_proxRerun()">±10<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.wide">広い</span></button>
                 </div>
             </div>
             <button class="morph-panel-toggle" id="morph-panel-toggle" type="button" aria-expanded="false" aria-controls="morph-sub" onclick="_toggleMorphFilters()">
@@ -4252,6 +4252,20 @@ function setProxPreset(v){
     currentDist=v;
     document.getElementById('prox-slider').value=v;
     onProxSlider(v);
+}
+/* 距離の確定操作（スライダーを離した時・プリセットのクリック）で、表示中の近接検索を現在の入力のまま再実行する（#69）。
+   近接結果の表示中だけ。単語検索など近接でない結果では値の更新のみ（再実行しない）。URL の dist・凡例・サマリは通常の再実行経路で追随する。
+   setProxPreset は URL 初期化からも呼ばれるため、再実行はここ（確定操作の入口）にだけ置く。 */
+function _proxRerun(_tries){
+    const rh=document.getElementById('result-header');
+    const input=document.getElementById('unified-search-input');
+    if(!rh||!rh.classList.contains('visible')||!_activeLayerSet.prox)return;
+    if(!input||input.value.trim().split(/\s+/).filter(Boolean).length<2)return;
+    if(isSearching){ /* 検索中なら終わるのを少し待って1回だけ再実行 */
+        if((_tries||0)<20)setTimeout(()=>_proxRerun((_tries||0)+1),300);
+        return;
+    }
+    unifiedSearch();
 }
 
 /* ============================================================
