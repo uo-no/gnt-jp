@@ -2323,6 +2323,8 @@ function _refLabel(name,ch,v,jaSep){return _tf('search.ref.verse',name+(jaSep||'
 /* EN 時（#29）: 英語グロスでの検索・表示。JA・ES では常に false で、従来の挙動は一切変わらない。
    英語の単語は 'japanese' 型クエリ（語義＝グロス照合）として既存の語グループ経路に載せる。 */
 function _enMode(){return !!(window.I18N&&I18N.lang==='en');}
+/* #58: 区切り記号など表示だけの分岐用。JA 以外（EN・ES）は半角、JA は従来の全角。語義・グロスの選択（_enMode）には使わない。 */
+function _nonJa(){return !!(window.I18N&&I18N.lang&&I18N.lang!=='ja');}
 /* #31: 英字（ラテン文字）だけの単語は UI 言語にかかわらず英語グロス照合へ回す。日本語・ギリシャ語・Strong は対象外。 */
 function _isLatinWord(w){return /^[A-Za-z][A-Za-z'’]*$/.test(String(w==null?'':w));}
 function _enGlossWords(tok){const g=tok&&tok.gloss;return g?(String(g).toLowerCase().match(/[a-z]+(?:['’][a-z]+)?/g)||[]):[];}
@@ -4565,7 +4567,7 @@ function _renderUnifiedResults(query,words,word2){
         _parts.push(_tf('search.count.lxx','旧約ギリシア語訳（LXX） {n}件',{n:lxxCount.toLocaleString()}));
         _countEl.innerHTML=
             `<span>${_tp('search.count.hits','{n} 件',total,{n:total.toLocaleString()})}</span>`+
-            `<span class="result-count-sub result-count-break">${_parts.join(_enMode()?' / ':' ／ ')}</span>`;
+            `<span class="result-count-sub result-count-break">${_parts.join(_nonJa()?' / ':' ／ ')}</span>`;
     } else {
         _countEl.textContent=_tp('search.count.hits','{n} 件',total,{n:total.toLocaleString()});
     }
@@ -5061,7 +5063,7 @@ function _renderLemmaGroups(groups,query,word2,words){
       const _fm=_tp('search.group.forms','{n}語形に分類',groups.length);
       const _cnt=document.getElementById('result-count');
       let _sub=_cnt.querySelector('.result-count-sub:not(#result-count-provisional)');
-      if(_sub)_sub.appendChild(document.createTextNode((_enMode()?' · ':'・')+_fm));
+      if(_sub)_sub.appendChild(document.createTextNode((_nonJa()?' · ':'・')+_fm));
       else{
         _sub=document.createElement('span');_sub.className='result-count-sub result-count-break';_sub.textContent=_fm;
         const _pv=document.getElementById('result-count-provisional');
@@ -5599,7 +5601,7 @@ function _renderBookDist(entries){
     const panelTitle=document.createElement('span');panelTitle.className='dist-title';
     panelTitle.textContent=_tf('search.dist.title','出現分布（書物別）');
     const sumEl=document.createElement('span');sumEl.className='dist-toggle-sum';
-    sumEl.textContent=_sumParts.join(_enMode()?' / ':' ／ ');
+    sumEl.textContent=_sumParts.join(_nonJa()?' / ':' ／ ');
     const chev=document.createElement('span');chev.className='dist-toggle-chev';chev.setAttribute('aria-hidden','true');chev.innerHTML=icon('chevronRight');
     toggle.appendChild(panelTitle);toggle.appendChild(sumEl);toggle.appendChild(chev);
     panel.appendChild(toggle);
