@@ -3582,7 +3582,13 @@ function _renderConceptInsight(concept) {
                    ことがあるため、先頭1件でなく上限つきで走査する） */
                 let gloss = '';
                 let probes = 0;
-                for (const gi of set) {
+                if (_enMode()) {
+                    /* EN: グループバーと同じ「最頻グロス」に揃える（先頭トークンの活用形グロスにしない） */
+                    const gc = new Map();
+                    for (const gi of set) { const tk = ALL_TOKENS[gi]; if (tk && tk.gloss) gc.set(tk.gloss, (gc.get(tk.gloss) || 0) + 1); }
+                    let bn = 0; for (const [k, v] of gc) if (v > bn) { gloss = k; bn = v; }
+                }
+                if (!gloss) for (const gi of set) {
                     const tok = ALL_TOKENS[gi];
                     gloss = (tok && (_enMode() ? tok.gloss : (tok.japanese || tok.gloss))) || '';
                     if (gloss || ++probes >= 200) break;
@@ -4586,10 +4592,7 @@ function _renderUnifiedResults(query,words,word2){
                     <div class="empty-section-label">${_tf('search.empty.try','試してみる')}</div>
                     <div style="font-size:0.78rem;color:var(--text-sub);margin-top:4px;">${_tf('search.empty.tryDesc','次のテーマから検索できます。')}</div>
                     <div class="empty-examples">
-                        <span class="ex-chip" onclick="_exampleSearch('愛')">愛</span>
-                        <span class="ex-chip" onclick="_exampleSearch('祈り')">祈り</span>
-                        <span class="ex-chip" onclick="_exampleSearch('救い')">救い</span>
-                        <span class="ex-chip" onclick="_exampleSearch('キリスト')">キリスト</span>
+                        ${[['love','愛'],['prayer','祈り'],['salvation','救い'],['christ','キリスト']].map(([k,ja])=>{const l=_tf('search.empty.chip.'+k,ja);return `<span class="ex-chip" onclick="_exampleSearch(${_escH(JSON.stringify(l))})">${_escH(l)}</span>`;}).join('\n                        ')}
                     </div>
                     <div class="zero-hint">${_tf('search.empty.hintExample','例：「神」「恵み」「希望」などの言葉で検索できます')}<br>${_tf('search.empty.hintGreek','ギリシャ語や Strong 番号でも検索できます')}</div>
                 </div>
