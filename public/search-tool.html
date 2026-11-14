@@ -1551,33 +1551,43 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
     body.is-lobby .s-search-block { padding-top: max(16px, calc(28vh - 72px)); }
 }
 
-/* ── PC（701px 以上）の結果画面：Google 型ヘッダー（#44）──
-   左に小さい Greekn、その右隣に検索窓を同じ行で置く。ロビー（body.is-lobby）とモバイル（≤700px）は対象外。
-   .s-search-block を grid にし、見出しと検索窓だけを 1 行目に置く。それ以外の子（警告・モードバー・履歴など）は
-   従来どおり 720px 級の中央カラムのまま 2 行目以降に置く（結果コンテンツ列は動かさない）。
+/* ── PC（701px 以上）の結果画面：1 段ヘッダー（#44 → #65）──
+   Greekn・検索窓・「聖書に戻る」・共有リンクを 1 行（.s-head-row）にまとめて sticky にする。
+   Greekn の左端は結果カラム（.s-results、max-width: --s-content-max）の左端に揃え、操作は行の右端へ。
+   .s-search-block は display:contents にして .s-head-row を body 直下扱いにする（親の高さに縛られず sticky が効く）。
+   それ以外の子（警告・モードバー・履歴など）は従来どおり中央カラムに置く。
+   上部の .s-header は結果画面では使わない（ミニ検索も出さない）。ロビー（body.is-lobby）とモバイル（≤700px）は対象外。
    検索窓の内側（検索アイコン・文法フィルタのボタンとカード）は .search-input-wrap 基準のため、窓に追随する。 */
+.s-head-row { display: contents; }
+.s-head-actions { display: none; }
 @media (min-width: 701px) {
-    body:not(.is-lobby) .s-search-block {
-        max-width: none;
-        display: grid;
-        grid-template-columns: auto minmax(0, 670px) 1fr;
-        column-gap: 24px;
-        align-items: start;
-        padding: 20px 24px var(--s-sp-4);
-    }
-    body:not(.is-lobby) .s-search-block > * {
-        grid-column: 1 / -1;
-        justify-self: center;
+    body:not(.is-lobby) .s-header { display: none; }
+    body:not(.is-lobby) .s-search-divider { display: none; }
+    body:not(.is-lobby) .s-search-block { display: contents; }
+    body:not(.is-lobby) .s-search-block > :not(.s-head-row) {
+        max-width: var(--s-content-max);
+        margin-left: auto;
+        margin-right: auto;
+        padding-left: var(--s-sp-5);
+        padding-right: var(--s-sp-5);
         width: 100%;
-        max-width: calc(var(--s-content-max) - 2 * var(--s-sp-5));
         box-sizing: border-box;
     }
-    body:not(.is-lobby) .s-search-block > .s-search-title {
+    body:not(.is-lobby) .s-head-row {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: grid;
+        grid-template-columns: auto minmax(0, 584px) 1fr auto;
+        column-gap: 24px;
+        align-items: start;
+        padding: 12px 24px 12px max(24px, calc((100% - var(--s-content-max)) / 2 + var(--s-sp-5)));
+        background: var(--s-bg);
+        border-bottom: 1px solid var(--s-divider);
+    }
+    body:not(.is-lobby) .s-head-row > .s-search-title {
         grid-column: 1;
-        grid-row: 1;
         justify-self: start;
-        width: auto;
-        max-width: none;
         height: 54px;
         display: flex;
         align-items: center;
@@ -1590,11 +1600,17 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
         text-align: left;
         white-space: nowrap;
     }
-    body:not(.is-lobby) .s-search-block > .search-input-wrap {
+    body:not(.is-lobby) .s-head-row > .search-input-wrap {
         grid-column: 2;
-        grid-row: 1;
         justify-self: stretch;
         max-width: none;
+    }
+    body:not(.is-lobby) .s-head-row > .s-head-actions {
+        grid-column: 4;
+        display: flex;
+        align-items: center;
+        gap: var(--s-sp-2);
+        height: 54px;
     }
 }
 
@@ -1950,6 +1966,7 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
 
 <!-- ═══════════════════════════ Search Block ═══════════════════════════ -->
 <div class="s-search-block" id="s-search-block">
+    <div class="s-head-row">
     <div class="s-search-title logo-home-btn" onclick="_returnToLobby()" title="検索のはじめに戻る" data-i18n-title="search.title.home" data-i18n="search.title">Greekn</div>
 
     <!-- Search input -->
@@ -2019,6 +2036,12 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
                 <div class="morph-hint" id="morph-hint-text" data-i18n="search.morph.hint">品詞を選ぶとさらに絞り込めます</div>
             </div>
         </div>
+    </div>
+    <!-- PC の結果画面だけ表示：「聖書に戻る」・共有リンクを検索行の右端へ（#65。ロビー・モバイルでは上部 .s-header のものを使う） -->
+    <div class="s-head-actions">
+        <button class="s-btn-back" onclick="_searchGoBack()" aria-label="聖書リーダーに戻る" data-i18n-aria-label="search.header.backAria" data-i18n="search.header.back">‹ 聖書に戻る</button>
+        <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー" data-i18n-title="search.header.copyUrl"></button>
+    </div>
     </div>
 
     <!-- データ取得の警告 -->
