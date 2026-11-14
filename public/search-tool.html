@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 検索結果 URL がパス形（/search/<クエリ>、/en/search/<クエリ>）になっても、相対パス（../assets/ 等）が常にサイトルートで解決されるようにする（#74） -->
+<base href="/">
 <title>検索ツール</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -4705,10 +4707,11 @@ async function unifiedSearch(opts){
    location.searchをベースにしない＝他ページのパラメータ混入を防ぐ。 */
 function syncURL() {
     const p = new URLSearchParams();
-    p.set('tool', 'search');
 
+    /* 正規形（#74）：/search/<クエリ>。クエリはパス末尾に encodeURIComponent で載せる。
+       layers は出さない（語数から _updateSearchControls が自動決定するため）。
+       dist は近接検索のときだけ、既定（5）以外のとき ?dist=N。 */
     const query = (_lastQuery || '').trim();
-    if (query) p.set('lemma', query);
 
     const slotToParam = { pos:'pos', tense:'tense', mood:'mood', voice:'voice', case:'case', num:'number', gen:'gender' };
     Object.entries(slotToParam).forEach(([slot, paramName]) => {
@@ -4716,11 +4719,11 @@ function syncURL() {
         if (set && set.size > 0) p.set(paramName, Array.from(set).join(','));
     });
 
-    const activeLayers = ['lemma','phrase','prox','morph'].filter(k => _layers[k]);
-    if (activeLayers.length) p.set('layers', activeLayers.join(','));
-    p.set('dist', String(currentDist));
+    if (_layers.prox && currentDist !== 5) p.set('dist', String(currentDist));
 
-    history.replaceState(null, '', '?' + p.toString());
+    const path = query ? '/search/' + encodeURIComponent(query) : '/search';
+    const qs = p.toString();
+    history.replaceState(null, '', path + (qs ? '?' + qs : ''));
 }
 
 /* 現在表示中のURLをそのままクリップボードへコピーする（URL生成ロジックは呼ばない）。 */
@@ -6791,7 +6794,14 @@ async function _synInit(syntaxId) {
     const p = new URLSearchParams(location.search);
     const _w1 = p.get('word1') || '';
     const _w2 = p.get('word2') || '';
-    const query = p.get('lemma') || p.get('word')
+    /* パス形（/search/<クエリ>）を優先。旧形式（?lemma= / ?word= / ?word1=&word2=）は互換のため引き続き受け付け、
+       検索が走ると syncURL が replaceState でパス形に正規化する。 */
+    const _pathQ = (() => {
+        const m = location.pathname.match(/^\/search\/(.+?)\/?$/);
+        if (!m) return '';
+        try { return decodeURIComponent(m[1]).trim(); } catch (_) { return m[1]; }
+    })();
+    const query = _pathQ || p.get('lemma') || p.get('word')
         || (_w1 && _w2 ? `${_w1} ${_w2}` : _w1)
         || '';
     const syntaxId = p.get('syntax_id') || '';
