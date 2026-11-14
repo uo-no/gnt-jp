@@ -4721,7 +4721,9 @@ function syncURL() {
 
     if (_layers.prox && currentDist !== 5) p.set('dist', String(currentDist));
 
-    const path = query ? '/search/' + encodeURIComponent(query) : '/search';
+    /* 言語プレフィックス（/en・/es）は i18n.js が起動時に取り除くので、I18N.pathPrefix（元の値）を保持して付け直す。 */
+    const prefix = (window.I18N && I18N.pathPrefix) || '';
+    const path = prefix + (query ? '/search/' + encodeURIComponent(query) : '/search');
     const qs = p.toString();
     history.replaceState(null, '', path + (qs ? '?' + qs : ''));
 }
@@ -6797,7 +6799,7 @@ async function _synInit(syntaxId) {
     /* パス形（/search/<クエリ>）を優先。旧形式（?lemma= / ?word= / ?word1=&word2=）は互換のため引き続き受け付け、
        検索が走ると syncURL が replaceState でパス形に正規化する。 */
     const _pathQ = (() => {
-        const m = location.pathname.match(/^\/search\/(.+?)\/?$/);
+        const m = location.pathname.match(/^(?:\/(?:ja|en|es))?\/search\/(.+?)\/?$/);
         if (!m) return '';
         try { return decodeURIComponent(m[1]).trim(); } catch (_) { return m[1]; }
     })();
