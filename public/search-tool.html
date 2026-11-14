@@ -3782,10 +3782,11 @@ function groupHitsByLemma(hits){
 const _transCache=new Map();
 async function _fetchTransVerse(bookKey,ch,verseNum){
     const _en=_enMode();   // EN は WEB のみ（無い節は翻訳文を出さない＝ギリシャ語のみ）
-    const cacheKey=`${_en?'en:':''}${bookKey}/${ch}`;
+    const _es=_esMode();   // ES は RVR1909 のみ（#61a。同じく無い節はギリシャ語のみ）
+    const cacheKey=`${_en?'en:':_es?'es:':''}${bookKey}/${ch}`;
     if(!_transCache.has(cacheKey)){
         const fetchPromise=(async()=>{
-            for(const transId of(_en?['WEB']:['JA1955','KAI17'])){
+            for(const transId of(_en?['WEB']:_es?['RVR1909']:['JA1955','KAI17'])){
                 /* 複数訳を順に試す意図的なフォールバック（KAI17等が未収録の書物を持つのは
                    仕様であり障害ではない）。__failedFetches には積まないが、追跡可能にする。 */
                 try{
@@ -3801,7 +3802,7 @@ async function _fetchTransVerse(bookKey,ch,verseNum){
     }
     const data=await _transCache.get(cacheKey);
     if(!data||!data.verses){
-        if(!_en)console.warn(`[translation] ${bookKey}/${ch}:${verseNum} — verses オブジェクト不在`,{data});
+        if(!_en&&!_es)console.warn(`[translation] ${bookKey}/${ch}:${verseNum} — verses オブジェクト不在`,{data});
         return null;
     }
     const text=data.verses[verseNum]||null;
@@ -4965,8 +4966,8 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
 
     // Auto-load translation
     (async()=>{
-        if(corpusId==='LXX'&&_enMode()){
-            // EN（D2）: LXX は英語グロス・訳文なし。ギリシャ語本文のみ表示する
+        if(corpusId==='LXX'&&(_enMode()||_esMode())){
+            // EN（D2）・ES（#61a）: LXX は訳文なし（EN は英語グロスも）。ギリシャ語本文のみ表示する
             card.classList.add('no-trans');
             return;
         }
@@ -4983,11 +4984,11 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
             console.debug('[trans] fetch req',{ref:tok.ref,globalIdx:tok.globalIdx,greek:tok.text,cacheKey:_chKey,verseKey:_vKey});
             const text=await _fetchTransVerse(tok.bookKey, String(tok.ch), _vKey);
             console.debug('[trans] fetch res',{ref:tok.ref,verseKey:_vKey,found:!!text,preview:text?.slice(0,30)});
-            if(!text&&_enMode()){card.classList.add('no-trans');return;} // EN: WEB に無い節はギリシャ語のみ
+            if(!text&&(_enMode()||_esMode())){card.classList.add('no-trans');return;} // EN: WEB／ES: RVR1909 に無い節はギリシャ語のみ
             transText.textContent=text||_tf('search.card.transMissing','（訳が見つかりません）');
         }else{
             console.warn('[trans] 位置情報不足',{ref:tok.ref,bookKey:tok.bookKey,ch:tok.ch,verse:tok.verse});
-            if(_enMode()){card.classList.add('no-trans');return;}
+            if(_enMode()||_esMode()){card.classList.add('no-trans');return;}
             transText.textContent=_tf('search.card.noPosition','（位置情報が不足しています）');
         }
         transLoading.style.display='none';
