@@ -4570,6 +4570,14 @@ function _renderUnifiedResults(query,words,word2){
         _n.textContent=_glossQ?_tf('search.glossNtOnly','英語グロスでの検索は新約聖書のみが対象です（旧約ギリシア語訳（LXX）には英語グロスがありません）。'):_tf('search.lxxNote','');
         document.getElementById('result-header').appendChild(_n);
       } }
+    /* Strong 番号検索の件数注記（#53）: Strong 検索のときだけ。件数そのものは変えない */
+    { const _oldSn=document.getElementById('strong-note');if(_oldSn)_oldSn.remove();
+      if(words.length===1&&detectQueryType(query)==='strong'){
+        const _sn=document.createElement('div');_sn.id='strong-note';_sn.className='result-count-sub';
+        _sn.style.cssText='flex-basis:100%;width:100%;margin-top:4px;';
+        _sn.textContent=_tf('search.strongNote','Strong 番号で数えた件数です。語そのもの（レンマ）の検索とは数え方が違うため、件数が異なることがあります。');
+        document.getElementById('result-header').appendChild(_sn);
+      } }
     if(!IDX.l3Ready)_noteProvisionalCount(_countEl,query); // LXX 合流前の件数を完成形として見せない（#792 の方針に揃える）
 
     // Result body
@@ -5441,7 +5449,7 @@ function _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close){
     const head=document.createElement('div');head.className='igsd-head';
     head.innerHTML=`<span class="igsd-lemma">${_escH(entry.lemma)}</span>
         <span class="igsd-meta">${_escH(entry.strong)}</span>
-        <span class="igsd-meta">${_tp('search.word.total','全{n}回',Number(entry.total),{n:Number(entry.total).toLocaleString()})}</span>`;
+        <span class="igsd-meta">${_tp('search.word.total','全{n}回（新約）',Number(entry.total),{n:Number(entry.total).toLocaleString()})}</span>`;
     page.appendChild(head);
 
     /* 語ページは語義層に専念: 見出し → 語義グループ群 → 出現分布（新約のみ）の順 */
