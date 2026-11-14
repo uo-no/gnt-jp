@@ -30,10 +30,12 @@
        router only ever sees its usual /BOOK/CH/... paths. A prefix
        link wins over the stored preference. */
     var pathLang = null;
+    var pathPrefix = '';   /* 取り除いた元のプレフィックス（例 '/en'）。検索画面が URL 再構築時に保持する（#74） */
     try {
         var pm = window.location.pathname.match(/^\/(ja|en|es)(?=\/|$)/);
         if (pm) {
             pathLang = pm[1];
+            pathPrefix = pm[0];
             var rest = window.location.pathname.slice(pm[0].length) || '/';
             window.history.replaceState(null, '', rest + window.location.search + window.location.hash);
         }
@@ -182,6 +184,12 @@
     function setLang(next) {
         if (SUPPORTED.indexOf(next) < 0) return;
         try { localStorage.setItem(STORAGE_KEY, next); } catch (_) {}
+        /* 検索画面は URL に言語プレフィックス（/en 等）を保持するため、リロード前に外す。
+           残すと「プレフィックス＞保存設定」の優先順で、選んだ言語が上書きされ切り替わらない。 */
+        try {
+            var m2 = window.location.pathname.match(/^\/(ja|en|es)(?=\/|$)/);
+            if (m2) window.history.replaceState(null, '', (window.location.pathname.slice(m2[0].length) || '/') + window.location.search + window.location.hash);
+        } catch (_) {}
         location.reload();
     }
 
@@ -219,6 +227,7 @@
         applyStatic: applyStatic,
         ready: ready,
         get lang() { return state.lang; },
+        get pathPrefix() { return pathPrefix; },
     };
     /* Short global alias used across index.html renderers. */
     window.T = t;
