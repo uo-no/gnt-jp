@@ -41,6 +41,9 @@ const dataRoot = firstExisting([
     path.join(ROOT, 'public', 'bible_data'),
     path.join(ROOT, 'bible_data'),
 ], 'bible_data directory');
+/* #61b: NT トークンへスペイン語グロス（RVR1909 の語単位区分）を glossEs として結合する。
+   出所は public/assets/data/gloss-token/RVR1909/<書>/<章>.json の glosses（キー＝トークンの ref）。NT のみ。無い章・無い語は結合しない（空白を埋めない）。 */
+const esGlossRoot = path.join(ROOT, 'public', 'assets', 'data', 'gloss-token', 'RVR1909');
 const outDirArg = argValue('--out-dir', 'public/search-index');
 const outDir = path.isAbsolute(outDirArg) ? outDirArg : path.join(ROOT, outDirArg);
 const booksRaw = fs.readFileSync(booksPath);
@@ -62,6 +65,7 @@ let globalIdx = 0;
 let chapterCount = 0;
 let tokenCount = 0;
 let missingOrInvalid = [];
+let esGlossJoined = 0;
 
 function normalizeGreek(str) {
     return String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -101,6 +105,14 @@ for (const book of books) {
         }
         chapterCount++;
         const target = indexes[corpus];
+        let esGlosses = null;
+        if (corpus === 'NT') {
+            const gp = path.join(esGlossRoot, book.key, `${ch}.json`);
+            if (fs.existsSync(gp)) {
+                try { esGlosses = JSON.parse(fs.readFileSync(gp, 'utf8')).glosses || null; }
+                catch (error) { console.warn(`[search-index] ES gloss ${book.key}/${ch} unreadable: ${error.message}`); }
+            }
+        }
         for (const w of rows) {
             const tok = {
                 ref: w.ref || `${book.key} ${ch}:${w.verse ?? '?'}`,
@@ -118,6 +130,10 @@ for (const book of books) {
                 lemmaId: w.lemmaId ?? w.lemma_id ?? null,
                 globalIdx,
             };
+            if (esGlosses) {
+                const ge = esGlosses[tok.ref];
+                if (typeof ge === 'string' && ge) { tok.glossEs = ge; esGlossJoined++; }
+            }
             target.tokens.push(tok);
             add(target.text, tok.text, globalIdx);
             add(target.lemma, tok.lemma, globalIdx);
@@ -240,4 +256,5 @@ const meta = {
     japanesePartialIndex: 'prebuilt per-book postings; same substring-length semantics as the runtime index',
 };
 fs.writeFileSync(path.join(outDir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
+console.log(`[search-index] ES glosses joined to NT tokens: ${esGlossJoined.toLocaleString()}`);
 console.log(`[search-index] complete: ${chapterCount.toLocaleString()} chapters, ${tokenCount.toLocaleString()} tokens, source ${version}; raw ${mib(totalRawBytes)}, gzip ${mib(totalGzipBytes)}`);
