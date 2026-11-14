@@ -1238,12 +1238,11 @@ body {
     background: none; border: none; padding: 0; margin: 0 0 8px;
     cursor: pointer; font-family: inherit; text-align: left; color: var(--text-sub);
 }
-.dist-toggle .dist-title { margin-bottom: 0; }
-.dist-toggle-sum { font-size: var(--text-caption); opacity: 0.75; flex: 1; }
+.dist-toggle .dist-title { margin-bottom: 0; flex: 1; }
 .dist-toggle-chev { display: inline-flex; width: 14px; height: 14px; transition: transform .15s; opacity: 0.6; }
 .dist-toggle-chev svg { width: 14px; height: 14px; }
 .dist-toggle[aria-expanded="true"] .dist-toggle-chev { transform: rotate(90deg); }
-.dist-toggle:hover .dist-title, .dist-toggle:hover .dist-toggle-sum { opacity: 1; }
+.dist-toggle:hover .dist-title { opacity: 1; }
 .dist-body[hidden] { display: none; }
 
 /* ── Lemma groups (Japanese query) ── */
@@ -5676,19 +5675,13 @@ function _renderBookDist(entries){
     const MAX_BARS=8;
     panel.innerHTML='';panel.style.display='block';
 
-    /* 結果画面の分布は既定で閉じ、見出し＋新約/LXX 合計の1行サマリ＋開閉だけ見せる。開くと従来のバー一覧。 */
-    const _ntTotal=[...ntMap.values()].reduce((a,b)=>a+b,0),_lxxTotal=[...lxxMap.values()].reduce((a,b)=>a+b,0);
-    const _sumParts=[];
-    if(_ntTotal>0)_sumParts.push(_tf('search.count.nt','新約聖書 {n}件',{n:_ntTotal.toLocaleString()}));
-    if(_lxxTotal>0)_sumParts.push(_tf('search.count.lxx','旧約ギリシア語訳（LXX） {n}件',{n:_lxxTotal.toLocaleString()}));
+    /* 結果画面の分布は既定で閉じ、見出し＋開閉だけ見せる（合計・内訳は result-header 側に出る）。開くと従来のバー一覧。 */
     const toggle=document.createElement('button');toggle.type='button';toggle.className='dist-toggle';
     toggle.setAttribute('aria-expanded','false');
     const panelTitle=document.createElement('span');panelTitle.className='dist-title';
     panelTitle.textContent=_tf('search.dist.title','出現分布（書物別）');
-    const sumEl=document.createElement('span');sumEl.className='dist-toggle-sum';
-    sumEl.textContent=_sumParts.join(_nonJa()?' / ':' ／ ');
     const chev=document.createElement('span');chev.className='dist-toggle-chev';chev.setAttribute('aria-hidden','true');chev.innerHTML=icon('chevronRight');
-    toggle.appendChild(panelTitle);toggle.appendChild(sumEl);toggle.appendChild(chev);
+    toggle.appendChild(panelTitle);toggle.appendChild(chev);
     panel.appendChild(toggle);
     const body=document.createElement('div');body.className='dist-body';body.hidden=true;
     panel.appendChild(body);
