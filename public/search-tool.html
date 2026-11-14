@@ -188,8 +188,38 @@ body {
     -webkit-tap-highlight-color: transparent;
 }
 .s-btn-back:hover { color: var(--s-text); }
-.s-btn-back .s-back-ico { flex: none; display: block; }
+.s-btn-back .s-back-ico { flex: none; display: block; width: 22px; height: 22px; }
 .s-header-spacer { flex: 1; }
+/* ロビーの言語選択（#73）：ロビー以外では出さない。部品の開閉は lang-dropdown.js、切替は I18N.setLang。 */
+.s-lang { display: none; position: relative; flex: none; }
+body.is-lobby .s-header .s-lang { display: block; }
+.s-lang-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: transparent; border: 1px solid var(--s-border); border-radius: 999px;
+    padding: 4px 12px; min-height: 32px; cursor: pointer; font-family: inherit; font-size: var(--s-ts-sm);
+    color: var(--s-text-sub); white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    transition: color var(--s-dur-fast) var(--s-ease), border-color var(--s-dur-fast) var(--s-ease);
+}
+.s-lang-btn:hover { color: var(--s-text); }
+.s-lang-btn[aria-expanded="true"] { border-color: var(--s-accent); color: var(--s-text); }
+.s-lang .lang-dd-caret { font-size: 0.7em; line-height: 1; color: var(--s-text-hint); }
+.s-lang-panel {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 120;
+    min-width: 9rem; padding: 6px;
+    background: var(--s-bg); border: 1px solid var(--s-border); border-radius: var(--s-radius-modal);
+    box-shadow: var(--s-shadow-modal);
+    display: flex; flex-direction: column; gap: 2px;
+}
+.s-lang-panel[hidden] { display: none; }
+.s-lang-opt {
+    background: none; border: none; border-radius: var(--s-radius-btn); text-align: left; white-space: nowrap;
+    padding: 8px 12px; cursor: pointer; font-family: inherit; font-size: var(--s-ts-base);
+    color: var(--s-text); -webkit-tap-highlight-color: transparent;
+}
+.s-lang-opt:hover { background: var(--s-surface); }
+.s-lang-opt.active { color: var(--s-accent); background: var(--s-accent-soft); font-weight: 600; }
+
 .s-mini-search {
     display: none;
     flex: 1;
@@ -1546,14 +1576,14 @@ body.is-lobby .s-search-divider { display: none; }
 body.is-lobby .s-header {
     background: transparent; border-bottom: none;
     backdrop-filter: none; -webkit-backdrop-filter: none;
-    justify-content: flex-end;
+    justify-content: flex-end; gap: var(--s-sp-2);
 }
 body.is-lobby .s-header .s-header-spacer,
 body.is-lobby .s-header .s-mini-search,
 body.is-lobby .s-header .share-url-btn,
 body.is-lobby .s-header .s-back-label { display: none; }
 body.is-lobby .s-header .s-btn-back { min-width: 36px; min-height: 44px; padding: 0; justify-content: center; }
-body.is-lobby .s-header .s-btn-back .s-back-ico { width: 28px; height: 17px; }
+body.is-lobby .s-header .s-btn-back .s-back-ico { width: 28px; height: 28px; }
 /* 見出しの中心を画面高の約28%へ（block上端56px＋見出し高の半分≒40px を差し引く） */
 body.is-lobby .s-search-block { padding-top: max(var(--s-sp-7), calc(28vh - 96px)); }
 body.is-lobby .s-search-title {
@@ -1696,7 +1726,7 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
     }
     .s-btn-back { min-width: 36px; min-height: 44px; justify-content: center; padding: 0; }
     .s-btn-back .s-back-label { display: none; }
-    .s-btn-back .s-back-ico { width: 28px; height: 17px; }
+    .s-btn-back .s-back-ico { width: 28px; height: 28px; }
     body:not(.is-lobby) .s-head-actions .share-url-btn { width: 36px; height: 44px; padding: 0; }
     body:not(.is-lobby) .s-head-row .search-filters { margin-top: 0; }
     body:not(.is-lobby) .s-head-row .search-filters > .filter-suggestion-title { margin-top: 8px; }
@@ -2047,7 +2077,16 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
 
 <!-- ═══════════════════════════ Sticky Header ═══════════════════════════ -->
 <header class="s-header" id="s-header">
-    <button class="s-btn-back" onclick="_searchGoBack()" aria-label="聖書リーダーに戻る" data-i18n-aria-label="search.header.backAria"><svg class="s-back-ico" viewBox="110 280 1060 640" width="26" height="16" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="84" stroke-linecap="round" stroke-linejoin="round"><path d="m154,690l96,-310c104,-51 204,-73 273,-41c48,22 87,54 117,91l0,309c-73,-59 -133,-87 -202,-99c-99,-17 -193,30 -284,50z"/><path d="m1126,690l-96,-310c-104,-51 -204,-73 -273,-41c-48,22 -87,54 -117,91l0,309c73,-59 133,-87 202,-99c99,-17 193,30 284,50z"/></g></svg><span class="s-back-label" data-i18n="search.header.back">聖書に戻る</span></button>
+    <button class="s-btn-back" onclick="_searchGoBack()" aria-label="聖書リーダーに戻る" data-i18n-aria-label="search.header.backAria"><img class="s-back-ico" src="/favicon.svg" alt="" width="22" height="22" draggable="false"><span class="s-back-label" data-i18n="search.header.back">聖書に戻る</span></button>
+    <!-- ロビーだけ表示：言語選択（リーダーと同じ部品。切替は I18N.setLang）。結果画面では出さない -->
+    <div class="s-lang" data-lang-dd>
+        <button type="button" class="s-lang-btn lang-dd-btn" aria-haspopup="true" aria-expanded="false" aria-label="Language"><span data-lang-cur>日本語</span><span class="lang-dd-caret" aria-hidden="true">▾</span></button>
+        <div class="s-lang-panel lang-dd-panel" role="menu" hidden>
+            <button type="button" role="menuitem" class="s-lang-opt lang-dd-opt" data-lang-btn="ja" onclick="I18N.setLang('ja')">日本語</button>
+            <button type="button" role="menuitem" class="s-lang-opt lang-dd-opt" data-lang-btn="en" onclick="I18N.setLang('en')">English</button>
+            <button type="button" role="menuitem" class="s-lang-opt lang-dd-opt" data-lang-btn="es" onclick="I18N.setLang('es')">Español</button>
+        </div>
+    </div>
     <span class="s-header-spacer"></span>
     <span class="s-mini-search" id="s-mini-search" onclick="document.getElementById('unified-search-input').focus()" title="検索欄へ" data-i18n-title="search.header.miniSearch"></span>
     <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー" data-i18n-title="search.header.copyUrl"></button>
@@ -2128,7 +2167,7 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
     </div>
     <!-- PC の結果画面だけ表示：「聖書に戻る」・共有リンクを検索行の右端へ（#65。ロビー・モバイルでは上部 .s-header のものを使う） -->
     <div class="s-head-actions">
-        <button class="s-btn-back" onclick="_searchGoBack()" aria-label="聖書リーダーに戻る" data-i18n-aria-label="search.header.backAria"><svg class="s-back-ico" viewBox="110 280 1060 640" width="26" height="16" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="84" stroke-linecap="round" stroke-linejoin="round"><path d="m154,690l96,-310c104,-51 204,-73 273,-41c48,22 87,54 117,91l0,309c-73,-59 -133,-87 -202,-99c-99,-17 -193,30 -284,50z"/><path d="m1126,690l-96,-310c-104,-51 -204,-73 -273,-41c-48,22 -87,54 -117,91l0,309c73,-59 133,-87 202,-99c99,-17 193,30 284,50z"/></g></svg><span class="s-back-label" data-i18n="search.header.back">聖書に戻る</span></button>
+        <button class="s-btn-back" onclick="_searchGoBack()" aria-label="聖書リーダーに戻る" data-i18n-aria-label="search.header.backAria"><img class="s-back-ico" src="/favicon.svg" alt="" width="22" height="22" draggable="false"><span class="s-back-label" data-i18n="search.header.back">聖書に戻る</span></button>
         <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー" data-i18n-title="search.header.copyUrl"></button>
     </div>
     </div>
@@ -2283,6 +2322,7 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
      Only the UI dispatcher and rendering layer are new.
      ═══════════════════════════════════════════════════════════════ -->
 <script src="../assets/js/i18n.js"></script>
+<script src="../assets/js/lang-dropdown.js"></script>
 <script src="../assets/js/book-master.js"></script>
 <script src="../assets/js/shared-ui.js"></script>
 <script src="../assets/js/morph-decoder.js"></script>
