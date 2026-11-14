@@ -1155,6 +1155,27 @@ body {
     letter-spacing: 0.12em; text-transform: uppercase;
     margin-bottom: 8px; opacity: 0.6;
 }
+/* モバイル（≤700px）：2 カラムをやめて 1 カラムに積む（#70）。
+   共起パネルは結果（hits-col）の下へ移し、dist-panel と同じ折りたたみ様式（見出しのタップで開閉・既定は閉じる）。
+   PC の 2 カラムと通常検索（共起カラム無し）のモバイル表示は無変更。 */
+@media (max-width: 700px) {
+    .results-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+    .results-grid > .hits-col { order: 1; min-width: 0; }
+    .results-grid > .cooc-col { order: 2; min-width: 0; padding-top: 16px; border-top: 1px solid var(--border-soft); }
+    .cooc-col .cooc-title {
+        display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        margin-bottom: 0; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .cooc-col .cooc-title::after {
+        content: '\203A'; font-size: 1.1rem; line-height: 1; letter-spacing: 0;
+        transition: transform .15s;
+    }
+    .cooc-col.is-open .cooc-title::after { transform: rotate(90deg); }
+    .cooc-col .cooc-title:hover { opacity: 1; }
+    .cooc-col:not(.is-open) > #rank-list,
+    .cooc-col:not(.is-open) > .prox-legend { display: none !important; }
+    .cooc-col.is-open .cooc-title { margin-bottom: 8px; }
+}
 .rank-item {
     padding: 7px 10px;
     border-radius: 6px;
@@ -6348,6 +6369,22 @@ function _closeMobilePanel(){ /* no-op: ドロワー廃止 */ }
 })();
 
 init();
+
+/* 共起パネル（モバイル）の開閉（#70）。見出しを開閉ボタンとして扱うのは ≤700px のときだけ。 */
+(function(){
+    const t=document.querySelector('.cooc-title'),c=t&&t.closest('.cooc-col');
+    if(!t||!c)return;
+    const mq=window.matchMedia('(max-width: 700px)');
+    const sync=()=>{
+        if(mq.matches){t.setAttribute('role','button');t.tabIndex=0;t.setAttribute('aria-expanded',c.classList.contains('is-open')?'true':'false');}
+        else{t.removeAttribute('role');t.removeAttribute('tabindex');t.removeAttribute('aria-expanded');}
+    };
+    const toggle=()=>{if(!mq.matches)return;const o=c.classList.toggle('is-open');t.setAttribute('aria-expanded',o?'true':'false');};
+    t.addEventListener('click',toggle);
+    t.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();}});
+    if(mq.addEventListener)mq.addEventListener('change',sync);
+    sync();
+})();
 
 /* ============================================================
    SYNTAX PATTERN SEARCH — similar-syntax-search.html から統合
