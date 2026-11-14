@@ -1618,6 +1618,56 @@ body.is-lobby .search-icon-btn { top: 24px; right: 16px; }
     }
 }
 
+/* ── モバイル（700px 以下）の結果画面：1 段ヘッダー（#68。PC 版 #65 の対）──
+   Greekn・検索窓・「‹」（聖書に戻る）・共有リンクを 1 行（.s-head-row）にまとめて sticky にする。
+   「聖書に戻る」は幅を検索窓へ回すため「‹」のみに畳む（文字は font-size:0 で隠し、aria-label は維持。タップ領域は 36×44px）。
+   上部 .s-header（ミニ検索を含む）は結果画面では使わない。ロビー（body.is-lobby）は対象外。
+   複数語検索の近接パネル等（.search-filters）は行内に出るため、スクロールして行だけを残したい間（body.is-scrolled）は隠す。
+   入力候補（.suggest-dropdown）は狭い検索窓の幅に縛られないよう、行の下に画面幅で重ねる。 */
+@media (max-width: 700px) {
+    body:not(.is-lobby) .s-header { display: none; }
+    body:not(.is-lobby) .s-search-divider { display: none; }
+    body:not(.is-lobby) .s-search-block { display: contents; }
+    body:not(.is-lobby) .s-search-block > :not(.s-head-row) {
+        width: 100%; box-sizing: border-box;
+        padding-left: var(--s-sp-4); padding-right: var(--s-sp-4);
+    }
+    body:not(.is-lobby) .s-head-row {
+        position: sticky; top: 0; z-index: 100;
+        display: flex; align-items: flex-start; gap: 6px;
+        padding: 8px var(--s-sp-4);
+        background: var(--s-bg);
+        border-bottom: 1px solid var(--s-divider);
+    }
+    body:not(.is-lobby) .s-head-row > .s-search-title {
+        flex: none; height: 44px; margin: 0;
+        display: flex; align-items: center;
+        font-family: Arial, Helvetica, 'Helvetica Neue', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 20px; font-weight: 500; letter-spacing: -0.03em; line-height: 1;
+        text-align: left; white-space: nowrap;
+    }
+    body:not(.is-lobby) .s-head-row > .search-input-wrap { flex: 1 1 0; min-width: 0; margin-bottom: 0; }
+    body:not(.is-lobby) .s-head-row .unified-input { height: 44px; padding: 0 38px 0 12px; font-size: 16px; }
+    body:not(.is-lobby) .s-head-row .unified-input::placeholder { font-size: 14px; }
+    body:not(.is-lobby) .s-head-row .search-icon-btn { top: 22px; right: 6px; }
+    body:not(.is-lobby) .s-head-row .suggest-dropdown {
+        position: fixed; left: var(--s-sp-4); right: var(--s-sp-4); top: 56px;
+        max-height: calc(100vh - 72px); overflow-y: auto; margin-top: 0;
+    }
+    body:not(.is-lobby) .s-head-row > .s-head-actions {
+        flex: none; display: flex; align-items: center; gap: 0; height: 44px;
+    }
+    body:not(.is-lobby) .s-head-actions .s-btn-back {
+        width: 36px; height: 44px; padding: 0; justify-content: center;
+        font-size: 0;
+    }
+    body:not(.is-lobby) .s-head-actions .s-btn-back::before { content: '\2039'; font-size: 28px; line-height: 1; }
+    body:not(.is-lobby) .s-head-actions .share-url-btn { width: 36px; height: 44px; padding: 0; }
+    body:not(.is-lobby) .s-head-row .search-filters { margin-top: 0; }
+    body:not(.is-lobby) .s-head-row .search-filters > .filter-suggestion-title { margin-top: 8px; }
+    body.is-scrolled:not(.is-lobby) .s-head-row .search-filters { display: none; }
+}
+
 /* ── PC（701px 以上）：文法フィルタの入口を検索窓の中へ（モバイルは FAB＋シートのまま） ──
    .search-filters は display:contents にして #morph-sub を .search-input-wrap 基準の浮きカードにする。
    ロビー（クエリ無し）では「絞り込みの提案」と近接スライダを出さない（:not(.has-query) で非表示）。 */
@@ -6272,6 +6322,7 @@ function _closeMobilePanel(){ /* no-op: ドロワー廃止 */ }
             if(!header) { ticking=false; return; }
             const scrolled = window.scrollY > 100;
             header.classList.toggle('scrolled', scrolled);
+            document.body.classList.toggle('is-scrolled', scrolled);
             if(mini){
                 const inp = document.getElementById('unified-search-input');
                 const val = inp ? inp.value.trim() : '';
