@@ -4717,8 +4717,13 @@ function syncURL() {
 
     if (_layers.prox && currentDist !== 5) p.set('dist', String(currentDist));
 
-    /* 言語プレフィックス（/en・/es）は i18n.js が起動時に取り除くので、I18N.pathPrefix（元の値）を保持して付け直す。 */
-    const prefix = (window.I18N && I18N.pathPrefix) || '';
+    /* 言語プレフィックス（/ja・/en・/es）は i18n.js が起動時に取り除く。入ってきた URL の保持ではなく、
+       現在の実効言語（I18N.lang）から決める（#76）。言語切替→再実行でその言語の形に書き換わる。
+       I18N が無い場合のみ従来どおり取り除かれた元のプレフィックスを使う。 */
+    const _effLang = window.I18N && I18N.lang;
+    const prefix = (_effLang === 'ja' || _effLang === 'en' || _effLang === 'es')
+        ? '/' + _effLang
+        : ((window.I18N && I18N.pathPrefix) || '');
     const path = prefix + (query ? '/search/' + encodeURIComponent(query) : '/search');
     const qs = p.toString();
     history.replaceState(null, '', path + (qs ? '?' + qs : ''));
