@@ -1481,6 +1481,9 @@ body.is-lobby .s-header .s-lang { display: block; }
     border-radius: 8px; letter-spacing: 0.06em; text-transform: uppercase;
 }
 .ht-badge.lemma  { background: var(--lemma-bg);  color: var(--lemma); }
+.form-more-link { appearance: none; background: none; border: 0; padding: 4px 2px; font: inherit; color: var(--s-accent, #2f5d3a); cursor: pointer; text-decoration: underline; min-height: 24px; }
+@media (max-width: 700px) { .form-more-link { min-height: 44px; } }
+.ht-badge.form   { background: var(--lemma-bg);  color: var(--lemma); }
 .ht-badge.phrase { background: var(--phrase-bg); color: var(--phrase); }
 .ht-badge.prox   { background: var(--prox-bg);   color: var(--prox); }
 .ht-badge.morph  { background: var(--morph-bg);  color: var(--morph); }
@@ -3145,6 +3148,28 @@ function detectQueryType(query){
     if(_isLatinWord(query))return'japanese'; // 英単語は UI 言語によらず語義（英語グロス）照合へ（#31）
     return'text';
 }
+/* ── 形モード（#77）──
+   形態タブで、ギリシャ語1語を半角二重引用符で囲んだクエリ（例 "ἠγάπησεν"）だけが形モード。
+   一致は normalizeGreek（アクセント・気息除去、語尾ς→σ、小文字化）後のトークン表面形の完全一致。レンマ展開・部分一致はしない。
+   複数語・ギリシャ語以外の引用符は、引用符を外して通常検索する。関係タブでも引用符を外して通常の解釈。 */
+function _parseFormQuery(raw){
+    const m=String(raw||'').trim().match(/^["“”]([^"“”\s]+)["“”]$/);
+    if(!m)return null;
+    /* ギリシャ文字（基本＋拡張）を含むか。detectQueryType は基本ギリシャ文字の小文字を拾えないため、ここでは独自に判定 */
+    return /[\u0370-\u03FF\u1F00-\u1FFF]/.test(m[1])&&!/[A-Za-z0-9\u3040-\u30FF\u4E00-\u9FFF]/.test(m[1])?{form:m[1]}:null;
+}
+let _formIndex=null,_formIndexLen=-1;
+function searchForm(form){
+    if(!_formIndex||_formIndexLen!==ALL_TOKENS.length){
+        _formIndex=new Map();_formIndexLen=ALL_TOKENS.length;
+        for(let i=0;i<ALL_TOKENS.length;i++){
+            const t=ALL_TOKENS[i];if(!t||!t.text)continue;
+            const k=normalizeGreek(t.text);if(!k)continue;
+            let a=_formIndex.get(k);if(!a){a=[];_formIndex.set(k,a);}a.push(i);
+        }
+    }
+    return _formIndex.get(normalizeGreek(form))||[];
+}
 function searchGreek(tokens,word){
     const normWord=normalizeGreek(word);
     if(IDX.ready){
@@ -4545,6 +4570,7 @@ function _renderEmptyStateHistory() {
 let _allMergedResults = new Map();   // globalIdx → {tok, hitTypes: Set, hit?: {}}
 let _proxCoocMap      = new Map();
 let _lastQuery        = '';
+let _formModeForm     = null;   /* 形モード（#77）の形。通常検索は null */
 let _activeLayerSet   = {};
 
 async function unifiedSearch(opts){
@@ -4554,7 +4580,10 @@ async function unifiedSearch(opts){
     // 単語数に応じて検索条件を自動表示・適用する。
     const query=document.getElementById('unified-search-input').value.trim();
     _updateSearchControls();
-    if(!query){document.getElementById('unified-search-input').focus();return;}
+    /* 形モード（#77）：実効クエリ qEff は引用符を外した形。query（引用符つき）は表示・履歴・URL に使う */
+    const _fm=(_genreTab==='morph')?_parseFormQuery(query):null;
+    const qEff=_fm?_fm.form:query.replace(/["“”]/g,'').trim();
+    if(!query||!qEff){document.getElementById('unified-search-input').focus();return;}
 
     // Check at least one non-morph layer is active
     if(!_layers.lemma&&!_layers.prox&&query.split(/\s+/).filter(Boolean).length<2&&detectQueryType(query)!=='japanese'){
@@ -4592,7 +4621,7 @@ async function unifiedSearch(opts){
     let morphFilter=_layers.morph?_getMorphFilterPattern():null;
 
     // Parse words for phrase / proximity
-    const words=query.trim().split(/\s+/).filter(Boolean);
+    const words=qEff.split(/\s+/).filter(Boolean);
     const word1=words[0];
     const word2=words[1]||null;
     if(words.length>1&&_genreTab==='morph'){ _genreTab='rel'; _renderGenreTabs(); }   /* #82 */
@@ -4602,7 +4631,7 @@ async function unifiedSearch(opts){
     /* Concept 展開（Phase 4-1）: 検索開始前に1回だけ判定する。
        登録語なら Term[]、未登録語なら null（＝以降は完全に従来どおり） */
     const _conceptEnOk = words.length===1;   /* 英語の別名は単語1語の検索でのみ発火（複数語は従来どおりフレーズ／近接） */
-    const conceptTerms = resolveConcept(word1,_conceptEnOk);
+    const conceptTerms = _fm ? null : resolveConcept(word1,_conceptEnOk);   /* 形モードは概念展開しない（#77） */
     /* Concept Insight（Phase 4-3・表示のみ）: 発火時だけカード用の概念を保持 */
     const _conceptMatch = conceptTerms ? _matchConcept(word1,_conceptEnOk) : null;
     _activeInsightConcept = _conceptMatch ? _conceptMatch.concept : null;
@@ -4622,7 +4651,10 @@ async function unifiedSearch(opts){
         tasks.push((async()=>{
             const qtype=detectQueryType(word1);
             let idxs;
-            if(_conceptViaEn){
+            if(_fm){
+                await _ensureFullIndex();
+                idxs=searchForm(_fm.form);   /* 形モード：正規化した表面形の完全一致のみ（#77） */
+            }else if(_conceptViaEn){
                 /* 英語の別名で概念が発火: 基底は概念の日本語 label を日本語経路で引く（UI 言語によらず日本語 UI の label 検索と同じ展開結果にする。#33） */
                 await _ensureFullIndex();
                 idxs=[..._searchJapaneseCore(ALL_TOKENS,_conceptMatch.concept.label)];
@@ -4640,6 +4672,7 @@ async function unifiedSearch(opts){
                 const tok=ALL_TOKENS[gi];if(!tok)continue;
                 if(!merged.has(gi))merged.set(gi,{tok,hitTypes:new Set(),proxHit:null});
                 merged.get(gi).hitTypes.add('lemma');
+                if(_fm)merged.get(gi).hitTypes.add('form');
             }
             /* Concept 展開（Phase 4-1）: 概念に一致した場合のみ、Term 群を
                既存 resolveTerm で解決し従来結果へ和集合で追加する。
@@ -4802,6 +4835,7 @@ async function unifiedSearch(opts){
     isSearching=false;
     _addHistory(query,_activeLayerSet);
     _lastQuery=query;
+    _formModeForm=_fm?_fm.form:null;
     performance.mark('render-start');
     /* SQS: フィルタラベルを × で連結してタイトルに反映 */
     const _sqsLabels = _sqState.filters.map(f => f.label);
@@ -4930,6 +4964,23 @@ function _renderUnifiedResults(query,words,word2){
         _sn.style.cssText='flex-basis:100%;width:100%;margin-top:4px;';
         _sn.textContent=_tf('search.strongNote','Strong 番号で数えた件数です。語そのもの（レンマ）の検索とは数え方が違うため、件数が異なることがあります。');
         document.getElementById('result-header').appendChild(_sn);
+      } }
+    /* 形モード（#77）：形そのものの検索である旨と、レンマの全形へ広げる導線（通常のレンマ検索に移る） */
+    { const _oldFm=document.getElementById('form-note');if(_oldFm)_oldFm.remove();
+      if(_formModeForm){
+        const _fn=document.createElement('div');_fn.id='form-note';_fn.className='result-count-sub';
+        _fn.style.cssText='flex-basis:100%;width:100%;margin-top:4px;';
+        _fn.appendChild(document.createTextNode(_tf('search.form.note','形そのものの検索です（アクセント・気息は区別しません）。')+' '));
+        const _lem=new Map();
+        for(const[,{tok}] of merged){ if(tok.lemma)_lem.set(tok.lemma,(_lem.get(tok.lemma)||0)+1); }
+        [..._lem.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).forEach(([lemma],i)=>{
+            const a=document.createElement('button');a.type='button';a.className='form-more-link';
+            a.textContent=_tf('search.form.more','{lemma} のすべての形を見る ›',{lemma});
+            a.addEventListener('click',()=>{document.getElementById('unified-search-input').value=lemma;unifiedSearch();});
+            if(i>0)_fn.appendChild(document.createTextNode(' '));
+            _fn.appendChild(a);
+        });
+        document.getElementById('result-header').appendChild(_fn);
       } }
     if(!IDX.l3Ready)_noteProvisionalCount(_countEl,query); // LXX 合流前の件数を完成形として見せない（#792 の方針に揃える）
 
@@ -5197,8 +5248,8 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
         :'';
 
     // Hit-type badges — Japanese short labels matching menu names
-    const BADGE_JP={lemma:'語根',phrase:'フレーズ',prox:'近接',morph:'品詞'};
-    const badgesHtml=[...entry.hitTypes].map(t=>`<span class="ht-badge ${t}">${_tf('search.badge.'+t,BADGE_JP[t]||t)}</span>`).join('');
+    const BADGE_JP={lemma:'語根',form:'語形',phrase:'フレーズ',prox:'近接',morph:'品詞'};
+    const badgesHtml=[...entry.hitTypes].filter(t=>!(t==='lemma'&&entry.hitTypes.has('form'))).map(t=>`<span class="ht-badge ${t}">${_tf('search.badge.'+t,BADGE_JP[t]||t)}</span>`).join('');
 
     // Build context window
     const CONTEXT_LEMMA=4,CONTEXT_PROX=entry.proxHit?Math.abs(entry.proxHit.end-entry.proxHit.start):5;
