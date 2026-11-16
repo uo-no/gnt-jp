@@ -1151,6 +1151,19 @@ body.is-lobby .s-header .s-lang { display: block; }
     font-family: var(--s-ff-prose);
 }
 #as-modal-body .as-empty { color: var(--s-text-sub); font-style: italic; }
+/* 語族ビュー（#83）：strongKey が取れない検索（概念・gloss・活用形）の辞書モーダル */
+#as-modal-body .as-fam { white-space: normal; }
+#as-modal-body .as-fam-h { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--s-divider); }
+#as-modal-body .as-fam-h:first-child { margin-top: 0; }
+#as-modal-body .as-fam-stem { font-family: var(--s-ff-greek); font-weight: 700; font-size: var(--s-ts-lg); color: var(--s-text); }
+#as-modal-body .as-fam-n, #as-modal-body .as-fam-row-n { margin-left: auto; font-size: var(--s-ts-xs); color: var(--s-text-sub); }
+#as-modal-body .as-fam-row { display: flex; align-items: baseline; gap: 10px; width: 100%; box-sizing: border-box; min-height: 36px; padding: 4px 6px; border: 0; border-radius: 6px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+#as-modal-body .as-fam-row:hover { background: var(--s-surface-2); }
+#as-modal-body .as-fam-row:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 1px; }
+#as-modal-body .as-fam-lemma { font-family: var(--s-ff-greek); font-weight: 700; }
+#as-modal-body .as-fam-gloss { color: var(--s-text-sub); font-size: var(--s-ts-sm); }
+#as-modal-body .as-fam-back { display: inline-block; margin: 0 0 10px; padding: 4px 0; border: 0; background: none; font: inherit; font-size: var(--s-ts-sm); color: var(--s-accent); cursor: pointer; min-height: 32px; }
+@media (max-width: 700px) { #as-modal-body .as-fam-row, #as-modal-body .as-fam-back { min-height: 44px; } }
 .result-count {
     font-size: var(--s-ts-base); font-weight: 700;
     color: var(--text-main);
@@ -7054,9 +7067,149 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', e => { if (e.key === 'Escape') _asClose(); });
 });
 
+/* ── 語族ビュー（#83）──
+   strongKey が取れない検索（概念・gloss・活用形）では、現在の検索結果の lemma 群を語幹の前方一致で束ねて出す。
+   束ね方：正規化（アクセント・語尾σ）した lemma の共通接頭辞が3文字以上。否定接頭辞 ἀ-/ἀν- は比較時のみ除去し、
+   まず除去なしで束ね、単独のまま残った lemma だけ除去した形で既存の語族に寄せる（ἀγαπ- を壊さないため）。
+   語義は選ばない（辞書エントリ本文は Abbott-Smith のまま）。束ねられなければ平らな列挙にフォールバック。 */
+function _asLcp(a,b){let i=0;while(i<a.length&&i<b.length&&a[i]===b[i])i++;return i;}
+function _asStemDisplay(lemma,n){
+    /* 表示用の語幹：lemma の先頭 n 文字（基底文字）。気息は残し、アクセントは落とす */
+    const d=(lemma||'').normalize('NFD').replace(/[̀́͂]/g,'');
+    let out='',cnt=0;
+    for(const ch of d){
+        if(/[̓̔̈ͅ]/.test(ch)){out+=ch;continue;}
+        if(cnt>=n)break;
+        out+=ch;cnt++;
+    }
+    return out.normalize('NFC');
+}
+function _asBuildFamilies(rows){
+    const key=r=>normalizeGreek(r.lemma);
+    const strips=k=>{const o=[];if(/^αν.{3,}/.test(k))o.push(k.slice(2));if(/^α.{3,}/.test(k))o.push(k.slice(1));return o;};
+    const sorted=rows.slice().sort((x,y)=>key(x)<key(y)?-1:key(x)>key(y)?1:0);
+    /* 1) 除去なしの接頭辞（3文字以上）で束ねる */
+    let cl=[];
+    for(const r of sorted){
+        const k=key(r),last=cl[cl.length-1];
+        if(last){const l=_asLcp(last.stemKey,k);if(l>=3){last.stemKey=last.stemKey.slice(0,l);last.rows.push(r);continue;}}
+        cl.push({stemKey:k,rows:[r]});
+    }
+    /* 2) 単独のまま残った lemma は、否定接頭辞を除いた形で既存の語族（2語以上）に寄せる */
+    const multi=cl.filter(c=>c.rows.length>1);
+    const left=[];
+    for(const c of cl){
+        if(c.rows.length>1){continue;}
+        const r=c.rows[0];let placed=false;
+        for(const sk of strips(key(r))){
+            const tgt=multi.find(m=>_asLcp(m.stemKey,sk)>=m.stemKey.length&&m.stemKey.length>=3)||multi.find(m=>_asLcp(m.stemKey,sk)>=3);
+            if(tgt){tgt.rows.push(r);placed=true;break;}
+        }
+        if(!placed)left.push(r);
+    }
+    /* 3) 否定接頭辞つきで成立した語族（例：ἀφιλα-）も、除去した形が他の語族に収まるなら寄せる（φιλ- に ἀφιλάργυρος を含める） */
+    for(let i=multi.length-1;i>=0;i--){
+        const m=multi[i];
+        for(const sk of strips(m.stemKey)){
+            const tgt=multi.find(o=>o!==m&&o.stemKey.length>=3&&_asLcp(o.stemKey,sk)>=o.stemKey.length);
+            if(tgt){tgt.rows.push(...m.rows);multi.splice(i,1);break;}
+        }
+    }
+    const sum=rs=>rs.reduce((a,r)=>a+r.n,0);
+    const families=multi.map(m=>{
+        m.rows.sort((x,y)=>y.n-x.n);
+        /* 語幹は、除去なしで一致したメンバー（寄せた否定形を除く）の共通接頭辞 */
+        const plain=m.rows.filter(r=>key(r).startsWith(m.stemKey));
+        return{stem:_asStemDisplay((plain[0]||m.rows[0]).lemma,m.stemKey.length)+'-',total:sum(m.rows),rows:m.rows};
+    }).sort((x,y)=>y.total-x.total);
+    left.sort((x,y)=>y.n-x.n);
+    return{families,singles:left};
+}
+function _asCollectLemmas(){
+    /* 現在の検索結果（_allMergedResults）の lemma ごとに、strong・件数・UI言語のグロスを集める */
+    const map=new Map();
+    try{
+        for(const[,e]of _allMergedResults){
+            const t=e&&e.tok;if(!t||!t.lemma)continue;
+            let r=map.get(t.lemma);
+            if(!r){r={lemma:t.lemma,strong:null,n:0,gc:new Map()};map.set(t.lemma,r);}
+            r.n++;
+            if(!r.strong&&t.strong)r.strong=String(parseInt(String(t.strong).replace(/\D/g,''),10));
+            const g=(_enMode()||_esMode())?_dispGloss(t):(t.japanese?(Array.isArray(t.japanese)?t.japanese[0]:t.japanese):t.gloss);
+            if(g)r.gc.set(g,(r.gc.get(g)||0)+1);
+        }
+    }catch(_){return[];}
+    return[...map.values()].map(r=>{
+        let g='',bn=0;for(const[k,v]of r.gc)if(v>bn){g=k;bn=v;}
+        return{lemma:r.lemma,strong:r.strong,n:r.n,gloss:String(g||'').slice(0,24).replace(/[\s;,.、。]+$/,'')};
+    });
+}
+let _asFamilyCtx=null;   /* 語族ビューから開いたときの戻り先（rows と query） */
+function _asRenderEntry(query,strongKey){
+    _loadAbbott().then(()=>{
+        const entry=_abbottDict&&strongKey?_abbottDict[strongKey]:null;
+        const lemmaEl=document.getElementById('as-modal-lemma');
+        const strongEl=document.getElementById('as-modal-strong');
+        const bodyEl=document.getElementById('as-modal-body');
+        lemmaEl.textContent=(entry&&entry.lemma)?entry.lemma:query;
+        strongEl.textContent=strongKey?`G${strongKey}`:'';
+        const _body=entry?(_enMode()?(entry.descriptionEn||''):entry.description):'';
+        if(_body){
+            bodyEl.innerHTML=_escH(_body).replace(/\n/g,'<br>');
+        }else{
+            bodyEl.innerHTML='<span class="as-empty">'+_escH(_tf('search.dict.notFound','この語のAbbott-Smith辞書データが見つかりませんでした。'))+'</span>';
+        }
+        const old=document.getElementById('as-igsd-link');
+        if(old)old.remove();
+        const oldBack=document.getElementById('as-fam-back');
+        if(oldBack)oldBack.remove();
+        if(_asFamilyCtx){
+            const back=document.createElement('button');back.type='button';back.id='as-fam-back';back.className='as-fam-back';
+            back.textContent=_tf('search.dict.famBack','‹ 語族の一覧に戻る');
+            back.addEventListener('click',()=>_asRenderFamily(_asFamilyCtx.rows,_asFamilyCtx.query));
+            bodyEl.parentNode.insertBefore(back,bodyEl);
+        }
+        document.getElementById('as-backdrop').classList.add('open');
+        if(strongKey)_asAddIgsdLink(bodyEl,'G'+strongKey,entry&&entry.lemma?entry.lemma:query);
+    });
+}
+function _asRenderFamily(rows,query){
+    _asFamilyCtx={rows,query};
+    const lemmaEl=document.getElementById('as-modal-lemma');
+    const strongEl=document.getElementById('as-modal-strong');
+    const bodyEl=document.getElementById('as-modal-body');
+    lemmaEl.textContent=query;strongEl.textContent='';
+    for(const id of['as-igsd-link','as-fam-back']){const o=document.getElementById(id);if(o)o.remove();}
+    const {families,singles}=_asBuildFamilies(rows);
+    const wrap=document.createElement('div');wrap.className='as-fam';
+    const times=n=>_tf('search.count.times','{n}回',{n:n.toLocaleString()});
+    const addRow=r=>{
+        const b=document.createElement('button');b.type='button';b.className='as-fam-row';
+        b.innerHTML=`<span class="as-fam-lemma">${_escH(r.lemma)}</span>${r.gloss?`<span class="as-fam-gloss">${_escH(r.gloss)}</span>`:''}<span class="as-fam-row-n">${_escH(times(r.n))}</span>`;
+        b.addEventListener('click',()=>_asRenderEntry(r.lemma,r.strong));
+        wrap.appendChild(b);
+    };
+    if(families.length>0){
+        for(const f of families){
+            const h=document.createElement('div');h.className='as-fam-h';
+            h.innerHTML=`<span class="as-fam-stem">${_escH(f.stem)}</span><span class="as-fam-n">${_escH(times(f.total))}</span>`;
+            wrap.appendChild(h);f.rows.forEach(addRow);
+        }
+        if(singles.length>0){
+            const h=document.createElement('div');h.className='as-fam-h';
+            h.innerHTML=`<span class="as-fam-n" style="margin-left:0">${_escH(_tf('search.dict.famOthers','単独の語'))}</span>`;
+            wrap.appendChild(h);singles.forEach(addRow);
+        }
+    }else{
+        singles.forEach(addRow);   /* 語族が成立しなければ平らな列挙 */
+    }
+    bodyEl.innerHTML='';bodyEl.appendChild(wrap);
+    document.getElementById('as-backdrop').classList.add('open');
+}
 function _asOpen() {
     const query = _lastQuery.trim();
     if (!query) return;
+    _asFamilyCtx = null;
 
     // Strong番号で検索中の場合
     let strongKey = null;
@@ -7073,25 +7226,13 @@ function _asOpen() {
         }
     }
 
-    _loadAbbott().then(() => {
-        const entry = _abbottDict && strongKey ? _abbottDict[strongKey] : null;
-        const lemmaEl = document.getElementById('as-modal-lemma');
-        const strongEl = document.getElementById('as-modal-strong');
-        const bodyEl = document.getElementById('as-modal-body');
-
-        lemmaEl.textContent = (entry && entry.lemma) ? entry.lemma : query;
-        strongEl.textContent = strongKey ? `G${strongKey}` : '';
-        const _body = entry ? (_enMode() ? (entry.descriptionEn || '') : entry.description) : '';
-        if (_body) {
-            bodyEl.innerHTML = _escH(_body).replace(/\n/g, '<br>');
-        } else {
-            bodyEl.innerHTML = '<span class="as-empty">' + _escH(_tf('search.dict.notFound','この語のAbbott-Smith辞書データが見つかりませんでした。')) + '</span>';
-        }
-        const old = document.getElementById('as-igsd-link');
-        if (old) old.remove();
-        document.getElementById('as-backdrop').classList.add('open');
-        if (strongKey) _asAddIgsdLink(bodyEl, 'G' + strongKey, entry && entry.lemma ? entry.lemma : query);
-    });
+    /* strongKey が取れない検索：現在の結果の lemma 群から語族ビューを出す。0件なら従来の notFound、1語だけなら直接エントリ */
+    if (!strongKey) {
+        const rows = _asCollectLemmas();
+        if (rows.length === 1) { _asRenderEntry(rows[0].lemma, rows[0].strong); return; }
+        if (rows.length > 1) { _asRenderFamily(rows, query); return; }
+    }
+    _asRenderEntry(query, strongKey);
 }
 /* Abbott-Smith ポップアップ末尾に、IGSD final の語だけ「語のページを見る ›」を置く。対象外の語では何も出さない。 */
 function _asAddIgsdLink(bodyEl, strong, lemma) {
