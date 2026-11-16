@@ -168,7 +168,7 @@
     function rerenderDynamic() {
         /* Mode lists may already be rendered; redraw them in the new
            language. Each renderer no-ops when its DOM is absent. */
-        ['_sbRenderModesL0', '_mmpRenderModes', '_syncMobileLocationLabel', 'syncUIFromState'].forEach(function (name) {
+        ['_sbRenderModesL0', '_mmpRenderModes', '_syncMobileLocationLabel', 'syncUIFromState', '_renderGenreTabs'].forEach(function (name) {
             if (typeof window[name] === 'function') {
                 try { window[name](); } catch (_) { /* keep JA render */ }
             }

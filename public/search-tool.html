@@ -554,6 +554,9 @@ body.is-lobby .s-header .s-lang { display: block; }
     padding: 0;
 }
 .search-filters.has-query { display: block; }
+/* 関係タブ（#82）：入力が空でも距離の行だけは窓の下に出す（ロビー含む） */
+.search-filters.rel-open { display: block; }
+.search-filters.rel-open:not(.has-query) > *:not(.prox-sub) { display: none; }
 .search-filters .filter-suggestion-title {
     margin: 0 0 4px; color: var(--text-sub); font-size: 0.68rem;
     font-weight: 700; letter-spacing: 0.02em;
@@ -1767,6 +1770,7 @@ body.is-lobby .search-input-wrap {
 
     .search-filters, .search-filters.has-query { display: contents; }
     .search-filters:not(.has-query) > :not(.morph-sub) { display: none; }
+    .search-filters.rel-open:not(.has-query) > .prox-sub.visible { display: block; margin-top: 12px; }   /* #82：関係タブはロビーでも距離の行を出す */
     .search-filters.has-query > .filter-suggestion-title,
     .search-filters.has-query > .prox-sub { margin-top: 12px; }
     .search-filters .morph-panel-toggle,
@@ -4259,7 +4263,13 @@ function _renderGenreTabs(){
         inp.setAttribute('placeholder',_genreTab==='rel'?_tf('search.input.placeholderRel','πίστις ἐλπίς …'):_tf('search.input.placeholder',inp.dataset.jaPlaceholder));
     }
     const px=document.getElementById('prox-sub');
-    if(px&&_genreTab!=='rel'){px.classList.remove('visible');px.setAttribute('aria-hidden','true');}
+    if(typeof _updateSearchControls==='function')_updateSearchControls();
+    /* F3：タブ名も現在の言語で描き直す（言語切替の再描画フックからも呼ばれる） */
+    const tm=document.getElementById('genre-tab-morph'),tr=document.getElementById('genre-tab-rel');
+    if(tm)tm.textContent=_tf('search.genre.morph','形態');
+    if(tr)tr.textContent=_tf('search.genre.rel','関係');
+    const gt=document.getElementById('genre-tabs');
+    if(gt)gt.setAttribute('aria-label',_tf('search.genre.aria','検索の読み方'));
 }
 function _onGenreTabClick(tab){
     tab=(tab==='rel')?'rel':'morph';
@@ -4328,10 +4338,11 @@ function _updateSearchControls(){
         filters.classList.toggle('multi-word',hasMultipleWords);
     }
     if(hasMultipleWords&&_genreTab==='morph'){ _genreTab='rel'; _renderGenreTabs(); }   /* 形態で2語以上→関係へ自動で移る（#82） */
+    if(filters)filters.classList.toggle('rel-open',_genreTab==='rel');
     _layers.lemma=true; _layers.morph=true; _layers.prox=hasMultipleWords;
     const prox=document.getElementById('prox-sub');
     if(prox){
-        const showDist=(_genreTab==='rel')&&hasQuery;   /* 距離の行は関係タブのときだけ（#82） */
+        const showDist=(_genreTab==='rel');   /* 距離の行は関係タブのときだけ。空入力のロビーでも出す（#82） */
         prox.classList.toggle('visible',showDist);
         prox.setAttribute('aria-hidden',showDist?'false':'true');
     }
@@ -4559,7 +4570,7 @@ async function unifiedSearch(opts){
     }
 
     // Read morph filter value from checkbox state
-    const morphFilter=_layers.morph?_getMorphFilterPattern():null;
+    let morphFilter=_layers.morph?_getMorphFilterPattern():null;
 
     // Parse words for phrase / proximity
     const words=query.trim().split(/\s+/).filter(Boolean);
@@ -4567,6 +4578,7 @@ async function unifiedSearch(opts){
     const word2=words[1]||null;
     if(words.length>1&&_genreTab==='morph'){ _genreTab='rel'; _renderGenreTabs(); }   /* #82 */
     _relSingleCooc=(_genreTab==='rel'&&words.length===1);
+    if(_genreTab==='rel')morphFilter=null;   /* 関係の結果に形態フィルタは適用しない（保持はそのまま・実行時だけ無視）#82 */
 
     /* Concept 展開（Phase 4-1）: 検索開始前に1回だけ判定する。
        登録語なら Term[]、未登録語なら null（＝以降は完全に従来どおり） */
