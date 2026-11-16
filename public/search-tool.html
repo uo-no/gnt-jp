@@ -2097,6 +2097,29 @@ body.is-lobby .search-input-wrap {
     <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー" data-i18n-title="search.header.copyUrl"></button>
 </header>
 
+<style id="genre-tabs-css">
+/* 検索ジャンルのタブ（形態｜関係）#82
+   ロビー：検索窓の直下に中央寄せ。結果画面（PC）：sticky ヘッダー内の検索窓の下に1行。モバイル：ヘッダー行の折り返し1行。 */
+.genre-tabs { display: flex; justify-content: center; gap: var(--s-sp-2); margin: var(--s-sp-3) auto 0; }
+.genre-tab {
+    appearance: none; background: none; border: 0; border-bottom: 2px solid transparent;
+    padding: 4px 14px; font: inherit; font-family: var(--s-ff-ui); font-size: var(--s-ts-sm);
+    color: var(--s-text-sub); cursor: pointer; line-height: 1.4;
+}
+.genre-tab:hover { color: var(--s-text); }
+.genre-tab.active { color: var(--s-text); border-bottom-color: var(--s-accent); font-weight: 500; }
+.genre-tab:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@media (min-width: 701px) {
+    body:not(.is-lobby) .s-head-row > .genre-tabs {
+        grid-column: 2; grid-row: 2; justify-content: flex-start; margin: 0; padding-left: 12px;
+    }
+}
+@media (max-width: 700px) {
+    body:not(.is-lobby) .s-head-row { flex-wrap: wrap; }
+    body:not(.is-lobby) .s-head-row > .genre-tabs { order: 10; flex: 0 0 100%; justify-content: flex-start; margin: 0; padding-left: 4px; }
+}
+</style>
+
 <!-- ═══════════════════════════ Search Block ═══════════════════════════ -->
 <div class="s-search-block" id="s-search-block">
     <div class="s-head-row">
@@ -2171,6 +2194,11 @@ body.is-lobby .search-input-wrap {
         </div>
     </div>
     <!-- PC の結果画面だけ表示：「聖書に戻る」・共有リンクを検索行の右端へ（#65。ロビー・モバイルでは上部 .s-header のものを使う） -->
+    <!-- 検索ジャンルのタブ（#82）：検索窓は1つのまま、タブは入力の読み方。切替時は同じ入力で再実行 -->
+    <div class="genre-tabs" id="genre-tabs" role="tablist" aria-label="検索の読み方" data-i18n-aria-label="search.genre.aria">
+        <button class="genre-tab active" id="genre-tab-morph" type="button" role="tab" aria-selected="true" data-tab="morph" onclick="_onGenreTabClick('morph')" data-i18n="search.genre.morph">形態</button>
+        <button class="genre-tab" id="genre-tab-rel" type="button" role="tab" aria-selected="false" data-tab="rel" onclick="_onGenreTabClick('rel')" data-i18n="search.genre.rel">関係</button>
+    </div>
     <div class="s-head-actions">
         <button class="s-btn-back" onclick="_searchGoBack()" aria-label="聖書リーダーに戻る" data-i18n-aria-label="search.header.backAria"><img class="s-back-ico" src="/favicon.svg" alt="" width="22" height="22" draggable="false"><span class="s-back-label" data-i18n="search.header.back">聖書に戻る</span></button>
         <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー" data-i18n-title="search.header.copyUrl"></button>
@@ -4210,6 +4238,32 @@ const _sqState = {
    同一オブジェクトを参照するため代入は双方向に反映される。 */
 const _layers = _sqState.layers;
 
+/* ── 検索ジャンルのタブ（形態｜関係）#82 ──
+   形態：現行の1語検索と同一。関係：現行の2語結果（フレーズ＋近接）。1語なら共起が主役。
+   形態で2語以上を入力したら関係へ自動で移る（入力時・検索時の両方）。URL は関係のときだけ ?tab=rel。 */
+let _genreTab = 'morph';
+let _relSingleCooc = false;   /* 直近の検索が「関係×1語」で、共起語を主役に出したか */
+function _renderGenreTabs(){
+    document.querySelectorAll('.genre-tab').forEach(b=>{
+        const on=b.dataset.tab===_genreTab;
+        b.classList.toggle('active',on);
+        b.setAttribute('aria-selected',on?'true':'false');
+        b.tabIndex=on?0:-1;
+    });
+    document.body.classList.toggle('genre-rel',_genreTab==='rel');
+}
+function _onGenreTabClick(tab){
+    tab=(tab==='rel')?'rel':'morph';
+    if(tab===_genreTab)return;
+    const inp=document.getElementById('unified-search-input');
+    const nWords=inp?inp.value.trim().split(/\s+/).filter(Boolean).length:0;
+    if(tab==='morph'&&nWords>1)return;   /* 形態は1語の読み方。2語以上は関係で読む */
+    _genreTab=tab;
+    _renderGenreTabs();
+    _updateSearchControls();
+    if(nWords>0)unifiedSearch();          /* 同じ入力で再実行 */
+}
+
 function toggleLayer(name){
     if (name === 'prox' || name === 'morph') return;
     _layers[name]=!_layers[name];
@@ -4264,6 +4318,7 @@ function _updateSearchControls(){
         filters.classList.toggle('single-word',hasQuery && !hasMultipleWords);
         filters.classList.toggle('multi-word',hasMultipleWords);
     }
+    if(hasMultipleWords&&_genreTab==='morph'){ _genreTab='rel'; _renderGenreTabs(); }   /* 形態で2語以上→関係へ自動で移る（#82） */
     _layers.lemma=true; _layers.morph=true; _layers.prox=hasMultipleWords;
     const prox=document.getElementById('prox-sub');
     if(prox){
@@ -4500,6 +4555,8 @@ async function unifiedSearch(opts){
     const words=query.trim().split(/\s+/).filter(Boolean);
     const word1=words[0];
     const word2=words[1]||null;
+    if(words.length>1&&_genreTab==='morph'){ _genreTab='rel'; _renderGenreTabs(); }   /* #82 */
+    _relSingleCooc=(_genreTab==='rel'&&words.length===1);
 
     /* Concept 展開（Phase 4-1）: 検索開始前に1回だけ判定する。
        登録語なら Term[]、未登録語なら null（＝以降は完全に従来どおり） */
@@ -4581,6 +4638,15 @@ async function unifiedSearch(opts){
         })());
     }
 
+    if(_relSingleCooc){
+        /* 関係×1語（#82）：その語の前後（±currentDist）に出る語を共起として主役に出す。ヒット自体は通常検索のまま（近接ヒットは混ぜない） */
+        tasks.push((async()=>{
+            try{
+                const{coocMap}=await runProximitySearch({word1,word2:null,distance:currentDist,scope:currentScope,ref:''});
+                proxCoocMap=coocMap;
+            }catch(e){ console.warn('[genre-rel] cooc failed',e); }
+        })());
+    }
     if(_layers.prox){
         tasks.push((async()=>{
             const{coocMap,hits}=await runProximitySearch({
@@ -4723,6 +4789,7 @@ function syncURL() {
     });
 
     if (_layers.prox && currentDist !== 5) p.set('dist', String(currentDist));
+    if (_genreTab === 'rel') p.set('tab', 'rel');   /* 形態は既定で付けない（#82） */
 
     /* 言語プレフィックス（/ja・/en・/es）は i18n.js が起動時に取り除く。入ってきた URL の保持ではなく、
        現在の実効言語（I18N.lang）から決める（#76）。言語切替→再実行でその言語の形に書き換わる。
@@ -4833,8 +4900,9 @@ function _renderUnifiedResults(query,words,word2){
     // Co-occurrence panel: only when proximity was active
     const grid=document.getElementById('results-grid');
     const hasProx=_activeLayerSet.prox&&_proxCoocMap.size>0;
-    grid.classList.toggle('no-cooc',!hasProx);
-    if(hasProx)_renderCooccurrence(_proxCoocMap,'rank-list',10);
+    const hasCooc=hasProx||(_relSingleCooc&&_proxCoocMap.size>0);   /* 関係×1語は共起だけを出す（凡例・件/節の1行は近接のときだけ）#82 */
+    grid.classList.toggle('no-cooc',!hasCooc);
+    if(hasCooc)_renderCooccurrence(_proxCoocMap,'rank-list',10);
     /* 近接検索の説明（#52）: 近接パネルの見出し・凡例・件/節の1行。通常検索には出さない */
     { const _ct=document.querySelector('.cooc-title');
       if(_ct)_ct.textContent=hasProx?_tf('search.cooc.titleProx','ヒットした節に出る他の語'):_tf('search.cooc.title','よく一緒に出る語');
@@ -5253,12 +5321,14 @@ function _renderCooccurrence(coocMap,containerId,limit=10){
             const inp=document.getElementById('unified-search-input');
             const cur=inp.value.trim().split(/\s+/)[0];
             inp.value=`${cur} ${word}`;
+            if(_genreTab==='rel'){_updateSearchControls();unifiedSearch();}   /* 関係：共起のチップから近接が走る（#82） */
         });
         item.querySelector('.add-btn').addEventListener('click',e=>{
             e.stopPropagation();
             const inp=document.getElementById('unified-search-input');
             const cur=inp.value.trim().split(/\s+/)[0];
             inp.value=`${cur} ${e.currentTarget.dataset.word}`;
+            if(_genreTab==='rel'){_updateSearchControls();unifiedSearch();}   /* #82 */
         });
         el.appendChild(item);
     });
@@ -5956,6 +6026,7 @@ function _showEmpty(title,desc){
    ============================================================ */
 function init(){
     _renderStaticIcons();
+    _renderGenreTabs();
     _initSuggest();
     _initMorphChips();
     // 品詞チップは常時表示。近接距離は複数語入力時だけ表示する。
@@ -6804,6 +6875,10 @@ async function _synInit(syntaxId) {
     const p = new URLSearchParams(location.search);
     const _w1 = p.get('word1') || '';
     const _w2 = p.get('word2') || '';
+    /* 検索ジャンルのタブ（#82）：?tab=rel、または近接を示す旧形式（word1＋word2／layers に prox）は関係に着地。形態は既定。 */
+    if (p.get('tab') === 'rel' || (_w1 && _w2) || (p.get('layers') || '').split(',').includes('prox')) {
+        _genreTab = 'rel'; _renderGenreTabs();
+    }
     /* パス形（/search/<クエリ>）を優先。旧形式（?lemma= / ?word= / ?word1=&word2=）は互換のため引き続き受け付け、
        検索が走ると syncURL が replaceState でパス形に正規化する。 */
     const _pathQ = (() => {
