@@ -357,6 +357,8 @@ function _hlPickerSegInfo(e) {
 }
 
 function _hlOpenPicker(entry, anchorEl) {
+    /* 相互排他：ピッカーを開くときは word-peek を閉じる（#84）。peek 側のボタン経由の受け渡しは既に閉じてから呼ぶ。 */
+    if (typeof _closeWordPeek === 'function') _closeWordPeek();
     const picker = document.getElementById('hl-color-picker');
     const overlay = document.getElementById('hl-color-picker-overlay');
     /* UI要素がない場合は、以前の選択待ち状態も残さず終了する。 */

@@ -57,6 +57,8 @@ function _closeWordPeek() {
 function _openWordPeek(chipEl, chip, tokenId, proceed) {
     _peekOpenedOnce = true;
     _closeWordPeek();
+    /* 相互排他：peek を開くときはハイライト色ピッカーを閉じる（#84）。 */
+    if (typeof _hlPickerClose === 'function') _hlPickerClose();
     let data = {};
     try { data = (AppState && AppState.inspect && AppState.inspect.data) || {}; } catch (_) {}
 
@@ -304,6 +306,8 @@ function _peekSegSelect(ti) {
 function _openSegPeek(segEl, tis) {
     _peekOpenedOnce = true;
     _closeWordPeek();
+    /* 相互排他：peek を開くときはハイライト色ピッカーを閉じる（#84）。 */
+    if (typeof _hlPickerClose === 'function') _hlPickerClose();
     const book = segEl.dataset.jaBook, ch = Number(segEl.dataset.jaCh), v = Number(segEl.dataset.jaV);
     const toks = tis.map(ti => _jaSegToken(book, ch, v, ti)).filter(Boolean);
     if (!toks.length) return;
