@@ -1279,6 +1279,10 @@ body.is-lobby .s-header .s-lang { display: block; }
 }
 .dist-bar-row:hover { background: var(--bg-panel); }
 .dist-bar-row.active { background: var(--border-soft); }
+.dist-bar-row:focus-visible { outline: 2px solid var(--s-accent, #2f5d3a); outline-offset: 1px; }
+.dist-filter-clear { appearance: none; background: none; border: 1px solid var(--border-soft); border-radius: 10px; padding: 0 8px; margin-left: 4px; font: inherit; font-size: 0.75rem; color: var(--text-sub); cursor: pointer; min-height: 24px; }
+.dist-filter-clear:hover { color: var(--text-main); }
+@media (max-width: 700px) { .dist-bar-row { min-height: 44px; } .dist-filter-clear { min-height: 44px; padding: 0 14px; } }
 .dist-bar-name { font-size: 0.68rem; color: var(--text-sub); width: 70px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dist-bar-track { flex: 1; height: 5px; background: var(--border-soft); border-radius: 3px; overflow: hidden; }
 .dist-bar-fill { height: 100%; background: var(--highlight); opacity: 0.55; border-radius: 3px; transition: width 0.4s; }
@@ -5943,7 +5947,7 @@ function _renderBookDist(entries){
     let activeRow=null;
 
     // セクション描画ヘルパー
-    const _buildSection=(countMap,sectionLabel)=>{
+    const _buildSection=(countMap,sectionLabel,corpus)=>{
         if(countMap.size===0) return;
         const sectionTotal=[...countMap.values()].reduce((a,b)=>a+b,0);
         const sorted=[...countMap.entries()].sort((a,b)=>b[1]-a[1]);
@@ -5966,18 +5970,33 @@ function _renderBookDist(entries){
                 <span class="dist-bar-name">${_escH(shortName)}</span>
                 <div class="dist-bar-track"><div class="dist-bar-fill" style="width:${pct}%"></div></div>
                 <span class="dist-bar-count">${count}</span>`;
-            row.addEventListener('click',()=>{
+            /* 書範囲フィルタ（#78）：バーのクリック／Enter／Space で、その書だけに結果リストを絞る。再操作で解除。
+               NT と LXX は corpusId で区別する（書キーの衝突を避ける）。形態・関係の両方で同じ仕組み。 */
+            row.setAttribute('role','button');row.tabIndex=0;row.setAttribute('aria-pressed','false');
+            const toggleRow=()=>{
+                const words=_lastQuery.split(/\s+/),w2=words[1]||null;
                 if(activeRow===row){
-                    row.classList.remove('active');activeRow=null;
-                    _renderHitCards([..._allMergedResults.entries()],
-                        _lastQuery.split(/\s+/),_lastQuery.split(/\s+/)[1]||null);
+                    row.classList.remove('active');row.setAttribute('aria-pressed','false');activeRow=null;
+                    _renderHitCards([..._allMergedResults.entries()],words,w2);
                 }else{
-                    if(activeRow)activeRow.classList.remove('active');
-                    row.classList.add('active');activeRow=row;
-                    const filtered=[..._allMergedResults.entries()].filter(([,e])=>(e.tok.bookKey||'')===bookKey);
-                    _renderHitCards(filtered,_lastQuery.split(/\s+/),_lastQuery.split(/\s+/)[1]||null);
+                    if(activeRow){activeRow.classList.remove('active');activeRow.setAttribute('aria-pressed','false');}
+                    row.classList.add('active');row.setAttribute('aria-pressed','true');activeRow=row;
+                    const filtered=[..._allMergedResults.entries()].filter(([,e])=>(e.tok.bookKey||'')===bookKey&&((e.tok.corpusId==='LXX')===(corpus==='LXX')));
+                    _renderHitCards(filtered,words,w2);
+                    /* 件数の見出しを「書名：N件・M節」にし、分布バーの件数と一致させる（解除ボタン付き） */
+                    const verses=new Set(filtered.map(([,e])=>`${e.tok.bookKey||'?'}:${e.tok.ch??'?'}:${e.tok.verse??'?'}`)).size;
+                    const ce=document.getElementById('hits-count');
+                    if(ce){
+                        ce.textContent=_tp('search.dist.rowTitle','{name}：{n}件',count,{name:bookName,n:count.toLocaleString()})+' · '+_tp('search.count.verses','{n} 節',verses,{n:verses.toLocaleString()})+' ';
+                        const x=document.createElement('button');x.type='button';x.className='dist-filter-clear';
+                        x.textContent=_tf('search.dist.filterClear','解除');
+                        x.addEventListener('click',e=>{e.stopPropagation();toggleRow();});
+                        ce.appendChild(x);
+                    }
                 }
-            });
+            };
+            row.addEventListener('click',toggleRow);
+            row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleRow();}});
             list.appendChild(row);
         });
         if(rest>0){
@@ -5987,12 +6006,12 @@ function _renderBookDist(entries){
         body.appendChild(list);
     };
 
-    _buildSection(ntMap,_tf('search.dist.nt','新約聖書'));
+    _buildSection(ntMap,_tf('search.dist.nt','新約聖書'),'NT');
     if(ntMap.size>0&&lxxMap.size>0){
         const hr=document.createElement('hr');hr.className='dist-section-divider';
         body.appendChild(hr);
     }
-    _buildSection(lxxMap,_tf('search.dist.lxx','旧約ギリシア語訳（LXX）'));
+    _buildSection(lxxMap,_tf('search.dist.lxx','旧約ギリシア語訳（LXX）'),'LXX');
 }
 
 /* ── UI helpers ── */
