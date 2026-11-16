@@ -623,6 +623,7 @@ body.is-lobby .s-header .s-lang { display: block; }
     text-align: right;
 }
 .search-filters .morph-chip-neg { font-style: italic; }
+.search-filters .morph-chip-neg[hidden] { display: none !important; }
 .search-filters .morph-chip.selected {
     background: rgba(112,145,119,0.12);
     border-color: rgba(94,130,102,0.58);
@@ -4825,11 +4826,9 @@ function syncURL() {
     const slotToParam = { pos:'pos', tense:'tense', mood:'mood', voice:'voice', case:'case', num:'number', gen:'gender' };
     Object.entries(slotToParam).forEach(([slot, paramName]) => {
         const set = _morphSel[slot];
-        if (set && set.size > 0) p.set(paramName, Array.from(set).join(','));
+        if (set && set.size > 0) p.set(paramName, (_morphNeg[slot] ? '-' : '') + Array.from(set).join(','));   /* 否定は値の前に「-」（例 tense=-A）#79 */
     });
-    /* 否定の軸（#79）：?neg=pos,case。選択のある軸だけ出す */
-    const _negSlots = Object.keys(_morphNeg).filter(k => _morphNeg[k] && _morphSel[k] && _morphSel[k].size > 0);
-    if (_negSlots.length) p.set('neg', _negSlots.join(','));
+
 
     if (_layers.prox && currentDist !== 5) p.set('dist', String(currentDist));
     if (_genreTab === 'rel') p.set('tab', 'rel');   /* 形態は既定で付けない（#82） */
@@ -6171,8 +6170,8 @@ function _morphHelp(slot,item){return _tf('search.morph.help.'+slot+'.'+item.cod
 
 /* State: selected values per slot */
 const _morphSel = {pos:new Set(),case:new Set(),num:new Set(),gen:new Set(),tense:new Set(),voice:new Set(),mood:new Set()};
-/* 軸ごとの否定（〜以外）#79：true の軸は「選択した値以外」に一致させる。選択が空の軸には効かない。
-   その軸が当てはまらない語（例：動詞の格）は肯定と同じく判定しない＝通す。肯定＋否定＝その軸が当てはまる語の母集団。 */
+/* 軸ごとの否定（〜以外）#79：true の軸は「選択した値以外」に一致させる。選択が空の軸には効かない（空になったら解除）。
+   否定は「その軸を持つトークンの中での補集合」。その軸を持たないトークン（例：動詞の格）は否定にマッチしない（凍結仕様 決定3）。 */
 const _morphNeg = {pos:false,case:false,num:false,gen:false,tense:false,voice:false,mood:false};
 
 /* Build pattern string from selections — returns null if nothing selected */
@@ -6299,6 +6298,12 @@ function _morphRejectReason(morphTag, pattern) {
    対応が無いもの（数詞 M・間投詞 I・疑問代名詞 RI）は品詞フィルタに一致しない（NT の I- と同様）。 */
 const _LXX_POS_TO_CHIP = {N:'N',V:'V',A:'A',RA:'T',RR:'R',RP:'P',RD:'D',RX:'X',C:'CONJ',P:'PREP',D:'ADV',X:'PRT'};
 /* 軸ごとの一致判定（#79）：否定の軸は「選択値以外」で一致。選択が無い軸は呼ばれない（pattern[slot] が null） */
+/* 否定条件（#79）：その軸を持たないトークンは否定にマッチしない。nominal 軸＝case/gen、verbal 軸＝tense/voice/mood。 */
+function _mmNegAxisFail(pattern, slots){
+    if(!pattern.neg) return false;
+    for(const k of slots){ if(pattern[k] && pattern.neg[k]) return true; }
+    return false;
+}
 function _mmOk(pattern, slot, val){
     const has = pattern[slot].has(val);
     return (pattern.neg && pattern.neg[slot]) ? !has : has;
@@ -6310,12 +6315,14 @@ function _lxxMorphMatchesPattern(tag, pattern){
     const posCode = _LXX_POS_TO_CHIP[lead==='R' ? t.slice(0,2) : lead] || '';
     if(pattern.pos && !_mmOk(pattern,'pos',posCode)) return false;
     if(lead==='V'){
+        if(_mmNegAxisFail(pattern,['case','gen'])) return false;
         const mood = t[6]==='D' ? 'M' : t[6];   /* LXX の D＝命令法 → NT コード M */
         if(pattern.tense && !_mmOk(pattern,'tense',t[4])) return false;
         if(pattern.voice && !_mmOk(pattern,'voice',t[5])) return false;
         if(pattern.mood  && !_mmOk(pattern,'mood',mood))  return false;
         if(pattern.num   && !_mmOk(pattern,'num',t[8]))   return false;
     } else {
+        if(_mmNegAxisFail(pattern,['tense','voice','mood'])) return false;
         if(pattern.case && !_mmOk(pattern,'case',t[4])) return false;
         if(pattern.num  && !_mmOk(pattern,'num',t[5]))  return false;
         if(pattern.gen  && !_mmOk(pattern,'gen',t[6]))  return false;
@@ -6333,6 +6340,7 @@ function _morphMatchesPattern(morphTag, pattern, corpusId){
 
     const isVerbal = posCode === 'V';
     if(!isVerbal){
+        if(_mmNegAxisFail(pattern,['tense','voice','mood'])) return false;
         // Nominal: parts[1] = CaseNumGen (e.g. "NSM")
         const cng = parts[1] || '';
         const c = cng[0]||'', n = cng[1]||'', g = cng[2]||'';
@@ -6340,6 +6348,7 @@ function _morphMatchesPattern(morphTag, pattern, corpusId){
         if(pattern.num  && !_mmOk(pattern,'num',n))  return false;
         if(pattern.gen  && !_mmOk(pattern,'gen',g))  return false;
     } else {
+        if(_mmNegAxisFail(pattern,['case','gen'])) return false;
         // Verbal: parts[1] = TenseVoiceMood (e.g. "PAI"), parts[2] = PersonNum or Num
         const tvm = parts[1] || '';
         const t = tvm[0]||'', v = tvm[1]||'', m = tvm[2]||'';
@@ -6356,6 +6365,22 @@ function _morphMatchesPattern(morphTag, pattern, corpusId){
     return true;
 }
 
+/* 否定トグルの表示と「≠」表示を同期（#79）。値が空になったら否定も解除する。 */
+function _morphRefreshNeg(slot){
+    if(_morphSel[slot].size===0) _morphNeg[slot]=false;
+    const el=document.getElementById('morph-chips-'+slot); if(!el) return;
+    const neg=el.querySelector('.morph-chip-neg');
+    if(neg){
+        neg.hidden=_morphSel[slot].size===0;
+        neg.classList.toggle('selected',_morphNeg[slot]);
+        neg.setAttribute('aria-pressed',_morphNeg[slot]?'true':'false');
+    }
+    el.querySelectorAll('.morph-chip:not(.morph-chip-neg)').forEach(c=>{
+        const lab=c.querySelector('.morph-chip-label'); if(!lab) return;
+        const base=lab.dataset.base!=null?lab.dataset.base:(lab.dataset.base=lab.textContent);
+        lab.textContent=(_morphNeg[slot]&&c.classList.contains('selected')?'≠ ':'')+base;
+    });
+}
 /* Render a chip group */
 function _renderMorphChips(containerId, items, slot){
     const el = document.getElementById(containerId);
@@ -6365,18 +6390,21 @@ function _renderMorphChips(containerId, items, slot){
     const negChip = document.createElement('button');
     negChip.type='button';
     negChip.className='morph-chip morph-chip-neg'+(_morphNeg[slot]?' selected':'');
+    negChip.hidden=_morphSel[slot].size===0;   /* 値が未選択の軸には出さない */
     negChip.setAttribute('aria-pressed',_morphNeg[slot]?'true':'false');
     negChip.innerHTML='<span class="morph-chip-label">'+_escH(_tf('search.morph.neg','以外'))+'</span><span class="morph-chip-help">'+_escH(_tf('search.morph.negHelp','選んだ値を除く'))+'</span>';
     negChip.addEventListener('click',()=>{
         _morphNeg[slot]=!_morphNeg[slot];
         negChip.classList.toggle('selected',_morphNeg[slot]);
         negChip.setAttribute('aria-pressed',_morphNeg[slot]?'true':'false');
+        _morphRefreshNeg(slot);
         if(!_layers.morph){_layers.morph=true;_syncLayerUI('morph');}
         _updateMorphSubSections();
         _updateMorphClearBtn();
         _morphPcReflect();
     });
     el.appendChild(negChip);
+    setTimeout(()=>_morphRefreshNeg(slot),0);
     items.forEach((item)=>{
         const code=item.code, jp=_escH(_morphJp(slot,item)), help=_escH(_morphHelp(slot,item));
         const chip = document.createElement('button');
@@ -6389,6 +6417,7 @@ function _renderMorphChips(containerId, items, slot){
             else _morphSel[slot].add(code);
             chip.classList.toggle('selected',_morphSel[slot].has(code));
             chip.setAttribute('aria-pressed',_morphSel[slot].has(code)?'true':'false');
+            _morphRefreshNeg(slot);
 
             // 条件チップを選んだら文法レイヤーも有効化し、検索に反映される状態にする。
             // 最後の条件を解除してもレイヤー自体は維持し、ユーザーが明示的に切り替えられるようにする。
@@ -6528,6 +6557,7 @@ function _morphClearAll(){
             c.setAttribute('aria-pressed','false');
         });
     });
+    ['pos','case','num','gen','tense','voice','mood'].forEach(_morphRefreshNeg);
     _morphOpenSection=null;
     _updateMorphSubSections();
     _updateMorphClearBtn();
@@ -6996,14 +7026,21 @@ async function _synInit(syntaxId) {
     // index.html からのリンクは単一フルワードのみを渡すため、その場合は従来通り1件になる。
     const splitVals = (raw) => (raw || '').split(',').map(s => s.trim()).filter(Boolean);
 
+    /* 否定（#79）：値リストの先頭の「-」は軸全体の否定（例 tense=-A）。外してから従来どおり解釈する。 */
+    const _negFromUrl = {};
+    const splitNeg = (slot, raw) => {
+        let r = (raw || '').trim();
+        if (r.startsWith('-')) { _negFromUrl[slot] = true; r = r.slice(1); }
+        return splitVals(r);
+    };
     const morphFromUrl = {
-        pos:   splitVals(p.get('pos')).map(v => v.replace(/-+$/, '')),
-        tense: splitVals(p.get('tense')).map(v => toCode('tense', v)),
-        mood:  splitVals(p.get('mood')).map(v => toCode('mood', v)),
-        voice: splitVals(p.get('voice')).map(v => toCode('voice', v)),
-        case:  splitVals(p.get('case')).map(v => toCode('case', v)),
-        num:   splitVals(p.get('number')).map(v => toCode('num', v)),
-        gen:   splitVals(p.get('gender')).map(v => toCode('gen', v)),
+        pos:   splitNeg('pos', p.get('pos')).map(v => v.replace(/-+$/, '')),
+        tense: splitNeg('tense', p.get('tense')).map(v => toCode('tense', v)),
+        mood:  splitNeg('mood', p.get('mood')).map(v => toCode('mood', v)),
+        voice: splitNeg('voice', p.get('voice')).map(v => toCode('voice', v)),
+        case:  splitNeg('case', p.get('case')).map(v => toCode('case', v)),
+        num:   splitNeg('num', p.get('number')).map(v => toCode('num', v)),
+        gen:   splitNeg('gen', p.get('gender')).map(v => toCode('gen', v)),
     };
     /* [DIAG] 受信 URL パラメータ */
     console.info('[initFromUrl] 受信パラメータ:', {
@@ -7013,10 +7050,10 @@ async function _synInit(syntaxId) {
         gender: p.get('gender'), person: '(URLには付与されない)',
     });
     let hasMorph = false;
-    splitVals(p.get('neg')).forEach(k => { if (k in _morphNeg) _morphNeg[k] = true; });   /* #79 */
     for (const [slot, vals] of Object.entries(morphFromUrl)) {
         vals.forEach(v => { if (v) { _morphSel[slot].add(v); hasMorph = true; } });
     }
+    for (const k of Object.keys(_negFromUrl)) { if (_morphSel[k] && _morphSel[k].size > 0) _morphNeg[k] = true; }   /* #79 */
     /* [DIAG] _morphSel への変換結果 */
     console.info('[initFromUrl] _morphSel (コード変換後):', {
         pos:   [..._morphSel.pos],   tense: [..._morphSel.tense],
