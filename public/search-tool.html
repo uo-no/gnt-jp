@@ -2116,6 +2116,7 @@ body.is-lobby .search-input-wrap {
 }
 @media (max-width: 700px) {
     body:not(.is-lobby) .s-head-row { flex-wrap: wrap; }
+    .genre-tab { min-height: 44px; }
     body:not(.is-lobby) .s-head-row > .genre-tabs { order: 10; flex: 0 0 100%; justify-content: flex-start; margin: 0; padding-left: 4px; }
 }
 </style>
@@ -4251,14 +4252,22 @@ function _renderGenreTabs(){
         b.tabIndex=on?0:-1;
     });
     document.body.classList.toggle('genre-rel',_genreTab==='rel');
+    /* プレースホルダ：関係は「πίστις ἐλπίς …」（JA）／「faith hope …」（EN）／「fe esperanza …」（ES） */
+    const inp=document.getElementById('unified-search-input');
+    if(inp){
+        if(inp.dataset.jaPlaceholder==null)inp.dataset.jaPlaceholder=inp.getAttribute('placeholder')||'';
+        inp.setAttribute('placeholder',_genreTab==='rel'?_tf('search.input.placeholderRel','πίστις ἐλπίς …'):_tf('search.input.placeholder',inp.dataset.jaPlaceholder));
+    }
+    const px=document.getElementById('prox-sub');
+    if(px&&_genreTab!=='rel'){px.classList.remove('visible');px.setAttribute('aria-hidden','true');}
 }
 function _onGenreTabClick(tab){
     tab=(tab==='rel')?'rel':'morph';
     if(tab===_genreTab)return;
     const inp=document.getElementById('unified-search-input');
     const nWords=inp?inp.value.trim().split(/\s+/).filter(Boolean).length:0;
-    if(tab==='morph'&&nWords>1)return;   /* 形態は1語の読み方。2語以上は関係で読む */
     _genreTab=tab;
+    if(tab==='morph'&&nWords>1&&inp)inp.value=inp.value.trim().split(/\s+/)[0];   /* 関係→形態は1語目だけを形態検索する */
     _renderGenreTabs();
     _updateSearchControls();
     if(nWords>0)unifiedSearch();          /* 同じ入力で再実行 */
@@ -4322,8 +4331,9 @@ function _updateSearchControls(){
     _layers.lemma=true; _layers.morph=true; _layers.prox=hasMultipleWords;
     const prox=document.getElementById('prox-sub');
     if(prox){
-        prox.classList.toggle('visible',hasMultipleWords);
-        prox.setAttribute('aria-hidden',hasMultipleWords?'false':'true');
+        const showDist=(_genreTab==='rel')&&hasQuery;   /* 距離の行は関係タブのときだけ（#82） */
+        prox.classList.toggle('visible',showDist);
+        prox.setAttribute('aria-hidden',showDist?'false':'true');
     }
     const title=document.getElementById('filter-suggestion-title');
     if(title) title.textContent=_tf('search.filter.multiTitle','複数の語を検索する条件');
