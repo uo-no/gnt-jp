@@ -387,7 +387,15 @@ function _mobileSwipeBack() {
     document.addEventListener('DOMContentLoaded', function () {
         if (window.App.onboarding) window.App.onboarding.init();
         _syncOnboardingActiveFlag();
-        init();
+        /* 初期描画は UI 辞書（I18N.ready）の到着を待つ。待つのは辞書だけで、本文データの
+           読み込みとは混ぜない（init() 内で従来どおり開始する）。JA は解決済み Promise、
+           辞書の取得が滞る場合に読書を止めないよう上限 5 秒で打ち切る（その場合は従来どおり
+           辞書到着後の applyAll による再描画に任せる）。 */
+        var _i18nReady = (window.I18N && window.I18N.ready) ? window.I18N.ready : Promise.resolve();
+        Promise.race([
+            _i18nReady,
+            new Promise(function (resolve) { setTimeout(resolve, 5000); })
+        ]).catch(function () {}).then(function () { init(); });
         _ensureSemanticData().catch(function(){});
 
         /* 語源要素タップ → Abbott-Smith ポップアップ（イベントデリゲーション） */
