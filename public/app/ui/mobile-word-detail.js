@@ -585,7 +585,7 @@ function _renderMobileWordDetail(d) {
           <summary class="mvv-l3-summary">${_T('panel.formAndRelations', '形と関係を見る')}</summary>
           <div class="mvv-l3-slot">
             ${(d.lemma || d.strong || morphTags) ? `<div class="rn-l3-group" data-study-group="facts"><div class="rn-l3-group-label">${_T('panel.factsFromText', '原文から確認できる情報')}</div>
-              ${(d.lemma ? `<div>${_T('panel.lemmaPrefix', '見出し語: ')}<span class="mvv-l3-lemma">${_escH(d.lemma)}</span></div>` : '')}
+              ${(d.lemma ? `<div>${_T('panel.lemmaPrefix', '見出し語: ')}<span class="mvv-l3-lemma">${_escH(d.lemma)}</span>${window.Translit ? ` <span class="translit">${_escH(Translit.of(d.lemma))}</span>` : ''}</div>` : '')}
               ${(d.strong ? `<div class="mvv-l3-strong" style="margin-top:var(--space-xs);">Strong: ${_escH(String(d.strong))}</div>` : '')}
               ${(morphTags ? `<div style="margin-top:var(--space-md);">${morphTags}</div>` : '')}
               ${(d.structureText ? `<div style="margin-top:var(--space-xs);">${_T('panel.structureLabel', '構造')}: ${_escH(d.structureText)}</div>` : '')}

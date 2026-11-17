@@ -460,6 +460,10 @@ function _syncMobileVerseTitle() {
         if (bookName && ch != null && _mvvVNum != null) title = `${bookName} ${ch}:${_mvvVNum}`;
     }
     el.textContent = title;
+    if (_mobileVerseInspectorMode === 'detail' && title && typeof _translitEl === 'function') {
+        const tr = _translitEl(title);
+        if (tr) { el.appendChild(document.createTextNode(' ')); el.appendChild(tr); }
+    }
 }
 
 /**
