@@ -119,8 +119,9 @@ async function _renderRoleReadingView(app, srData, elData) {
     let chapter, result;
     try {
         /* 表示は bible_data の japanese（語順で読む／文の構造で読むと同じ語義）。
-           EN UI の場合は _glossSidecarFor() による英語グロスを優先し、
-           供給できない語は tok.japanese にフォールバックする。 */
+           非日本語UI（EN/ES）の場合は _glossSidecarFor() → 辞書（_uiShortGloss）の
+           グロスを優先し、どちらも供給できない語はギリシャ語本文（tok.text）に
+           フォールバックする（#103。語順で読むチップと同じ）。 */
         const jaByRef = new Map();
         for (const [r, tok] of _rkRefToBd) { if (tok && tok.japanese) jaByRef.set(r, tok.japanese); }
         let _rkLabelMap = jaByRef;
@@ -134,7 +135,7 @@ async function _renderRoleReadingView(app, srData, elData) {
                     let _lbl = label;
                     if (_lbl == null) {
                         const _lex = (typeof _uiShortGloss === 'function') ? _uiShortGloss(tok.lemmaId) : null;
-                        _lbl = _lex || ((window.I18N && I18N.lang === 'es') ? (tok.text || '') : (tok.japanese || ''));
+                        _lbl = _lex || (tok.text || '');   /* #103: 非日本語UIは EN/ES ともギリシャ語へ */
                     }
                     enByRef.set(r, _lbl);
                 }
@@ -305,8 +306,9 @@ async function _buildLocalRelationFrame(ref) {
     if (!sr) return null;
     const offsets = await _loadRkOffsets(parsed.book);
     /* 表示は bible_data の japanese（読書モード本体と同じ）。
-       EN UI の場合は _glossSidecarFor() による英語グロスを優先し、
-       供給できない語は tok.japanese にフォールバックする。 */
+       非日本語UI（EN/ES）の場合は _glossSidecarFor() → 辞書（_uiShortGloss）の
+       グロスを優先し、どちらも供給できない語はギリシャ語本文（tok.text）に
+       フォールバックする（#103。語順で読むチップと同じ）。 */
     const bd = await _loadBdChapter(parsed.book, parsed.chapter);
     const jaByRef = new Map();
     if (Array.isArray(bd)) {
@@ -323,7 +325,7 @@ async function _buildLocalRelationFrame(ref) {
                 let _lbl = label;
                 if (_lbl == null) {
                     const _lex = (typeof _uiShortGloss === 'function') ? _uiShortGloss(tok.lemmaId) : null;
-                    _lbl = _lex || ((window.I18N && I18N.lang === 'es') ? (tok.text || '') : (tok.japanese || ''));
+                    _lbl = _lex || (tok.text || '');   /* #103: 非日本語UIは EN/ES ともギリシャ語へ */
                 }
                 enByRef.set(tok.ref, _lbl);
             }

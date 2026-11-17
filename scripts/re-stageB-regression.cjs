@@ -180,6 +180,30 @@ check('Tier2: 旧経路の挙動そのまま（なた = 旧バグ込み）',
     check('P1: words 未指定 → 整形なし', c.gloss, '福音へ');
 }
 
+// ── #103: 非日本語UIで供給源（サイドカー・辞書）が無い語はギリシャ語へ落とす ──
+//   日本語UIでは本分岐に入らない（上の Tier 0/1/2 の検査が JA 不変を担保）。
+{
+    const t = tok('ふりをする', 'V-PMP-NSM', { text: 'προσποιούμενος', book: 'JHN', chapter: 8, ref: 'JHN 8:6!22', lemmaId: 'grc:G4364' });
+    sandbox._glossSidecarCache = new Map();   // サイドカー未読込（= 該当なし）
+    for (const lang of ['en', 'es']) {
+        sandbox.I18N = sandbox.window.I18N = { lang };
+        check(`#103 ${lang}: Tier0 供給源なし → ギリシャ語`,
+            chip(t, 0, 'JHN', 8, { japanese: 'ふりをしながら', source: 'morph' }).gloss, 'προσποιούμενος');
+        check(`#103 ${lang}: Tier1 供給源なし → ギリシャ語`,
+            chip(t, 0, 'JHN', 8, null).gloss, 'προσποιούμενος');
+        check(`#103 ${lang}: Tier2 供給源なし → ギリシャ語（_naturalize しない）`,
+            chip(t, 0, 'JHN', 8).gloss, 'προσποιούμενος');
+        check(`#103 ${lang}: jaWord は従来どおり（gloss のみの変更）`,
+            chip(t, 0, 'JHN', 8, null).jaWord, 'ふりをする');
+    }
+    // 供給源がある語は従来どおりその値（サイドカー優先）
+    sandbox.I18N = sandbox.window.I18N = { lang: 'es' };
+    sandbox._glossSidecarCache.set('RVR1909:JHN:8', { glosses: { 'JHN 8:6!22': 'fingiendo' } });
+    check('#103 es: サイドカーあり → サイドカー値', chip(t, 0, 'JHN', 8, null).gloss, 'fingiendo');
+    delete sandbox.I18N; delete sandbox.window.I18N; delete sandbox._glossSidecarCache;
+    check('#103 ja: I18N なし（日本語経路）→ 従来の日本語', chip(t, 0, 'JHN', 8, null).gloss, 'ふりをする');
+}
+
 // _getVerseResolved: Engine 未ロード → null（Tier 2 へ）
 check('cache: Engine 未ロード → null',
     sandbox._getVerseResolved([tok('神', 'N-NSM')]), null);
