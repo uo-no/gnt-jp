@@ -540,7 +540,7 @@ async function _openEtymPopup(lexemeId) {
         /* 非日本語UI: 本文は Abbott-Smith 原文（description_en） */
         if (digits) {
             if (!abbottSmithDict) await loadDict();
-            desc = abbottSmithDict?.[digits]?.descriptionEn || desc;
+            desc = (esUi && abbottSmithDict?.[digits]?.descriptionEs) || abbottSmithDict?.[digits]?.descriptionEn || desc;   /* #107: ES は descriptionEs 優先 */
         }
     } else if (!desc && lexemeId) {
         if (!abbottSmithDict) await loadDict();
