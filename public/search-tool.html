@@ -6479,10 +6479,16 @@ function _lxxMorphMatchesPattern(tag, pattern){
     if(!f) return false;             /* 解読不能は一致扱いにしない（素通ししない） */
     if(pattern.pos && !_mmOk(pattern,'pos',f.pos)) return false;
     if(f.verbal){
-        if(_mmNegAxisFail(pattern,['case','gen'])) return false;
+        /* 定形動詞は格・性を持たない（従来どおり：否定指定では不一致）。分詞（法 P）は格・性を持つので値で判定する（#97。NT 側 #93 の LXX 版） */
+        const part = f.mood==='P';
+        if(!part && _mmNegAxisFail(pattern,['case','gen'])) return false;
         if(pattern.tense && !_mmOk(pattern,'tense',f.tense)) return false;
         if(pattern.voice && !_mmOk(pattern,'voice',f.voice)) return false;
         if(pattern.mood  && !_mmOk(pattern,'mood',f.mood))   return false;
+        if(part){
+            if(pattern.case && !_mmOk(pattern,'case',f.case)) return false;
+            if(pattern.gen  && !_mmOk(pattern,'gen',f.gen))   return false;
+        }
         if(pattern.num   && !_mmOk(pattern,'num',f.num))     return false;
     } else {
         if(_mmNegAxisFail(pattern,['tense','voice','mood'])) return false;
