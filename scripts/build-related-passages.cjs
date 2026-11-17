@@ -66,6 +66,45 @@ function lxxChapter(book, ch) {
     return set;
 }
 
+/* ── MT → LXX 番号変換（旧約の遷移先・ラベル用） ── */
+/* 詩篇: 先頭の節で分割される章（116, 147）は節で振り分ける。章のみを返す。 */
+function psalmLxxChapter(ch, firstVerse) {
+    if (ch <= 8) return ch;
+    if (ch <= 10) return 9;
+    if (ch <= 113) return ch - 1;
+    if (ch <= 115) return 113;
+    if (ch === 116) return firstVerse <= 9 ? 114 : 115;
+    if (ch <= 146) return ch - 1;
+    if (ch === 147) return firstVerse <= 11 ? 146 : 147;
+    return ch;                                     // 148–150
+}
+
+/* 変換して { label, book, ch, verse|null } を返す。verse===null は章を開く。 */
+function toLxx(o) {
+    const first = o.verses[0];
+    if (o.book === 'PSA') {
+        const c = psalmLxxChapter(o.ch, first);
+        return { label: `PSA ${c}`, book: 'PSA', ch: c, verse: null };
+    }
+    if (o.book === 'JER') {
+        if (o.ch === 31) return { label: o.ref.replace(/^JER 31:/, 'JER 38:'), book: 'JER', ch: 38, verse: first };
+        if (o.ch === 9 && o.ref === 'JER 9:23') return { label: 'JER 9:22', book: 'JER', ch: 9, verse: 22 };
+    }
+    if (o.book === 'PRO') {
+        if (o.ref === 'PRO 25:21-22') return { label: 'PRO 27:21', book: 'PRO', ch: 27, verse: 21 };
+        if (o.ref === 'PRO 26:11')    return { label: 'PRO 28:11', book: 'PRO', ch: 28, verse: 11 };
+    }
+    return { label: o.ref, book: o.book, ch: o.ch, verse: first };
+}
+
+/* 他の参照の範囲に完全に含まれる参照を落とす（同一範囲は先に出たものを残す）。 */
+function dropContained(list) {
+    return list.filter((x, i) => !list.some((y, j) =>
+        j !== i && y.book === x.book && y.ch === x.ch &&
+        x.verses.every(v => y.verses.includes(v)) &&
+        (y.verses.length > x.verses.length || j < i)));
+}
+
 const out = {};
 let ntVerses = 0, withOt = 0;
 function slot(key) { return out[key] || (out[key] = { p: [], o: [] }); }
@@ -81,25 +120,35 @@ for (const refs of groups) {
             for (const b of nts) {
                 if (b === a) continue;
                 if (b.book === a.book && b.ch === a.ch && b.verses.includes(v)) continue;
-                if (!s.p.includes(b.ref)) s.p.push(b.ref);
+                if (!s.p.some(x => x.ref === b.ref)) s.p.push(b);
             }
             for (const o of ots) {
-                if (s.o.some(x => x.r === o.ref)) continue;
-                const item = { r: o.ref };
-                const set = lxxChapter(o.book, o.ch);
-                if (set) {
-                    item.b = o.book; item.c = o.ch;
-                    if (set.has(o.verses[0])) item.v = o.verses[0];
-                }
-                s.o.push(item);
+                if (!s.o.some(x => x.ref === o.ref)) s.o.push(o);
             }
         }
     }
 }
+
+/* 区分ごとに、範囲に含まれる参照を落とし、旧約は LXX 番号へ変換して遷移先を確認する */
 for (const k of Object.keys(out)) {
     const s = out[k];
-    if (!s.p.length) delete s.p;
-    if (!s.o.length) delete s.o;
+    const p = dropContained(s.p).map(x => x.ref);
+    const seen = new Set();
+    const o = [];
+    for (const x of dropContained(s.o)) {
+        const t = toLxx(x);
+        if (seen.has(t.label)) continue;
+        seen.add(t.label);
+        const item = { r: t.label };
+        const set = lxxChapter(t.book, t.ch);
+        if (set) {
+            item.b = t.book; item.c = t.ch;
+            if (t.verse != null && set.has(t.verse)) item.v = t.verse;
+        }
+        o.push(item);
+    }
+    if (p.length) s.p = p; else delete s.p;
+    if (o.length) s.o = o; else delete s.o;
     if (!s.p && !s.o) delete out[k];
 }
 
