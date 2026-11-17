@@ -12,6 +12,17 @@ let _peekChipEl = null;
 let _peekProceed = null;
 let _peekLemmaId = null;
 
+/* #80 音訳: 表示専用の小さな span（ギリシャ語 → ラテン文字、決定的変換。Translit は assets/js/translit.js）。
+   空なら null（静寂）。UI 言語に依存しない。 */
+function _translitEl(text) {
+    const t = (window.Translit && text) ? Translit.of(text) : '';
+    if (!t) return null;
+    const s = document.createElement('span');
+    s.className = 'translit';
+    s.textContent = t;
+    return s;
+}
+
 function _ntCountText(c) {
     const t = _T('panel.appearsInNt', null);
     return t ? t.replace('{n}', c) : '新約で ' + c + ' 回出てくる語';
@@ -91,6 +102,7 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     g.className = 'word-peek-greek';
     g.textContent = chip.greek || '';
     head.appendChild(g);
+    { const tr = _translitEl(chip.greek); if (tr) head.appendChild(tr); }
     const lem = document.createElement('span');
     lem.className = 'word-peek-lemma';
     lem.textContent = _T('panel.lemmaPrefix', '原形：') + (chip.lemma || '');
@@ -355,6 +367,7 @@ function _openSegPeek(segEl, tis) {
         g.className = 'word-peek-greek';
         g.textContent = w.text || '';
         head.appendChild(g);
+        { const tr = _translitEl(w.text); if (tr) head.appendChild(tr); }
         const lem = document.createElement('span');
         lem.className = 'word-peek-lemma';
         lem.textContent = _T('panel.lemmaPrefix', '原形：') + (w.lemma || '');
@@ -407,6 +420,7 @@ function _openSegPeek(segEl, tis) {
             g.className = 'word-peek-greek';
             g.textContent = w.text || '';
             head.appendChild(g);
+            { const tr = _translitEl(w.text); if (tr) head.appendChild(tr); }
             const lem = document.createElement('span');
             lem.className = 'word-peek-lemma';
             const _wTag = _glossSidecarFor(w) || ((window.I18N && I18N.lang === 'es') ? '' : w.japanese);
@@ -890,14 +904,23 @@ function _wlvChipClick(chipEl, tokenId) {
     if (drawer) {
         const ddGreek = document.getElementById('wlv-dd-greek');
         const ddReso  = document.getElementById('wlv-dd-resonance');
-        if (ddGreek) ddGreek.textContent = chip.greek || '-';
+        if (ddGreek) {
+            ddGreek.textContent = chip.greek || '-';
+            ddGreek.parentNode.querySelectorAll('.translit').forEach(n => n.remove());
+            const _trG = _translitEl(chip.greek);
+            if (_trG) ddGreek.after(_trG);
+        }
         /* 階層（ピーク層と統一）：主役＝この箇所での意味、名札に原形も添える */
         const ddMeaning = document.getElementById('wlv-dd-meaning');
         if (ddMeaning) {
             ddMeaning.textContent = (AppState.inspect.data && (AppState.inspect.data.jaWordDisplay || AppState.inspect.data.jaWord)) || '';
         }
         const ddLemma = document.getElementById('wlv-dd-lemma');
-        if (ddLemma) ddLemma.textContent = chip.lemma ? _T('panel.lemmaPrefix', '原形：') + chip.lemma : '';
+        if (ddLemma) {
+            ddLemma.textContent = chip.lemma ? _T('panel.lemmaPrefix', '原形：') + chip.lemma : '';
+            const _trL = chip.lemma ? _translitEl(chip.lemma) : null;
+            if (_trL) ddLemma.appendChild(document.createTextNode(' ')), ddLemma.appendChild(_trL);
+        }
         /* 語義（readingLexicon.lookup().glosses）：chip 切り替え時に前の語義が残らないよう毎回更新 */
         const ddGlosses = document.getElementById('wlv-dd-glosses');
         if (ddGlosses) {

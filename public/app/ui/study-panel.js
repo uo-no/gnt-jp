@@ -123,7 +123,12 @@ function _mobileOpenPanel(titleText, wasAlreadyOpen) {
     if (_isMobile()) {
         document.getElementById('app').classList.add('mobile-study-open');
         const navTitle = document.getElementById('mobile-nav-title');
-        if (navTitle) navTitle.textContent = titleText || _T('panel.readWord', '語を読む');
+        if (navTitle) {
+            navTitle.textContent = titleText || _T('panel.readWord', '語を読む');
+            /* #80 音訳: 語の詳細（タイトルがギリシャ語表層形のとき）のみ併記 */
+            const _trN = (titleText && typeof _translitEl === 'function' && /[\u0370-\u03FF\u1F00-\u1FFF]/.test(titleText)) ? _translitEl(titleText) : null;
+            if (_trN) { navTitle.appendChild(document.createTextNode(' ')); navTitle.appendChild(_trN); }
+        }
     }
     /* 768px以下：CSS の top/bottom が環境によって効かない場合に備え
        window.innerHeight で高さを確定する（dvh/auto の非依存フォールバック） */
@@ -2272,7 +2277,11 @@ function openStudyPanel(greek, rawMorph, ref, lemma, options = {}) {
     _syncStudyVerseNav();
     _syncReadingPanelPadding();
 const activeVEl = document.getElementById('active-v');
-    if (activeVEl && greek) activeVEl.textContent = greek;
+    if (activeVEl && greek) {
+        activeVEl.textContent = greek;
+        const _trH = (typeof _translitEl === 'function') ? _translitEl(greek) : null;
+        if (_trH) { activeVEl.appendChild(document.createTextNode(' ')); activeVEl.appendChild(_trH); }
+    }
 
     document.getElementById('open-panel-btn').style.display = 'none';
 
