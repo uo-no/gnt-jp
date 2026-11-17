@@ -232,7 +232,16 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
         _lexGloss = _uiShortGloss(w.lemmaId);
         if (_lexGloss) gloss = _lexGloss;
     }
-    const _enLike = !!_enGloss || !!_lexGloss;
+    /* #103: 非日本語UIでサイドカーにも辞書にも値が無い語は、日本語（jaWord）を
+       無言で残さず、ギリシャ語本文に落とす（関係図ラベル role-renderers と同じ
+       考え方）。日本語UIはこの分岐に入らない（Tier 0/1/2 の日本語決定は不変）。 */
+    let _greekFallback = false;
+    if (!_enGloss && !_lexGloss && typeof window !== 'undefined' && window.I18N && I18N.lang !== 'ja') {
+        gloss = greek;
+        _greekFallback = true;
+    }
+    /* 日本語向けの整形・自然化は、gloss が日本語のとき（日本語UI）だけ適用する */
+    const _enLike = !!_enGloss || !!_lexGloss || _greekFallback;
 
     /* Stage C P1: 表示整形（Presentation Policy — 表示のみ。jaWord は生のまま。
        docs/presentation-policy.md。_words 省略時・Policy 未ロード時は整形なし） */
