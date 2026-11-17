@@ -130,11 +130,14 @@ function _mobileOpenPanel(titleText, wasAlreadyOpen) {
             if (_trN) { navTitle.appendChild(document.createTextNode(' ')); navTitle.appendChild(_trN); }
         }
     }
-    /* 768px以下：CSS の top/bottom が環境によって効かない場合に備え
-       window.innerHeight で高さを確定する（dvh/auto の非依存フォールバック） */
+    /* 768px以下：全画面オーバーレイの高さは CSS の top:0 + bottom:0 + height:auto が
+       確定する（_applyPanelHeightFromState と同じ規則）。inline height は書かず、
+       769–900px 帯などで残った inline height（!important 含む）があれば消す。
+       #112: 以前は window.innerHeight を px で書いていたため、開いた後に表示領域が
+       広がると高さが固定されたまま下部に背面の本文が残っていた。 */
     if (window.innerWidth <= 768) {
         const panel = document.getElementById('bottom-depth-panel');
-        if (panel) panel.style.height = window.innerHeight + 'px';
+        if (panel) panel.style.height = '';
     }
 }
 
