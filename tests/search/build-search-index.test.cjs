@@ -23,8 +23,11 @@ try {
         { ref: 'MAT 1:1!1', verse: '1', text: 'Βίβλος', lemma: 'βίβλος', japanese: '書物', gloss: '[The] book', strong: 'G976', morph: 'N-NSF' },
         { ref: 'MAT 1:1!2', verse: '1', text: 'γενέσεως', lemma: 'γένεσις', japanese: '起源', strong: 'G1078', morph: 'N-GSF' },
     ]);
+    /* #94：LXX は実データの形（verse・japanese 無し、ref 有り、10桁位置式 morph）。節の分割（2a）を含める。 */
     writeJson(path.join(fixture, 'public/bible_data/lxx/GEN/1.json'), [
-        { ref: 'GEN 1:1!1', verse: '1', text: 'θεός', lemma: 'θεός', japanese: '神', strong: 'G2316', morph: 'N-NSM' },
+        { ref: 'GEN 1:1!1', text: 'θεός', lemma: 'θεός', strong: '2316', morph: 'N2--NSM---' },
+        { ref: 'GEN 1:2!1', text: 'θεός', lemma: 'θεός', strong: '2316', morph: 'N2--NSM---' },
+        { ref: 'GEN 1:2a!1', text: 'θεός', lemma: 'θεός', strong: '2316', morph: 'N2--NSM---' },
     ]);
 
     execFileSync(process.execPath, [
@@ -40,17 +43,17 @@ try {
 
     assert.equal(meta.schemaVersion, 3);
     assert.equal(meta.chapterCount, 2);
-    assert.equal(meta.tokenCount, 3);
+    assert.equal(meta.tokenCount, 5);
     assert.equal(nt.tokenCount, 2);
     assert.equal(nt.bookKey, 'MAT');
     assert.equal(meta.corpora.NT.books[0].path, 'nt/MAT.json');
     assert.equal(nt.globalIdxStart, 0);
     assert.equal(nt.globalIdxEnd, 1);
-    assert.equal(lxx.tokenCount, 1);
+    assert.equal(lxx.tokenCount, 3);
     assert.equal(lxx.bookKey, 'GEN');
     assert.equal(meta.corpora.LXX.books[0].path, 'lxx/GEN.json');
     assert.equal(lxx.globalIdxStart, 2);
-    assert.equal(lxx.globalIdxEnd, 2);
+    assert.equal(lxx.globalIdxEnd, 4);
     assert.deepEqual(nt.index.lemma['βίβλος'], [0]);
     assert.deepEqual(nt.index.lemma['βιβλοσ'], [0]);
     assert.deepEqual(nt.index.strong.G976, [0]);
@@ -62,7 +65,11 @@ try {
     assert.deepEqual(nt.index.textToJp['Βίβλος'], '書物');
     assert.deepEqual(nt.index.japanesePartial['書物'], [0]);
     assert.deepEqual(nt.index.japanesePartial['書'], [0]);
-    assert.deepEqual(lxx.index.japanesePartial['神'], [2]);
+    assert.deepEqual(lxx.index.japanesePartial, {});   /* LXX は日本語グロスを持たない */
+    /* #94：LXX の節は ref から導出し、サフィックス（2a）を落とさない */
+    assert.deepEqual(lxx.tokens.map(t => t.verse), [1, 2, '2a']);
+    assert.equal(new Set(lxx.tokens.map(t => `${t.bookKey}:${t.ch}:${t.verse}`)).size, 3);
+    assert.deepEqual(nt.tokens.map(t => t.verse), [1, 1]);
     for (const shard of [nt, lxx]) {
         assert.equal(shard.tokens.length, shard.tokenCount);
         for (const key of ['lemma', 'text', 'strong', 'morph', 'japanesePartial']) {

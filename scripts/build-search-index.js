@@ -75,6 +75,13 @@ function normalizeStrong(value) {
     const digits = String(value || '').replace(/[^0-9]/g, '');
     return digits ? 'G' + digits : '';
 }
+/* #94：LXX トークンは verse を持たないため、ref（'GEN 1:1!1'・'1SA 30:28a!1'）から節（数字＋任意の小文字サフィックス）を導出する。
+   search-tool.html の _lxxVerseFromRef と同じ規則（サフィックス無しは数値、有りは文字列。導出できなければ null）。 */
+function lxxVerseFromRef(ref) {
+    const m = /:(\d+)([a-z]*)!/.exec(String(ref || ''));
+    if (!m) return null;
+    return m[2] ? m[1] + m[2] : Number(m[1]);
+}
 function add(map, key, idx) {
     if (!key) return;
     (map[key] || (map[key] = [])).push(idx);
@@ -118,7 +125,7 @@ for (const book of books) {
                 ref: w.ref || `${book.key} ${ch}:${w.verse ?? '?'}`,
                 bookKey: book.key,
                 ch: Number(ch),
-                verse: w.verse != null ? Number(w.verse) : null,
+                verse: w.verse != null ? Number(w.verse) : (corpus === 'LXX' ? lxxVerseFromRef(w.ref) : null),   /* #94 */
                 text: w.text || '',
                 lemma: w.lemma || w.text || '',
                 morph: w.morph ?? null,
