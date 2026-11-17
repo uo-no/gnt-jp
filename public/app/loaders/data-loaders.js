@@ -8,41 +8,41 @@ let _lnIndexData           = null;
 let _clusterIndexData      = null;
 let _compositionData       = null;
 let _semanticDomainLabels  = null;
-let _lexiconLoading        = false;
-
-async function _ensureSemanticData() {
-    if (_lexiconData && _lnIndexData && _clusterIndexData && _compositionData && _semanticDomainLabels) return;
-    if (_lexiconLoading) {
-        await new Promise(res => {
-            const t = setInterval(() => {
-                if (_lexiconData && _lnIndexData && _clusterIndexData && _compositionData && _semanticDomainLabels) { clearInterval(t); res(); }
-            }, 60);
-        });
-        return;
-    }
-    _lexiconLoading = true;
-    try {
-        const [lexRes, lnRes, clRes, compRes, sdlRes] = await Promise.all([
-            fetch('../assets/data/lexicon/lexicon-lite.json'),
-            fetch('../assets/data/index/domains-ln-index.json'),
-            fetch('../assets/data/index/domains-cluster-index.json'),
-            fetch('../assets/data/lexicon/lexicon-composition.json'),
-            fetch('../assets/data/index/semantic-domain-labels.json'),
-        ]);
-        _lexiconData          = lexRes.ok   ? await lexRes.json()   : {};
+/* #105：語彙データ5本は1本ずつ独立に取得する（1本の失敗で他の4本を巻き込まない）。
+   成功・確定の不在（404）は固定する。一時的な失敗の1本だけは {} で埋めて表示を続け（消費側は {} を前提にしている）、
+   次の呼び出しでその1本だけを1回再取得する。契約（_glossDictReady が消費）：返す Promise は必ず解決し、拒否しない。 */
+const _SEM_SPECS = [
+    ['lex',  '../assets/data/lexicon/lexicon-lite.json',            d => {
+        _lexiconData = d;
         /* Phase 4-C: ReadingLexicon を lexicon-lite で補強する
            （glossJa / abbottSmith / semanticDomains — Phase 5 Semantic の語彙情報源）。
            失敗しても ReadingEngine の挙動には影響しない（deponent は基本層にある）。 */
         try { window.App?.readingLexicon?.enrich(_lexiconData); } catch (_) {}
-        _lnIndexData          = lnRes.ok    ? await lnRes.json()    : {};
-        _clusterIndexData     = clRes.ok    ? await clRes.json()    : {};
-        _compositionData      = compRes.ok  ? await compRes.json()  : {};
-        _semanticDomainLabels = sdlRes.ok   ? await sdlRes.json()   : {};
-    } catch(e) {
-        console.warn('[SemanticData] load failed:', e);
-        _lexiconData = _lnIndexData = _clusterIndexData = _compositionData = {};
-        _semanticDomainLabels = {};
-    }
+    }],
+    ['ln',   '../assets/data/index/domains-ln-index.json',          d => { _lnIndexData = d; }],
+    ['cl',   '../assets/data/index/domains-cluster-index.json',     d => { _clusterIndexData = d; }],
+    ['comp', '../assets/data/lexicon/lexicon-composition.json',     d => { _compositionData = d; }],
+    ['sdl',  '../assets/data/index/semantic-domain-labels.json',    d => { _semanticDomainLabels = d; }],
+];
+const _semPending = new Set(_SEM_SPECS.map(x => x[0]));   /* まだ確定していない（未取得／一時失敗の）データ */
+let _semInflight = null;
+function _ensureSemanticData() {
+    if (_semPending.size === 0) return Promise.resolve();
+    if (_semInflight) return _semInflight;
+    const targets = _SEM_SPECS.filter(x => _semPending.has(x[0]));
+    _semInflight = Promise.all(targets.map(async ([key, url, set]) => {
+        const o = await _fetchJsonOutcome(url);
+        if (o.ok) {
+            set((o.data && typeof o.data === 'object') ? o.data : {});
+            _semPending.delete(key);
+        } else {
+            console.warn('[SemanticData] load failed (will retry on next display):', url);
+            set({});   /* 今回の表示は空で続ける（固定はしない：_semPending に残す） */
+        }
+    })).catch(e => {
+        console.warn('[SemanticData] load error:', e);
+    }).then(() => { _semInflight = null; });
+    return _semInflight;
 }
 function loadDict() {
     if (abbottSmithDict) return Promise.resolve(abbottSmithDict);
@@ -81,9 +81,12 @@ function _loadRenderingVariants() {
        ファイルが無い言語では null（静寂）。 */
     const transId = (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en') ? 'WEB' : (typeof window !== 'undefined' && window.I18N && I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
     if (!_renderingVariantsPromises[transId]) {
-        _renderingVariantsPromises[transId] = fetch(new URL('assets/data/rendering-variants/' + transId + '.json', document.baseURI).href)
-            .then(r => (r.ok ? r.json() : null))
-            .catch(() => null);
+        _renderingVariantsPromises[transId] = _fetchJsonOutcome(new URL('assets/data/rendering-variants/' + transId + '.json', document.baseURI).href)
+            .then(o => {
+                /* #105：一時的な失敗は固定しない（次回の要求で再試行）。404（ファイル無しの言語）は null で確定。 */
+                if (!o.ok) delete _renderingVariantsPromises[transId];
+                return o.data;
+            });
     }
     return _renderingVariantsPromises[transId];
 }
@@ -92,16 +95,10 @@ const _syntaxCtxChapterCache = new Map();
 async function _fetchSyntaxChapterTokens(book, chapter) {
     const key = `${book}/${chapter}`;
     if (_syntaxCtxChapterCache.has(key)) return _syntaxCtxChapterCache.get(key);
-    let tokens = null;
-    try {
-        const testament = (typeof SB_BOOKS !== 'undefined' && SB_BOOKS.lxx && SB_BOOKS.lxx.some(b => b.key === book)) ? 'lxx' : 'nt';
-        const res = await fetch(new URL(`bible_data/${testament}/${book}/${chapter}.json`, document.baseURI).href);
-        if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data)) tokens = data;
-        }
-    } catch (_) { tokens = null; }
-    _syntaxCtxChapterCache.set(key, tokens);
+    const testament = (typeof SB_BOOKS !== 'undefined' && SB_BOOKS.lxx && SB_BOOKS.lxx.some(b => b.key === book)) ? 'lxx' : 'nt';
+    const o = await _fetchJsonOutcome(new URL(`bible_data/${testament}/${book}/${chapter}.json`, document.baseURI).href);
+    const tokens = Array.isArray(o.data) ? o.data : null;
+    if (o.ok) _syntaxCtxChapterCache.set(key, tokens);   /* #105：一時的な失敗は固定しない（次回の要求で再試行） */
     return tokens;
 }
 /* ══════════════════════════════════════════════════════════════════
@@ -111,22 +108,24 @@ async function _fetchSyntaxChapterTokens(book, chapter) {
    失敗しても本文表示は不変（Hint を出さないだけ）。
    ════════════════════════════════════════════════════════════════ */
 let _readingHintIndex = null; // Map: `${bookKey}|${chapter}` -> [published hint, ...]
+let _readingHintInflight = null;
 async function _loadReadingHints() {
     if (_readingHintIndex) return;
-    try {
-        const res = await fetch('../assets/data/reading-hints.json');
-        const arr = res.ok ? await res.json() : [];
+    if (_readingHintInflight) return _readingHintInflight;
+    _readingHintInflight = (async () => {
+        const o = await _fetchJsonOutcome('../assets/data/reading-hints.json');
+        if (!o.ok) return;   /* #105：失敗しても本文は不変（Hint を出さない）。索引は固定せず、次の表示で1回再試行する */
+        const arr = Array.isArray(o.data) ? o.data : [];
         const idx = new Map();
-        for (const h of (Array.isArray(arr) ? arr : [])) {
+        for (const h of arr) {
             if (!h || h.status !== 'published' || !h.book || h.chapter == null) continue;
             const k = h.book + '|' + h.chapter;
             if (!idx.has(k)) idx.set(k, []);
             idx.get(k).push(h);
         }
         _readingHintIndex = idx;
-    } catch (_) {
-        _readingHintIndex = new Map(); /* 失敗しても継続（Hint 非表示） */
-    }
+    })().finally(() => { _readingHintInflight = null; });
+    return _readingHintInflight;
 }
 /* ═════════════════════════════════════════════════════════════════
  * 節全体の読書メモ — ReadingFormatter 駆動版
@@ -201,7 +200,7 @@ let _peekLitePromise = null;
 function _peekEnsureLite() {
     if (_peekLitePromise) return;
     _peekLitePromise = fetch('../assets/data/lexicon/lexicon-lite.json')
-        .then(r => (r && r.ok) ? r.json() : null)
+        .then(r => _okJsonOrNull(r))
         .then(d => {
             _peekLiteData = (d && typeof d === 'object') ? d : null;
             /* カードが開いたままなら、回数の行を差し込む */

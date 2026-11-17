@@ -58,8 +58,28 @@ function switchTab(evt, tabName) {
 
 let _renderCurrentPageToken = 0;
 
+/* #105：ギリシャ語の章データが取れず訳文だけを表示しているとき、その旨を本文の先頭に静かに示す。
+   「再読み込み」は同じ章をもう一度描画する（＝取得を1回だけ再試行する）。 */
+function _showGreekFetchNotice() {
+    const area = document.getElementById('bible-text-area');
+    if (!area || area.querySelector('.greek-fetch-notice')) return;
+    const note = document.createElement('div');
+    note.className = 'rn-ref-note greek-fetch-notice';
+    note.setAttribute('role', 'status');
+    note.appendChild(document.createTextNode(_T('ui.greekFetchFailed', 'ギリシャ語データを取得できなかったため、訳文のみを表示しています。') + ' '));
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'back-btn';
+    btn.textContent = _T('ui.retry', '再読み込み');
+    btn.onclick = () => renderCurrentPage();
+    note.appendChild(btn);
+    area.insertBefore(note, area.firstChild);
+}
+
 async function renderCurrentPage() {
     const renderToken = ++_renderCurrentPageToken;
+    /* #105：Reading Hint 索引の取得に失敗していた場合は、表示のたびに1回だけ再試行する（成功済みなら何もしない） */
+    if (typeof _loadReadingHints === 'function' && !_readingHintIndex) _loadReadingHints();
     document.body.classList.add('chapter-navigation-loading');
     document.getElementById('main-reading-area').classList.remove('static-view');
     const urlParams = Router.parse();
@@ -98,12 +118,15 @@ async function renderCurrentPage() {
         }
 
         let elData = [];
+        let greekFetchFailed = false;   /* #105：ギリシャ語データの取得失敗を握りつぶさず、訳文だけの表示であることを示す */
         if (hasGreek) {
             try {
                 const testament = SB_BOOKS.nt.some(b => b.key === book) ? 'nt' : 'lxx';
                 const elRes = await fetch(`../bible_data/${testament}/${book}/${ch}.json`);
                 if (elRes.ok) elData = await elRes.json();
-            } catch(e) {}
+                else greekFetchFailed = true;
+            } catch(e) { greekFetchFailed = true; }
+            if (!Array.isArray(elData)) { elData = []; greekFetchFailed = true; }
         }
 
         /* 口語訳アラインメント（パイロット）: 対応表とトークン索引を render() の前に先読みする。
@@ -149,6 +172,7 @@ async function renderCurrentPage() {
         _sdChapterDataForRender = sdData;
         _missingVerseTextsForRender = _missingTexts;   /* QA-02 の経路（底本に無い節）も同じ値をそのまま渡す */
         render(columns, elData, hasGreek && elData.length > 0);
+        if (greekFetchFailed) _showGreekFetchNotice();
         document.getElementById('active-v').innerText = "";
         syncUrlState();
         _applyHighlights();

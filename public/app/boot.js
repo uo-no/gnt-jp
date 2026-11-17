@@ -141,6 +141,7 @@ async function init() {
         }
 
         let elData = [];
+        let greekFetchFailed = false;   /* #105：初回表示でも、ギリシャ語データの取得失敗を利用者に示す（panel-pages.js と同じ扱い） */
         if (hasGreek) {
             try {
                 const testament = SB_BOOKS.nt.some(b => b.key === book) ? 'nt' : 'lxx';
@@ -148,11 +149,14 @@ async function init() {
                 if (elRes.ok) {
                     elData = await elRes.json();
                 } else {
+                    greekFetchFailed = true;
                     console.warn(`bible_data not found for ${book}/${ch} - Greek panel disabled`);
                 }
             } catch (e) {
+                greekFetchFailed = true;
                 console.warn(`bible_data fetch error for ${book}/${ch}:`, e);
             }
+            if (!Array.isArray(elData)) { elData = []; greekFetchFailed = true; }
         }
 
         /* 口語訳アラインメント（パイロット）: 対応表とトークン索引を render() の前に先読みする。
@@ -189,6 +193,7 @@ async function init() {
             { colMode: _colB, jpData: jpDataB },
         ];
         render(columns, elData, hasGreek && elData.length > 0);
+        if (greekFetchFailed && typeof _showGreekFetchNotice === 'function') _showGreekFetchNotice();
         _applyHighlights(); /* BUG-1: 初回ロード時、Storage準備済みで再適用 */
         requestAnimationFrame(() => requestAnimationFrame(() => {
             document.getElementById('bible-text-area').style.opacity = '1';
