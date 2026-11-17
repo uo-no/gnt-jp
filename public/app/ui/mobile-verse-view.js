@@ -306,7 +306,7 @@ async function _renderMobileVerseArea(vNum, words) {
         _inspectorForNotes.insertAdjacentHTML('beforeend', '<div id="wlv-passage-note-slot"></div><div id="wlv-apparatus-slot"></div>');
         _fillWallacePassageNote(words, _inspectorForNotes);
         const _bookKey = book ? book.key : '';
-        if (_bookKey && ch != null && vNum != null) _fillApparatusSection(_bookKey, ch, vNum, _inspectorForNotes);
+        if (_bookKey && ch != null && vNum != null) { _fillApparatusSection(_bookKey, ch, vNum, _inspectorForNotes); _fillRelatedPassages(_bookKey, ch, vNum, _inspectorForNotes); }
     }
 
     const inspector = document.getElementById('mobile-inspector-area');

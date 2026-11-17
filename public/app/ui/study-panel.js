@@ -198,6 +198,7 @@ function _ensureStudyPanelReadingSections(container, words, bookKey, ch, vNum) {
     _fillWallacePassageNote(words || [], container);
     if (bookKey && ch != null && vNum != null) {
         _fillApparatusSection(bookKey, ch, vNum, container);
+        _fillRelatedPassages(bookKey, ch, vNum, container);
     }
 }
 
