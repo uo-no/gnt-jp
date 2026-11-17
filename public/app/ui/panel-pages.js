@@ -113,18 +113,18 @@ async function renderCurrentPage() {
         /* Phase 1b Step 3: 英語UIでは WEB グロスも先読みする（日本語UIでは no-op）。 */
         await _loadGlossForRender(book, ch);
         await _loadAlignForRender(book, ch);
-        if (elData && elData.length) _jaSegIndexTokens(book, ch, elData);
+        /* #100：索引化とモジュール変数への代入は、下の世代チェックを通ってから行う（古い章の結果で上書きしない） */
 
         /* DA-1: discourse は passage単位の clause 接続を描くため、flow-tree（clause/sentence
            構造の一次データ）を render() の前に先読みする。既存 _loadFlowTreeChapter() を再利用し、
            結果は render() が読む module 変数へ渡す（既存の翻訳fetchと同じく await 済みで一貫）。 */
-        _dcvChapterTreeForRender = (_colA.kind === 'discourse')
+        const dcvTree = (_colA.kind === 'discourse')
             ? await _loadFlowTreeChapter(book, ch) : null;
 
         /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。E-4-D: relation も同一SR JSONを使用。
            B列が passage-level の場合も同じ SR JSON を使用するため、_colB.kind も対象に含める。
            Phase E: rk-reading も同一 SR JSON を使用する。 */
-        _sdChapterDataForRender = (
+        const sdData = (
             _colA.kind === 'structural-diagram' || _colA.kind === 'hierarchical' || _colA.kind === 'relation' || _colA.kind === 'da-reading' || _colA.kind === 'rk-reading' || _colA.kind === 'rk-reading-v' || _colA.kind === 'rk-reading-p' || _colA.kind === 'role-reading' /* C-17 Phase 1 / E-4-D / Phase E / L.2 / M */
             || _colB.kind === 'structural-diagram' || _colB.kind === 'hierarchical' || _colB.kind === 'relation' || _colB.kind === 'da-reading' || _colB.kind === 'rk-reading' || _colB.kind === 'rk-reading-v' || _colB.kind === 'rk-reading-p' || _colB.kind === 'role-reading' /* B列 passage-level */
         ) ? await _loadSrChapter(book, ch) : null;
@@ -133,7 +133,6 @@ async function renderCurrentPage() {
         /* VR-5-D: resolvedJpData 決定ロジックを _getVerseSource() へ抽出（VR-5-C 参照） */
         /* QA-02: 底本に無い節（翻訳にのみ存在）を読み方モードでも表示する */
         const _missingTexts = await _fetchMissingVerseTexts(book, ch, _colA.kind, elData);
-        _missingVerseTextsForRender = _missingTexts;
         const resolvedJpData = _getVerseSource(_colA, jpData, elData, _missingTexts);
         if (!resolvedJpData) throw new Error('Not found');
 
@@ -144,6 +143,11 @@ async function renderCurrentPage() {
         ];
         /* 連続した章移動では、後から完了した古い fetch が新しい章を上書きしないようにする。 */
         if (renderToken !== _renderCurrentPageToken) return false;
+        /* #100：ここから先は最新の世代だけ。render() と StudyPanel／節ビュー（study-panel.js・mobile-verse-view.js）が読む値を確定する */
+        if (elData && elData.length) _jaSegIndexTokens(book, ch, elData);
+        _dcvChapterTreeForRender = dcvTree;
+        _sdChapterDataForRender = sdData;
+        _missingVerseTextsForRender = _missingTexts;   /* QA-02 の経路（底本に無い節）も同じ値をそのまま渡す */
         render(columns, elData, hasGreek && elData.length > 0);
         document.getElementById('active-v').innerText = "";
         syncUrlState();
@@ -553,7 +557,9 @@ async function _openEtymPopup(lexemeId) {
     bd.classList.add('open');
 }
 
+let _refPopupToken = 0;   /* #100：最後に開いた参照ポップアップだけが表示を確定する */
 async function _openRefPopup(book, ch, verse, href) {
+    const popupToken = ++_refPopupToken;
     const bd = document.getElementById('rn-ref-backdrop');
     if (!bd) { if (href) location.href = href; return; }
     const titleEl = document.getElementById('rn-ref-modal-title');
@@ -565,6 +571,7 @@ async function _openRefPopup(book, ch, verse, href) {
 
     const data = (typeof _loadBdChapter === 'function') ? await _loadBdChapter(book, ch) : null;
     if (!bd.classList.contains('open')) return; /* 読み込み中に閉じられた */
+    if (popupToken !== _refPopupToken) return;  /* #100：読み込み中に別の箇所が開かれた */
     if (!Array.isArray(data)) {
         if (bodyEl) bodyEl.innerHTML = `<div class="rn-ref-note">${_T('ref.fetchFailed', 'この箇所の本文データを取得できませんでした。「本文で見る」から開いてください。')}</div>` + actionsHtml;
         return;
