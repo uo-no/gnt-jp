@@ -3261,7 +3261,7 @@ const _MORPH_TERM_FIELDS = ['tense','voice','mood','case','number','gender','per
 
 /* 英語値 → morphタグ1文字（Robinson-Pierpont。_morphMatchesPatternVerbose と同じ体系） */
 const _MORPH_TAG_CODE = {
-    tense:  { present:'P', imperfect:'I', future:'F', aorist:'A', perfect:'X', pluperfect:'Z' },
+    tense:  { present:'P', imperfect:'I', future:'F', aorist:'A', perfect:'R', pluperfect:'L' },
     voice:  { active:'A', middle:'M', passive:'P' },
     mood:   { indicative:'I', subjunctive:'S', optative:'O', imperative:'M', infinitive:'N', participle:'P' },
     case:   { nominative:'N', genitive:'G', dative:'D', accusative:'A', vocative:'V' },
@@ -6222,8 +6222,8 @@ const MORPH_TENSE = [
     {code:'I',jp:'未完了',help:'過去の継続・反復'},
     {code:'F',jp:'未来',help:'未来の動作・状態'},
     {code:'A',jp:'アオリスト',help:'動作をひとまとまりに捉える'},
-    {code:'X',jp:'完了',help:'結果が続く状態'},
-    {code:'Y',jp:'過去完了',help:'過去の時点での結果状態'},
+    {code:'R',jp:'完了',help:'結果が続く状態'},   /* NT データの実コード（#88）。LXX の X は照合時に R へ読み替える */
+    {code:'L',jp:'過去完了',help:'過去の時点での結果状態'},
 ];
 const MORPH_VOICE = [
     {code:'A',jp:'能動',help:'主語が動作をする'},
@@ -6393,7 +6393,8 @@ function _lxxMorphMatchesPattern(tag, pattern){
     if(lead==='V'){
         if(_mmNegAxisFail(pattern,['case','gen'])) return false;
         const mood = t[6]==='D' ? 'M' : t[6];   /* LXX の D＝命令法 → NT コード M */
-        if(pattern.tense && !_mmOk(pattern,'tense',t[4])) return false;
+        const tense = t[4]==='X' ? 'R' : (t[4]==='Y' ? 'L' : t[4]);   /* LXX の X＝完了・Y＝過去完了 → NT コード R・L（#88） */
+        if(pattern.tense && !_mmOk(pattern,'tense',tense)) return false;
         if(pattern.voice && !_mmOk(pattern,'voice',t[5])) return false;
         if(pattern.mood  && !_mmOk(pattern,'mood',mood))  return false;
         if(pattern.num   && !_mmOk(pattern,'num',t[8]))   return false;
@@ -7086,7 +7087,7 @@ async function _synInit(syntaxId) {
     // 英語フルワード → 単文字コードへの逆引きマップ
     // index.html は tense="present" 等のフルワードで渡す
     const WORD_TO_CODE = {
-        tense: { present:'P', imperfect:'I', future:'F', aorist:'A', perfect:'X', pluperfect:'Y' },
+        tense: { present:'P', imperfect:'I', future:'F', aorist:'A', perfect:'R', pluperfect:'L' },
         voice: { active:'A', middle:'M', passive:'P', 'middle deponent':'M', 'middle or passive':'P' },
         mood:  { indicative:'I', subjunctive:'S', optative:'O', imperative:'M', infinitive:'N', participle:'P' },
         case:  { nominative:'N', genitive:'G', dative:'D', accusative:'A', vocative:'V' },
