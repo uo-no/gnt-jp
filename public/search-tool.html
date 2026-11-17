@@ -3282,7 +3282,7 @@ const _MORPH_TAG_CODE = {
    LXX（corpusId==='LXX'）は10桁の位置タグなので _lxxMorphFields で読む（#90。読み替え規則は形態フィルタと共通）。
    NT は形態フィルタと同じ共通リーダー _ntMorphFields で読む（#91。活用種別・人称の数字を読み飛ばす規則を揃える）。
    _ntMorphFields が null を返す軸（人称数字だけの名詞類タグの格・数・性）は '' とし、どのコードにも一致しない。
-   分詞（法 P）の 格・数・性 は従来どおり parts[2] の各文字で読む（#91 の対象外。_ntMorphFields は分詞の格・性を持たない）。
+   分詞（法 P）の 格・数・性 は従来どおり parts[2] の各文字で読む（#91 の対象外。#93 で _ntMorphFields も同じ読み方で分詞の格・数・性を返すようになったが、本関数のコードは変えていない）。
    対応の無いもの・解読不能は '' を返し、どのコードにも一致しない。 */
 function _morphFieldFromTag(morph, field, corpusId) {
     if (corpusId === 'LXX') {
@@ -6297,6 +6297,8 @@ function _getMorphFilterPattern(){
    3関数はすべてここを通して読む（読み方を3関数で一致させるための単一の正本）。
      動詞:   parts[1] 先頭の数字（活用種別。例 V-2AAI-3S の 2）を読み飛ばしてから 時制・態・法。
              数は従来どおり parts[2] の末尾1文字。
+             分詞（法 P）は parts[2] が 格・数・性（例 V-PAP-NSM）なので、先頭＝格・2文字目＝数・3文字目＝性 として読み、
+             participle:true を付ける。人称は返さない（#93）。
      名詞類: parts[1] 先頭の人称数字（例 P-1GP の 1）を読み飛ばし、後続を 格・数・性 として読む。
              所有代名詞 S は人称数字の次に所有者の数が入る（例 S-1SDSF＝1人称・所有者単数・与格単数女性）ので、
              その1文字も読み飛ばす（bible_data の分解フィールドで確認済み）。
@@ -6309,6 +6311,11 @@ function _ntMorphFields(morphTag){
     if(pos === 'V'){
         const tvm = seg.replace(/^[0-9]/, '');
         const pn  = parts[2] || '';
+        if(tvm[2] === 'P'){   /* 分詞（#93）: parts[2] = 格・数・性 */
+            return { pos, verbal:true, participle:true,
+                     tense: tvm[0]||'', voice: tvm[1]||'', mood: 'P',
+                     person: '', case: pn[0]||'', num: pn[1]||'', gen: pn[2]||'' };
+        }
         return { pos, verbal:true,
                  tense: tvm[0]||'', voice: tvm[1]||'', mood: tvm[2]||'',
                  person: pn.length>=2 ? pn[0] : '',
@@ -6353,9 +6360,15 @@ function _morphMatchesPatternVerbose(morphTag, pattern) {
         row('tense',  t,        pattern.tense);
         row('voice',  v,        pattern.voice);
         row('mood',   m,        pattern.mood);
+        if (f.participle) {   /* #93: 分詞は 格・数・性 を持つ */
+            row('case', f.case, pattern.case);
+            row('num',  f.num,  pattern.num);
+            row('gen',  f.gen,  pattern.gen);
+        } else {
         lines.push('  ' + 'person'.padEnd(8) + '  "' + personRaw
             + '"  filter=(スロットなし・_morphSel に person 未定義)  → skip（チェックなし）');
         row('num',    numRaw,   pattern.num);
+        }
     } else {
         const c = f.case, n = f.num, g = f.gen;
         row('case', c, pattern.case);
@@ -6375,7 +6388,8 @@ function _morphRejectReason(morphTag, pattern) {
     const posCode = f.pos;
     if (pattern.pos && !pattern.pos.has(posCode))
         return { field: 'pos', tokenVal: posCode, filterVals: [...pattern.pos], morphTag };
-    const slots = f.verbal ? [['tense','tense'],['voice','voice'],['mood','mood'],['num','num']]
+    const slots = f.participle ? [['tense','tense'],['voice','voice'],['mood','mood'],['case','case'],['num','num'],['gen','gen']]   /* #93 */
+                : f.verbal ? [['tense','tense'],['voice','voice'],['mood','mood'],['num','num']]
                            : [['case','case'],['num','num'],['gen','gen']];
     for (const [slot, key] of slots) {
         const val = f[key];
@@ -6459,11 +6473,16 @@ function _morphMatchesPattern(morphTag, pattern, corpusId){
         if(pattern.num  && !ok('num', f.num))  return false;
         if(pattern.gen  && !ok('gen', f.gen))  return false;
     } else {
-        if(_mmNegAxisFail(pattern,['case','gen'])) return false;
-        // Verbal: parts[1] = ([活用種別])TenseVoiceMood (e.g. "PAI" / "2AAI"), parts[2] = PersonNum or Num
+        /* 定形動詞は格・性を持たない（従来どおり：否定指定では不一致）。分詞は格・性を持つので値で判定する（#93） */
+        if(!f.participle && _mmNegAxisFail(pattern,['case','gen'])) return false;
+        // Verbal: parts[1] = ([活用種別])TenseVoiceMood (e.g. "PAI" / "2AAI"), parts[2] = PersonNum or Num（分詞は CaseNumGen）
         if(pattern.tense && !ok('tense',f.tense)) return false;
         if(pattern.voice && !ok('voice',f.voice)) return false;
         if(pattern.mood  && !ok('mood', f.mood))  return false;
+        if(f.participle){
+            if(pattern.case && !ok('case',f.case)) return false;
+            if(pattern.gen  && !ok('gen', f.gen))  return false;
+        }
         if(pattern.num   && !ok('num',  f.num))   return false;
     }
     return true;
