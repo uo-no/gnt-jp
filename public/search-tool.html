@@ -2539,7 +2539,7 @@ const JP_PARTIAL_PREBUILT_CORPORA = new Set();
    LXXはバックグラウンド構築（IDX.ready=true後に開始）。
    IDX.l3Ready: NT+LXX全書物のfetch・索引化および日本語インデックス構築が完了したフラグ。
    検索ゲート（unifiedSearch）は IDX.ready で開くが、LXX 未完了中は NT 結果のみ返る。 */
-const IDX = { ready: false, l3Ready: false };
+const IDX = { ready: false, l3Ready: false, lxxFailed: false };   /* lxxFailed：LXX（＋日本語索引）の構築が失敗して確定した（#95） */
 const POS_JP = {
     'V':'動詞','N':'名詞','A':'形容詞','R':'関係代名詞',
     'P':'代名詞','T':'冠詞','D':'指示代名詞',
@@ -2902,15 +2902,25 @@ function _logBuildPhaseTimings(timings){
 /* QA-03: LXX（＋日本語索引）の構築完了を待つための Promise。
    ディープリンク初期化（initFromUrl）は NT 完了直後に検索を走らせるため、LXX 未完了のまま
    NT のみの件数を完成形として確定させてしまっていた。unifiedSearch({awaitLxx:true}) がこれを待つ。
-   失敗・タイムアウト時も解決する（無期限に待たない）。 */
+   失敗・タイムアウト時も解決する（無期限に待たない）。
+   #95：成功・失敗のどちらでも必ず呼ぶ。失敗時は _markLxxDone(true) で IDX.lxxFailed を立て、待機と暫定表示を「失敗」として確定させる。 */
 let _lxxDoneResolve=null;
 const _lxxDonePromise=new Promise(r=>{_lxxDoneResolve=r;});
-function _markLxxDone(){if(_lxxDoneResolve){_lxxDoneResolve();_lxxDoneResolve=null;}}
+function _markLxxDone(failed){
+    if(failed&&!IDX.l3Ready)IDX.lxxFailed=true;
+    if(_lxxDoneResolve){_lxxDoneResolve();_lxxDoneResolve=null;}
+}
+const _lxxFailedText=()=>_tf('search.status.lxxFailed','七十人訳を読み込めなかったため、件数は不完全です');
 /* LXX 合流前（IDX.l3Ready 前）に実行された UI 検索の件数は暫定。暫定と明示し、合流完了後に同じ検索を1回だけ再実行して確定させる。 */
 let _lxxRerunQuery=null;
 function _noteProvisionalCount(countEl,query){
     const sub=document.createElement('span');
     sub.className='result-count-sub';sub.id='result-count-provisional';
+    if(IDX.lxxFailed){   /* #95：失敗が確定済みなら暫定ではなく失敗として出す（再実行は待たない） */
+        sub.textContent=_lxxFailedText();
+        countEl.appendChild(sub);
+        return;
+    }
     sub.textContent=_tf('search.status.provisional','七十人訳を読み込み中のため件数は暫定です');
     countEl.appendChild(sub);
     if(_lxxRerunQuery===query)return;
@@ -2920,6 +2930,10 @@ function _noteProvisionalCount(countEl,query){
         _lxxRerunQuery=null;
         const inp=document.getElementById('unified-search-input');
         if(IDX.l3Ready&&inp&&inp.value.trim()===query)unifiedSearch();
+        else if(IDX.lxxFailed){   /* #95：暫定表示を固着させず、失敗として確定させる */
+            const el=document.getElementById('result-count-provisional');
+            if(el)el.textContent=_lxxFailedText();
+        }
     });
 }
 async function _buildL3Background(){
@@ -3121,10 +3135,10 @@ function _startPrebuiltLxxAndJapanese(metaVersion){
                 _buildAndExposeLemmaIndex();
                 _buildAndExposeMorphIndex();
             }
-            _buildL3Background();
+            await _buildL3Background();   /* #95：失敗も下の catch で捕まえる */
         }catch(err){
             console.error('[search-index] LXX index build failed',err);
-            _markLxxDone();
+            _markLxxDone(true);
         }
     };
     /* Let the NT search become interactive before LXX JSON parsing competes for CPU.
@@ -3159,14 +3173,20 @@ function _ensureFullIndex(){
                 _buildAndExposeMorphIndex();
 
                 const _buildLxx=async()=>{
-                    console.info('[search-index] LXX background build started');
-                    await _buildFullIndex(['LXX']);
-                    console.info('[search-index] LXX ready');
-                    window.lemmaIndex=null;
-                    window.morphIndex=null;
-                    _buildAndExposeLemmaIndex();
-                    _buildAndExposeMorphIndex();
-                    _buildL3Background();
+                    /* #95：失敗しても完了合図を出す（ディープリンクの待機を 120 秒の打ち切りまで引き延ばさない） */
+                    try{
+                        console.info('[search-index] LXX background build started');
+                        await _buildFullIndex(['LXX']);
+                        console.info('[search-index] LXX ready');
+                        window.lemmaIndex=null;
+                        window.morphIndex=null;
+                        _buildAndExposeLemmaIndex();
+                        _buildAndExposeMorphIndex();
+                        await _buildL3Background();
+                    }catch(err){
+                        console.error('[search-index] LXX index build failed',err);
+                        _markLxxDone(true);
+                    }
                 };
                 if(typeof requestIdleCallback==='function'){
                     requestIdleCallback(()=>_buildLxx(),{timeout:2000});
@@ -4305,6 +4325,10 @@ function _watchIndexProgress(){
                 setTimeout(()=>{ if(status) status.style.display='none'; },1300);
             },1000);
             clearInterval(timer);
+        }else if(IDX.lxxFailed){   /* #95：準備中のまま固着させない */
+            dot.textContent='✓';
+            label.innerHTML=_escH(_tf('search.status.ntReady','NT検索できます'))+'<br><span style="opacity:0.75">'+_escH(_tf('search.status.lxxFailedShort','LXX を読み込めませんでした'))+'</span>';
+            clearInterval(timer);
         }else if(IDX.ready){
             dot.textContent='✓';
             label.innerHTML=_escH(_tf('search.status.ntReady','NT検索できます'))+'<br><span style="opacity:0.75">'+_escH(_tf('search.status.lxxPreparing','LXX・日本語を準備中…'))+'</span>';
@@ -4662,7 +4686,8 @@ async function unifiedSearch(opts){
         /* 暫定の NT のみ件数を完成形として見せない：読み込み中表示のまま LXX を待つ */
         _showLoading(_tf('search.status.loadingNtLxx','新約聖書と七十人訳の検索データを読み込み中です…'));
         await Promise.race([_lxxDonePromise,new Promise(r=>setTimeout(r,120000))]);
-        if(!IDX.l3Ready)console.warn('[search-index] LXX wait timed out; showing available results');
+        if(IDX.lxxFailed)console.warn('[search-index] LXX build failed; showing available results');
+        else if(!IDX.l3Ready)console.warn('[search-index] LXX wait timed out; showing available results');
     }
     if(!window.lemmaIndex){
         _buildAndExposeLemmaIndex();
