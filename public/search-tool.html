@@ -6277,11 +6277,40 @@ function _getMorphFilterPattern(){
  * Parts: [POS]-[case][num][gen] for nominals
  *        [POS]-[tense][voice][mood][-person][num] for verbals
  */
+/* NT 短縮タグの読み取り規則（#89）。_morphMatchesPattern / _morphMatchesPatternVerbose / _morphRejectReason の
+   3関数はすべてここを通して読む（読み方を3関数で一致させるための単一の正本）。
+     動詞:   parts[1] 先頭の数字（活用種別。例 V-2AAI-3S の 2）を読み飛ばしてから 時制・態・法。
+             数は従来どおり parts[2] の末尾1文字。
+     名詞類: parts[1] 先頭の人称数字（例 P-1GP の 1）を読み飛ばし、後続を 格・数・性 として読む。
+             所有代名詞 S は人称数字の次に所有者の数が入る（例 S-1SDSF＝1人称・所有者単数・与格単数女性）ので、
+             その1文字も読み飛ばす（bible_data の分解フィールドで確認済み）。
+             人称数字の後に何も無いタグ（例 P-3FS 型で後続が無いもの）は 格・数・性 を持たないものとして null を返す。
+   値が null の軸は、その軸を指定した検索（否定を含む）で一致させない（素通ししない）。 */
+function _ntMorphFields(morphTag){
+    const parts = String(morphTag||'').split('-');
+    const pos = parts[0] || '';
+    const seg = parts[1] || '';
+    if(pos === 'V'){
+        const tvm = seg.replace(/^[0-9]/, '');
+        const pn  = parts[2] || '';
+        return { pos, verbal:true,
+                 tense: tvm[0]||'', voice: tvm[1]||'', mood: tvm[2]||'',
+                 person: pn.length>=2 ? pn[0] : '',
+                 num: pn.length>0 ? pn[pn.length-1] : '' };
+    }
+    if(/^[123]/.test(seg)){
+        const rest = seg.slice(pos==='S' ? 2 : 1);
+        if(!rest) return { pos, verbal:false, person:seg[0], case:null, num:null, gen:null };
+        return { pos, verbal:false, person:seg[0], case:rest[0]||'', num:rest[1]||'', gen:rest[2]||'' };
+    }
+    return { pos, verbal:false, person:'', case:seg[0]||'', num:seg[1]||'', gen:seg[2]||'' };
+}
+
 /* [DIAG] morphTag の全フィールドをフィルターと比較し、1行ずつログ用文字列を返す */
 function _morphMatchesPatternVerbose(morphTag, pattern) {
-    const parts    = morphTag.split('-');
-    const posCode  = parts[0];
-    const isVerbal = posCode === 'V';
+    const f        = _ntMorphFields(morphTag);   /* #89: 3関数共通の読み取り規則 */
+    const posCode  = f.pos;
+    const isVerbal = f.verbal;
     const lines    = [];
     let passed     = true;
 
@@ -6291,7 +6320,7 @@ function _morphMatchesPatternVerbose(morphTag, pattern) {
             lines.push('  ' + field.padEnd(8) + '  "' + tokenVal + '"  filter=' + fStr + '  → skip（チェックなし）');
             return true;
         }
-        const ok = filterSet.has(tokenVal);
+        const ok = tokenVal != null && filterSet.has(tokenVal);
         const verdict = ok ? 'true  ✓' : 'FALSE ✗  ← ここで除外';
         lines.push('  ' + field.padEnd(8) + '  "' + tokenVal + '" ∈ ' + fStr + '  → ' + verdict);
         if (!ok) passed = false;
@@ -6301,12 +6330,9 @@ function _morphMatchesPatternVerbose(morphTag, pattern) {
     row('pos', posCode, pattern.pos);
 
     if (isVerbal) {
-        // NOTE: _morphMatchesPattern は parts[1][0..2] をそのまま使う（先頭数字オフセットなし）
-        const tvm       = parts[1] || '';
-        const t = tvm[0]||'', v = tvm[1]||'', m = tvm[2]||'';
-        const pn        = parts[2] || '';
-        const personRaw = pn.length >= 2 ? pn[0] : '(なし)';
-        const numRaw    = pn.length >  0 ? pn[pn.length - 1] : '(なし)';
+        const t = f.tense, v = f.voice, m = f.mood;
+        const personRaw = f.person || '(なし)';
+        const numRaw    = f.num    || '(なし)';
 
         row('tense',  t,        pattern.tense);
         row('voice',  v,        pattern.voice);
@@ -6315,8 +6341,7 @@ function _morphMatchesPatternVerbose(morphTag, pattern) {
             + '"  filter=(スロットなし・_morphSel に person 未定義)  → skip（チェックなし）');
         row('num',    numRaw,   pattern.num);
     } else {
-        const cng = parts[1] || '';
-        const c = cng[0]||'', n = cng[1]||'', g = cng[2]||'';
+        const c = f.case, n = f.num, g = f.gen;
         row('case', c, pattern.case);
         row('num',  n, pattern.num);
         row('gen',  g, pattern.gen);
@@ -6330,35 +6355,16 @@ function _morphMatchesPatternVerbose(morphTag, pattern) {
 /* [DIAG] morph フィルター除外理由を返す。一致する場合は null を返す */
 function _morphRejectReason(morphTag, pattern) {
     if (!morphTag || !pattern) return null;
-    const parts = morphTag.split('-');
-    const posCode = parts[0];
+    const f = _ntMorphFields(morphTag);   /* #89: 3関数共通の読み取り規則 */
+    const posCode = f.pos;
     if (pattern.pos && !pattern.pos.has(posCode))
         return { field: 'pos', tokenVal: posCode, filterVals: [...pattern.pos], morphTag };
-    const isVerbal = posCode === 'V';
-    if (!isVerbal) {
-        const cng = parts[1] || '';
-        const c = cng[0]||'', n = cng[1]||'', g = cng[2]||'';
-        if (pattern.case && !pattern.case.has(c))
-            return { field: 'case', tokenVal: c, filterVals: [...pattern.case], morphTag };
-        if (pattern.num  && !pattern.num.has(n))
-            return { field: 'num',  tokenVal: n, filterVals: [...pattern.num],  morphTag };
-        if (pattern.gen  && !pattern.gen.has(g))
-            return { field: 'gen',  tokenVal: g, filterVals: [...pattern.gen],  morphTag };
-    } else {
-        const tvm = parts[1] || '';
-        const t = tvm[0]||'', v = tvm[1]||'', m = tvm[2]||'';
-        if (pattern.tense && !pattern.tense.has(t))
-            return { field: 'tense', tokenVal: t, filterVals: [...pattern.tense], morphTag };
-        if (pattern.voice && !pattern.voice.has(v))
-            return { field: 'voice', tokenVal: v, filterVals: [...pattern.voice], morphTag };
-        if (pattern.mood  && !pattern.mood.has(m))
-            return { field: 'mood',  tokenVal: m, filterVals: [...pattern.mood],  morphTag };
-        if (pattern.num) {
-            const pn = parts[2]||'';
-            const numCode = pn.length > 0 ? pn[pn.length-1] : '';
-            if (!pattern.num.has(numCode))
-                return { field: 'num', tokenVal: numCode, filterVals: [...pattern.num], morphTag };
-        }
+    const slots = f.verbal ? [['tense','tense'],['voice','voice'],['mood','mood'],['num','num']]
+                           : [['case','case'],['num','num'],['gen','gen']];
+    for (const [slot, key] of slots) {
+        const val = f[key];
+        if (pattern[slot] && (val == null || !pattern[slot].has(val)))
+            return { field: slot, tokenVal: val == null ? '' : val, filterVals: [...pattern[slot]], morphTag };
     }
     return null;
 }
@@ -6409,35 +6415,26 @@ function _lxxMorphMatchesPattern(tag, pattern){
 function _morphMatchesPattern(morphTag, pattern, corpusId){
     if(!morphTag||!pattern) return true;
     if(corpusId==='LXX') return _lxxMorphMatchesPattern(morphTag, pattern);
-    const parts = morphTag.split('-');
-    const posCode = parts[0]; // e.g. "N","V","A","T","R","P","D"
+    const f = _ntMorphFields(morphTag);   /* #89: 3関数共通の読み取り規則 */
+    /* 値が null の軸（人称数字だけの名詞類タグの格・数・性）は、指定された時点で不一致（否定でも一致させない） */
+    const ok = (slot, val) => val != null && _mmOk(pattern, slot, val);
 
     // POS check
-    if(pattern.pos && !_mmOk(pattern,'pos',posCode)) return false;
+    if(pattern.pos && !_mmOk(pattern,'pos',f.pos)) return false;
 
-    const isVerbal = posCode === 'V';
-    if(!isVerbal){
+    if(!f.verbal){
         if(_mmNegAxisFail(pattern,['tense','voice','mood'])) return false;
-        // Nominal: parts[1] = CaseNumGen (e.g. "NSM")
-        const cng = parts[1] || '';
-        const c = cng[0]||'', n = cng[1]||'', g = cng[2]||'';
-        if(pattern.case && !_mmOk(pattern,'case',c)) return false;
-        if(pattern.num  && !_mmOk(pattern,'num',n))  return false;
-        if(pattern.gen  && !_mmOk(pattern,'gen',g))  return false;
+        // Nominal: parts[1] = ([person])CaseNumGen (e.g. "NSM" / "1GP")
+        if(pattern.case && !ok('case',f.case)) return false;
+        if(pattern.num  && !ok('num', f.num))  return false;
+        if(pattern.gen  && !ok('gen', f.gen))  return false;
     } else {
         if(_mmNegAxisFail(pattern,['case','gen'])) return false;
-        // Verbal: parts[1] = TenseVoiceMood (e.g. "PAI"), parts[2] = PersonNum or Num
-        const tvm = parts[1] || '';
-        const t = tvm[0]||'', v = tvm[1]||'', m = tvm[2]||'';
-        if(pattern.tense && !_mmOk(pattern,'tense',t)) return false;
-        if(pattern.voice && !_mmOk(pattern,'voice',v)) return false;
-        if(pattern.mood  && !_mmOk(pattern,'mood',m))  return false;
-        // For verbal, num is last char of parts[2] or parts[1+extra]
-        if(pattern.num){
-            const pn = parts[2]||'';
-            const numCode = pn.length>0 ? pn[pn.length-1] : '';
-            if(!_mmOk(pattern,'num',numCode)) return false;
-        }
+        // Verbal: parts[1] = ([活用種別])TenseVoiceMood (e.g. "PAI" / "2AAI"), parts[2] = PersonNum or Num
+        if(pattern.tense && !ok('tense',f.tense)) return false;
+        if(pattern.voice && !ok('voice',f.voice)) return false;
+        if(pattern.mood  && !ok('mood', f.mood))  return false;
+        if(pattern.num   && !ok('num',  f.num))   return false;
     }
     return true;
 }
