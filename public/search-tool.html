@@ -3280,7 +3280,10 @@ const _MORPH_TAG_CODE = {
    動詞: V-[tense][voice][mood](-[person][num] | 分詞は -[case][num][gen])
    名詞類: POS-([person])[case][num][gen]
    LXX（corpusId==='LXX'）は10桁の位置タグなので _lxxMorphFields で読む（#90。読み替え規則は形態フィルタと共通）。
-   対応の無いもの・解読不能は '' を返し、どのコードにも一致しない。NT の読み方は従来どおり。 */
+   NT は形態フィルタと同じ共通リーダー _ntMorphFields で読む（#91。活用種別・人称の数字を読み飛ばす規則を揃える）。
+   _ntMorphFields が null を返す軸（人称数字だけの名詞類タグの格・数・性）は '' とし、どのコードにも一致しない。
+   分詞（法 P）の 格・数・性 は従来どおり parts[2] の各文字で読む（#91 の対象外。_ntMorphFields は分詞の格・性を持たない）。
+   対応の無いもの・解読不能は '' を返し、どのコードにも一致しない。 */
 function _morphFieldFromTag(morph, field, corpusId) {
     if (corpusId === 'LXX') {
         const f = _lxxMorphFields(morph);
@@ -3288,29 +3291,26 @@ function _morphFieldFromTag(morph, field, corpusId) {
         const key = field === 'number' ? 'num' : (field === 'gender' ? 'gen' : field);
         return f[key] || '';
     }
-    const parts = String(morph || '').split('-');
-    if ((parts[0] || '') === 'V') {
-        const tvm = parts[1] || '', tail = parts[2] || '';
-        if (field === 'tense') return tvm[0] || '';
-        if (field === 'voice') return tvm[1] || '';
-        if (field === 'mood')  return tvm[2] || '';
-        if (tvm[2] === 'P') {   /* 分詞: tail = case/num/gen */
+    const f = _ntMorphFields(morph);   /* #91: 形態フィルタと共通の読み取り規則 */
+    if (f.verbal) {
+        if (field === 'tense') return f.tense || '';
+        if (field === 'voice') return f.voice || '';
+        if (field === 'mood')  return f.mood  || '';
+        if (f.mood === 'P') {   /* 分詞: parts[2] = case/num/gen（従来の読み方のまま） */
+            const tail = String(morph || '').split('-')[2] || '';
             if (field === 'case')   return tail[0] || '';
             if (field === 'number') return tail[1] || '';
             if (field === 'gender') return tail[2] || '';
             return '';
         }
-        if (field === 'person') return tail.length >= 2 ? tail[0] : '';
-        if (field === 'number') return tail ? tail[tail.length - 1] : '';
+        if (field === 'person') return f.person || '';
+        if (field === 'number') return f.num    || '';
         return '';
     }
-    const seg = parts[1] || '';
-    const hasPerson = ['1', '2', '3'].includes(seg[0]);
-    const b = hasPerson ? seg.slice(1) : seg;
-    if (field === 'case')   return b[0] || '';
-    if (field === 'number') return b[1] || '';
-    if (field === 'gender') return b[2] || '';
-    if (field === 'person') return hasPerson ? seg[0] : '';
+    if (field === 'case')   return f.case   || '';
+    if (field === 'number') return f.num    || '';
+    if (field === 'gender') return f.gen    || '';
+    if (field === 'person') return f.person || '';
     return '';
 }
 
