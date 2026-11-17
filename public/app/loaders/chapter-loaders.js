@@ -227,13 +227,37 @@ async function _loadJaAlignForRender(transId, book, ch) {
     return data;
 }
 const _glossSidecarCache = new Map();
+/* #101：非日本語UIの辞書グロス（サイドカーに無い語の代替）は描画時に同期参照される
+   （_uiShortGloss：EN＝lexicon-lite、ES＝gloss-es-senses の第1語義）。到着前に描画すると
+   日本語グロスに倒れるため、render() の前に到着を待つ（再描画方式ではなく待機方式）。
+   サイドカーの取得と並行して読み込み、待つのは辞書の到着まで。取得が止まった場合に
+   章表示ごと止めないよう、待機には上限を置く（上限を超えたら従来どおりの表示）。 */
+const _GLOSS_DICT_WAIT_MS = 15000;
+function _glossDictReady() {
+    const lang = (typeof window !== 'undefined' && window.I18N) ? I18N.lang : null;
+    let p = null;
+    /* lexicon（ReadingLexicon の補強・StudyPanel 等も使う）は従来どおり非日本語UIで先読みする */
+    if (typeof _ensureSemanticData === 'function') {
+        let sp = null;
+        try { sp = _ensureSemanticData(); } catch (_) {}
+        if (lang === 'en') p = sp;
+    }
+    if (lang === 'es' && typeof _ensureEsSenses === 'function') {
+        _ensureEsSenses();
+        p = _esSensesPromise;
+    }
+    if (!p) return Promise.resolve();
+    return Promise.race([
+        Promise.resolve(p).catch(() => {}),
+        new Promise(r => setTimeout(r, _GLOSS_DICT_WAIT_MS)),
+    ]);
+}
 async function _loadGlossForRender(book, ch) {
     const transId = _glossTransIdForUi();
     if (!transId || !book || ch == null) return null;
-    /* 英語UIのチップ・フォールバック（辞書グロス）用に lexicon を先読みする（投げっぱなし）。 */
-    if (typeof _ensureSemanticData === 'function') { try { _ensureSemanticData(); } catch (_) {} }
+    const dictReady = _glossDictReady();   /* #101：サイドカーと並行して取得し、返す前に待つ */
     const key = transId + ':' + book + ':' + ch;
-    if (_glossSidecarCache.has(key)) return _glossSidecarCache.get(key);
+    if (_glossSidecarCache.has(key)) { await dictReady; return _glossSidecarCache.get(key); }
     /* トークン単位グロス（gloss-token/）を優先し、無い翻訳・章では従来の
        セグメント単位サイドカー（gloss/）に落とす。どちらの粒度で読めたかを
        data._src ('token' | 'segment') に記録し、セグメント文の重複排除の
@@ -250,6 +274,7 @@ async function _loadGlossForRender(book, ch) {
         } catch (_) { /* 次の候補へ */ }
     }
     _glossSidecarCache.set(key, data);
+    await dictReady;
     return data;
 }
 /* UI 言語の翻訳のアラインメント（セグメント構造）も先読みする。
