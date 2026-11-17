@@ -3272,8 +3272,16 @@ const _MORPH_TAG_CODE = {
 
 /* morphタグから分解フィールドの1文字コードを取り出す。
    動詞: V-[tense][voice][mood](-[person][num] | 分詞は -[case][num][gen])
-   名詞類: POS-([person])[case][num][gen] */
-function _morphFieldFromTag(morph, field) {
+   名詞類: POS-([person])[case][num][gen]
+   LXX（corpusId==='LXX'）は10桁の位置タグなので _lxxMorphFields で読む（#90。読み替え規則は形態フィルタと共通）。
+   対応の無いもの・解読不能は '' を返し、どのコードにも一致しない。NT の読み方は従来どおり。 */
+function _morphFieldFromTag(morph, field, corpusId) {
+    if (corpusId === 'LXX') {
+        const f = _lxxMorphFields(morph);
+        if (!f) return '';
+        const key = field === 'number' ? 'num' : (field === 'gender' ? 'gen' : field);
+        return f[key] || '';
+    }
     const parts = String(morph || '').split('-');
     if ((parts[0] || '') === 'V') {
         const tvm = parts[1] || '', tail = parts[2] || '';
@@ -3319,7 +3327,9 @@ function _resolveMorphTerm(tokens, term) {
     const val   = String(term.value).toLowerCase();
     if (field === 'pos') {
         for (const t of tokens) {
-            const posTag = String(t.morph || '').split('-')[0].toLowerCase();
+            const posTag = (t.corpusId === 'LXX'
+                ? ((_lxxMorphFields(t.morph) || {}).pos || '')       /* #90: LXX 位置タグの品詞 → NT 側コード */
+                : String(t.morph || '').split('-')[0]).toLowerCase();
             if (posTag === val || String(t.class || '').toLowerCase() === val) s.add(t.globalIdx);
         }
         return s;
@@ -3339,7 +3349,7 @@ function _resolveMorphTerm(tokens, term) {
             }
             continue;
         }
-        if (code && _morphFieldFromTag(t.morph, field) === code) s.add(t.globalIdx);
+        if (code && _morphFieldFromTag(t.morph, field, t.corpusId) === code) s.add(t.globalIdx);
     }
     return s;
 }
@@ -6375,7 +6385,7 @@ function _morphRejectReason(morphTag, pattern) {
      0 品詞 / 1-3 活用・語幹などの分類（フィルタ対象外）
      動詞(V): 4 時制・5 態・6 法・7 人称（分詞は格）・8 数・9 （分詞は性）
      それ以外: 4 格・5 数・6 性
-   フィルタのチップが使う NT 側コード（時制 P/I/F/A/X/Y、態 A/M/P、法 I/S/O/M/N/P、格 N/G/D/A/V …）へ
+   フィルタのチップが使う NT 側コード（時制 P/I/F/A/R/L、態 A/M/P、法 I/S/O/M/N/P、格 N/G/D/A/V …）へ
    読み替えて同じ判定にかける。読み替えは決定的な対応のみ（LXX の法 D＝命令法 → M）。
    対応が無いもの（数詞 M・間投詞 I・疑問代名詞 RI）は品詞フィルタに一致しない（NT の I- と同様）。 */
 const _LXX_POS_TO_CHIP = {N:'N',V:'V',A:'A',RA:'T',RR:'R',RP:'P',RD:'D',RX:'X',C:'CONJ',P:'PREP',D:'ADV',X:'PRT'};
@@ -6390,25 +6400,39 @@ function _mmOk(pattern, slot, val){
     const has = pattern[slot].has(val);
     return (pattern.neg && pattern.neg[slot]) ? !has : has;
 }
-function _lxxMorphMatchesPattern(tag, pattern){
+/* LXX 位置タグ → NT 側コードへの読み替え（#90 で共通化）。形態フィルタ（_lxxMorphMatchesPattern）と
+   パターン検索のデコード（_morphFieldFromTag）の両方がここを通して読む（読み替え規則の単一の正本）。
+   解読不能（10桁でない）は null。値が '-' の位置はどのコードにも一致しない。
+   分詞（法 P）は 7 格・8 数・9 性、それ以外の動詞は 7 人称・8 数。 */
+function _lxxMorphFields(tag){
     const t = String(tag||'');
-    if(t.length!==10) return false;             /* 解読不能は一致扱いにしない（素通ししない） */
+    if(t.length!==10) return null;
     const lead = t[0];
-    const posCode = _LXX_POS_TO_CHIP[lead==='R' ? t.slice(0,2) : lead] || '';
-    if(pattern.pos && !_mmOk(pattern,'pos',posCode)) return false;
+    const pos = _LXX_POS_TO_CHIP[lead==='R' ? t.slice(0,2) : lead] || '';
     if(lead==='V'){
-        if(_mmNegAxisFail(pattern,['case','gen'])) return false;
-        const mood = t[6]==='D' ? 'M' : t[6];   /* LXX の D＝命令法 → NT コード M */
+        const mood  = t[6]==='D' ? 'M' : t[6];   /* LXX の D＝命令法 → NT コード M */
         const tense = t[4]==='X' ? 'R' : (t[4]==='Y' ? 'L' : t[4]);   /* LXX の X＝完了・Y＝過去完了 → NT コード R・L（#88） */
-        if(pattern.tense && !_mmOk(pattern,'tense',tense)) return false;
-        if(pattern.voice && !_mmOk(pattern,'voice',t[5])) return false;
-        if(pattern.mood  && !_mmOk(pattern,'mood',mood))  return false;
-        if(pattern.num   && !_mmOk(pattern,'num',t[8]))   return false;
+        const part  = mood==='P';
+        return { pos, verbal:true, tense, voice:t[5], mood, num:t[8],
+                 person: part ? '' : t[7], case: part ? t[7] : '', gen: part ? t[9] : '' };
+    }
+    return { pos, verbal:false, person:'', case:t[4], num:t[5], gen:t[6] };
+}
+function _lxxMorphMatchesPattern(tag, pattern){
+    const f = _lxxMorphFields(tag);
+    if(!f) return false;             /* 解読不能は一致扱いにしない（素通ししない） */
+    if(pattern.pos && !_mmOk(pattern,'pos',f.pos)) return false;
+    if(f.verbal){
+        if(_mmNegAxisFail(pattern,['case','gen'])) return false;
+        if(pattern.tense && !_mmOk(pattern,'tense',f.tense)) return false;
+        if(pattern.voice && !_mmOk(pattern,'voice',f.voice)) return false;
+        if(pattern.mood  && !_mmOk(pattern,'mood',f.mood))   return false;
+        if(pattern.num   && !_mmOk(pattern,'num',f.num))     return false;
     } else {
         if(_mmNegAxisFail(pattern,['tense','voice','mood'])) return false;
-        if(pattern.case && !_mmOk(pattern,'case',t[4])) return false;
-        if(pattern.num  && !_mmOk(pattern,'num',t[5]))  return false;
-        if(pattern.gen  && !_mmOk(pattern,'gen',t[6]))  return false;
+        if(pattern.case && !_mmOk(pattern,'case',f.case)) return false;
+        if(pattern.num  && !_mmOk(pattern,'num',f.num))   return false;
+        if(pattern.gen  && !_mmOk(pattern,'gen',f.gen))   return false;
     }
     return true;
 }
