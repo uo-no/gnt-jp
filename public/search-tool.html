@@ -4037,10 +4037,11 @@ function _ciSyntaxClick(id) {
     _synInit(id);      /* 既存の Wallace 型検索を呼ぶだけ */
 }
 
-/* パターン表示文言: 辞書のある言語（EN）は JSON の *_en を使う。無ければ（JA・ES・欠落）従来どおり日本語。 */
-function _patLabel(p) { return (_sLoc() && p.label_en) || p.label; }
-function _patDesc(p) { return (_sLoc() && p.description_en) || p.description || ''; }
-function _patPattern(p) { return (_sLoc() && p.pattern_en) || p.pattern || ''; }
+/* パターン表示文言: ES は JSON の *_es を優先し（#104: 現状データに *_es は無いため、無い間は従来のフォールバックのまま）、
+   次に辞書のある言語（EN・ES）の *_en、無ければ（JA・欠落）従来どおり日本語。 */
+function _patLabel(p) { return (_esMode() && p.label_es) || (_sLoc() && p.label_en) || p.label; }
+function _patDesc(p) { return (_esMode() && p.description_es) || (_sLoc() && p.description_en) || p.description || ''; }
+function _patPattern(p) { return (_esMode() && p.pattern_es) || (_sLoc() && p.pattern_en) || p.pattern || ''; }
 
 async function _loadSearchPatterns() {
     try {
@@ -7127,7 +7128,7 @@ async function _synInit(syntaxId) {
 
     const typeDef = _synGetTypeDef(syntaxId);
     if (typeDef) {
-        document.getElementById('syn-label').textContent = typeDef.label_ja || syntaxId;
+        document.getElementById('syn-label').textContent = (_enMode() && typeDef.label_en) || (_esMode() && typeDef.label_es) || typeDef.label_ja || syntaxId; /* #104: UI 言語の見出し（無ければ従来の label_ja） */
         document.getElementById('syn-sublabel').textContent = '';
     }
 
