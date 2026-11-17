@@ -35,6 +35,11 @@ function normalizeStrong(value) {
     const digits = String(value || '').replace(/[^0-9]/g, '');
     return digits ? 'G' + digits : '';
 }
+function lxxVerseFromRef(ref) {   /* #94：scripts/build-search-index.js と同じ規則 */
+    const m = /:(\d+)([a-z]*)!/.exec(String(ref || ''));
+    if (!m) return null;
+    return m[2] ? m[1] + m[2] : Number(m[1]);
+}
 function add(map, key, idx) {
     if (!key) return;
     if (!map.has(key)) map.set(key, []);
@@ -67,7 +72,7 @@ for (const book of [...booksMaster.NT, ...booksMaster.OT]) {
                 ref: w.ref || `${book.key} ${ch}:${w.verse ?? '?'}`,
                 bookKey: book.key,
                 ch: Number(ch),
-                verse: w.verse != null ? Number(w.verse) : null,
+                verse: w.verse != null ? Number(w.verse) : (corpus === 'LXX' ? lxxVerseFromRef(w.ref) : null),   /* #94 */
                 text: w.text || '',
                 lemma: w.lemma || w.text || '',
                 morph: w.morph ?? null,

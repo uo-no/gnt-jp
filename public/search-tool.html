@@ -2653,6 +2653,15 @@ async function _joinEsGloss(bookKey,ch,toks){
         if(gm)for(const k of toks){const g=gm[k.ref];if(typeof g==='string'&&g)k.glossEs=g;}
     }catch(_){}
 }
+/* LXX の節（#94）：LXX トークンは verse フィールドを持たない（0／479,623）ため、ref（例 'GEN 1:1!1'・'1SA 30:28a!1'）から
+   節（数字＋任意の小文字サフィックス）を導出する。サフィックスは落とさない（落とすと 28 と 28a が同じ節に潰れる）。
+   サフィックス無しは数値、有りは文字列（'28a'。リーダーのギリシャ語系モードの節表示・?verse= と同じ形）。導出できなければ null。
+   書・章は ref からは取らない（ファイル側の bookKey・ch を使う。NAH は ref 上 NAM のため）。 */
+function _lxxVerseFromRef(ref){
+    const m=/:(\d+)([a-z]*)!/.exec(String(ref||''));
+    if(!m) return null;
+    return m[2] ? m[1]+m[2] : Number(m[1]);
+}
 async function fetchChapter(bookKey, ch) {
     const cacheKey = `${bookKey}/${ch}`;
     if (tokenCache[cacheKey]) return tokenCache[cacheKey];
@@ -2668,7 +2677,7 @@ async function fetchChapter(bookKey, ch) {
         // ── SSOT 位置情報（翻訳フェッチ・verseKey生成・ナビゲーションに使用する）──
         bookKey,
         ch:    Number(ch),
-        verse: w.verse != null ? Number(w.verse) : null,
+        verse: w.verse != null ? Number(w.verse) : (corpusId === 'LXX' ? _lxxVerseFromRef(w.ref) : null),   /* #94 */
 
         // ── 語彙情報 ──
         text:     w.text    || '',
@@ -2763,7 +2772,7 @@ async function _buildFullIndex(corpora){
                 ref:      w.ref||`${t.key} ${t.ch}:${w.verse??'?'}`,
                 bookKey:  t.key,
                 ch:       Number(t.ch),
-                verse:    w.verse!=null?Number(w.verse):null,
+                verse:    w.verse!=null?Number(w.verse):(corpusId==='LXX'?_lxxVerseFromRef(w.ref):null),   /* #94 */
                 text:     w.text    ||'',
                 lemma:    w.lemma   ||w.text||'',
                 morph:    w.morph   ??null,
@@ -3055,6 +3064,8 @@ function _mergePrebuiltCorpus(data){
     for(let i=0;i<data.tokens.length;i++){
         const tok=data.tokens[i];
         if(!tok||tok.globalIdx!==expectedStart+i)throw new Error('prebuilt token order/globalIdx mismatch');
+        /* #94：節の無い LXX トークン（旧生成器の索引）は ref から節を補う。新生成器の索引では既に入っている。 */
+        if(tok.verse==null&&tok.corpusId==='LXX')tok.verse=_lxxVerseFromRef(tok.ref);
     }
     for(const tok of data.tokens)ALL_TOKENS.push(tok);
     for(const name of ['lemma','text','strong']){
@@ -5284,7 +5295,7 @@ function _buildUnifiedCard(anchorGi,entry,words,word2){
     // 「本文で見る」ボタン（verse付きURL）
     const openHref=bookKey&&ch
         ?(verse!==''
-            ?`index.html?book=${encodeURIComponent(bookKey)}&ch=${Number(ch)}&verse=${Number(verse)}`
+            ?`index.html?book=${encodeURIComponent(bookKey)}&ch=${Number(ch)}&verse=${encodeURIComponent(String(verse))}`   /* #94：LXX の '28a' 等はそのまま（リーダーは ?verse=28a で節を選ぶ） */
             :`index.html?book=${encodeURIComponent(bookKey)}&ch=${Number(ch)}`)
         :'';
 
