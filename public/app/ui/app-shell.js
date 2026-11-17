@@ -1408,7 +1408,7 @@ function _renderDictionaryLinkedText(value) {
             if (book) {
                 lastBookCode = book;
                 lastChapter = g.chapter;
-                html += '<a class="rn-inline-bible-ref" href="/' + book + '/' + g.chapter + '/' + g.verse + '" title="聖書本文を開く">' + _escH(g.full) + '</a>';
+                html += '<a class="rn-inline-bible-ref" href="/' + book + '/' + g.chapter + '/' + g.verse + '" title="' + _escH(_T('rn.openBibleText', '聖書本文を開く')) + '">' + _escH(g.full) + '</a>';
             } else {
                 lastBookCode = null;
                 html += _escH(g.full);
@@ -1419,7 +1419,7 @@ function _renderDictionaryLinkedText(value) {
             if (['JUD', 'PHM', '2JN', '3JN'].includes(book)) {
                 lastBookCode = book;
                 lastChapter = '1';
-                html += '<a class="rn-inline-bible-ref" href="/' + book + '/1/' + g.singleverse + '" title="聖書本文を開く">' + _escH(g.single) + '</a>';
+                html += '<a class="rn-inline-bible-ref" href="/' + book + '/1/' + g.singleverse + '" title="' + _escH(_T('rn.openBibleText', '聖書本文を開く')) + '">' + _escH(g.single) + '</a>';
             } else {
                 html += _escH(g.single);
             }
@@ -1427,20 +1427,20 @@ function _renderDictionaryLinkedText(value) {
             html += _escH(g.sep);
             if (lastBookCode) {
                 lastChapter = g.cchapter;
-                html += '<a class="rn-inline-bible-ref" href="/' + lastBookCode + '/' + g.cchapter + '/' + g.cverse + '" title="聖書本文を開く">' + _escH(g.continued.slice(g.sep.length)) + '</a>';
+                html += '<a class="rn-inline-bible-ref" href="/' + lastBookCode + '/' + g.cchapter + '/' + g.cverse + '" title="' + _escH(_T('rn.openBibleText', '聖書本文を開く')) + '">' + _escH(g.continued.slice(g.sep.length)) + '</a>';
             } else {
                 html += _escH(g.continued.slice(g.sep.length));
             }
         } else if (g.continuedVerse) {
             html += _escH(g.vsep);
             if (lastBookCode && lastChapter) {
-                html += '<a class="rn-inline-bible-ref" href="/' + lastBookCode + '/' + lastChapter + '/' + g.onlyverse + '" title="聖書本文を開く">' + _escH(g.onlyverse) + '</a>';
+                html += '<a class="rn-inline-bible-ref" href="/' + lastBookCode + '/' + lastChapter + '/' + g.onlyverse + '" title="' + _escH(_T('rn.openBibleText', '聖書本文を開く')) + '">' + _escH(g.onlyverse) + '</a>';
             } else {
                 html += _escH(g.onlyverse);
             }
         } else if (g.greek) {
             const query = new URLSearchParams({ tool: 'search', word: g.greek, layers: 'lemma,morph' });
-            html += '<a class="rn-inline-word-search" href="/search?' + query.toString() + '" title="検索ツールで調べる">' + _escH(g.greek) + '</a>';
+            html += '<a class="rn-inline-word-search" href="/search?' + query.toString() + '" title="' + _escH(_T('rn.openSearchTool', '検索ツールで調べる')) + '">' + _escH(g.greek) + '</a>';
         }
         cursor = pattern.lastIndex;
     }
@@ -1922,7 +1922,8 @@ function _appendReadingHint(block, vNum, _bookKeyHint, _chHint) {
         vnumEl.setAttribute('role', 'button');
         vnumEl.setAttribute('tabindex', '0');
         vnumEl.setAttribute('aria-expanded', 'false');
-        vnumEl.setAttribute('aria-label', vNum + '節の読書ヒントを開く');
+        const _hintOpenT = _T('hint.openVerse', null);
+        vnumEl.setAttribute('aria-label', _hintOpenT ? _hintOpenT.replace('{v}', vNum) : vNum + '節の読書ヒントを開く');
         vnumEl.setAttribute('data-reading-hint', hint.id || '');
         const hintText = hint.hintText;
         /* 対象範囲：verseStart/verseEnd（既存フォーマット）から生成。同一節は「対象：N節」、範囲は「対象：S–E節」。 */

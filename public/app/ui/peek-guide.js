@@ -77,12 +77,12 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     el.className = 'word-peek';
     el.id = 'word-peek';
     el.setAttribute('role', 'dialog');
-    el.setAttribute('aria-label', '語の概要');
+    el.setAttribute('aria-label', _T('peek.dialogLabel', '語の概要'));
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'word-peek-close';
     closeBtn.type = 'button';
-    closeBtn.setAttribute('aria-label', '閉じる');
+    closeBtn.setAttribute('aria-label', _T('panel.closeView', '閉じる'));
     closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => _closeWordPeek());
     el.appendChild(closeBtn);
@@ -328,12 +328,12 @@ function _openSegPeek(segEl, tis) {
     el.className = 'word-peek';
     el.id = 'word-peek';
     el.setAttribute('role', 'dialog');
-    el.setAttribute('aria-label', '語の概要');
+    el.setAttribute('aria-label', _T('peek.dialogLabel', '語の概要'));
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'word-peek-close';
     closeBtn.type = 'button';
-    closeBtn.setAttribute('aria-label', '閉じる');
+    closeBtn.setAttribute('aria-label', _T('panel.closeView', '閉じる'));
     closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => _closeWordPeek());
     el.appendChild(closeBtn);
