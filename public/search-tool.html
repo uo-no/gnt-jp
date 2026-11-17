@@ -1710,6 +1710,28 @@ body.is-lobby .search-input-wrap {
     }
 }
 
+/* ── 広い幅（960px 以上）の結果画面：検索窓の左端を結果カラムの左端に揃える（#85）──
+   ワードマークは検索窓の真横（右端＝窓の左端 − 24px）へ置き、検索窓の左端が結果カラムの左端
+   （狭い幅でのワードマーク位置）に一致する。窓の幅（最大 584px）・ピル形状・sticky・行の高さは変えない。
+   ワードマークは流れから外す（position:absolute。行は sticky ＝位置決め済みの基準）。
+   701〜959px は上の並び（ワードマーク左端＝結果カラム左端、窓はその右）のまま。ロビーとモバイルは対象外。 */
+@media (min-width: 960px) {
+    body:not(.is-lobby) .s-head-row {
+        grid-template-columns: minmax(0, 584px) 1fr auto;
+    }
+    body:not(.is-lobby) .s-head-row > .s-search-title {
+        position: absolute;
+        grid-column: auto;      /* 位置決めの基準を行（sticky）の padding box にする */
+        /* ワードマークは検索窓の真横：右端＝窓の左端 − 24px（窓の左端は行の padding-left ＝結果カラム左端）。
+           全幅を通じてワードマークと窓の間隔が 24px に保たれる。 */
+        left: auto;
+        right: calc(100% - max(24px, calc((100% - var(--s-content-max)) / 2 + var(--s-sp-5))) + 24px);
+        top: 12px;
+    }
+    body:not(.is-lobby) .s-head-row > .search-input-wrap { grid-column: 1; }
+    body:not(.is-lobby) .s-head-row > .s-head-actions { grid-column: 3; }
+}
+
 /* ── モバイル（700px 以下）の結果画面：1 段ヘッダー（#68。PC 版 #65 の対）──
    Greekn・検索窓・「‹」（聖書に戻る）・共有リンクを 1 行（.s-head-row）にまとめて sticky にする。
    「聖書に戻る」は幅を検索窓へ回すため「‹」のみに畳む（文字は font-size:0 で隠し、aria-label は維持。タップ領域は 36×44px）。
@@ -2139,6 +2161,9 @@ body.is-lobby .search-input-wrap {
     body:not(.is-lobby) .s-head-row > .genre-tabs {
         grid-column: 2; grid-row: 2; justify-content: flex-start; margin: 0; padding-left: 12px;
     }
+}
+@media (min-width: 960px) {   /* #85：窓が第 1 列へ移るため、タブも窓の真下（第 1 列）へ */
+    body:not(.is-lobby) .s-head-row > .genre-tabs { grid-column: 1; }
 }
 @media (max-width: 700px) {
     body:not(.is-lobby) .s-head-row { flex-wrap: wrap; }
