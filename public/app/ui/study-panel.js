@@ -327,11 +327,12 @@ const JPN_MAP = {
 };
 
 /* Abbott-Smith 本文を UI 言語で返す（英語UIでは description_en 原文、
-   供給不能なら日本語版に落とす）。 */
+   ES UI では description_es があればそれ（#107）、無ければ英語原文。供給不能なら日本語版に落とす）。 */
 function _abbottDesc(digits) {
     const e = (typeof abbottSmithDict !== 'undefined' && abbottSmithDict && digits)
         ? abbottSmithDict[digits] : null;
     if (!e) return '';
+    if (window.I18N && I18N.lang === 'es' && e.descriptionEs) return e.descriptionEs;
     if (window.I18N && I18N.lang !== 'ja' && e.descriptionEn) return e.descriptionEn;
     return e.description || '';
 }
@@ -1131,7 +1132,7 @@ async function _renderReadingNotes(p) {
     const _abbottDigits = resolvedId ? resolvedId.replace(/^grc:G/i, '') : '';
     if (_enUiAbbott && _abbottDigits && !abbottSmithDict) await loadDict();
     const abbottSmithText = _enUiAbbott
-        ? (abbottSmithDict?.[_abbottDigits]?.descriptionEn || '')
+        ? ((I18N.lang === 'es' && abbottSmithDict?.[_abbottDigits]?.descriptionEs) || abbottSmithDict?.[_abbottDigits]?.descriptionEn || '')   /* #107: ES は descriptionEs 優先、無ければ英語原文 */
         : (lexEntry?.abbottSmith || '');
     const contexts        = lexEntry?.contexts || {};
     const synopticRefs    = contexts.synoptic_refs || [];

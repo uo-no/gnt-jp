@@ -5958,7 +5958,7 @@ function _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close){
             await _loadAbbott();
             const num=String(parseInt(String(entry.strong||'').replace(/\D/g,''),10));
             const e=_abbottDict&&_abbottDict[num];
-            const body=e?(_enMode()?(e.descriptionEn||''):e.description):'';
+            const body=e?_abbottBody(e):'';
             if(!body||!dictWrap.isConnected)return;
             const sum=document.createElement('summary');sum.className='igsd-dict-h';
             sum.textContent=_tf('search.word.dict','辞書情報（Abbott-Smith）');
@@ -7261,6 +7261,13 @@ async function _synInit(syntaxId) {
 let _abbottDict = null;
 let _abbottLoading = false;
 
+/* #107: Abbott-Smith 本文を UI 言語で選ぶ。EN＝英語原文、ES＝descriptionEs（あれば）、無ければ従来どおり日本語本文。JA は従来どおり。 */
+function _abbottBody(e){
+    if(!e)return '';
+    if(_enMode())return e.descriptionEn||'';
+    if(_esMode()&&e.descriptionEs)return e.descriptionEs;
+    return e.description||'';
+}
 async function _loadAbbott() {
     if (_abbottDict) return;
     if (_abbottLoading) return;
@@ -7274,8 +7281,9 @@ async function _loadAbbott() {
             const cols = line.split('\t');
             if (cols.length < 5) return;
             const strong = cols[0].trim();
-            // 列: 0=strong 1=lemma 2=description_en 3=description_literal_ja 4=description_ja。JA は従来どおり cols[4]、EN は英語原文 cols[2]
-            _abbottDict[strong] = { lemma: cols[1]?.trim() || '', description: cols[4]?.trim() || '', descriptionEn: cols[2]?.trim() || '' };
+            // 列: 0=strong 1=lemma 2=description_en 3=description_literal_ja 4=description_ja 5=description_es（任意・未翻訳の行は無い／空）。
+            //   JA は従来どおり cols[4]、EN は英語原文 cols[2]、ES は cols[5]（無ければ従来どおり日本語本文）
+            _abbottDict[strong] = { lemma: cols[1]?.trim() || '', description: cols[4]?.trim() || '', descriptionEn: cols[2]?.trim() || '', descriptionEs: cols[5]?.trim() || '' };
         });
     } catch(e) {
         console.warn('Abbott-Smith load error', e);
@@ -7378,7 +7386,7 @@ function _asRenderEntry(query,strongKey){
         const bodyEl=document.getElementById('as-modal-body');
         lemmaEl.textContent=(entry&&entry.lemma)?entry.lemma:query;
         strongEl.textContent=strongKey?`G${strongKey}`:'';
-        const _body=entry?(_enMode()?(entry.descriptionEn||''):entry.description):'';
+        const _body=entry?_abbottBody(entry):'';
         if(_body){
             bodyEl.innerHTML=_escH(_body).replace(/\n/g,'<br>');
         }else{

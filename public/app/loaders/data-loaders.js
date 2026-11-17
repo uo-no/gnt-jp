@@ -60,6 +60,8 @@ function loadDict() {
                 if (strong) parsed[strong] = {
                     description: cols[4]?.trim() || "",
                     descriptionEn: (cols[2]?.trim() || "").replace(/^\d+\s+/, "").replace(/^†\s*/, ""),
+                    /* #107: 6列目 description_es（任意）。翻訳文は整った文として入る前提のため、descriptionEn の整形（番号・† の除去）はかけない */
+                    descriptionEs: cols[5]?.trim() || "",
                 };
             });
             abbottSmithDict = parsed;
