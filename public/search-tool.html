@@ -6299,8 +6299,11 @@ const MORPH_MOOD = [
 
 /* 選択肢の日本語（jp / help）は上の定義が現行値。表示時に search.morph.opt.<slot>.<code> /
    search.morph.help.<slot>.<code> で引く（JA・辞書の無い言語は従来の日本語のまま）。 */
-function _morphJp(slot,item){return _tf('search.morph.opt.'+slot+'.'+item.code,item.jp);}
-function _morphHelp(slot,item){return _tf('search.morph.help.'+slot+'.'+item.code,item.help||'');}
+/* #115: 辞書側の完了・過去完了のキーは tense.X／tense.Y だが、選択肢のコードは R／L（#88）。EN／ES では key が合わず日本語に落ちる既存の不整合（RELATED として別件。ここでは直さない）。
+   SV では日本語を漏らさないため、SV の場合に限りコードを辞書側のキーへ読み替える。 */
+function _morphKeyCode(slot,item){return (_svMode()&&slot==='tense')?({R:'X',L:'Y'}[item.code]||item.code):item.code;}
+function _morphJp(slot,item){return _tf('search.morph.opt.'+slot+'.'+_morphKeyCode(slot,item),item.jp);}
+function _morphHelp(slot,item){return _tf('search.morph.help.'+slot+'.'+_morphKeyCode(slot,item),item.help||'');}
 
 /* State: selected values per slot */
 const _morphSel = {pos:new Set(),case:new Set(),num:new Set(),gen:new Set(),tense:new Set(),voice:new Set(),mood:new Set()};
