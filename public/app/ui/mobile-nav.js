@@ -360,7 +360,7 @@ function _mmpRenderModes() {
     const content = document.getElementById('mobile-mode-picker-content');
     if (!content) return;
     /* 先頭の基底訳スロットは UI 言語に従う（サイドバー _sbRenderModesL0 と同じ規則） */
-    const baseId = (window.I18N && I18N.lang === 'en') ? 'WEB' : (window.I18N && I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
+    const baseId = ((window.I18N && window.I18N.baseTranslation) || 'JA1955');
     const baseItem = baseId === 'WEB'
         ? { id: 'WEB', label: 'Text (World English Bible)', i18n: 'mode.WEB.picker' }
         : baseId === 'RVR1909'

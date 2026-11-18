@@ -19,7 +19,9 @@ function _jaAlignSegmentsFor(transId, book, ch, verse) {
    ══════════════════════════════════════════ */
 function _glossTransIdForUi() {
     if (typeof window === 'undefined' || !window.I18N) return null;
-    if (I18N.lang === 'en') return 'WEB';
+    /* 内容言語が英語（EN／SV）＝ WEB のグロスサイドカー。SV の基準訳が WEB でなくなっても
+       英語グロスの在処は変わらないため、基準訳定数ではなくここで固定する（#115）。 */
+    if (I18N.contentLang === 'en') return 'WEB';
     if (I18N.lang === 'es') return 'RVR1909';
     return null;
 }
@@ -39,7 +41,7 @@ function _glossSidecarFor(w) {
     const g = _glossSidecarOnlyFor(w);
     if (g) return g;
     /* bible_data.english へのフォールバックは英語UIのみ（ES では英語を出さない）。 */
-    if (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en'
+    if (typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en'
         && typeof w.english === 'string' && w.english) return w.english;
     return null;
 }
@@ -133,7 +135,7 @@ function _esShortGloss(lemmaId) {
 function _uiShortGloss(lemmaId) {
     if (typeof window === 'undefined' || !window.I18N) return null;
     if (I18N.lang === 'es') return _esShortGloss(lemmaId);
-    if (I18N.lang === 'en') return _enShortGloss(lemmaId);
+    if (I18N.contentLang === 'en') return _enShortGloss(lemmaId);
     return null;
 }
 
@@ -141,7 +143,7 @@ function _uiShortGloss(lemmaId) {
 function _uiSenseText(lemmaId) {
     if (typeof window === 'undefined' || !window.I18N) return null;
     if (I18N.lang === 'es') return _esSenseText(lemmaId);
-    if (I18N.lang === 'en') return _enSenseText(lemmaId);
+    if (I18N.contentLang === 'en') return _enSenseText(lemmaId);
     return null;
 }
 
@@ -149,7 +151,7 @@ function _uiSenseText(lemmaId) {
 function _ensureUiSenses() {
     if (typeof window === 'undefined' || !window.I18N) return;
     if (I18N.lang === 'es') { if (typeof _ensureEsSenses === 'function') _ensureEsSenses(); }
-    else if (I18N.lang === 'en') { if (typeof _ensureEnSenses === 'function') _ensureEnSenses(); }
+    else if (I18N.contentLang === 'en') { if (typeof _ensureEnSenses === 'function') _ensureEnSenses(); }
 }
 
 /* 章の生トークン（elData）を節・トークン番号で引けるようにした索引。
@@ -304,7 +306,7 @@ function _naturalize(gloss, kind) {
  * Study タブでは別途詳細が表示される。
  */
 function _buildMorphText(rawMorph, pos, parts) {
-    const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+    const _isEn = typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en';
     const _isEs = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
     if (pos === 'V' && parts[1]) {
         const off  = /^[0-9]/.test(parts[1]) ? 1 : 0;

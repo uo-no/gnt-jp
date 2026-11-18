@@ -103,7 +103,7 @@
 
     /* EN 用ヘルパー */
     function _obT(key, ja) {
-        return (window.I18N && I18N.lang === 'en' && _OB_EN[key]) ? _OB_EN[key] : ja;
+        return (window.I18N && I18N.contentLang === 'en' && _OB_EN[key]) ? _OB_EN[key] : ja;
     }
 
     /* ══════════════════════════════════════════════════
@@ -3022,7 +3022,7 @@ const _DEFAULT_INSIGHT_EXPERIENCED = '翻訳では平らに見える箇所に、
     }
 
     function _getWordInsight(greek) {
-        var isEn = window.I18N && I18N.lang === 'en';
+        var isEn = window.I18N && I18N.contentLang === 'en';
         var level = _getReaderLevel();
         switch (level) {
             case 'experienced':

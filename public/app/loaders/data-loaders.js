@@ -81,7 +81,7 @@ const _renderingVariantsPromises = {};
 function _loadRenderingVariants() {
     /* 訳し分けデータは UI 言語の基底訳のものを使う（JA→JA1955、EN→WEB）。
        ファイルが無い言語では null（静寂）。 */
-    const transId = (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en') ? 'WEB' : (typeof window !== 'undefined' && window.I18N && I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
+    const transId = ((typeof window !== 'undefined' && window.I18N && I18N.baseTranslation) || 'JA1955');
     if (!_renderingVariantsPromises[transId]) {
         _renderingVariantsPromises[transId] = _fetchJsonOutcome(new URL('assets/data/rendering-variants/' + transId + '.json', document.baseURI).href)
             .then(o => {

@@ -713,7 +713,7 @@ function _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries) {
         const noteText = ja && (ja.ja || ja.en || ja.es);
         const isConfirmed = ja && ja.status === '確認済み' && ja.tag && noteText;
         const isAuto      = ja && ja.status === '自動生成' && ja.tag && noteText;
-        const tagLabel = (tag) => _escH(((window.I18N && I18N.lang === 'en') ? (_APPARATUS_TAG_LABELS_EN[tag] || tag) : (window.I18N && I18N.lang === 'es') ? (_APPARATUS_TAG_LABELS_ES[tag] || tag) : (_APPARATUS_TAG_LABELS[tag] || tag)));
+        const tagLabel = (tag) => _escH(((window.I18N && I18N.contentLang === 'en') ? (_APPARATUS_TAG_LABELS_EN[tag] || tag) : (window.I18N && I18N.lang === 'es') ? (_APPARATUS_TAG_LABELS_ES[tag] || tag) : (_APPARATUS_TAG_LABELS[tag] || tag)));
         const showJaText = (isConfirmed || isAuto) && noteText !== 'περὶ（WH Treg NIV）・ὑπὲρ（RP）' && noteText !== 'for (περὶ) (WH Treg NIV) · for (ὑπὲρ) (RP)' && noteText !== 'acerca de (περὶ) (WH Treg NIV) · por (ὑπὲρ) (RP)' && !(e.readings.length >= 2 && (noteText.startsWith('語順: ') || noteText.startsWith('Word order: ') || noteText.startsWith('Orden de palabras: ')));
         const jaSpan = showJaText ? `<span class="mvv-app-ja">${_escH(noteText)}</span>` : '';
         const annoHtml = isConfirmed
@@ -750,7 +750,7 @@ async function _fillApparatusSection(bookKey, ch, vNum, area) {
     if (!area) return;
     const myGen = (area._apparatusNoteGen || 0) + 1;
     area._apparatusNoteGen = myGen;
-    const isEn = window.I18N && I18N.lang === 'en';
+    const isEn = window.I18N && I18N.contentLang === 'en';
     const isEs = window.I18N && I18N.lang === 'es';
     const [data, jaData, lemJaData, rdgJaData] = await Promise.all([
         _loadApparatusData(),

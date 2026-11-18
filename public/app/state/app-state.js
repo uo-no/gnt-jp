@@ -32,15 +32,15 @@ const TRANS_LABELS = Object.fromEntries(Object.entries(TRANSLATIONS).map(([id, t
 const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
     .filter(([id]) => id !== 'WORD_ORDER' && id !== 'DISCOURSE' && id !== 'STRUCTURAL' && id !== 'STRUCTURE' && id !== 'CLAUSE_ROLE' && id !== 'BUN' && id !== 'RELATION' && id !== 'RK_READING' && id !== 'RK_READING_V' && id !== 'DA_READING' && id !== 'ROLE_READING' && id !== 'GREEK_TEXT')
     .map(([id, t]) => ({ id, label: t.label, code: t.code }));
-/* D1（Phase 1b）: 基準訳は UI 言語に従う。英語 UI では WEB を翻訳一覧の先頭に置く。 */
-if (window.I18N && window.I18N.lang === 'en') {
-    const wi = TRANSLATION_REGISTRY.findIndex(t => t.id === 'WEB');
-    if (wi > 0) TRANSLATION_REGISTRY.unshift(TRANSLATION_REGISTRY.splice(wi, 1)[0]);
-}
-/* ES: スペイン語 UI では RVR1909 を翻訳一覧の先頭に置く（D1 の適用）。 */
-if (window.I18N && window.I18N.lang === 'es') {
-    const ri = TRANSLATION_REGISTRY.findIndex(t => t.id === 'RVR1909');
-    if (ri > 0) TRANSLATION_REGISTRY.unshift(TRANSLATION_REGISTRY.splice(ri, 1)[0]);
+/* D1（Phase 1b）: 基準訳は UI 言語に従う。UI 言語の基準訳（I18N.baseTranslation：
+   en／sv＝WEB、es＝RVR1909）を翻訳一覧の先頭に置く。JA は JA1955 が元から先頭のため no-op。
+   基準訳の対応表は assets/js/i18n.js の BASE_TRANSLATION が唯一の定義（#115）。 */
+{
+    const _baseId = window.I18N && window.I18N.baseTranslation;
+    if (_baseId && _baseId !== 'JA1955') {
+        const bi = TRANSLATION_REGISTRY.findIndex(t => t.id === _baseId);
+        if (bi > 0) TRANSLATION_REGISTRY.unshift(TRANSLATION_REGISTRY.splice(bi, 1)[0]);
+    }
 }
 
 /**
@@ -65,7 +65,7 @@ const DISPLAY_MODE_REGISTRY = [
 let _transMode   = 'single';
 /* D1（Phase 1b）: 既定の基準訳は UI 言語に従う（英語 UI では WEB）。
    URL で明示された場合は init() の適用が優先する。 */
-let _transA      = (window.I18N && window.I18N.lang === 'en') ? 'WEB' : (window.I18N && window.I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
+let _transA      = ((window.I18N && window.I18N.baseTranslation) || 'JA1955');
 let _transB      = 'BUN';
 
 /* Legacy Mode ID → 新 Mode ID の正規化マップ（URL deep link 互換）。

@@ -121,7 +121,7 @@ const _PP_TRANS_EN = {
 };
 
 function _buildPhraseContext(p, end, words) {
-    const _isEn  = window.I18N && I18N.lang === 'en';
+    const _isEn  = window.I18N && I18N.contentLang === 'en';
     const _isEs  = window.I18N && I18N.lang === 'es';
     const jaOf   = _isEs
         ? (w => _escH((w && (typeof _glossSidecarOnlyFor === 'function' ? _glossSidecarOnlyFor(w) : null)) || (w && w.text) || ''))
@@ -165,7 +165,7 @@ function _buildPhraseContext(p, end, words) {
 }
 
 function _renderDefault(ctx) {
-    const _isEn = window.I18N && I18N.lang === 'en';
+    const _isEn = window.I18N && I18N.contentLang === 'en';
     const _isEs = window.I18N && I18N.lang === 'es';
     if (_isEs) {
         return ctx.tokens
@@ -238,7 +238,7 @@ const _PHRASE_RENDERERS_ES = {
 
 function renderPhraseJP(p, end, words) {
     const ctx    = _buildPhraseContext(p, end, words);
-    const _isEn  = window.I18N && I18N.lang === 'en';
+    const _isEn  = window.I18N && I18N.contentLang === 'en';
     const _isEs  = window.I18N && I18N.lang === 'es';
     const render = ((_isEs ? _PHRASE_RENDERERS_ES : _isEn ? _PHRASE_RENDERERS_EN : _PHRASE_RENDERERS)[ctx.type]) || _renderDefault;
     return render(ctx);
@@ -366,7 +366,7 @@ function _phraseIntentLines(proj, idx) {
     if (!policy || !rule) return [];
     const minConf    = policy.rules?.min_confidence ?? 0.40;
     const prios      = rule.priorities || [];
-    const textTable  = (window.I18N && I18N.lang === 'es') ? _PHRASE_INTENT_TEXT_ES : (window.I18N && I18N.lang === 'en') ? _PHRASE_INTENT_TEXT_EN : _PHRASE_INTENT_TEXT;
+    const textTable  = (window.I18N && I18N.lang === 'es') ? _PHRASE_INTENT_TEXT_ES : (window.I18N && I18N.contentLang === 'en') ? _PHRASE_INTENT_TEXT_EN : _PHRASE_INTENT_TEXT;
     let best = null;
     for (const c of Object.values(w.categories)) {
         if (!c || c.confidence < minConf) continue;
@@ -399,7 +399,7 @@ function _phraseIntentStandaloneHTML(words, idx, proj) {
         /* Stage A: 対象語引用も Engine 出力ベース（単語の擬似句として整形） */
         const quoted = _renderQuoteViaEngine({ type: '', start: idx, end: idx }, idx, words);
         if (!quoted) return null;
-        const _isEn = window.I18N && I18N.lang === 'en';
+        const _isEn = window.I18N && I18N.contentLang === 'en';
         const _isEs = window.I18N && I18N.lang === 'es';
         const LEAD  = _isEs ? _PHRASE_INTENT_LEAD_ES : _isEn ? _PHRASE_INTENT_LEAD_EN : _PHRASE_INTENT_LEAD;
         const first = intentLines[0].startsWith(LEAD)
@@ -675,11 +675,11 @@ function _sfSubjectHTML(n) {
         }
     }
     if (segs.length < 2) return null; // 単一 segment＝従来 chip と同義（変化させない）
-    const segHTML = segs.map(s => `<span class="sf-subj-seg">${_sfTokenChipsHTML(s.refs) || _escH(_ft11LabelOf(s.refs) || ((typeof window !== 'undefined' && window.I18N && I18N.lang === 'es') ? '(este elemento)' : (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en') ? '(this element)' : '（この構成語）'))}</span>`).join('');
+    const segHTML = segs.map(s => `<span class="sf-subj-seg">${_sfTokenChipsHTML(s.refs) || _escH(_ft11LabelOf(s.refs) || ((typeof window !== 'undefined' && window.I18N && I18N.lang === 'es') ? '(este elemento)' : (typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en') ? '(this element)' : '（この構成語）'))}</span>`).join('');
     return `<span class="sf-chip sf-ctx sf-subj-struct">${segHTML}</span>`;
 }
 function _sfRenderRelationFlow(m) {
-    const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+    const _isEn = typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en';
     const _roleTable = (window.I18N && I18N.lang === 'es') ? _SF_ROLE_ES : _isEn ? _SF_ROLE_EN : _SF_ROLE_JA;
     const roleLabel = (n) => (n && n.role && _roleTable[n.role]) ? _roleTable[n.role] : '';
     const _placeholder = (window.I18N && I18N.lang === 'es') ? '(este elemento)' : _isEn ? '(this element)' : '（この構成語）';
@@ -914,7 +914,7 @@ function _flowTreeNodesById(root) {
 async function _buildFlowTreeNeighborhoodViewHTML(ref, verseId) {
     try {
         if (!ref) return '';
-        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en';
         let representation;
         let noteSuffix = '';
         if (ref.indexOf('MAT 1:1!') === 0) {
@@ -961,7 +961,7 @@ async function _buildFlowTreeNeighborhoodViewHTML(ref, verseId) {
 async function _buildPhraseReadingHTML(words, idx) {
     const proj = await _getReadingSupportProjection(words);
     if (!proj) return null;
-    const _isEn = window.I18N && I18N.lang === 'en';
+    const _isEn = window.I18N && I18N.contentLang === 'en';
 
     /* 対象語を含む 2 語以上・上限以内の まとまり（NP / PP / PtcP のみ。
        『〜の』の連なりは単独では出さず、下の関係文にのみ使う） */

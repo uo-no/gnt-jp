@@ -839,7 +839,7 @@ async function _hlRenderHighlightList(app) {
     tabsHtml += `</div>`;
 
     /* 章ごとに本文をfetch（同じ章は1回のみ） */
-    const _hlTrans = (window.I18N && I18N.lang === 'en') ? 'WEB' : (window.I18N && I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
+    const _hlTrans = ((window.I18N && window.I18N.baseTranslation) || 'JA1955');
     const chFetches = {};
     filtered.forEach(h => {
         const key = `${h.book}:${h.chapter}`;
@@ -857,7 +857,7 @@ async function _hlRenderHighlightList(app) {
         rowsHtml = filtered.map(h => {
             const bookName = _bookFullName(h.book);
             const titleText = `${bookName} ${h.chapter}:${h.verse}`;
-            const isEnHL = window.I18N && I18N.lang === 'en';
+            const isEnHL = window.I18N && I18N.contentLang === 'en';
             const isEsHL = window.I18N && I18N.lang === 'es';
             const rangeLabel = h.tokenStart == null ? _T('ui.wholeVerse', '節全体') :
                 (h.tokenStart === h.tokenEnd

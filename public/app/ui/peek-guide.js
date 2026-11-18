@@ -378,7 +378,7 @@ function _openSegPeek(segEl, tis) {
             /* 非日本語UI: 辞書グロス（ES は senses のみ、EN は bible_data の gloss にも落とす） */
             const gl = document.createElement('div');
             gl.className = 'word-peek-glosses';
-            const en = _uiSenseText(w.lemmaId) || ((I18N.lang === 'en' && typeof w.gloss === 'string' && w.gloss) ? w.gloss : null);
+            const en = _uiSenseText(w.lemmaId) || ((I18N.contentLang === 'en' && typeof w.gloss === 'string' && w.gloss) ? w.gloss : null);
             if (en) gl.textContent = en; else { gl.hidden = true; _peekEnsureLite(); }
             _ensureUiSenses();
             el.appendChild(gl);
@@ -650,7 +650,7 @@ function _fgGuideStart(chip) {
     hint.id = 'fg-guide-hint';
     hint.textContent = (window.I18N && I18N.lang === 'es')
         ? 'Toca cualquier palabra para explorarla.'
-        : (window.I18N && I18N.lang === 'en')
+        : (window.I18N && I18N.contentLang === 'en')
         ? 'Tap any word to explore it.'
         : '気になる語を押してみてください';
     document.body.appendChild(hint);

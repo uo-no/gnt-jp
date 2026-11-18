@@ -1471,7 +1471,7 @@ class ReadingFormatter {
         const clauseType    = source?.type ?? source?.label ?? null;
 
         const key   = this._resolveGlossKey(discourseType, clauseType);
-        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en';
         const _isEs = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
         const text  = assertReadingTextSafe((_isEs ? _WALLACE_TEXT_ES : _isEn ? _WALLACE_TEXT_EN : _WALLACE_TEXT)[key]);
 
@@ -1491,7 +1491,7 @@ class ReadingFormatter {
     formatEvidence(item) {
         const id = item?.id ?? '';
         const signals = new Set(Array.isArray(item?.signals) ? item.signals : []);
-        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en';
         let text = null;
 
         if (id === 'nominative.pendens') {
@@ -1521,7 +1521,7 @@ class ReadingFormatter {
     formatSubjrefEvidence(targetLabel) {
         const label = String(targetLabel ?? '').trim();
         if (!label) return null;
-        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en';
         return assertReadingTextSafe((typeof window !== 'undefined' && window.I18N && I18N.lang === 'es')
             ? `"${label}" es referido como quien realiza la acción expresada por esta palabra.`
             : _isEn
@@ -1566,7 +1566,7 @@ class ReadingFormatter {
         if (list.length === 0) return null;
         if (list.length === 1) return assertReadingTextSafe(list[0]);
 
-        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en';
 
         const _isEs = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
         if (_isEs) {

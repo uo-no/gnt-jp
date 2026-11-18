@@ -186,7 +186,7 @@ function notifyAppStateChange() {
    履歴から取り除くため、表示中の URL（location.href）には含まれない。 */
 function _shareUrlWithLang() {
     const lang = (window.I18N && window.I18N.lang) || '';
-    if (!/^(ja|en|es)$/.test(lang)) return location.href;
+    if (!/^(ja|en|es|sv)$/.test(lang)) return location.href;
     return location.origin + '/' + lang + location.pathname + location.search + location.hash;
 }
 

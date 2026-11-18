@@ -2143,6 +2143,7 @@ body.is-lobby .search-input-wrap {
             <button type="button" role="menuitem" class="s-lang-opt lang-dd-opt" data-lang-btn="ja" onclick="I18N.setLang('ja')">日本語</button>
             <button type="button" role="menuitem" class="s-lang-opt lang-dd-opt" data-lang-btn="en" onclick="I18N.setLang('en')">English</button>
             <button type="button" role="menuitem" class="s-lang-opt lang-dd-opt" data-lang-btn="es" onclick="I18N.setLang('es')">Español</button>
+            <button type="button" role="menuitem" class="s-lang-opt lang-dd-opt" data-lang-btn="sv" onclick="I18N.setLang('sv')">Svenska</button>
         </div>
     </div>
     <span class="s-header-spacer"></span>
@@ -2570,7 +2571,11 @@ function _bookNm(key,ja){return(_sLoc()&&key)?T('book.'+key,ja):ja;}
 function _refLabel(name,ch,v,jaSep){return _tf('search.ref.verse',name+(jaSep||'')+ch+'章'+v+'節',{book:name,ch:ch,v:v});}
 /* EN 時（#29）: 英語グロスでの検索・表示。JA・ES では常に false で、従来の挙動は一切変わらない。
    英語の単語は 'japanese' 型クエリ（語義＝グロス照合）として既存の語グループ経路に載せる。 */
-function _enMode(){return !!(window.I18N&&I18N.lang==='en');}
+/* #115: 内容データの言語が英語のとき true（EN／SV）。SV は UI だけスウェーデン語で、グロス・辞書本文・IGSD 定義・各種ラベルは
+   英語にフォールバックする「軽い段」のため、内容の選択ではすべて EN と同扱い（I18N.contentLang。日本語には落とさない）。 */
+function _enMode(){return !!(window.I18N&&I18N.contentLang==='en');}
+/* #115: UI 言語そのものがスウェーデン語か。内容の選択には使わない（内容は _enMode）。URL プレフィックスなど UI 言語の判定用。 */
+function _svMode(){return !!(window.I18N&&I18N.lang==='sv');}
 /* #58: 区切り記号など表示だけの分岐用。JA 以外（EN・ES）は半角、JA は従来の全角。語義・グロスの選択（_enMode）には使わない。 */
 function _nonJa(){return !!(window.I18N&&I18N.lang&&I18N.lang!=='ja');}
 /* #31: 英字（ラテン文字）だけの単語は UI 言語にかかわらず英語グロス照合へ回す。日本語・ギリシャ語・Strong は対象外。 */
@@ -4945,11 +4950,11 @@ function syncURL() {
     if (_layers.prox && currentDist !== 5) p.set('dist', String(currentDist));
     if (_genreTab === 'rel') p.set('tab', 'rel');   /* 形態は既定で付けない（#82） */
 
-    /* 言語プレフィックス（/ja・/en・/es）は i18n.js が起動時に取り除く。入ってきた URL の保持ではなく、
+    /* 言語プレフィックス（/ja・/en・/es・/sv）は i18n.js が起動時に取り除く。入ってきた URL の保持ではなく、
        現在の実効言語（I18N.lang）から決める（#76）。言語切替→再実行でその言語の形に書き換わる。
        I18N が無い場合のみ従来どおり取り除かれた元のプレフィックスを使う。 */
     const _effLang = window.I18N && I18N.lang;
-    const prefix = (_effLang === 'ja' || _effLang === 'en' || _effLang === 'es')
+    const prefix = (_effLang === 'ja' || _effLang === 'en' || _effLang === 'es' || _svMode())
         ? '/' + _effLang
         : ((window.I18N && I18N.pathPrefix) || '');
     const path = prefix + (query ? '/search/' + encodeURIComponent(query) : '/search');
@@ -6294,8 +6299,11 @@ const MORPH_MOOD = [
 
 /* 選択肢の日本語（jp / help）は上の定義が現行値。表示時に search.morph.opt.<slot>.<code> /
    search.morph.help.<slot>.<code> で引く（JA・辞書の無い言語は従来の日本語のまま）。 */
-function _morphJp(slot,item){return _tf('search.morph.opt.'+slot+'.'+item.code,item.jp);}
-function _morphHelp(slot,item){return _tf('search.morph.help.'+slot+'.'+item.code,item.help||'');}
+/* #115: 辞書側の完了・過去完了のキーは tense.X／tense.Y だが、選択肢のコードは R／L（#88）。EN／ES では key が合わず日本語に落ちる既存の不整合（RELATED として別件。ここでは直さない）。
+   SV では日本語を漏らさないため、SV の場合に限りコードを辞書側のキーへ読み替える。 */
+function _morphKeyCode(slot,item){return (_svMode()&&slot==='tense')?({R:'X',L:'Y'}[item.code]||item.code):item.code;}
+function _morphJp(slot,item){return _tf('search.morph.opt.'+slot+'.'+_morphKeyCode(slot,item),item.jp);}
+function _morphHelp(slot,item){return _tf('search.morph.help.'+slot+'.'+_morphKeyCode(slot,item),item.help||'');}
 
 /* State: selected values per slot */
 const _morphSel = {pos:new Set(),case:new Set(),num:new Set(),gen:new Set(),tense:new Set(),voice:new Set(),mood:new Set()};
@@ -7154,7 +7162,7 @@ async function _synInit(syntaxId) {
     /* パス形（/search/<クエリ>）を優先。旧形式（?lemma= / ?word= / ?word1=&word2=）は互換のため引き続き受け付け、
        検索が走ると syncURL が replaceState でパス形に正規化する。 */
     const _pathQ = (() => {
-        const m = location.pathname.match(/^(?:\/(?:ja|en|es))?\/search\/(.+?)\/?$/);
+        const m = location.pathname.match(/^(?:\/(?:ja|en|es|sv))?\/search\/(.+?)\/?$/);
         if (!m) return '';
         try { return decodeURIComponent(m[1]).trim(); } catch (_) { return m[1]; }
     })();

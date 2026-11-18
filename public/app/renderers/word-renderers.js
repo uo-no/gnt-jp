@@ -282,7 +282,7 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
 
     /* roleClass：chip dot の色付けと signal 生成 */
     const dpGrammarClasses = buildDepthGrammarClasses(rawMorph).join(' ');
-    const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+    const _isEn = typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en';
     const _isEs = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
 
     let roleClass = 'role-other';

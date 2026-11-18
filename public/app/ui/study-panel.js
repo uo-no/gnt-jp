@@ -293,7 +293,7 @@ function _openWordListInternal(vNum, words, book, ch) {
             if (_spMode === 'JA1955') {
                 /* WORD_ORDER → 基本訳: 語順を即時表示後、訳文テキストで非同期上書き。
                    英語UIでは UI 言語の基本訳（WEB）を出す（D1）。 */
-                const _fillTransId = (window.I18N && I18N.lang === 'en') ? 'WEB' : (window.I18N && I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
+                const _fillTransId = ((window.I18N && window.I18N.baseTranslation) || 'JA1955');
                 _fillStudyPanelTranslation(_fillTransId, vNum, _vrBookKey, _vrCh, listEl, words);
             }
         }
@@ -422,7 +422,7 @@ function closeAnalysis() {
 async function _translationEvidenceText(ref) {
     try {
         if (!ref) return null;
-        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+        const _isEn = typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en';
         const _isEs = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
         const data = await _loadRenderingVariants();
         if (!data) return null;
@@ -480,7 +480,7 @@ function _repetitionEvidenceText(words, idx) {
         if (n < (ntCount > 200 ? 3 : 2)) return null;
         return (typeof window !== 'undefined' && window.I18N && I18N.lang === 'es')
             ? `Esta palabra aparece repetidamente en este versículo (${n} veces).`
-            : (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en')
+            : (typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en')
             ? `This word appears repeatedly in this verse (${n} times).`
             : `この語は、この節でくりかえし出てきます（${n}回）。`;
     } catch (_) { return null; }
@@ -553,7 +553,7 @@ function _syntaxContextBlockHTML(chapterTokens, targetRef, hintJa) {
    検出では区別できないペアが揃って発火したときだけ、2つの読みの違いと
    文脈での見分け方を示す。人手で読み分けを書いた組み合わせに限る。 */
 function _syntaxPairBlockHTML(rawIdSet) {
-    const _isEn = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+    const _isEn = typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en';
     const _isEs = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
     const PAIRS = [
         {
@@ -664,9 +664,9 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
             let ctxBlock = '';
             if (m) {
                 const chapterTokens = await _fetchSyntaxChapterTokens(m[1], m[2]);
-                if (chapterTokens) ctxBlock = _syntaxContextBlockHTML(chapterTokens, targetRef, (window.I18N && I18N.lang === 'es' ? (topRaw.hint_es || '') : window.I18N && I18N.lang === 'en' ? (topRaw.hint_en || topRaw.hint_ja) : topRaw.hint_ja));
+                if (chapterTokens) ctxBlock = _syntaxContextBlockHTML(chapterTokens, targetRef, (window.I18N && I18N.lang === 'es' ? (topRaw.hint_es || '') : window.I18N && I18N.contentLang === 'en' ? (topRaw.hint_en || topRaw.hint_ja) : topRaw.hint_ja));
             }
-            const _isEnNote = window.I18N && I18N.lang === 'en';
+            const _isEnNote = window.I18N && I18N.contentLang === 'en';
             const _isEsNote = window.I18N && I18N.lang === 'es';
             const note = (topRaw.id === 'infinitive.means' && rawIdSet.has('infinitive.time'))
                 ? (_isEsNote
@@ -709,7 +709,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
             const chapterTokens = await _fetchSyntaxChapterTokens(m[1], m[2]);
             if (chapterTokens) {
                 for (const c of needy) {
-                    const block = _syntaxContextBlockHTML(chapterTokens, targetRef, (window.I18N && I18N.lang === 'es' ? (c.hint_es || '') : window.I18N && I18N.lang === 'en' ? (c.hint_en || c.hint_ja) : c.hint_ja));
+                    const block = _syntaxContextBlockHTML(chapterTokens, targetRef, (window.I18N && I18N.lang === 'es' ? (c.hint_es || '') : window.I18N && I18N.contentLang === 'en' ? (c.hint_en || c.hint_ja) : c.hint_ja));
                     if (block) ctxBlockById.set(c.id, block);
                 }
             }
@@ -721,8 +721,8 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
     const primaryCandidates = unique.slice(0, primaryCount);
     const otherCandidates = unique.slice(primaryCount);
     const renderCandidate = (c, primary) => {
-        const label = _escH((window.I18N && I18N.lang === 'es') ? (c.label_es || '') : (window.I18N && I18N.lang === 'en') ? (c.label_en || c.label_ja) : c.label_ja);
-        const _isEnUI = window.I18N && I18N.lang === 'en';
+        const label = _escH((window.I18N && I18N.lang === 'es') ? (c.label_es || '') : (window.I18N && I18N.contentLang === 'en') ? (c.label_en || c.label_ja) : c.label_ja);
+        const _isEnUI = window.I18N && I18N.contentLang === 'en';
         const _isEsUI = window.I18N && I18N.lang === 'es';
         const explanation = _isEsUI
             ? (typeof c.description_es === 'string' && c.description_es.trim()
@@ -764,7 +764,7 @@ async function _buildSyntaxLabelHTML(words, targetRef) {
      * 対象外・候補不足では何も追加しない（静寂優先）。
      */
     let comparisonHTML = '';
-    const _isEnCmp = typeof window !== 'undefined' && window.I18N && I18N.lang === 'en';
+    const _isEnCmp = typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en';
     const _isEsCmp = typeof window !== 'undefined' && window.I18N && I18N.lang === 'es';
     if (
         targetLemma === 'οἶκος' &&
@@ -1193,7 +1193,7 @@ async function _renderReadingNotes(p) {
         const _structIdx = _wlvWordCache.findIndex(t => t.ref === ref);
         const _struct = (typeof _structFn === 'function' && _structIdx >= 0)
             ? _structFn(_wlvWordCache, _structIdx) : null;
-        if (_struct) morphRows.push({ k: _T('panel.structureLabel', '構造'), v: (window.I18N && I18N.lang === 'es') ? (_struct.label_es || '') : (window.I18N && I18N.lang === 'en') ? (_struct.label_en || _struct.label_ja) : _struct.label_ja, core: false });
+        if (_struct) morphRows.push({ k: _T('panel.structureLabel', '構造'), v: (window.I18N && I18N.lang === 'es') ? (_struct.label_es || '') : (window.I18N && I18N.contentLang === 'en') ? (_struct.label_en || _struct.label_ja) : _struct.label_ja, core: false });
     }
 
     const morphGridHTML = morphRows.length
@@ -1277,7 +1277,7 @@ async function _renderReadingNotes(p) {
        createReferentEvidence()/_resolveReferentEvidenceText() をそのまま利用する。 */
     const _reText = _resolveReferentEvidenceText(AppState.inspect.data?.referentEvidence);
     const referentEvidenceHTML = _reText
-        ? `<div class="rn-referent-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">${(window.I18N && I18N.lang === 'es') ? `Esta palabra se refiere a "${_escH(_reText)}".` : (window.I18N && I18N.lang === 'en') ? `This word refers to "${_escH(_reText)}".` : `この語は「${_escH(_reText)}」を指しています。`}</div>`
+        ? `<div class="rn-referent-evidence" style="margin-top:var(--space-md);padding-top:var(--space-sm);font-size:var(--text-caption);color:var(--text-sub);">${(window.I18N && I18N.lang === 'es') ? `Esta palabra se refiere a "${_escH(_reText)}".` : (window.I18N && I18N.contentLang === 'en') ? `This word refers to "${_escH(_reText)}".` : `この語は「${_escH(_reText)}」を指しています。`}</div>`
         : '';
 
     /* Phase ESM-39: Subjref Evidence を Referent Evidence の直後へ統合
@@ -2661,7 +2661,7 @@ async function _buildObservationHTML(words, idx, existingTexts) {
         return (_obRule.scopes || []).some(s => scopes.includes(s)) &&
                (_obRule.priorities || []).includes(ph.priority);
     };
-    const _isEnOb    = window.I18N && I18N.lang === 'en';
+    const _isEnOb    = window.I18N && I18N.contentLang === 'en';
     const _isEsOb    = window.I18N && I18N.lang === 'es';
     const _obRoleTable = _isEsOb ? _WORD_ROLE_TEXT_ES : _isEnOb ? _WORD_ROLE_TEXT_EN : _WORD_ROLE_TEXT;
     const _obSentTable = _isEsOb ? _OBSERVATION_SENTENCES_ES : _isEnOb ? _OBSERVATION_SENTENCES_EN : _OBSERVATION_SENTENCES;
@@ -2740,7 +2740,7 @@ const _OBSERVATION_BRACKET_QUOTES = [
 ];
 function _naturalizeObservationText(html) {
     if (!html) return html;
-    const replacement = (window.I18N && I18N.lang === 'es') ? 'esta palabra' : (window.I18N && I18N.lang === 'en') ? 'this word' : '語';
+    const replacement = (window.I18N && I18N.lang === 'es') ? 'esta palabra' : (window.I18N && I18N.contentLang === 'en') ? 'this word' : '語';
     let out = html;
     for (const q of _OBSERVATION_BRACKET_QUOTES) {
         out = out.split(q).join(replacement);
@@ -2844,7 +2844,7 @@ function _collectVerseNoteSentences(proj, policy) {
     if (!proj || !Array.isArray(proj.words) || !policy) return [];
     const rule      = policy.rules?.passage_note || {};
     const minConf   = policy.rules?.min_confidence ?? 0.40;
-    const textTable = (window.I18N && I18N.lang === 'es') ? _VERSE_NOTE_TEXT_ES : (window.I18N && I18N.lang === 'en') ? _VERSE_NOTE_TEXT_EN : _VERSE_NOTE_TEXT;
+    const textTable = (window.I18N && I18N.lang === 'es') ? _VERSE_NOTE_TEXT_ES : (window.I18N && I18N.contentLang === 'en') ? _VERSE_NOTE_TEXT_EN : _VERSE_NOTE_TEXT;
     const lines = [];
     for (const w of proj.words) {
         if (!w || !w.categories) continue;
