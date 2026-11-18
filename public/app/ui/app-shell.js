@@ -446,6 +446,7 @@ function _viewLabel(view) { return _T('view.' + view, null) || VIEW_LABELS[view]
 
 const VIEW_LABELS = {
     howto:        '使い方',
+    svIntro:      'Om BibleGreen',   /* #120: SV のみ（辞書 view.svIntro が優先） */
     bookmarks:    'ブックマーク',
     highlights:   'ハイライト',
     recentVerses: '最近読んだ箇所',
@@ -1145,6 +1146,27 @@ function showHowToUse() {
         </div>
     `;
     app.innerHTML = howtoHtml;
+    if (parallel) parallel.innerHTML = '';
+}
+
+/* ══════════════════════════════════════════
+   スウェーデン語の紹介ページ（#120）
+   SV の情報メニューからのみ開く静的ページ。本文は sv.json の page.svIntro（確定コピー）。
+   showHowToUse() と同じ .static-page 差し替え方式。他言語では項目自体を出さない。
+   ══════════════════════════════════════════ */
+function showSvIntro() {
+    closeMobileSidebar();
+    const app = document.getElementById('bible-text-area');
+    const parallel = document.getElementById('parallel-text-area');
+
+    document.getElementById('main-reading-area').classList.add('single-mode');
+    document.getElementById('main-reading-area').classList.add('static-view');
+    document.getElementById('main-reading-area').scrollTop = 0;
+
+    AppState.ui.view = 'svIntro';
+    syncUIFromState();
+
+    app.innerHTML = _T('page.svIntro', null) || '';
     if (parallel) parallel.innerHTML = '';
 }
 
