@@ -44,23 +44,9 @@ const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
     }
 }
 
-/**
- * VR-4-E: DisplayMode Registry（docs/development/verse-representation-design.md §C-1）。
- * 翻訳と表示方式（wordOrder 等）を型として区別する。今回は Bible Picker の
- * 「読み方を選択」グループ生成にのみ使用し、buildRepresentation() 等の既存
- * ColumnMode 変換経路（_toColumnMode()）は変更しない。
- * @typedef {{kind:'translation', translationId:string, label:string}
- *         | {kind:'wordOrder', label:string}} DisplayModeEntry
- */
-const DISPLAY_MODE_REGISTRY = [
-    ...TRANSLATION_REGISTRY.map(t => ({ kind: 'translation', translationId: t.id, label: t.label })),
-    { kind: 'wordOrder', label: TRANSLATIONS.WORD_ORDER.label },
-    { kind: 'da-reading', label: TRANSLATIONS.DA_READING.label },
-    /* 語の役割で読む。旧モード（discourse / hierarchical / structural-diagram /
-       rk-reading）のエントリは 2026-10-28 のモード整理で削除した。 */
-    { kind: 'role-reading', label: TRANSLATIONS.ROLE_READING.label },
-    { kind: 'greek-text', label: TRANSLATIONS.GREEK_TEXT.label },
-];
+/* DISPLAY_MODE_REGISTRY は #131（2026-11-18）で撤去した。利用箇所が定義のみ（ドット／ブラケット参照とも0件）で、
+   定義時に TRANSLATIONS.WORD_ORDER.label 等を即時参照するため、エントリを外す・改名すると初期化が落ちて白画面になる地雷だった。
+   ピッカーのモード一覧は app-shell.js が独自に持つ（この registry は参照されていなかった）。 */
 
 /* アクティブ翻訳（A = メイン / B = 比較列）。_transA / _transB が唯一のSSOT（Phase TR-5）。 */
 let _transMode   = 'single';
