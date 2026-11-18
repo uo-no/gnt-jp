@@ -188,7 +188,7 @@ function _hlPickerDismiss() {
        ネイティブ選択を残す（マウス経由は従来どおり選択を解除する）。 */
     if (!fromTouch) _hlClearNativeSelection();
     if (pending && pending._isBatch) {
-        document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+        document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
     }
     if (fromTouch) _hlScheduleTouchTextSelection(60);
 }
@@ -366,7 +366,7 @@ function _hlOpenPicker(entry, anchorEl) {
         _hlState.pickerPending = null;
         /* バッチ選択のピッカーを開けない場合だけ、一時選択表示を解除する。 */
         if (entry && entry._isBatch) {
-            document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+            document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
         }
         return;
     }
@@ -409,7 +409,7 @@ function _hlColorSelected(color) {
     _hlClearNativeSelection();
     /* 保存処理に進めない場合も、確定前の選択表示だけは残さない。 */
     if (!entry || !window.App || !window.App.storage) {
-        document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+        document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
         return;
     }
     const entries = entry._isBatch ? entry.entries : [entry];
@@ -428,7 +428,7 @@ function _hlColorSelected(color) {
             }
         }
     });
-    document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+    document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
     _applyHighlights();
 }
 
@@ -505,7 +505,7 @@ function _hlEnterMultiSelectMode(entry) {
 
     _hlState.multiSelectActive = true;
     _hlState.multiSelectEntries = [Object.assign({}, seed)];
-    document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+    document.querySelectorAll('.wlv-chip.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
     document.querySelectorAll('.wlv-chip.active').forEach(c => c.classList.add('hl-multi-selected'));
     _hlShowSelectionBar('multi', _hlState.multiSelectEntries.length);
 }
@@ -527,14 +527,14 @@ function _hlFinishMultiSelection() {
     if (!_hlState.multiSelectActive) return;
     const entries = _hlState.multiSelectEntries.slice();
     _hlState.multiSelectActive = false; _hlState.multiSelectEntries = []; _hlHideSelectionBar();
-    if (!entries.length) { document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected, .ja-seg.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected')); return; }
+    if (!entries.length) { document.querySelectorAll('.wlv-chip.hl-multi-selected, .ja-seg.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected')); return; }
     _hlOpenPicker({ _isBatch: true, entries });
 }
 function _hlCancelSelection() {
     _hlState.multiSelectActive = false;
     _hlState.multiSelectEntries = [];
     _hlHideSelectionBar();
-    document.querySelectorAll('.wlv-chip.hl-multi-selected, .dg-token.hl-multi-selected, .ja-seg.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
+    document.querySelectorAll('.wlv-chip.hl-multi-selected, .ja-seg.hl-multi-selected').forEach(c => c.classList.remove('hl-multi-selected'));
 }
 
 /* ── ハイライト検索ヘルパー ── */
@@ -580,7 +580,7 @@ function _applyHighlights() {
     document.querySelectorAll('.verse-block').forEach(block => {
         HL_COLORS.forEach(c => block.classList.remove('hl-verse-' + c));
     });
-    document.querySelectorAll('.wlv-chip, .dg-token, .ja-seg').forEach(token => {
+    document.querySelectorAll('.wlv-chip, .ja-seg').forEach(token => {
         HL_COLORS.forEach(c => token.classList.remove('hl-word-' + c));
     });
     /* 保存済みハイライトが0件でも、構造モードの古い表示クラスを消す必要があるため早期returnしない。 */
@@ -660,27 +660,6 @@ function _applyHighlights() {
                 HL_COLORS.forEach(c => chip.classList.remove(`hl-word-${c}`));
                 chip.classList.add(`hl-word-${h.color}`);
             });
-        });
-
-        /* ── C. 語・句ハイライト：CLAUSE_ROLE（data-dg-ref） ── */
-        scope.querySelectorAll('.dg-token[data-dg-ref]').forEach(span => {
-            const ref = span.dataset.dgRef;
-            if (!ref) return;
-            const parts = ref.split(' ');
-            if (parts.length < 2) return;
-            const book  = parts[0];
-            if (book !== h.book) return;
-            const cvParts = parts[1].split(':');
-            if (cvParts.length < 2) return;
-            const ch = parseInt(cvParts[0], 10);
-            const vTok = cvParts[1].split('!');
-            const v    = parseInt(vTok[0], 10);
-            const tidx = parseInt(vTok[1], 10);
-            if (ch !== h.chapter || v !== h.verse) return;
-            if (tidx >= h.tokenStart && tidx <= h.tokenEnd) {
-                HL_COLORS.forEach(c => span.classList.remove(`hl-word-${c}`));
-                span.classList.add(`hl-word-${h.color}`);
-            }
         });
 
         /* ── D. 語・句ハイライト：口語訳セグメント ──
@@ -911,27 +890,18 @@ function _hlSetFilter(color) {
 }
 
 /* ── ブラウザ上で選択した複数語をハイライト ── */
-/* チップ/トークン要素から {book, chapter, verse, tokenStart} を返す。解決できなければ null。
-   Word-order chips and structure-reading tokens use different DOM shapes.
-   Read the structured ref from either shape; never infer a verse from display text. */
+/* チップ要素から {book, chapter, verse, tokenStart} を返す。解決できなければ null。
+   Read the structured ref from the chip data; never infer a verse from display text. */
 function _hlRefFromEl(el) {
     let book, chapter, verse, tokenStart;
-    if (el.matches('.dg-token[data-dg-ref]')) {
-        const ref = el.dataset.dgRef || '';
-        const parts = ref.split(' ');
-        const cvt = parts.length > 1 ? parts[1].match(/^(\d+):(\d+)!(\d+)$/) : null;
-        if (!cvt) return null;
-        book = parts[0]; chapter = Number(cvt[1]); verse = Number(cvt[2]); tokenStart = Number(cvt[3]);
-    } else {
-        const tokenId = el.dataset.tokenId, block = el.closest('.gf-verse-block, .verse-block');
-        const list = block && (block._flowChips || block._flowWords);
-        let chip = list && list.find(item => String(item.tokenId) === String(tokenId));
-        if (!chip && typeof _wlvGetChipData === 'function') chip = _wlvGetChipData(tokenId);
-        if (!chip) return null;
-        tokenStart = _hlTokenIdxFromRef(chip.ref);
-        book = chip.bookKey || chip.book;
-        chapter = Number(chip.ch); verse = Number(chip.verse);
-    }
+    const tokenId = el.dataset.tokenId, block = el.closest('.gf-verse-block, .verse-block');
+    const list = block && (block._flowChips || block._flowWords);
+    let chip = list && list.find(item => String(item.tokenId) === String(tokenId));
+    if (!chip && typeof _wlvGetChipData === 'function') chip = _wlvGetChipData(tokenId);
+    if (!chip) return null;
+    tokenStart = _hlTokenIdxFromRef(chip.ref);
+    book = chip.bookKey || chip.book;
+    chapter = Number(chip.ch); verse = Number(chip.verse);
     if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse) || !Number.isFinite(tokenStart) || tokenStart < 1) return null;
     return { book: String(book), chapter, verse, tokenStart };
 }
@@ -946,7 +916,6 @@ function _hlResolveTextSelection() {
 
     const selected = Array.from(document.querySelectorAll(
         '#bible-text-area .wlv-chip, #parallel-text-area .wlv-chip, ' +
-        '#bible-text-area .dg-token[data-dg-ref], #parallel-text-area .dg-token[data-dg-ref], ' +
         '#bible-text-area .ja-seg, #parallel-text-area .ja-seg'
     )).filter(el => {
         try { return range.intersectsNode(el); } catch (_) { return false; }
@@ -1078,7 +1047,6 @@ function _hlTryTouchTextSelection() {
     try { range = selection.getRangeAt(0); } catch (_) {}
     const hitEls = range ? Array.from(document.querySelectorAll(
         '#bible-text-area .wlv-chip, #parallel-text-area .wlv-chip, ' +
-        '#bible-text-area .dg-token[data-dg-ref], #parallel-text-area .dg-token[data-dg-ref], ' +
         '#bible-text-area .ja-seg, #parallel-text-area .ja-seg'
     )).filter(el => { try { return range.intersectsNode(el); } catch (_) { return false; } }) : [];
     if (hitEls.length && hitEls.every(el => el.classList.contains('ja-seg'))) {
@@ -1123,8 +1091,7 @@ function _hlEnterTouchRangeMode() {
     _hlState.multiSelectEntries = entries.slice();
     const keys = new Set(entries.map(e => [String(e.book), Number(e.chapter), Number(e.verse), Number(e.tokenStart)].join(':')));
     document.querySelectorAll(
-        '#bible-text-area .wlv-chip, #parallel-text-area .wlv-chip, ' +
-        '#bible-text-area .dg-token[data-dg-ref], #parallel-text-area .dg-token[data-dg-ref]'
+        '#bible-text-area .wlv-chip, #parallel-text-area .wlv-chip'
     ).forEach(el => {
         const r = _hlRefFromEl(el);
         if (r && keys.has([r.book, r.chapter, r.verse, r.tokenStart].join(':'))) el.classList.add('hl-multi-selected');
@@ -1142,19 +1109,6 @@ function _hlEnterTouchRangeMode() {
     });
     _hlShowSelectionBar('multi', _hlState.multiSelectEntries.length);
 }
-/* 複数選択モード中は、構造モードのトークンのタップも選択の増減にする
-   （トークン自体のクリックは StudyPanel を開くため、捕捉フェーズで先取りする）。
-   語順チップ側は既存のチップタップ処理が同じ役割を担う。 */
-document.addEventListener('click', function (event) {
-    if (!_hlState.multiSelectActive) return;
-    const token = event.target && event.target.closest && event.target.closest('.dg-token[data-dg-ref]');
-    if (!token || !token.closest('#bible-text-area, #parallel-text-area')) return;
-    const m = (token.dataset.dgRef || '').match(/^(\S+) (\d+):(\d+)!(\d+)$/);
-    if (!m) return;
-    event.stopPropagation();
-    event.preventDefault();
-    _hlMultiSelectTap(token, { ref: token.dataset.dgRef, bookKey: m[1], ch: Number(m[2]), verse: Number(m[3]) });
-}, true);
 document.addEventListener('touchend', function (event) {
     _hlLastTouchAt = Date.now();
     _hlLastTouchInPill = !!(event.target && event.target.closest && event.target.closest('#hl-touch-pill'));
