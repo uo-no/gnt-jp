@@ -10,7 +10,7 @@ function cleanText(e) {
    優先順位: gloss_ja（日本語）→ headword（正規表記）→ lexemeId（最終保証）
    UI はこの関数のみを経由し、直接の条件分岐・フォールバック記述は禁止。 */
 function resolveDisplay(entry, lexemeId) {
-    if (typeof window !== 'undefined' && window.I18N && I18N.lang === 'en') {
+    if (typeof window !== 'undefined' && window.I18N && I18N.contentLang === 'en') {
         return (entry && entry.gloss) || (entry && entry.headword) || lexemeId;
     }
     if (typeof window !== 'undefined' && window.I18N && I18N.lang === 'es') {
@@ -92,7 +92,7 @@ const _REF_FORM_ES = {
     person: { '1': '1ª persona', '2': '2ª persona', '3': '3ª persona' },
 };
 function _refForm() {
-    return (window.I18N && I18N.lang === 'es') ? _REF_FORM_ES : (window.I18N && I18N.lang === 'en') ? _REF_FORM_EN : _REF_FORM_JA;
+    return (window.I18N && I18N.lang === 'es') ? _REF_FORM_ES : (window.I18N && I18N.contentLang === 'en') ? _REF_FORM_EN : _REF_FORM_JA;
 }
 /* 形態ラベル表（name キー）。従来は同内容が複数箇所に複製されていたものを集約。
    JA は従来定義と同値（person のみ追加、既存消費側は読まない）。 */
@@ -127,11 +127,11 @@ const MORPH_FULL_ES = {
     person: { '1':'1ª persona', '2':'2ª persona', '3':'3ª persona' },
 };
 function _morphFull() {
-    return (window.I18N && I18N.lang === 'es') ? MORPH_FULL_ES : (window.I18N && I18N.lang === 'en') ? MORPH_FULL_EN : MORPH_FULL_JA;
+    return (window.I18N && I18N.lang === 'es') ? MORPH_FULL_ES : (window.I18N && I18N.contentLang === 'en') ? MORPH_FULL_EN : MORPH_FULL_JA;
 }
 function _personText(c) {
     return _morphFull().person[c]
-        || ((window.I18N && I18N.lang === 'es') ? c + 'ª persona' : (window.I18N && I18N.lang === 'en') ? c + ' person' : c + '人称');
+        || ((window.I18N && I18N.lang === 'es') ? c + 'ª persona' : (window.I18N && I18N.contentLang === 'en') ? c + ' person' : c + '人称');
 }
 
 function _resolveLemmaId(strong) {
@@ -1048,7 +1048,7 @@ function _modeDescVisible() { return _fgModeSwitchCount() < 3; }
 function _sbRenderModesL0() {
     const list = document.getElementById('sb-mode-list-l0');
     if (!list) return;
-    const baseId = (window.I18N && I18N.lang === 'en') ? 'WEB' : (window.I18N && I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
+    const baseId = ((window.I18N && window.I18N.baseTranslation) || 'JA1955');
     const baseLabel = baseId === 'WEB'
         ? _T('mode.WEB.picker', 'Text (World English Bible)')
         : baseId === 'RVR1909'
@@ -1473,8 +1473,8 @@ const _ABBOTT_GRAMMAR_TERMS = {
 /* 表示時の補助だけを行い、原文・保存データは変更しない。 */
 function _localizeAbbottAbbreviations(text, locale) {
     const _rawLang = String(locale || document.documentElement.lang || 'ja').toLowerCase().split('-')[0];
-    /* Abbott-Smith 原文は英語のため、ES UI でも英語の略号展開を使う（EN と同じ扱い）。 */
-    const language = _rawLang === 'es' ? 'en' : _rawLang;
+    /* Abbott-Smith 原文は英語のため、ES／SV UI でも英語の略号展開を使う（EN と同じ扱い）。 */
+    const language = (_rawLang === 'es' || _rawLang === 'sv') ? 'en' : _rawLang;
     const terms = _ABBOTT_GRAMMAR_TERMS[language] || _ABBOTT_GRAMMAR_TERMS.ja;
     let result = String(text == null ? '' : text);
 
@@ -1672,6 +1672,7 @@ function _listMetaDate(ts) {
     if (diffDays >= 2 && diffDays <= 6) return isEn ? diffDays + _T('ui.daysAgoSuffix', '日前') : diffDays + '日前';
     if (diffDays === 7) return isEn ? _T('ui.oneWeekAgo', '1週間前') : '1週間前';
     if (window.I18N && I18N.lang === 'es') return d.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+    if (window.I18N && I18N.lang === 'sv') return d.toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' });   /* #115: 日付の書式は UI 言語（内容言語ではない） */
     if (isEn) return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const DAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
     return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日（' + DAY_JA[d.getDay()] + '）';
@@ -1744,7 +1745,7 @@ async function showRecentVerses() {
         const href = `index.html?book=${encodeURIComponent(latest.bookKey)}&ch=${encodeURIComponent(latest.chapter)}&verse=${encodeURIComponent(latest.verse)}`;
         let verseText = '';
         try {
-            const _previewTrans = (window.I18N && I18N.lang === 'en') ? 'WEB' : (window.I18N && I18N.lang === 'es') ? 'RVR1909' : 'JA1955';
+            const _previewTrans = ((window.I18N && window.I18N.baseTranslation) || 'JA1955');
             const chData = await _fetchTranslation(_previewTrans, latest.bookKey, String(latest.chapter));
             verseText = chData?.verses?.[String(latest.verse)] || '';
         } catch(e) {}
