@@ -29,6 +29,9 @@ try {
         { ref: 'GEN 1:2!1', text: 'θεός', lemma: 'θεός', strong: '2316', morph: 'N2--NSM---' },
         { ref: 'GEN 1:2a!1', text: 'θεός', lemma: 'θεός', strong: '2316', morph: 'N2--NSM---' },
     ]);
+    /* #61b / #118：語単位グロスのサイドカー。ある語だけ結合し、無い語にはフィールドを作らない（空白を埋めない）。 */
+    writeJson(path.join(fixture, 'public/assets/data/gloss-token/RVR1909/MAT/1.json'), { glosses: { 'MAT 1:1!1': 'Libro' } });
+    writeJson(path.join(fixture, 'public/assets/data/gloss-token/KARLXII1873/MAT/1.json'), { glosses: { 'MAT 1:1!2': 'börd' } });
 
     execFileSync(process.execPath, [
         path.join(repoRoot, 'scripts/build-search-index.js'),
@@ -70,6 +73,10 @@ try {
     assert.deepEqual(lxx.tokens.map(t => t.verse), [1, 2, '2a']);
     assert.equal(new Set(lxx.tokens.map(t => `${t.bookKey}:${t.ch}:${t.verse}`)).size, 3);
     assert.deepEqual(nt.tokens.map(t => t.verse), [1, 1]);
+    /* #118：glossSv は KARLXII1873 にある語だけ。glossEs は従来どおり RVR1909 由来で独立 */
+    assert.deepEqual(nt.tokens.map(t => t.glossEs), ['Libro', undefined]);
+    assert.deepEqual(nt.tokens.map(t => t.glossSv), [undefined, 'börd']);
+    assert.ok(lxx.tokens.every(t => !('glossSv' in t) && !('glossEs' in t)));
     for (const shard of [nt, lxx]) {
         assert.equal(shard.tokens.length, shard.tokenCount);
         for (const key of ['lemma', 'text', 'strong', 'morph', 'japanesePartial']) {

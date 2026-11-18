@@ -44,6 +44,9 @@ const dataRoot = firstExisting([
 /* #61b: NT トークンへスペイン語グロス（RVR1909 の語単位区分）を glossEs として結合する。
    出所は public/assets/data/gloss-token/RVR1909/<書>/<章>.json の glosses（キー＝トークンの ref）。NT のみ。無い章・無い語は結合しない（空白を埋めない）。 */
 const esGlossRoot = path.join(ROOT, 'public', 'assets', 'data', 'gloss-token', 'RVR1909');
+/* #118: 同じ方式で、スウェーデン語グロス（KARLXII1873 の語単位区分）を glossSv として結合する（ES の横展開）。
+   出所は public/assets/data/gloss-token/KARLXII1873/<書>/<章>.json。現時点で実在するのは ROM 1–16 のみ。無い書・章・語は結合しない（空白を埋めない）。 */
+const svGlossRoot = path.join(ROOT, 'public', 'assets', 'data', 'gloss-token', 'KARLXII1873');
 const outDirArg = argValue('--out-dir', 'public/search-index');
 const outDir = path.isAbsolute(outDirArg) ? outDirArg : path.join(ROOT, outDirArg);
 const booksRaw = fs.readFileSync(booksPath);
@@ -66,6 +69,7 @@ let chapterCount = 0;
 let tokenCount = 0;
 let missingOrInvalid = [];
 let esGlossJoined = 0;
+let svGlossJoined = 0;
 
 function normalizeGreek(str) {
     return String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -113,11 +117,17 @@ for (const book of books) {
         chapterCount++;
         const target = indexes[corpus];
         let esGlosses = null;
+        let svGlosses = null;
         if (corpus === 'NT') {
             const gp = path.join(esGlossRoot, book.key, `${ch}.json`);
             if (fs.existsSync(gp)) {
                 try { esGlosses = JSON.parse(fs.readFileSync(gp, 'utf8')).glosses || null; }
                 catch (error) { console.warn(`[search-index] ES gloss ${book.key}/${ch} unreadable: ${error.message}`); }
+            }
+            const sp = path.join(svGlossRoot, book.key, `${ch}.json`);   /* #118 */
+            if (fs.existsSync(sp)) {
+                try { svGlosses = JSON.parse(fs.readFileSync(sp, 'utf8')).glosses || null; }
+                catch (error) { console.warn(`[search-index] SV gloss ${book.key}/${ch} unreadable: ${error.message}`); }
             }
         }
         for (const w of rows) {
@@ -140,6 +150,10 @@ for (const book of books) {
             if (esGlosses) {
                 const ge = esGlosses[tok.ref];
                 if (typeof ge === 'string' && ge) { tok.glossEs = ge; esGlossJoined++; }
+            }
+            if (svGlosses) {
+                const gs = svGlosses[tok.ref];
+                if (typeof gs === 'string' && gs) { tok.glossSv = gs; svGlossJoined++; }
             }
             target.tokens.push(tok);
             add(target.text, tok.text, globalIdx);
@@ -264,4 +278,5 @@ const meta = {
 };
 fs.writeFileSync(path.join(outDir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
 console.log(`[search-index] ES glosses joined to NT tokens: ${esGlossJoined.toLocaleString()}`);
+console.log(`[search-index] SV glosses joined to NT tokens: ${svGlossJoined.toLocaleString()}`);
 console.log(`[search-index] complete: ${chapterCount.toLocaleString()} chapters, ${tokenCount.toLocaleString()} tokens, source ${version}; raw ${mib(totalRawBytes)}, gzip ${mib(totalGzipBytes)}`);
