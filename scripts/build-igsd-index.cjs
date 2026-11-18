@@ -4,7 +4,7 @@
  * build-igsd-index.cjs — IGSD 索引ビルド
  *
  * public/assets/data/igsd/lemmas/*.json（1 ファイル = 1 見出し語、正本データ）を集約し、
- *   - index.json    : 見出し語ごとの要約（strong, strongs, lemma, status, senses[{id,label,label_en?,label_es?,count}], total）
+ *   - index.json    : 見出し語ごとの要約（strong, strongs, lemma, status, senses[{id,label,label_en?,label_es?,label_sv?,count}], total）
  *   - sense-map.json: verseId -> "<Strong>:<senseId>" の全対応（<Strong> は見出し語の strong）
  *   - sense-map-gi.json: globalIdx（文字列キー）-> "<Strong>:<senseId>"。sense-map.json と同じ対応を、
  *     検索ツール（事前生成インデックス経由でトークンに verseId が無い）が引けるよう globalIdx で
@@ -159,6 +159,7 @@ function build(lemmasDir, bibleDataDir) {
         // label_en は任意フィールド。原データにあるものだけそのまま通す（補完・推測はしない）
         if (typeof s.label_en === "string" && s.label_en !== "") o.label_en = s.label_en;
         if (typeof s.label_es === "string" && s.label_es !== "") o.label_es = s.label_es;
+        if (typeof s.label_sv === "string" && s.label_sv !== "") o.label_sv = s.label_sv;
         o.count = counts[s.id] || 0;
         return o;
       }),
@@ -228,9 +229,11 @@ function selftest() {
     check("lemma 一致：アクセント・大文字を無視して一致判定する", normLemma("Λόγος") === normLemma("λογος") && normLemma("ἐν") === normLemma("ΕΝ") && normLemma("γάρ") !== normLemma("δέ"));
     check("strongs：2つ目の Strong のトークンも sense-map に入る（値は見出し語の strong）", r.senseMap["n99002001003"] === "G9003:2");
     // sense-map-gi：globalIdx 結合
-    check("label_en：原データにある label_en は index の語義にそのまま通る（key 順は id,label,label_en,label_es,count）", g1 && g1.senses[0].label_en === "First function" && JSON.stringify(Object.keys(g1.senses[0])) === JSON.stringify(["id", "label", "label_en", "label_es", "count"]));
+    check("label_en：原データにある label_en は index の語義にそのまま通る（key 順は id,label,label_en,label_es,label_sv,count）", g1 && g1.senses[0].label_en === "First function" && JSON.stringify(Object.keys(g1.senses[0])) === JSON.stringify(["id", "label", "label_en", "label_es", "label_sv", "count"]));
     check("label_es：原データにある label_es は index の語義にそのまま通る", g1 && g1.senses[0].label_es === "Primera función");
     check("label_es：原データに無い語義には label_es を補わない（フォールバックは表示側）", g1 && !("label_es" in g1.senses[1]) && !("label_es" in g2.senses[0]));
+    check("label_sv：原データにある label_sv は index の語義にそのまま通る", g1 && g1.senses[0].label_sv === "Första funktionen");
+    check("label_sv：原データに無い語義には label_sv を補わない（フォールバックは表示側）", g1 && !("label_sv" in g1.senses[1]) && !("label_sv" in g2.senses[0]));
     check("label_en：原データに無い語義には label_en を補わない（フォールバックは表示側）", g1 && !("label_en" in g1.senses[1]) && !("label_en" in g2.senses[0]));
     check("gi：sense-map-gi の件数が sense-map と一致する", Object.keys(r.senseMapGi).length === Object.keys(r.senseMap).length);
     check("gi：既知フィクスチャの対応が入る（globalIdx 0 -> G9001:1、4 -> G9002:1、7 -> G9003:2）", r.senseMapGi["0"] === "G9001:1" && r.senseMapGi["4"] === "G9002:1" && r.senseMapGi["7"] === "G9003:2");
