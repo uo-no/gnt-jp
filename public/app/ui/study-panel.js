@@ -1771,6 +1771,7 @@ function _buildConcordanceHTML(resolvedId, word) {
    buildSemanticGraph は定義済みだが _injectStudyPanelContent から呼ばれていない。
    グラフ表示 UI を実装する際に接続すること。
    削除禁止: 将来の意味グラフ機能のために保持する。
+   接続時の注意（#133）：LN／Cluster 索引は通常ロードで取得しないため、呼び出し前に await _ensureLnClusterData() すること。
    ══════════════════════════════════════════ */
 
 /**
@@ -1884,6 +1885,7 @@ const LN_RELATED_WORDS_ENABLED = false;
 async function _injectStudyPanelContent(semContainer, strong, lemmaId, word) {
     if (!semContainer || !LN_RELATED_WORDS_ENABLED) return;
     await _ensureSemanticData();
+    await _ensureLnClusterData();   /* #133：LN／Cluster 索引はゲート有効時のみ遅延取得 */
 
     const resolvedId  = lemmaId || _resolveLemmaId(strong);
     const lexEntry    = resolvedId ? _lexiconData[resolvedId] : null;
