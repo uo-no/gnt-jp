@@ -2584,13 +2584,19 @@ function _enGlossWords(tok){const g=tok&&tok.gloss;return g?(String(g).toLowerCa
 /* #61b: スペイン語グロス（NT トークンの glossEs。検索インデックス生成時に結合）。[artículo] [absorbido] 等の角括弧の印は語義ではないので語としても表示用としても扱わない。 */
 function _esGlossText(tok){const g=tok&&tok.glossEs;return(g&&String(g).charAt(0)!=='[')?String(g):null;}
 function _esGlossWords(tok){const g=_esGlossText(tok);return g?(_noAccent(g).match(/[a-z]+/g)||[]):[];}
+/* #118: スウェーデン語グロス（NT トークンの glossSv。KARLXII1873 の語単位区分を検索インデックス生成時に結合。現時点で ROM のみ実在）。
+   ES と同じ扱い：角括弧の印（[artikel] 等）は語として扱わず、語の照合は _noAccent で折り畳む（å/ä→a、ö→o。ES の á→a・ñ→n と同じ規則）。 */
+function _svGlossText(tok){const g=tok&&tok.glossSv;return(g&&String(g).charAt(0)!=='[')?String(g):null;}
+function _svGlossWords(tok){const g=_svGlossText(tok);return g?(_noAccent(g).match(/[a-z]+/g)||[]):[];}
 /* 表示用グロス（EN は gloss、ES は glossEs。JA は対象外で null） */
 function _dispGloss(tok){return _enMode()?((tok&&tok.gloss)||null):(_esMode()?_esGlossText(tok):null);}
-/* 語（クエリ）ごとに引くグロスの言語を決める。ES UI はスペイン語を先に、それ以外は英語を先に引き、先に当たらなければもう一方へ（UI 言語によらず両言語で発火）。 */
-const _glossIdxs={en:null,es:null},_glossIdxN={en:-1,es:-1};
+/* 語（クエリ）ごとに引くグロスの言語を決める。ES UI はスペイン語を先に、それ以外は英語を先に引き、先に当たらなければもう一方へ（UI 言語によらず両言語で発火）。
+   #118: SV UI だけはスウェーデン語グロスも引く（順序は英語→スウェーデン語→スペイン語。理由は _glossLangFor）。SV UI 以外では引かない（JA/EN/ES の結果を変えない）。 */
+const _glossIdxs={en:null,es:null,sv:null},_glossIdxN={en:-1,es:-1,sv:-1};
+function _glossWordsFor(lang,tok){return lang==='es'?_esGlossWords(tok):(lang==='sv'?_svGlossWords(tok):_enGlossWords(tok));}
 function _glossIndexFor(lang){
     if(!_glossIdxs[lang]||_glossIdxN[lang]!==ALL_TOKENS.length){
-        const m=new Map(),fn=lang==='es'?_esGlossWords:_enGlossWords;
+        const m=new Map(),fn=tk=>_glossWordsFor(lang,tk);
         for(let i=0;i<ALL_TOKENS.length;i++){
             const tk=ALL_TOKENS[i];if(!tk)continue;
             const ws=fn(tk);if(!ws.length)continue;
@@ -2602,19 +2608,22 @@ function _glossIndexFor(lang){
     return _glossIdxs[lang];
 }
 function _enGlossIndex(){return _glossIndexFor('en');}
-function _glossKey(word,lang){return lang==='es'?_noAccent(word):String(word).toLowerCase();}
+function _glossKey(word,lang){return(lang==='es'||lang==='sv')?_noAccent(word):String(word).toLowerCase();}
 let _glossLangMemo=new Map(),_glossLangMemoN=-1;
 function _glossLangFor(word){
     if(_glossLangMemoN!==ALL_TOKENS.length){_glossLangMemo=new Map();_glossLangMemoN=ALL_TOKENS.length;}
-    const mk=(_esMode()?'s|':'o|')+word;
+    const mk=(_esMode()?'s|':(_svMode()?'v|':'o|'))+word;
     let lang=_glossLangMemo.get(mk);
     if(lang)return lang;
     const hasEn=_glossIndexFor('en').has(_glossKey(word,'en')),hasEs=_glossIndexFor('es').has(_glossKey(word,'es'));
-    lang=_esMode()?(hasEs?'es':'en'):(hasEn?'en':(hasEs?'es':'en'));
+    /* #118: SV UI は英語→スウェーデン語→スペイン語。スウェーデン語グロスは現時点で ROM のみのため、英語グロスに当たる語（god・jesus・man 等）は
+       従来どおり英語で全 NT を引く（スウェーデン語を先にすると ROM だけに縮む）。英語に無い語（kärlek・nåd・Gud 等）だけスウェーデン語へ。 */
+    if(_svMode()&&!hasEn&&_glossIndexFor('sv').has(_glossKey(word,'sv')))lang='sv';
+    else lang=_esMode()?(hasEs?'es':'en'):(hasEn?'en':(hasEs?'es':'en'));
     _glossLangMemo.set(mk,lang);
     return lang;
 }
-function _enGlossHas(tok,word){const lang=_glossLangFor(word);return(lang==='es'?_esGlossWords(tok):_enGlossWords(tok)).includes(_glossKey(word,lang));}
+function _enGlossHas(tok,word){const lang=_glossLangFor(word);return _glossWordsFor(lang,tok).includes(_glossKey(word,lang));}
 function _enGlossSet(word){const lang=_glossLangFor(word);return new Set(_glossIndexFor(lang).get(_glossKey(word,lang))||[]);}
 function _posLabel(p){return _tf('search.morph.opt.pos.'+p,POS_JP[p]||p);}
 
@@ -2648,14 +2657,17 @@ function _addJpPartial(str,idx){
         }
     }
 }
-/* #61b: 事前生成インデックスが無い環境（ブラウザ構築のフォールバック）では、ES UI のときだけ NT 章のスペイン語グロスを取得して glossEs を結合する。 */
+/* #61b: 事前生成インデックスが無い環境（ブラウザ構築のフォールバック）では、ES UI のときだけ NT 章のスペイン語グロスを取得して glossEs を結合する。
+   #118: 同じく SV UI のときだけ KARLXII1873 のスウェーデン語グロスを glossSv として結合する（無い書・章は 404 で何もしない）。 */
 async function _joinEsGloss(bookKey,ch,toks){
-    if(!_esMode()||!NT_BOOK_KEYS.has(bookKey))return;
+    const _sv=_svMode();
+    if((!_esMode()&&!_sv)||!NT_BOOK_KEYS.has(bookKey))return;
+    const transId=_sv?'KARLXII1873':'RVR1909',field=_sv?'glossSv':'glossEs';
     try{
-        const res=await fetch(`../assets/data/gloss-token/RVR1909/${bookKey}/${ch}.json`);
+        const res=await fetch(`../assets/data/gloss-token/${transId}/${bookKey}/${ch}.json`);
         if(!res.ok)return;
         const gm=(await res.json()).glosses;
-        if(gm)for(const k of toks){const g=gm[k.ref];if(typeof g==='string'&&g)k.glossEs=g;}
+        if(gm)for(const k of toks){const g=gm[k.ref];if(typeof g==='string'&&g)k[field]=g;}
     }catch(_){}
 }
 /* LXX の節（#94）：LXX トークンは verse フィールドを持たない（0／479,623）ため、ref（例 'GEN 1:1!1'・'1SA 30:28a!1'）から
@@ -4131,12 +4143,13 @@ function groupHitsByLemma(hits){
    「set(null)→他のコールがnullを取得」という競合状態を防ぐ。 */
 const _transCache=new Map();
 async function _fetchTransVerse(bookKey,ch,verseNum){
+    const _sv=_svMode();   // SV は KARLXII1873 のみ（#118。UI 言語の基準訳。内容言語は英語でも引用文はスウェーデン語。無い節はギリシャ語のみ）
     const _en=_enMode();   // EN は WEB のみ（無い節は翻訳文を出さない＝ギリシャ語のみ）
     const _es=_esMode();   // ES は RVR1909 のみ（#61a。同じく無い節はギリシャ語のみ）
-    const cacheKey=`${_en?'en:':_es?'es:':''}${bookKey}/${ch}`;
+    const cacheKey=`${_sv?'sv:':_en?'en:':_es?'es:':''}${bookKey}/${ch}`;
     if(!_transCache.has(cacheKey)){
         const fetchPromise=(async()=>{
-            for(const transId of(_en?['WEB']:_es?['RVR1909']:['JA1955','KAI17'])){
+            for(const transId of(_sv?['KARLXII1873']:_en?['WEB']:_es?['RVR1909']:['JA1955','KAI17'])){
                 /* 複数訳を順に試す意図的なフォールバック（KAI17等が未収録の書物を持つのは
                    仕様であり障害ではない）。__failedFetches には積まないが、追跡可能にする。 */
                 try{
@@ -5037,7 +5050,7 @@ function _renderUnifiedResults(query,words,word2){
       if(_glossQ||(_enMode()&&lxxCount>0)){ /* D2: LXX は英語グロス・訳文が無い旨を1箇所だけ注記 */
         const _n=document.createElement('div');_n.id='lxx-note';_n.className='result-count-sub';
         _n.style.cssText='flex-basis:100%;width:100%;margin-top:4px;';
-        _n.textContent=_glossQ?(_glossLangFor(query.trim())==='es'?_tf('search.glossNtOnlyEs','スペイン語グロスでの検索は新約聖書のみが対象です（旧約ギリシア語訳（LXX）にはスペイン語グロスがありません）。'):_tf('search.glossNtOnly','英語グロスでの検索は新約聖書のみが対象です（旧約ギリシア語訳（LXX）には英語グロスがありません）。')):_tf('search.lxxNote','');
+        _n.textContent=_glossQ?(_glossLangFor(query.trim())==='sv'?_tf('search.glossSvScope','スウェーデン語グロスでの検索は、スウェーデン語グロスが整備済みの新約聖書の書（現在はローマ人への手紙のみ）が対象です。'):_glossLangFor(query.trim())==='es'?_tf('search.glossNtOnlyEs','スペイン語グロスでの検索は新約聖書のみが対象です（旧約ギリシア語訳（LXX）にはスペイン語グロスがありません）。'):_tf('search.glossNtOnly','英語グロスでの検索は新約聖書のみが対象です（旧約ギリシア語訳（LXX）には英語グロスがありません）。')):_tf('search.lxxNote','');
         document.getElementById('result-header').appendChild(_n);
       } }
     /* Strong 番号検索の件数注記（#53）: Strong 検索のときだけ。件数そのものは変えない */
@@ -5569,10 +5582,10 @@ function _renderLemmaGroups(groups,query,word2,words){
             if(_ml!==(_enMode()?'en':(_esMode()?'es':''))){
                 const gc=new Map(),qk=_glossKey(query.trim(),_ml);
                 for(const h of group.hits){const tk=h.tokens[h.anchorIdx];if(!tk)continue;
-                    const gv=_ml==='es'?_esGlossText(tk):tk.gloss,gw=_ml==='es'?_esGlossWords(tk):_enGlossWords(tk);
+                    const gv=_ml==='es'?_esGlossText(tk):(_ml==='sv'?_svGlossText(tk):tk.gloss),gw=_glossWordsFor(_ml,tk);
                     if(gv&&gw.includes(qk))gc.set(gv,(gc.get(gv)||0)+1);}
                 let best=null,bn=0;for(const[k,v]of gc)if(v>bn){best=k;bn=v;}
-                if(best)matchedGlossHtml=`<span class="lg-matched-gloss">${_escH(_ml==='es'?_tf('search.gloss.matchedEs','スペイン語グロス：{g}',{g:best}):_tf('search.gloss.matched','英語グロス：{g}',{g:best}))}</span>`;
+                if(best)matchedGlossHtml=`<span class="lg-matched-gloss">${_escH(_ml==='es'?_tf('search.gloss.matchedEs','スペイン語グロス：{g}',{g:best}):(_ml==='sv'?_tf('search.gloss.matchedSv','スウェーデン語グロス：{g}',{g:best}):_tf('search.gloss.matched','英語グロス：{g}',{g:best})))}</span>`;
             }
         }
         const row=document.createElement('div');row.className='lg-row';
