@@ -128,14 +128,35 @@ async function _loadApparatusLemJaData() {
     return _apparatusLemJaLoadP;
 }
 
-/** apparatus-rdg-ja.json を fetch して各読みの日本語マッピングを返す。
+/* #117: 各読みのグロスは既存 rdg（apparatus-rdg-{lang}.json）に、機械生成の
+   apparatus-{lang}-rdggen.json（単語形の読みのうち既存に無いもの）を足して返す。
+   読み単位で既存が優先（生成分は既存の読みを上書きしない）。生成分の取得に失敗しても
+   既存分だけで返す。両方とも確定の不在なら null。一時的な失敗が1本でもあれば固定しない（#105）。 */
+async function _loadApparatusRdgMerged(lang) {
+    const outs = await Promise.all([
+        _fetchJsonOutcome(`../assets/data/apparatus-rdg-${lang}.json`),
+        _fetchJsonOutcome(`../assets/data/apparatus-${lang}-rdggen.json`),
+    ]);
+    const [base, gen] = outs.map(o => (o.data && o.data.entries) ? o.data : null);
+    let data = null;
+    if (base || gen) {
+        const merged = {};
+        for (const src of [gen, base]) {
+            if (!src) continue;
+            for (const id in src.entries) merged[id] = Object.assign({}, merged[id], src.entries[id]);
+        }
+        data = { entries: merged };
+    }
+    return { data, ok: outs.every(o => o.ok) };
+}
+
+/** apparatus-rdg-ja.json（＋ #117 の apparatus-ja-rdggen.json）を fetch して各読みの日本語マッピングを返す。
  *  失敗時は null を返す（静寂優先）。 */
 async function _loadApparatusRdgJaData() {
     if (_apparatusRdgJaData) return _apparatusRdgJaData;
     if (_apparatusRdgJaLoadP) return _apparatusRdgJaLoadP;
-    _apparatusRdgJaLoadP = fetch('../assets/data/apparatus-rdg-ja.json')
-        .then(r => _okJsonOrNull(r))
-        .then(d => { _apparatusRdgJaData = d; return d; })
+    _apparatusRdgJaLoadP = _loadApparatusRdgMerged('ja')
+        .then(o => { if (o.ok) _apparatusRdgJaData = o.data; else _apparatusRdgJaLoadP = null; return o.data; })
         .catch(() => { _apparatusRdgJaLoadP = null; return null; });
     return _apparatusRdgJaLoadP;
 }
@@ -177,14 +198,13 @@ async function _loadApparatusLemEnData() {
     return _apparatusLemEnLoadP;
 }
 
-/** apparatus-rdg-en.json を fetch して各読みの英語マッピングを返す。
+/** apparatus-rdg-en.json（＋ #117 の apparatus-en-rdggen.json）を fetch して各読みの英語マッピングを返す。
  *  失敗時は null を返す（静寂優先）。 */
 async function _loadApparatusRdgEnData() {
     if (_apparatusRdgEnData) return _apparatusRdgEnData;
     if (_apparatusRdgEnLoadP) return _apparatusRdgEnLoadP;
-    _apparatusRdgEnLoadP = fetch('../assets/data/apparatus-rdg-en.json')
-        .then(r => _okJsonOrNull(r))
-        .then(d => { _apparatusRdgEnData = d; return d; })
+    _apparatusRdgEnLoadP = _loadApparatusRdgMerged('en')
+        .then(o => { if (o.ok) _apparatusRdgEnData = o.data; else _apparatusRdgEnLoadP = null; return o.data; })
         .catch(() => { _apparatusRdgEnLoadP = null; return null; });
     return _apparatusRdgEnLoadP;
 }
@@ -225,14 +245,13 @@ async function _loadApparatusLemEsData() {
     return _apparatusLemEsLoadP;
 }
 
-/** apparatus-rdg-es.json を fetch して各読みのスペイン語マッピングを返す。
+/** apparatus-rdg-es.json（＋ #117 の apparatus-es-rdggen.json）を fetch して各読みのスペイン語マッピングを返す。
  *  失敗時は null を返す（静寂優先）。 */
 async function _loadApparatusRdgEsData() {
     if (_apparatusRdgEsData) return _apparatusRdgEsData;
     if (_apparatusRdgEsLoadP) return _apparatusRdgEsLoadP;
-    _apparatusRdgEsLoadP = fetch('../assets/data/apparatus-rdg-es.json')
-        .then(r => _okJsonOrNull(r))
-        .then(d => { _apparatusRdgEsData = d; return d; })
+    _apparatusRdgEsLoadP = _loadApparatusRdgMerged('es')
+        .then(o => { if (o.ok) _apparatusRdgEsData = o.data; else _apparatusRdgEsLoadP = null; return o.data; })
         .catch(() => { _apparatusRdgEsLoadP = null; return null; });
     return _apparatusRdgEsLoadP;
 }
