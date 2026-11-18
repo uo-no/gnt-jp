@@ -129,7 +129,7 @@ async function init() {
         const _colA = _toColumnMode(_transA);
         const _colB = _toColumnMode(_transB);
 
-        /* ColumnMode が wordOrder / discourse（Greek由来・訳文なし）の場合は翻訳JSONをfetchしない */
+        /* ColumnMode が wordOrder（Greek由来・訳文なし）の場合は翻訳JSONをfetchしない */
         const jpData = _isGreekReadingMode(_colA.kind)
             ? null
             : await _fetchTranslation(_transA, book, ch);
@@ -168,9 +168,6 @@ async function init() {
         await _loadAlignForRender(book, ch);
         if (elData && elData.length) _jaSegIndexTokens(book, ch, elData);
 
-        /* DA-1: discourse は flow-tree（clause/sentence 構造）を先読みして render() へ渡す。 */
-        _dcvChapterTreeForRender = (_colA.kind === 'discourse')
-            ? await _loadFlowTreeChapter(book, ch) : null;
         /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。E-4-D: relation も同一SR JSONを使用。
            B列が passage-level の場合も同じ SR JSON を使用するため、_colB.kind も対象に含める。
            Phase E: rk-reading も同一 SR JSON を使用する。 */

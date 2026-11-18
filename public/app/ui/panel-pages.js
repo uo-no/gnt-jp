@@ -107,7 +107,7 @@ async function renderCurrentPage() {
         const _colA = _toColumnMode(_transA);
         const _colB = _toColumnMode(_transB);
 
-        /* ColumnMode が wordOrder / discourse（Greek由来・訳文なし）の場合は翻訳JSONをfetchしない */
+        /* ColumnMode が wordOrder（Greek由来・訳文なし）の場合は翻訳JSONをfetchしない */
         const jpData = _isGreekReadingMode(_colA.kind)
             ? null
             : await _fetchTranslation(_transA, book, ch);
@@ -138,12 +138,6 @@ async function renderCurrentPage() {
         await _loadAlignForRender(book, ch);
         /* #100：索引化とモジュール変数への代入は、下の世代チェックを通ってから行う（古い章の結果で上書きしない） */
 
-        /* DA-1: discourse は passage単位の clause 接続を描くため、flow-tree（clause/sentence
-           構造の一次データ）を render() の前に先読みする。既存 _loadFlowTreeChapter() を再利用し、
-           結果は render() が読む module 変数へ渡す（既存の翻訳fetchと同じく await 済みで一貫）。 */
-        const dcvTree = (_colA.kind === 'discourse')
-            ? await _loadFlowTreeChapter(book, ch) : null;
-
         /* P2: structural-diagram は SR 章データを先読みして render() へ渡す。E-4-D: relation も同一SR JSONを使用。
            B列が passage-level の場合も同じ SR JSON を使用するため、_colB.kind も対象に含める。
            Phase E: rk-reading も同一 SR JSON を使用する。 */
@@ -168,7 +162,6 @@ async function renderCurrentPage() {
         if (renderToken !== _renderCurrentPageToken) return false;
         /* #100：ここから先は最新の世代だけ。render() と StudyPanel／節ビュー（study-panel.js・mobile-verse-view.js）が読む値を確定する */
         if (elData && elData.length) _jaSegIndexTokens(book, ch, elData);
-        _dcvChapterTreeForRender = dcvTree;
         _sdChapterDataForRender = sdData;
         _missingVerseTextsForRender = _missingTexts;   /* QA-02 の経路（底本に無い節）も同じ値をそのまま渡す */
         render(columns, elData, hasGreek && elData.length > 0);

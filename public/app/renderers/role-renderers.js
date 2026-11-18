@@ -1,9 +1,5 @@
-/* render() が discourse 描画時に読む flow-tree（章単位）。renderCurrentPage()/init() が
-   render() 呼び出し前に await 済みで格納する（既存の翻訳fetchと同じ同期タイミング）。 */
-let _dcvChapterTreeForRender = null;
-
 /* P2: render() が structural-diagram 描画時に読む SR 章データ（章単位）。
-   DA-1 の _dcvChapterTreeForRender と同じタイミングで事前 fetch して格納する。 */
+   renderCurrentPage()/init() が render() 呼び出し前に事前 fetch して格納する。 */
 let _sdChapterDataForRender = null;
 /* 語の役割で読む レンダー関数。
    SR JSON → RoleReadingAdapter（シム木）→ RoleReadingLayout（作業スペースの

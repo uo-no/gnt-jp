@@ -258,7 +258,7 @@ async function _loadApparatusRdgEsData() {
 /* ══════════════════════════════════════════
    口語訳アラインメント（パイロット）— 対応表ストアとトークン索引
    対応表: assets/data/alignment/{翻訳ID}/{書}/{章}.json（章ごとのファイル。ファイル内の book/chapter/translation でも照合）。
-   章ロード時に render() の前へ先読みする（_dcvChapterTreeForRender と同じ方式）。
+   章ロード時に render() の前へ先読みする。
    対応表が無い場合はすべて null/空に倒れ、翻訳表示は従来どおりになる。
    ══════════════════════════════════════════ */
 const _jaAlignCache = new Map();

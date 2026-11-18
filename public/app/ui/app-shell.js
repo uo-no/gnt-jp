@@ -754,9 +754,6 @@ function _closeStudyPanelInternal() {
     document.getElementById('open-panel-btn').style.display =
         AppState.canReopen() ? 'block' : 'none';
 
-    const rcb = document.getElementById('rcb-container');
-    if (rcb) rcb.classList.remove('visible');
-
     const listEl = document.getElementById('word-list-view');
     if (listEl) listEl.remove();
 

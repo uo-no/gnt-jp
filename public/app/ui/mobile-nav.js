@@ -16,11 +16,6 @@ function _applyTransMode(mode) {
            _applyTransMode() の呼び出しは直後に必ず renderCurrentPage() を伴い、render() が
            DOM を全消去して作り直すため、この cleanup は表示上 no-op だった。 */
     }
-    _updateColHeaders();
-}
-
-function _updateColHeaders() {
-    _updateBibleLabel();
 }
 
 /* ── Greek Flow View: 右列表示モード切り替え ── */
@@ -63,18 +58,6 @@ function _setFlowInjection(mode) {
             }
         }
     });
-}
-
-function _updateBibleLabel() {
-    const el = document.getElementById('sb-bible-label-text');
-    if (!el) return;
-    const labelA = (TRANSLATIONS[_transA] || {}).label || _transA;
-    if (_transMode === 'compare') {
-        const labelB = (TRANSLATIONS[_transB] || {}).label || _transB;
-        el.textContent = labelA + ' / ' + labelB;
-    } else {
-        el.textContent = labelA;
-    }
 }
 
 function _syncMobileLocationLabel() {

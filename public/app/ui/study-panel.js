@@ -229,8 +229,6 @@ function _openWordListInternal(vNum, words, book, ch) {
     if (notesWrap) notesWrap.style.display = 'none';
     /* notesArea は display:none で隠すのみ。innerHTML = '' 禁止（DOMを維持する） */
 
-    const rcb = document.getElementById('rcb-container');
-    if (rcb) rcb.classList.remove('visible');
     const activeVEl = document.getElementById('active-v');
     if (activeVEl) {
         /* 入口導線 Phase 1: パネル見出しに箇所名を併記する（従来は「n節」だけ）。
