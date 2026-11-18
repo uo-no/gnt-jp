@@ -7,19 +7,18 @@
      applyShareState          … state → UI反映（URL/Routerを参照しない）
    ══════════════════════════════════════════ */
 const ShareURLService = {
-    /* 内部ID → パスコード（Router._DISPLAY_CODE の逆マッピング）。
-       JA1955 はデフォルトのため省略する（エントリなし = コードなし）。 */
+    /* 内部ID → パスコード（Router._DISPLAY_CODE の逆マッピング。現行の翻訳・モードのみ）。
+       JA1955 はデフォルトのため省略する（エントリなし = コードなし）。
+       基準訳（I18N.baseTranslation：en＝WEB、es＝RVR1909、sv＝KARLXII1873）は、単独表示では
+       URL を短く保つため省略する（generate 参照）。それ以外の翻訳はコードを出し、解析で復元される（#132）。
+       2026-10-28 のモード整理で削除したモード（ST/CR/RL/DC/RK/RKV/RKP）は生成しない。 */
     _PATH_CODE: {
         'WORD_ORDER':  'WO',
-        'STRUCTURE':   'ST',
-        'CLAUSE_ROLE': 'CR',
-        'RELATION':    'RL',
-        'DISCOURSE':   'DC',
+        'WEB':         'WEB',
+        'RVR1909':     'RVR1909',
+        'KARLXII1873': 'KARLXII1873',
         'BUN':         'BUN',
-        'RK_READING':  'RK',
-        'RK_READING_V': 'RKV',  /* Phase L.2 */
         'DA_READING': 'DA',
-        'RK_READING_P': 'RKP',  /* Phase M */
         'ROLE_READING': 'WR',
         'GREEK_TEXT':  'GR',
     },
@@ -33,7 +32,9 @@ const ShareURLService = {
         const verse   = state.verse   ? String(state.verse) : '';
         const isCompare = state.mode === 'compare' && state.transB;
 
-        const codeA = this._PATH_CODE[state.transA] || null;
+        /* 単独表示で transA が基準訳なら省略（その UI 言語の既定として復元されるため）。比較表示は両辺を明示する。 */
+        const _baseId = (window.I18N && window.I18N.baseTranslation) || 'JA1955';
+        const codeA = (!isCompare && state.transA === _baseId) ? null : (this._PATH_CODE[state.transA] || null);
         const codeB = isCompare ? (this._PATH_CODE[state.transB] || null) : null;
 
         /* JA1955 (codeA===null) の場合 display='' → パスセグメント省略 = /BOOK/CHAPTER */
@@ -55,11 +56,14 @@ const ShareURLService = {
 };
 
 const Router = {
-    /* パス表示コード → 内部ID（旧URLエイリアスは normalizeModeId が担う） */
+    /* パス表示コード → 内部ID。
+       旧コード（ST/CR/RL/DC/RK/RKV/RKP）は 2026-10-28 のモード整理で削除したモードのもの。
+       旧リンクを死なせないため、設計どおり WORD_ORDER（語順で読む）へ明示的に落とす（#132）。 */
     _DISPLAY_CODE: {
-        'WO': 'WORD_ORDER', 'ST': 'STRUCTURE',  'CR': 'CLAUSE_ROLE',
-        'RL': 'RELATION',   'DC': 'DISCOURSE',  'BUN': 'BUN', 'JA1955': 'JA1955', 'WEB': 'WEB',
-        'RK': 'RK_READING', 'RKV': 'RK_READING_V', 'RKP': 'RK_READING_P',  /* Phase L.2 / M */
+        'WO': 'WORD_ORDER',
+        'ST': 'WORD_ORDER', 'CR': 'WORD_ORDER', 'RL': 'WORD_ORDER', 'DC': 'WORD_ORDER',
+        'RK': 'WORD_ORDER', 'RKV': 'WORD_ORDER', 'RKP': 'WORD_ORDER',
+        'BUN': 'BUN', 'JA1955': 'JA1955', 'WEB': 'WEB', 'RVR1909': 'RVR1909', 'KARLXII1873': 'KARLXII1873',
         'DA': 'DA_READING',
         'WR': 'ROLE_READING',
         'GR': 'GREEK_TEXT',

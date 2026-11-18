@@ -57,7 +57,14 @@ let _transB      = 'BUN';
 
 /* Legacy Mode ID → 新 Mode ID の正規化マップ（URL deep link 互換）。
    ?transA=FLOW 等の旧 URL が引き続き動作するよう init() で適用する。 */
-const LEGACY_MODE_IDS = { FLOW: 'WORD_ORDER', HIERARCHICAL: 'STRUCTURE', REED_KELLOGG: 'CLAUSE_ROLE' };
+/* 2026-10-28 のモード整理で削除したモードの ID はすべて「語順で読む」に着地させる（#132）。
+   旧 ?transA= の深いリンクを死なせないための互換表。値は必ず現行の登録済み ID にすること。 */
+const LEGACY_MODE_IDS = {
+    FLOW: 'WORD_ORDER', HIERARCHICAL: 'WORD_ORDER', REED_KELLOGG: 'WORD_ORDER',
+    STRUCTURE: 'WORD_ORDER', STRUCTURAL: 'WORD_ORDER', CLAUSE_ROLE: 'WORD_ORDER',
+    RELATION: 'WORD_ORDER', DISCOURSE: 'WORD_ORDER',
+    RK_READING: 'WORD_ORDER', RK_READING_V: 'WORD_ORDER', RK_READING_P: 'WORD_ORDER',
+};
 function normalizeModeId(id) { return LEGACY_MODE_IDS[id] || id; }
 
 /* ══════════════════════════════════════════
