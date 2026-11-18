@@ -273,7 +273,7 @@ function _glossDictReady() {
     if (typeof _ensureSemanticData === 'function') {
         let sp = null;
         try { sp = _ensureSemanticData(); } catch (_) {}
-        if (lang === 'en') p = sp;
+        if (I18N.contentLang === 'en') p = sp;   /* EN／SV：英語グロスの代替は lexicon（#115） */
     }
     if (lang === 'es' && typeof _ensureEsSenses === 'function') {
         _ensureEsSenses();
@@ -415,8 +415,7 @@ async function _fetchTranslation(transId, book, ch) {
  */
 async function _fetchMissingVerseTexts(book, ch, kind, elData) {
     if (!_isGreekReadingMode(kind) || !elData || elData.length === 0) return null;
-    const lang = window.I18N && window.I18N.lang;
-    const tid  = lang === 'en' ? 'WEB' : (lang === 'es' ? 'RVR1909' : 'JA1955');
+    const tid  = (window.I18N && window.I18N.baseTranslation) || 'JA1955';
     const tr   = await _fetchTranslation(tid, book, ch);
     if (!tr || !tr.verses) return null;
     const have = new Set();
