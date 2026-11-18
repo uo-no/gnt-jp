@@ -365,6 +365,8 @@ function _mmpRenderModes() {
         ? { id: 'WEB', label: 'Text (World English Bible)', i18n: 'mode.WEB.picker' }
         : baseId === 'RVR1909'
         ? { id: 'RVR1909', label: 'Texto (Reina-Valera 1909)', i18n: 'mode.RVR1909.picker' }
+        : baseId === 'KARLXII1873'
+        ? { id: 'KARLXII1873', label: 'Text (Karl XII:s bibel 1873)', i18n: 'mode.KARLXII1873.picker' }
         : MN_MODE_LIST[0];
     const items = [baseItem, ...MN_MODE_LIST.slice(1)];
     let html = '';

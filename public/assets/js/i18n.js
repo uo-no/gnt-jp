@@ -30,7 +30,7 @@
 
     /* UI 言語ごとの基準訳（既定の本文翻訳）。SV は暫定で WEB。Karl XII:s bibel（1873）の
        取り込み（#116）後は、ここを差し替えるだけで切り替わる（翻訳ID・書名等の整備は別項目）。 */
-    var BASE_TRANSLATION = { ja: 'JA1955', en: 'WEB', es: 'RVR1909', sv: 'WEB' };
+    var BASE_TRANSLATION = { ja: 'JA1955', en: 'WEB', es: 'RVR1909', sv: 'KARLXII1873' };
 
     /* Path-prefix language links (user decision, 2026-11-05):
        /ja/... and /en/... choose the UI language and remember it,

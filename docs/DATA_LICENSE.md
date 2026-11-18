@@ -170,6 +170,25 @@ MACULA Greek Linguistic Datasets は © Biblica, Inc. である。CC BY 4.0（�
 
 ---
 
+## 7-2. 翻訳本文：Karl XII:s bibel (1873)
+
+### ■ 出典
+- 版：Karl XII:s bibel（1873年改訂版。英国外国聖書協会 BFBS 印刷版の OCR を1976年の再版で照合したテキスト）。
+- 入手元：CrossWire SWORD Project のモジュール **SweKarlXII1873**（Distribution License: Public Domain、OSIS 形式、UTF-8）。取り込みに使ったコピーは GitHub scrollmapper/bible_databases の `sources/sv/SweKarlXII1873`（CrossWire モジュール由来）。
+
+### ■ ライセンス
+パブリックドメイン。
+
+### ■ 加工内容
+- OSIS マークアップを除去し、書・章・節の構造へ変換（`scripts/karlxii1873/convert.py`）。新約27書・260章・7,954節。節区切りの差は `scripts/karlxii1873/VERSIFICATION.md` に記録。
+- 訳文とギリシャ語トークンの対応表（`public/assets/data/alignment/KARLXII1873/`）は本プロジェクトの独自作成データ（モデル支援で章別 spec を作成し、`scripts/karlxii1873/build.py` の機械検証を通したもの）。
+
+### ■ 配置
+- 本文：`public/translations/KARLXII1873/`
+- 対応表：`public/assets/data/alignment/KARLXII1873/`
+
+---
+
 ## 8. 注意事項
 
 - 本データは研究・学習用途を想定している

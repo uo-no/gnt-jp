@@ -399,6 +399,7 @@ function renderGlobalBreadcrumb() {
             'JA1955':       _T('mode.JA1955', '口語訳'),
             'WEB':          _T('mode.WEB', 'World English Bible'),
             'RVR1909':      _T('mode.RVR1909', 'Reina-Valera 1909'),
+            'KARLXII1873':  _T('mode.KARLXII1873', 'Karl XII:s bibel (1873)'),
             'WORD_ORDER':   _T('mode.WORD_ORDER', '語順で読む'),
             'DA_READING':   _T('mode.DA_READING', '文の構造で読む'),
             'ROLE_READING': _T('mode.ROLE_READING', '語の役割で読む'),
@@ -1053,6 +1054,8 @@ function _sbRenderModesL0() {
         ? _T('mode.WEB.picker', 'Text (World English Bible)')
         : baseId === 'RVR1909'
         ? _T('mode.RVR1909.picker', 'Texto (Reina-Valera 1909)')
+        : baseId === 'KARLXII1873'
+        ? _T('mode.KARLXII1873.picker', 'Text (Karl XII:s bibel 1873)')
         : _T('mode.JA1955.picker', '本文（口語訳）');
     const items = [
         { id: baseId,       label: baseLabel },
