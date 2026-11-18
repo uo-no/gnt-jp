@@ -336,6 +336,7 @@ function _abbottDesc(digits) {
         ? abbottSmithDict[digits] : null;
     if (!e) return '';
     if (window.I18N && I18N.lang === 'es' && e.descriptionEs) return e.descriptionEs;
+    if (window.I18N && I18N.lang === 'sv' && e.descriptionSv) return e.descriptionSv;   /* #119: SV は descriptionSv 優先、無ければ下の英語原文 */
     if (window.I18N && I18N.lang !== 'ja' && e.descriptionEn) return e.descriptionEn;
     return e.description || '';
 }
@@ -1135,7 +1136,7 @@ async function _renderReadingNotes(p) {
     const _abbottDigits = resolvedId ? resolvedId.replace(/^grc:G/i, '') : '';
     if (_enUiAbbott && _abbottDigits && !abbottSmithDict) await loadDict();
     const abbottSmithText = _enUiAbbott
-        ? ((I18N.lang === 'es' && abbottSmithDict?.[_abbottDigits]?.descriptionEs) || abbottSmithDict?.[_abbottDigits]?.descriptionEn || '')   /* #107: ES は descriptionEs 優先、無ければ英語原文 */
+        ? ((I18N.lang === 'es' && abbottSmithDict?.[_abbottDigits]?.descriptionEs) || (I18N.lang === 'sv' && abbottSmithDict?.[_abbottDigits]?.descriptionSv) || abbottSmithDict?.[_abbottDigits]?.descriptionEn || '')   /* #107: ES は descriptionEs 優先、#119: SV は descriptionSv 優先、無ければ英語原文 */
         : (lexEntry?.abbottSmith || '');
     const contexts        = lexEntry?.contexts || {};
     const synopticRefs    = contexts.synoptic_refs || [];
