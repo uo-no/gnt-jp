@@ -7285,6 +7285,7 @@ let _abbottLoading = false;
 /* #107: Abbott-Smith 本文を UI 言語で選ぶ。EN＝英語原文、ES＝descriptionEs（あれば）、無ければ従来どおり日本語本文。JA は従来どおり。 */
 function _abbottBody(e){
     if(!e)return '';
+    if(_svMode()&&e.descriptionSv)return e.descriptionSv;   /* #119: SV は descriptionSv 優先、無ければ下の英語原文 */
     if(_enMode())return e.descriptionEn||'';
     if(_esMode()&&e.descriptionEs)return e.descriptionEs;
     return e.description||'';
@@ -7302,9 +7303,9 @@ async function _loadAbbott() {
             const cols = line.split('\t');
             if (cols.length < 5) return;
             const strong = cols[0].trim();
-            // 列: 0=strong 1=lemma 2=description_en 3=description_literal_ja 4=description_ja 5=description_es（任意・未翻訳の行は無い／空）。
+            // 列: 0=strong 1=lemma 2=description_en 3=description_literal_ja 4=description_ja 5=description_es、6=description_sv（いずれも任意・未翻訳の行は無い／空）。
             //   JA は従来どおり cols[4]、EN は英語原文 cols[2]、ES は cols[5]（無ければ従来どおり日本語本文）
-            _abbottDict[strong] = { lemma: cols[1]?.trim() || '', description: cols[4]?.trim() || '', descriptionEn: cols[2]?.trim() || '', descriptionEs: cols[5]?.trim() || '' };
+            _abbottDict[strong] = { lemma: cols[1]?.trim() || '', description: cols[4]?.trim() || '', descriptionEn: cols[2]?.trim() || '', descriptionEs: cols[5]?.trim() || '', descriptionSv: cols[6]?.trim() || '' };
         });
     } catch(e) {
         console.warn('Abbott-Smith load error', e);

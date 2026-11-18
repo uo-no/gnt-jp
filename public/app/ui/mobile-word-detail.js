@@ -475,7 +475,7 @@ async function _fillMvvLevel2Slot(resolvedId) {
         let abbottSmithText = '';
         if (_enUiAbbottMvv && _abbottDigitsMvv) {
             await loadDict();
-            abbottSmithText = abbottSmithDict?.[_abbottDigitsMvv]?.descriptionEn || '';
+            abbottSmithText = (I18N.lang === 'sv' && abbottSmithDict?.[_abbottDigitsMvv]?.descriptionSv) || abbottSmithDict?.[_abbottDigitsMvv]?.descriptionEn || '';   /* #119: SV は descriptionSv 優先（ES は従来どおり英語原文のまま） */
         } else {
             abbottSmithText = lexEntry?.abbottSmith || '';
         }

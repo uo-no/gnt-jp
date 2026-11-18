@@ -556,6 +556,7 @@ async function _openEtymPopup(lexemeId) {
     const form  = entry?.headword || '';
     const enUi  = !!(window.I18N && I18N.contentLang === 'en');
     const esUi  = !!(window.I18N && I18N.lang === 'es');
+    const svUi  = !!(window.I18N && I18N.lang === 'sv');   /* #119 */
     const gloss = esUi ? ((typeof _esShortGloss === 'function' ? _esShortGloss(lexemeId) : null) || '')
                 : enUi ? (entry?.gloss || '') : (entry?.gloss_ja || '');
     let   desc  = entry?.abbottSmith || '';
@@ -564,7 +565,7 @@ async function _openEtymPopup(lexemeId) {
         /* 非日本語UI: 本文は Abbott-Smith 原文（description_en） */
         if (digits) {
             if (!abbottSmithDict) await loadDict();
-            desc = (esUi && abbottSmithDict?.[digits]?.descriptionEs) || abbottSmithDict?.[digits]?.descriptionEn || desc;   /* #107: ES は descriptionEs 優先 */
+            desc = (esUi && abbottSmithDict?.[digits]?.descriptionEs) || (svUi && abbottSmithDict?.[digits]?.descriptionSv) || abbottSmithDict?.[digits]?.descriptionEn || desc;   /* #107: ES は descriptionEs 優先、#119: SV は descriptionSv 優先 */
         }
     } else if (!desc && lexemeId) {
         if (!abbottSmithDict) await loadDict();

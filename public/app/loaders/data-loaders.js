@@ -62,6 +62,8 @@ function loadDict() {
                     descriptionEn: (cols[2]?.trim() || "").replace(/^\d+\s+/, "").replace(/^†\s*/, ""),
                     /* #107: 6列目 description_es（任意）。翻訳文は整った文として入る前提のため、descriptionEn の整形（番号・† の除去）はかけない */
                     descriptionEs: cols[5]?.trim() || "",
+                    /* #119: 7列目 description_sv（任意）。ES と同じく整形はかけない。値が空の語は英語原文へ落とす（表示側） */
+                    descriptionSv: cols[6]?.trim() || "",
                 };
             });
             abbottSmithDict = parsed;
