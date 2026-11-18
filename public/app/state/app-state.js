@@ -143,7 +143,7 @@ const AppState = {
     scrollTop: 0,
 
     /* UI状態（ヘッダー/パンくず/サイドバーの選択表示の唯一のソース）。
-       'bible' | 'bookmarks' | 'notes' | 'recentVerses' | 'recentWords' | 'sourcePolicy' | 'knowledge' | 'roadmap' | 'changelog' */
+       'bible' | 'bookmarks' | 'notes' | 'recentVerses' | 'recentWords' | 'sourcePolicy' | 'knowledge' | 'roadmap' | 'changelog' | 'svIntro' */
     ui: {
         view: 'bible',
     },
