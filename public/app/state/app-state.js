@@ -5,6 +5,7 @@ const TRANSLATIONS = {
     'JA1955': { label: '口語訳（1955）',     code: 'JA1955' },
     'WEB':    { label: 'World English Bible（英語訳）', code: 'WEB' },
     'RVR1909': { label: 'Reina-Valera 1909', code: 'RVR1909' },
+    'KARLXII1873': { label: 'Karl XII:s bibel (1873)', code: 'KARLXII1873' },
     'BUN':    { label: '文語訳',             code: 'BUN'    },
 /*  'KAI17':  { label: '新改訳2017',         code: 'KAI17'  },
     'KYO':    { label: '聖書協会共同訳',     code: 'KYO'    },*/
@@ -33,7 +34,7 @@ const TRANSLATION_REGISTRY = Object.entries(TRANSLATIONS)
     .filter(([id]) => id !== 'WORD_ORDER' && id !== 'DISCOURSE' && id !== 'STRUCTURAL' && id !== 'STRUCTURE' && id !== 'CLAUSE_ROLE' && id !== 'BUN' && id !== 'RELATION' && id !== 'RK_READING' && id !== 'RK_READING_V' && id !== 'DA_READING' && id !== 'ROLE_READING' && id !== 'GREEK_TEXT')
     .map(([id, t]) => ({ id, label: t.label, code: t.code }));
 /* D1（Phase 1b）: 基準訳は UI 言語に従う。UI 言語の基準訳（I18N.baseTranslation：
-   en／sv＝WEB、es＝RVR1909）を翻訳一覧の先頭に置く。JA は JA1955 が元から先頭のため no-op。
+   en＝WEB、es＝RVR1909、sv＝KARLXII1873）を翻訳一覧の先頭に置く。JA は JA1955 が元から先頭のため no-op。
    基準訳の対応表は assets/js/i18n.js の BASE_TRANSLATION が唯一の定義（#115）。 */
 {
     const _baseId = window.I18N && window.I18N.baseTranslation;

@@ -88,7 +88,7 @@ async function init() {
        他言語の基底訳（JA1955/WEB）が URL に残っていると既定値を上書きしてしまう。
        スロットの値であれば現在の UI 言語の基底訳へ付け替える（比較相手 _transB は対象外）。 */
     const _baseForLang = ((window.I18N && window.I18N.baseTranslation) || 'JA1955');
-    if ((_transA === 'JA1955' || _transA === 'WEB' || _transA === 'RVR1909') && _transA !== _baseForLang) _transA = _baseForLang;
+    if ((_transA === 'JA1955' || _transA === 'WEB' || _transA === 'RVR1909' || _transA === 'KARLXII1873') && _transA !== _baseForLang) _transA = _baseForLang;
     /* Legacy ?view=hierarchical → STRUCTURE は 2026-10-28 の整理で削除済みのため WORD_ORDER に着地させる。 */
     if (!urlParams.transA && _hdgInitViewParam === 'hierarchical') _transA = 'WORD_ORDER';
     if (urlParams.mode) {
