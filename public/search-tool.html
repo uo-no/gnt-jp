@@ -2589,7 +2589,10 @@ function _esGlossWords(tok){const g=_esGlossText(tok);return g?(_noAccent(g).mat
 function _svGlossText(tok){const g=tok&&tok.glossSv;return(g&&String(g).charAt(0)!=='[')?String(g):null;}
 function _svGlossWords(tok){const g=_svGlossText(tok);return g?(_noAccent(g).match(/[a-z]+/g)||[]):[];}
 /* 表示用グロス（EN は gloss、ES は glossEs。JA は対象外で null） */
-function _dispGloss(tok){return _enMode()?((tok&&tok.gloss)||null):(_esMode()?_esGlossText(tok):null);}
+/* #134: SV はスウェーデン語グロス（glossSv）のみ。無い語（ROM 以外）の英語フォールバックは呼び出し側（_dispGlossEn）でグループ単位に行う */
+function _dispGloss(tok){if(_svMode())return _svGlossText(tok);return _enMode()?((tok&&tok.gloss)||null):(_esMode()?_esGlossText(tok):null);}
+/* SV の見出しグロスのフォールバック（グループに glossSv が1つも無いときだけ使う英語グロス。日本語には落とさない） */
+function _dispGlossEn(tok){return(_svMode()&&tok&&tok.gloss)?String(tok.gloss):null;}
 /* 語（クエリ）ごとに引くグロスの言語を決める。ES UI はスペイン語を先に、それ以外は英語を先に引き、先に当たらなければもう一方へ（UI 言語によらず両言語で発火）。
    #118: SV UI だけはスウェーデン語グロスも引く（順序は英語→スウェーデン語→スペイン語。理由は _glossLangFor）。SV UI 以外では引かない（JA/EN/ES の結果を変えない）。 */
 const _glossIdxs={en:null,es:null,sv:null},_glossIdxN={en:-1,es:-1,sv:-1};
@@ -3975,11 +3978,12 @@ function _renderConceptInsight(concept) {
                     /* EN/ES: グループバーと同じ「最頻グロス」に揃える（先頭トークンの活用形グロスにしない） */
                     const gc = new Map();
                     for (const gi of set) { const tk = ALL_TOKENS[gi]; const dg = tk && _dispGloss(tk); if (dg) gc.set(dg, (gc.get(dg) || 0) + 1); }
+                    if (!gc.size && _svMode()) for (const gi of set) { const tk = ALL_TOKENS[gi]; const dg = tk && _dispGlossEn(tk); if (dg) gc.set(dg, (gc.get(dg) || 0) + 1); }
                     let bn = 0; for (const [k, v] of gc) if (v > bn) { gloss = k; bn = v; }
                 }
                 if (!gloss) for (const gi of set) {
                     const tok = ALL_TOKENS[gi];
-                    gloss = (tok && ((_enMode() || _esMode()) ? _dispGloss(tok) : (tok.japanese || tok.gloss))) || '';
+                    gloss = (tok && ((_enMode() || _esMode()) ? (_dispGloss(tok) || _dispGlossEn(tok)) : (tok.japanese || tok.gloss))) || '';
                     if (gloss || ++probes >= 200) break;
                 }
                 if (!gloss) continue;                             /* 語義未取得は非表示 */
@@ -4113,6 +4117,8 @@ function groupHitsByLemma(hits){
         }
         const group=map.get(lemma);
         group.hits.push(h);
+        if(_svMode()&&_dispGlossEn(tok)){const _ge=_dispGlossEn(tok);const ec=group._gce||(group._gce=new Map());ec.set(_ge,(ec.get(_ge)||0)+1);
+            if(!group._gc){let b=null,n=0;for(const[k,v]of ec)if(v>n){b=k;n=v;}group.japanese=b;}} // SV: glossSv が無いグループは英語の最頻値
         if((_enMode()||_esMode())&&_dispGloss(tok)){ // EN/ES: 見出しのグロスはグループ内で最頻のもの（先頭トークンの活用形グロスにしない）
             const _dg=_dispGloss(tok);
             const gc=group._gc||(group._gc=new Map());gc.set(_dg,(gc.get(_dg)||0)+1);
@@ -5533,6 +5539,10 @@ function _glossForText(word){
         for(const t of toks){if(t.text===word&&_dispGloss(t)){g=_dispGloss(t);break;}}
         if(g)break;
     }
+    if(!g&&_svMode())for(const toks of Object.values(tokenCache)){
+        for(const t of toks){if(t.text===word&&_dispGlossEn(t)){g=_dispGlossEn(t);break;}}
+        if(g)break;
+    }
     if(g)_enTextGloss.set(_tk,g);
     return g;
 }
@@ -5805,8 +5815,18 @@ function _loadEnSenses(){
     return _enSensesP;
 }
 /* 辞書データの意味（語義の選択・要約はしない）。JA/ES＝Abbott-Smith【語義】の第1区切り（lemma 一致時のみ）、EN＝gloss-en-senses の第1語義。引けなければ ''。 */
-async function _lemmaMeaning(strong,lemma){
+/* #134: SV/ES の見出し語義は、その語の NT トークンのグロス（SV=glossSv、ES=glossEs）の最頻値。無ければ SV は英語の語義へ、ES は英語の語義へ（日本語には落とさない） */
+function _tokMostFreqGloss(toks,fn){const gc=new Map();for(const t of toks||[]){const g=fn(t);if(g)gc.set(g,(gc.get(g)||0)+1);}let b='',n=0;for(const[k,v]of gc)if(v>n){b=k;n=v;}return b;}
+async function _lemmaMeaning(strong,lemma,toks){
     try{
+        if(_svMode()||_esMode()){
+            const own=_tokMostFreqGloss(toks,_svMode()?_svGlossText:_esGlossText);
+            if(own)return own;
+            const num0=String(parseInt(String(strong||'').replace(/\D/g,''),10));
+            if(!strong||num0==='NaN')return '';
+            const d0=await _loadEnSenses();const a0=d0&&d0[num0];
+            return (Array.isArray(a0)&&a0.length)?String(a0[0]||'').trim():'';
+        }
         const num=String(parseInt(String(strong||'').replace(/\D/g,''),10));
         if(!strong||num==='NaN')return '';
         if(_enMode()){
@@ -5832,7 +5852,7 @@ async function _decorateFlatHeading(query,words,qtype){
     const nl=_igsdNorm(nt[0].lemma);
     if(nt.some(t=>_igsdNorm(t.lemma)!==nl||t.strong!==nt[0].strong))return; // 一意に決まらない（番号の衝突・複数レンマ）場合は出さない
     const strong=nt[0].strong;
-    const meaning=await _lemmaMeaning(strong,nt[0].lemma);
+    const meaning=await _lemmaMeaning(strong,nt[0].lemma,nt);
     if(_lastQuery!==query)return; // 検索が入れ替わっていたら付けない
     const el=document.getElementById('result-query-label');
     if(!el||el.textContent!==query)return;
@@ -7390,7 +7410,7 @@ function _asCollectLemmas(){
             if(!r){r={lemma:t.lemma,strong:null,n:0,gc:new Map()};map.set(t.lemma,r);}
             r.n++;
             if(!r.strong&&t.strong)r.strong=String(parseInt(String(t.strong).replace(/\D/g,''),10));
-            const g=(_enMode()||_esMode())?_dispGloss(t):(t.japanese?(Array.isArray(t.japanese)?t.japanese[0]:t.japanese):t.gloss);
+            const g=(_enMode()||_esMode())?(_dispGloss(t)||_dispGlossEn(t)):(t.japanese?(Array.isArray(t.japanese)?t.japanese[0]:t.japanese):t.gloss);
             if(g)r.gc.set(g,(r.gc.get(g)||0)+1);
         }
     }catch(_){return[];}
