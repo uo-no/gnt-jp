@@ -19,8 +19,10 @@ function _jaAlignSegmentsFor(transId, book, ch, verse) {
    ══════════════════════════════════════════ */
 function _glossTransIdForUi() {
     if (typeof window === 'undefined' || !window.I18N) return null;
-    /* 内容言語が英語（EN／SV）＝ WEB のグロスサイドカー。SV の基準訳が WEB でなくなっても
-       英語グロスの在処は変わらないため、基準訳定数ではなくここで固定する（#115）。 */
+    /* SV は KARLXII1873 のグロスサイドカー（#117。スウェーデン語。無い書・章・語は
+       従来どおり bible_data.english／lexicon の英語フォールバック）。EN は WEB 固定
+       （基準訳定数ではなくここで固定する。#115）。 */
+    if (I18N.lang === 'sv') return 'KARLXII1873';
     if (I18N.contentLang === 'en') return 'WEB';
     if (I18N.lang === 'es') return 'RVR1909';
     return null;
