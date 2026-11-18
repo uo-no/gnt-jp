@@ -20,7 +20,17 @@
 (function () {
     'use strict';
     var STORAGE_KEY = 'app_lang';
-    var SUPPORTED = ['ja', 'en', 'es'];
+    var SUPPORTED = ['ja', 'en', 'es', 'sv'];
+
+    /* 内容言語（#115）：UI 言語とは別に「内容データ（グロス・辞書本文・IGSD 定義・形態ラベル等）を
+       どの言語で出すか」を表す。スウェーデン語 UI は内容データが未整備の「軽い段」のため、
+       内容は英語にフォールバックし、日本語には落とさない。ja／en／es は恒等。
+       内容データがスウェーデン語化された項目から、呼び出し側の分岐を個別に外していく。 */
+    var CONTENT_LANG = { sv: 'en' };
+
+    /* UI 言語ごとの基準訳（既定の本文翻訳）。SV は暫定で WEB。Karl XII:s bibel（1873）の
+       取り込み（#116）後は、ここを差し替えるだけで切り替わる（翻訳ID・書名等の整備は別項目）。 */
+    var BASE_TRANSLATION = { ja: 'JA1955', en: 'WEB', es: 'RVR1909', sv: 'WEB' };
 
     /* Path-prefix language links (user decision, 2026-11-05):
        /ja/... and /en/... choose the UI language and remember it,
@@ -32,7 +42,7 @@
     var pathLang = null;
     var pathPrefix = '';   /* 取り除いた元のプレフィックス（例 '/en'）。検索画面が URL 再構築時に保持する（#74） */
     try {
-        var pm = window.location.pathname.match(/^\/(ja|en|es)(?=\/|$)/);
+        var pm = window.location.pathname.match(/^\/(ja|en|es|sv)(?=\/|$)/);
         if (pm) {
             pathLang = pm[1];
             pathPrefix = pm[0];
@@ -76,11 +86,15 @@
         try { localStorage.setItem(STORAGE_KEY, pathLang); } catch (_) {}
     }
 
-    var state = { lang: lang, dict: null };
+    var state = { lang: lang, dict: null, fallback: null };
 
     function t(key, fallback) {
         if (state.lang !== 'ja' && state.dict && typeof state.dict[key] === 'string') {
             return state.dict[key];
+        }
+        /* SV：キー欠落時は en.json → 呼び出し側の日本語、の順（#115。sv.json は全キーを揃える前提の保険） */
+        if (state.lang !== 'ja' && state.fallback && typeof state.fallback[key] === 'string') {
+            return state.fallback[key];
         }
         return fallback != null ? fallback : null;
     }
@@ -118,7 +132,7 @@
             }
         }
         /* ドロップダウンのボタンに現在の言語の自国語名を出す */
-        var NATIVE = { ja: '日本語', en: 'English', es: 'Español' };
+        var NATIVE = { ja: '日本語', en: 'English', es: 'Español', sv: 'Svenska' };
         var curs = root.querySelectorAll('[data-lang-cur]');
         for (var c = 0; c < curs.length; c++) curs[c].textContent = NATIVE[state.lang] || state.lang;
     }
@@ -187,7 +201,7 @@
         /* 検索画面は URL に言語プレフィックス（/en 等）を保持するため、リロード前に外す。
            残すと「プレフィックス＞保存設定」の優先順で、選んだ言語が上書きされ切り替わらない。 */
         try {
-            var m2 = window.location.pathname.match(/^\/(ja|en|es)(?=\/|$)/);
+            var m2 = window.location.pathname.match(/^\/(ja|en|es|sv)(?=\/|$)/);
             if (m2) window.history.replaceState(null, '', (window.location.pathname.slice(m2[0].length) || '/') + window.location.search + window.location.hash);
         } catch (_) {}
         location.reload();
@@ -195,8 +209,15 @@
 
     var ready = Promise.resolve();
     if (lang !== 'ja') {
-        ready = fetch(new URL('../assets/i18n/' + lang + '.json', document.baseURI))
-            .then(function (res) { return res.ok ? res.json() : null; })
+        var _fetchDict = function (l) {
+            return fetch(new URL('../assets/i18n/' + l + '.json', document.baseURI))
+                .then(function (res) { return res.ok ? res.json() : null; });
+        };
+        /* 内容言語が別言語（sv→en）の場合は、その辞書も保険として並行して読む。取れなくても無視 */
+        var _fbLang = CONTENT_LANG[lang];
+        var _fbP = _fbLang ? _fetchDict(_fbLang).catch(function () { return null; }) : Promise.resolve(null);
+        ready = Promise.all([_fetchDict(lang), _fbP])
+            .then(function (r) { state.fallback = r[1] && Object.keys(r[1]).length > 0 ? r[1] : null; return r[0]; })
             .then(function (dict) {
                 if (dict && Object.keys(dict).length > 0) {
                     state.dict = dict;
@@ -227,6 +248,10 @@
         applyStatic: applyStatic,
         ready: ready,
         get lang() { return state.lang; },
+        /* 内容データを出す言語（sv→en。他は UI 言語と同じ） */
+        get contentLang() { return CONTENT_LANG[state.lang] || state.lang; },
+        /* UI 言語の基準訳（翻訳ID） */
+        get baseTranslation() { return BASE_TRANSLATION[state.lang] || 'JA1955'; },
         get pathPrefix() { return pathPrefix; },
     };
     /* Short global alias used across index.html renderers. */
