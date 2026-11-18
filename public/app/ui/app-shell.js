@@ -1241,6 +1241,8 @@ function showAppInfo() {
                       <th>日本語訳聖書</th>
                       <td>『聖書 口語訳』（日本聖書協会、1955年）、『聖書 文語訳』（日本聖書協会、1917年改訳）</td>
                     </tr>
+                    <tr><th>本文の異読</th><td>The Greek New Testament: SBL Edition © 2010 Society of Biblical Literature and Logos Bible Software. Apparatus encoded in TEI XML by Joey McCollum (2021)<br><small>CC BY 4.0</small></td></tr>
+                    <tr><th>関連する箇所</th><td>UBS Parallel Passage Database<br><small>© 2023 United Bible Societies — CC BY-SA 4.0</small></td></tr>
                 </table>
             </section>
 

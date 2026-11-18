@@ -470,7 +470,8 @@ function _buildApparatusHTML(entries, jaEntries, lemJaEntries, rdgJaEntries) {
         }).join('');
         return `<div class="mvv-app-entry">${lemHtml}${annoHtml}${rdgHtml}</div>`;
     });
-    return `<div class="mvv-apparatus-entries">${parts.join('')}</div>`;
+    const srcLine = _T('panel.apparatusSource', '異読データ: The Greek New Testament: SBL Edition © 2010 Society of Biblical Literature and Logos Bible Software。装置は Joey McCollum が TEI XML に符号化（2021）。CC BY 4.0');
+    return `<div class="mvv-apparatus-entries">${parts.join('')}<div class="mvv-app-source">${_escH(srcLine)}</div></div>`;
 }
 
 /**

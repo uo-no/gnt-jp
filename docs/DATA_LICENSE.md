@@ -189,6 +189,61 @@ MACULA Greek Linguistic Datasets は © Biblica, Inc. である。CC BY 4.0（�
 
 ---
 
+## 7-3. 関連箇所データ（UBS Parallel Passage Database）
+
+### ■ 出典
+UBS Parallel Passage Database © 2023 United Bible Societies。入手元：https://github.com/ubsicap/ubs-open-license （`parallel passages/ParallelPassages.xml`）。
+
+### ■ ライセンス
+CC BY-SA 4.0（クリエイティブ・コモンズ 表示-継承 4.0 国際）。ライセンス原文：https://creativecommons.org/licenses/by-sa/4.0/
+
+### ■ 加工内容
+- 並行箇所グループを新約の節単位に再構成し、旧約の参照先は本プロジェクトの LXX 本文（`public/bible_data/lxx`）の章・節に照らして遷移先を決定（`scripts/build-related-passages.cjs`）。
+- 派生物であり、同じ CC BY-SA 4.0 で提供する（生成物の `_notice` に明記）。
+
+### ■ 生成物・表示
+- 生成物：`public/assets/data/related-passages.json`（直接編集しない）。
+- 表示：リーダーの「関連する箇所」に出典行を表示（`public/app/ui/related-passages.js`）。アプリ情報ページの出典表にも記載。
+
+---
+
+## 7-4. Cherith Glosses（英語グロス）
+
+### ■ 出典
+Cherith Glosses（Andi Wu）、© 2023 Cherith Analytics。
+
+### ■ ライセンス
+CC BY 4.0（アプリ情報ページの出典表の記載に従う）。
+
+### ■ 表示上の帰属
+アプリ情報ページの出典表（JA／EN／ES／SV）と、検索ツール（Greekn）の入口画面に出典行を表示する。
+
+### ■ 未記録事項
+取り込み元の URL・取得日・加工内容は、現時点で本リポジトリ内に記録が見つからない。判明した時点で本節に追記する（推測では書かない）。
+
+---
+
+## 7-5. 翻訳本文の出典
+
+アプリ情報ページの出典表に記載している内容を、ここにも記録する。いずれも、取り込み元・取得日・権利状態の一次確認の記録は本リポジトリ内に見つからないため、**権利状態は本節では断定しない**（要確認）。
+
+| 翻訳ID | 名称 | 出典表の記載 | 配置 |
+| --- | --- | --- | --- |
+| WEB | World English Bible | Public domain（EN の出典表） | `public/translations/WEB/` |
+| RVR1909 | Reina-Valera 1909 | Dominio público — texto obtenido de eBible.org（ES の出典表） | `public/translations/RVR1909/` |
+| JA1955 | 聖書 口語訳 | 日本聖書協会、1955年 | `public/translations/JA1955/` |
+| BUN | 聖書 文語訳 | 日本聖書協会、1917年改訳 | `public/translations/BUN/` |
+
+Karl XII:s bibel (1873) は 7-2 を参照。
+
+---
+
+## 7-6. 異読データの表示上の帰属
+
+項目5（SBLGNT Apparatus、CC BY 4.0）の帰属表示は、データの `_meta.attribution` と本書に加え、リーダーの「本文の異読」の末尾の出典行、およびアプリ情報ページの出典表にも表示する。
+
+---
+
 ## 8. 注意事項
 
 - 本データは研究・学習用途を想定している
