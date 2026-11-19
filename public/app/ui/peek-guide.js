@@ -355,7 +355,7 @@ function _openSegPeek(segEl, tis) {
         /* Phase 1b Step 3: 英語UIでは WEB グロスを「この箇所での意味」にする。 */
         const _enSegMeaning = _glossSidecarFor(w);
         if (_enSegMeaning) meaning = _enSegMeaning;
-        else { const _nsG = _noSourceGreekMeaning(w); if (_nsG) meaning = _nsG; }   /* #155: 出典なし語はギリシャ語形 */
+        else { const _nsG = _uiFallbackMeaning(w); if (_nsG) meaning = _nsG; }   /* #155/#191: 辞書グロス → 出典なし語はギリシャ語形 */
         if (meaning) {
             const m = document.createElement('div');
             m.className = 'word-peek-meaning';
@@ -426,7 +426,8 @@ function _openSegPeek(segEl, tis) {
             lem.className = 'word-peek-lemma';
             /* #155: 出典なし語（非日本語UI）は日本語を出さない。同じ行に原文のギリシャ語形が
                すでにあるため、括弧タグでは繰り返さず空にする（ES は従来から空）。 */
-            const _wTag = _glossSidecarFor(w) || ((window.I18N && I18N.lang === 'es') ? '' : (_noSourceGreekMeaning(w) ? '' : w.japanese));
+            /* #191: EN は サイドカー → 辞書グロス（日本語へ落とさない）。ES は従来どおり空。 */
+            const _wTag = _glossSidecarFor(w) || ((window.I18N && I18N.lang === 'es') ? '' : (_uiLexGlossMeaning(w) || (_noSourceGreekMeaning(w) ? '' : w.japanese)));
             const _tagSuffix = _wTag
                 ? ((window.I18N && I18N.lang !== 'ja') ? ' (' + _wTag + ')' : '（' + _wTag + '）')
                 : '';
@@ -548,8 +549,8 @@ function _jaSegProceed(segEl, ti) {
     /* Phase 1b Step 3: 英語UIでは「この箇所での意味」を WEB グロスにする
        （ピーク／ドロワー／パネルは inspect.data の jaWord 系を読む）。 */
     const _enGlossInspect = _glossSidecarFor(w);
-    /* #155: 出典なし語（非日本語UI）はギリシャ語形（#103 と同じ規則）。出典あり・日本語UIは null。 */
-    const _nsGreek = _noSourceGreekMeaning(w);
+    /* #155/#191: 非日本語UIは 辞書グロス → 出典なし語はギリシャ語形（#103 と同じ規則）。サイドカーあり・日本語UIは null。 */
+    const _nsGreek = _uiFallbackMeaning(w);
 
     AppState.inspect.data = {
         greek:    chip.greek,
@@ -789,8 +790,8 @@ function _wlvChipClick(chipEl, tokenId) {
         : _resolvedJa;
     /* Phase 1b Step 3: 英語UIでは「この箇所での意味」を WEB グロスにする。 */
     const _enGlossInspect2 = _rawToken ? _glossSidecarFor(_rawToken) : null;
-    /* #155: 出典なし語（非日本語UI）はギリシャ語形（#103 と同じ規則）。出典あり・日本語UIは null。 */
-    const _nsGreek2 = _rawToken ? _noSourceGreekMeaning(_rawToken) : null;
+    /* #155/#191: 非日本語UIは 辞書グロス → 出典なし語はギリシャ語形（#103 と同じ規則）。サイドカーあり・日本語UIは null。 */
+    const _nsGreek2 = _rawToken ? _uiFallbackMeaning(_rawToken) : null;
 
     /* AppState の inspect を更新
        ★ SSOT: ref は表示専用として保持。ロジックには bookKey / ch / verse を使う。 */
