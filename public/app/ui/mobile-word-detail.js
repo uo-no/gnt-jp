@@ -207,8 +207,6 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
     if (LN_RELATED_WORDS_ENABLED) {
         _fillMvvSemanticSlot(_mvvResolvedId, _mvvGreek, d.strong || '');
     }
-    /* SF-22: Structure Flow を mobile 語詳細へ非同期注入（fire-and-forget・世代管理）。 */
-    _fillMvvFlowSlot(AppState.inspect.data?.ref || ref);
     /* 語の役割の局所表示を非同期注入（fire-and-forget・世代管理）。 */
     _fillMvvRelationSlot(AppState.inspect.data?.ref || ref);
     /* 統語論ラベルを非同期注入（_buildSyntaxLabelHTML を desktop と共用）。 */
@@ -354,24 +352,6 @@ async function _fillMvvReadingSlot(words, idx) {
         slot.innerHTML = '';
         slot.style.display = 'none';   /* 静寂：空のトグルを残さずスロット自身を非表示 */
     }
-}
-
-/* SF-22: mobile 語詳細 → Structure Flow を非同期注入。desktop の生成器
- * _buildFlowTreeNeighborhoodViewHTML(ref) を無改変で再利用（HTML は生成器内で _escH 済み、
- * desktop reading-notes-area と同一経路）。_fillMvvReadingSlot と同じ世代管理で、
- * 語/verse 切替時の stale 注入と inspector クローズ後の注入を防ぐ。SF-20 の FLOW 構造は不変。 */
-let _mvvFlowGen = 0;
-async function _fillMvvFlowSlot(ref) {
-    const slot0 = document.getElementById('mvv-flow-slot');
-    if (!slot0) return;
-    const myGen = ++_mvvFlowGen;
-    slot0.innerHTML = '';
-    let html = '';
-    try { html = ref ? await _buildFlowTreeNeighborhoodViewHTML(ref, AppState.studyTarget?.verseId) : ''; } catch (_) { html = ''; }
-    if (myGen !== _mvvFlowGen) return;                       /* 別の語/verse へ移動済み → 破棄 */
-    const slot = document.getElementById('mvv-flow-slot');   /* inspector を閉じた後は null */
-    if (!slot) return;
-    slot.innerHTML = html || '';                             /* '' は空のまま（静寂） */
 }
 
 /* Phase F-4: 語A検索中に語Bへ移動した場合、古い semantic 結果の誤注入を防ぐ世代カウンタ。
@@ -572,10 +552,6 @@ function _renderMobileWordDetail(d) {
 
         <!-- Experienced Reader labels（synchronous: _mobileInspectorDetail 生成済み） -->
         ${d.expLabelHTML || ''}
-
-        <!-- SF-22: Structure Flow スロット（desktop reading-notes-area と同じ生成 HTML を非同期注入。
-             生成物が自前の <details class="rn-level-section"> を持つため外側に details を足さない）。 -->
-        <div id="mvv-flow-slot" data-study-section="structure" style="margin-top:var(--space-md);"></div>
 
         <!-- 語の役割の局所表示（選択語の文全体をパン可能な枠に表示）: _fillMvvRelationSlot が非同期注入 -->
         <div id="mvv-relation-slot" class="role-reading-view"></div>
