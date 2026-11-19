@@ -355,6 +355,7 @@ function _openSegPeek(segEl, tis) {
         /* Phase 1b Step 3: 英語UIでは WEB グロスを「この箇所での意味」にする。 */
         const _enSegMeaning = _glossSidecarFor(w);
         if (_enSegMeaning) meaning = _enSegMeaning;
+        else { const _nsG = _noSourceGreekMeaning(w); if (_nsG) meaning = _nsG; }   /* #155: 出典なし語はギリシャ語形 */
         if (meaning) {
             const m = document.createElement('div');
             m.className = 'word-peek-meaning';
@@ -423,7 +424,9 @@ function _openSegPeek(segEl, tis) {
             { const tr = _translitEl(w.text); if (tr) head.appendChild(tr); }
             const lem = document.createElement('span');
             lem.className = 'word-peek-lemma';
-            const _wTag = _glossSidecarFor(w) || ((window.I18N && I18N.lang === 'es') ? '' : w.japanese);
+            /* #155: 出典なし語（非日本語UI）は日本語を出さない。同じ行に原文のギリシャ語形が
+               すでにあるため、括弧タグでは繰り返さず空にする（ES は従来から空）。 */
+            const _wTag = _glossSidecarFor(w) || ((window.I18N && I18N.lang === 'es') ? '' : (_noSourceGreekMeaning(w) ? '' : w.japanese));
             const _tagSuffix = _wTag
                 ? ((window.I18N && I18N.lang !== 'ja') ? ' (' + _wTag + ')' : '（' + _wTag + '）')
                 : '';
@@ -545,6 +548,8 @@ function _jaSegProceed(segEl, ti) {
     /* Phase 1b Step 3: 英語UIでは「この箇所での意味」を WEB グロスにする
        （ピーク／ドロワー／パネルは inspect.data の jaWord 系を読む）。 */
     const _enGlossInspect = _glossSidecarFor(w);
+    /* #155: 出典なし語（非日本語UI）はギリシャ語形（#103 と同じ規則）。出典あり・日本語UIは null。 */
+    const _nsGreek = _noSourceGreekMeaning(w);
 
     AppState.inspect.data = {
         greek:    chip.greek,
@@ -552,8 +557,8 @@ function _jaSegProceed(segEl, ti) {
         jpMorph:  chip.morphText,
         rawMorph: chip.rawMorph,
         lemma:    chip.lemma,
-        jaWord:   _enGlossInspect || _resolvedJa || chip.jaWord,
-        jaWordDisplay: _enGlossInspect || _resolvedJaDisplay || _resolvedJa || chip.jaWord,
+        jaWord:   _enGlossInspect || _nsGreek || _resolvedJa || chip.jaWord,
+        jaWordDisplay: _enGlossInspect || _nsGreek || _resolvedJaDisplay || _resolvedJa || chip.jaWord,
         desc:     chip.strong ? _abbottDesc(chip.strong.slice(1)) : '',
         ref:      chip.ref,
         bookKey:  chip.bookKey || '',
@@ -784,6 +789,8 @@ function _wlvChipClick(chipEl, tokenId) {
         : _resolvedJa;
     /* Phase 1b Step 3: 英語UIでは「この箇所での意味」を WEB グロスにする。 */
     const _enGlossInspect2 = _rawToken ? _glossSidecarFor(_rawToken) : null;
+    /* #155: 出典なし語（非日本語UI）はギリシャ語形（#103 と同じ規則）。出典あり・日本語UIは null。 */
+    const _nsGreek2 = _rawToken ? _noSourceGreekMeaning(_rawToken) : null;
 
     /* AppState の inspect を更新
        ★ SSOT: ref は表示専用として保持。ロジックには bookKey / ch / verse を使う。 */
@@ -793,9 +800,9 @@ function _wlvChipClick(chipEl, tokenId) {
         jpMorph:  chip.morphText,
         rawMorph: chip.rawMorph,
         lemma:    chip.lemma,
-        jaWord:   _enGlossInspect2 || _resolvedJa || chip.jaWord,
+        jaWord:   _enGlossInspect2 || _nsGreek2 || _resolvedJa || chip.jaWord,
         /* Stage C P1: 表示用整形値（生の jaWord とは別に保持 — SSOT は不変） */
-        jaWordDisplay: _enGlossInspect2 || _resolvedJaDisplay || _resolvedJa || chip.jaWord,
+        jaWordDisplay: _enGlossInspect2 || _nsGreek2 || _resolvedJaDisplay || _resolvedJa || chip.jaWord,
         desc:     chip.strong ? _abbottDesc(chip.strong.slice(1)) : '',
         ref:      chip.ref,      // 表示専用（ラベル・URL クエリ文字列のみ）
         bookKey:  chip.bookKey  || '',
