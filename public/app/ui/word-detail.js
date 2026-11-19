@@ -147,7 +147,7 @@ function buildDepthGrammarClasses(rawMorph) {
         /* 時制 */
         if (tenCode === 'P')      classes.push('dp-tense-present');
         else if (tenCode === 'A') classes.push('dp-tense-aorist');
-        else if (tenCode === 'X') classes.push('dp-tense-perfect');
+        else if (tenCode === 'R') classes.push('dp-tense-perfect');
 
         /* 態 */
         if (voiCode === 'M' || voiCode === 'D') classes.push('dp-voice-middle');
@@ -168,7 +168,7 @@ function parseMorphForSearch(rawMorph) {
         const voiceCode = parts[1][off + 1];
         const moodCode  = parts[1][off + 2];
 
-        const TENSE_MAP = { P:'present', I:'imperfect', F:'future', A:'aorist', X:'perfect' };
+        const TENSE_MAP = { P:'present', I:'imperfect', F:'future', A:'aorist', R:'perfect', L:'pluperfect' };
         const VOICE_MAP = { A:'active', M:'middle', P:'passive', D:'middle deponent' };
         const MOOD_MAP  = { I:'indicative', S:'subjunctive', O:'optative',
                             M:'imperative', N:'infinitive', P:'participle' };
@@ -211,7 +211,7 @@ function parseMorphForSearch(rawMorph) {
  * @returns {{ alternatives: MorphCandidate[] }}
  */
 function getMorphCandidates(rawMorph, surface) {
-    const T_MAP   = { P:'present', I:'imperfect', F:'future', A:'aorist', X:'perfect', L:'pluperfect' };
+    const T_MAP   = { P:'present', I:'imperfect', F:'future', A:'aorist', R:'perfect', L:'pluperfect' };
     const V_MAP   = { A:'active', M:'middle', P:'passive', D:'middle deponent', N:'middle or passive' };
     const M_MAP   = { I:'indicative', S:'subjunctive', O:'optative',
                       M:'imperative', N:'infinitive',  P:'participle' };

@@ -262,7 +262,7 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
         if (moodCode === 'P') {
             if (tenseCode === 'P') gloss = _naturalize(jaWord, 'part-pres');
             else if (tenseCode === 'A') gloss = _naturalize(jaWord, 'part-aor');
-            else if (tenseCode === 'X') gloss = _naturalize(jaWord, 'part-perf');
+            else if (tenseCode === 'R') gloss = _naturalize(jaWord, 'part-perf');
         }
         /* 不定詞 */
         else if (moodCode === 'N') {
@@ -300,7 +300,7 @@ function _wordToFlowChip(w, i, _bookKey, _ch, _resolved, _words) {
         if (_moodSig) signals.push(_moodSig);
 
         /* 時制シグナル（複合条件のため if/else を保持） */
-        if (tenCode === 'X')
+        if (tenCode === 'R')
             signals.push(_isEn ? { label: 'still in effect',           cls: 'sig-promise' }
                                 : _isEs ? { label: 'todavía en efecto',  cls: 'sig-promise' }
                                 : { label: '今も続いている',              cls: 'sig-promise' });

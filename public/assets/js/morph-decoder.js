@@ -59,7 +59,9 @@ const CLASS_TO_POS = {
 //     全旧実装と完全一致。ここは変更しない。
 // =============================================================
 
-const _TENSE_CODE  = { P:'present', I:'imperfect', F:'future', A:'aorist', X:'perfect', Z:'pluperfect' };
+// #146: Branch 3 は NT 形式 'V-<時制><態><法>-…' の文字列のみを読む。NT タグでは完了=R・過去完了=L。
+// （LXX は CCAT 形式 'VM--XMP…' で morphPosRaw が 'V' にならずここに来ず、構造化フィールド経路で処理される）
+const _TENSE_CODE  = { P:'present', I:'imperfect', F:'future', A:'aorist', R:'perfect', L:'pluperfect' };
 const _VOICE_CODE  = { A:'active', M:'middle', P:'passive', D:'middle deponent', E:'middle or passive', N:'middle or passive' };
 const _MOOD_CODE   = { I:'indicative', S:'subjunctive', O:'optative', M:'imperative', N:'infinitive', P:'participle' };
 const _CASE_CODE   = { N:'nominative', G:'genitive', D:'dative', A:'accusative', V:'vocative' };
