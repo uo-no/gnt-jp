@@ -2759,6 +2759,7 @@ async function _buildFullIndex(corpora){
 
     /* 章ごとのフェーズ別タイミング収集 */
     const _phTimings=[];
+    let _lxxLoadedTokens=0;   /* #153：この構築で読み込めた LXX トークン数（キャッシュ済みを含む） */
 
     for(let i=0;i<tasks.length;i+=BATCH){
         const slice=tasks.slice(i,i+BATCH);
@@ -2818,6 +2819,7 @@ async function _buildFullIndex(corpora){
 
         /* ── フェーズ3: _indexChapter（シリアル、SEARCH_INDEX 更新） ── */
         for(const {t,toks,fetchMs,parseMs,mapMs,cached} of batchResults){
+            if(!NT_BOOK_KEYS.has(t.key))_lxxLoadedTokens+=toks.length;
             const tIdx=performance.now();
             _indexChapter(toks);
             const indexMs=performance.now()-tIdx;
@@ -2833,6 +2835,15 @@ async function _buildFullIndex(corpora){
 
     _logPerfMeasure('data-load',`${tasks.length} chapters (${corpora?.join(',')||'all'}), ${ALL_TOKENS.length.toLocaleString()} tokens`);
     _logBuildPhaseTimings(_phTimings);
+
+    /* #153：LXX 単独の構築で、章が1つも取れなかった（LXX トークン 0 件）場合は失敗として確定させる。
+       章ファイルの取得失敗は例外にならず（失敗した章は空として扱われる）、このままだと LXX 0 件のまま
+       「成功」で確定し、件数が完成形として出てしまう。呼び出し側（_ensureFullIndex／_startPrebuiltLxxAndJapanese）の
+       catch が #95 の _markLxxDone(true) へ接続する。一部の章だけ取れなかった場合は従来どおり（空として扱い成功）。
+       NT・NT+LXX 同時構築の挙動は変えない。 */
+    if(corpusSet&&corpusSet.size===1&&corpusSet.has('LXX')&&tasks.length>0&&_lxxLoadedTokens===0){
+        throw new Error(`LXX fetch failed: no chapter loaded (${tasks.length} chapters, 0 tokens)`);
+    }
 
     /* NT の診断: NT 構築時のみ ἀφορίζω チェック */
     if(!corpusSet||corpusSet.has('NT')){
