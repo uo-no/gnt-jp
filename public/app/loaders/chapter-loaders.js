@@ -22,7 +22,6 @@ let _apparatusLemEsData    = null;  // apparatus-lem-es.json キャッシュ（�
 let _apparatusLemEsLoadP   = null;  // 進行中 fetch Promise
 let _apparatusRdgEsData    = null;  // apparatus-rdg-es.json キャッシュ（失敗時は null のまま）
 let _apparatusRdgEsLoadP   = null;  // 進行中 fetch Promise
-let _ft11Cache = null;
 /* ── #105：取得失敗を「データ無し」と区別して扱う共通部品 ──
    成功（データ有り）／確定の不在（404・本番は未存在パスが index.html を 200 で返すため JSON として読めない場合も）は
    従来どおりキャッシュし、再取得しない。一時的な失敗（通信エラー・408・429・5xx）はキャッシュに固定せず、
@@ -52,8 +51,8 @@ function _loadJsonCached(cache, key, url) {
 }
 /* ── VR-6-C: Flow Tree runtime asset loader（chapter 単位 JSON）──
    token ref → BOOK/chapter → public/assets/data/flow-tree/{BOOK}/{ch}.json を fetch し、
-   refIndex から所属 sentence root を得る。neighborhood-view が要求する nodesById は
-   保存 JSON に持たせず root walk で再構築する（schema 非変更）。
+   refIndex から所属 sentence root を得る。nodesById は保存 JSON に持たせず
+   root walk で再構築する（schema 非変更）。
    すべて Failure Mode（fetch 失敗・不正・不在は null/''）で静かに失敗する。 */
 const _flowTreeChapterCache = {};
 function _loadFlowTreeChapter(book, chapter) {

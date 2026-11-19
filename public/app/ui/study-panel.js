@@ -1110,12 +1110,6 @@ async function _renderReadingNotes(p) {
         ? `<div class="rn-prose reading-block"><p class="rn-prose-text reading-prose">${wordProseText}</p></div>`
         : '';
 
-    /* FLOW-TREE-11-A: NeighborhoodView（境界確認 Prototype, Matthew 1:1 のみ）。
-       既存の SyntaxAnalyzer/PhraseAnalyzer/ClauseAnalyzer/ReadingFormatter の
-       いずれも呼び出さない、完全に独立した経路。対象外の ref では '' が返り、
-       既存表示に一切影響しない（Failure Mode, _buildFlowTreeNeighborhoodViewHTML 内で吸収済み）。 */
-    const neighborhoodViewHTML = await _buildFlowTreeNeighborhoodViewHTML(ref, AppState.studyTarget?.verseId);
-
     /* ═══════════════════════════════════════════════════════
        Lexicon data (async)
        ═══════════════════════════════════════════════════════ */
@@ -1337,8 +1331,6 @@ async function _renderReadingNotes(p) {
         ${wordReadingMemoHTML}
 
         ${expLabelHTML ? `<div data-study-section="explabel">${expLabelHTML}</div>` : ''}
-
-        <div data-study-section="structure">${neighborhoodViewHTML}</div>
 
         <!-- 語の役割の局所表示（選択語の文全体をパン可能な枠に表示）: _fillRnRelationSlot が非同期注入 -->
         <div id="rn-relation-slot" class="role-reading-view"></div>
