@@ -155,6 +155,24 @@ function _noSourceGreekMeaning(w) {
     } catch (_) { return null; }
 }
 
+/* #191: 非日本語UIで「サイドカーは無いが辞書の短いグロスはある語」の意味表示。
+   サイドカー → 辞書グロス → ギリシャ語形 の順の中段。サイドカーがある語・日本語UI・
+   辞書グロスが無い語は null（呼び出し側は従来経路／ギリシャ語形へ進む）。 */
+function _uiLexGlossMeaning(w) {
+    try {
+        if (typeof window === 'undefined' || !window.I18N || I18N.lang === 'ja') return null;
+        if (!w || _glossSidecarFor(w)) return null;
+        return _uiShortGloss(w.lemmaId) || null;
+    } catch (_) { return null; }
+}
+
+/* #191: 非日本語UIのフォールバック（サイドカーの次）。辞書グロス → ギリシャ語形。
+   サイドカーがある語・日本語UI・判定不能は null を返し、呼び出し側は従来経路のまま。
+   ギリシャ語形の規則そのもの（#155 _noSourceGreekMeaning）は変えず、前段に辞書を置く。 */
+function _uiFallbackMeaning(w) {
+    return _uiLexGlossMeaning(w) || _noSourceGreekMeaning(w);
+}
+
 /* UI 言語に応じた辞書語義テキスト（ja では呼び出し側の従来経路を使うため null）。 */
 function _uiSenseText(lemmaId) {
     if (typeof window === 'undefined' || !window.I18N) return null;
@@ -234,9 +252,9 @@ function _setInspectDataFromElToken(token) {
         jpMorph:          '',
         rawMorph:         token.morph    || '',
         lemma:            token.lemma    || '',
-        /* #155: 出典なし語（非日本語UI）はギリシャ語形。出典あり・日本語UIは従来どおり。 */
-        jaWord:           _noSourceGreekMeaning(token) || token.japanese || '',
-        jaWordDisplay:    _noSourceGreekMeaning(token) || token.japanese || '',
+        /* #155/#191: 非日本語UIは 辞書グロス → ギリシャ語形（出典なし語）。サイドカーがある語・日本語UIは従来どおり。 */
+        jaWord:           _uiFallbackMeaning(token) || token.japanese || '',
+        jaWordDisplay:    _uiFallbackMeaning(token) || token.japanese || '',
         desc:             '',
         ref:              token.ref      || '',
         verseId:          token.verseId  || '',

@@ -352,7 +352,7 @@ function _hlPickerSegInfo(e) {
     /* 英語UIでは WEB グロスを「この箇所での意味」にする（セグメントピークと同源）。 */
     const _enPickerGloss = (typeof _glossSidecarFor === 'function') ? _glossSidecarFor(w) : null;
     if (_enPickerGloss) meaning = _enPickerGloss;
-    else if (typeof _noSourceGreekMeaning === 'function') { const _nsG = _noSourceGreekMeaning(w); if (_nsG) meaning = _nsG; }   /* #155: 出典なし語はギリシャ語形 */
+    else if (typeof _uiFallbackMeaning === 'function') { const _nsG = _uiFallbackMeaning(w); if (_nsG) meaning = _nsG; }   /* #155/#191: 辞書グロス → 出典なし語はギリシャ語形 */
     if (!meaning && !w.text) return null;
     return { meaning, greek: w.text || '', lemma: w.lemma || '' };
 }
