@@ -141,6 +141,20 @@ function _uiShortGloss(lemmaId) {
     return null;
 }
 
+/* #155: 非日本語UIで「出典なし語」（UI 言語のサイドカーにも辞書の短いグロスにも値が
+   無い語）の意味表示は、日本語（jaWord）ではなくギリシャ語形に揃える。判定は #103 の
+   本文チップ（word-renderers の _greekFallback）と同条件。
+   出典あり語・日本語UI・判定不能は null を返し、呼び出し側は従来経路のまま。 */
+function _noSourceGreekMeaning(w) {
+    try {
+        if (typeof window === 'undefined' || !window.I18N || I18N.lang === 'ja') return null;
+        if (!w || !w.text) return null;
+        if (_glossSidecarFor(w)) return null;
+        if (typeof _uiShortGloss === 'function' && _uiShortGloss(w.lemmaId)) return null;
+        return String(w.text);
+    } catch (_) { return null; }
+}
+
 /* UI 言語に応じた辞書語義テキスト（ja では呼び出し側の従来経路を使うため null）。 */
 function _uiSenseText(lemmaId) {
     if (typeof window === 'undefined' || !window.I18N) return null;
@@ -220,8 +234,9 @@ function _setInspectDataFromElToken(token) {
         jpMorph:          '',
         rawMorph:         token.morph    || '',
         lemma:            token.lemma    || '',
-        jaWord:           token.japanese || '',
-        jaWordDisplay:    token.japanese || '',
+        /* #155: 出典なし語（非日本語UI）はギリシャ語形。出典あり・日本語UIは従来どおり。 */
+        jaWord:           _noSourceGreekMeaning(token) || token.japanese || '',
+        jaWordDisplay:    _noSourceGreekMeaning(token) || token.japanese || '',
         desc:             '',
         ref:              token.ref      || '',
         verseId:          token.verseId  || '',
