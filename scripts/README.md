@@ -29,8 +29,6 @@ npm run test:re-stageE              # Stage E regression
 npm run test:re-syntax-completion   # Syntax completion regression
 npm run test:re-semantic-completion # Semantic completion regression
 npm run test:re-flowtree-adapter    # Flow-tree adapter regression
-npm run test:re-flowtree-runtime    # Flow-tree runtime regression
-npm run test:re-neighborhoodview    # NeighborhoodView regression
 npm run test:re-apparatus           # Apparatus regression
 npm run test:re-apparatus-ja-auto   # Apparatus ja-auto regression
 npm run test:syntax-evidence-gating # Syntax evidence-gating regression
