@@ -43,6 +43,14 @@ async function _loadAndAppendChapter(bookObj, chNum) {
 
     let _lacCb = null; /* 未挿入コンテナの参照 */
     try {
+        /* #154: 初回経路（boot.js）と同じく、非日本語UIのグロスサイドカー／アラインメントを描画前に揃える。
+           翻訳・Greek の取得と並行して開始し（#101 の辞書待ちもここに含まれる）、描画直前に待つ。
+           日本語UIでは両関数とも即 null を返す（従来どおり）。失敗は出典なし表示に落とす（#105）。 */
+        const _lacGlossP = Promise.all([
+            _loadGlossForRender(_lacBookKey, _lacCh),
+            _loadAlignForRender(_lacBookKey, _lacCh),
+        ]).catch(() => {});
+
         /* 翻訳データ取得: WO・ギリシャ語本文はGreekデータ由来のため翻訳JSONをfetchしない */
         const _lacJpData = (_lacColAKind === 'wordOrder' || _lacColAKind === 'greek-text')
             ? null
@@ -59,6 +67,8 @@ async function _loadAndAppendChapter(bookObj, chNum) {
                 if (_lacElRes.ok) _lacElData = await _lacElRes.json();
             } catch (_) { /* Greek取得失敗 → 翻訳のみ表示 */ }
         }
+
+        await _lacGlossP; /* #154: サイドカー・アラインメントの到着を待ってから描画する */
 
         /* elByVerse 構築（render() と同じロジック） */
         const _lacElByVerse = {};
@@ -257,7 +267,11 @@ async function _loadAndAppendChapterCompare(bookObj, chNum) {
         const _lccHasGreek  = GREEK_BOOKS.has(_lccBookKey);
         const _lccTestament = SB_BOOKS.nt.some(b => b.key === _lccBookKey) ? 'nt' : 'lxx';
 
-        const [_lccJpDataA, _lccElDataRaw] = await Promise.all([
+        /* #154: グロスサイドカー／アラインメントも並列で先読みする（初回経路 boot.js と同じ。
+           日本語UIでは即 null、失敗は出典なし表示に落とす＝#105）。 */
+        const [, , _lccJpDataA, _lccElDataRaw] = await Promise.all([
+            _loadGlossForRender(_lccBookKey, _lccCh).catch(() => null),
+            _loadAlignForRender(_lccBookKey, _lccCh).catch(() => null),
             _fetchTranslation(_transA, _lccBookKey, _lccCh),
             _lccHasGreek
                 ? fetch(`../bible_data/${_lccTestament}/${_lccBookKey}/${_lccCh}.json`)
