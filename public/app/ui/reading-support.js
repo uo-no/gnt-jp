@@ -365,19 +365,19 @@ function _buildMorphText(rawMorph, pos, parts) {
             'O': '望みを込めた表現',
         };
         const TEN_NOTE = _isEs ? {
-            'X': 'un estado del pasado que aún sigue en efecto',
+            'R': 'un estado del pasado que aún sigue en efecto',
             'A': 'como un solo acontecimiento',
             'F': 'como algo seguro que sucederá',
             'P': 'ahora, continuamente',
             'I': 'un estado en curso',
         } : _isEn ? {
-            'X': 'a state from the past still in effect',
+            'R': 'a state from the past still in effect',
             'A': 'as a single event',
             'F': 'as something certain to happen',
             'P': 'now, continuously',
             'I': 'an ongoing state',
         } : {
-            'X': '過去から今も続く状態',
+            'R': '過去から今も続く状態',
             'A': 'ある出来事として',
             'F': '確かに起きること',
             'P': '今・継続して',
