@@ -2677,7 +2677,7 @@ function _dispGloss(tok){if(_svMode())return _svGlossText(tok);return _enMode()?
 /* SV の見出しグロスのフォールバック（グループに glossSv が1つも無いときだけ使う英語グロス。日本語には落とさない） */
 function _dispGlossEn(tok){return(_svMode()&&tok&&tok.gloss)?String(tok.gloss):null;}
 /* 語（クエリ）ごとに引くグロスの言語を決める。ES UI はスペイン語を先に、それ以外は英語を先に引き、先に当たらなければもう一方へ（UI 言語によらず両言語で発火）。
-   #118: SV UI だけはスウェーデン語グロスも引く（順序は英語→スウェーデン語→スペイン語。理由は _glossLangFor）。SV UI 以外では引かない（JA/EN/ES の結果を変えない）。 */
+   #118/#206: SV UI だけはスウェーデン語グロスも引く（順序はスウェーデン語→英語→スペイン語。理由は _glossLangFor）。SV UI 以外では引かない（JA/EN/ES の結果を変えない）。 */
 const _glossIdxs={en:null,es:null,sv:null},_glossIdxN={en:-1,es:-1,sv:-1};
 function _glossWordsFor(lang,tok){return lang==='es'?_esGlossWords(tok):(lang==='sv'?_svGlossWords(tok):_enGlossWords(tok));}
 function _glossIndexFor(lang){
@@ -2702,9 +2702,9 @@ function _glossLangFor(word){
     let lang=_glossLangMemo.get(mk);
     if(lang)return lang;
     const hasEn=_glossIndexFor('en').has(_glossKey(word,'en')),hasEs=_glossIndexFor('es').has(_glossKey(word,'es'));
-    /* #118: SV UI は英語→スウェーデン語→スペイン語。スウェーデン語グロスは現時点で ROM のみのため、英語グロスに当たる語（god・jesus・man 等）は
-       従来どおり英語で全 NT を引く（スウェーデン語を先にすると ROM だけに縮む）。英語に無い語（kärlek・nåd・Gud 等）だけスウェーデン語へ。 */
-    if(_svMode()&&!hasEn&&_glossIndexFor('sv').has(_glossKey(word,'sv')))lang='sv';
+    /* #206: SV UI はスウェーデン語→英語→スペイン語（ES UI の ES→EN と対称）。#118 では SV グロスが ROM のみだったため英語を先に引く暫定順序にしていたが、
+       SV アラインメント＋グロスが全27書で完了し暫定措置の前提が消えたので SV 優先に解消した。SV グロス索引に無い語だけ従来どおり英語→スペイン語で決める。 */
+    if(_svMode()&&_glossIndexFor('sv').has(_glossKey(word,'sv')))lang='sv';
     else lang=_esMode()?(hasEs?'es':'en'):(hasEn?'en':(hasEs?'es':'en'));
     _glossLangMemo.set(mk,lang);
     return lang;
