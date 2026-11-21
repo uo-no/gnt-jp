@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * build-reading-ln-final.cjs — LN→Gloss 最終辞書の生成（Phase 5-C3A）
+ * build-reading-ln-final.cjs — センス→Gloss 最終辞書の生成（Phase 5-C3A）
  *
  * 実行: node scripts/build-reading-ln-final.cjs
  *       npm run build:ln-final
@@ -15,7 +15,8 @@
  *     auto:    自動生成層に curation をマージした参照辞書（Engine 未使用・監査用）
  *   - curation エントリは { gloss, mode, reason } 形式。mode は必須
  *     （欠落はスキップして警告 — 5-C3C 接続条件 1）
- *   - 削除は不可（auto の全 (lemmaId, ln) は必ず auto 区画に残る）
+ *   - 削除は不可（auto の全 (lemmaId, sense) は必ず auto 区画に残る）
+ *   - キーは不透明な内部センスキー（scripts/migrate-semantic-keys.cjs が付与）
  *   - 不正な curation エントリ（gloss 欠落・空文字・mode 不正）はスキップして警告
  */
 
@@ -38,16 +39,16 @@ function requireCjs(filePath) {
     return mod.exports;
 }
 
-const { READING_LN_GLOSS } =
+const { READING_SENSE_GLOSS } =
     requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-ln-gloss-data.js'));
-const { READING_LN_CURATION } =
+const { READING_SENSE_CURATION } =
     requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-ln-curation.js'));
 
 // ── マージ ─────────────────────────────────────────────────────────
-// final: lemmaId → ln → gloss（可変コピーを作ってから curation を適用）
+// final: lemmaId → sense → gloss（可変コピーを作ってから curation を適用）
 const final = {};
 let autoPairs = 0;
-for (const [lemmaId, byLn] of Object.entries(READING_LN_GLOSS)) {
+for (const [lemmaId, byLn] of Object.entries(READING_SENSE_GLOSS)) {
     final[lemmaId] = {};
     for (const [ln, gloss] of Object.entries(byLn)) {
         final[lemmaId][ln] = gloss;
@@ -59,7 +60,7 @@ let overridden = 0, added = 0, skippedInvalid = 0;
 let replaceCount = 0, assistCount = 0;
 const replaceMap = {};   // Engine が使う唯一の区画
 const assistMap  = {};   // 補助表示用（UI 未使用）
-for (const [lemmaId, byLn] of Object.entries(READING_LN_CURATION || {})) {
+for (const [lemmaId, byLn] of Object.entries(READING_SENSE_CURATION || {})) {
     for (const [ln, entry] of Object.entries(byLn || {})) {
         const gloss = entry && typeof entry.gloss === 'string' ? entry.gloss.trim() : '';
         const mode  = entry && typeof entry.mode === 'string' ? entry.mode : '';
@@ -84,7 +85,7 @@ for (const [lemmaId, byLn] of Object.entries(READING_LN_CURATION || {})) {
     }
 }
 
-// ── 出力（決定的: lemmaId・ln をソート） ─────────────────────────────
+// ── 出力（決定的: lemmaId・sense をソート） ──────────────────────────
 const emit = (map, indent) => {
     const ids = Object.keys(map).sort();
     return ids.map(id => {
@@ -97,7 +98,7 @@ let finalPairs = 0;
 for (const id of Object.keys(final)) finalPairs += Object.keys(final[id]).length;
 
 const output = `/**
- * reading-ln-final-data.js — LN→Gloss 最終辞書（Phase 5-D 生成物 v2）
+ * reading-ln-final-data.js — センス→Gloss 最終辞書（Phase 5-D 生成物 v2）
  *
  * ★ 生成ファイル — 手編集禁止。再生成: node scripts/build-reading-ln-final.cjs
  * ★ 人手修正は assets/data/reading-ln-curation.js で行い、再生成で反映する。
@@ -114,7 +115,7 @@ const output = `/**
 
 if (typeof window === 'undefined') { globalThis.window = globalThis; }
 
-window.READING_LN_FINAL = Object.freeze({
+window.READING_SENSE_FINAL = Object.freeze({
     version: 2,
     replace: Object.freeze({
 ${emit(replaceMap, '        ')}
@@ -129,7 +130,7 @@ ${emit(final, '        ')}
 
 // Node（監査・回帰テスト）用
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { READING_LN_FINAL: window.READING_LN_FINAL };
+    module.exports = { READING_SENSE_FINAL: window.READING_SENSE_FINAL };
 }
 `;
 

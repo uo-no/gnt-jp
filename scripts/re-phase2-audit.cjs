@@ -71,14 +71,14 @@ const { readingLexiconData } =
     requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-lexicon-data.js'));
 const { readingSemanticData } =
     requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-semantic-data.js'));
-const { READING_LN_FINAL } =
+const { READING_SENSE_FINAL } =
     requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-ln-final-data.js'));
 
-// 本番と同じ構成: lexicon + semantic + lnGloss 注入済み engine（4-A / 5-A / 5-D）
+// 本番と同じ構成: lexicon + semantic + senseGloss 注入済み engine（4-A / 5-A / 5-D）
 const engine = new ReadingEngine();
 engine.setLexicon(new ReadingLexicon(readingLexiconData));
 engine.setSemanticData(readingSemanticData);
-engine.setLnGlossData(READING_LN_FINAL);
+engine.setSenseGlossData(READING_SENSE_FINAL);
 
 // ── 本番 _buildReadingContext と同じロジック ────────────────────────
 function buildReadingContext(words, idx) {
@@ -144,7 +144,7 @@ const stats = {
     byParticle: {},      // は / が → { count, samples[] }
     byIdiom: {},         // 5-A 固定訳 → { count, samples[] }
     byPrepDomain: {},    // 5-B ルール名 → { count, samples[] }
-    byLnGloss: {},       // 5-D lemmaId|ln → { gloss, count, samples[] }
+    bySenseGloss: {},    // 5-D lemmaId|sense → { gloss, count, samples[] }
     qualityFlags: {
         doubleParticle: [],   // 出力末尾に助詞が重なった疑い（のから 等）
         brokenWaGa: [],       // は/が の破損疑い（もは・もが・のは 等）
@@ -178,17 +178,17 @@ for (const words of allVerses()) {
 
         if (r.source === 'semantic') {
             stats.semantic++;
-            // 分類: 5-A idiom（固定訳）→ 5-D lnGloss（replace 区画一致）→ 5-B prepDomain
+            // 分類: 5-A idiom（固定訳）→ 5-D senseGloss（replace 区画一致）→ 5-B prepDomain
             const idiomJa = new Set(readingSemanticData.idioms.map(x => x.ja));
-            const _lnFirst = (typeof t.ln === 'string' && t.ln) ? t.ln.split(' ')[0] : null;
-            const _lnRep = _lnFirst ? READING_LN_FINAL.replace[t.lemmaId]?.[_lnFirst] : undefined;
-            if (!idiomJa.has(r.japanese) && _lnRep !== undefined &&
-                r.japanese.startsWith(_lnRep)) {
-                const key = `${t.lemmaId}|${_lnFirst}`;
-                if (!stats.byLnGloss[key]) stats.byLnGloss[key] = { gloss: _lnRep, count: 0, samples: [] };
-                stats.byLnGloss[key].count++;
-                if (stats.byLnGloss[key].samples.length < 5) {
-                    stats.byLnGloss[key].samples.push(
+            const _senseFirst = (typeof t.sense === 'string' && t.sense) ? t.sense.split(' ')[0] : null;
+            const _senseRep = _senseFirst ? READING_SENSE_FINAL.replace[t.lemmaId]?.[_senseFirst] : undefined;
+            if (!idiomJa.has(r.japanese) && _senseRep !== undefined &&
+                r.japanese.startsWith(_senseRep)) {
+                const key = `${t.lemmaId}|${_senseFirst}`;
+                if (!stats.bySenseGloss[key]) stats.bySenseGloss[key] = { gloss: _senseRep, count: 0, samples: [] };
+                stats.bySenseGloss[key].count++;
+                if (stats.bySenseGloss[key].samples.length < 5) {
+                    stats.bySenseGloss[key].samples.push(
                         { ref: t.ref, text: t.text, base: t.japanese, out: r.japanese });
                 }
             } else if (idiomJa.has(r.japanese)) {
@@ -199,14 +199,9 @@ for (const words of allVerses()) {
                     stats.byIdiom[key].samples.push({ ref: t.ref, text: t.text, base: t.japanese });
                 }
             } else {
-                const _dnum = (d => {
-                    if (!d) return null;
-                    const s = String(d).split(' ')[0];
-                    if (!/^[0-9]+$/.test(s)) return null;
-                    return s.length > 3 ? parseInt(s.slice(0, -3), 10) : parseInt(s, 10);
-                })(t.domain);
+                const _group = String(t.senseGroup || '').split(' ')[0] || null;
                 const rule = (readingSemanticData.prepDomain || []).find(x =>
-                    r.japanese === (t.japanese || '') + x.ja && x.domain === _dnum) || { name: '?' };
+                    r.japanese === (t.japanese || '') + x.ja && x.group === _group) || { name: '?' };
                 const key = rule.name;
                 if (!stats.byPrepDomain[key]) stats.byPrepDomain[key] = { count: 0, samples: [] };
                 stats.byPrepDomain[key].count++;
@@ -295,14 +290,14 @@ for (const [key, v] of Object.entries(stats.byPrepDomain).sort((a, b) => b[1].co
     console.log(`  ${key.padEnd(28)} ${String(v.count).padStart(4)}  e.g. ${ex.base}→${ex.out} (${ex.ref})`);
 }
 console.log('');
-console.log('── semantic 変換の分布（5-D lnGloss） ──');
-let lnTotal = 0;
-for (const [key, v] of Object.entries(stats.byLnGloss).sort((a, b) => b[1].count - a[1].count)) {
-    lnTotal += v.count;
+console.log('── semantic 変換の分布（5-D senseGloss） ──');
+let senseTotal = 0;
+for (const [key, v] of Object.entries(stats.bySenseGloss).sort((a, b) => b[1].count - a[1].count)) {
+    senseTotal += v.count;
     const ex = v.samples[0];
     console.log(`  ${key.padEnd(20)} 「${v.gloss}」 ${String(v.count).padStart(4)}  e.g. ${ex.base}→${ex.out} (${ex.ref})`);
 }
-console.log(`  semantic-ln 計: ${lnTotal}`);
+console.log(`  semantic-sense 計: ${senseTotal}`);
 console.log('');
 console.log('── particle 変換の分布（は/が） ──');
 for (const [key, v] of Object.entries(stats.byParticle).sort((a, b) => b[1].count - a[1].count)) {

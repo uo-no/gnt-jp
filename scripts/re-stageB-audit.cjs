@@ -83,14 +83,14 @@ const { ContextBuilder } = requireCjs(path.join(PUBLIC, 'core', 'syntax-analyzer
 const { ReadingLexicon } = requireCjs(path.join(PUBLIC, 'core', 'reading-lexicon.js'));
 const { readingLexiconData } = requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-lexicon-data.js'));
 const { readingSemanticData } = requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-semantic-data.js'));
-const { READING_LN_FINAL } = requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-ln-final-data.js'));
+const { READING_SENSE_FINAL } = requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-ln-final-data.js'));
 const { PresentationPolicy } = requireCjs(path.join(PUBLIC, 'core', 'presentation-policy.js'));
 sandbox.window.App.PresentationPolicy = PresentationPolicy;   // Stage C P1（chip 抽出区間へ注入）
 
 const engine = new ReadingEngine();
 engine.setLexicon(new ReadingLexicon(readingLexiconData));
 engine.setSemanticData(readingSemanticData);
-engine.setLnGlossData(READING_LN_FINAL);
+engine.setSenseGlossData(READING_SENSE_FINAL);
 
 function buildReadingContext(words, idx) {
     try {

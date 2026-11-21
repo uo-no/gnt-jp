@@ -16,8 +16,8 @@
  * 固定訳の出典: 制約と件数は 2026-07-16 の NT 全巻監査
  * （docs/reading-semantic.md）で確定。
  *
- * Phase 5-B（前置詞×目的語 domain）/ Phase 5-C（(lemmaId, ln)→gloss）は
- * このファイルに prepDomain / lnGloss として追加する（追加方式・予約）。
+ * Phase 5-B（前置詞×目的語グループ）は本ファイルの prepDomain に置く（追加方式）。
+ * Phase 5-C/5-D（(lemmaId, sense)→gloss）は reading-ln-final-data.js で注入する。
  *
  * 読み込み順序: 本ファイル → core/reading-engine.js（script タグ同期実行）。
  */
@@ -106,12 +106,12 @@
                 ja: '一つ所に',
             },
         ],
-        // ── Phase 5-B: prepDomain（前置詞×格×目的語 domain → 助詞） ────
-        // 目的語トークン自身の domain 注釈（Louw-Nida ドメイン番号）で
+        // ── Phase 5-B: prepDomain（前置詞×格×目的語グループ → 助詞） ────
+        // 目的語トークン自身の token.senseGroup（不透明なグループキー）で
         // 意味を固定できる組み合わせのみ。推論は行わない。
         //   prep:    支配前置詞の lemma（NFC 正規化で照合）
         //   case:    目的語の格
-        //   domain:  目的語の LN ドメイン番号（末尾3桁を除いた数値）
+        //   group:   目的語のグループキー（'g<n>'。等値比較のみ。番号自体に意味はない）
         //   ja:      base に後置する助詞列
         //   exclude: 適用しない目的語 lemma（NFC）。監査で特定した
         //            用法例外（πρὸς αἷμα「血と格闘」等）の保護
@@ -125,23 +125,24 @@
         prepDomain: [
             {
                 name: 'πρός+対格+固有名 → のもとに',
-                prep: 'πρός', case: 'accusative', domain: 93,
+                prep: 'πρός', case: 'accusative', group: 'g78',
                 ja: 'のもとに',
                 exclude: ['Βελιάρ'],   // 2CO 6:15 συμφώνησις πρὸς Βελιάρ（〜との調和）
             },
             {
                 name: 'πρός+対格+人 → のもとに',
-                prep: 'πρός', case: 'accusative', domain: 9,
+                prep: 'πρός', case: 'accusative', group: 'g14',
                 ja: 'のもとに',
                 exclude: ['αἷμα'],     // EPH 6:12 πάλη πρὸς αἷμα（〜との格闘）
             },
             {
                 name: 'περί+対格+身体 → の周りに',
-                prep: 'περί', case: 'accusative', domain: 8,
+                prep: 'περί', case: 'accusative', group: 'g80',
                 ja: 'の周りに',
             },
         ],
-        // ── Phase 5-C 予約: lnGloss（(lemmaId, ln) → gloss 対応表） ──
+        // ── Phase 5-C/5-D: senseGloss（(lemmaId, sense) → gloss）は別ファイル
+        //    （reading-ln-final-data.js）で注入する ──
     };
 
     if (typeof window !== 'undefined') {

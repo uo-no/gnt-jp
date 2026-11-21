@@ -34,13 +34,14 @@ const PUBLIC = path.join(ROOT, 'public');
 // ── Phase 5-A/5-B/5-D 凍結基準値（2026-07-17 NT全巻監査） ───────────
 // 5-B 追加（2026-07-17）: semantic 299 → 359（+60 prepDomain）。
 // 5-A の byIdiom 内訳は追加前後で不変（追加方式の実証）。
-// 5-D 追加（2026-07-17）: semantic 359 → 465（+106 lnGloss replace）。
-// 内訳: semantic-idiom 299 / semantic-prep 60 / semantic-ln 106。
-// assist（πνεῦμα 23.186 息・4トークン）は置換しない = ln 計に含まれない。
+// 5-D 追加（2026-07-17）: semantic 359 → 465（+106 senseGloss replace）。
+// 内訳: semantic-idiom 299 / semantic-prep 60 / semantic-sense 106。
+// assist（πνεῦμα 息・4トークン）は置換しない = sense 計に含まれない。
+// #196（2026-11-21）: 照合値を不透明な内部キー（sense / senseGroup）へ置換。基準値は不変。
 const PHASE5A_BASELINE = {
     totalTokens: 137741,
     semantic:    465,
-    semanticLn:  106,
+    semanticSense: 106,
     byIdiom: {
         'まことに言います':     69,
         'このため':             64,
@@ -75,21 +76,21 @@ const { readingLexiconData } =
     requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-lexicon-data.js'));
 const { readingSemanticData } =
     requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-semantic-data.js'));
-const { READING_LN_FINAL } =
+const { READING_SENSE_FINAL } =
     requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-ln-final-data.js'));
 
-// 本番と同じ構成（5-D: lnGloss 注入込み）
+// 本番と同じ構成（5-D: senseGloss 注入込み）
 const engine = new ReadingEngine();
 engine.setLexicon(new ReadingLexicon(readingLexiconData));
 engine.setSemanticData(readingSemanticData);
-engine.setLnGlossData(READING_LN_FINAL);
+engine.setSenseGlossData(READING_SENSE_FINAL);
 // semantic 未注入（凍結互換の検証用）
 const engineNoSem = new ReadingEngine();
 engineNoSem.setLexicon(new ReadingLexicon(readingLexiconData));
-// lnGloss 未注入（5-D 劣化モードの検証用）
-const engineNoLn = new ReadingEngine();
-engineNoLn.setLexicon(new ReadingLexicon(readingLexiconData));
-engineNoLn.setSemanticData(readingSemanticData);
+// senseGloss 未注入（5-D 劣化モードの検証用）
+const engineNoSense = new ReadingEngine();
+engineNoSense.setLexicon(new ReadingLexicon(readingLexiconData));
+engineNoSense.setSemanticData(readingSemanticData);
 
 let pass = 0, fail = 0;
 function check(desc, actual, expect) {
@@ -213,50 +214,61 @@ function T(desc, fn, expectJa, expectSrc) {
 // ── Phase 5-B: prepDomain（2026-07-17 凍結）
 {
     const t = [tok('πρός', { class: 'prep' }),
-               tok('Ἰησοῦς', { japanese: 'イエス', case: 'accusative', domain: '93001' })];
+               tok('Ἰησοῦς', { japanese: 'イエス', case: 'accusative', senseGroup: 'g78' })];
     T('5-B: πρὸς Ἰησοῦν → のもとに', () => engine.resolve(t[1], ctx(t, 1)), 'イエスのもとに', 'semantic');
 }
 {
     const t = [tok('πρός', { class: 'prep' }), tok('ὁ', { class: 'det', case: 'accusative' }),
-               tok('ἀνήρ', { japanese: '男', case: 'accusative', domain: '9002' })];
-    T('5-B: πρὸς τοὺς ἄνδρας（冠詞介在・domain 9）', () => engine.resolve(t[2], ctx(t, 2)), '男のもとに', 'semantic');
+               tok('ἀνήρ', { japanese: '男', case: 'accusative', senseGroup: 'g14' })];
+    T('5-B: πρὸς τοὺς ἄνδρας（冠詞介在・人のグループ）', () => engine.resolve(t[2], ctx(t, 2)), '男のもとに', 'semantic');
 }
 {
     const t = [tok('περί', { class: 'prep' }), tok('ὁ', { class: 'det', case: 'accusative' }),
-               tok('τράχηλος', { japanese: '首', case: 'accusative', domain: '8016' })];
+               tok('τράχηλος', { japanese: '首', case: 'accusative', senseGroup: 'g80' })];
     T('5-B: περὶ τὸν τράχηλον → の周りに', () => engine.resolve(t[2], ctx(t, 2)), '首の周りに', 'semantic');
 }
 // ── 5-B exclude（用法例外の保護）
 {
     const t = [tok('πρός', { class: 'prep' }),
-               tok('αἷμα', { japanese: '血', case: 'accusative', domain: '9017' })];
+               tok('αἷμα', { japanese: '血', case: 'accusative', senseGroup: 'g14' })];
     T('5-B: πρὸς αἷμα → exclude（血を）', () => engine.resolve(t[1], ctx(t, 1)), '血を', 'morph');
 }
 {
     const t = [tok('πρός', { class: 'prep' }),
-               tok('Βελιάρ', { japanese: 'ベリアル', case: 'accusative', domain: '93001' })];
+               tok('Βελιάρ', { japanese: 'ベリアル', case: 'accusative', senseGroup: 'g78' })];
     T('5-B: πρὸς Βελιάρ → exclude', () => engine.resolve(t[1], ctx(t, 1)), 'ベリアルを', 'morph');
 }
-// ── 5-B 不成立系（domain 違い・ἐπί 対象外・domain なし）
+// ── 5-B 不成立系（グループ違い・ἐπί 対象外・グループなし）
 {
     const t = [tok('πρός', { class: 'prep' }),
-               tok('θάλασσα', { japanese: '海', case: 'accusative', domain: '1021' })];
-    T('5-B: πρός+場所 domain → 対象外（海を）', () => engine.resolve(t[1], ctx(t, 1)), '海を', 'morph');
+               tok('θάλασσα', { japanese: '海', case: 'accusative', senseGroup: 'g82' })];
+    T('5-B: πρός+場所グループ → 対象外（海を）', () => engine.resolve(t[1], ctx(t, 1)), '海を', 'morph');
 }
 {
     const t = [tok('ἐπί', { class: 'prep' }),
-               tok('γῆ', { japanese: '地', case: 'genitive', domain: '1039' })];
+               tok('γῆ', { japanese: '地', case: 'genitive', senseGroup: 'g82' })];
     T('5-B: ἐπί は対象外（地の）', () => engine.resolve(t[1], ctx(t, 1)), '地の', 'morph');
 }
 {
     const t = [tok('πρός', { class: 'prep' }),
-               tok('Ἰησοῦς', { japanese: 'イエス', case: 'accusative', domain: '' })];
-    T('5-B: domain なし → fallback', () => engine.resolve(t[1], ctx(t, 1)), 'イエスを', 'morph');
+               tok('Ἰησοῦς', { japanese: 'イエス', case: 'accusative', senseGroup: '' })];
+    T('5-B: グループなし → fallback', () => engine.resolve(t[1], ctx(t, 1)), 'イエスを', 'morph');
+}
+// ── #196: 旧フィールド（数値 domain）は照合に使わない（内部キー化後の非依存保証）
+{
+    const t = [tok('πρός', { class: 'prep' }),
+               tok('Ἰησοῦς', { japanese: 'イエス', case: 'accusative', domain: '93001' })];
+    T('5-B: 旧 domain フィールドのみ → 照合しない（イエスを）', () => engine.resolve(t[1], ctx(t, 1)), 'イエスを', 'morph');
+}
+{
+    const t = [tok('πρός', { class: 'prep' }),
+               tok('Ἰησοῦς', { japanese: 'イエス', case: 'accusative', senseGroup: '93' })];
+    T('5-B: キー形式でない senseGroup → 照合しない（イエスを）', () => engine.resolve(t[1], ctx(t, 1)), 'イエスを', 'morph');
 }
 // ── 5-A idiom が prepDomain より優先
 {
     const t = [tok('εἰς', { class: 'prep' }), tok('ὁ', { class: 'det', case: 'accusative' }),
-               tok('αἰών', { japanese: '世', case: 'accusative', domain: '67142' })];
+               tok('αἰών', { japanese: '世', case: 'accusative', senseGroup: 'g69' })];
     T('5-B: idiom > prepDomain', () => engine.resolve(t[2], ctx(t, 2)), '永遠に', 'semantic');
 }
 // ── prepDomain 未定義データ = 5-A のみ動作（追加方式の互換）
@@ -265,63 +277,68 @@ function T(desc, fn, expectJa, expectSrc) {
     eng5a.setLexicon(new ReadingLexicon(readingLexiconData));
     eng5a.setSemanticData({ version: 1, idioms: readingSemanticData.idioms });
     const t = [tok('πρός', { class: 'prep' }),
-               tok('Ἰησοῦς', { japanese: 'イエス', case: 'accusative', domain: '93001' })];
+               tok('Ἰησοῦς', { japanese: 'イエス', case: 'accusative', senseGroup: 'g78' })];
     T('5-B: prepDomain 未定義 → 5-A のみ', () => eng5a.resolve(t[1], ctx(t, 1)), 'イエスを', 'morph');
 }
 
-// ── Phase 5-D: lnGloss（2026-07-17 凍結）─────────────────────────
-// replace: λόγος 57.228 → 申し開き（格助詞は既存チェーン再利用で維持）
+// ── Phase 5-D: senseGloss（2026-07-17 凍結・#196 で内部キー化）──────────
+// replace: λόγος（会計・釈明のセンス）→ 申し開き（格助詞は既存チェーン再利用で維持）
 {
-    const t = [tok('λόγος', { japanese: 'ことば', lemmaId: 'grc:G3056', ln: '57.228', case: 'accusative' })];
-    T('5-D replace: λόγον(57.228) → 申し開きを', () => engine.resolve(t[0], ctx(t, 0)), '申し開きを', 'semantic');
+    const t = [tok('λόγος', { japanese: 'ことば', lemmaId: 'grc:G3056', sense: 's6494', case: 'accusative' })];
+    T('5-D replace: λόγον（申し開きのセンス）→ 申し開きを', () => engine.resolve(t[0], ctx(t, 0)), '申し開きを', 'semantic');
 }
 // replace + PP: base 置換後に syntax 再利用（前置詞助詞の維持）
 {
     const t = [tok('ἐκ', { class: 'prep' }), tok('ὁ', { class: 'det', case: 'genitive' }),
-               tok('κόσμος', { japanese: '世界', lemmaId: 'grc:G2889', ln: '41.38', case: 'genitive' })];
+               tok('κόσμος', { japanese: '世界', lemmaId: 'grc:G2889', sense: 's6050', case: 'genitive' })];
     const c = Object.assign(ctx(t, 2),
         { phrases: [{ type: 'PP', start: 0, end: 2, head: 2, dependents: [] }] });
     T('5-D replace+PP: ἐκ τοῦ κόσμου → 世から', () => engine.resolve(t[2], c), '世から', 'semantic');
 }
-// preserve: σάρξ 26.7（保護台帳）→ 変更なし
+// preserve: σάρξ パウロ的「肉」のセンス（保護台帳）→ 変更なし
 {
-    const t = [tok('σάρξ', { japanese: '肉', lemmaId: 'grc:G4561', ln: '26.7', case: 'genitive' })];
-    T('5-D preserve: σαρκός(26.7) → 肉の [morph] 変更なし', () => engine.resolve(t[0], ctx(t, 0)), '肉の', 'morph');
+    const t = [tok('σάρξ', { japanese: '肉', lemmaId: 'grc:G4561', sense: 's1185', case: 'genitive' })];
+    T('5-D preserve: σαρκός（保護センス）→ 肉の [morph] 変更なし', () => engine.resolve(t[0], ctx(t, 0)), '肉の', 'morph');
 }
-// assist: πνεῦμα 23.186 → jaWord 変更なし（mode 違反の防止）
+// assist: πνεῦμα（息のセンス）→ jaWord 変更なし（mode 違反の防止）
 {
-    const t = [tok('πνεῦμα', { japanese: '霊', lemmaId: 'grc:G4151', ln: '23.186', case: 'genitive' })];
-    T('5-D assist: πνεύματος(23.186) → 霊の [morph] 変更なし', () => engine.resolve(t[0], ctx(t, 0)), '霊の', 'morph');
-    check('5-D assist: getLnAssist で「息」取得可（UI 未使用）',
-        engine.getLnAssist(t[0]), '息');
-    check('5-D assist: preserve 対象は getLnAssist も null',
-        engine.getLnAssist(tok('σάρξ', { lemmaId: 'grc:G4561', ln: '26.7' })), null);
+    const t = [tok('πνεῦμα', { japanese: '霊', lemmaId: 'grc:G4151', sense: 's4501', case: 'genitive' })];
+    T('5-D assist: πνεύματος（息のセンス）→ 霊の [morph] 変更なし', () => engine.resolve(t[0], ctx(t, 0)), '霊の', 'morph');
+    check('5-D assist: getSenseAssist で「息」取得可（UI 未使用）',
+        engine.getSenseAssist(t[0]), '息');
+    check('5-D assist: preserve 対象は getSenseAssist も null',
+        engine.getSenseAssist(tok('σάρξ', { lemmaId: 'grc:G4561', sense: 's1185' })), null);
 }
-// 未ロード: lnGloss 不活性（semantic inactive → 既存チェーン）
+// 未ロード: senseGloss 不活性（semantic inactive → 既存チェーン）
 {
-    const t = [tok('λόγος', { japanese: 'ことば', lemmaId: 'grc:G3056', ln: '57.228', case: 'accusative' })];
-    T('5-D 未ロード → ことばを [morph]', () => engineNoLn.resolve(t[0], ctx(t, 0)), 'ことばを', 'morph');
+    const t = [tok('λόγος', { japanese: 'ことば', lemmaId: 'grc:G3056', sense: 's6494', case: 'accusative' })];
+    T('5-D 未ロード → ことばを [morph]', () => engineNoSense.resolve(t[0], ctx(t, 0)), 'ことばを', 'morph');
 }
-// LN なし → fallback
+// sense なし → fallback
 {
-    const t = [tok('λόγος', { japanese: 'ことば', lemmaId: 'grc:G3056', ln: '', case: 'accusative' })];
-    T('5-D LN なし → ことばを [morph]', () => engine.resolve(t[0], ctx(t, 0)), 'ことばを', 'morph');
+    const t = [tok('λόγος', { japanese: 'ことば', lemmaId: 'grc:G3056', sense: '', case: 'accusative' })];
+    T('5-D sense なし → ことばを [morph]', () => engine.resolve(t[0], ctx(t, 0)), 'ことばを', 'morph');
 }
-// 対応表にない ln（主要 ln = preserve 扱い）→ fallback
+// 対応表にない sense（主要センス = preserve 扱い）→ fallback
 {
-    const t = [tok('λόγος', { japanese: 'ことば', lemmaId: 'grc:G3056', ln: '33.98', case: 'accusative' })];
-    T('5-D 主要 ln(33.98) → ことばを [morph]', () => engine.resolve(t[0], ctx(t, 0)), 'ことばを', 'morph');
+    const t = [tok('λόγος', { japanese: 'ことば', lemmaId: 'grc:G3056', sense: 's3185', case: 'accusative' })];
+    T('5-D 主要センス → ことばを [morph]', () => engine.resolve(t[0], ctx(t, 0)), 'ことばを', 'morph');
 }
-// idiom > lnGloss（優先順位）
+// idiom > senseGloss（優先順位）
 {
     const t = [tok('εἰς', { class: 'prep' }), tok('ὁ', { class: 'det', case: 'accusative' }),
-               tok('αἰών', { japanese: '世', lemmaId: 'grc:G165', ln: '67.143', case: 'accusative' })];
-    T('5-D idiom > lnGloss（永遠に）', () => engine.resolve(t[2], ctx(t, 2)), '永遠に', 'semantic');
+               tok('αἰών', { japanese: '世', lemmaId: 'grc:G165', sense: 's9148', case: 'accusative' })];
+    T('5-D idiom > senseGloss（永遠に）', () => engine.resolve(t[2], ctx(t, 2)), '永遠に', 'semantic');
 }
-// 複合 ln の先頭一致
+// #196: 旧フィールド（ln）は照合に使わない
 {
-    const t = [tok('κόσμος', { japanese: '世界', lemmaId: 'grc:G2889', ln: '41.38 1.39', case: 'accusative' })];
-    T('5-D 複合 ln 先頭一致 → 世を', () => engine.resolve(t[0], ctx(t, 0)), '世を', 'semantic');
+    const t = [tok('λόγος', { japanese: 'ことば', lemmaId: 'grc:G3056', ln: 's6494', case: 'accusative' })];
+    T('5-D 旧 ln フィールドのみ → ことばを [morph]', () => engine.resolve(t[0], ctx(t, 0)), 'ことばを', 'morph');
+}
+// 複合 sense の先頭一致
+{
+    const t = [tok('κόσμος', { japanese: '世界', lemmaId: 'grc:G2889', sense: 's6050 s3897', case: 'accusative' })];
+    T('5-D 複合 sense 先頭一致 → 世を', () => engine.resolve(t[0], ctx(t, 0)), '世を', 'semantic');
 }
 
 // ── 凍結互換
@@ -354,11 +371,11 @@ for (const [ja, count] of Object.entries(PHASE5A_BASELINE.byIdiom)) {
 for (const [name, count] of Object.entries(PHASE5A_BASELINE.byPrepDomain)) {
     check(`prepDomain: ${name}`, audit.byPrepDomain[name]?.count ?? 0, count);
 }
-// Phase 5-D: lnGloss 総数（replace のみ。assist は置換しないため含まれない）
+// Phase 5-D: senseGloss 総数（replace のみ。assist は置換しないため含まれない）
 {
-    let lnTotal = 0;
-    for (const v of Object.values(audit.byLnGloss || {})) lnTotal += v.count;
-    check('semantic-ln 件数（基準値一致）', lnTotal, PHASE5A_BASELINE.semanticLn);
+    let senseTotal = 0;
+    for (const v of Object.values(audit.bySenseGloss || {})) senseTotal += v.count;
+    check('semantic-sense 件数（基準値一致）', senseTotal, PHASE5A_BASELINE.semanticSense);
 }
 for (const flag of PHASE5A_BASELINE.zeroFlags) {
     check(`悪化ケース 0: ${flag}`, (audit.qualityFlags[flag] || []).length, 0);
