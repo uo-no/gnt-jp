@@ -43,7 +43,7 @@ const NT_DIR = path.join(PUBLIC, 'bible_data', 'nt');
 const SEMANTIC_COMPLETION_BASELINE = {
     totalTokens:     137741,
     semanticInfoAny: 129022,   // 93.7%
-    sense:           128493,   // 93.3%（#196 で旧 lnDomain を改名・件数不変）
+    sense:           128493,   // 93.3%（#196 で旧フィールド名から改名・件数不変）
     interrogative:   555,
     indefinite:      530,
     reflexivePerson: 408,
