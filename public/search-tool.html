@@ -7343,6 +7343,15 @@ async function _loadAbbott() {
             //   JA は従来どおり cols[4]、EN は英語原文 cols[2]、ES は cols[5]（無ければ従来どおり日本語本文）
             _abbottDict[strong] = { lemma: cols[1]?.trim() || '', description: cols[4]?.trim() || '', descriptionEn: cols[2]?.trim() || '', descriptionEs: cols[5]?.trim() || '', descriptionSv: cols[6]?.trim() || '' };
         });
+        /* #197: 結合キー行（例 2036|2046|3004|4483＝λέγω）は、単体 Strong からも同じ行を引けるようにする。
+           TSV は変更しない。単体 Strong に自前の行がある場合はそれを優先し、上書きしない。 */
+        Object.keys(_abbottDict).forEach(k => {
+            if (k.indexOf('|') < 0) return;
+            k.split('|').forEach(part => {
+                const p = part.trim();
+                if (p && !Object.prototype.hasOwnProperty.call(_abbottDict, p)) _abbottDict[p] = _abbottDict[k];
+            });
+        });
     } catch(e) {
         console.warn('Abbott-Smith load error', e);
     }
