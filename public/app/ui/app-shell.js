@@ -1228,6 +1228,7 @@ function showAppInfo() {
                 <table>
                     <tr><th>ギリシャ語底本</th><td>SBL Greek New Testament (SBLGNT)<br><small>© Faithlife / Logos Bible Software, edited by Michael W. Holmes — CC BY 4.0</small></td></tr>
                     <tr><th>形態論解析</th><td>MACULA Greek Linguistic Datasets, available at <a href="https://github.com/Clear-Bible/macula-greek/" target="_blank" rel="noopener">https://github.com/Clear-Bible/macula-greek/</a><br><small>© Biblica, Inc. — CC BY 4.0</small></td></tr>
+                    <tr><th>旧約ギリシャ語本文</th><td>CATSS Morphological Septuagint (LXXM) — Septuaginta, ed. A. Rahlfs (1935)<br><small>CCAT, University of Pennsylvania（学習・教育目的で配布）</small></td></tr>
                     <tr><th>英語グロス</th><td>Cherith Glosses（Andi Wu）<br><small>© 2023 Cherith Analytics — CC BY 4.0</small></td></tr>
                     <tr><th>辞書データ</th><td>Abbott-Smith, <em>A Manual Greek Lexicon of the New Testament</em></td></tr>
                     <tr>
