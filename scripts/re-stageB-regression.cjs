@@ -68,8 +68,14 @@ const STAGEB_BASELINE = {
     // （誤グロス「縛る」由来の旧経路破損が解消）、fix で changed +2・identical −2
     // （T0 が 去った 等を生成し T2 と差分化した正常分）。brokenNew 0・
     // panelMismatch 0 を維持。
-    changed:        39671,   // 2026-11-07 baseline refresh（PR #624 + 去る fix、-13）
-    identical:      98070,
+    // 2026-11-21 #200 baseline refresh: PR #920（#146 完了分詞の判定 X→R）で Tier 2（旧経路）の
+    // part-perf 分岐が NT で初めて成立し、完了分詞 456 トークンの旧経路 gloss が変化した
+    // （T2 が T0/1 と一致化 132・新たに不一致 53・不一致のまま値変化 271）。
+    // changed 39671→39592（−79）/ identical 98070→98149（+79）。Tier 0/1（Engine 出力 = SSOT）は
+    // NT 全 137,741 トークンで byte 等価、bible_data.japanese も不変。PR #967（#196）の寄与は 0。
+    // tokens/presented/brokenOld/brokenNew/panelMismatch は不変。
+    changed:        39592,   // 2026-11-21 baseline refresh（PR #920 / #146 の旧経路 part-perf、-79）
+    identical:      98149,
     brokenOld:       1245,   // 旧経路の破損形（参考記録）
     brokenNew:          0,   // 新経路の破損形は常に 0
     panelMismatch:      0,   // chip ⇔ StudyPanel 不一致は常に 0（SSOT）
