@@ -268,7 +268,9 @@ function _mbpUpdateBar() {
     }
 }
 
-/* 書物列（現行 Layer 2 と同じ SB_BOOKS の一覧。区分見出しは出さない） */
+/* 書物列（現行 Layer 2 と同じ SB_BOOKS の一覧。区分見出しは出さない）。
+   列幅が狭いので名前は既存の略称表 BOOK_SHORT（UI 言語では bookshort.*）を使い、略称の無い書は正式名のまま。
+   タイトル欄（_mbpUpdateBar）は正式名のまま。 */
 function _mbpRenderBooks() {
     const col = document.getElementById('mbp-col-book');
     if (!col) return;
@@ -279,7 +281,7 @@ function _mbpRenderBooks() {
         html += '<button type="button" class="mbp-item mbp-item-book' + (cur ? ' current' : '') + '"' +
             (cur ? ' aria-current="true"' : '') +
             ' onclick="_mbpSelectBook(\'' + b.key + '\',' + b.ch + ')">' +
-            _escH(_bookFullName(b.key)) + '</button>';
+            _escH(BOOK_SHORT[b.key] ? _bookShortName(b.key) : _bookFullName(b.key)) + '</button>';
     }
     col.innerHTML = html;
 }
