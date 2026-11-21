@@ -89,6 +89,7 @@ async function testObservationRendering(id, signals, expectedText) {
     }]
   };
   const sandbox = {
+    window: {},
     _getReadingSupportProjection: async () => projectionForTest,
     _wallacePipeline: {
       rf: formatter,
