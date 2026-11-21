@@ -268,11 +268,14 @@ function _mbpUpdateBar() {
     }
 }
 
-/* 書物列の表示名：日本語 UI のときだけ既存の略称表 BOOK_SHORT を使う（略称の無い書は正式名のまま）。
-   日本語以外の言語は正式名（_bookFullName）のまま。タイトル欄（_mbpUpdateBar）は全言語で正式名のまま。 */
+/* 書物列の表示名（列幅が狭いため略称を使う。タイトル欄 _mbpUpdateBar は全言語で正式名のまま）。
+   日本語 UI：既存の略称表 BOOK_SHORT。
+   他言語：ピッカー列専用の i18n キー bookpicker.<KEY>（現在は sv のみが持つ）。bookshort.* は他画面と共有のため使わない。
+   いずれも略称の無い書は、その言語の正式名（_bookFullName）のまま。 */
 function _mbpBookColName(key) {
     const isJa = !(window.I18N && window.I18N.lang !== 'ja');
-    return (isJa && BOOK_SHORT[key]) || _bookFullName(key);
+    const short = isJa ? BOOK_SHORT[key] : _T('bookpicker.' + key, null);
+    return short || _bookFullName(key);
 }
 
 /* 書物列（現行 Layer 2 と同じ SB_BOOKS の一覧。区分見出しは出さない） */
