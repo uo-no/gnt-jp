@@ -2158,16 +2158,16 @@ body.is-lobby .search-input-wrap {
 <style id="genre-tabs-css">
 /* 検索ジャンルのタブ（形態｜関係）#82
    ロビー：出さない（#92。入力が意図を決める。タブの仕事は結果が出てから）。結果画面（PC）：sticky ヘッダー内の検索窓の下に1行。モバイル：ヘッダー行の折り返し1行。 */
-.genre-tabs { display: flex; justify-content: center; gap: var(--s-sp-2); margin: var(--s-sp-3) auto 0; }
+.genre-tabs { display: flex; justify-content: center; gap: var(--s-sp-2); margin: var(--s-sp-3) auto 0; overflow-x: auto; scrollbar-width: none; min-width: 0; }
 .genre-tab {
     appearance: none; background: none; border: 0; border-bottom: 2px solid transparent;
     padding: 4px 14px; font: inherit; font-family: var(--s-ff-ui); font-size: var(--s-ts-sm);
-    color: var(--s-text-sub); cursor: pointer; line-height: 1.4;
+    color: var(--s-text-sub); cursor: pointer; line-height: 1.4; flex: none; white-space: nowrap;
 }
 body.is-lobby .genre-tabs { display: none; }   /* #92：ロビーでは出さず、結果画面だけに残す */
 .genre-tab:hover { color: var(--s-text); }
 .genre-tab.active { color: var(--s-text); border-bottom-color: var(--s-accent); font-weight: 500; }
-.genre-tab:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+.genre-tab:focus-visible { outline: 2px solid var(--s-accent); outline-offset: -2px; }   /* 段が overflow なので内側に描く */
 @media (min-width: 701px) {
     body:not(.is-lobby) .s-head-row > .genre-tabs {
         grid-column: 2; grid-row: 2; justify-content: flex-start; margin: 0; padding-left: 12px;
@@ -2221,7 +2221,13 @@ body.is-lobby .genre-tabs { display: none; }   /* #92：ロビーでは出さず
 .syn-cat-type .syn-type-desc { padding-bottom: 0; }
 /* lemma タブ（#201）：ジャンルタブの段の下にもう1段。母語検索の語グループ表示×形態ジャンルのときだけ出す（hidden 属性で切替）。
    ロビーでは出さない。タブが幅に収まらないときは段の中で横スクロール（ページ幅は広げない）。 */
-.lemma-tabs { display: flex; gap: var(--s-sp-1); margin: var(--s-sp-2) auto 0; overflow-x: auto; scrollbar-width: thin; }
+.lemma-tabs { display: flex; gap: var(--s-sp-1); margin: var(--s-sp-2) auto 0; overflow-x: auto; scrollbar-width: none; }
+/* #205：Google 式の横スクロール。スクロールバーは出さず、続きがある側の端だけ mask でフェードする（背景色に依存しない）。
+   .tabs-fade-l／.tabs-fade-r は _tabsFadeUpdate が scrollLeft から付け外しする。 */
+.genre-tabs::-webkit-scrollbar, .lemma-tabs::-webkit-scrollbar { display: none; }
+.tabs-fade-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+.tabs-fade-l { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent); }
+.tabs-fade-l.tabs-fade-r { -webkit-mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent); }
 .lemma-tabs[hidden], body.is-lobby .lemma-tabs { display: none; }
 .lemma-tab {
     appearance: none; background: none; border: 0; border-bottom: 2px solid transparent;
@@ -4486,6 +4492,35 @@ const _layers = _sqState.layers;
    形態：現行の1語検索と同一。関係：現行の2語結果（フレーズ＋近接）。1語なら共起が主役。
    形態で2語以上を入力したら関係へ自動で移る（入力時・検索時の両方）。URL は関係のときだけ ?tab=rel。 */
 let _genreTab = 'morph';
+/* #205：タブ段の横スクロール（Google 式）。バーなし・続きがある端だけフェード・選択中タブを段の中だけでスクロールして見える位置へ。ページの縦位置は動かさない。 */
+function _tabsFadeUpdate(el){
+    if(!el)return;
+    const max=el.scrollWidth-el.clientWidth;
+    el.classList.toggle('tabs-fade-l',max>1&&el.scrollLeft>1);
+    el.classList.toggle('tabs-fade-r',max>1&&el.scrollLeft<max-1);
+}
+function _tabsRevealActive(el,smooth){
+    if(!el)return;
+    const a=el.querySelector('[aria-selected="true"]');
+    if(a&&el.scrollWidth>el.clientWidth){
+        const pad=36;
+        const rel=a.getBoundingClientRect(),box=el.getBoundingClientRect();
+        let d=0;
+        if(rel.left<box.left+pad)d=rel.left-box.left-pad;
+        else if(rel.right>box.right-pad)d=rel.right-box.right+pad;
+        if(d){const to=Math.max(0,Math.min(el.scrollWidth-el.clientWidth,el.scrollLeft+d));el.scrollTo({left:to,behavior:smooth?'smooth':'auto'});}
+    }
+    _tabsFadeUpdate(el);
+}
+function _tabsScrollInit(){
+    ['genre-tabs','lemma-tabs'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(!el||el._tabsInit)return;
+        el._tabsInit=true;
+        el.addEventListener('scroll',()=>_tabsFadeUpdate(el),{passive:true});
+        if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>_tabsFadeUpdate(el)).observe(el);
+    });
+}
 let _relSingleCooc = false;   /* 直近の検索が「関係×1語」で、共起語を主役に出したか */
 function _renderGenreTabs(){
     document.querySelectorAll('.genre-tab').forEach(b=>{
@@ -4510,6 +4545,7 @@ function _renderGenreTabs(){
     if(ts)ts.textContent=_tf('search.genre.syn','統語');   /* #202 */
     const gt=document.getElementById('genre-tabs');
     if(gt)gt.setAttribute('aria-label',_tf('search.genre.aria','検索の読み方'));
+    _tabsScrollInit();_tabsRevealActive(document.getElementById('genre-tabs'),true);
     _renderLemmaTabs();   /* #201：lemma タブの段は形態ジャンルのときだけ。ラベル「すべて」も現在の言語で */
     _synTabLeaveSync();   /* #202：統語以外へ移ったら統語タブの面を畳む */
 }
@@ -4543,7 +4579,9 @@ function _renderLemmaTabs(){
     if(!row)return;
     row.setAttribute('aria-label',_tf('search.lemmaTab.aria','語ごとの表示'));
     if(!_lemmaTabsVisible()){row.hidden=true;row.textContent='';return;}
+    _tabsScrollInit();
     const hadFocus=row.contains(document.activeElement);
+    const keepLeft=row.scrollLeft;
     row.textContent='';
     const mk=(lemma,count)=>{
         const b=document.createElement('button');
@@ -4568,7 +4606,10 @@ function _renderLemmaTabs(){
     mk(null,0);
     _lemmaTabCtx.groups.forEach(g=>mk(g.lemma,g.hits.length));
     row.hidden=false;
-    if(hadFocus){const a=row.querySelector('.lemma-tab.active');if(a)a.focus();}
+    row.scrollLeft=keepLeft;   /* 再構築で位置が 0 に戻らないように */
+    if(hadFocus){const a=row.querySelector('.lemma-tab.active');if(a)a.focus({preventScroll:true});}
+    _tabsRevealActive(row,true);
+    requestAnimationFrame(()=>_tabsRevealActive(row,true));   /* 直接 URL で開いた直後はレイアウト確定後にもう一度 */
 }
 function _onLemmaTabClick(lemma){
     lemma=lemma==null?null:lemma;
