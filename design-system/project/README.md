@@ -1,6 +1,6 @@
 # 聖書［緑版］Design System
 
-For **uo-no/gnt-jp** (聖書アプリ, production: bible-text.pages.dev) — a Greek-Bible reading environment (Septuagint + Greek New Testament), first product in a future family that will add 聖書［赤版］ (Hebrew). Built from the existing product's real navigation, reading-mode picker, comparison setup and Structural Reading panel (inspected directly on the live site), re-expressed as semantic tokens and a stated architecture — not a re-skin. Full architecture, UX and screen-level detail live in the numbered sections indexed below; this file is the day-to-day usage rules.
+For **uo-no/moreskosh** (聖書アプリ, production: moreskosh.pages.dev) — a Greek-Bible reading environment (Septuagint + Greek New Testament), first product in a future family that will add 聖書［赤版］ (Hebrew). Built from the existing product's real navigation, reading-mode picker, comparison setup and Structural Reading panel (inspected directly on the live site), re-expressed as semantic tokens and a stated architecture — not a re-skin. Full architecture, UX and screen-level detail live in the numbered sections indexed below; this file is the day-to-day usage rules.
 
 ## The one rule everything else follows
 
@@ -106,6 +106,6 @@ The HTML is a documentation surface, not a generated stylesheet or the token sou
 
 ## Public reference entry
 
-- Public URL after deployment: `https://bible-text.pages.dev/design-system.html`
+- Public URL after deployment: `https://moreskosh.pages.dev/design-system.html`
 - Desktop entry: Information (i) menu → 「デザインシステム」. It opens in a new tab so the reading position remains available.
 - The HTML is a current implementation reference, not a claim that every visual state has been browser-tested. See the status section in the HTML for confirmed source checks and outstanding visual verification.

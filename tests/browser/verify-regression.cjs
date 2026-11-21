@@ -1,7 +1,7 @@
 'use strict';
 const { chromium } = require('playwright');
 const BASE = 'http://localhost:8765';
-const SP = process.env.TEST_SCREENSHOT_DIR || '/tmp/gnt-jp-playwright';
+const SP = process.env.TEST_SCREENSHOT_DIR || '/tmp/moreskosh-playwright';
 require('fs').mkdirSync(SP, { recursive: true });
 
 const errors = [];

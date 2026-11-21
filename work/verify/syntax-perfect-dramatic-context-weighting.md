@@ -1,8 +1,8 @@
 # 劇的完了の文脈重み分け — 全新約影響調査
 
 更新日: 2026-10-22
-対象PR: [#233](https://github.com/uo-no/gnt-jp/pull/233)
-検証CI: [VR-5 Regression Gate](https://github.com/uo-no/gnt-jp/actions/runs/39786849154)
+対象PR: [#233](https://github.com/uo-no/moreskosh/pull/233)
+検証CI: [VR-5 Regression Gate](https://github.com/uo-no/moreskosh/actions/runs/39786849154)
 レポート artifact: `syntax-perfect-dramatic-context-report`（ID `12428383509`）
 
 ## 目的
@@ -12,8 +12,8 @@
 ## CI 結果
 
 - 節内／聖句内文脈の対照テスト: PASS（4 checks）
-- Path Structure Check: PASS（[run](https://github.com/uo-no/gnt-jp/actions/runs/39786849170)）
-- VR-5 Regression Gate: PASS（[run](https://github.com/uo-no/gnt-jp/actions/runs/39786849154)）
+- Path Structure Check: PASS（[run](https://github.com/uo-no/moreskosh/actions/runs/39786849170)）
+- VR-5 Regression Gate: PASS（[run](https://github.com/uo-no/moreskosh/actions/runs/39786849154)）
 - 全新約走査: 27巻・260章・137,741トークン・7,939節
 - 比較対象: 完了形1,572トークン
 - スコアが変わった対象: 311
@@ -52,7 +52,7 @@ MAT 26、MRK 22、LUK 30、JHN 90、ACT 28、ROM 12、1CO 19、2CO 14、GAL 6、
 
 ## 最新CIでの再確認
 
-- 2026-10-22 の最終レポート出力名変更後も [VR-5 Regression Gate](https://github.com/uo-no/gnt-jp/actions/runs/39787648089) と Path Structure Check は PASS。
+- 2026-10-22 の最終レポート出力名変更後も [VR-5 Regression Gate](https://github.com/uo-no/moreskosh/actions/runs/39787648089) と Path Structure Check は PASS。
 - artifact `12428394858` を再取得して統計を再確認。27巻・260章・137,741トークン・7,939節、完了形1,572、変更対象311、スコア差分311、順位変化311、候補追加・削除0。
 - 全311件の数値差分が `verb.perfect_dramatic` の -10 のみであることを再検査。想定外のスコア差分0。
 
@@ -76,8 +76,8 @@ MAT 26、MRK 22、LUK 30、JHN 90、ACT 28、ROM 12、1CO 19、2CO 14、GAL 6、
 比較スクリプトを更新し、変更前後の候補について順位・スコアだけでなく、`signalsMatched`、`signalsFailed`、スコア内訳（`deltas`）もレポートに保存するようにした。これにより、候補が残ったかどうかだけでなく、どの判定シグナルが採用・不採用になったかを実データで追跡できる。
 
 - 変更コミット: `00fa45e57154bc19c5938e506eeeedfc747d7b2b`
-- 検証中の VR-5: [run 39866356567](https://github.com/uo-no/gnt-jp/actions/runs/39866356567)
-- Path Structure Check: [run 39866356568](https://github.com/uo-no/gnt-jp/actions/runs/39866356568)
+- 検証中の VR-5: [run 39866356567](https://github.com/uo-no/moreskosh/actions/runs/39866356567)
+- Path Structure Check: [run 39866356568](https://github.com/uo-no/moreskosh/actions/runs/39866356568)
 
 このコミットのCI完了後、レポートで節内の `narrative_clause` と別節の `narrative_verse_context` が期待どおり分かれているかを確認する。CIが成功しただけでは意味的妥当性の監査完了とはしない。
 
@@ -96,8 +96,8 @@ MAT 26、MRK 22、LUK 30、JHN 90、ACT 28、ROM 12、1CO 19、2CO 14、GAL 6、
 
 ### 判定
 
-- CI run [39866403114](https://github.com/uo-no/gnt-jp/actions/runs/39866403114): VR-5 Regression Gate PASS。
-- Path Structure Check [39866403096](https://github.com/uo-no/gnt-jp/actions/runs/39866403096): PASS。
+- CI run [39866403114](https://github.com/uo-no/moreskosh/actions/runs/39866403114): VR-5 Regression Gate PASS。
+- Path Structure Check [39866403096](https://github.com/uo-no/moreskosh/actions/runs/39866403096): PASS。
 - 全311件のシグナル切り替えを確認済み。
 - **意味的な採否とマージは引き続き保留。** 次は、特に状態的完了（οἶδα、γράφω 型）と発話・応答動詞だけが文脈手掛かりとなるケースを、Wallace の説明および前後文脈と照合する。スコア差分の一貫性だけを根拠に重みを正当化しない。
 ## 代表的な意味リスクの一次レビュー（2026-10-23）

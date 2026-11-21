@@ -232,7 +232,7 @@ Phase ESM-14〜27の監査（コード読解・実ブラウザ検証）で確認
 
 ### 2026-10-23 ブラウザ照合の追記
 
-PR #241 の [VR-5 Regression Gate](https://github.com/uo-no/gnt-jp/actions/runs/39890439176) で JHN 3:16 の `θεὸς` を Desktop 1280×900 / Mobile 390×844 で検査した。
+PR #241 の [VR-5 Regression Gate](https://github.com/uo-no/moreskosh/actions/runs/39890439176) で JHN 3:16 の `θεὸς` を Desktop 1280×900 / Mobile 390×844 で検査した。
 
 - Abbott-Smith 辞書全文は両画面で表示された。
 - Usage Trends、LN 由来の意味グループ、Research Links は両画面の StudyPanel に表示されなかった。

@@ -9,7 +9,7 @@ const { chromium } = require('playwright');
 const BASE = process.env.TEST_BASE_URL || 'http://127.0.0.1:8765';
 const TARGET = 'ἀνακεφαλαιώσασθαι';
 const EXPECTED = '命令とは決まりません';
-const SHOTS = process.env.TEST_SCREENSHOT_DIR || '/tmp/gnt-jp-evidence-note';
+const SHOTS = process.env.TEST_SCREENSHOT_DIR || '/tmp/moreskosh-evidence-note';
 fs.mkdirSync(SHOTS, { recursive:true });
 
 async function openTarget(browser, mobile) {

@@ -1,7 +1,7 @@
 'use strict';
 const { chromium } = require('playwright');
 
-const BASE = process.env.SEARCH_PREVIEW_URL || 'https://feat-search-auto-phrase-dist.bible-text.pages.dev/search-tool.html';
+const BASE = process.env.SEARCH_PREVIEW_URL || 'https://feat-search-auto-phrase-dist.moreskosh.pages.dev/search-tool.html';
 const results = [];
 function record(id, ok, detail) {
   results.push({ id, status: ok ? 'PASS' : 'FAIL', detail });

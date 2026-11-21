@@ -15,7 +15,7 @@ const TARGETS = [
   // JHN 15:27: μαρτυρεῖτε permits a present indicative / imperative analysis.
   { chapter:15, verse:27, text:'μαρτυρεῖτε', expectMorphCandidates:true }
 ];
-const SHOTS = process.env.TEST_SCREENSHOT_DIR || '/tmp/gnt-jp-layer3';
+const SHOTS = process.env.TEST_SCREENSHOT_DIR || '/tmp/moreskosh-layer3';
 
 fs.mkdirSync(SHOTS, { recursive:true });
 

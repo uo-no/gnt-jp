@@ -930,11 +930,11 @@ AIは、
 
 # 35. Repository Responsibility
 
-本リポは `gnt-jp`。
+本リポは `moreskosh`。
 
 3リポジトリ構想と現在の実態（2026-11-07 確認）:
 
-### gnt-jp
+### moreskosh
 
 聖書アプリ本体。**現在、実在する唯一のリポジトリ。**
 
@@ -944,7 +944,7 @@ SNS・編集・発信。
 
 ### knowledge-library（構想・未設立）
 
-研究・背景・判断履歴。設立されるまでの間、この責務の文書は gnt-jp の `docs/archive/` と `docs/development/` に置く（分類は docs/development/INDEX.md）。
+研究・背景・判断履歴。設立されるまでの間、この責務の文書は moreskosh の `docs/archive/` と `docs/development/` に置く（分類は docs/development/INDEX.md）。
 
 リポジトリ間にファイル参照依存を作らない。
 
@@ -1113,7 +1113,7 @@ Future Convenience
 
 現在フェーズ：
 
-**本番公開中・正式リリース前**（bible-text.pages.dev で公開。データ出典・ライセンス整理が完了するまでは Pre-Release の扱いを併記する）
+**本番公開中・正式リリース前**（moreskosh.pages.dev で公開。データ出典・ライセンス整理が完了するまでは Pre-Release の扱いを併記する）
 
 基本読書・検索・URL共有は動作。多言語化は JA / EN が本番稼働中、ES（RVR1909）が展開中。
 
