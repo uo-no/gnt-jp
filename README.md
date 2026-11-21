@@ -1,7 +1,7 @@
-# gnt-jp
+# moreskosh
 
 ギリシャ語新約聖書・七十人訳（LXX）を、原語に触れながら読み進めるための**静的Webアプリ**。
-サーバーもビルドも持たず、ブラウザ上でそのまま動作する。本番: https://bible-text.pages.dev
+サーバーもビルドも持たず、ブラウザ上でそのまま動作する。本番: https://moreskosh.pages.dev
 
 **「1タップで、翻訳の向こう側へ。One tap, BEYOND TRANSLATION.」**
 
@@ -52,7 +52,7 @@
 ## ディレクトリ構成（トップレベル）
 
 ```
-gnt-jp/
+moreskosh/
 ├── README.md              案内板（本書）
 ├── CLAUDE.md              開発ルール・設計思想（コードを書く前に読む）
 ├── package.json           スクリプト定義（監査・テスト・ビルド）
