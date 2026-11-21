@@ -5476,7 +5476,8 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
     position: relative;
     background: var(--bg-paper);
     border-radius: var(--radius-l) var(--radius-l) 0 0;
-    max-height: 88vh;
+    height: 92vh;   /* #209：3列を見せるためほぼ全高にする */
+    height: 92dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -5506,27 +5507,18 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
     border-bottom: 1px solid var(--border-soft);
 }
 #mobile-book-picker-title {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+    /* #209：戻るボタンが無くなったので、選択中の「書名＋章」を左寄せで出す（長い書名は省略） */
+    flex: 1;
+    min-width: 0;
+    padding-left: var(--space-md);
     font-size: var(--text-body);
     font-weight: 600;
     color: var(--text-main);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     pointer-events: none;
     letter-spacing: -0.01em;
-}
-#mobile-book-picker-back {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: var(--text-title);
-    color: var(--highlight);
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0 var(--space-xs);
-    font-weight: 300;
-    -webkit-tap-highlight-color: transparent;
 }
 #mobile-book-picker-close {
     background: none;
@@ -5540,65 +5532,66 @@ a.wlv-detail-study-btn .wlv-action-icon { background: var(--hover-veil); color: 
     padding: 0 var(--space-xs);
     -webkit-tap-highlight-color: transparent;
 }
+/* #209：3列（書物 46%｜章 27%｜節 27%）。列ごとに独立してスクロールする */
 #mobile-book-picker-content {
     flex: 1;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: var(--space-sm) 0 var(--space-md);
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 46% 27% 27%;
 }
-/* Book picker item rows */
-.mbp-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 13px var(--space-lg);
+.mbp-col {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: var(--space-xs) 0 var(--space-md);
+}
+.mbp-col + .mbp-col { border-left: 1px solid var(--border-soft); }
+.mbp-item {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px var(--space-md);
+    background: none;
+    border: none;
+    text-align: left;
     font-size: var(--text-body);
+    font-family: var(--font-prose);
     color: var(--text-main);
     cursor: pointer;
-    border-bottom: 1px solid var(--border-soft);
-    font-family: var(--font-prose);
     -webkit-tap-highlight-color: transparent;
     transition: background var(--transition-fast);
 }
-.mbp-row:active { background: rgba(0,0,0,0.05); }
-.mbp-row-chevron { color: var(--text-hint); font-size: 0.8rem; }
-.mbp-section-label {
-    font-size: var(--text-caption);
+.mbp-item-book { line-height: 1.35; }
+.mbp-item-num { text-align: center; font-variant-numeric: tabular-nums; }
+.mbp-item:active { background: rgba(0,0,0,0.05); }
+/* 選択行：章グリッドの .current と同じアクセント色を淡い背景で */
+.mbp-item.current {
+    background: var(--highlight-light);
+    color: var(--highlight);
     font-weight: 600;
-    color: var(--text-sub);
-    letter-spacing: var(--tracking-subsection);
-    padding: var(--space-md) var(--space-lg) var(--space-xs);
 }
-/* Chapter grid */
-.mbp-ch-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
-    padding: var(--space-sm) var(--space-lg);
+#mobile-book-picker-foot {
+    flex-shrink: 0;
+    padding: var(--space-sm) var(--space-md);
+    border-top: 1px solid var(--border-soft);
 }
-.mbp-ch-btn {
-    aspect-ratio: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+#mbp-open-chapter {
+    display: block;
+    width: 100%;
+    min-height: 44px;
     background: none;
-    border: 1px solid var(--border-soft);
+    border: 1px solid var(--highlight);
     border-radius: var(--radius-s);
+    color: var(--highlight);
     font-size: var(--text-body);
     font-family: var(--font-prose);
-    color: var(--text-main);
+    font-weight: 600;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    transition: background var(--transition-fast), border-color var(--transition-fast);
-    min-height: 44px;
 }
-.mbp-ch-btn:active { background: rgba(0,0,0,0.07); }
-.mbp-ch-btn.current {
-    background: var(--highlight);
-    border-color: var(--highlight);
-    color: #fff;
-    font-weight: 600;
-}
+#mbp-open-chapter[hidden] { display: none; }
+#mbp-open-chapter:active { background: var(--highlight-light); }
 
 /* Mobile Mode Picker（bottom sheet） */
 #mobile-mode-picker {
@@ -6465,14 +6458,18 @@ html[lang="sv"] body.chapter-navigation-loading #main-reading-area::after { cont
     <div id="mobile-book-picker-sheet">
         <div id="mobile-book-picker-handle" aria-hidden="true"></div>
         <div id="mobile-book-picker-bar">
-            <button id="mobile-book-picker-back" onclick="_mbpBack()"
-                    style="display:none;" aria-label="戻る">‹</button>
-            <span id="mobile-book-picker-title" data-i18n="picker.bookTitle">書物を選ぶ</span>
+            <span id="mobile-book-picker-title">書物を選ぶ</span>
             <button id="mobile-book-picker-close" onclick="_closeMobileBookPicker()"
                     aria-label="閉じる" data-i18n-aria-label="panel.closeView">×</button>
         </div>
+        <!-- #209：書物｜章｜節の3列（_mbpRenderAll() で動的生成。各列は独立にスクロールする） -->
         <div id="mobile-book-picker-content">
-            <!-- _mbpRenderLayer() で動的生成 -->
+            <div class="mbp-col mbp-col-book" id="mbp-col-book"></div>
+            <div class="mbp-col mbp-col-ch" id="mbp-col-ch"></div>
+            <div class="mbp-col mbp-col-verse" id="mbp-col-verse"></div>
+        </div>
+        <div id="mobile-book-picker-foot">
+            <button type="button" id="mbp-open-chapter" onclick="_mbpOpenChapter()" hidden></button>
         </div>
     </div>
 </div>
