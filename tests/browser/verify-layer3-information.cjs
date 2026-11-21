@@ -21,12 +21,16 @@ fs.mkdirSync(SHOTS, { recursive:true });
 
 async function openTarget(browser, mobile, targetCase, captureScreenshot) {
   const { chapter, verse, text:target, expectMorphCandidates } = targetCase;
+  // 期待値は日本語 UI の文言。i18n.js は初回訪問時にブラウザ言語で UI 言語を
+  // 自動判定する（d6224caa3, 2026-11-05）ため、日本語ブラウザとして開くことを明示する。
+  // 既定のヘッドレス Chromium（en-US）のままだと英語 UI になる（#203）。
   const context = await browser.newContext(mobile ? {
     viewport:{ width:390, height:844 },
     isMobile:true,
     hasTouch:true,
+    locale:'ja-JP',
     userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
-  } : { viewport:{ width:1280, height:900 } });
+  } : { viewport:{ width:1280, height:900 }, locale:'ja-JP' });
   const page = await context.newPage();
   page.setDefaultTimeout(12000);
   const consoleErrors = [];
