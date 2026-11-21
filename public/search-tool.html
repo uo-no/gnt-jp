@@ -2181,6 +2181,44 @@ body.is-lobby .genre-tabs { display: none; }   /* #92：ロビーでは出さず
     .genre-tab { min-height: 44px; }
     body:not(.is-lobby) .s-head-row > .genre-tabs { order: 10; flex: 0 0 100%; justify-content: flex-start; margin: 0; padding-left: 4px; }
 }
+/* 統語タブ（#202）：対象の語が担う構文パターンの一覧（タイプ別・件数降順）。タイプの行は押すと用例の節が開く。 */
+#syn-tab[hidden] { display: none; }
+#syn-tab { margin-top: var(--s-sp-3); }
+.syn-tab-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--s-sp-2); margin-bottom: var(--s-sp-2); }
+.syn-tab-back, .syn-tab-browse {
+    appearance: none; background: none; border: 0; padding: 4px 0; font: inherit; font-family: var(--s-ff-ui);
+    font-size: var(--s-ts-sm); color: var(--s-accent); cursor: pointer; min-height: 32px;
+}
+.syn-tab-back[hidden], .syn-tab-browse[hidden] { display: none; }
+.syn-tab-browse { margin-left: auto; }
+.syn-tab-back:hover, .syn-tab-browse:hover { text-decoration: underline; }
+.syn-tab-back:focus-visible, .syn-tab-browse:focus-visible, .syn-type-head:focus-visible, .syn-cat-type:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+.syn-tab-title { font-family: var(--s-ff-ui); font-size: var(--s-ts-md, 1rem); color: var(--s-text); margin: 0 0 2px; }
+.syn-tab-title .syn-tab-lemma { font-family: var(--s-ff-greek); }
+.syn-tab-scope { font-size: var(--s-ts-sm); color: var(--s-text-sub); margin-bottom: var(--s-sp-3); }
+.syn-tab-status { font-size: var(--s-ts-sm); color: var(--s-text-sub); padding: var(--s-sp-3) 0; }
+.syn-tab-empty { color: var(--s-text-sub); padding: var(--s-sp-4) 0; line-height: 1.7; }
+.syn-tab-empty button { appearance: none; background: none; border: 0; padding: 0; font: inherit; color: var(--s-accent); cursor: pointer; text-decoration: underline; }
+.syn-type-row { border-bottom: 1px solid var(--s-border, var(--border-soft)); }
+.syn-type-head {
+    appearance: none; background: none; border: 0; width: 100%; text-align: left; font: inherit; cursor: pointer;
+    display: grid; grid-template-columns: 1fr auto auto; gap: 2px var(--s-sp-3); align-items: baseline; padding: var(--s-sp-2) 0; min-height: 44px; color: var(--s-text);
+}
+.syn-type-label { font-weight: 500; }
+.syn-type-cat { grid-column: 1; font-size: var(--s-ts-sm); color: var(--s-text-sub); }
+.syn-type-count { grid-column: 2; grid-row: 1; font-variant-numeric: tabular-nums; color: var(--s-text-sub); font-size: var(--s-ts-sm); }
+.syn-type-arrow { grid-column: 3; grid-row: 1; color: var(--s-text-sub); transition: transform .15s; }
+.syn-type-row.open .syn-type-arrow { transform: rotate(90deg); }
+.syn-type-desc { font-size: var(--s-ts-sm); color: var(--s-text-sub); line-height: 1.6; padding: 0 0 var(--s-sp-2); }
+.syn-type-hits { display: none; padding: 0 0 var(--s-sp-3); }
+.syn-type-row.open .syn-type-hits { display: block; }
+.syn-type-open-all { appearance: none; background: none; border: 0; padding: 4px 0 var(--s-sp-2); font: inherit; font-size: var(--s-ts-sm); color: var(--s-accent); cursor: pointer; }
+.syn-type-open-all:hover { text-decoration: underline; }
+.syn-hit-read { display: inline-block; margin-top: 6px; font-size: var(--s-ts-sm); color: var(--s-accent); }
+.syn-cat-title { font-family: var(--s-ff-ui); font-weight: 500; color: var(--s-text); margin: var(--s-sp-4) 0 2px; }
+.syn-cat-group { font-size: var(--s-ts-sm); color: var(--s-text-sub); margin: var(--s-sp-2) 0 2px; }
+.syn-cat-type { appearance: none; background: none; border: 0; border-bottom: 1px solid var(--s-border, var(--border-soft)); display: block; width: 100%; text-align: left; font: inherit; cursor: pointer; padding: var(--s-sp-2) 0; min-height: 44px; color: var(--s-text); }
+.syn-cat-type .syn-type-desc { padding-bottom: 0; }
 /* lemma タブ（#201）：ジャンルタブの段の下にもう1段。母語検索の語グループ表示×形態ジャンルのときだけ出す（hidden 属性で切替）。
    ロビーでは出さない。タブが幅に収まらないときは段の中で横スクロール（ページ幅は広げない）。 */
 .lemma-tabs { display: flex; gap: var(--s-sp-1); margin: var(--s-sp-2) auto 0; overflow-x: auto; scrollbar-width: thin; }
@@ -2289,6 +2327,7 @@ body.is-lobby .genre-tabs { display: none; }   /* #92：ロビーでは出さず
     <div class="genre-tabs" id="genre-tabs" role="tablist" aria-label="検索の読み方" data-i18n-aria-label="search.genre.aria">
         <button class="genre-tab active" id="genre-tab-morph" type="button" role="tab" aria-selected="true" data-tab="morph" onclick="_onGenreTabClick('morph')" data-i18n="search.genre.morph">形態</button>
         <button class="genre-tab" id="genre-tab-rel" type="button" role="tab" aria-selected="false" data-tab="rel" onclick="_onGenreTabClick('rel')" data-i18n="search.genre.rel">関係</button>
+        <button class="genre-tab" id="genre-tab-syn" type="button" role="tab" aria-selected="false" data-tab="syn" onclick="_onGenreTabClick('syn')" data-i18n="search.genre.syn">統語</button>
     </div>
     <!-- lemma タブ（#201）：母語検索の語グループ表示のとき・形態ジャンルのときだけ。「すべて」＋件数上位 8 lemma。中身は _renderLemmaTabs が描く -->
     <div class="lemma-tabs" id="lemma-tabs" role="tablist" aria-label="語ごとの表示" data-i18n-aria-label="search.lemmaTab.aria" hidden></div>
@@ -2382,6 +2421,15 @@ body.is-lobby .genre-tabs { display: none; }   /* #92：ロビーでは出さず
             </div>
         </div>
     </div><!-- /#result-body -->
+
+    <!-- ═══════════════ 統語タブ（#202）：対象の語が担う構文パターンの一覧 / タイプ別カタログ ═══════════════ -->
+    <div id="syn-tab" hidden>
+        <div class="syn-tab-bar">
+            <button type="button" class="syn-tab-back" id="syn-tab-back" hidden onclick="_synTabBack()" data-i18n="search.synTab.back">‹ 構文パターンの一覧へ</button>
+            <button type="button" class="syn-tab-browse" id="syn-tab-browse" onclick="_synTabOpenCatalog()" data-i18n="search.synTab.browse">タイプから探す ›</button>
+        </div>
+        <div id="syn-tab-body" aria-live="polite"></div>
+    </div>
 
     <!-- ═══════════════════════════ Syntax Pattern Panel ═══════════════════════════ -->
     <div id="syntax-panel">
@@ -4100,6 +4148,7 @@ function _ciConceptClick(label) {
     unifiedSearch();   /* 既存の検索を呼ぶだけ（Concept 展開は既存経路が行う） */
 }
 function _ciSyntaxClick(id) {
+    if (_genreTab === 'syn') { _synTabOpenType(id); return; }   /* #202：統語タブでは同じタブ内で従来表示を開く */
     _synInit(id);      /* 既存の Wallace 型検索を呼ぶだけ */
 }
 
@@ -4433,7 +4482,7 @@ const _sqState = {
    同一オブジェクトを参照するため代入は双方向に反映される。 */
 const _layers = _sqState.layers;
 
-/* ── 検索ジャンルのタブ（形態｜関係）#82 ──
+/* ── 検索ジャンルのタブ（形態｜関係｜統語）#82・#202（統語＝語が担う名前のある構文パターン。検索そのものは形態と同じ1語検索で、表示だけ統語タブの一覧に替える） ──
    形態：現行の1語検索と同一。関係：現行の2語結果（フレーズ＋近接）。1語なら共起が主役。
    形態で2語以上を入力したら関係へ自動で移る（入力時・検索時の両方）。URL は関係のときだけ ?tab=rel。 */
 let _genreTab = 'morph';
@@ -4455,20 +4504,22 @@ function _renderGenreTabs(){
     const px=document.getElementById('prox-sub');
     if(typeof _updateSearchControls==='function')_updateSearchControls();
     /* F3：タブ名も現在の言語で描き直す（言語切替の再描画フックからも呼ばれる） */
-    const tm=document.getElementById('genre-tab-morph'),tr=document.getElementById('genre-tab-rel');
+    const tm=document.getElementById('genre-tab-morph'),tr=document.getElementById('genre-tab-rel'),ts=document.getElementById('genre-tab-syn');
     if(tm)tm.textContent=_tf('search.genre.morph','形態');
     if(tr)tr.textContent=_tf('search.genre.rel','関係');
+    if(ts)ts.textContent=_tf('search.genre.syn','統語');   /* #202 */
     const gt=document.getElementById('genre-tabs');
     if(gt)gt.setAttribute('aria-label',_tf('search.genre.aria','検索の読み方'));
     _renderLemmaTabs();   /* #201：lemma タブの段は形態ジャンルのときだけ。ラベル「すべて」も現在の言語で */
+    _synTabLeaveSync();   /* #202：統語以外へ移ったら統語タブの面を畳む */
 }
 function _onGenreTabClick(tab){
-    tab=(tab==='rel')?'rel':'morph';
+    tab=(tab==='rel'||tab==='syn')?tab:'morph';   /* #202：統語 */
     if(tab===_genreTab)return;
     const inp=document.getElementById('unified-search-input');
     const nWords=inp?inp.value.trim().split(/\s+/).filter(Boolean).length:0;
     _genreTab=tab;
-    if(tab==='morph'&&nWords>1&&inp)inp.value=inp.value.trim().split(/\s+/)[0];   /* 関係→形態は1語目だけを形態検索する */
+    if(tab!=='rel'&&nWords>1&&inp)inp.value=inp.value.trim().split(/\s+/)[0];   /* 関係→形態／統語は1語目だけを検索する */
     _renderGenreTabs();
     _updateSearchControls();
     if(nWords>0)unifiedSearch();          /* 同じ入力で再実行 */
@@ -4486,7 +4537,7 @@ let _lemmaTab=null;        /* 選択中の lemma（null＝すべて） */
 let _lemmaTabCtx=null;     /* 直近の語グループ表示：{genre, groups（タブ対象＝上位8）, all, query, word2, words}。語グループ表示でない検索では null */
 let _lemmaTabSeq=0;        /* 非同期（IGSD 索引・語のページ）の取り違え防止 */
 let _lemmaTabSoloDist=null;/* 単独表示中に隠した出現分布の元の display */
-function _lemmaTabsVisible(){ return !!(_lemmaTabCtx&&_lemmaTabCtx.genre==='morph'&&_genreTab==='morph'); }
+function _lemmaTabsVisible(){ return !!(_lemmaTabCtx&&_lemmaTabCtx.genre!=='rel'&&_genreTab!=='rel'); }   /* #202：形態・統語のとき（統語タブは lemma タブの選択に追随する） */
 function _renderLemmaTabs(){
     const row=document.getElementById('lemma-tabs');
     if(!row)return;
@@ -4524,7 +4575,8 @@ function _onLemmaTabClick(lemma){
     if(lemma===_lemmaTab)return;
     _lemmaTab=lemma;
     _renderLemmaTabs();
-    _applyLemmaTab();
+    if(_genreTab==='syn')_synTabRender();   /* #202：統語は語のページ・単独表示を使わず、一覧を選択 lemma に替える */
+    else _applyLemmaTab();
     syncURL();
 }
 /* 語のページ（IGSD）の有無：旧バッジ（_igsdDecorateBar）と同じ条件（strong の final エントリかつ lemma 一致） */
@@ -4557,7 +4609,7 @@ async function _applyLemmaTab(){
     _lemmaTabExitSolo();
     if(_igsdCurrentClose)_igsdCurrentClose();
     const ctx=_lemmaTabCtx;
-    if(!_lemmaTab||!_lemmaTabsVisible())return;
+    if(!_lemmaTab||!_lemmaTabsVisible()||_genreTab!=='morph')return;   /* #202：語のページ・単独表示は形態タブだけ */
     const gi=ctx.groups.findIndex(g=>g.lemma===_lemmaTab);
     if(gi<0)return;
     const group=ctx.groups[gi];
@@ -4584,7 +4636,7 @@ function _lemmaTabAfterRender(){
     if(!_lemmaTabCtx){_renderLemmaTabs();return;}
     if(_lemmaTabsVisible()&&_lemmaTab&&!_lemmaTabCtx.groups.some(g=>g.lemma===_lemmaTab))_lemmaTab=null;   /* 同名 lemma が無ければ「すべて」 */
     _renderLemmaTabs();
-    if(_lemmaTabsVisible()&&_lemmaTab)_applyLemmaTab();
+    if(_lemmaTabsVisible()&&_lemmaTab&&_genreTab==='morph')_applyLemmaTab();
 }
 /* 語のページの「← 検索結果に戻る」は「すべて」へ戻る操作として扱う（バブル段＝語のページが閉じた後に同期） */
 document.addEventListener('click',ev=>{
@@ -4651,7 +4703,7 @@ function _updateSearchControls(){
         filters.classList.toggle('single-word',hasQuery && !hasMultipleWords);
         filters.classList.toggle('multi-word',hasMultipleWords);
     }
-    if(hasMultipleWords&&_genreTab==='morph'){ _genreTab='rel'; _renderGenreTabs(); }   /* 形態で2語以上→関係へ自動で移る（#82） */
+    if(hasMultipleWords&&_genreTab!=='rel'){ _genreTab='rel'; _renderGenreTabs(); }   /* 形態・統語で2語以上→関係へ自動で移る（#82・#202） */
     if(filters)filters.classList.toggle('rel-open',_genreTab==='rel');
     _layers.lemma=true; _layers.morph=true; _layers.prox=hasMultipleWords;
     const prox=document.getElementById('prox-sub');
@@ -4895,9 +4947,9 @@ async function unifiedSearch(opts){
     const words=qEff.split(/\s+/).filter(Boolean);
     const word1=words[0];
     const word2=words[1]||null;
-    if(words.length>1&&_genreTab==='morph'){ _genreTab='rel'; _renderGenreTabs(); }   /* #82 */
+    if(words.length>1&&_genreTab!=='rel'){ _genreTab='rel'; _renderGenreTabs(); }   /* #82・#202 */
     _relSingleCooc=(_genreTab==='rel'&&words.length===1);
-    if(_genreTab==='rel')morphFilter=null;   /* 関係の結果に形態フィルタは適用しない（保持はそのまま・実行時だけ無視）#82 */
+    if(_genreTab==='rel'||_genreTab==='syn')morphFilter=null;   /* 関係・統語の結果に形態フィルタは適用しない（保持はそのまま・実行時だけ無視）#82・#202 */
 
     /* Concept 展開（Phase 4-1）: 検索開始前に1回だけ判定する。
        登録語なら Term[]、未登録語なら null（＝以降は完全に従来どおり） */
@@ -5112,6 +5164,7 @@ async function unifiedSearch(opts){
     const _sqsLabels = _sqState.filters.map(f => f.label);
     const _sqsQuery = _sqsLabels.length > 0 ? `${query} × ${_sqsLabels.join(' × ')}` : query;
     _renderUnifiedResults(_sqsQuery,words,word2);
+    _synTabAfterSearch();   /* #202：統語タブなら結果本体を統語の一覧に替える */
     _logPerfMeasure('render', `${_allMergedResults.size.toLocaleString()} hits merged`);
     /* この時点で IDX.ready は必ず true（上のゲートで保証済み）。
        「索引未完成のまま検索→後から件数が増える」事象は構造的に発生しない。 */
@@ -5136,7 +5189,7 @@ function syncURL() {
 
 
     if (_layers.prox && currentDist !== 5) p.set('dist', String(currentDist));
-    if (_genreTab === 'rel') p.set('tab', 'rel');   /* 形態は既定で付けない（#82） */
+    if (_genreTab === 'rel' || _genreTab === 'syn') p.set('tab', _genreTab);   /* 形態は既定で付けない（#82）。統語は ?tab=syn（#202） */
     if (_lemmaTab && query && _lemmaTabsVisible()) p.set('lemma_tab', _lemmaTab);   /* #201：lemma タブ。「すべて」（既定）は付けない */
 
     /* 言語プレフィックス（/ja・/en・/es・/sv）は i18n.js が起動時に取り除く。入ってきた URL の保持ではなく、
@@ -7254,15 +7307,16 @@ function _synSetCount(n) {
     el.textContent = _tp('search.count.hits','{n} 件',n); el.style.display = n > 0 ? 'inline-block' : 'none';
 }
 
-function _synBuildCard(hit) {
+function _synBuildCard(hit, ctxPrefix) {
     const card = document.createElement('div');
     card.className = 'app-card';
     // ビルドスクリプトは tokenIdx ではなく globalIdx を出力する
     Object.assign(card.dataset, { bookKey:hit.bookKey, chapter:hit.chapter, verse:hit.verse, globalIdx:hit.globalIdx, word:hit.word });
+    if (ctxPrefix) card.dataset.ctxPrefix = ctxPrefix;   /* #202：統語タブのカードは別接頭辞（現行パネルのカードと id が衝突しない） */
     const ref = _synBuildRefLabel(hit.bookKey, hit.chapter, hit.verse);
     const pct = Math.round(hit.confidence * 100);
     const cls = _synConfClass(hit.confidence);
-    const ctxId = `syn-ctx-${hit.bookKey}-${hit.chapter}-${hit.verse}-${hit.globalIdx}`;
+    const ctxId = `${ctxPrefix || 'syn-ctx'}-${hit.bookKey}-${hit.chapter}-${hit.verse}-${hit.globalIdx}`;
     card.innerHTML = `
         <div class="app-card-head" onclick="_synToggleCard(this.parentElement)">
             <span class="app-card-ref">${_escH(ref)}</span>
@@ -7283,7 +7337,7 @@ function _synToggleCard(card) {
 }
 async function _synLoadContext(card) {
     const { bookKey, chapter, verse, globalIdx, word } = card.dataset;
-    const ctxId = `syn-ctx-${bookKey}-${chapter}-${verse}-${globalIdx}`;
+    const ctxId = `${card.dataset.ctxPrefix || 'syn-ctx'}-${bookKey}-${chapter}-${verse}-${globalIdx}`;
     const ctxEl = document.getElementById(ctxId);
     if (!ctxEl) return;
     const cacheKey = `${bookKey}-${chapter}`;
@@ -7362,6 +7416,337 @@ async function _synInit(syntaxId) {
     _synApplyFilters();
 }
 
+/* ═══════════════ 統語タブ（#202）═══════════════
+   統語＝語が担う名前のある構文パターン。初期画面は「対象の語が担う構文パターンの一覧」（タイプ別・件数降順）。
+   - 出すのはレジストリ（syntax-registry.json）の active なタイプだけ。関係・形態データから構文を作らない。
+   - 解析はブラウザ内オンデマンド（現行パネルと同じ SyntaxAnalyzer・同じ採用条件：第1候補・確信度 30% 以上・active）。
+     目標 lemma の出現章だけを解析し、結果は lemma 単位でセッション内にキャッシュする（（クエリ×lemma）の集計はキャッシュからの再計算）。
+   - 件数は用例（解析ヒット）の数。現行パネルでそのタイプを開いたときの、その lemma のヒット数と一致する。
+   - 「タイプから探す」とタイプ先の「新約全体で見る」は現行 #syntax-panel（_synInit）をそのまま開く。 */
+var _SYN_TAB_CONF = 0.30;     /* 現行パネルの既定しきい値（_synConfMin の初期値）に揃える */
+var _SYN_TAB_PAGE = 20;
+var _synTabSeq = 0;           /* 非同期（解析・描画）の取り違え防止 */
+var _synTabView = null;       /* 'list'｜'catalog'｜'panel'｜null（統語タブの面が無い） */
+var _synTabPrev = null;       /* panel の「戻る」先 */
+var _synTabDeepPending = false;   /* ?syntax_id= の深いリンク：最初の検索描画で一覧に上書きしない */
+var _synLemmaCache = new Map();   /* lemma → [{typeId, bookKey, chapter, verse, globalIdx, word, lemma, confidence, sortKey}] */
+var _synTypeIndex = null;     /* id → {type, cat, sub}（active のタイプだけ） */
+
+function _synTabEl(id) { return document.getElementById(id); }
+function _synTabTypeLabel(t) { return (_enMode() && t.label_en) || (_esMode() && t.label_es) || t.label_ja || t.id; }
+function _synTabTypeDesc(t) { return (_enMode() && t.description_en) || (_esMode() && t.description_es) || t.description_ja || ''; }
+function _synTabCatLabel(c) { return (_enMode() && c.label_en) || (_esMode() && c.label_es) || c.label_ja || ''; }
+function _synTabGroupLabel(g) { return (_enMode() && g.group_label_en) || (_esMode() && g.group_label_es) || g.group_label_ja || ''; }
+async function _synTabEnsureRegistry() {
+    if (!_synRegistryData) await _synLoadRegistry();
+    if (_synTypeIndex || !_synRegistryData) return;
+    const idx = new Map();
+    for (const cat of Object.values(_synRegistryData.categories || {}))
+        for (const sc of (cat.subcategories || []))
+            for (const t of (sc.types || []))
+                if (t.status === 'active') idx.set(t.id, { type: t, cat, sub: sc });
+    _synTypeIndex = idx;
+}
+
+/* 面の出し入れ */
+function _synTabSetBar(backShown, browseShown) {
+    const b = _synTabEl('syn-tab-back'), c = _synTabEl('syn-tab-browse');
+    if (b) b.hidden = !backShown;
+    if (c) c.hidden = !browseShown;
+}
+function _synTabHasList() { return !!(_lastQuery && _allMergedResults && _allMergedResults.size > 0); }
+function _synTabShow() { const t = _synTabEl('syn-tab'); if (t) t.hidden = false; }
+function _synTabHidePanel() { const p = _synTabEl('syntax-panel'); if (p) p.style.display = 'none'; }
+/* 統語以外のジャンルへ移ったとき：統語タブの面を畳む（従来表示を統語タブから開いていたなら、それも閉じる） */
+function _synTabLeaveSync() {
+    if (_genreTab === 'syn') return;
+    const t = _synTabEl('syn-tab');
+    if (t && !t.hidden) t.hidden = true;
+    if (_synTabView === 'panel') _synTabHidePanel();
+    _synTabView = null;
+    ++_synTabSeq;
+}
+/* 検索の描画直後：統語タブなら結果本体を一覧に替える。0 件はふつうの 0 件表示のまま */
+function _synTabAfterSearch() {
+    if (_genreTab !== 'syn') { _synTabLeaveSync(); return; }
+    const rb = _synTabEl('result-body');
+    if (!_allMergedResults || _allMergedResults.size === 0) { const t = _synTabEl('syn-tab'); if (t) t.hidden = true; _synTabView = null; return; }
+    if (rb) rb.style.display = 'none';
+    _synTabShow();
+    if (_synTabDeepPending && _synTabView === 'panel') { _synTabDeepPending = false; _synTabSetBar(true, false); return; }
+    _synTabDeepPending = false;
+    _synTabRender();
+}
+
+/* 対象の語：lemma タブ選択中はその lemma、無ければ（「すべて」・ギリシャ語／Strong／形の検索）結果の新約の lemma 全て */
+function _synTabTargets() {
+    const ctx = _lemmaTabCtx;
+    if (_lemmaTab && ctx && ctx.groups.some(g => g.lemma === _lemmaTab)) return [_lemmaTab];
+    const set = new Set();
+    if (_allMergedResults) for (const [, e] of _allMergedResults) {
+        const t = e && e.tok;
+        if (t && t.corpusId !== 'LXX' && t.lemma) set.add(t.lemma);
+    }
+    return [...set];
+}
+
+/* 目標 lemma の出現章だけを解析する。結果は lemma ごとにキャッシュ。古い呼び出し（seq 不一致）は途中で捨てる（キャッシュしない） */
+async function _synTabEnsureLemmas(lemmas, seq, onProgress) {
+    const need = lemmas.filter(l => !_synLemmaCache.has(l));
+    if (!need.length) return true;
+    await ensureBookMasterApplied();
+    await _ensureFullIndex();
+    const analyzer = await _synEnsureAnalyzer();
+    const needSet = new Set(need);
+    const chapters = new Map();
+    for (const l of need) {
+        for (const gi of (window.lemmaIndex && window.lemmaIndex.get(normalizeGreek(l))) || []) {
+            const tok = ALL_TOKENS[gi];
+            if (!tok || tok.corpusId === 'LXX' || tok.lemma !== l || !tok.bookKey || tok.ch == null) continue;
+            chapters.set(tok.bookKey + '|' + Number(tok.ch), { key: tok.bookKey, ch: Number(tok.ch) });
+        }
+    }
+    const found = new Map(need.map(l => [l, []]));
+    const tasks = [...chapters.values()];
+    const BATCH = 8;
+    let done = 0;
+    for (let i = 0; i < tasks.length; i += BATCH) {
+        if (seq !== _synTabSeq) return false;
+        const results = await Promise.allSettled(tasks.slice(i, i + BATCH).map(async t => {
+            const ck = `${t.key}-${t.ch}`;
+            let tokens = _synVerseCache.get(ck);
+            if (!tokens) {
+                const data = await BookMaster.fetchJSON(await BookMaster.pathFor(t.key, t.ch));
+                tokens = Array.isArray(data) ? data : [];
+                if (tokens.length) _synVerseCache.set(ck, tokens);
+            }
+            return { ...t, tokens };
+        }));
+        for (const r of results) {
+            done++;
+            if (r.status !== 'fulfilled') continue;
+            const { key, ch, tokens } = r.value;
+            if (!tokens.length) continue;
+            const bookOrder = _SYN_BOOK_ORDER[key] || 99;
+            const verseMap = new Map();
+            for (const t of tokens) {
+                const vk = String(t.verse);
+                if (!verseMap.has(vk)) verseMap.set(vk, []);
+                verseMap.get(vk).push(t);
+            }
+            for (const [vStr, vTokens] of verseMap) {
+                for (let ti = 0; ti < vTokens.length; ti++) {
+                    const token = vTokens[ti];
+                    const lem = (token.lemma || '').trim();
+                    if (!needSet.has(lem)) continue;   /* 担い手トークンの lemma が目標 lemma のものだけを解析する */
+                    try {
+                        const out = analyzer.analyze({ target: token, tokens: vTokens, targetIdx: ti });
+                        if (!out?.candidates?.length) continue;
+                        const c0 = out.candidates[0];
+                        if (c0.confidence < _SYN_TAB_CONF || c0.status !== 'active') continue;
+                        const chN = parseInt(ch), vN = parseInt(vStr);
+                        found.get(lem).push({
+                            typeId: c0.id, bookKey: key, chapter: chN, verse: vN, globalIdx: token.globalIdx,
+                            word: _synCleanText(token), lemma: lem,
+                            confidence: parseFloat(c0.confidence.toFixed(4)), status: c0.status,
+                            sortKey: bookOrder * 1_000_000 + chN * 1000 + vN,
+                        });
+                    } catch { /* skip */ }
+                }
+            }
+        }
+        if (onProgress) onProgress(done, tasks.length);
+    }
+    if (seq !== _synTabSeq) return false;
+    for (const [l, arr] of found) _synLemmaCache.set(l, arr);
+    return true;
+}
+
+function _synTabHeading(lemmas) {
+    const h = document.createElement('div');
+    const title = document.createElement('h2');
+    title.className = 'syn-tab-title';
+    const label = lemmas.length > 0 && lemmas.length <= 3 ? lemmas.join('・') : _tf('search.synTab.allLemmas', '結果の全語');
+    const tpl = _tf('search.synTab.heading', '{lemma} が担う構文パターン', { lemma: '\u0000' }).split('\u0000');
+    title.appendChild(document.createTextNode(tpl[0] || ''));
+    const lm = document.createElement('span'); lm.className = 'syn-tab-lemma'; lm.textContent = label;
+    if (lemmas.length > 0 && lemmas.length <= 3) lm.lang = 'grc';
+    title.appendChild(lm);
+    title.appendChild(document.createTextNode(tpl.slice(1).join('')));
+    h.appendChild(title);
+    const sc = document.createElement('div'); sc.className = 'syn-tab-scope';
+    sc.textContent = _tf('search.synTab.scope', '新約聖書のみ・確信度 {pct}% 以上で集計', { pct: Math.round(_SYN_TAB_CONF * 100) });
+    h.appendChild(sc);
+    return h;
+}
+
+/* 初期画面：対象の語が担う構文パターンの一覧 */
+async function _synTabRender() {
+    const seq = ++_synTabSeq;
+    const body = _synTabEl('syn-tab-body');
+    if (!body) return;
+    _synTabView = 'list';
+    _synTabHidePanel();
+    _synTabSetBar(false, true);
+    body.textContent = '';
+    const lemmas = _synTabTargets();
+    if (!lemmas.length) {
+        const e = document.createElement('div'); e.className = 'syn-tab-empty';
+        e.textContent = _tf('search.synTab.noTarget', 'この検索には、解析できる新約聖書の語がありません。');
+        body.appendChild(e);
+        return;
+    }
+    body.appendChild(_synTabHeading(lemmas));
+    const status = document.createElement('div'); status.className = 'syn-tab-status'; status.setAttribute('role', 'status');
+    status.textContent = _tf('search.status.loading', '読み込み中…');
+    body.appendChild(status);
+    let ok = false;
+    try {
+        await _synTabEnsureRegistry();
+        ok = await _synTabEnsureLemmas(lemmas, seq, (d, t) => {
+            if (seq === _synTabSeq) status.textContent = _tf('search.synTab.analyzing', '解析中… {done}/{total} 章', { done: d, total: t });
+        });
+    } catch (e) {
+        console.warn('[syn-tab] analysis failed', e);
+        if (seq === _synTabSeq) status.textContent = _tf('search.synTab.failed', '構文解析器の読み込みに失敗しました');
+        return;
+    }
+    if (!ok || seq !== _synTabSeq) return;
+    status.remove();
+    /* lemma 横断の集計（キャッシュからの再計算） */
+    const byType = new Map();
+    for (const l of lemmas) for (const h of (_synLemmaCache.get(l) || [])) {
+        if (!_synTypeIndex.has(h.typeId)) continue;   /* レジストリの active なタイプだけ */
+        if (!byType.has(h.typeId)) byType.set(h.typeId, []);
+        byType.get(h.typeId).push(h);
+    }
+    if (byType.size === 0) {
+        const e = document.createElement('div'); e.className = 'syn-tab-empty';
+        e.appendChild(document.createTextNode(_tf('search.synTab.none', '{lemma} は、新約聖書で名前のある構文を担っている用例が見つかりませんでした。', { lemma: lemmas.length <= 3 ? lemmas.join('・') : _tf('search.synTab.allLemmas', '結果の全語') }) + ' '));
+        const b = document.createElement('button'); b.type = 'button';
+        b.textContent = _tf('search.synTab.browse', 'タイプから探す ›');
+        b.addEventListener('click', _synTabOpenCatalog);
+        e.appendChild(document.createElement('br'));
+        e.appendChild(document.createTextNode(_tf('search.synTab.noneHint', 'タイプから探すで、構文のタイプを自分で選べます。') + ' '));
+        e.appendChild(b);
+        body.appendChild(e);
+        return;
+    }
+    const order = [..._synTypeIndex.keys()];
+    const rows = [...byType.entries()].sort((a, b) => (b[1].length - a[1].length) || (order.indexOf(a[0]) - order.indexOf(b[0])));
+    const list = document.createElement('div'); list.className = 'syn-type-list';
+    for (const [typeId, hits] of rows) list.appendChild(_synTabBuildRow(typeId, hits));
+    body.appendChild(list);
+}
+
+function _synTabBuildRow(typeId, hits) {
+    const { type, cat } = _synTypeIndex.get(typeId);
+    const row = document.createElement('div'); row.className = 'syn-type-row'; row.dataset.typeId = typeId;
+    const head = document.createElement('button'); head.type = 'button'; head.className = 'syn-type-head'; head.setAttribute('aria-expanded', 'false');
+    const lab = document.createElement('span'); lab.className = 'syn-type-label'; lab.textContent = _synTabTypeLabel(type);
+    const cc = document.createElement('span'); cc.className = 'syn-type-cat'; cc.textContent = _synTabCatLabel(cat);
+    const ct = document.createElement('span'); ct.className = 'syn-type-count'; ct.textContent = _tp('search.synTab.count', '{n} 件', hits.length, { n: hits.length.toLocaleString() });
+    const ar = document.createElement('span'); ar.className = 'syn-type-arrow'; ar.setAttribute('aria-hidden', 'true'); ar.textContent = '›';
+    head.append(lab, cc, ct, ar);
+    row.appendChild(head);
+    const desc = _synTabTypeDesc(type);
+    if (desc) { const d = document.createElement('div'); d.className = 'syn-type-desc'; d.textContent = desc; row.appendChild(d); }
+    const box = document.createElement('div'); box.className = 'syn-type-hits'; row.appendChild(box);
+    let built = false;
+    head.addEventListener('click', () => {
+        const open = !row.classList.contains('open');
+        row.classList.toggle('open', open);
+        head.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open && !built) { built = true; _synTabFillHits(box, typeId, [...hits].sort((a, b) => a.sortKey - b.sortKey)); }
+    });
+    return row;
+}
+function _synTabFillHits(box, typeId, hits) {
+    const all = document.createElement('button'); all.type = 'button'; all.className = 'syn-type-open-all';
+    all.textContent = _tf('search.synTab.openType', 'このタイプを新約全体で見る ›');
+    all.addEventListener('click', () => _synTabOpenType(typeId));
+    box.appendChild(all);
+    const cards = document.createElement('div'); box.appendChild(cards);
+    const more = document.createElement('button'); more.type = 'button'; more.className = 'load-more-btn';
+    more.textContent = _tf('search.synTab.more', 'さらに表示');
+    let shown = 0;
+    const next = () => {
+        for (const h of hits.slice(shown, shown + _SYN_TAB_PAGE)) {
+            const card = _synBuildCard(h, 'syn-tctx');
+            const a = document.createElement('a'); a.className = 'syn-hit-read';
+            a.href = `index.html?book=${encodeURIComponent(h.bookKey)}&ch=${Number(h.chapter)}&verse=${encodeURIComponent(String(h.verse))}`;   /* 節への導線（検索結果の「本文で読む」と同じ形） */
+            a.textContent = _tf('search.card.read', '本文で読む');
+            card.querySelector('.app-card-body').appendChild(a);
+            cards.appendChild(card);
+        }
+        shown = Math.min(hits.length, shown + _SYN_TAB_PAGE);
+        more.style.display = shown < hits.length ? 'flex' : 'none';
+    };
+    more.addEventListener('click', next);
+    box.appendChild(more);
+    next();
+}
+
+/* 二次導線：タイプから探す（レジストリのカテゴリ→タイプのカタログ） */
+async function _synTabOpenCatalog() {
+    const seq = ++_synTabSeq;
+    const body = _synTabEl('syn-tab-body');
+    if (!body) return;
+    _synTabShow();
+    _synTabView = 'catalog';
+    _synTabHidePanel();
+    _synTabSetBar(_synTabHasList(), false);
+    body.textContent = '';
+    const h = document.createElement('h2'); h.className = 'syn-tab-title'; h.textContent = _tf('search.synTab.browseTitle', 'タイプから探す');
+    const hint = document.createElement('div'); hint.className = 'syn-tab-scope'; hint.textContent = _tf('search.synTab.catalogHint', 'タイプを選ぶと、新約全体の用例をフィルタつきで見られます。');
+    body.append(h, hint);
+    try { await _synTabEnsureRegistry(); } catch (e) { console.warn('[syn-tab] registry failed', e); return; }
+    if (seq !== _synTabSeq || !_synRegistryData) return;
+    for (const cat of Object.values(_synRegistryData.categories || {})) {
+        const groups = (cat.subcategories || []).map(sc => ({ sc, types: (sc.types || []).filter(t => t.status === 'active') })).filter(g => g.types.length);
+        if (!groups.length) continue;
+        const det = document.createElement('details'); det.className = 'syn-cat';
+        const sum = document.createElement('summary'); sum.className = 'syn-cat-title'; sum.textContent = _synTabCatLabel(cat);
+        det.appendChild(sum);
+        for (const { sc, types } of groups) {
+            const gl = _synTabGroupLabel(sc);
+            if (gl) { const g = document.createElement('div'); g.className = 'syn-cat-group'; g.textContent = gl; det.appendChild(g); }
+            for (const t of types) {
+                const b = document.createElement('button'); b.type = 'button'; b.className = 'syn-cat-type';
+                const l = document.createElement('div'); l.className = 'syn-type-label'; l.textContent = _synTabTypeLabel(t);
+                b.appendChild(l);
+                const d = _synTabTypeDesc(t);
+                if (d) { const dd = document.createElement('div'); dd.className = 'syn-type-desc'; dd.textContent = d; b.appendChild(dd); }
+                b.addEventListener('click', () => _synTabOpenType(t.id));
+                det.appendChild(b);
+            }
+        }
+        body.appendChild(det);
+    }
+}
+
+/* タイプ先：現行 #syntax-panel の従来表示（新約全体の用例＋書物・確信度フィルタ）をそのまま開く */
+async function _synTabOpenType(typeId) {
+    ++_synTabSeq;
+    if (_synTabView !== 'panel') _synTabPrev = _synTabView || 'catalog';
+    _synTabShow();
+    _synTabView = 'panel';
+    _synTabSetBar(true, false);
+    const body = _synTabEl('syn-tab-body'); if (body) body.textContent = '';
+    await _synInit(typeId);
+    const p = _synTabEl('syntax-panel');
+    if (p && p.scrollIntoView) { try { p.scrollIntoView({ block: 'start' }); } catch (_) {} }
+}
+function _synTabBack() {
+    const prev = _synTabPrev;
+    _synTabHidePanel();
+    if (_synTabView === 'panel') {
+        if (prev === 'list' && _synTabHasList()) _synTabRender(); else _synTabOpenCatalog();
+    } else if (_synTabView === 'catalog' && _synTabHasList()) {
+        _synTabRender();
+    }
+}
+
 /* URL パラメータから検索語を引き継ぐ */
 (function initFromUrl() {
     const p = new URLSearchParams(location.search);
@@ -7370,6 +7755,8 @@ async function _synInit(syntaxId) {
     /* 検索ジャンルのタブ（#82）：?tab=rel、または近接を示す旧形式（word1＋word2／layers に prox）は関係に着地。形態は既定。 */
     if (p.get('tab') === 'rel' || (_w1 && _w2) || (p.get('layers') || '').split(',').includes('prox')) {
         _genreTab = 'rel'; _renderGenreTabs();
+    } else if (p.get('tab') === 'syn' || p.get('syntax_id')) {
+        _genreTab = 'syn'; _renderGenreTabs();   /* #202：?tab=syn、および ?syntax_id= の深いリンクは統語タブに着地 */
     }
     /* lemma タブ（#201）：?lemma_tab=<lemma>。結果の描画後（_lemmaTabAfterRender）に、同名 lemma が無ければ「すべて」に落ちる。
        ?lemma= は旧形式の検索語なので混同しない。 */
@@ -7451,7 +7838,7 @@ async function _synInit(syntaxId) {
         _syncLayerUI('morph');
     }
 
-    if (syntaxId) _synInit(syntaxId);
+    if (syntaxId) { _synTabDeepPending = true; _synTabOpenType(syntaxId); }   /* #202：統語タブに着地して従来表示を開く */
 
     if (!query) return;
     const inp = document.getElementById('unified-search-input');
