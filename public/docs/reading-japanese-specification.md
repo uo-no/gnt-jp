@@ -28,7 +28,7 @@ reading-word-separation-design.md(SP-4)・reading-hint-v1-release-freeze-audit.m
 | **Data(代表語)** | 起点の日本語を保持 | 私・あなた・この |
 | **Morph** | 語形(数/性/人称/格/語形)を決定 | 私→私たち・彼→彼ら・〜する者→〜するもの |
 | **Syntax** | 構造(節役割/referent/指示のはたらき)を決定 | 関係詞・pronominal 指示詞(この→これ) |
-| **Semantic** | 決定的意味情報を提供(**語義選択はしない**) | LN ドメイン・慣用句(source=semantic) |
+| **Semantic** | 決定的意味情報を提供(**語義選択はしない**) | 語義センス（不透明な内部キー）・慣用句(source=semantic) |
 | **Builder** | 決定的 fact のみを採用し verse の読みを確定(**判定・推論なし**) | Morph/Syntax 採用の記録層 |
 | **Presentation** | 表示のみ | chip / StudyPanel |
 

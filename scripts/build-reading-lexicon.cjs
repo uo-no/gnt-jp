@@ -14,15 +14,15 @@
  *   2.（Phase 4-C）lexicon-lite.json の Abbott-Smith 語義テキストと gloss_ja
  *      から語義候補を抽出し、glosses へ補完する（優先順位:
  *      bible_data 実使用グロス → Abbott-Smith 語義 → gloss_ja）。
- *      Louw-Nida（ln/domains コード）は日本語グロスを持たないため glosses には
- *      寄与せず、実行時 enrich() で semanticDomains として付与される。
+ *      外部の意味領域コードは読まない・出力しない（#196 で lexicon-lite から除去済み。
+ *      再混入は scripts/migrate-semantic-keys.cjs --check で検出する）。
  *   3. デポネント・自動詞グロスのフラグ（下記 DEPONENT_LEMMA_IDS が SSOT）を
  *      マージして deponent を付与
  *
  * 生成は決定的（同じ入力から同じ出力）: 走査順をソートで固定し、
  * 頻度同数の並びは初出順とする。
  *
- * 設計判断（Phase 4-C）: Abbott-Smith 全文・ln/domains コードは本ファイルへ
+ * 設計判断（Phase 4-C）: Abbott-Smith 全文は本ファイルへ
  * 焼き込まない（同期ロードのサイズを抑える）。それらは lexicon-lite の
  * 非同期ロード後に ReadingLexicon.enrich() が付与する。
  *
@@ -203,7 +203,7 @@ const output = `/**
  *     （重複除去・placeholder/文法ラベル除外）
  *   - deponent: デポネント・自動詞グロスのフラグ
  *     （SSOT は build-reading-lexicon.cjs の DEPONENT_LEMMA_IDS）
- *   - glossJa / abbottSmith 全文 / semanticDomains（ln・domains）は
+ *   - glossJa / abbottSmith 全文は
  *     本ファイルには含めない。lexicon-lite の非同期ロード後に
  *     ReadingLexicon.enrich() が付与する（サイズ抑制のための設計判断）。
  *

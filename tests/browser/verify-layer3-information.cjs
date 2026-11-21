@@ -206,7 +206,7 @@ async function openTarget(browser, mobile, targetCase, captureScreenshot) {
   assert.equal(state.usageTrendsTextPresent, false,
     `${mobile ? 'Mobile' : 'Desktop'}: Usage Trends should stay in the search tool, not duplicate in StudyPanel`);
   assert.equal(state.semanticSectionPresent, false,
-    `${mobile ? 'Mobile' : 'Desktop'}: LN semantic section should remain disabled until license/quality review`);
+    `${mobile ? 'Mobile' : 'Desktop'}: related-words semantic section was removed (#196) and must not render`);
   assert.equal(state.researchLinksPresent, false,
     `${mobile ? 'Mobile' : 'Desktop'}: current markup should not claim a Research Links section without a rendered implementation`);
   assert.deepEqual(state.emptyWrappers, [],

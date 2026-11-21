@@ -43,7 +43,7 @@ const NT_DIR = path.join(PUBLIC, 'bible_data', 'nt');
 const SEMANTIC_COMPLETION_BASELINE = {
     totalTokens:     137741,
     semanticInfoAny: 129022,   // 93.7%
-    lnDomain:        128493,   // 93.3%
+    sense:           128493,   // 93.3%（#196 で旧フィールド名から改名・件数不変）
     interrogative:   555,
     indefinite:      530,
     reflexivePerson: 408,
@@ -78,12 +78,17 @@ function check(desc, actual, expect) {
 console.log('── Part 1: 単体回帰 ──');
 
 const tok = (over = {}) => Object.assign(
-    { strong: '', lemma: '', class: '', role: '', morph: '', ln: '' }, over);
+    { strong: '', lemma: '', class: '', role: '', morph: '', sense: '' }, over);
 
 // ── 6情報種の正例 ─────────────────────────────────────────────────
 {
-    const t = tok({ ln: '57.228 1.2' });
-    check('L-4c: lnDomain（ln 先頭区画）', engine.getSemanticInfo(t).lnDomain, '57.228');
+    const t = tok({ sense: 's6494 s17' });
+    check('L-4c: sense（sense 先頭キー）', engine.getSemanticInfo(t).sense, 's6494');
+}
+{
+    // #196: 旧フィールド（ln）は読まない — 内部キー化後に旧注釈へ依存していないことの保証
+    const t = tok({ sense: '', ln: 's6494' });
+    check('L-4c: 旧フィールド ln は参照しない（null）', engine.getSemanticInfo(t), null);
 }
 {
     const t = tok({ strong: 'G5101', lemma: 'τίς', class: 'pron' });
@@ -154,9 +159,9 @@ const tok = (over = {}) => Object.assign(
         engine.getSemanticInfo(t), null);
 }
 {
-    // ln 未注釈 → lnDomain 未付与
-    const t = tok({ ln: '' });
-    check('L-4c: ln 未注釈 → lnDomain 未付与（null）', engine.getSemanticInfo(t), null);
+    // sense 未注釈 → sense 未付与
+    const t = tok({ sense: '' });
+    check('L-4c: sense 未注釈 → sense 未付与（null）', engine.getSemanticInfo(t), null);
 }
 {
     // discourse 系（この/その/あの の精緻化）は本アクセサの対象外 = 常に未実装（安全側）
@@ -204,14 +209,14 @@ for (const book of fs.readdirSync(NT_DIR)) {
     }
 }
 
-let semanticAny = 0, lnDomain = 0, interrogative = 0, indefinite = 0,
+let semanticAny = 0, sense = 0, interrogative = 0, indefinite = 0,
     reflexivePerson = 0, intensive = 0, deixis = 0, adverbial = 0;
 
 for (const t of allTokens) {
     const si = engine.getSemanticInfo(t);
     if (!si) continue;
     semanticAny++;
-    if (si.lnDomain) lnDomain++;
+    if (si.sense) sense++;
     if (si.pronType === 'interrogative') interrogative++;
     if (si.pronType === 'indefinite') indefinite++;
     if (si.reflexivePerson) reflexivePerson++;
@@ -222,7 +227,7 @@ for (const t of allTokens) {
 
 check('total tokens（コーパス不変）', allTokens.length, SEMANTIC_COMPLETION_BASELINE.totalTokens);
 check('L-4c: semanticInfo付与', semanticAny, SEMANTIC_COMPLETION_BASELINE.semanticInfoAny);
-check('L-4c: lnDomain', lnDomain, SEMANTIC_COMPLETION_BASELINE.lnDomain);
+check('L-4c: sense', sense, SEMANTIC_COMPLETION_BASELINE.sense);
 check('L-4c: pronType=interrogative', interrogative, SEMANTIC_COMPLETION_BASELINE.interrogative);
 check('L-4c: pronType=indefinite', indefinite, SEMANTIC_COMPLETION_BASELINE.indefinite);
 check('L-4c: reflexivePerson', reflexivePerson, SEMANTIC_COMPLETION_BASELINE.reflexivePerson);

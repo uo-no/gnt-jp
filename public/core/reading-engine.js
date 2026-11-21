@@ -72,20 +72,24 @@
  *   検証: npm run test:re-phase5
  *   完全一致のみ・推論禁止・不成立は必ず null → 既存チェーン。
  *
- * Phase 5-B: prepDomain    [FROZEN 2026-07-17]
+ * Phase 5-B: prepDomain    [FROZEN 2026-07-17 / 内部キー化 2026-11-21 #196]
  *   基準値: 5-B 分 +60 件（semantic 総計 359: πρός+人/固有名→のもとに 55 /
  *            περί+身体→の周りに 5）/ 悪化ケース 0
- *   対象: _resolvePrepDomain / _domainNumber
+ *   対象: _resolvePrepDomain / _senseGroupKey
  *   データ: reading-semantic-data.js の prepDomain（exclude で用法例外を保護）
  *   検証: npm run test:re-phase5
  *   ἐπί 全般・ἐν+場所は監査で不採用（誤変換リスク。データ側コメント参照）。
+ *   #196: 照合値を外部注釈の数値ドメインから不透明なグループキー
+ *         （token.senseGroup / rule.group、等値比較のみ）へ置換。基準値・全回帰不変。
  *
- * Phase 5-D: lnGloss      [FROZEN 2026-07-17]
- *   基準値: semantic-ln 106 件（semantic 総計 465 = idiom 299 + prep 60 + ln 106）
- *   対象: setLnGlossData / getLnAssist / _resolveLnGloss
+ * Phase 5-D: senseGloss   [FROZEN 2026-07-17 / 内部キー化 2026-11-21 #196]
+ *   基準値: semantic-sense 106 件（semantic 総計 465 = idiom 299 + prep 60 + sense 106）
+ *   対象: setSenseGlossData / getSenseAssist / _resolveSenseGloss
  *   データ: assets/data/reading-ln-final-data.js（replace 区画のみ置換。
- *           assist は getLnAssist 参照のみ・UI 未使用。curation は
+ *           assist は getSenseAssist 参照のみ・UI 未使用。curation は
  *           reading-ln-curation.js → npm run build:ln-final で反映）
+ *   #196: 照合キーを (lemmaId, token.sense 先頭のセンスキー) へ置換し、
+ *         外部注釈由来の旧称（層名・注入 API・assist 参照 API）を改名。基準値・全回帰不変。
  *   検証: npm run test:re-phase5 + 実表示監査
  *         （scripts/re-phase5d-display-audit.cjs・600 節）
  *   判定基準: docs/development/reading-flow-gloss-policy.md（replace/assist/preserve）
@@ -114,16 +118,18 @@
  *   検証: npm run test:re-syntax-completion
  *   K-3（relativeSyntax）とは独立の別アクセサ。互いに非干渉。
  *
- * Stage L-4c: Semantic Completion   [FROZEN 2026-07-20]
- *   基準値: semanticInfo付与 129,022(93.7%) / lnDomain 128,493(93.3%) /
+ * Stage L-4c: Semantic Completion   [FROZEN 2026-07-20 / 内部キー化 2026-11-21 #196]
+ *   基準値: semanticInfo付与 129,022(93.7%) / sense 128,493(93.3%) /
  *           interrogative 555 / indefinite 530 / reflexivePerson 408 /
  *           intensive 85 / deixis 1,687 / adverbial 79 / 悪化ケース 0
  *           （reading バイト等価・意味推論の混入 0）
- *   対象: getSemanticInfo（ln/strong/morph/class/role/lemma の決定的信号のみから
- *         lnDomain/pronType/reflexivePerson/intensive/deixis/adverbial を read-only
+ *   対象: getSemanticInfo（sense/strong/morph/class/role/lemma の決定的信号のみから
+ *         sense/pronType/reflexivePerson/intensive/deixis/adverbial を read-only
  *         で読み取り、resolve() 結果へ semanticInfo として付帯。非決定的信号
- *         （αὐτός の pron 内 intensive・ἑαυτοῦ の person-leveling 残・LN 非該当・
+ *         （αὐτός の pron 内 intensive・ἑαυτοῦ の person-leveling 残・sense 未注釈・
  *         discourse 依存）は一律未判定＝付与しない）
+ *   #196: 外部注釈由来の旧フィールド名を sense（不透明なセンスキー・等値比較のみ）へ改名。
+ *         付与件数は不変（129,022 / 128,493）。
  *   設計: docs/development/semantic-completion-design.md
  *   報告: docs/archive/semantic-completion-implementation-report.md
  *   検証: npm run test:re-semantic-completion
@@ -142,7 +148,7 @@
 
 'use strict';
 
-const READING_ENGINE_VERSION = '2.7.0-semantic-ln';
+const READING_ENGINE_VERSION = '2.8.0-semantic-sense';
 
 // ── ResolveSource 列挙値 ──────────────────────────────────────────
 // 将来 Phase が追加されてもここに追記するだけでよい。
@@ -513,25 +519,22 @@ function _idiomItemMatch(t, c) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// Phase 5-B: Semantic Layer — 前置詞 × 格 × 目的語 domain（追加方式）
+// Phase 5-B: Semantic Layer — 前置詞 × 格 × 目的語グループ（追加方式）
 //
-// Macula の token.domain（Louw-Nida ドメイン注釈）だけで意味を固定できる
-// 組み合わせをテーブル照合する。推論は行わない。
+// 目的語トークンの token.senseGroup（不透明なグループキー）だけで意味を
+// 固定できる組み合わせをテーブル照合する。推論は行わない。
 // テーブルは reading-semantic-data.js の prepDomain セクション。
 // 不一致は null → 5-A 後続チェーン（syntax/morph/particle）へ。
 // ══════════════════════════════════════════════════════════════════
 
 /**
- * domain コード → LN ドメイン番号。
- * コードは桁数不統一（'93001' と '033005'）のため「末尾 3 桁がサブ
- * ドメイン」として正規化する（docs/development/reading-semantic.md 監査で確定）。
- * 複数コードはスペース区切りの先頭を使う。不正は null。
+ * senseGroup → 照合用グループキー（'g<n>'）。等値比較にのみ使う。
+ * 複数キーはスペース区切りの先頭を使う。空・不正は null。
  */
-function _domainNumber(domain) {
-    if (!domain) return null;
-    const s = String(domain).split(' ')[0];
-    if (!/^[0-9]+$/.test(s)) return null;
-    return s.length > 3 ? parseInt(s.slice(0, -3), 10) : parseInt(s, 10);
+function _senseGroupKey(senseGroup) {
+    if (!senseGroup) return null;
+    const s = String(senseGroup).split(' ')[0];
+    return /^g[1-9][0-9]*$/.test(s) ? s : null;
 }
 
 // ── ReadingEngine ─────────────────────────────────────────────────
@@ -541,8 +544,8 @@ class ReadingEngine {
         this._lexicon = null;
         // Phase 5-A: Semantic データ（未注入 = null → semantic 層は不活性）
         this._semantic = null;
-        // Phase 5-D: LN 最終辞書（未注入 = null → lnGloss 照合は不活性）
-        this._lnGloss = null;
+        // Phase 5-D: センス最終辞書（未注入 = null → senseGloss 照合は不活性）
+        this._senseGloss = null;
     }
 
     /**
@@ -557,14 +560,14 @@ class ReadingEngine {
     }
 
     /**
-     * LN 最終辞書（reading-ln-final-data.js の内容）を注入する（Phase 5-D-1）。
-     * jaWord 置換に使うのは replace 区画のみ。assist 区画は getLnAssist() で
+     * センス最終辞書（reading-ln-final-data.js の内容）を注入する（Phase 5-D-1）。
+     * jaWord 置換に使うのは replace 区画のみ。assist 区画は getSenseAssist() で
      * 参照可能だが表示には使わない（Phase 5-D-5: UI 未使用）。
-     * 未注入 = 劣化モード（lnGloss 照合は不活性・既存チェーンと同一動作）。
+     * 未注入 = 劣化モード（senseGloss 照合は不活性・既存チェーンと同一動作）。
      * @param {Object} data  { version, replace: {...}, assist: {...}, auto: {...} }
      */
-    setLnGlossData(data) {
-        this._lnGloss = (data && typeof data === 'object' &&
+    setSenseGlossData(data) {
+        this._senseGloss = (data && typeof data === 'object' &&
                          data.replace && typeof data.replace === 'object')
             ? data : null;
     }
@@ -574,13 +577,13 @@ class ReadingEngine {
      * StudyPanel の補助表示（将来）向け。現時点で UI 未使用。
      * @returns {string|null} assist gloss
      */
-    getLnAssist(token) {
+    getSenseAssist(token) {
         try {
-            if (!this._lnGloss || !this._lnGloss.assist || !token) return null;
-            const ln = (typeof token.ln === 'string' && token.ln)
-                ? token.ln.split(' ')[0] : null;
-            if (!ln || !token.lemmaId) return null;
-            return this._lnGloss.assist[token.lemmaId]?.[ln] ?? null;
+            if (!this._senseGloss || !this._senseGloss.assist || !token) return null;
+            const sense = (typeof token.sense === 'string' && token.sense)
+                ? token.sense.split(' ')[0] : null;
+            if (!sense || !token.lemmaId) return null;
+            return this._senseGloss.assist[token.lemmaId]?.[sense] ?? null;
         } catch (_) {
             return null;
         }
@@ -642,10 +645,10 @@ class ReadingEngine {
 
     /**
      * 決定的意味情報の読み取り（L-4c・Semantic Completion）。
-     * 既存注釈・形態・構造（ln / strong / morph / class / role / lemma）から
+     * 既存注釈・形態・構造（sense / strong / morph / class / role / lemma）から
      * **決定的に導ける意味情報のみ**を読み取って返す。日本語出力（resolve）は一切
      * 変えない・**推論しない**。決定的信号のない部分は付与しない（未判定 = 欠落）。
-     *   - lnDomain: Louw-Nida 主ドメイン（多義語語義の骨格・ln 注釈）
+     *   - sense: 先頭センスキー（多義語語義の骨格・不透明キー・等値比較のみ）
      *   - pronType: interrogative(τίς G5101) / indefinite(τις G5100)（strong 分離）
      *   - reflexivePerson: 1/2/3（morph F-1/2/3）。person 無（G848 等）は付与しない
      *   - intensive: αὐτός で class=adj のとき true（pron の残は未判定＝付与しない）
@@ -664,10 +667,10 @@ class ReadingEngine {
             const morph  = (typeof token.morph === 'string') ? token.morph : '';
             const info = {};
 
-            // LN 語義（主ドメイン）
-            if (typeof token.ln === 'string' && token.ln) {
-                const dom = token.ln.split(' ')[0];
-                if (dom) info.lnDomain = dom;
+            // 語義センス（先頭キー）
+            if (typeof token.sense === 'string' && token.sense) {
+                const sense = token.sense.split(' ')[0];
+                if (sense) info.sense = sense;
             }
             // interrogative / indefinite（strong 分離）
             if (strong === 'G5101') info.pronType = 'interrogative';
@@ -763,12 +766,12 @@ class ReadingEngine {
             if (semResult) return semResult;
         }
 
-        // Phase 5-D: lnGloss（semantic 第 3 照合 — idiom / prepDomain 不発時のみ
-        // 到達する。優先順位: idiom → prepDomain → lnGloss → syntax → …）。
+        // Phase 5-D: senseGloss（semantic 第 3 照合 — idiom / prepDomain 不発時のみ
+        // 到達する。優先順位: idiom → prepDomain → senseGloss → syntax → …）。
         // 未注入（劣化モード）では不活性 = 既存チェーンと完全同一。
-        if (_context && this._lnGloss) {
-            const lnResult = this._resolveLnGloss(token, _context);
-            if (lnResult) return lnResult;
+        if (_context && this._senseGloss) {
+            const senseResult = this._resolveSenseGloss(token, _context);
+            if (senseResult) return senseResult;
         }
 
         // Phase 2-A: Syntax（context が注入された時のみ活性。
@@ -897,8 +900,8 @@ class ReadingEngine {
         return null;
     }
 
-    // ── Phase 5-B: 前置詞 × 格 × 目的語 domain の照合 ────────────────
-    // 使うのは token.domain / tokens / targetIdx のみ（設計制約）。
+    // ── Phase 5-B: 前置詞 × 格 × 目的語グループの照合 ───────────────
+    // 使うのは token.senseGroup / tokens / targetIdx のみ（設計制約）。
     // 対象語の直前（冠詞・形容詞を最大 2 語スキップ）に支配前置詞が
     // ある場合だけ照合する。不一致は null → 後続チェーンへ。
     _resolvePrepDomain(token, tokens, targetIdx) {
@@ -922,35 +925,35 @@ class ReadingEngine {
 
         const prepLemma = (prepTok.lemma || '').normalize('NFC');
         const kase      = (token.case || '').toLowerCase();
-        const dom       = _domainNumber(token.domain);
-        if (dom === null) return null;
+        const group     = _senseGroupKey(token.senseGroup);
+        if (group === null) return null;
 
         const tokenLemma = (token.lemma || '').normalize('NFC');
         for (const rule of this._semantic.prepDomain) {
             if (!rule || typeof rule.ja !== 'string') continue;
-            if (rule.prep !== prepLemma || rule.case !== kase || rule.domain !== dom) continue;
+            if (rule.prep !== prepLemma || rule.case !== kase || rule.group !== group) continue;
             if (Array.isArray(rule.exclude) && rule.exclude.includes(tokenLemma)) continue;
             return { japanese: base + rule.ja, source: ResolveSource.SEMANTIC };
         }
         return null;
     }
 
-    // ── Phase 5-D: lnGloss（(lemmaId, token.ln) → キュレーション済み flow gloss）──
+    // ── Phase 5-D: senseGloss（(lemmaId, token.sense) → キュレーション済み flow gloss）──
     // 「意味を推論する層」ではなく「確定済みの対応表を読み出す層」。
-    // 照合条件: token.lemmaId + token.ln（先頭コード）が replace 区画に存在
+    // 照合条件: token.lemmaId + token.sense（先頭キー）が replace 区画に存在
     // すること（= mode='replace' の curation のみ。assist は置換しない）。
     //
     // ★ 設計判断: 素の gloss 置換ではなく「base の置換」として実装し、
     //   置換後の gloss を既存チェーン（syntax → morph → particle）に通す。
     //   これにより格助詞・前置詞句が維持される:
-    //     ἐκ τοῦ κόσμου（41.38）: 世界から → 世から（○）/ 素置換なら 世（✗ 劣化）
+    //     ἐκ τοῦ κόσμου: 世界から → 世から（○）/ 素置換なら 世（✗ 劣化）
     //     λόγον ἀποδώσουσιν:      ことばを → 申し開きを（○）
     //   既存レイヤーは base 引数を取る読み取り専用の再利用（凍結部の変更なし）。
-    _resolveLnGloss(token, context) {
-        const ln = (typeof token.ln === 'string' && token.ln)
-            ? token.ln.split(' ')[0] : null;
-        if (!ln || !token.lemmaId) return null;
-        const gloss = this._lnGloss.replace[token.lemmaId]?.[ln];
+    _resolveSenseGloss(token, context) {
+        const sense = (typeof token.sense === 'string' && token.sense)
+            ? token.sense.split(' ')[0] : null;
+        if (!sense || !token.lemmaId) return null;
+        const gloss = this._senseGloss.replace[token.lemmaId]?.[sense];
         if (typeof gloss !== 'string' || !gloss) return null;
 
         // 置換後の base を既存チェーンへ（結果の source は semantic に統一）
@@ -1098,10 +1101,10 @@ if (typeof window !== 'undefined') {
     if (window.App.readingSemanticData) {
         window.App.readingEngine.setSemanticData(window.App.readingSemanticData);
     }
-    // Phase 5-D: LN 最終辞書注入（reading-ln-final-data.js が先に読み込まれる）。
-    // 欠けている場合は lnGloss 照合が不活性（既存チェーンと同一動作）。
-    if (window.READING_LN_FINAL) {
-        window.App.readingEngine.setLnGlossData(window.READING_LN_FINAL);
+    // Phase 5-D: センス最終辞書注入（reading-ln-final-data.js が先に読み込まれる）。
+    // 欠けている場合は senseGloss 照合が不活性（既存チェーンと同一動作）。
+    if (window.READING_SENSE_FINAL) {
+        window.App.readingEngine.setSenseGlossData(window.READING_SENSE_FINAL);
     }
 }
 

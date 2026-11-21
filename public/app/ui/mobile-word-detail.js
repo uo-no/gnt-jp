@@ -196,17 +196,13 @@ function _mobileInspectorDetail(greek, rawMorph, ref, lemma) {
        _wlvChipClick と同じ scope の words を使うことで、chip・Inspector詳細・
        このスロットの3者が常に同一節を参照するようにする（節取り違え防止）。 */
     const _scopeWords = _wlvActiveScopeWords || _wlvWordCache;
-    /* VR-2 Phase 2: _fillMvvReadingSlot/_fillMvvSemanticSlot は実際の配列位置を必要とする
+    /* VR-2 Phase 2: _fillMvvReadingSlot は実際の配列位置を必要とする
        （下流関数は変更しない）ため、_wlvActiveTokenId から一度だけ findIndex() して idx を
        求める（find()+indexOf() の二重探索はしない）。 */
     const _scopeIdx = _scopeWords ? _scopeWords.findIndex(w => w.tokenId === _wlvActiveTokenId) : -1;
 
     /* StudyPanel parity: Reading prose / Phrase / Observation / Evidence を rich HTML で注入。 */
     _fillMvvReadingSlot(_scopeWords, _scopeIdx);
-    /* LN 由来の意味グループ表示は一時停止中。データ・関数は保持し、再開条件は docs/DATA_LICENSE.md を参照。 */
-    if (LN_RELATED_WORDS_ENABLED) {
-        _fillMvvSemanticSlot(_mvvResolvedId, _mvvGreek, d.strong || '');
-    }
     /* 語の役割の局所表示を非同期注入（fire-and-forget・世代管理）。 */
     _fillMvvRelationSlot(AppState.inspect.data?.ref || ref);
     /* 統語論ラベルを非同期注入（_buildSyntaxLabelHTML を desktop と共用）。 */
@@ -354,54 +350,6 @@ async function _fillMvvReadingSlot(words, idx) {
     }
 }
 
-/* Phase F-4: 語A検索中に語Bへ移動した場合、古い semantic 結果の誤注入を防ぐ世代カウンタ。
-   Reading Notes 用 _mvvReadingGen とは独立。 */
-let _mvvSemanticGen = 0;
-
-/**
- * _fillMvvSemanticSlot — Level3「意味を見る」（#mvv-semantic-slot）へ
- * 既存 semantic lookup 経路のドメインラベルを非同期注入する（Phase F-4）。
- *
- * 原則（semantic = 情報提供のみ）:
- *   - 既存経路（_ensureSemanticData → _resolveLemmaId → _lexiconData[id].domains → _getDomainLabel）
- *     のラベルをそのまま列挙するだけ。文脈解釈・意味決定・教理説明・補足文章は行わない。
- *   - 注入は textContent のみ（innerHTML 禁止）。
- *   - 該当なし（ラベルなし＝静寂）のときは「意味を見る」セクションごと非表示。
- *   - AppState / storage / URL は触れない。世代カウンタで stale 結果を破棄する。
- *   - Reading Notes（読みを深める）とは別スロット・別役割（こちらは語義の分類ラベル）。
- */
-/* _fillMvvSemanticSlot — Desktop の _injectStudyPanelContent を再利用して
- * cluster chips を Mobile semantic slot へ注入する（StudyPanel parity）。
- * resolvedId / greek / strong は _mobileInspectorDetail が計算した値を引数で受け取る
- * （AppState.inspect.data?.lemmaId が toBrowsing() 退避・復元により保持されていることが前提）。
- * 世代管理は _mvvSemanticGen で stale 注入を防ぐ。
- */
-async function _fillMvvSemanticSlot(resolvedId, greek, strong) {
-    const slot = document.getElementById('mvv-semantic-slot');
-    if (!slot) return;
-    const section = slot.closest('.mvv-l3-section');
-    const myGen = ++_mvvSemanticGen;
-    slot.innerHTML = '';
-    if (section) section.style.display = 'none';
-
-    try {
-        if (myGen !== _mvvSemanticGen) return;
-        /* Desktop と同じ _injectStudyPanelContent を呼ぶ（内部で _ensureSemanticData を呼ぶ）。 */
-        await _injectStudyPanelContent(slot, strong, resolvedId, greek);
-    } catch (_) {
-        /* 静寂：失敗時はセクションを非表示のまま */
-    }
-    if (myGen !== _mvvSemanticGen) return;
-
-    const slotCheck = document.getElementById('mvv-semantic-slot');
-    if (!slotCheck) return;
-    if (slotCheck.innerHTML.trim()) {
-        if (section) section.style.display = '';
-    } else {
-        if (section) section.style.display = 'none';   /* 静寂 */
-    }
-}
-
 /* 統語論ラベルを mobile 語詳細の #mvv-syntax-slot へ非同期注入する。
  * _buildSyntaxLabelHTML（desktop と共通）を再利用し、世代管理で stale を防ぐ。 */
 let _mvvSyntaxGen = 0;
@@ -506,7 +454,6 @@ async function _fillMvvLevel2Slot(resolvedId) {
  *     Lemma / Strong / Morphology・分析候補（Desktopの同名トグルに相当する研究情報）
  *   〔辞書的意味を見る〕…折りたたみ（native details・既定閉）＋語源・辞書全文スロット
  *     （内容が無い語ではセクションごと非表示。_fillMvvLevel2Slot が表示を制御）
- *   〔意味を見る〕…折りたたみ（native details・既定閉）＋空スロット #mvv-semantic-slot
  *
  * 折りたたみは native <details>/<summary> のみで実現（新規 AppState / storage / URL 状態なし）。
  * スロットは将来の非同期注入用に識別子だけ確保し、今は空（データ取得・文章生成は行わない）。
@@ -583,13 +530,6 @@ function _renderMobileWordDetail(d) {
               </div>
             </div>
           </div>
-        </details>` : ''}
-
-${LN_RELATED_WORDS_ENABLED ? `
-        <!-- TEMPORARILY DISABLED: LN 由来の関連語表示。再開条件は docs/DATA_LICENSE.md を参照。 -->
-        <details class="mvv-l3-section" data-study-section="semantic">
-          <summary class="mvv-l3-summary">関連する語を調べる</summary>
-          <div class="mvv-l3-slot" id="mvv-semantic-slot"></div>
         </details>` : ''}
 
       </div>`;

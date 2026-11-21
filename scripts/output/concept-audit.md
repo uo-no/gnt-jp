@@ -1,6 +1,6 @@
 # Concept Audit — search-concepts.json 品質監査
 
-生成: 2026-07-14T01:58:45.077Z
+生成: 2026-11-21T05:35:40.001Z
 
 ## Summary
 
@@ -10,7 +10,6 @@
 | Terms | 115 |
 | Patterns | 3 |
 | Syntax Links | 1 |
-| Domain Links | 15 |
 | **FAIL** | 0 |
 | WARNING | 0 |
 | INFO | 0 |
@@ -29,7 +28,7 @@
 | 7 | Children Cycle Detection | PASS |
 | 8 | Pattern Integrity | PASS |
 | 9 | Syntax Type Integrity | PASS |
-| 9.5 | Domain Integrity（cluster-index 実在＋label 写し照合） | PASS |
+| 9.5 | 外部意味領域コード非保持（domains フィールド無し） | PASS |
 | 10 | Orphan Concept | 0 件（WARNING） |
 
 ## Related グラフ

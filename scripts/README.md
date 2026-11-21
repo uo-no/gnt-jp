@@ -69,8 +69,9 @@ node scripts/check-index-styles.cjs                    # R-f RF-3/RF-4/RF-5: ind
 | npm script | スクリプト | 入力 | 出力 |
 |---|---|---|---|
 | `build:lexicon` | build-reading-lexicon.cjs | bible_data/, 語彙ソース | public/assets/data/reading-lexicon-data.js |
-| `build:ln-gloss` | build-reading-ln-gloss.cjs | LN 対応表ソース | public/assets/data/reading-ln-gloss-data.js |
+| `build:ln-gloss` | build-reading-ln-gloss.cjs | センス→gloss 対応表ソース | public/assets/data/reading-ln-gloss-data.js |
 | `build:ln-final` | build-reading-ln-final.cjs | reading-ln-gloss-data.js | public/assets/data/reading-ln-final-data.js |
+| `migrate:semantic-keys` | migrate-semantic-keys.cjs | bible_data/ と語彙データ（旧注釈フィールドの再混入時） | 同ファイルを内部キーへ置換（`check:semantic-keys` で残存検査） |
 | `build:flow-tree` | build-flow-tree.cjs | work/SBLGNT/lowfat/*.xml | public/assets/data/flow-tree/{BOOK}/{ch}.json |
 | `build:sr` | build-sr.cjs | bible_data/, flow-tree/ | public/assets/data/sr/{BOOK}/{ch}.json |
 | `build:apparatus` | build-apparatus.cjs | work/apparatus/sblgnt_tei.xml | public/assets/data/apparatus.json |

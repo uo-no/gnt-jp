@@ -1,29 +1,22 @@
 let abbottSmithDict = null;
 let abbottSmithDictPromise = null;
 /* ══════════════════════════════════════════
-   Semantic layer data — LN / Cluster / Lexicon / Domain Labels
+   Semantic layer data — Lexicon / Composition
    ══════════════════════════════════════════ */
 let _lexiconData           = null;
-/* #133：LN／Cluster 索引は UI 停止中（LN_RELATED_WORDS_ENABLED=false）のため通常ロードでは取得しない。
-   消費側（_buildClusterLayerHTML／buildSemanticGraph）は {} を前提に引くので、未取得の間は {} にしておく。
-   取得は _ensureLnClusterData()（ゲートが有効な経路でのみ呼ぶ）。 */
-let _lnIndexData           = {};
-let _clusterIndexData      = {};
 let _compositionData       = null;
-let _semanticDomainLabels  = null;
-/* #105：語彙データ5本は1本ずつ独立に取得する（1本の失敗で他の4本を巻き込まない）。
+/* #105：語彙データは1本ずつ独立に取得する（1本の失敗で他を巻き込まない）。
    成功・確定の不在（404）は固定する。一時的な失敗の1本だけは {} で埋めて表示を続け（消費側は {} を前提にしている）、
    次の呼び出しでその1本だけを1回再取得する。契約（_glossDictReady が消費）：返す Promise は必ず解決し、拒否しない。 */
 const _SEM_SPECS = [
     ['lex',  '../assets/data/lexicon/lexicon-lite.json',            d => {
         _lexiconData = d;
         /* Phase 4-C: ReadingLexicon を lexicon-lite で補強する
-           （glossJa / abbottSmith / semanticDomains — Phase 5 Semantic の語彙情報源）。
+           （glossJa / abbottSmith — Phase 5 Semantic の語彙情報源）。
            失敗しても ReadingEngine の挙動には影響しない（deponent は基本層にある）。 */
         try { window.App?.readingLexicon?.enrich(_lexiconData); } catch (_) {}
     }],
     ['comp', '../assets/data/lexicon/lexicon-composition.json',     d => { _compositionData = d; }],
-    ['sdl',  '../assets/data/index/semantic-domain-labels.json',    d => { _semanticDomainLabels = d; }],
 ];
 const _semPending = new Set(_SEM_SPECS.map(x => x[0]));   /* まだ確定していない（未取得／一時失敗の）データ */
 let _semInflight = null;
@@ -44,33 +37,6 @@ function _ensureSemanticData() {
         console.warn('[SemanticData] load error:', e);
     }).then(() => { _semInflight = null; });
     return _semInflight;
-}
-/* #133：LN／Cluster 索引（合計 約1.14 MB）の遅延取得。通常の初期ロード（_ensureSemanticData）には含めない。
-   LN 関連語のゲート（LN_RELATED_WORDS_ENABLED）が有効な経路（_injectStudyPanelContent）からのみ呼ぶ。
-   1本ずつ独立に取得し、成功・確定不在は固定、一時失敗は {} で続けて次回再取得（#105 と同じ方針）。Promise は必ず解決する。 */
-const _LNCL_SPECS = [
-    ['ln', '../assets/data/index/domains-ln-index.json',      d => { _lnIndexData = d; }],
-    ['cl', '../assets/data/index/domains-cluster-index.json', d => { _clusterIndexData = d; }],
-];
-const _lnclPending = new Set(_LNCL_SPECS.map(x => x[0]));
-let _lnclInflight = null;
-function _ensureLnClusterData() {
-    if (_lnclPending.size === 0) return Promise.resolve();
-    if (_lnclInflight) return _lnclInflight;
-    const targets = _LNCL_SPECS.filter(x => _lnclPending.has(x[0]));
-    _lnclInflight = Promise.all(targets.map(async ([key, url, set]) => {
-        const o = await _fetchJsonOutcome(url);
-        if (o.ok) {
-            set((o.data && typeof o.data === 'object') ? o.data : {});
-            _lnclPending.delete(key);
-        } else {
-            console.warn('[LnClusterData] load failed (will retry on next display):', url);
-            set({});
-        }
-    })).catch(e => {
-        console.warn('[LnClusterData] load error:', e);
-    }).then(() => { _lnclInflight = null; });
-    return _lnclInflight;
 }
 function loadDict() {
     if (abbottSmithDict) return Promise.resolve(abbottSmithDict);

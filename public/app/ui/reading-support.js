@@ -551,7 +551,7 @@ function _wlvDrawerClose() {
 }
 let _wlvChipData      = [];   /* _buildFlowTabHTML で生成した chip 配列を保持 */
 /* Phase VR-4B-5: 現在選択中 chip の scope words（gfBlock/verseBlock/_wlvWordCache の
-   優先順位で解決済み）。_mobileInspectorDetail から _fillMvvReadingSlot/_fillMvvSemanticSlot
+   優先順位で解決済み）。_mobileInspectorDetail から _fillMvvReadingSlot
    へ、_wlvChipClick が解決した scope と同じ words 配列を橋渡しするためのグローバル。 */
 let _wlvActiveScopeWords = null;
 

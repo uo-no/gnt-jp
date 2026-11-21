@@ -66,12 +66,12 @@ const { ContextBuilder } = requireCjs(path.join(PUBLIC, 'core', 'syntax-analyzer
 const { ReadingLexicon } = requireCjs(path.join(PUBLIC, 'core', 'reading-lexicon.js'));
 const { readingLexiconData } = requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-lexicon-data.js'));
 const { readingSemanticData } = requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-semantic-data.js'));
-const { READING_LN_FINAL } = requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-ln-final-data.js'));
+const { READING_SENSE_FINAL } = requireCjs(path.join(PUBLIC, 'assets', 'data', 'reading-ln-final-data.js'));
 
 const engine = new ReadingEngine();
 engine.setLexicon(new ReadingLexicon(readingLexiconData));
 engine.setSemanticData(readingSemanticData);
-engine.setLnGlossData(READING_LN_FINAL);
+engine.setSenseGlossData(READING_SENSE_FINAL);
 
 function buildReadingContext(words, idx) {
     try {
@@ -100,7 +100,7 @@ lines.push('# Phase 5-D 実表示監査（語順フロー表示ダンプ）');
 lines.push('');
 lines.push('生成: ' + new Date().toISOString().slice(0, 10) +
     ' / 各書 100 節（semantic 変換を含む節は全件優先収録・※印）');
-lines.push('凡例: 【…】= semantic 変換（idiom / prepDomain / lnGloss）。他は既存チェーン出力。');
+lines.push('凡例: 【…】= semantic 変換（idiom / prepDomain / senseGloss）。他は既存チェーン出力。');
 lines.push('');
 
 const stats = { verses: 0, semanticVerses: 0, semanticTokens: 0 };

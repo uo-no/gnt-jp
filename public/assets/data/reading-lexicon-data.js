@@ -9,7 +9,7 @@
  *     （重複除去・placeholder/文法ラベル除外）
  *   - deponent: デポネント・自動詞グロスのフラグ
  *     （SSOT は build-reading-lexicon.cjs の DEPONENT_LEMMA_IDS）
- *   - glossJa / abbottSmith 全文 / semanticDomains（ln・domains）は
+ *   - glossJa / abbottSmith 全文は
  *     本ファイルには含めない。lexicon-lite の非同期ロード後に
  *     ReadingLexicon.enrich() が付与する（サイズ抑制のための設計判断）。
  *
