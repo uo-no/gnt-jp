@@ -554,9 +554,7 @@ body.is-lobby .s-header .s-lang { display: block; }
     padding: 0;
 }
 .search-filters.has-query { display: block; }
-/* 関係タブ（#82）：入力が空でも距離の行だけは窓の下に出す（ロビー含む） */
-.search-filters.rel-open { display: block; }
-.search-filters.rel-open:not(.has-query) > *:not(.prox-sub) { display: none; }
+/* 関係タブ（#82）の距離の行は #208 でジャンルタブの下（結果エリア先頭 main > #prox-sub）へ移した。表示切替は #prox-sub 自身の .visible（JS）だけで行い、親のクラスには依存しない */
 .search-filters .filter-suggestion-title {
     margin: 0 0 4px; color: var(--text-sub); font-size: 0.68rem;
     font-weight: 700; letter-spacing: 0.02em;
@@ -750,49 +748,56 @@ body.is-lobby .s-header .s-lang { display: block; }
 }
 
 .prox-sub {
-    margin-top: 6px;
-    padding: 10px 12px;
-    background: rgba(255,255,255,0.62);
-    border: 1px solid rgba(90,83,71,0.12);
-    border-radius: 8px;
+    /* #208：カードをやめ、ページに直接置く。結果エリア（main）の先頭＝ジャンルタブの下。ロビーでは検索窓と同じ幅（584px）で中央に */
     display: none;
+    max-width: 584px;
+    margin: 0 0 var(--s-sp-4);
+    padding: 0;
 }
- .prox-sub.visible { display: block; }
+body.is-lobby .prox-sub { margin-left: auto; margin-right: auto; }
+.prox-sub.visible { display: block; }
 .prox-sub-row {
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: baseline; gap: 10px;
     margin-bottom: 8px;
 }
 .prox-sub-label {
-    font-size: 0.62rem; font-weight: 700; color: var(--prox);
-    letter-spacing: 0.1em; text-transform: uppercase;
+    font-size: var(--s-ts-sm); font-weight: 400; color: var(--s-text-sub);
 }
 .prox-sub-val {
-    font-family: monospace;
-    font-size: 0.78rem; font-weight: 700; color: var(--prox);
+    font-family: var(--s-ff-ui);
+    font-size: var(--s-ts-sm); font-weight: 400; color: var(--s-text-sub);
+    font-variant-numeric: tabular-nums;
     margin-left: auto;
 }
 .prox-slider {
     -webkit-appearance: none; appearance: none;
-    width: 100%; height: 3px;
-    background: linear-gradient(to right, var(--prox) var(--pct, 28%), rgba(0,0,0,0.12) var(--pct, 28%));
+    display: block; width: 100%; height: 3px;
+    background: linear-gradient(to right, var(--s-accent) var(--pct, 28%), var(--s-border) var(--pct, 28%));
     border-radius: 2px; outline: none; cursor: pointer;
-    margin-bottom: 8px;
+    margin: 12px 0 14px;
 }
 .prox-slider::-webkit-slider-thumb {
     -webkit-appearance: none; width: 14px; height: 14px;
-    border-radius: 50%; background: var(--prox);
-    border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    border-radius: 50%; background: var(--s-accent);
+    border: 2px solid var(--s-bg); box-shadow: none;
     cursor: pointer;
 }
-.prox-presets { display: flex; gap: 4px; }
-.prox-preset {
-    flex: 1; padding: 4px 0; font-size: 0.68rem; font-weight: 700;
-    border: 1px solid var(--prox-border); border-radius: 6px;
-    background: transparent; color: var(--prox); cursor: pointer;
-    transition: all 0.12s; text-align: center; font-family: inherit;
+.prox-slider::-moz-range-thumb {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--s-accent);
+    border: 2px solid var(--s-bg); box-shadow: none; cursor: pointer;
 }
-.prox-preset:hover { background: var(--prox); color: #fff; }
-.prox-preset.active { background: var(--prox); border-color: var(--prox); color: #fff; }
+.prox-slider:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 6px; }
+.prox-presets { display: flex; gap: 6px; }
+/* #208：プリセットは細い輪郭＋通常文字。選択中だけ --s-accent の文字と輪郭（#207 の .lemma-tab と作法を揃えるが塗らない） */
+.prox-preset {
+    flex: 1; padding: 4px 0; font-size: 0.68rem; font-weight: 400;
+    border: 1px solid var(--s-border); border-radius: 6px;
+    background: transparent; color: var(--s-text); cursor: pointer;
+    text-align: center; font-family: inherit;
+}
+.prox-preset:hover { border-color: var(--s-text-sub); }
+.prox-preset.active { border-color: var(--s-accent); color: var(--s-accent); font-weight: 500; }
+.prox-preset:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
 
 /* ── Morph filter checkboxes ── */
 .morph-sub {
@@ -1823,9 +1828,7 @@ body.is-lobby .search-input-wrap {
 
     .search-filters, .search-filters.has-query { display: contents; }
     .search-filters:not(.has-query) > :not(.morph-sub) { display: none; }
-    .search-filters.rel-open:not(.has-query) > .prox-sub.visible { display: block; margin-top: 12px; }   /* #82：関係タブはロビーでも距離の行を出す */
-    .search-filters.has-query > .filter-suggestion-title,
-    .search-filters.has-query > .prox-sub { margin-top: 12px; }
+    .search-filters.has-query > .filter-suggestion-title { margin-top: 12px; }
     .search-filters .morph-panel-toggle,
     .search-filters.single-word .morph-panel-toggle { display: none; }
     .search-filters .morph-sub,
@@ -2278,20 +2281,6 @@ body.is-lobby .genre-tabs { display: none; }   /* #92：ロビーでは出さず
         <div class="suggest-dropdown" id="suggest-dropdown"></div>
         <div class="search-filters" id="search-filters" aria-live="polite">
             <div class="filter-suggestion-title" id="filter-suggestion-title" data-i18n="search.filter.suggestionTitle">絞り込みの提案</div>
-            <div class="prox-sub" id="prox-sub" aria-hidden="true">
-                <div class="prox-sub-row">
-                    <span class="prox-sub-label" data-i18n="search.prox.label">近接距離</span>
-                    <span class="prox-sub-val" id="prox-val-label">±5語</span>
-                </div>
-                <input type="range" class="prox-slider" id="prox-slider"
-                    min="1" max="15" value="5"
-                    oninput="onProxSlider(this.value)" onchange="_proxRerun()" aria-label="近接距離" data-i18n-aria-label="search.prox.label">
-                <div class="prox-presets">
-                    <button class="prox-preset" data-d="3" onclick="setProxPreset(3);_proxRerun()">±3<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.narrow">狭い</span></button>
-                    <button class="prox-preset active" data-d="5" onclick="setProxPreset(5);_proxRerun()">±5<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.standard">標準</span></button>
-                    <button class="prox-preset" data-d="10" onclick="setProxPreset(10);_proxRerun()">±10<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.wide">広い</span></button>
-                </div>
-            </div>
             <button class="morph-panel-toggle" id="morph-panel-toggle" type="button" aria-expanded="false" aria-controls="morph-sub" onclick="_toggleMorphFilters()">
                 <span data-i18n="search.morph.toggle">文法で絞り込む</span><span class="morph-panel-count" id="morph-panel-count"></span><span class="morph-panel-chevron" aria-hidden="true">⌄</span>
             </button>
@@ -2375,6 +2364,23 @@ body.is-lobby .genre-tabs { display: none; }   /* #92：ロビーでは出さず
 
 <!-- ═══════════════════════════ Results ═══════════════════════════ -->
 <main class="s-results" id="result-panel">
+
+    <!-- 近接距離（#82・#208）：関係タブ専用。ジャンルタブの下＝結果エリアの先頭。表示は _updateSearchControls が #prox-sub に .visible を付け外しする -->
+    <div class="prox-sub" id="prox-sub" aria-hidden="true">
+        <div class="prox-sub-row">
+            <span class="prox-sub-label" data-i18n="search.prox.label">近接距離</span>
+            <span class="prox-sub-val" id="prox-val-label">±5語</span>
+        </div>
+        <input type="range" class="prox-slider" id="prox-slider"
+            min="1" max="15" value="5"
+            oninput="onProxSlider(this.value)" onchange="_proxRerun()" aria-label="近接距離" data-i18n-aria-label="search.prox.label">
+        <div class="prox-presets">
+            <button class="prox-preset" data-d="3" onclick="setProxPreset(3);_proxRerun()">±3<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.narrow">狭い</span></button>
+            <button class="prox-preset active" data-d="5" onclick="setProxPreset(5);_proxRerun()">±5<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.standard">標準</span></button>
+            <button class="prox-preset" data-d="10" onclick="setProxPreset(10);_proxRerun()">±10<br><span style="font-size:0.55rem;opacity:0.6;" data-i18n="search.prox.wide">広い</span></button>
+        </div>
+    </div>
+
 
     <!-- Empty state -->
     <div class="state-empty" id="state-empty">
