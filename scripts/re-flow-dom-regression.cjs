@@ -59,6 +59,9 @@ const mobileVerseViewSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'mobil
 const readingSupportSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'reading-support.js'), 'utf8');
 const mobileNavSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'ui', 'mobile-nav.js'), 'utf8');
 const bootSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'boot.js'), 'utf8');
+const appStateSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'state', 'app-state.js'), 'utf8');
+const routerSrc = fs.readFileSync(path.join(PUBLIC, 'app', 'state', 'router.js'), 'utf8');
+const sharedUiSrc = fs.readFileSync(path.join(PUBLIC, 'assets', 'js', 'shared-ui.js'), 'utf8');
 
 let failed = 0;
 const results = [];
@@ -302,7 +305,8 @@ if (setFlowInjectionSrc) {
    ★ コピーではなく、実 WordOrderRenderer を index.html から抽出して実行する
      （renderBodyColumn/renderGreekFlowView が契約から乖離したら失敗する）。
    ───────────────────────────────────────────────────────────── */
-const wordOrderRendererSrc = extractFunctionSource(html, 'const WordOrderRenderer = {');
+const wordOrderRendererSrc = extractFunctionSource(html, 'const WordOrderRenderer = {')
+    || extractFunctionSource(wordRendSrc, 'const WordOrderRenderer = {');
 check('extract: WordOrderRenderer 抽出に成功', !!wordOrderRendererSrc);
 
 function countOcc(s, sub) { return s.split(sub).length - 1; }
@@ -310,22 +314,26 @@ function mkRep(book, chapter, verse, chips) {
     return { kind: 'wordOrder', verseRef: { book, chapter, verse }, chips };
 }
 function mkChip(over) {
+    /* tokenId は数値文字列を使うこと: renderer は tokenId を数値にサニタイズしてから
+       data-token-id / onclick へ転写する（非数値は空になる）。#199 で fixture を実データ形に追随 */
     return Object.assign(
-        { tokenId: 't', roleClass: 'role-x', greek: 'γρ', dpGrammarClasses: 'dp-x', gloss: 'ぐ', phraseBreakBefore: false },
+        { tokenId: '0', roleClass: 'role-x', greek: 'γρ', dpGrammarClasses: 'dp-x', gloss: 'ぐ', phraseBreakBefore: false },
         over || {});
 }
 
 if (wordOrderRendererSrc) {
-    const R = (new Function(wordOrderRendererSrc + '\n; return WordOrderRenderer;'))();
+    /* _escH は shared-ui.js のグローバルヘルパー（ブラウザでは読込順で先行する）。実コードを併せて抽出する。#199 */
+    const escHSrc = extractFunctionSource(sharedUiSrc, 'function _escH(s) {');
+    const R = (new Function((escHSrc || '') + '\n' + wordOrderRendererSrc + '\n; return WordOrderRenderer;'))();
 
     /* ── renderBodyColumn（本文左列 = jp-section / stopPropagation / anchor は option 駆動） ── */
-    const repRom = mkRep('ROM', 1, '1', [ mkChip({ tokenId: 'a' }), mkChip({ tokenId: 'b', phraseBreakBefore: true }) ]);
+    const repRom = mkRep('ROM', 1, '1', [ mkChip({ tokenId: '1' }), mkChip({ tokenId: '2', phraseBreakBefore: true }) ]);
     const body = R.renderBodyColumn(repRom);
     check('BodyColumn: jp-section ラッパを持つ', /class="jp-section"/.test(body));
     check('BodyColumn: wlv-flow-stream を持つ', /wlv-flow-stream/.test(body));
     check('BodyColumn: v-num に verse 番号', /<span class="v-num">1<\/span>/.test(body));
     check('BodyColumn: chip 数 = chips.length', countOcc(body, 'class="wlv-chip ') === 2);
-    check('BodyColumn: chip に data-token-id 転写', body.includes('data-token-id="a"') && body.includes('data-token-id="b"'));
+    check('BodyColumn: chip に data-token-id 転写', body.includes('data-token-id="1"') && body.includes('data-token-id="2"'));
     check('BodyColumn: chip gloss / dpGrammarClasses 転写', /class="dp-x">ぐ<\/span>/.test(body));
     check('BodyColumn: chip に stopPropagation あり', /onclick="event\.stopPropagation\(\);_wlvChipClick/.test(body));
     check('BodyColumn: phraseBreakBefore で wlv-phrase-sep 挿入（1個）', countOcc(body, 'wlv-phrase-sep') === 1);
@@ -346,7 +354,7 @@ if (wordOrderRendererSrc) {
     const flow = R.renderGreekFlowView(repRom);
     check('FlowView: chip 数 = chips.length', countOcc(flow, 'class="wlv-chip ') === 2);
     check('FlowView: v-num に verse 番号', /<span class="v-num">1<\/span>/.test(flow));
-    check('FlowView: chip に data-token-id 転写', flow.includes('data-token-id="a"'));
+    check('FlowView: chip に data-token-id 転写', flow.includes('data-token-id="1"'));
     check('FlowView: chip gloss / dpGrammarClasses 転写', /class="dp-x">ぐ<\/span>/.test(flow));
     check('FlowView: chip に stopPropagation なし', !/stopPropagation/.test(flow) && /onclick="_wlvChipClick/.test(flow));
     check('FlowView: anchor を付与しない', !/data-onboarding-anchor/.test(flow));
@@ -374,12 +382,12 @@ if (wordOrderRendererSrc) {
        class/attribute/event/data の変化は残す（byte 契約はそれらに不寛容）。 */
     const norm = s => s.replace(/\s+/g, ' ').replace(/>\s+</g, '><').replace(/\s+>/g, '>').trim();
     const snapRep = mkRep('ROM', 1, '1', [
-        mkChip({ tokenId: 'a', roleClass: 'role-x', greek: 'γ1', dpGrammarClasses: 'dp-x', gloss: 'ぐ1' }),
-        mkChip({ tokenId: 'b', roleClass: 'role-y', greek: 'γ2', dpGrammarClasses: 'dp-y', gloss: 'ぐ2', phraseBreakBefore: true }),
+        mkChip({ tokenId: '1', roleClass: 'role-x', greek: 'γ1', dpGrammarClasses: 'dp-x', gloss: 'ぐ1' }),
+        mkChip({ tokenId: '2', roleClass: 'role-y', greek: 'γ2', dpGrammarClasses: 'dp-y', gloss: 'ぐ2', phraseBreakBefore: true }),
     ]);
-    const GOLDEN_BODY_OFF = `<div class="jp-section"><span class="v-num">1</span><div class="jp-text" style="font-size: var(--text-body-lg);line-height:2.4;"><div class="wlv-flow-stream" style="flex-wrap:wrap;display:flex;gap:var(--rhythm-micro);align-items:baseline;"><span class="wlv-chip role-x" data-token-id="a" onclick="event.stopPropagation();_wlvChipClick(this,'a')" title="γ1"><span class="wlv-chip-ja"><span class="dp-x">ぐ1</span></span></span><span class="wlv-phrase-sep"></span><span class="wlv-chip role-y" data-token-id="b" onclick="event.stopPropagation();_wlvChipClick(this,'b')" title="γ2"><span class="wlv-chip-ja"><span class="dp-y">ぐ2</span></span></span></div></div></div>`;
-    const GOLDEN_BODY_ON = `<div class="jp-section"><span class="v-num">1</span><div class="jp-text" style="font-size: var(--text-body-lg);line-height:2.4;"><div class="wlv-flow-stream" style="flex-wrap:wrap;display:flex;gap:var(--rhythm-micro);align-items:baseline;"><span class="wlv-chip role-x" data-token-id="a" data-onboarding-anchor="true" data-greek="γ1" onclick="event.stopPropagation();_wlvChipClick(this,'a')" title="γ1"><span class="wlv-chip-ja"><span class="dp-x">ぐ1</span></span></span><span class="wlv-phrase-sep"></span><span class="wlv-chip role-y" data-token-id="b" onclick="event.stopPropagation();_wlvChipClick(this,'b')" title="γ2"><span class="wlv-chip-ja"><span class="dp-y">ぐ2</span></span></span></div></div></div>`;
-    const GOLDEN_FLOW = `<div style="display:flex;align-items:baseline;gap: var(--space-sm);padding: var(--space-xs) 0;"><span class="v-num">1</span><div style="flex:1;font-size: var(--text-body);line-height:2.4;display:flex;flex-wrap:wrap;gap: var(--space-xs) var(--space-xs);align-items:baseline;"><span class="wlv-chip role-x" data-token-id="a" onclick="_wlvChipClick(this,'a')" title="γ1"><span class="wlv-chip-ja"><span class="dp-x">ぐ1</span></span></span><span class="wlv-phrase-sep"></span><span class="wlv-chip role-y" data-token-id="b" onclick="_wlvChipClick(this,'b')" title="γ2"><span class="wlv-chip-ja"><span class="dp-y">ぐ2</span></span></span></div></div>`;
+    const GOLDEN_BODY_OFF = `<div class="jp-section"><span class="v-num">1</span><div class="jp-text" style="font-size: var(--text-body-lg);line-height:2.4;"><div class="wlv-flow-stream" style="flex-wrap:wrap;display:flex;gap:var(--rhythm-micro);align-items:baseline;"><span class="wlv-chip role-x" data-token-id="1" onclick="event.stopPropagation();_wlvChipClick(this,'1')" title="γ1"><span class="wlv-chip-ja"><span class="dp-x">ぐ1</span></span></span><span class="wlv-phrase-sep"></span><span class="wlv-chip role-y" data-token-id="2" onclick="event.stopPropagation();_wlvChipClick(this,'2')" title="γ2"><span class="wlv-chip-ja"><span class="dp-y">ぐ2</span></span></span></div></div></div>`;
+    const GOLDEN_BODY_ON = `<div class="jp-section"><span class="v-num">1</span><div class="jp-text" style="font-size: var(--text-body-lg);line-height:2.4;"><div class="wlv-flow-stream" style="flex-wrap:wrap;display:flex;gap:var(--rhythm-micro);align-items:baseline;"><span class="wlv-chip role-x" data-token-id="1" data-onboarding-anchor="true" data-greek="γ1" onclick="event.stopPropagation();_wlvChipClick(this,'1')" title="γ1"><span class="wlv-chip-ja"><span class="dp-x">ぐ1</span></span></span><span class="wlv-phrase-sep"></span><span class="wlv-chip role-y" data-token-id="2" onclick="event.stopPropagation();_wlvChipClick(this,'2')" title="γ2"><span class="wlv-chip-ja"><span class="dp-y">ぐ2</span></span></span></div></div></div>`;
+    const GOLDEN_FLOW = `<div style="display:flex;align-items:baseline;gap: var(--space-sm);padding: var(--space-xs) 0;"><span class="v-num">1</span><div style="flex:1;font-size: var(--text-body);line-height:2.4;display:flex;flex-wrap:wrap;gap: var(--space-xs) var(--space-xs);align-items:baseline;"><span class="wlv-chip role-x" data-token-id="1" onclick="_wlvChipClick(this,'1')" title="γ1"><span class="wlv-chip-ja"><span class="dp-x">ぐ1</span></span></span><span class="wlv-phrase-sep"></span><span class="wlv-chip role-y" data-token-id="2" onclick="_wlvChipClick(this,'2')" title="γ2"><span class="wlv-chip-ja"><span class="dp-y">ぐ2</span></span></span></div></div>`;
 
     check('byte: renderBodyColumn(anchor off) が現行 HTML と一致（whitespace 正規化後）',
         norm(R.renderBodyColumn(snapRep)) === GOLDEN_BODY_OFF);
@@ -392,6 +400,11 @@ if (wordOrderRendererSrc) {
     check('byte: mutation 感度（属性1文字変更を golden が検知）',
         norm(R.renderBodyColumn(snapRep)).replace('role-x', 'role-Z') !== GOLDEN_BODY_OFF
         && norm(R.renderBodyColumn(snapRep)) === GOLDEN_BODY_OFF);
+    /* tokenId の数値サニタイズ（onclick への転写を数値に限定する安全側の現行仕様）を固定する。#199 */
+    const nonNumericRep = mkRep('ROM', 1, '1', [ mkChip({ tokenId: 'x' }) ]);
+    check('invariant: 非数値 tokenId は data-token-id / onclick に転写されない（数値サニタイズ）',
+        /data-token-id=""/.test(R.renderBodyColumn(nonNumericRep))
+        && !/_wlvChipClick\(this,'x'\)/.test(R.renderBodyColumn(nonNumericRep)));
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -971,22 +984,23 @@ check('invariant(2A-5): _alObserver は _chapterObserver とは別変数',
             /if\s*\(\s*!targetTokenId\s*\)\s*return\s*null/.test(resolveTokenSrc));
     }
 
-    /* C-5: _resolveReferentEvidenceText が _resolveTokenJaById を呼ぶ（インライン検索ループを持たない） */
+    /* C-5: _resolveReferentEvidenceText が共通リゾルバを呼ぶ（インライン検索ループを持たない）。
+       委譲先は i18n 対応で _resolveTokenLabelById に移行（JA では _resolveTokenJaById へ委譲）。#199 */
     const refEvidSrc = extractFunctionSource(html, 'function _resolveReferentEvidenceText(') || extractFunctionSource(readingSupportSrc, 'function _resolveReferentEvidenceText(');
     check('extract(2B-2): _resolveReferentEvidenceText() ソース抽出に成功', !!refEvidSrc);
     if (refEvidSrc) {
-        check('2B-2(C-5): _resolveReferentEvidenceText は _resolveTokenJaById を呼ぶ',
-            /_resolveTokenJaById\s*\(/.test(refEvidSrc));
+        check('2B-2(C-5): _resolveReferentEvidenceText は _resolveTokenLabelById を呼ぶ',
+            /_resolveTokenLabelById\s*\(/.test(refEvidSrc));
         check('2B-2(C-5): _resolveReferentEvidenceText は for..in ループを自前で持たない（委譲済み）',
             !/for\s*\(\s*const\s+\w+\s+in\s+_cachedElByVerse/.test(refEvidSrc));
     }
 
-    /* C-6: _resolveSubjrefEvidenceText が _resolveTokenJaById を呼ぶ */
+    /* C-6: _resolveSubjrefEvidenceText が共通リゾルバ（_resolveTokenLabelById）を呼ぶ。#199 で委譲先を追随 */
     const subjEvidSrc = extractFunctionSource(html, 'function _resolveSubjrefEvidenceText(') || extractFunctionSource(readingSupportSrc, 'function _resolveSubjrefEvidenceText(');
     check('extract(2B-2): _resolveSubjrefEvidenceText() ソース抽出に成功', !!subjEvidSrc);
     if (subjEvidSrc) {
-        check('2B-2(C-6): _resolveSubjrefEvidenceText は _resolveTokenJaById を呼ぶ',
-            /_resolveTokenJaById\s*\(/.test(subjEvidSrc));
+        check('2B-2(C-6): _resolveSubjrefEvidenceText は _resolveTokenLabelById を呼ぶ',
+            /_resolveTokenLabelById\s*\(/.test(subjEvidSrc));
         check('2B-2(C-6): _resolveSubjrefEvidenceText は for..in ループを自前で持たない（委譲済み）',
             !/for\s*\(\s*const\s+\w+\s+in\s+_cachedElByVerse/.test(subjEvidSrc));
     }
@@ -1064,7 +1078,7 @@ check('invariant(2A-5): _alObserver は _chapterObserver とは別変数',
 
 /* ── Source invariant ── */
 check('invariant(3-3): toBrowsing() が selectedVerse に ch フィールドを保存する',
-    /this\.selectedVerse\s*=\s*\{[^}]*ch\s*:/.test(html));
+    /this\.selectedVerse\s*=\s*\{[^}]*ch\s*:/.test(html + '\n' + appStateSrc));
 
 check('invariant(3-3): toBrowsing() の ch は null-safe（ch != null ? ch : null）',
     /ch\s*!=\s*null\s*\?\s*ch\s*:\s*null/.test(html + '\n' + colRendSrc + '\n' + wordRendSrc));
@@ -1085,10 +1099,10 @@ check('invariant(3-3): applyShareState() が _findVerseInChapter() を呼ぶ',
     /_findVerseInChapter\s*\(/.test(html + '\n' + mobileVerseViewSrc));
 
 check('invariant(3-3): applyShareState() が _findVisibleVerseBlock へフォールバックする（book/chapter なし呼び出し保護）',
-    /_findVerseInChapter\s*\([^)]+\)\s*\|\|\s*_findVisibleVerseBlock\s*\(/.test(html));
+    /_findVerseInChapter\s*\([^)]+\)\s*\|\|\s*_findVisibleVerseBlock\s*\(/.test(html + '\n' + routerSrc));
 
 check('invariant(3-3): applyShareState() は state.book && state.chapter を確認してから章スコープ検索する',
-    /state\.book\s*&&\s*state\.chapter\s*!=\s*null/.test(html));
+    /state\.book\s*&&\s*state\.chapter\s*!=\s*null/.test(html + '\n' + routerSrc));
 
 /* ── Behavioral: getShareState() ── */
 {
@@ -1256,7 +1270,7 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
     /* toReading() が selectedVerse を { vNum: null, elWords: [] } に初期化することを確認する。
        toBrowsing() が ch を追加したとき、toReading() がそれをクリアすること（新しいオブジェクト作成）。 */
     check('invariant(3-3): toReading() が selectedVerse を { vNum: null, elWords: [] } にリセットする',
-        /toReading\s*\(\s*\)\s*\{[\s\S]{0,200}selectedVerse\s*=\s*\{\s*vNum\s*:\s*null\s*,\s*elWords\s*:\s*\[\s*\]/.test(html));
+        /toReading\s*\(\s*\)\s*\{[\s\S]{0,200}selectedVerse\s*=\s*\{\s*vNum\s*:\s*null\s*,\s*elWords\s*:\s*\[\s*\]/.test(html + '\n' + appStateSrc));
 }
 
 /* ═══════════════════════ Phase 3-6: WO Continuous Chapter ═══════════════════════ */
@@ -1371,7 +1385,7 @@ check('invariant(3-3): applyShareState() は state.book && state.chapter を確�
 /* ── B-2: _elTokenVerse + _buildFlowJpData 動作 ── */
 {
     const elvSrc  = extractFunctionSource(html, 'function _elTokenVerse(w) {') || extractFunctionSource(panelPagesSrc, 'function _elTokenVerse(w) {');
-    const bfjdSrc = extractFunctionSource(html, 'function _buildFlowJpData(elData) {') || extractFunctionSource(colRendSrc, 'function _buildFlowJpData(elData) {');
+    const bfjdSrc = extractFunctionSource(html, 'function _buildFlowJpData(elData') || extractFunctionSource(colRendSrc, 'function _buildFlowJpData(elData');
     check('extract(3-6): _elTokenVerse ソース抽出に成功', !!elvSrc);
     check('extract(3-6): _buildFlowJpData ソース抽出に成功', !!bfjdSrc);
 
@@ -1531,7 +1545,7 @@ check('invariant(3-6): WordOrderRenderer.renderBodyColumn が .v-num を出力�
 
 /* ── G-3: toBrowsing が ch を selectedVerse.ch へ設定する ── */
 {
-    const tbSrc = extractFunctionSource(html, 'toBrowsing(vNum, elWords, book, ch) {');
+    const tbSrc = extractFunctionSource(html, 'toBrowsing(vNum, elWords, book, ch) {') || extractFunctionSource(appStateSrc, 'toBrowsing(vNum, elWords, book, ch) {');
     check('invariant(3-6-G-7): toBrowsing が selectedVerse.ch を ch から設定する',
         tbSrc ? /this\.selectedVerse\s*=\s*\{[^}]*ch:\s*ch\s*!=\s*null\s*\?\s*ch\s*:\s*null/.test(tbSrc) : false);
 }
@@ -1742,7 +1756,7 @@ check('N/A(3-6-J-18..19): _loadNoteUI は存在しない（旧経路の復活を
 
 /* ── J-6: toBrowsing() が selectedVerse.ch を設定する（J修正の前提） ── */
 {
-    const tbSrc2 = extractFunctionSource(html, 'toBrowsing(vNum, elWords, book, ch) {');
+    const tbSrc2 = extractFunctionSource(html, 'toBrowsing(vNum, elWords, book, ch) {') || extractFunctionSource(appStateSrc, 'toBrowsing(vNum, elWords, book, ch) {');
     check('invariant(3-6-J-20): toBrowsing が selectedVerse.ch を ch から設定する',
         tbSrc2 ? /this\.selectedVerse\s*=\s*\{[^}]*ch:\s*ch\s*!=\s*null\s*\?\s*ch\s*:\s*null/.test(tbSrc2) : false);
 }
