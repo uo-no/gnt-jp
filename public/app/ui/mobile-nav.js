@@ -268,9 +268,16 @@ function _mbpUpdateBar() {
     }
 }
 
-/* 書物列（現行 Layer 2 と同じ SB_BOOKS の一覧。区分見出しは出さない）。
-   列幅が狭いので名前は既存の略称表 BOOK_SHORT（UI 言語では bookshort.*）を使い、略称の無い書は正式名のまま。
-   タイトル欄（_mbpUpdateBar）は正式名のまま。 */
+/* 書物列の表示名：列幅が狭いので全言語で略称にする。
+   JA は既存の略称表 BOOK_SHORT、他言語は i18n の bookshort.*。略称の無い書は、その言語の正式名のまま
+   （他言語で bookshort.* が欠けていても日本語の略称へは落とさない）。タイトル欄（_mbpUpdateBar）は正式名のまま。 */
+function _mbpBookColName(key) {
+    const isJa = !(window.I18N && window.I18N.lang !== 'ja');
+    const short = isJa ? BOOK_SHORT[key] : _T('bookshort.' + key, null);
+    return short || _bookFullName(key);
+}
+
+/* 書物列（現行 Layer 2 と同じ SB_BOOKS の一覧。区分見出しは出さない） */
 function _mbpRenderBooks() {
     const col = document.getElementById('mbp-col-book');
     if (!col) return;
@@ -281,7 +288,7 @@ function _mbpRenderBooks() {
         html += '<button type="button" class="mbp-item mbp-item-book' + (cur ? ' current' : '') + '"' +
             (cur ? ' aria-current="true"' : '') +
             ' onclick="_mbpSelectBook(\'' + b.key + '\',' + b.ch + ')">' +
-            _escH(BOOK_SHORT[b.key] ? _bookShortName(b.key) : _bookFullName(b.key)) + '</button>';
+            _escH(_mbpBookColName(b.key)) + '</button>';
     }
     col.innerHTML = html;
 }
