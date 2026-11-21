@@ -45,5 +45,5 @@ Claude Artifact基盤がそれを表示・生成するための内部機構で�
 - リポジトリ内のどのパスに置くか（例：リポジトリ直下 `design-system/`、または
   `docs/design-system/` など）は今回指定がなかったため、このエクスポートでは決めていません。
   実際にcommit・pushする際にご指定ください。
-- `uo-no/gnt-jp` の実装コード（`index.html`、`components.css` 等）はこのエクスポートには
+- `uo-no/moreskosh` の実装コード（`index.html`、`components.css` 等）はこのエクスポートには
   含まれておらず、参照もしていません。Design Systemの文書・トークン・コンポーネント仕様のみです。

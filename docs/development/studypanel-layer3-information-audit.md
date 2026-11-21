@@ -169,10 +169,10 @@ Layer 3 の詳細表示を実装・再確認する際は、各情報を次のい
 
 ## 11. 代表語のブラウザ検証結果（PR #241）
 
-- CI: [VR-5 Regression Gate #1099](https://github.com/uo-no/gnt-jp/actions/runs/39890439176) — **success**。
+- CI: [VR-5 Regression Gate #1099](https://github.com/uo-no/moreskosh/actions/runs/39890439176) — **success**。
 - Desktop 1280×900: Abbott-Smith 辞書全文が表示された。Usage Trends、LN由来の意味グループ、Research Links は表示されなかった。Morphology 区画は `SECTION`、表示あり、`<details>` 内ではない。
 - Mobile 390×844: Abbott-Smith 辞書全文が表示された。Usage Trends、LN由来の意味グループ、Research Links は表示されなかった。Morphology 区画は `SECTION`、表示あり、`<details>` 内ではない。
-- スクリーンショット artifact: [Layer 3 audit screenshots](https://github.com/uo-no/gnt-jp/actions/runs/39890439176/artifacts/12474870996)。
+- スクリーンショット artifact: [Layer 3 audit screenshots](https://github.com/uo-no/moreskosh/actions/runs/39890439176/artifacts/12474870996)。
 - 既存の evidence-note browser regression も同じ CI run で Desktop / Mobile とも PASS。
 
 この結果は代表語1語に対する UI 検証であり、全 lemma・全データ状態の辞書表示や、スクロール・URL復元などの全操作を保証するものではない。
@@ -181,7 +181,7 @@ Layer 3 の詳細表示を実装・再確認する際は、各情報を次のい
 ## 12. PR #257 マージ後の再確認（2026-10-23・当時の記録）
 
 - main: `7486f8dbd5487ac77614d4ea497d8a7d0dc4c021`。PR #257 の `Cloudflare Pages`、`check-old-paths`、`vr5-gate` はすべて success。
-- 追加の VR-5 artifact: [StudyPanel Layer 3 audit screenshots](https://github.com/uo-no/gnt-jp/actions/runs/39907610463/artifacts/12482060031)。
+- 追加の VR-5 artifact: [StudyPanel Layer 3 audit screenshots](https://github.com/uo-no/moreskosh/actions/runs/39907610463/artifacts/12482060031)。
 - Mobile 390×844 の JHN 3:16 スクリーンショットでは、統合済みの「単語を詳しく調べる」の内側に、さらに「候補の違いを比べる」の disclosure が残っている。第3層の内部に開閉をネストしないという本書 §1 / §3 の設計契約とは不一致。
 - このスクリーンショットは JHN 3:16 の表示状態を示すもので、全単語で候補比較が存在することまでは保証しない。この時点で残っていた入れ子 disclosure は、後続の PR #259 で修正した。
 

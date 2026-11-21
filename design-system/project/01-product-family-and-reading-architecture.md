@@ -119,7 +119,7 @@ Reading Position（スクロール中の実際の読書点）
 
 ## 6. 既存実装からの示唆（要約）
 
-実機（bible-text.pages.dev）で確認した構造をこのDesign Systemの前提として採用した：
+実機（moreskosh.pages.dev）で確認した構造をこのDesign Systemの前提として採用した：
 
 - 左ナビゲーションは Translation選択 → 旧約聖書／新約聖書 → ツール → 検索 → ハイライト／メモ → 履歴（最近読んだ箇所／最近見た単語）という階層をすでに持つ。これはNavigation Architecture（`02`）の骨格として温存する。
 - 「読み方を選ぶ」モーダルには単一表示／比較表示のセグメントが既に存在し、比較表示では「左列／右列」という発想もすでにある。ただし左右列の中身が「Translationと View Modeの同じフラットリスト」であり、Translation A / Bという明確な対概念になっていない。

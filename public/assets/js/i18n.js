@@ -35,7 +35,7 @@
     /* Path-prefix language links (user decision, 2026-11-05):
        /ja/... and /en/... choose the UI language and remember it,
        so a link can be sent in a specific language, e.g.
-       bible-text.pages.dev/en/ROM/1/WO. The prefix is stripped via
+       moreskosh.pages.dev/en/ROM/1/WO. The prefix is stripped via
        replaceState before the app router reads the path, so the
        router only ever sees its usual /BOOK/CH/... paths. A prefix
        link wins over the stored preference. */
