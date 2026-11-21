@@ -105,7 +105,7 @@ function _fabClose() {
 
 function _fabToggle() { _fabIsOpen ? _fabClose() : _fabOpen(); }
 
-function _fabTapBible()  { _fabClose(); _openMobileBookPicker(); _mbpLayer = 2; _mbpRenderLayer(2); }
+function _fabTapBible()  { _fabClose(); _openMobileBookPicker(); }
 function _fabTapMode()   { _fabClose(); _openMobileModePicker(); }
 function _fabTapSearch() { _fabClose(); window.location.href = '/search'; }
 
@@ -139,18 +139,35 @@ function _moreMenuToggle() { _moreMenuIsOpen ? _moreMenuClose() : _moreMenuOpen(
 
 /* ══════════════════════════════════════════════════════════════
    MN: Mobile Book Picker
+   #209：書物｜章｜節の3列を同時に表示する（段階式の Layer 2→3 を置き換え）。
+     書タップ＝選択のみ（章列・節列を更新）／章タップ＝選択のみ（節列を更新）／
+     節タップ＝その節へ遷移して閉じる（共有 URL の verse 復元と同じ経路）。
+     下部の「○章を開く」＝選択中の章へ節なしで遷移（従来の _mbpSelectChapter → _navTo 経路）。
+   節列は章の選択時に bible_data（リーダーが読むのと同じ章 JSON）を1回だけ取得して列挙する。
+   取得できない／節を列挙できない章（LXX の一部など）は節列を空にし、「章を開く」での遷移は妨げない。
    ══════════════════════════════════════════════════════════════ */
 
-let _mbpLayer          = 2;    /* 2:Book / 3:Chapter（1:Testament は緑版では経由しない。旧約版用に描画コードは残置） */
-let _mbpSection        = 'nt'; /* 'nt' | 'ot' */
+let _mbpSection        = 'nt'; /* 'nt' | 'ot'（書物列に出す区分。現在地から引き継ぐ） */
 let _mbpBookKey        = '';
-let _mbpBookName       = '';
 let _mbpBookMaxCh      = 0;
+let _mbpCh             = 0;    /* 選択中の章（0 = 未選択） */
+let _mbpVerse          = null; /* 選択状態で示す節（開いた時点の本文の節位置。章を変えたら外す） */
+let _mbpVerseReq       = 0;    /* 節列の取得の世代番号（素早く章を切り替えたとき古い結果を捨てる） */
 let _mbpHistoryActive  = false;
 let _mbpIgnoreNextPop  = false;
 
+/* 章ごとの節番号リスト（成功した取得だけを保持。失敗は固定しない） */
+const _mbpVerseCache = new Map();
+
 function _openMobileBookPicker() {
     if (window.innerWidth > 900) return; /* Desktop では無効 */
+
+    /* 本文で選択中の節（あれば）。closeStudyPanel() が選択状態を戻す前に読んでおく */
+    const loc = AppState.location;
+    const sv  = AppState.selectedVerse;
+    const curVerse = (sv && sv.vNum != null && loc && loc.chapter != null &&
+                      (sv.ch == null || Number(sv.ch) === Number(loc.chapter)))
+        ? String(sv.vNum) : null;
 
     /* 競合する UI を閉じる */
     _fabClose();
@@ -166,18 +183,17 @@ function _openMobileBookPicker() {
     picker.classList.add('mbp-open');
     picker.setAttribute('aria-hidden', 'false');
 
-    /* 現在地を反映した初期 layer から表示 */
-    const loc = AppState.location;
+    /* 現在地（書・章・節）を3列の初期選択にする（従来の位置引き継ぎを再現） */
     if (loc && loc.book) {
         _mbpSection   = loc.testament || 'nt';
         _mbpBookKey   = loc.book.key;
-        _mbpBookName  = _bookFullName(loc.book.key);
         _mbpBookMaxCh = loc.book.ch || 0;
-        _mbpLayer = 3; /* 現在 chapter 選択画面から開始 */
+        _mbpCh        = loc.chapter || 0;
+        _mbpVerse     = curVerse;
     } else {
-        _mbpLayer = 2; /* 書物未選択時は Testament を挟まず書物一覧から */
+        _mbpBookKey = ''; _mbpBookMaxCh = 0; _mbpCh = 0; _mbpVerse = null;
     }
-    _mbpRenderLayer(_mbpLayer);
+    _mbpRenderAll();
 
     /* Android back でこの picker を閉じるための履歴エントリ */
     _mbpPushHistory();
@@ -196,7 +212,6 @@ function _closeMobileBookPickerDOM() {
     picker.classList.remove('mbp-open');
     picker.setAttribute('aria-hidden', 'true');
     document.getElementById('app')?.classList.remove('mobile-picker-open');
-    _mbpLayer = 2;
 }
 
 /* UI ボタン（×・overlay）からの close。履歴エントリも戻す（MVV パターンと同様）。 */
@@ -209,72 +224,195 @@ function _closeMobileBookPicker() {
     }
 }
 
-/* ‹ 戻るボタン: layer を 1 段戻る */
-function _mbpBack() {
-    if (_mbpLayer <= 2) { _closeMobileBookPicker(); return; }
-    _mbpLayer--;
-    _mbpRenderLayer(_mbpLayer);
+/* 3列すべてを描画し、各列の選択行を見える位置へ寄せる（開いた時点） */
+function _mbpRenderAll() {
+    _mbpRenderBooks();
+    _mbpRenderChapters();
+    _mbpRenderVerses();
+    _mbpUpdateBar();
+    requestAnimationFrame(() => {
+        _mbpRevealSelected('mbp-col-book');
+        _mbpRevealSelected('mbp-col-ch');
+        _mbpRevealSelected('mbp-col-verse');
+    });
 }
 
-/* Layer 描画 */
-function _mbpRenderLayer(layer) {
-    _mbpLayer = layer;
-    const content = document.getElementById('mobile-book-picker-content');
-    const titleEl  = document.getElementById('mobile-book-picker-title');
-    const backBtn  = document.getElementById('mobile-book-picker-back');
-    if (!content || !titleEl || !backBtn) return;
-
-    backBtn.style.display = (layer > 2) ? '' : 'none';
-
-    if (layer === 1) {
-        /* Layer 1: NT / OT 選択 */
-        titleEl.textContent = _T('picker.bookTitle', '書物を選ぶ');
-        content.innerHTML =
-            '<div class="mbp-section-label">Testament</div>' +
-            '<div class="mbp-row" onclick="_mbpSelectTestament(\'nt\')">' +
-                '<span>' + _T('ui.newTestament', '新約聖書') + '</span><span class="mbp-row-chevron">›</span></div>';
-    } else if (layer === 2) {
-        /* Layer 2: Book 一覧（ピッカーの起点。タイトルは「書物を選ぶ」。
-           区分見出し（新約聖書）は出さない：判別に使えないラベルは引く） */
-        titleEl.textContent = _T('picker.bookTitle', '書物を選ぶ');
-        const books = (SB_BOOKS[_mbpSection] || []);
-        const curKey = AppState.location.book ? AppState.location.book.key : '';
-        let html = '';
-        for (const b of books) {
-            const isCur = (b.key === curKey) ? ' style="font-weight:700;"' : '';
-            html +=
-                '<div class="mbp-row" onclick="_mbpSelectBook(\'' + b.key + '\',\'' +
-                _escH(_bookFullName(b.key)) + '\',' + b.ch + ')"' + isCur + '>' +
-                '<span>' + _escH(_bookFullName(b.key)) + '</span>' +
-                '<span class="mbp-row-chevron">›</span></div>';
-        }
-        content.innerHTML = html;
-    } else if (layer === 3) {
-        /* Layer 3: Chapter グリッド */
-        titleEl.textContent = _mbpBookName || _mbpBookKey;
-        const curCh = (AppState.location.book && AppState.location.book.key === _mbpBookKey)
-            ? AppState.location.chapter : null;
-        let html = '<div class="mbp-ch-grid">';
-        for (let c = 1; c <= _mbpBookMaxCh; c++) {
-            const cur = (c === curCh) ? ' current' : '';
-            html += '<button class="mbp-ch-btn' + cur + '" onclick="_mbpSelectChapter(' + c + ')">' + c + '</button>';
-        }
-        html += '</div>';
-        content.innerHTML = html;
+/* 列の中で選択行が見えるようにスクロールする（列だけを動かし、ページは動かさない） */
+function _mbpRevealSelected(colId) {
+    const col = document.getElementById(colId);
+    if (!col) return;
+    const sel = col.querySelector('.mbp-item.current');
+    if (!sel) { col.scrollTop = 0; return; }
+    const top = sel.offsetTop - col.offsetTop;
+    if (top < col.scrollTop || top + sel.offsetHeight > col.scrollTop + col.clientHeight) {
+        col.scrollTop = Math.max(0, top - (col.clientHeight - sel.offsetHeight) / 2);
     }
 }
 
-
-function _mbpSelectTestament(section) {
-    _mbpSection = section;
-    _mbpRenderLayer(2);
+/* バー：タイトルは選択中の「書名＋章」。下部の「○章を開く」もここで更新する */
+function _mbpUpdateBar() {
+    const titleEl = document.getElementById('mobile-book-picker-title');
+    const openBtn = document.getElementById('mbp-open-chapter');
+    const isJa = !(window.I18N && window.I18N.lang !== 'ja');
+    if (titleEl) {
+        if (!_mbpBookKey) {
+            titleEl.textContent = _T('picker.bookTitle', '書物を選ぶ');
+        } else {
+            const name = _bookFullName(_mbpBookKey);
+            titleEl.textContent = _mbpCh ? (isJa ? `${name} ${_mbpCh}章` : `${name} ${_mbpCh}`) : name;
+        }
+    }
+    if (openBtn) {
+        openBtn.hidden = !(_mbpBookKey && _mbpCh);
+        openBtn.textContent = _T('picker.openChapter', '{n}章を開く').replace('{n}', _mbpCh);
+    }
 }
 
-function _mbpSelectBook(key, name, maxCh) {
+/* 書物列（現行 Layer 2 と同じ SB_BOOKS の一覧。区分見出しは出さない） */
+function _mbpRenderBooks() {
+    const col = document.getElementById('mbp-col-book');
+    if (!col) return;
+    const books = (SB_BOOKS[_mbpSection] || []);
+    let html = '';
+    for (const b of books) {
+        const cur = (b.key === _mbpBookKey);
+        html += '<button type="button" class="mbp-item mbp-item-book' + (cur ? ' current' : '') + '"' +
+            (cur ? ' aria-current="true"' : '') +
+            ' onclick="_mbpSelectBook(\'' + b.key + '\',' + b.ch + ')">' +
+            _escH(_bookFullName(b.key)) + '</button>';
+    }
+    col.innerHTML = html;
+}
+
+/* 章列（選択中の書物の章番号を縦に並べる） */
+function _mbpRenderChapters() {
+    const col = document.getElementById('mbp-col-ch');
+    if (!col) return;
+    let html = '';
+    for (let c = 1; c <= _mbpBookMaxCh; c++) {
+        const cur = (c === _mbpCh);
+        html += '<button type="button" class="mbp-item mbp-item-num' + (cur ? ' current' : '') + '"' +
+            (cur ? ' aria-current="true"' : '') +
+            ' onclick="_mbpPickChapter(' + c + ')">' + c + '</button>';
+    }
+    col.innerHTML = html;
+}
+
+/* 節列（選択中の章の節番号。取得は章ごとに1回。失敗・列挙不能なら空のまま） */
+function _mbpRenderVerses() {
+    const col = document.getElementById('mbp-col-verse');
+    if (!col) return;
+    col.innerHTML = '';
+    if (!_mbpBookKey || !_mbpCh) return;
+
+    const key = _mbpBookKey + '/' + _mbpCh;
+    const draw = (verses) => {
+        let html = '';
+        for (const v of verses) {
+            const cur = (_mbpVerse != null && v === _mbpVerse);
+            html += '<button type="button" class="mbp-item mbp-item-num' + (cur ? ' current' : '') + '"' +
+                (cur ? ' aria-current="true"' : '') +
+                ' onclick="_mbpSelectVerse(\'' + v + '\')">' + v + '</button>';
+        }
+        col.innerHTML = html;
+    };
+
+    if (_mbpVerseCache.has(key)) { draw(_mbpVerseCache.get(key)); return; }
+
+    const req = ++_mbpVerseReq;
+    _mbpFetchVerses(_mbpBookKey, _mbpCh).then(verses => {
+        if (req !== _mbpVerseReq) return;                 /* より新しい章の選択がある */
+        if (key !== _mbpBookKey + '/' + _mbpCh) return;
+        if (!verses || verses.length === 0) return;       /* 節列は空のまま（章を開くは使える） */
+        draw(verses);
+        requestAnimationFrame(() => _mbpRevealSelected('mbp-col-verse'));
+    });
+}
+
+/* 章 JSON（bible_data）から節番号を出現順に列挙する。
+   NT トークンは w.verse、LXX トークンは w.ref から取る（_elTokenVerse と同じ規則）。
+   共有 URL の節として扱える数字の節だけを残す。失敗時は null（キャッシュしない）。 */
+async function _mbpFetchVerses(book, ch) {
+    const testament = SB_BOOKS.nt.some(b => b.key === book) ? 'nt' : 'lxx';
+    try {
+        const res = await fetch(`../bible_data/${testament}/${book}/${ch}.json`);
+        if (!res.ok) return null;
+        const tokens = await res.json();
+        if (!Array.isArray(tokens)) return null;
+        const seen = new Set();
+        const verses = [];
+        for (const w of tokens) {
+            const v = _elTokenVerse(w);
+            if (v == null || !/^\d+$/.test(v) || seen.has(v)) continue;
+            seen.add(v);
+            verses.push(v);
+        }
+        _mbpVerseCache.set(book + '/' + ch, verses);
+        return verses;
+    } catch (_) {
+        return null;
+    }
+}
+
+/* 書タップ＝選択のみ（章列・節列を更新。シートは閉じない）。
+   開いている書と同じ書に戻したときは、現在の章を選択状態に戻す。 */
+function _mbpSelectBook(key, maxCh) {
     _mbpBookKey   = key;
-    _mbpBookName  = name;
     _mbpBookMaxCh = maxCh;
-    _mbpRenderLayer(3);
+    const loc = AppState.location;
+    _mbpCh    = (loc && loc.book && loc.book.key === key && loc.chapter) ? loc.chapter : 1;
+    _mbpVerse = null;
+    _mbpRenderBooks();
+    _mbpRenderChapters();
+    _mbpRenderVerses();
+    _mbpUpdateBar();
+    const vCol = document.getElementById('mbp-col-verse');
+    if (vCol) vCol.scrollTop = 0;
+    requestAnimationFrame(() => _mbpRevealSelected('mbp-col-ch'));
+}
+
+/* 章タップ＝選択のみ（節列を更新。シートは閉じない） */
+function _mbpPickChapter(ch) {
+    _mbpCh    = ch;
+    _mbpVerse = null;
+    document.querySelectorAll('#mbp-col-ch .mbp-item').forEach(b => {
+        const on = (Number(b.textContent) === ch);
+        b.classList.toggle('current', on);
+        if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+    });
+    const vCol = document.getElementById('mbp-col-verse');
+    if (vCol) vCol.scrollTop = 0;
+    _mbpRenderVerses();
+    _mbpUpdateBar();
+}
+
+/* 節タップ＝その節へ遷移して閉じる。
+   verse 付きの共有 URL を読み込み、起動時の verse 復元（Router.parse → applyShareState）に委ねる。
+   picker の履歴エントリは遷移先で置き換える（戻るで開く前の章へ1回で戻れるように）。 */
+function _mbpSelectVerse(v) {
+    const url = ShareURLService.generate({
+        book: _mbpBookKey,
+        chapter: _mbpCh,
+        verse: String(v),
+        transA: _transA,
+        transB: _transB,
+        mode: _transMode,
+    });
+    const replace = _mbpHistoryActive;
+    _mbpHistoryActive = false;
+    _closeMobileBookPickerDOM();
+    const area = document.getElementById('bible-text-area');
+    if (area) area.style.opacity = '0';
+    setTimeout(() => {
+        if (replace) window.location.replace(url.href);
+        else window.location.href = url.href;
+    }, 150);
+}
+
+/* 「○章を開く」：選択中の章へ節なしで遷移して閉じる（従来の章タップと同じ経路） */
+function _mbpOpenChapter() {
+    if (!_mbpBookKey || !_mbpCh) return;
+    _mbpSelectChapter(_mbpCh);
 }
 
 function _mbpSelectChapter(ch) {
