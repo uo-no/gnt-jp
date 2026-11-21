@@ -52,7 +52,7 @@ function _peekOnScrollOrResize() { _closeWordPeek(); }
 let _peekSegEl = null;
 let _peekSegSelectedTi = null;
 function _closeWordPeek() {
-    if (_peekEl) { _peekEl.remove(); _peekEl = null; }
+    if (_peekEl) { _fgExtOnPeekClosed(); _peekEl.remove(); _peekEl = null; }
     _peekOpenFor = null;
     _peekChipEl = null;
     _peekSegEl = null;
@@ -147,8 +147,10 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     more.appendChild(chev);
     more.addEventListener('click', () => {
         const p = _peekProceed;
+        _fgExtOnPeekMore();
         _closeWordPeek();
         if (p) p();
+        _fgExtAfterProceed();
     });
     actions.appendChild(more);
 
@@ -189,6 +191,7 @@ function _openWordPeek(chipEl, chip, tokenId, proceed) {
     _peekChipEl = chipEl;
     _peekProceed = proceed;
     _peekLemmaId = chip.lemmaId || null;
+    _fgExtOnPeekOpened(more);
 
     /* 回数：辞書データが既にあれば即表示、無ければロードして差し込む */
     const c0 = _peekCount(_peekLemmaId);
@@ -456,8 +459,10 @@ function _openSegPeek(segEl, tis) {
     more.appendChild(chev);
     more.addEventListener('click', () => {
         const p = _peekProceed;
+        _fgExtOnPeekMore();
         _closeWordPeek();
         if (p) p();
+        _fgExtAfterProceed();
     });
     actions.appendChild(more);
 
@@ -501,6 +506,7 @@ function _openSegPeek(segEl, tis) {
     _peekSegSelectedTi = tis.length > 1 ? tis[0] : null;
     _peekProceed = () => _jaSegProceed(segEl, tis[0]);
     _peekLemmaId = lemmaIdForCount;
+    _fgExtOnPeekOpened(more);
 
     const c0 = _peekCount(_peekLemmaId);
     if (c0 != null) {
@@ -649,6 +655,8 @@ function _fgGuideOnPointerDown() {
 
 function _fgGuideStart(chip) {
     _fgGuideMarkSeen();
+    /* #204: この訪問で施策Cのガイドを出した人にだけ、その先（ピーク→StudyPanel）も続けて案内する */
+    if (!_fgExtSeen()) _fgExtState = 'armed';
     _fgGuideChip = chip;
     chip.classList.add('fg-guide-pulse');
     const hint = document.createElement('div');
@@ -718,6 +726,147 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _fgGuideMaybeStart);
 } else {
     _fgGuideMaybeStart();
+}
+
+/* ================================================================
+   #204 初回ガイドの拡張：ピークの先（StudyPanel）まで案内する
+   作法は施策Cと同じ。各ステップ「鼓動＋一言」だけで、説明文・モーダル・
+   ステップ表示は持たない。ヒントは pointer-events なしで、短時間で消える。
+   - 対象：この訪問で施策Cのガイドが出た人だけ（_fgGuideStart が armed にする）
+   - Step 1：ピークが初めて開いたとき、「詳しく見る」が鼓動し一言。
+             押されて StudyPanel が開けば Step 2 へ。ピークが閉じられたら終了。
+   - Step 2：開いた StudyPanel の語形一覧（第2層。PC は #word-list-view、
+             モバイルは MobileVerseView の一覧）に語が並んだとき、最初の語が
+             鼓動し一言。パネルが閉じられたら完了として記録する。
+   - 記録：Step 1 の開始時点で fg_guide_ext_seen を立てる（施策Cと同じく、
+     出した時点で一度きりに数える）。完了時は値を '2' にする。
+     途中離脱・再読み込みでも、以後このブラウザでは二度と出さない。
+   ピーク・StudyPanel の中身や機能には触れず、クラスの付け外しと
+   ヒント要素の追加・除去だけを行う。
+   ================================================================ */
+const _FG_EXT_KEY = 'fg_guide_ext_seen';
+const _FG_EXT_HINT_MS = 8000;
+/* null | 'armed' | 'step1' | 'await-panel' | 'step2-wait' | 'step2' | 'done' */
+let _fgExtState = null;
+let _fgExtTarget = null;
+let _fgExtHint = null;
+let _fgExtTimer = null;
+let _fgExtObserver = null;
+
+function _fgExtSeen() {
+    try { return !!localStorage.getItem(_FG_EXT_KEY); } catch (_) { return true; }
+}
+function _fgExtMark(v) {
+    try { localStorage.setItem(_FG_EXT_KEY, v); } catch (_) {}
+}
+
+/* 鼓動とヒントを外す（進行状態は変えない） */
+function _fgExtClearVisual() {
+    if (_fgExtTarget) { _fgExtTarget.classList.remove('fg-guide-pulse'); _fgExtTarget = null; }
+    if (_fgExtHint) { _fgExtHint.remove(); _fgExtHint = null; }
+    if (_fgExtTimer) { clearTimeout(_fgExtTimer); _fgExtTimer = null; }
+    document.removeEventListener('pointerdown', _fgExtOnStep2PointerDown, true);
+    window.removeEventListener('scroll', _fgExtOnStep2End, true);
+    window.removeEventListener('resize', _fgExtOnStep2End);
+}
+
+/* ガイド全体を終える（以後この訪問でも出さない） */
+function _fgExtFinish(completed) {
+    _fgExtClearVisual();
+    if (_fgExtObserver) { _fgExtObserver.disconnect(); _fgExtObserver = null; }
+    if (completed) _fgExtMark('2');
+    _fgExtState = 'done';
+}
+
+/* target を鼓動させ、その近く（既定は上側）に一言を置く */
+function _fgExtShow(target, text) {
+    _fgExtTarget = target;
+    target.classList.add('fg-guide-pulse');
+    const hint = document.createElement('div');
+    hint.className = 'fg-guide-hint fg-guide-hint-raised';
+    hint.id = 'fg-guide-hint-ext';
+    hint.textContent = text;
+    document.body.appendChild(hint);
+    _fgExtHint = hint;
+    const place = () => {
+        if (!_fgExtHint || !_fgExtTarget) return;
+        const r = _fgExtTarget.getBoundingClientRect();
+        const w = hint.offsetWidth, h = hint.offsetHeight;
+        const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), Math.max(8, window.innerWidth - w - 8));
+        let top = r.top - h - 10;
+        if (top < 8) top = Math.min(r.bottom + 10, window.innerHeight - h - 8);
+        hint.style.left = left + 'px';
+        hint.style.top = top + 'px';
+    };
+    place();
+    /* ピークは回数行の差し込み等で高さが変わりうるため、描画後にもう一度合わせる */
+    requestAnimationFrame(place);
+    _fgExtTimer = setTimeout(_fgExtClearVisual, _FG_EXT_HINT_MS);
+}
+
+/* ── Step 1：ピーク ── */
+function _fgExtOnPeekOpened(moreBtn) {
+    if (_fgExtState !== 'armed' || !moreBtn) return;
+    if (_fgExtSeen()) { _fgExtState = 'done'; return; }
+    _fgExtMark('1');
+    _fgExtState = 'step1';
+    _fgExtShow(moreBtn, _T('guide.peekMore', 'この語を、文の中で見てみる'));
+}
+
+function _fgExtOnPeekMore() {
+    if (_fgExtState !== 'step1') return;
+    _fgExtState = 'await-panel';
+}
+
+function _fgExtOnPeekClosed() {
+    if (_fgExtState === 'step1') { _fgExtFinish(false); return; }
+    if (_fgExtState === 'await-panel') _fgExtClearVisual();
+}
+
+/* ── Step 2：StudyPanel の語形一覧 ── */
+function _fgExtPanelSurface() {
+    const mvv = document.getElementById('mobile-verse-view');
+    if (mvv && mvv.classList.contains('open')) {
+        return { root: mvv, listSel: '#mobile-inspector-area .wlv-flow-stream .wlv-chip' };
+    }
+    const sp = document.getElementById('bottom-depth-panel');
+    if (sp && sp.classList.contains('open')) {
+        return { root: sp, listSel: '#word-list-view .wlv-chip' };
+    }
+    return null;
+}
+
+function _fgExtAfterProceed() {
+    if (_fgExtState !== 'await-panel') return;
+    const surface = _fgExtPanelSurface();
+    if (!surface) { _fgExtFinish(false); return; }
+    _fgExtState = 'step2-wait';
+    const check = () => {
+        if (_fgExtState !== 'step2-wait' && _fgExtState !== 'step2') return;
+        if (!surface.root.classList.contains('open')) { _fgExtFinish(true); return; }
+        if (_fgExtState !== 'step2-wait') return;
+        const chip = surface.root.querySelector(surface.listSel);
+        if (!chip) return;
+        const r = chip.getBoundingClientRect();
+        if (!r.width || !r.height || r.bottom < 0 || r.top > window.innerHeight) return;
+        _fgExtState = 'step2';
+        _fgExtShow(chip, _T('guide.panelWord', '語を選ぶと、その働きが見えます'));
+        /* 語の選択でも、それ以外の操作でもヒントはここで終わる（クリック自体は通常どおり伝播する） */
+        document.addEventListener('pointerdown', _fgExtOnStep2PointerDown, true);
+        window.addEventListener('scroll', _fgExtOnStep2End, true);
+        window.addEventListener('resize', _fgExtOnStep2End);
+    };
+    _fgExtObserver = new MutationObserver(check);
+    _fgExtObserver.observe(surface.root, {
+        childList: true, subtree: true, attributes: true, attributeFilter: ['class'],
+    });
+    check();
+}
+
+function _fgExtOnStep2PointerDown() { _fgExtOnStep2End(); }
+function _fgExtOnStep2End() {
+    if (_fgExtState !== 'step2') return;
+    _fgExtFinish(true);
 }
 
 function _wlvChipClick(chipEl, tokenId) {
