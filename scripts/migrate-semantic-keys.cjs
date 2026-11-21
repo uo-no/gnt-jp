@@ -36,7 +36,9 @@
  *   引き継ぎ、未知の組だけに新しいキーを割り当てる。データファイル側（curation 等）に
  *   未変換のコードが残っていて引き継ぎ先が分からない場合は、推測せずに停止する。
  *
- * 再混入の防止: 本スクリプトの --check を bible_data・語彙データの更新後に必ず実行する。
+ * 再混入の防止: bible_data・語彙データを更新したら必ず `npm run check:semantic-keys`
+ *   （= 本スクリプトの --check）を実行する。上流から取り直した bible_data に旧フィールドが
+ *   あれば `npm run migrate:semantic-keys` で置換する（既存キーは HEAD から引き継がれる）。
  */
 
 'use strict';
