@@ -60,6 +60,15 @@ function loadDict() {
                     descriptionSv: cols[6]?.trim() || "",
                 };
             });
+            /* #197: 結合キー行（例 2036|2046|3004|4483＝λέγω）は、単体 Strong からも同じ行を引けるようにする。
+               TSV は変更しない。単体 Strong に自前の行がある場合はそれを優先し、上書きしない。 */
+            Object.keys(parsed).forEach(k => {
+                if (k.indexOf('|') < 0) return;
+                k.split('|').forEach(part => {
+                    const p = part.trim();
+                    if (p && !Object.prototype.hasOwnProperty.call(parsed, p)) parsed[p] = parsed[k];
+                });
+            });
             abbottSmithDict = parsed;
             return abbottSmithDict;
         } catch (e) {
