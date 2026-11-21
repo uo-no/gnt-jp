@@ -6095,12 +6095,16 @@ function _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close){
             sensesWrap.appendChild(n);
         }
         const idioms=Array.isArray(data.idioms)?data.idioms:[];
-        if(idioms.length>0){
+        /* #198: 成句の注記（gloss）は IGSD の日本語注記のみで、他言語の訳は無い（翻訳データは新規に作らない）。
+           JA 以外の UI では日本語注記を出さず、ギリシャ語の成句形と参照箇所だけを出す。何も出せない行は作らず、行が無ければセクションごと隠す。 */
+        const _idiomJa=!_nonJa();
+        const _idiomRows=idioms.filter(i=>i&&(i.form||(_idiomJa&&i.gloss)||(i.refs&&i.refs.length)));
+        if(_idiomRows.length>0){
             const sec=document.createElement('div');sec.className='igsd-sense';
             sec.innerHTML='<div class="igsd-sense-h">'+_escH(_tf('search.word.idioms','成句・慣用表現'))+'</div>';
-            idioms.forEach(i=>{
+            _idiomRows.forEach(i=>{
                 const d=document.createElement('div');d.className='igsd-idiom';
-                d.innerHTML=`<span class="igsd-idiom-form">${_escH(i.form||'')}</span>${_escH(i.gloss||'')}`
+                d.innerHTML=`<span class="igsd-idiom-form">${_escH(i.form||'')}</span>${_idiomJa?_escH(i.gloss||''):''}`
                     +((i.refs&&i.refs.length)?`<span class="igsd-idiom-refs">${_escH(i.refs.join(_tf('search.morph.sep','、')))}</span>`:'');
                 sec.appendChild(d);
             });
