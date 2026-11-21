@@ -305,7 +305,6 @@ Reading Japanese の方針・設計、discourse、daily-verse、検索、StudyPa
 - [search-corpus-presentation-spec.md](search-corpus-presentation-spec.md)
 - [search-design-system.md](search-design-system.md)
 - [semantic-completion-design.md](semantic-completion-design.md)
-- [semantic-domain.md](semantic-domain.md)
 - [studypanel-layer3-audit-inventory.md](studypanel-layer3-audit-inventory.md)
 - [studypanel-layer3-display-contract.md](studypanel-layer3-display-contract.md)
 - [studypanel-layer3-implementation-gap-audit.md](studypanel-layer3-implementation-gap-audit.md)
