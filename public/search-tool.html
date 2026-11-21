@@ -2181,6 +2181,33 @@ body.is-lobby .genre-tabs { display: none; }   /* #92：ロビーでは出さず
     .genre-tab { min-height: 44px; }
     body:not(.is-lobby) .s-head-row > .genre-tabs { order: 10; flex: 0 0 100%; justify-content: flex-start; margin: 0; padding-left: 4px; }
 }
+/* lemma タブ（#201）：ジャンルタブの段の下にもう1段。母語検索の語グループ表示×形態ジャンルのときだけ出す（hidden 属性で切替）。
+   ロビーでは出さない。タブが幅に収まらないときは段の中で横スクロール（ページ幅は広げない）。 */
+.lemma-tabs { display: flex; gap: var(--s-sp-1); margin: var(--s-sp-2) auto 0; overflow-x: auto; scrollbar-width: thin; }
+.lemma-tabs[hidden], body.is-lobby .lemma-tabs { display: none; }
+.lemma-tab {
+    appearance: none; background: none; border: 0; border-bottom: 2px solid transparent;
+    flex: none; white-space: nowrap;
+    padding: 4px 10px; font: inherit; font-family: var(--s-ff-ui); font-size: var(--s-ts-sm);
+    color: var(--s-text-sub); cursor: pointer; line-height: 1.4;
+}
+.lemma-tab:hover { color: var(--s-text); }
+.lemma-tab.active { color: var(--s-text); border-bottom-color: var(--s-accent); font-weight: 500; }
+.lemma-tab:focus-visible { outline: 2px solid var(--s-accent); outline-offset: -2px; }
+.lemma-tab-lemma { font-family: var(--s-ff-greek); }
+.lemma-tab-count { margin-left: 4px; color: var(--s-text-sub); font-size: 0.9em; font-variant-numeric: tabular-nums; }
+@media (min-width: 701px) {
+    body:not(.is-lobby) .s-head-row > .lemma-tabs {
+        grid-column: 2 / -1; grid-row: 3; justify-content: flex-start; margin: 4px 0 0; padding-left: 12px; min-width: 0;
+    }
+}
+@media (min-width: 960px) {
+    body:not(.is-lobby) .s-head-row > .lemma-tabs { grid-column: 1 / -1; }
+}
+@media (max-width: 700px) {
+    .lemma-tab { min-height: 44px; }
+    body:not(.is-lobby) .s-head-row > .lemma-tabs { order: 11; flex: 0 0 100%; min-width: 0; justify-content: flex-start; margin: 0; padding-left: 4px; }
+}
 </style>
 
 <!-- ═══════════════════════════ Search Block ═══════════════════════════ -->
@@ -2263,6 +2290,8 @@ body.is-lobby .genre-tabs { display: none; }   /* #92：ロビーでは出さず
         <button class="genre-tab active" id="genre-tab-morph" type="button" role="tab" aria-selected="true" data-tab="morph" onclick="_onGenreTabClick('morph')" data-i18n="search.genre.morph">形態</button>
         <button class="genre-tab" id="genre-tab-rel" type="button" role="tab" aria-selected="false" data-tab="rel" onclick="_onGenreTabClick('rel')" data-i18n="search.genre.rel">関係</button>
     </div>
+    <!-- lemma タブ（#201）：母語検索の語グループ表示のとき・形態ジャンルのときだけ。「すべて」＋件数上位 8 lemma。中身は _renderLemmaTabs が描く -->
+    <div class="lemma-tabs" id="lemma-tabs" role="tablist" aria-label="語ごとの表示" data-i18n-aria-label="search.lemmaTab.aria" hidden></div>
     <div class="s-head-actions">
         <button class="s-btn-back" onclick="_searchGoBack()" aria-label="聖書リーダーに戻る" data-i18n-aria-label="search.header.backAria"><img class="s-back-ico" src="/favicon.svg" alt="" width="22" height="22" draggable="false"><span class="s-back-label" data-i18n="search.header.back">聖書に戻る</span></button>
         <button class="share-url-btn" data-icon="link" onclick="copyShareUrl()" title="このURLをコピー" data-i18n-title="search.header.copyUrl"></button>
@@ -4431,6 +4460,7 @@ function _renderGenreTabs(){
     if(tr)tr.textContent=_tf('search.genre.rel','関係');
     const gt=document.getElementById('genre-tabs');
     if(gt)gt.setAttribute('aria-label',_tf('search.genre.aria','検索の読み方'));
+    _renderLemmaTabs();   /* #201：lemma タブの段は形態ジャンルのときだけ。ラベル「すべて」も現在の言語で */
 }
 function _onGenreTabClick(tab){
     tab=(tab==='rel')?'rel':'morph';
@@ -4443,6 +4473,129 @@ function _onGenreTabClick(tab){
     _updateSearchControls();
     if(nWords>0)unifiedSearch();          /* 同じ入力で再実行 */
 }
+
+/* ── lemma タブ（#201）──
+   母語（gloss）検索で語グループ表示になる検索のとき、ジャンルタブの段の下に「すべて」＋件数上位 8 lemma のタブを出す（形態ジャンル・結果画面のみ）。
+   ラベルは lemma（ギリシャ語）＋件数（母語グロスは使わない：同じグロスを持つ別 lemma と区別できないため）。
+   - すべて：現行の語グループ表示そのもの（共起・出現分布を含む）。
+   - 語のページ（IGSD final・lemma 一致）がある lemma：現行の語のページ（_igsdOpenPage）。
+   - 語のページが無い lemma：「すべて」の中の当該グループだけを出す単独表示（共起・出現分布は出さない）。
+   選択は URL の lemma_tab（「すべて」は付けない）。ジャンル切替・再検索をまたいで保持し、結果に同名 lemma が無ければ「すべて」に落とす。 */
+const _LEMMA_TAB_MAX=8;
+let _lemmaTab=null;        /* 選択中の lemma（null＝すべて） */
+let _lemmaTabCtx=null;     /* 直近の語グループ表示：{genre, groups（タブ対象＝上位8）, all, query, word2, words}。語グループ表示でない検索では null */
+let _lemmaTabSeq=0;        /* 非同期（IGSD 索引・語のページ）の取り違え防止 */
+let _lemmaTabSoloDist=null;/* 単独表示中に隠した出現分布の元の display */
+function _lemmaTabsVisible(){ return !!(_lemmaTabCtx&&_lemmaTabCtx.genre==='morph'&&_genreTab==='morph'); }
+function _renderLemmaTabs(){
+    const row=document.getElementById('lemma-tabs');
+    if(!row)return;
+    row.setAttribute('aria-label',_tf('search.lemmaTab.aria','語ごとの表示'));
+    if(!_lemmaTabsVisible()){row.hidden=true;row.textContent='';return;}
+    const hadFocus=row.contains(document.activeElement);
+    row.textContent='';
+    const mk=(lemma,count)=>{
+        const b=document.createElement('button');
+        b.type='button';b.className='lemma-tab';b.setAttribute('role','tab');
+        const on=lemma===_lemmaTab;
+        b.classList.toggle('active',on);
+        b.setAttribute('aria-selected',on?'true':'false');
+        b.tabIndex=on?0:-1;
+        if(lemma==null){
+            b.textContent=_tf('search.lemmaTab.all','すべて');
+        }else{
+            b.dataset.lemma=lemma;
+            const lm=document.createElement('span');lm.className='lemma-tab-lemma';lm.lang='grc';lm.textContent=lemma;
+            const ct=document.createElement('span');ct.className='lemma-tab-count';ct.textContent=Number(count).toLocaleString();
+            b.appendChild(lm);b.appendChild(ct);
+            b.setAttribute('aria-label',lemma+' '+_tp('search.count.hits','{n}件',count,{n:Number(count).toLocaleString()}));
+        }
+        b.addEventListener('click',()=>_onLemmaTabClick(lemma));
+        row.appendChild(b);
+        return b;
+    };
+    mk(null,0);
+    _lemmaTabCtx.groups.forEach(g=>mk(g.lemma,g.hits.length));
+    row.hidden=false;
+    if(hadFocus){const a=row.querySelector('.lemma-tab.active');if(a)a.focus();}
+}
+function _onLemmaTabClick(lemma){
+    lemma=lemma==null?null:lemma;
+    if(lemma===_lemmaTab)return;
+    _lemmaTab=lemma;
+    _renderLemmaTabs();
+    _applyLemmaTab();
+    syncURL();
+}
+/* 語のページ（IGSD）の有無：旧バッジ（_igsdDecorateBar）と同じ条件（strong の final エントリかつ lemma 一致） */
+async function _lemmaTabIgsdEntry(group){
+    if(!group||!group.strong)return null;
+    const idx=await _igsdLoadIndex();
+    if(!idx)return null;
+    const e=idx.get(group.strong);
+    return (e&&_igsdNorm(e.lemma)===_igsdNorm(group.lemma))?e:null;
+}
+function _lemmaTabExitSolo(){
+    const c=document.getElementById('lemma-groups');
+    if(c&&c._lgUnsolo)c._lgUnsolo();
+    if(_lemmaTabSoloDist!==null){
+        const d=document.getElementById('dist-panel');
+        if(d)d.style.display=_lemmaTabSoloDist;
+        _lemmaTabSoloDist=null;
+    }
+}
+function _lemmaTabEnterSolo(gi){
+    const c=document.getElementById('lemma-groups');
+    if(!c||!c._lgSolo)return;
+    c._lgSolo(gi);
+    const d=document.getElementById('dist-panel');
+    if(d&&_lemmaTabSoloDist===null){_lemmaTabSoloDist=d.style.display;d.style.display='none';}
+}
+/* 選択中のタブを表示に反映する。前の表示（単独表示・語のページ）を戻してから開く */
+async function _applyLemmaTab(){
+    const seq=++_lemmaTabSeq;
+    _lemmaTabExitSolo();
+    if(_igsdCurrentClose)_igsdCurrentClose();
+    const ctx=_lemmaTabCtx;
+    if(!_lemmaTab||!_lemmaTabsVisible())return;
+    const gi=ctx.groups.findIndex(g=>g.lemma===_lemmaTab);
+    if(gi<0)return;
+    const group=ctx.groups[gi];
+    const entry=await _lemmaTabIgsdEntry(group);
+    if(seq!==_lemmaTabSeq||ctx!==_lemmaTabCtx)return;
+    if(entry){
+        await _igsdOpenPage(entry,group,ctx.all,ctx.query,ctx.word2,ctx.words);
+        if(seq!==_lemmaTabSeq||ctx!==_lemmaTabCtx)return;
+        const pg=document.getElementById('igsd-page');
+        if(pg&&pg.style.display==='block')return;
+        /* 語のページの取得に失敗した（_igsdOpenPage が静かに閉じた）ときは単独表示にする */
+    }
+    _lemmaTabEnterSolo(gi);
+}
+/* 新しい結果の描画前：前の単独表示を戻し、タブの段をいったん隠す */
+function _lemmaTabReset(){
+    ++_lemmaTabSeq;
+    _lemmaTabExitSolo();
+    _lemmaTabCtx=null;
+    _renderLemmaTabs();
+}
+/* 語グループ表示の描画後：タブの段を出し、選択中（URL 由来を含む）の lemma を初期表示にする */
+function _lemmaTabAfterRender(){
+    if(!_lemmaTabCtx){_renderLemmaTabs();return;}
+    if(_lemmaTabsVisible()&&_lemmaTab&&!_lemmaTabCtx.groups.some(g=>g.lemma===_lemmaTab))_lemmaTab=null;   /* 同名 lemma が無ければ「すべて」 */
+    _renderLemmaTabs();
+    if(_lemmaTabsVisible()&&_lemmaTab)_applyLemmaTab();
+}
+/* 語のページの「← 検索結果に戻る」は「すべて」へ戻る操作として扱う（バブル段＝語のページが閉じた後に同期） */
+document.addEventListener('click',ev=>{
+    const b=ev.target&&ev.target.closest?ev.target.closest('.igsd-back'):null;
+    if(!b||!_lemmaTab||!_lemmaTabsVisible())return;
+    ++_lemmaTabSeq;
+    _lemmaTabExitSolo();
+    _lemmaTab=null;
+    _renderLemmaTabs();
+    syncURL();
+});
 
 function toggleLayer(name){
     if (name === 'prox' || name === 'morph') return;
@@ -4984,6 +5137,7 @@ function syncURL() {
 
     if (_layers.prox && currentDist !== 5) p.set('dist', String(currentDist));
     if (_genreTab === 'rel') p.set('tab', 'rel');   /* 形態は既定で付けない（#82） */
+    if (_lemmaTab && query && _lemmaTabsVisible()) p.set('lemma_tab', _lemmaTab);   /* #201：lemma タブ。「すべて」（既定）は付けない */
 
     /* 言語プレフィックス（/ja・/en・/es・/sv）は i18n.js が起動時に取り除く。入ってきた URL の保持ではなく、
        現在の実効言語（I18N.lang）から決める（#76）。言語切替→再実行でその言語の形に書き換わる。
@@ -5035,6 +5189,7 @@ let _filterWord=null;
 
 function _renderUnifiedResults(query,words,word2){
     _filterWord=null;
+    _lemmaTabReset();   /* #201 */
     const merged=_allMergedResults;
     const total=merged.size;
 
@@ -5170,6 +5325,8 @@ function _renderUnifiedResults(query,words,word2){
         const groups=groupHitsByLemma(proxHits.length>0?proxHits:_buildPseudoHitsFromMerged(merged,words));
         _renderLemmaGroups(groups,query,word2,words);
         document.getElementById('lemma-groups').style.display='block';
+        _lemmaTabCtx={genre:_genreTab,groups:groups.slice(0,_LEMMA_TAB_MAX),all:groups,query,word2,words};   /* #201 */
+        _igsdLoadIndex();   /* タブ押下時の語のページ判定を待たせないよう先読み（失敗は静寂） */
     }else{
         document.getElementById('lemma-groups').style.display='none';
         { const _lc=document.getElementById('lemma-cooc');if(_lc){_lc.innerHTML='';_lc.style.display='none';} }
@@ -5186,6 +5343,7 @@ function _renderUnifiedResults(query,words,word2){
     if (qtype === 'greek' || qtype === 'strong') {
         _renderPatternExplore();
     }
+    _lemmaTabAfterRender();   /* #201：出現分布の描画後に（単独表示は出現分布を隠すため） */
 }
 
 function _buildPseudoHitsFromMerged(merged,words){
@@ -5622,7 +5780,6 @@ function _renderLemmaGroups(groups,query,word2,words){
             ${secondaryLabel?`<span class="lg-greek">${_escH(secondaryLabel)}</span>`:''}
             ${matchedGlossHtml}
             <span class="lg-count">${_tp('search.count.hits','{n}件',group.hits.length)}</span>`;
-        _igsdDecorateBar(bar,group,groups,query,word2,words);
         const panel=document.createElement('div');panel.className='lg-panel';
         // sample hits（代表例を先、共起語を後に）
         const hitsSec=document.createElement('div');
@@ -5655,6 +5812,7 @@ function _renderLemmaGroups(groups,query,word2,words){
             }
             _markFollow();
             _renderLemmaCooc(groups[_coocTarget]);
+            if(_soloSnap){const _cs=document.getElementById('lemma-cooc');if(_cs)_cs.style.display='none';}   /* #201：単独表示では共起を出さない */
         });
         // 最大ヒット数グループ（groups[0]）を自動展開
         if(groupIdx===0){
@@ -5666,6 +5824,27 @@ function _renderLemmaGroups(groups,query,word2,words){
     });
     _markFollow();
     _renderLemmaCooc(groups[0]);
+    /* #201 lemma タブの単独表示：「すべて」の中の当該グループだけを（開いた状態で）出す。共起は隠す。
+       戻すときは入る前の開閉・共起の追随先をそのまま復元する（「すべて」は現行表示と同一に保つ） */
+    let _soloSnap=null;
+    container._lgSolo=idx=>{
+        if(!_lgBars[idx])return;
+        if(!_soloSnap)_soloSnap={open:_lgState.map(p=>p.classList.contains('open')),cooc:_coocTarget};
+        container.classList.add('lg-solo');
+        _lgBars.forEach((b,i)=>b.parentNode.hidden=(i!==idx));
+        _lgState[idx].classList.add('open');_lgBars[idx].classList.add('open');
+        _coocTarget=idx;_markFollow();
+        const _cs=document.getElementById('lemma-cooc');if(_cs)_cs.style.display='none';
+    };
+    container._lgUnsolo=()=>{
+        if(!_soloSnap)return;
+        const snap=_soloSnap;_soloSnap=null;
+        container.classList.remove('lg-solo');
+        _lgBars.forEach(b=>{b.parentNode.hidden=false;});
+        snap.open.forEach((o,i)=>{_lgState[i].classList.toggle('open',o);_lgBars[i].classList.toggle('open',o);});
+        _coocTarget=snap.cooc;_markFollow();
+        _renderLemmaCooc(groups[_coocTarget]);
+    };
 }
 /* よく一緒に出る語: 語形グループ群の下・出現分布の上に独立セクションとして置く。
    集計はグループ別（上位3語）。対象は展開中の語形グループに追随し、見出しに対象レンマを添える。
@@ -5919,30 +6098,8 @@ function _igsdDecorateGreekQuery(query,word2,words){
         countEl.parentNode.insertBefore(bar,countEl);
     });
 }
-/* 語グループ行に「語義で整理済み」バッジを付け、語名クリックで語のページを開く */
-function _igsdDecorateBar(bar,group,groups,query,word2,words){
-    if(!group.strong)return;
-    _igsdLoadIndex().then(idx=>{
-        if(!idx)return;
-        const e=idx.get(group.strong);
-        if(!e||_igsdNorm(e.lemma)!==_igsdNorm(group.lemma))return;
-        const form=bar.querySelector('.lg-form');
-        const lemmaEl=bar.querySelector('.lg-greek')||form;
-        const badge=document.createElement('button');badge.type='button';
-        badge.className='igsd-badge igsd-badge-btn';badge.textContent=_igsdBadgeText();
-        badge.addEventListener('click',ev=>{
-            ev.stopPropagation(); // グループの折りたたみは行クリックのまま（バッジは語のページへ）
-            _igsdOpenPage(e,group,groups,query,word2,words);
-        });
-        bar.insertBefore(badge,bar.querySelector('.lg-count'));
-        lemmaEl.classList.add('igsd-link');
-        lemmaEl.title=_tf('search.word.openTitle','語のページを開く');
-        lemmaEl.addEventListener('click',ev=>{
-            ev.stopPropagation(); // 既存の展開トグルは保つ（語名以外のクリック）
-            _igsdOpenPage(e,group,groups,query,word2,words);
-        });
-    });
-}
+/* 語グループ行の「語義で整理済み」バッジと語名リンク（旧 _igsdDecorateBar）は #201 で廃止。
+   母語検索の結果から語のページへの導線は lemma タブ（_applyLemmaTab）に一本化した。ギリシャ語・Strong 検索の入口（_igsdDecorateGreekQuery）は従来どおり。 */
 /* 開いている語のページを閉じる関数。新しい検索結果の描画前に呼び、前の語のページが残らないようにする。 */
 let _igsdCurrentClose=null;
 async function _igsdOpenPage(entry,group,groups,query,word2,words,fromGreekQuery){
@@ -5969,6 +6126,7 @@ async function _igsdOpenPage(entry,group,groups,query,word2,words,fromGreekQuery
     };
     _igsdCurrentClose=close;
     const [data,giMap]=await Promise.all([_igsdLoadLemma(entry.strong),_igsdLoadGi()]);
+    if(_igsdCurrentClose!==close)return; // 読み込み中に閉じられた・別の語のページに替わった（#201 のタブ切替）なら描かない
     if(!data||!giMap){close();return;} // 取得失敗は静かに従来表示へ戻す
     _igsdRenderPage(page,entry,data,giMap,group,query,word2,words,close);
 }
@@ -6229,6 +6387,7 @@ function _showLoading(msg){
 }
 function _returnToLobby() {
     document.getElementById('unified-search-input').value = '';
+    _lemmaTab = null;   /* #201：ロビーに戻ったら lemma タブの選択は持ち越さない */
     _sqsClearFilters();
     document.getElementById('result-header').classList.remove('visible');
     document.getElementById('result-body').style.display = 'none';
@@ -7212,6 +7371,9 @@ async function _synInit(syntaxId) {
     if (p.get('tab') === 'rel' || (_w1 && _w2) || (p.get('layers') || '').split(',').includes('prox')) {
         _genreTab = 'rel'; _renderGenreTabs();
     }
+    /* lemma タブ（#201）：?lemma_tab=<lemma>。結果の描画後（_lemmaTabAfterRender）に、同名 lemma が無ければ「すべて」に落ちる。
+       ?lemma= は旧形式の検索語なので混同しない。 */
+    { const _lt = (p.get('lemma_tab') || '').trim(); if (_lt) _lemmaTab = _lt; }
     /* パス形（/search/<クエリ>）を優先。旧形式（?lemma= / ?word= / ?word1=&word2=）は互換のため引き続き受け付け、
        検索が走ると syncURL が replaceState でパス形に正規化する。 */
     const _pathQ = (() => {
