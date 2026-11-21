@@ -14,7 +14,7 @@
  *       glosses（語義候補: bible_data 実使用 → Abbott-Smith → gloss_ja）
  *       deponent
  *   - 補強層: enrich(liteData) で lexicon-lite（非同期・3MB 級）到着後に付与
- *       glossJa / abbottSmith 全文 / semanticDomains（ln・domains）
+ *       glossJa / abbottSmith 全文
  *   enrich 前の lookup も安全（補強フィールドは null）。
  *
  * Failure Mode: 例外は投げない。不正入力・未登録 lemmaId は null。
@@ -23,7 +23,7 @@
 
 'use strict';
 
-const READING_LEXICON_VERSION = '1.1.0';
+const READING_LEXICON_VERSION = '1.2.0';
 
 class ReadingLexicon {
     /**
@@ -34,7 +34,7 @@ class ReadingLexicon {
         this._entries = (data && typeof data === 'object' && data.entries &&
                          typeof data.entries === 'object') ? data.entries : {};
         this._version  = data?.version ?? 0;
-        this._enriched = null;   // lemmaId → { glossJa, abbottSmith, semanticDomains }
+        this._enriched = null;   // lemmaId → { glossJa, abbottSmith }
     }
 
     /**
@@ -42,7 +42,7 @@ class ReadingLexicon {
      * 何度呼んでも安全（最後の呼び出しが有効）。不正入力は無視。
      *
      * @param {Object} liteData  lemmaId キーの辞書
-     *   （{ gloss_ja, abbottSmith, ln: [], domains: [] } を持つエントリ群）
+     *   （{ gloss_ja, abbottSmith } を持つエントリ群）
      * @returns {number} 補強できたエントリ数（基本層と lemmaId が一致したもの）
      */
     enrich(liteData) {
@@ -56,10 +56,6 @@ class ReadingLexicon {
                 enriched[lemmaId] = Object.freeze({
                     glossJa:     typeof lite.gloss_ja === 'string' ? lite.gloss_ja : null,
                     abbottSmith: typeof lite.abbottSmith === 'string' ? lite.abbottSmith : null,
-                    semanticDomains: Object.freeze({
-                        ln:      Object.freeze(Array.isArray(lite.ln) ? lite.ln.slice() : []),
-                        domains: Object.freeze(Array.isArray(lite.domains) ? lite.domains.slice() : []),
-                    }),
                 });
                 count++;
             }
@@ -80,7 +76,6 @@ class ReadingLexicon {
      *     glosses: string[],                 // 語義候補（選択しない・返すだけ）
      *     glossJa: string|null,              // enrich 後のみ（lexicon-lite 代表訳）
      *     abbottSmith: string|null,          // enrich 後のみ（AS 全文）
-     *     semanticDomains: { ln: string[], domains: string[] } | null, // enrich 後のみ
      * } | null}  未登録・不正入力は null。戻り値は凍結済み。
      */
     lookup(lemmaId) {
@@ -94,7 +89,6 @@ class ReadingLexicon {
             glosses:  Array.isArray(e.glosses) ? Object.freeze(e.glosses.slice()) : Object.freeze([]),
             glossJa:         x ? x.glossJa : null,
             abbottSmith:     x ? x.abbottSmith : null,
-            semanticDomains: x ? x.semanticDomains : null,
         });
     }
 

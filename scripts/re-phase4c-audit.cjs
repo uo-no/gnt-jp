@@ -10,7 +10,7 @@
  *
  * 監査項目:
  *   1. glosses 複数候補カバレッジ（エントリ単位・NT トークン加重）
- *   2. enrich() 後の補強フィールドカバレッジ（glossJa / abbottSmith / ln / domains）
+ *   2. enrich() 後の補強フィールドカバレッジ（glossJa / abbottSmith）
  *   3. lookup() の完全性（基本層 + 補強層の統合・凍結・deponent 維持）
  *   4. サンプルエントリの目視確認用ダンプ
  */
@@ -52,7 +52,7 @@ const stat = {
     entries: ids.length,
     enriched: enrichedCount,
     glosses: { none: 0, single: 0, multi: 0, totalCandidates: 0 },
-    fields:  { glossJa: 0, abbottSmith: 0, ln: 0, domains: 0 },
+    fields:  { glossJa: 0, abbottSmith: 0 },
 };
 for (const id of ids) {
     const e = lex.lookup(id);
@@ -63,14 +63,11 @@ for (const id of ids) {
     else stat.glosses.multi++;
     if (e.glossJa) stat.fields.glossJa++;
     if (e.abbottSmith) stat.fields.abbottSmith++;
-    if (e.semanticDomains?.ln?.length) stat.fields.ln++;
-    if (e.semanticDomains?.domains?.length) stat.fields.domains++;
 }
 
 // ── 2. NT トークン加重カバレッジ（Semantic が実際に効く範囲） ────────
-let tokTotal = 0, tokMulti = 0, tokLn = 0;
+let tokTotal = 0, tokMulti = 0;
 const multiSet = new Set(ids.filter(id => lex.lookup(id).glosses.length >= 2));
-const lnSet    = new Set(ids.filter(id => lex.lookup(id).semanticDomains?.ln?.length));
 for (const book of fs.readdirSync(NT_DIR).filter(b =>
         fs.statSync(path.join(NT_DIR, b)).isDirectory())) {
     for (const ch of fs.readdirSync(path.join(NT_DIR, book)).filter(f => f.endsWith('.json'))) {
@@ -78,7 +75,6 @@ for (const book of fs.readdirSync(NT_DIR).filter(b =>
             if (!t.lemmaId) continue;
             tokTotal++;
             if (multiSet.has(t.lemmaId)) tokMulti++;
-            if (lnSet.has(t.lemmaId)) tokLn++;
         }
     }
 }
@@ -86,8 +82,6 @@ stat.tokenWeighted = {
     total: tokTotal,
     multiGloss: tokMulti,
     multiGlossPct: Number((tokMulti / tokTotal * 100).toFixed(1)),
-    lnAvailable: tokLn,
-    lnAvailablePct: Number((tokLn / tokTotal * 100).toFixed(1)),
 };
 
 // ── 3. 完全性チェック ───────────────────────────────────────────────
@@ -99,10 +93,9 @@ const ck = (name, ok) => checks.push({ name, ok });
     ck('λόγος: 第一候補は実使用グロス（ことば）', logos.glosses[0] === 'ことば');
     ck('λόγος: glossJa 付与', !!logos.glossJa);
     ck('λόγος: abbottSmith 付与', !!logos.abbottSmith);
-    ck('λόγος: ln コード付与', logos.semanticDomains.ln.length >= 5);
     ck('凍結: entry', Object.isFrozen(logos));
     ck('凍結: glosses', Object.isFrozen(logos.glosses));
-    ck('凍結: semanticDomains', Object.isFrozen(logos.semanticDomains));
+    ck('#196: semanticDomains は持たない', !('semanticDomains' in logos));
     const apo = lex.lookup('grc:G611');
     ck('deponent 維持（ἀποκρίνομαι）', apo.deponent === true);
     const depCount = ids.filter(id => lex.lookup(id).deponent).length;
@@ -126,7 +119,6 @@ for (const [id, name] of [['grc:G3056', 'λόγος'], ['grc:G4151', 'πνεῦ�
         glosses: e.glosses,
         glossJa: e.glossJa ? e.glossJa.slice(0, 40) : null,
         abbottSmith: e.abbottSmith ? `(${e.abbottSmith.length}字)` : null,
-        ln: e.semanticDomains?.ln ?? null,
         deponent: e.deponent,
     };
 }
@@ -151,12 +143,9 @@ console.log('');
 console.log('── enrich 後の補強フィールド ──');
 console.log(`  glossJa         : ${stat.fields.glossJa} (${pct(stat.fields.glossJa, stat.entries)})`);
 console.log(`  abbottSmith     : ${stat.fields.abbottSmith} (${pct(stat.fields.abbottSmith, stat.entries)})`);
-console.log(`  ln (Louw-Nida)  : ${stat.fields.ln} (${pct(stat.fields.ln, stat.entries)})`);
-console.log(`  domains         : ${stat.fields.domains} (${pct(stat.fields.domains, stat.entries)})`);
 console.log('');
 console.log('── NT トークン加重（Semantic が効く範囲）──');
 console.log(`  複数候補 lemma のトークン : ${stat.tokenWeighted.multiGloss} / ${stat.tokenWeighted.total} (${stat.tokenWeighted.multiGlossPct}%)`);
-console.log(`  ln 利用可能トークン       : ${stat.tokenWeighted.lnAvailable} / ${stat.tokenWeighted.total} (${stat.tokenWeighted.lnAvailablePct}%)`);
 console.log('');
 console.log('── 完全性チェック ──');
 let fails = 0;
@@ -167,7 +156,7 @@ for (const c of checks) {
 console.log('');
 console.log('── サンプル ──');
 for (const [name, s] of Object.entries(samples)) {
-    console.log(`  ${name}: glosses=${JSON.stringify(s.glosses.slice(0, 6))}${s.glosses.length > 6 ? '…' : ''} ln=${s.ln ? s.ln.length : 0}件 AS=${s.abbottSmith ?? 'なし'}`);
+    console.log(`  ${name}: glosses=${JSON.stringify(s.glosses.slice(0, 6))}${s.glosses.length > 6 ? '…' : ''} AS=${s.abbottSmith ?? 'なし'}`);
 }
 console.log('');
 console.log(fails === 0 ? 'AUDIT PASS' : `AUDIT FAIL (${fails})`);

@@ -88,8 +88,8 @@
  *   データ: assets/data/reading-ln-final-data.js（replace 区画のみ置換。
  *           assist は getSenseAssist 参照のみ・UI 未使用。curation は
  *           reading-ln-curation.js → npm run build:ln-final で反映）
- *   #196: 照合キーを (lemmaId, token.sense 先頭のセンスキー) へ置換し、旧称
- *         lnGloss / setLnGlossData / getLnAssist を改名。基準値・全回帰不変。
+ *   #196: 照合キーを (lemmaId, token.sense 先頭のセンスキー) へ置換し、
+ *         外部注釈由来の旧称（層名・注入 API・assist 参照 API）を改名。基準値・全回帰不変。
  *   検証: npm run test:re-phase5 + 実表示監査
  *         （scripts/re-phase5d-display-audit.cjs・600 節）
  *   判定基準: docs/development/reading-flow-gloss-policy.md（replace/assist/preserve）
@@ -128,7 +128,7 @@
  *         で読み取り、resolve() 結果へ semanticInfo として付帯。非決定的信号
  *         （αὐτός の pron 内 intensive・ἑαυτοῦ の person-leveling 残・sense 未注釈・
  *         discourse 依存）は一律未判定＝付与しない）
- *   #196: 旧フィールド lnDomain を sense（不透明なセンスキー・等値比較のみ）へ改名。
+ *   #196: 外部注釈由来の旧フィールド名を sense（不透明なセンスキー・等値比較のみ）へ改名。
  *         付与件数は不変（129,022 / 128,493）。
  *   設計: docs/development/semantic-completion-design.md
  *   報告: docs/archive/semantic-completion-implementation-report.md

@@ -1352,24 +1352,7 @@ async function _renderReadingNotes(p) {
             </div>
         </details>` : ''}
 
-${LN_RELATED_WORDS_ENABLED ? `
-        <!-- TEMPORARILY DISABLED: LN 由来の関連語表示。再開条件は docs/DATA_LICENSE.md を参照。 -->
-        <details class="rn-level-section" data-study-section="semantic">
-            <summary><span class="rn-level-arrow">${icon('chevronRight')}</span>関連する語を調べる</summary>
-            <div class="rn-level-body">
-                <div id="rn-semantic-layers"></div>
-            </div>
-        </details>` : ''}
-
     `;
-
-    /* LN 由来の関連語表示は一時停止中。フラグ有効時のみ注入する。 */
-    if (LN_RELATED_WORDS_ENABLED) {
-        _injectStudyPanelContent(
-            document.getElementById('rn-semantic-layers'),
-            strong, resolvedId, word
-        );
-    }
 
     /* 語の役割の局所表示を非同期注入（世代管理は filler 側）。 */
     _fillRnRelationSlot(ref);
@@ -1379,8 +1362,7 @@ ${LN_RELATED_WORDS_ENABLED ? `
 }
 
 /* ══════════════════════════════════════════
-   Semantic layer injection
-   LN Layer / Cluster Layer / Concordance
+   Concordance data access
    ══════════════════════════════════════════ */
 
 /**
@@ -1396,8 +1378,7 @@ ${LN_RELATED_WORDS_ENABLED ? `
  *   - Does NOT define getTokens() or getLemmaIndex()
  *   - Does NOT call these getters
  *
- * All Layers (LN / Cluster / Graph / Concordance) access data
- * exclusively through the two getters defined below.
+ * Concordance accesses data exclusively through the two getters defined below.
  */
 
 /* ──────────────────────────────────────────────────────────────
@@ -1414,9 +1395,7 @@ function getLemmaIndex() { return window.lemmaIndex || null; }
 /* ──────────────────────────────────────────
    Shared lemmaIndex lookup helper
    Single access point for lemmaIndex.
-   Used by Basic Concordance and Graph views.
-   Graph / Fusion MUST go through this;
-   they must never bypass Basic source rules.
+   Used by Basic Concordance.
    ────────────────────────────────────────── */
 
 /**
@@ -1444,232 +1423,9 @@ function _giListFromLemmaIndex(id) {
 }
 
 /**
- * _jaGlossFromLemmaId(id)
- * Returns a Japanese gloss for a lemma by looking up the first token occurrence.
- * Falls back to the English gloss from lexicon if no Japanese is found.
- */
-function _jaGlossFromLemmaId(id) {
-    const giList = _giListFromLemmaIndex(id);
-    for (const gi of giList.slice(0, 5)) {
-        const ja = getTokens()[gi]?.japanese;
-        if (ja && ja !== '-' && ja !== '—') return ja;
-    }
-    return '';
-}
-
-/* ══════════════════════════════════════════════════════════════
-   StudyPanel injection — orchestrator  [STABLE / DO NOT EXTEND]
-
-   Fixed layer order (UI structure must not change):
-     ① Identity          — word chip / gloss / ref
-     ② Cluster Layer     — co-occurrence cluster display (auxiliary)
-     ③ Basic Concordance — FACT LAYER (canonical / lemmaIndex only)
-     ④ Semantic Graph    — graph view (auxiliary, derived from Basic)
-     ⑤ Further View      — Morphology / Syntax / Abbott-Smith
-
-   Data flow (enforced):
-     window.lemmaIndex  →  _giListFromLemmaIndex()  →  Basic Concordance only
-     domainCodes        →  _buildClusterLayerHTML() →  Cluster Layer only
-
-   Invariants:
-     • Basic Concordance result is identical for a given lemmaId regardless
-       of whether Graph or Cluster data are present.
-     • All lemmaIndex access goes through _giListFromLemmaIndex().
-   ══════════════════════════════════════════════════════════════ */
-
-/* ══════════════════════════════════════════════════════════════════
-   Semantic Domain / Cluster / Raw Code — 設計境界
-   詳細: docs/semantic-domain.md
-
-   ■ Raw Domain Code   clusterIndex のキー。ゼロ埋め有無で別エントリが存在する。
-                       clusterIndex アクセスは必ず生コードで行うこと。
-   ■ Normalized Code   ラベル辞書（semantic-domain-labels.json）用のキー。
-                       clusterIndex のキーとして使用してはいけない。
-   ■ Semantic Domain   Louw-Nida 意味領域。ユーザー向け表示分類。
-   ■ Cluster           Semantic Domain 内の語群。1ドメインに複数存在しうる。
-   ══════════════════════════════════════════════════════════════════ */
-
-/**
- * UI ラベル取得専用。clusterIndex のアクセスには使用禁止。
- *
- * Raw Domain Code → Normalized Domain Code へ変換する。
- * 正規化後のコードは semantic-domain-labels.json のキーとして使用する。
- * domains-cluster-index.json (_clusterIndexData) のキーとして使ってはいけない。
- *
- * 変換規則: メジャードメイン部分（末尾3桁を除く全桁）の先頭ゼロを除去。
- * Examples: '033029' → '33029', '008002' → '8002', '064' → '64', '49' → '49'
- *
- * 根拠: ゼロ埋め有無で cluster は別エントリ（内容が異なる）。
- *       '013001'(19語) と '13001'(71語) は異なるクラスター。正規化して
- *       clusterIndex を引くと誤ったクラスターを参照する。docs/semantic-domain.md 参照。
- */
-function _normalizeDomainCode(code) {
-    const s = String(code).replace(/^0+/, '') || '0';
-    if (s.length >= 4) {
-        return String(parseInt(s.slice(0, -3), 10)) + s.slice(-3);
-    }
-    return s;
-}
-
-/**
- * Raw Code を受け取り、表示用ラベルのみ返す。
- *
- * clusterIndex へのアクセスは行わない。ラベル辞書 (_semanticDomainLabels) のみ参照。
- * 同じ Semantic Domain に属する複数の Raw Code（'013001' / '13001' 等）は
- * 正規化後に同一ラベルを返す — これは意図した動作（意味カテゴリーは同一のため）。
- *
- * Lookup order:
- *   1. subdomains[normalized]   specific subdomain label
- *   2. majorDomains[majorNum]   major domain fallback
- *   3. '分類 <code>'            final fallback — never returns empty
- */
-function _getDomainLabel(code) {
-    if (!_semanticDomainLabels) return `分類 ${code}`;
-    const normalized = _normalizeDomainCode(code);
-
-    const sub = _semanticDomainLabels.subdomains?.[normalized];
-    if (sub?.title) return sub.title;
-
-    let majorNum;
-    if (normalized.length >= 4) {
-        majorNum = String(parseInt(normalized.slice(0, -3), 10));
-    } else {
-        majorNum = normalized;
-    }
-    const major = _semanticDomainLabels.majorDomains?.[majorNum];
-    if (major?.title) return major.title;
-
-    return `分類 ${code}`;
-}
-
-/**
- * Semantic Domain オブジェクトを返す公開 API。
- *
- * Raw Domain Code を受け取り、ラベル辞書から解決した意味領域情報を返す。
- * 検索・フィルター・意味領域ブラウザ・関連語表示など、将来の機能で共通利用できる。
- *
- * clusterIndex へのアクセスは行わない。ラベル辞書 (_semanticDomainLabels) のみ参照。
- * 呼び出し前に _ensureSemanticData() が完了している必要がある。
- *
- * @param  {string} code  Raw Domain Code（例: '33029', '013001', '016'）
- * @returns {{
- *   rawCode:        string,   // 入力された生コードそのまま
- *   normalizedCode: string,   // 正規化コード（ラベル辞書キー）
- *   majorCode:      string,   // メジャードメイン番号（例: '33'）
- *   title:          string,   // 日本語タイトル（サブ or メジャー or フォールバック）
- *   titleEn:        string,   // 英語タイトル（存在する場合のみ）
- *   description:    string,   // 説明文（存在する場合のみ）
- * }}
- */
-function _getSemanticDomain(code) {
-    const rawCode        = String(code);
-    const normalizedCode = _normalizeDomainCode(rawCode);
-    const majorCode      = normalizedCode.length >= 4
-        ? String(parseInt(normalizedCode.slice(0, -3), 10))
-        : normalizedCode;
-
-    if (!_semanticDomainLabels) {
-        return { rawCode, normalizedCode, majorCode, title: `分類 ${rawCode}`, titleEn: '', description: '' };
-    }
-
-    const sub   = _semanticDomainLabels.subdomains?.[normalizedCode]  || {};
-    const major = _semanticDomainLabels.majorDomains?.[majorCode]     || {};
-
-    const title       = sub.title       || major.title       || `分類 ${rawCode}`;
-    const titleEn     = sub.titleEn     || major.titleEn     || '';
-    const description = sub.description || major.description || '';
-
-    return { rawCode, normalizedCode, majorCode, title, titleEn, description };
-}
-
-/**
- * Cluster を描画する関数。Semantic Domain そのものを描画しているわけではない。
- *
- * 1つの Semantic Domain に複数の Cluster が存在するため、domainCodes に複数コードが
- * 含まれる場合は同じ「意味グループ」見出しのセクションが複数並ぶ。これは仕様であり
- * バグではない（例: κλητός の '33029' と '33030' は同一ドメイン内の別クラスター）。
- *
- * clusterIndex アクセスは生コード (code) そのままで行う。正規化コードで引いてはいけない。
- * domainCodes は lexicon-lite の domains[] フィールドから取得した Raw Domain Code の配列。
- */
-function _buildClusterLayerHTML(domainCodes, currentLemmaId, currentWord) {
-    const sections = [];
-
-    for (const code of domainCodes.slice(0, 2)) {
-        const entry = _clusterIndexData[code];
-        if (!entry || !entry.lemmas) continue;
-
-        const siblings = entry.lemmas
-            .map(id => {
-                const e = _lexiconData[id];
-                if (!e) return null;
-                return {
-                    id,
-                    headword: e.headword || '',
-                    gloss: e.gloss_ja || _jaGlossFromLemmaId(id) || '',
-                    count: e.count || 0,
-                    isCurrent: id === currentLemmaId,
-                };
-            })
-            .filter(Boolean)
-            // 比較しやすさを優先し、意味グループ内は新約聖書での出現頻度順に表示する。
-            .sort((a, b) => b.count - a.count);
-
-        // UX方針: 初期表示は最小限にし、必要な場合のみ全件を表示する。
-        const CHIP_SHOW = 5;
-        const CHIP_MIN_OVER = 3;
-        const useLimit = siblings.length > CHIP_SHOW + CHIP_MIN_OVER - 1;
-
-        const chips = siblings.map((s, i) => {
-            const hidden = useLimit && !s.isCurrent && i >= CHIP_SHOW;
-            return `
-            <span class="rn-sibling-chip${s.isCurrent ? ' current' : ''}${hidden ? ' rn-chip-hidden' : ''}" data-lemma-id="${_escH(s.id)}" data-headword="${_escH(s.headword)}" data-cluster-id="${code}" title="${_escH(s.gloss || '')}">
-                <span class="rn-sibling-gr">${_escH(s.headword)}</span>
-                ${s.gloss ? `<span class="rn-sibling-ja">${_escH(s.gloss)}</span>` : ''}
-
-                ${s.isCurrent
-                    ? `<span class="rn-sibling-badge">基準語</span>`
-                    : `<span class="rn-sibling-action">用例を探す →</span>`}
-            </span>`;
-        }).join('');
-
-        const hiddenCount = useLimit
-            ? siblings.filter((s, i) => !s.isCurrent && i >= CHIP_SHOW).length
-            : 0;
-        const moreBtn = hiddenCount > 0
-            ? `<button class="rn-chip-more">${_T('panel.showAllMatches', 'データ由来照合語をすべて表示')}</button>`
-            : '';
-
-        const domainTitle  = _getDomainLabel(code);
-        sections.push(`
-            <div class="rn-ln-domain-label">
-                <span class="rn-ln-domain-category">意味グループ</span>
-                <span class="rn-ln-domain-title">${_escH(domainTitle)}</span>
-            </div>
-            <div class="rn-sibling-chips">${chips}</div>
-            ${moreBtn}
-        `);
-    }
-
-    if (!sections.length) return '';
-
-    return `
-    <div class="rn-cluster-section">
-        <button class="rn-layer-toggle" data-target="rn-cluster-body">
-            <span>関連語のグループ</span>
-            <span class="rn-layer-toggle-icon icon">${icon('chevronRight')}</span>
-        </button>
-        <div class="rn-layer-body" id="rn-cluster-body">
-            ${sections.join('')}
-        </div>
-    </div>`;
-}
-
-
-/**
- * TODO: _buildConcordanceHTML は未接続（_injectStudyPanelContent から呼ばれていない）。
+ * TODO: _buildConcordanceHTML は未接続（どこからも呼ばれていない）。
  * 「さらに学ぶ」セクションへの用例一覧注入を将来実装する場合に使用する。
- * 実装するまでは削除せず保持する。接続する際は _injectStudyPanelContent を修正すること。
+ * 実装するまでは削除せず保持する。
  *
  * Basic Concordance builder — canonical source of truth (fact layer).
  *
@@ -1756,211 +1512,8 @@ function _buildConcordanceHTML(resolvedId, word) {
     </div>`;
 }
 
-/* ══════════════════════════════════════════
-   Semantic Graph View — 未接続（TODO）
-   buildSemanticGraph は定義済みだが _injectStudyPanelContent から呼ばれていない。
-   グラフ表示 UI を実装する際に接続すること。
-   削除禁止: 将来の意味グラフ機能のために保持する。
-   接続時の注意（#133）：LN／Cluster 索引は通常ロードで取得しないため、呼び出し前に await _ensureLnClusterData() すること。
-   ══════════════════════════════════════════ */
-
-/**
- * buildSemanticGraph(lemmaId)
- *
- * Structure assembler — builds a weighted node list centered on lemmaId.
- * Signal collection rules:
- *   LN membership      → lnSignal     (semantic category signal)
- *   Cluster membership → clusterSignal (relational proximity signal)
- *   Co-verse occurrence → coocHits    (contextual signal)
- *
- * Weight for each node is delegated entirely to scoreEngine.evaluate().
- * This function does NOT perform scoring; it only collects signals and
- * assembles the resulting structure.
- *
- * Returns { centerId, centerEntry, nodes } where nodes is sorted by
- * weight descending and capped at 20.
- */
-function buildSemanticGraph(lemmaId) {
-    const centerEntry = _lexiconData[lemmaId] || null;
-    if (!centerEntry) return { centerId: lemmaId, centerEntry: null, nodes: [] };
-
-    const lnCodes     = centerEntry.ln      || [];
-    const domainCodes = centerEntry.domains || [];
-
-    /* Step 1: Collect signals per candidate lemmaId — no scoring here */
-    const candidateMap = new Map(); // lemmaId → { lnHit, clusterHit, coocHits[] }
-
-    function _register(id, asLn, asCluster) {
-        if (id === lemmaId) return;
-        if (!candidateMap.has(id)) {
-            candidateMap.set(id, { lnHit: false, clusterHit: false, coocHits: [] });
-        }
-        const c = candidateMap.get(id);
-        if (asLn)      c.lnHit      = true;
-        if (asCluster) c.clusterHit = true;
-    }
-
-    /* LN neighbors — semantic category signal */
-    for (const ln of lnCodes.slice(0, 3)) {
-        for (const id of (_lnIndexData[ln]?.lemmas || [])) _register(id, true, false);
-    }
-
-    /* Cluster neighbors — relational proximity signal */
-    for (const code of domainCodes.slice(0, 3)) {
-        for (const id of (_clusterIndexData[code]?.lemmas || [])) _register(id, false, true);
-    }
-
-    /* Co-verse occurrence — contextual signal (sample first 200 verses of center word) */
-    /* Uses shared _giListFromLemmaIndex — same Basic source lookup rules */
-    if (getLemmaIndex()) {
-        const giList = _giListFromLemmaIndex(lemmaId);
-        const SAMPLE_VERSES = 200;
-        const WINDOW        = 5;
-        let sampled = 0;
-        for (const gi of giList) {
-            if (sampled++ >= SAMPLE_VERSES) break;
-            const start = Math.max(0, gi - WINDOW);
-            const end   = Math.min(getTokens().length - 1, gi + WINDOW);
-            for (let j = start; j <= end; j++) {
-                if (j === gi) continue;
-                const t = getTokens()[j];
-                if (!t || !t.lemmaId || t.lemmaId === lemmaId) continue;
-                if (!candidateMap.has(t.lemmaId)) {
-                    candidateMap.set(t.lemmaId, { lnHit: false, clusterHit: false, coocHits: [] });
-                }
-                candidateMap.get(t.lemmaId).coocHits.push(t.text || '');
-            }
-        }
-    }
-
-    /* Step 2: Delegate scoring to scoreEngine — structure assembler does not score */
-    const nodes = [];
-    for (const [id, signals] of candidateMap) {
-        const freq = _lexiconData[id]?.count || 0;
-        const result = scoreEngine.evaluate({
-            semantics: {
-                baseScore:     Math.round(Math.log(freq + 1) * 10),
-                lnSignal:      signals.lnHit,
-                clusterSignal: signals.clusterHit,
-                coocHits:      signals.coocHits,
-            }
-        });
-        nodes.push({
-            lemmaId: id,
-            weight:  result.score,
-            headword: _lexiconData[id]?.headword || id,
-            gloss:    _jaGlossFromLemmaId(id),
-        });
-    }
-
-    /* Step 3: Sort and cap — assembler responsibility */
-    nodes.sort((a, b) => b.weight - a.weight);
-    nodes.splice(20);
-
-    return { centerId: lemmaId, centerEntry, nodes };
-}
-
 /* _rnToggleDeep: 廃止（Layer 1/2 統合のため）互換のためno-op残す */
 function _rnToggleDeep() {}
-
-/* LN 由来の関連語 UI はライセンス・精度確認が終わるまで一時停止する。
-   元データと依存ロジックは保持し、再開時はこのフラグと表示箇所を見直す。 */
-const LN_RELATED_WORDS_ENABLED = false;
-
-/* ══════════════════════════════════════════
-   _injectStudyPanelContent
-   Level 3（さらに学ぶ）のセマンティックレイヤーを非同期注入。
-   _renderReadingNotes から呼ばれる。
-   ══════════════════════════════════════════ */
-async function _injectStudyPanelContent(semContainer, strong, lemmaId, word) {
-    if (!semContainer || !LN_RELATED_WORDS_ENABLED) return;
-    await _ensureSemanticData();
-    await _ensureLnClusterData();   /* #133：LN／Cluster 索引はゲート有効時のみ遅延取得 */
-
-    const resolvedId  = lemmaId || _resolveLemmaId(strong);
-    const lexEntry    = resolvedId ? _lexiconData[resolvedId] : null;
-    const domainCodes = lexEntry?.domains || [];
-
-    /*
-     * Cluster Layer — 設計注意点
-     *
-     * 1つの Semantic Domain（意味領域）に複数の Cluster が存在するため、
-     * domainCodes に含まれる複数の Raw Code が同一ドメインを指すことがある。
-     * _buildClusterLayerHTML は先頭2コードをそれぞれ別セクションとして描画するため、
-     * 「意味グループ」の見出しが同じタイトルで2行並ぶケースは仕様（バグではない）。
-     *
-     * 例: κλητός の domainCodes = ['33029', '33030']
-     *   → 両方とも Semantic Domain 33（コミュニケーション）内の別 Cluster。
-     *   → UI には「召す・呼び出す（261回）」と「招く・呼び寄せる（312回）」が並ぶ。
-     *
-     * 詳細: docs/semantic-domain.md
-     */
-    if (domainCodes.length > 0) {
-        const clHTML = _buildClusterLayerHTML(domainCodes, resolvedId, word);
-        if (clHTML) semContainer.insertAdjacentHTML('beforeend', clHTML);
-    }
-
-    /* アコーディオン構造の決定：item数に応じて分岐 */
-    const toggleSections = semContainer.querySelectorAll('.rn-cluster-section, .rn-concord-section');
-
-    if (toggleSections.length === 1) {
-        /* 単一項目：トグルを除去してフラット展開 */
-        const toggle = toggleSections[0].querySelector('.rn-layer-toggle');
-        const body   = toggleSections[0].querySelector('.rn-layer-body');
-        if (toggle) toggle.remove();
-        if (body)   body.classList.add('visible');
-        toggleSections[0].classList.add('rn-flat');
-
-    } else if (toggleSections.length > 1) {
-        /* 複数項目：従来通りトグルを配線 */
-        semContainer.querySelectorAll('.rn-layer-toggle').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const bodyId = btn.dataset.target;
-                const body   = document.getElementById(bodyId);
-                if (!body) return;
-                const isOpen = body.classList.contains('visible');
-                body.classList.toggle('visible', !isOpen);
-                btn.classList.toggle('open', !isOpen);
-                const icon = btn.querySelector('.rn-layer-toggle-icon');
-                if (icon) icon.style.transform = '';
-            });
-        });
-    }
-
-    /* Cluster chip → 共起検索へ遷移 */
-    const clusterSection = semContainer.querySelector('.rn-cluster-section');
-    if (clusterSection) {
-        clusterSection.addEventListener('click', (e) => {
-            const chip = e.target.closest('.rn-sibling-chip');
-            if (!chip || chip.classList.contains('current')) return;
-            e.stopPropagation();
-            const hw = chip.dataset.headword || '';
-            if (!hw) return;
-            const p = new URLSearchParams();
-            p.set('lemma', hw);
-            const refLemmaId = AppState.inspect.data?.lemmaId;
-            if (refLemmaId) p.set('ref_lemma', refLemmaId);
-            const cmpLemmaId = chip.dataset.lemmaId;
-            if (cmpLemmaId) p.set('cmp_lemma', cmpLemmaId);
-            const clusterId = chip.dataset.clusterId;
-            if (clusterId) p.set('cluster', clusterId);
-            p.set('layers', 'lemma');
-            const _stw = window.open(`/search?${p.toString()}`, '_blank');
-            if (_stw) _searchToolWindows.add(_stw);
-        });
-
-        /* 「データ由来照合語をすべて表示」ボタン
-           TODO: 現在は一括展開としている。
-           将来的に段階的表示や別UIへの変更を検討する。 */
-        clusterSection.querySelectorAll('.rn-chip-more').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const chipsEl = btn.previousElementSibling;
-                if (chipsEl) chipsEl.querySelectorAll('.rn-chip-hidden').forEach(c => c.classList.remove('rn-chip-hidden'));
-                btn.remove();
-            });
-        });
-    }
-}
 
 
 /* switchAnalysisTab: 後方互換のため残す（内部ではno-op）*/

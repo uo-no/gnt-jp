@@ -36,8 +36,6 @@ const conceptsFile = readJson(CONCEPTS_PATH);
 const lemmaDict    = readJson(path.join(PUBLIC, 'bible_data', 'lemma_dict.json'));
 const patternsFile = readJson(path.join(PUBLIC, 'assets', 'data', 'search-patterns.json'));
 const registry     = readJson(path.join(PUBLIC, 'assets', 'data', 'syntax-registry.json'));
-const clusterIndex = readJson(path.join(PUBLIC, 'assets', 'data', 'index', 'domains-cluster-index.json'));
-const domainLabels = readJson(path.join(PUBLIC, 'assets', 'data', 'index', 'semantic-domain-labels.json'));
 
 const concepts   = Array.isArray(conceptsFile.concepts) ? conceptsFile.concepts : [];
 const patternIds = new Set((patternsFile.patterns || []).map(p => p.id));
@@ -58,7 +56,7 @@ const FAIL = m => fails.push(m);
 const WARN = m => warnings.push(m);
 const INFO = m => infos.push(m);
 
-const ARRAY_FIELDS = ['aliases', 'terms', 'patterns', 'domains', 'syntaxTypes', 'related', 'children'];
+const ARRAY_FIELDS = ['aliases', 'terms', 'patterns', 'syntaxTypes', 'related', 'children'];
 const TERM_AXES    = new Set(['lemma', 'japanese', 'strong', 'morph']);
 
 /* ── 1. Schema Validation ── */
@@ -197,31 +195,11 @@ for (const c of concepts) {
     }
 }
 
-/* ── 9.5 Domain Integrity（Phase 5-2 / 5-3）──
-   【責務の確認】domains は「内部メタデータ」である（Phase 5-3 方針）:
-     - ユーザー検索の入口ではない（検索UIに domain 入口を作らない）
-     - resolveTerm に domain 軸を追加してはならない
-     - 検索結果・件数に影響してはならない
-     - 将来の用途は Concept Insight での意味情報表示（表示のみ）に限る
-   本監査はデータ整合性のみを見る:
-   domains の各コードが domains-cluster-index.json に実在するか（FAIL）。
-   {id, label} 形式で label 写しを持つ場合は semantic-domain-labels.json の
-   subdomains[id].title と一致するか（ずれは WARNING — syntaxTypes と同方針）。
-   ※ ラベル正典はクラスタ索引側。semantic-domain-labels.json のタイトルには
-     クラスタとのずれが確認されているため、コードのみの登録を推奨する。 */
-const _subLabels = domainLabels.subdomains || {};
+/* ── 9.5 外部意味領域コードの非保持（#196）──
+   外部の意味領域注釈に由来する domains フィールドは #196 で全削除した。
+   再混入を防ぐため、domains フィールドを持つ概念があれば FAIL とする。 */
 for (const c of concepts) {
-    for (const d of (Array.isArray(c?.domains) ? c.domains : [])) {
-        const id    = typeof d === 'string' ? d : d?.id;
-        const label = typeof d === 'object' && d ? d.label : null;
-        if (!id) { FAIL(`[domain] ${c.id}: id の無い domains 項目: ${JSON.stringify(d).slice(0, 60)}`); continue; }
-        if (!clusterIndex[id]) { FAIL(`[domain] ${c.id} → domains-cluster-index に存在しない domain: ${id}`); continue; }
-        if (label) {
-            const t = _subLabels[id] && _subLabels[id].title;
-            if (t && label !== t) WARN(`[domain] ${c.id}: label 写しが semantic-domain-labels とずれている: "${label}" ≠ "${t}"（${id}）`);
-            if (!t) WARN(`[domain] ${c.id}: ${id} は semantic-domain-labels にタイトルが無い（label 写し "${label}" は検証不能）`);
-        }
-    }
+    if (c && Object.prototype.hasOwnProperty.call(c, 'domains')) FAIL(`[domain] ${c.id}: domains フィールドは持たない（#196 で削除済み）`);
 }
 
 /* ── 10. Orphan Concept（WARNING） ── */
@@ -240,7 +218,6 @@ const summary = {
     terms: concepts.reduce((a, c) => a + (Array.isArray(c?.terms) ? c.terms.length : 0), 0),
     patternLinks: concepts.reduce((a, c) => a + (Array.isArray(c?.patterns) ? c.patterns.length : 0), 0),
     syntaxLinks: concepts.reduce((a, c) => a + (Array.isArray(c?.syntaxTypes) ? c.syntaxTypes.length : 0), 0),
-    domainLinks: concepts.reduce((a, c) => a + (Array.isArray(c?.domains) ? c.domains.length : 0), 0),
     lemmaTermsChecked: termChecked,
     fails: fails.length,
     warnings: warnings.length,
@@ -269,7 +246,6 @@ md.push(`| Concepts | ${summary.concepts} |`);
 md.push(`| Terms | ${summary.terms} |`);
 md.push(`| Patterns | ${summary.patternLinks} |`);
 md.push(`| Syntax Links | ${summary.syntaxLinks} |`);
-md.push(`| Domain Links | ${summary.domainLinks} |`);
 md.push(`| **FAIL** | ${fails.length} |`);
 md.push(`| WARNING | ${warnings.length} |`);
 md.push(`| INFO | ${infos.length} |`);
@@ -289,7 +265,7 @@ md.push(`| 6 | Related Symmetry | 双方向 ${symmetric.length} / 片方向 ${on
 md.push(`| 7 | Children Cycle Detection | ${has('children') ? 'FAIL' : 'PASS'} |`);
 md.push(`| 8 | Pattern Integrity | ${has('pattern') ? 'FAIL' : 'PASS'} |`);
 md.push(`| 9 | Syntax Type Integrity | ${has('syntax') ? 'FAIL' : 'PASS'} |`);
-md.push(`| 9.5 | Domain Integrity（cluster-index 実在＋label 写し照合） | ${has('domain') ? 'FAIL' : 'PASS'} |`);
+md.push(`| 9.5 | 外部意味領域コード非保持（domains フィールド無し） | ${has('domain') ? 'FAIL' : 'PASS'} |`);
 md.push(`| 10 | Orphan Concept | ${orphans.length} 件（WARNING） |`);
 md.push('');
 if (symmetric.length || oneWay.length) {
